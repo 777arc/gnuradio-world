@@ -1,0 +1,105 @@
+# GNU Radio → WebAssembly
+
+Cross-compiling GNU Radio + GRC to run in a browser tab via Emscripten.
+Plan: two artifacts, runtime-first.
+
+1. **Runtime** — GRC-generated **C++** flowgraph → Emscripten → pure C++ Qt-for-WASM app (no Python).
+2. **Editor** — CPython-from-source (not Pyodide) + PySide6 + `grc` package.
+
+Everything here is new build glue; the desktop GNU Radio build is untouched.
+
+## Prerequisites (already present on this machine)
+
+- **emsdk** at `~/emsdk` (activate with `source ~/emsdk/emsdk_env.sh`). No sudo.
+- node ≥ 20, cmake ≥ 3.28, ninja.
+- Windows Chrome (via WSL) at `/mnt/c/Program Files/Google/Chrome/Application/chrome.exe` for headless smoke tests.
+
+## Dev server (COOP/COEP)
+
+The thread-per-block scheduler needs Emscripten pthreads → SharedArrayBuffer →
+the page must be cross-origin isolated. `server.mjs` sets the required
+`Cross-Origin-Opener-Policy: same-origin` + `Cross-Origin-Embedder-Policy: require-corp`
+headers and the correct `application/wasm` MIME type.
+
+```bash
+node wasm/server.mjs 8090 wasm/      # http://localhost:8090/
+```
+
+## Headless smoke tests
+
+Each phase ships a page whose script writes a machine-readable
+`RESULT: <TOKEN> …` line into the DOM. `smoke.sh` drives Windows Chrome headless
+(`--dump-dom`) and greps for the pass token:
+
+```bash
+wasm/smoke.sh /phase0/index.html PHASE0_PASS 8090
+```
+
+## Pinned versions
+
+- **emsdk 3.1.70** (matches Qt 6.9): `~/emsdk/emsdk activate 3.1.70`.
+- **Qt 6.9.1** prebuilt at `/home/marc/Qt/6.9.1/` — kit `wasm_multithread` (target,
+  threaded, ABI-matched to emsdk 3.1.70) + `gcc_64` (host tools). No Qt source build.
+- `wasm/shot.sh <path> <out.png>` — screenshot-based non-blank check for canvas pages.
+
+## Status
+
+- **Phase 0 — DONE.** Toolchain + COOP/COEP server + headless harness.
+  `wasm/phase0/` builds `hello.c` → WASM; page verifies `crossOriginIsolated`,
+  `SharedArrayBuffer`, and an exported WASM function via `ccall`.
+- **Phase 1 — DONE.** Prebuilt threaded Qt 6.9.1 `wasm_multithread` renders a Qt
+  Widgets app to an HTML canvas. `wasm/phase1/qt_hello/` (`./build.sh` via `qt-cmake`);
+  smoke: `wasm/smoke.sh /phase1/qt_hello/build/qt_hello.html QT_PASS`.
+- **Phase 2 — DONE.** `gnuradio-runtime` + VOLK(generic) + Boost + spdlog + GMP
+  cross-compiled to WASM (`wasm/deps/build-deps.sh`, `wasm/gr/build-runtime`); a
+  hand-written flowgraph runs through the thread-per-block scheduler under
+  Emscripten pthreads with correct numerics (`wasm/phase2/`, `./build.sh`).
+  Verify: `node wasm/run.mjs /phase2/build/phase2.html PHASE2_PASS`.
+  See the memory note "GR WASM porting fixes" for the guarded source edits.
+- **Phase 3 — DONE.** gr-blocks + gr-fft (+ FFTW) cross-compiled to WASM
+  (`wasm/gr/build-gr`); a real `vector_source → multiply_const → vector_sink`
+  flowgraph runs with `max_err=0` (`wasm/phase3/`). GRC's `cpp_nogui` workflow
+  generates a compilable C++ project via `wasm/tools/generate_cpp.py`
+  (`python3 wasm/tools/generate_cpp.py <flowgraph.grc> <outdir>`).
+  Verify run: `node wasm/run.mjs /phase3/build/phase3.html PHASE3_PASS`.
+- **Phase 4 — DONE (Artifact 1 ✅).** gr-analog + Qwt(Qt6) + gr-qtgui **time sink**
+  ported to Qt6 and built for WASM. A real flowgraph `sig_source → throttle →
+  qtgui_time_sink` renders a **live Qwt time plot to an HTML canvas** in-browser,
+  Qt6 event loop + GR thread-per-block scheduler in one module.
+  Build: `wasm/phase4/qtgui` (time-sink lib) then `wasm/phase4/demo` (via qt-cmake).
+  Verify: `node wasm/run.mjs /phase4/demo/build/phase4.html PHASE4_PASS 8090 40000 shot.png`.
+  gr-qtgui time-sink needed **no source changes** — only a standalone Qt6 CMake.
+- **Phase 5 — DONE.** CPython 3.12.7 built from source with Emscripten (NOT Pyodide),
+  `wasm/deps/src/cpython` via `Tools/wasm/wasm_build.py {emscripten-node-dl,emscripten-browser} build`.
+  Runs in node AND in the browser tab (`wasm/phase5/`, `PYBROWSER 3.12.7 emscripten`).
+  Gotcha: Emscripten defines a global `out`/`err`; don't name page vars `out`.
+- **Phase 6 — in progress.** A pybind11 side module (`em++ -sSIDE_MODULE=1 -fPIC`
+  against the from-source CPython) imports correctly in node (`wasm/phase6/grtest`).
+  Next: real `gnuradio.gr` binding + numpy.
+
+## ⭐ Browser flowgraph editor (post-pivot) — WORKING MVP
+
+The in-browser GRC editor is a **TypeScript web app** (no Python/PyQt). It loads a
+block library, lets you place/connect/configure blocks on an SVG canvas, and Runs
+the flowgraph by handing JSON to a generic **C++/WASM runner** via a URL hash.
+
+- **Runner** (`wasm/runner/`): parses flowgraph JSON → builds blocks via a
+  `block-id → factory` registry (`src/registry.cpp`, 4 blocks so far) → runs the GR
+  scheduler → gr-qtgui sinks to canvas. Reuses the whole Artifact-1 stack. Bridge =
+  `runner.html#<encodeURIComponent(json)>`. Build via `qt-cmake` like Artifact 1.
+- **Editor** (`wasm/editor/`, Vite/TS): `npm install && npx vite build` → `dist/`.
+  Block palette from `public/blocks.json` (336 blocks, generated by
+  `gen/gen_blocklib.py` from `.block.yml`s). `src/main.ts` is the whole app.
+- **Run it:** `node wasm/server.mjs 8090 wasm` then open
+  `http://localhost:8090/editor/dist/index.html` → click **▶ Run**.
+  Verified end-to-end headless (editor Run → runner → live Scope plot).
+- **Next:** grow the registry beyond 4 blocks, param validation, `.grc` load/save,
+  single-bundle packaging (Phase E).
+
+## Browser test runner
+
+`wasm/run.mjs <url-path> <pass-token> [port] [timeoutMs] [shot.png]` launches a
+native Linux `chrome-headless-shell` (downloaded via `@puppeteer/browsers`, no
+sudo) and waits (real time) for the page's `#result` div to leave `pending`.
+Preferred over `smoke.sh` for anything using Web Workers (pthreads), since
+`--virtual-time-budget` does not track real Worker execution.

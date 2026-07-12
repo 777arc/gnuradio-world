@@ -1,0 +1,34 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>WebGL harness check</title>
+<style>html,body{margin:0}canvas{display:block}</style></head>
+<body>
+<canvas id="c" width="800" height="600"></canvas>
+<div id="result" data-status="pending">RESULT: pending</div>
+<script>
+// Build-free WebGL page: proves the screenshot smoke harness can capture a
+// non-blank <canvas> (what Qt-for-WASM will paint into). Draws colored triangles.
+const cv = document.getElementById('c');
+const gl = cv.getContext('webgl') || cv.getContext('experimental-webgl');
+const res = document.getElementById('result');
+if (!gl) { res.textContent = 'RESULT: WEBGL_FAIL no-context'; res.dataset.status='fail'; }
+else {
+  gl.clearColor(0.10, 0.12, 0.18, 1); gl.clear(gl.COLOR_BUFFER_BIT);
+  const vs = gl.createShader(gl.VERTEX_SHADER);
+  gl.shaderSource(vs, 'attribute vec2 p; attribute vec3 col; varying vec3 v; void main(){v=col;gl_Position=vec4(p,0.,1.);}');
+  gl.compileShader(vs);
+  const fs = gl.createShader(gl.FRAGMENT_SHADER);
+  gl.shaderSource(fs, 'precision mediump float; varying vec3 v; void main(){gl_FragColor=vec4(v,1.);}');
+  gl.compileShader(fs);
+  const pr = gl.createProgram(); gl.attachShader(pr,vs); gl.attachShader(pr,fs); gl.linkProgram(pr); gl.useProgram(pr);
+  const data = new Float32Array([ -0.6,-0.5, 1,0,0,  0.6,-0.5, 0,1,0,  0.0,0.6, 0,0,1 ]);
+  const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+  const pl = gl.getAttribLocation(pr,'p'); gl.enableVertexAttribArray(pl); gl.vertexAttribPointer(pl,2,gl.FLOAT,false,20,0);
+  const cl = gl.getAttribLocation(pr,'col'); gl.enableVertexAttribArray(cl); gl.vertexAttribPointer(cl,3,gl.FLOAT,false,20,8);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+  gl.finish();
+  res.textContent = 'RESULT: WEBGL_PASS drew-triangle'; res.dataset.status='pass';
+}
+</script>
+</body>
+</html>

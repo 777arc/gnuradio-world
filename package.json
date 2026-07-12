@@ -1,0 +1,15 @@
+{
+  "name": "wasm",
+  "version": "1.0.0",
+  "description": "Cross-compiling GNU Radio + GRC to run in a browser tab via Emscripten. Plan: two artifacts, runtime-first.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "puppeteer-core": "^23.11.1"
+  }
+}

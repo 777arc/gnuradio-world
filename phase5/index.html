@@ -1,0 +1,36 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>CPython in the tab — Phase 5</title></head>
+<body>
+<h1>GNU Radio WASM — Phase 5: CPython from source, in the browser</h1>
+<div id="result" data-status="pending">RESULT: pending</div>
+<pre id="log" style="max-height:70vh;overflow:auto"></pre>
+<script type="text/javascript">
+  var logEl = document.getElementById('log');
+  var pyout = [];
+  function append(s){ pyout.push(s); logEl.textContent = pyout.join('\n');
+    if (s.indexOf('PYBROWSER') === 0) {
+      var d = document.getElementById('result');
+      d.dataset.status = 'pass';
+      d.textContent = 'RESULT: PHASE5_PASS ' + s;
+    }
+  }
+  var Module = {
+    // run: python -c "<marker print>"
+    arguments: ['-c',
+      'import sys; print("PYBROWSER " + sys.version.split()[0] + " " + sys.platform + " maxsize=" + str(sys.maxsize))'],
+    print: append,
+    printErr: (t) => append('[err] ' + t),
+    locateFile: (p) => p,
+    onRuntimeInitialized: () => append('[lifecycle] onRuntimeInitialized'),
+    preRun: [() => append('[lifecycle] preRun')],
+    postRun: [() => append('[lifecycle] postRun')],
+    monitorRunDependencies: (n) => append('[lifecycle] runDeps=' + n),
+    onAbort: (w) => { var d=document.getElementById('result'); d.dataset.status='fail'; d.textContent='RESULT: PHASE5_ABORT '+w; },
+  };
+  window.onerror = (m) => { var d=document.getElementById('result');
+    if (d.dataset.status==='pending'){ d.dataset.status='fail'; d.textContent='RESULT: PHASE5_ONERROR '+m; } };
+</script>
+<script src="python.js"></script>
+</body>
+</html>
