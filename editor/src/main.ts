@@ -5,7 +5,12 @@
 
 type ParamType = 'number' | 'string' | 'enum';
 interface ParamDef { id: string; label: string; type: ParamType; def: any; options?: string[] }
-interface RunnableDef { label: string; inputs: number; outputs: number; params: ParamDef[]; dtype?: string }
+// inTypes/outTypes give per-port dtypes (for converters); otherwise ports follow the
+// block's `type` param (complex/float) if it has one, else `dtype` (default complex).
+interface RunnableDef {
+  label: string; inputs: number; outputs: number; params: ParamDef[];
+  dtype?: string; inTypes?: string[]; outTypes?: string[];
+}
 
 // GRC dtype -> port colour (from grc/core/Constants.py).
 const DTYPE_COLOR: Record<string, string> = {
@@ -13,59 +18,70 @@ const DTYPE_COLOR: Record<string, string> = {
   short: '#FFEB3B', byte: '#D500F9', message: '#BDBDBD', '': '#ffffff',
 };
 
-// Curated schemas for blocks the WASM runner registry supports. Param names match
-// the runner's factories exactly; keeps the demo clean vs. GRC's raw enum params.
+// A "type" selector shared by the type-parameterized blocks (like GRC's io-type param).
+const TYPE_PARAM: ParamDef = { id: 'type', label: 'Type', type: 'enum', def: 'complex', options: ['complex', 'float'] };
+
+// Curated schemas for blocks the WASM runner registry supports. Param names (and the
+// `type` values complex/float) match the runner's factories exactly.
 const RUNNABLE: Record<string, RunnableDef> = {
+  // ---- sources ----
   analog_sig_source_x: {
     label: 'Signal Source', inputs: 0, outputs: 1, params: [
+      TYPE_PARAM,
       { id: 'samp_rate', label: 'Sample Rate', type: 'number', def: 32000 },
       { id: 'waveform', label: 'Waveform', type: 'enum', def: 'cos', options: ['cos', 'sin', 'square', 'triangle', 'saw'] },
       { id: 'frequency', label: 'Frequency', type: 'number', def: 2000 },
       { id: 'amplitude', label: 'Amplitude', type: 'number', def: 1.0 },
     ],
   },
+  analog_noise_source_x: {
+    label: 'Noise Source', inputs: 0, outputs: 1, params: [
+      TYPE_PARAM,
+      { id: 'amplitude', label: 'Amplitude', type: 'number', def: 1.0 },
+      { id: 'seed', label: 'Seed', type: 'number', def: 0 }] },
+  blocks_null_source: { label: 'Null Source', inputs: 0, outputs: 1, params: [TYPE_PARAM] },
+  // ---- flow control ----
   blocks_throttle: {
     label: 'Throttle', inputs: 1, outputs: 1, params: [
-      { id: 'samp_rate', label: 'Sample Rate', type: 'number', def: 32000 },
-      { id: 'itemsize', label: 'Item Size (bytes)', type: 'number', def: 8 },
-    ],
-  },
-  blocks_multiply_const_cc: {
+      TYPE_PARAM,
+      { id: 'samp_rate', label: 'Sample Rate', type: 'number', def: 32000 }] },
+  blocks_head: {
+    label: 'Head', inputs: 1, outputs: 1, params: [
+      TYPE_PARAM,
+      { id: 'num_items', label: 'Num Items', type: 'number', def: 10000000 }] },
+  // ---- math (type-parameterized: complex or float) ----
+  blocks_add_xx: { label: 'Add', inputs: 2, outputs: 1, params: [TYPE_PARAM] },
+  blocks_sub_xx: { label: 'Subtract', inputs: 2, outputs: 1, params: [TYPE_PARAM] },
+  blocks_multiply_xx: { label: 'Multiply', inputs: 2, outputs: 1, params: [TYPE_PARAM] },
+  blocks_divide_xx: { label: 'Divide', inputs: 2, outputs: 1, params: [TYPE_PARAM] },
+  blocks_multiply_const_xx: {
     label: 'Multiply Const', inputs: 1, outputs: 1, params: [
-      { id: 'constant', label: 'Constant', type: 'number', def: 1.0 },
-    ],
-  },
+      TYPE_PARAM,
+      { id: 'constant', label: 'Constant', type: 'number', def: 1.0 }] },
+  blocks_conjugate_cc: { label: 'Conjugate', inputs: 1, outputs: 1, params: [], dtype: 'complex' },
+  // ---- type converters (per-port dtypes) ----
+  blocks_complex_to_mag: { label: 'Complex to Mag', inputs: 1, outputs: 1, params: [],
+    inTypes: ['complex'], outTypes: ['float'] },
+  blocks_complex_to_mag_squared: { label: 'Complex to Mag^2', inputs: 1, outputs: 1, params: [],
+    inTypes: ['complex'], outTypes: ['float'] },
+  blocks_complex_to_float: { label: 'Complex to Float', inputs: 1, outputs: 2, params: [],
+    inTypes: ['complex'], outTypes: ['float', 'float'] },
+  blocks_float_to_complex: { label: 'Float to Complex', inputs: 2, outputs: 1, params: [],
+    inTypes: ['float', 'float'], outTypes: ['complex'] },
+  // ---- sinks ----
+  blocks_null_sink: { label: 'Null Sink', inputs: 1, outputs: 0, params: [TYPE_PARAM] },
   qtgui_time_sink_x: {
     label: 'QT GUI Time Sink', inputs: 1, outputs: 0, params: [
+      TYPE_PARAM,
       { id: 'name', label: 'Title', type: 'string', def: 'Scope' },
       { id: 'size', label: 'Num Points', type: 'number', def: 1024 },
-      { id: 'samp_rate', label: 'Sample Rate', type: 'number', def: 32000 },
-    ],
-  },
+      { id: 'samp_rate', label: 'Sample Rate', type: 'number', def: 32000 }] },
   qtgui_freq_sink_x: {
     label: 'QT GUI Frequency Sink', inputs: 1, outputs: 0, params: [
       { id: 'name', label: 'Title', type: 'string', def: 'Spectrum' },
       { id: 'fftsize', label: 'FFT Size', type: 'number', def: 1024 },
-      { id: 'samp_rate', label: 'Sample Rate', type: 'number', def: 32000 },
-    ],
-  },
-  // ---- verified working (complex chains → time sink), incl. multi-source ----
-  analog_noise_source_x: { label: 'Noise Source', inputs: 0, outputs: 1, params: [
-      { id: 'amplitude', label: 'Amplitude', type: 'number', def: 1.0 },
-      { id: 'seed', label: 'Seed', type: 'number', def: 0 }] },
-  blocks_add_xx: { label: 'Add', inputs: 2, outputs: 1, params: [] },
-  blocks_multiply_xx: { label: 'Multiply', inputs: 2, outputs: 1, params: [] },
-  blocks_head: { label: 'Head', inputs: 1, outputs: 1, params: [
-      { id: 'itemsize', label: 'Item Size (bytes)', type: 'number', def: 8 },
-      { id: 'num_items', label: 'Num Items', type: 'number', def: 10000000 }] },
-  blocks_null_source: { label: 'Null Source', inputs: 0, outputs: 1, params: [
-      { id: 'itemsize', label: 'Item Size (bytes)', type: 'number', def: 8 }] },
-  blocks_null_sink: { label: 'Null Sink', inputs: 1, outputs: 0, params: [
-      { id: 'itemsize', label: 'Item Size (bytes)', type: 'number', def: 8 }] },
+      { id: 'samp_rate', label: 'Sample Rate', type: 'number', def: 32000 }], dtype: 'complex' },
 };
-// Palette exposes the blocks above (verified — complex chains, multi-source fan-in,
-// and the FFT frequency sink). The runner's registry (registry.cpp) also compiles
-// float type-converters; float chains need a float time sink (not yet added).
 
 interface Inst { uid: string; id: string; name: string; x: number; y: number; params: Record<string, any>; enabled: boolean; rotation: number; bypassed: boolean }
 interface Conn { from: string; fp: number; to: string; tp: number }
@@ -84,7 +100,16 @@ function log(s: string) { const l = el('log'); l.textContent += s + '\n'; l.scro
 
 // GRC-style geometry: title bar + "Label: value" parameter rows, typed ports.
 const TITLE_H = 22, ROW_H = 15, PAD = 6, PORT_W = 8, PORT_H = 13, PORT_GAP = 8;
-const portColor = (id: string) => DTYPE_COLOR[RUNNABLE[id].dtype || 'complex'] || '#2196F3';
+// A port's dtype: explicit per-port (converters), else the block's `type` param
+// (complex/float), else its fixed `dtype`, else complex.
+function portType(inst: Inst, kind: 'in' | 'out', i: number): string {
+  const d = RUNNABLE[inst.id];
+  const arr = kind === 'in' ? d.inTypes : d.outTypes;
+  if (arr && arr[i]) return arr[i];
+  return inst.params.type || d.dtype || 'complex';
+}
+const portColor = (inst: Inst, kind: 'in' | 'out', i: number) =>
+  DTYPE_COLOR[portType(inst, kind, i)] || '#2196F3';
 
 function fmtVal(v: any): string {
   if (typeof v === 'number' && Number.isInteger(v) && Math.abs(v) >= 1000) {
@@ -304,7 +329,6 @@ function render() {
   // blocks
   for (const inst of insts) {
     const { d, rows, h, w } = geom(inst);
-    const col = portColor(inst.id);
     const g = svgEl('g', { class: 'blk' + (inst.uid === selected ? ' sel' : '') +
       (inst.enabled ? '' : ' disabled') + (inst.bypassed ? ' bypassed' : ''),
       transform: `translate(${inst.x},${inst.y})` });
@@ -327,8 +351,8 @@ function render() {
     g.addEventListener('mousedown', e => startDrag(e, inst));
     g.addEventListener('contextmenu', e => { e.preventDefault(); e.stopPropagation(); select(inst.uid); showMenu(e.clientX, e.clientY, inst); });
     g.addEventListener('dblclick', e => { e.preventDefault(); showPropsDialog(inst); });
-    for (let i = 0; i < d.inputs; i++) addPort(g, inst, 'in', i, col);
-    for (let i = 0; i < d.outputs; i++) addPort(g, inst, 'out', i, col);
+    for (let i = 0; i < d.inputs; i++) addPort(g, inst, 'in', i, portColor(inst, 'in', i));
+    for (let i = 0; i < d.outputs; i++) addPort(g, inst, 'out', i, portColor(inst, 'out', i));
     nodesG.appendChild(g);
   }
 }
