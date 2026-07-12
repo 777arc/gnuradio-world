@@ -1,105 +1,88 @@
-# GNU Radio → WebAssembly
+# GNU Radio in the browser (WebAssembly)
 
-Cross-compiling GNU Radio + GRC to run in a browser tab via Emscripten.
-Plan: two artifacts, runtime-first.
+A GNU Radio Companion-style **flowgraph editor** and a **flowgraph runtime** that
+run entirely in a browser tab — no Python, no server round-trips. The GNU Radio
+DSP C++ stack (gnuradio-runtime, gr-blocks, gr-fft, gr-filter, gr-analog) and the
+gr-qtgui sinks are cross-compiled to WebAssembly with Emscripten and threaded
+Qt 6 for WebAssembly.
 
-1. **Runtime** — GRC-generated **C++** flowgraph → Emscripten → pure C++ Qt-for-WASM app (no Python).
-2. **Editor** — CPython-from-source (not Pyodide) + PySide6 + `grc` package.
+## Architecture
 
-Everything here is new build glue; the desktop GNU Radio build is untouched.
-
-## Prerequisites (already present on this machine)
-
-- **emsdk** at `~/emsdk` (activate with `source ~/emsdk/emsdk_env.sh`). No sudo.
-- node ≥ 20, cmake ≥ 3.28, ninja.
-- Windows Chrome (via WSL) at `/mnt/c/Program Files/Google/Chrome/Application/chrome.exe` for headless smoke tests.
-
-## Dev server (COOP/COEP)
-
-The thread-per-block scheduler needs Emscripten pthreads → SharedArrayBuffer →
-the page must be cross-origin isolated. `server.mjs` sets the required
-`Cross-Origin-Opener-Policy: same-origin` + `Cross-Origin-Embedder-Policy: require-corp`
-headers and the correct `application/wasm` MIME type.
-
-```bash
-node wasm/server.mjs 8090 wasm/      # http://localhost:8090/
+```
+┌──────────────────────────┐   flowgraph JSON    ┌──────────────────────────────┐
+│  Editor  (TypeScript)     │ ──────────────────► │  Runner  (C++ → WASM)         │
+│  GRC-style canvas, block   │  runner.html#<json> │  parse JSON → block registry  │
+│  tree, properties dialog   │ ◄────────────────── │  → GR scheduler → gr-qtgui    │
+│  wasm/editor/              │   live plots        │  sinks on <canvas>            │
+└──────────────────────────┘                     │  wasm/runner/                 │
+                                                   └──────────────────────────────┘
 ```
 
-## Headless smoke tests
+- **Editor** (`editor/`, Vite + TypeScript): the block tree is generated from GNU
+  Radio's `.block.yml` + `.tree.yml` files; supports place/connect/configure,
+  right-click menu (cut/copy/paste, rotate, enable/disable, bypass), a Properties
+  dialog, and a Run button that hands the flowgraph JSON to the runner.
+- **Runner** (`runner/`): a generic C++/WASM "player" — parses the flowgraph JSON,
+  builds blocks via a `block-id → factory` registry (`src/registry.cpp`), runs the
+  GNU Radio thread-per-block scheduler, and renders gr-qtgui sinks to a canvas.
+- **qtgui** (`qtgui/`): builds the gr-qtgui time/frequency sinks (Qt5 upstream)
+  against Qt 6 for WebAssembly, as a static lib the runner links.
 
-Each phase ships a page whose script writes a machine-readable
-`RESULT: <TOKEN> …` line into the DOM. `smoke.sh` drives Windows Chrome headless
-(`--dump-dom`) and greps for the pass token:
+## Layout
+
+| path | contents |
+|------|----------|
+| `deps/` | `env.sh` (pinned emsdk + sysroot) and `build-deps.sh` (cross-build VOLK, Boost, spdlog, GMP, FFTW, Qwt → `sysroot/`) |
+| `gr/` | out-of-tree build of the GNU Radio C++ modules (generated; git-ignored) |
+| `qtgui/` | Qt6 build of the gr-qtgui sink chain |
+| `runner/` | the JSON-driven WASM flowgraph runner |
+| `editor/` | the TypeScript flowgraph editor |
+| `tools/` | `generate_cpp.py` (host-side GRC → C++ generation, optional) |
+| `server.mjs` | COOP/COEP static dev server (needed for SharedArrayBuffer / pthreads) |
+| `run.mjs` | headless-Chromium test harness (waits on a page `#result`) |
+
+## Prerequisites (userspace, no sudo)
+
+- **emsdk 3.1.70** (matches Qt 6.9): `~/emsdk/emsdk install 3.1.70 && ~/emsdk/emsdk activate 3.1.70`.
+- **Qt 6.9.1 for WebAssembly (multithread) + host tools**, via `aqtinstall`:
+  `aqt install-qt linux desktop 6.9.1 linux_gcc_64` and
+  `aqt install-qt all_os wasm 6.9.1 wasm_multithread` (into `/home/marc/Qt`).
+- **Node ≥ 20** (for the editor build and the dev server).
+- Dependency sources fetched under `deps/src/` (VOLK 3.1.2, Boost 1.83, spdlog
+  1.12, GMP 6.3, FFTW 3.3.10, Qwt 6.2). Paths are currently hard-coded to this
+  checkout; see `deps/env.sh`.
+
+## Build
 
 ```bash
-wasm/smoke.sh /phase0/index.html PHASE0_PASS 8090
+source wasm/deps/env.sh                 # pinned emsdk + $SYSROOT
+bash   wasm/deps/build-deps.sh          # VOLK/Boost/spdlog/GMP/FFTW/Qwt → sysroot
+# GNU Radio C++ modules → wasm/gr/build-gr  (emcmake, ENABLE_PYTHON=OFF, static,
+#   -DFORCE_SINGLE_MAPPED; see git history / env.sh for the exact configure line)
+(cd wasm/qtgui  && $QT_WASM/bin/qt-cmake -S . -B build -GNinja -DQT_HOST_PATH=$QT_HOST && cmake --build build)
+(cd wasm/runner && $QT_WASM/bin/qt-cmake -S . -B build -GNinja -DQT_HOST_PATH=$QT_HOST && cmake --build build)
+(cd wasm/editor && npm install && npx vite build)
 ```
 
-## Pinned versions
+## Run
 
-- **emsdk 3.1.70** (matches Qt 6.9): `~/emsdk/emsdk activate 3.1.70`.
-- **Qt 6.9.1** prebuilt at `/home/marc/Qt/6.9.1/` — kit `wasm_multithread` (target,
-  threaded, ABI-matched to emsdk 3.1.70) + `gcc_64` (host tools). No Qt source build.
-- `wasm/shot.sh <path> <out.png>` — screenshot-based non-blank check for canvas pages.
+```bash
+node wasm/server.mjs 8090 wasm          # COOP/COEP dev server
+# open http://localhost:8090/editor/dist/index.html  → build a flowgraph → ▶ Run
+```
 
-## Status
+`node wasm/run.mjs /runner/build/runner.html RUNNER_PASS` runs the runner headless.
 
-- **Phase 0 — DONE.** Toolchain + COOP/COEP server + headless harness.
-  `wasm/phase0/` builds `hello.c` → WASM; page verifies `crossOriginIsolated`,
-  `SharedArrayBuffer`, and an exported WASM function via `ccall`.
-- **Phase 1 — DONE.** Prebuilt threaded Qt 6.9.1 `wasm_multithread` renders a Qt
-  Widgets app to an HTML canvas. `wasm/phase1/qt_hello/` (`./build.sh` via `qt-cmake`);
-  smoke: `wasm/smoke.sh /phase1/qt_hello/build/qt_hello.html QT_PASS`.
-- **Phase 2 — DONE.** `gnuradio-runtime` + VOLK(generic) + Boost + spdlog + GMP
-  cross-compiled to WASM (`wasm/deps/build-deps.sh`, `wasm/gr/build-runtime`); a
-  hand-written flowgraph runs through the thread-per-block scheduler under
-  Emscripten pthreads with correct numerics (`wasm/phase2/`, `./build.sh`).
-  Verify: `node wasm/run.mjs /phase2/build/phase2.html PHASE2_PASS`.
-  See the memory note "GR WASM porting fixes" for the guarded source edits.
-- **Phase 3 — DONE.** gr-blocks + gr-fft (+ FFTW) cross-compiled to WASM
-  (`wasm/gr/build-gr`); a real `vector_source → multiply_const → vector_sink`
-  flowgraph runs with `max_err=0` (`wasm/phase3/`). GRC's `cpp_nogui` workflow
-  generates a compilable C++ project via `wasm/tools/generate_cpp.py`
-  (`python3 wasm/tools/generate_cpp.py <flowgraph.grc> <outdir>`).
-  Verify run: `node wasm/run.mjs /phase3/build/phase3.html PHASE3_PASS`.
-- **Phase 4 — DONE (Artifact 1 ✅).** gr-analog + Qwt(Qt6) + gr-qtgui **time sink**
-  ported to Qt6 and built for WASM. A real flowgraph `sig_source → throttle →
-  qtgui_time_sink` renders a **live Qwt time plot to an HTML canvas** in-browser,
-  Qt6 event loop + GR thread-per-block scheduler in one module.
-  Build: `wasm/phase4/qtgui` (time-sink lib) then `wasm/phase4/demo` (via qt-cmake).
-  Verify: `node wasm/run.mjs /phase4/demo/build/phase4.html PHASE4_PASS 8090 40000 shot.png`.
-  gr-qtgui time-sink needed **no source changes** — only a standalone Qt6 CMake.
-- **Phase 5 — DONE.** CPython 3.12.7 built from source with Emscripten (NOT Pyodide),
-  `wasm/deps/src/cpython` via `Tools/wasm/wasm_build.py {emscripten-node-dl,emscripten-browser} build`.
-  Runs in node AND in the browser tab (`wasm/phase5/`, `PYBROWSER 3.12.7 emscripten`).
-  Gotcha: Emscripten defines a global `out`/`err`; don't name page vars `out`.
-- **Phase 6 — in progress.** A pybind11 side module (`em++ -sSIDE_MODULE=1 -fPIC`
-  against the from-source CPython) imports correctly in node (`wasm/phase6/grtest`).
-  Next: real `gnuradio.gr` binding + numpy.
+## GNU Radio source changes (all guarded, desktop build unaffected)
 
-## ⭐ Browser flowgraph editor (post-pivot) — WORKING MVP
+- `gnuradio-runtime/lib/thread/thread.cc` — `__EMSCRIPTEN__` branch (no prctl/affinity).
+- `gnuradio-runtime/lib/constants.cc.in` — fixed prefix under WASM (no `boost::dll`).
+- `gnuradio-runtime/lib/CMakeLists.txt` — libunwind made optional.
+- `gnuradio-runtime/lib/pmt/CMakeLists.txt`, `gr-fft`, `gr-blocks`, `gr-analog`
+  `lib/CMakeLists.txt` — register libs for install/export in static builds too.
+- `gr-fft/lib/fft.cc` — use `FFTW_ESTIMATE` under WASM (`FFTW_MEASURE` benchmarking
+  hangs there).
 
-The in-browser GRC editor is a **TypeScript web app** (no Python/PyQt). It loads a
-block library, lets you place/connect/configure blocks on an SVG canvas, and Runs
-the flowgraph by handing JSON to a generic **C++/WASM runner** via a URL hash.
-
-- **Runner** (`wasm/runner/`): parses flowgraph JSON → builds blocks via a
-  `block-id → factory` registry (`src/registry.cpp`, 4 blocks so far) → runs the GR
-  scheduler → gr-qtgui sinks to canvas. Reuses the whole Artifact-1 stack. Bridge =
-  `runner.html#<encodeURIComponent(json)>`. Build via `qt-cmake` like Artifact 1.
-- **Editor** (`wasm/editor/`, Vite/TS): `npm install && npx vite build` → `dist/`.
-  Block palette from `public/blocks.json` (336 blocks, generated by
-  `gen/gen_blocklib.py` from `.block.yml`s). `src/main.ts` is the whole app.
-- **Run it:** `node wasm/server.mjs 8090 wasm` then open
-  `http://localhost:8090/editor/dist/index.html` → click **▶ Run**.
-  Verified end-to-end headless (editor Run → runner → live Scope plot).
-- **Next:** grow the registry beyond 4 blocks, param validation, `.grc` load/save,
-  single-bundle packaging (Phase E).
-
-## Browser test runner
-
-`wasm/run.mjs <url-path> <pass-token> [port] [timeoutMs] [shot.png]` launches a
-native Linux `chrome-headless-shell` (downloaded via `@puppeteer/browsers`, no
-sudo) and waits (real time) for the page's `#result` div to leave `pending`.
-Preferred over `smoke.sh` for anything using Web Workers (pthreads), since
-`--virtual-time-budget` does not track real Worker execution.
+Build with `-DFORCE_SINGLE_MAPPED` (GR's single-mapped `host_buffer`; the
+double-mapped `vmcircbuf` needs VM tricks WASM lacks) and
+`-DCMAKE_DISABLE_FIND_PACKAGE_libunwind=ON`.

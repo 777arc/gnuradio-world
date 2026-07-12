@@ -9,9 +9,9 @@ qt_standard_project_setup()
 set(GR /home/marc/gnuradio)
 set(BUILDGR ${GR}/wasm/gr/build-gr)
 set(SYSROOT ${GR}/wasm/sysroot)
-set(QTGUI_TS ${GR}/wasm/phase4/qtgui/build/libgr_qtgui_ts.a)
+set(QTGUI_TS ${GR}/wasm/qtgui/build/libgr_qtgui_ts.a)
 
-add_library(shmstubs STATIC ${GR}/wasm/phase2/shm_stubs.c)
+add_library(shmstubs STATIC ${CMAKE_CURRENT_SOURCE_DIR}/src/shm_stubs.c)
 
 qt_add_executable(runner src/runner.cpp src/registry.cpp)
 target_compile_definitions(runner PRIVATE FORCE_SINGLE_MAPPED)
