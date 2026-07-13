@@ -11,16 +11,26 @@ set(BUILDGR ${GR}/wasm/gr/build-gr)
 set(SYSROOT ${GR}/wasm/sysroot)
 set(QTGUI_TS ${GR}/wasm/qtgui/build/libgr_qtgui_ts.a)
 
-qt_add_executable(runner src/runner.cpp src/registry.cpp)
+qt_add_executable(runner
+  src/runner.cpp
+  src/registry.cpp
+  src/generated_registry.cpp)
 target_include_directories(runner PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/src
   ${GR}/gnuradio-runtime/include ${GR}/gr-blocks/include ${GR}/gr-fft/include
   ${GR}/gr-filter/include ${GR}/gr-analog/include ${GR}/gr-digital/include
+  ${GR}/gr-fec/include ${GR}/gr-dtv/include
+  ${GR}/gr-network/include ${GR}/gr-pdu/include ${GR}/gr-vocoder/include
   ${GR}/gr-qtgui/include
   ${BUILDGR}/gnuradio-runtime/include ${SYSROOT}/include)
 
 target_link_libraries(runner PRIVATE
   ${QTGUI_TS}
+  ${BUILDGR}/gr-network/lib/libgnuradio-network.a
+  ${BUILDGR}/gr-pdu/lib/libgnuradio-pdu.a
+  ${BUILDGR}/gr-vocoder/lib/libgnuradio-vocoder.a
+  ${BUILDGR}/gr-dtv/lib/libgnuradio-dtv.a
+  ${BUILDGR}/gr-fec/lib/libgnuradio-fec.a
   ${BUILDGR}/gr-digital/lib/libgnuradio-digital.a
   ${BUILDGR}/gr-analog/lib/libgnuradio-analog.a
   ${BUILDGR}/gr-filter/lib/libgnuradio-filter.a

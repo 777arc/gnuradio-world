@@ -27,5 +27,9 @@ struct BuiltBlock {
 
 using Factory = std::function<BuiltBlock(const nlohmann::json& params)>;
 
-// The MVP registry. Phase B will auto-generate a larger one from block .yml files.
+// Direct C++ blocks are added by generated_registry.cpp. Hand-written entries in
+// registry.cpp override generated entries where the WASM UI needs custom widget
+// handling or richer live callbacks.
 const std::map<std::string, Factory>& block_registry();
+
+void register_generated_blocks(std::map<std::string, Factory>& registry);

@@ -605,7 +605,10 @@ BuiltBlock make_range(const json& p)
 } // namespace
 
 const std::map<std::string, Factory>& block_registry() {
-    static const std::map<std::string, Factory> reg = {
+    static const std::map<std::string, Factory> reg = [] {
+      std::map<std::string, Factory> reg;
+      register_generated_blocks(reg);
+      const std::map<std::string, Factory> custom = {
         // ---- variables / controls ----
         {"variable_qtgui_range", [](const json& p) -> BuiltBlock {
              return make_range(p);
@@ -914,6 +917,11 @@ const std::map<std::string, Factory>& block_registry() {
              };
              return result;
          }},
-    };
+      };
+      // Custom factories intentionally win over generated direct-make factories.
+      for (const auto& [id, factory] : custom)
+          reg[id] = factory;
+      return reg;
+    }();
     return reg;
 }

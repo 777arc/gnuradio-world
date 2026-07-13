@@ -10,6 +10,8 @@ interface ParamDef { id: string; label: string; type: ParamType; def: any; optio
 interface RunnableDef {
   label: string; inputs: number; outputs: number; params: ParamDef[];
   dtype?: string; inTypes?: string[]; outTypes?: string[];
+  inDomains?: string[]; outDomains?: string[]; inIds?: string[]; outIds?: string[];
+  inStreamIndices?: number[]; outStreamIndices?: number[];
 }
 
 // GRC dtype -> port colour (from grc/core/Constants.py).
@@ -235,7 +237,10 @@ const TITLE_H = 22, ROW_H = 15, PAD = 6, PORT_W = 8, PORT_H = 13, PORT_GAP = 8;
 function portType(inst: Inst, kind: 'in' | 'out', i: number): string {
   const d = RUNNABLE[inst.id];
   const arr = kind === 'in' ? d.inTypes : d.outTypes;
-  if (arr && arr[i]) return arr[i];
+  if (arr && arr[i]) {
+    const match = arr[i].match(/^\$([A-Za-z_]\w*)$/);
+    return match ? String(inst.params[match[1]] || '') : arr[i];
+  }
   return inst.params.type || d.dtype || 'complex';
 }
 const portColor = (inst: Inst, kind: 'in' | 'out', i: number) =>
@@ -256,6 +261,66 @@ function numericOrExpression(value: string): number | string {
   if (!text) return '';
   const number = Number(text);
   return Number.isFinite(number) ? number : text;
+}
+
+function generatedDefault(p: any): any {
+  const value = (p.dtype === 'enum' && (p.default === undefined || p.default === ''))
+    ? (p.options?.[0] ?? '') : (p.default ?? '');
+  if (['int', 'real', 'float', 'hex'].includes(String(p.dtype)))
+    return numericOrExpression(String(value));
+  return String(value);
+}
+
+function multiplicity(value: any, defaults: Record<string, any>): number {
+  const text = String(value ?? '1').trim();
+  const direct = Number(text);
+  if (Number.isFinite(direct)) return Math.max(0, Math.trunc(direct));
+  const match = text.match(/^\$\{\s*([A-Za-z_]\w*)\s*\}$/);
+  return match ? Math.max(0, Math.trunc(Number(defaults[match[1]]) || 0)) : 1;
+}
+
+function installGeneratedBlocks(blocks: any[]) {
+  for (const block of blocks) {
+    if (!block.runnable) continue;
+    if (RUNNABLE[block.id]) continue; // richer custom WASM schema wins
+    const params: ParamDef[] = (block.params || []).map((p: any) => ({
+      id: String(p.id), label: String(p.label || p.id),
+      type: p.dtype === 'enum' ? 'enum' :
+        ['int', 'real', 'float', 'hex'].includes(String(p.dtype)) ? 'number' : 'string',
+      def: generatedDefault(p),
+      options: p.options ? p.options.map(String) : undefined,
+      category: p.category || undefined,
+    }));
+    const defaults: Record<string, any> = {};
+    params.forEach(p => defaults[p.id] = p.def);
+    const expandPorts = (ports: any[]) => {
+      const result: { dtype: string; domain: string; id: string; streamIndex: number }[] = [];
+      let streamIndex = 0;
+      for (const port of ports || []) {
+        const count = multiplicity(port.multiplicity, defaults);
+        for (let i = 0; i < count; ++i) {
+          const domain = String(port.domain || 'stream');
+          const id = String(port.id || (domain === 'stream' ? streamIndex : port.label || i));
+          result.push({
+            dtype: String(port.dtype || '').replace(/^\$\{\s*([A-Za-z_]\w*)\s*\}$/, '$$$1'),
+            domain, id, streamIndex: domain === 'stream' ? streamIndex : -1,
+          });
+          if (domain === 'stream') ++streamIndex;
+        }
+      }
+      return result;
+    };
+    const inputs = expandPorts(block.inputs), outputs = expandPorts(block.outputs);
+    RUNNABLE[block.id] = {
+      label: String(block.label || block.id), params,
+      inputs: inputs.length, outputs: outputs.length,
+      inTypes: inputs.map(p => p.dtype), outTypes: outputs.map(p => p.dtype),
+      inDomains: inputs.map(p => p.domain), outDomains: outputs.map(p => p.domain),
+      inIds: inputs.map(p => p.id), outIds: outputs.map(p => p.id),
+      inStreamIndices: inputs.map(p => p.streamIndex),
+      outStreamIndices: outputs.map(p => p.streamIndex),
+    };
+  }
 }
 const textW = (s: string, px: number) => s.length * px * 0.56;
 
@@ -650,11 +715,11 @@ function renderProps() {
     if (p.type === 'enum') {
       const s = document.createElement('select');
       (p.options || []).forEach(o => { const opt = document.createElement('option'); opt.value = o; opt.textContent = o; s.appendChild(opt); });
-      s.value = String(inst.params[p.id]); s.onchange = () => inst.params[p.id] = s.value;
+      s.value = String(inst.params[p.id]); s.onchange = () => { inst.params[p.id] = s.value; render(); };
       node = s;
     } else {
       const inp = document.createElement('input'); inp.value = String(inst.params[p.id]);
-      inp.oninput = () => inst.params[p.id] = p.type === 'number' ? numericOrExpression(inp.value) : inp.value;
+      inp.oninput = () => { inst.params[p.id] = p.type === 'number' ? numericOrExpression(inp.value) : inp.value; render(); };
       node = inp;
     }
     mk(p.label + '  (' + p.id + ')', node);
@@ -678,7 +743,13 @@ function toFlowgraphJSON() {
     for (const d of resolveDown(c.to, c.tp)) {   // hop over any bypassed blocks
       const key = `${c.from}:${c.fp}>${d.uid}:${d.port}`;
       if (seen.has(key)) continue; seen.add(key);
-      out.push([byUid(c.from).name, c.fp, byUid(d.uid).name, d.port]);
+      const sourceDef = RUNNABLE[byUid(c.from).id], sinkDef = RUNNABLE[byUid(d.uid).id];
+      const message = sourceDef.outDomains?.[c.fp] === 'message' || sinkDef.inDomains?.[d.port] === 'message';
+      out.push(message
+        ? [byUid(c.from).name, sourceDef.outIds?.[c.fp] || String(c.fp),
+           byUid(d.uid).name, sinkDef.inIds?.[d.port] || String(d.port), 'message']
+        : [byUid(c.from).name, sourceDef.outStreamIndices?.[c.fp] ?? c.fp,
+           byUid(d.uid).name, sinkDef.inStreamIndices?.[d.port] ?? d.port, 'stream']);
     }
   }
   return {
@@ -713,7 +784,8 @@ function stop() {
 
 // ---- Palette ----
 // ---- GRC-style block tree (collapsible categories + search) ----
-interface Cat { name: string; path: string; subs: Map<string, Cat>; blocks: { id: string; label: string }[] }
+interface LibraryBlock { id: string; label: string; runnable: boolean; unavailableReason?: string }
+interface Cat { name: string; path: string; subs: Map<string, Cat>; blocks: LibraryBlock[] }
 
 function buildTree(blocks: any[]): Cat {
   const root: Cat = { name: '', path: '', subs: new Map(), blocks: [] };
@@ -726,7 +798,10 @@ function buildTree(blocks: any[]): Cat {
       if (!sub) { sub = { name: part, path, subs: new Map(), blocks: [] }; node.subs.set(part, sub); }
       node = sub;
     }
-    node.blocks.push({ id: b.id, label: b.label || b.id });
+    node.blocks.push({
+      id: b.id, label: b.label || b.id, runnable: !!b.runnable,
+      unavailableReason: b.unavailable_reason || undefined,
+    });
   }
   return root;
 }
@@ -735,14 +810,16 @@ function catMatches(node: Cat, q: string): boolean {
   return !q || node.blocks.some(b => matchesQ(b, q)) || [...node.subs.values()].some(s => catMatches(s, q));
 }
 
-function makeBlockItem(b: { id: string; label: string }, indent: number): HTMLElement {
-  const run = !!RUNNABLE[b.id];
+function makeBlockItem(b: LibraryBlock, indent: number): HTMLElement {
+  const run = b.runnable && !!RUNNABLE[b.id];
   const item = document.createElement('div');
-  item.className = 'pal-item' + (run ? ' runnable' : '');
+  item.className = 'pal-item ' + (run ? 'runnable' : 'unavailable');
   item.style.paddingLeft = indent + 'px';
   item.textContent = b.label;
-  item.title = b.id + (run ? '' : '  (in palette; not yet in the runner registry)');
-  item.onclick = () => run ? addBlock(b.id) : log('"' + b.id + '" is in the palette but not yet runnable');
+  item.title = run ? b.id : `${b.id} — ${b.unavailableReason || 'not available in WebAssembly'}`;
+  item.setAttribute('aria-disabled', String(!run));
+  item.onclick = () => run ? addBlock(b.id) :
+    log(`"${b.id}" is unavailable: ${b.unavailableReason || 'not implemented in WebAssembly'}`);
   return item;
 }
 function makeCatRow(name: string, container: HTMLElement, open: boolean, bold = false, indent = 6): HTMLElement {
@@ -762,7 +839,7 @@ function makeCatRow(name: string, container: HTMLElement, open: boolean, bold = 
 function renderTree(node: Cat, container: HTMLElement, depth: number, q: string) {
   for (const s of [...node.subs.values()].sort((a, b) => a.name.localeCompare(b.name))) {
     if (!catMatches(s, q)) continue;
-    const kids = makeCatRow(s.name, container, !!q, false, 6 + depth * 13);
+    const kids = makeCatRow(s.name, container, !!q || (depth === 0 && s.name === 'Core'), false, 6 + depth * 13);
     renderTree(s, kids, depth + 1, q);
   }
   for (const b of [...node.blocks].filter(b => matchesQ(b, q)).sort((a, b) => a.label.localeCompare(b.label)))
@@ -778,15 +855,10 @@ async function buildPalette() {
   pal.append(search, tree);
   try {
     LIB = await (await fetch('/editor/dist/blocks.json').then(r => r.ok ? r : fetch('/editor/public/blocks.json'))).json();
+    installGeneratedBlocks(LIB.blocks || []);
   } catch (e) { log('block library not loaded: ' + e); }
   const draw = (q: string) => {
     tree.textContent = '';
-    // convenience group of blocks the runner actually supports (expanded)
-    const runnable = Object.keys(RUNNABLE).map(id => ({ id, label: RUNNABLE[id].label })).filter(b => matchesQ(b, q));
-    if (runnable.length) {
-      const kids = makeCatRow('★ Runnable blocks', tree, true, true, 6);
-      runnable.sort((a, b) => a.label.localeCompare(b.label)).forEach(b => kids.appendChild(makeBlockItem(b, 22)));
-    }
     renderTree(buildTree(LIB.blocks), tree, 0, q);
   };
   draw('');

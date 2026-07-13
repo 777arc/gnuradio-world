@@ -157,10 +157,19 @@ int gr_run_json(const char* json_str) {
 
         for (const auto& c : j.at("connections")) {
             std::string src = c[0].get<std::string>(), dst = c[2].get<std::string>();
-            g_tb->connect(byname.at(src), c[1].get<int>(), byname.at(dst), c[3].get<int>());
+            const bool message = c.size() > 4 && c[4].get<std::string>() == "message";
+            if (message) {
+                g_tb->msg_connect(byname.at(src),
+                                  c[1].get<std::string>(),
+                                  byname.at(dst),
+                                  c[3].get<std::string>());
+            } else {
+                g_tb->connect(
+                    byname.at(src), c[1].get<int>(), byname.at(dst), c[3].get<int>());
+            }
             for (auto& sb : g_stats) {
-                if (sb.name == src) sb.has_out = true;
-                if (sb.name == dst) sb.has_in = true;
+                if (!message && sb.name == src) sb.has_out = true;
+                if (!message && sb.name == dst) sb.has_in = true;
             }
         }
 

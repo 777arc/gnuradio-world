@@ -3,7 +3,7 @@
 A GNU Radio Companion-style **flowgraph editor** and a **flowgraph runtime** that
 run entirely in a browser tab — no Python, no server round-trips. The GNU Radio
 DSP C++ stack (gnuradio-runtime, gr-blocks, gr-fft, gr-filter, gr-analog,
-gr-digital) and the
+gr-digital, gr-fec, gr-dtv, gr-network, gr-pdu, and gr-vocoder) and the
 gr-qtgui sinks are cross-compiled to WebAssembly with Emscripten and threaded
 Qt 6 for WebAssembly.
 
@@ -97,11 +97,16 @@ cd "$GR"                                           # add: QWT_CONFIG -= QwtDesig
 emcmake cmake -S "$GR" -B wasm/gr/build-gr -GNinja \
   -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS=-pthread -DCMAKE_C_FLAGS=-pthread \
   -DCMAKE_INSTALL_PREFIX="$SYSROOT" -DCMAKE_PREFIX_PATH="$SYSROOT" -DCMAKE_FIND_ROOT_PATH="$SYSROOT" \
-  -DENABLE_PYTHON=OFF -DENABLE_GR_QTGUI=OFF -DENABLE_GR_AUDIO=OFF \
+  -DENABLE_DEFAULT=OFF -DENABLE_PYTHON=OFF -DENABLE_GR_QTGUI=OFF -DENABLE_GR_AUDIO=OFF \
   -DENABLE_GR_ANALOG=ON -DENABLE_GR_BLOCKS=ON -DENABLE_GR_DIGITAL=ON \
-  -DENABLE_GR_FFT=ON -DENABLE_GR_FILTER=ON \
+  -DENABLE_GR_FFT=ON -DENABLE_GR_FILTER=ON -DENABLE_GR_FEC=ON -DENABLE_GR_DTV=ON \
+  -DENABLE_GR_NETWORK=ON -DENABLE_GR_PDU=ON -DENABLE_GR_VOCODER=ON \
   -DTRY_SHM_VMCIRCBUF=OFF -DCMAKE_DISABLE_FIND_PACKAGE_libunwind=ON
 cmake --build wasm/gr/build-gr
+
+# Regenerate direct C++ factories and the matching editor palette.
+python3 wasm/runner/gen_registry.py
+python3 wasm/editor/gen/gen_blocklib.py wasm/editor/public/blocks.json
 
 # gr-qtgui sinks → runner (links everything) → editor
 (cd wasm/qtgui  && "$QT_WASM/bin/qt-cmake" -S . -B build -GNinja -DQT_HOST_PATH="$QT_HOST" && cmake --build build)
@@ -131,19 +136,23 @@ The sections below explain the architecture and each component in more detail.
 ```
 
 - **Editor** (`editor/`, Vite + TypeScript): the block tree is generated from GNU
-  Radio's `.block.yml` + `.tree.yml` files; supports place/connect/configure,
-  right-click menu (cut/copy/paste, rotate, enable/disable, bypass), a Properties
-  dialog, and a Run button that hands the flowgraph JSON to the runner.
+  Radio's `.block.yml` + `.tree.yml` files and follows the native GRC category
+  hierarchy. All in-tree non-HEIR definitions remain visible; blocks absent from
+  the WASM registry are greyed out and cannot be placed. The editor supports
+  place/connect/configure, right-click actions (cut/copy/paste, rotate,
+  enable/disable, bypass), a Properties dialog, and a Run button that hands the
+  flowgraph JSON to the runner.
 - **Runner** (`runner/`): a generic C++/WASM "player" — parses the flowgraph JSON,
-  builds blocks via a `block-id → factory` registry (`src/registry.cpp`), runs the
-  GNU Radio thread-per-block scheduler, and renders gr-qtgui sinks to a canvas.
-  Type-parameterized blocks (sources, throttle/head, add/sub/multiply/divide,
-  multiply-const, time sink) take a `type` param (`complex`/`float`); random,
-  uniform-random and constant sources plus PSK modulation are also available;
-  converters
-  (complex↔float, complex-to-mag) bridge the two. QT GUI Range controls can be
-  referenced by ID from numeric block parameters and update those parameters
-  while the graph is running.
+  builds blocks via a `block-id → factory` registry, runs the GNU Radio
+  thread-per-block scheduler, and renders gr-qtgui sinks to a canvas. Direct C++
+  factories are generated from GRC's `cpp_templates`; handwritten factories in
+  `src/registry.cpp` add browser widgets, live setters, and a few composed blocks.
+  The generated and custom registries currently expose 266 blocks from gr-blocks,
+  gr-analog, gr-fft, gr-filter, gr-digital, gr-dtv, gr-network, gr-pdu,
+  gr-vocoder, and gr-qtgui. Stream and message-port connections are both
+  serialized by the editor. QT GUI Range
+  controls can be referenced by ID from numeric block parameters and update those
+  parameters while the graph is running.
 - **qtgui** (`qtgui/`): builds the gr-qtgui time/frequency/constellation sinks (Qt5 upstream)
   against Qt 6 for WebAssembly, as a static lib the runner links.
 
@@ -154,7 +163,7 @@ The sections below explain the architecture and each component in more detail.
 | `deps/` | `env.sh` (pinned emsdk + sysroot) and `build-deps.sh` (cross-build VOLK, Boost, spdlog, GMP, FFTW, Qwt → `sysroot/`) |
 | `gr/` | out-of-tree build of the GNU Radio C++ modules (generated; git-ignored) |
 | `qtgui/` | Qt6 build of the gr-qtgui sink chain |
-| `runner/` | the JSON-driven WASM flowgraph runner |
+| `runner/` | the JSON-driven WASM flowgraph runner, generated C++ registry, and support manifest |
 | `editor/` | the TypeScript flowgraph editor |
 | `tools/` | `generate_cpp.py` (host-side GRC → C++ generation, optional) |
 | `server.mjs` | COOP/COEP static dev server (needed for SharedArrayBuffer / pthreads) |
@@ -178,6 +187,8 @@ source wasm/deps/env.sh                 # pinned emsdk + $SYSROOT
 bash   wasm/deps/build-deps.sh          # VOLK/Boost/spdlog/GMP/FFTW/Qwt → sysroot
 # GNU Radio C++ modules → wasm/gr/build-gr  (emcmake, ENABLE_PYTHON=OFF, static,
 #   -DTRY_SHM_VMCIRCBUF=OFF; see git history / env.sh for the exact configure line)
+python3 wasm/runner/gen_registry.py
+python3 wasm/editor/gen/gen_blocklib.py wasm/editor/public/blocks.json
 (cd wasm/qtgui  && $QT_WASM/bin/qt-cmake -S . -B build -GNinja -DQT_HOST_PATH=$QT_HOST && cmake --build build)
 (cd wasm/runner && $QT_WASM/bin/qt-cmake -S . -B build -GNinja -DQT_HOST_PATH=$QT_HOST && cmake --build build)
 (cd wasm/editor && npm install && npx vite build)
@@ -191,6 +202,14 @@ node wasm/server.mjs 8090 wasm          # COOP/COEP dev server
 ```
 
 `node wasm/run.mjs /runner/build/runner.html RUNNER_PASS` runs the runner headless.
+
+`runner/generated_blocks.json` is the authoritative runtime support manifest
+used to mark palette entries runnable or unavailable. Blocks whose constructors
+require a separately typed GRC companion
+object (for example a constellation, OFDM equalizer, packet formatter, or message
+queue) remain listed under `skipped`; those objects are not blocks and need a
+future typed-object registry rather than a JSON-to-block factory. Python-only and
+HEIR block definitions are intentionally not included.
 
 ## GNU Radio source changes (all guarded, desktop build unaffected)
 
