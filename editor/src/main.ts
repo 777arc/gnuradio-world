@@ -20,6 +20,8 @@ const DTYPE_COLOR: Record<string, string> = {
 
 // A "type" selector shared by the type-parameterized blocks (like GRC's io-type param).
 const TYPE_PARAM: ParamDef = { id: 'type', label: 'Type', type: 'enum', def: 'complex', options: ['complex', 'float'] };
+const INTEGER_TYPE_PARAM: ParamDef = { id: 'type', label: 'Type', type: 'enum', def: 'byte', options: ['byte', 'short', 'int'] };
+const STREAM_TYPE_PARAM: ParamDef = { id: 'type', label: 'Type', type: 'enum', def: 'complex', options: ['complex', 'float', 'int', 'short', 'byte'] };
 
 // Curated schemas for blocks the WASM runner registry supports. Param names (and the
 // `type` values complex/float) match the runner's factories exactly.
@@ -39,19 +41,52 @@ const RUNNABLE: Record<string, RunnableDef> = {
       TYPE_PARAM,
       { id: 'amplitude', label: 'Amplitude', type: 'number', def: 1.0 },
       { id: 'seed', label: 'Seed', type: 'number', def: 0 }] },
-  blocks_null_source: { label: 'Null Source', inputs: 0, outputs: 1, params: [TYPE_PARAM] },
+  analog_random_source_x: {
+    label: 'Random Source', inputs: 0, outputs: 1, params: [
+      INTEGER_TYPE_PARAM,
+      { id: 'min', label: 'Minimum', type: 'number', def: 0 },
+      { id: 'max', label: 'Maximum', type: 'number', def: 2 },
+      { id: 'num_samps', label: 'Num Samples', type: 'number', def: 1000 },
+      { id: 'repeat', label: 'Repeat', type: 'enum', def: 'true', options: ['true', 'false'] },
+    ],
+  },
+  analog_random_uniform_source_x: {
+    label: 'Random Uniform Source', inputs: 0, outputs: 1, params: [
+      INTEGER_TYPE_PARAM,
+      { id: 'minimum', label: 'Minimum', type: 'number', def: 0 },
+      { id: 'maximum', label: 'Maximum', type: 'number', def: 2 },
+      { id: 'seed', label: 'Seed', type: 'number', def: 0 },
+    ],
+  },
+  analog_const_source_x: {
+    label: 'Constant Source', inputs: 0, outputs: 1, params: [
+      { id: 'type', label: 'Type', type: 'enum', def: 'complex', options: ['complex', 'float', 'int', 'short', 'byte'] },
+      { id: 'const', label: 'Constant', type: 'string', def: '0' },
+    ],
+  },
+  blocks_null_source: { label: 'Null Source', inputs: 0, outputs: 1, params: [STREAM_TYPE_PARAM] },
+  digital_psk_mod: {
+    label: 'PSK Mod', inputs: 1, outputs: 1, params: [
+      { id: 'constellation_points', label: 'Constellation Points', type: 'number', def: 8 },
+      { id: 'mod_code', label: 'Gray Code', type: 'enum', def: 'gray', options: ['gray', 'none'] },
+      { id: 'differential', label: 'Differential', type: 'enum', def: 'true', options: ['true', 'false'] },
+      { id: 'samples_per_symbol', label: 'Samples/Symbol', type: 'number', def: 2 },
+      { id: 'excess_bw', label: 'Excess BW', type: 'number', def: 0.35 },
+    ],
+    inTypes: ['byte'], outTypes: ['complex'],
+  },
   // ---- flow control ----
   blocks_throttle: {
     label: 'Throttle', inputs: 1, outputs: 1, params: [
-      TYPE_PARAM,
+      STREAM_TYPE_PARAM,
       { id: 'samp_rate', label: 'Sample Rate', type: 'number', def: 32000 }] },
   blocks_head: {
     label: 'Head', inputs: 1, outputs: 1, params: [
-      TYPE_PARAM,
+      STREAM_TYPE_PARAM,
       { id: 'num_items', label: 'Num Items', type: 'number', def: 10000000 }] },
   blocks_delay: {
     label: 'Delay', inputs: 1, outputs: 1, params: [
-      TYPE_PARAM,
+      STREAM_TYPE_PARAM,
       { id: 'delay', label: 'Delay (items)', type: 'number', def: 0 }] },
   // ---- math (type-parameterized: complex or float) ----
   blocks_add_xx: { label: 'Add', inputs: 2, outputs: 1, params: [TYPE_PARAM] },
@@ -89,7 +124,7 @@ const RUNNABLE: Record<string, RunnableDef> = {
     ],
   },
   // ---- sinks ----
-  blocks_null_sink: { label: 'Null Sink', inputs: 1, outputs: 0, params: [TYPE_PARAM] },
+  blocks_null_sink: { label: 'Null Sink', inputs: 1, outputs: 0, params: [STREAM_TYPE_PARAM] },
   qtgui_time_sink_x: {
     label: 'QT GUI Time Sink', inputs: 1, outputs: 0, params: [
       TYPE_PARAM,
@@ -101,6 +136,18 @@ const RUNNABLE: Record<string, RunnableDef> = {
       { id: 'name', label: 'Title', type: 'string', def: 'Spectrum' },
       { id: 'fftsize', label: 'FFT Size', type: 'number', def: 1024 },
       { id: 'samp_rate', label: 'Sample Rate', type: 'number', def: 32000 }], dtype: 'complex' },
+  qtgui_const_sink_x: {
+    label: 'QT GUI Constellation Sink', inputs: 1, outputs: 0, params: [
+      { id: 'name', label: 'Title', type: 'string', def: 'Constellation' },
+      { id: 'size', label: 'Num Points', type: 'number', def: 1024 },
+      { id: 'update_time', label: 'Update Period', type: 'number', def: 0.1 },
+      { id: 'autoscale', label: 'Autoscale', type: 'enum', def: 'false', options: ['true', 'false'] },
+      { id: 'grid', label: 'Grid', type: 'enum', def: 'false', options: ['true', 'false'] },
+      { id: 'xmin', label: 'X min', type: 'number', def: -2 },
+      { id: 'xmax', label: 'X max', type: 'number', def: 2 },
+      { id: 'ymin', label: 'Y min', type: 'number', def: -2 },
+      { id: 'ymax', label: 'Y max', type: 'number', def: 2 },
+    ], dtype: 'complex' },
 };
 
 interface Inst { uid: string; id: string; name: string; x: number; y: number; params: Record<string, any>; enabled: boolean; rotation: number; bypassed: boolean }
@@ -113,6 +160,7 @@ const nodesG = el('nodes'), wiresG = el('wires'), svg = el('svg') as unknown as 
 let insts: Inst[] = [];
 let conns: Conn[] = [];
 let selected: string | null = null;
+let selectedConnection: Conn | null = null;
 let counter = 0;
 let pending: { uid: string; port: number } | null = null;  // in-progress connection from an output
 
@@ -198,6 +246,12 @@ function deleteBlock(uid: string) {
   insts = insts.filter(i => i.uid !== uid);
   conns = conns.filter(c => c.from !== uid && c.to !== uid);
   if (selected === uid) selected = null;
+  if (selectedConnection && (selectedConnection.from === uid || selectedConnection.to === uid)) selectedConnection = null;
+  renderProps(); render();
+}
+function deleteConnection(conn: Conn) {
+  conns = conns.filter(c => c !== conn);
+  if (selectedConnection === conn) selectedConnection = null;
   renderProps(); render();
 }
 function duplicateBlock(uid: string) {
@@ -275,7 +329,11 @@ document.addEventListener('keydown', e => {
   const el = document.activeElement;
   if (el && ['INPUT', 'SELECT', 'TEXTAREA'].includes(el.tagName)) return; // don't hijack typing
   const ctrl = e.ctrlKey || e.metaKey;
-  if (e.key === 'Delete' && selected) deleteBlock(selected);
+  if (e.key === 'Delete' && (selectedConnection || selected)) {
+    e.preventDefault();
+    if (selectedConnection) deleteConnection(selectedConnection);
+    else if (selected) deleteBlock(selected);
+  }
   else if (ctrl && e.key === 'c' && selected) copyBlock(selected);
   else if (ctrl && e.key === 'x' && selected) { copyBlock(selected); deleteBlock(selected); }
   else if (ctrl && e.key === 'v') pasteBlock();
@@ -329,14 +387,27 @@ function showPropsDialog(inst: Inst) {
   nameI.focus(); nameI.select();
 }
 
-function select(uid: string | null) { selected = uid; renderProps(); render(); }
+function select(uid: string | null) {
+  selected = uid;
+  selectedConnection = null;
+  renderProps(); render();
+}
+
+function selectConnection(conn: Conn) {
+  // Give keyboard shortcuts back to the canvas if the palette/property editor
+  // previously held focus. The SVG path itself is not a focusable element.
+  (document.activeElement as HTMLElement | null)?.blur();
+  selected = null;
+  selectedConnection = conn;
+  renderProps(); render();
+}
 
 function svgPoint(evt: MouseEvent): { x: number; y: number } {
   const r = svg.getBoundingClientRect();
   return { x: evt.clientX - r.left, y: evt.clientY - r.top };
 }
 
-const svgEl = (tag: string, attrs: Record<string, string>) => {
+const svgEl = <K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string, string>): SVGElementTagNameMap[K] => {
   const e = document.createElementNS(SVGNS, tag);
   for (const k in attrs) e.setAttribute(k, attrs[k]);
   return e;
@@ -352,8 +423,20 @@ function render() {
     const x1 = a.x + pa.x, y1 = a.y + pa.y, x2 = b.x + pb.x, y2 = b.y + pb.y;
     const [c1x, c1y] = ctrl(pa.edge, x1, y1, 42);
     const [c2x, c2y] = ctrl(pb.edge, x2, y2, 42);
-    wiresG.appendChild(svgEl('path', { class: 'wire',
-      d: `M${x1},${y1} C${c1x},${c1y} ${c2x},${c2y} ${x2},${y2}`, 'marker-end': 'url(#arrow)' }));
+    const d = `M${x1},${y1} C${c1x},${c1y} ${c2x},${c2y} ${x2},${y2}`;
+    const isSelected = c === selectedConnection;
+    const wire = svgEl('g', { class: 'wire-group' });
+    wire.appendChild(svgEl('path', { class: 'wire' + (isSelected ? ' sel' : ''), d,
+      'marker-end': isSelected ? 'url(#arrow-selected)' : 'url(#arrow)' }));
+    // Match the desktop GUI's forgiving line hit test without drawing a thick wire.
+    wire.appendChild(svgEl('path', { class: 'wire-hit', d }));
+    wire.addEventListener('mousedown', e => {
+      if (e.button !== 0) return;
+      e.preventDefault(); e.stopPropagation();
+      pending = null;
+      selectConnection(c);
+    });
+    wiresG.appendChild(wire);
   }
   // blocks
   for (const inst of insts) {
@@ -399,6 +482,9 @@ function addPort(g: SVGGElement, inst: Inst, kind: 'in' | 'out', idx: number, co
     e.stopPropagation();
     if (kind === 'out') { pending = { uid: inst.uid, port: idx }; log('connect from ' + inst.name + ':' + idx + ' …'); }
     else if (pending) {
+      if (selectedConnection && selectedConnection.to === inst.uid && selectedConnection.tp === idx) {
+        selectedConnection = null;
+      }
       conns = conns.filter(cn => !(cn.to === inst.uid && cn.tp === idx));
       conns.push({ from: pending.uid, fp: pending.port, to: inst.uid, tp: idx });
       log('  → ' + G0(pending.uid).name + ':' + pending.port + '  to  ' + inst.name + ':' + idx);
@@ -448,7 +534,14 @@ svg.addEventListener('contextmenu', e => {
 
 function renderProps() {
   const body = el('propBody');
-  if (!selected) { body.innerHTML = 'Select a block…'; return; }
+  if (selectedConnection) {
+    const source = insts.find(i => i.uid === selectedConnection!.from);
+    const sink = insts.find(i => i.uid === selectedConnection!.to);
+    body.textContent = `${source?.name || selectedConnection.from}:${selectedConnection.fp} \u2192 ` +
+      `${sink?.name || selectedConnection.to}:${selectedConnection.tp}\n\nPress Delete to remove this connection.`;
+    return;
+  }
+  if (!selected) { body.textContent = 'Select a block or connection…'; return; }
   const inst = insts.find(i => i.uid === selected)!; const d = RUNNABLE[inst.id];
   body.innerHTML = '';
   const mk = (label: string, node: HTMLElement) => {

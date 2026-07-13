@@ -15,11 +15,13 @@ qt_add_executable(runner src/runner.cpp src/registry.cpp)
 target_include_directories(runner PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/src
   ${GR}/gnuradio-runtime/include ${GR}/gr-blocks/include ${GR}/gr-fft/include
-  ${GR}/gr-filter/include ${GR}/gr-analog/include ${GR}/gr-qtgui/include
+  ${GR}/gr-filter/include ${GR}/gr-analog/include ${GR}/gr-digital/include
+  ${GR}/gr-qtgui/include
   ${BUILDGR}/gnuradio-runtime/include ${SYSROOT}/include)
 
 target_link_libraries(runner PRIVATE
   ${QTGUI_TS}
+  ${BUILDGR}/gr-digital/lib/libgnuradio-digital.a
   ${BUILDGR}/gr-analog/lib/libgnuradio-analog.a
   ${BUILDGR}/gr-filter/lib/libgnuradio-filter.a
   ${BUILDGR}/gr-fft/lib/libgnuradio-fft.a

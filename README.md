@@ -2,7 +2,8 @@
 
 A GNU Radio Companion-style **flowgraph editor** and a **flowgraph runtime** that
 run entirely in a browser tab — no Python, no server round-trips. The GNU Radio
-DSP C++ stack (gnuradio-runtime, gr-blocks, gr-fft, gr-filter, gr-analog) and the
+DSP C++ stack (gnuradio-runtime, gr-blocks, gr-fft, gr-filter, gr-analog,
+gr-digital) and the
 gr-qtgui sinks are cross-compiled to WebAssembly with Emscripten and threaded
 Qt 6 for WebAssembly.
 
@@ -97,7 +98,8 @@ emcmake cmake -S "$GR" -B wasm/gr/build-gr -GNinja \
   -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS=-pthread -DCMAKE_C_FLAGS=-pthread \
   -DCMAKE_INSTALL_PREFIX="$SYSROOT" -DCMAKE_PREFIX_PATH="$SYSROOT" -DCMAKE_FIND_ROOT_PATH="$SYSROOT" \
   -DENABLE_PYTHON=OFF -DENABLE_GR_QTGUI=OFF -DENABLE_GR_AUDIO=OFF \
-  -DENABLE_GR_ANALOG=ON -DENABLE_GR_BLOCKS=ON -DENABLE_GR_FFT=ON -DENABLE_GR_FILTER=ON \
+  -DENABLE_GR_ANALOG=ON -DENABLE_GR_BLOCKS=ON -DENABLE_GR_DIGITAL=ON \
+  -DENABLE_GR_FFT=ON -DENABLE_GR_FILTER=ON \
   -DTRY_SHM_VMCIRCBUF=OFF -DCMAKE_DISABLE_FIND_PACKAGE_libunwind=ON
 cmake --build wasm/gr/build-gr
 
@@ -136,11 +138,13 @@ The sections below explain the architecture and each component in more detail.
   builds blocks via a `block-id → factory` registry (`src/registry.cpp`), runs the
   GNU Radio thread-per-block scheduler, and renders gr-qtgui sinks to a canvas.
   Type-parameterized blocks (sources, throttle/head, add/sub/multiply/divide,
-  multiply-const, time sink) take a `type` param (`complex`/`float`); converters
+  multiply-const, time sink) take a `type` param (`complex`/`float`); random,
+  uniform-random and constant sources plus PSK modulation are also available;
+  converters
   (complex↔float, complex-to-mag) bridge the two. QT GUI Range controls can be
   referenced by ID from numeric block parameters and update those parameters
   while the graph is running.
-- **qtgui** (`qtgui/`): builds the gr-qtgui time/frequency sinks (Qt5 upstream)
+- **qtgui** (`qtgui/`): builds the gr-qtgui time/frequency/constellation sinks (Qt5 upstream)
   against Qt 6 for WebAssembly, as a static lib the runner links.
 
 ## Layout

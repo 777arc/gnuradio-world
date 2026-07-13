@@ -1,7 +1,10 @@
 #include "registry.hpp"
 #include <gnuradio/analog/sig_source.h>
 #include <gnuradio/analog/noise_source.h>
+#include <gnuradio/analog/random_uniform_source.h>
 #include <gnuradio/blocks/throttle.h>
+#include <gnuradio/blocks/vector_source.h>
+#include <gnuradio/blocks/packed_to_unpacked.h>
 #include <gnuradio/blocks/multiply_const.h>
 #include <gnuradio/blocks/add_blk.h>
 #include <gnuradio/blocks/multiply.h>
@@ -16,9 +19,18 @@
 #include <gnuradio/blocks/null_source.h>
 #include <gnuradio/blocks/head.h>
 #include <gnuradio/blocks/delay.h>
+#include <gnuradio/digital/chunks_to_symbols.h>
+#include <gnuradio/digital/diff_encoder_bb.h>
+#include <gnuradio/digital/map_bb.h>
+#include <gnuradio/filter/firdes.h>
+#include <gnuradio/filter/pfb_arb_resampler_ccf.h>
+#include <gnuradio/hier_block2.h>
+#include <gnuradio/io_signature.h>
+#include <gnuradio/endianness.h>
 #include <gnuradio/qtgui/time_sink_c.h>
 #include <gnuradio/qtgui/time_sink_f.h>
 #include <gnuradio/qtgui/freq_sink_c.h>
+#include <gnuradio/qtgui/const_sink_c.h>
 #include <QDial>
 #include <QDoubleSpinBox>
 #include <QHBoxLayout>
@@ -29,9 +41,11 @@
 #include <QSlider>
 #include <QWidget>
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <limits>
 #include <memory>
+#include <random>
 #include <stdexcept>
 #include <vector>
 
@@ -48,9 +62,235 @@ static gr::analog::gr_waveform_t waveform_from(const std::string& s) {
 }
 // Many blocks are type-parameterized (like GRC): a "type" param selects the C++ type.
 static bool is_float(const json& p) { return p.value("type", std::string("complex")) == "float"; }
-static int itemsize_of(const json& p) { return is_float(p) ? (int)sizeof(float) : (int)sizeof(gr_complex); }
+static int itemsize_of(const json& p)
+{
+    const std::string type = p.value("type", std::string("complex"));
+    if (type == "complex") return sizeof(gr_complex);
+    if (type == "float" || type == "int") return sizeof(std::int32_t);
+    if (type == "short") return sizeof(std::int16_t);
+    if (type == "byte") return sizeof(std::int8_t);
+    throw std::runtime_error("unsupported stream type: " + type);
+}
+
+static std::string type_from(const json& p, const std::string& fallback)
+{
+    return p.value("type", fallback);
+}
+
+static bool bool_from(const json& p, const std::string& key, bool fallback)
+{
+    auto it = p.find(key);
+    if (it == p.end())
+        return fallback;
+    if (it->is_boolean())
+        return it->get<bool>();
+    if (it->is_number())
+        return it->get<double>() != 0.0;
+    if (it->is_string()) {
+        std::string value = it->get<std::string>();
+        std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) {
+            return static_cast<char>(std::tolower(c));
+        });
+        return value == "true" || value == "yes" || value == "on" || value == "1";
+    }
+    return fallback;
+}
+
+static double number_from(const json& p, const std::string& key, double fallback)
+{
+    auto it = p.find(key);
+    if (it == p.end())
+        return fallback;
+    if (it->is_number())
+        return it->get<double>();
+    if (it->is_string()) {
+        const std::string value = it->get<std::string>();
+        std::size_t used = 0;
+        const double parsed = std::stod(value, &used);
+        if (used == value.size())
+            return parsed;
+    }
+    throw std::runtime_error(key + " must be numeric");
+}
+
+static std::string unquoted(std::string value)
+{
+    if (value.size() >= 2 &&
+        ((value.front() == '\"' && value.back() == '\"') ||
+         (value.front() == '\'' && value.back() == '\'')))
+        return value.substr(1, value.size() - 2);
+    return value;
+}
+
+static gr_complex complex_from(const json& p, const std::string& key)
+{
+    auto it = p.find(key);
+    if (it == p.end())
+        return {};
+    if (it->is_number())
+        return gr_complex(it->get<float>(), 0.0f);
+    if (it->is_array() && it->size() == 2)
+        return gr_complex((*it)[0].get<float>(), (*it)[1].get<float>());
+    if (!it->is_string())
+        throw std::runtime_error(key + " must be a number or complex string");
+
+    std::string value = unquoted(it->get<std::string>());
+    value.erase(std::remove_if(value.begin(), value.end(), [](unsigned char c) {
+        return std::isspace(c);
+    }), value.end());
+    std::replace(value.begin(), value.end(), 'j', 'i');
+    if (value.empty())
+        throw std::runtime_error(key + " must not be empty");
+    if (value.back() != 'i') {
+        std::size_t used = 0;
+        const float real = std::stof(value, &used);
+        if (used != value.size())
+            throw std::runtime_error("invalid complex value for " + key);
+        return gr_complex(real, 0.0f);
+    }
+
+    value.pop_back();
+    std::size_t split = std::string::npos;
+    for (std::size_t i = 1; i < value.size(); ++i) {
+        if ((value[i] == '+' || value[i] == '-') &&
+            value[i - 1] != 'e' && value[i - 1] != 'E')
+            split = i;
+    }
+    const std::string real_part = split == std::string::npos ? "0" : value.substr(0, split);
+    std::string imag_part = split == std::string::npos ? value : value.substr(split);
+    if (imag_part.empty() || imag_part == "+") imag_part = "1";
+    if (imag_part == "-") imag_part = "-1";
+    try {
+        return gr_complex(std::stof(real_part), std::stof(imag_part));
+    } catch (const std::exception&) {
+        throw std::runtime_error("invalid complex value for " + key);
+    }
+}
 
 namespace {
+
+class PskMod : public gr::hier_block2 {
+public:
+    using sptr = std::shared_ptr<PskMod>;
+
+    static sptr make(unsigned int constellation_points,
+                     const std::string& mod_code,
+                     bool differential,
+                     unsigned int samples_per_symbol,
+                     float excess_bw)
+    {
+        return gnuradio::make_block_sptr<PskMod>(constellation_points,
+                                                 mod_code,
+                                                 differential,
+                                                 samples_per_symbol,
+                                                 excess_bw);
+    }
+
+    PskMod(unsigned int constellation_points,
+           const std::string& mod_code,
+           bool differential,
+           unsigned int samples_per_symbol,
+           float excess_bw)
+        : hier_block2("psk_mod",
+                      gr::io_signature::make(1, 1, sizeof(std::uint8_t)),
+                      gr::io_signature::make(1, 1, sizeof(gr_complex)))
+    {
+        if (constellation_points < 2 ||
+            (constellation_points & (constellation_points - 1)) != 0)
+            throw std::runtime_error("PSK Mod constellation points must be a power of two");
+        if (samples_per_symbol < 2)
+            throw std::runtime_error("PSK Mod samples per symbol must be at least 2");
+        if (!std::isfinite(excess_bw) || excess_bw < 0.0f || excess_bw > 1.0f)
+            throw std::runtime_error("PSK Mod excess bandwidth must be between 0 and 1");
+        if (mod_code != "gray" && mod_code != "none")
+            throw std::runtime_error("PSK Mod code must be gray or none");
+
+        unsigned int bits_per_symbol = 0;
+        for (unsigned int points = constellation_points; points > 1; points >>= 1)
+            ++bits_per_symbol;
+
+        std::vector<gr_complex> points;
+        points.reserve(constellation_points);
+        const double tau = 2.0 * std::acos(-1.0);
+        for (unsigned int i = 0; i < constellation_points; ++i) {
+            const double phase = tau * i / constellation_points;
+            points.emplace_back(std::cos(phase), std::sin(phase));
+        }
+
+        std::vector<int> gray(constellation_points);
+        for (unsigned int i = 0; i < constellation_points; ++i)
+            gray[i] = static_cast<int>(i ^ (i >> 1));
+
+        // This reproduces digital.psk.psk_mod: differential Gray coding maps
+        // symbol indexes before the encoder; non-differential Gray coding
+        // instead reorders the constellation table by the inverse code.
+        const bool pre_diff_code = mod_code == "gray" && differential;
+        if (mod_code == "gray" && !differential) {
+            std::vector<unsigned int> inverse(constellation_points);
+            for (unsigned int i = 0; i < constellation_points; ++i)
+                inverse[gray[i]] = i;
+            std::vector<gr_complex> reordered(constellation_points);
+            for (unsigned int i = 0; i < constellation_points; ++i)
+                reordered[i] = points[inverse[i]];
+            points = std::move(reordered);
+        }
+
+        auto unpack = gr::blocks::packed_to_unpacked_bb::make(
+            bits_per_symbol, gr::GR_MSB_FIRST);
+        std::vector<gr::basic_block_sptr> chain{ self(), unpack };
+        if (pre_diff_code)
+            chain.push_back(gr::digital::map_bb::make(gray));
+        if (differential)
+            chain.push_back(gr::digital::diff_encoder_bb::make(constellation_points));
+        chain.push_back(gr::digital::chunks_to_symbols_bc::make(points));
+
+        constexpr unsigned int nfilts = 32;
+        constexpr unsigned int ntaps_per_filter = 11;
+        const int ntaps = nfilts * ntaps_per_filter * samples_per_symbol;
+        auto taps = gr::filter::firdes::root_raised_cosine(
+            nfilts, nfilts, 1.0, excess_bw, ntaps);
+        chain.push_back(gr::filter::pfb_arb_resampler_ccf::make(
+            static_cast<float>(samples_per_symbol), taps, nfilts));
+        chain.push_back(self());
+
+        for (std::size_t i = 1; i < chain.size(); ++i)
+            connect(chain[i - 1], 0, chain[i], 0);
+    }
+};
+
+template <class T>
+BuiltBlock make_random_vector_source(const json& p)
+{
+    const int minimum = static_cast<int>(number_from(p, "min", 0));
+    const int maximum = static_cast<int>(number_from(p, "max", 2));
+    const int count = static_cast<int>(number_from(p, "num_samps", 1000));
+    if (minimum >= maximum)
+        throw std::runtime_error("Random Source requires minimum < maximum");
+    if (count <= 0)
+        throw std::runtime_error("Random Source requires at least one sample");
+
+    std::mt19937 generator(std::random_device{}());
+    std::uniform_int_distribution<int> distribution(minimum, maximum - 1);
+    std::vector<T> values(static_cast<std::size_t>(count));
+    std::generate(values.begin(), values.end(), [&] {
+        return static_cast<T>(distribution(generator));
+    });
+    return { gr::blocks::vector_source<T>::make(
+                 values, bool_from(p, "repeat", true)),
+             nullptr };
+}
+
+template <class T>
+BuiltBlock make_constant_source(double value)
+{
+    auto block = gr::analog::sig_source<T>::make(
+        0.0, gr::analog::GR_CONST_WAVE, 0.0, 0.0, static_cast<T>(value));
+    BuiltBlock result{ block };
+    result.numeric_setters["const"] = [block](double updated) {
+        block->set_offset(static_cast<T>(updated));
+    };
+    return result;
+}
 
 struct RangeState {
     double start;
@@ -333,8 +573,73 @@ const std::map<std::string, Factory>& block_registry() {
                  [b](double value) { b->set_amplitude(static_cast<float>(value)); };
              return result;
          }},
+        {"analog_random_source_x", [](const json& p) -> BuiltBlock {
+             const std::string type = type_from(p, "byte");
+             if (type == "byte") return make_random_vector_source<std::uint8_t>(p);
+             if (type == "short") return make_random_vector_source<std::int16_t>(p);
+             if (type == "int") return make_random_vector_source<std::int32_t>(p);
+             throw std::runtime_error("Random Source type must be byte, short, or int");
+         }},
+        {"analog_random_uniform_source_x", [](const json& p) -> BuiltBlock {
+             const std::string type = type_from(p, "byte");
+             const int minimum = static_cast<int>(number_from(p, "minimum", 0));
+             const int maximum = static_cast<int>(number_from(p, "maximum", 2));
+             const int seed = static_cast<int>(number_from(p, "seed", 0));
+             if (minimum >= maximum)
+                 throw std::runtime_error(
+                     "Random Uniform Source requires minimum < maximum");
+             if (type == "byte")
+                 return { gr::analog::random_uniform_source_b::make(
+                              minimum, maximum, seed),
+                          nullptr };
+             if (type == "short")
+                 return { gr::analog::random_uniform_source_s::make(
+                              minimum, maximum, seed),
+                          nullptr };
+             if (type == "int")
+                 return { gr::analog::random_uniform_source_i::make(
+                              minimum, maximum, seed),
+                          nullptr };
+             throw std::runtime_error(
+                 "Random Uniform Source type must be byte, short, or int");
+         }},
+        {"analog_const_source_x", [](const json& p) -> BuiltBlock {
+             const std::string type = type_from(p, "complex");
+             if (type == "complex") {
+                 const gr_complex value = complex_from(p, "const");
+                 auto block = gr::analog::sig_source_c::make(
+                     0.0, gr::analog::GR_CONST_WAVE, 0.0, 0.0, value);
+                 BuiltBlock result{ block };
+                 result.numeric_setters["const"] = [block](double updated) {
+                     block->set_offset(gr_complex(updated, 0.0));
+                 };
+                 return result;
+             }
+             const double value = number_from(p, "const", 0.0);
+             if (type == "float") return make_constant_source<float>(value);
+             if (type == "int") return make_constant_source<std::int32_t>(value);
+             if (type == "short") return make_constant_source<std::int16_t>(value);
+             if (type == "byte") return make_constant_source<std::int8_t>(value);
+             throw std::runtime_error(
+                 "Constant Source type must be complex, float, int, short, or byte");
+         }},
         {"blocks_null_source", [](const json& p) -> BuiltBlock {
              return { gr::blocks::null_source::make(itemsize_of(p)), nullptr };
+         }},
+        {"digital_psk_mod", [](const json& p) -> BuiltBlock {
+             const int points = static_cast<int>(
+                 number_from(p, "constellation_points", 8));
+             const int samples_per_symbol = static_cast<int>(
+                 number_from(p, "samples_per_symbol", 2));
+             std::string mod_code = unquoted(
+                 p.value("mod_code", std::string("gray")));
+             return { PskMod::make(
+                          static_cast<unsigned int>(std::max(0, points)),
+                          mod_code,
+                          bool_from(p, "differential", true),
+                          static_cast<unsigned int>(std::max(0, samples_per_symbol)),
+                          static_cast<float>(number_from(p, "excess_bw", 0.35))),
+                      nullptr };
          }},
         // ---- flow control ----
         {"blocks_throttle", [](const json& p) -> BuiltBlock {
@@ -437,6 +742,104 @@ const std::map<std::string, Factory>& block_registry() {
              };
              result.numeric_setters["bw"] = set_bandwidth;
              result.numeric_setters["samp_rate"] = set_bandwidth;
+             return result;
+         }},
+        {"qtgui_const_sink_x", [](const json& p) -> BuiltBlock {
+             const std::string type = type_from(p, "complex");
+             const int connections = type.rfind("msg", 0) == 0
+                                         ? 0
+                                         : static_cast<int>(number_from(
+                                               p, "nconnections", 1));
+             if (connections < 0)
+                 throw std::runtime_error(
+                     "QT GUI Constellation Sink connections cannot be negative");
+             auto block = gr::qtgui::const_sink_c::make(
+                 static_cast<int>(number_from(p, "size", 1024)),
+                 unquoted(p.value("name", std::string("Constellation"))),
+                 connections);
+
+             auto x_axis = std::make_shared<std::pair<double, double>>(
+                 number_from(p, "xmin", -2.0), number_from(p, "xmax", 2.0));
+             auto y_axis = std::make_shared<std::pair<double, double>>(
+                 number_from(p, "ymin", -2.0), number_from(p, "ymax", 2.0));
+             block->set_x_axis(x_axis->first, x_axis->second);
+             block->set_y_axis(y_axis->first, y_axis->second);
+             block->set_update_time(number_from(p, "update_time", 0.1));
+             block->enable_grid(bool_from(p, "grid", false));
+             block->enable_autoscale(bool_from(p, "autoscale", false));
+             block->enable_axis_labels(bool_from(p, "axislabels", true));
+             if (!bool_from(p, "legend", true))
+                 block->disable_legend();
+
+             const std::vector<std::string> default_colors = {
+                 "blue", "red", "green", "black", "cyan", "magenta", "yellow"
+             };
+             for (int i = 0; i < connections; ++i) {
+                 const std::string suffix = std::to_string(i + 1);
+                 const std::string label_key = "label" + suffix;
+                 const std::string color_key = "color" + suffix;
+                 if (auto it = p.find(label_key); it != p.end() && it->is_string())
+                     block->set_line_label(i, unquoted(it->get<std::string>()));
+                 block->set_line_color(
+                     i,
+                     p.contains(color_key)
+                         ? unquoted(p.at(color_key).get<std::string>())
+                         : default_colors[static_cast<std::size_t>(i) %
+                                          default_colors.size()]);
+                 block->set_line_width(
+                     i, static_cast<int>(number_from(p, "width" + suffix, 1)));
+                 block->set_line_style(
+                     i, static_cast<int>(number_from(p, "style" + suffix, 1)));
+                 block->set_line_marker(
+                     i, static_cast<int>(number_from(p, "marker" + suffix, 0)));
+                 block->set_line_alpha(
+                     i, number_from(p, "alpha" + suffix, 1.0));
+             }
+
+             const std::string trigger_mode =
+                 p.value("tr_mode", std::string("qtgui.TRIG_MODE_FREE"));
+             const std::string trigger_slope =
+                 p.value("tr_slope", std::string("qtgui.TRIG_SLOPE_POS"));
+             auto mode = gr::qtgui::TRIG_MODE_FREE;
+             if (trigger_mode.find("AUTO") != std::string::npos)
+                 mode = gr::qtgui::TRIG_MODE_AUTO;
+             else if (trigger_mode.find("NORM") != std::string::npos)
+                 mode = gr::qtgui::TRIG_MODE_NORM;
+             else if (trigger_mode.find("TAG") != std::string::npos)
+                 mode = gr::qtgui::TRIG_MODE_TAG;
+             const auto slope = trigger_slope.find("NEG") != std::string::npos
+                                    ? gr::qtgui::TRIG_SLOPE_NEG
+                                    : gr::qtgui::TRIG_SLOPE_POS;
+             block->set_trigger_mode(
+                 mode,
+                 slope,
+                 static_cast<float>(number_from(p, "tr_level", 0.0)),
+                 static_cast<int>(number_from(p, "tr_chan", 0)),
+                 unquoted(p.value("tr_tag", std::string())));
+
+             BuiltBlock result{ block, block->qwidget() };
+             result.numeric_setters["size"] = [block](double value) {
+                 block->set_nsamps(static_cast<int>(value));
+             };
+             result.numeric_setters["update_time"] = [block](double value) {
+                 block->set_update_time(value);
+             };
+             result.numeric_setters["xmin"] = [block, x_axis](double value) {
+                 x_axis->first = value;
+                 block->set_x_axis(x_axis->first, x_axis->second);
+             };
+             result.numeric_setters["xmax"] = [block, x_axis](double value) {
+                 x_axis->second = value;
+                 block->set_x_axis(x_axis->first, x_axis->second);
+             };
+             result.numeric_setters["ymin"] = [block, y_axis](double value) {
+                 y_axis->first = value;
+                 block->set_y_axis(y_axis->first, y_axis->second);
+             };
+             result.numeric_setters["ymax"] = [block, y_axis](double value) {
+                 y_axis->second = value;
+                 block->set_y_axis(y_axis->first, y_axis->second);
+             };
              return result;
          }},
     };

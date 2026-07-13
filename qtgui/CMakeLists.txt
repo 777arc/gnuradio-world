@@ -28,6 +28,10 @@ add_library(gr_qtgui_ts STATIC
   ${GRQ}/lib/freqcontrolpanel.cc
   ${GRQ}/lib/freq_sink_c_impl.cc
   ${GRQ}/lib/freq_sink_f_impl.cc
+  # constellation sink chain
+  ${GRQ}/lib/ConstellationDisplayPlot.cc
+  ${GRQ}/lib/constellationdisplayform.cc
+  ${GRQ}/lib/const_sink_c_impl.cc
   # Q_OBJECT headers listed so AUTOMOC generates their meta-object code
   # (multi-class headers like form_menus.h have no matching .cc).
   ${GRQ}/include/gnuradio/qtgui/DisplayPlot.h
@@ -40,8 +44,11 @@ add_library(gr_qtgui_ts STATIC
   ${GRQ}/include/gnuradio/qtgui/FrequencyDisplayPlot.h
   ${GRQ}/include/gnuradio/qtgui/freqdisplayform.h
   ${GRQ}/include/gnuradio/qtgui/freqcontrolpanel.h
+  ${GRQ}/include/gnuradio/qtgui/ConstellationDisplayPlot.h
+  ${GRQ}/include/gnuradio/qtgui/constellationdisplayform.h
   ${GRQ}/lib/freq_sink_c_impl.h
   ${GRQ}/lib/freq_sink_f_impl.h
+  ${GRQ}/lib/const_sink_c_impl.h
   ${GRQ}/lib/time_sink_f_impl.h
   ${GRQ}/lib/time_sink_c_impl.h
 )
