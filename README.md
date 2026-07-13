@@ -61,7 +61,7 @@ Qt 6 for WebAssembly.
 source wasm/deps/env.sh                 # pinned emsdk + $SYSROOT
 bash   wasm/deps/build-deps.sh          # VOLK/Boost/spdlog/GMP/FFTW/Qwt → sysroot
 # GNU Radio C++ modules → wasm/gr/build-gr  (emcmake, ENABLE_PYTHON=OFF, static,
-#   -DFORCE_SINGLE_MAPPED; see git history / env.sh for the exact configure line)
+#   -DTRY_SHM_VMCIRCBUF=OFF; see git history / env.sh for the exact configure line)
 (cd wasm/qtgui  && $QT_WASM/bin/qt-cmake -S . -B build -GNinja -DQT_HOST_PATH=$QT_HOST && cmake --build build)
 (cd wasm/runner && $QT_WASM/bin/qt-cmake -S . -B build -GNinja -DQT_HOST_PATH=$QT_HOST && cmake --build build)
 (cd wasm/editor && npm install && npx vite build)
@@ -86,6 +86,10 @@ node wasm/server.mjs 8090 wasm          # COOP/COEP dev server
 - `gr-fft/lib/fft.cc` — use `FFTW_ESTIMATE` under WASM (`FFTW_MEASURE` benchmarking
   hangs there).
 
-Build with `-DFORCE_SINGLE_MAPPED` (GR's single-mapped `host_buffer`; the
-double-mapped `vmcircbuf` needs VM tricks WASM lacks) and
-`-DCMAKE_DISABLE_FIND_PACKAGE_libunwind=ON`.
+Build without `FORCE_SINGLE_MAPPED`, with `-DTRY_SHM_VMCIRCBUF=OFF` and
+`-DCMAKE_DISABLE_FIND_PACKAGE_libunwind=ON`. The runtime selects
+`vmcircbuf_emulated`: a contiguous 2N-byte software mirror that preserves the
+native double-mapped scheduler and pointer behavior, then synchronizes completed
+writes before publishing them to readers. It uses twice the physical buffer memory
+and one mirror copy per produced byte because WebAssembly cannot create true VM
+aliases. See [docs/double-mapped-buffer.md](docs/double-mapped-buffer.md).

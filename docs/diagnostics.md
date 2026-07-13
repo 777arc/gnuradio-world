@@ -108,11 +108,9 @@ so the bottleneck lights up without reading numbers.
 
 ## Open technical unknowns to spike before building
 
-1. **Buffer %full under single-mapped `host_buffer`.** We build with
-   `-DFORCE_SINGLE_MAPPED`; confirm `input_buffers_full` / `output_buffers_full`
-   report fill level as cleanly there as with the stock double-mapped
-   `vmcircbuf`. This is the one metric worth verifying is reachable before
-   committing to the buffer-occupancy column.
+1. **Buffer %full under the WASM buffer backend.** Confirm
+   `input_buffers_full` / `output_buffers_full` report fill level as cleanly with
+   the software-emulated double-mapped buffer as with a native `vmcircbuf`.
 2. **Overhead of `ENABLE_PERFORMANCE_COUNTERS`** in the WASM build — measure the
    per-`work()` cost; if material, gate collection behind the panel's on/off.
 3. **`gr_stats_json()` snapshot safety** — reads must be lock-free atomics so the
@@ -135,14 +133,14 @@ so the bottleneck lights up without reading numbers.
    pthread worker; it early-returns unless it is on the main thread with a DOM
    (`importScripts`/`document`/`window` guard) — otherwise a worker touching
    `document` aborts the runtime.
-4. Buffer-fullness (spike #1) works fine under `FORCE_SINGLE_MAPPED`: the counters
-   read `items_available` / `space_available` / `bufsize`, which are
-   buffer-implementation-agnostic.
+4. Buffer-fullness (spike #1) is buffer-implementation-agnostic: the counters read
+   `items_available` / `space_available` / `bufsize`.
 
 ### Findings worth remembering
 
-- **A qtgui GUI sink stalls the whole chain at ~one buffer (~8192 items), in
-  every browser (not just headless).** Root cause: the qtgui sinks call
+- **Historical single-mapped failure:** a qtgui GUI sink stalled the whole chain at
+  ~one buffer (~8192 items) in every browser, not just headless. Root cause: the
+  qtgui sinks call
   `set_history(2)` (look one sample ahead for the trigger slope), so the reader
   can never drain the buffer — it must retain `history-1` items. The normal
   double-mapped `vmcircbuf` wraps transparently, but WASM forces the
@@ -170,13 +168,15 @@ so the bottleneck lights up without reading numbers.
   `DIAG_PASS` green. Confirmed Qt-free with a `blocks_delay` (history=`delay+1`)
   reproducer.
 
-  **Residual (not fixed):** an *unthrottled/fast* writer into a history reader
+  **Residual in the single-mapped fallback:** an *unthrottled/fast* writer into a
+  history reader
   (e.g. `src → FIR filter → …` with no throttle before the filter) still
   livelocks at a non-deterministic point — a lost-wakeup in the single-mapped
   realign path (the writer parks `BLKD_OUT` with realign now READY but is never
   re-woken; the buffer cycles `wr=rd=8191 ↔ 0`). A throttle upstream of the
   history reader avoids it. Fix lives in the TPB scheduler's writer-wakeup
-  signaling — separate, harder concurrency work.
+  signaling. The default WASM build now uses `vmcircbuf_emulated` and the normal
+  double-mapped scheduler path, so it does not invoke this realignment machinery.
 - **A throttle's `work()` sleeps to pace the graph, and that sleep lands in its
   work-time counter** (~128 ms/call), so its raw "cpu" is meaningless. The panel
   excludes any `*throttle*` block from CPU-sum and bottleneck attribution and

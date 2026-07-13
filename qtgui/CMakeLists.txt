@@ -55,5 +55,4 @@ target_include_directories(gr_qtgui_ts PUBLIC
   ${BUILDGR}/gnuradio-runtime/include
   /home/marc/gnuradio/wasm/sysroot/include        # qwt headers
 )
-target_compile_definitions(gr_qtgui_ts PRIVATE FORCE_SINGLE_MAPPED)
 target_link_libraries(gr_qtgui_ts PUBLIC Qt6::Widgets Qt6::Gui Qt6::Core)

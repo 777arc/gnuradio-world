@@ -11,10 +11,7 @@ set(BUILDGR ${GR}/wasm/gr/build-gr)
 set(SYSROOT ${GR}/wasm/sysroot)
 set(QTGUI_TS ${GR}/wasm/qtgui/build/libgr_qtgui_ts.a)
 
-add_library(shmstubs STATIC ${CMAKE_CURRENT_SOURCE_DIR}/src/shm_stubs.c)
-
 qt_add_executable(runner src/runner.cpp src/registry.cpp)
-target_compile_definitions(runner PRIVATE FORCE_SINGLE_MAPPED)
 target_include_directories(runner PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/src
   ${GR}/gnuradio-runtime/include ${GR}/gr-blocks/include ${GR}/gr-fft/include
@@ -36,7 +33,6 @@ target_link_libraries(runner PRIVATE
   ${SYSROOT}/lib/libboost_atomic.a ${SYSROOT}/lib/libboost_date_time.a
   ${SYSROOT}/lib/libboost_system.a
   ${SYSROOT}/lib/libspdlog.a ${SYSROOT}/lib/libgmpxx.a ${SYSROOT}/lib/libgmp.a
-  shmstubs
   Qt6::Widgets Qt6::Gui Qt6::Core)
 
 target_link_options(runner PRIVATE
