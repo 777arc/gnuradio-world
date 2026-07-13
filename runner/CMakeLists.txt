@@ -47,4 +47,9 @@ target_link_options(runner PRIVATE
   -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=268435456
   -sNO_DISABLE_EXCEPTION_CATCHING
   -sEXPORTED_FUNCTIONS=_main,_gr_run_json,_free
-  -sEXPORTED_RUNTIME_METHODS=ccall,cwrap,stringToNewUTF8,UTF8ToString)
+  -sEXPORTED_RUNTIME_METHODS=ccall,cwrap,stringToNewUTF8,UTF8ToString
+  # Diagnostics panel: injected into the page, survives Qt's html regeneration.
+  --post-js ${CMAKE_CURRENT_SOURCE_DIR}/src/diag.js)
+
+# Rebuild the link step when the panel JS changes (--post-js isn't a tracked dep).
+set_property(TARGET runner APPEND PROPERTY LINK_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/diag.js)
