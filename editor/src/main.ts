@@ -354,7 +354,6 @@ function render() {
     // Drag from anywhere on the block; ports stopPropagation so they still connect.
     g.addEventListener('mousedown', e => startDrag(e, inst));
     g.addEventListener('contextmenu', e => { e.preventDefault(); e.stopPropagation(); select(inst.uid); showMenu(e.clientX, e.clientY, inst); });
-    g.addEventListener('dblclick', e => { e.preventDefault(); showPropsDialog(inst); });
     for (let i = 0; i < d.inputs; i++) addPort(g, inst, 'in', i, portColor(inst, 'in', i));
     for (let i = 0; i < d.outputs; i++) addPort(g, inst, 'out', i, portColor(inst, 'out', i));
     nodesG.appendChild(g);
@@ -386,10 +385,21 @@ function addPort(g: SVGGElement, inst: Inst, kind: 'in' | 'out', idx: number, co
 const G0 = (uid: string) => insts.find(i => i.uid === uid)!;
 
 let drag: { inst: Inst; ox: number; oy: number } | null = null;
+// Manual double-click detection: select()/drag rebuild the block's DOM node on
+// every mousedown, so the browser never sees two clicks on the same element and
+// its native 'dblclick' never fires. Track the last mousedown ourselves instead.
+let lastMouseDown: { uid: string; t: number } | null = null;
 function startDrag(e: MouseEvent, inst: Inst) {
   e.stopPropagation();
   if (e.button !== 0) return;   // right/middle click: let the context menu handle it
   e.preventDefault();           // stop the browser from starting a text selection
+  const now = Date.now();
+  if (lastMouseDown && lastMouseDown.uid === inst.uid && now - lastMouseDown.t < 350) {
+    lastMouseDown = null; drag = null;
+    select(inst.uid); showPropsDialog(inst);   // same dialog as right-click → Properties
+    return;
+  }
+  lastMouseDown = { uid: inst.uid, t: now };
   select(inst.uid);
   const p = svgPoint(e); drag = { inst, ox: p.x - inst.x, oy: p.y - inst.y };
 }
