@@ -6,6 +6,116 @@ DSP C++ stack (gnuradio-runtime, gr-blocks, gr-fft, gr-filter, gr-analog) and th
 gr-qtgui sinks are cross-compiled to WebAssembly with Emscripten and threaded
 Qt 6 for WebAssembly.
 
+## Quickstart (fresh Ubuntu 24.04)
+
+Builds the whole stack from source and serves the editor. **Assumes the repo is at
+`/home/marc/gnuradio` and Qt installs under `~/Qt`** — `wasm/deps/env.sh`, the Qwt
+config, and the runner/qtgui `CMakeLists.txt` hard-code these paths; edit them (and
+the `QT_*` vars below) if yours differ.
+
+**1. Toolchains and system packages**
+
+```bash
+sudo apt-get update
+sudo apt-get install -y build-essential cmake ninja-build git curl \
+  python3 python3-venv python3-pip pipx autoconf bzip2 xz-utils
+
+# Node 20 (Ubuntu 24 ships 18; the editor build needs >= 20)
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt-get install -y nodejs
+
+# Emscripten 3.1.70 (matches Qt 6.9)
+git clone https://github.com/emscripten-core/emsdk.git ~/emsdk
+~/emsdk/emsdk install 3.1.70 && ~/emsdk/emsdk activate 3.1.70
+
+# Qt 6.9.1: host tools + threaded WebAssembly, into ~/Qt
+pipx install aqtinstall
+aqt install-qt linux desktop 6.9.1 linux_gcc_64      -O ~/Qt
+aqt install-qt all_os wasm    6.9.1 wasm_multithread -O ~/Qt
+```
+
+**2. Environment** (re-run in each new shell)
+
+```bash
+cd /home/marc/gnuradio
+source wasm/deps/env.sh                       # activates emsdk, exports $SYSROOT
+export GR=/home/marc/gnuradio
+export QT_HOST=~/Qt/6.9.1/gcc_64
+export QT_WASM=~/Qt/6.9.1/wasm_multithread
+```
+
+**3. Fetch dependency sources** into `wasm/deps/src/`
+
+```bash
+mkdir -p wasm/deps/src && cd wasm/deps/src
+git clone --branch v1.12.0 --depth 1             https://github.com/gabime/spdlog.git spdlog
+git clone --branch v3.1.2  --depth 1 --recursive https://github.com/gnuradio/volk.git  volk
+curl -L https://archives.boost.io/release/1.83.0/source/boost_1_83_0.tar.bz2 | tar xj
+curl -L https://www.fftw.org/fftw-3.3.10.tar.gz     | tar xz
+curl -L https://ftp.gnu.org/gnu/gmp/gmp-6.3.0.tar.xz | tar xJ
+curl -L https://sourceforge.net/projects/qwt/files/qwt/6.2.0/qwt-6.2.0.tar.bz2 | tar xj
+cd "$GR"
+```
+
+**4. Cross-build the C++ dependencies → `sysroot/`**
+
+```bash
+python3 -m venv wasm/.venv && wasm/.venv/bin/pip install mako   # VOLK's kernel generator
+bash wasm/deps/build-deps.sh                                    # spdlog, VOLK, Boost
+
+# FFTW — double then single precision
+cd wasm/deps/src/fftw-3.3.10
+emconfigure ./configure --enable-threads --with-combined-threads --disable-fortran \
+  --disable-shared --enable-static --prefix="$SYSROOT" CFLAGS="-pthread -O2"
+emmake make -j"$(nproc)" install && emmake make clean
+emconfigure ./configure --enable-float --enable-threads --with-combined-threads --disable-fortran \
+  --disable-shared --enable-static --prefix="$SYSROOT" CFLAGS="-pthread -O2"
+emmake make -j"$(nproc)" install
+cd "$GR"
+
+# GMP
+cd wasm/deps/src/gmp-6.3.0
+emconfigure ./configure --disable-assembly --enable-cxx --disable-shared \
+  --prefix="$SYSROOT" CFLAGS="-pthread -O2 -fPIC" CXXFLAGS="-pthread -O2 -fPIC"
+emmake make -j"$(nproc)" install
+cd "$GR"
+
+# Qwt 6.2 — cross-built with the host qmake pointed at the wasm Qt
+cd wasm/deps/src/qwt-6.2.0
+printf '\nQWT_INSTALL_PREFIX  = %s\nQWT_INSTALL_HEADERS = %s/include\nQWT_INSTALL_LIBS    = %s/lib\n' \
+  "$SYSROOT" "$SYSROOT" "$SYSROOT" >> qwtconfig.pri
+"$QT_HOST/bin/qmake6" -qtconf "$QT_WASM/bin/target_qt.conf" qwt.pro
+make -j"$(nproc)" && make install                 # if it tries to build the designer plugin,
+cd "$GR"                                           # add: QWT_CONFIG -= QwtDesigner QwtExamples QwtPlayground
+```
+
+**5. Build GNU Radio and the WASM apps**
+
+```bash
+# GR C++ modules: no Python, static, emulated (software) double-mapped vmcircbuf
+emcmake cmake -S "$GR" -B wasm/gr/build-gr -GNinja \
+  -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS=-pthread -DCMAKE_C_FLAGS=-pthread \
+  -DCMAKE_INSTALL_PREFIX="$SYSROOT" -DCMAKE_PREFIX_PATH="$SYSROOT" -DCMAKE_FIND_ROOT_PATH="$SYSROOT" \
+  -DENABLE_PYTHON=OFF -DENABLE_GR_QTGUI=OFF -DENABLE_GR_AUDIO=OFF \
+  -DENABLE_GR_ANALOG=ON -DENABLE_GR_BLOCKS=ON -DENABLE_GR_FFT=ON -DENABLE_GR_FILTER=ON \
+  -DTRY_SHM_VMCIRCBUF=OFF -DCMAKE_DISABLE_FIND_PACKAGE_libunwind=ON
+cmake --build wasm/gr/build-gr
+
+# gr-qtgui sinks → runner (links everything) → editor
+(cd wasm/qtgui  && "$QT_WASM/bin/qt-cmake" -S . -B build -GNinja -DQT_HOST_PATH="$QT_HOST" && cmake --build build)
+(cd wasm/runner && "$QT_WASM/bin/qt-cmake" -S . -B build -GNinja -DQT_HOST_PATH="$QT_HOST" && cmake --build build)
+(cd wasm/editor && npm install && npm run build)
+```
+
+**6. Run**
+
+```bash
+node wasm/server.mjs 8090 wasm
+# open http://localhost:8090/editor/dist/index.html  → build a flowgraph → press ▶ Run
+```
+
+The sections below explain the architecture and each component in more detail.
+
 ## Architecture
 
 ```
