@@ -15,6 +15,7 @@
 #include <gnuradio/blocks/null_sink.h>
 #include <gnuradio/blocks/null_source.h>
 #include <gnuradio/blocks/head.h>
+#include <gnuradio/blocks/delay.h>
 #include <gnuradio/qtgui/time_sink_c.h>
 #include <gnuradio/qtgui/time_sink_f.h>
 #include <gnuradio/qtgui/freq_sink_c.h>
@@ -60,6 +61,10 @@ const std::map<std::string, Factory>& block_registry() {
          }},
         {"blocks_head", [](const json& p) -> BuiltBlock {
              return { gr::blocks::head::make(itemsize_of(p), (uint64_t)p.value("num_items", 1000000)), nullptr };
+         }},
+        {"blocks_delay", [](const json& p) -> BuiltBlock {
+             // Sets history = delay+1, so it exercises the history path (like the qtgui sinks).
+             return { gr::blocks::delay::make(itemsize_of(p), p.value("delay", 1)), nullptr };
          }},
         // ---- math (type-parameterized) ----
         {"blocks_add_xx", [](const json& p) -> BuiltBlock {

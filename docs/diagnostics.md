@@ -141,11 +141,42 @@ so the bottleneck lights up without reading numbers.
 
 ### Findings worth remembering
 
-- **A qtgui GUI sink stalls the graph in headless Chromium** (no real display →
-  its `work()` blocks after ~one buffer, back-pressuring the whole flowgraph to a
-  halt; realtime → 0). A `null_sink` chain flows continuously at the throttle
-  rate. The panel correctly *reports* the stall — that is the tool working, not a
-  bug. Headless throughput validation therefore uses a `null_sink` chain.
+- **A qtgui GUI sink stalls the whole chain at ~one buffer (~8192 items), in
+  every browser (not just headless).** Root cause: the qtgui sinks call
+  `set_history(2)` (look one sample ahead for the trigger slope), so the reader
+  can never drain the buffer — it must retain `history-1` items. The normal
+  double-mapped `vmcircbuf` wraps transparently, but WASM forces the
+  single-mapped `host_buffer` (`-DFORCE_SINGLE_MAPPED`), which cannot wrap: at
+  the end of the buffer it must *realign* (memmove the unread tail — including the
+  retained history — to the front, via `output_blocked_callback` /
+  `input_blocked_callback` in `buffer_single_mapped.cc`). That realignment does
+  not resolve for a history-bearing reader here, so at the first buffer boundary
+  the upstream writer blocks *inside* `work()` with `space_available()==0` and the
+  sink starves — a hard deadlock. Blocks with no history that consume their whole
+  input every call (`null_sink`) never need realignment and flow forever.
+  Evidence: stalls at exactly 8190 (= 8192 − history reservation) independent of
+  throttle/head and of display size; thread-per-block confirmed (an independent
+  `null_sink` chain keeps flowing); no exception. The diagnostics panel is what
+  made this measurable. Headless throughput validation uses a `null_sink` chain.
+
+  **FIXED (primary):** in `buffer_single_mapped.cc::update_reader_block_history`,
+  under `#ifdef FORCE_SINGLE_MAPPED`, set `d_has_history = (d_max_reader_history
+  > 1)` instead of the "real history" sample_delay exception. That exception left
+  `d_has_history` false for delay/sample_delay readers even though the buffer
+  still reserves the history slot, which gated off the writer's realign
+  (`output_blkd_cb_ready` requires `d_has_history` when `space==0`) and deadlocked
+  at the first wrap. Desktop path unchanged (guarded). Throttled qtgui flowgraphs
+  now flow indefinitely (verified 19M+ items @2M samp/s); `RUNNER_PASS` +
+  `DIAG_PASS` green. Confirmed Qt-free with a `blocks_delay` (history=`delay+1`)
+  reproducer.
+
+  **Residual (not fixed):** an *unthrottled/fast* writer into a history reader
+  (e.g. `src → FIR filter → …` with no throttle before the filter) still
+  livelocks at a non-deterministic point — a lost-wakeup in the single-mapped
+  realign path (the writer parks `BLKD_OUT` with realign now READY but is never
+  re-woken; the buffer cycles `wr=rd=8191 ↔ 0`). A throttle upstream of the
+  history reader avoids it. Fix lives in the TPB scheduler's writer-wakeup
+  signaling — separate, harder concurrency work.
 - **A throttle's `work()` sleeps to pace the graph, and that sleep lands in its
   work-time counter** (~128 ms/call), so its raw "cpu" is meaningless. The panel
   excludes any `*throttle*` block from CPU-sum and bottleneck attribution and

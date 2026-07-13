@@ -49,6 +49,10 @@ const RUNNABLE: Record<string, RunnableDef> = {
     label: 'Head', inputs: 1, outputs: 1, params: [
       TYPE_PARAM,
       { id: 'num_items', label: 'Num Items', type: 'number', def: 10000000 }] },
+  blocks_delay: {
+    label: 'Delay', inputs: 1, outputs: 1, params: [
+      TYPE_PARAM,
+      { id: 'delay', label: 'Delay (items)', type: 'number', def: 0 }] },
   // ---- math (type-parameterized: complex or float) ----
   blocks_add_xx: { label: 'Add', inputs: 2, outputs: 1, params: [TYPE_PARAM] },
   blocks_sub_xx: { label: 'Subtract', inputs: 2, outputs: 1, params: [TYPE_PARAM] },
