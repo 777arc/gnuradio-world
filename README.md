@@ -137,7 +137,9 @@ The sections below explain the architecture and each component in more detail.
   GNU Radio thread-per-block scheduler, and renders gr-qtgui sinks to a canvas.
   Type-parameterized blocks (sources, throttle/head, add/sub/multiply/divide,
   multiply-const, time sink) take a `type` param (`complex`/`float`); converters
-  (complex↔float, complex-to-mag) bridge the two.
+  (complex↔float, complex-to-mag) bridge the two. QT GUI Range controls can be
+  referenced by ID from numeric block parameters and update those parameters
+  while the graph is running.
 - **qtgui** (`qtgui/`): builds the gr-qtgui time/frequency sinks (Qt5 upstream)
   against Qt 6 for WebAssembly, as a static lib the runner links.
 

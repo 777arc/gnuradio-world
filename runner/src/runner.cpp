@@ -6,6 +6,7 @@
 #include <gnuradio/block.h>
 #include <gnuradio/prefs.h>
 #include <QApplication>
+#include <QScreen>
 #include <QWidget>
 #include <QVBoxLayout>
 #include <QTimer>
@@ -21,6 +22,27 @@
 
 static gr::top_block_sptr g_tb;
 static QWidget* g_container = nullptr;
+
+struct VariableControl {
+    double value;
+    BuiltBlock built;
+};
+
+static nlohmann::json resolve_variables(
+    const nlohmann::json& params,
+    const std::map<std::string, VariableControl>& variables)
+{
+    nlohmann::json resolved = params;
+    for (auto& item : resolved.items()) {
+        if (!item.value().is_string())
+            continue;
+        const std::string expression = item.value().get<std::string>();
+        auto variable = variables.find(expression);
+        if (variable != variables.end())
+            item.value() = variable->second.value;
+    }
+    return resolved;
+}
 
 // --- diagnostics: snapshot of the running graph for gr_stats_json() ----------
 struct StatBlock {
@@ -65,6 +87,7 @@ int gr_run_json(const char* json_str) {
 
         g_tb = gr::make_top_block("wasm_runner");
         std::map<std::string, gr::basic_block_sptr> byname;
+        std::map<std::string, VariableControl> variables;
         int nblocks = 0, nsinks = 0;
 
         // Reset the diagnostics snapshot for this run.
@@ -72,17 +95,51 @@ int gr_run_json(const char* json_str) {
         g_ref_samp_rate = 0.0;
         std::string ref_widget_name, ref_throttle_name, ref_maxrate_name;
 
+        // Construct controls first so references such as frequency="freq" can
+        // be resolved regardless of where the Range appears in the graph JSON.
+        for (const auto& blk : j.at("blocks")) {
+            const std::string id = blk.at("id").get<std::string>();
+            if (id != "variable_qtgui_range")
+                continue;
+            const std::string name = blk.at("name").get<std::string>();
+            nlohmann::json params = blk.value("params", nlohmann::json::object());
+            params["__name"] = name;
+            BuiltBlock built = block_registry().at(id)(params);
+            variables.emplace(name, VariableControl{ built.variable_value, std::move(built) });
+        }
+
         for (const auto& blk : j.at("blocks")) {
             std::string id = blk.at("id").get<std::string>();
             std::string name = blk.at("name").get<std::string>();
             auto it = block_registry().find(id);
             if (it == block_registry().end())
                 throw std::runtime_error("unknown block id: " + id);
-            nlohmann::json params = blk.value("params", nlohmann::json::object());
-            BuiltBlock bb = it->second(params);
-            byname[name] = bb.block;
+            nlohmann::json source_params =
+                blk.value("params", nlohmann::json::object());
+            nlohmann::json params = resolve_variables(source_params, variables);
+            BuiltBlock bb;
+            if (id == "variable_qtgui_range") {
+                bb = variables.at(name).built;
+            } else {
+                bb = it->second(params);
+            }
+            if (bb.block)
+                byname[name] = bb.block;
             ++nblocks;
             if (bb.widget) { g_container->layout()->addWidget(bb.widget); bb.widget->show(); ++nsinks; }
+
+            // Bind parameters whose expression is exactly a Range variable ID.
+            // GRC's common `frequency: freq` form now updates the live block.
+            for (const auto& source_param : source_params.items()) {
+                if (!source_param.value().is_string())
+                    continue;
+                const std::string variable_name =
+                    source_param.value().get<std::string>();
+                auto variable = variables.find(variable_name);
+                auto setter = bb.numeric_setters.find(source_param.key());
+                if (variable != variables.end() && setter != bb.numeric_setters.end())
+                    variable->second.built.subscribe(setter->second);
+            }
 
             // Record a stats entry for any block that is a gr::block (all our
             // registry blocks are). has_in/has_out are filled from connections.
@@ -211,10 +268,31 @@ static char* flowgraph_from_url() {
 
 int main(int argc, char** argv) {
     QApplication app(argc, argv);
-    g_container = new QWidget();
+
+    // Be explicit about the top-level window decorations. Qt's WASM platform
+    // implements its draggable title bar and resize handles from these flags;
+    // relying on QWidget's implicit defaults can leave the canvas looking like
+    // an undecorated, fixed panel instead of an interactive window.
+    const Qt::WindowFlags window_flags = Qt::Window | Qt::WindowTitleHint |
+                                         Qt::WindowSystemMenuHint |
+                                         Qt::WindowMaximizeButtonHint |
+                                         Qt::WindowCloseButtonHint;
+    g_container = new QWidget(nullptr, window_flags);
+    g_container->setWindowTitle(QStringLiteral("GNU Radio Flowgraph"));
+    g_container->setMinimumSize(320, 240);
+    g_container->setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
     g_container->setLayout(new QVBoxLayout());
-    g_container->resize(820, 520);
-    g_container->show();
+
+    // Keep the initial frame and its resize handles inside the browser-backed
+    // QScreen, including when the runner is opened in a relatively small tab.
+    const QRect available = app.primaryScreen()->availableGeometry();
+    const QSize initial_size(qMin(820, qMax(320, available.width() - 48)),
+                             qMin(520, qMax(240, available.height() - 48)));
+    g_container->resize(initial_size);
+    g_container->move(available.topLeft() + QPoint(24, 24));
+    // showNormal() is important on WASM: a fullscreen/maximized window has no
+    // non-client frame, so Qt hides the draggable title bar and resize handles.
+    g_container->showNormal();
     // Editor passes the flowgraph via the URL hash; fall back to the embedded demo.
     char* fg = flowgraph_from_url();
     std::string fgs = fg ? fg : kEmbeddedFlowgraph;

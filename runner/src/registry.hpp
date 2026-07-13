@@ -12,7 +12,17 @@ class QWidget;
 
 struct BuiltBlock {
     gr::basic_block_sptr block;
-    QWidget* widget = nullptr;  // non-null for GUI sinks
+    QWidget* widget = nullptr;  // non-null for GUI sinks and controls
+
+    // Numeric GRC parameters that can be changed while the graph is running.
+    // QT GUI Range variables bind to these by parameter name.
+    std::map<std::string, std::function<void(double)>> numeric_setters;
+
+    // Variable controls have no GNU Radio block. Instead they publish their
+    // initial value and accept subscribers which are called on user changes.
+    bool is_variable = false;
+    double variable_value = 0.0;
+    std::function<void(std::function<void(double)>)> subscribe;
 };
 
 using Factory = std::function<BuiltBlock(const nlohmann::json& params)>;

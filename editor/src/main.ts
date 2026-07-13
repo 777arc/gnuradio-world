@@ -72,6 +72,22 @@ const RUNNABLE: Record<string, RunnableDef> = {
     inTypes: ['complex'], outTypes: ['float', 'float'] },
   blocks_float_to_complex: { label: 'Float to Complex', inputs: 2, outputs: 1, params: [],
     inTypes: ['float', 'float'], outTypes: ['complex'] },
+  // ---- variables / controls ----
+  variable_qtgui_range: {
+    label: 'QT GUI Range', inputs: 0, outputs: 0, params: [
+      { id: 'label', label: 'Label', type: 'string', def: '' },
+      { id: 'rangeType', label: 'Type', type: 'enum', def: 'float', options: ['float', 'int'] },
+      { id: 'value', label: 'Default Value', type: 'number', def: 50 },
+      { id: 'start', label: 'Start', type: 'number', def: 0 },
+      { id: 'stop', label: 'Stop', type: 'number', def: 100 },
+      { id: 'step', label: 'Step', type: 'number', def: 1 },
+      { id: 'widget', label: 'Widget', type: 'enum', def: 'counter_slider',
+        options: ['counter_slider', 'counter', 'slider', 'dial', 'eng_slider', 'eng'] },
+      { id: 'orient', label: 'Orientation', type: 'enum', def: 'horizontal',
+        options: ['horizontal', 'vertical'] },
+      { id: 'min_len', label: 'Minimum Length', type: 'number', def: 200 },
+    ],
+  },
   // ---- sinks ----
   blocks_null_sink: { label: 'Null Sink', inputs: 1, outputs: 0, params: [TYPE_PARAM] },
   qtgui_time_sink_x: {
@@ -121,6 +137,15 @@ function fmtVal(v: any): string {
     if (v % 1000 === 0) return v / 1000 + 'k';
   }
   return String(v);
+}
+
+// Numeric GRC fields may also contain a variable ID (for example a signal
+// source's frequency can be `freq`, the ID of a QT GUI Range).
+function numericOrExpression(value: string): number | string {
+  const text = value.trim();
+  if (!text) return '';
+  const number = Number(text);
+  return Number.isFinite(number) ? number : text;
 }
 const textW = (s: string, px: number) => s.length * px * 0.56;
 
@@ -285,7 +310,7 @@ function showPropsDialog(inst: Inst) {
       addField(`${p.label}  (${p.id})`, s);
     } else {
       const inp = document.createElement('input'); inp.value = String(tmp.params[p.id]);
-      inp.oninput = () => tmp.params[p.id] = p.type === 'number' ? Number(inp.value) : inp.value;
+      inp.oninput = () => tmp.params[p.id] = p.type === 'number' ? numericOrExpression(inp.value) : inp.value;
       addField(`${p.label}  (${p.id})`, inp);
     }
   }
@@ -441,7 +466,7 @@ function renderProps() {
       node = s;
     } else {
       const inp = document.createElement('input'); inp.value = String(inst.params[p.id]);
-      inp.oninput = () => inst.params[p.id] = p.type === 'number' ? Number(inp.value) : inp.value;
+      inp.oninput = () => inst.params[p.id] = p.type === 'number' ? numericOrExpression(inp.value) : inp.value;
       node = inp;
     }
     mk(p.label + '  (' + p.id + ')', node);
