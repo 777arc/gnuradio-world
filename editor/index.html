@@ -6,7 +6,10 @@
 <style>
   * { box-sizing:border-box; }
   html,body { margin:0; height:100%; font-family:system-ui,Arial,sans-serif; color:#e6e9f0; background:#1e2230; }
-  #app { display:grid; grid-template-columns:230px 1fr 260px; grid-template-rows:44px 1fr; height:100vh; }
+  #app { --palette-width:230px; display:grid;
+      grid-template-columns:var(--palette-width) 1fr 260px; grid-template-rows:44px 1fr; height:100vh; }
+  #app.hide-palette { --palette-width:0px; }
+  #app.hide-palette #palette { visibility:hidden; overflow:hidden; }
   header { grid-column:1/4; display:flex; align-items:center; gap:10px; padding:0 12px; background:#181b26; border-bottom:1px solid #333a4d; }
   header h1 { font-size:14px; font-weight:600; margin:0; color:#aebbd6; }
   header .spacer { flex:1; }
@@ -48,9 +51,11 @@
   .pal-item.unavailable:hover { background:#252938; color:#7a8295; }
   .pal-item.unavailable::before { content:'\25CF'; color:#4b5160; font-size:8px; vertical-align:middle; margin-right:6px; }
   /* GRC-authentic light canvas */
-  #canvasWrap { min-height:0; position:relative; overflow:hidden; background:
-      linear-gradient(#e9eaec 1px, transparent 1px) 0 0/100% 16px,
-      linear-gradient(90deg, #e9eaec 1px, transparent 1px) 0 0/16px 100%, #f7f7f7; }
+  #canvasWrap { --grid-size:16px; min-height:0; position:relative; overflow:hidden; background:
+      linear-gradient(#e9eaec 1px, transparent 1px) 0 0/100% var(--grid-size),
+      linear-gradient(90deg, #e9eaec 1px, transparent 1px) 0 0/var(--grid-size) 100%, #f7f7f7; }
+  #canvasWrap.grid-hidden { background:#f7f7f7; }
+  #canvasWrap.console-hidden #log { display:none; }
   svg { width:100%; height:100%; display:block; }
   svg text { user-select:none; -webkit-user-select:none; -moz-user-select:none; }
   /* GRC block: light body, black border, bold black title, param rows */
@@ -96,6 +101,12 @@
   .dlgrow input, .dlgrow select { background:#171a24; color:#e6e9f0; border:1px solid #3a4366;
       border-radius:5px; padding:6px 8px; font-size:13px; width:100%; }
   .dlgfoot { padding:10px 16px; display:flex; gap:8px; justify-content:flex-end; border-top:1px solid #333a4d; }
+  .shortcut-dlg { width:min(760px,92vw); }
+  .shortcut-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 24px; }
+  .shortcut-row { display:grid; grid-template-columns:145px 1fr; gap:10px; padding:5px 0;
+      border-bottom:1px solid #303548; font-size:12px; }
+  .shortcut-row kbd { color:#fff; font:12px/1.4 monospace; }
+  .shortcut-note { color:#9aa7c6; font-size:12px; margin:0 0 10px; }
   #props label { display:block; font-size:11px; color:#9aa7c6; margin:8px 12px 2px; }
   #props input, #props select { width:calc(100% - 24px); margin:0 12px; background:#171a24; color:#e6e9f0;
       border:1px solid #3a4366; border-radius:5px; padding:5px 7px; font-size:13px; }
@@ -118,6 +129,7 @@
     <span class="spacer"></span>
     <button id="btnClear">Clear</button>
     <button id="btnExport">Export JSON</button>
+    <button id="btnKeys" title="Keyboard shortcuts (Ctrl+K)">⌨ Keys</button>
     <button id="btnRun" class="run">▶ Run</button>
   </header>
   <div id="palette"></div>
@@ -148,6 +160,7 @@
   </div>
   <div id="props"><div class="title">Properties</div><div id="propBody" style="padding:12px;color:#7f8bab;font-size:13px;white-space:pre-line">Select a block or connection…</div></div>
 </div>
+<input id="fileOpen" type="file" accept="application/json,.json" hidden />
 <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

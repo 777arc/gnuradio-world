@@ -224,11 +224,46 @@ const nodesG = el('nodes'), wiresG = el('wires'), svg = el('svg') as unknown as 
 let insts: Inst[] = [];
 let conns: Conn[] = [];
 let selected: string | null = null;
+let selectedBlocks = new Set<string>();
 let selectedConnection: Conn | null = null;
 let counter = 0;
 let pending: { uid: string; port: number } | null = null;  // in-progress connection from an output
+let autoScrollLog = true;
+let zoom = 1;
+let hideDisabled = false;
+let paletteSearch: HTMLInputElement | null = null;
 
-function log(s: string) { const l = el('log'); l.textContent += s + '\n'; l.scrollTop = l.scrollHeight; }
+interface GraphSnapshot { insts: Inst[]; conns: Conn[]; counter: number }
+const graphHistory: GraphSnapshot[] = [];
+let historyIndex = -1;
+let historyReady = false;
+const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
+function snapshot(): GraphSnapshot { return clone({ insts, conns, counter }); }
+function resetHistory() {
+  graphHistory.length = 0; graphHistory.push(snapshot()); historyIndex = 0;
+}
+function recordHistory() {
+  if (!historyReady) return;
+  graphHistory.splice(historyIndex + 1);
+  graphHistory.push(snapshot());
+  if (graphHistory.length > 100) graphHistory.shift();
+  historyIndex = graphHistory.length - 1;
+}
+function restoreHistory(index: number) {
+  if (index < 0 || index >= graphHistory.length) return;
+  historyIndex = index;
+  const state = clone(graphHistory[index]);
+  insts = state.insts; conns = state.conns; counter = state.counter;
+  selected = null; selectedBlocks.clear(); selectedConnection = null; pending = null;
+  renderProps(); render();
+}
+function undo() { restoreHistory(historyIndex - 1); }
+function redo() { restoreHistory(historyIndex + 1); }
+
+function log(s: string) {
+  const l = el('log'); l.textContent += s + '\n';
+  if (autoScrollLog) l.scrollTop = l.scrollHeight;
+}
 
 // GRC-style geometry: title bar + "Label: value" parameter rows, typed ports.
 const TITLE_H = 22, ROW_H = 15, PAD = 6, PORT_W = 8, PORT_H = 13, PORT_GAP = 8;
@@ -323,6 +358,17 @@ function installGeneratedBlocks(blocks: any[]) {
   }
 }
 const textW = (s: string, px: number) => s.length * px * 0.56;
+function portCount(inst: Inst, kind: 'in' | 'out'): number {
+  const d = RUNNABLE[inst.id];
+  const key = kind === 'in'
+    ? (d.params.some(p => p.id === 'num_inputs') ? 'num_inputs' :
+       d.params.some(p => p.id === 'nconnections') && d.inputs ? 'nconnections' : '')
+    : (d.params.some(p => p.id === 'num_outputs') ? 'num_outputs' :
+       d.params.some(p => p.id === 'nconnections') && !d.inputs ? 'nconnections' : '');
+  if (!key) return kind === 'in' ? d.inputs : d.outputs;
+  const value = Number(inst.params[key]);
+  return Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : (kind === 'in' ? d.inputs : d.outputs);
+}
 
 function geom(inst: Inst) {
   const d = RUNNABLE[inst.id];
@@ -330,7 +376,7 @@ function geom(inst: Inst) {
   // block rendering (equivalent to GRC's `hide: part`).
   const rows = d.params.filter(p => !p.category)
     .map(p => ({ l: p.label + ': ', v: fmtVal(inst.params[p.id]) }));
-  const nports = Math.max(d.inputs, d.outputs, 1);
+  const nports = Math.max(portCount(inst, 'in'), portCount(inst, 'out'), 1);
   const bodyH = Math.max(rows.length * ROW_H + PAD, nports * (PORT_H + PORT_GAP) + PAD, ROW_H);
   const h = TITLE_H + bodyH;
   let w = textW(d.label, 13);
@@ -368,21 +414,21 @@ function addBlock(id: string, x = 60 + (counter % 5) * 30, y = 60 + (counter % 7
   const params: Record<string, any> = {};
   d.params.forEach(p => params[p.id] = p.def);
   insts.push({ uid, id, name: id.replace(/^.*_/, '') + counter, x, y, params, enabled: true, rotation: 0, bypassed: false });
-  select(uid); render();
+  select(uid); recordHistory();
 }
 
-// ---- block operations (used by the context menu) ----
-function deleteBlock(uid: string) {
-  insts = insts.filter(i => i.uid !== uid);
-  conns = conns.filter(c => c.from !== uid && c.to !== uid);
-  if (selected === uid) selected = null;
-  if (selectedConnection && (selectedConnection.from === uid || selectedConnection.to === uid)) selectedConnection = null;
-  renderProps(); render();
+// ---- block operations (used by the context menu and shortcuts) ----
+function deleteBlocks(uids = selectedBlocks) {
+  if (!uids.size) return;
+  insts = insts.filter(i => !uids.has(i.uid));
+  conns = conns.filter(c => !uids.has(c.from) && !uids.has(c.to));
+  selectedBlocks.clear(); selected = null; selectedConnection = null;
+  renderProps(); render(); recordHistory();
 }
 function deleteConnection(conn: Conn) {
   conns = conns.filter(c => c !== conn);
   if (selectedConnection === conn) selectedConnection = null;
-  renderProps(); render();
+  renderProps(); render(); recordHistory();
 }
 function duplicateBlock(uid: string) {
   const s = insts.find(i => i.uid === uid); if (!s) return;
@@ -390,35 +436,207 @@ function duplicateBlock(uid: string) {
   insts.push({ uid: nu, id: s.id, name: s.id.replace(/^.*_/, '') + counter,
     x: s.x + 24, y: s.y + 24, params: { ...s.params }, enabled: s.enabled,
     rotation: s.rotation, bypassed: s.bypassed });
-  select(nu);
+  select(nu); recordHistory();
 }
-function toggleEnabled(uid: string) {
-  const s = insts.find(i => i.uid === uid); if (s) { s.enabled = !s.enabled; render(); }
-}
-function rotate(uid: string, deg: number) {
-  const s = insts.find(i => i.uid === uid); if (s) { s.rotation = (((s.rotation + deg) % 360) + 360) % 360; render(); }
-}
-function toggleBypass(uid: string) {
-  const s = insts.find(i => i.uid === uid);
-  const d = s && RUNNABLE[s.id];
-  if (!s || !d) return;
-  if (d.inputs !== 1 || d.outputs !== 1) { log('bypass only works on 1-in/1-out blocks'); return; }
-  s.bypassed = !s.bypassed; render();
-}
-
 // ---- clipboard (Cut/Copy/Paste) ----
-let clipboard: Omit<Inst, 'uid' | 'x' | 'y'> | null = null;
+interface GraphClipboard { blocks: Inst[]; connections: Conn[] }
+let clipboard: GraphClipboard | null = null;
 function copyBlock(uid: string) {
-  const s = insts.find(i => i.uid === uid); if (!s) return;
-  clipboard = { id: s.id, name: s.name, params: { ...s.params }, enabled: s.enabled, rotation: s.rotation, bypassed: s.bypassed };
-  log('copied ' + s.name);
+  copyBlocks(selectedBlocks.has(uid) ? selectedBlocks : new Set([uid]));
+}
+function copyBlocks(uids = selectedBlocks) {
+  const blocks = insts.filter(i => uids.has(i.uid));
+  if (!blocks.length) return;
+  clipboard = clone({ blocks, connections: conns.filter(c => uids.has(c.from) && uids.has(c.to)) });
+  log(`copied ${blocks.length} block${blocks.length === 1 ? '' : 's'}`);
 }
 function pasteBlock(x = 80, y = 80) {
   if (!clipboard) return;
-  const uid = 'b' + (++counter);
-  insts.push({ ...clipboard, params: { ...clipboard.params }, uid,
-    name: clipboard.id.replace(/^.*_/, '') + counter, x, y });
-  select(uid); render();
+  const minX = Math.min(...clipboard.blocks.map(b => b.x));
+  const minY = Math.min(...clipboard.blocks.map(b => b.y));
+  const remap = new Map<string, string>();
+  const added: Inst[] = clipboard.blocks.map(source => {
+    const uid = 'b' + (++counter); remap.set(source.uid, uid);
+    return { ...clone(source), uid, name: source.id.replace(/^.*_/, '') + counter,
+      x: x + source.x - minX, y: y + source.y - minY };
+  });
+  insts.push(...added);
+  conns.push(...clipboard.connections.map(c => ({ ...c, from: remap.get(c.from)!, to: remap.get(c.to)! })));
+  selectedBlocks = new Set(added.map(i => i.uid)); selected = added.length ? added[added.length - 1].uid : null;
+  selectedConnection = null; renderProps(); render(); recordHistory();
+}
+
+function selectedInsts(): Inst[] { return insts.filter(i => selectedBlocks.has(i.uid)); }
+function setSelectedEnabled(enabled: boolean) {
+  const blocks = selectedInsts(); if (!blocks.length) return;
+  blocks.forEach(i => i.enabled = enabled); render(); recordHistory();
+}
+function rotateSelected(degrees: number) {
+  const blocks = selectedInsts(); if (!blocks.length) return;
+  blocks.forEach(i => i.rotation = (((i.rotation + degrees) % 360) + 360) % 360);
+  render(); recordHistory();
+}
+function bypassSelected() {
+  const blocks = selectedInsts(); if (!blocks.length) return;
+  let changed = false;
+  for (const block of blocks) {
+    if (portCount(block, 'in') === 1 && portCount(block, 'out') === 1) { block.bypassed = !block.bypassed; changed = true; }
+  }
+  if (!changed) { log('bypass only works on 1-in/1-out blocks'); return; }
+  render(); recordHistory();
+}
+type Alignment = 'top' | 'middle' | 'bottom' | 'left' | 'center' | 'right';
+function alignSelected(alignment: Alignment) {
+  const blocks = selectedInsts(); if (blocks.length < 2) return;
+  const boxes = blocks.map(block => ({ block, ...geom(block) }));
+  const left = Math.min(...boxes.map(b => b.block.x));
+  const right = Math.max(...boxes.map(b => b.block.x + b.w));
+  const top = Math.min(...boxes.map(b => b.block.y));
+  const bottom = Math.max(...boxes.map(b => b.block.y + b.h));
+  for (const b of boxes) {
+    if (alignment === 'top') b.block.y = top;
+    else if (alignment === 'middle') b.block.y = Math.round((top + bottom - b.h) / 2);
+    else if (alignment === 'bottom') b.block.y = bottom - b.h;
+    else if (alignment === 'left') b.block.x = left;
+    else if (alignment === 'center') b.block.x = Math.round((left + right - b.w) / 2);
+    else b.block.x = right - b.w;
+  }
+  render(); recordHistory();
+}
+function cycleBlockType(direction: number) {
+  const blocks = selectedInsts(); let changed = false;
+  for (const block of blocks) {
+    const param = RUNNABLE[block.id].params.find(p => p.id === 'type' && p.options?.length);
+    if (!param?.options?.length) continue;
+    const current = param.options.indexOf(String(block.params.type));
+    block.params.type = param.options[(current + direction + param.options.length) % param.options.length];
+    changed = true;
+  }
+  if (changed) { renderProps(); render(); recordHistory(); }
+}
+function changePortCount(delta: number) {
+  const candidates = ['nconnections', 'num_inputs', 'num_outputs', 'nports'];
+  const blocks = selectedInsts(); let changed = false;
+  for (const block of blocks) {
+    const key = candidates.find(id => RUNNABLE[block.id].params.some(p => p.id === id));
+    if (!key) continue;
+    block.params[key] = Math.max(1, Math.trunc(Number(block.params[key]) || 1) + delta); changed = true;
+  }
+  if (changed) { renderProps(); render(); recordHistory(); }
+}
+function setZoom(next: number) {
+  zoom = Math.max(0.4, Math.min(2.5, next));
+  el('canvasWrap').style.setProperty('--grid-size', `${16 * zoom}px`); render();
+  log(`zoom ${Math.round(zoom * 100)}%`);
+}
+function clearFlowgraph(record = true) {
+  insts = []; conns = []; counter = 0; selected = null; selectedBlocks.clear();
+  selectedConnection = null; pending = null; renderProps(); render();
+  if (record) recordHistory();
+}
+
+interface EditorFile { format: 'gnuradio-wasm-flowgraph'; version: 1; blocks: Inst[]; connections: Conn[] }
+function editorFile(): EditorFile {
+  return { format: 'gnuradio-wasm-flowgraph', version: 1, blocks: clone(insts), connections: clone(conns) };
+}
+function downloadBlob(contents: BlobPart, type: string, filename: string) {
+  const url = URL.createObjectURL(new Blob([contents], { type }));
+  const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+function saveFlowgraph(saveAs = false) {
+  downloadBlob(JSON.stringify(editorFile(), null, 2), 'application/json', saveAs ? 'flowgraph-as.json' : 'flowgraph.json');
+  log(`saved ${insts.length} blocks`);
+}
+function loadFlowgraph(value: any) {
+  if (value?.format === 'gnuradio-wasm-flowgraph' && Array.isArray(value.blocks)) {
+    insts = clone(value.blocks); conns = clone(value.connections || []);
+    counter = Math.max(0, ...insts.map(i => Number(i.uid.match(/\d+$/)?.[0]) || 0));
+  } else if (Array.isArray(value?.blocks)) {
+    insts = []; conns = []; counter = 0;
+    value.blocks.forEach((b: any, index: number) => {
+      const d = RUNNABLE[b.id]; if (!d) return;
+      const uid = 'b' + (++counter), params: Record<string, any> = {};
+      d.params.forEach(p => params[p.id] = b.params?.[p.id] ?? p.def);
+      insts.push({ uid, id: b.id, name: b.name || b.id.replace(/^.*_/, '') + counter,
+        x: 60 + (index % 4) * 190, y: 60 + Math.floor(index / 4) * 130,
+        params, enabled: true, rotation: 0, bypassed: false });
+    });
+    const byName = (name: string) => insts.find(i => i.name === name);
+    for (const c of value.connections || []) {
+      const from = byName(c[0]), to = byName(c[2]);
+      if (from && to && c[4] !== 'message') conns.push({ from: from.uid, fp: Number(c[1]), to: to.uid, tp: Number(c[3]) });
+    }
+  } else throw new Error('not a GNU Radio WASM flowgraph JSON file');
+  selected = null; selectedBlocks.clear(); selectedConnection = null; pending = null;
+  renderProps(); render(); recordHistory(); log(`opened ${insts.length} blocks`);
+}
+function duplicateFlowgraph() {
+  if (!insts.length) return;
+  const token = `grc-duplicate-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  try {
+    localStorage.setItem(token, JSON.stringify(editorFile()));
+    const duplicate = window.open(`${location.href.split('#')[0]}#duplicate=${encodeURIComponent(token)}`, '_blank');
+    if (duplicate) { log('duplicated flowgraph in a new tab'); return; }
+    localStorage.removeItem(token);
+  } catch { /* fall through to an in-canvas copy if storage or popups are unavailable */ }
+  const ids = new Set(insts.map(i => i.uid)); copyBlocks(ids);
+  const minX = Math.min(...insts.map(i => i.x)), minY = Math.min(...insts.map(i => i.y));
+  pasteBlock(minX + 30, minY + 30); log('popup blocked; duplicated flowgraph on the canvas');
+}
+function saveScreenshot() {
+  const copy = svg.cloneNode(true) as SVGSVGElement;
+  copy.setAttribute('xmlns', SVGNS);
+  copy.setAttribute('viewBox', `0 0 ${svg.clientWidth} ${svg.clientHeight}`);
+  const style = document.createElementNS(SVGNS, 'style');
+  style.textContent = [...document.styleSheets].flatMap(sheet => {
+    try { return [...sheet.cssRules].map(rule => rule.cssText); } catch { return []; }
+  }).join('\n');
+  copy.insertBefore(style, copy.firstChild);
+  downloadBlob(new XMLSerializer().serializeToString(copy), 'image/svg+xml', 'flowgraph.svg');
+  log('saved flowgraph screenshot');
+}
+function saveConsole() { downloadBlob(el('log').textContent || '', 'text/plain', 'grc-console.txt'); }
+function showVariableEditor() {
+  closeMenu(); document.querySelector('.modal')?.remove();
+  const variables = insts.filter(i => i.id === 'variable' || i.id.startsWith('variable_'));
+  const overlay = document.createElement('div'); overlay.className = 'modal variables';
+  const dlg = document.createElement('div'); dlg.className = 'dlg';
+  const head = document.createElement('div'); head.className = 'dlghead'; head.textContent = 'Variable Editor';
+  const body = document.createElement('div'); body.className = 'dlgbody';
+  if (!variables.length) {
+    body.textContent = 'No variable blocks are present in this flowgraph.';
+  } else for (const variable of variables) {
+    const d = RUNNABLE[variable.id];
+    const title = document.createElement('div'); title.className = 'dlghead'; title.textContent = d.label;
+    body.appendChild(title);
+    const add = (label: string, node: HTMLElement) => {
+      const row = document.createElement('div'); row.className = 'dlgrow';
+      const l = document.createElement('label'); l.textContent = label; row.append(l, node); body.appendChild(row);
+    };
+    const name = document.createElement('input'); name.value = variable.name;
+    name.onchange = () => { variable.name = name.value.replace(/\s+/g, '_'); render(); recordHistory(); };
+    add('ID', name);
+    for (const param of d.params) {
+      let input: HTMLInputElement | HTMLSelectElement;
+      if (param.type === 'enum') {
+        input = document.createElement('select');
+        (param.options || []).forEach(option => input.appendChild(new Option(option, option)));
+        input.value = String(variable.params[param.id]);
+      } else {
+        input = document.createElement('input'); input.value = String(variable.params[param.id]);
+      }
+      input.onchange = () => {
+        variable.params[param.id] = param.type === 'number' ? numericOrExpression(input.value) : input.value;
+        render(); recordHistory();
+      };
+      add(param.label, input);
+    }
+  }
+  const foot = document.createElement('div'); foot.className = 'dlgfoot';
+  const close = document.createElement('button'); close.textContent = 'Close'; close.onclick = () => overlay.remove(); foot.appendChild(close);
+  dlg.append(head, body, foot); overlay.appendChild(dlg); document.body.appendChild(overlay);
+  overlay.addEventListener('mousedown', e => { if (e.target === overlay) overlay.remove(); }); close.focus();
 }
 
 // ---- right-click context menu (GRC-style) ----
@@ -437,38 +655,129 @@ function showMenu(x: number, y: number, inst: Inst) {
   const sep = () => m.appendChild(Object.assign(document.createElement('div'), { className: 'ctxsep' }));
   item('Properties', () => showPropsDialog(inst));
   sep();
-  item('Cut', () => { copyBlock(inst.uid); deleteBlock(inst.uid); });
+  item('Cut', () => { copyBlock(inst.uid); deleteBlocks(selectedBlocks.has(inst.uid) ? selectedBlocks : new Set([inst.uid])); });
   item('Copy', () => copyBlock(inst.uid));
   item('Paste', () => pasteBlock(inst.x + 30, inst.y + 30));
   item('Duplicate', () => duplicateBlock(inst.uid));
   sep();
-  item('Rotate Clockwise', () => rotate(inst.uid, 90));
-  item('Rotate Counterclockwise', () => rotate(inst.uid, -90));
-  item(inst.enabled ? 'Disable' : 'Enable', () => toggleEnabled(inst.uid));
-  item(inst.bypassed ? 'Un-Bypass' : 'Bypass', () => toggleBypass(inst.uid));
+  item('Rotate Clockwise', () => rotateSelected(90));
+  item('Rotate Counterclockwise', () => rotateSelected(-90));
+  item(inst.enabled ? 'Disable' : 'Enable', () => setSelectedEnabled(!inst.enabled));
+  item(inst.bypassed ? 'Un-Bypass' : 'Bypass', () => bypassSelected());
   sep();
-  item('Delete', () => deleteBlock(inst.uid), true);
+  item('Delete', () => deleteBlocks(selectedBlocks.has(inst.uid) ? selectedBlocks : new Set([inst.uid])), true);
   document.body.appendChild(m);
   m.style.left = Math.min(x, window.innerWidth - m.offsetWidth - 6) + 'px';
   m.style.top = Math.min(y, window.innerHeight - m.offsetHeight - 6) + 'px';
   menuEl = m;
 }
 document.addEventListener('mousedown', e => { if (menuEl && !menuEl.contains(e.target as Node)) closeMenu(); });
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') { closeMenu(); document.querySelector('.modal.props')?.remove(); return; }
-  const el = document.activeElement;
-  if (el && ['INPUT', 'SELECT', 'TEXTAREA'].includes(el.tagName)) return; // don't hijack typing
-  const ctrl = e.ctrlKey || e.metaKey;
-  if (e.key === 'Delete' && (selectedConnection || selected)) {
-    e.preventDefault();
-    if (selectedConnection) deleteConnection(selectedConnection);
-    else if (selected) deleteBlock(selected);
+const SHORTCUTS: [string, string][] = [
+  ['Ctrl+N / O', 'New / open flowgraph'], ['Ctrl+S / Ctrl+Shift+S', 'Save / save as'],
+  ['Ctrl+Shift+D', 'Duplicate flowgraph'], ['Ctrl+W / Ctrl+Q', 'Close flowgraph / app'],
+  ['Ctrl+P', 'Save flowgraph screenshot'], ['Ctrl+Shift+P', 'Save console'], ['Ctrl+L', 'Clear console'],
+  ['Ctrl+Z / Ctrl+Y', 'Undo / redo'], ['Ctrl+A', 'Select all'], ['Delete', 'Delete selection'],
+  ['Ctrl+X / C / V', 'Cut / copy / paste'], ['Left / Right', 'Rotate counterclockwise / clockwise'],
+  ['Return', 'Block properties'], ['E / D / B', 'Enable / disable / bypass'],
+  ['C', 'Create hierarchy (not available in WASM)'],
+  ['Shift+T / M / B', 'Align top / middle / bottom'], ['Shift+L / C / R', 'Align left / center / right'],
+  ['Up / Down', 'Previous / next block type'], ['+ / −', 'Increase / decrease dynamic ports'],
+  ['Ctrl++ / Ctrl+− / Ctrl+0', 'Zoom in / out / reset'], ['Ctrl+D', 'Hide disabled blocks'],
+  ['Ctrl+E / R / B', 'Variable editor / console / block tree'], ['Scroll Lock', 'Toggle console autoscroll'],
+  ['Ctrl+F or /', 'Search blocks'], ['G', 'Toggle grid'], ['Ctrl+K or F1', 'Show these shortcuts'],
+  ['F5 / F6 / F7', 'Generate / execute / stop'], ['Escape', 'Close dialog or menu'],
+];
+function showShortcutHelp() {
+  closeMenu(); document.querySelector('.modal')?.remove();
+  const overlay = document.createElement('div'); overlay.className = 'modal shortcuts';
+  const dlg = document.createElement('div'); dlg.className = 'dlg shortcut-dlg';
+  const head = document.createElement('div'); head.className = 'dlghead'; head.textContent = 'Keyboard shortcuts';
+  const body = document.createElement('div'); body.className = 'dlgbody';
+  const note = document.createElement('p'); note.className = 'shortcut-note';
+  note.textContent = 'These mirror GNU Radio Companion. Browser-reserved close/quit keys may still be handled by the browser.';
+  const grid = document.createElement('div'); grid.className = 'shortcut-grid';
+  for (const [keys, action] of SHORTCUTS) {
+    const row = document.createElement('div'); row.className = 'shortcut-row';
+    const key = document.createElement('kbd'); key.textContent = keys;
+    const label = document.createElement('span'); label.textContent = action; row.append(key, label); grid.appendChild(row);
   }
-  else if (ctrl && e.key === 'c' && selected) copyBlock(selected);
-  else if (ctrl && e.key === 'x' && selected) { copyBlock(selected); deleteBlock(selected); }
-  else if (ctrl && e.key === 'v') pasteBlock();
-  else if (ctrl && e.key === 'ArrowRight' && selected) { e.preventDefault(); rotate(selected, 90); }
-  else if (ctrl && e.key === 'ArrowLeft' && selected) { e.preventDefault(); rotate(selected, -90); }
+  body.append(note, grid);
+  const foot = document.createElement('div'); foot.className = 'dlgfoot';
+  const close = document.createElement('button'); close.textContent = 'Close'; close.onclick = () => overlay.remove(); foot.appendChild(close);
+  dlg.append(head, body, foot); overlay.appendChild(dlg); document.body.appendChild(overlay); close.focus();
+  overlay.addEventListener('mousedown', e => { if (e.target === overlay) overlay.remove(); });
+}
+function consume(e: KeyboardEvent) { e.preventDefault(); e.stopPropagation(); }
+document.addEventListener('keydown', e => {
+  const ctrl = e.ctrlKey || e.metaKey, key = e.key.toLowerCase();
+  if (e.key === 'Escape') {
+    closeMenu(); document.querySelector('.modal')?.remove();
+    if (document.activeElement === paletteSearch && paletteSearch) {
+      paletteSearch.value = ''; paletteSearch.dispatchEvent(new Event('input')); paletteSearch.blur();
+    }
+    return;
+  }
+  if (e.key === 'F1' || (ctrl && key === 'k')) { consume(e); showShortcutHelp(); return; }
+  if (ctrl && key === 'n') { consume(e); clearFlowgraph(); return; }
+  if (ctrl && key === 'o') { consume(e); (el('fileOpen') as HTMLInputElement).click(); return; }
+  if (ctrl && key === 's') { consume(e); saveFlowgraph(e.shiftKey); return; }
+  if (ctrl && e.shiftKey && key === 'd') { consume(e); duplicateFlowgraph(); return; }
+  if (ctrl && e.shiftKey && key === 'p') { consume(e); saveConsole(); return; }
+  if (ctrl && key === 'p') { consume(e); saveScreenshot(); return; }
+  if (ctrl && key === 'l') { consume(e); el('log').textContent = ''; return; }
+  if (ctrl && key === 'w') { consume(e); clearFlowgraph(); return; }
+  if (ctrl && key === 'q') { consume(e); stop(); window.close(); return; }
+  if (e.key === 'F5') { consume(e); const fg = toFlowgraphJSON(); log(`generated ${fg.blocks.length} blocks, ${fg.connections.length} connections`); return; }
+  if (e.key === 'F6') { consume(e); run(); return; }
+  if (e.key === 'F7') { consume(e); stop(); return; }
+  if (e.key === 'ScrollLock') { consume(e); autoScrollLog = !autoScrollLog; log(`console autoscroll ${autoScrollLog ? 'on' : 'off'}`); return; }
+  if (ctrl && (e.key === '+' || e.key === '=' || e.code === 'NumpadAdd')) { consume(e); setZoom(zoom * 1.15); return; }
+  if (ctrl && (e.key === '-' || e.key === '_' || e.code === 'NumpadSubtract')) { consume(e); setZoom(zoom / 1.15); return; }
+  if (ctrl && key === '0') { consume(e); setZoom(1); return; }
+  if (ctrl && key === 'd') { consume(e); hideDisabled = !hideDisabled; render(); return; }
+  if (ctrl && key === 'e') { consume(e); showVariableEditor(); return; }
+  if (ctrl && key === 'r') { consume(e); el('canvasWrap').classList.toggle('console-hidden'); return; }
+  if (ctrl && key === 'b') { consume(e); el('app').classList.toggle('hide-palette'); return; }
+  if (ctrl && key === 'f') {
+    consume(e); el('app').classList.remove('hide-palette'); paletteSearch?.focus(); paletteSearch?.select(); return;
+  }
+
+  const active = document.activeElement;
+  if (active && ['INPUT', 'SELECT', 'TEXTAREA'].includes(active.tagName)) return;
+
+  if (ctrl && key === 'z') { consume(e); e.shiftKey ? redo() : undo(); }
+  else if (ctrl && key === 'y') { consume(e); redo(); }
+  else if (ctrl && key === 'a') {
+    consume(e); selectedBlocks = new Set(insts.map(i => i.uid)); selected = insts.length ? insts[insts.length - 1].uid : null;
+    selectedConnection = null; renderProps(); render();
+  }
+  else if (e.key === 'Delete' && (selectedConnection || selectedBlocks.size)) {
+    consume(e); if (selectedConnection) deleteConnection(selectedConnection); else deleteBlocks();
+  }
+  else if (ctrl && key === 'c' && selectedBlocks.size) { consume(e); copyBlocks(); }
+  else if (ctrl && key === 'x' && selectedBlocks.size) { consume(e); copyBlocks(); deleteBlocks(); }
+  else if (ctrl && key === 'v') { consume(e); pasteBlock(); }
+  else if (e.key === 'ArrowRight' && !ctrl && selectedBlocks.size) { consume(e); rotateSelected(90); }
+  else if (e.key === 'ArrowLeft' && !ctrl && selectedBlocks.size) { consume(e); rotateSelected(-90); }
+  else if (e.key === 'ArrowUp' && !ctrl && selectedBlocks.size) { consume(e); cycleBlockType(-1); }
+  else if (e.key === 'ArrowDown' && !ctrl && selectedBlocks.size) { consume(e); cycleBlockType(1); }
+  else if (e.key === 'Enter' && selected) { consume(e); showPropsDialog(G0(selected)); }
+  else if (!ctrl && !e.shiftKey && key === 'e') { consume(e); setSelectedEnabled(true); }
+  else if (!ctrl && !e.shiftKey && key === 'd') { consume(e); setSelectedEnabled(false); }
+  else if (!ctrl && !e.shiftKey && key === 'b') { consume(e); bypassSelected(); }
+  else if (!ctrl && !e.shiftKey && key === 'c') { consume(e); log('hierarchical blocks are not supported in WebAssembly'); }
+  else if (e.shiftKey && !ctrl && key === 't') { consume(e); alignSelected('top'); }
+  else if (e.shiftKey && !ctrl && key === 'm') { consume(e); alignSelected('middle'); }
+  else if (e.shiftKey && !ctrl && key === 'b') { consume(e); alignSelected('bottom'); }
+  else if (e.shiftKey && !ctrl && key === 'l') { consume(e); alignSelected('left'); }
+  else if (e.shiftKey && !ctrl && key === 'c') { consume(e); alignSelected('center'); }
+  else if (e.shiftKey && !ctrl && key === 'r') { consume(e); alignSelected('right'); }
+  else if (!ctrl && (e.key === '+' || e.key === '=')) { consume(e); changePortCount(1); }
+  else if (!ctrl && (e.key === '-' || e.key === '_')) { consume(e); changePortCount(-1); }
+  else if (!ctrl && e.key === '/') {
+    consume(e); el('app').classList.remove('hide-palette'); paletteSearch?.focus(); paletteSearch?.select();
+  }
+  else if (!ctrl && !e.shiftKey && key === 'g') { consume(e); el('canvasWrap').classList.toggle('grid-hidden'); }
 });
 
 // ---- block Properties dialog (GRC-style modal) ----
@@ -533,7 +842,7 @@ function showPropsDialog(inst: Inst) {
   }
 
   const foot = document.createElement('div'); foot.className = 'dlgfoot';
-  const apply = () => { inst.name = tmp.name; inst.params = { ...tmp.params }; select(inst.uid); render(); };
+  const apply = () => { inst.name = tmp.name; inst.params = { ...tmp.params }; select(inst.uid); recordHistory(); };
   const btn = (label: string, fn: () => void, cls = '') => {
     const b = document.createElement('button'); b.textContent = label; if (cls) b.className = cls; b.onclick = fn; return b;
   };
@@ -547,8 +856,14 @@ function showPropsDialog(inst: Inst) {
   nameI.focus(); nameI.select();
 }
 
-function select(uid: string | null) {
-  selected = uid;
+function select(uid: string | null, additive = false) {
+  if (uid === null) selectedBlocks.clear();
+  else if (additive) {
+    if (selectedBlocks.has(uid)) selectedBlocks.delete(uid); else selectedBlocks.add(uid);
+  } else if (!selectedBlocks.has(uid) || selectedBlocks.size === 1) {
+    selectedBlocks.clear(); selectedBlocks.add(uid);
+  }
+  selected = uid !== null && selectedBlocks.has(uid) ? uid : ([...selectedBlocks].pop() || null);
   selectedConnection = null;
   renderProps(); render();
 }
@@ -557,14 +872,14 @@ function selectConnection(conn: Conn) {
   // Give keyboard shortcuts back to the canvas if the palette/property editor
   // previously held focus. The SVG path itself is not a focusable element.
   (document.activeElement as HTMLElement | null)?.blur();
-  selected = null;
+  selected = null; selectedBlocks.clear();
   selectedConnection = conn;
   renderProps(); render();
 }
 
 function svgPoint(evt: MouseEvent): { x: number; y: number } {
   const r = svg.getBoundingClientRect();
-  return { x: evt.clientX - r.left, y: evt.clientY - r.top };
+  return { x: (evt.clientX - r.left) / zoom, y: (evt.clientY - r.top) / zoom };
 }
 
 const svgEl = <K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string, string>): SVGElementTagNameMap[K] => {
@@ -575,16 +890,18 @@ const svgEl = <K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<strin
 
 function render() {
   nodesG.textContent = ''; wiresG.textContent = '';
+  nodesG.setAttribute('transform', `scale(${zoom})`);
+  wiresG.setAttribute('transform', `scale(${zoom})`);
   const G = (uid: string) => insts.find(i => i.uid === uid)!;
   // wires (from output right-edge to input left-edge, GRC-style curves)
   for (const c of conns) {
-    const a = G(c.from), b = G(c.to); if (!a || !b) continue;
+    const a = G(c.from), b = G(c.to); if (!a || !b || (hideDisabled && (!a.enabled || !b.enabled))) continue;
     const pa = portPos(a, 'out', c.fp), pb = portPos(b, 'in', c.tp);
     const x1 = a.x + pa.x, y1 = a.y + pa.y, x2 = b.x + pb.x, y2 = b.y + pb.y;
     const [c1x, c1y] = ctrl(pa.edge, x1, y1, 42);
     const [c2x, c2y] = ctrl(pb.edge, x2, y2, 42);
     const d = `M${x1},${y1} C${c1x},${c1y} ${c2x},${c2y} ${x2},${y2}`;
-    const isSelected = c === selectedConnection;
+    const isSelected = c === selectedConnection || (insts.length > 0 && selectedBlocks.size === insts.length);
     const wire = svgEl('g', { class: 'wire-group' });
     wire.appendChild(svgEl('path', { class: 'wire' + (isSelected ? ' sel' : ''), d,
       'marker-end': isSelected ? 'url(#arrow-selected)' : 'url(#arrow)' }));
@@ -600,8 +917,9 @@ function render() {
   }
   // blocks
   for (const inst of insts) {
+    if (hideDisabled && !inst.enabled) continue;
     const { d, rows, h, w } = geom(inst);
-    const g = svgEl('g', { class: 'blk' + (inst.uid === selected ? ' sel' : '') +
+    const g = svgEl('g', { class: 'blk' + (selectedBlocks.has(inst.uid) ? ' sel' : '') +
       (inst.enabled ? '' : ' disabled') + (inst.bypassed ? ' bypassed' : ''),
       transform: `translate(${inst.x},${inst.y})` });
     const rect = svgEl('rect', { class: 'body', width: String(w), height: String(h), rx: '2' });
@@ -621,9 +939,9 @@ function render() {
     });
     // Drag from anywhere on the block; ports stopPropagation so they still connect.
     g.addEventListener('mousedown', e => startDrag(e, inst));
-    g.addEventListener('contextmenu', e => { e.preventDefault(); e.stopPropagation(); select(inst.uid); showMenu(e.clientX, e.clientY, inst); });
-    for (let i = 0; i < d.inputs; i++) addPort(g, inst, 'in', i, portColor(inst, 'in', i));
-    for (let i = 0; i < d.outputs; i++) addPort(g, inst, 'out', i, portColor(inst, 'out', i));
+    g.addEventListener('contextmenu', e => { e.preventDefault(); e.stopPropagation(); if (!selectedBlocks.has(inst.uid)) select(inst.uid); showMenu(e.clientX, e.clientY, inst); });
+    for (let i = 0; i < portCount(inst, 'in'); i++) addPort(g, inst, 'in', i, portColor(inst, 'in', i));
+    for (let i = 0; i < portCount(inst, 'out'); i++) addPort(g, inst, 'out', i, portColor(inst, 'out', i));
     nodesG.appendChild(g);
   }
 }
@@ -648,14 +966,14 @@ function addPort(g: SVGGElement, inst: Inst, kind: 'in' | 'out', idx: number, co
       conns = conns.filter(cn => !(cn.to === inst.uid && cn.tp === idx));
       conns.push({ from: pending.uid, fp: pending.port, to: inst.uid, tp: idx });
       log('  → ' + G0(pending.uid).name + ':' + pending.port + '  to  ' + inst.name + ':' + idx);
-      pending = null; render();
+      pending = null; render(); recordHistory();
     }
   });
   g.appendChild(r);
 }
 const G0 = (uid: string) => insts.find(i => i.uid === uid)!;
 
-let drag: { inst: Inst; ox: number; oy: number } | null = null;
+let drag: { inst: Inst; ox: number; oy: number; starts: Map<string, { x: number; y: number }>; moved: boolean } | null = null;
 // Manual double-click detection: select()/drag rebuild the block's DOM node on
 // every mousedown, so the browser never sees two clicks on the same element and
 // its native 'dblclick' never fires. Track the last mousedown ourselves instead.
@@ -671,14 +989,24 @@ function startDrag(e: MouseEvent, inst: Inst) {
     return;
   }
   lastMouseDown = { uid: inst.uid, t: now };
-  select(inst.uid);
-  const p = svgPoint(e); drag = { inst, ox: p.x - inst.x, oy: p.y - inst.y };
+  select(inst.uid, e.shiftKey);
+  if (!selectedBlocks.has(inst.uid)) return;
+  const p = svgPoint(e);
+  drag = { inst, ox: p.x - inst.x, oy: p.y - inst.y,
+    starts: new Map(insts.filter(i => selectedBlocks.has(i.uid)).map(i => [i.uid, { x: i.x, y: i.y }])), moved: false };
 }
 window.addEventListener('mousemove', e => {
   if (!drag) return; const p = svgPoint(e);
-  drag.inst.x = Math.round(p.x - drag.ox); drag.inst.y = Math.round(p.y - drag.oy); render();
+  const primary = drag.starts.get(drag.inst.uid)!;
+  const nx = Math.round(p.x - drag.ox), ny = Math.round(p.y - drag.oy);
+  const dx = nx - primary.x, dy = ny - primary.y;
+  for (const inst of insts) {
+    const start = drag.starts.get(inst.uid); if (!start) continue;
+    inst.x = start.x + dx; inst.y = start.y + dy;
+  }
+  drag.moved ||= dx !== 0 || dy !== 0; render();
 });
-window.addEventListener('mouseup', () => { drag = null; });
+window.addEventListener('mouseup', () => { if (drag?.moved) recordHistory(); drag = null; });
 svg.addEventListener('mousedown', () => { select(null); pending = null; });
 svg.addEventListener('contextmenu', e => {
   e.preventDefault(); closeMenu();
@@ -701,6 +1029,10 @@ function renderProps() {
       `${sink?.name || selectedConnection.to}:${selectedConnection.tp}\n\nPress Delete to remove this connection.`;
     return;
   }
+  if (selectedBlocks.size > 1) {
+    body.textContent = `${selectedBlocks.size} blocks selected\n\nUse Shift+T/M/B or Shift+L/C/R to align them.`;
+    return;
+  }
   if (!selected) { body.textContent = 'Select a block or connection…'; return; }
   const inst = insts.find(i => i.uid === selected)!; const d = RUNNABLE[inst.id];
   body.innerHTML = '';
@@ -709,17 +1041,19 @@ function renderProps() {
   };
   const nameI = document.createElement('input'); nameI.value = inst.name;
   nameI.oninput = () => { inst.name = nameI.value.replace(/\s+/g, '_'); render(); };
+  nameI.onchange = recordHistory;
   mk('Block name (id)', nameI);
   for (const p of d.params.filter(p => !p.category)) {
     let node: HTMLElement;
     if (p.type === 'enum') {
       const s = document.createElement('select');
       (p.options || []).forEach(o => { const opt = document.createElement('option'); opt.value = o; opt.textContent = o; s.appendChild(opt); });
-      s.value = String(inst.params[p.id]); s.onchange = () => { inst.params[p.id] = s.value; render(); };
+      s.value = String(inst.params[p.id]); s.onchange = () => { inst.params[p.id] = s.value; render(); recordHistory(); };
       node = s;
     } else {
       const inp = document.createElement('input'); inp.value = String(inst.params[p.id]);
       inp.oninput = () => { inst.params[p.id] = p.type === 'number' ? numericOrExpression(inp.value) : inp.value; render(); };
+      inp.onchange = recordHistory;
       node = inp;
     }
     mk(p.label + '  (' + p.id + ')', node);
@@ -912,6 +1246,7 @@ async function buildPalette() {
   const pal = el('palette');
   const search = document.createElement('input');
   search.className = 'palsearch'; search.placeholder = 'Search blocks…';
+  paletteSearch = search;
   const tree = document.createElement('div'); tree.className = 'tree';
   pal.append(search, tree);
   try {
@@ -928,10 +1263,17 @@ async function buildPalette() {
 
 el('btnRun').addEventListener('click', run);
 el('btnStop').addEventListener('click', stop);
-el('btnClear').addEventListener('click', () => { insts = []; conns = []; select(null); render(); });
+el('btnClear').addEventListener('click', () => clearFlowgraph());
 el('btnExport').addEventListener('click', () => log(JSON.stringify(toFlowgraphJSON(), null, 1)));
+el('btnKeys').addEventListener('click', showShortcutHelp);
+(el('fileOpen') as HTMLInputElement).addEventListener('change', async event => {
+  const input = event.currentTarget as HTMLInputElement, file = input.files?.[0]; if (!file) return;
+  try { loadFlowgraph(JSON.parse(await file.text())); }
+  catch (error) { log('could not open flowgraph: ' + error); }
+  input.value = '';
+});
 
-buildPalette();
+const paletteReady = buildPalette();
 // Seed with a multi-source demo (signal + noise -> add -> throttle -> scope).
 addBlock('analog_sig_source_x', 50, 70);
 addBlock('analog_noise_source_x', 50, 230);
@@ -944,4 +1286,14 @@ conns.push({ from: noise.uid, fp: 0, to: add.uid, tp: 1 });
 conns.push({ from: add.uid, fp: 0, to: thr.uid, tp: 0 });
 conns.push({ from: thr.uid, fp: 0, to: snk.uid, tp: 0 });
 select(null); render();
+historyReady = true; resetHistory();
 log('Editor ready. Click ▶ Run to execute the flowgraph in WebAssembly.');
+paletteReady.then(() => {
+  const token = new URLSearchParams(location.hash.slice(1)).get('duplicate');
+  if (!token) return;
+  try {
+    const saved = localStorage.getItem(token); if (!saved) throw new Error('duplicate data is no longer available');
+    localStorage.removeItem(token); loadFlowgraph(JSON.parse(saved)); resetHistory();
+    history.replaceState(null, '', location.href.split('#')[0]);
+  } catch (error) { log('could not duplicate flowgraph: ' + error); }
+});
