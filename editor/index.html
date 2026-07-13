@@ -62,13 +62,18 @@
   .blk { cursor:move; }
   .blk rect.body { fill:#f2f2f2; stroke:#000; stroke-width:1; }
   .blk.sel rect.body { fill:#e3f0ff; stroke:#1a63c4; stroke-width:2; }
+  .blk.invalid rect.body { fill:#fff0f0; stroke:#d1242f; stroke-width:2; }
+  .blk.invalid text.title { fill:#a40e26 !important; }
   .blk text.title { fill:#000; font-size:13px; font-weight:700; font-family:'DejaVu Sans',Verdana,sans-serif; }
   .blk text.param { fill:#111; font-size:11px; font-family:'DejaVu Sans',Verdana,sans-serif; }
   .blk text.pval { fill:#1a63c4; }
+  .blk text.param.invalid, .blk text.param.invalid .pval { fill:#d1242f; font-weight:700; }
+  .blk text.validation-error { fill:#d1242f; font:10px 'DejaVu Sans',Verdana,sans-serif; pointer-events:none; }
   .port { stroke:#000; stroke-width:1; cursor:crosshair; }
   .port:hover { stroke:#1a63c4; stroke-width:2; }
   .wire { stroke:#2a2a2a; stroke-width:2; fill:none; pointer-events:none; }
   .wire.sel { stroke:#00b8c8; stroke-width:3; }
+  .wire.invalid { stroke:#d1242f; stroke-width:3; }
   .wire-hit { stroke:transparent; stroke-width:12; fill:none; cursor:pointer; pointer-events:stroke; }
   /* disabled block (GRC greys it out) */
   .blk.disabled rect.body { fill:#e6e6e6; stroke:#9a9a9a; stroke-dasharray:5 3; }
@@ -77,6 +82,8 @@
   /* bypassed block (GRC pale look, distinct from disabled) */
   .blk.bypassed rect.body { fill:#fff4d6; stroke:#b8973a; stroke-dasharray:6 3; }
   .blk.bypassed text.title { fill:#7a5c12; }
+  .blk.disabled.invalid rect.body, .blk.bypassed.invalid rect.body { fill:#fff0f0; stroke:#d1242f; }
+  .blk.disabled.invalid text.title, .blk.bypassed.invalid text.title { fill:#a40e26; }
   /* right-click context menu */
   .ctxmenu { position:fixed; z-index:200; background:#272c3d; border:1px solid #46507a;
       border-radius:6px; padding:4px 0; min-width:158px; box-shadow:0 8px 26px #000a; font-size:13px; }
@@ -100,6 +107,10 @@
   .dlgrow label { font-size:12px; color:#9aa7c6; text-align:right; }
   .dlgrow input, .dlgrow select { background:#171a24; color:#e6e9f0; border:1px solid #3a4366;
       border-radius:5px; padding:6px 8px; font-size:13px; width:100%; }
+  .field-control { min-width:0; }
+  .field-error { display:block; color:#ff7b72; font-size:10px; line-height:1.3; margin-top:3px; }
+  .field-error[hidden] { display:none; }
+  .field-invalid { border-color:#ff4d5e !important; box-shadow:0 0 0 1px #ff4d5e66; }
   .dlgfoot { padding:10px 16px; display:flex; gap:8px; justify-content:flex-end; border-top:1px solid #333a4d; }
   .shortcut-dlg { width:min(760px,92vw); }
   .shortcut-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 24px; }
@@ -108,7 +119,8 @@
   .shortcut-row kbd { color:#fff; font:12px/1.4 monospace; }
   .shortcut-note { color:#9aa7c6; font-size:12px; margin:0 0 10px; }
   #props label { display:block; font-size:11px; color:#9aa7c6; margin:8px 12px 2px; }
-  #props input, #props select { width:calc(100% - 24px); margin:0 12px; background:#171a24; color:#e6e9f0;
+  #props .field-control { margin:0 12px; }
+  #props input, #props select { width:100%; margin:0; background:#171a24; color:#e6e9f0;
       border:1px solid #3a4366; border-radius:5px; padding:5px 7px; font-size:13px; }
   #props .title { font-size:14px; font-weight:600; padding:12px; border-bottom:1px solid #333a4d; }
   #log { position:absolute; bottom:0; left:0; right:0; max-height:26%; overflow:auto; background:#141722ee;

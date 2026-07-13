@@ -3,6 +3,6 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "scripts": { "dev": "vite", "build": "vite build", "test": "node test/shortcuts.test.mjs", "preview": "vite preview" },
+  "scripts": { "dev": "vite", "build": "vite build", "test": "node test/shortcuts.test.mjs && node test/validation.test.mjs", "preview": "vite preview" },
   "devDependencies": { "typescript": "^5.5.0", "vite": "^5.4.0" }
 }

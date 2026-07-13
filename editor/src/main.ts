@@ -216,6 +216,13 @@ const RUNNABLE: Record<string, RunnableDef> = {
 
 interface Inst { uid: string; id: string; name: string; x: number; y: number; params: Record<string, any>; enabled: boolean; rotation: number; bypassed: boolean }
 interface Conn { from: string; fp: number; to: string; tp: number }
+interface ValidationIssue {
+  uid: string;
+  field: string;
+  message: string;
+  blocking: boolean;
+  connection?: Conn;
+}
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const el = (id: string) => document.getElementById(id)!;
@@ -289,6 +296,17 @@ function fmtVal(v: any): string {
   return String(v);
 }
 
+function wrapValidationMessage(message: string, maxCharacters: number): string[] {
+  const lines: string[] = [];
+  for (const word of message.split(/\s+/)) {
+    const last = lines.length - 1;
+    if (last >= 0 && lines[last].length + word.length + 1 <= maxCharacters)
+      lines[last] += ' ' + word;
+    else lines.push(word);
+  }
+  return lines;
+}
+
 // Numeric GRC fields may also contain a variable ID (for example a signal
 // source's frequency can be `freq`, the ID of a QT GUI Range).
 function numericOrExpression(value: string): number | string {
@@ -296,6 +314,114 @@ function numericOrExpression(value: string): number | string {
   if (!text) return '';
   const number = Number(text);
   return Number.isFinite(number) ? number : text;
+}
+
+const NAME_FIELD = '__name';
+const BLOCK_FIELD = '__block';
+
+function validateGraph(blocks: Inst[] = insts, connections: Conn[] = conns): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  const active = (block: Inst) => block.enabled && !block.bypassed;
+  const activeNames = new Map<string, number>();
+  for (const block of blocks.filter(active)) {
+    const name = String(block.name || '').trim();
+    activeNames.set(name, (activeNames.get(name) || 0) + 1);
+  }
+  const activeRanges = new Set(blocks
+    .filter(block => active(block) && block.id === 'variable_qtgui_range' &&
+      activeNames.get(String(block.name || '').trim()) === 1)
+    .map(block => String(block.name || '').trim()));
+
+  const add = (block: Inst, field: string, message: string, connection?: Conn) => {
+    if (!issues.some(issue => issue.uid === block.uid && issue.field === field &&
+      issue.message === message && issue.connection === connection))
+      issues.push({ uid: block.uid, field, message, blocking: active(block), connection });
+  };
+  const finiteNumber = (value: any) => {
+    if (typeof value === 'number') return Number.isFinite(value);
+    if (typeof value !== 'string' || !value.trim()) return false;
+    return Number.isFinite(Number(value.trim()));
+  };
+
+  for (const block of blocks) {
+    const def = RUNNABLE[block.id];
+    if (!def) { add(block, BLOCK_FIELD, `Unknown block type "${block.id}".`); continue; }
+    const name = String(block.name || '').trim();
+    if (!name) add(block, NAME_FIELD, 'Block ID is required.');
+    else if (active(block) && (activeNames.get(name) || 0) > 1)
+      add(block, NAME_FIELD, `Block ID "${name}" is used more than once.`);
+
+    for (const param of def.params) {
+      const value = block.params?.[param.id];
+      if (param.type === 'number') {
+        const rangeReference = block.id !== 'variable_qtgui_range' && typeof value === 'string' &&
+          activeRanges.has(value.trim());
+        if (!finiteNumber(value) && !rangeReference)
+          add(block, param.id, `${param.label} must be a finite number or a QT GUI Range ID.`);
+      } else if (param.type === 'enum' && param.options?.length && !param.options.includes(String(value))) {
+        add(block, param.id, `${param.label} has unsupported value "${String(value)}".`);
+      }
+    }
+
+    // Mirror the constraints enforced by the C++ Range widget constructor.
+    if (block.id === 'variable_qtgui_range') {
+      const start = Number(block.params.start), stop = Number(block.params.stop);
+      const step = Number(block.params.step), minLength = Number(block.params.min_len);
+      if (Number.isFinite(start) && Number.isFinite(stop) && start > stop)
+        add(block, 'stop', 'Range Stop must be greater than or equal to Start.');
+      if (Number.isFinite(step) && step <= 0) add(block, 'step', 'Range Step must be greater than zero.');
+      if (Number.isFinite(minLength) && minLength < 1)
+        add(block, 'min_len', 'Minimum Length must be at least 1.');
+    }
+  }
+
+  const byUid = new Map(blocks.map(block => [block.uid, block]));
+  const occupiedInputs = new Map<string, Conn>();
+  for (const connection of connections) {
+    const source = byUid.get(connection.from), sink = byUid.get(connection.to);
+    if (!source && !sink) continue;
+    if (!source) { add(sink!, BLOCK_FIELD, 'Connection refers to a missing source block.', connection); continue; }
+    if (!sink) { add(source, BLOCK_FIELD, 'Connection refers to a missing destination block.', connection); continue; }
+    if (!active(source) || !active(sink)) continue;
+    const sourceDef = RUNNABLE[source.id], sinkDef = RUNNABLE[sink.id];
+    if (!sourceDef || !sinkDef) continue;
+    if (!Number.isInteger(connection.fp) || connection.fp < 0 || connection.fp >= portCount(source, 'out')) {
+      add(source, BLOCK_FIELD, `Connection uses invalid output port ${connection.fp}.`, connection); continue;
+    }
+    if (!Number.isInteger(connection.tp) || connection.tp < 0 || connection.tp >= portCount(sink, 'in')) {
+      add(sink, BLOCK_FIELD, `Connection uses invalid input port ${connection.tp}.`, connection); continue;
+    }
+    const inputKey = `${sink.uid}:${connection.tp}`;
+    if (occupiedInputs.has(inputKey))
+      add(sink, BLOCK_FIELD, `Input port ${connection.tp} has more than one connection.`, connection);
+    else occupiedInputs.set(inputKey, connection);
+
+    const sourceDomain = sourceDef.outDomains?.[connection.fp] || 'stream';
+    const sinkDomain = sinkDef.inDomains?.[connection.tp] || 'stream';
+    if (sourceDomain !== sinkDomain) {
+      add(sink, BLOCK_FIELD, `Cannot connect ${sourceDomain} output to ${sinkDomain} input.`, connection);
+      continue;
+    }
+    if (sourceDomain === 'stream') {
+      const sourceType = portType(source, 'out', connection.fp);
+      const sinkType = portType(sink, 'in', connection.tp);
+      if (sourceType && sinkType && sourceType !== sinkType)
+        add(sink, BLOCK_FIELD, `Connection type mismatch: ${sourceType} output to ${sinkType} input.`, connection);
+    }
+  }
+  return issues;
+}
+
+function fieldIssue(issues: ValidationIssue[], uid: string, field: string): string {
+  return issues.find(issue => issue.uid === uid && issue.field === field)?.message || '';
+}
+
+function setFieldError(node: HTMLElement, errorNode: HTMLElement, message: string) {
+  node.classList.toggle('field-invalid', !!message);
+  node.setAttribute('aria-invalid', String(!!message));
+  if (message) node.setAttribute('title', message); else node.removeAttribute('title');
+  errorNode.textContent = message;
+  errorNode.hidden = !message;
 }
 
 function generatedDefault(p: any): any {
@@ -375,7 +501,7 @@ function geom(inst: Inst) {
   // Categorized parameters belong in the modal notebook, not in the compact
   // block rendering (equivalent to GRC's `hide: part`).
   const rows = d.params.filter(p => !p.category)
-    .map(p => ({ l: p.label + ': ', v: fmtVal(inst.params[p.id]) }));
+    .map(p => ({ id: p.id, l: p.label + ': ', v: fmtVal(inst.params[p.id]) }));
   const nports = Math.max(portCount(inst, 'in'), portCount(inst, 'out'), 1);
   const bodyH = Math.max(rows.length * ROW_H + PAD, nports * (PORT_H + PORT_GAP) + PAD, ROW_H);
   const h = TITLE_H + bodyH;
@@ -604,19 +730,30 @@ function showVariableEditor() {
   const dlg = document.createElement('div'); dlg.className = 'dlg';
   const head = document.createElement('div'); head.className = 'dlghead'; head.textContent = 'Variable Editor';
   const body = document.createElement('div'); body.className = 'dlgbody';
+  const controls: { uid: string; field: string; node: HTMLElement; error: HTMLElement }[] = [];
+  const refreshValidation = () => {
+    const issues = validateGraph();
+    controls.forEach(control => setFieldError(control.node, control.error,
+      fieldIssue(issues, control.uid, control.field)));
+  };
   if (!variables.length) {
     body.textContent = 'No variable blocks are present in this flowgraph.';
   } else for (const variable of variables) {
     const d = RUNNABLE[variable.id];
     const title = document.createElement('div'); title.className = 'dlghead'; title.textContent = d.label;
     body.appendChild(title);
-    const add = (label: string, node: HTMLElement) => {
+    const add = (label: string, node: HTMLElement, field: string) => {
       const row = document.createElement('div'); row.className = 'dlgrow';
-      const l = document.createElement('label'); l.textContent = label; row.append(l, node); body.appendChild(row);
+      const l = document.createElement('label'); l.textContent = label;
+      const control = document.createElement('div'); control.className = 'field-control';
+      const error = document.createElement('small'); error.className = 'field-error'; error.hidden = true;
+      control.append(node, error); row.append(l, control); body.appendChild(row);
+      controls.push({ uid: variable.uid, field, node, error });
     };
     const name = document.createElement('input'); name.value = variable.name;
-    name.onchange = () => { variable.name = name.value.replace(/\s+/g, '_'); render(); recordHistory(); };
-    add('ID', name);
+    name.oninput = () => { variable.name = name.value.replace(/\s+/g, '_'); renderProps(); render(); refreshValidation(); };
+    name.onchange = recordHistory;
+    add('ID', name, NAME_FIELD);
     for (const param of d.params) {
       let input: HTMLInputElement | HTMLSelectElement;
       if (param.type === 'enum') {
@@ -626,17 +763,19 @@ function showVariableEditor() {
       } else {
         input = document.createElement('input'); input.value = String(variable.params[param.id]);
       }
-      input.onchange = () => {
+      input.oninput = () => {
         variable.params[param.id] = param.type === 'number' ? numericOrExpression(input.value) : input.value;
-        render(); recordHistory();
+        renderProps(); render(); refreshValidation();
       };
-      add(param.label, input);
+      input.onchange = recordHistory;
+      add(param.label, input, param.id);
     }
   }
   const foot = document.createElement('div'); foot.className = 'dlgfoot';
   const close = document.createElement('button'); close.textContent = 'Close'; close.onclick = () => overlay.remove(); foot.appendChild(close);
   dlg.append(head, body, foot); overlay.appendChild(dlg); document.body.appendChild(overlay);
-  overlay.addEventListener('mousedown', e => { if (e.target === overlay) overlay.remove(); }); close.focus();
+  overlay.addEventListener('mousedown', e => { if (e.target === overlay) overlay.remove(); });
+  refreshValidation(); close.focus();
 }
 
 // ---- right-click context menu (GRC-style) ----
@@ -795,6 +934,8 @@ function showPropsDialog(inst: Inst) {
   const categories = ['General', ...d.params.map(p => p.category || 'General').filter((cat, i, all) => cat !== 'General' && all.indexOf(cat) === i)];
   const panels = new Map<string, HTMLDivElement>();
   const tabs: HTMLButtonElement[] = [];
+  const controls = new Map<string, { node: HTMLElement; error: HTMLElement }>();
+  let refreshValidation = () => {};
   const activateTab = (category: string) => {
     panels.forEach((panel, name) => panel.hidden = name !== category);
     tabs.forEach(tab => {
@@ -820,26 +961,41 @@ function showPropsDialog(inst: Inst) {
     tabs.push(tab); tabBar.appendChild(tab);
   }
 
-  const addField = (category: string, label: string, node: HTMLElement) => {
+  const addField = (category: string, label: string, node: HTMLElement, field: string) => {
     const row = document.createElement('div'); row.className = 'dlgrow';
     const l = document.createElement('label'); l.textContent = label;
-    row.appendChild(l); row.appendChild(node); panels.get(category)!.appendChild(row);
+    const control = document.createElement('div'); control.className = 'field-control';
+    const error = document.createElement('small'); error.className = 'field-error'; error.hidden = true;
+    control.append(node, error); row.append(l, control); panels.get(category)!.appendChild(row);
+    controls.set(field, { node, error });
     return node;
   };
-  const nameI = addField('General', 'ID', document.createElement('input')) as HTMLInputElement;
-  nameI.value = tmp.name; nameI.oninput = () => tmp.name = nameI.value.replace(/\s+/g, '_');
+  const nameI = addField('General', 'ID', document.createElement('input'), NAME_FIELD) as HTMLInputElement;
+  nameI.value = tmp.name;
+  nameI.oninput = () => { tmp.name = nameI.value.replace(/\s+/g, '_'); refreshValidation(); };
   for (const p of d.params) {
     if (p.type === 'enum') {
       const s = document.createElement('select');
       (p.options || []).forEach(o => { const opt = document.createElement('option'); opt.value = o; opt.textContent = o; s.appendChild(opt); });
-      s.value = String(tmp.params[p.id]); s.onchange = () => tmp.params[p.id] = s.value;
-      addField(p.category || 'General', `${p.label}  (${p.id})`, s);
+      s.value = String(tmp.params[p.id]);
+      s.onchange = () => { tmp.params[p.id] = s.value; refreshValidation(); };
+      addField(p.category || 'General', `${p.label}  (${p.id})`, s, p.id);
     } else {
       const inp = document.createElement('input'); inp.value = String(tmp.params[p.id]);
-      inp.oninput = () => tmp.params[p.id] = p.type === 'number' ? numericOrExpression(inp.value) : inp.value;
-      addField(p.category || 'General', `${p.label}  (${p.id})`, inp);
+      inp.oninput = () => {
+        tmp.params[p.id] = p.type === 'number' ? numericOrExpression(inp.value) : inp.value;
+        refreshValidation();
+      };
+      addField(p.category || 'General', `${p.label}  (${p.id})`, inp, p.id);
     }
   }
+
+  refreshValidation = () => {
+    const candidate = { ...inst, name: tmp.name, params: tmp.params };
+    const issues = validateGraph(insts.map(block => block.uid === inst.uid ? candidate : block));
+    controls.forEach((control, field) =>
+      setFieldError(control.node, control.error, fieldIssue(issues, inst.uid, field)));
+  };
 
   const foot = document.createElement('div'); foot.className = 'dlgfoot';
   const apply = () => { inst.name = tmp.name; inst.params = { ...tmp.params }; select(inst.uid); recordHistory(); };
@@ -853,6 +1009,7 @@ function showPropsDialog(inst: Inst) {
   activateTab('General');
   dlg.append(head, tabBar, body, foot); overlay.appendChild(dlg); document.body.appendChild(overlay);
   overlay.addEventListener('mousedown', e => { if (e.target === overlay) overlay.remove(); });
+  refreshValidation();
   nameI.focus(); nameI.select();
 }
 
@@ -892,6 +1049,8 @@ function render() {
   nodesG.textContent = ''; wiresG.textContent = '';
   nodesG.setAttribute('transform', `scale(${zoom})`);
   wiresG.setAttribute('transform', `scale(${zoom})`);
+  const validation = validateGraph();
+  const invalidConnections = new Set(validation.flatMap(issue => issue.connection ? [issue.connection] : []));
   const G = (uid: string) => insts.find(i => i.uid === uid)!;
   // wires (from output right-edge to input left-edge, GRC-style curves)
   for (const c of conns) {
@@ -903,7 +1062,8 @@ function render() {
     const d = `M${x1},${y1} C${c1x},${c1y} ${c2x},${c2y} ${x2},${y2}`;
     const isSelected = c === selectedConnection || (insts.length > 0 && selectedBlocks.size === insts.length);
     const wire = svgEl('g', { class: 'wire-group' });
-    wire.appendChild(svgEl('path', { class: 'wire' + (isSelected ? ' sel' : ''), d,
+    wire.appendChild(svgEl('path', { class: 'wire' + (isSelected ? ' sel' : '') +
+      (invalidConnections.has(c) ? ' invalid' : ''), d,
       'marker-end': isSelected ? 'url(#arrow-selected)' : 'url(#arrow)' }));
     // Match the desktop GUI's forgiving line hit test without drawing a thick wire.
     wire.appendChild(svgEl('path', { class: 'wire-hit', d }));
@@ -919,8 +1079,10 @@ function render() {
   for (const inst of insts) {
     if (hideDisabled && !inst.enabled) continue;
     const { d, rows, h, w } = geom(inst);
+    const blockIssues = validation.filter(issue => issue.uid === inst.uid);
     const g = svgEl('g', { class: 'blk' + (selectedBlocks.has(inst.uid) ? ' sel' : '') +
-      (inst.enabled ? '' : ' disabled') + (inst.bypassed ? ' bypassed' : ''),
+      (inst.enabled ? '' : ' disabled') + (inst.bypassed ? ' bypassed' : '') +
+      (blockIssues.length ? ' invalid' : ''),
       transform: `translate(${inst.x},${inst.y})` });
     const rect = svgEl('rect', { class: 'body', width: String(w), height: String(h), rx: '2' });
     g.appendChild(rect);
@@ -932,11 +1094,21 @@ function render() {
     // parameter rows: "label: value"
     rows.forEach((r, i) => {
       const y = TITLE_H + PAD + i * ROW_H + 11;
-      const tx = svgEl('text', { class: 'param', x: '6', y: String(y) });
+      const tx = svgEl('text', { class: 'param' + (fieldIssue(blockIssues, inst.uid, r.id) ? ' invalid' : ''), x: '6', y: String(y) });
       const l = document.createElementNS(SVGNS, 'tspan'); l.textContent = r.l;
       const v = document.createElementNS(SVGNS, 'tspan'); v.setAttribute('class', 'pval'); v.textContent = r.v;
       tx.appendChild(l); tx.appendChild(v); g.appendChild(tx);
     });
+    const messages = [...new Set(blockIssues.map(issue => issue.message))];
+    const wrapped = messages.flatMap(message => wrapValidationMessage(message, Math.max(22, Math.floor(w / 5.7))));
+    wrapped.slice(0, 5).forEach((message, i) => {
+      const error = svgEl('text', { class: 'validation-error', x: '0', y: String(h + 12 + i * 12) });
+      error.textContent = message; g.appendChild(error);
+    });
+    if (wrapped.length > 5) {
+      const more = svgEl('text', { class: 'validation-error', x: '0', y: String(h + 72) });
+      more.textContent = `+${wrapped.length - 5} more lines`; g.appendChild(more);
+    }
     // Drag from anywhere on the block; ports stopPropagation so they still connect.
     g.addEventListener('mousedown', e => startDrag(e, inst));
     g.addEventListener('contextmenu', e => { e.preventDefault(); e.stopPropagation(); if (!selectedBlocks.has(inst.uid)) select(inst.uid); showMenu(e.clientX, e.clientY, inst); });
@@ -1036,27 +1208,39 @@ function renderProps() {
   if (!selected) { body.textContent = 'Select a block or connection…'; return; }
   const inst = insts.find(i => i.uid === selected)!; const d = RUNNABLE[inst.id];
   body.innerHTML = '';
-  const mk = (label: string, node: HTMLElement) => {
-    const l = document.createElement('label'); l.textContent = label; body.appendChild(l); body.appendChild(node);
+  const mk = (label: string, node: HTMLElement, field: string) => {
+    const l = document.createElement('label'); l.textContent = label;
+    const control = document.createElement('div'); control.className = 'field-control';
+    const error = document.createElement('small'); error.className = 'field-error'; error.hidden = true;
+    control.append(node, error); body.append(l, control);
+    const refresh = () => setFieldError(node, error, fieldIssue(validateGraph(), inst.uid, field));
+    refresh(); return refresh;
   };
   const nameI = document.createElement('input'); nameI.value = inst.name;
-  nameI.oninput = () => { inst.name = nameI.value.replace(/\s+/g, '_'); render(); };
+  const refreshName = mk('Block name (id)', nameI, NAME_FIELD);
+  nameI.oninput = () => { inst.name = nameI.value.replace(/\s+/g, '_'); refreshName(); render(); };
   nameI.onchange = recordHistory;
-  mk('Block name (id)', nameI);
   for (const p of d.params.filter(p => !p.category)) {
     let node: HTMLElement;
     if (p.type === 'enum') {
       const s = document.createElement('select');
       (p.options || []).forEach(o => { const opt = document.createElement('option'); opt.value = o; opt.textContent = o; s.appendChild(opt); });
-      s.value = String(inst.params[p.id]); s.onchange = () => { inst.params[p.id] = s.value; render(); recordHistory(); };
+      s.value = String(inst.params[p.id]);
       node = s;
     } else {
       const inp = document.createElement('input'); inp.value = String(inst.params[p.id]);
-      inp.oninput = () => { inst.params[p.id] = p.type === 'number' ? numericOrExpression(inp.value) : inp.value; render(); };
-      inp.onchange = recordHistory;
       node = inp;
     }
-    mk(p.label + '  (' + p.id + ')', node);
+    const refresh = mk(p.label + '  (' + p.id + ')', node, p.id);
+    if (node instanceof HTMLSelectElement) {
+      node.onchange = () => { inst.params[p.id] = node.value; refresh(); render(); recordHistory(); };
+    } else if (node instanceof HTMLInputElement) {
+      node.oninput = () => {
+        inst.params[p.id] = p.type === 'number' ? numericOrExpression(node.value) : node.value;
+        refresh(); render();
+      };
+      node.onchange = recordHistory;
+    }
   }
 }
 
@@ -1154,6 +1338,17 @@ window.addEventListener('resize', () => {
 });
 
 function run() {
+  const errors = validateGraph().filter(issue => issue.blocking);
+  if (errors.length) {
+    const first = errors[0];
+    log(`cannot run: ${errors.length} validation error${errors.length === 1 ? '' : 's'}`);
+    for (const issue of errors) {
+      const block = insts.find(inst => inst.uid === issue.uid);
+      log(`  ${block?.name || block?.id || issue.uid}: ${issue.message}`);
+    }
+    select(first.uid);
+    return;
+  }
   const fg = toFlowgraphJSON();
   if (!fg.blocks.length) { log('nothing to run — add some blocks'); return; }
   const url = '/runner/build/runner.html#' + encodeURIComponent(JSON.stringify(fg));
