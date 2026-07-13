@@ -759,6 +759,66 @@ function toFlowgraphJSON() {
 }
 
 // ---- Run: hand the flowgraph to the WASM runner in the lower workspace pane ----
+const MIN_PANE_HEIGHT = 120;
+let lowerPaneRatio = 0.5;
+
+function applySplitRatio(ratio = lowerPaneRatio) {
+  const workspace = el('workspace');
+  const splitter = el('paneSplitter');
+  const splitterHeight = 7;
+  const available = Math.max(0, workspace.clientHeight - splitterHeight);
+  if (!available) return;
+  const minimum = Math.min(MIN_PANE_HEIGHT, available / 2);
+  const lowerHeight = Math.max(minimum, Math.min(available - minimum, available * ratio));
+  lowerPaneRatio = lowerHeight / available;
+  workspace.style.setProperty('--run-pane-height', `${lowerHeight}px`);
+  splitter.setAttribute('aria-valuenow', String(Math.round(lowerPaneRatio * 100)));
+}
+
+function splitFromPointer(clientY: number) {
+  const workspace = el('workspace');
+  const rect = workspace.getBoundingClientRect();
+  const available = Math.max(1, rect.height - 7);
+  applySplitRatio((rect.bottom - clientY - 3.5) / available);
+}
+
+const paneSplitter = el('paneSplitter');
+let resizingPanes = false;
+paneSplitter.addEventListener('pointerdown', event => {
+  if (!el('workspace').classList.contains('running')) return;
+  resizingPanes = true;
+  el('workspace').classList.add('resizing');
+  paneSplitter.setPointerCapture(event.pointerId);
+  splitFromPointer(event.clientY);
+  event.preventDefault();
+});
+paneSplitter.addEventListener('pointermove', event => {
+  if (resizingPanes) splitFromPointer(event.clientY);
+});
+const finishPaneResize = (event: PointerEvent) => {
+  if (!resizingPanes) return;
+  resizingPanes = false;
+  el('workspace').classList.remove('resizing');
+  if (paneSplitter.hasPointerCapture(event.pointerId))
+    paneSplitter.releasePointerCapture(event.pointerId);
+};
+paneSplitter.addEventListener('pointerup', finishPaneResize);
+paneSplitter.addEventListener('pointercancel', finishPaneResize);
+paneSplitter.addEventListener('dblclick', () => applySplitRatio(0.5));
+paneSplitter.addEventListener('keydown', event => {
+  if (!el('workspace').classList.contains('running')) return;
+  if (event.key === 'ArrowUp') lowerPaneRatio += 0.03;
+  else if (event.key === 'ArrowDown') lowerPaneRatio -= 0.03;
+  else if (event.key === 'Home') lowerPaneRatio = 0.85;
+  else if (event.key === 'End') lowerPaneRatio = 0.15;
+  else return;
+  applySplitRatio();
+  event.preventDefault();
+});
+window.addEventListener('resize', () => {
+  if (el('workspace').classList.contains('running')) applySplitRatio();
+});
+
 function run() {
   const fg = toFlowgraphJSON();
   if (!fg.blocks.length) { log('nothing to run — add some blocks'); return; }
@@ -767,6 +827,7 @@ function run() {
   const pane = el('runPane');
   const frame = el('runFrame') as HTMLIFrameElement;
   pane.hidden = false;
+  applySplitRatio();
   workspace.classList.add('running');
   frame.src = url;
   el('btnRun').textContent = '↻ Restart';

@@ -141,7 +141,8 @@ The sections below explain the architecture and each component in more detail.
   the WASM registry are greyed out and cannot be placed. The editor supports
   place/connect/configure, right-click actions (cut/copy/paste, rotate,
   enable/disable, bypass), a Properties dialog, and a Run button that hands the
-  flowgraph JSON to the runner.
+  flowgraph JSON to the runner. While running, a draggable horizontal splitter
+  resizes the editor canvas and embedded runner panes.
 - **Runner** (`runner/`): a generic C++/WASM "player" — parses the flowgraph JSON,
   builds blocks via a `block-id → factory` registry, runs the GNU Radio
   thread-per-block scheduler, and renders gr-qtgui sinks to a canvas. Direct C++

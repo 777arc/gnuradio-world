@@ -16,9 +16,20 @@
   #palette, #props { min-height:0; background:#20232f; overflow:auto; }
   #palette { border-right:1px solid #333a4d; }
   #props { border-left:1px solid #333a4d; }
-  #workspace { min-width:0; min-height:0; display:grid; grid-template-rows:minmax(0,1fr) 0;
+  #workspace { min-width:0; min-height:0; display:grid; --run-pane-height:0px;
+      grid-template-rows:minmax(0,1fr) 0 0;
       overflow:hidden; transition:grid-template-rows .18s ease; }
-  #workspace.running { grid-template-rows:minmax(0,1fr) minmax(0,1fr); }
+  #workspace.running { grid-template-rows:minmax(120px,1fr) 7px var(--run-pane-height); }
+  #workspace.resizing { transition:none; cursor:row-resize; }
+  #workspace.resizing iframe { pointer-events:none; }
+  #paneSplitter { min-height:0; height:7px; position:relative; z-index:20; cursor:row-resize;
+      touch-action:none; visibility:hidden; background:#262b3b; border-top:1px solid #46507a;
+      border-bottom:1px solid #11141d; outline:none; }
+  #workspace.running #paneSplitter { visibility:visible; }
+  #paneSplitter::after { content:''; position:absolute; width:42px; height:2px; border-radius:2px;
+      background:#7783a4; left:50%; top:2px; transform:translateX(-50%); }
+  #paneSplitter:hover, #paneSplitter:focus-visible { background:#343b52; }
+  #paneSplitter:hover::after, #paneSplitter:focus-visible::after { background:#b9c5e3; }
   /* GRC-style block tree */
   .palsearch { width:calc(100% - 16px); margin:8px; padding:6px 8px; background:#171a24; color:#e6e9f0;
       border:1px solid #3a4366; border-radius:5px; font-size:13px; outline:none; }
@@ -127,6 +138,9 @@
       </svg>
       <div id="log"></div>
     </div>
+    <div id="paneSplitter" role="separator" aria-label="Resize flowgraph and runner panes"
+         aria-orientation="horizontal" aria-valuemin="15" aria-valuemax="85"
+         aria-valuenow="50" tabindex="0"></div>
     <section id="runPane" hidden>
       <div id="runBar"><b>Running flowgraph…</b><span class="spacer"></span><button id="btnStop">✕ Stop</button></div>
       <iframe id="runFrame" title="Running GNU Radio flowgraph"></iframe>
