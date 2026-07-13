@@ -122,6 +122,89 @@ static std::string unquoted(std::string value)
     return value;
 }
 
+static std::string uppercase(std::string value)
+{
+    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) {
+        return static_cast<char>(std::toupper(c));
+    });
+    return value;
+}
+
+static gr::qtgui::trigger_mode trigger_mode_from(const json& p)
+{
+    const std::string mode = uppercase(
+        p.value("tr_mode", std::string("qtgui.TRIG_MODE_FREE")));
+    if (mode.find("AUTO") != std::string::npos)
+        return gr::qtgui::TRIG_MODE_AUTO;
+    if (mode.find("NORM") != std::string::npos)
+        return gr::qtgui::TRIG_MODE_NORM;
+    if (mode.find("TAG") != std::string::npos)
+        return gr::qtgui::TRIG_MODE_TAG;
+    return gr::qtgui::TRIG_MODE_FREE;
+}
+
+static gr::qtgui::trigger_slope trigger_slope_from(const json& p)
+{
+    const std::string slope = uppercase(
+        p.value("tr_slope", std::string("qtgui.TRIG_SLOPE_POS")));
+    return slope.find("NEG") != std::string::npos ? gr::qtgui::TRIG_SLOPE_NEG
+                                                   : gr::qtgui::TRIG_SLOPE_POS;
+}
+
+template <typename Sink>
+static void configure_first_line(const std::shared_ptr<Sink>& sink, const json& p)
+{
+    if (auto it = p.find("label1"); it != p.end() && it->is_string())
+        sink->set_line_label(0, unquoted(it->get<std::string>()));
+    sink->set_line_color(0, unquoted(p.value("color1", std::string("blue"))));
+    sink->set_line_width(0, static_cast<int>(number_from(p, "width1", 1)));
+    sink->set_line_style(0, static_cast<int>(number_from(p, "style1", 1)));
+    sink->set_line_marker(0, static_cast<int>(number_from(p, "marker1", 0)));
+    sink->set_line_alpha(0, number_from(p, "alpha1", 1.0));
+}
+
+template <typename Sink>
+static void configure_time_sink(const std::shared_ptr<Sink>& sink, const json& p)
+{
+    sink->set_y_label(unquoted(p.value("ylabel", std::string("Amplitude"))),
+                      unquoted(p.value("yunit", std::string())));
+    sink->set_y_axis(number_from(p, "ymin", -1.0), number_from(p, "ymax", 1.0));
+    sink->set_update_time(number_from(p, "update_time", 0.1));
+    sink->enable_grid(bool_from(p, "grid", false));
+    sink->enable_autoscale(bool_from(p, "autoscale", false));
+    sink->enable_control_panel(bool_from(p, "ctrlpanel", false));
+    sink->enable_axis_labels(bool_from(p, "axislabels", true));
+    sink->enable_stem_plot(bool_from(p, "stemplot", false));
+    if (!bool_from(p, "legend", true))
+        sink->disable_legend();
+    configure_first_line(sink, p);
+    sink->set_trigger_mode(trigger_mode_from(p),
+                           trigger_slope_from(p),
+                           static_cast<float>(number_from(p, "tr_level", 0.0)),
+                           static_cast<float>(number_from(p, "tr_delay", 0.0)),
+                           static_cast<int>(number_from(p, "tr_chan", 0)),
+                           unquoted(p.value("tr_tag", std::string())));
+}
+
+template <typename Sink>
+static void configure_freq_sink(const std::shared_ptr<Sink>& sink, const json& p)
+{
+    sink->set_y_axis(number_from(p, "ymin", -140.0),
+                     number_from(p, "ymax", 10.0));
+    sink->set_update_time(number_from(p, "update_time", 0.1));
+    sink->enable_grid(bool_from(p, "grid", false));
+    sink->enable_autoscale(bool_from(p, "autoscale", false));
+    sink->enable_control_panel(bool_from(p, "ctrlpanel", false));
+    sink->enable_axis_labels(bool_from(p, "axislabels", true));
+    if (!bool_from(p, "legend", true))
+        sink->disable_legend();
+    configure_first_line(sink, p);
+    sink->set_trigger_mode(trigger_mode_from(p),
+                           static_cast<float>(number_from(p, "tr_level", 0.0)),
+                           static_cast<int>(number_from(p, "tr_chan", 0)),
+                           unquoted(p.value("tr_tag", std::string())));
+}
+
 static gr_complex complex_from(const json& p, const std::string& key)
 {
     auto it = p.find(key);
@@ -710,12 +793,14 @@ const std::map<std::string, Factory>& block_registry() {
              std::string nm = p.value("name", std::string("Scope")); int nc = p.value("nconnections", 1);
              if (is_float(p)) {
                  auto b = gr::qtgui::time_sink_f::make(n, sr, nm, nc);
+                 configure_time_sink(b, p);
                  BuiltBlock result{ b, b->qwidget() };
                  result.numeric_setters["samp_rate"] =
                      [b](double value) { b->set_samp_rate(value); };
                  return result;
              }
              auto b = gr::qtgui::time_sink_c::make(n, sr, nm, nc);
+             configure_time_sink(b, p);
              BuiltBlock result{ b, b->qwidget() };
              result.numeric_setters["samp_rate"] =
                  [b](double value) { b->set_samp_rate(value); };
@@ -728,6 +813,7 @@ const std::map<std::string, Factory>& block_registry() {
              auto b = gr::qtgui::freq_sink_c::make(p.value("fftsize", 1024),
                  p.value("wintype", 5), initial_fc, initial_bw,
                  p.value("name", std::string("Spectrum")), p.value("nconnections", 1));
+             configure_freq_sink(b, p);
              auto range = std::make_shared<std::pair<double, double>>(initial_fc, initial_bw);
              BuiltBlock result{ b, b->qwidget() };
              result.numeric_setters["fftsize"] =
@@ -796,23 +882,9 @@ const std::map<std::string, Factory>& block_registry() {
                      i, number_from(p, "alpha" + suffix, 1.0));
              }
 
-             const std::string trigger_mode =
-                 p.value("tr_mode", std::string("qtgui.TRIG_MODE_FREE"));
-             const std::string trigger_slope =
-                 p.value("tr_slope", std::string("qtgui.TRIG_SLOPE_POS"));
-             auto mode = gr::qtgui::TRIG_MODE_FREE;
-             if (trigger_mode.find("AUTO") != std::string::npos)
-                 mode = gr::qtgui::TRIG_MODE_AUTO;
-             else if (trigger_mode.find("NORM") != std::string::npos)
-                 mode = gr::qtgui::TRIG_MODE_NORM;
-             else if (trigger_mode.find("TAG") != std::string::npos)
-                 mode = gr::qtgui::TRIG_MODE_TAG;
-             const auto slope = trigger_slope.find("NEG") != std::string::npos
-                                    ? gr::qtgui::TRIG_SLOPE_NEG
-                                    : gr::qtgui::TRIG_SLOPE_POS;
              block->set_trigger_mode(
-                 mode,
-                 slope,
+                 trigger_mode_from(p),
+                 trigger_slope_from(p),
                  static_cast<float>(number_from(p, "tr_level", 0.0)),
                  static_cast<int>(number_from(p, "tr_chan", 0)),
                  unquoted(p.value("tr_tag", std::string())));

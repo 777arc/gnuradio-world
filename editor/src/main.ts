@@ -4,7 +4,7 @@
 // URL hash (runner.html#<encoded json>).
 
 type ParamType = 'number' | 'string' | 'enum';
-interface ParamDef { id: string; label: string; type: ParamType; def: any; options?: string[] }
+interface ParamDef { id: string; label: string; type: ParamType; def: any; options?: string[]; category?: string }
 // inTypes/outTypes give per-port dtypes (for converters); otherwise ports follow the
 // block's `type` param (complex/float) if it has one, else `dtype` (default complex).
 interface RunnableDef {
@@ -22,6 +22,11 @@ const DTYPE_COLOR: Record<string, string> = {
 const TYPE_PARAM: ParamDef = { id: 'type', label: 'Type', type: 'enum', def: 'complex', options: ['complex', 'float'] };
 const INTEGER_TYPE_PARAM: ParamDef = { id: 'type', label: 'Type', type: 'enum', def: 'byte', options: ['byte', 'short', 'int'] };
 const STREAM_TYPE_PARAM: ParamDef = { id: 'type', label: 'Type', type: 'enum', def: 'complex', options: ['complex', 'float', 'int', 'short', 'byte'] };
+const BOOL_OPTIONS = ['true', 'false'];
+const TRIGGER_MODES = ['free', 'auto', 'normal', 'tag'];
+const LINE_COLORS = ['blue', 'red', 'green', 'black', 'cyan', 'magenta', 'yellow', 'dark red', 'dark green', 'dark blue'];
+const LINE_STYLES = ['1', '2', '3', '4', '5', '0'];
+const LINE_MARKERS = ['0', '1', '2', '3', '4', '6', '7', '8', '9', '-1'];
 
 // Curated schemas for blocks the WASM runner registry supports. Param names (and the
 // `type` values complex/float) match the runner's factories exactly.
@@ -130,12 +135,56 @@ const RUNNABLE: Record<string, RunnableDef> = {
       TYPE_PARAM,
       { id: 'name', label: 'Title', type: 'string', def: 'Scope' },
       { id: 'size', label: 'Num Points', type: 'number', def: 1024 },
-      { id: 'samp_rate', label: 'Sample Rate', type: 'number', def: 32000 }] },
+      { id: 'samp_rate', label: 'Sample Rate', type: 'number', def: 32000 },
+      { id: 'ylabel', label: 'Y Axis Label', type: 'string', def: 'Amplitude', category: 'General' },
+      { id: 'yunit', label: 'Y Axis Unit', type: 'string', def: '', category: 'General' },
+      { id: 'grid', label: 'Grid', type: 'enum', def: 'false', options: BOOL_OPTIONS, category: 'General' },
+      { id: 'autoscale', label: 'Autoscale', type: 'enum', def: 'false', options: BOOL_OPTIONS, category: 'General' },
+      { id: 'ymin', label: 'Y min', type: 'number', def: -1, category: 'General' },
+      { id: 'ymax', label: 'Y max', type: 'number', def: 1, category: 'General' },
+      { id: 'update_time', label: 'Update Period', type: 'number', def: 0.1, category: 'General' },
+      { id: 'tr_mode', label: 'Trigger Mode', type: 'enum', def: 'free', options: TRIGGER_MODES, category: 'Trigger' },
+      { id: 'tr_slope', label: 'Trigger Slope', type: 'enum', def: 'positive', options: ['positive', 'negative'], category: 'Trigger' },
+      { id: 'tr_level', label: 'Trigger Level', type: 'number', def: 0, category: 'Trigger' },
+      { id: 'tr_delay', label: 'Trigger Delay', type: 'number', def: 0, category: 'Trigger' },
+      { id: 'tr_chan', label: 'Trigger Channel', type: 'number', def: 0, category: 'Trigger' },
+      { id: 'tr_tag', label: 'Trigger Tag Key', type: 'string', def: '', category: 'Trigger' },
+      { id: 'ctrlpanel', label: 'Control Panel', type: 'enum', def: 'false', options: BOOL_OPTIONS, category: 'Config' },
+      { id: 'legend', label: 'Legend', type: 'enum', def: 'true', options: BOOL_OPTIONS, category: 'Config' },
+      { id: 'axislabels', label: 'Axis Labels', type: 'enum', def: 'true', options: BOOL_OPTIONS, category: 'Config' },
+      { id: 'stemplot', label: 'Stem Plot', type: 'enum', def: 'false', options: BOOL_OPTIONS, category: 'Config' },
+      { id: 'label1', label: 'Line 1 Label', type: 'string', def: 'Signal 1', category: 'Config' },
+      { id: 'width1', label: 'Line 1 Width', type: 'number', def: 1, category: 'Config' },
+      { id: 'color1', label: 'Line 1 Color', type: 'enum', def: 'blue', options: LINE_COLORS, category: 'Config' },
+      { id: 'style1', label: 'Line 1 Style', type: 'enum', def: '1', options: LINE_STYLES, category: 'Config' },
+      { id: 'marker1', label: 'Line 1 Marker', type: 'enum', def: '0', options: LINE_MARKERS, category: 'Config' },
+      { id: 'alpha1', label: 'Line 1 Alpha', type: 'number', def: 1, category: 'Config' },
+    ] },
   qtgui_freq_sink_x: {
     label: 'QT GUI Frequency Sink', inputs: 1, outputs: 0, params: [
       { id: 'name', label: 'Title', type: 'string', def: 'Spectrum' },
       { id: 'fftsize', label: 'FFT Size', type: 'number', def: 1024 },
-      { id: 'samp_rate', label: 'Sample Rate', type: 'number', def: 32000 }], dtype: 'complex' },
+      { id: 'samp_rate', label: 'Sample Rate', type: 'number', def: 32000 },
+      { id: 'fc', label: 'Center Frequency', type: 'number', def: 0 },
+      { id: 'grid', label: 'Grid', type: 'enum', def: 'false', options: BOOL_OPTIONS, category: 'General' },
+      { id: 'autoscale', label: 'Autoscale', type: 'enum', def: 'false', options: BOOL_OPTIONS, category: 'General' },
+      { id: 'ymin', label: 'Y min', type: 'number', def: -140, category: 'General' },
+      { id: 'ymax', label: 'Y max', type: 'number', def: 10, category: 'General' },
+      { id: 'update_time', label: 'Update Period', type: 'number', def: 0.1, category: 'General' },
+      { id: 'tr_mode', label: 'Trigger Mode', type: 'enum', def: 'free', options: TRIGGER_MODES, category: 'Trigger' },
+      { id: 'tr_level', label: 'Trigger Level', type: 'number', def: 0, category: 'Trigger' },
+      { id: 'tr_chan', label: 'Trigger Channel', type: 'number', def: 0, category: 'Trigger' },
+      { id: 'tr_tag', label: 'Trigger Tag Key', type: 'string', def: '', category: 'Trigger' },
+      { id: 'ctrlpanel', label: 'Control Panel', type: 'enum', def: 'false', options: BOOL_OPTIONS, category: 'Config' },
+      { id: 'legend', label: 'Legend', type: 'enum', def: 'true', options: BOOL_OPTIONS, category: 'Config' },
+      { id: 'axislabels', label: 'Axis Labels', type: 'enum', def: 'true', options: BOOL_OPTIONS, category: 'Config' },
+      { id: 'label1', label: 'Line 1 Label', type: 'string', def: '', category: 'Config' },
+      { id: 'width1', label: 'Line 1 Width', type: 'number', def: 1, category: 'Config' },
+      { id: 'color1', label: 'Line 1 Color', type: 'enum', def: 'blue', options: LINE_COLORS, category: 'Config' },
+      { id: 'style1', label: 'Line 1 Style', type: 'enum', def: '1', options: LINE_STYLES, category: 'Config' },
+      { id: 'marker1', label: 'Line 1 Marker', type: 'enum', def: '-1', options: LINE_MARKERS, category: 'Config' },
+      { id: 'alpha1', label: 'Line 1 Alpha', type: 'number', def: 1, category: 'Config' },
+    ], dtype: 'complex' },
   qtgui_const_sink_x: {
     label: 'QT GUI Constellation Sink', inputs: 1, outputs: 0, params: [
       { id: 'name', label: 'Title', type: 'string', def: 'Constellation' },
@@ -147,6 +196,19 @@ const RUNNABLE: Record<string, RunnableDef> = {
       { id: 'xmax', label: 'X max', type: 'number', def: 2 },
       { id: 'ymin', label: 'Y min', type: 'number', def: -2 },
       { id: 'ymax', label: 'Y max', type: 'number', def: 2 },
+      { id: 'tr_mode', label: 'Trigger Mode', type: 'enum', def: 'free', options: TRIGGER_MODES, category: 'Trigger' },
+      { id: 'tr_slope', label: 'Trigger Slope', type: 'enum', def: 'positive', options: ['positive', 'negative'], category: 'Trigger' },
+      { id: 'tr_level', label: 'Trigger Level', type: 'number', def: 0, category: 'Trigger' },
+      { id: 'tr_chan', label: 'Trigger Channel', type: 'number', def: 0, category: 'Trigger' },
+      { id: 'tr_tag', label: 'Trigger Tag Key', type: 'string', def: '', category: 'Trigger' },
+      { id: 'legend', label: 'Legend', type: 'enum', def: 'true', options: BOOL_OPTIONS, category: 'Config' },
+      { id: 'axislabels', label: 'Axis Labels', type: 'enum', def: 'true', options: BOOL_OPTIONS, category: 'Config' },
+      { id: 'label1', label: 'Line 1 Label', type: 'string', def: '', category: 'Config' },
+      { id: 'width1', label: 'Line 1 Width', type: 'number', def: 1, category: 'Config' },
+      { id: 'color1', label: 'Line 1 Color', type: 'enum', def: 'blue', options: LINE_COLORS, category: 'Config' },
+      { id: 'style1', label: 'Line 1 Style', type: 'enum', def: '1', options: LINE_STYLES, category: 'Config' },
+      { id: 'marker1', label: 'Line 1 Marker', type: 'enum', def: '0', options: LINE_MARKERS, category: 'Config' },
+      { id: 'alpha1', label: 'Line 1 Alpha', type: 'number', def: 1, category: 'Config' },
     ], dtype: 'complex' },
 };
 
@@ -199,7 +261,10 @@ const textW = (s: string, px: number) => s.length * px * 0.56;
 
 function geom(inst: Inst) {
   const d = RUNNABLE[inst.id];
-  const rows = d.params.map(p => ({ l: p.label + ': ', v: fmtVal(inst.params[p.id]) }));
+  // Categorized parameters belong in the modal notebook, not in the compact
+  // block rendering (equivalent to GRC's `hide: part`).
+  const rows = d.params.filter(p => !p.category)
+    .map(p => ({ l: p.label + ': ', v: fmtVal(inst.params[p.id]) }));
   const nports = Math.max(d.inputs, d.outputs, 1);
   const bodyH = Math.max(rows.length * ROW_H + PAD, nports * (PORT_H + PORT_GAP) + PAD, ROW_H);
   const h = TITLE_H + bodyH;
@@ -350,26 +415,55 @@ function showPropsDialog(inst: Inst) {
   const overlay = document.createElement('div'); overlay.className = 'modal props';
   const dlg = document.createElement('div'); dlg.className = 'dlg';
   const head = document.createElement('div'); head.className = 'dlghead'; head.textContent = 'Properties: ' + d.label;
+  const tabBar = document.createElement('div'); tabBar.className = 'dlgtabs'; tabBar.setAttribute('role', 'tablist');
   const body = document.createElement('div'); body.className = 'dlgbody';
 
-  const addField = (label: string, node: HTMLElement) => {
+  const categories = ['General', ...d.params.map(p => p.category || 'General').filter((cat, i, all) => cat !== 'General' && all.indexOf(cat) === i)];
+  const panels = new Map<string, HTMLDivElement>();
+  const tabs: HTMLButtonElement[] = [];
+  const activateTab = (category: string) => {
+    panels.forEach((panel, name) => panel.hidden = name !== category);
+    tabs.forEach(tab => {
+      const active = tab.dataset.category === category;
+      tab.classList.toggle('active', active);
+      tab.setAttribute('aria-selected', String(active));
+      tab.tabIndex = active ? 0 : -1;
+    });
+  };
+  for (const category of categories) {
+    const panel = document.createElement('div'); panel.className = 'dlgpanel'; panel.setAttribute('role', 'tabpanel');
+    panels.set(category, panel); body.appendChild(panel);
+    const tab = document.createElement('button'); tab.type = 'button'; tab.className = 'dlgtab';
+    tab.textContent = category; tab.dataset.category = category; tab.setAttribute('role', 'tab');
+    tab.onclick = () => activateTab(category);
+    tab.onkeydown = e => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      e.preventDefault();
+      const offset = e.key === 'ArrowRight' ? 1 : -1;
+      const next = tabs[(tabs.indexOf(tab) + offset + tabs.length) % tabs.length];
+      activateTab(next.dataset.category!); next.focus();
+    };
+    tabs.push(tab); tabBar.appendChild(tab);
+  }
+
+  const addField = (category: string, label: string, node: HTMLElement) => {
     const row = document.createElement('div'); row.className = 'dlgrow';
     const l = document.createElement('label'); l.textContent = label;
-    row.appendChild(l); row.appendChild(node); body.appendChild(row);
+    row.appendChild(l); row.appendChild(node); panels.get(category)!.appendChild(row);
     return node;
   };
-  const nameI = addField('ID', document.createElement('input')) as HTMLInputElement;
+  const nameI = addField('General', 'ID', document.createElement('input')) as HTMLInputElement;
   nameI.value = tmp.name; nameI.oninput = () => tmp.name = nameI.value.replace(/\s+/g, '_');
   for (const p of d.params) {
     if (p.type === 'enum') {
       const s = document.createElement('select');
       (p.options || []).forEach(o => { const opt = document.createElement('option'); opt.value = o; opt.textContent = o; s.appendChild(opt); });
       s.value = String(tmp.params[p.id]); s.onchange = () => tmp.params[p.id] = s.value;
-      addField(`${p.label}  (${p.id})`, s);
+      addField(p.category || 'General', `${p.label}  (${p.id})`, s);
     } else {
       const inp = document.createElement('input'); inp.value = String(tmp.params[p.id]);
       inp.oninput = () => tmp.params[p.id] = p.type === 'number' ? numericOrExpression(inp.value) : inp.value;
-      addField(`${p.label}  (${p.id})`, inp);
+      addField(p.category || 'General', `${p.label}  (${p.id})`, inp);
     }
   }
 
@@ -382,7 +476,8 @@ function showPropsDialog(inst: Inst) {
   foot.appendChild(btn('Apply', apply));
   foot.appendChild(btn('OK', () => { apply(); overlay.remove(); }, 'run'));
 
-  dlg.append(head, body, foot); overlay.appendChild(dlg); document.body.appendChild(overlay);
+  activateTab('General');
+  dlg.append(head, tabBar, body, foot); overlay.appendChild(dlg); document.body.appendChild(overlay);
   overlay.addEventListener('mousedown', e => { if (e.target === overlay) overlay.remove(); });
   nameI.focus(); nameI.select();
 }
@@ -550,7 +645,7 @@ function renderProps() {
   const nameI = document.createElement('input'); nameI.value = inst.name;
   nameI.oninput = () => { inst.name = nameI.value.replace(/\s+/g, '_'); render(); };
   mk('Block name (id)', nameI);
-  for (const p of d.params) {
+  for (const p of d.params.filter(p => !p.category)) {
     let node: HTMLElement;
     if (p.type === 'enum') {
       const s = document.createElement('select');
@@ -592,24 +687,28 @@ function toFlowgraphJSON() {
   };
 }
 
-// ---- Run: hand the flowgraph to the WASM runner via an overlay iframe ----
+// ---- Run: hand the flowgraph to the WASM runner in the lower workspace pane ----
 function run() {
   const fg = toFlowgraphJSON();
   if (!fg.blocks.length) { log('nothing to run — add some blocks'); return; }
   const url = '/runner/build/runner.html#' + encodeURIComponent(JSON.stringify(fg));
-  const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;background:#000a;display:flex;align-items:center;justify-content:center;z-index:99';
-  const box = document.createElement('div');
-  box.style.cssText = 'width:860px;height:600px;background:#20232f;border:1px solid #46507a;border-radius:10px;overflow:hidden;display:flex;flex-direction:column';
-  const bar = document.createElement('div');
-  bar.style.cssText = 'padding:8px 12px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #333a4d';
-  bar.innerHTML = '<b style="font-size:13px">Running flowgraph…</b>';
-  const close = document.createElement('button'); close.textContent = '✕ Stop'; close.style.marginLeft = 'auto';
-  close.onclick = () => overlay.remove(); bar.appendChild(close);
-  const frame = document.createElement('iframe');
-  frame.src = url; frame.style.cssText = 'flex:1;border:0;background:#fff';
-  box.appendChild(bar); box.appendChild(frame); overlay.appendChild(box); document.body.appendChild(overlay);
+  const workspace = el('workspace');
+  const pane = el('runPane');
+  const frame = el('runFrame') as HTMLIFrameElement;
+  pane.hidden = false;
+  workspace.classList.add('running');
+  frame.src = url;
+  el('btnRun').textContent = '↻ Restart';
   log('▶ running ' + fg.blocks.length + ' blocks, ' + fg.connections.length + ' connections');
+}
+
+function stop() {
+  const frame = el('runFrame') as HTMLIFrameElement;
+  frame.src = 'about:blank'; // unloading the iframe stops its WASM workers
+  el('workspace').classList.remove('running');
+  el('runPane').hidden = true;
+  el('btnRun').textContent = '▶ Run';
+  log('■ flowgraph stopped');
 }
 
 // ---- Palette ----
@@ -695,6 +794,7 @@ async function buildPalette() {
 }
 
 el('btnRun').addEventListener('click', run);
+el('btnStop').addEventListener('click', stop);
 el('btnClear').addEventListener('click', () => { insts = []; conns = []; select(null); render(); });
 el('btnExport').addEventListener('click', () => log(JSON.stringify(toFlowgraphJSON(), null, 1)));
 

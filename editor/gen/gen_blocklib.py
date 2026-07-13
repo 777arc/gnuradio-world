@@ -55,11 +55,18 @@ def main(out_path):
             if not isinstance(d, dict) or "id" not in d:
                 continue
             params = []
+            param_categories = {}
             for p in d.get("parameters", []) or []:
                 if isinstance(p, dict) and "id" in p:
+                    category = p.get("category")
+                    if not category and p.get("base_key"):
+                        category = param_categories.get(p["base_key"])
+                    category = category or "General"
+                    param_categories[p["id"]] = category
                     params.append({"id": p["id"], "label": p.get("label", p["id"]),
                                    "dtype": str(p.get("dtype", "")),
                                    "default": p.get("default", ""),
+                                   "category": category,
                                    "options": p.get("options"),
                                    "option_labels": p.get("option_labels")})
             cat = categories.get(d["id"]) or d.get("category", "") or "Other"
