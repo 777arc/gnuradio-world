@@ -115,6 +115,11 @@ const RUNNABLE: Record<string, RunnableDef> = {
   blocks_float_to_complex: { label: 'Float to Complex', inputs: 2, outputs: 1, params: [],
     inTypes: ['float', 'float'], outTypes: ['complex'] },
   // ---- variables / controls ----
+  variable: {
+    label: 'Variable', inputs: 0, outputs: 0, params: [
+      { id: 'value', label: 'Value', type: 'number', def: '0' },
+    ],
+  },
   variable_qtgui_range: {
     label: 'QT GUI Range', inputs: 0, outputs: 0, params: [
       { id: 'label', label: 'Label', type: 'string', def: '' },
@@ -254,7 +259,10 @@ let selected: string | null = null;
 let selectedBlocks = new Set<string>();
 let selectedConnection: Conn | null = null;
 let counter = 0;
-let pending: { uid: string; port: number } | null = null;  // in-progress connection from an output
+// In-progress connection: dragging a rubber-band wire from a port (either an
+// output or an input, GRC-style). `connectPreview` is the live SVG path.
+let connecting: { uid: string; port: number; kind: 'in' | 'out' } | null = null;
+let connectPreview: SVGPathElement | null = null;
 let autoScrollLog = true;
 let zoom = 1;
 let hideDisabled = false;
@@ -281,7 +289,7 @@ function restoreHistory(index: number) {
   historyIndex = index;
   const state = clone(graphHistory[index]);
   insts = state.insts; conns = state.conns; counter = state.counter;
-  selected = null; selectedBlocks.clear(); selectedConnection = null; pending = null;
+  selected = null; selectedBlocks.clear(); selectedConnection = null; cancelConnect();
   renderProps(); render();
 }
 function undo() { restoreHistory(historyIndex - 1); }
@@ -340,10 +348,16 @@ const NAME_FIELD = '__name';
 const BLOCK_FIELD = '__block';
 
 // Variable controls have no stream ports; they publish a numeric value that
-// other blocks' numeric fields may reference by the control's block ID.
+// other blocks' numeric fields may reference by the control's block ID. The
+// three qtgui controls are emitted to the runner (and so their own numeric
+// params must be concrete numbers); the plain `variable` block is resolved
+// away editor-side in toFlowgraphJSON(), so its value may itself reference
+// another variable.
 const VARIABLE_CONTROL_IDS = new Set([
   'variable_qtgui_range', 'variable_qtgui_chooser', 'variable_qtgui_push_button',
 ]);
+// Every block ID that can be the target of a numeric variable reference.
+const VARIABLE_IDS = new Set([...VARIABLE_CONTROL_IDS, 'variable']);
 
 function validateGraph(blocks: Inst[] = insts, connections: Conn[] = conns): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
@@ -354,7 +368,7 @@ function validateGraph(blocks: Inst[] = insts, connections: Conn[] = conns): Val
     activeNames.set(name, (activeNames.get(name) || 0) + 1);
   }
   const activeVariables = new Set(blocks
-    .filter(block => active(block) && VARIABLE_CONTROL_IDS.has(block.id) &&
+    .filter(block => active(block) && VARIABLE_IDS.has(block.id) &&
       activeNames.get(String(block.name || '').trim()) === 1)
     .map(block => String(block.name || '').trim()));
 
@@ -683,7 +697,7 @@ function setZoom(next: number) {
 }
 function clearFlowgraph(record = true) {
   insts = []; conns = []; counter = 0; selected = null; selectedBlocks.clear();
-  selectedConnection = null; pending = null; renderProps(); render();
+  selectedConnection = null; cancelConnect(); renderProps(); render();
   if (record) recordHistory();
 }
 
@@ -720,7 +734,7 @@ function loadFlowgraph(value: any) {
       if (from && to && c[4] !== 'message') conns.push({ from: from.uid, fp: Number(c[1]), to: to.uid, tp: Number(c[3]) });
     }
   } else throw new Error('not a GNU Radio WASM flowgraph JSON file');
-  selected = null; selectedBlocks.clear(); selectedConnection = null; pending = null;
+  selected = null; selectedBlocks.clear(); selectedConnection = null; cancelConnect();
   renderProps(); render(); recordHistory(); log(`opened ${insts.length} blocks`);
 }
 function duplicateFlowgraph() {
@@ -876,7 +890,7 @@ function consume(e: KeyboardEvent) { e.preventDefault(); e.stopPropagation(); }
 document.addEventListener('keydown', e => {
   const ctrl = e.ctrlKey || e.metaKey, key = e.key.toLowerCase();
   if (e.key === 'Escape') {
-    closeMenu(); document.querySelector('.modal')?.remove();
+    closeMenu(); closeMenus(); document.querySelector('.modal')?.remove();
     if (document.activeElement === paletteSearch && paletteSearch) {
       paletteSearch.value = ''; paletteSearch.dispatchEvent(new Event('input')); paletteSearch.blur();
     }
@@ -1096,7 +1110,7 @@ function render() {
     wire.addEventListener('mousedown', e => {
       if (e.button !== 0) return;
       e.preventDefault(); e.stopPropagation();
-      pending = null;
+      cancelConnect();
       selectConnection(c);
     });
     wiresG.appendChild(wire);
@@ -1154,22 +1168,59 @@ function addPort(g: SVGGElement, inst: Inst, kind: 'in' | 'out', idx: number, co
   else { w = PORT_H; h = PORT_W; x = p.x - PORT_H / 2; y = p.y - 2; }
   const r = svgEl('rect', { class: 'port', x: String(x), y: String(y),
     width: String(w), height: String(h), fill: color });
+  // Left-drag from a port to draw a rubber-band wire (GRC-style), release on a
+  // compatible port to connect. Works from either an output or an input.
   r.addEventListener('mousedown', e => {
+    if (e.button !== 0) return;
+    e.stopPropagation(); e.preventDefault();
+    connecting = { uid: inst.uid, port: idx, kind };
+    log('connect from ' + inst.name + ':' + idx + ' …');
+    updateConnectPreview(svgPoint(e));
+  });
+  r.addEventListener('mouseup', e => {
+    if (!connecting) return;
     e.stopPropagation();
-    if (kind === 'out') { pending = { uid: inst.uid, port: idx }; log('connect from ' + inst.name + ':' + idx + ' …'); }
-    else if (pending) {
-      if (selectedConnection && selectedConnection.to === inst.uid && selectedConnection.tp === idx) {
-        selectedConnection = null;
-      }
-      conns = conns.filter(cn => !(cn.to === inst.uid && cn.tp === idx));
-      conns.push({ from: pending.uid, fp: pending.port, to: inst.uid, tp: idx });
-      log('  → ' + G0(pending.uid).name + ':' + pending.port + '  to  ' + inst.name + ':' + idx);
-      pending = null; render(); recordHistory();
-    }
+    completeConnect(inst, kind, idx);
   });
   g.appendChild(r);
 }
 const G0 = (uid: string) => insts.find(i => i.uid === uid)!;
+
+// Live rubber-band wire from the source port to the cursor while connecting.
+function updateConnectPreview(pt: { x: number; y: number }) {
+  if (!connecting) return;
+  const inst = G0(connecting.uid);
+  if (!inst) { cancelConnect(); return; }
+  const pp = portPos(inst, connecting.kind, connecting.port);
+  const x1 = inst.x + pp.x, y1 = inst.y + pp.y;
+  const [c1x, c1y] = ctrl(pp.edge, x1, y1, 42);
+  const d = `M${x1},${y1} C${c1x},${c1y} ${pt.x},${pt.y} ${pt.x},${pt.y}`;
+  if (!connectPreview) {
+    connectPreview = svgEl('path', { class: 'wire connecting', d });
+    wiresG.appendChild(connectPreview);
+  } else connectPreview.setAttribute('d', d);
+}
+function cancelConnect() {
+  connecting = null;
+  if (connectPreview) { connectPreview.remove(); connectPreview = null; }
+}
+// Finish a drag on the given port, orienting the connection output→input.
+function completeConnect(inst: Inst, kind: 'in' | 'out', idx: number) {
+  if (!connecting) return;
+  let out: { uid: string; port: number }, sink: { uid: string; port: number };
+  if (connecting.kind === 'out' && kind === 'in') {
+    out = { uid: connecting.uid, port: connecting.port }; sink = { uid: inst.uid, port: idx };
+  } else if (connecting.kind === 'in' && kind === 'out') {
+    out = { uid: inst.uid, port: idx }; sink = { uid: connecting.uid, port: connecting.port };
+  } else { cancelConnect(); return; }   // same direction (out→out / in→in): no connection
+  if (out.uid === sink.uid) { cancelConnect(); return; }  // don't connect a block to itself
+  if (selectedConnection && selectedConnection.to === sink.uid && selectedConnection.tp === sink.port)
+    selectedConnection = null;
+  conns = conns.filter(cn => !(cn.to === sink.uid && cn.tp === sink.port));  // one wire per input
+  conns.push({ from: out.uid, fp: out.port, to: sink.uid, tp: sink.port });
+  log('  → ' + G0(out.uid).name + ':' + out.port + '  to  ' + G0(sink.uid).name + ':' + sink.port);
+  cancelConnect(); render(); recordHistory();
+}
 
 let drag: { inst: Inst; ox: number; oy: number; starts: Map<string, { x: number; y: number }>; moved: boolean } | null = null;
 // Manual double-click detection: select()/drag rebuild the block's DOM node on
@@ -1194,6 +1245,7 @@ function startDrag(e: MouseEvent, inst: Inst) {
     starts: new Map(insts.filter(i => selectedBlocks.has(i.uid)).map(i => [i.uid, { x: i.x, y: i.y }])), moved: false };
 }
 window.addEventListener('mousemove', e => {
+  if (connecting) { updateConnectPreview(svgPoint(e)); return; }
   if (!drag) return; const p = svgPoint(e);
   const primary = drag.starts.get(drag.inst.uid)!;
   const nx = Math.round(p.x - drag.ox), ny = Math.round(p.y - drag.oy);
@@ -1204,8 +1256,11 @@ window.addEventListener('mousemove', e => {
   }
   drag.moved ||= dx !== 0 || dy !== 0; render();
 });
-window.addEventListener('mouseup', () => { if (drag?.moved) recordHistory(); drag = null; });
-svg.addEventListener('mousedown', () => { select(null); pending = null; });
+window.addEventListener('mouseup', () => {
+  if (connecting) cancelConnect();   // released away from a port: abandon the wire
+  if (drag?.moved) recordHistory(); drag = null;
+});
+svg.addEventListener('mousedown', () => { select(null); cancelConnect(); });
 svg.addEventListener('contextmenu', e => {
   e.preventDefault(); closeMenu();
   const m = document.createElement('div'); m.className = 'ctxmenu';
@@ -1296,8 +1351,34 @@ function toFlowgraphJSON() {
            byUid(d.uid).name, sinkDef.inStreamIndices?.[d.port] ?? d.port, 'stream']);
     }
   }
+  // Plain `variable` blocks have no factory in the runner, so resolve their
+  // values editor-side and drop the blocks from the emitted graph. A reference
+  // chain that ends at a live control (e.g. a QT GUI Range) is left as that
+  // control's name so the runner can still bind it dynamically.
+  const plainVars = new Map<string, any>();
+  for (const b of insts)
+    if (b.id === 'variable' && b.enabled && !b.bypassed) {
+      const name = String(b.name || '').trim();
+      if (name) plainVars.set(name, b.params.value);
+    }
+  const resolveVar = (name: string, seen = new Set<string>()): any => {
+    if (!plainVars.has(name) || seen.has(name)) return name;
+    seen.add(name);
+    const raw = plainVars.get(name);
+    if (typeof raw === 'number') return raw;
+    const text = String(raw).trim();
+    const num = Number(text);
+    return Number.isFinite(num) ? num : resolveVar(text, seen);
+  };
+  const resolveParams = (params: Record<string, any>) => {
+    const resolved: Record<string, any> = {};
+    for (const [k, v] of Object.entries(params))
+      resolved[k] = (typeof v === 'string' && plainVars.has(v.trim())) ? resolveVar(v.trim()) : v;
+    return resolved;
+  };
   return {
-    blocks: insts.filter(i => active(i.uid)).map(i => ({ name: i.name, id: i.id, params: i.params })),
+    blocks: insts.filter(i => active(i.uid) && i.id !== 'variable')
+      .map(i => ({ name: i.name, id: i.id, params: resolveParams(i.params) })),
     connections: out,
   };
 }
@@ -1385,7 +1466,6 @@ function run() {
   applySplitRatio();
   workspace.classList.add('running');
   frame.src = url;
-  el('btnRun').textContent = '↻ Restart';
   log('▶ running ' + fg.blocks.length + ' blocks, ' + fg.connections.length + ' connections');
 }
 
@@ -1394,7 +1474,6 @@ function stop() {
   frame.src = 'about:blank'; // unloading the iframe stops its WASM workers
   el('workspace').classList.remove('running');
   el('runPane').hidden = true;
-  el('btnRun').textContent = '▶ Run';
   log('■ flowgraph stopped');
 }
 
@@ -1427,7 +1506,10 @@ function catMatches(node: Cat, q: string): boolean {
 }
 
 function makeBlockItem(b: LibraryBlock, indent: number): HTMLElement {
-  const run = b.runnable && !!RUNNABLE[b.id];
+  // A hand-written schema in RUNNABLE means we support the block even if the
+  // generated library marks it unavailable (e.g. the plain `variable` block,
+  // which the editor resolves away instead of handing to the runner).
+  const run = !!RUNNABLE[b.id];
   const item = document.createElement('div');
   item.className = 'pal-item ' + (run ? 'runnable' : 'unavailable');
   item.style.paddingLeft = indent + 'px';
@@ -1482,12 +1564,346 @@ async function buildPalette() {
   search.oninput = () => draw(search.value.trim().toLowerCase());
 }
 
-el('btnRun').addEventListener('click', run);
+// ---- GRC-style menu bar + toolbar ----------------------------------------
+// These mirror grc/gui/Bars.py (MENU_BAR_LIST / TOOLBAR_LIST). Actions that
+// exist in the desktop GUI but can't work inside a browser tab are kept in
+// place but greyed out, with a hover tooltip explaining why. GTK itself can't
+// run in WebAssembly, so this is a hand-built reimplementation rather than a
+// port of the GTK menus.
+
+// Reasons shown when hovering an action that is unavailable in the WASM build.
+const R_QUIT = "A browser tab can't quit the application — just close the tab instead.";
+const R_RECENT = "Recent-file history isn't available in the browser build; there's no local filesystem to remember paths from.";
+const R_QSS = "Qt style-sheet themes don't apply to the WebAssembly Qt GUI runner.";
+const R_FDESIGN = "gr_filter_design is a separate desktop program and can't be launched from the browser.";
+const R_HIER = "Hierarchical blocks aren't supported in the WebAssembly editor.";
+const R_RELOAD = "The block library is bundled at build time, so there's nothing to reload from disk.";
+const R_XML = "GRC no longer uses XML flowgraphs, so there are no XML parser errors to display.";
+const R_CODE = "The browser runner executes the flowgraph directly — there is no generated Python file to preview.";
+const R_COMPLEXITY = "Flowgraph-complexity metrics aren't implemented in the browser editor.";
+const R_TODO = "This display option isn't implemented in the browser editor yet.";
+
+// ---- hover tooltip (explains why an action is unavailable) ----
+let wasmTipEl: HTMLDivElement | null = null;
+function ensureTip(): HTMLDivElement {
+  if (!wasmTipEl) {
+    wasmTipEl = document.createElement('div'); wasmTipEl.id = 'wasmTip'; wasmTipEl.hidden = true;
+    document.body.appendChild(wasmTipEl);
+  }
+  return wasmTipEl;
+}
+function positionTip(node: HTMLElement) {
+  const t = ensureTip(), r = node.getBoundingClientRect();
+  let left = r.right + 8, top = r.top;
+  if (left + t.offsetWidth > window.innerWidth - 8) left = r.left - t.offsetWidth - 8;
+  if (top + t.offsetHeight > window.innerHeight - 8) top = window.innerHeight - t.offsetHeight - 8;
+  t.style.left = Math.max(8, left) + 'px'; t.style.top = Math.max(8, top) + 'px';
+}
+function attachTip(node: HTMLElement, text: string) {
+  node.addEventListener('mouseenter', () => { const t = ensureTip(); t.textContent = text; t.hidden = false; positionTip(node); });
+  node.addEventListener('mousemove', () => positionTip(node));
+  node.addEventListener('mouseleave', hideTip);
+}
+function hideTip() { if (wasmTipEl) wasmTipEl.hidden = true; }
+
+// ---- action helpers that the menu/toolbar wire into ----
+function openFileDialog() { (el('fileOpen') as HTMLInputElement).click(); }
+function cutSelected() { if (!selectedBlocks.size) return; copyBlocks(); deleteBlocks(); }
+function deleteSelection() { if (selectedConnection) deleteConnection(selectedConnection); else deleteBlocks(); }
+function selectAll() {
+  selectedBlocks = new Set(insts.map(i => i.uid));
+  selected = insts.length ? insts[insts.length - 1].uid : null;
+  selectedConnection = null; renderProps(); render();
+}
+function openPropsForSelected() { if (selected) showPropsDialog(G0(selected)); }
+function togglePalette() { el('app').classList.toggle('hide-palette'); }
+function toggleConsole() { el('canvasWrap').classList.toggle('console-hidden'); }
+function toggleScrollLock() { autoScrollLog = !autoScrollLog; log(`console autoscroll ${autoScrollLog ? 'on' : 'off'}`); }
+function clearConsole() { el('log').textContent = ''; }
+function toggleHideDisabled() { hideDisabled = !hideDisabled; render(); }
+function focusPaletteSearch() { el('app').classList.remove('hide-palette'); paletteSearch?.focus(); paletteSearch?.select(); }
+function generateFlowgraph() { const fg = toFlowgraphJSON(); log(`generated ${fg.blocks.length} blocks, ${fg.connections.length} connections`); }
+function openLink(url: string) { window.open(url, '_blank', 'noopener'); }
+
+// ---- enable/state predicates (evaluated each time a menu opens) ----
+function hasSel() { return selectedBlocks.size > 0; }
+function hasSelOrConn() { return selectedBlocks.size > 0 || !!selectedConnection; }
+function canUndo() { return historyIndex > 0; }
+function canRedo() { return historyIndex < graphHistory.length - 1; }
+function canPaste() { return !!clipboard; }
+function hasBlocks() { return insts.length > 0; }
+
+// ---- simple info dialogs (reuse the existing .modal/.dlg styling) ----
+function openDialog(title: string, build: (body: HTMLElement) => void, wide = false): HTMLElement {
+  closeMenus(); closeMenu(); document.querySelector('.modal')?.remove();
+  const overlay = document.createElement('div'); overlay.className = 'modal';
+  const dlg = document.createElement('div'); dlg.className = 'dlg' + (wide ? ' shortcut-dlg' : '');
+  const head = document.createElement('div'); head.className = 'dlghead'; head.textContent = title;
+  const body = document.createElement('div'); body.className = 'dlgbody';
+  build(body);
+  const foot = document.createElement('div'); foot.className = 'dlgfoot';
+  const close = document.createElement('button'); close.textContent = 'Close'; close.onclick = () => overlay.remove();
+  foot.appendChild(close);
+  dlg.append(head, body, foot); overlay.appendChild(dlg); document.body.appendChild(overlay);
+  overlay.addEventListener('mousedown', e => { if (e.target === overlay) overlay.remove(); });
+  close.focus();
+  return overlay;
+}
+const TYPE_NAMES: Record<string, string> = {
+  complex: 'Complex Float 32', float: 'Float 32', int: 'Integer 32',
+  short: 'Integer 16', byte: 'Byte', message: 'Async Message', '': 'Wildcard',
+};
+function showTypesDialog() {
+  openDialog('Port & Data Types', body => {
+    for (const [k, color] of Object.entries(DTYPE_COLOR)) {
+      const row = document.createElement('div'); row.className = 'type-row';
+      const sw = document.createElement('span'); sw.className = 'type-swatch'; sw.style.background = color;
+      const nm = document.createElement('span'); nm.textContent = TYPE_NAMES[k] ?? k;
+      row.append(sw, nm); body.appendChild(row);
+    }
+  });
+}
+function showErrorsDialog() {
+  openDialog('Flowgraph Errors', body => {
+    const issues = validateGraph();
+    if (!issues.length) { body.textContent = 'No errors — the flowgraph is valid.'; return; }
+    for (const issue of issues) {
+      const b = insts.find(i => i.uid === issue.uid);
+      const row = document.createElement('div'); row.className = 'err-row';
+      row.textContent = `${b?.name || b?.id || issue.uid}: ${issue.message}`;
+      body.appendChild(row);
+    }
+  }, true);
+}
+function showAboutDialog() {
+  openDialog('About', body => {
+    const p = document.createElement('div'); p.className = 'about-body';
+    p.appendChild(document.createTextNode(
+      'GNU Radio Companion — WebAssembly edition. A browser port of the GNU Radio flowgraph editor: ' +
+      'place, connect and configure blocks, then run the flowgraph directly in your browser via the ' +
+      'WebAssembly runtime. '));
+    const a = document.createElement('a');
+    a.href = 'https://www.gnuradio.org/'; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'gnuradio.org';
+    p.appendChild(a);
+    body.appendChild(p);
+  });
+}
+
+// ---- menu model + builder ----
+type MenuItem =
+  | { label: string; key?: string; run?: () => void; reason?: string;
+      enabled?: () => boolean; check?: () => boolean; danger?: boolean; sub?: (MenuItem | 'sep')[] };
+interface TopMenu { label: string; items: (MenuItem | 'sep')[] }
+
+const MENUS: TopMenu[] = [
+  { label: 'File', items: [
+    { label: 'New', key: 'Ctrl+N', run: () => clearFlowgraph() },
+    { label: 'Duplicate', key: 'Ctrl+Shift+D', run: duplicateFlowgraph, enabled: hasBlocks },
+    { label: 'Open…', key: 'Ctrl+O', run: openFileDialog },
+    { label: 'Open Recent', reason: R_RECENT },
+    'sep',
+    { label: 'Save', key: 'Ctrl+S', run: () => saveFlowgraph() },
+    { label: 'Save As…', key: 'Ctrl+Shift+S', run: () => saveFlowgraph(true) },
+    { label: 'Save Copy', run: () => saveFlowgraph() },
+    'sep',
+    { label: 'Screen Capture…', key: 'Ctrl+P', run: saveScreenshot },
+    'sep',
+    { label: 'Close', key: 'Ctrl+W', run: () => clearFlowgraph() },
+    { label: 'Quit', key: 'Ctrl+Q', reason: R_QUIT },
+  ] },
+  { label: 'Edit', items: [
+    { label: 'Undo', key: 'Ctrl+Z', run: undo, enabled: canUndo },
+    { label: 'Redo', key: 'Ctrl+Y', run: redo, enabled: canRedo },
+    'sep',
+    { label: 'Cut', key: 'Ctrl+X', run: cutSelected, enabled: hasSel },
+    { label: 'Copy', key: 'Ctrl+C', run: () => copyBlocks(), enabled: hasSel },
+    { label: 'Paste', key: 'Ctrl+V', run: () => pasteBlock(), enabled: canPaste },
+    { label: 'Delete', key: 'Del', run: deleteSelection, enabled: hasSelOrConn, danger: true },
+    { label: 'Select All', key: 'Ctrl+A', run: selectAll, enabled: hasBlocks },
+    'sep',
+    { label: 'Rotate Counterclockwise', key: '←', run: () => rotateSelected(-90), enabled: hasSel },
+    { label: 'Rotate Clockwise', key: '→', run: () => rotateSelected(90), enabled: hasSel },
+    { label: 'Align', sub: [
+      { label: 'Vertical Align Top', key: 'Shift+T', run: () => alignSelected('top') },
+      { label: 'Vertical Align Middle', key: 'Shift+M', run: () => alignSelected('middle') },
+      { label: 'Vertical Align Bottom', key: 'Shift+B', run: () => alignSelected('bottom') },
+      'sep',
+      { label: 'Horizontal Align Left', key: 'Shift+L', run: () => alignSelected('left') },
+      { label: 'Horizontal Align Center', key: 'Shift+C', run: () => alignSelected('center') },
+      { label: 'Horizontal Align Right', key: 'Shift+R', run: () => alignSelected('right') },
+    ] },
+    'sep',
+    { label: 'Enable', key: 'E', run: () => setSelectedEnabled(true), enabled: hasSel },
+    { label: 'Disable', key: 'D', run: () => setSelectedEnabled(false), enabled: hasSel },
+    { label: 'Bypass', key: 'B', run: bypassSelected, enabled: hasSel },
+    'sep',
+    { label: 'Properties', key: 'Return', run: openPropsForSelected, enabled: () => !!selected },
+  ] },
+  { label: 'View', items: [
+    { label: 'Show Block Tree Panel', key: 'Ctrl+B', run: togglePalette,
+      check: () => !el('app').classList.contains('hide-palette') },
+    'sep',
+    { label: 'Show Console Panel', key: 'Ctrl+R', run: toggleConsole,
+      check: () => !el('canvasWrap').classList.contains('console-hidden') },
+    { label: 'Console Scroll Lock', run: toggleScrollLock, check: () => !autoScrollLog },
+    { label: 'Save Console', key: 'Ctrl+Shift+P', run: saveConsole },
+    { label: 'Clear Console', key: 'Ctrl+L', run: clearConsole },
+    'sep',
+    { label: 'Show Variable Editor', key: 'Ctrl+E', run: showVariableEditor },
+    { label: 'Move Variable Editor to Sidebar', reason: R_TODO },
+    { label: 'Show parameter expressions in block', reason: R_TODO },
+    { label: 'Show parameter value in block', reason: R_TODO },
+    'sep',
+    { label: 'Hide Variables', reason: R_TODO },
+    { label: 'Hide Disabled Blocks', key: 'Ctrl+D', run: toggleHideDisabled, check: () => hideDisabled },
+    { label: 'Auto-Hide Port Labels', reason: R_TODO },
+    { label: 'Snap to Grid', reason: R_TODO },
+    { label: 'Show Block Comments', reason: R_TODO },
+    { label: 'Show All Block IDs', reason: R_TODO },
+    { label: 'Show Properties Field Colors', reason: R_TODO },
+    'sep',
+    { label: 'Generated Code Preview', reason: R_CODE },
+    'sep',
+    { label: 'Zoom In', key: 'Ctrl++', run: () => setZoom(zoom * 1.15) },
+    { label: 'Zoom Out', key: 'Ctrl+-', run: () => setZoom(zoom / 1.15) },
+    { label: 'Reset Zoom', key: 'Ctrl+0', run: () => setZoom(1) },
+    'sep',
+    { label: 'Flowgraph Errors', run: showErrorsDialog },
+    { label: 'Find Blocks', key: 'Ctrl+F', run: focusPaletteSearch },
+  ] },
+  { label: 'Run', items: [
+    { label: 'Generate', key: 'F5', run: generateFlowgraph },
+    { label: 'Execute', key: 'F6', run: run },
+    { label: 'Kill', key: 'F7', run: stop },
+  ] },
+  { label: 'Tools', items: [
+    { label: 'Filter Design Tool', reason: R_FDESIGN },
+    { label: 'Set Default QT GUI Theme', reason: R_QSS },
+    'sep',
+    { label: 'Show Flowgraph Complexity', reason: R_COMPLEXITY },
+  ] },
+  { label: 'Help', items: [
+    { label: 'Help', key: 'F1', run: () => openLink('https://wiki.gnuradio.org/index.php/Main_Page') },
+    { label: 'Types', run: showTypesDialog },
+    { label: 'Keyboard Shortcuts', key: 'Ctrl+K', run: showShortcutHelp },
+    { label: 'Parser Errors', reason: R_XML },
+    'sep',
+    { label: 'Get Involved', run: () => openLink('https://www.gnuradio.org/get-involved/') },
+    { label: 'About', run: showAboutDialog },
+  ] },
+];
+
+function buildMenuDrop(items: (MenuItem | 'sep')[], submenu = false): HTMLElement {
+  const drop = document.createElement('div');
+  drop.className = 'menu-drop' + (submenu ? ' submenu' : '');
+  drop.setAttribute('role', 'menu');
+  for (const it of items) {
+    if (it === 'sep') { drop.appendChild(Object.assign(document.createElement('div'), { className: 'menu-sep' })); continue; }
+    const row = document.createElement('div');
+    row.className = 'menuitem' + (it.danger ? ' danger' : '');
+    row.setAttribute('role', 'menuitem');
+    const check = document.createElement('span'); check.className = 'mi-check';
+    check.textContent = it.check && it.check() ? '✓' : '';
+    const label = document.createElement('span'); label.className = 'mi-label'; label.textContent = it.label;
+    row.append(check, label);
+    if (it.sub) {
+      row.classList.add('has-sub');
+      const arrow = document.createElement('span'); arrow.className = 'mi-arrow'; arrow.textContent = '▸';
+      row.appendChild(arrow);
+      row.appendChild(buildMenuDrop(it.sub, true));
+    } else {
+      const key = document.createElement('span'); key.className = 'mi-key'; key.textContent = it.key || '';
+      row.appendChild(key);
+      if (it.reason) { row.classList.add('disabled'); attachTip(row, it.reason); }
+      else if (it.enabled && !it.enabled()) { row.classList.add('disabled'); }
+      else row.addEventListener('click', e => { e.stopPropagation(); closeMenus(); it.run && it.run(); });
+    }
+    drop.appendChild(row);
+  }
+  return drop;
+}
+function closeMenus() {
+  document.querySelectorAll('#menus .menu-top.open').forEach(t => {
+    t.classList.remove('open'); t.querySelector('.menu-drop')?.remove();
+  });
+  hideTip();
+}
+function openTop(top: HTMLElement, items: (MenuItem | 'sep')[]) {
+  closeMenus();
+  top.appendChild(buildMenuDrop(items));
+  top.classList.add('open');
+}
+function buildMenuBar() {
+  const menus = el('menus'); menus.textContent = '';
+  for (const m of MENUS) {
+    const top = document.createElement('div'); top.className = 'menu-top';
+    top.setAttribute('role', 'menuitem'); top.tabIndex = 0;
+    const lbl = document.createElement('span'); lbl.textContent = m.label; top.appendChild(lbl);
+    top.addEventListener('click', e => {
+      e.stopPropagation();
+      if (top.classList.contains('open')) closeMenus(); else openTop(top, m.items);
+    });
+    top.addEventListener('mouseenter', () => {
+      if (menus.querySelector('.menu-top.open') && !top.classList.contains('open')) openTop(top, m.items);
+    });
+    menus.appendChild(top);
+  }
+}
+document.addEventListener('mousedown', e => {
+  if (!(e.target as HTMLElement).closest('#menus')) closeMenus();
+});
+
+// ---- icon toolbar (mirrors TOOLBAR_LIST) ----
+interface Tool { icon: string; label: string; key?: string; run?: () => void; reason?: string }
+const TOOLBAR: (Tool | 'sep')[] = [
+  { icon: '📄', label: 'New', key: 'Ctrl+N', run: () => clearFlowgraph() },
+  { icon: '📂', label: 'Open', key: 'Ctrl+O', run: openFileDialog },
+  { icon: '💾', label: 'Save', key: 'Ctrl+S', run: () => saveFlowgraph() },
+  { icon: '✖', label: 'Close', key: 'Ctrl+W', run: () => clearFlowgraph() },
+  'sep',
+  { icon: '🧮', label: 'Variable Editor', key: 'Ctrl+E', run: showVariableEditor },
+  { icon: '📷', label: 'Screen Capture', key: 'Ctrl+P', run: saveScreenshot },
+  'sep',
+  { icon: '✂', label: 'Cut', key: 'Ctrl+X', run: cutSelected },
+  { icon: '⧉', label: 'Copy', key: 'Ctrl+C', run: () => copyBlocks() },
+  { icon: '📋', label: 'Paste', key: 'Ctrl+V', run: () => pasteBlock() },
+  { icon: '🗑', label: 'Delete', key: 'Del', run: deleteSelection },
+  'sep',
+  { icon: '↶', label: 'Undo', key: 'Ctrl+Z', run: undo },
+  { icon: '↷', label: 'Redo', key: 'Ctrl+Y', run: redo },
+  'sep',
+  { icon: '⚠', label: 'Flowgraph Errors', run: showErrorsDialog },
+  { icon: '⚙', label: 'Generate', key: 'F5', run: generateFlowgraph },
+  { icon: '▶', label: 'Execute', key: 'F6', run: run },
+  { icon: '■', label: 'Kill', key: 'F7', run: stop },
+  'sep',
+  { icon: '⟲', label: 'Rotate Counterclockwise', key: '←', run: () => rotateSelected(-90) },
+  { icon: '⟳', label: 'Rotate Clockwise', key: '→', run: () => rotateSelected(90) },
+  'sep',
+  { icon: '🔌', label: 'Enable', key: 'E', run: () => setSelectedEnabled(true) },
+  { icon: '⭘', label: 'Disable', key: 'D', run: () => setSelectedEnabled(false) },
+  { icon: '⤳', label: 'Bypass', key: 'B', run: bypassSelected },
+  { icon: '👁', label: 'Hide Disabled Blocks', key: 'Ctrl+D', run: toggleHideDisabled },
+  'sep',
+  { icon: '🔍', label: 'Find Blocks', key: 'Ctrl+F', run: focusPaletteSearch },
+  { icon: '🔄', label: 'Reload Blocks', reason: R_RELOAD },
+  { icon: '↧', label: 'Open Hier', reason: R_HIER },
+];
+function buildToolbar() {
+  const bar = el('toolbar'); bar.textContent = '';
+  for (const t of TOOLBAR) {
+    if (t === 'sep') { bar.appendChild(Object.assign(document.createElement('div'), { className: 'tsep' })); continue; }
+    const b = document.createElement('button'); b.className = 'tbtn'; b.textContent = t.icon;
+    b.setAttribute('aria-label', t.label);
+    if (t.reason) { b.classList.add('disabled'); b.setAttribute('aria-disabled', 'true'); attachTip(b, t.reason); }
+    else { b.title = t.label + (t.key ? ` (${t.key})` : ''); b.onclick = () => t.run && t.run(); }
+    bar.appendChild(b);
+  }
+}
+
+buildMenuBar();
+buildToolbar();
 el('btnStop').addEventListener('click', stop);
-el('btnClear').addEventListener('click', () => clearFlowgraph());
-el('btnSave').addEventListener('click', () => saveFlowgraph());
-el('btnOpen').addEventListener('click', () => (el('fileOpen') as HTMLInputElement).click());
-el('btnKeys').addEventListener('click', showShortcutHelp);
 (el('fileOpen') as HTMLInputElement).addEventListener('change', async event => {
   const input = event.currentTarget as HTMLInputElement, file = input.files?.[0]; if (!file) return;
   try { loadFlowgraph(JSON.parse(await file.text())); }

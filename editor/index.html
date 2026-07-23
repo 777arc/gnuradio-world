@@ -7,15 +7,58 @@
   * { box-sizing:border-box; }
   html,body { margin:0; height:100%; font-family:system-ui,Arial,sans-serif; color:#e6e9f0; background:#1e2230; }
   #app { --palette-width:230px; display:grid;
-      grid-template-columns:var(--palette-width) 1fr 260px; grid-template-rows:44px 1fr; height:100vh; }
+      grid-template-columns:var(--palette-width) 1fr 260px; grid-template-rows:auto 1fr; height:100vh; }
   #app.hide-palette { --palette-width:0px; }
   #app.hide-palette #palette { visibility:hidden; overflow:hidden; }
-  header { grid-column:1/4; display:flex; align-items:center; gap:10px; padding:0 12px; background:#181b26; border-bottom:1px solid #333a4d; }
-  header h1 { font-size:14px; font-weight:600; margin:0; color:#aebbd6; }
+  header { grid-column:1/4; display:flex; flex-direction:column; background:#181b26; border-bottom:1px solid #333a4d; }
   header .spacer { flex:1; }
   button { background:#2f3650; color:#e6e9f0; border:1px solid #46507a; border-radius:6px; padding:6px 12px; cursor:pointer; font-size:13px; }
   button.run { background:#2e7d46; border-color:#3fae63; font-weight:600; }
   button:hover { filter:brightness(1.15); }
+  /* ---- GRC-style menu bar (mirrors grc/gui/Bars.py MENU_BAR_LIST) ---- */
+  #menubar { display:flex; align-items:center; gap:2px; padding:0 10px; height:34px; }
+  #menubar .brand { font-size:13px; font-weight:700; color:#aebbd6; margin-right:12px; letter-spacing:.02em; white-space:nowrap; }
+  #menus { display:flex; gap:1px; }
+  .menu-top { position:relative; padding:5px 10px; font-size:13px; color:#c3cbe0; border-radius:5px; cursor:pointer; user-select:none; }
+  .menu-top:hover, .menu-top.open { background:#2a2f42; color:#fff; }
+  .menu-drop { position:absolute; top:100%; left:0; z-index:300; min-width:236px; background:#272c3d;
+      border:1px solid #46507a; border-radius:6px; padding:4px 0; box-shadow:0 10px 30px #000a; }
+  .menuitem { display:flex; align-items:center; gap:10px; padding:6px 12px 6px 8px; font-size:13px;
+      color:#e6e9f0; cursor:pointer; white-space:nowrap; }
+  .menuitem:hover { background:#38415f; }
+  .menuitem .mi-check { width:13px; min-width:13px; text-align:center; color:#3fae63; font-size:11px; }
+  .menuitem .mi-label { flex:1; }
+  .menuitem .mi-key { color:#8b97b8; font-size:11px; font-family:monospace; padding-left:16px; }
+  .menuitem .mi-arrow { color:#8b97b8; font-size:10px; }
+  .menuitem.danger { color:#ff7b72; }
+  .menuitem.disabled { color:#5c637a; cursor:not-allowed; }
+  .menuitem.disabled:hover { background:transparent; }
+  .menuitem.disabled .mi-key { color:#4b5266; }
+  .menu-sep { height:1px; background:#3a4160; margin:4px 0; }
+  .menuitem.has-sub { position:relative; }
+  .menu-drop.submenu { display:none; top:-5px; left:100%; }
+  .menuitem.has-sub:hover > .menu-drop.submenu { display:block; }
+  /* ---- GRC-style icon toolbar (mirrors TOOLBAR_LIST) ---- */
+  #toolbar { display:flex; align-items:center; gap:2px; padding:3px 8px; height:38px;
+      border-top:1px solid #262b3b; overflow-x:auto; }
+  .tbtn { display:inline-flex; align-items:center; justify-content:center; min-width:30px; height:28px;
+      padding:0 7px; font-size:15px; line-height:1; background:transparent; border:1px solid transparent;
+      border-radius:5px; color:#c3cbe0; cursor:pointer; }
+  .tbtn:hover { background:#2a2f42; border-color:#3a4366; filter:none; }
+  .tbtn.disabled { color:#4b5266; cursor:not-allowed; }
+  .tbtn.disabled:hover { background:transparent; border-color:transparent; }
+  .tsep { width:1px; min-width:1px; height:20px; background:#333a4d; margin:0 4px; }
+  /* ---- hover tooltip explaining WASM-unavailable actions ---- */
+  #wasmTip { position:fixed; z-index:500; max-width:290px; background:#11141d; color:#dbe2f2;
+      border:1px solid #46507a; border-radius:6px; padding:7px 10px; font:12px/1.45 system-ui,Arial,sans-serif;
+      box-shadow:0 8px 24px #000b; pointer-events:none; }
+  #wasmTip[hidden] { display:none; }
+  /* ---- Types dialog swatches ---- */
+  .type-row { display:flex; align-items:center; gap:12px; padding:5px 2px; font-size:13px; }
+  .type-swatch { width:20px; height:14px; border:1px solid #000; border-radius:2px; }
+  .err-row { padding:5px 2px; font:12px/1.5 monospace; color:#ffb3ac; border-bottom:1px solid #303548; }
+  .about-body { line-height:1.55; font-size:13px; }
+  .about-body a { color:#7fb4ff; }
   #palette, #props { min-height:0; background:#20232f; overflow:auto; }
   #palette { border-right:1px solid #333a4d; }
   #props { border-left:1px solid #333a4d; }
@@ -74,6 +117,7 @@
   .wire { stroke:#2a2a2a; stroke-width:2; fill:none; pointer-events:none; }
   .wire.sel { stroke:#00b8c8; stroke-width:3; }
   .wire.invalid { stroke:#d1242f; stroke-width:3; }
+  .wire.connecting { stroke:#1a63c4; stroke-width:2; stroke-dasharray:6 4; pointer-events:none; }
   .wire-hit { stroke:transparent; stroke-width:12; fill:none; cursor:pointer; pointer-events:stroke; }
   /* disabled block (GRC greys it out) */
   .blk.disabled rect.body { fill:#e6e6e6; stroke:#9a9a9a; stroke-dasharray:5 3; }
@@ -137,13 +181,11 @@
 <body>
 <div id="app">
   <header>
-    <h1>GNU Radio · WebAssembly Flowgraph Editor</h1>
-    <span class="spacer"></span>
-    <button id="btnClear">Clear</button>
-    <button id="btnOpen" title="Open flowgraph (Ctrl+O)">📂 Open</button>
-    <button id="btnSave" title="Download flowgraph (Ctrl+S)">💾 Download</button>
-    <button id="btnKeys" title="Keyboard shortcuts (Ctrl+K)">⌨ Keys</button>
-    <button id="btnRun" class="run">▶ Run</button>
+    <div id="menubar">
+      <span class="brand">GNU Radio · WebAssembly</span>
+      <nav id="menus" role="menubar" aria-label="Main menu"></nav>
+    </div>
+    <div id="toolbar" role="toolbar" aria-label="Editor toolbar"></div>
   </header>
   <div id="palette"></div>
   <div id="workspace">
