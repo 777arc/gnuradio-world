@@ -130,6 +130,26 @@ const RUNNABLE: Record<string, RunnableDef> = {
       { id: 'min_len', label: 'Minimum Length', type: 'number', def: 200 },
     ],
   },
+  variable_qtgui_chooser: {
+    label: 'QT GUI Chooser', inputs: 0, outputs: 0, params: [
+      { id: 'label', label: 'Label', type: 'string', def: '' },
+      { id: 'options', label: 'Options', type: 'string', def: '0, 1, 2' },
+      { id: 'labels', label: 'Labels', type: 'string', def: '' },
+      { id: 'value', label: 'Default option', type: 'number', def: 0 },
+      { id: 'widget', label: 'Widget', type: 'enum', def: 'combo_box',
+        options: ['combo_box', 'radio_buttons'] },
+      { id: 'orient', label: 'Orientation', type: 'enum', def: 'vertical',
+        options: ['vertical', 'horizontal'] },
+    ],
+  },
+  variable_qtgui_push_button: {
+    label: 'QT GUI Push Button', inputs: 0, outputs: 0, params: [
+      { id: 'label', label: 'Label', type: 'string', def: '' },
+      { id: 'value', label: 'Default Value', type: 'number', def: 0 },
+      { id: 'pressed', label: 'Pressed', type: 'number', def: 1 },
+      { id: 'released', label: 'Released', type: 'number', def: 0 },
+    ],
+  },
   // ---- sinks ----
   blocks_null_sink: { label: 'Null Sink', inputs: 1, outputs: 0, params: [STREAM_TYPE_PARAM] },
   qtgui_time_sink_x: {
@@ -319,6 +339,12 @@ function numericOrExpression(value: string): number | string {
 const NAME_FIELD = '__name';
 const BLOCK_FIELD = '__block';
 
+// Variable controls have no stream ports; they publish a numeric value that
+// other blocks' numeric fields may reference by the control's block ID.
+const VARIABLE_CONTROL_IDS = new Set([
+  'variable_qtgui_range', 'variable_qtgui_chooser', 'variable_qtgui_push_button',
+]);
+
 function validateGraph(blocks: Inst[] = insts, connections: Conn[] = conns): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   const active = (block: Inst) => block.enabled && !block.bypassed;
@@ -327,8 +353,8 @@ function validateGraph(blocks: Inst[] = insts, connections: Conn[] = conns): Val
     const name = String(block.name || '').trim();
     activeNames.set(name, (activeNames.get(name) || 0) + 1);
   }
-  const activeRanges = new Set(blocks
-    .filter(block => active(block) && block.id === 'variable_qtgui_range' &&
+  const activeVariables = new Set(blocks
+    .filter(block => active(block) && VARIABLE_CONTROL_IDS.has(block.id) &&
       activeNames.get(String(block.name || '').trim()) === 1)
     .map(block => String(block.name || '').trim()));
 
@@ -354,10 +380,10 @@ function validateGraph(blocks: Inst[] = insts, connections: Conn[] = conns): Val
     for (const param of def.params) {
       const value = block.params?.[param.id];
       if (param.type === 'number') {
-        const rangeReference = block.id !== 'variable_qtgui_range' && typeof value === 'string' &&
-          activeRanges.has(value.trim());
-        if (!finiteNumber(value) && !rangeReference)
-          add(block, param.id, `${param.label} must be a finite number or a QT GUI Range ID.`);
+        const variableReference = !VARIABLE_CONTROL_IDS.has(block.id) && typeof value === 'string' &&
+          activeVariables.has(value.trim());
+        if (!finiteNumber(value) && !variableReference)
+          add(block, param.id, `${param.label} must be a finite number or a variable control ID.`);
       } else if (param.type === 'enum' && param.options?.length && !param.options.includes(String(value))) {
         add(block, param.id, `${param.label} has unsupported value "${String(value)}".`);
       }

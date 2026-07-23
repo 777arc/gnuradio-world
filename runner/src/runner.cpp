@@ -28,6 +28,15 @@ struct VariableControl {
     BuiltBlock built;
 };
 
+// Variable controls have no GNU Radio block: they publish a value that other
+// blocks' numeric parameters can bind to. They are built once up front so the
+// value is resolvable regardless of graph order.
+static bool is_variable_control(const std::string& id) {
+    return id == "variable_qtgui_range" ||
+           id == "variable_qtgui_chooser" ||
+           id == "variable_qtgui_push_button";
+}
+
 static nlohmann::json resolve_variables(
     const nlohmann::json& params,
     const std::map<std::string, VariableControl>& variables)
@@ -99,7 +108,7 @@ int gr_run_json(const char* json_str) {
         // be resolved regardless of where the Range appears in the graph JSON.
         for (const auto& blk : j.at("blocks")) {
             const std::string id = blk.at("id").get<std::string>();
-            if (id != "variable_qtgui_range")
+            if (!is_variable_control(id))
                 continue;
             const std::string name = blk.at("name").get<std::string>();
             nlohmann::json params = blk.value("params", nlohmann::json::object());
@@ -118,7 +127,7 @@ int gr_run_json(const char* json_str) {
                 blk.value("params", nlohmann::json::object());
             nlohmann::json params = resolve_variables(source_params, variables);
             BuiltBlock bb;
-            if (id == "variable_qtgui_range") {
+            if (is_variable_control(id)) {
                 bb = variables.at(name).built;
             } else {
                 bb = it->second(params);

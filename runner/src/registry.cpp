@@ -31,14 +31,22 @@
 #include <gnuradio/qtgui/time_sink_f.h>
 #include <gnuradio/qtgui/freq_sink_c.h>
 #include <gnuradio/qtgui/const_sink_c.h>
+#include <QBoxLayout>
+#include <QButtonGroup>
+#include <QComboBox>
 #include <QDial>
 #include <QDoubleSpinBox>
+#include <QGroupBox>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
 #include <QPointer>
+#include <QPushButton>
+#include <QRadioButton>
 #include <QSignalBlocker>
 #include <QSlider>
+#include <QStringList>
+#include <QVBoxLayout>
 #include <QWidget>
 #include <algorithm>
 #include <cctype>
@@ -602,6 +610,154 @@ BuiltBlock make_range(const json& p)
     return result;
 }
 
+// Publish/subscribe state for the simple variable controls (Chooser, Push
+// Button) that, unlike Range, publish discrete values without normalization.
+struct ControlState {
+    std::vector<std::function<void(double)>> subscribers;
+
+    void publish(double value)
+    {
+        for (const auto& subscriber : subscribers)
+            subscriber(value);
+    }
+};
+
+// Split a comma-separated field into trimmed, unquoted pieces. Accepts GRC's
+// bracketed raw form ("[0, 1, 2]") as well as a plain list ("0, 1, 2").
+QStringList split_list(const QString& text)
+{
+    QString body = text.trimmed();
+    if (body.startsWith('[') && body.endsWith(']'))
+        body = body.mid(1, body.size() - 2);
+    QStringList pieces;
+    if (body.trimmed().isEmpty())
+        return pieces;
+    for (const QString& raw : body.split(',')) {
+        QString piece = raw.trimmed();
+        if (piece.size() >= 2 &&
+            ((piece.startsWith('\'') && piece.endsWith('\'')) ||
+             (piece.startsWith('"') && piece.endsWith('"'))))
+            piece = piece.mid(1, piece.size() - 2);
+        pieces.push_back(piece);
+    }
+    return pieces;
+}
+
+BuiltBlock make_chooser(const json& p)
+{
+    // Options are numeric because the WASM variable model carries a double.
+    std::vector<double> options;
+    for (const QString& piece :
+         split_list(QString::fromStdString(p.value("options", std::string("0, 1, 2"))))) {
+        bool ok = false;
+        const double value = piece.toDouble(&ok);
+        options.push_back(ok ? value : static_cast<double>(options.size()));
+    }
+    if (options.empty())
+        throw std::runtime_error("QT GUI Chooser requires at least one option");
+
+    const QStringList labels =
+        split_list(QString::fromStdString(p.value("labels", std::string())));
+    bool have_labels = false;
+    for (const QString& label : labels)
+        have_labels = have_labels || !label.isEmpty();
+    auto label_for = [&](int i) -> QString {
+        if (have_labels && i < labels.size() && !labels[i].isEmpty())
+            return labels[i];
+        return QString::number(options[i], 'g', 12);
+    };
+
+    // Snap the default value onto the closest option so the initial selection
+    // and the variable's starting value always agree.
+    const double requested = p.value("value", options.front());
+    int initial_index = 0;
+    for (std::size_t i = 1; i < options.size(); ++i)
+        if (std::abs(options[i] - requested) <
+            std::abs(options[initial_index] - requested))
+            initial_index = static_cast<int>(i);
+
+    auto state = std::make_shared<ControlState>();
+    auto option_values = std::make_shared<std::vector<double>>(options);
+    QString label = QString::fromStdString(p.value("label", std::string()));
+    if (label.isEmpty())
+        label = QString::fromStdString(p.value("__name", std::string("Chooser")));
+
+    QWidget* widget = nullptr;
+    if (p.value("widget", std::string("combo_box")) == "radio_buttons") {
+        const std::string orient = p.value("orient", std::string("vertical"));
+        auto* group = new QGroupBox(label);
+        QBoxLayout* box = orient == "horizontal"
+                              ? static_cast<QBoxLayout*>(new QHBoxLayout(group))
+                              : static_cast<QBoxLayout*>(new QVBoxLayout(group));
+        // Grouping keeps the radio buttons mutually exclusive.
+        auto* button_group = new QButtonGroup(group);
+        for (std::size_t i = 0; i < options.size(); ++i) {
+            auto* radio = new QRadioButton(label_for(static_cast<int>(i)), group);
+            radio->setChecked(static_cast<int>(i) == initial_index);
+            button_group->addButton(radio, static_cast<int>(i));
+            box->addWidget(radio);
+            QObject::connect(radio, &QRadioButton::clicked, radio,
+                             [state, option_values, i] {
+                                 state->publish((*option_values)[i]);
+                             });
+        }
+        widget = group;
+    } else {
+        widget = new QWidget;
+        auto* layout = new QHBoxLayout(widget);
+        layout->setContentsMargins(0, 0, 0, 0);
+        layout->addWidget(new QLabel(label + ": ", widget));
+        auto* combo = new QComboBox(widget);
+        for (std::size_t i = 0; i < options.size(); ++i)
+            combo->addItem(label_for(static_cast<int>(i)));
+        combo->setCurrentIndex(initial_index);
+        QObject::connect(combo, &QComboBox::currentIndexChanged, combo,
+                         [state, option_values](int i) {
+                             if (i >= 0)
+                                 state->publish((*option_values)[i]);
+                         });
+        layout->addWidget(combo);
+    }
+
+    BuiltBlock result;
+    result.widget = widget;
+    result.is_variable = true;
+    result.variable_value = options[initial_index];
+    result.subscribe = [state](std::function<void(double)> subscriber) {
+        state->subscribers.push_back(std::move(subscriber));
+    };
+    return result;
+}
+
+BuiltBlock make_push_button(const json& p)
+{
+    // A momentary control: the variable takes `pressed` while held and
+    // `released` otherwise, mirroring GRC's variable_qtgui_push_button.
+    const double pressed = p.value("pressed", 1.0);
+    const double released = p.value("released", 0.0);
+    const double initial = p.value("value", released);
+
+    auto state = std::make_shared<ControlState>();
+    QString label = QString::fromStdString(p.value("label", std::string()));
+    if (label.isEmpty())
+        label = QString::fromStdString(p.value("__name", std::string("Button")));
+
+    auto* button = new QPushButton(label);
+    QObject::connect(button, &QPushButton::pressed, button,
+                     [state, pressed] { state->publish(pressed); });
+    QObject::connect(button, &QPushButton::released, button,
+                     [state, released] { state->publish(released); });
+
+    BuiltBlock result;
+    result.widget = button;
+    result.is_variable = true;
+    result.variable_value = initial;
+    result.subscribe = [state](std::function<void(double)> subscriber) {
+        state->subscribers.push_back(std::move(subscriber));
+    };
+    return result;
+}
+
 } // namespace
 
 const std::map<std::string, Factory>& block_registry() {
@@ -612,6 +768,12 @@ const std::map<std::string, Factory>& block_registry() {
         // ---- variables / controls ----
         {"variable_qtgui_range", [](const json& p) -> BuiltBlock {
              return make_range(p);
+         }},
+        {"variable_qtgui_chooser", [](const json& p) -> BuiltBlock {
+             return make_chooser(p);
+         }},
+        {"variable_qtgui_push_button", [](const json& p) -> BuiltBlock {
+             return make_push_button(p);
          }},
         // ---- sources ----
         {"analog_sig_source_x", [](const json& p) -> BuiltBlock {

@@ -58,6 +58,8 @@ OBJECT_PARAMETERS = {
 # implementation.  Do not emit duplicate generated code for them.
 CUSTOM_IDS = {
     "variable_qtgui_range",
+    "variable_qtgui_chooser",
+    "variable_qtgui_push_button",
     "analog_sig_source_x",
     "analog_noise_source_x",
     "analog_random_source_x",

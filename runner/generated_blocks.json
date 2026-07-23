@@ -253,6 +253,8 @@
     "rational_resampler_xxx",
     "root_raised_cosine_filter",
     "single_pole_iir_filter_xx",
+    "variable_qtgui_chooser",
+    "variable_qtgui_push_button",
     "variable_qtgui_range",
     "vocoder_alaw_decode_bs",
     "vocoder_alaw_encode_sb",

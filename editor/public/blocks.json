@@ -43934,8 +43934,8 @@
     "show_id",
     "python"
    ],
-   "runnable": false,
-   "unavailable_reason": "Python-only block",
+   "runnable": true,
+   "unavailable_reason": null,
    "params": [
     {
      "id": "label",
@@ -52066,8 +52066,8 @@
     "python",
     "deprecated"
    ],
-   "runnable": false,
-   "unavailable_reason": "Python-only block",
+   "runnable": true,
+   "unavailable_reason": null,
    "params": [
     {
      "id": "label",
