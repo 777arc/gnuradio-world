@@ -1485,7 +1485,8 @@ async function buildPalette() {
 el('btnRun').addEventListener('click', run);
 el('btnStop').addEventListener('click', stop);
 el('btnClear').addEventListener('click', () => clearFlowgraph());
-el('btnExport').addEventListener('click', () => log(JSON.stringify(toFlowgraphJSON(), null, 1)));
+el('btnSave').addEventListener('click', () => saveFlowgraph());
+el('btnOpen').addEventListener('click', () => (el('fileOpen') as HTMLInputElement).click());
 el('btnKeys').addEventListener('click', showShortcutHelp);
 (el('fileOpen') as HTMLInputElement).addEventListener('change', async event => {
   const input = event.currentTarget as HTMLInputElement, file = input.files?.[0]; if (!file) return;
