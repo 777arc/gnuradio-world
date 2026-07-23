@@ -763,6 +763,58 @@ function saveScreenshot() {
   log('saved flowgraph screenshot');
 }
 function saveConsole() { downloadBlob(el('log').textContent || '', 'text/plain', 'grc-console.txt'); }
+
+// ---- shareable URL (flowgraph gzip-compressed into a ?fg= query param) ----
+async function gzip(str: string): Promise<Uint8Array> {
+  const stream = new Blob([str]).stream().pipeThrough(new CompressionStream('gzip'));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+async function gunzip(bytes: Uint8Array): Promise<string> {
+  const stream = new Blob([bytes as BlobPart]).stream().pipeThrough(new DecompressionStream('gzip'));
+  return await new Response(stream).text();
+}
+function bytesToBase64Url(bytes: Uint8Array): string {
+  let bin = ''; for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function base64UrlToBytes(s: string): Uint8Array {
+  s = s.replace(/-/g, '+').replace(/_/g, '/');
+  const bin = atob(s); const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+// Payload rides in the URL fragment (#fg=), not the query string, so it is never
+// sent to the server — that avoids "414 URI Too Long" on load and keeps flowgraphs
+// out of server logs. URL_MAX is a soft ceiling: chat apps / email clients truncate
+// very long links even though the browser address bar itself allows far more.
+const URL_MAX = 16000;
+async function flowgraphToUrl(): Promise<string> {
+  const param = bytesToBase64Url(await gzip(JSON.stringify(editorFile())));
+  const base = location.href.split('#')[0].split('?')[0];
+  return `${base}#fg=${param}`;
+}
+async function copyFlowgraphUrl() {
+  let url: string;
+  try { url = await flowgraphToUrl(); }
+  catch (error) { log('could not build URL: ' + error); return; }
+  if (url.length > URL_MAX) {
+    log(`flowgraph is too large for a shareable URL (${url.length} chars, limit ${URL_MAX}). ` +
+        'Use File ▸ Save to share it as a .json file instead.');
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(url);
+    log(`copied shareable URL to clipboard (${url.length} chars)`);
+  } catch {
+    // Clipboard API needs a secure context / permission; fall back to a manual copy.
+    const ta = document.createElement('textarea');
+    ta.value = url; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    const ok = document.execCommand('copy'); ta.remove();
+    log(ok ? `copied shareable URL to clipboard (${url.length} chars)`
+          : 'could not copy automatically — URL logged below:\n' + url);
+  }
+}
 function showVariableEditor() {
   closeMenu(); document.querySelector('.modal')?.remove();
   const variables = insts.filter(i => i.id === 'variable' || i.id.startsWith('variable_'));
@@ -1705,6 +1757,7 @@ const MENUS: TopMenu[] = [
     { label: 'Save', key: 'Ctrl+S', run: () => saveFlowgraph() },
     { label: 'Save As…', key: 'Ctrl+Shift+S', run: () => saveFlowgraph(true) },
     { label: 'Save Copy', run: () => saveFlowgraph() },
+    { label: 'Copy URL', run: copyFlowgraphUrl, enabled: hasBlocks },
     'sep',
     { label: 'Screen Capture…', key: 'Ctrl+P', run: saveScreenshot },
     'sep',
@@ -1926,12 +1979,23 @@ conns.push({ from: thr.uid, fp: 0, to: snk.uid, tp: 0 });
 select(null); render();
 historyReady = true; resetHistory();
 log('Editor ready. Click ▶ Run to execute the flowgraph in WebAssembly.');
-paletteReady.then(() => {
-  const token = new URLSearchParams(location.hash.slice(1)).get('duplicate');
-  if (!token) return;
+paletteReady.then(async () => {
+  const hash = new URLSearchParams(location.hash.slice(1));
+  const cleanUrl = () => history.replaceState(null, '', location.href.split('#')[0]);
+  const token = hash.get('duplicate');
+  if (token) {
+    try {
+      const saved = localStorage.getItem(token); if (!saved) throw new Error('duplicate data is no longer available');
+      localStorage.removeItem(token); loadFlowgraph(JSON.parse(saved)); resetHistory();
+      cleanUrl();
+    } catch (error) { log('could not duplicate flowgraph: ' + error); }
+    return;
+  }
+  const fg = hash.get('fg');
+  if (!fg) return;
   try {
-    const saved = localStorage.getItem(token); if (!saved) throw new Error('duplicate data is no longer available');
-    localStorage.removeItem(token); loadFlowgraph(JSON.parse(saved)); resetHistory();
-    history.replaceState(null, '', location.href.split('#')[0]);
-  } catch (error) { log('could not duplicate flowgraph: ' + error); }
+    loadFlowgraph(JSON.parse(await gunzip(base64UrlToBytes(fg)))); resetHistory();
+    log('loaded flowgraph from URL');
+    cleanUrl();
+  } catch (error) { log('could not load flowgraph from URL: ' + error); }
 });
