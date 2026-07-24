@@ -27,4 +27,16 @@ assert.match(source, /VARIABLE_IDS = new Set\(\[\.\.\.VARIABLE_CONTROL_IDS, 'var
   'plain Variable must be a valid numeric reference target');
 assert.match(source, /i\.id !== 'variable'/, 'plain Variable blocks must not be emitted to the runner');
 
+// Options block: the GRC-style per-flowgraph metadata singleton
+// (title/author/copyright/description), auto-inserted and never emitted.
+assert.match(source, /\n\s*options:\s*{[\s\S]*?label: 'Options'/, 'Options block must be registered');
+assert.match(source, /id: 'title'[\s\S]*?id: 'author'[\s\S]*?id: 'copyright'[\s\S]*?id: 'description'/,
+  'Options block must carry title/author/copyright/description metadata');
+assert.match(source, /function ensureOptionsBlock\(\)/, 'a flowgraph must guarantee one Options block');
+assert.match(source, /i\.id !== OPTIONS_ID/, 'the Options block must not be emitted to the runner');
+assert.match(source, /!uids\.has\(i\.uid\) \|\| i\.id === OPTIONS_ID/,
+  'the Options block must be protected from deletion');
+assert.match(source, /only one Options block is allowed per flowgraph/,
+  'adding a second Options block must be refused');
+
 console.log('checked editor-side flowgraph validation and error presentation');

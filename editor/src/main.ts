@@ -773,6 +773,11 @@ function loadFlowgraph(value: any) {
     }
   } else throw new Error('not a GNU Radio WASM flowgraph JSON file');
   ensureOptionsBlock();   // legacy/example files may predate the Options block
+  // Older files (e.g. bundled examples) carry title/description as top-level
+  // keys; fold them into the Options block so the metadata now lives in one place.
+  const opts = insts.find(i => i.id === OPTIONS_ID)!;
+  if (value?.title && !opts.params.title) opts.params.title = String(value.title);
+  if (value?.description && !opts.params.description) opts.params.description = String(value.description);
   selected = null; selectedBlocks.clear(); selectedConnection = null; cancelConnect();
   renderProps(); render(); recordHistory(); log(`opened ${insts.length} blocks`);
 }
