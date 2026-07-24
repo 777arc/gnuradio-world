@@ -59,6 +59,22 @@
   .err-row { padding:5px 2px; font:12px/1.5 monospace; color:#ffb3ac; border-bottom:1px solid #303548; }
   .about-body { line-height:1.55; font-size:13px; }
   .about-body a { color:#7fb4ff; }
+  /* WebAssembly modules & debug info dialog */
+  .debug-body { font-size:13px; }
+  .debug-section { margin-bottom:14px; }
+  .debug-h { font-weight:600; color:#c3cbe0; margin:2px 0 6px; border-bottom:1px solid #303548; padding-bottom:3px; }
+  .debug-kv { display:flex; gap:10px; padding:2px 0; align-items:baseline; }
+  .debug-k { flex:0 0 200px; color:#8b93ab; }
+  .debug-v { flex:1; color:#dde7f6; word-break:break-word; }
+  .debug-v.mono, .debug-table td.mono { font-family:monospace; font-size:12px; }
+  .debug-table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  .debug-table th, .debug-table td { text-align:left; padding:4px 8px; border-bottom:1px solid #303548; }
+  .debug-table th { color:#8b93ab; font-weight:600; }
+  .debug-table td.num, .debug-table th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .debug-table .state-core { color:#8b93ab; }
+  .debug-table .state-loaded { color:#4fc3d6; }
+  .debug-table .state-pending { color:#c9903a; }
+  .debug-totals { margin-top:8px; font-size:12.5px; color:#aeb8d0; }
   #palette, #props { min-height:0; background:#20232f; overflow:auto; }
   #palette { border-right:1px solid #333a4d; }
   #props { border-left:1px solid #333a4d; }

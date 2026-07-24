@@ -4,7 +4,7 @@
 // Emscripten pthreads work (needed by the thread-per-block scheduler).
 // Usage: node wasm/server.mjs [port] [rootDir]
 import http from 'node:http';
-import { readFile, readdir } from 'node:fs/promises';
+import { readFile, readdir, stat } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 
 const port = Number(process.argv[2] || 8080);
@@ -42,8 +42,17 @@ const server = http.createServer(async (req, res) => {
     if (urlPath.endsWith('/')) urlPath += 'index.html';
     const filePath = normalize(join(root, urlPath));
     if (!filePath.startsWith(root)) { res.writeHead(403); return res.end('forbidden'); }
-    const body = await readFile(filePath);
     res.setHeader('Content-Type', MIME[extname(filePath)] || 'application/octet-stream');
+    // HEAD (used by the editor's debug dialog to read wasm sizes): stat only,
+    // report Content-Length, send no body.
+    if (req.method === 'HEAD') {
+      const s = await stat(filePath);
+      res.setHeader('Content-Length', s.size);
+      res.writeHead(200);
+      return res.end();
+    }
+    const body = await readFile(filePath);
+    res.setHeader('Content-Length', body.length);
     res.writeHead(200);
     res.end(body);
   } catch (e) {
