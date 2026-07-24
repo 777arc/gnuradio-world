@@ -282,10 +282,16 @@ let selected: string | null = null;
 let selectedBlocks = new Set<string>();
 let selectedConnection: Conn | null = null;
 let counter = 0;
-// In-progress connection: dragging a rubber-band wire from a port (either an
-// output or an input, GRC-style). `connectPreview` is the live SVG path.
+// In-progress connection: a rubber-band wire from a port (either an output or an
+// input, GRC-style). Two ways to complete it: drag from one port and release on
+// another, or click one port then click the other. `connectPreview` is the live
+// SVG path. `connectDownPt` is the screen point where the source port was
+// pressed; a press-release on the same port that barely moved reads as a click
+// (which arms click-to-connect) rather than an aborted drag.
 let connecting: { uid: string; port: number; kind: 'in' | 'out' } | null = null;
 let connectPreview: SVGPathElement | null = null;
+let connectDownPt: { x: number; y: number } | null = null;
+const CONNECT_CLICK_SLOP = 4;   // px of movement still treated as a click, not a drag
 let autoScrollLog = true;
 let zoom = 1;
 let hideDisabled = false;
@@ -1154,7 +1160,7 @@ function consume(e: KeyboardEvent) { e.preventDefault(); e.stopPropagation(); }
 document.addEventListener('keydown', e => {
   const ctrl = e.ctrlKey || e.metaKey, key = e.key.toLowerCase();
   if (e.key === 'Escape') {
-    closeMenu(); closeMenus(); document.querySelector('.modal')?.remove();
+    closeMenu(); closeMenus(); cancelConnect(); document.querySelector('.modal')?.remove();
     if (document.activeElement === paletteSearch && paletteSearch) {
       paletteSearch.value = ''; paletteSearch.dispatchEvent(new Event('input')); paletteSearch.blur();
     }
@@ -1441,18 +1447,34 @@ function addPort(g: SVGGElement, inst: Inst, kind: 'in' | 'out', idx: number, co
   if (p.edge === 'T' || p.edge === 'B')
     text.setAttribute('transform', `rotate(-90 ${cx} ${cy})`);
   text.textContent = label;
-  // Left-drag from a port to draw a rubber-band wire (GRC-style), release on a
-  // compatible port to connect. Works from either an output or an input.
+  // Two ways to wire ports (GRC-style): left-drag from a port and release on a
+  // compatible one, or click a port then click the other. Works from either an
+  // output or an input.
   r.addEventListener('mousedown', e => {
     if (e.button !== 0) return;
     e.stopPropagation(); e.preventDefault();
+    // A source is already armed from a prior click and this is a different
+    // port: treat the press as the second click and complete the connection.
+    if (connecting && !(connecting.uid === inst.uid && connecting.port === idx && connecting.kind === kind)) {
+      completeConnect(inst, kind, idx);
+      return;
+    }
     connecting = { uid: inst.uid, port: idx, kind };
+    connectDownPt = { x: e.clientX, y: e.clientY };
     log('connect from ' + inst.name + ':' + idx + ' …');
     updateConnectPreview(svgPoint(e));
   });
   r.addEventListener('mouseup', e => {
     if (!connecting) return;
-    e.stopPropagation();
+    e.stopPropagation();   // keep the window handler from cancelling the wire
+    // Released on the source port itself: if the pointer barely moved this was a
+    // click, so leave the wire armed for click-to-connect; otherwise it was a
+    // drag that went nowhere, so abandon it.
+    if (connecting.uid === inst.uid && connecting.port === idx && connecting.kind === kind) {
+      const dp = connectDownPt;
+      if (dp && Math.hypot(e.clientX - dp.x, e.clientY - dp.y) > CONNECT_CLICK_SLOP) cancelConnect();
+      return;
+    }
     completeConnect(inst, kind, idx);
   });
   g.appendChild(r);
@@ -1475,7 +1497,7 @@ function updateConnectPreview(pt: { x: number; y: number }) {
   } else connectPreview.setAttribute('d', d);
 }
 function cancelConnect() {
-  connecting = null;
+  connecting = null; connectDownPt = null;
   if (connectPreview) { connectPreview.remove(); connectPreview = null; }
 }
 // Finish a drag on the given port, orienting the connection output→input.
