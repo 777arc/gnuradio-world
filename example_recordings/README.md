@@ -4,6 +4,8 @@ Currently it's only the .sigmf-data file that gets uploaded, the .sigmf-meta fil
 
 Public access enabled at https://pub-8660d644b79248808cbeb122f5992820.r2.dev
 
+Note that if you're running the app locally, eg for development, it will just look for local SigMF recordings in the /wasm/example_recordings dir
+
 # Upload a new recording
 
 ```
