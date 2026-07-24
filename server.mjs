@@ -22,6 +22,53 @@ const MIME = {
   '.svg': 'image/svg+xml',
 };
 
+function sigmfBytesPerSample(datatype) {
+  const match = typeof datatype === 'string'
+    ? /^([rc])[fiu](\d+)(?:_(?:le|be))?$/i.exec(datatype)
+    : null;
+  if (!match) return null;
+  const bitsPerComponent = Number(match[2]);
+  const components = match[1].toLowerCase() === 'c' ? 2 : 1;
+  const bytes = components * bitsPerComponent / 8;
+  return Number.isInteger(bytes) && bytes > 0 ? bytes : null;
+}
+
+async function listExampleRecordings() {
+  const dir = join(root, 'example_recordings');
+  const files = await readdir(dir);
+  const fileSet = new Set(files);
+  const bases = files
+    .filter(file => file.endsWith('.sigmf-meta'))
+    .map(file => file.slice(0, -'.sigmf-meta'.length))
+    .filter(base => fileSet.has(base + '.sigmf-data'))
+    .sort((a, b) => a.localeCompare(b));
+
+  const recordings = await Promise.all(bases.map(async name => {
+    const dataFile = name + '.sigmf-data';
+    const metaFile = name + '.sigmf-meta';
+    try {
+      const [metadataText, dataStat] = await Promise.all([
+        readFile(join(dir, metaFile), 'utf8'),
+        stat(join(dir, dataFile)),
+      ]);
+      const metadata = JSON.parse(metadataText);
+      const global = metadata && typeof metadata.global === 'object' ? metadata.global : {};
+      const datatype = typeof global['core:datatype'] === 'string' ? global['core:datatype'] : null;
+      const sampleRate = typeof global['core:sample_rate'] === 'number' ? global['core:sample_rate'] : null;
+      const author = typeof global['core:author'] === 'string' ? global['core:author'] : null;
+      const bytesPerSample = sigmfBytesPerSample(datatype);
+      const sampleCount = bytesPerSample && dataStat.size % bytesPerSample === 0
+        ? dataStat.size / bytesPerSample
+        : null;
+      return { name, dataFile, metaFile, datatype, sampleRate, author, sampleCount };
+    } catch {
+      // A malformed/unreadable metadata document is not a usable SigMF recording.
+      return null;
+    }
+  }));
+  return recordings.filter(recording => recording !== null);
+}
+
 const server = http.createServer(async (req, res) => {
   // Cross-origin isolation headers on every response.
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
@@ -39,6 +86,18 @@ const server = http.createServer(async (req, res) => {
       res.setHeader('Content-Type', 'application/json');
       res.writeHead(200);
       return res.end(JSON.stringify(files));
+    }
+    // Only expose complete, parseable SigMF recording pairs. Sample count is
+    // calculated without loading the (potentially large) data file.
+    if (urlPath === '/example_recordings' || urlPath === '/example_recordings/') {
+      let recordings = [];
+      try { recordings = await listExampleRecordings(); }
+      catch (error) {
+        if (error?.code !== 'ENOENT') throw error;
+      }
+      res.setHeader('Content-Type', 'application/json');
+      res.writeHead(200);
+      return res.end(JSON.stringify(recordings));
     }
     if (urlPath.endsWith('/')) urlPath += 'index.html';
     const filePath = normalize(join(root, urlPath));

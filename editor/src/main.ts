@@ -319,7 +319,7 @@ function restoreHistory(index: number) {
   const state = clone(graphHistory[index]);
   insts = state.insts; conns = state.conns; counter = state.counter;
   selected = null; selectedBlocks.clear(); selectedConnection = null; cancelConnect();
-  renderProps(); render();
+  render();
 }
 function undo() { restoreHistory(historyIndex - 1); }
 function redo() { restoreHistory(historyIndex + 1); }
@@ -675,12 +675,12 @@ function deleteBlocks(uids = selectedBlocks) {
   insts = insts.filter(i => !uids.has(i.uid) || i.id === OPTIONS_ID);
   conns = conns.filter(c => !uids.has(c.from) && !uids.has(c.to));
   selectedBlocks.clear(); selected = null; selectedConnection = null;
-  renderProps(); render(); recordHistory();
+  render(); recordHistory();
 }
 function deleteConnection(conn: Conn) {
   conns = conns.filter(c => c !== conn);
   if (selectedConnection === conn) selectedConnection = null;
-  renderProps(); render(); recordHistory();
+  render(); recordHistory();
 }
 function duplicateBlock(uid: string) {
   const s = insts.find(i => i.uid === uid); if (!s) return;
@@ -717,7 +717,7 @@ function pasteBlock(x = 80, y = 80) {
   insts.push(...added);
   conns.push(...clipboard.connections.map(c => ({ ...c, from: remap.get(c.from)!, to: remap.get(c.to)! })));
   selectedBlocks = new Set(added.map(i => i.uid)); selected = added.length ? added[added.length - 1].uid : null;
-  selectedConnection = null; renderProps(); render(); recordHistory();
+  selectedConnection = null; render(); recordHistory();
 }
 
 function selectedInsts(): Inst[] { return insts.filter(i => selectedBlocks.has(i.uid)); }
@@ -766,7 +766,7 @@ function cycleBlockType(direction: number) {
     block.params.type = param.options[(current + direction + param.options.length) % param.options.length];
     changed = true;
   }
-  if (changed) { renderProps(); render(); recordHistory(); }
+  if (changed) { render(); recordHistory(); }
 }
 function changePortCount(delta: number) {
   const candidates = ['nconnections', 'num_inputs', 'num_outputs', 'nports'];
@@ -776,7 +776,7 @@ function changePortCount(delta: number) {
     if (!key) continue;
     block.params[key] = Math.max(1, Math.trunc(Number(block.params[key]) || 1) + delta); changed = true;
   }
-  if (changed) { renderProps(); render(); recordHistory(); }
+  if (changed) { render(); recordHistory(); }
 }
 function setZoom(next: number) {
   zoom = Math.max(0.4, Math.min(2.5, next));
@@ -799,7 +799,7 @@ function ensureOptionsBlock() {
 
 function clearFlowgraph(record = true) {
   insts = []; conns = []; counter = 0; selected = null; selectedBlocks.clear();
-  selectedConnection = null; cancelConnect(); ensureOptionsBlock(); renderProps(); render();
+  selectedConnection = null; cancelConnect(); ensureOptionsBlock(); render();
   if (record) recordHistory();
 }
 
@@ -953,7 +953,7 @@ function loadFlowgraph(doc: any) {
   }
   ensureOptionsBlock();
   selected = null; selectedBlocks.clear(); selectedConnection = null; cancelConnect();
-  renderProps(); render(); recordHistory(); log(`opened ${insts.length} blocks`);
+  render(); recordHistory(); log(`opened ${insts.length} blocks`);
 }
 function duplicateFlowgraph() {
   if (!insts.length) return;
@@ -1061,7 +1061,7 @@ function showVariableEditor() {
       controls.push({ uid: variable.uid, field, node, error });
     };
     const name = document.createElement('input'); name.value = variable.name;
-    name.oninput = () => { variable.name = name.value.replace(/\s+/g, '_'); renderProps(); render(); refreshValidation(); };
+    name.oninput = () => { variable.name = name.value.replace(/\s+/g, '_'); render(); refreshValidation(); };
     name.onchange = recordHistory;
     add('ID', name, NAME_FIELD);
     for (const param of d.params) {
@@ -1075,7 +1075,7 @@ function showVariableEditor() {
       }
       input.oninput = () => {
         variable.params[param.id] = param.type === 'number' ? numericOrExpression(input.value) : input.value;
-        renderProps(); render(); refreshValidation();
+        render(); refreshValidation();
       };
       input.onchange = recordHistory;
       add(param.label, input, param.id);
@@ -1198,7 +1198,7 @@ document.addEventListener('keydown', e => {
   else if (ctrl && key === 'y') { consume(e); redo(); }
   else if (ctrl && key === 'a') {
     consume(e); selectedBlocks = new Set(insts.map(i => i.uid)); selected = insts.length ? insts[insts.length - 1].uid : null;
-    selectedConnection = null; renderProps(); render();
+    selectedConnection = null; render();
   }
   else if (e.key === 'Delete' && (selectedConnection || selectedBlocks.size)) {
     consume(e); if (selectedConnection) deleteConnection(selectedConnection); else deleteBlocks();
@@ -1332,7 +1332,7 @@ function select(uid: string | null, additive = false) {
   }
   selected = uid !== null && selectedBlocks.has(uid) ? uid : ([...selectedBlocks].pop() || null);
   selectedConnection = null;
-  renderProps(); render();
+  render();
 }
 
 function selectConnection(conn: Conn) {
@@ -1341,7 +1341,7 @@ function selectConnection(conn: Conn) {
   (document.activeElement as HTMLElement | null)?.blur();
   selected = null; selectedBlocks.clear();
   selectedConnection = conn;
-  renderProps(); render();
+  render();
 }
 
 function svgPoint(evt: MouseEvent): { x: number; y: number } {
@@ -1569,58 +1569,6 @@ svg.addEventListener('contextmenu', e => {
   menuEl = m;
 });
 
-function renderProps() {
-  const body = el('propBody');
-  if (selectedConnection) {
-    const source = insts.find(i => i.uid === selectedConnection!.from);
-    const sink = insts.find(i => i.uid === selectedConnection!.to);
-    body.textContent = `${source?.name || selectedConnection.from}:${selectedConnection.fp} \u2192 ` +
-      `${sink?.name || selectedConnection.to}:${selectedConnection.tp}\n\nPress Delete to remove this connection.`;
-    return;
-  }
-  if (selectedBlocks.size > 1) {
-    body.textContent = `${selectedBlocks.size} blocks selected\n\nUse Shift+T/M/B or Shift+L/C/R to align them.`;
-    return;
-  }
-  if (!selected) { body.textContent = 'Select a block or connection…'; return; }
-  const inst = insts.find(i => i.uid === selected)!; const d = RUNNABLE[inst.id];
-  body.innerHTML = '';
-  const mk = (label: string, node: HTMLElement, field: string) => {
-    const l = document.createElement('label'); l.textContent = label;
-    const control = document.createElement('div'); control.className = 'field-control';
-    const error = document.createElement('small'); error.className = 'field-error'; error.hidden = true;
-    control.append(node, error); body.append(l, control);
-    const refresh = () => setFieldError(node, error, fieldIssue(validateGraph(), inst.uid, field));
-    refresh(); return refresh;
-  };
-  const nameI = document.createElement('input'); nameI.value = inst.name;
-  const refreshName = mk('Block name (id)', nameI, NAME_FIELD);
-  nameI.oninput = () => { inst.name = nameI.value.replace(/\s+/g, '_'); refreshName(); render(); };
-  nameI.onchange = recordHistory;
-  for (const p of d.params.filter(p => !p.category)) {
-    let node: HTMLElement;
-    if (p.type === 'enum') {
-      const s = document.createElement('select');
-      (p.options || []).forEach(o => { const opt = document.createElement('option'); opt.value = o; opt.textContent = o; s.appendChild(opt); });
-      s.value = String(inst.params[p.id]);
-      node = s;
-    } else {
-      const inp = document.createElement('input'); inp.value = String(inst.params[p.id]);
-      node = inp;
-    }
-    const refresh = mk(p.label + '  (' + p.id + ')', node, p.id);
-    if (node instanceof HTMLSelectElement) {
-      node.onchange = () => { inst.params[p.id] = node.value; refresh(); render(); recordHistory(); };
-    } else if (node instanceof HTMLInputElement) {
-      node.oninput = () => {
-        inst.params[p.id] = p.type === 'number' ? numericOrExpression(node.value) : node.value;
-        refresh(); render();
-      };
-      node.onchange = recordHistory;
-    }
-  }
-}
-
 // ---- Run: hand the flowgraph to the WASM runner in the lower workspace pane ----
 const MIN_PANE_HEIGHT = 120;
 let lowerPaneRatio = 0.5;
@@ -1845,23 +1793,31 @@ function renderTree(node: Cat, container: HTMLElement, depth: number, q: string)
 let LIB: any = { blocks: [] };
 async function buildPalette() {
   const pal = el('palette');
-  // ---- tab bar: Blocks | Example Flowgraphs ----
+  // ---- tab bar: Blocks | Example Flowgraphs | Recordings ----
   const tabs = document.createElement('div'); tabs.className = 'paltabs';
   const blocksPanel = document.createElement('div'); blocksPanel.className = 'paltab-panel';
   const examplesPanel = document.createElement('div'); examplesPanel.className = 'paltab-panel'; examplesPanel.hidden = true;
+  const recordingsPanel = document.createElement('div'); recordingsPanel.className = 'paltab-panel'; recordingsPanel.hidden = true;
   const tabBlocks = document.createElement('button'); tabBlocks.className = 'paltab active'; tabBlocks.textContent = 'Blocks';
   const tabExamples = document.createElement('button'); tabExamples.className = 'paltab'; tabExamples.textContent = 'Example Flowgraphs';
+  const tabRecordings = document.createElement('button'); tabRecordings.className = 'paltab'; tabRecordings.textContent = 'Recordings';
   let examplesLoaded = false;
-  const activate = (which: 'blocks' | 'examples') => {
+  let recordingsLoaded = false;
+  const activate = (which: 'blocks' | 'examples' | 'recordings') => {
     const blocks = which === 'blocks';
+    const examples = which === 'examples';
+    const recordings = which === 'recordings';
     tabBlocks.classList.toggle('active', blocks);
-    tabExamples.classList.toggle('active', !blocks);
-    blocksPanel.hidden = !blocks; examplesPanel.hidden = blocks;
-    if (!blocks && !examplesLoaded) { examplesLoaded = true; buildExamples(examplesPanel); }
+    tabExamples.classList.toggle('active', examples);
+    tabRecordings.classList.toggle('active', recordings);
+    blocksPanel.hidden = !blocks; examplesPanel.hidden = !examples; recordingsPanel.hidden = !recordings;
+    if (examples && !examplesLoaded) { examplesLoaded = true; buildExamples(examplesPanel); }
+    if (recordings && !recordingsLoaded) { recordingsLoaded = true; buildRecordings(recordingsPanel); }
   };
   tabBlocks.onclick = () => activate('blocks');
   tabExamples.onclick = () => activate('examples');
-  tabs.append(tabBlocks, tabExamples);
+  tabRecordings.onclick = () => activate('recordings');
+  tabs.append(tabBlocks, tabExamples, tabRecordings);
 
   // ---- Blocks tab: search box + category tree (existing palette) ----
   const search = document.createElement('input');
@@ -1869,7 +1825,7 @@ async function buildPalette() {
   paletteSearch = search;
   const tree = document.createElement('div'); tree.className = 'tree';
   blocksPanel.append(search, tree);
-  pal.append(tabs, blocksPanel, examplesPanel);
+  pal.append(tabs, blocksPanel, examplesPanel, recordingsPanel);
   try {
     LIB = await (await fetch('/editor/dist/blocks.json').then(r => r.ok ? r : fetch('/editor/public/blocks.json'))).json();
     installGeneratedBlocks(LIB.blocks || []);
@@ -1937,6 +1893,61 @@ async function buildExamples(panel: HTMLElement) {
   }
 }
 
+// ---- Recordings tab -------------------------------------------------------
+// server.mjs discovers matching .sigmf-data/.sigmf-meta pairs and returns the
+// global SigMF fields plus a sample count derived from data size and datatype.
+interface ExampleRecording {
+  name: string;
+  dataFile: string;
+  metaFile: string;
+  datatype: string | null;
+  sampleRate: number | null;
+  author: string | null;
+  sampleCount: number | null;
+}
+
+const displayRecordingValue = (value: string | number | null): string => {
+  if (value === null || value === '') return '—';
+  return typeof value === 'number' ? value.toLocaleString() : value;
+};
+
+async function buildRecordings(panel: HTMLElement) {
+  const list = document.createElement('div'); list.className = 'rec-list';
+  const status = document.createElement('div'); status.className = 'ex-empty';
+  status.textContent = 'Loading recordings…'; panel.append(status);
+  let recordings: ExampleRecording[] = [];
+  try {
+    const response = await fetch('/example_recordings');
+    if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+    const payload = await response.json();
+    if (!Array.isArray(payload)) throw new Error('invalid recordings response');
+    recordings = payload;
+  } catch (e) {
+    status.textContent = 'Could not load recordings.';
+    log('recordings not loaded: ' + e); return;
+  }
+  if (!recordings.length) { status.textContent = 'No SigMF recordings found.'; return; }
+  status.remove(); panel.append(list);
+  for (const recording of recordings) {
+    const item = document.createElement('article'); item.className = 'rec-item';
+    const title = document.createElement('div'); title.className = 'rec-title';
+    title.textContent = recording.name;
+    const props = document.createElement('dl'); props.className = 'rec-props';
+    const addProperty = (label: string, value: string | number | null) => {
+      const key = document.createElement('dt'); key.textContent = label;
+      const val = document.createElement('dd'); val.textContent = displayRecordingValue(value);
+      props.append(key, val);
+    };
+    addProperty('core:datatype', recording.datatype);
+    addProperty('core:sample_rate', recording.sampleRate);
+    addProperty('core:author', recording.author);
+    addProperty('Samples', recording.sampleCount);
+    const meta = document.createElement('div'); meta.className = 'rec-meta';
+    meta.textContent = `${recording.dataFile} + ${recording.metaFile}`;
+    item.append(title, props, meta); list.append(item);
+  }
+}
+
 // ---- GRC-style menu bar + toolbar ----------------------------------------
 // These mirror grc/gui/Bars.py (MENU_BAR_LIST / TOOLBAR_LIST). Actions that
 // exist in the desktop GUI but can't work inside a browser tab are kept in
@@ -1986,7 +1997,7 @@ function deleteSelection() { if (selectedConnection) deleteConnection(selectedCo
 function selectAll() {
   selectedBlocks = new Set(insts.map(i => i.uid));
   selected = insts.length ? insts[insts.length - 1].uid : null;
-  selectedConnection = null; renderProps(); render();
+  selectedConnection = null; render();
 }
 function openPropsForSelected() { if (selected) showPropsDialog(G0(selected)); }
 function togglePalette() { el('app').classList.toggle('hide-palette'); }

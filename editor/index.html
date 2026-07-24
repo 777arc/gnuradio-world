@@ -6,8 +6,8 @@
 <style>
   * { box-sizing:border-box; }
   html,body { margin:0; height:100%; font-family:system-ui,Arial,sans-serif; color:#e6e9f0; background:#1e2230; }
-  #app { --palette-width:230px; display:grid;
-      grid-template-columns:var(--palette-width) 1fr 260px; grid-template-rows:auto 1fr; height:100vh; }
+  #app { --palette-width:460px; display:grid;
+      grid-template-columns:var(--palette-width) 1fr; grid-template-rows:auto 1fr; height:100vh; }
   #app.hide-palette { --palette-width:0px; }
   #app.hide-palette #palette { visibility:hidden; overflow:hidden; }
   header { grid-column:1/4; display:flex; flex-direction:column; background:#181b26; border-bottom:1px solid #333a4d; }
@@ -75,9 +75,8 @@
   .debug-table .state-loaded { color:#4fc3d6; }
   .debug-table .state-pending { color:#c9903a; }
   .debug-totals { margin-top:8px; font-size:12.5px; color:#aeb8d0; }
-  #palette, #props { min-height:0; background:#20232f; overflow:auto; }
+  #palette { min-height:0; background:#20232f; overflow:auto; }
   #palette { border-right:1px solid #333a4d; }
-  #props { border-left:1px solid #333a4d; }
   #workspace { min-width:0; min-height:0; display:grid; --run-pane-height:0px;
       grid-template-rows:minmax(0,1fr) 0 0;
       overflow:hidden; transition:grid-template-rows .18s ease; }
@@ -92,7 +91,7 @@
       background:#7783a4; left:50%; top:2px; transform:translateX(-50%); }
   #paneSplitter:hover, #paneSplitter:focus-visible { background:#343b52; }
   #paneSplitter:hover::after, #paneSplitter:focus-visible::after { background:#b9c5e3; }
-  /* Palette tabs (Blocks / Example Flowgraphs) */
+  /* Palette tabs (Blocks / Example Flowgraphs / Recordings) */
   #palette { display:flex; flex-direction:column; overflow:hidden; }
   .paltabs { display:flex; flex:none; border-bottom:1px solid #333a4d; }
   .paltab { flex:1; padding:8px 6px; font-size:12px; text-align:center; background:#1b1e29;
@@ -112,6 +111,17 @@
   .ex-desc { font-size:11px; color:#9aa7c6; margin-top:3px; line-height:1.4; }
   .ex-meta { font-size:10px; color:#6b768f; margin-top:4px; }
   .ex-empty { padding:16px 12px; font-size:12px; color:#7f8bab; line-height:1.5; }
+  /* SigMF recording list */
+  .rec-list { padding:8px; display:flex; flex-direction:column; gap:8px; }
+  .rec-item { background:#242a3b; border:1px solid #333a4d; border-radius:6px;
+      padding:10px 11px; color:#dce3f5; }
+  .rec-title { font-size:13px; font-weight:600; color:#e6e9f0; margin-bottom:7px;
+      overflow-wrap:anywhere; }
+  .rec-props { display:grid; grid-template-columns:max-content minmax(0,1fr); gap:4px 10px;
+      margin:0; font-size:11px; line-height:1.35; }
+  .rec-props dt { color:#7f8bab; }
+  .rec-props dd { color:#c3cbe0; margin:0; overflow-wrap:anywhere; font-variant-numeric:tabular-nums; }
+  .rec-meta { font-size:10px; color:#6b768f; margin-top:7px; overflow-wrap:anywhere; }
   /* GRC-style block tree */
   .palsearch { width:calc(100% - 16px); margin:8px; padding:6px 8px; background:#171a24; color:#e6e9f0;
       border:1px solid #3a4366; border-radius:5px; font-size:13px; outline:none; }
@@ -216,11 +226,6 @@
       border-bottom:1px solid #303548; font-size:12px; }
   .shortcut-row kbd { color:#fff; font:12px/1.4 monospace; }
   .shortcut-note { color:#9aa7c6; font-size:12px; margin:0 0 10px; }
-  #props label { display:block; font-size:11px; color:#9aa7c6; margin:8px 12px 2px; }
-  #props .field-control { margin:0 12px; }
-  #props input, #props select { width:100%; margin:0; background:#171a24; color:#e6e9f0;
-      border:1px solid #3a4366; border-radius:5px; padding:5px 7px; font-size:13px; }
-  #props .title { font-size:14px; font-weight:600; padding:12px; border-bottom:1px solid #333a4d; }
   #log { position:absolute; bottom:0; left:0; right:0; max-height:26%; overflow:auto; background:#141722ee;
       font:12px/1.5 monospace; padding:6px 10px; color:#a8b6d6; border-top:1px solid #333a4d; }
   #runPane { min-height:0; display:flex; flex-direction:column; overflow:hidden; background:#20232f;
@@ -267,7 +272,6 @@
       <iframe id="runFrame" title="Running GNU Radio flowgraph"></iframe>
     </section>
   </div>
-  <div id="props"><div class="title">Properties</div><div id="propBody" style="padding:12px;color:#7f8bab;font-size:13px;white-space:pre-line">Select a block or connection…</div></div>
 </div>
 <input id="fileOpen" type="file" accept="application/json,.json" hidden />
 <script type="module" src="/src/main.ts"></script>
