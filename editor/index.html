@@ -196,6 +196,8 @@
   .wire.invalid { stroke:#d1242f; stroke-width:3; }
   .wire.connecting { stroke:#1a63c4; stroke-width:2; stroke-dasharray:6 4; pointer-events:none; }
   .wire-hit { stroke:transparent; stroke-width:12; fill:none; cursor:pointer; pointer-events:stroke; }
+  .selection-box { fill:#1a63c426; stroke:#1a63c4; stroke-width:1; stroke-dasharray:4 3;
+      vector-effect:non-scaling-stroke; pointer-events:none; }
   /* disabled block (GRC greys it out) */
   .blk.disabled rect.body { fill:#e6e6e6; stroke:#9a9a9a; stroke-dasharray:5 3; }
   .blk.disabled text.title, .blk.disabled text.param, .blk.disabled text.pval { fill:#9a9a9a; }
@@ -274,7 +276,7 @@
             <path d="M0,0 L10,5 L0,10 z" fill="#00b8c8"/>
           </marker>
         </defs>
-        <g id="wires"></g><g id="nodes"></g>
+        <g id="wires"></g><g id="nodes"></g><g id="selectionOverlay"></g>
       </svg>
       <div id="log"></div>
     </div>

@@ -7,6 +7,13 @@ gr-digital, gr-fec, gr-dtv, gr-network, gr-pdu, and gr-vocoder) and the
 gr-qtgui sinks are cross-compiled to WebAssembly with Emscripten and threaded
 Qt 6 for WebAssembly.
 
+If already built, run using
+
+```bash
+node wasm/server.mjs 8090 wasm
+# open http://localhost:8090/editor/dist/index.html
+```
+
 ## Quickstart (fresh Ubuntu 24.04)
 
 Builds the whole stack from source and serves the editor. **Assumes the repo is at

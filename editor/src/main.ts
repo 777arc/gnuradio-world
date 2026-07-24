@@ -4,6 +4,7 @@
 // URL hash (runner.html#<encoded json>).
 
 import { dumpGrc, parseGrc, type GrcDoc, type GrcScalar } from './grc';
+import { boundsBetween, boundsIntersect, type Point } from './selection';
 
 type ParamType = 'number' | 'string' | 'enum';
 interface ParamDef { id: string; label: string; type: ParamType; def: any; options?: string[]; category?: string; hideIfEmpty?: boolean }
@@ -293,7 +294,8 @@ interface ValidationIssue {
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const el = (id: string) => document.getElementById(id)!;
-const nodesG = el('nodes'), wiresG = el('wires'), svg = el('svg') as unknown as SVGSVGElement;
+const nodesG = el('nodes'), wiresG = el('wires'), selectionG = el('selectionOverlay');
+const svg = el('svg') as unknown as SVGSVGElement;
 
 let insts: Inst[] = [];
 let conns: Conn[] = [];
@@ -1386,6 +1388,7 @@ function render() {
   nodesG.textContent = ''; wiresG.textContent = '';
   nodesG.setAttribute('transform', `scale(${zoom})`);
   wiresG.setAttribute('transform', `scale(${zoom})`);
+  selectionG.setAttribute('transform', `scale(${zoom})`);
   const validation = validateGraph();
   const invalidConnections = new Set(validation.flatMap(issue => issue.connection ? [issue.connection] : []));
   const G = (uid: string) => insts.find(i => i.uid === uid)!;
@@ -1546,6 +1549,53 @@ function completeConnect(inst: Inst, kind: 'in' | 'out', idx: number) {
 }
 
 let drag: { inst: Inst; ox: number; oy: number; starts: Map<string, { x: number; y: number }>; moved: boolean } | null = null;
+interface Marquee {
+  start: Point;
+  initial: Set<string>;
+  initialPrimary: string | null;
+  rect: SVGRectElement;
+  moved: boolean;
+}
+let marquee: Marquee | null = null;
+const MARQUEE_SLOP = 3;
+
+function sameSelection(a: Set<string>, b: Set<string>): boolean {
+  return a.size === b.size && [...a].every(uid => b.has(uid));
+}
+
+function updateMarquee(point: Point) {
+  if (!marquee) return;
+  const box = boundsBetween(marquee.start, point);
+  const { x, y, width, height } = box;
+  if (!marquee.moved && Math.hypot(width, height) * zoom < MARQUEE_SLOP) return;
+  marquee.moved = true;
+  marquee.rect.setAttribute('x', String(x));
+  marquee.rect.setAttribute('y', String(y));
+  marquee.rect.setAttribute('width', String(width));
+  marquee.rect.setAttribute('height', String(height));
+  marquee.rect.removeAttribute('visibility');
+
+  // QGraphicsView's native rubber-band mode selects every item whose shape
+  // intersects the box. Use the block body here; ports and validation labels
+  // should not make a distant block feel selected.
+  const next = new Set(marquee.initial);
+  const hits: string[] = [];
+  for (const inst of insts) {
+    if (hideDisabled && !inst.enabled) continue;
+    const { w, h } = geom(inst);
+    if (boundsIntersect(box, { x: inst.x, y: inst.y, width: w, height: h })) {
+      next.add(inst.uid);
+      hits.push(inst.uid);
+    }
+  }
+  if (sameSelection(next, selectedBlocks)) return;
+  selectedBlocks = next;
+  selected = hits[hits.length - 1] || (marquee.initialPrimary && next.has(marquee.initialPrimary)
+    ? marquee.initialPrimary : ([...next].pop() || null));
+  selectedConnection = null;
+  render();
+}
+
 // Manual double-click detection: select()/drag rebuild the block's DOM node on
 // every mousedown, so the browser never sees two clicks on the same element and
 // its native 'dblclick' never fires. Track the last mousedown ourselves instead.
@@ -1569,6 +1619,7 @@ function startDrag(e: MouseEvent, inst: Inst) {
 }
 window.addEventListener('mousemove', e => {
   if (connecting) { updateConnectPreview(svgPoint(e)); return; }
+  if (marquee) { updateMarquee(svgPoint(e)); return; }
   if (!drag) return; const p = svgPoint(e);
   const primary = drag.starts.get(drag.inst.uid)!;
   const nx = Math.round(p.x - drag.ox), ny = Math.round(p.y - drag.oy);
@@ -1582,8 +1633,25 @@ window.addEventListener('mousemove', e => {
 window.addEventListener('mouseup', () => {
   if (connecting) cancelConnect();   // released away from a port: abandon the wire
   if (drag?.moved) recordHistory(); drag = null;
+  if (marquee) { marquee.rect.remove(); marquee = null; }
 });
-svg.addEventListener('mousedown', () => { select(null); cancelConnect(); });
+svg.addEventListener('mousedown', e => {
+  if (e.button !== 0) return;
+  e.preventDefault();
+  cancelConnect();
+  const additive = e.shiftKey || e.ctrlKey || e.metaKey;
+  const initial = additive ? new Set(selectedBlocks) : new Set<string>();
+  const initialPrimary = additive ? selected : null;
+  if (!additive) {
+    selectedBlocks.clear();
+    selected = null;
+  }
+  selectedConnection = null;
+  render();
+  const rect = svgEl('rect', { class: 'selection-box', visibility: 'hidden' });
+  selectionG.appendChild(rect);
+  marquee = { start: svgPoint(e), initial, initialPrimary, rect, moved: false };
+});
 svg.addEventListener('contextmenu', e => {
   e.preventDefault(); closeMenu();
   const m = document.createElement('div'); m.className = 'ctxmenu';
