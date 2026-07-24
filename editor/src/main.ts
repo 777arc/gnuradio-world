@@ -38,6 +38,9 @@ const LINE_COLORS = ['blue', 'red', 'green', 'black', 'cyan', 'magenta', 'yellow
 const LINE_COLORS_Q = LINE_COLORS.map(c => `"${c}"`);
 const LINE_STYLES = ['1', '2', '3', '4', '5', '0'];
 const LINE_MARKERS = ['0', '1', '2', '3', '4', '6', '7', '8', '9', '-1'];
+// Waterfall intensity color-map ids (match WaterfallDisplayPlot / GRC):
+// 0 Multi Color, 1 White Hot, 2 Black Hot, 3 Incandescent, 5 Sunset, 6 Cool.
+const WATERFALL_COLORS = ['0', '1', '2', '3', '5', '6'];
 
 // Curated schemas for blocks the WASM runner registry supports. Param names (and the
 // `type` values complex/float) match the runner's factories exactly.
@@ -258,6 +261,22 @@ const RUNNABLE: Record<string, RunnableDef> = {
       { id: 'color1', label: 'Line 1 Color', type: 'enum', def: '"blue"', options: LINE_COLORS_Q, category: 'Config' },
       { id: 'style1', label: 'Line 1 Style', type: 'enum', def: '1', options: LINE_STYLES, category: 'Config' },
       { id: 'marker1', label: 'Line 1 Marker', type: 'enum', def: '0', options: LINE_MARKERS, category: 'Config' },
+      { id: 'alpha1', label: 'Line 1 Alpha', type: 'number', def: 1, category: 'Config' },
+    ], dtype: 'complex' },
+  qtgui_waterfall_sink_x: {
+    label: 'QT GUI Waterfall Sink', inputs: 1, outputs: 0, params: [
+      { id: 'name', label: 'Title', type: 'string', def: 'Waterfall' },
+      { id: 'fftsize', label: 'FFT Size', type: 'number', def: 1024 },
+      { id: 'samp_rate', label: 'Sample Rate', type: 'number', def: 32000 },
+      { id: 'fc', label: 'Center Frequency', type: 'number', def: 0 },
+      { id: 'int_min', label: 'Intensity Min', type: 'number', def: -140, category: 'General' },
+      { id: 'int_max', label: 'Intensity Max', type: 'number', def: 10, category: 'General' },
+      { id: 'grid', label: 'Grid', type: 'enum', def: 'False', options: BOOL_OPTIONS, category: 'General' },
+      { id: 'update_time', label: 'Update Period', type: 'number', def: 0.1, category: 'General' },
+      { id: 'legend', label: 'Legend', type: 'enum', def: 'True', options: BOOL_OPTIONS, category: 'Config' },
+      { id: 'axislabels', label: 'Axis Labels', type: 'enum', def: 'True', options: BOOL_OPTIONS, category: 'Config' },
+      { id: 'label1', label: 'Line 1 Label', type: 'string', def: '', category: 'Config' },
+      { id: 'color1', label: 'Line 1 Color', type: 'enum', def: '0', options: WATERFALL_COLORS, category: 'Config' },
       { id: 'alpha1', label: 'Line 1 Alpha', type: 'number', def: 1, category: 'Config' },
     ], dtype: 'complex' },
 };

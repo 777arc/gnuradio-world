@@ -99,6 +99,7 @@ CUSTOM_IDS = {
     "qtgui_time_sink_x",
     "qtgui_freq_sink_x",
     "qtgui_const_sink_x",
+    "qtgui_waterfall_sink_x",
 }
 
 INVALID_CPP_TEMPLATES = {

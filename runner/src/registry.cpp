@@ -33,6 +33,8 @@
 #include <gnuradio/qtgui/time_sink_f.h>
 #include <gnuradio/qtgui/freq_sink_c.h>
 #include <gnuradio/qtgui/const_sink_c.h>
+#include <gnuradio/qtgui/waterfall_sink_c.h>
+#include <gnuradio/qtgui/waterfall_sink_f.h>
 #include <QBoxLayout>
 #include <QButtonGroup>
 #include <QComboBox>
@@ -288,6 +290,31 @@ static void configure_freq_sink(const std::shared_ptr<Sink>& sink, const json& p
                            static_cast<float>(number_from(p, "tr_level", 0.0)),
                            static_cast<int>(number_from(p, "tr_chan", 0)),
                            unquoted(p.value("tr_tag", std::string())));
+}
+
+template <typename Sink>
+static void configure_waterfall_sink(const std::shared_ptr<Sink>& sink,
+                                     const json& p,
+                                     int nconnections)
+{
+    sink->set_intensity_range(number_from(p, "int_min", -140.0),
+                              number_from(p, "int_max", 10.0));
+    sink->set_update_time(number_from(p, "update_time", 0.1));
+    sink->enable_grid(bool_from(p, "grid", false));
+    sink->enable_axis_labels(bool_from(p, "axislabels", true));
+    if (!bool_from(p, "legend", true))
+        sink->disable_legend();
+    // Per-connection labels, color maps and alphas. GRC's color options map
+    // directly onto WaterfallDisplayPlot's intensity color-map ids
+    // (0 Multi, 1 White Hot, 2 Black Hot, 3 Incandescent, 5 Sunset, 6 Cool).
+    for (int i = 0; i < nconnections; ++i) {
+        const std::string suffix = std::to_string(i + 1);
+        if (auto it = p.find("label" + suffix); it != p.end() && it->is_string())
+            sink->set_line_label(i, unquoted(it->get<std::string>()));
+        sink->set_color_map(
+            i, static_cast<int>(number_from(p, "color" + suffix, 0)));
+        sink->set_line_alpha(i, number_from(p, "alpha" + suffix, 1.0));
+    }
 }
 
 static gr_complex complex_from(const json& p, const std::string& key)
@@ -1178,6 +1205,48 @@ static std::map<std::string, Factory>& registry_storage() {
                  block->set_y_axis(y_axis->first, y_axis->second);
              };
              return result;
+         }},
+        {"qtgui_waterfall_sink_x", [](const json& p) -> BuiltBlock {
+             const std::string type = type_from(p, "complex");
+             const double sr = p.value("samp_rate", 32000.0);
+             const int fftsize = static_cast<int>(number_from(p, "fftsize", 1024));
+             const int wintype = static_cast<int>(number_from(p, "wintype", 0));
+             const double initial_fc = number_from(p, "fc", 0.0);
+             const double initial_bw = number_from(p, "bw", sr);
+             const std::string nm = unquoted(p.value("name", std::string("Waterfall")));
+             // Message-mode variants carry no stream inputs.
+             const int nconnections = type.rfind("msg", 0) == 0
+                                          ? 0
+                                          : static_cast<int>(number_from(p, "nconnections", 1));
+             if (nconnections < 0)
+                 throw std::runtime_error(
+                     "QT GUI Waterfall Sink connections cannot be negative");
+
+             auto range = std::make_shared<std::pair<double, double>>(initial_fc, initial_bw);
+             auto finish = [&](auto b) -> BuiltBlock {
+                 b->set_frequency_range(range->first, range->second);
+                 configure_waterfall_sink(b, p, nconnections);
+                 BuiltBlock result{ b, b->qwidget() };
+                 result.numeric_setters["fftsize"] =
+                     [b](double value) { b->set_fft_size(static_cast<int>(value)); };
+                 result.numeric_setters["fc"] = [b, range](double value) {
+                     range->first = value;
+                     b->set_frequency_range(range->first, range->second);
+                 };
+                 auto set_bandwidth = [b, range](double value) {
+                     range->second = value;
+                     b->set_frequency_range(range->first, range->second);
+                 };
+                 result.numeric_setters["bw"] = set_bandwidth;
+                 result.numeric_setters["samp_rate"] = set_bandwidth;
+                 return result;
+             };
+             const bool is_float_variant = type == "float" || type == "msg_float";
+             if (is_float_variant)
+                 return finish(gr::qtgui::waterfall_sink_f::make(
+                     fftsize, wintype, initial_fc, initial_bw, nm, nconnections));
+             return finish(gr::qtgui::waterfall_sink_c::make(
+                 fftsize, wintype, initial_fc, initial_bw, nm, nconnections));
          }},
       };
       // Custom factories intentionally win over generated direct-make factories.

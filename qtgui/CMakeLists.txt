@@ -32,6 +32,13 @@ add_library(gr_qtgui_ts STATIC
   ${GRQ}/lib/ConstellationDisplayPlot.cc
   ${GRQ}/lib/constellationdisplayform.cc
   ${GRQ}/lib/const_sink_c_impl.cc
+  # waterfall (spectrogram) sink chain
+  ${GRQ}/lib/WaterfallDisplayPlot.cc
+  ${GRQ}/lib/plot_waterfall.cc
+  ${GRQ}/lib/waterfallGlobalData.cc
+  ${GRQ}/lib/waterfalldisplayform.cc
+  ${GRQ}/lib/waterfall_sink_c_impl.cc
+  ${GRQ}/lib/waterfall_sink_f_impl.cc
   # Q_OBJECT headers listed so AUTOMOC generates their meta-object code
   # (multi-class headers like form_menus.h have no matching .cc).
   ${GRQ}/include/gnuradio/qtgui/DisplayPlot.h
@@ -46,9 +53,13 @@ add_library(gr_qtgui_ts STATIC
   ${GRQ}/include/gnuradio/qtgui/freqcontrolpanel.h
   ${GRQ}/include/gnuradio/qtgui/ConstellationDisplayPlot.h
   ${GRQ}/include/gnuradio/qtgui/constellationdisplayform.h
+  ${GRQ}/include/gnuradio/qtgui/WaterfallDisplayPlot.h
+  ${GRQ}/include/gnuradio/qtgui/waterfalldisplayform.h
   ${GRQ}/lib/freq_sink_c_impl.h
   ${GRQ}/lib/freq_sink_f_impl.h
   ${GRQ}/lib/const_sink_c_impl.h
+  ${GRQ}/lib/waterfall_sink_c_impl.h
+  ${GRQ}/lib/waterfall_sink_f_impl.h
   ${GRQ}/lib/time_sink_f_impl.h
   ${GRQ}/lib/time_sink_c_impl.h
 )
