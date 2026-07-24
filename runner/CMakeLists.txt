@@ -100,6 +100,16 @@ target_link_options(runner PRIVATE
 # Rebuild the link step when the panel JS changes (--post-js isn't a tracked dep).
 set_property(TARGET runner APPEND PROPERTY LINK_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/diag.js)
 
+# Optimized/release artifact: configure with -DCMAKE_BUILD_TYPE=Release to run the
+# link-time whole-program wasm-opt pass (the default link is -O0, which is why the
+# unoptimized core wasm is ~100 MB). -Oz targets size. Dead-code elimination is
+# safe here: the symbols side modules need are exported (roots) via EXPORT_ALL +
+# side_exports.rsp, and the addFunction JS patch anchors on a name wasm-opt/minify
+# preserve. Left off by default so ordinary rebuilds stay fast.
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+  target_link_options(runner PRIVATE -Oz)
+endif()
+
 # Patch the generated runner.js for the Qt+MAIN_MODULE addFunction-signature bug.
 add_custom_command(TARGET runner POST_BUILD
   COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/src/patch_runner_js.py
@@ -130,7 +140,7 @@ foreach(m ${DEFERRED_MODULES})
   add_custom_command(
     OUTPUT ${out}
     COMMAND ${CMAKE_CXX_COMPILER}
-      -sSIDE_MODULE=1 -pthread -fPIC -O2 -std=c++17
+      -sSIDE_MODULE=1 -pthread -fPIC -Oz -std=c++17
       -sNO_DISABLE_EXCEPTION_CATCHING
       # Must match the main module's ABI: Qt links the main with WASM_BIGINT, so
       # i64 params are passed natively. Without this the side module legalises i64

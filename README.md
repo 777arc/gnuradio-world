@@ -114,9 +114,15 @@ python3 wasm/editor/gen/gen_blocklib.py wasm/editor/public/blocks.json
 
 # gr-qtgui sinks → runner (links core + emits per-category side modules) → editor
 (cd wasm/qtgui  && "$QT_WASM/bin/qt-cmake" -S . -B build -GNinja -DQT_HOST_PATH="$QT_HOST" -DCMAKE_CXX_FLAGS="-pthread -fPIC" && cmake --build build)
-(cd wasm/runner && "$QT_WASM/bin/qt-cmake" -S . -B build -GNinja -DQT_HOST_PATH="$QT_HOST" && cmake --build build)
+(cd wasm/runner && "$QT_WASM/bin/qt-cmake" -S . -B build -GNinja -DQT_HOST_PATH="$QT_HOST" -DCMAKE_BUILD_TYPE=Release && cmake --build build)
 (cd wasm/editor && npm install && npm run build)
 ```
+
+> **Optimized vs. dev build.** `-DCMAKE_BUILD_TYPE=Release` runs the link-time
+> `wasm-opt -Oz` pass on the core module (~100 MB → ~18 MB); the side modules are
+> always built `-Oz`. Omit `-DCMAKE_BUILD_TYPE=Release` for a fast, unoptimized
+> core when iterating (each optimized link adds ~1 min). Switching build type is a
+> reconfigure, so re-run the `qt-cmake` line when you change it.
 
 **On-demand category modules.** The runner is an Emscripten `MAIN_MODULE` that
 loads block categories on demand. `gen_registry.py` splits the block factories
