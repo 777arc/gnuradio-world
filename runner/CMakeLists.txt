@@ -13,7 +13,13 @@ set(CMAKE_CXX_LINK_LIBRARY_USING_WHOLE_ARCHIVE
     "-Wl,--whole-archive" "<LINK_ITEM>" "-Wl,--no-whole-archive")
 set(CMAKE_CXX_LINK_LIBRARY_USING_WHOLE_ARCHIVE_SUPPORTED TRUE)
 
-set(GR /home/marc/gnuradio)
+# Repo root: honor the GR env var (set by the CI workflow), else derive it from
+# this file's location (wasm/runner/ -> repo root) so any checkout path works.
+if(DEFINED ENV{GR})
+  set(GR $ENV{GR})
+else()
+  get_filename_component(GR "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE)
+endif()
 set(BUILDGR ${GR}/wasm/gr/build-gr)
 set(SYSROOT ${GR}/wasm/sysroot)
 set(QTGUI_TS ${GR}/wasm/qtgui/build/libgr_qtgui_ts.a)
