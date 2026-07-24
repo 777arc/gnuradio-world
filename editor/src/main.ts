@@ -1889,8 +1889,13 @@ async function buildExamples(panel: HTMLElement) {
       const fg = parseGrc(text);
       const params = fg.options?.parameters || {};
       const fgTitle = params.title || params.id;
+      const fgAuthor = params.author;
       const fgDesc = params.description || params.comment;
       if (fgTitle) title.textContent = String(fgTitle);
+      if (fgAuthor) {
+        const author = document.createElement('div'); author.className = 'ex-author';
+        author.textContent = `by ${String(fgAuthor)}`; item.append(author);
+      }
       if (fgDesc) {
         const desc = document.createElement('div'); desc.className = 'ex-desc';
         desc.textContent = String(fgDesc); item.append(desc);

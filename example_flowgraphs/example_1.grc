@@ -1,0 +1,94 @@
+options:
+    parameters:
+        author: Marc
+        copyright: ''
+        description: test description
+        generate_options: qt_gui
+        id: Example_flowgraph
+        title: Example flowgraph
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: throttle4
+    id: blocks_throttle
+    parameters:
+        samp_rate: '32000'
+        type: complex
+    states:
+        coordinate: [521, 87]
+        rotation: 0
+        state: enabled
+-   name: x1
+    id: analog_sig_source_x
+    parameters:
+        amplitude: '1'
+        frequency: '2000'
+        samp_rate: '32000'
+        type: complex
+        waveform: analog.GR_COS_WAVE
+    states:
+        coordinate: [44, 124]
+        rotation: 0
+        state: enabled
+-   name: x2
+    id: analog_noise_source_x
+    parameters:
+        amplitude: '1'
+        seed: '0'
+        type: complex
+    states:
+        coordinate: [68, 278]
+        rotation: 0
+        state: enabled
+-   name: x5
+    id: qtgui_time_sink_x
+    parameters:
+        alpha1: '1'
+        autoscale: 'False'
+        axislabels: 'True'
+        color1: blue
+        ctrlpanel: 'False'
+        grid: 'False'
+        label1: Signal 1
+        legend: 'True'
+        marker1: '0'
+        name: Scope
+        samp_rate: '32000'
+        size: '1024'
+        stemplot: 'False'
+        style1: '1'
+        tr_chan: '0'
+        tr_delay: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_slope: qtgui.TRIG_SLOPE_POS
+        tr_tag: ''
+        type: complex
+        update_time: '0.1'
+        width1: '1'
+        ylabel: Amplitude
+        ymax: '1'
+        ymin: '-1'
+        yunit: ''
+    states:
+        coordinate: [802, 270]
+        rotation: 0
+        state: enabled
+-   name: xx3
+    id: blocks_add_xx
+    parameters:
+        type: complex
+    states:
+        coordinate: [328, 161]
+        rotation: 0
+        state: enabled
+connections:
+- [throttle4, '0', x5, '0']
+- [x1, '0', xx3, '0']
+- [x2, '0', xx3, '1']
+- [xx3, '0', throttle4, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0
