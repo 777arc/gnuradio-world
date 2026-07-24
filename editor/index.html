@@ -76,6 +76,25 @@
       background:#7783a4; left:50%; top:2px; transform:translateX(-50%); }
   #paneSplitter:hover, #paneSplitter:focus-visible { background:#343b52; }
   #paneSplitter:hover::after, #paneSplitter:focus-visible::after { background:#b9c5e3; }
+  /* Palette tabs (Blocks / Example Flowgraphs) */
+  #palette { display:flex; flex-direction:column; overflow:hidden; }
+  .paltabs { display:flex; flex:none; border-bottom:1px solid #333a4d; }
+  .paltab { flex:1; padding:8px 6px; font-size:12px; text-align:center; background:#1b1e29;
+      color:#9aa7c6; border:0; border-right:1px solid #262b3b; border-radius:0; cursor:pointer; }
+  .paltab:last-child { border-right:0; }
+  .paltab:hover { background:#242a3b; color:#dce3f5; filter:none; }
+  .paltab.active { background:#20232f; color:#e6e9f0; font-weight:600; box-shadow:inset 0 -2px 0 #3fae63; }
+  .paltab-panel { min-height:0; flex:1; display:flex; flex-direction:column; overflow:auto; }
+  .paltab-panel[hidden] { display:none; }
+  /* Example flowgraph list */
+  .ex-list { padding:8px; display:flex; flex-direction:column; gap:8px; }
+  .ex-item { text-align:left; background:#242a3b; border:1px solid #333a4d; border-radius:6px;
+      padding:9px 11px; cursor:pointer; color:#dce3f5; display:block; width:100%; }
+  .ex-item:hover { background:#2c3448; border-color:#46507a; filter:none; }
+  .ex-title { font-size:13px; font-weight:600; color:#e6e9f0; }
+  .ex-desc { font-size:11px; color:#9aa7c6; margin-top:3px; line-height:1.4; }
+  .ex-meta { font-size:10px; color:#6b768f; margin-top:4px; }
+  .ex-empty { padding:16px 12px; font-size:12px; color:#7f8bab; line-height:1.5; }
   /* GRC-style block tree */
   .palsearch { width:calc(100% - 16px); margin:8px; padding:6px 8px; background:#171a24; color:#e6e9f0;
       border:1px solid #3a4366; border-radius:5px; font-size:13px; outline:none; }

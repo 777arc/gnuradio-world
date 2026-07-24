@@ -1599,11 +1599,31 @@ function renderTree(node: Cat, container: HTMLElement, depth: number, q: string)
 let LIB: any = { blocks: [] };
 async function buildPalette() {
   const pal = el('palette');
+  // ---- tab bar: Blocks | Example Flowgraphs ----
+  const tabs = document.createElement('div'); tabs.className = 'paltabs';
+  const blocksPanel = document.createElement('div'); blocksPanel.className = 'paltab-panel';
+  const examplesPanel = document.createElement('div'); examplesPanel.className = 'paltab-panel'; examplesPanel.hidden = true;
+  const tabBlocks = document.createElement('button'); tabBlocks.className = 'paltab active'; tabBlocks.textContent = 'Blocks';
+  const tabExamples = document.createElement('button'); tabExamples.className = 'paltab'; tabExamples.textContent = 'Example Flowgraphs';
+  let examplesLoaded = false;
+  const activate = (which: 'blocks' | 'examples') => {
+    const blocks = which === 'blocks';
+    tabBlocks.classList.toggle('active', blocks);
+    tabExamples.classList.toggle('active', !blocks);
+    blocksPanel.hidden = !blocks; examplesPanel.hidden = blocks;
+    if (!blocks && !examplesLoaded) { examplesLoaded = true; buildExamples(examplesPanel); }
+  };
+  tabBlocks.onclick = () => activate('blocks');
+  tabExamples.onclick = () => activate('examples');
+  tabs.append(tabBlocks, tabExamples);
+
+  // ---- Blocks tab: search box + category tree (existing palette) ----
   const search = document.createElement('input');
   search.className = 'palsearch'; search.placeholder = 'Search blocks…';
   paletteSearch = search;
   const tree = document.createElement('div'); tree.className = 'tree';
-  pal.append(search, tree);
+  blocksPanel.append(search, tree);
+  pal.append(tabs, blocksPanel, examplesPanel);
   try {
     LIB = await (await fetch('/editor/dist/blocks.json').then(r => r.ok ? r : fetch('/editor/public/blocks.json'))).json();
     installGeneratedBlocks(LIB.blocks || []);
@@ -1614,6 +1634,51 @@ async function buildPalette() {
   };
   draw('');
   search.oninput = () => draw(search.value.trim().toLowerCase());
+}
+
+// ---- Example Flowgraphs tab ------------------------------------------------
+// The examples live in wasm/example_flowgraphs/*.json. The COOP/COEP dev server
+// (server.mjs) lists that directory at /example_flowgraphs, so new files show up
+// here automatically without a hand-maintained manifest.
+async function buildExamples(panel: HTMLElement) {
+  const list = document.createElement('div'); list.className = 'ex-list';
+  const status = document.createElement('div'); status.className = 'ex-empty'; status.textContent = 'Loading examples…';
+  panel.append(status);
+  let files: string[] = [];
+  try {
+    files = await (await fetch('/example_flowgraphs')).json();
+  } catch (e) {
+    status.textContent = 'Could not load example flowgraphs.';
+    log('example flowgraphs not loaded: ' + e); return;
+  }
+  if (!files.length) { status.textContent = 'No example flowgraphs found.'; return; }
+  status.remove(); panel.append(list);
+  for (const file of files) {
+    const item = document.createElement('button'); item.className = 'ex-item';
+    const title = document.createElement('div'); title.className = 'ex-title';
+    title.textContent = file.replace(/\.json$/, '');
+    item.append(title);
+    list.append(item);
+    // Fetch the file to show its title/description and load it on click.
+    fetch('/example_flowgraphs/' + file).then(r => r.json()).then(fg => {
+      if (fg.title) title.textContent = fg.title;
+      if (fg.description) {
+        const desc = document.createElement('div'); desc.className = 'ex-desc';
+        desc.textContent = fg.description; item.append(desc);
+      }
+      const n = Array.isArray(fg.blocks) ? fg.blocks.length : 0;
+      const meta = document.createElement('div'); meta.className = 'ex-meta';
+      meta.textContent = `${file} · ${n} block${n === 1 ? '' : 's'}`;
+      item.append(meta);
+      item.onclick = () => {
+        try { loadFlowgraph(fg); resetHistory(); log(`loaded example "${fg.title || file}"`); }
+        catch (err) { log(`failed to load example "${file}": ${err}`); }
+      };
+    }).catch(err => {
+      item.disabled = true; title.textContent = `${file} (failed to load)`;
+      log(`example "${file}" not loaded: ${err}`);
+    });
+  }
 }
 
 // ---- GRC-style menu bar + toolbar ----------------------------------------

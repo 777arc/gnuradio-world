@@ -1,0 +1,132 @@
+{
+  "format": "gnuradio-wasm-flowgraph",
+  "version": 1,
+  "title": "Signal + Noise → Time Sink",
+  "description": "A cosine source mixed with noise, throttled and plotted on a QT time sink.",
+  "blocks": [
+    {
+      "uid": "b1",
+      "id": "analog_sig_source_x",
+      "name": "x1",
+      "x": 50,
+      "y": 70,
+      "params": {
+        "type": "complex",
+        "samp_rate": 32000,
+        "waveform": "cos",
+        "frequency": 2000,
+        "amplitude": 1
+      },
+      "enabled": true,
+      "rotation": 0,
+      "bypassed": false
+    },
+    {
+      "uid": "b2",
+      "id": "analog_noise_source_x",
+      "name": "x2",
+      "x": 56,
+      "y": 370,
+      "params": {
+        "type": "complex",
+        "amplitude": 1,
+        "seed": 0
+      },
+      "enabled": true,
+      "rotation": 0,
+      "bypassed": false
+    },
+    {
+      "uid": "b3",
+      "id": "blocks_add_xx",
+      "name": "xx3",
+      "x": 300,
+      "y": 130,
+      "params": {
+        "type": "complex"
+      },
+      "enabled": true,
+      "rotation": 0,
+      "bypassed": false
+    },
+    {
+      "uid": "b4",
+      "id": "blocks_throttle",
+      "name": "throttle4",
+      "x": 490,
+      "y": 254,
+      "params": {
+        "type": "complex",
+        "samp_rate": 32000
+      },
+      "enabled": true,
+      "rotation": 0,
+      "bypassed": false
+    },
+    {
+      "uid": "b5",
+      "id": "qtgui_time_sink_x",
+      "name": "x5",
+      "x": 726,
+      "y": 80,
+      "params": {
+        "type": "complex",
+        "name": "Scope",
+        "size": 1024,
+        "samp_rate": 32000,
+        "ylabel": "Amplitude",
+        "yunit": "",
+        "grid": "false",
+        "autoscale": "false",
+        "ymin": -1,
+        "ymax": 1,
+        "update_time": 0.1,
+        "tr_mode": "free",
+        "tr_slope": "positive",
+        "tr_level": 0,
+        "tr_delay": 0,
+        "tr_chan": 0,
+        "tr_tag": "",
+        "ctrlpanel": "false",
+        "legend": "true",
+        "axislabels": "true",
+        "stemplot": "false",
+        "label1": "Signal 1",
+        "width1": 1,
+        "color1": "blue",
+        "style1": "1",
+        "marker1": "0",
+        "alpha1": 1
+      },
+      "enabled": true,
+      "rotation": 0,
+      "bypassed": false
+    }
+  ],
+  "connections": [
+    {
+      "from": "b1",
+      "fp": 0,
+      "to": "b3",
+      "tp": 0
+    },
+    {
+      "from": "b2",
+      "fp": 0,
+      "to": "b3",
+      "tp": 1
+    },
+    {
+      "from": "b3",
+      "fp": 0,
+      "to": "b4",
+      "tp": 0
+    },
+    {
+      "from": "b4",
+      "fp": 0,
+      "to": "b5",
+      "tp": 0
+    }
+  ]
+}

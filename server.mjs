@@ -4,7 +4,7 @@
 // Emscripten pthreads work (needed by the thread-per-block scheduler).
 // Usage: node wasm/server.mjs [port] [rootDir]
 import http from 'node:http';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 
 const port = Number(process.argv[2] || 8080);
@@ -30,6 +30,15 @@ const server = http.createServer(async (req, res) => {
 
   try {
     let urlPath = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+    // Directory listing for the example flowgraphs, so the editor can discover
+    // whatever .json files live in wasm/example_flowgraphs/ without a manifest.
+    if (urlPath === '/example_flowgraphs' || urlPath === '/example_flowgraphs/') {
+      const dir = join(root, 'example_flowgraphs');
+      const files = (await readdir(dir)).filter(f => f.endsWith('.json')).sort();
+      res.setHeader('Content-Type', 'application/json');
+      res.writeHead(200);
+      return res.end(JSON.stringify(files));
+    }
     if (urlPath.endsWith('/')) urlPath += 'index.html';
     const filePath = normalize(join(root, urlPath));
     if (!filePath.startsWith(root)) { res.writeHead(403); return res.end('forbidden'); }
