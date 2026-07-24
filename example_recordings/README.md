@@ -25,4 +25,4 @@ npx wrangler r2 bucket dev-url enable gnuradio-wasm-recordings
 npx wrangler r2 bucket cors set gnuradio-wasm-recordings --file wasm/scripts/r2-cors.json
 ```
 
-Also I set the GitHub secret RECORDINGS_R2_BASE to the value from the command above
+Also I set the GitHub variable (not secret!) RECORDINGS_R2_BASE to the value from the command above

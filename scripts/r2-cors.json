@@ -2,7 +2,11 @@
   "rules": [
     {
       "allowed": {
-        "origins": ["https://gnuradio-wasm.pages.dev"],
+        "origins": [
+          "https://gnuradioworld.com",
+          "https://www.gnuradioworld.com",
+          "https://gnuradio-wasm.pages.dev"
+        ],
         "methods": ["GET", "HEAD"],
         "headers": ["*"]
       },
