@@ -9,6 +9,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "imports",
@@ -35,6 +36,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "config_file",
@@ -72,6 +74,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "note",
@@ -98,6 +101,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "title",
@@ -179,6 +183,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "label",
@@ -303,6 +308,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "label",
@@ -428,6 +434,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "label",
@@ -526,6 +533,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "section",
@@ -585,6 +593,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "value",
@@ -611,6 +620,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "value",
@@ -709,6 +719,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "block_id",
@@ -779,6 +790,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "config_file",
@@ -816,6 +828,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -923,6 +936,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -1039,6 +1053,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -1134,6 +1149,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "chan_rate",
@@ -1211,6 +1227,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -1278,6 +1295,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "k",
@@ -1344,6 +1362,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "rate",
@@ -1443,6 +1462,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "period",
@@ -1498,6 +1518,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -1599,6 +1620,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "num_samples",
@@ -1653,6 +1675,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "samp_rate",
@@ -1707,6 +1730,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "chan_rate",
@@ -1816,6 +1840,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "samp_rate",
@@ -1881,6 +1906,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "samplerate",
@@ -1958,6 +1984,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "sensitivity",
@@ -2001,6 +2028,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "audio_rate",
@@ -2077,6 +2105,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "audio_rate",
@@ -2165,6 +2194,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -2255,6 +2285,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "sensitivity",
@@ -2299,6 +2330,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "w",
@@ -2365,6 +2397,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "w",
@@ -2431,6 +2464,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "w",
@@ -2496,6 +2530,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -2586,6 +2621,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -2688,6 +2724,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "gain",
@@ -2732,6 +2769,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "lo",
@@ -2786,6 +2824,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -2881,6 +2920,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -2964,6 +3004,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -3126,6 +3167,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "threshold",
@@ -3180,6 +3222,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "audio_rate",
@@ -3234,6 +3277,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "quad_rate",
@@ -3299,6 +3343,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "quad_rate",
@@ -3373,6 +3418,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "audio_rate",
@@ -3462,6 +3508,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "samp_rate",
@@ -3555,6 +3602,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "samp_rate",
@@ -3647,6 +3695,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "vlen",
@@ -3712,6 +3761,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -3806,6 +3856,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -3884,6 +3935,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -3949,6 +4001,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -4014,6 +4067,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -4098,6 +4152,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -4197,6 +4252,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -4307,6 +4363,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -4404,6 +4461,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "vlen",
@@ -4459,6 +4517,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "vlen",
@@ -4503,6 +4562,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "vlen",
@@ -4547,6 +4607,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "vlen",
@@ -4599,6 +4660,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "vlen",
@@ -4643,6 +4705,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "scale_factor",
@@ -4709,6 +4772,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "scale_factor",
@@ -4775,6 +4839,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "vlen",
@@ -4819,6 +4884,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "vlen",
@@ -4863,6 +4929,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "vlen",
@@ -4915,6 +4982,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "vlen",
@@ -4959,6 +5027,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [],
    "inputs": [
     {
@@ -4991,6 +5060,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -5093,6 +5163,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [],
    "inputs": [
     {
@@ -5122,6 +5193,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "samp_rate",
@@ -5220,6 +5292,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "real",
@@ -5288,6 +5361,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "datatype",
@@ -5346,6 +5420,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "en",
@@ -5372,6 +5447,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "name",
@@ -5452,6 +5528,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -5557,6 +5634,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "name",
@@ -5602,6 +5680,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "en",
@@ -5628,6 +5707,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -5719,6 +5799,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -5835,6 +5916,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -5913,6 +5995,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -5971,6 +6054,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "num_ports",
@@ -6037,6 +6121,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "fd",
@@ -6108,6 +6193,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "fd",
@@ -6195,6 +6281,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "file",
@@ -6357,6 +6444,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -6473,6 +6561,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "file",
@@ -6578,6 +6667,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "file",
@@ -6699,6 +6789,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "vlen",
@@ -6754,6 +6845,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "vlen",
@@ -6806,6 +6898,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "vlen",
@@ -6861,6 +6954,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "vlen",
@@ -6916,6 +7010,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "vlen",
@@ -6979,6 +7074,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "sample_rate",
@@ -7034,6 +7130,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -7114,6 +7211,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "vlen",
@@ -7169,6 +7267,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -7247,6 +7346,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -7338,6 +7438,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "scale_factor",
@@ -7404,6 +7505,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "scale_factor",
@@ -7487,6 +7589,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -7578,6 +7681,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -7658,6 +7762,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "vlen",
@@ -7709,6 +7814,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -7814,6 +7920,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -7901,6 +8008,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "en_uvec",
@@ -7990,6 +8098,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "msg",
@@ -8044,6 +8153,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "msg",
@@ -8128,6 +8238,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "keyin",
@@ -8183,6 +8294,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -8270,6 +8382,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -8373,6 +8486,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "target",
@@ -8408,6 +8522,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "tagname",
@@ -8463,6 +8578,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "vlen",
@@ -8515,6 +8631,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -8623,6 +8740,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -8706,6 +8824,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -8798,6 +8917,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -8876,6 +8996,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -8954,6 +9075,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "n",
@@ -9020,6 +9142,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -9100,6 +9223,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -9154,6 +9278,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -9236,6 +9361,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -9318,6 +9444,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -9383,6 +9510,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "k",
@@ -9427,6 +9555,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -9520,6 +9649,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -9600,6 +9730,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "threshold_factor_rise",
@@ -9675,6 +9806,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -9770,6 +9902,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "shift",
@@ -9839,6 +9972,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "max_len",
@@ -9894,6 +10028,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -9997,6 +10132,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -10058,6 +10194,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -10107,6 +10244,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "period",
@@ -10162,6 +10300,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "k",
@@ -10262,6 +10401,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -10342,6 +10482,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -10405,6 +10546,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "phase_inc",
@@ -10474,6 +10616,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -10538,6 +10681,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -10709,6 +10853,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "vlen",
@@ -10753,6 +10898,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "vlen",
@@ -10808,6 +10954,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "filename",
@@ -10942,6 +11089,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "file",
@@ -11050,6 +11198,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -11130,6 +11279,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -11221,6 +11371,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -11312,6 +11463,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -11392,6 +11544,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -11483,6 +11636,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -11562,6 +11716,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -11653,6 +11808,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -11733,6 +11889,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -11813,6 +11970,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "lo",
@@ -11868,6 +12026,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -11946,6 +12105,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -12056,6 +12216,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -12153,6 +12314,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "offset",
@@ -12212,6 +12374,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "io_type",
@@ -12314,6 +12477,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -12385,6 +12549,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -12465,6 +12630,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -12564,6 +12730,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -12665,6 +12832,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -12758,6 +12926,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "once",
@@ -12816,6 +12985,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "low",
@@ -12884,6 +13054,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -12976,6 +13147,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -13097,6 +13269,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -13163,6 +13336,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [],
    "inputs": [
     {
@@ -13195,6 +13369,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "k",
@@ -13239,6 +13414,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -13329,6 +13505,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "target",
@@ -13372,6 +13549,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "slot",
@@ -13478,6 +13656,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "samp_rate",
@@ -13544,6 +13723,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "samp_rate",
@@ -13610,6 +13790,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -13712,6 +13893,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -13783,6 +13965,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -13889,6 +14072,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -13969,6 +14153,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -14049,6 +14234,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "file",
@@ -14296,6 +14482,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "file",
@@ -14359,6 +14546,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -14423,6 +14611,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "addr",
@@ -14481,6 +14670,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "addr",
@@ -14515,6 +14705,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "alpha",
@@ -14556,6 +14747,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "srate",
@@ -14630,6 +14822,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "noise_voltage",
@@ -14732,6 +14925,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "noise_voltage",
@@ -14844,6 +15038,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "delay",
@@ -14896,6 +15091,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "beta",
@@ -14937,6 +15133,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "beta",
@@ -14978,6 +15175,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "samp_rate",
@@ -15173,6 +15371,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "N",
@@ -15269,6 +15468,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "phase_noise_mag",
@@ -15387,6 +15587,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "mag",
@@ -15456,6 +15657,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "alpha",
@@ -15497,6 +15699,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "noise_mag",
@@ -15549,6 +15752,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "bits",
@@ -15590,6 +15794,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "N",
@@ -15719,6 +15924,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "N",
@@ -15878,6 +16084,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "srate",
@@ -15955,6 +16162,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -16045,6 +16253,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "digital",
    "params": [
     {
      "id": "mask",
@@ -16144,6 +16353,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "digital",
    "params": [
     {
      "id": "type",
@@ -16268,6 +16478,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "digital",
    "params": [],
    "inputs": [
     {
@@ -16300,6 +16511,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "digital",
    "params": [
     {
      "id": "type",
@@ -16417,6 +16629,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "digital",
    "params": [
     {
      "id": "in_type",
@@ -16535,6 +16748,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "digital",
    "params": [
     {
      "id": "type",
@@ -16643,6 +16857,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -16779,6 +16994,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "requires typed object parameter constellation",
+   "module": "core",
    "params": [
     {
      "id": "constellation",
@@ -16823,6 +17039,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "requires typed object parameter constellation",
+   "module": "core",
    "params": [
     {
      "id": "constellation",
@@ -16866,6 +17083,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "constellation",
@@ -17000,6 +17218,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "requires typed object parameter constellation",
+   "module": "core",
    "params": [
     {
      "id": "constellation",
@@ -17136,6 +17355,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "sym_map",
@@ -17250,6 +17470,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "requires typed object parameter constellation",
+   "module": "core",
    "params": [
     {
      "id": "constellation",
@@ -17305,6 +17526,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "digital",
    "params": [
     {
      "id": "symbols",
@@ -17408,6 +17630,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "digital",
    "params": [
     {
      "id": "type",
@@ -17494,6 +17717,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "digital",
    "params": [
     {
      "id": "type",
@@ -17579,6 +17803,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "digital",
    "params": [
     {
      "id": "w",
@@ -17683,6 +17908,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "digital",
    "params": [
     {
      "id": "type",
@@ -17784,6 +18010,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "digital",
    "params": [
     {
      "id": "check",
@@ -17835,6 +18062,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "digital",
    "params": [
     {
      "id": "check",
@@ -17885,6 +18113,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "digital",
    "params": [
     {
      "id": "check",
@@ -17963,6 +18192,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "digital",
    "params": [
     {
      "id": "num_bits",
@@ -18084,6 +18314,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "digital",
    "params": [
     {
      "id": "num_bits",
@@ -18223,6 +18454,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "num_taps_fwd",
@@ -18349,6 +18581,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "digital",
    "params": [
     {
      "id": "mask",
@@ -18415,6 +18648,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "digital",
    "params": [
     {
      "id": "coding",
@@ -18485,6 +18719,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "digital",
    "params": [
     {
      "id": "coding",
@@ -18555,6 +18790,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "digital",
    "params": [],
    "inputs": [
     {
@@ -18587,6 +18823,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "digital",
    "params": [
     {
      "id": "type",
@@ -18710,6 +18947,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "requires typed object parameter target_queue",
+   "module": "core",
    "params": [
     {
      "id": "target_queue",
@@ -18744,6 +18982,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "samples_per_symbol",
@@ -18876,6 +19115,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "samples_per_symbol",
@@ -18993,6 +19233,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "digital",
    "params": [
     {
      "id": "type",
@@ -19085,6 +19326,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "samples_per_symbol",
@@ -19206,6 +19448,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "samples_per_symbol",
@@ -19311,6 +19554,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "samples_per_symbol",
@@ -19377,6 +19621,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "digital",
    "params": [
     {
      "id": "min",
@@ -19432,6 +19677,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "digital",
    "params": [
     {
      "id": "frame_tag_name",
@@ -19476,6 +19722,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "digital",
    "params": [
     {
      "id": "header_len",
@@ -19673,6 +19920,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "num_taps",
@@ -19788,6 +20036,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "digital",
    "params": [
     {
      "id": "map",
@@ -19829,6 +20078,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "cons",
@@ -19891,6 +20141,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "mod",
@@ -19939,6 +20190,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "digital",
    "params": [
     {
      "id": "type",
@@ -20015,6 +20267,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "digital",
    "params": [
     {
      "id": "gain",
@@ -20108,6 +20361,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "requires typed object parameter occupied_carriers",
+   "module": "core",
    "params": [
     {
      "id": "fft_len",
@@ -20224,6 +20478,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "digital",
    "params": [
     {
      "id": "sync_symbol1",
@@ -20329,6 +20584,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "digital",
    "params": [
     {
      "id": "input_size",
@@ -20406,6 +20662,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "requires typed object parameter equalizer",
+   "module": "core",
    "params": [
     {
      "id": "fft_len",
@@ -20510,6 +20767,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "fft_len",
@@ -20712,6 +20970,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "requires typed object parameter occupied_carriers",
+   "module": "core",
    "params": [
     {
      "id": "fft_len",
@@ -20822,6 +21081,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "digital",
    "params": [
     {
      "id": "fft_len",
@@ -20912,6 +21172,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "fft_len",
@@ -21125,6 +21386,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "requires typed object parameter header_formatter",
+   "module": "core",
    "params": [
     {
      "id": "header_formatter",
@@ -21180,6 +21442,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "digital",
    "params": [
     {
      "id": "header_len",
@@ -21232,6 +21495,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "header_formatter",
@@ -21276,6 +21540,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "digital",
    "params": [
     {
      "id": "header_len",
@@ -21331,6 +21596,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "requires typed object parameter target_queue",
+   "module": "core",
    "params": [
     {
      "id": "sync_vector",
@@ -21388,6 +21654,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "digital",
    "params": [
     {
      "id": "type",
@@ -21552,6 +21819,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "digital",
    "params": [
     {
      "id": "degree",
@@ -21618,6 +21886,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "digital",
    "params": [
     {
      "id": "alpha",
@@ -21664,6 +21933,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "digital",
    "params": [
     {
      "id": "type",
@@ -21756,6 +22026,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "requires typed object parameter format",
+   "module": "core",
    "params": [
     {
      "id": "format",
@@ -21808,6 +22079,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "requires typed object parameter format",
+   "module": "core",
    "params": [
     {
      "id": "format",
@@ -21863,6 +22135,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "requires typed object parameter format",
+   "module": "core",
    "params": [
     {
      "id": "format",
@@ -21906,6 +22179,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "constellation_points",
@@ -22072,6 +22346,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "constellation_points",
@@ -22205,6 +22480,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "constellation_points",
@@ -22371,6 +22647,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "constellation_points",
@@ -22505,6 +22782,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "digital",
    "params": [
     {
      "id": "mask",
@@ -22571,6 +22849,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "requires typed object parameter constellation",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -22827,6 +23106,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "access_code",
@@ -22875,6 +23155,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [],
    "inputs": [
     {
@@ -22923,6 +23204,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [],
    "inputs": [
     {
@@ -22955,6 +23237,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [],
    "inputs": [
     {
@@ -22995,6 +23278,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [],
    "inputs": [
     {
@@ -23043,6 +23327,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [],
    "inputs": [
     {
@@ -23075,6 +23360,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [
     {
      "id": "rate",
@@ -23119,6 +23405,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [],
    "inputs": [
     {
@@ -23159,6 +23446,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [],
    "inputs": [
     {
@@ -23191,6 +23479,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [],
    "inputs": [
     {
@@ -23223,6 +23512,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [],
    "inputs": [
     {
@@ -23255,6 +23545,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [],
    "inputs": [
     {
@@ -23303,6 +23594,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [],
    "inputs": [
     {
@@ -23332,6 +23624,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "rate",
@@ -23384,6 +23677,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "rate",
@@ -23439,6 +23733,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [
     {
      "id": "rate",
@@ -23483,6 +23778,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [],
    "inputs": [
     {
@@ -23515,6 +23811,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [],
    "inputs": [
     {
@@ -23563,6 +23860,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [
     {
      "id": "constellation",
@@ -23629,6 +23927,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [
     {
      "id": "constellation",
@@ -23684,6 +23983,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [],
    "inputs": [
     {
@@ -23716,6 +24016,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [],
    "inputs": [
     {
@@ -23748,6 +24049,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [
     {
      "id": "constellation",
@@ -23803,6 +24105,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [
     {
      "id": "standard",
@@ -24346,6 +24649,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [
     {
      "id": "standard",
@@ -24785,6 +25089,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [
     {
      "id": "standard",
@@ -25224,6 +25529,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [
     {
      "id": "standard",
@@ -25685,6 +25991,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [
     {
      "id": "framesize",
@@ -26047,6 +26354,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [
     {
      "id": "framesize",
@@ -26460,6 +26768,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [
     {
      "id": "framesize",
@@ -26855,6 +27164,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [
     {
      "id": "framesize",
@@ -26960,6 +27270,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [
     {
      "id": "framesize",
@@ -27594,6 +27905,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [
     {
      "id": "carriermode",
@@ -27916,6 +28228,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [
     {
      "id": "framesize",
@@ -28039,6 +28352,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [
     {
      "id": "carriermode",
@@ -28311,6 +28625,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [
     {
      "id": "framesize",
@@ -28416,6 +28731,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [
     {
      "id": "carriermode",
@@ -28730,6 +29046,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [
     {
      "id": "carriermode",
@@ -29047,6 +29364,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [
     {
      "id": "carriermode",
@@ -29472,6 +29790,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [
     {
      "id": "constellation",
@@ -29590,6 +29909,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [
     {
      "id": "constellation",
@@ -29708,6 +30028,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [
     {
      "id": "blocks",
@@ -29774,6 +30095,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [
     {
      "id": "blocks",
@@ -29840,6 +30162,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [
     {
      "id": "constellation",
@@ -29963,6 +30286,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [
     {
      "id": "type",
@@ -30227,6 +30551,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [
     {
      "id": "nsize",
@@ -30271,6 +30596,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [
     {
      "id": "nsize",
@@ -30315,6 +30641,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [
     {
      "id": "ninput",
@@ -30454,6 +30781,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [
     {
      "id": "constellation",
@@ -30577,6 +30905,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [
     {
      "id": "type",
@@ -30679,6 +31008,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [
     {
      "id": "p",
@@ -30800,6 +31130,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [
     {
      "id": "p",
@@ -30921,6 +31252,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [
     {
      "id": "type",
@@ -31185,6 +31517,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [
     {
      "id": "transmission_mode",
@@ -31267,6 +31600,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "dtv",
    "params": [
     {
      "id": "constellation",
@@ -31417,6 +31751,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "decoder",
@@ -31503,6 +31838,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "encoder",
@@ -31606,6 +31942,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "test_mode",
@@ -31680,6 +32017,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "esno",
@@ -31786,6 +32124,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [],
    "inputs": [
     {
@@ -31815,6 +32154,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [],
    "inputs": [
     {
@@ -31844,6 +32184,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "decoder",
@@ -31935,6 +32276,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "puncsize",
@@ -32009,6 +32351,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "encoder",
@@ -32100,6 +32443,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "encoder_list",
@@ -32152,6 +32496,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "value",
@@ -32247,6 +32592,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "encoder_list",
@@ -32320,6 +32666,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "value",
@@ -32416,6 +32763,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "encoder_list",
@@ -32490,6 +32838,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -32572,6 +32921,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "decoder",
@@ -32673,6 +33023,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "encoder",
@@ -32776,6 +33127,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "value",
@@ -32860,6 +33212,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "value",
@@ -32933,6 +33286,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "value",
@@ -33095,6 +33449,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "value",
@@ -33223,6 +33578,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "value",
@@ -33383,6 +33739,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "ndim",
@@ -33521,6 +33878,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "ndim",
@@ -33615,6 +33973,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "value",
@@ -33688,6 +34047,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "ndim",
@@ -33750,6 +34110,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "value",
@@ -33786,6 +34147,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "value",
@@ -33833,6 +34195,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "value",
@@ -33917,6 +34280,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "value",
@@ -33990,6 +34354,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "value",
@@ -34063,6 +34428,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "channel",
@@ -34138,6 +34504,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "ndim",
@@ -34233,6 +34600,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "ndim",
@@ -34339,6 +34707,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "ndim",
@@ -34423,6 +34792,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "is_packed",
@@ -34529,6 +34899,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "ndim",
@@ -34613,6 +34984,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "value",
@@ -34708,6 +35080,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "ndim",
@@ -34782,6 +35155,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "name",
@@ -34839,6 +35213,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -34958,6 +35333,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "rate",
@@ -35023,6 +35399,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -35164,6 +35541,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -35376,6 +35754,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -35588,6 +35967,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -35669,6 +36049,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -35778,6 +36159,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -35943,6 +36325,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -36088,6 +36471,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "taps",
@@ -36140,6 +36524,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "requires typed object parameter taps",
+   "module": "core",
    "params": [
     {
      "id": "taps",
@@ -36184,6 +36569,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -36299,6 +36685,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "decim",
@@ -36397,6 +36784,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -36532,6 +36920,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -36707,6 +37096,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "num_taps",
@@ -36796,6 +37186,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -36910,6 +37301,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -37023,6 +37415,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "datatype",
@@ -37086,6 +37479,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -37261,6 +37655,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -37351,6 +37746,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -37474,6 +37870,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "nchans",
@@ -37583,6 +37980,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "nchans",
@@ -37704,6 +38102,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "decim",
@@ -37820,6 +38219,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "interp",
@@ -37897,6 +38297,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "numchans",
@@ -38007,6 +38408,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -38124,6 +38526,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -38268,6 +38671,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -38343,6 +38747,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -38491,6 +38896,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -38638,6 +39044,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "file",
@@ -38676,6 +39083,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "gain",
@@ -38796,6 +39204,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "gain",
@@ -38916,6 +39325,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "gain",
@@ -38996,6 +39406,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "uri",
@@ -39092,6 +39503,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "uri",
@@ -39259,6 +39671,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "attr",
@@ -39313,6 +39726,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "uri",
@@ -39631,6 +40045,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "uri",
@@ -39760,6 +40175,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "uri",
@@ -39880,6 +40296,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -40147,6 +40564,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -40499,6 +40917,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -40693,6 +41112,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -40942,6 +41362,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "network",
    "params": [
     {
      "id": "type",
@@ -41045,6 +41466,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -41148,6 +41570,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -41247,6 +41670,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "network",
    "params": [
     {
      "id": "ifn",
@@ -41316,6 +41740,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -41444,6 +41869,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -41597,6 +42023,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "key",
@@ -41640,6 +42067,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "k",
@@ -41711,6 +42139,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "fn",
@@ -41786,6 +42215,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "k",
@@ -41829,6 +42259,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "k",
@@ -41883,6 +42314,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "pass_empty",
@@ -41940,6 +42372,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -42034,6 +42467,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "pdu",
    "params": [
     {
      "id": "type",
@@ -42098,6 +42532,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "minsize",
@@ -42174,6 +42609,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -42238,6 +42674,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -42484,6 +42921,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -42569,6 +43007,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "delta_key",
@@ -42623,6 +43062,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "file",
@@ -42706,6 +43146,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "sampRate",
@@ -42858,6 +43299,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "label",
@@ -42975,6 +43417,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "esno",
@@ -43828,6 +44271,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "label",
@@ -43936,6 +44380,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "label",
@@ -44193,6 +44638,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "name",
@@ -44504,6 +44950,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -45510,6 +45957,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "label",
@@ -45695,6 +46143,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "label",
@@ -45958,6 +46407,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "label",
@@ -46095,6 +46545,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -46244,6 +46695,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "label",
@@ -46344,6 +46796,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -47936,6 +48389,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -48866,6 +49320,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "file",
@@ -48961,6 +49416,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "overlayList",
@@ -49017,6 +49473,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -49959,6 +50416,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "label",
@@ -50053,6 +50511,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "label",
@@ -50255,6 +50714,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "label",
@@ -50549,6 +51009,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "name",
@@ -50766,6 +51227,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "label",
@@ -50932,6 +51394,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "lbl",
@@ -51143,6 +51606,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "label",
@@ -51326,6 +51790,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "name",
@@ -51942,6 +52407,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "label",
@@ -52068,6 +52534,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "label",
@@ -52169,6 +52636,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "label",
@@ -52330,6 +52798,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "center_freq",
@@ -52505,6 +52974,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -52780,6 +53250,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "num_tabs",
@@ -53057,6 +53528,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -53680,6 +54152,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -55289,6 +55762,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "label",
@@ -55596,6 +56070,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "label",
@@ -55867,6 +56342,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "name",
@@ -56605,6 +57081,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -57265,6 +57742,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -57414,6 +57892,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -57537,6 +58016,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -57661,6 +58141,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "driver",
@@ -57971,6 +58452,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "driver",
@@ -58326,6 +58808,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -58449,6 +58932,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -58584,6 +59068,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -58707,6 +59192,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -58831,6 +59317,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -58943,6 +59430,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -59067,6 +59555,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -59213,6 +59702,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -59392,6 +59882,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -59931,6 +60422,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "nchan",
@@ -60638,6 +61130,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -60760,6 +61253,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -60876,6 +61370,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -61125,6 +61620,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "out_type",
@@ -61296,6 +61792,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -61434,6 +61931,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -61533,6 +62031,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -61782,6 +62281,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "out_type",
@@ -61953,6 +62453,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -62091,6 +62592,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "fsm_args",
@@ -62265,6 +62767,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "fsm_args",
@@ -62398,6 +62901,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -62572,6 +63076,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -62671,6 +63176,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "dev_addr",
@@ -62703,6 +63209,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -62779,6 +63286,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -62831,6 +63339,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -62924,6 +63433,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -63273,6 +63783,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -63328,6 +63839,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -63421,6 +63933,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -63535,6 +64048,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -63753,6 +64267,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -63828,6 +64343,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -63896,6 +64412,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -63967,6 +64484,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -64038,6 +64556,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -64128,6 +64647,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -64281,6 +64801,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -64395,6 +64916,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -64483,6 +65005,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -64546,6 +65069,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -64620,6 +65144,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -64702,6 +65227,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -64777,6 +65303,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -64866,6 +65393,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "label",
@@ -65073,6 +65601,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "block_args",
@@ -65144,6 +65673,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "num_chans",
@@ -65380,6 +65910,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "device_select",
@@ -65632,6 +66163,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "dev_addr",
@@ -65737,6 +66269,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "device_select",
@@ -65822,6 +66355,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "num_chans",
@@ -65887,6 +66421,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "mb_index",
@@ -66011,6 +66546,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "block_args",
@@ -66096,6 +66632,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "btype",
@@ -66178,6 +66715,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "num_chans",
@@ -66372,6 +66910,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "device_select",
@@ -66460,6 +66999,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "device_select",
@@ -66570,6 +67110,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "num_chans",
@@ -66715,6 +67256,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "block_args",
@@ -66814,6 +67356,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -66931,6 +67474,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "vocoder",
    "params": [],
    "inputs": [
     {
@@ -66963,6 +67507,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "vocoder",
    "params": [],
    "inputs": [
     {
@@ -66995,6 +67540,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "mode",
@@ -67080,6 +67626,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "mode",
@@ -67164,6 +67711,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "resample",
@@ -67219,6 +67767,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "vocoder",
    "params": [],
    "inputs": [
     {
@@ -67250,6 +67799,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "Python-only block",
+   "module": "core",
    "params": [
     {
      "id": "resample",
@@ -67305,6 +67855,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "vocoder",
    "params": [],
    "inputs": [
     {
@@ -67334,6 +67885,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "mode",
@@ -67466,6 +68018,7 @@
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "mode",
@@ -67604,6 +68157,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "vocoder",
    "params": [],
    "inputs": [
     {
@@ -67636,6 +68190,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "vocoder",
    "params": [],
    "inputs": [
     {
@@ -67668,6 +68223,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "vocoder",
    "params": [],
    "inputs": [
     {
@@ -67700,6 +68256,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "vocoder",
    "params": [],
    "inputs": [
     {
@@ -67732,6 +68289,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "vocoder",
    "params": [],
    "inputs": [
     {
@@ -67764,6 +68322,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "vocoder",
    "params": [],
    "inputs": [
     {
@@ -67796,6 +68355,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [],
    "inputs": [
     {
@@ -67828,6 +68388,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [],
    "inputs": [
     {
@@ -67860,6 +68421,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "vocoder",
    "params": [],
    "inputs": [
     {
@@ -67892,6 +68454,7 @@
    ],
    "runnable": true,
    "unavailable_reason": null,
+   "module": "vocoder",
    "params": [],
    "inputs": [
     {
@@ -67924,6 +68487,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "address",
@@ -67981,6 +68545,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -68136,6 +68701,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "address",
@@ -68193,6 +68759,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -68320,6 +68887,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "address",
@@ -68377,6 +68945,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -68504,6 +69073,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "address",
@@ -68561,6 +69131,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -68688,6 +69259,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "address",
@@ -68745,6 +69317,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",
@@ -68872,6 +69445,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "address",
@@ -68929,6 +69503,7 @@
    ],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
    "params": [
     {
      "id": "type",

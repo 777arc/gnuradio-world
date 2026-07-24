@@ -13,8 +13,12 @@ export DEPS_SRC="$WASM_ROOT/deps/src"
 mkdir -p "$SYSROOT"
 
 # Every object must be built -pthread so it is ABI-compatible with threaded Qt
-# and GNU Radio's thread-per-block scheduler.
-export WASM_PTHREAD_FLAGS="-pthread"
+# and GNU Radio's thread-per-block scheduler. -fPIC is required too: the runner
+# is an Emscripten MAIN_MODULE that dlopens per-category SIDE_MODULEs, and dynamic
+# linking rejects any non-PIC input (Qt/VOLK/Boost/GMP are already PIC; our own
+# libs — GR, qtgui, qwt, fftw, spdlog — must be built with -fPIC). See the
+# wasm-lazy-category-modules notes.
+export WASM_PTHREAD_FLAGS="-pthread -fPIC"
 
 # CMake args shared by all Emscripten dep builds. `emcmake` supplies the
 # Emscripten toolchain; we point find_package at our sysroot.

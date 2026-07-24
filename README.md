@@ -67,10 +67,10 @@ bash wasm/deps/build-deps.sh                                    # spdlog, VOLK, 
 # FFTW — double then single precision
 cd wasm/deps/src/fftw-3.3.10
 emconfigure ./configure --enable-threads --with-combined-threads --disable-fortran \
-  --disable-shared --enable-static --prefix="$SYSROOT" CFLAGS="-pthread -O2"
+  --disable-shared --enable-static --prefix="$SYSROOT" CFLAGS="-pthread -O2 -fPIC"
 emmake make -j"$(nproc)" install && emmake make clean
 emconfigure ./configure --enable-float --enable-threads --with-combined-threads --disable-fortran \
-  --disable-shared --enable-static --prefix="$SYSROOT" CFLAGS="-pthread -O2"
+  --disable-shared --enable-static --prefix="$SYSROOT" CFLAGS="-pthread -O2 -fPIC"
 emmake make -j"$(nproc)" install
 cd "$GR"
 
@@ -85,6 +85,9 @@ cd "$GR"
 cd wasm/deps/src/qwt-6.2.0
 printf '\nQWT_INSTALL_PREFIX  = %s\nQWT_INSTALL_HEADERS = %s/include\nQWT_INSTALL_LIBS    = %s/lib\n' \
   "$SYSROOT" "$SYSROOT" "$SYSROOT" >> qwtconfig.pri
+# -fPIC is required (see note below); qwt.pro is a subdirs project, so put it in
+# the shared config, not on the qmake command line.
+printf '\nQMAKE_CXXFLAGS += -fPIC\nQMAKE_CFLAGS += -fPIC\n' >> qwtconfig.pri
 "$QT_HOST/bin/qmake6" -qtconf "$QT_WASM/bin/target_qt.conf" qwt.pro
 make -j"$(nproc)" && make install                 # if it tries to build the designer plugin,
 cd "$GR"                                           # add: QWT_CONFIG -= QwtDesigner QwtExamples QwtPlayground
@@ -93,9 +96,10 @@ cd "$GR"                                           # add: QWT_CONFIG -= QwtDesig
 **5. Build GNU Radio and the WASM apps**
 
 ```bash
-# GR C++ modules: no Python, static, emulated (software) double-mapped vmcircbuf
+# GR C++ modules: no Python, static, emulated (software) double-mapped vmcircbuf.
+# -fPIC is required for the MAIN_MODULE/SIDE_MODULE dynamic linking (see note below).
 emcmake cmake -S "$GR" -B wasm/gr/build-gr -GNinja \
-  -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS=-pthread -DCMAKE_C_FLAGS=-pthread \
+  -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-pthread -fPIC" -DCMAKE_C_FLAGS="-pthread -fPIC" \
   -DCMAKE_INSTALL_PREFIX="$SYSROOT" -DCMAKE_PREFIX_PATH="$SYSROOT" -DCMAKE_FIND_ROOT_PATH="$SYSROOT" \
   -DENABLE_DEFAULT=OFF -DENABLE_PYTHON=OFF -DENABLE_GR_QTGUI=OFF -DENABLE_GR_AUDIO=OFF \
   -DENABLE_GR_ANALOG=ON -DENABLE_GR_BLOCKS=ON -DENABLE_GR_DIGITAL=ON \
@@ -108,11 +112,25 @@ cmake --build wasm/gr/build-gr
 python3 wasm/runner/gen_registry.py
 python3 wasm/editor/gen/gen_blocklib.py wasm/editor/public/blocks.json
 
-# gr-qtgui sinks → runner (links everything) → editor
-(cd wasm/qtgui  && "$QT_WASM/bin/qt-cmake" -S . -B build -GNinja -DQT_HOST_PATH="$QT_HOST" && cmake --build build)
+# gr-qtgui sinks → runner (links core + emits per-category side modules) → editor
+(cd wasm/qtgui  && "$QT_WASM/bin/qt-cmake" -S . -B build -GNinja -DQT_HOST_PATH="$QT_HOST" -DCMAKE_CXX_FLAGS="-pthread -fPIC" && cmake --build build)
 (cd wasm/runner && "$QT_WASM/bin/qt-cmake" -S . -B build -GNinja -DQT_HOST_PATH="$QT_HOST" && cmake --build build)
 (cd wasm/editor && npm install && npm run build)
 ```
+
+**On-demand category modules.** The runner is an Emscripten `MAIN_MODULE` that
+loads block categories on demand. `gen_registry.py` splits the block factories
+into a core registrar (blocks/analog/fft/filter, linked into the main module) and
+one self-registering `generated_registry_<m>.cpp` per deferred category
+(digital/dtv/network/pdu/vocoder). The runner CMake compiles each of those into a
+`SIDE_MODULE` (`wasm/runner/build/<m>.wasm`); at run time `gr_run_json` inspects
+the flowgraph, `emscripten_dlopen`s only the categories it uses, and posts a
+`gr-module` message the editor uses to color the palette. Constraints that make
+this work (all handled by the build): everything is `-fPIC`; `MAIN_MODULE=2` +
+`EXPORT_ALL` + whole-archived core + a generated `side_exports.rsp` export every
+symbol the side modules import; side modules use `-sWASM_BIGINT` to match Qt's
+ABI; and `patch_runner_js.py` fixes a Qt+MAIN_MODULE `addFunction` assertion.
+Verify with `node wasm/test_lazy_scenarios.mjs`.
 
 **6. Run**
 
@@ -122,6 +140,66 @@ node wasm/server.mjs 8090 wasm
 ```
 
 The sections below explain the architecture and each component in more detail.
+
+## Adding a category (module) of blocks
+
+A "category" here is one GNU Radio component library (`gr-<m>`) exposed as either
+part of the always-loaded core or an on-demand side module. To add one (say
+`gr-foo`):
+
+1. **Build the GR library** with `-fPIC`. Add `-DENABLE_GR_FOO=ON` to the
+   `wasm/gr/build-gr` configure line (step 5) and rebuild, producing
+   `wasm/gr/build-gr/gr-foo/lib/libgnuradio-foo.a`. Every object must be `-fPIC`
+   (the shared flags already ensure this); a non-PIC object fails the dynamic
+   link with `relocation R_WASM_MEMORY_ADDR_* … recompile with -fPIC`.
+
+2. **Register its blocks** in [`runner/gen_registry.py`](runner/gen_registry.py):
+   - add `"gr-foo"` to `MODULES` so its `.block.yml` files are parsed;
+   - add its short name `"foo"` to **either** `CORE_MODULES` (always linked into
+     the main module) **or** `DEFERRED_MODULES` (fetched on demand);
+   - if a *deferred* module needs symbols from *another deferred* module, add the
+     edge to `MODULE_DEPS` (e.g. `{"foo": ["bar"]}`) so the loader fetches them in
+     order. Depending only on core modules needs no entry.
+
+3. **Wire the build** in [`runner/CMakeLists.txt`](runner/CMakeLists.txt):
+   - make sure `gr-foo/include` is in `GR_INCLUDE_DIRS` (add it if new);
+   - **deferred:** add `foo` to the `DEFERRED_MODULES` list. That builds
+     `foo.wasm` as a `SIDE_MODULE`, folds its imports into `side_exports.rsp`, and
+     the editor/loader do the rest — nothing else to touch.
+   - **core:** add `libgnuradio-foo.a` to the whole-archived block in
+     `target_link_libraries` (the `$<LINK_LIBRARY:WHOLE_ARCHIVE,…>` list) so its
+     full symbol set is present for `EXPORT_ALL`.
+
+4. **Regenerate and rebuild:**
+   ```bash
+   python3 wasm/runner/gen_registry.py
+   python3 wasm/editor/gen/gen_blocklib.py wasm/editor/public/blocks.json
+   (cd wasm/runner && cmake --build build)   # builds side modules + main + patch
+   (cd wasm/editor && npm run build)
+   ```
+   The editor palette picks up the new blocks automatically: `gen_blocklib.py`
+   stamps each block with its `module`, and a deferred category shows amber
+   ("downloads on first use") → cyan once fetched.
+
+**Notes / gotchas**
+
+- **Hand-written factories** (blocks needing a `QWidget`, live setters, or a
+  browser-safe reimplementation) live in [`runner/src/registry.cpp`](runner/src/registry.cpp);
+  list their ids in `CUSTOM_IDS` in `gen_registry.py` so no duplicate generated
+  factory is emitted. A block whose `cpp_templates` can't be rendered goes in
+  `INVALID_CPP_TEMPLATES` with a reason.
+- If a **core** hand-written factory references a **deferred** module's symbols
+  (as `digital_psk_mod` uses a few `gr-digital` blocks), link that module's `.a`
+  *normally* (not whole-archive) into the main module too, so just those objects
+  are pulled into core; the rest stay in the side module. See the `gr-digital`
+  entry in `target_link_libraries` for the pattern.
+- **Symbol export is automatic:** `gen_side_exports.py` scans each side module's
+  `env`/GOT imports and re-exports them from main with `--export-if-defined`, so
+  you don't maintain an export list by hand. Side modules must stay ABI-matched to
+  Qt (`-pthread -fPIC -sWASM_BIGINT=1`); the CMake rule already applies these.
+- **Enum params** whose `.block.yml` has `cpp_templates: translations` that rewrite
+  option strings (e.g. `analog.cpm.` → `analog::cpm::`) just work:
+  `wasm_registry::choice` matches with `::`/`.` normalized.
 
 ## Architecture
 

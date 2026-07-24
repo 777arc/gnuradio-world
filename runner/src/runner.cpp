@@ -12,10 +12,13 @@
 #include <QTimer>
 #include <emscripten.h>
 #include <emscripten/heap.h>
+#include <dlfcn.h>
 #include <algorithm>
 #include <chrono>
 #include <cstdlib>
+#include <functional>
 #include <map>
+#include <set>
 #include <string>
 #include <thread>
 #include <vector>
@@ -75,10 +78,9 @@ static void report(bool ok, const std::string& msg) {
     }, ok ? 1 : 0, msg.c_str());
 }
 
-extern "C" EMSCRIPTEN_KEEPALIVE
-int gr_run_json(const char* json_str) {
+static void run_now(const std::string& json_source) {
     try {
-        auto j = nlohmann::json::parse(json_str);
+        auto j = nlohmann::json::parse(json_source);
         if (g_tb) { g_tb->stop(); g_tb->wait(); g_tb.reset(); }
         // clear previous sink widgets
         if (g_container->layout()) {
@@ -199,9 +201,120 @@ int gr_run_json(const char* json_str) {
 
         std::string msg = "blocks=" + std::to_string(nblocks) + " sinks=" + std::to_string(nsinks);
         QTimer::singleShot(2500, [msg] { report(true, msg); });
-        return 0;
     } catch (const std::exception& e) {
         report(false, std::string("exception: ") + e.what());
+    }
+}
+
+// ---- on-demand category loading -------------------------------------------
+// A flowgraph may reference blocks whose C++ lives in a category side module
+// (digital/dtv/network/pdu/vocoder). Those modules are fetched over the network
+// and dlopen'd the first time they're needed; their file-scope registrars then
+// populate the block registry (see registry.cpp wasm_registry_add). Loading is
+// asynchronous, so gr_run_json kicks off a load chain that ends by calling
+// run_now() once every required module is present.
+static std::set<std::string> g_loaded_modules;
+
+// Tell the editor (parent frame) about a category's load state so it can color
+// the palette. Also stashed on window for same-page inspection/tests.
+static void notify_module(const std::string& module, const char* state) {
+    // NOTE: EM_ASM splits its macro arguments on commas that are not inside
+    // parentheses, so the JS body must avoid bare commas (no `{a:1, b:2}` object
+    // literals, no `var a, b`). Build the message object field by field instead.
+    EM_ASM({
+        try {
+            var name = UTF8ToString($0);
+            var st = UTF8ToString($1);
+            window.__grModules = window.__grModules || {};
+            window.__grModules[name] = st;
+            if (window.parent && window.parent !== window) {
+                var m = {};
+                m.type = 'gr-module';
+                m.module = name;
+                m.state = st;
+                window.parent.postMessage(m, '*');
+            }
+        } catch (e) {}
+    }, module.c_str(), state);
+}
+
+// Deferred modules a flowgraph needs, dependencies first (topological order).
+static std::vector<std::string> modules_needed(const nlohmann::json& j) {
+    std::set<std::string> need;
+    const auto& map = block_module_map();
+    for (const auto& blk : j.at("blocks")) {
+        auto it = map.find(blk.at("id").get<std::string>());
+        if (it != map.end())
+            need.insert(it->second);
+    }
+    std::vector<std::string> order;
+    std::set<std::string> seen;
+    std::function<void(const std::string&)> visit = [&](const std::string& m) {
+        if (!seen.insert(m).second)
+            return;
+        auto d = module_deps().find(m);
+        if (d != module_deps().end())
+            for (const auto& dep : d->second)
+                visit(dep);
+        order.push_back(m);
+    };
+    for (const auto& m : need)
+        visit(m);
+    return order;
+}
+
+struct LoadCtx {
+    std::vector<std::string> mods;
+    std::size_t idx;
+    std::string fgs;
+};
+
+static void load_next(LoadCtx* ctx);
+
+static void on_module_loaded(void* user, void* /*handle*/) {
+    auto* ctx = static_cast<LoadCtx*>(user);
+    const std::string& m = ctx->mods[ctx->idx];
+    g_loaded_modules.insert(m);
+    notify_module(m, "loaded");
+    ++ctx->idx;
+    load_next(ctx);
+}
+
+static void on_module_error(void* user) {
+    auto* ctx = static_cast<LoadCtx*>(user);
+    const std::string module = ctx->mods[ctx->idx];
+    delete ctx;
+    const char* err = dlerror();
+    notify_module(module, "error");
+    report(false, "failed to load category module: " + module + ".wasm" +
+                      (err ? std::string(" — ") + err : std::string()));
+}
+
+static void load_next(LoadCtx* ctx) {
+    while (ctx->idx < ctx->mods.size() && g_loaded_modules.count(ctx->mods[ctx->idx]))
+        ++ctx->idx;  // already fetched in a previous run
+    if (ctx->idx >= ctx->mods.size()) {
+        const std::string fgs = std::move(ctx->fgs);
+        delete ctx;
+        run_now(fgs);
+        return;
+    }
+    const std::string& m = ctx->mods[ctx->idx];
+    notify_module(m, "loading");
+    const std::string path = m + ".wasm";  // served next to runner.html
+    emscripten_dlopen(path.c_str(), RTLD_NOW | RTLD_GLOBAL, ctx,
+                      on_module_loaded, on_module_error);
+}
+
+extern "C" EMSCRIPTEN_KEEPALIVE
+int gr_run_json(const char* json_str) {
+    try {
+        auto j = nlohmann::json::parse(json_str);
+        auto* ctx = new LoadCtx{ modules_needed(j), 0, std::string(json_str) };
+        load_next(ctx);  // fetch missing category modules, then run_now()
+        return 0;
+    } catch (const std::exception& e) {
+        report(false, std::string("parse error: ") + e.what());
         return 1;
     }
 }

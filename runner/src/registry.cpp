@@ -1,4 +1,5 @@
 #include "registry.hpp"
+#include <emscripten.h>
 #include <gnuradio/analog/sig_source.h>
 #include <gnuradio/analog/noise_source.h>
 #include <gnuradio/analog/random_uniform_source.h>
@@ -760,8 +761,8 @@ BuiltBlock make_push_button(const json& p)
 
 } // namespace
 
-const std::map<std::string, Factory>& block_registry() {
-    static const std::map<std::string, Factory> reg = [] {
+static std::map<std::string, Factory>& registry_storage() {
+    static std::map<std::string, Factory> reg = [] {
       std::map<std::string, Factory> reg;
       register_generated_blocks(reg);
       const std::map<std::string, Factory> custom = {
@@ -1086,4 +1087,17 @@ const std::map<std::string, Factory>& block_registry() {
       return reg;
     }();
     return reg;
+}
+
+const std::map<std::string, Factory>& block_registry() {
+    return registry_storage();
+}
+
+// Called by dlopen'd category side modules (generated_registry_<m>.cpp) to add
+// their factories once the module has been fetched. Capture-less factory function
+// pointers cross the dynamic-link boundary with no C++ ABI coupling. emplace() so
+// a hand-written custom factory (installed at init) always wins over a generated one.
+extern "C" EMSCRIPTEN_KEEPALIVE void wasm_registry_add(
+    const char* id, BuiltBlock (*factory)(const nlohmann::json&)) {
+    registry_storage().emplace(std::string(id), Factory(factory));
 }

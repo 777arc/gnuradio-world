@@ -186,6 +186,20 @@ inline std::vector<int> cp_lengths(const nlohmann::json& params,
     }
 }
 
+// Collapse C++ scope separators to the GRC/Python dotted spelling so enum option
+// matching is insensitive to it. A block's cpp_templates `translations` (e.g.
+// `analog\.cpm\.` -> `analog::cpm::`) are applied to the whole generated make
+// string, which rewrites the choice() *match keys* into C++ form; the editor,
+// however, sends the original dotted option value. Normalizing both sides here
+// keeps them matching without special-casing each block.
+inline std::string normalize_enum(std::string value)
+{
+    std::string::size_type pos = 0;
+    while ((pos = value.find("::", pos)) != std::string::npos)
+        value.replace(pos, 2, ".");
+    return value;
+}
+
 template <typename T>
 T choice(const nlohmann::json& params,
          const char* key,
@@ -197,6 +211,11 @@ T choice(const nlohmann::json& params,
         return fallback;
     for (const auto& option : choices) {
         if (value == option.first)
+            return option.second;
+    }
+    const std::string normalized = normalize_enum(value);
+    for (const auto& option : choices) {
+        if (normalized == normalize_enum(option.first))
             return option.second;
     }
     throw std::runtime_error(std::string(key) + " has unsupported value '" + value + "'");

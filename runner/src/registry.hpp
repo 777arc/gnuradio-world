@@ -32,4 +32,13 @@ using Factory = std::function<BuiltBlock(const nlohmann::json& params)>;
 // handling or richer live callbacks.
 const std::map<std::string, Factory>& block_registry();
 
+// Core (always-linked) blocks: blocks/analog/fft/filter. Deferred category blocks
+// register themselves via wasm_registry_add() when their side module is dlopen'd.
 void register_generated_blocks(std::map<std::string, Factory>& registry);
+
+// Baked into the main module by generated_modules.cpp. block_module_map() maps a
+// GRC block id to the deferred category module that must be loaded before it can be
+// built (core blocks are absent). module_deps() gives inter-module load order.
+#include <vector>
+const std::map<std::string, std::string>& block_module_map();
+const std::map<std::string, std::vector<std::string>>& module_deps();

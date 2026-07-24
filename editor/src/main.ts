@@ -1531,7 +1531,7 @@ function stop() {
 
 // ---- Palette ----
 // ---- GRC-style block tree (collapsible categories + search) ----
-interface LibraryBlock { id: string; label: string; runnable: boolean; unavailableReason?: string }
+interface LibraryBlock { id: string; label: string; runnable: boolean; unavailableReason?: string; module: string }
 interface Cat { name: string; path: string; subs: Map<string, Cat>; blocks: LibraryBlock[] }
 
 function buildTree(blocks: any[]): Cat {
@@ -1548,6 +1548,7 @@ function buildTree(blocks: any[]): Cat {
     node.blocks.push({
       id: b.id, label: b.label || b.id, runnable: !!b.runnable,
       unavailableReason: b.unavailable_reason || undefined,
+      module: b.module || 'core',
     });
   }
   return root;
@@ -1557,26 +1558,82 @@ function catMatches(node: Cat, q: string): boolean {
   return !q || node.blocks.some(b => matchesQ(b, q)) || [...node.subs.values()].some(s => catMatches(s, q));
 }
 
+// Category side modules the runner has fetched this session. A block whose code
+// lives in a not-yet-loaded module still runs (the runner downloads it on the
+// first run that uses it); this set only drives the palette's download-state
+// coloring, updated by 'gr-module' messages from the runner iframe.
+const loadedModules = new Set<string>();
+const isDeferredModule = (m: string | undefined): boolean => !!m && m !== 'core';
+
+// Deferred modules reachable under a category subtree (runnable blocks only), and
+// how many of them are still un-downloaded.
+function catModuleState(node: Cat): { deferred: Set<string>; pending: number } {
+  const deferred = new Set<string>();
+  const walk = (n: Cat) => {
+    for (const b of n.blocks)
+      if (isDeferredModule(b.module) && !!RUNNABLE[b.id]) deferred.add(b.module);
+    for (const s of n.subs.values()) walk(s);
+  };
+  walk(node);
+  let pending = 0;
+  for (const m of deferred) if (!loadedModules.has(m)) pending++;
+  return { deferred, pending };
+}
+
+// Set by buildPalette; lets the runner-message listener recolor in place.
+let redrawPalette: (() => void) | null = null;
+// The runner iframe posts a 'gr-module' message as each category side module is
+// fetched. Mark it downloaded and repaint the palette.
+window.addEventListener('message', (e) => {
+  const d = (e as MessageEvent).data;
+  if (!d || d.type !== 'gr-module' || typeof d.module !== 'string') return;
+  if (d.state === 'loaded' && !loadedModules.has(d.module)) {
+    loadedModules.add(d.module);
+    redrawPalette?.();
+  }
+});
+
 function makeBlockItem(b: LibraryBlock, indent: number): HTMLElement {
   // A hand-written schema in RUNNABLE means we support the block even if the
   // generated library marks it unavailable (e.g. the plain `variable` block,
   // which the editor resolves away instead of handing to the runner).
   const run = !!RUNNABLE[b.id];
   const item = document.createElement('div');
-  item.className = 'pal-item ' + (run ? 'runnable' : 'unavailable');
+  let cls = 'pal-item ' + (run ? 'runnable' : 'unavailable');
+  const deferred = run && isDeferredModule(b.module);
+  const loaded = deferred && loadedModules.has(b.module);
+  if (deferred) cls += ' deferred' + (loaded ? ' loaded' : '');
+  item.className = cls;
   item.style.paddingLeft = indent + 'px';
   item.textContent = b.label;
-  item.title = run ? b.id : `${b.id} — ${b.unavailableReason || 'not available in WebAssembly'}`;
+  item.title = !run ? `${b.id} — ${b.unavailableReason || 'not available in WebAssembly'}`
+    : deferred ? `${b.id} — ${loaded ? `“${b.module}” category downloaded`
+                                     : `downloads the “${b.module}” category on first run`}`
+    : b.id;
   item.setAttribute('aria-disabled', String(!run));
   item.onclick = () => run ? addBlock(b.id) :
     log(`"${b.id}" is unavailable: ${b.unavailableReason || 'not implemented in WebAssembly'}`);
   return item;
 }
-function makeCatRow(name: string, container: HTMLElement, open: boolean, bold = false, indent = 6): HTMLElement {
+function makeCatRow(name: string, container: HTMLElement, open: boolean, bold = false, indent = 6,
+                    modState?: { deferred: Set<string>; pending: number }): HTMLElement {
   const row = document.createElement('div'); row.className = 'cat-row'; row.style.paddingLeft = indent + 'px';
   const tri = document.createElement('span'); tri.className = 'tri';
-  const nm = document.createElement('span'); nm.textContent = name; if (bold) nm.style.fontWeight = '600';
+  const nm = document.createElement('span'); nm.className = 'cat-name';
+  nm.textContent = name; if (bold) nm.style.fontWeight = '600';
   row.append(tri, nm);
+  // Reflect the download state of any deferred categories this row contains.
+  if (modState && modState.deferred.size) {
+    if (modState.pending === 0) {
+      row.classList.add('mod-loaded');
+      const badge = document.createElement('span'); badge.className = 'cat-badge';
+      badge.textContent = '⤓'; badge.title = 'category downloaded'; row.append(badge);
+    } else {
+      row.classList.add('mod-pending');
+      const badge = document.createElement('span'); badge.className = 'cat-badge';
+      badge.textContent = '○'; badge.title = 'downloads on first use'; row.append(badge);
+    }
+  }
   const kids = document.createElement('div');
   tri.textContent = open ? '▾' : '▸'; kids.style.display = open ? 'block' : 'none';
   row.onclick = () => {
@@ -1589,7 +1646,8 @@ function makeCatRow(name: string, container: HTMLElement, open: boolean, bold = 
 function renderTree(node: Cat, container: HTMLElement, depth: number, q: string) {
   for (const s of [...node.subs.values()].sort((a, b) => a.name.localeCompare(b.name))) {
     if (!catMatches(s, q)) continue;
-    const kids = makeCatRow(s.name, container, !!q || (depth === 0 && s.name === 'Core'), false, 6 + depth * 13);
+    const kids = makeCatRow(s.name, container, !!q || (depth === 0 && s.name === 'Core'),
+                            false, 6 + depth * 13, catModuleState(s));
     renderTree(s, kids, depth + 1, q);
   }
   for (const b of [...node.blocks].filter(b => matchesQ(b, q)).sort((a, b) => a.label.localeCompare(b.label)))
@@ -1632,6 +1690,7 @@ async function buildPalette() {
     tree.textContent = '';
     renderTree(buildTree(LIB.blocks), tree, 0, q);
   };
+  redrawPalette = () => draw(search.value.trim().toLowerCase());
   draw('');
   search.oninput = () => draw(search.value.trim().toLowerCase());
 }

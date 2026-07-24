@@ -76,6 +76,9 @@ def main(out_path):
     manifest = json.load(open(MANIFEST))
     supported = set(manifest["supported"])
     skipped = manifest.get("skipped", {})
+    # id -> deferred category side module (fetched on demand). Blocks absent from
+    # this map live in the always-loaded core module.
+    block_module = manifest.get("block_module", {})
     blocks_by_id = {}
     for mod in MODULES:
         for f in sorted(glob.glob(os.path.join(REPO, mod, "*.block.yml"))):
@@ -125,6 +128,9 @@ def main(out_path):
                 "flags": d.get("flags", []),
                 "runnable": runnable,
                 "unavailable_reason": unavailable_reason,
+                # Which downloadable chunk supplies this block's code; "core" is
+                # always present, others are fetched on first use.
+                "module": block_module.get(block_id, "core"),
                 "params": params,
                 "inputs": port_list(d.get("inputs")),
                 "outputs": port_list(d.get("outputs")),
