@@ -1,0 +1,118 @@
+options:
+    parameters:
+        author: ''
+        copyright: ''
+        description: ''
+        generate_options: qt_gui
+        id: default
+        title: ''
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: noise
+    id: variable_qtgui_range
+    parameters:
+        label: ''
+        min_len: '200'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '0'
+        step: '0.01'
+        stop: '1'
+        value: '0.01'
+        widget: counter_slider
+    states:
+        coordinate: [182, 312]
+        rotation: 0
+        state: enabled
+-   name: mod7
+    id: digital_psk_mod
+    parameters:
+        constellation_points: '8'
+        differential: 'True'
+        excess_bw: '0.35'
+        mod_code: '"gray"'
+        samples_per_symbol: '2'
+    states:
+        coordinate: [198, 101]
+        rotation: 0
+        state: enabled
+-   name: throttle4
+    id: blocks_throttle
+    parameters:
+        samp_rate: '32000'
+        type: complex
+    states:
+        coordinate: [614, 151]
+        rotation: 0
+        state: enabled
+-   name: x2
+    id: analog_noise_source_x
+    parameters:
+        amplitude: noise
+        seed: '0'
+        type: complex
+    states:
+        coordinate: [226, 221]
+        rotation: 0
+        state: enabled
+-   name: x8
+    id: analog_random_source_x
+    parameters:
+        max: '2'
+        min: '0'
+        num_samps: '1000'
+        repeat: 'True'
+        type: byte
+    states:
+        coordinate: [7, 101]
+        rotation: 0
+        state: enabled
+-   name: x9
+    id: qtgui_const_sink_x
+    parameters:
+        alpha1: '1'
+        autoscale: 'False'
+        axislabels: 'True'
+        color1: '"blue"'
+        grid: 'False'
+        label1: ''
+        legend: 'True'
+        marker1: '0'
+        name: Constellation
+        size: '1024'
+        style1: '1'
+        tr_chan: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_slope: qtgui.TRIG_SLOPE_POS
+        tr_tag: ''
+        update_time: '0.1'
+        width1: '1'
+        xmax: '2'
+        xmin: '-2'
+        ymax: '2'
+        ymin: '-2'
+    states:
+        coordinate: [755, 257]
+        rotation: 0
+        state: enabled
+-   name: xx3
+    id: blocks_add_xx
+    parameters:
+        type: complex
+    states:
+        coordinate: [429, 151]
+        rotation: 0
+        state: enabled
+connections:
+- [mod7, '0', xx3, '0']
+- [throttle4, '0', x9, '0']
+- [x2, '0', xx3, '1']
+- [x8, '0', mod7, '0']
+- [xx3, '0', throttle4, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0

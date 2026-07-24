@@ -164,6 +164,8 @@
   .blk text.validation-error { fill:#d1242f; font:10px 'DejaVu Sans',Verdana,sans-serif; pointer-events:none; }
   .port { stroke:#000; stroke-width:1; cursor:crosshair; }
   .port:hover { stroke:#1a63c4; stroke-width:2; }
+  .port-label { fill:#111; font:10px 'DejaVu Sans',Verdana,sans-serif;
+      pointer-events:none; }
   .wire { stroke:#2a2a2a; stroke-width:2; fill:none; pointer-events:none; }
   .wire.sel { stroke:#00b8c8; stroke-width:3; }
   .wire.invalid { stroke:#d1242f; stroke-width:3; }
@@ -173,6 +175,7 @@
   .blk.disabled rect.body { fill:#e6e6e6; stroke:#9a9a9a; stroke-dasharray:5 3; }
   .blk.disabled text.title, .blk.disabled text.param, .blk.disabled text.pval { fill:#9a9a9a; }
   .blk.disabled .port { opacity:.35; }
+  .blk.disabled .port-label { fill:#777; }
   /* bypassed block (GRC pale look, distinct from disabled) */
   .blk.bypassed rect.body { fill:#fff4d6; stroke:#b8973a; stroke-dasharray:6 3; }
   .blk.bypassed text.title { fill:#7a5c12; }

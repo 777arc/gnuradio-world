@@ -3,6 +3,8 @@
 // canvas, and Runs the flowgraph by handing JSON to the C++/WASM runner via a
 // URL hash (runner.html#<encoded json>).
 
+import { dumpGrc, parseGrc, type GrcDoc, type GrcScalar } from './grc';
+
 type ParamType = 'number' | 'string' | 'enum';
 interface ParamDef { id: string; label: string; type: ParamType; def: any; options?: string[]; category?: string; hideIfEmpty?: boolean }
 // inTypes/outTypes give per-port dtypes (for converters); otherwise ports follow the
@@ -11,6 +13,8 @@ interface RunnableDef {
   label: string; inputs: number; outputs: number; params: ParamDef[];
   dtype?: string; inTypes?: string[]; outTypes?: string[];
   inDomains?: string[]; outDomains?: string[]; inIds?: string[]; outIds?: string[];
+  inLabels?: string[]; outLabels?: string[];
+  inLabelBase?: string; outLabelBase?: string;
   inStreamIndices?: number[]; outStreamIndices?: number[];
 }
 
@@ -24,9 +28,14 @@ const DTYPE_COLOR: Record<string, string> = {
 const TYPE_PARAM: ParamDef = { id: 'type', label: 'Type', type: 'enum', def: 'complex', options: ['complex', 'float'] };
 const INTEGER_TYPE_PARAM: ParamDef = { id: 'type', label: 'Type', type: 'enum', def: 'byte', options: ['byte', 'short', 'int'] };
 const STREAM_TYPE_PARAM: ParamDef = { id: 'type', label: 'Type', type: 'enum', def: 'complex', options: ['complex', 'float', 'int', 'short', 'byte'] };
-const BOOL_OPTIONS = ['true', 'false'];
-const TRIGGER_MODES = ['free', 'auto', 'normal', 'tag'];
+// GRC-native enum vocabularies (values stored/serialized verbatim, matching
+// grc block YAML so saved .grc is byte-compatible with desktop GRC).
+const BOOL_OPTIONS = ['True', 'False'];
+const TRIGGER_MODES = ['qtgui.TRIG_MODE_FREE', 'qtgui.TRIG_MODE_AUTO', 'qtgui.TRIG_MODE_NORM', 'qtgui.TRIG_MODE_TAG'];
+const TRIGGER_SLOPES = ['qtgui.TRIG_SLOPE_POS', 'qtgui.TRIG_SLOPE_NEG'];
 const LINE_COLORS = ['blue', 'red', 'green', 'black', 'cyan', 'magenta', 'yellow', 'dark red', 'dark green', 'dark blue'];
+// The frequency/constellation sinks store colours as quoted strings in GRC.
+const LINE_COLORS_Q = LINE_COLORS.map(c => `"${c}"`);
 const LINE_STYLES = ['1', '2', '3', '4', '5', '0'];
 const LINE_MARKERS = ['0', '1', '2', '3', '4', '6', '7', '8', '9', '-1'];
 
@@ -36,7 +45,7 @@ const RUNNABLE: Record<string, RunnableDef> = {
   // ---- flowgraph options ----
   // GRC's per-flowgraph Options block: identification metadata for the graph.
   // Exactly one is auto-inserted per flowgraph (see ensureOptionsBlock). It has
-  // no ports and is not emitted to the runner (dropped in toFlowgraphJSON).
+  // no ports and becomes the top-level `options:` block in the saved .grc.
   // Metadata params are `hideIfEmpty` so blank fields don't clutter the block face.
   options: {
     label: 'Options', inputs: 0, outputs: 0, params: [
@@ -51,7 +60,8 @@ const RUNNABLE: Record<string, RunnableDef> = {
     label: 'Signal Source', inputs: 0, outputs: 1, params: [
       TYPE_PARAM,
       { id: 'samp_rate', label: 'Sample Rate', type: 'number', def: 32000 },
-      { id: 'waveform', label: 'Waveform', type: 'enum', def: 'cos', options: ['cos', 'sin', 'square', 'triangle', 'saw'] },
+      { id: 'waveform', label: 'Waveform', type: 'enum', def: 'analog.GR_COS_WAVE',
+        options: ['analog.GR_CONST_WAVE', 'analog.GR_SIN_WAVE', 'analog.GR_COS_WAVE', 'analog.GR_SQR_WAVE', 'analog.GR_TRI_WAVE', 'analog.GR_SAW_WAVE'] },
       { id: 'frequency', label: 'Frequency', type: 'number', def: 2000 },
       { id: 'amplitude', label: 'Amplitude', type: 'number', def: 1.0 },
     ],
@@ -67,7 +77,7 @@ const RUNNABLE: Record<string, RunnableDef> = {
       { id: 'min', label: 'Minimum', type: 'number', def: 0 },
       { id: 'max', label: 'Maximum', type: 'number', def: 2 },
       { id: 'num_samps', label: 'Num Samples', type: 'number', def: 1000 },
-      { id: 'repeat', label: 'Repeat', type: 'enum', def: 'true', options: ['true', 'false'] },
+      { id: 'repeat', label: 'Repeat', type: 'enum', def: 'True', options: BOOL_OPTIONS },
     ],
   },
   analog_random_uniform_source_x: {
@@ -88,8 +98,8 @@ const RUNNABLE: Record<string, RunnableDef> = {
   digital_psk_mod: {
     label: 'PSK Mod', inputs: 1, outputs: 1, params: [
       { id: 'constellation_points', label: 'Constellation Points', type: 'number', def: 8 },
-      { id: 'mod_code', label: 'Gray Code', type: 'enum', def: 'gray', options: ['gray', 'none'] },
-      { id: 'differential', label: 'Differential', type: 'enum', def: 'true', options: ['true', 'false'] },
+      { id: 'mod_code', label: 'Gray Code', type: 'enum', def: '"gray"', options: ['"gray"', '"none"'] },
+      { id: 'differential', label: 'Differential', type: 'enum', def: 'True', options: BOOL_OPTIONS },
       { id: 'samples_per_symbol', label: 'Samples/Symbol', type: 'number', def: 2 },
       { id: 'excess_bw', label: 'Excess BW', type: 'number', def: 0.35 },
     ],
@@ -143,8 +153,8 @@ const RUNNABLE: Record<string, RunnableDef> = {
       { id: 'step', label: 'Step', type: 'number', def: 1 },
       { id: 'widget', label: 'Widget', type: 'enum', def: 'counter_slider',
         options: ['counter_slider', 'counter', 'slider', 'dial', 'eng_slider', 'eng'] },
-      { id: 'orient', label: 'Orientation', type: 'enum', def: 'horizontal',
-        options: ['horizontal', 'vertical'] },
+      { id: 'orient', label: 'Orientation', type: 'enum', def: 'QtCore.Qt.Horizontal',
+        options: ['QtCore.Qt.Horizontal', 'QtCore.Qt.Vertical'] },
       { id: 'min_len', label: 'Minimum Length', type: 'number', def: 200 },
     ],
   },
@@ -156,8 +166,8 @@ const RUNNABLE: Record<string, RunnableDef> = {
       { id: 'value', label: 'Default option', type: 'number', def: 0 },
       { id: 'widget', label: 'Widget', type: 'enum', def: 'combo_box',
         options: ['combo_box', 'radio_buttons'] },
-      { id: 'orient', label: 'Orientation', type: 'enum', def: 'vertical',
-        options: ['vertical', 'horizontal'] },
+      { id: 'orient', label: 'Orientation', type: 'enum', def: 'Qt.QVBoxLayout',
+        options: ['Qt.QHBoxLayout', 'Qt.QVBoxLayout'] },
     ],
   },
   variable_qtgui_push_button: {
@@ -178,21 +188,21 @@ const RUNNABLE: Record<string, RunnableDef> = {
       { id: 'samp_rate', label: 'Sample Rate', type: 'number', def: 32000 },
       { id: 'ylabel', label: 'Y Axis Label', type: 'string', def: 'Amplitude', category: 'General' },
       { id: 'yunit', label: 'Y Axis Unit', type: 'string', def: '', category: 'General' },
-      { id: 'grid', label: 'Grid', type: 'enum', def: 'false', options: BOOL_OPTIONS, category: 'General' },
-      { id: 'autoscale', label: 'Autoscale', type: 'enum', def: 'false', options: BOOL_OPTIONS, category: 'General' },
+      { id: 'grid', label: 'Grid', type: 'enum', def: 'False', options: BOOL_OPTIONS, category: 'General' },
+      { id: 'autoscale', label: 'Autoscale', type: 'enum', def: 'False', options: BOOL_OPTIONS, category: 'General' },
       { id: 'ymin', label: 'Y min', type: 'number', def: -1, category: 'General' },
       { id: 'ymax', label: 'Y max', type: 'number', def: 1, category: 'General' },
       { id: 'update_time', label: 'Update Period', type: 'number', def: 0.1, category: 'General' },
-      { id: 'tr_mode', label: 'Trigger Mode', type: 'enum', def: 'free', options: TRIGGER_MODES, category: 'Trigger' },
-      { id: 'tr_slope', label: 'Trigger Slope', type: 'enum', def: 'positive', options: ['positive', 'negative'], category: 'Trigger' },
+      { id: 'tr_mode', label: 'Trigger Mode', type: 'enum', def: 'qtgui.TRIG_MODE_FREE', options: TRIGGER_MODES, category: 'Trigger' },
+      { id: 'tr_slope', label: 'Trigger Slope', type: 'enum', def: 'qtgui.TRIG_SLOPE_POS', options: TRIGGER_SLOPES, category: 'Trigger' },
       { id: 'tr_level', label: 'Trigger Level', type: 'number', def: 0, category: 'Trigger' },
       { id: 'tr_delay', label: 'Trigger Delay', type: 'number', def: 0, category: 'Trigger' },
       { id: 'tr_chan', label: 'Trigger Channel', type: 'number', def: 0, category: 'Trigger' },
       { id: 'tr_tag', label: 'Trigger Tag Key', type: 'string', def: '', category: 'Trigger' },
-      { id: 'ctrlpanel', label: 'Control Panel', type: 'enum', def: 'false', options: BOOL_OPTIONS, category: 'Config' },
-      { id: 'legend', label: 'Legend', type: 'enum', def: 'true', options: BOOL_OPTIONS, category: 'Config' },
-      { id: 'axislabels', label: 'Axis Labels', type: 'enum', def: 'true', options: BOOL_OPTIONS, category: 'Config' },
-      { id: 'stemplot', label: 'Stem Plot', type: 'enum', def: 'false', options: BOOL_OPTIONS, category: 'Config' },
+      { id: 'ctrlpanel', label: 'Control Panel', type: 'enum', def: 'False', options: BOOL_OPTIONS, category: 'Config' },
+      { id: 'legend', label: 'Legend', type: 'enum', def: 'True', options: BOOL_OPTIONS, category: 'Config' },
+      { id: 'axislabels', label: 'Axis Labels', type: 'enum', def: 'True', options: BOOL_OPTIONS, category: 'Config' },
+      { id: 'stemplot', label: 'Stem Plot', type: 'enum', def: 'False', options: BOOL_OPTIONS, category: 'Config' },
       { id: 'label1', label: 'Line 1 Label', type: 'string', def: 'Signal 1', category: 'Config' },
       { id: 'width1', label: 'Line 1 Width', type: 'number', def: 1, category: 'Config' },
       { id: 'color1', label: 'Line 1 Color', type: 'enum', def: 'blue', options: LINE_COLORS, category: 'Config' },
@@ -206,21 +216,21 @@ const RUNNABLE: Record<string, RunnableDef> = {
       { id: 'fftsize', label: 'FFT Size', type: 'number', def: 1024 },
       { id: 'samp_rate', label: 'Sample Rate', type: 'number', def: 32000 },
       { id: 'fc', label: 'Center Frequency', type: 'number', def: 0 },
-      { id: 'grid', label: 'Grid', type: 'enum', def: 'false', options: BOOL_OPTIONS, category: 'General' },
-      { id: 'autoscale', label: 'Autoscale', type: 'enum', def: 'false', options: BOOL_OPTIONS, category: 'General' },
+      { id: 'grid', label: 'Grid', type: 'enum', def: 'False', options: BOOL_OPTIONS, category: 'General' },
+      { id: 'autoscale', label: 'Autoscale', type: 'enum', def: 'False', options: BOOL_OPTIONS, category: 'General' },
       { id: 'ymin', label: 'Y min', type: 'number', def: -140, category: 'General' },
       { id: 'ymax', label: 'Y max', type: 'number', def: 10, category: 'General' },
       { id: 'update_time', label: 'Update Period', type: 'number', def: 0.1, category: 'General' },
-      { id: 'tr_mode', label: 'Trigger Mode', type: 'enum', def: 'free', options: TRIGGER_MODES, category: 'Trigger' },
+      { id: 'tr_mode', label: 'Trigger Mode', type: 'enum', def: 'qtgui.TRIG_MODE_FREE', options: TRIGGER_MODES, category: 'Trigger' },
       { id: 'tr_level', label: 'Trigger Level', type: 'number', def: 0, category: 'Trigger' },
       { id: 'tr_chan', label: 'Trigger Channel', type: 'number', def: 0, category: 'Trigger' },
       { id: 'tr_tag', label: 'Trigger Tag Key', type: 'string', def: '', category: 'Trigger' },
-      { id: 'ctrlpanel', label: 'Control Panel', type: 'enum', def: 'false', options: BOOL_OPTIONS, category: 'Config' },
-      { id: 'legend', label: 'Legend', type: 'enum', def: 'true', options: BOOL_OPTIONS, category: 'Config' },
-      { id: 'axislabels', label: 'Axis Labels', type: 'enum', def: 'true', options: BOOL_OPTIONS, category: 'Config' },
+      { id: 'ctrlpanel', label: 'Control Panel', type: 'enum', def: 'False', options: BOOL_OPTIONS, category: 'Config' },
+      { id: 'legend', label: 'Legend', type: 'enum', def: 'True', options: BOOL_OPTIONS, category: 'Config' },
+      { id: 'axislabels', label: 'Axis Labels', type: 'enum', def: 'True', options: BOOL_OPTIONS, category: 'Config' },
       { id: 'label1', label: 'Line 1 Label', type: 'string', def: '', category: 'Config' },
       { id: 'width1', label: 'Line 1 Width', type: 'number', def: 1, category: 'Config' },
-      { id: 'color1', label: 'Line 1 Color', type: 'enum', def: 'blue', options: LINE_COLORS, category: 'Config' },
+      { id: 'color1', label: 'Line 1 Color', type: 'enum', def: '"blue"', options: LINE_COLORS_Q, category: 'Config' },
       { id: 'style1', label: 'Line 1 Style', type: 'enum', def: '1', options: LINE_STYLES, category: 'Config' },
       { id: 'marker1', label: 'Line 1 Marker', type: 'enum', def: '-1', options: LINE_MARKERS, category: 'Config' },
       { id: 'alpha1', label: 'Line 1 Alpha', type: 'number', def: 1, category: 'Config' },
@@ -230,22 +240,22 @@ const RUNNABLE: Record<string, RunnableDef> = {
       { id: 'name', label: 'Title', type: 'string', def: 'Constellation' },
       { id: 'size', label: 'Num Points', type: 'number', def: 1024 },
       { id: 'update_time', label: 'Update Period', type: 'number', def: 0.1 },
-      { id: 'autoscale', label: 'Autoscale', type: 'enum', def: 'false', options: ['true', 'false'] },
-      { id: 'grid', label: 'Grid', type: 'enum', def: 'false', options: ['true', 'false'] },
+      { id: 'autoscale', label: 'Autoscale', type: 'enum', def: 'False', options: BOOL_OPTIONS },
+      { id: 'grid', label: 'Grid', type: 'enum', def: 'False', options: BOOL_OPTIONS },
       { id: 'xmin', label: 'X min', type: 'number', def: -2 },
       { id: 'xmax', label: 'X max', type: 'number', def: 2 },
       { id: 'ymin', label: 'Y min', type: 'number', def: -2 },
       { id: 'ymax', label: 'Y max', type: 'number', def: 2 },
-      { id: 'tr_mode', label: 'Trigger Mode', type: 'enum', def: 'free', options: TRIGGER_MODES, category: 'Trigger' },
-      { id: 'tr_slope', label: 'Trigger Slope', type: 'enum', def: 'positive', options: ['positive', 'negative'], category: 'Trigger' },
+      { id: 'tr_mode', label: 'Trigger Mode', type: 'enum', def: 'qtgui.TRIG_MODE_FREE', options: TRIGGER_MODES, category: 'Trigger' },
+      { id: 'tr_slope', label: 'Trigger Slope', type: 'enum', def: 'qtgui.TRIG_SLOPE_POS', options: TRIGGER_SLOPES, category: 'Trigger' },
       { id: 'tr_level', label: 'Trigger Level', type: 'number', def: 0, category: 'Trigger' },
       { id: 'tr_chan', label: 'Trigger Channel', type: 'number', def: 0, category: 'Trigger' },
       { id: 'tr_tag', label: 'Trigger Tag Key', type: 'string', def: '', category: 'Trigger' },
-      { id: 'legend', label: 'Legend', type: 'enum', def: 'true', options: BOOL_OPTIONS, category: 'Config' },
-      { id: 'axislabels', label: 'Axis Labels', type: 'enum', def: 'true', options: BOOL_OPTIONS, category: 'Config' },
+      { id: 'legend', label: 'Legend', type: 'enum', def: 'True', options: BOOL_OPTIONS, category: 'Config' },
+      { id: 'axislabels', label: 'Axis Labels', type: 'enum', def: 'True', options: BOOL_OPTIONS, category: 'Config' },
       { id: 'label1', label: 'Line 1 Label', type: 'string', def: '', category: 'Config' },
       { id: 'width1', label: 'Line 1 Width', type: 'number', def: 1, category: 'Config' },
-      { id: 'color1', label: 'Line 1 Color', type: 'enum', def: 'blue', options: LINE_COLORS, category: 'Config' },
+      { id: 'color1', label: 'Line 1 Color', type: 'enum', def: '"blue"', options: LINE_COLORS_Q, category: 'Config' },
       { id: 'style1', label: 'Line 1 Style', type: 'enum', def: '1', options: LINE_STYLES, category: 'Config' },
       { id: 'marker1', label: 'Line 1 Marker', type: 'enum', def: '0', options: LINE_MARKERS, category: 'Config' },
       { id: 'alpha1', label: 'Line 1 Alpha', type: 'number', def: 1, category: 'Config' },
@@ -314,11 +324,14 @@ function log(s: string) {
 }
 
 // GRC-style geometry: title bar + "Label: value" parameter rows, typed ports.
-const TITLE_H = 22, ROW_H = 15, PAD = 6, PORT_W = 8, PORT_H = 13, PORT_GAP = 8;
+const TITLE_H = 22, ROW_H = 15, PAD = 6, PORT_H = 15, PORT_GAP = 8;
+const PORT_FONT_SIZE = 10, PORT_LABEL_PAD = 4, PORT_MIN_W = 20;
 // A port's dtype: explicit per-port (converters), else the block's `type` param
 // (complex/float), else its fixed `dtype`, else complex.
 function portType(inst: Inst, kind: 'in' | 'out', i: number): string {
   const d = RUNNABLE[inst.id];
+  const domains = kind === 'in' ? d.inDomains : d.outDomains;
+  if (domains?.[i] === 'message') return 'message';
   const arr = kind === 'in' ? d.inTypes : d.outTypes;
   if (arr && arr[i]) {
     const match = arr[i].match(/^\$([A-Za-z_]\w*)$/);
@@ -328,6 +341,22 @@ function portType(inst: Inst, kind: 'in' | 'out', i: number): string {
 }
 const portColor = (inst: Inst, kind: 'in' | 'out', i: number) =>
   DTYPE_COLOR[portType(inst, kind, i)] || '#2196F3';
+
+function portLabel(inst: Inst, kind: 'in' | 'out', i: number): string {
+  const d = RUNNABLE[inst.id];
+  const labels = kind === 'in' ? d.inLabels : d.outLabels;
+  const base = kind === 'in' ? d.inLabelBase : d.outLabelBase;
+  const count = portCount(inst, kind);
+  // Native GRC appends an index when a single port definition has
+  // multiplicity, and removes it again when the multiplicity returns to one.
+  if (base !== undefined) return count > 1 ? `${base}${i}` : base;
+  return labels?.[i] || `${kind}${count > 1 ? i : ''}`;
+}
+
+function portWidth(inst: Inst, kind: 'in' | 'out', i: number): number {
+  return Math.max(PORT_MIN_W, Math.ceil(textW(portLabel(inst, kind, i), PORT_FONT_SIZE)) +
+    2 * PORT_LABEL_PAD);
+}
 
 function fmtVal(v: any): string {
   if (typeof v === 'number' && Number.isInteger(v) && Math.abs(v) >= 1000) {
@@ -362,10 +391,9 @@ const BLOCK_FIELD = '__block';
 
 // Variable controls have no stream ports; they publish a numeric value that
 // other blocks' numeric fields may reference by the control's block ID. The
-// three qtgui controls are emitted to the runner (and so their own numeric
-// params must be concrete numbers); the plain `variable` block is resolved
-// away editor-side in toFlowgraphJSON(), so its value may itself reference
-// another variable.
+// three qtgui controls run as live blocks in the runner; the plain `variable`
+// block is inlined away by the runner's lowering step, so its value may itself
+// reference another variable.
 const VARIABLE_CONTROL_IDS = new Set([
   'variable_qtgui_range', 'variable_qtgui_chooser', 'variable_qtgui_push_button',
 ]);
@@ -496,7 +524,6 @@ function multiplicity(value: any, defaults: Record<string, any>): number {
 function installGeneratedBlocks(blocks: any[]) {
   for (const block of blocks) {
     if (!block.runnable) continue;
-    if (RUNNABLE[block.id]) continue; // richer custom WASM schema wins
     const params: ParamDef[] = (block.params || []).map((p: any) => ({
       id: String(p.id), label: String(p.label || p.id),
       type: p.dtype === 'enum' ? 'enum' :
@@ -510,30 +537,60 @@ function installGeneratedBlocks(blocks: any[]) {
     }));
     const defaults: Record<string, any> = {};
     params.forEach(p => defaults[p.id] = p.def);
-    const expandPorts = (ports: any[]) => {
-      const result: { dtype: string; domain: string; id: string; streamIndex: number }[] = [];
+    const portBaseName = (port: any, kind: 'in' | 'out', streamIndex: number) => {
+      const domain = String(port.domain || 'stream');
+      const id = String(port.id || (domain === 'stream' ? streamIndex : ''));
+      return String(port.label || (/^\d+$/.test(id) ? kind : id) || kind);
+    };
+    const expandPorts = (ports: any[], kind: 'in' | 'out') => {
+      const result: { dtype: string; domain: string; id: string; name: string; streamIndex: number }[] = [];
       let streamIndex = 0;
       for (const port of ports || []) {
         const count = multiplicity(port.multiplicity, defaults);
+        const baseName = portBaseName(port, kind, streamIndex);
         for (let i = 0; i < count; ++i) {
           const domain = String(port.domain || 'stream');
           const id = String(port.id || (domain === 'stream' ? streamIndex : port.label || i));
           result.push({
             dtype: String(port.dtype || '').replace(/^\$\{\s*([A-Za-z_]\w*)\s*\}$/, '$$$1'),
-            domain, id, streamIndex: domain === 'stream' ? streamIndex : -1,
+            domain, id, name: count > 1 ? `${baseName}${i}` : baseName,
+            streamIndex: domain === 'stream' ? streamIndex : -1,
           });
           if (domain === 'stream') ++streamIndex;
         }
       }
       return result;
     };
-    const inputs = expandPorts(block.inputs), outputs = expandPorts(block.outputs);
+    const inputs = expandPorts(block.inputs, 'in'), outputs = expandPorts(block.outputs, 'out');
+    const existing = RUNNABLE[block.id];
+    if (existing) {
+      // Hand-written definitions carry richer parameter/run-time support. Add
+      // the native port names from blocks.json without replacing that schema.
+      // These definitions currently expose stream ports only, so omit optional
+      // message-control ports that their WASM factories do not support.
+      const streamInputs = inputs.filter(p => p.domain === 'stream');
+      const streamOutputs = outputs.filter(p => p.domain === 'stream');
+      existing.inLabels = streamInputs.slice(0, existing.inputs).map(p => p.name);
+      existing.outLabels = streamOutputs.slice(0, existing.outputs).map(p => p.name);
+      const inputDefs = (block.inputs || []).filter((p: any) => String(p.domain || 'stream') === 'stream');
+      const outputDefs = (block.outputs || []).filter((p: any) => String(p.domain || 'stream') === 'stream');
+      if (inputDefs.length === 1)
+        existing.inLabelBase = portBaseName(inputDefs[0], 'in', 0);
+      if (outputDefs.length === 1)
+        existing.outLabelBase = portBaseName(outputDefs[0], 'out', 0);
+      continue;
+    }
     RUNNABLE[block.id] = {
       label: String(block.label || block.id), params,
       inputs: inputs.length, outputs: outputs.length,
       inTypes: inputs.map(p => p.dtype), outTypes: outputs.map(p => p.dtype),
       inDomains: inputs.map(p => p.domain), outDomains: outputs.map(p => p.domain),
       inIds: inputs.map(p => p.id), outIds: outputs.map(p => p.id),
+      inLabels: inputs.map(p => p.name), outLabels: outputs.map(p => p.name),
+      inLabelBase: (block.inputs || []).length === 1
+        ? portBaseName(block.inputs[0], 'in', 0) : undefined,
+      outLabelBase: (block.outputs || []).length === 1
+        ? portBaseName(block.outputs[0], 'out', 0) : undefined,
       inStreamIndices: inputs.map(p => p.streamIndex),
       outStreamIndices: outputs.map(p => p.streamIndex),
     };
@@ -571,6 +628,7 @@ type Edge = 'L' | 'R' | 'T' | 'B';
 // Port position (relative to the block) + which edge it sits on, honouring rotation.
 function portPos(inst: Inst, kind: 'in' | 'out', i: number): { x: number; y: number; edge: Edge } {
   const { w, h } = geom(inst);
+  const pw = portWidth(inst, kind, i);
   const vSlot = TITLE_H + PAD + i * (PORT_H + PORT_GAP) + PORT_H / 2;
   const hSlot = 16 + i * (PORT_H + PORT_GAP) + PORT_H / 2;
   const map: Record<number, { in: Edge; out: Edge }> = {
@@ -578,10 +636,10 @@ function portPos(inst: Inst, kind: 'in' | 'out', i: number): { x: number; y: num
     180: { in: 'R', out: 'L' }, 270: { in: 'B', out: 'T' },
   };
   const e = map[inst.rotation || 0][kind];
-  if (e === 'L') return { x: 0, y: vSlot, edge: e };
-  if (e === 'R') return { x: w, y: vSlot, edge: e };
-  if (e === 'T') return { x: hSlot, y: 0, edge: e };
-  return { x: hSlot, y: h, edge: e };
+  if (e === 'L') return { x: -pw, y: vSlot, edge: e };
+  if (e === 'R') return { x: w + pw, y: vSlot, edge: e };
+  if (e === 'T') return { x: hSlot, y: -pw, edge: e };
+  return { x: hSlot, y: h + pw, edge: e };
 }
 // Bezier control point offset outward from an edge (for nicely-curved wires).
 function ctrl(edge: Edge, x: number, y: number, k: number): [number, number] {
@@ -739,45 +797,155 @@ function clearFlowgraph(record = true) {
   if (record) recordHistory();
 }
 
-interface EditorFile { format: 'gnuradio-wasm-flowgraph'; version: 1; blocks: Inst[]; connections: Conn[] }
-function editorFile(): EditorFile {
-  return { format: 'gnuradio-wasm-flowgraph', version: 1, blocks: clone(insts), connections: clone(conns) };
+// ---- native .grc (GNU Radio Companion YAML) serialization ----
+const GRC_VERSION = '3.11.0.0';
+
+// GRC's tri-state block enable flag, from the editor's two booleans.
+function grcState(inst: Inst): string {
+  if (!inst.enabled) return 'disabled';
+  if (inst.bypassed) return 'bypassed';
+  return 'enabled';
 }
+// GRC stores every parameter value as a string, sorted by key.
+function grcParams(params: Record<string, any>): Record<string, GrcScalar> {
+  const out: Record<string, GrcScalar> = {};
+  for (const key of Object.keys(params).sort()) {
+    const v = params[key];
+    out[key] = typeof v === 'boolean' ? (v ? 'True' : 'False') : String(v);
+  }
+  return out;
+}
+function grcStates(inst: Inst): Record<string, any> {
+  return { coordinate: [Math.round(inst.x), Math.round(inst.y)], rotation: inst.rotation, state: grcState(inst) };
+}
+// Derive a valid Python-identifier flowgraph id from the Options title.
+function flowgraphId(): string {
+  const opt = insts.find(i => i.id === OPTIONS_ID);
+  const raw = String(opt?.params.title || '').trim();
+  const id = raw.replace(/[^A-Za-z0-9_]/g, '_').replace(/^(?=[0-9])/, '_');
+  return id || 'default';
+}
+function grcConnectionKey(c: GrcScalar[] | Record<string, GrcScalar>): string {
+  const parts = Array.isArray(c)
+    ? c : [c.src_blk_id, c.src_port_id, c.snk_blk_id, c.snk_port_id];
+  return parts.map(String).join('\x1f');
+}
+function buildGrcDoc(): GrcDoc {
+  const byUid = (u: string) => insts.find(i => i.uid === u);
+  // options: a top-level block (not in `blocks`), carrying flowgraph metadata.
+  const opt = insts.find(i => i.id === OPTIONS_ID);
+  const optionParams: Record<string, GrcScalar> = { generate_options: 'qt_gui', id: flowgraphId() };
+  if (opt) for (const [k, v] of Object.entries(opt.params)) optionParams[k] = String(v);
+  const options = { parameters: grcParams(optionParams),
+    states: opt ? grcStates(opt) : { coordinate: [10, 10], rotation: 0, state: 'enabled' } };
+
+  // blocks: everything except options, GRC order (variables first, then by name).
+  const isVar = (i: Inst) => VARIABLE_IDS.has(i.id);
+  const blocks = insts.filter(i => i.id !== OPTIONS_ID)
+    .sort((a, b) => (Number(!isVar(a)) - Number(!isVar(b))) ||
+      (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+    .map(i => ({ name: i.name, id: i.id, parameters: grcParams(i.params), states: grcStates(i) }));
+
+  // connections: 4-tuples for streams, dicts (file_format 2) for message ports.
+  const connections: Array<GrcScalar[] | Record<string, GrcScalar>> = [];
+  for (const c of conns) {
+    const src = byUid(c.from), snk = byUid(c.to);
+    if (!src || !snk) continue;
+    const sd = RUNNABLE[src.id], kd = RUNNABLE[snk.id];
+    const message = sd?.outDomains?.[c.fp] === 'message' || kd?.inDomains?.[c.tp] === 'message';
+    if (message) {
+      connections.push({ src_blk_id: src.name, src_port_id: sd?.outIds?.[c.fp] ?? String(c.fp),
+        snk_blk_id: snk.name, snk_port_id: kd?.inIds?.[c.tp] ?? String(c.tp) });
+    } else {
+      connections.push([src.name, String(sd?.outStreamIndices?.[c.fp] ?? c.fp),
+        snk.name, String(kd?.inStreamIndices?.[c.tp] ?? c.tp)]);
+    }
+  }
+  connections.sort((a, b) => grcConnectionKey(a) < grcConnectionKey(b) ? -1 : 1);
+  const fileFormat = connections.some(c => !Array.isArray(c)) ? 2 : 1;
+
+  return { options, blocks, connections, metadata: { file_format: fileFormat, grc_version: GRC_VERSION } };
+}
+function grcText(): string { return dumpGrc(buildGrcDoc()); }
 function downloadBlob(contents: BlobPart, type: string, filename: string) {
   const url = URL.createObjectURL(new Blob([contents], { type }));
   const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
   setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 function saveFlowgraph(saveAs = false) {
-  downloadBlob(JSON.stringify(editorFile(), null, 2), 'application/json', saveAs ? 'flowgraph-as.json' : 'flowgraph.json');
+  downloadBlob(grcText(), 'application/x-yaml', saveAs ? 'flowgraph-as.grc' : 'flowgraph.grc');
   log(`saved ${insts.length} blocks`);
 }
-function loadFlowgraph(value: any) {
-  if (value?.format === 'gnuradio-wasm-flowgraph' && Array.isArray(value.blocks)) {
-    insts = clone(value.blocks); conns = clone(value.connections || []);
-    counter = Math.max(0, ...insts.map(i => Number(i.uid.match(/\d+$/)?.[0]) || 0));
-  } else if (Array.isArray(value?.blocks)) {
-    insts = []; conns = []; counter = 0;
-    value.blocks.forEach((b: any, index: number) => {
-      const d = RUNNABLE[b.id]; if (!d) return;
-      const uid = 'b' + (++counter), params: Record<string, any> = {};
-      d.params.forEach(p => params[p.id] = b.params?.[p.id] ?? p.def);
-      insts.push({ uid, id: b.id, name: b.name || b.id.replace(/^.*_/, '') + counter,
-        x: 60 + (index % 4) * 190, y: 60 + Math.floor(index / 4) * 130,
-        params, enabled: true, rotation: 0, bypassed: false });
-    });
-    const byName = (name: string) => insts.find(i => i.name === name);
-    for (const c of value.connections || []) {
-      const from = byName(c[0]), to = byName(c[2]);
-      if (from && to && c[4] !== 'message') conns.push({ from: from.uid, fp: Number(c[1]), to: to.uid, tp: Number(c[3]) });
-    }
-  } else throw new Error('not a GNU Radio WASM flowgraph JSON file');
-  ensureOptionsBlock();   // legacy/example files may predate the Options block
-  // Older files (e.g. bundled examples) carry title/description as top-level
-  // keys; fold them into the Options block so the metadata now lives in one place.
-  const opts = insts.find(i => i.id === OPTIONS_ID)!;
-  if (value?.title && !opts.params.title) opts.params.title = String(value.title);
-  if (value?.description && !opts.params.description) opts.params.description = String(value.description);
+
+// ---- .grc import (parsed GrcDoc tree -> editor model) ----
+function stateToFlags(state: any): { enabled: boolean; bypassed: boolean } {
+  const s = String(state ?? 'enabled');
+  return { enabled: s !== 'disabled', bypassed: s === 'bypassed' };
+}
+// GRC stores param values as strings; numeric fields become numbers (or keep a
+// variable-reference expression), everything else stays a string.
+function importParams(def: RunnableDef, raw: Record<string, any> = {}): Record<string, any> {
+  const params: Record<string, any> = {};
+  for (const p of def.params) {
+    const present = raw[p.id] !== undefined && raw[p.id] !== null;
+    const value = present ? raw[p.id] : p.def;
+    params[p.id] = p.type === 'number' ? numericOrExpression(String(value)) : String(value);
+  }
+  return params;
+}
+// Map a GRC connection port token (stream index or message port id) to the
+// block's editor port index.
+function portIndex(def: RunnableDef | undefined, kind: 'in' | 'out', token: string): number {
+  const num = Number(token);
+  if (Number.isInteger(num) && String(num) === token.trim()) {
+    const arr = kind === 'in' ? def?.inStreamIndices : def?.outStreamIndices;
+    const idx = arr ? arr.indexOf(num) : -1;
+    return idx >= 0 ? idx : num;
+  }
+  const ids = kind === 'in' ? def?.inIds : def?.outIds;
+  const idx = ids ? ids.indexOf(token) : -1;
+  return idx >= 0 ? idx : 0;
+}
+function loadFlowgraph(doc: any) {
+  if (!doc || !Array.isArray(doc.blocks))
+    throw new Error('not a GNU Radio .grc flowgraph');
+  insts = []; conns = []; counter = 0;
+  // options: a top-level block in .grc; becomes the editor's singleton Options.
+  const optRaw = doc.options || {};
+  const optFlags = stateToFlags(optRaw.states?.state);
+  const optCoord = Array.isArray(optRaw.states?.coordinate) ? optRaw.states.coordinate : [10, 10];
+  insts.push({ uid: 'b' + (++counter), id: OPTIONS_ID, name: 'options',
+    x: Number(optCoord[0]) || 10, y: Number(optCoord[1]) || 10,
+    params: importParams(RUNNABLE[OPTIONS_ID], optRaw.parameters || {}),
+    enabled: optFlags.enabled, rotation: Number(optRaw.states?.rotation) || 0, bypassed: optFlags.bypassed });
+
+  const nameToUid = new Map<string, string>();
+  doc.blocks.forEach((b: any, index: number) => {
+    const def = RUNNABLE[b.id];
+    if (!def) { log(`skipped unsupported block "${b.id}"`); return; }
+    const coord = Array.isArray(b.states?.coordinate) ? b.states.coordinate
+      : [60 + (index % 4) * 190, 60 + Math.floor(index / 4) * 130];
+    const flags = stateToFlags(b.states?.state);
+    const uid = 'b' + (++counter), name = String(b.name || b.id);
+    nameToUid.set(name, uid);
+    insts.push({ uid, id: b.id, name, x: Number(coord[0]) || 0, y: Number(coord[1]) || 0,
+      params: importParams(def, b.parameters || {}), enabled: flags.enabled,
+      rotation: Number(b.states?.rotation) || 0, bypassed: flags.bypassed });
+  });
+  const defOf = (uid: string) => RUNNABLE[insts.find(i => i.uid === uid)!.id];
+  for (const c of doc.connections || []) {
+    let from: string | undefined, to: string | undefined, sp: string, tp: string;
+    if (Array.isArray(c)) {
+      from = nameToUid.get(String(c[0])); to = nameToUid.get(String(c[2]));
+      sp = String(c[1]); tp = String(c[3]);
+    } else if (c && typeof c === 'object') {
+      from = nameToUid.get(String(c.src_blk_id)); to = nameToUid.get(String(c.snk_blk_id));
+      sp = String(c.src_port_id); tp = String(c.snk_port_id);
+    } else continue;
+    if (!from || !to) continue;
+    conns.push({ from, fp: portIndex(defOf(from), 'out', sp), to, tp: portIndex(defOf(to), 'in', tp) });
+  }
+  ensureOptionsBlock();
   selected = null; selectedBlocks.clear(); selectedConnection = null; cancelConnect();
   renderProps(); render(); recordHistory(); log(`opened ${insts.length} blocks`);
 }
@@ -785,7 +953,7 @@ function duplicateFlowgraph() {
   if (!insts.length) return;
   const token = `grc-duplicate-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   try {
-    localStorage.setItem(token, JSON.stringify(editorFile()));
+    localStorage.setItem(token, grcText());
     const duplicate = window.open(`${location.href.split('#')[0]}#duplicate=${encodeURIComponent(token)}`, '_blank');
     if (duplicate) { log('duplicated flowgraph in a new tab'); return; }
     localStorage.removeItem(token);
@@ -833,7 +1001,7 @@ function base64UrlToBytes(s: string): Uint8Array {
 // very long links even though the browser address bar itself allows far more.
 const URL_MAX = 16000;
 async function flowgraphToUrl(): Promise<string> {
-  const param = bytesToBase64Url(await gzip(JSON.stringify(editorFile())));
+  const param = bytesToBase64Url(await gzip(grcText()));
   const base = location.href.split('#')[0].split('?')[0];
   return `${base}#fg=${param}`;
 }
@@ -1002,7 +1170,7 @@ document.addEventListener('keydown', e => {
   if (ctrl && key === 'l') { consume(e); el('log').textContent = ''; return; }
   if (ctrl && key === 'w') { consume(e); clearFlowgraph(); return; }
   if (ctrl && key === 'q') { consume(e); stop(); window.close(); return; }
-  if (e.key === 'F5') { consume(e); const fg = toFlowgraphJSON(); log(`generated ${fg.blocks.length} blocks, ${fg.connections.length} connections`); return; }
+  if (e.key === 'F5') { consume(e); generateFlowgraph(); return; }
   if (e.key === 'F6') { consume(e); run(); return; }
   if (e.key === 'F7') { consume(e); stop(); return; }
   if (e.key === 'ScrollLock') { consume(e); autoScrollLog = !autoScrollLog; log(`console autoscroll ${autoScrollLog ? 'on' : 'off'}`); return; }
@@ -1255,15 +1423,24 @@ function render() {
 }
 
 function addPort(g: SVGGElement, inst: Inst, kind: 'in' | 'out', idx: number, color: string) {
-  // GRC ports: small typed rectangles protruding from the block edge (rotation-aware).
+  // Native GRC ports are typed, colored tabs whose width follows their centered
+  // label. The connection attaches to the tab's outer edge.
   const p = portPos(inst, kind, idx);
+  const label = portLabel(inst, kind, idx);
+  const pw = portWidth(inst, kind, idx);
   let x: number, y: number, w: number, h: number;
-  if (p.edge === 'L') { w = PORT_W; h = PORT_H; x = -PORT_W + 2; y = p.y - PORT_H / 2; }
-  else if (p.edge === 'R') { w = PORT_W; h = PORT_H; x = p.x - 2; y = p.y - PORT_H / 2; }
-  else if (p.edge === 'T') { w = PORT_H; h = PORT_W; x = p.x - PORT_H / 2; y = -PORT_W + 2; }
-  else { w = PORT_H; h = PORT_W; x = p.x - PORT_H / 2; y = p.y - 2; }
+  if (p.edge === 'L') { w = pw; h = PORT_H; x = p.x; y = p.y - PORT_H / 2; }
+  else if (p.edge === 'R') { w = pw; h = PORT_H; x = p.x - pw; y = p.y - PORT_H / 2; }
+  else if (p.edge === 'T') { w = PORT_H; h = pw; x = p.x - PORT_H / 2; y = p.y; }
+  else { w = PORT_H; h = pw; x = p.x - PORT_H / 2; y = p.y - pw; }
   const r = svgEl('rect', { class: 'port', x: String(x), y: String(y),
     width: String(w), height: String(h), fill: color });
+  const cx = x + w / 2, cy = y + h / 2;
+  const text = svgEl('text', { class: 'port-label', x: String(cx), y: String(cy),
+    'text-anchor': 'middle', 'dominant-baseline': 'central' });
+  if (p.edge === 'T' || p.edge === 'B')
+    text.setAttribute('transform', `rotate(-90 ${cx} ${cy})`);
+  text.textContent = label;
   // Left-drag from a port to draw a rubber-band wire (GRC-style), release on a
   // compatible port to connect. Works from either an output or an input.
   r.addEventListener('mousedown', e => {
@@ -1279,6 +1456,7 @@ function addPort(g: SVGGElement, inst: Inst, kind: 'in' | 'out', idx: number, co
     completeConnect(inst, kind, idx);
   });
   g.appendChild(r);
+  g.appendChild(text);
 }
 const G0 = (uid: string) => insts.find(i => i.uid === uid)!;
 
@@ -1421,64 +1599,6 @@ function renderProps() {
   }
 }
 
-function toFlowgraphJSON() {
-  const byUid = (u: string) => insts.find(i => i.uid === u)!;
-  const active = (u: string) => { const b = byUid(u); return b && b.enabled && !b.bypassed; };
-  const bypassed = (u: string) => { const b = byUid(u); return b && b.enabled && b.bypassed; };
-  // Resolve a downstream endpoint through bypassed blocks to active endpoints.
-  const resolveDown = (uid: string, port: number, seen = new Set<string>()): { uid: string; port: number }[] => {
-    if (active(uid)) return [{ uid, port }];
-    if (!bypassed(uid) || seen.has(uid)) return [];
-    seen.add(uid);
-    return conns.filter(c => c.from === uid).flatMap(c => resolveDown(c.to, c.tp, seen));
-  };
-  const out: any[] = []; const seen = new Set<string>();
-  for (const c of conns) {
-    if (!active(c.from)) continue;               // start from active sources
-    for (const d of resolveDown(c.to, c.tp)) {   // hop over any bypassed blocks
-      const key = `${c.from}:${c.fp}>${d.uid}:${d.port}`;
-      if (seen.has(key)) continue; seen.add(key);
-      const sourceDef = RUNNABLE[byUid(c.from).id], sinkDef = RUNNABLE[byUid(d.uid).id];
-      const message = sourceDef.outDomains?.[c.fp] === 'message' || sinkDef.inDomains?.[d.port] === 'message';
-      out.push(message
-        ? [byUid(c.from).name, sourceDef.outIds?.[c.fp] || String(c.fp),
-           byUid(d.uid).name, sinkDef.inIds?.[d.port] || String(d.port), 'message']
-        : [byUid(c.from).name, sourceDef.outStreamIndices?.[c.fp] ?? c.fp,
-           byUid(d.uid).name, sinkDef.inStreamIndices?.[d.port] ?? d.port, 'stream']);
-    }
-  }
-  // Plain `variable` blocks have no factory in the runner, so resolve their
-  // values editor-side and drop the blocks from the emitted graph. A reference
-  // chain that ends at a live control (e.g. a QT GUI Range) is left as that
-  // control's name so the runner can still bind it dynamically.
-  const plainVars = new Map<string, any>();
-  for (const b of insts)
-    if (b.id === 'variable' && b.enabled && !b.bypassed) {
-      const name = String(b.name || '').trim();
-      if (name) plainVars.set(name, b.params.value);
-    }
-  const resolveVar = (name: string, seen = new Set<string>()): any => {
-    if (!plainVars.has(name) || seen.has(name)) return name;
-    seen.add(name);
-    const raw = plainVars.get(name);
-    if (typeof raw === 'number') return raw;
-    const text = String(raw).trim();
-    const num = Number(text);
-    return Number.isFinite(num) ? num : resolveVar(text, seen);
-  };
-  const resolveParams = (params: Record<string, any>) => {
-    const resolved: Record<string, any> = {};
-    for (const [k, v] of Object.entries(params))
-      resolved[k] = (typeof v === 'string' && plainVars.has(v.trim())) ? resolveVar(v.trim()) : v;
-    return resolved;
-  };
-  return {
-    blocks: insts.filter(i => active(i.uid) && i.id !== 'variable' && i.id !== OPTIONS_ID)
-      .map(i => ({ name: i.name, id: i.id, params: resolveParams(i.params) })),
-    connections: out,
-  };
-}
-
 // ---- Run: hand the flowgraph to the WASM runner in the lower workspace pane ----
 const MIN_PANE_HEIGHT = 120;
 let lowerPaneRatio = 0.5;
@@ -1552,9 +1672,10 @@ function run() {
     select(first.uid);
     return;
   }
-  const fg = toFlowgraphJSON();
-  if (!fg.blocks.length) { log('nothing to run — add some blocks'); return; }
-  const url = '/runner/build/runner.html#' + encodeURIComponent(JSON.stringify(fg));
+  if (!insts.some(i => i.id !== OPTIONS_ID)) { log('nothing to run — add some blocks'); return; }
+  // The runner parses native .grc directly (it lowers disabled/bypassed blocks
+  // and variables itself), so hand it the same document we save.
+  const url = '/runner/build/runner.html#' + encodeURIComponent(grcText());
   const workspace = el('workspace');
   const pane = el('runPane');
   const frame = el('runFrame') as HTMLIFrameElement;
@@ -1562,7 +1683,8 @@ function run() {
   applySplitRatio();
   workspace.classList.add('running');
   frame.src = url;
-  log('▶ running ' + fg.blocks.length + ' blocks, ' + fg.connections.length + ' connections');
+  const doc = buildGrcDoc();
+  log('▶ running ' + doc.blocks.length + ' blocks, ' + doc.connections.length + ' connections');
 }
 
 function stop() {
@@ -1740,7 +1862,7 @@ async function buildPalette() {
 }
 
 // ---- Example Flowgraphs tab ------------------------------------------------
-// The examples live in wasm/example_flowgraphs/*.json. The COOP/COEP dev server
+// The examples live in wasm/example_flowgraphs/*.grc. The COOP/COEP dev server
 // (server.mjs) lists that directory at /example_flowgraphs, so new files show up
 // here automatically without a hand-maintained manifest.
 async function buildExamples(panel: HTMLElement) {
@@ -1759,22 +1881,26 @@ async function buildExamples(panel: HTMLElement) {
   for (const file of files) {
     const item = document.createElement('button'); item.className = 'ex-item';
     const title = document.createElement('div'); title.className = 'ex-title';
-    title.textContent = file.replace(/\.json$/, '');
+    title.textContent = file.replace(/\.grc$/, '');
     item.append(title);
     list.append(item);
     // Fetch the file to show its title/description and load it on click.
-    fetch('/example_flowgraphs/' + file).then(r => r.json()).then(fg => {
-      if (fg.title) title.textContent = fg.title;
-      if (fg.description) {
+    fetch('/example_flowgraphs/' + file).then(r => r.text()).then(text => {
+      const fg = parseGrc(text);
+      const params = fg.options?.parameters || {};
+      const fgTitle = params.title || params.id;
+      const fgDesc = params.description || params.comment;
+      if (fgTitle) title.textContent = String(fgTitle);
+      if (fgDesc) {
         const desc = document.createElement('div'); desc.className = 'ex-desc';
-        desc.textContent = fg.description; item.append(desc);
+        desc.textContent = String(fgDesc); item.append(desc);
       }
       const n = Array.isArray(fg.blocks) ? fg.blocks.length : 0;
       const meta = document.createElement('div'); meta.className = 'ex-meta';
       meta.textContent = `${file} · ${n} block${n === 1 ? '' : 's'}`;
       item.append(meta);
       item.onclick = () => {
-        try { loadFlowgraph(fg); resetHistory(); log(`loaded example "${fg.title || file}"`); }
+        try { loadFlowgraph(fg); resetHistory(); log(`loaded example "${fgTitle || file}"`); }
         catch (err) { log(`failed to load example "${file}": ${err}`); }
       };
     }).catch(err => {
@@ -1842,7 +1968,7 @@ function toggleScrollLock() { autoScrollLog = !autoScrollLog; log(`console autos
 function clearConsole() { el('log').textContent = ''; }
 function toggleHideDisabled() { hideDisabled = !hideDisabled; render(); }
 function focusPaletteSearch() { el('app').classList.remove('hide-palette'); paletteSearch?.focus(); paletteSearch?.select(); }
-function generateFlowgraph() { const fg = toFlowgraphJSON(); log(`generated ${fg.blocks.length} blocks, ${fg.connections.length} connections`); }
+function generateFlowgraph() { const doc = buildGrcDoc(); log(`generated ${doc.blocks.length} blocks, ${doc.connections.length} connections`); }
 function openLink(url: string) { window.open(url, '_blank', 'noopener'); }
 
 // ---- enable/state predicates (evaluated each time a menu opens) ----
@@ -2245,7 +2371,7 @@ buildToolbar();
 el('btnStop').addEventListener('click', stop);
 (el('fileOpen') as HTMLInputElement).addEventListener('change', async event => {
   const input = event.currentTarget as HTMLInputElement, file = input.files?.[0]; if (!file) return;
-  try { loadFlowgraph(JSON.parse(await file.text())); }
+  try { loadFlowgraph(parseGrc(await file.text())); }
   catch (error) { log('could not open flowgraph: ' + error); }
   input.value = '';
 });
@@ -2273,7 +2399,7 @@ paletteReady.then(async () => {
   if (token) {
     try {
       const saved = localStorage.getItem(token); if (!saved) throw new Error('duplicate data is no longer available');
-      localStorage.removeItem(token); loadFlowgraph(JSON.parse(saved)); resetHistory();
+      localStorage.removeItem(token); loadFlowgraph(parseGrc(saved)); resetHistory();
       cleanUrl();
     } catch (error) { log('could not duplicate flowgraph: ' + error); }
     return;
@@ -2281,7 +2407,7 @@ paletteReady.then(async () => {
   const fg = hash.get('fg');
   if (!fg) return;
   try {
-    loadFlowgraph(JSON.parse(await gunzip(base64UrlToBytes(fg)))); resetHistory();
+    loadFlowgraph(parseGrc(await gunzip(base64UrlToBytes(fg)))); resetHistory();
     log('loaded flowgraph from URL');
     cleanUrl();
   } catch (error) { log('could not load flowgraph from URL: ' + error); }

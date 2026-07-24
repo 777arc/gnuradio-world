@@ -16,6 +16,7 @@ const MIME = {
   '.mjs': 'text/javascript; charset=utf-8',
   '.wasm': 'application/wasm',
   '.json': 'application/json',
+  '.grc': 'application/x-yaml; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.data': 'application/octet-stream',
   '.svg': 'image/svg+xml',
@@ -31,10 +32,10 @@ const server = http.createServer(async (req, res) => {
   try {
     let urlPath = decodeURIComponent(new URL(req.url, 'http://x').pathname);
     // Directory listing for the example flowgraphs, so the editor can discover
-    // whatever .json files live in wasm/example_flowgraphs/ without a manifest.
+    // whatever .grc files live in wasm/example_flowgraphs/ without a manifest.
     if (urlPath === '/example_flowgraphs' || urlPath === '/example_flowgraphs/') {
       const dir = join(root, 'example_flowgraphs');
-      const files = (await readdir(dir)).filter(f => f.endsWith('.json')).sort();
+      const files = (await readdir(dir)).filter(f => f.endsWith('.grc')).sort();
       res.setHeader('Content-Type', 'application/json');
       res.writeHead(200);
       return res.end(JSON.stringify(files));

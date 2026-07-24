@@ -41,7 +41,23 @@ const fg = {
   ],
   connections: [ ['src',0,'thr',0], ['thr',0,'slice',0], ['slice',0,'snk',0] ],
 };
-const url = `http://localhost:${PORT}/runner/build/runner.html#` + encodeURIComponent(JSON.stringify(fg));
+// The runner consumes native .grc; wrap the fixture in a minimal .grc document.
+function toGrc(fg) {
+  const scalar = v => {
+    const s = String(v);
+    return /^[A-Za-z_][\w.]*$/.test(s) && !/^(True|False|null)$/.test(s) ? s : `'${s.replace(/'/g, "''")}'`;
+  };
+  let out = 'options:\n    parameters:\n        id: t\n    states:\n        coordinate: [0, 0]\n        rotation: 0\n        state: enabled\nblocks:\n';
+  for (const b of fg.blocks) {
+    out += `-   name: ${b.name}\n    id: ${b.id}\n    parameters:\n`;
+    for (const [k, v] of Object.entries(b.params || {})) out += `        ${k}: ${scalar(v)}\n`;
+    out += '    states:\n        coordinate: [0, 0]\n        rotation: 0\n        state: enabled\n';
+  }
+  out += 'connections:\n';
+  for (const c of fg.connections) out += `- [${c[0]}, '${c[1]}', ${c[2]}, '${c[3]}']\n`;
+  return out;
+}
+const url = `http://localhost:${PORT}/runner/build/runner.html#` + encodeURIComponent(toGrc(fg));
 
 const base = join(ROOT, 'chrome-headless-shell');
 const exe = existsSync(base)

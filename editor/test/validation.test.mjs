@@ -20,12 +20,13 @@ assert.match(html, /\.wire\.invalid/, 'invalid connections must have a red canva
 assert.match(html, /\.field-invalid/, 'invalid editor fields must have a red form style');
 assert.match(html, /\.field-error/, 'field-level messages must have a compact error style');
 
-// Plain Variable block: registered as a schema, treated as a reference target,
-// and resolved away editor-side (the runner has no `variable` factory).
+// Plain Variable block: registered as a schema and a reference target. It is
+// saved to .grc like any block; the runner inlines its value during lowering.
 assert.match(source, /\n\s*variable:\s*{[\s\S]*?label: 'Variable'/, 'plain Variable block must be registered');
 assert.match(source, /VARIABLE_IDS = new Set\(\[\.\.\.VARIABLE_CONTROL_IDS, 'variable'\]\)/,
   'plain Variable must be a valid numeric reference target');
-assert.match(source, /i\.id !== 'variable'/, 'plain Variable blocks must not be emitted to the runner');
+assert.match(source, /insts\.filter\(i => i\.id !== OPTIONS_ID\)/,
+  'every block except Options must be written to the .grc');
 
 // Options block: the GRC-style per-flowgraph metadata singleton
 // (title/author/copyright/description), auto-inserted and never emitted.

@@ -1,7 +1,11 @@
-// JSON-driven GNU Radio flowgraph runner (WASM). Parses a flowgraph JSON, builds
-// blocks via the registry, connects them, runs the GR scheduler, and shows any
-// GUI sink widgets on the Qt canvas. Exposed to JS as gr_run_json(const char*).
+// GNU Radio flowgraph runner (WASM). Parses a native .grc flowgraph (grc_yaml),
+// lowers it to a runnable block/connection list (grc_lower: drops disabled
+// blocks, hops bypassed ones, inlines plain variables), builds blocks via the
+// registry, connects them, runs the GR scheduler, and shows any GUI sink widgets
+// on the Qt canvas. Entry point gr_run_json(const char*) takes .grc text.
 #include "registry.hpp"
+#include "grc_yaml.hpp"
+#include "grc_lower.hpp"
 #include <gnuradio/top_block.h>
 #include <gnuradio/block.h>
 #include <gnuradio/prefs.h>
@@ -31,14 +35,9 @@ struct VariableControl {
     BuiltBlock built;
 };
 
-// Variable controls have no GNU Radio block: they publish a value that other
-// blocks' numeric parameters can bind to. They are built once up front so the
-// value is resolvable regardless of graph order.
-static bool is_variable_control(const std::string& id) {
-    return id == "variable_qtgui_range" ||
-           id == "variable_qtgui_chooser" ||
-           id == "variable_qtgui_push_button";
-}
+// Variable controls (Range/Chooser/Button) are built once up front so their
+// value is resolvable regardless of graph order. (Definition in grc_lower.hpp.)
+using grc_lower::is_variable_control;
 
 static nlohmann::json resolve_variables(
     const nlohmann::json& params,
@@ -306,15 +305,19 @@ static void load_next(LoadCtx* ctx) {
                       on_module_loaded, on_module_error);
 }
 
+
 extern "C" EMSCRIPTEN_KEEPALIVE
-int gr_run_json(const char* json_str) {
+int gr_run_json(const char* grc_text) {
     try {
-        auto j = nlohmann::json::parse(json_str);
-        auto* ctx = new LoadCtx{ modules_needed(j), 0, std::string(json_str) };
+        nlohmann::json lowered = grc_lower::lower(grc_yaml::parse(grc_text));
+        auto* ctx = new LoadCtx{ modules_needed(lowered), 0, lowered.dump() };
         load_next(ctx);  // fetch missing category modules, then run_now()
         return 0;
     } catch (const std::exception& e) {
-        report(false, std::string("parse error: ") + e.what());
+        report(false, std::string("flowgraph error: ") + e.what());
+        return 1;
+    } catch (...) {
+        report(false, "flowgraph error: unrecognized exception");
         return 1;
     }
 }
@@ -371,20 +374,75 @@ static void publish_stats() {
     EM_ASM({ if (typeof window !== 'undefined') window.__grstats = UTF8ToString($0); }, s.c_str());
 }
 
-// For the Phase-A first proof: an embedded flowgraph (the Artifact-1 graph) so we
-// verify the JSON->registry->run->plot path without JS plumbing yet.
-static const char* kEmbeddedFlowgraph = R"JSON({
-  "blocks": [
-    {"name":"src","id":"analog_sig_source_x","params":{"samp_rate":32000,"waveform":"cos","frequency":1500,"amplitude":1.0}},
-    {"name":"noise","id":"analog_noise_source_x","params":{"amplitude":0.25,"seed":42}},
-    {"name":"add","id":"blocks_add_xx","params":{}},
-    {"name":"thr","id":"blocks_throttle","params":{"itemsize":8,"samp_rate":32000}},
-    {"name":"snk","id":"qtgui_time_sink_x","params":{"size":1024,"samp_rate":32000,"name":"MULTI-SOURCE: signal + noise","nconnections":1}}
-  ],
-  "connections": [ ["src",0,"add",0], ["noise",0,"add",1], ["add",0,"thr",0], ["thr",0,"snk",0] ]
-})JSON";
+// A self-contained demo flowgraph (.grc) used when no flowgraph is supplied via
+// the URL hash, so the runner still shows the signal+noise scope on its own.
+static const char* kEmbeddedFlowgraph = R"GRC(options:
+    parameters:
+        generate_options: qt_gui
+        id: embedded_demo
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: src
+    id: analog_sig_source_x
+    parameters:
+        type: complex
+        samp_rate: '32000'
+        waveform: analog.GR_COS_WAVE
+        frequency: '1500'
+        amplitude: '1'
+    states:
+        coordinate: [50, 70]
+        rotation: 0
+        state: enabled
+-   name: noise
+    id: analog_noise_source_x
+    parameters:
+        type: complex
+        amplitude: '0.25'
+        seed: '42'
+    states:
+        coordinate: [50, 250]
+        rotation: 0
+        state: enabled
+-   name: add
+    id: blocks_add_xx
+    parameters:
+        type: complex
+    states:
+        coordinate: [300, 130]
+        rotation: 0
+        state: enabled
+-   name: thr
+    id: blocks_throttle
+    parameters:
+        type: complex
+        samp_rate: '32000'
+    states:
+        coordinate: [490, 130]
+        rotation: 0
+        state: enabled
+-   name: snk
+    id: qtgui_time_sink_x
+    parameters:
+        type: complex
+        size: '1024'
+        samp_rate: '32000'
+        name: MULTI-SOURCE
+    states:
+        coordinate: [700, 80]
+        rotation: 0
+        state: enabled
+connections:
+- [src, '0', add, '0']
+- [noise, '0', add, '1']
+- [add, '0', thr, '0']
+- [thr, '0', snk, '0']
+)GRC";
 
-// Read a flowgraph JSON from the URL hash (editor sets runner.html#<encoded json>).
+// Read a flowgraph .grc from the URL hash (editor sets runner.html#<encoded grc>).
 // Returns a malloc'd C string, or nullptr if no hash.
 static char* flowgraph_from_url() {
     return (char*)EM_ASM_PTR({

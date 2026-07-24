@@ -61,12 +61,18 @@
 using nlohmann::json;
 
 static gr::analog::gr_waveform_t waveform_from(const std::string& s) {
-    if (s == "sin" || s == "sine") return gr::analog::GR_SIN_WAVE;
-    if (s == "cos" || s == "cosine") return gr::analog::GR_COS_WAVE;
-    if (s == "square") return gr::analog::GR_SQR_WAVE;
-    if (s == "triangle" || s == "tri") return gr::analog::GR_TRI_WAVE;
-    if (s == "saw" || s == "sawtooth") return gr::analog::GR_SAW_WAVE;
-    if (s == "const" || s == "constant") return gr::analog::GR_CONST_WAVE;
+    // Accept both GRC constants ("analog.GR_COS_WAVE") and the old shorthand
+    // ("cos"). Match COS before SIN because "cosine" contains "sin".
+    std::string u = s;
+    std::transform(u.begin(), u.end(), u.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
+    if (u.find("CONST") != std::string::npos) return gr::analog::GR_CONST_WAVE;
+    if (u.find("COS") != std::string::npos) return gr::analog::GR_COS_WAVE;
+    if (u.find("SIN") != std::string::npos) return gr::analog::GR_SIN_WAVE;
+    if (u.find("SQR") != std::string::npos || u.find("SQUARE") != std::string::npos)
+        return gr::analog::GR_SQR_WAVE;
+    if (u.find("TRI") != std::string::npos) return gr::analog::GR_TRI_WAVE;
+    if (u.find("SAW") != std::string::npos) return gr::analog::GR_SAW_WAVE;
     return gr::analog::GR_COS_WAVE;
 }
 // Many blocks are type-parameterized (like GRC): a "type" param selects the C++ type.
@@ -685,9 +691,13 @@ BuiltBlock make_chooser(const json& p)
 
     QWidget* widget = nullptr;
     if (p.value("widget", std::string("combo_box")) == "radio_buttons") {
-        const std::string orient = p.value("orient", std::string("vertical"));
+        const std::string orient = p.value("orient", std::string("Qt.QVBoxLayout"));
         auto* group = new QGroupBox(label);
-        QBoxLayout* box = orient == "horizontal"
+        // GRC stores "Qt.QHBoxLayout"/"Qt.QVBoxLayout"; also accept the shorthand.
+        const bool horizontal = orient == "horizontal" ||
+            orient.find("HBox") != std::string::npos ||
+            orient.find("Horizontal") != std::string::npos;
+        QBoxLayout* box = horizontal
                               ? static_cast<QBoxLayout*>(new QHBoxLayout(group))
                               : static_cast<QBoxLayout*>(new QVBoxLayout(group));
         // Grouping keeps the radio buttons mutually exclusive.

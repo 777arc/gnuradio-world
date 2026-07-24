@@ -46,6 +46,24 @@ const scenarios = [
     expectFetch: ['vocoder.wasm'] },
 ];
 
+// The runner consumes native .grc; wrap these {blocks,connections} fixtures in
+// a minimal .grc document (the runner's parser/registry tolerate the vocab).
+function toGrc(fg) {
+  const scalar = v => {
+    const s = String(v);
+    return /^[A-Za-z_][\w.]*$/.test(s) && !/^(True|False|null)$/.test(s) ? s : `'${s.replace(/'/g, "''")}'`;
+  };
+  let out = 'options:\n    parameters:\n        id: t\n    states:\n        coordinate: [0, 0]\n        rotation: 0\n        state: enabled\nblocks:\n';
+  for (const b of fg.blocks) {
+    out += `-   name: ${b.name}\n    id: ${b.id}\n    parameters:\n`;
+    for (const [k, v] of Object.entries(b.params || {})) out += `        ${k}: ${scalar(v)}\n`;
+    out += '    states:\n        coordinate: [0, 0]\n        rotation: 0\n        state: enabled\n';
+  }
+  out += 'connections:\n';
+  for (const c of fg.connections) out += `- [${c[0]}, '${c[1]}', ${c[2]}, '${c[3]}']\n`;
+  return out;
+}
+
 const browser = await puppeteer.launch({ executablePath: exe, headless: true,
   args: ['--no-sandbox','--disable-gpu','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader'] });
 let allOk = true;
@@ -55,7 +73,7 @@ for (const sc of scenarios) {
   const logs = [];
   page.on('console', m => logs.push(m.text()));
   page.on('pageerror', e => logs.push('PAGEERROR ' + e.message));
-  const url = `http://localhost:${PORT}/runner/build/runner.html#` + encodeURIComponent(JSON.stringify(sc.fg));
+  const url = `http://localhost:${PORT}/runner/build/runner.html#` + encodeURIComponent(toGrc(sc.fg));
   await page.goto(url, { waitUntil:'load', timeout:30000 });
   try { await page.waitForFunction(() => { const d=document.getElementById('result'); return d && d.dataset.status!=='pending'; }, { timeout:40000, polling:200 }); } catch {}
   const { status, text } = await page.evaluate(() => { const d=document.getElementById('result'); return { status:d?d.dataset.status:'missing', text:d?d.textContent:'' }; });
