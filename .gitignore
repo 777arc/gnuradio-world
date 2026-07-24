@@ -1,1 +1,5 @@
-/example_recordings
+# Large IQ recordings are hosted on Cloudflare R2, not git (see
+# wasm/scripts/r2-cors.json and the deploy workflow). The tiny .sigmf-meta
+# sidecars ARE committed -- the site build reads them to build the recordings
+# manifest (datatype/sample-rate/etc.) on CI, where the data files are absent.
+/example_recordings/*.sigmf-data

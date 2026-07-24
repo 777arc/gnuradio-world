@@ -23,6 +23,14 @@ const OUT = process.argv[2] || join(process.cwd(), 'site');
 // Cloudflare Pages rejects any single file >= 25 MiB.
 const MAX_FILE = 25 * 1024 * 1024;
 
+// Recordings too big for Pages are served from Cloudflare R2 instead. Set this
+// to the bucket's public base URL (e.g. https://recordings.gnuradio-wasm.dev or
+// the r2.dev dev URL) via the CI env. When unset (local assemble), oversized
+// recordings are omitted from the manifest, exactly as before. The R2 bucket
+// must send CORS headers for this site's origin -- the app fetches the data
+// file cross-origin in CORS mode, and the site is cross-origin-isolated.
+const R2_BASE = (process.env.RECORDINGS_R2_BASE || '').replace(/\/+$/, '');
+
 // runner/build files the browser needs (everything else there is build scratch).
 const RUNTIME_EXT = new Set(['.html', '.js', '.mjs', '.wasm', '.svg', '.css', '.data', '.mem']);
 const SKIP_DIR = name => name === 'CMakeFiles' || name.endsWith('_autogen');
@@ -99,7 +107,8 @@ async function main() {
     const dataFile = name + '.sigmf-data';
     const metaFile = name + '.sigmf-meta';
     const dataStat = await stat(join(recDir, dataFile));
-    if (dataStat.size >= MAX_FILE) {            // too big for Cloudflare -> omit
+    const tooBig = dataStat.size >= MAX_FILE;   // can't live on Cloudflare Pages
+    if (tooBig && !R2_BASE) {                    // no R2 configured -> omit
       skipped++;
       continue;
     }
@@ -110,16 +119,25 @@ async function main() {
     const author = typeof g['core:author'] === 'string' ? g['core:author'] : null;
     const bps = sigmfBytesPerSample(datatype);
     const sampleCount = bps && dataStat.size % bps === 0 ? dataStat.size / bps : null;
+    // Big files stream from R2 (absolute cross-origin URL); small files stay on
+    // Pages and are fetched same-origin.
     manifest.push({
       name, dataFile, metaFile, datatype, sampleRate, author, sampleCount,
       byteLength: dataStat.size,
-      downloadUrl: '/example_recordings/' + encodeURIComponent(dataFile),
+      downloadUrl: tooBig
+        ? R2_BASE + '/' + encodeURIComponent(dataFile)
+        : '/example_recordings/' + encodeURIComponent(dataFile),
     });
-    await cp(join(recDir, dataFile), join(OUT, 'example_recordings', dataFile));
+    // Only copy the (large) data file to the site when it's served from Pages;
+    // R2-hosted ones live in the bucket. The tiny .sigmf-meta is always copied
+    // so the deployed site stays self-describing.
+    if (!tooBig)
+      await cp(join(recDir, dataFile), join(OUT, 'example_recordings', dataFile));
     await cp(join(recDir, metaFile), join(OUT, 'example_recordings', metaFile));
   }
   await writeFile(join(OUT, 'example_recordings', 'index.json'), JSON.stringify(manifest));
-  console.log(`example_recordings: ${manifest.length} included, ${skipped} omitted (>25 MiB, need R2)`);
+  const r2Note = R2_BASE ? ` (R2: ${R2_BASE})` : '';
+  console.log(`example_recordings: ${manifest.length} included, ${skipped} omitted (>25 MiB, need R2)${r2Note}`);
 
   // 5. Cloudflare control files.
   //    _headers: restore the cross-origin isolation server.mjs sets, so
