@@ -6,7 +6,9 @@ import sys
 import os
 import logging
 
-REPO = "/home/marc/gnuradio"
+# Repo root derived from this script's location (wasm/tools/ -> repo root),
+# so it works regardless of checkout path (local or CI).
+REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.insert(0, REPO)  # use this repo's `grc` package (has cpp workflows)
 
 # The system `gnuradio` apt package is intentionally NOT installed (it would

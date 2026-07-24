@@ -4,7 +4,9 @@ Build-time only (no Python at runtime). Emits id/label/category/params/ports so
 the TS editor can render a palette and property dialogs."""
 import sys, os, json, glob, yaml
 
-REPO = "/home/marc/gnuradio"
+# Repo root derived from this script's location (wasm/editor/gen/ -> repo root),
+# so the generator works regardless of checkout path (local or CI).
+REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 # Mirror the native GRC block search across every in-tree module. HEIR is
 # intentionally excluded from the WASM product, but all other definitions are
 # emitted so unavailable blocks can remain visible in the library.
