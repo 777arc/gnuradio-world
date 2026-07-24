@@ -68,6 +68,20 @@ async function copyInto(srcFile, srcRoot, destRoot) {
   await cp(srcFile, dest);
 }
 
+// Size of an R2-hosted recording, via a HEAD request. Used when the .sigmf-data
+// file isn't in the checkout (it's gitignored and lives only on R2), so the
+// manifest can still report a byte length. Returns null if unreachable/missing.
+async function r2ContentLength(url) {
+  try {
+    const res = await fetch(url, { method: 'HEAD' });
+    if (!res.ok) return null;
+    const len = res.headers.get('content-length');
+    return len == null ? null : Number(len);
+  } catch {
+    return null;
+  }
+}
+
 async function main() {
   await rm(OUT, { recursive: true, force: true });
   await mkdir(OUT, { recursive: true });
@@ -94,10 +108,12 @@ async function main() {
   // 4. Example recordings + manifest (matches GET /example_recordings), size-gated.
   const recDir = join(WASM, 'example_recordings');
   const recFiles = new Set(await readdir(recDir).catch(() => []));
+  // A recording is defined by its (committed) .sigmf-meta. The .sigmf-data may
+  // be present locally (dev) or absent (CI, where it's gitignored and lives on
+  // R2). Pairing is resolved per-recording in the loop below.
   const bases = [...recFiles]
     .filter(f => f.endsWith('.sigmf-meta'))
     .map(f => f.slice(0, -'.sigmf-meta'.length))
-    .filter(b => recFiles.has(b + '.sigmf-data'))
     .sort((a, b) => a.localeCompare(b));
 
   const manifest = [];
@@ -106,32 +122,46 @@ async function main() {
   for (const name of bases) {
     const dataFile = name + '.sigmf-data';
     const metaFile = name + '.sigmf-meta';
-    const dataStat = await stat(join(recDir, dataFile));
-    const tooBig = dataStat.size >= MAX_FILE;   // can't live on Cloudflare Pages
-    if (tooBig && !R2_BASE) {                    // no R2 configured -> omit
-      skipped++;
-      continue;
+    const localData = recFiles.has(dataFile);
+    const r2Url = R2_BASE + '/' + encodeURIComponent(dataFile);
+
+    // Resolve where the data comes from and its byte length. Local files under
+    // the Pages 25 MiB limit ship with the site; anything larger, and anything
+    // not in the checkout, is served from R2 (size via HEAD).
+    let byteLength, fromR2;
+    if (localData) {
+      byteLength = (await stat(join(recDir, dataFile))).size;
+      fromR2 = byteLength >= MAX_FILE;
+      if (fromR2 && !R2_BASE) { skipped++; continue; }   // too big, no R2 -> omit
+    } else {
+      if (!R2_BASE) { skipped++; continue; }             // no local data, no R2 -> omit
+      fromR2 = true;
+      byteLength = await r2ContentLength(r2Url);
+      if (byteLength == null) {                          // not uploaded/unreachable
+        console.warn(`  ! ${dataFile}: not found on R2, omitting`);
+        skipped++;
+        continue;
+      }
     }
+
     const metadata = JSON.parse(await readFile(join(recDir, metaFile), 'utf8'));
     const g = metadata && typeof metadata.global === 'object' ? metadata.global : {};
     const datatype = typeof g['core:datatype'] === 'string' ? g['core:datatype'] : null;
     const sampleRate = typeof g['core:sample_rate'] === 'number' ? g['core:sample_rate'] : null;
     const author = typeof g['core:author'] === 'string' ? g['core:author'] : null;
     const bps = sigmfBytesPerSample(datatype);
-    const sampleCount = bps && dataStat.size % bps === 0 ? dataStat.size / bps : null;
-    // Big files stream from R2 (absolute cross-origin URL); small files stay on
-    // Pages and are fetched same-origin.
+    const sampleCount = bps && byteLength % bps === 0 ? byteLength / bps : null;
+    // R2-hosted files use their absolute cross-origin URL; Pages-hosted files
+    // are fetched same-origin.
     manifest.push({
       name, dataFile, metaFile, datatype, sampleRate, author, sampleCount,
-      byteLength: dataStat.size,
-      downloadUrl: tooBig
-        ? R2_BASE + '/' + encodeURIComponent(dataFile)
-        : '/example_recordings/' + encodeURIComponent(dataFile),
+      byteLength,
+      downloadUrl: fromR2 ? r2Url : '/example_recordings/' + encodeURIComponent(dataFile),
     });
     // Only copy the (large) data file to the site when it's served from Pages;
     // R2-hosted ones live in the bucket. The tiny .sigmf-meta is always copied
     // so the deployed site stays self-describing.
-    if (!tooBig)
+    if (!fromR2)
       await cp(join(recDir, dataFile), join(OUT, 'example_recordings', dataFile));
     await cp(join(recDir, metaFile), join(OUT, 'example_recordings', metaFile));
   }
