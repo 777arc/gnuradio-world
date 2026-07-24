@@ -32,6 +32,7 @@ set(GR_INCLUDE_DIRS
   ${GR}/gr-fec/include ${GR}/gr-dtv/include
   ${GR}/gr-network/include ${GR}/gr-pdu/include ${GR}/gr-vocoder/include
   ${GR}/gr-qtgui/include
+  ${GR}/gr-rds/include
   ${BUILDGR}/gnuradio-runtime/include ${SYSROOT}/include)
 
 # ---------------------------------------------------------------------------
@@ -169,6 +170,38 @@ foreach(m ${DEFERRED_MODULES})
     VERBATIM)
   list(APPEND SIDE_MODULE_OUTPUTS ${out})
 endforeach()
+
+# gr-rds is an out-of-tree module: it is NOT built by the wasm/gr/build-gr
+# umbrella build, so there is no libgnuradio-rds.a to link like the modules above.
+# Instead compile its own lib/*_impl.cc straight into the rds side module together
+# with the generated self-registering factory table. config.h and the *_impl.h
+# headers resolve next to the sources (gr-rds/lib); public rds/*.h headers come
+# from gr-rds/include (already in GR_INCLUDE_DIRS above). One source (parser_impl)
+# uses Boost.Locale on desktop; it is #ifdef __EMSCRIPTEN__-guarded to an inline
+# ISO-8859-2 conversion so no extra Boost component is needed here.
+set(RDS_LIB ${GR}/gr-rds/lib)
+set(RDS_SOURCES
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/generated_registry_rds.cpp
+  ${RDS_LIB}/decoder_impl.cc
+  ${RDS_LIB}/encoder_impl.cc
+  ${RDS_LIB}/parser_impl.cc
+  ${RDS_LIB}/tag_to_msg_impl.cc)
+set(rds_out ${CMAKE_CURRENT_BINARY_DIR}/rds.wasm)
+add_custom_command(
+  OUTPUT ${rds_out}
+  COMMAND ${CMAKE_CXX_COMPILER}
+    -sSIDE_MODULE=1 -pthread -fPIC -Oz -std=c++17
+    -sNO_DISABLE_EXCEPTION_CATCHING
+    -sWASM_BIGINT=1
+    ${SIDE_INCLUDE_FLAGS}
+    ${RDS_SOURCES}
+    -o ${rds_out}
+  DEPENDS ${RDS_SOURCES}
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/registry_helpers.hpp
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/registry.hpp
+  COMMENT "Building category side module rds.wasm (out-of-tree gr-rds sources)"
+  VERBATIM)
+list(APPEND SIDE_MODULE_OUTPUTS ${rds_out})
 
 add_custom_target(side_modules ALL DEPENDS ${SIDE_MODULE_OUTPUTS})
 add_dependencies(runner side_modules)

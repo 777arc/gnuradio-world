@@ -252,6 +252,10 @@
     "qtgui_time_sink_x",
     "qtgui_waterfall_sink_x",
     "rational_resampler_xxx",
+    "rds_decoder",
+    "rds_encoder",
+    "rds_parser",
+    "rds_tag_to_msg",
     "root_raised_cosine_filter",
     "single_pole_iir_filter_xx",
     "variable_qtgui_chooser",
@@ -298,7 +302,8 @@
     "dtv",
     "network",
     "pdu",
-    "vocoder"
+    "vocoder",
+    "rds"
   ],
   "module_deps": {},
   "block_module": {
@@ -406,6 +411,10 @@
     "vocoder_g723_40_decode_bs": "vocoder",
     "vocoder_g723_40_encode_sb": "vocoder",
     "vocoder_ulaw_decode_bs": "vocoder",
-    "vocoder_ulaw_encode_sb": "vocoder"
+    "vocoder_ulaw_encode_sb": "vocoder",
+    "rds_decoder": "rds",
+    "rds_encoder": "rds",
+    "rds_parser": "rds",
+    "rds_tag_to_msg": "rds"
   }
 }

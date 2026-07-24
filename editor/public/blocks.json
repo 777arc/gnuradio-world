@@ -57733,6 +57733,619 @@
    ]
   },
   {
+   "id": "rds_decoder",
+   "label": "RDS Decoder",
+   "category": "RDS",
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "rds",
+   "params": [
+    {
+     "id": "log",
+     "label": "Log",
+     "dtype": "bool",
+     "default": "False",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": [
+      "Enable",
+      "Disable"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "debug",
+     "label": "Debug",
+     "dtype": "bool",
+     "default": "False",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": [
+      "Enable",
+      "Disable"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "byte",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true
+    }
+   ]
+  },
+  {
+   "id": "rds_encoder",
+   "label": "RDS Encoder",
+   "category": "RDS",
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "rds",
+   "params": [
+    {
+     "id": "pty_locale",
+     "label": "PTY Locale",
+     "dtype": "int",
+     "default": "0",
+     "category": "General",
+     "options": [
+      "0",
+      "1"
+     ],
+     "option_labels": [
+      "Europe",
+      "North America"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "pty",
+     "label": "PTY",
+     "dtype": "int",
+     "default": "14",
+     "category": "General",
+     "options": [
+      "0",
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8",
+      "9",
+      "10",
+      "11",
+      "12",
+      "13",
+      "14",
+      "15",
+      "16",
+      "17",
+      "18",
+      "19",
+      "20",
+      "21",
+      "22",
+      "23",
+      "24",
+      "25",
+      "26",
+      "27",
+      "28",
+      "29",
+      "30",
+      "31"
+     ],
+     "option_labels": [
+      "Undefined",
+      "News",
+      "Current Affairs / Information",
+      "Information / Sports",
+      "Sport / Talk",
+      "Education / Rock",
+      "Drama / Classic Rock",
+      "Culture / Adult Hits",
+      "Science / Soft Rock",
+      "Varied / Top 40",
+      "Pop Music / Country",
+      "Rock Music / Oldies",
+      "Easy Listening / Soft",
+      "Light Classical / Nostalgia",
+      "Serious Classical / Jazz",
+      "Other Music / Classical",
+      "Weather / Rhythm & Blues",
+      "Finance / Soft Rhythm & Blues",
+      "Children\u2019s Programmes / Language",
+      "Social Affairs / Religious Music",
+      "Religion / Religious Talk",
+      "Phone-In / Personality",
+      "Travel / Public",
+      "Leisure / College",
+      "Jazz Music / Spanish Talk",
+      "Country Music / Spanish Music",
+      "National Music / Hip Hop",
+      "Oldies Music / Unassigned",
+      "Folk Music / Unassigned",
+      "Documentary / Weather",
+      "Alarm Test / Emergency Test",
+      "Alarm / Emergency"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "ms",
+     "label": "MS",
+     "dtype": "bool",
+     "default": "True",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": [
+      "Music",
+      "Speech"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "ps",
+     "label": "PS",
+     "dtype": "string",
+     "default": "WDR 3",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "af1",
+     "label": "AF1",
+     "dtype": "float",
+     "default": "89.8e6",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "tp",
+     "label": "TP",
+     "dtype": "bool",
+     "default": "True",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "ta",
+     "label": "TA",
+     "dtype": "bool",
+     "default": "False",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "pi_country_code",
+     "label": "PI Country Code",
+     "dtype": "int",
+     "default": "13",
+     "category": "General",
+     "options": [
+      "0",
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8",
+      "9",
+      "10",
+      "11",
+      "12",
+      "13",
+      "15"
+     ],
+     "option_labels": [
+      "Other",
+      "DE",
+      "DZ",
+      "AD",
+      "IL",
+      "IT",
+      "BE",
+      "RU",
+      "PS",
+      "AL",
+      "AT",
+      "HU",
+      "MT",
+      "DE",
+      "EG"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "pi_coverage_area",
+     "label": "PI Coverage Area",
+     "dtype": "int",
+     "default": "3",
+     "category": "General",
+     "options": [
+      "0",
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8",
+      "9",
+      "10",
+      "11",
+      "12",
+      "13",
+      "14",
+      "15"
+     ],
+     "option_labels": [
+      "Local",
+      "International",
+      "National",
+      "Supra-regional",
+      "Regional 1",
+      "Regional 2",
+      "Regional 3",
+      "Regional 4",
+      "Regional 5",
+      "Regional 6",
+      "Regional 7",
+      "Regional 8",
+      "Regional 9",
+      "Regional 10",
+      "Regional 11",
+      "Regional 12"
+     ],
+     "option_attributes": null,
+     "hide": "${ ('all' if str(pi_country_code) == '0' else 'none') }"
+    },
+    {
+     "id": "pi_reference_number",
+     "label": "${ ('PI Code' if str(pi_country_code) == '0' else 'PI Program Reference Number') }",
+     "dtype": "int",
+     "default": "147",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "radiotext",
+     "label": "Radiotext",
+     "dtype": "string",
+     "default": "GNU Radio <3",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "max_latency",
+     "label": "Max. latency (bits)",
+     "dtype": "int",
+     "default": "-1",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "rds in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true
+    },
+    {
+     "id": "strobe",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "byte",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "rds_panel",
+   "label": "RDS Panel",
+   "category": "RDS",
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "params": [
+    {
+     "id": "freq",
+     "label": "Frequency",
+     "dtype": "real",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    },
+    {
+     "id": "gui_hint",
+     "label": "GUI Hint",
+     "dtype": "gui_hint",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": []
+  },
+  {
+   "id": "rds_parser",
+   "label": "RDS Parser",
+   "category": "RDS",
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "rds",
+   "params": [
+    {
+     "id": "log",
+     "label": "Log",
+     "dtype": "bool",
+     "default": "False",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": [
+      "Enable",
+      "Disable"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "debug",
+     "label": "Debug",
+     "dtype": "bool",
+     "default": "False",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": [
+      "Enable",
+      "Disable"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "pty_locale",
+     "label": "PTY Locale",
+     "dtype": "int",
+     "default": "0",
+     "category": "General",
+     "options": [
+      "0",
+      "1"
+     ],
+     "option_labels": [
+      "Europe",
+      "North America"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "reset",
+     "label": "Reset",
+     "dtype": "int",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true
+    }
+   ]
+  },
+  {
+   "id": "rds_tag_to_msg",
+   "label": "Latency Tag to Message",
+   "category": "RDS",
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "rds",
+   "params": [
+    {
+     "id": "type",
+     "label": "Input Type",
+     "dtype": "enum",
+     "default": "",
+     "category": "General",
+     "options": [
+      "complex",
+      "float",
+      "int",
+      "short",
+      "byte"
+     ],
+     "option_labels": null,
+     "option_attributes": {
+      "size": [
+       "gr.sizeof_gr_complex",
+       "gr.sizeof_float",
+       "gr.sizeof_int",
+       "gr.sizeof_short",
+       "gr.sizeof_char"
+      ]
+     },
+     "hide": "part"
+    },
+    {
+     "id": "num_inputs",
+     "label": "Num Inputs",
+     "dtype": "int",
+     "default": "1",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    },
+    {
+     "id": "vlen",
+     "label": "Vec Length",
+     "dtype": "int",
+     "default": "1",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ 'part' if vlen == 1 else 'none' }"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "${ type }",
+     "multiplicity": "${ num_inputs }",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "strobe",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
    "id": "soapy_airspyhf_source",
    "label": "Soapy AirspyHF Source",
    "category": "Core/Soapy/Source",

@@ -194,6 +194,22 @@ part of the always-loaded core or an on-demand side module. To add one (say
    stamps each block with its `module`, and a deferred category shows amber
    ("downloads on first use") → cyan once fetched.
 
+**Out-of-tree (OOT) modules.** The recipe above assumes an in-tree `gr-<m>`
+built by `wasm/gr/build-gr`. An OOT module (e.g. the vendored
+[`gr-rds/`](../gr-rds)) is not part of that umbrella build, so there is no
+`libgnuradio-<m>.a` to link. Handle it as a deferred module with two
+adjustments: (a) its `.block.yml` files must carry a `cpp` flag + `cpp_templates`
+(bastibl's gr-rds shipped Python-only templates; they were added, and its single
+Boost.Locale call plus a generated `config.h` were `#ifdef __EMSCRIPTEN__`-guarded
+so no extra sysroot deps are needed); and (b) instead of the generic
+`DEFERRED_MODULES` loop, add a bespoke `add_custom_command` in
+[`runner/CMakeLists.txt`](runner/CMakeLists.txt) that compiles the module's own
+`lib/*.cc` straight into `<m>.wasm` alongside its generated registrar (see the
+`rds.wasm` rule). Everything else — palette, on-demand fetch, `side_exports` —
+works unchanged because the block is in `block_module_map` and `rds.wasm` is in
+`SIDE_MODULE_OUTPUTS`. Python-GUI blocks like `rds_panel` (a `rds.rdsPanel`
+QWidget) have no C++ path and stay greyed out.
+
 **Notes / gotchas**
 
 - **Hand-written factories** (blocks needing a `QWidget`, live setters, or a
