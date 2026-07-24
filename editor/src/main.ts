@@ -4,7 +4,7 @@
 // URL hash (runner.html#<encoded json>).
 
 type ParamType = 'number' | 'string' | 'enum';
-interface ParamDef { id: string; label: string; type: ParamType; def: any; options?: string[]; category?: string }
+interface ParamDef { id: string; label: string; type: ParamType; def: any; options?: string[]; category?: string; hideIfEmpty?: boolean }
 // inTypes/outTypes give per-port dtypes (for converters); otherwise ports follow the
 // block's `type` param (complex/float) if it has one, else `dtype` (default complex).
 interface RunnableDef {
@@ -33,6 +33,19 @@ const LINE_MARKERS = ['0', '1', '2', '3', '4', '6', '7', '8', '9', '-1'];
 // Curated schemas for blocks the WASM runner registry supports. Param names (and the
 // `type` values complex/float) match the runner's factories exactly.
 const RUNNABLE: Record<string, RunnableDef> = {
+  // ---- flowgraph options ----
+  // GRC's per-flowgraph Options block: identification metadata for the graph.
+  // Exactly one is auto-inserted per flowgraph (see ensureOptionsBlock). It has
+  // no ports and is not emitted to the runner (dropped in toFlowgraphJSON).
+  // Metadata params are `hideIfEmpty` so blank fields don't clutter the block face.
+  options: {
+    label: 'Options', inputs: 0, outputs: 0, params: [
+      { id: 'title', label: 'Title', type: 'string', def: '', hideIfEmpty: true },
+      { id: 'author', label: 'Author', type: 'string', def: '', hideIfEmpty: true },
+      { id: 'copyright', label: 'Copyright', type: 'string', def: '', hideIfEmpty: true },
+      { id: 'description', label: 'Description', type: 'string', def: '', hideIfEmpty: true },
+    ],
+  },
   // ---- sources ----
   analog_sig_source_x: {
     label: 'Signal Source', inputs: 0, outputs: 1, params: [
@@ -490,7 +503,10 @@ function installGeneratedBlocks(blocks: any[]) {
         ['int', 'real', 'float', 'hex'].includes(String(p.dtype)) ? 'number' : 'string',
       def: generatedDefault(p),
       options: p.options ? p.options.map(String) : undefined,
-      category: p.category || undefined,
+      // "General" is the default tab; those params belong on the block face
+      // (like GRC's default category), so only carry a real, non-General
+      // category so geom()/the face renderer doesn't hide every param.
+      category: p.category && p.category !== 'General' ? p.category : undefined,
     }));
     const defaults: Record<string, any> = {};
     params.forEach(p => defaults[p.id] = p.def);
@@ -540,7 +556,8 @@ function geom(inst: Inst) {
   const d = RUNNABLE[inst.id];
   // Categorized parameters belong in the modal notebook, not in the compact
   // block rendering (equivalent to GRC's `hide: part`).
-  const rows = d.params.filter(p => !p.category)
+  const rows = d.params
+    .filter(p => !p.category && !(p.hideIfEmpty && !String(inst.params[p.id] ?? '').trim()))
     .map(p => ({ id: p.id, l: p.label + ': ', v: fmtVal(inst.params[p.id]) }));
   const nports = Math.max(portCount(inst, 'in'), portCount(inst, 'out'), 1);
   const bodyH = Math.max(rows.length * ROW_H + PAD, nports * (PORT_H + PORT_GAP) + PAD, ROW_H);
@@ -576,6 +593,10 @@ function ctrl(edge: Edge, x: number, y: number, k: number): [number, number] {
 
 function addBlock(id: string, x = 60 + (counter % 5) * 30, y = 60 + (counter % 7) * 24) {
   const d = RUNNABLE[id]; if (!d) { log('block "' + id + '" is not runnable yet'); return; }
+  if (id === OPTIONS_ID) {
+    const existing = insts.find(i => i.id === OPTIONS_ID);
+    if (existing) { log('only one Options block is allowed per flowgraph'); select(existing.uid); return; }
+  }
   const uid = 'b' + (++counter);
   const params: Record<string, any> = {};
   d.params.forEach(p => params[p.id] = p.def);
@@ -586,7 +607,8 @@ function addBlock(id: string, x = 60 + (counter % 5) * 30, y = 60 + (counter % 7
 // ---- block operations (used by the context menu and shortcuts) ----
 function deleteBlocks(uids = selectedBlocks) {
   if (!uids.size) return;
-  insts = insts.filter(i => !uids.has(i.uid));
+  // The Options block is a required singleton and cannot be deleted.
+  insts = insts.filter(i => !uids.has(i.uid) || i.id === OPTIONS_ID);
   conns = conns.filter(c => !uids.has(c.from) && !uids.has(c.to));
   selectedBlocks.clear(); selected = null; selectedConnection = null;
   renderProps(); render(); recordHistory();
@@ -598,6 +620,7 @@ function deleteConnection(conn: Conn) {
 }
 function duplicateBlock(uid: string) {
   const s = insts.find(i => i.uid === uid); if (!s) return;
+  if (s.id === OPTIONS_ID) { log('only one Options block is allowed per flowgraph'); return; }
   const nu = 'b' + (++counter);
   insts.push({ uid: nu, id: s.id, name: s.id.replace(/^.*_/, '') + counter,
     x: s.x + 24, y: s.y + 24, params: { ...s.params }, enabled: s.enabled,
@@ -611,7 +634,8 @@ function copyBlock(uid: string) {
   copyBlocks(selectedBlocks.has(uid) ? selectedBlocks : new Set([uid]));
 }
 function copyBlocks(uids = selectedBlocks) {
-  const blocks = insts.filter(i => uids.has(i.uid));
+  // The Options block is a singleton; never copy it (so paste can't duplicate it).
+  const blocks = insts.filter(i => uids.has(i.uid) && i.id !== OPTIONS_ID);
   if (!blocks.length) return;
   clipboard = clone({ blocks, connections: conns.filter(c => uids.has(c.from) && uids.has(c.to)) });
   log(`copied ${blocks.length} block${blocks.length === 1 ? '' : 's'}`);
@@ -695,9 +719,23 @@ function setZoom(next: number) {
   el('canvasWrap').style.setProperty('--grid-size', `${16 * zoom}px`); render();
   log(`zoom ${Math.round(zoom * 100)}%`);
 }
+// ---- Options block: the singleton flowgraph-metadata block (GRC-style) ----
+// Every flowgraph has exactly one, holding title/author/copyright/description.
+const OPTIONS_ID = 'options';
+function makeOptionsInst(): Inst {
+  const params: Record<string, any> = {};
+  RUNNABLE[OPTIONS_ID].params.forEach(p => params[p.id] = p.def);
+  return { uid: 'b' + (++counter), id: OPTIONS_ID, name: 'options',
+    x: 10, y: 10, params, enabled: true, rotation: 0, bypassed: false };
+}
+// Guarantee the current flowgraph has an Options block (loaded/legacy files may lack one).
+function ensureOptionsBlock() {
+  if (!insts.some(i => i.id === OPTIONS_ID)) insts.unshift(makeOptionsInst());
+}
+
 function clearFlowgraph(record = true) {
   insts = []; conns = []; counter = 0; selected = null; selectedBlocks.clear();
-  selectedConnection = null; cancelConnect(); renderProps(); render();
+  selectedConnection = null; cancelConnect(); ensureOptionsBlock(); renderProps(); render();
   if (record) recordHistory();
 }
 
@@ -734,6 +772,7 @@ function loadFlowgraph(value: any) {
       if (from && to && c[4] !== 'message') conns.push({ from: from.uid, fp: Number(c[1]), to: to.uid, tp: Number(c[3]) });
     }
   } else throw new Error('not a GNU Radio WASM flowgraph JSON file');
+  ensureOptionsBlock();   // legacy/example files may predate the Options block
   selected = null; selectedBlocks.clear(); selectedConnection = null; cancelConnect();
   renderProps(); render(); recordHistory(); log(`opened ${insts.length} blocks`);
 }
@@ -1429,7 +1468,7 @@ function toFlowgraphJSON() {
     return resolved;
   };
   return {
-    blocks: insts.filter(i => active(i.uid) && i.id !== 'variable')
+    blocks: insts.filter(i => active(i.uid) && i.id !== 'variable' && i.id !== OPTIONS_ID)
       .map(i => ({ name: i.name, id: i.id, params: resolveParams(i.params) })),
     connections: out,
   };
@@ -2218,6 +2257,7 @@ conns.push({ from: src.uid, fp: 0, to: add.uid, tp: 0 });
 conns.push({ from: noise.uid, fp: 0, to: add.uid, tp: 1 });
 conns.push({ from: add.uid, fp: 0, to: thr.uid, tp: 0 });
 conns.push({ from: thr.uid, fp: 0, to: snk.uid, tp: 0 });
+ensureOptionsBlock();
 select(null); render();
 historyReady = true; resetHistory();
 log('Editor ready. Click ▶ Run to execute the flowgraph in WebAssembly.');
