@@ -1397,9 +1397,13 @@ function render() {
     const a = G(c.from), b = G(c.to); if (!a || !b || (hideDisabled && (!a.enabled || !b.enabled))) continue;
     const pa = portPos(a, 'out', c.fp), pb = portPos(b, 'in', c.tp);
     const x1 = a.x + pa.x, y1 = a.y + pa.y, x2 = b.x + pb.x, y2 = b.y + pb.y;
-    const [c1x, c1y] = ctrl(pa.edge, x1, y1, 42);
-    const [c2x, c2y] = ctrl(pb.edge, x2, y2, 42);
-    const d = `M${x1},${y1} C${c1x},${c1y} ${c2x},${c2y} ${x2},${y2}`;
+    // Match native GRC exactly: a straight 15px run out of each port, a cubic
+    // bezier with control points 50px out, then a straight approach in.
+    const [sx, sy] = ctrl(pa.edge, x1, y1, 15);
+    const [c1x, c1y] = ctrl(pa.edge, x1, y1, 50);
+    const [c2x, c2y] = ctrl(pb.edge, x2, y2, 50);
+    const [ex, ey] = ctrl(pb.edge, x2, y2, 15);
+    const d = `M${x1},${y1} L${sx},${sy} C${c1x},${c1y} ${c2x},${c2y} ${ex},${ey} L${x2},${y2}`;
     const isSelected = c === selectedConnection || (insts.length > 0 && selectedBlocks.size === insts.length);
     const wire = svgEl('g', { class: 'wire-group' });
     wire.appendChild(svgEl('path', { class: 'wire' + (isSelected ? ' sel' : '') +
