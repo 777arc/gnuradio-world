@@ -114,14 +114,28 @@
   /* SigMF recording list */
   .rec-list { padding:8px; display:flex; flex-direction:column; gap:8px; }
   .rec-item { background:#242a3b; border:1px solid #333a4d; border-radius:6px;
-      padding:10px 11px; color:#dce3f5; }
-  .rec-title { font-size:13px; font-weight:600; color:#e6e9f0; margin-bottom:7px;
+      padding:10px 11px; color:#dce3f5; cursor:pointer; outline:none; }
+  .rec-item:hover, .rec-item:focus-visible { background:#2c3448; border-color:#46507a; }
+  .rec-item.downloading { cursor:wait; }
+  .rec-item.downloaded { border-color:#35734a; }
+  .rec-item.error { border-color:#8b3f48; }
+  .rec-head { display:flex; align-items:flex-start; gap:8px; margin-bottom:7px; }
+  .rec-title { flex:1; min-width:0; font-size:13px; font-weight:600; color:#e6e9f0;
       overflow-wrap:anywhere; }
+  .rec-badge { flex:none; font-size:10px; color:#8b96b5; border:1px solid #46507a;
+      border-radius:999px; padding:2px 6px; white-space:nowrap; }
+  .rec-item.downloaded .rec-badge { color:#72d792; border-color:#35734a; }
+  .rec-item.error .rec-badge { color:#ff9b95; border-color:#8b3f48; }
   .rec-props { display:grid; grid-template-columns:max-content minmax(0,1fr); gap:4px 10px;
       margin:0; font-size:11px; line-height:1.35; }
   .rec-props dt { color:#7f8bab; }
   .rec-props dd { color:#c3cbe0; margin:0; overflow-wrap:anywhere; font-variant-numeric:tabular-nums; }
   .rec-meta { font-size:10px; color:#6b768f; margin-top:7px; overflow-wrap:anywhere; }
+  .rec-progress { margin-top:8px; }
+  .rec-progress[hidden] { display:none; }
+  .rec-progress-track { height:5px; overflow:hidden; border-radius:999px; background:#171a24; }
+  .rec-progress-fill { width:0; height:100%; background:#3fae63; transition:width .1s linear; }
+  .rec-progress-text { margin-top:4px; color:#8b96b5; font-size:10px; font-variant-numeric:tabular-nums; }
   /* GRC-style block tree */
   .palsearch { width:calc(100% - 16px); margin:8px; padding:6px 8px; background:#171a24; color:#e6e9f0;
       border:1px solid #3a4366; border-radius:5px; font-size:13px; outline:none; }

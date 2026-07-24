@@ -93,6 +93,8 @@ CUSTOM_IDS = {
     "blocks_complex_to_mag_squared",
     "blocks_complex_to_float",
     "blocks_float_to_complex",
+    "blocks_file_source",
+    "blocks_interleaved_short_to_complex",
     "blocks_null_sink",
     "qtgui_time_sink_x",
     "qtgui_freq_sink_x",

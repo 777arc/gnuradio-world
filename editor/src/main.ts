@@ -655,17 +655,25 @@ function ctrl(edge: Edge, x: number, y: number, k: number): [number, number] {
   return [x, y + k];
 }
 
-function addBlock(id: string, x = 60 + (counter % 5) * 30, y = 60 + (counter % 7) * 24) {
-  const d = RUNNABLE[id]; if (!d) { log('block "' + id + '" is not runnable yet'); return; }
+function addBlock(id: string, x = 60 + (counter % 5) * 30, y = 60 + (counter % 7) * 24,
+                  paramOverrides: Record<string, any> = {}, record = true): Inst | null {
+  const d = RUNNABLE[id]; if (!d) { log('block "' + id + '" is not runnable yet'); return null; }
   if (id === OPTIONS_ID) {
     const existing = insts.find(i => i.id === OPTIONS_ID);
-    if (existing) { log('only one Options block is allowed per flowgraph'); select(existing.uid); return; }
+    if (existing) { log('only one Options block is allowed per flowgraph'); select(existing.uid); return existing; }
   }
   const uid = 'b' + (++counter);
   const params: Record<string, any> = {};
   d.params.forEach(p => params[p.id] = p.def);
-  insts.push({ uid, id, name: id.replace(/^.*_/, '') + counter, x, y, params, enabled: true, rotation: 0, bypassed: false });
-  select(uid); recordHistory();
+  Object.assign(params, paramOverrides);
+  const inst: Inst = {
+    uid, id, name: id.replace(/^.*_/, '') + counter, x, y, params,
+    enabled: true, rotation: 0, bypassed: false,
+  };
+  insts.push(inst);
+  select(uid);
+  if (record) recordHistory();
+  return inst;
 }
 
 // ---- block operations (used by the context menu and shortcuts) ----
@@ -1572,6 +1580,19 @@ svg.addEventListener('contextmenu', e => {
 // ---- Run: hand the flowgraph to the WASM runner in the lower workspace pane ----
 const MIN_PANE_HEIGHT = 120;
 let lowerPaneRatio = 0.5;
+interface RunnerRecordingFile { path: string; blob: Blob }
+const pendingRunnerRecordings = new Map<string, RunnerRecordingFile[]>();
+let pendingRunnerToken: string | null = null;
+
+// runner.html is same-origin and takes this one-time payload before Qt/WASM
+// starts. Keeping the Blob in cachedRecordingsByPath means later runs can make
+// another in-memory mount without downloading the recording again.
+(window as any).__grTakeRecordingFiles = (token: string): RunnerRecordingFile[] => {
+  const files = pendingRunnerRecordings.get(token) || [];
+  pendingRunnerRecordings.delete(token);
+  if (pendingRunnerToken === token) pendingRunnerToken = null;
+  return files;
+};
 
 function applySplitRatio(ratio = lowerPaneRatio) {
   const workspace = el('workspace');
@@ -1643,9 +1664,31 @@ function run() {
     return;
   }
   if (!insts.some(i => i.id !== OPTIONS_ID)) { log('nothing to run — add some blocks'); return; }
+  const recordingFiles: RunnerRecordingFile[] = [];
+  const addedPaths = new Set<string>();
+  for (const block of insts) {
+    if (!block.enabled || block.bypassed || block.id !== 'blocks_file_source') continue;
+    const path = String(block.params.file || '');
+    if (!path.startsWith('/recordings/') || addedPaths.has(path)) continue;
+    const cached = cachedRecordingsByPath.get(path);
+    if (!cached) {
+      log(`cannot run: recording for "${block.name}" is not downloaded in this editor session`);
+      select(block.uid);
+      return;
+    }
+    recordingFiles.push({ path, blob: cached.blob });
+    addedPaths.add(path);
+  }
   // The runner parses native .grc directly (it lowers disabled/bypassed blocks
   // and variables itself), so hand it the same document we save.
-  const url = '/runner/build/runner.html#' + encodeURIComponent(grcText());
+  if (pendingRunnerToken) pendingRunnerRecordings.delete(pendingRunnerToken);
+  const token = typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  pendingRunnerToken = token;
+  pendingRunnerRecordings.set(token, recordingFiles);
+  const url = '/runner/build/runner.html?recordingToken=' + encodeURIComponent(token) +
+    '#' + encodeURIComponent(grcText());
   const workspace = el('workspace');
   const pane = el('runPane');
   const frame = el('runFrame') as HTMLIFrameElement;
@@ -1658,6 +1701,10 @@ function run() {
 }
 
 function stop() {
+  if (pendingRunnerToken) {
+    pendingRunnerRecordings.delete(pendingRunnerToken);
+    pendingRunnerToken = null;
+  }
   const frame = el('runFrame') as HTMLIFrameElement;
   frame.src = 'about:blank'; // unloading the iframe stops its WASM workers
   el('workspace').classList.remove('running');
@@ -1904,12 +1951,102 @@ interface ExampleRecording {
   sampleRate: number | null;
   author: string | null;
   sampleCount: number | null;
+  byteLength: number;
+  downloadUrl: string;
 }
+
+interface CachedRecording {
+  recording: ExampleRecording;
+  blob: Blob;
+  virtualPath: string;
+}
+
+interface FileSourceFormat {
+  type: 'complex' | 'float' | 'int' | 'short' | 'byte';
+  vlen: number;
+}
+
+const cachedRecordingsByFile = new Map<string, CachedRecording>();
+const cachedRecordingsByPath = new Map<string, CachedRecording>();
 
 const displayRecordingValue = (value: string | number | null): string => {
   if (value === null || value === '') return '—';
   return typeof value === 'number' ? value.toLocaleString() : value;
 };
+
+const displayBytes = (bytes: number): string => {
+  if (!Number.isFinite(bytes) || bytes < 0) return '—';
+  const units = ['B', 'KiB', 'MiB', 'GiB'];
+  let value = bytes, unit = 0;
+  while (value >= 1024 && unit < units.length - 1) { value /= 1024; unit++; }
+  return `${value.toFixed(unit ? 1 : 0)} ${units[unit]}`;
+};
+
+// File Source exposes integer recordings as scalar component streams, matching
+// GNU Radio's normal interleaved-I/Q convention. For example, ci16_le becomes
+// short with vlen=1 and can feed IShort To Complex with Vector Input disabled.
+// Floating-point complex samples have a native GNU Radio complex item type.
+function sigmfFileSourceFormat(datatype: string | null): FileSourceFormat | null {
+  const match = datatype?.toLowerCase().match(/^([rc])([fiu])(\d+)(?:_(le|be))?$/);
+  if (!match) return null;
+  const [, shape, kind, width, endian] = match;
+  if (endian === 'be') return null; // WASM and the native File Source are little-endian.
+  const complex = shape === 'c';
+  if (kind === 'f' && width === '32')
+    return complex ? { type: 'complex', vlen: 1 } : { type: 'float', vlen: 1 };
+  if ((kind === 'i' || kind === 'u') && width === '8')
+    return { type: 'byte', vlen: 1 };
+  if (kind === 'i' && width === '16')
+    return { type: 'short', vlen: 1 };
+  if (kind === 'i' && width === '32')
+    return { type: 'int', vlen: 1 };
+  return null;
+}
+
+function isCi16Datatype(datatype: string | null): boolean {
+  return /^ci16(?:_le)?$/i.test(datatype?.trim() || '');
+}
+
+async function addRecordingFileSource(cached: CachedRecording, format: FileSourceFormat) {
+  await paletteReady;
+  const addIShortToComplex = isCi16Datatype(cached.recording.datatype);
+  const converterId = 'blocks_interleaved_short_to_complex';
+  if (addIShortToComplex && !RUNNABLE[converterId])
+    throw new Error('IShort To Complex is not available');
+
+  const block = addBlock('blocks_file_source', undefined, undefined, {
+    file: cached.virtualPath,
+    type: format.type,
+    repeat: 'False',
+    vlen: format.vlen,
+    begin_tag: 'pmt.PMT_NIL',
+    offset: 0,
+    length: 0,
+  }, false);
+  if (!block) throw new Error('File Source is not available');
+
+  if (addIShortToComplex) {
+    const converter = addBlock(
+      converterId,
+      block.x + geom(block).w + 80,
+      block.y,
+      { vector_input: 'False', scale_factor: 32767.0 },
+      false,
+    )!;
+    conns.push({ from: block.uid, fp: 0, to: converter.uid, tp: 0 });
+    selectedBlocks = new Set([block.uid, converter.uid]);
+    selected = converter.uid;
+    selectedConnection = null;
+    render();
+    recordHistory();
+    log(`added File Source and IShort To Complex for "${cached.recording.name}"`);
+    return;
+  }
+
+  render();
+  recordHistory();
+  log(`added File Source for "${cached.recording.name}"`);
+}
 
 async function buildRecordings(panel: HTMLElement) {
   const list = document.createElement('div'); list.className = 'rec-list';
@@ -1930,8 +2067,13 @@ async function buildRecordings(panel: HTMLElement) {
   status.remove(); panel.append(list);
   for (const recording of recordings) {
     const item = document.createElement('article'); item.className = 'rec-item';
+    item.tabIndex = 0; item.setAttribute('role', 'button');
+    const head = document.createElement('div'); head.className = 'rec-head';
     const title = document.createElement('div'); title.className = 'rec-title';
     title.textContent = recording.name;
+    const badge = document.createElement('span'); badge.className = 'rec-badge';
+    badge.textContent = 'Download';
+    head.append(title, badge);
     const props = document.createElement('dl'); props.className = 'rec-props';
     const addProperty = (label: string, value: string | number | null) => {
       const key = document.createElement('dt'); key.textContent = label;
@@ -1942,9 +2084,87 @@ async function buildRecordings(panel: HTMLElement) {
     addProperty('core:sample_rate', recording.sampleRate);
     addProperty('core:author', recording.author);
     addProperty('Samples', recording.sampleCount);
+    addProperty('Size', displayBytes(recording.byteLength));
     const meta = document.createElement('div'); meta.className = 'rec-meta';
     meta.textContent = `${recording.dataFile} + ${recording.metaFile}`;
-    item.append(title, props, meta); list.append(item);
+    const progress = document.createElement('div'); progress.className = 'rec-progress'; progress.hidden = true;
+    const track = document.createElement('div'); track.className = 'rec-progress-track';
+    const fill = document.createElement('div'); fill.className = 'rec-progress-fill'; track.append(fill);
+    const progressText = document.createElement('div'); progressText.className = 'rec-progress-text';
+    progress.append(track, progressText);
+    item.append(head, props, meta, progress); list.append(item);
+
+    const format = sigmfFileSourceFormat(recording.datatype);
+    if (!format) {
+      badge.textContent = 'Unsupported';
+      item.setAttribute('aria-disabled', 'true');
+      item.title = `File Source cannot directly represent ${recording.datatype || 'this datatype'}`;
+      continue;
+    }
+
+    let downloading = false;
+    const useRecording = async () => {
+      if (downloading) return;
+      const existing = cachedRecordingsByFile.get(recording.dataFile);
+      if (existing) {
+        await addRecordingFileSource(existing, format);
+        return;
+      }
+
+      downloading = true;
+      item.classList.remove('error'); item.classList.add('downloading');
+      badge.textContent = 'Downloading';
+      progress.hidden = false; fill.style.width = '0%';
+      progressText.textContent = `0 B / ${displayBytes(recording.byteLength)}`;
+      try {
+        const response = await fetch(recording.downloadUrl);
+        if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+        if (!response.body) throw new Error('streaming response body is unavailable');
+        const headerLength = Number(response.headers.get('Content-Length'));
+        const expected = Number.isFinite(headerLength) && headerLength > 0
+          ? headerLength : recording.byteLength;
+        const reader = response.body.getReader();
+        const chunks: ArrayBuffer[] = [];
+        let received = 0;
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = new ArrayBuffer(value.byteLength);
+          new Uint8Array(chunk).set(value);
+          chunks.push(chunk); received += value.byteLength;
+          const percent = expected > 0 ? Math.min(100, received / expected * 100) : 0;
+          fill.style.width = `${percent}%`;
+          progressText.textContent = `${displayBytes(received)} / ${displayBytes(expected)}`;
+        }
+        if (expected > 0 && received !== expected)
+          throw new Error(`incomplete download (${received} of ${expected} bytes)`);
+        const blob = new Blob(chunks, { type: 'application/octet-stream' });
+        const cached: CachedRecording = {
+          recording,
+          blob,
+          virtualPath: '/recordings/' + recording.dataFile,
+        };
+        cachedRecordingsByFile.set(recording.dataFile, cached);
+        cachedRecordingsByPath.set(cached.virtualPath, cached);
+        fill.style.width = '100%';
+        progressText.textContent = `${displayBytes(received)} downloaded`;
+        item.classList.remove('downloading'); item.classList.add('downloaded');
+        badge.textContent = '✓ Downloaded';
+        await addRecordingFileSource(cached, format);
+      } catch (error) {
+        item.classList.remove('downloading'); item.classList.add('error');
+        badge.textContent = 'Retry';
+        progressText.textContent = 'Download failed';
+        log(`recording "${recording.name}" not downloaded: ${error}`);
+      } finally {
+        downloading = false;
+      }
+    };
+    item.onclick = () => { void useRecording(); };
+    item.onkeydown = event => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault(); void useRecording();
+    };
   }
 }
 

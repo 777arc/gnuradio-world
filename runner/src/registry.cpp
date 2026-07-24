@@ -20,6 +20,7 @@
 #include <gnuradio/blocks/null_source.h>
 #include <gnuradio/blocks/head.h>
 #include <gnuradio/blocks/delay.h>
+#include <gnuradio/blocks/interleaved_short_to_complex.h>
 #include <gnuradio/digital/chunks_to_symbols.h>
 #include <gnuradio/digital/diff_encoder_bb.h>
 #include <gnuradio/digital/map_bb.h>
@@ -52,6 +53,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <cstdint>
 #include <limits>
 #include <memory>
 #include <random>
@@ -59,6 +61,30 @@
 #include <vector>
 
 using nlohmann::json;
+
+EM_JS(double, browser_recording_size, (const char* filename), {
+    var path = UTF8ToString(filename);
+    var files = window.__grRecordingData;
+    var data = files && files[path];
+    return data ? data.byteLength : -1;
+});
+
+EM_JS(int,
+      browser_recording_copy,
+      (const char* filename, double byte_offset, unsigned char* destination, int length),
+      {
+          var path = UTF8ToString(filename);
+          var files = window.__grRecordingData;
+          var data = files && files[path];
+          if (!data)
+              return 0;
+          var begin = Number(byte_offset);
+          var end = begin + length;
+          if (begin < 0 || end > data.byteLength)
+              return 0;
+          HEAPU8.set(data.subarray(begin, end), destination);
+          return length;
+      });
 
 static gr::analog::gr_waveform_t waveform_from(const std::string& s) {
     // Accept both GRC constants ("analog.GR_COS_WAVE") and the old shorthand
@@ -109,6 +135,50 @@ static bool bool_from(const json& p, const std::string& key, bool fallback)
         return value == "true" || value == "yes" || value == "on" || value == "1";
     }
     return fallback;
+}
+
+// POSIX reads of browser-backed files are unreliable once GNU Radio's scheduler
+// pthreads start. For the browser's MB-scale recording workflow, copy the
+// selected region directly from the runner page's Uint8Array while factories
+// are built on the main thread, then stream shared WASM memory with vector_source.
+template <typename T>
+static BuiltBlock memory_file_source(const json& p)
+{
+    const std::string filename = p.value("file", std::string());
+    const unsigned int vlen =
+        static_cast<unsigned int>(std::max(1, p.value("vlen", 1)));
+    const std::uint64_t offset_items = p.value("offset", std::uint64_t{ 0 });
+    const std::uint64_t requested_items = p.value("length", std::uint64_t{ 0 });
+    const bool repeat = bool_from(p, "repeat", true);
+
+    const double browser_size = browser_recording_size(filename.c_str());
+    if (browser_size < 0)
+        throw std::runtime_error("recording is not loaded client-side: " + filename);
+    const std::uint64_t bytes_per_item = sizeof(T) * std::uint64_t(vlen);
+    const std::uint64_t available_items =
+        static_cast<std::uint64_t>(browser_size) / bytes_per_item;
+    if (offset_items >= available_items)
+        throw std::runtime_error("file is too small for the requested offset");
+    const std::uint64_t remaining_items = available_items - offset_items;
+    const std::uint64_t selected_items =
+        requested_items == 0 ? remaining_items : std::min(requested_items, remaining_items);
+    if (selected_items > std::numeric_limits<std::size_t>::max() / vlen)
+        throw std::runtime_error("file selection is too large for browser memory");
+
+    std::vector<T> data(static_cast<std::size_t>(selected_items) * vlen);
+    const std::size_t selected_bytes = data.size() * sizeof(T);
+    if (selected_bytes > static_cast<std::size_t>(std::numeric_limits<int>::max()))
+        throw std::runtime_error("file selection is too large for browser memory");
+    const std::uint64_t byte_offset = offset_items * bytes_per_item;
+    if (browser_recording_copy(filename.c_str(),
+                               static_cast<double>(byte_offset),
+                               reinterpret_cast<unsigned char*>(data.data()),
+                               static_cast<int>(selected_bytes)) !=
+        static_cast<int>(selected_bytes))
+        throw std::runtime_error("can't copy recording into WASM memory");
+    auto block = gr::blocks::vector_source<T>::make(
+        data, repeat, vlen, std::vector<gr::tag_t>{});
+    return { block, nullptr };
 }
 
 static double number_from(const json& p, const std::string& key, double fallback)
@@ -881,6 +951,25 @@ static std::map<std::string, Factory>& registry_storage() {
              if (type == "byte") return make_constant_source<std::int8_t>(value);
              throw std::runtime_error(
                  "Constant Source type must be complex, float, int, short, or byte");
+         }},
+        {"blocks_file_source", [](const json& p) -> BuiltBlock {
+             const std::string type = type_from(p, "complex");
+             if (type == "complex") return memory_file_source<gr_complex>(p);
+             if (type == "float") return memory_file_source<float>(p);
+             if (type == "int") return memory_file_source<std::int32_t>(p);
+             if (type == "short") return memory_file_source<std::int16_t>(p);
+             if (type == "byte") return memory_file_source<std::uint8_t>(p);
+             throw std::runtime_error(
+                 "File Source type must be complex, float, int, short, or byte");
+         }},
+        {"blocks_interleaved_short_to_complex", [](const json& p) -> BuiltBlock {
+             return {
+                 gr::blocks::interleaved_short_to_complex::make(
+                     bool_from(p, "vector_input", false),
+                     bool_from(p, "swap", false),
+                     static_cast<float>(number_from(p, "scale_factor", 1.0))),
+                 nullptr
+             };
          }},
         {"blocks_null_source", [](const json& p) -> BuiltBlock {
              return { gr::blocks::null_source::make(itemsize_of(p)), nullptr };

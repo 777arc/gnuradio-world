@@ -49,7 +49,6 @@
 #include <gnuradio/blocks/file_descriptor_sink.h>
 #include <gnuradio/blocks/file_descriptor_source.h>
 #include <gnuradio/blocks/file_sink.h>
-#include <gnuradio/blocks/file_source.h>
 #include <gnuradio/blocks/float_to_char.h>
 #include <gnuradio/blocks/float_to_int.h>
 #include <gnuradio/blocks/float_to_short.h>
@@ -58,7 +57,6 @@
 #include <gnuradio/blocks/integrate.h>
 #include <gnuradio/blocks/interleave.h>
 #include <gnuradio/blocks/interleaved_char_to_complex.h>
-#include <gnuradio/blocks/interleaved_short_to_complex.h>
 #include <gnuradio/blocks/keep_m_in_n.h>
 #include <gnuradio/blocks/keep_one_in_n.h>
 #include <gnuradio/blocks/magphase_to_complex.h>
@@ -517,29 +515,6 @@ void register_generated_blocks(std::map<std::string, Factory>& registry)
         }
         throw std::runtime_error("unsupported type selection for blocks_file_sink");
     });
-    registry.emplace("blocks_file_source", [](const nlohmann::json& p) -> BuiltBlock {
-        if (wasm_registry::text(p, "type", "complex") == "complex") {
-            auto block =blocks::file_source::make(sizeof(gr_complex)*wasm_registry::number<int>(p, "vlen", 1), wasm_registry::text(p, "file", "").c_str(), wasm_registry::choice(p, "repeat", {{"True", true}, {"False", false}}, true), wasm_registry::number<int>(p, "offset", 0), wasm_registry::number<int>(p, "length", 0));
-            return { block, nullptr };
-        }
-        else if (wasm_registry::text(p, "type", "complex") == "float") {
-            auto block =blocks::file_source::make(sizeof(float)*wasm_registry::number<int>(p, "vlen", 1), wasm_registry::text(p, "file", "").c_str(), wasm_registry::choice(p, "repeat", {{"True", true}, {"False", false}}, true), wasm_registry::number<int>(p, "offset", 0), wasm_registry::number<int>(p, "length", 0));
-            return { block, nullptr };
-        }
-        else if (wasm_registry::text(p, "type", "complex") == "int") {
-            auto block =blocks::file_source::make(sizeof(int)*wasm_registry::number<int>(p, "vlen", 1), wasm_registry::text(p, "file", "").c_str(), wasm_registry::choice(p, "repeat", {{"True", true}, {"False", false}}, true), wasm_registry::number<int>(p, "offset", 0), wasm_registry::number<int>(p, "length", 0));
-            return { block, nullptr };
-        }
-        else if (wasm_registry::text(p, "type", "complex") == "short") {
-            auto block =blocks::file_source::make(sizeof(short)*wasm_registry::number<int>(p, "vlen", 1), wasm_registry::text(p, "file", "").c_str(), wasm_registry::choice(p, "repeat", {{"True", true}, {"False", false}}, true), wasm_registry::number<int>(p, "offset", 0), wasm_registry::number<int>(p, "length", 0));
-            return { block, nullptr };
-        }
-        else if (wasm_registry::text(p, "type", "complex") == "byte") {
-            auto block =blocks::file_source::make(sizeof(char)*wasm_registry::number<int>(p, "vlen", 1), wasm_registry::text(p, "file", "").c_str(), wasm_registry::choice(p, "repeat", {{"True", true}, {"False", false}}, true), wasm_registry::number<int>(p, "offset", 0), wasm_registry::number<int>(p, "length", 0));
-            return { block, nullptr };
-        }
-        throw std::runtime_error("unsupported type selection for blocks_file_source");
-    });
     registry.emplace("blocks_float_to_char", [](const nlohmann::json& p) -> BuiltBlock {
         auto block = blocks::float_to_char::make(wasm_registry::number<int>(p, "vlen", 1), wasm_registry::number<double>(p, "scale", 1.0));
         return { block, nullptr };
@@ -604,10 +579,6 @@ void register_generated_blocks(std::map<std::string, Factory>& registry)
     });
     registry.emplace("blocks_interleaved_char_to_complex", [](const nlohmann::json& p) -> BuiltBlock {
         auto block = blocks::interleaved_char_to_complex::make(wasm_registry::choice(p, "vector_input", {{"False", false}, {"True", true}}, false));
-        return { block, nullptr };
-    });
-    registry.emplace("blocks_interleaved_short_to_complex", [](const nlohmann::json& p) -> BuiltBlock {
-        auto block = blocks::interleaved_short_to_complex::make(wasm_registry::choice(p, "vector_input", {{"False", false}, {"True", true}}, false), wasm_registry::choice(p, "swap", {{"True", true}, {"False", false}}, false));
         return { block, nullptr };
     });
     registry.emplace("blocks_keep_m_in_n", [](const nlohmann::json& p) -> BuiltBlock {

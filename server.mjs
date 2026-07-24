@@ -4,8 +4,10 @@
 // Emscripten pthreads work (needed by the thread-per-block scheduler).
 // Usage: node wasm/server.mjs [port] [rootDir]
 import http from 'node:http';
+import { createReadStream } from 'node:fs';
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
+import { pipeline } from 'node:stream/promises';
 
 const port = Number(process.argv[2] || 8080);
 const root = normalize(process.argv[3] || new URL('.', import.meta.url).pathname);
@@ -60,7 +62,17 @@ async function listExampleRecordings() {
       const sampleCount = bytesPerSample && dataStat.size % bytesPerSample === 0
         ? dataStat.size / bytesPerSample
         : null;
-      return { name, dataFile, metaFile, datatype, sampleRate, author, sampleCount };
+      return {
+        name,
+        dataFile,
+        metaFile,
+        datatype,
+        sampleRate,
+        author,
+        sampleCount,
+        byteLength: dataStat.size,
+        downloadUrl: '/example_recordings/' + encodeURIComponent(dataFile),
+      };
     } catch {
       // A malformed/unreadable metadata document is not a usable SigMF recording.
       return null;
@@ -99,6 +111,26 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(200);
       return res.end(JSON.stringify(recordings));
     }
+    // Stream recording data rather than passing it through readFile(). This
+    // keeps server memory flat and lets the editor report download progress
+    // from Content-Length.
+    if (urlPath.startsWith('/example_recordings/') && urlPath.endsWith('.sigmf-data')) {
+      const requested = urlPath.slice('/example_recordings/'.length);
+      const recordings = await listExampleRecordings();
+      const recording = recordings.find(item => item.dataFile === requested);
+      if (!recording) {
+        res.writeHead(404);
+        return res.end('recording not found');
+      }
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Content-Length', recording.byteLength);
+      const safeName = recording.dataFile.replace(/[^\x20-\x7e]|["\\]/g, '_');
+      res.setHeader('Content-Disposition', `attachment; filename="${safeName}"`);
+      res.writeHead(200);
+      if (req.method === 'HEAD') return res.end();
+      await pipeline(createReadStream(join(root, 'example_recordings', recording.dataFile)), res);
+      return;
+    }
     if (urlPath.endsWith('/')) urlPath += 'index.html';
     const filePath = normalize(join(root, urlPath));
     if (!filePath.startsWith(root)) { res.writeHead(403); return res.end('forbidden'); }
@@ -116,6 +148,10 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(200);
     res.end(body);
   } catch (e) {
+    if (res.headersSent) {
+      res.destroy();
+      return;
+    }
     res.writeHead(404);
     res.end('not found: ' + req.url);
   }

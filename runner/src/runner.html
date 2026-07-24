@@ -1,0 +1,107 @@
+<!--
+Copyright (C) 2024 The Qt Company Ltd.
+SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
+-->
+
+<!doctype html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, height=device-height, user-scalable=0"/>
+
+    <title>runner</title>
+    <style>
+      html, body { padding: 0; margin: 0; overflow: hidden; height: 100% }
+      #screen { width: 100%; height: 100%; }
+    </style>
+  </head>
+  <body onload="init()">
+    <figure style="overflow:visible;" id="qtspinner">
+      <center style="margin-top:1.5em; line-height:150%">
+        <img src="qtlogo.svg" width="320" height="200" style="display:block"></img>
+        <strong>Qt for WebAssembly: runner</strong>
+        <div id="qtstatus"></div>
+        <noscript>JavaScript is disabled. Please enable JavaScript to use this application.</noscript>
+      </center>
+    </figure>
+    <div id="screen"></div>
+
+    <script type="text/javascript">
+      async function recordingFilesForRun(status) {
+        const token = new URLSearchParams(location.search).get('recordingToken');
+        if (!token) return [];
+        if (window.parent === window ||
+            typeof window.parent.__grTakeRecordingFiles !== 'function')
+          throw new Error('recording cache is unavailable');
+
+        const descriptors = window.parent.__grTakeRecordingFiles(token);
+        const files = [];
+        for (let index = 0; index < descriptors.length; ++index) {
+          const descriptor = descriptors[index];
+          if (!descriptor.blob || typeof descriptor.blob.arrayBuffer !== 'function' ||
+              typeof descriptor.path !== 'string' ||
+              !descriptor.path.startsWith('/recordings/'))
+            throw new Error('invalid cached recording');
+          status.textContent =
+            `Preparing recording ${index + 1} of ${descriptors.length}…`;
+          files.push({
+            path: descriptor.path,
+            data: new Uint8Array(await descriptor.blob.arrayBuffer()),
+          });
+        }
+        return files;
+      }
+
+      async function init()
+      {
+        const spinner = document.querySelector('#qtspinner');
+        const screen = document.querySelector('#screen');
+        const status = document.querySelector('#qtstatus');
+
+        const showUi = (ui) => {
+          [spinner, screen].forEach(element => element.style.display = 'none');
+          if (screen === ui)
+            screen.style.position = 'default';
+          ui.style.display = 'block';
+        }
+
+        try {
+          showUi(spinner);
+          status.textContent = 'Loading…';
+          const recordingFiles = await recordingFilesForRun(status);
+          status.textContent = 'Loading GNU Radio…';
+          window.__grRecordingData = Object.create(null);
+          for (const file of recordingFiles)
+            window.__grRecordingData[file.path] = file.data;
+          window.__grMountedRecordings = recordingFiles.map(file => file.path);
+
+          const instance = await qtLoad({
+            qt: {
+              onLoaded: () => showUi(screen),
+              onExit: exitData =>
+              {
+                status.textContent = 'Application exit';
+                status.textContent +=
+                  exitData.code !== undefined ? ` with code ${exitData.code}` : '';
+                status.textContent +=
+                  exitData.text !== undefined ? ` (${exitData.text})` : '';
+                showUi(spinner);
+              },
+              entryFunction: window.runner_entry,
+              containerElements: [screen],
+            }
+          });
+          window.__grRunnerInstance = instance;
+        } catch (error) {
+          console.error(error);
+          console.error(error.stack);
+          status.textContent = `Runner failed: ${error.message || error}`;
+          showUi(spinner);
+        }
+      }
+    </script>
+    <script src="runner.js"></script>
+    <script type="text/javascript" src="qtloader.js"></script>
+  </body>
+</html>

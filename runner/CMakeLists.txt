@@ -93,7 +93,7 @@ target_link_options(runner PRIVATE
   -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=268435456
   -sALLOW_TABLE_GROWTH=1
   -sNO_DISABLE_EXCEPTION_CATCHING
-  -sEXPORTED_RUNTIME_METHODS=ccall,cwrap,stringToNewUTF8,UTF8ToString
+  -sEXPORTED_RUNTIME_METHODS=ccall,cwrap,stringToNewUTF8,UTF8ToString,FS
   # Diagnostics panel: injected into the page, survives Qt's html regeneration.
   --post-js ${CMAKE_CURRENT_SOURCE_DIR}/src/diag.js)
 
@@ -114,7 +114,12 @@ endif()
 add_custom_command(TARGET runner POST_BUILD
   COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/src/patch_runner_js.py
           ${CMAKE_CURRENT_BINARY_DIR}/runner.js
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/runner.html
+          ${CMAKE_CURRENT_BINARY_DIR}/runner.html
   COMMENT "Patching runner.js addFunction signature default")
+set_property(TARGET runner APPEND PROPERTY LINK_DEPENDS
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/runner.html)
 
 # ---------------------------------------------------------------------------
 # Category side modules: one WebAssembly SIDE_MODULE per deferred category. Each
