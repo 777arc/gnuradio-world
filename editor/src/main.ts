@@ -907,8 +907,8 @@ function downloadBlob(contents: BlobPart, type: string, filename: string) {
   const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
   setTimeout(() => URL.revokeObjectURL(url), 0);
 }
-function saveFlowgraph(saveAs = false) {
-  downloadBlob(grcText(), 'application/x-yaml', saveAs ? 'flowgraph-as.grc' : 'flowgraph.grc');
+function saveFlowgraph() {
+  downloadBlob(grcText(), 'application/x-yaml', 'flowgraph.grc');
   log(`saved ${insts.length} blocks`);
 }
 
@@ -1151,7 +1151,7 @@ function showMenu(x: number, y: number, inst: Inst) {
 }
 document.addEventListener('mousedown', e => { if (menuEl && !menuEl.contains(e.target as Node)) closeMenu(); });
 const SHORTCUTS: [string, string][] = [
-  ['Ctrl+N / O', 'New / open flowgraph'], ['Ctrl+S / Ctrl+Shift+S', 'Save / save as'],
+  ['Ctrl+N / O', 'New / open flowgraph'], ['Ctrl+S', 'Save flowgraph'],
   ['Ctrl+Shift+D', 'Duplicate flowgraph'], ['Ctrl+W / Ctrl+Q', 'Close flowgraph / app'],
   ['Ctrl+P', 'Save flowgraph screenshot'], ['Ctrl+Shift+P', 'Save console'], ['Ctrl+L', 'Clear console'],
   ['Ctrl+Z / Ctrl+Y', 'Undo / redo'], ['Ctrl+A', 'Select all'], ['Delete', 'Delete selection'],
@@ -1198,7 +1198,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'F1' || (ctrl && key === 'k')) { consume(e); showShortcutHelp(); return; }
   if (ctrl && key === 'n') { consume(e); clearFlowgraph(); return; }
   if (ctrl && key === 'o') { consume(e); (el('fileOpen') as HTMLInputElement).click(); return; }
-  if (ctrl && key === 's') { consume(e); saveFlowgraph(e.shiftKey); return; }
+  if (ctrl && key === 's') { consume(e); saveFlowgraph(); return; }
   if (ctrl && e.shiftKey && key === 'd') { consume(e); duplicateFlowgraph(); return; }
   if (ctrl && e.shiftKey && key === 'p') { consume(e); saveConsole(); return; }
   if (ctrl && key === 'p') { consume(e); saveScreenshot(); return; }
@@ -2515,8 +2515,6 @@ const MENUS: TopMenu[] = [
     { label: 'Open Recent', reason: R_RECENT },
     'sep',
     { label: 'Save', key: 'Ctrl+S', run: () => saveFlowgraph() },
-    { label: 'Save As…', key: 'Ctrl+Shift+S', run: () => saveFlowgraph(true) },
-    { label: 'Save Copy', run: () => saveFlowgraph() },
     { label: 'Copy URL', run: copyFlowgraphUrl, enabled: hasBlocks },
     'sep',
     { label: 'Screen Capture…', key: 'Ctrl+P', run: saveScreenshot },

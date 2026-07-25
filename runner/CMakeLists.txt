@@ -34,6 +34,7 @@ set(GR_INCLUDE_DIRS
   ${GR}/gr-qtgui/include
   ${GR}/gr-rds/include
   ${GR}/gr-foo/include
+  ${GR}/gr-dvbs2/include
   ${BUILDGR}/gnuradio-runtime/include ${SYSROOT}/include)
 
 # ---------------------------------------------------------------------------
@@ -236,6 +237,40 @@ add_custom_command(
   COMMENT "Building category side module foo.wasm (out-of-tree gr-foo sources)"
   VERBATIM)
 list(APPEND SIDE_MODULE_OUTPUTS ${foo_out})
+
+# gr-dvbs2 (drmpeg): another out-of-tree module, same treatment. bbheader_source
+# is excluded — it is a UDP transport-stream source built on Boost.Asio (host
+# networking), which has no meaning in the browser sandbox and is not in the WASM
+# Boost set; it stays greyed out in the palette. The other 7 blocks form the
+# DVB-S2 transmit chain (bbheader -> bbscrambler -> bch -> ldpc -> interleaver ->
+# modulator -> physical). DVB-S2 constants come from the checked-in
+# include/dvbs2/dvbs2_config.h; lib/config.h is the empty generated stub.
+set(DVBS2_LIB ${GR}/gr-dvbs2/lib)
+set(DVBS2_SOURCES
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/generated_registry_dvbs2.cpp
+  ${DVBS2_LIB}/bbheader_bb_impl.cc
+  ${DVBS2_LIB}/bbscrambler_bb_impl.cc
+  ${DVBS2_LIB}/bch_bb_impl.cc
+  ${DVBS2_LIB}/ldpc_bb_impl.cc
+  ${DVBS2_LIB}/interleaver_bb_impl.cc
+  ${DVBS2_LIB}/modulator_bc_impl.cc
+  ${DVBS2_LIB}/physical_cc_impl.cc)
+set(dvbs2_out ${CMAKE_CURRENT_BINARY_DIR}/dvbs2.wasm)
+add_custom_command(
+  OUTPUT ${dvbs2_out}
+  COMMAND ${CMAKE_CXX_COMPILER}
+    -sSIDE_MODULE=1 -pthread -fPIC -Oz -std=c++17
+    -sNO_DISABLE_EXCEPTION_CATCHING
+    -sWASM_BIGINT=1
+    ${SIDE_INCLUDE_FLAGS}
+    ${DVBS2_SOURCES}
+    -o ${dvbs2_out}
+  DEPENDS ${DVBS2_SOURCES}
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/registry_helpers.hpp
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/registry.hpp
+  COMMENT "Building category side module dvbs2.wasm (out-of-tree gr-dvbs2 sources)"
+  VERBATIM)
+list(APPEND SIDE_MODULE_OUTPUTS ${dvbs2_out})
 
 add_custom_target(side_modules ALL DEPENDS ${SIDE_MODULE_OUTPUTS})
 add_dependencies(runner side_modules)
