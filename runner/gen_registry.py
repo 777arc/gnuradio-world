@@ -36,6 +36,7 @@ MODULES = (
     "gr-rds",
     "gr-foo",
     "gr-dvbs2",
+    "gr-dvbs2rx",
 )
 
 # Block categories whose C++ is statically linked into the main runner module and
@@ -43,7 +44,7 @@ MODULES = (
 # module that is fetched on demand the first time a flowgraph uses one of its
 # blocks (see the runner's dlopen loader and CMakeLists side-module targets).
 CORE_MODULES = ("blocks", "analog", "fft", "filter")
-DEFERRED_MODULES = ("digital", "dtv", "network", "pdu", "vocoder", "rds", "foo", "dvbs2")
+DEFERRED_MODULES = ("digital", "dtv", "network", "pdu", "vocoder", "rds", "foo", "dvbs2", "dvbs2rx")
 
 # Load-order dependencies between DEFERRED modules only (core is always present).
 # Empty today: every deferred module references only core symbols (fec + qtgui

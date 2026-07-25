@@ -198,7 +198,8 @@ part of the always-loaded core or an on-demand side module. To add one (say
 
 The recipe above assumes an in-tree `gr-<m>` built by `wasm/gr/build-gr`. A
 third-party OOT module (already done for [`gr-rds/`](../gr-rds),
-[`gr-foo/`](../gr-foo), [`gr-dvbs2/`](../gr-dvbs2)) is **not** part of that
+[`gr-foo/`](../gr-foo), [`gr-dvbs2/`](../gr-dvbs2),
+[`gr-dvbs2rx/`](../gr-dvbs2rx)) is **not** part of that
 umbrella build, so there is no `libgnuradio-<m>.a`; instead its own `lib/*.cc` are
 compiled straight into an on-demand `<m>.wasm` side module. This is a
 **self-contained checklist** — following it needs no investigation beyond the
@@ -262,6 +263,10 @@ copy that block's `cpp_templates` verbatim (gr-dvbs2's blocks ≈ gr-dtv's
   - if a whole block is unusable in the browser (host networking, etc.), drop its
     source from step 6 and leave its yaml Python-only (gr-dvbs2's `bbheader_source`
     = a Boost.Asio UDP source).
+  - **Header-only SIMD libraries** that dispatch on `__AVX2__` / `__SSE4_1__` /
+    `__ARM_NEON__` (gr-dvbs2rx's LDPC/BCH decoder) need nothing: Emscripten defines
+    none of those, so they fall back to their generic scalar path and compile as-is
+    (slower, still correct). Don't add `-msimd128`/`-msse4.1`.
 
 **5. Add an empty `gr-<m>/lib/config.h`** — the impls `#include "config.h"`, which
 the module's own CMake normally generates. (Any real per-module constants header

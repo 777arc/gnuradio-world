@@ -35,6 +35,7 @@ set(GR_INCLUDE_DIRS
   ${GR}/gr-rds/include
   ${GR}/gr-foo/include
   ${GR}/gr-dvbs2/include
+  ${GR}/gr-dvbs2rx/include
   ${BUILDGR}/gnuradio-runtime/include ${SYSROOT}/include)
 
 # ---------------------------------------------------------------------------
@@ -271,6 +272,37 @@ add_custom_command(
   COMMENT "Building category side module dvbs2.wasm (out-of-tree gr-dvbs2 sources)"
   VERBATIM)
 list(APPEND SIDE_MODULE_OUTPUTS ${dvbs2_out})
+
+# gr-dvbs2rx (drmpeg): the DVB-S2/T2 receive-side FEC decoders (bbdeheader,
+# bbdescrambler, bch_decoder, ldpc_decoder). Another OOT module, same treatment.
+# Its LDPC/BCH decoder is a header-only SIMD library (lib/*.hh) that dispatches on
+# __AVX2__/__SSE4_1__/__ARM_NEON__ — none defined under Emscripten, so it falls
+# back to the generic scalar path (no x86 intrinsics). Deps are stdlib-only.
+# DVB constants come from the checked-in include/dvbs2rx/dvb_config.h; lib/config.h
+# is the empty generated stub.
+set(DVBS2RX_LIB ${GR}/gr-dvbs2rx/lib)
+set(DVBS2RX_SOURCES
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/generated_registry_dvbs2rx.cpp
+  ${DVBS2RX_LIB}/bbdeheader_bb_impl.cc
+  ${DVBS2RX_LIB}/bbdescrambler_bb_impl.cc
+  ${DVBS2RX_LIB}/bch_decoder_bb_impl.cc
+  ${DVBS2RX_LIB}/ldpc_decoder_cb_impl.cc)
+set(dvbs2rx_out ${CMAKE_CURRENT_BINARY_DIR}/dvbs2rx.wasm)
+add_custom_command(
+  OUTPUT ${dvbs2rx_out}
+  COMMAND ${CMAKE_CXX_COMPILER}
+    -sSIDE_MODULE=1 -pthread -fPIC -Oz -std=c++17
+    -sNO_DISABLE_EXCEPTION_CATCHING
+    -sWASM_BIGINT=1
+    ${SIDE_INCLUDE_FLAGS}
+    ${DVBS2RX_SOURCES}
+    -o ${dvbs2rx_out}
+  DEPENDS ${DVBS2RX_SOURCES}
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/registry_helpers.hpp
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/registry.hpp
+  COMMENT "Building category side module dvbs2rx.wasm (out-of-tree gr-dvbs2rx sources)"
+  VERBATIM)
+list(APPEND SIDE_MODULE_OUTPUTS ${dvbs2rx_out})
 
 add_custom_target(side_modules ALL DEPENDS ${SIDE_MODULE_OUTPUTS})
 add_dependencies(runner side_modules)

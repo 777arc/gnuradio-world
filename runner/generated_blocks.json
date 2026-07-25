@@ -236,6 +236,10 @@
     "dvbs2_ldpc_bb",
     "dvbs2_modulator_bc",
     "dvbs2_physical_cc",
+    "dvbs2rx_bbdeheader_bb",
+    "dvbs2rx_bbdescrambler_bb",
+    "dvbs2rx_bch_decoder_bb",
+    "dvbs2rx_ldpc_decoder_cb",
     "fft_filter_xxx",
     "fft_vxx",
     "fir_filter_xxx",
@@ -321,7 +325,8 @@
     "vocoder",
     "rds",
     "foo",
-    "dvbs2"
+    "dvbs2",
+    "dvbs2rx"
   ],
   "module_deps": {},
   "block_module": {
@@ -449,6 +454,10 @@
     "dvbs2_interleaver_bb": "dvbs2",
     "dvbs2_ldpc_bb": "dvbs2",
     "dvbs2_modulator_bc": "dvbs2",
-    "dvbs2_physical_cc": "dvbs2"
+    "dvbs2_physical_cc": "dvbs2",
+    "dvbs2rx_bbdeheader_bb": "dvbs2rx",
+    "dvbs2rx_bbdescrambler_bb": "dvbs2rx",
+    "dvbs2rx_bch_decoder_bb": "dvbs2rx",
+    "dvbs2rx_ldpc_decoder_cb": "dvbs2rx"
   }
 }
