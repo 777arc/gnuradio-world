@@ -984,6 +984,64 @@ function loadFlowgraph(doc: any) {
   selected = null; selectedBlocks.clear(); selectedConnection = null; cancelConnect();
   render(); recordHistory(); log(`opened ${insts.length} blocks`);
 }
+// Fly-in / fly-out transition used when opening an example flowgraph: the blocks
+// already on the canvas scatter off-screen in random directions while the
+// example's blocks sweep in from off-screen to their loaded positions.
+function loadFlowgraphAnimated(doc: any) {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    loadFlowgraph(doc); resetHistory(); return;
+  }
+  const parseXY = (g: Element): [number, number] => {
+    const m = /translate\(\s*([-\d.]+)[ ,]+([-\d.]+)/.exec(g.getAttribute('transform') || '');
+    return m ? [parseFloat(m[1]), parseFloat(m[2])] : [0, 0];
+  };
+  const rect = svg.getBoundingClientRect();
+  // Far enough that a block starting/ending here is off-screen from anywhere on
+  // the canvas, in local (pre-scale) units. Each block gets its own direction.
+  const reach = Math.hypot(rect.width, rect.height) / (zoom || 1) + 500;
+  const randOffset = (): [number, number] => {
+    const a = Math.random() * Math.PI * 2;
+    return [Math.cos(a) * reach, Math.sin(a) * reach];
+  };
+
+  // Preserve the outgoing scene in an overlay so render() can rebuild the canvas
+  // underneath it. flyG mirrors nodesG's scale so coordinates line up.
+  const flyG = svgEl('g', { transform: `scale(${zoom})` });
+  const oldWires = [...wiresG.children];
+  const oldBlocks = [...nodesG.children];
+  for (const w of oldWires) flyG.appendChild(w);
+  for (const b of oldBlocks) flyG.appendChild(b);
+  svg.appendChild(flyG);
+
+  loadFlowgraph(doc); resetHistory();
+
+  const OUT = 520, IN = 620;
+  // Old wires just fade; their paths can't track the scattering blocks.
+  for (const w of oldWires)
+    (w as SVGElement).animate([{ opacity: 1 }, { opacity: 0 }], { duration: 260, fill: 'forwards' });
+  for (const b of oldBlocks) {
+    const [x, y] = parseXY(b), [dx, dy] = randOffset();
+    (b as SVGElement).animate([
+      { transform: `translate(${x}px,${y}px)`, opacity: 1 },
+      { transform: `translate(${x + dx}px,${y + dy}px)`, opacity: 0 },
+    ], { duration: OUT, delay: Math.random() * 80, easing: 'cubic-bezier(0.4,0,1,1)', fill: 'both' });
+  }
+  for (const b of [...nodesG.children]) {
+    const [x, y] = parseXY(b), [dx, dy] = randOffset();
+    (b as SVGElement).animate([
+      { transform: `translate(${x + dx}px,${y + dy}px)`, opacity: 0 },
+      { transform: `translate(${x}px,${y}px)`, opacity: 1 },
+    ], { duration: IN, delay: Math.random() * 120, easing: 'cubic-bezier(0.16,1,0.3,1)', fill: 'backwards' });
+  }
+  // New wires would dangle off the incoming blocks, so hold them until the
+  // blocks have mostly arrived, then fade them in.
+  wiresG.style.opacity = '0';
+  const wa = wiresG.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 320, delay: IN * 0.55, easing: 'ease-out' });
+  wa.onfinish = () => { wiresG.style.opacity = ''; };
+
+  // Tear down the overlay once the slowest fly-out has finished.
+  setTimeout(() => flyG.remove(), OUT + 120);
+}
 function duplicateFlowgraph() {
   if (!insts.length) return;
   const token = `grc-duplicate-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -2021,7 +2079,7 @@ async function buildExamples(panel: HTMLElement) {
       meta.textContent = `${file} · ${n} block${n === 1 ? '' : 's'}`;
       item.append(meta);
       item.onclick = () => {
-        try { loadFlowgraph(fg); resetHistory(); log(`loaded example "${fgTitle || file}"`); }
+        try { loadFlowgraphAnimated(fg); log(`loaded example "${fgTitle || file}"`); }
         catch (err) { log(`failed to load example "${file}": ${err}`); }
       };
     }).catch(err => {
