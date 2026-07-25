@@ -33,6 +33,7 @@ set(GR_INCLUDE_DIRS
   ${GR}/gr-network/include ${GR}/gr-pdu/include ${GR}/gr-vocoder/include
   ${GR}/gr-qtgui/include
   ${GR}/gr-rds/include
+  ${GR}/gr-foo/include
   ${BUILDGR}/gnuradio-runtime/include ${SYSROOT}/include)
 
 # ---------------------------------------------------------------------------
@@ -202,6 +203,39 @@ add_custom_command(
   COMMENT "Building category side module rds.wasm (out-of-tree gr-rds sources)"
   VERBATIM)
 list(APPEND SIDE_MODULE_OUTPUTS ${rds_out})
+
+# gr-foo: another out-of-tree module, handled exactly like gr-rds above — its own
+# lib/*.cc are compiled straight into foo.wasm. selector/valve are Python
+# hier_block2s (no C++) and are excluded; packet_pad2's optional UHD tx_time
+# tagging is #ifdef FOO_UHD (undefined here), so no UHD dependency is pulled in.
+set(FOO_LIB ${GR}/gr-foo/lib)
+set(FOO_SOURCES
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/generated_registry_foo.cpp
+  ${FOO_LIB}/burst_tagger_impl.cc
+  ${FOO_LIB}/channel_model_impl.cc
+  ${FOO_LIB}/packet_dropper_impl.cc
+  ${FOO_LIB}/packet_pad2.cc
+  ${FOO_LIB}/pad_tagged_stream_impl.cc
+  ${FOO_LIB}/periodic_msg_source_impl.cc
+  ${FOO_LIB}/random_periodic_msg_source_impl.cc
+  ${FOO_LIB}/rtt_measure_impl.cc
+  ${FOO_LIB}/wireshark_connector_impl.cc)
+set(foo_out ${CMAKE_CURRENT_BINARY_DIR}/foo.wasm)
+add_custom_command(
+  OUTPUT ${foo_out}
+  COMMAND ${CMAKE_CXX_COMPILER}
+    -sSIDE_MODULE=1 -pthread -fPIC -Oz -std=c++17
+    -sNO_DISABLE_EXCEPTION_CATCHING
+    -sWASM_BIGINT=1
+    ${SIDE_INCLUDE_FLAGS}
+    ${FOO_SOURCES}
+    -o ${foo_out}
+  DEPENDS ${FOO_SOURCES}
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/registry_helpers.hpp
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/registry.hpp
+  COMMENT "Building category side module foo.wasm (out-of-tree gr-foo sources)"
+  VERBATIM)
+list(APPEND SIDE_MODULE_OUTPUTS ${foo_out})
 
 add_custom_target(side_modules ALL DEPENDS ${SIDE_MODULE_OUTPUTS})
 add_dependencies(runner side_modules)

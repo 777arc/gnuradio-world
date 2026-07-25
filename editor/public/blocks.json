@@ -39398,6 +39398,893 @@
    "outputs": []
   },
   {
+   "id": "foo_burst_tagger",
+   "label": "Burst Tagger",
+   "category": "Foo",
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "foo",
+   "params": [
+    {
+     "id": "tag_name",
+     "label": "Tag Name",
+     "dtype": "string",
+     "default": "burst_len",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "mult",
+     "label": "Multiplier",
+     "dtype": "int",
+     "default": "1",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "complex",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "complex",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "foo_channel_model",
+   "label": "Channel Model",
+   "category": "Foo",
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "foo",
+   "params": [
+    {
+     "id": "noise_voltage",
+     "label": "Noise Voltage",
+     "dtype": "real",
+     "default": "0.0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "freq_offset",
+     "label": "Frequency Offset",
+     "dtype": "real",
+     "default": "0.0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "epsilon",
+     "label": "Epsilon",
+     "dtype": "real",
+     "default": "1.0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "taps",
+     "label": "Taps",
+     "dtype": "complex_vector",
+     "default": "1.0 + 1.0j",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "seed",
+     "label": "Seed",
+     "dtype": "int",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "block_tags",
+     "label": "Block Tag Propagation",
+     "dtype": "enum",
+     "default": "False",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": [
+      "Yes",
+      "No"
+     ],
+     "option_attributes": {
+      "hide_block": [
+       "",
+       "part"
+      ]
+     },
+     "hide": "${ block_tags.hide_block }"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "complex",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "complex",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "foo_packet_dropper",
+   "label": "Packet Dropper",
+   "category": "Foo",
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "foo",
+   "params": [
+    {
+     "id": "drop_rate",
+     "label": "Packet drop rate",
+     "dtype": "real",
+     "default": "0.5",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "seed",
+     "label": "Random seed",
+     "dtype": "int",
+     "default": "42",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "foo_packet_pad2",
+   "label": "Packet Pad2",
+   "category": "Foo",
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "foo",
+   "params": [
+    {
+     "id": "debug",
+     "label": "Debug",
+     "dtype": "bool",
+     "default": "False",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": [
+      "Enable",
+      "Disable"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "delay",
+     "label": "Delay",
+     "dtype": "bool",
+     "default": "False",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": [
+      "Enable",
+      "Disable"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "delay_sec",
+     "label": "Delay Sec",
+     "dtype": "real",
+     "default": "0.001",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "pad_front",
+     "label": "Pad Front",
+     "dtype": "int",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "pad_tail",
+     "label": "Pad Tail",
+     "dtype": "int",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "complex",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "complex",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "foo_pad_tagged_stream",
+   "label": "Pad Tagged Stream",
+   "category": "Foo",
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "foo",
+   "params": [
+    {
+     "id": "buffer_size",
+     "label": "Buffer Size",
+     "dtype": "int",
+     "default": "0x8000",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "len_tag_name",
+     "label": "Length Tag Key",
+     "dtype": "string",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "in",
+     "domain": "stream",
+     "dtype": "complex",
+     "multiplicity": "1",
+     "optional": 0
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "out",
+     "domain": "stream",
+     "dtype": "complex",
+     "multiplicity": "1",
+     "optional": 0
+    }
+   ]
+  },
+  {
+   "id": "foo_periodic_msg_source",
+   "label": "Periodic Message Source",
+   "category": "Foo",
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "foo",
+   "params": [
+    {
+     "id": "msg",
+     "label": "Message PMT",
+     "dtype": "string",
+     "default": "Hello World!",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "interval",
+     "label": "Period (ms)",
+     "dtype": "int",
+     "default": "1000",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "quit",
+     "label": "Quit",
+     "dtype": "bool",
+     "default": "True",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": [
+      "Enable",
+      "Disable"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "debug",
+     "label": "Debug",
+     "dtype": "bool",
+     "default": "False",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": [
+      "Enable",
+      "Disable"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "num",
+     "label": "Num Messages",
+     "dtype": "int",
+     "default": "-1",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true
+    }
+   ]
+  },
+  {
+   "id": "foo_random_periodic_msg_source",
+   "label": "Random Periodic Message Source",
+   "category": "Foo",
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "foo",
+   "params": [
+    {
+     "id": "msg_len",
+     "label": "Message Length",
+     "dtype": "int",
+     "default": "64",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "interval",
+     "label": "Period (ms)",
+     "dtype": "int",
+     "default": "1000",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "quit",
+     "label": "Quit",
+     "dtype": "bool",
+     "default": "True",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": [
+      "Enable",
+      "Disable"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "debug",
+     "label": "Debug",
+     "dtype": "bool",
+     "default": "False",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": [
+      "Enable",
+      "Disable"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "num",
+     "label": "Num Messages",
+     "dtype": "int",
+     "default": "1",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "seed",
+     "label": "Random Seed",
+     "dtype": "int",
+     "default": "1",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true
+    }
+   ]
+  },
+  {
+   "id": "foo_rtt_measure",
+   "label": "RTT measure",
+   "category": "Foo",
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "foo",
+   "params": [
+    {
+     "id": "interval",
+     "label": "Send interval",
+     "dtype": "int",
+     "default": "500",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "dout",
+     "domain": "stream",
+     "dtype": "byte",
+     "multiplicity": "1",
+     "optional": false
+    },
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "foo_selector",
+   "label": "Selector",
+   "category": "Foo",
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "params": [
+    {
+     "id": "type",
+     "label": "Type",
+     "dtype": "enum",
+     "default": "",
+     "category": "General",
+     "options": [
+      "complex",
+      "float",
+      "int",
+      "short",
+      "byte"
+     ],
+     "option_labels": null,
+     "option_attributes": {
+      "size": [
+       "gr.sizeof_gr_complex",
+       "gr.sizeof_float",
+       "gr.sizeof_int",
+       "gr.sizeof_short",
+       "gr.sizeof_char"
+      ]
+     },
+     "hide": "part"
+    },
+    {
+     "id": "num_inputs",
+     "label": "Num Inputs",
+     "dtype": "int",
+     "default": "2",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    },
+    {
+     "id": "num_outputs",
+     "label": "Num Outputs",
+     "dtype": "int",
+     "default": "2",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    },
+    {
+     "id": "input_index",
+     "label": "Input Index",
+     "dtype": "int",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "output_index",
+     "label": "Output Index",
+     "dtype": "int",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "vlen",
+     "label": "Vec Length",
+     "dtype": "int",
+     "default": "1",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ 'part' if vlen == 1 else 'none' }"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "${ type }",
+     "multiplicity": "${ num_inputs }",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "${ type }",
+     "multiplicity": "${ num_outputs }",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "foo_valve",
+   "label": "Valve",
+   "category": "Foo",
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "params": [
+    {
+     "id": "type",
+     "label": "Type",
+     "dtype": "enum",
+     "default": "",
+     "category": "General",
+     "options": [
+      "complex",
+      "float",
+      "int",
+      "short",
+      "byte"
+     ],
+     "option_labels": null,
+     "option_attributes": {
+      "size": [
+       "gr.sizeof_gr_complex",
+       "gr.sizeof_float",
+       "gr.sizeof_int",
+       "gr.sizeof_short",
+       "gr.sizeof_char"
+      ]
+     },
+     "hide": "part"
+    },
+    {
+     "id": "open",
+     "label": "Open",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "vlen",
+     "label": "Vec Length",
+     "dtype": "int",
+     "default": "1",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ 'part' if vlen == 1 else 'none' }"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "${ type }",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "${ type }",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "foo_wireshark_connector",
+   "label": "Wireshark Connector",
+   "category": "Foo",
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "foo",
+   "params": [
+    {
+     "id": "tech",
+     "label": "Technology",
+     "dtype": "enum",
+     "default": "127",
+     "category": "General",
+     "options": [
+      "127",
+      "195",
+      "283"
+     ],
+     "option_labels": [
+      "WiFi",
+      "ZigBee",
+      "ZigBeeTap"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "debug",
+     "label": "Debug",
+     "dtype": "bool",
+     "default": "False",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": [
+      "Enable",
+      "Disable"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "byte",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
    "id": "iio_attr_sink",
    "label": "IIO Attribute Sink",
    "category": "Core/Industrial I/O/Generic",

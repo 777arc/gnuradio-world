@@ -232,6 +232,15 @@
     "fft_filter_xxx",
     "fft_vxx",
     "fir_filter_xxx",
+    "foo_burst_tagger",
+    "foo_channel_model",
+    "foo_packet_dropper",
+    "foo_packet_pad2",
+    "foo_pad_tagged_stream",
+    "foo_periodic_msg_source",
+    "foo_random_periodic_msg_source",
+    "foo_rtt_measure",
+    "foo_wireshark_connector",
     "goertzel_fc",
     "high_pass_filter",
     "hilbert_fc",
@@ -303,7 +312,8 @@
     "network",
     "pdu",
     "vocoder",
-    "rds"
+    "rds",
+    "foo"
   ],
   "module_deps": {},
   "block_module": {
@@ -415,6 +425,15 @@
     "rds_decoder": "rds",
     "rds_encoder": "rds",
     "rds_parser": "rds",
-    "rds_tag_to_msg": "rds"
+    "rds_tag_to_msg": "rds",
+    "foo_burst_tagger": "foo",
+    "foo_channel_model": "foo",
+    "foo_packet_dropper": "foo",
+    "foo_packet_pad2": "foo",
+    "foo_pad_tagged_stream": "foo",
+    "foo_periodic_msg_source": "foo",
+    "foo_random_periodic_msg_source": "foo",
+    "foo_rtt_measure": "foo",
+    "foo_wireshark_connector": "foo"
   }
 }
