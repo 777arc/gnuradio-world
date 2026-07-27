@@ -52,53 +52,23 @@ export QT_HOST=~/Qt/6.9.1/gcc_64
 export QT_WASM=~/Qt/6.9.1/wasm_multithread
 ```
 
-**3. Fetch dependency sources** into `wasm/deps/src/`
+**3-4. Fetch and cross-build the C++ dependencies → `sysroot/`**
+
+Two scripts; versions are pinned in `fetch-deps.sh` and nowhere else. Both are
+idempotent, so re-running after a failure is cheap. `build-deps.sh` produces
+everything the runner links that is not GNU Radio itself (spdlog, VOLK, Boost,
+FFTW in both precisions, GMP, Qwt).
 
 ```bash
-mkdir -p wasm/deps/src && cd wasm/deps/src
-git clone --branch v1.12.0 --depth 1             https://github.com/gabime/spdlog.git spdlog
-git clone --branch v3.1.2  --depth 1 --recursive https://github.com/gnuradio/volk.git  volk
-curl -L https://archives.boost.io/release/1.83.0/source/boost_1_83_0.tar.bz2 | tar xj
-curl -L https://www.fftw.org/fftw-3.3.10.tar.gz     | tar xz
-curl -L https://ftp.gnu.org/gnu/gmp/gmp-6.3.0.tar.xz | tar xJ
-curl -L https://sourceforge.net/projects/qwt/files/qwt/6.2.0/qwt-6.2.0.tar.bz2 | tar xj
-cd "$GR"
+bash wasm/deps/fetch-deps.sh    # -> wasm/deps/src/   (skips what is present)
+bash wasm/deps/build-deps.sh    # -> wasm/sysroot/    (needs QT_HOST + QT_WASM)
 ```
 
-**4. Cross-build the C++ dependencies → `sysroot/`**
-
-```bash
-python3 -m venv wasm/.venv && wasm/.venv/bin/pip install mako   # VOLK's kernel generator
-bash wasm/deps/build-deps.sh                                    # spdlog, VOLK, Boost
-
-# FFTW — double then single precision
-cd wasm/deps/src/fftw-3.3.10
-emconfigure ./configure --enable-threads --with-combined-threads --disable-fortran \
-  --disable-shared --enable-static --prefix="$SYSROOT" CFLAGS="-pthread -O2 -fPIC"
-emmake make -j"$(nproc)" install && emmake make clean
-emconfigure ./configure --enable-float --enable-threads --with-combined-threads --disable-fortran \
-  --disable-shared --enable-static --prefix="$SYSROOT" CFLAGS="-pthread -O2 -fPIC"
-emmake make -j"$(nproc)" install
-cd "$GR"
-
-# GMP
-cd wasm/deps/src/gmp-6.3.0
-emconfigure ./configure --disable-assembly --enable-cxx --disable-shared \
-  --prefix="$SYSROOT" CFLAGS="-pthread -O2 -fPIC" CXXFLAGS="-pthread -O2 -fPIC"
-emmake make -j"$(nproc)" install
-cd "$GR"
-
-# Qwt 6.2 — cross-built with the host qmake pointed at the wasm Qt
-cd wasm/deps/src/qwt-6.2.0
-printf '\nQWT_INSTALL_PREFIX  = %s\nQWT_INSTALL_HEADERS = %s/include\nQWT_INSTALL_LIBS    = %s/lib\n' \
-  "$SYSROOT" "$SYSROOT" "$SYSROOT" >> qwtconfig.pri
-# -fPIC is required (see note below); qwt.pro is a subdirs project, so put it in
-# the shared config, not on the qmake command line.
-printf '\nQMAKE_CXXFLAGS += -fPIC\nQMAKE_CFLAGS += -fPIC\n' >> qwtconfig.pri
-"$QT_HOST/bin/qmake6" -qtconf "$QT_WASM/bin/target_qt.conf" qwt.pro
-make -j"$(nproc)" && make install                 # if it tries to build the designer plugin,
-cd "$GR"                                           # add: QWT_CONFIG -= QwtDesigner QwtExamples QwtPlayground
-```
+`DEPS_MIRROR=https://host/path` makes `fetch-deps.sh` pull the tarballs from a
+mirror you control instead of SourceForge/ftp.gnu.org, which rate-limit CI
+runners. `SYSROOT=/tmp/scratch bash wasm/deps/build-deps.sh` builds into a
+throwaway prefix, which is how to test a change to the recipe without risking a
+working tree.
 
 **5. Build GNU Radio and the WASM apps**
 
@@ -392,7 +362,7 @@ verify DSP correctness of the chain.
 
 | path | contents |
 |------|----------|
-| `deps/` | `env.sh` (pinned emsdk + sysroot) and `build-deps.sh` (cross-build VOLK, Boost, spdlog, GMP, FFTW, Qwt → `sysroot/`) |
+| `deps/` | `env.sh` (pinned emsdk + sysroot), `fetch-deps.sh` (pinned dep sources) and `build-deps.sh` (cross-build VOLK, Boost, spdlog, GMP, FFTW, Qwt → `sysroot/`) |
 | `gr/` | out-of-tree build of the GNU Radio C++ modules (generated; git-ignored) |
 | `qtgui/` | Qt6 build of the gr-qtgui sink chain |
 | `runner/` | the JSON-driven WASM flowgraph runner, generated C++ registry, and support manifest |
@@ -400,6 +370,7 @@ verify DSP correctness of the chain.
 | `tools/` | `generate_cpp.py` (host-side GRC → C++ generation, optional) |
 | `server.mjs` | COOP/COEP static dev server (needed for SharedArrayBuffer / pthreads) |
 | `run.mjs` | headless-Chromium test harness (waits on a page `#result`) |
+| `scripts/` | `assemble-site.mjs` (static site for Pages) and `pack-deps.sh` (legacy prebuilt-deps tarball; see CI below) |
 
 ## Prerequisites (userspace, no sudo)
 
@@ -416,6 +387,7 @@ verify DSP correctness of the chain.
 
 ```bash
 source wasm/deps/env.sh                 # pinned emsdk + $SYSROOT
+bash   wasm/deps/fetch-deps.sh          # pinned dep sources → deps/src
 bash   wasm/deps/build-deps.sh          # VOLK/Boost/spdlog/GMP/FFTW/Qwt → sysroot
 # GNU Radio C++ modules → wasm/gr/build-gr  (emcmake, ENABLE_PYTHON=OFF, static,
 #   -DTRY_SHM_VMCIRCBUF=OFF; see git history / env.sh for the exact configure line)
@@ -442,6 +414,33 @@ object (for example a constellation, OFDM equalizer, packet formatter, or messag
 queue) remain listed under `skipped`; those objects are not blocks and need a
 future typed-object registry rather than a JSON-to-block factory. Python-only and
 HEIR block definitions are intentionally not included.
+
+## Continuous integration
+
+Two workflows, mid-migration:
+
+- **`.github/workflows/deploy-wasm.yml`** — the live one. Deploys to Cloudflare
+  Pages on every merge to `main`. It downloads a prebuilt `sysroot` + GNU Radio
+  libs + qtgui tarball from the `deps-vX` GitHub release (`DEPS_TAG`) rather than
+  building them, so **any change to the GNU Radio C++ requires repacking and
+  re-publishing that tarball** (`wasm/scripts/pack-deps.sh`) or CI silently links
+  stale libraries.
+- **`.github/workflows/build-wasm-from-source.yml`** — the replacement, manual
+  (`workflow_dispatch`) and non-deploying by default. Builds everything from
+  source and caches instead: `sysroot` cached as an output keyed on the dep
+  scripts, and `ccache` for GNU Radio/qtgui/runner, which are recompiled every
+  run. Nothing can go stale because nothing is prebuilt. `rebuild_sysroot: true`
+  forces the cold path (~1 h); a warm run is close to the current deploy time.
+
+  ccache rather than caching `gr/build-gr` is deliberate: `actions/checkout`
+  stamps every source file with a fresh mtime, so a restored ninja build dir
+  would rebuild all 514 objects anyway. ccache keys on preprocessed content.
+
+Once a cold and a warm run of the second workflow look right, fold its build
+steps into `deploy-wasm.yml`, drop the `Fetch prebuilt deps` step and `DEPS_TAG`,
+and delete `pack-deps.sh` and the `deps-vX` releases. Caches evict after 7 days
+unused, so a repo that goes quiet pays for one cold run; a weekly scheduled run
+keeps them warm.
 
 ## GNU Radio source changes (all guarded, desktop build unaffected)
 
