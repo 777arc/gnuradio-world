@@ -76,10 +76,14 @@ working tree.
 # GR C++ modules: no Python, static, emulated (software) double-mapped vmcircbuf.
 # -fPIC is required for the MAIN_MODULE/SIDE_MODULE dynamic linking (see note below);
 # -fexceptions keeps GR's own try/catch alive under Emscripten (see note below).
+# ENABLE_DEFAULT=OFF also disables gnuradio-runtime, so it has to be re-enabled
+# explicitly -- without it every component fails its dependency check with
+# "user force-enabled gr-blocks but configuration checked failed".
 emcmake cmake -S "$GR" -B wasm/gr/build-gr -GNinja \
   -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-pthread -fPIC -fexceptions" -DCMAKE_C_FLAGS="-pthread -fPIC" \
   -DCMAKE_INSTALL_PREFIX="$SYSROOT" -DCMAKE_PREFIX_PATH="$SYSROOT" -DCMAKE_FIND_ROOT_PATH="$SYSROOT" \
   -DENABLE_DEFAULT=OFF -DENABLE_PYTHON=OFF -DENABLE_GR_QTGUI=OFF -DENABLE_GR_AUDIO=OFF \
+  -DENABLE_GNURADIO_RUNTIME=ON \
   -DENABLE_GR_ANALOG=ON -DENABLE_GR_BLOCKS=ON -DENABLE_GR_DIGITAL=ON \
   -DENABLE_GR_FFT=ON -DENABLE_GR_FILTER=ON -DENABLE_GR_FEC=ON -DENABLE_GR_DTV=ON \
   -DENABLE_GR_NETWORK=ON -DENABLE_GR_PDU=ON -DENABLE_GR_VOCODER=ON \

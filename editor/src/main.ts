@@ -2189,8 +2189,11 @@ async function buildExamples(panel: HTMLElement) {
       meta.textContent = `${file} · ${n} block${n === 1 ? '' : 's'}`;
       item.append(meta);
       item.onclick = () => {
-        try { loadFlowgraphAnimated(fg); log(`loaded example "${fgTitle || file}"`); }
-        catch (err) { log(`failed to load example "${file}": ${err}`); }
+        try {
+          loadFlowgraphAnimated(fg);
+          log(`loaded example "${fgTitle || file}"`);
+          void cacheFlowgraphRecordings(fg, String(fgTitle || file));
+        } catch (err) { log(`failed to load example "${file}": ${err}`); }
       };
     }).catch(err => {
       item.disabled = true; title.textContent = `${file} (failed to load)`;
@@ -2227,6 +2230,162 @@ interface FileSourceFormat {
 
 const cachedRecordingsByFile = new Map<string, CachedRecording>();
 const cachedRecordingsByPath = new Map<string, CachedRecording>();
+type RecordingProgress = (received: number, expected: number) => void;
+interface RecordingDownload {
+  promise: Promise<CachedRecording>;
+  listeners: Set<RecordingProgress>;
+}
+type RecordingState =
+  | { kind: 'downloading'; received: number; expected: number }
+  | { kind: 'downloaded'; cached: CachedRecording }
+  | { kind: 'error' };
+const recordingDownloadsByFile = new Map<string, RecordingDownload>();
+const recordingStatesByFile = new Map<string, RecordingState>();
+const recordingStateListenersByFile =
+  new Map<string, Set<(state: RecordingState) => void>>();
+let exampleRecordingsPromise: Promise<ExampleRecording[]> | null = null;
+
+function setRecordingState(dataFile: string, state: RecordingState) {
+  recordingStatesByFile.set(dataFile, state);
+  for (const listener of recordingStateListenersByFile.get(dataFile) || [])
+    listener(state);
+}
+
+function subscribeRecordingState(
+  dataFile: string,
+  listener: (state: RecordingState) => void,
+) {
+  let listeners = recordingStateListenersByFile.get(dataFile);
+  if (!listeners) {
+    listeners = new Set();
+    recordingStateListenersByFile.set(dataFile, listeners);
+  }
+  listeners.add(listener);
+  const state = recordingStatesByFile.get(dataFile);
+  if (state) listener(state);
+}
+
+function loadExampleRecordings(): Promise<ExampleRecording[]> {
+  if (exampleRecordingsPromise) return exampleRecordingsPromise;
+  exampleRecordingsPromise = (async () => {
+    const response = await fetch('/example_recordings');
+    if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+    const payload = await response.json();
+    if (!Array.isArray(payload)) throw new Error('invalid recordings response');
+    return payload as ExampleRecording[];
+  })().catch(error => {
+    // A transient manifest failure should not make every later attempt fail.
+    exampleRecordingsPromise = null;
+    throw error;
+  });
+  return exampleRecordingsPromise;
+}
+
+function downloadExampleRecording(
+  recording: ExampleRecording,
+  onProgress?: RecordingProgress,
+): Promise<CachedRecording> {
+  const existing = cachedRecordingsByFile.get(recording.dataFile);
+  if (existing) {
+    setRecordingState(recording.dataFile, { kind: 'downloaded', cached: existing });
+    onProgress?.(existing.blob.size, existing.blob.size);
+    return Promise.resolve(existing);
+  }
+
+  const active = recordingDownloadsByFile.get(recording.dataFile);
+  if (active) {
+    if (onProgress) active.listeners.add(onProgress);
+    return active.promise;
+  }
+
+  const listeners = new Set<RecordingProgress>();
+  if (onProgress) listeners.add(onProgress);
+  const reportProgress = (received: number, expected: number) => {
+    setRecordingState(recording.dataFile, { kind: 'downloading', received, expected });
+    for (const listener of listeners) listener(received, expected);
+  };
+  setRecordingState(recording.dataFile, {
+    kind: 'downloading',
+    received: 0,
+    expected: recording.byteLength,
+  });
+  const promise = (async () => {
+    try {
+      const response = await fetch(recording.downloadUrl);
+      if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+      if (!response.body) throw new Error('streaming response body is unavailable');
+      const headerLength = Number(response.headers.get('Content-Length'));
+      const expected = Number.isFinite(headerLength) && headerLength > 0
+        ? headerLength : recording.byteLength;
+      const reader = response.body.getReader();
+      const chunks: ArrayBuffer[] = [];
+      let received = 0;
+      reportProgress(received, expected);
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = new ArrayBuffer(value.byteLength);
+        new Uint8Array(chunk).set(value);
+        chunks.push(chunk);
+        received += value.byteLength;
+        reportProgress(received, expected);
+      }
+      if (expected > 0 && received !== expected)
+        throw new Error(`incomplete download (${received} of ${expected} bytes)`);
+      const cached: CachedRecording = {
+        recording,
+        blob: new Blob(chunks, { type: 'application/octet-stream' }),
+        virtualPath: '/recordings/' + recording.dataFile,
+      };
+      cachedRecordingsByFile.set(recording.dataFile, cached);
+      cachedRecordingsByPath.set(cached.virtualPath, cached);
+      setRecordingState(recording.dataFile, { kind: 'downloaded', cached });
+      return cached;
+    } catch (error) {
+      setRecordingState(recording.dataFile, { kind: 'error' });
+      throw error;
+    }
+  })();
+  recordingDownloadsByFile.set(recording.dataFile, { promise, listeners });
+  void promise.then(
+    () => recordingDownloadsByFile.delete(recording.dataFile),
+    () => recordingDownloadsByFile.delete(recording.dataFile),
+  );
+  return promise;
+}
+
+function flowgraphRecordingPaths(doc: any): string[] {
+  const paths = new Set<string>();
+  for (const block of Array.isArray(doc?.blocks) ? doc.blocks : []) {
+    if (block?.id !== 'blocks_file_source') continue;
+    const path = String(block.parameters?.file || '');
+    if (path.startsWith('/recordings/')) paths.add(path);
+  }
+  return [...paths];
+}
+
+async function cacheFlowgraphRecordings(doc: any, exampleName: string) {
+  const paths = flowgraphRecordingPaths(doc);
+  if (!paths.length) return;
+  try {
+    const recordings = await loadExampleRecordings();
+    const byPath = new Map(recordings.map(recording =>
+      ['/recordings/' + recording.dataFile, recording] as const));
+    const missing = paths.filter(path => !byPath.has(path));
+    for (const path of missing)
+      log(`example "${exampleName}" references unavailable recording "${path}"`);
+    const needed = paths
+      .filter(path => !cachedRecordingsByPath.has(path))
+      .map(path => byPath.get(path))
+      .filter((recording): recording is ExampleRecording => !!recording);
+    if (!needed.length) return;
+    log(`downloading ${needed.length} recording${needed.length === 1 ? '' : 's'} for example "${exampleName}"…`);
+    await Promise.all(needed.map(recording => downloadExampleRecording(recording)));
+    log(`downloaded ${needed.length} recording${needed.length === 1 ? '' : 's'} for example "${exampleName}"`);
+  } catch (error) {
+    log(`recordings for example "${exampleName}" not downloaded: ${error}`);
+  }
+}
 
 const displayRecordingValue = (value: string | number | null): string => {
   if (value === null || value === '') return '—';
@@ -2313,11 +2472,7 @@ async function buildRecordings(panel: HTMLElement) {
   status.textContent = 'Loading recordings…'; panel.append(status);
   let recordings: ExampleRecording[] = [];
   try {
-    const response = await fetch('/example_recordings');
-    if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
-    const payload = await response.json();
-    if (!Array.isArray(payload)) throw new Error('invalid recordings response');
-    recordings = payload;
+    recordings = await loadExampleRecordings();
   } catch (e) {
     status.textContent = 'Could not load recordings.';
     log('recordings not loaded: ' + e); return;
@@ -2362,6 +2517,33 @@ async function buildRecordings(panel: HTMLElement) {
     }
 
     let downloading = false;
+    subscribeRecordingState(recording.dataFile, state => {
+      item.classList.remove('downloading', 'downloaded', 'error');
+      if (state.kind === 'downloading') {
+        downloading = true;
+        item.classList.add('downloading');
+        badge.textContent = 'Downloading';
+        progress.hidden = false;
+        const percent = state.expected > 0
+          ? Math.min(100, state.received / state.expected * 100) : 0;
+        fill.style.width = `${percent}%`;
+        progressText.textContent =
+          `${displayBytes(state.received)} / ${displayBytes(state.expected)}`;
+      } else if (state.kind === 'downloaded') {
+        downloading = false;
+        item.classList.add('downloaded');
+        badge.textContent = '✓ Downloaded';
+        progress.hidden = false;
+        fill.style.width = '100%';
+        progressText.textContent = `${displayBytes(state.cached.blob.size)} downloaded`;
+      } else {
+        downloading = false;
+        item.classList.add('error');
+        badge.textContent = 'Retry';
+        progress.hidden = false;
+        progressText.textContent = 'Download failed';
+      }
+    });
     const useRecording = async () => {
       if (downloading) return;
       const existing = cachedRecordingsByFile.get(recording.dataFile);
@@ -2370,53 +2552,11 @@ async function buildRecordings(panel: HTMLElement) {
         return;
       }
 
-      downloading = true;
-      item.classList.remove('error'); item.classList.add('downloading');
-      badge.textContent = 'Downloading';
-      progress.hidden = false; fill.style.width = '0%';
-      progressText.textContent = `0 B / ${displayBytes(recording.byteLength)}`;
       try {
-        const response = await fetch(recording.downloadUrl);
-        if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
-        if (!response.body) throw new Error('streaming response body is unavailable');
-        const headerLength = Number(response.headers.get('Content-Length'));
-        const expected = Number.isFinite(headerLength) && headerLength > 0
-          ? headerLength : recording.byteLength;
-        const reader = response.body.getReader();
-        const chunks: ArrayBuffer[] = [];
-        let received = 0;
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          const chunk = new ArrayBuffer(value.byteLength);
-          new Uint8Array(chunk).set(value);
-          chunks.push(chunk); received += value.byteLength;
-          const percent = expected > 0 ? Math.min(100, received / expected * 100) : 0;
-          fill.style.width = `${percent}%`;
-          progressText.textContent = `${displayBytes(received)} / ${displayBytes(expected)}`;
-        }
-        if (expected > 0 && received !== expected)
-          throw new Error(`incomplete download (${received} of ${expected} bytes)`);
-        const blob = new Blob(chunks, { type: 'application/octet-stream' });
-        const cached: CachedRecording = {
-          recording,
-          blob,
-          virtualPath: '/recordings/' + recording.dataFile,
-        };
-        cachedRecordingsByFile.set(recording.dataFile, cached);
-        cachedRecordingsByPath.set(cached.virtualPath, cached);
-        fill.style.width = '100%';
-        progressText.textContent = `${displayBytes(received)} downloaded`;
-        item.classList.remove('downloading'); item.classList.add('downloaded');
-        badge.textContent = '✓ Downloaded';
+        const cached = await downloadExampleRecording(recording);
         await addRecordingFileSource(cached, format);
       } catch (error) {
-        item.classList.remove('downloading'); item.classList.add('error');
-        badge.textContent = 'Retry';
-        progressText.textContent = 'Download failed';
         log(`recording "${recording.name}" not downloaded: ${error}`);
-      } finally {
-        downloading = false;
       }
     };
     item.onclick = () => { void useRecording(); };

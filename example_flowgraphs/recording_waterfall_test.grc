@@ -1,0 +1,77 @@
+options:
+    parameters:
+        author: Marc
+        copyright: ''
+        description: ''
+        generate_options: qt_gui
+        id: Recording_Waterfall_Test
+        title: Recording Waterfall Test
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: complex5
+    id: blocks_interleaved_short_to_complex
+    parameters:
+        scale_factor: '32767'
+        swap: 'False'
+        vector_input: 'False'
+    states:
+        coordinate: [462, 128]
+        rotation: 0
+        state: enabled
+-   name: source4
+    id: blocks_file_source
+    parameters:
+        begin_tag: pmt.PMT_NIL
+        file: /recordings/cellular_downlink_880MHz.sigmf-data
+        length: '0'
+        offset: '0'
+        repeat: 'False'
+        type: short
+        vlen: '1'
+    states:
+        coordinate: [33, 128]
+        rotation: 0
+        state: enabled
+-   name: throttle23
+    id: blocks_throttle2
+    parameters:
+        ignoretag: 'True'
+        limit: auto
+        maximum: '0.1'
+        samples_per_second: '100000'
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [712, 129]
+        rotation: 0
+        state: enabled
+-   name: x2
+    id: qtgui_waterfall_sink_x
+    parameters:
+        alpha1: '1'
+        axislabels: 'True'
+        color1: '0'
+        fc: '0'
+        fftsize: '1024'
+        grid: 'False'
+        int_max: '10'
+        int_min: '-140'
+        label1: ''
+        legend: 'True'
+        name: Waterfall
+        samp_rate: '32000'
+        update_time: '0.1'
+    states:
+        coordinate: [993, 133]
+        rotation: 0
+        state: enabled
+connections:
+- [complex5, '0', throttle23, '0']
+- [source4, '0', complex5, '0']
+- [throttle23, '0', x2, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0
