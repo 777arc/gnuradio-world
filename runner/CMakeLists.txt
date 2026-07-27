@@ -58,7 +58,12 @@ qt_add_executable(runner
   src/generated_registry.cpp
   src/generated_modules.cpp)
 target_include_directories(runner PRIVATE ${GR_INCLUDE_DIRS})
-target_compile_options(runner PRIVATE -fPIC)
+# -fexceptions is required at COMPILE time, not just at link: Emscripten's default
+# (catching disabled) drops the landing pads, so runner.cpp's try/catch around
+# flowgraph construction never fires and a block's std::runtime_error escapes to
+# JS as an opaque "Uncaught <pointer>" that kills the runtime instead of being
+# reported as RUNNER_FAIL. The side modules already compile with catching on.
+target_compile_options(runner PRIVATE -fPIC -fexceptions)
 
 target_link_libraries(runner PRIVATE
   ${QTGUI_TS}

@@ -84,6 +84,8 @@ CUSTOM_IDS = {
     "analog_const_source_x",
     "blocks_null_source",
     "digital_psk_mod",
+    # C++ rebuild of gr-digital's Python-only OFDM Transmitter hier block.
+    "digital_ofdm_tx_wasm",
     "blocks_throttle",
     "blocks_head",
     "blocks_delay",

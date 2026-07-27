@@ -316,11 +316,27 @@ verify DSP correctness of the chain.
   list their ids in `CUSTOM_IDS` in `gen_registry.py` so no duplicate generated
   factory is emitted. A block whose `cpp_templates` can't be rendered goes in
   `INVALID_CPP_TEMPLATES` with a reason.
+- **Python hier blocks** (`gr.hier_block2` compositions such as PSK Mod or the
+  OFDM Transmitter) have no C++ path at all, so the browser gets a twin: the same
+  chain rebuilt as a C++ `hier_block2` in `registry.cpp`, plus a `.block.yml`
+  carrying the original's parameters (`digital_psk_mod`,
+  `digital_ofdm_tx_wasm` = "OFDM Transmitter Wasm"). Where the Python block
+  computes defaults with numpy (the OFDM sync words), reproduce them exactly:
+  numpy's legacy `RandomState(seed)` is MT19937 seeded identically to
+  `std::mt19937(seed)`, and `randint(2)` is one 32-bit draw's low bit.
 - If a **core** hand-written factory references a **deferred** module's symbols
   (as `digital_psk_mod` uses a few `gr-digital` blocks), link that module's `.a`
   *normally* (not whole-archive) into the main module too, so just those objects
   are pulled into core; the rest stay in the side module. See the `gr-digital`
   entry in `target_link_libraries` for the pattern.
+- **Exception catching is a compile-time flag.** Emscripten drops landing pads
+  unless `-fexceptions` (≡ `-sNO_DISABLE_EXCEPTION_CATCHING`) is on the *compile*
+  line — having it only at link makes every `try`/`catch` in that object inert, so
+  a bad block parameter escapes as an opaque `Uncaught <pointer>` that kills the
+  runtime instead of surfacing as `RUNNER_FAIL: <message>`. The runner target and
+  the side modules compile with it. The `build-gr` GR libraries currently do
+  **not**, so GR's own `thread_body_wrapper` catch (which logs exceptions thrown
+  from a block's `work()`) is dead: those still kill the worker silently.
 - **Symbol export is automatic:** `gen_side_exports.py` scans each side module's
   `env`/GOT imports and re-exports them from main with `--export-if-defined`, so
   you don't maintain an export list by hand. Side modules must stay ABI-matched to
@@ -354,9 +370,10 @@ verify DSP correctness of the chain.
   thread-per-block scheduler, and renders gr-qtgui sinks to a canvas. Direct C++
   factories are generated from GRC's `cpp_templates`; handwritten factories in
   `src/registry.cpp` add browser widgets, live setters, and a few composed blocks.
-  The generated and custom registries currently expose 266 blocks from gr-blocks,
+  The generated and custom registries currently expose 294 blocks from gr-blocks,
   gr-analog, gr-fft, gr-filter, gr-digital, gr-dtv, gr-network, gr-pdu,
-  gr-vocoder, and gr-qtgui. Stream and message-port connections are both
+  gr-vocoder and gr-qtgui, plus the vendored out-of-tree modules (gr-rds, gr-foo,
+  gr-dvbs2, gr-dvbs2rx). Stream and message-port connections are both
   serialized by the editor. QT GUI Range
   controls can be referenced by ID from numeric block parameters and update those
   parameters while the graph is running.

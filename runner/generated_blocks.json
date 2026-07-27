@@ -169,6 +169,7 @@
     "digital_ofdm_chanest_vcvc",
     "digital_ofdm_cyclic_prefixer",
     "digital_ofdm_sync_sc_cfb",
+    "digital_ofdm_tx_wasm",
     "digital_packet_headergenerator_bb_default",
     "digital_packet_headerparser_b_default",
     "digital_pfb_clock_sync_xxx",

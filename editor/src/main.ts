@@ -8,7 +8,9 @@ import { boundsBetween, boundsIntersect, type Point } from './selection';
 import { evaluate as evalExpr, buildScope, formatValue as fmtExprVal, serializeForRunner, type Scope } from './expr';
 
 type ParamType = 'number' | 'string' | 'enum';
-interface ParamDef { id: string; label: string; type: ParamType; def: any; options?: string[]; category?: string; hideIfEmpty?: boolean }
+// `raw` marks a GRC dtype: raw parameter — free-form Python (vectors, matrices).
+// Like numeric params these are evaluated before the flowgraph goes to the runner.
+interface ParamDef { id: string; label: string; type: ParamType; def: any; options?: string[]; category?: string; hideIfEmpty?: boolean; raw?: boolean }
 // inTypes/outTypes give per-port dtypes (for converters); otherwise ports follow the
 // block's `type` param (complex/float) if it has one, else `dtype` (default complex).
 interface RunnableDef {
@@ -43,6 +45,8 @@ const LINE_COLORS = ['blue', 'red', 'green', 'black', 'cyan', 'magenta', 'yellow
 // The frequency/constellation sinks store colours as quoted strings in GRC.
 const LINE_COLORS_Q = LINE_COLORS.map(c => `"${c}"`);
 const LINE_STYLES = ['1', '2', '3', '4', '5', '0'];
+// GRC's frequency-sink Average options (None / Low / Medium / High smoothing).
+const FFT_AVERAGES = ['1.0', '0.2', '0.1', '0.05'];
 const LINE_MARKERS = ['0', '1', '2', '3', '4', '6', '7', '8', '9', '-1'];
 // Waterfall intensity color-map ids (match WaterfallDisplayPlot / GRC):
 // 0 Multi Color, 1 White Hot, 2 Black Hot, 3 Incandescent, 5 Sunset, 6 Cool.
@@ -227,6 +231,8 @@ const RUNNABLE: Record<string, RunnableDef> = {
       { id: 'fc', label: 'Center Frequency', type: 'number', def: 0 },
       { id: 'grid', label: 'Grid', type: 'enum', def: 'False', options: BOOL_OPTIONS, category: 'General' },
       { id: 'autoscale', label: 'Autoscale', type: 'enum', def: 'False', options: BOOL_OPTIONS, category: 'General' },
+      // FFT smoothing alpha, as in GRC: 1 = off, 0.2/0.1/0.05 = low/medium/high.
+      { id: 'average', label: 'Average (1 = off)', type: 'enum', def: '1.0', options: FFT_AVERAGES, category: 'General' },
       { id: 'ymin', label: 'Y min', type: 'number', def: -140, category: 'General' },
       { id: 'ymax', label: 'Y max', type: 'number', def: 10, category: 'General' },
       { id: 'update_time', label: 'Update Period', type: 'number', def: 0.1, category: 'General' },
@@ -610,6 +616,7 @@ function installGeneratedBlocks(blocks: any[]) {
       id: String(p.id), label: String(p.label || p.id),
       type: p.dtype === 'enum' ? 'enum' :
         ['int', 'real', 'float', 'hex'].includes(String(p.dtype)) ? 'number' : 'string',
+      raw: String(p.dtype) === 'raw',
       def: generatedDefault(p),
       options: p.options ? p.options.map(String) : undefined,
       // "General" is the default tab; those params belong on the block face
@@ -938,7 +945,10 @@ function resolveParamsForRun(inst: Inst, scope: Scope): Record<string, any> {
   const out: Record<string, any> = { ...inst.params };
   if (!def) return out;
   for (const p of def.params) {
-    if (p.type !== 'number') continue;              // enum/string params pass through
+    // Numeric and `raw` (vector/matrix) params are evaluated; enum/string params
+    // pass through. `raw` covers things like an OFDM carrier allocation written
+    // as `list(range(-26, -21)) + ...`, which the runner can't evaluate itself.
+    if (p.type !== 'number' && !p.raw) continue;
     const raw = out[p.id];
     if (typeof raw !== 'string') continue;          // already a numeric/bool literal
     const s = raw.trim();
@@ -2011,7 +2021,14 @@ let redrawPalette: (() => void) | null = null;
 // fetched. Mark it downloaded and repaint the palette.
 window.addEventListener('message', (e) => {
   const d = (e as MessageEvent).data;
-  if (!d || d.type !== 'gr-module' || typeof d.module !== 'string') return;
+  if (!d) return;
+  // A flowgraph that fails to build shows an error in the runner pane; mirror it
+  // here so the reason is in the log next to the Run that caused it.
+  if (d.type === 'gr-error' && typeof d.message === 'string') {
+    log(`run failed: ${d.message}`);
+    return;
+  }
+  if (d.type !== 'gr-module' || typeof d.module !== 'string') return;
   if (d.state === 'loaded' && !loadedModules.has(d.module)) {
     loadedModules.add(d.module);
     redrawPalette?.();

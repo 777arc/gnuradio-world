@@ -10,6 +10,7 @@
 #include <gnuradio/block.h>
 #include <gnuradio/prefs.h>
 #include <QApplication>
+#include <QLabel>
 #include <QScreen>
 #include <QWidget>
 #include <QVBoxLayout>
@@ -67,6 +68,24 @@ static std::vector<StatBlock> g_stats;
 static double g_ref_samp_rate = 0.0;
 static std::chrono::steady_clock::time_point g_run_start;
 
+// Show a failed run inside the flowgraph window. Without this a construction
+// error is invisible: the #result div lives under Qt's canvas and the window
+// just stays empty (no sink widget was ever added).
+static void show_error_in_window(const std::string& msg) {
+    if (!g_container || !g_container->layout())
+        return;
+    auto* label = new QLabel(QStringLiteral("Flowgraph error\n\n") +
+                             QString::fromStdString(msg));
+    label->setWordWrap(true);
+    label->setAlignment(Qt::AlignCenter);
+    label->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    label->setStyleSheet(QStringLiteral(
+        "color:#b00020; background:#fff3f3; border:1px solid #f0c0c0;"
+        "padding:16px; font-size:14px;"));
+    g_container->layout()->addWidget(label);
+    label->show();
+}
+
 static void report(bool ok, const std::string& msg) {
     // marshalled to the browser main thread by Qt/emscripten as needed
     EM_ASM({
@@ -74,7 +93,16 @@ static void report(bool ok, const std::string& msg) {
             document.body.appendChild(Object.assign(document.createElement('div'), {id:'result'}));
         d.setAttribute('data-status', $0 ? 'pass' : 'fail');
         d.textContent = ($0 ? 'RESULT: RUNNER_PASS ' : 'RESULT: RUNNER_FAIL ') + UTF8ToString($1);
+        // Forward failures to the editor (parent frame) so they land in its log.
+        if (!$0 && window.parent && window.parent !== window) {
+            var m = {};
+            m.type = 'gr-error';
+            m.message = UTF8ToString($1);
+            window.parent.postMessage(m, '*');
+        }
     }, ok ? 1 : 0, msg.c_str());
+    if (!ok)
+        show_error_in_window(msg);
 }
 
 static void run_now(const std::string& json_source) {

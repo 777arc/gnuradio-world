@@ -1,0 +1,103 @@
+options:
+    parameters:
+        author: Marc
+        copyright: ''
+        description: ''
+        generate_options: qt_gui
+        id: OFDM_Tx
+        title: OFDM Tx
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: stream1
+    id: blocks_stream_to_tagged_stream
+    parameters:
+        len_tag_key: length
+        packet_len: '96'
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [240, 138]
+        rotation: 0
+        state: enabled
+-   name: throttle4
+    id: blocks_throttle
+    parameters:
+        samp_rate: '32000'
+        type: complex
+    states:
+        coordinate: [1009, 144]
+        rotation: 0
+        state: enabled
+-   name: wasm7
+    id: digital_ofdm_tx_wasm
+    parameters:
+        cp_len: '16'
+        fft_len: '64'
+        header_mod: '"BPSK"'
+        log: 'False'
+        occupied_carriers: (list(range(-16, 0)) + list(range(1, 17)),)
+        packet_len_key: length
+        payload_mod: '"BPSK"'
+        pilot_carriers: ()
+        pilot_symbols: ()
+        rolloff: '0'
+        scramble_bits: 'False'
+        sync_word1: ()
+        sync_word2: ()
+    states:
+        coordinate: [520, 144]
+        rotation: 0
+        state: enabled
+-   name: x8
+    id: analog_random_source_x
+    parameters:
+        max: '2'
+        min: '0'
+        num_samps: '1000'
+        repeat: 'True'
+        type: byte
+    states:
+        coordinate: [33, 137]
+        rotation: 0
+        state: enabled
+-   name: x9
+    id: qtgui_freq_sink_x
+    parameters:
+        alpha1: '1'
+        autoscale: 'False'
+        average: '0.2'
+        axislabels: 'True'
+        color1: '"blue"'
+        ctrlpanel: 'False'
+        fc: '0'
+        fftsize: '1024'
+        grid: 'False'
+        label1: ''
+        legend: 'True'
+        marker1: '-1'
+        name: Spectrum
+        samp_rate: '32000'
+        style1: '1'
+        tr_chan: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_tag: ''
+        update_time: '0.1'
+        width1: '1'
+        ymax: '10'
+        ymin: '-140'
+    states:
+        coordinate: [1209, 141]
+        rotation: 0
+        state: enabled
+connections:
+- [stream1, '0', wasm7, '0']
+- [throttle4, '0', x9, '0']
+- [wasm7, '0', throttle4, '0']
+- [x8, '0', stream1, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0

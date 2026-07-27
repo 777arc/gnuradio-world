@@ -21,9 +21,19 @@
 #include <gnuradio/blocks/head.h>
 #include <gnuradio/blocks/delay.h>
 #include <gnuradio/blocks/interleaved_short_to_complex.h>
+#include <gnuradio/blocks/repack_bits_bb.h>
+#include <gnuradio/blocks/tagged_stream_mux.h>
+#include <gnuradio/digital/additive_scrambler.h>
 #include <gnuradio/digital/chunks_to_symbols.h>
+#include <gnuradio/digital/constellation.h>
+#include <gnuradio/digital/crc32_bb.h>
 #include <gnuradio/digital/diff_encoder_bb.h>
 #include <gnuradio/digital/map_bb.h>
+#include <gnuradio/digital/ofdm_carrier_allocator_cvc.h>
+#include <gnuradio/digital/ofdm_cyclic_prefixer.h>
+#include <gnuradio/digital/packet_header_ofdm.h>
+#include <gnuradio/digital/packet_headergenerator_bb.h>
+#include <gnuradio/fft/fft_v.h>
 #include <gnuradio/filter/firdes.h>
 #include <gnuradio/filter/pfb_arb_resampler_ccf.h>
 #include <gnuradio/hier_block2.h>
@@ -56,6 +66,7 @@
 #include <cctype>
 #include <cmath>
 #include <cstdint>
+#include <cstdlib>
 #include <limits>
 #include <memory>
 #include <random>
@@ -273,9 +284,34 @@ static void configure_time_sink(const std::shared_ptr<Sink>& sink, const json& p
                            unquoted(p.value("tr_tag", std::string())));
 }
 
+// GRC's Average is an enum of FFT smoothing alphas (1.0 = off, down to 0.05 =
+// heavy): mag = (1-a)*mag + a*new. Anything outside (0, 1] — including the
+// legacy 'False'/'None' spellings and 0, which would freeze the display — means
+// no averaging.
+static double fft_average_from(const json& p)
+{
+    auto it = p.find("average");
+    if (it == p.end() || it->is_null())
+        return 1.0;
+    double alpha = 1.0;
+    if (it->is_boolean())
+        alpha = it->get<bool>() ? 0.1 : 1.0;
+    else if (it->is_number())
+        alpha = it->get<double>();
+    else if (it->is_string()) {
+        const std::string value = unquoted(it->get<std::string>());
+        if (value == "True")
+            alpha = 0.1;
+        else if (value != "False" && value != "None" && !value.empty())
+            alpha = std::strtod(value.c_str(), nullptr);  // non-throwing; 0 on junk
+    }
+    return (alpha > 0.0 && alpha <= 1.0) ? alpha : 1.0;
+}
+
 template <typename Sink>
 static void configure_freq_sink(const std::shared_ptr<Sink>& sink, const json& p)
 {
+    sink->set_fft_average(static_cast<float>(fft_average_from(p)));
     sink->set_y_axis(number_from(p, "ymin", -140.0),
                      number_from(p, "ymax", 10.0));
     sink->set_update_time(number_from(p, "update_time", 0.1));
@@ -317,19 +353,10 @@ static void configure_waterfall_sink(const std::shared_ptr<Sink>& sink,
     }
 }
 
-static gr_complex complex_from(const json& p, const std::string& key)
+// One scalar in Python/GRC spelling ("2", "-1.5", "1+1j", "-1j") -> gr_complex.
+static gr_complex complex_from_text(std::string value, const std::string& key)
 {
-    auto it = p.find(key);
-    if (it == p.end())
-        return {};
-    if (it->is_number())
-        return gr_complex(it->get<float>(), 0.0f);
-    if (it->is_array() && it->size() == 2)
-        return gr_complex((*it)[0].get<float>(), (*it)[1].get<float>());
-    if (!it->is_string())
-        throw std::runtime_error(key + " must be a number or complex string");
-
-    std::string value = unquoted(it->get<std::string>());
+    value = unquoted(value);
     value.erase(std::remove_if(value.begin(), value.end(), [](unsigned char c) {
         return std::isspace(c);
     }), value.end());
@@ -360,6 +387,170 @@ static gr_complex complex_from(const json& p, const std::string& key)
     } catch (const std::exception&) {
         throw std::runtime_error("invalid complex value for " + key);
     }
+}
+
+static gr_complex complex_from(const json& p, const std::string& key)
+{
+    auto it = p.find(key);
+    if (it == p.end())
+        return {};
+    if (it->is_number())
+        return gr_complex(it->get<float>(), 0.0f);
+    if (it->is_array() && it->size() == 2)
+        return gr_complex((*it)[0].get<float>(), (*it)[1].get<float>());
+    if (!it->is_string())
+        throw std::runtime_error(key + " must be a number or complex string");
+    return complex_from_text(it->get<std::string>(), key);
+}
+
+// ---- GRC "raw" sequence parameters ----------------------------------------
+// Vector/matrix parameters (OFDM carrier allocations, pilot symbols, sync words)
+// reach the runner as text: a Python or JSON-style literal such as "((-26,-25),)",
+// "[[1, 2], [3, 4]]" or "(1+1j, -1j)". The editor evaluates expressions
+// (range(), list concatenation, variables) before running, so only literals of
+// numbers arrive here.
+struct SequenceNode {
+    bool is_sequence = false;
+    gr_complex value{};
+    std::vector<SequenceNode> items;
+};
+
+static SequenceNode parse_sequence(const std::string& text,
+                                   std::size_t& pos,
+                                   const std::string& key)
+{
+    const auto skip_space = [&] {
+        while (pos < text.size() && std::isspace(static_cast<unsigned char>(text[pos])))
+            ++pos;
+    };
+    skip_space();
+    if (pos >= text.size())
+        throw std::runtime_error(key + " has a malformed sequence");
+
+    const char open = text[pos];
+    if (open == '(' || open == '[') {
+        const char close = open == '(' ? ')' : ']';
+        ++pos;
+        SequenceNode node;
+        node.is_sequence = true;
+        skip_space();
+        while (pos < text.size() && text[pos] != close) {
+            node.items.push_back(parse_sequence(text, pos, key));
+            skip_space();
+            if (pos < text.size() && text[pos] == ',') {
+                ++pos;
+                skip_space();
+            }
+        }
+        if (pos >= text.size())
+            throw std::runtime_error(key + " has an unterminated sequence");
+        ++pos;  // consume the closing bracket
+        return node;
+    }
+
+    const std::size_t start = pos;
+    while (pos < text.size() && text[pos] != ',' && text[pos] != ')' && text[pos] != ']')
+        ++pos;
+    SequenceNode node;
+    node.value = complex_from_text(text.substr(start, pos - start), key);
+    return node;
+}
+
+// The parameter's literal text, or an empty string when it is absent or is GRC's
+// "unset" spelling (an empty tuple/list), meaning "use the block's default".
+static std::string sequence_text(const json& p, const std::string& key)
+{
+    auto it = p.find(key);
+    if (it == p.end() || it->is_null())
+        return {};
+    const std::string text = it->is_string() ? unquoted(it->get<std::string>()) : it->dump();
+    std::string compact;
+    for (char c : text) {
+        if (!std::isspace(static_cast<unsigned char>(c)))
+            compact.push_back(c);
+    }
+    if (compact.empty() || compact == "()" || compact == "[]" || compact == "(,)" ||
+        compact == "None")
+        return {};
+    return text;
+}
+
+static SequenceNode sequence_from(const std::string& text, const std::string& key)
+{
+    std::size_t pos = 0;
+    SequenceNode node = parse_sequence(text, pos, key);
+    while (pos < text.size() && std::isspace(static_cast<unsigned char>(text[pos])))
+        ++pos;
+    if (pos != text.size() || !node.is_sequence)
+        throw std::runtime_error(key + " must be a list or tuple");
+    return node;
+}
+
+template <typename T>
+static T sequence_scalar(const SequenceNode& node, const std::string& key);
+
+template <>
+gr_complex sequence_scalar<gr_complex>(const SequenceNode& node, const std::string& key)
+{
+    if (node.is_sequence)
+        throw std::runtime_error(key + " is nested more deeply than expected");
+    return node.value;
+}
+
+template <>
+int sequence_scalar<int>(const SequenceNode& node, const std::string& key)
+{
+    if (node.is_sequence)
+        throw std::runtime_error(key + " is nested more deeply than expected");
+    if (node.value.imag() != 0.0f)
+        throw std::runtime_error(key + " must contain integers");
+    return static_cast<int>(std::lround(node.value.real()));
+}
+
+// A flat sequence ("(1, 2, 3)") of T; empty when the parameter is unset.
+template <typename T>
+static std::vector<T> flat_sequence(const json& p, const std::string& key)
+{
+    const std::string text = sequence_text(p, key);
+    if (text.empty())
+        return {};
+    std::vector<T> values;
+    for (const auto& item : sequence_from(text, key).items)
+        values.push_back(sequence_scalar<T>(item, key));
+    return values;
+}
+
+// A sequence of sequences ("((1, 2), (3, 4))") of T, as GRC's carrier/symbol
+// allocations are spelled. A flat sequence is accepted as a single row.
+// `fallback` is returned when the parameter is unset.
+template <typename T>
+static std::vector<std::vector<T>> nested_sequence(const json& p,
+                                                   const std::string& key,
+                                                   std::vector<std::vector<T>> fallback)
+{
+    const std::string text = sequence_text(p, key);
+    if (text.empty())
+        return fallback;
+    const SequenceNode root = sequence_from(text, key);
+    std::vector<std::vector<T>> rows;
+    std::vector<T> flat;
+    for (const auto& item : root.items) {
+        if (!item.is_sequence) {
+            flat.push_back(sequence_scalar<T>(item, key));
+            continue;
+        }
+        if (!flat.empty())
+            throw std::runtime_error(key + " mixes plain values and sequences");
+        std::vector<T> row;
+        for (const auto& value : item.items)
+            row.push_back(sequence_scalar<T>(value, key));
+        rows.push_back(std::move(row));
+    }
+    if (!flat.empty())
+        rows.push_back(std::move(flat));
+    if (rows.empty())
+        return fallback;
+    return rows;
 }
 
 namespace {
@@ -450,6 +641,263 @@ public:
 
         for (std::size_t i = 1; i < chain.size(); ++i)
             connect(chain[i - 1], 0, chain[i], 0);
+    }
+};
+
+// ---------------------------------------------------------------------------
+// OFDM Transmitter (digital_ofdm_tx_wasm)
+//
+// gr-digital's OFDM Transmitter is a Python gr.hier_block2 (ofdm_txrx.py), so it
+// cannot run in the browser. This is the same composition written as a C++
+// hier_block2, including the two generated sync words: numpy's legacy
+// RandomState(42) is MT19937 seeded exactly like std::mt19937(42), and
+// randint(2) consumes one 32-bit draw and keeps its low bit, so the preambles
+// come out bit-identical to the Python block's.
+// ---------------------------------------------------------------------------
+
+// 802.11a-style carrier allocation: the defaults of digital.ofdm_tx.
+std::vector<std::vector<int>> default_occupied_carriers()
+{
+    std::vector<int> carriers;
+    const int ranges[][2] = { { -26, -21 }, { -20, -7 }, { -6, 0 },
+                              { 1, 7 },     { 8, 21 },   { 22, 27 } };
+    for (const auto& range : ranges)
+        for (int carrier = range[0]; carrier < range[1]; ++carrier)
+            carriers.push_back(carrier);
+    return { carriers };
+}
+
+std::vector<std::vector<int>> default_pilot_carriers() { return { { -21, -7, 7, 21 } }; }
+
+std::vector<std::vector<gr_complex>> default_pilot_symbols()
+{
+    // _pilot_sym_scramble_seq from ofdm_txrx.py, expanded to (x, x, x, -x).
+    static const int scramble[] = {
+        1,  1,  1,  1,  -1, -1, -1, 1,  -1, -1, -1, -1, 1,  1,  -1, 1,  -1, -1, 1,
+        1,  -1, 1,  1,  -1, 1,  1,  1,  1,  1,  1,  -1, 1,  1,  1,  -1, 1,  1,  -1,
+        -1, 1,  1,  1,  -1, 1,  -1, -1, -1, 1,  -1, 1,  -1, -1, 1,  -1, -1, 1,  1,
+        1,  1,  1,  -1, -1, 1,  1,  -1, -1, 1,  -1, 1,  -1, 1,  1,  -1, -1, -1, 1,
+        1,  -1, -1, -1, -1, 1,  -1, -1, 1,  -1, 1,  1,  1,  1,  -1, 1,  -1, 1,  -1,
+        1,  -1, -1, -1, -1, -1, 1,  -1, 1,  1,  -1, 1,  -1, 1,  1,  1,  -1, -1, 1,
+        -1, -1, -1, 1,  1,  1,  -1, -1, -1, -1, -1, -1, -1
+    };
+    std::vector<std::vector<gr_complex>> symbols;
+    symbols.reserve(std::size(scramble));
+    for (int value : scramble) {
+        const gr_complex symbol(static_cast<float>(value), 0.0f);
+        symbols.push_back({ symbol, symbol, symbol, -symbol });
+    }
+    return symbols;
+}
+
+// Carriers that ever hold data or pilots, as non-negative FFT bin indexes.
+std::vector<int> active_carriers(int fft_len,
+                                 const std::vector<std::vector<int>>& occupied_carriers,
+                                 const std::vector<std::vector<int>>& pilot_carriers)
+{
+    std::vector<int> active;
+    for (const auto* rows : { &occupied_carriers, &pilot_carriers }) {
+        if (rows->empty())
+            continue;
+        for (int carrier : rows->front())
+            active.push_back(carrier < 0 ? carrier + fft_len : carrier);
+    }
+    return active;
+}
+
+// numpy.fft.fftshift: roll right by fft_len // 2.
+std::vector<gr_complex> fftshift(const std::vector<gr_complex>& symbols)
+{
+    const std::size_t len = symbols.size();
+    const std::size_t half = len / 2;
+    std::vector<gr_complex> shifted(len);
+    for (std::size_t i = 0; i < len; ++i)
+        shifted[i] = symbols[(i + len - half) % len];
+    return shifted;
+}
+
+// _make_sync_word1: BPSK on the odd active carriers only (so the time-domain
+// symbol has two identical halves for Schmidl & Cox), scaled to keep the energy.
+std::vector<gr_complex> make_sync_word1(int fft_len,
+                                        const std::vector<std::vector<int>>& occupied,
+                                        const std::vector<std::vector<int>>& pilots)
+{
+    const std::vector<int> active = active_carriers(fft_len, occupied, pilots);
+    std::mt19937 generator(42);  // numpy.random.seed(_seq_seed)
+    std::vector<gr_complex> word(fft_len, gr_complex(0.0f, 0.0f));
+    const float amplitude = static_cast<float>(std::sqrt(2.0));
+    for (int carrier = 0; carrier < fft_len; ++carrier) {
+        if (carrier % 2 == 0 ||
+            std::find(active.begin(), active.end(), carrier) == active.end())
+            continue;
+        word[carrier] = (generator() & 1u) ? gr_complex(-amplitude, 0.0f)
+                                           : gr_complex(amplitude, 0.0f);
+    }
+    return fftshift(word);
+}
+
+// _make_sync_word2: BPSK on every active carrier, DC left empty.
+std::vector<gr_complex> make_sync_word2(int fft_len,
+                                        const std::vector<std::vector<int>>& occupied,
+                                        const std::vector<std::vector<int>>& pilots)
+{
+    const std::vector<int> active = active_carriers(fft_len, occupied, pilots);
+    std::mt19937 generator(42);
+    std::vector<gr_complex> word(fft_len, gr_complex(0.0f, 0.0f));
+    for (int carrier = 0; carrier < fft_len; ++carrier) {
+        if (std::find(active.begin(), active.end(), carrier) == active.end())
+            continue;
+        word[carrier] = (generator() & 1u) ? gr_complex(-1.0f, 0.0f) : gr_complex(1.0f, 0.0f);
+    }
+    word[0] = gr_complex(0.0f, 0.0f);
+    return fftshift(word);
+}
+
+std::vector<gr_complex> constellation_points(int bits_per_symbol)
+{
+    switch (bits_per_symbol) {
+    case 1: return gr::digital::constellation_bpsk::make()->points();
+    case 2: return gr::digital::constellation_qpsk::make()->points();
+    case 3: return gr::digital::constellation_8psk::make()->points();
+    default:
+        throw std::runtime_error("OFDM Transmitter supports BPSK, QPSK or 8-PSK only");
+    }
+}
+
+class OfdmTxWasm : public gr::hier_block2
+{
+public:
+    using sptr = std::shared_ptr<OfdmTxWasm>;
+
+    static sptr make(int fft_len,
+                     int cp_len,
+                     const std::string& packet_length_tag_key,
+                     const std::vector<std::vector<int>>& occupied_carriers,
+                     const std::vector<std::vector<int>>& pilot_carriers,
+                     const std::vector<std::vector<gr_complex>>& pilot_symbols,
+                     int bps_header,
+                     int bps_payload,
+                     const std::vector<gr_complex>& sync_word1,
+                     const std::vector<gr_complex>& sync_word2,
+                     int rolloff,
+                     bool scramble_bits)
+    {
+        return gnuradio::make_block_sptr<OfdmTxWasm>(fft_len,
+                                                     cp_len,
+                                                     packet_length_tag_key,
+                                                     occupied_carriers,
+                                                     pilot_carriers,
+                                                     pilot_symbols,
+                                                     bps_header,
+                                                     bps_payload,
+                                                     sync_word1,
+                                                     sync_word2,
+                                                     rolloff,
+                                                     scramble_bits);
+    }
+
+    OfdmTxWasm(int fft_len,
+               int cp_len,
+               const std::string& packet_length_tag_key,
+               const std::vector<std::vector<int>>& occupied_carriers,
+               const std::vector<std::vector<int>>& pilot_carriers,
+               const std::vector<std::vector<gr_complex>>& pilot_symbols,
+               int bps_header,
+               int bps_payload,
+               const std::vector<gr_complex>& sync_word1,
+               const std::vector<gr_complex>& sync_word2,
+               int rolloff,
+               bool scramble_bits)
+        : hier_block2("ofdm_tx_wasm",
+                      gr::io_signature::make(1, 1, sizeof(std::uint8_t)),
+                      gr::io_signature::make(1, 1, sizeof(gr_complex)))
+    {
+        if (fft_len <= 0)
+            throw std::runtime_error("OFDM Transmitter FFT length must be positive");
+        if (cp_len <= 0 || cp_len >= fft_len)
+            throw std::runtime_error(
+                "OFDM Transmitter cyclic prefix length must be between 1 and FFT length");
+        if (rolloff < 0 || rolloff > cp_len)
+            throw std::runtime_error(
+                "OFDM Transmitter rolloff length must be between 0 and the cyclic prefix");
+
+        // An empty sync word means "generate one", exactly like the Python block's
+        // sync_word1=None / sync_word2=None defaults.
+        std::vector<std::vector<gr_complex>> sync_words;
+        sync_words.push_back(sync_word1.empty()
+                                 ? make_sync_word1(fft_len, occupied_carriers, pilot_carriers)
+                                 : sync_word1);
+        std::vector<gr_complex> second =
+            sync_word2.empty() ? make_sync_word2(fft_len, occupied_carriers, pilot_carriers)
+                               : sync_word2;
+        if (!second.empty())
+            sync_words.push_back(std::move(second));
+        for (const auto& word : sync_words) {
+            if (static_cast<int>(word.size()) != fft_len)
+                throw std::runtime_error(
+                    "OFDM Transmitter sync word length must equal the FFT length");
+        }
+
+        // Deactivating the scrambler = seeding its LFSR with zeros.
+        const std::uint64_t scramble_seed = scramble_bits ? 0x7f : 0x00;
+
+        // ---- header ----
+        auto crc = gr::digital::crc32_bb::make(false, packet_length_tag_key, true);
+        auto header_mod =
+            gr::digital::chunks_to_symbols_bc::make(constellation_points(bps_header));
+        auto header_formatter = gr::digital::packet_header_ofdm::make(occupied_carriers,
+                                                                      1,
+                                                                      "packet_len",
+                                                                      "frame_len",
+                                                                      "packet_num",
+                                                                      bps_header,
+                                                                      bps_payload,
+                                                                      scramble_bits);
+        auto header_gen = gr::digital::packet_headergenerator_bb::make(
+            header_formatter->base(), packet_length_tag_key);
+        // Head tags on the payload stream stay on the head.
+        auto header_payload_mux = gr::blocks::tagged_stream_mux::make(
+            sizeof(gr_complex) * 1, packet_length_tag_key, 1);
+        connect(self(), 0, crc, 0);
+        connect(crc, 0, header_gen, 0);
+        connect(header_gen, 0, header_mod, 0);
+        connect(header_mod, 0, header_payload_mux, 0);
+
+        // ---- payload ----
+        auto payload_mod =
+            gr::digital::chunks_to_symbols_bc::make(constellation_points(bps_payload));
+        auto payload_scrambler = gr::digital::additive_scrambler_bb::make(
+            0x8a,
+            scramble_seed,
+            7,
+            0,  // don't reset after a fixed length; the reset tag does that
+            8,  // bits per byte, before unpacking
+            packet_length_tag_key);
+        auto payload_unpack =
+            gr::blocks::repack_bits_bb::make(8, bps_payload, packet_length_tag_key);
+        connect(crc, 0, payload_scrambler, 0);
+        connect(payload_scrambler, 0, payload_unpack, 0);
+        connect(payload_unpack, 0, payload_mod, 0);
+        connect(payload_mod, 0, header_payload_mux, 1);
+
+        // ---- OFDM frame ----
+        auto allocator = gr::digital::ofdm_carrier_allocator_cvc::make(fft_len,
+                                                                       occupied_carriers,
+                                                                       pilot_carriers,
+                                                                       pilot_symbols,
+                                                                       sync_words,
+                                                                       packet_length_tag_key);
+        auto ffter = gr::fft::fft_v<gr_complex, false>::make(
+            fft_len, std::vector<float>(), true);
+        auto cyclic_prefixer =
+            gr::digital::ofdm_cyclic_prefixer::make(static_cast<std::size_t>(fft_len),
+                                                    static_cast<std::size_t>(fft_len + cp_len),
+                                                    rolloff,
+                                                    packet_length_tag_key);
+        connect(header_payload_mux, 0, allocator, 0);
+        connect(allocator, 0, ffter, 0);
+        connect(ffter, 0, cyclic_prefixer, 0);
+        connect(cyclic_prefixer, 0, self(), 0);
     }
 };
 
@@ -1014,6 +1462,43 @@ static std::map<std::string, Factory>& registry_storage() {
                           bool_from(p, "differential", true),
                           static_cast<unsigned int>(std::max(0, samples_per_symbol)),
                           static_cast<float>(number_from(p, "excess_bw", 0.35))),
+                      nullptr };
+         }},
+        {"digital_ofdm_tx_wasm", [](const json& p) -> BuiltBlock {
+             // The stock OFDM Transmitter is a Python hier block; this is the same
+             // chain composed in C++ (see OfdmTxWasm above). Empty carrier/pilot/
+             // sync parameters select the Python block's defaults, so a default
+             // configuration is bit-compatible with digital.ofdm_tx.
+             static const std::map<std::string, int> bits_per_symbol = {
+                 { "BPSK", 1 }, { "QPSK", 2 }, { "8-PSK", 3 }
+             };
+             const auto modulation = [&](const std::string& key,
+                                         const std::string& fallback) {
+                 const std::string name = unquoted(p.value(key, fallback));
+                 auto it = bits_per_symbol.find(name);
+                 if (it == bits_per_symbol.end())
+                     throw std::runtime_error("OFDM Transmitter " + key +
+                                              " must be BPSK, QPSK or 8-PSK");
+                 return it->second;
+             };
+             const auto occupied_carriers =
+                 nested_sequence<int>(p, "occupied_carriers", default_occupied_carriers());
+             const auto pilot_carriers =
+                 nested_sequence<int>(p, "pilot_carriers", default_pilot_carriers());
+             return { OfdmTxWasm::make(
+                          static_cast<int>(number_from(p, "fft_len", 64)),
+                          static_cast<int>(number_from(p, "cp_len", 16)),
+                          unquoted(p.value("packet_len_key", std::string("length"))),
+                          occupied_carriers,
+                          pilot_carriers,
+                          nested_sequence<gr_complex>(p, "pilot_symbols",
+                                                      default_pilot_symbols()),
+                          modulation("header_mod", "\"BPSK\""),
+                          modulation("payload_mod", "\"BPSK\""),
+                          flat_sequence<gr_complex>(p, "sync_word1"),
+                          flat_sequence<gr_complex>(p, "sync_word2"),
+                          static_cast<int>(number_from(p, "rolloff", 0)),
+                          bool_from(p, "scramble_bits", false)),
                       nullptr };
          }},
         // ---- flow control ----
