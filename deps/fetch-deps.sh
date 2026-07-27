@@ -12,9 +12,13 @@
 # instead; files must keep their upstream basenames.
 set -euo pipefail
 
+# Resolve both paths before cd'ing anywhere: $0 is relative when the script is
+# invoked as `bash wasm/deps/fetch-deps.sh`.
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PATCHES="$HERE/patches"
 # Same default (and override) as env.sh's DEPS_SRC, so a scratch tree can be
 # populated without touching a working one.
-SRC="${DEPS_SRC:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/src}"
+SRC="${DEPS_SRC:-$HERE/src}"
 MIRROR="${DEPS_MIRROR:-}"
 mkdir -p "$SRC"
 cd "$SRC"
@@ -50,5 +54,21 @@ fetch_tar boost_1_83_0 https://archives.boost.io/release/1.83.0/source/boost_1_8
 fetch_tar fftw-3.3.10  https://www.fftw.org/fftw-3.3.10.tar.gz                              xz
 fetch_tar gmp-6.3.0    https://ftp.gnu.org/gnu/gmp/gmp-6.3.0.tar.xz                         xJ
 fetch_tar qwt-6.2.0    https://sourceforge.net/projects/qwt/files/qwt/6.2.0/qwt-6.2.0.tar.bz2 xj
+
+# Local fixes that upstream does not carry. These are NOT optional: without the
+# VOLK patch every flowgraph dies during construction (see the patch header), and
+# the failure only appears at run time, long after everything has built and
+# linked cleanly. Applied here so a fresh checkout and CI get them too.
+apply_patch() {  # <git-repo-dir> <patch-file>
+    local dir="$1" patch="$2"
+    if git -C "$dir" apply --reverse --check "$patch" >/dev/null 2>&1; then
+        echo "[patch] $(basename "$patch") (already applied)"
+        return
+    fi
+    echo "[patch] $(basename "$patch") -> $dir"
+    git -C "$dir" apply "$patch"
+}
+
+apply_patch "$SRC/volk" "$PATCHES/volk-generic-machine.patch"
 
 echo "=== sources ready in $SRC ==="

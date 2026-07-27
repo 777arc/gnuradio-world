@@ -77,10 +77,10 @@ target_link_libraries(runner PRIVATE
   "$<LINK_LIBRARY:WHOLE_ARCHIVE,${BUILDGR}/gnuradio-runtime/lib/libgnuradio-runtime.a>"
   "$<LINK_LIBRARY:WHOLE_ARCHIVE,${BUILDGR}/gnuradio-runtime/lib/pmt/libgnuradio-pmt.a>"
   "$<LINK_LIBRARY:WHOLE_ARCHIVE,${SYSROOT}/lib/libvolk.a>"
-  # gr-digital is a deferred side module, but the hand-written digital_psk_mod
-  # factory in registry.cpp (core) uses map_bb/diff_encoder_bb/chunks_to_symbols.
-  # Link it normally so only those few objects are pulled into core; the other
-  # ~35 digital blocks remain solely in digital.wasm.
+  # gr-digital is a deferred side module, but the hand-written digital
+  # hierarchies in registry.cpp use a focused subset of its implementation
+  # blocks. Link it normally so only those objects are pulled into core; the
+  # generated standalone digital blocks remain in digital.wasm.
   ${BUILDGR}/gr-digital/lib/libgnuradio-digital.a
   ${SYSROOT}/lib/libqwt.a
   ${SYSROOT}/lib/libfftw3f.a ${SYSROOT}/lib/libfftw3.a

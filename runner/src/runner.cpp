@@ -45,6 +45,12 @@ struct VariableControl {
 // value is resolvable regardless of graph order. (Definition in grc_lower.hpp.)
 using grc_lower::is_variable_control;
 
+static bool is_runtime_object(const std::string& id)
+{
+    return id == "variable_constellation" ||
+           id == "variable_constellation_rect";
+}
+
 static nlohmann::json resolve_variables(
     const nlohmann::json& params,
     const std::map<std::string, VariableControl>& variables)
@@ -121,6 +127,12 @@ protected:
         if (msg.level < spdlog::level::err)
             return;
         const std::string text(msg.payload.begin(), msg.payload.end());
+        // Emscripten has no thread-naming API. GNU Radio logs the unavailable
+        // cosmetic operation as an error once per scheduler thread even though
+        // the threads and flowgraph continue normally.
+        if (text.find("set_thread_name(gr_thread_t, string) not implemented") !=
+            std::string::npos)
+            return;
         // Sinks run on GR's per-block threads; widgets and the DOM are main-thread
         // only, so hop across via the Qt event loop.
         QMetaObject::invokeMethod(
@@ -167,6 +179,7 @@ static void run_now(const std::string& json_source) {
         gr::prefs::singleton()->set_bool("PerfCounters", "on", true);
 
         g_tb = gr::make_top_block("wasm_runner");
+        clear_runtime_objects();
         std::map<std::string, gr::basic_block_sptr> byname;
         std::map<std::string, VariableControl> variables;
         int nblocks = 0, nsinks = 0;
@@ -189,9 +202,27 @@ static void run_now(const std::string& json_source) {
             variables.emplace(name, VariableControl{ built.variable_value, std::move(built) });
         }
 
+        // Typed GRC variables such as constellation objects are not scheduler
+        // blocks, but downstream hierarchy factories need their C++ objects.
+        // Construct all of them first so references work regardless of file order.
+        for (const auto& blk : j.at("blocks")) {
+            const std::string id = blk.at("id").get<std::string>();
+            if (!is_runtime_object(id))
+                continue;
+            const std::string name = blk.at("name").get<std::string>();
+            nlohmann::json params =
+                blk.value("params", nlohmann::json::object());
+            params["__name"] = name;
+            block_registry().at(id)(params);
+        }
+
         for (const auto& blk : j.at("blocks")) {
             std::string id = blk.at("id").get<std::string>();
             std::string name = blk.at("name").get<std::string>();
+            if (is_runtime_object(id)) {
+                ++nblocks;
+                continue;
+            }
             auto it = block_registry().find(id);
             if (it == block_registry().end())
                 throw std::runtime_error("unknown block id: " + id);

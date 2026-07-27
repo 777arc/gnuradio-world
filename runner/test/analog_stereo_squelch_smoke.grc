@@ -1,0 +1,55 @@
+blocks:
+- name: complex_source
+  id: blocks_null_source
+  parameters:
+    type: complex
+- name: complex_head
+  id: blocks_head
+  parameters:
+    type: complex
+    num_items: '4096'
+    vlen: '1'
+- name: float_source
+  id: blocks_null_source
+  parameters:
+    type: float
+- name: float_head
+  id: blocks_head
+  parameters:
+    type: float
+    num_items: '4096'
+    vlen: '1'
+- name: stereo_rx
+  id: analog_wfm_rcv_pll
+  parameters:
+    quad_rate: '192000'
+    audio_decimation: '4'
+    deemph_tau: '0.000075'
+- name: squelch
+  id: analog_standard_squelch
+  parameters:
+    audio_rate: '48000'
+    threshold: '0.1'
+- name: left_sink
+  id: blocks_null_sink
+  parameters:
+    type: float
+- name: right_sink
+  id: blocks_null_sink
+  parameters:
+    type: float
+- name: squelch_sink
+  id: blocks_null_sink
+  parameters:
+    type: float
+connections:
+- [complex_source, '0', complex_head, '0']
+- [complex_head, '0', stereo_rx, '0']
+- [stereo_rx, '0', left_sink, '0']
+- [stereo_rx, '1', right_sink, '0']
+- [float_source, '0', float_head, '0']
+- [float_head, '0', squelch, '0']
+- [squelch, '0', squelch_sink, '0']
+metadata:
+  file_format: 1
+  grc_version: 3.11.0.0

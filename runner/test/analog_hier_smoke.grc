@@ -1,0 +1,147 @@
+blocks:
+- name: complex_source
+  id: blocks_null_source
+  parameters:
+    type: complex
+- name: complex_head
+  id: blocks_head
+  parameters:
+    type: complex
+    num_items: '4096'
+    vlen: '1'
+- name: float_source
+  id: blocks_null_source
+  parameters:
+    type: float
+- name: float_head
+  id: blocks_head
+  parameters:
+    type: float
+    num_items: '4096'
+    vlen: '1'
+- name: am_demod
+  id: analog_am_demod_cf
+  parameters:
+    chan_rate: '192000'
+    audio_decim: '4'
+    audio_pass: '10000'
+    audio_stop: '12000'
+- name: fm_demod
+  id: analog_fm_demod_cf
+  parameters:
+    chan_rate: '192000'
+    audio_decim: '4'
+    deviation: '75000'
+    audio_pass: '15000'
+    audio_stop: '16000'
+    gain: '1'
+    tau: '0.000075'
+- name: nbfm_rx
+  id: analog_nbfm_rx
+  parameters:
+    audio_rate: '48000'
+    quad_rate: '192000'
+    tau: '0.000075'
+    max_dev: '5000'
+- name: wfm_rx
+  id: analog_wfm_rcv
+  parameters:
+    quad_rate: '192000'
+    audio_decimation: '4'
+    deemph_tau: '0.000075'
+- name: xlating_filter
+  id: freq_xlating_fft_filter_ccc
+  parameters:
+    decim: '2'
+    taps: '[0.1, 0.2, 0.4, 0.2, 0.1]'
+    center_freq: '10000'
+    samp_rate: '192000'
+    samp_delay: '0'
+    nthreads: '1'
+- name: fm_deemph
+  id: analog_fm_deemph
+  parameters:
+    samp_rate: '48000'
+    tau: '0.000075'
+- name: fm_preemph
+  id: analog_fm_preemph
+  parameters:
+    samp_rate: '48000'
+    tau: '0.000075'
+    fh: '-1'
+- name: nbfm_tx
+  id: analog_nbfm_tx
+  parameters:
+    audio_rate: '48000'
+    quad_rate: '192000'
+    tau: '0.000075'
+    max_dev: '5000'
+    fh: '-1'
+- name: wfm_tx
+  id: analog_wfm_tx
+  parameters:
+    audio_rate: '48000'
+    quad_rate: '192000'
+    tau: '0.000075'
+    max_dev: '75000'
+    fh: '-1'
+- name: am_sink
+  id: blocks_null_sink
+  parameters:
+    type: float
+- name: fm_sink
+  id: blocks_null_sink
+  parameters:
+    type: float
+- name: nbfm_rx_sink
+  id: blocks_null_sink
+  parameters:
+    type: float
+- name: wfm_rx_sink
+  id: blocks_null_sink
+  parameters:
+    type: float
+- name: filter_sink
+  id: blocks_null_sink
+  parameters:
+    type: complex
+- name: deemph_sink
+  id: blocks_null_sink
+  parameters:
+    type: float
+- name: preemph_sink
+  id: blocks_null_sink
+  parameters:
+    type: float
+- name: nbfm_tx_sink
+  id: blocks_null_sink
+  parameters:
+    type: complex
+- name: wfm_tx_sink
+  id: blocks_null_sink
+  parameters:
+    type: complex
+connections:
+- [complex_source, '0', complex_head, '0']
+- [complex_head, '0', am_demod, '0']
+- [complex_head, '0', fm_demod, '0']
+- [complex_head, '0', nbfm_rx, '0']
+- [complex_head, '0', wfm_rx, '0']
+- [complex_head, '0', xlating_filter, '0']
+- [am_demod, '0', am_sink, '0']
+- [fm_demod, '0', fm_sink, '0']
+- [nbfm_rx, '0', nbfm_rx_sink, '0']
+- [wfm_rx, '0', wfm_rx_sink, '0']
+- [xlating_filter, '0', filter_sink, '0']
+- [float_source, '0', float_head, '0']
+- [float_head, '0', fm_deemph, '0']
+- [float_head, '0', fm_preemph, '0']
+- [float_head, '0', nbfm_tx, '0']
+- [float_head, '0', wfm_tx, '0']
+- [fm_deemph, '0', deemph_sink, '0']
+- [fm_preemph, '0', preemph_sink, '0']
+- [nbfm_tx, '0', nbfm_tx_sink, '0']
+- [wfm_tx, '0', wfm_tx_sink, '0']
+metadata:
+  file_format: 1
+  grc_version: 3.11.0.0

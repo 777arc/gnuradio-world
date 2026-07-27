@@ -1,0 +1,67 @@
+blocks:
+- name: constellation
+  id: variable_constellation
+  parameters:
+    type: qpsk
+    sym_map: '[0, 1, 3, 2]'
+    const_points: '[-1-1j, -1+1j, 1+1j, 1-1j]'
+    rot_sym: '4'
+    dims: '1'
+    normalization: digital.constellation.AMPLITUDE_NORMALIZATION
+    precision: '8'
+    npwr: '1'
+    soft_dec_lut: None
+- name: rectangular_constellation
+  id: variable_constellation_rect
+  parameters:
+    sym_map: '[0, 1, 3, 2]'
+    const_points: '[-1-1j, -1+1j, 1+1j, 1-1j]'
+    rot_sym: '4'
+    real_sect: '2'
+    imag_sect: '2'
+    w_real_sect: '1'
+    w_imag_sect: '1'
+    precision: '8'
+    soft_dec_lut: None
+- name: source
+  id: analog_random_source_x
+  parameters:
+    type: byte
+    min: '0'
+    max: '256'
+    num_samps: '256'
+    repeat: 'False'
+- name: modulator
+  id: digital_constellation_modulator
+  parameters:
+    constellation: constellation
+    differential: 'True'
+    samples_per_symbol: '2'
+    excess_bw: '0.35'
+    verbose: 'False'
+    log: 'False'
+    truncate: 'False'
+- name: demodulator
+  id: digital_psk_demod
+  parameters:
+    constellation_points: '4'
+    differential: 'True'
+    samples_per_symbol: '2'
+    excess_bw: '0.35'
+    freq_bw: '0.0628'
+    timing_bw: '0.0628'
+    phase_bw: '0.0628'
+    mod_code: gray
+    verbose: 'False'
+    log: 'False'
+- name: sink
+  id: blocks_null_sink
+  parameters:
+    type: byte
+connections:
+- [source, '0', modulator, '0']
+- [modulator, '0', demodulator, '0']
+- [demodulator, '0', sink, '0']
+metadata:
+  file_format: 1
+  grc_version: 3.11.0.0

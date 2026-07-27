@@ -16,10 +16,11 @@ node wasm/server.mjs 8090 wasm
 
 ## Quickstart (fresh Ubuntu 24.04)
 
-Builds the whole stack from source and serves the editor. **Assumes the repo is at
-`/home/marc/gnuradio` and Qt installs under `~/Qt`** — `wasm/deps/env.sh`, the Qwt
-config, and the runner/qtgui `CMakeLists.txt` hard-code these paths; edit them (and
-the `QT_*` vars below) if yours differ.
+Builds the whole stack from source and serves the editor. The repo can live
+anywhere: `wasm/deps/env.sh`, the Qwt config and the runner/qtgui
+`CMakeLists.txt` all derive the repo root from their own location, or from `$GR`
+when it is set (which is what CI does). Only Qt is assumed to be under `~/Qt` —
+adjust the `QT_*` variables below if yours differs.
 
 **1. Toolchains and system packages**
 
@@ -194,12 +195,14 @@ ls gr-<m>/python/*.py                                # gr.hier_block2 / GUI = Py
 grep -rHn 'static sptr make' gr-<m>/include/*/*.h    # constructor signatures
 grep -rho '#include *<[a-z].*>' gr-<m>/lib/*.cc | sort -u   # spot host-only deps
 ```
-A block is buildable only if it has a C++ impl. **Python-only blocks** — a
+A block is directly generator-buildable only if it has a C++ impl. **Python-only
+blocks** — a
 `gr.hier_block2` (e.g. gr-foo's `selector`/`valve`) or a GUI QWidget (e.g.
-`rds_panel` = `rds.rdsPanel`) — have no C++ path: leave their yaml alone (no `cpp`
-flag) and they show greyed-out in the palette. **Host-only deps** not in the WASM
-sysroot (UHD, Boost.Asio networking, Boost.Locale, libsndfile, …) must be dealt
-with in step 4.
+`rds_panel` = `rds.rdsPanel`) — have no automatic C++ path. Leave their yaml
+alone unless the hierarchy is rebuilt as a hand-written C++ `hier_block2` in
+the runner; otherwise they show greyed-out in the palette. **Host-only deps** not
+in the WASM sysroot (UHD, Boost.Asio networking, Boost.Locale, libsndfile, …)
+must be dealt with in step 4.
 
 **3. Add `cpp_templates` to each C++ block's `.block.yml`.** This is what the
 generator turns into a factory. Add `flags: [python, cpp]` near the top and, right
@@ -292,10 +295,9 @@ verify DSP correctness of the chain.
   factory is emitted. A block whose `cpp_templates` can't be rendered goes in
   `INVALID_CPP_TEMPLATES` with a reason.
 - **Python hier blocks** (`gr.hier_block2` compositions such as PSK Mod or the
-  OFDM Transmitter) have no C++ path at all, so the browser gets a twin: the same
-  chain rebuilt as a C++ `hier_block2` in `registry.cpp`, plus a `.block.yml`
-  carrying the original's parameters (`digital_psk_mod`,
-  `digital_ofdm_tx_wasm` = "OFDM Transmitter Wasm"). Where the Python block
+  OFDM Transmitter) have no C++ path at all, so the browser gets the same block
+  id backed by the same chain rebuilt as a C++ `hier_block2` in `registry.cpp`
+  (`digital_psk_mod`, `digital_ofdm_tx`). Where the Python block
   computes defaults with numpy (the OFDM sync words), reproduce them exactly:
   numpy's legacy `RandomState(seed)` is MT19937 seeded identically to
   `std::mt19937(seed)`, and `randint(2)` is one 32-bit draw's low bit.
@@ -330,9 +332,9 @@ verify DSP correctness of the chain.
 ## Architecture
 
 ```
-┌──────────────────────────┐   flowgraph JSON    ┌──────────────────────────────┐
+┌──────────────────────────┐   flowgraph .grc    ┌──────────────────────────────┐
 │  Editor  (TypeScript)     │ ──────────────────► │  Runner  (C++ → WASM)         │
-│  GRC-style canvas, block   │  runner.html#<json> │  parse JSON → block registry  │
+│  GRC-style canvas, block   │  runner.html#<grc>  │  parse GRC → block registry   │
 │  tree, properties dialog   │ ◄────────────────── │  → GR scheduler → gr-qtgui    │
 │  wasm/editor/              │   live plots        │  sinks on <canvas>            │
 └──────────────────────────┘                     │  wasm/runner/                 │
@@ -341,13 +343,13 @@ verify DSP correctness of the chain.
 
 - **Editor** (`editor/`, Vite + TypeScript): the block tree is generated from GNU
   Radio's `.block.yml` + `.tree.yml` files and follows the native GRC category
-  hierarchy. All in-tree non-HEIR definitions remain visible; blocks absent from
-  the WASM registry are greyed out and cannot be placed. The editor supports
+  hierarchy. In-tree definitions remain visible; blocks absent from the WASM
+  registry are greyed out and cannot be placed. The editor supports
   place/connect/configure, right-click actions (cut/copy/paste, rotate,
   enable/disable, bypass), a Properties dialog, and a Run button that hands the
-  flowgraph JSON to the runner. While running, a draggable horizontal splitter
+  flowgraph `.grc` to the runner. While running, a draggable horizontal splitter
   resizes the editor canvas and embedded runner panes.
-- **Runner** (`runner/`): a generic C++/WASM "player" — parses the flowgraph JSON,
+- **Runner** (`runner/`): a generic C++/WASM "player" — parses the flowgraph `.grc`,
   builds blocks via a `block-id → factory` registry, runs the GNU Radio
   thread-per-block scheduler, and renders gr-qtgui sinks to a canvas. Direct C++
   factories are generated from GRC's `cpp_templates`; handwritten factories in
@@ -374,7 +376,7 @@ verify DSP correctness of the chain.
 | `tools/` | `generate_cpp.py` (host-side GRC → C++ generation, optional) |
 | `server.mjs` | COOP/COEP static dev server (needed for SharedArrayBuffer / pthreads) |
 | `run.mjs` | headless-Chromium test harness (waits on a page `#result`) |
-| `scripts/` | `assemble-site.mjs` (static site for Pages) and `pack-deps.sh` (legacy prebuilt-deps tarball; see CI below) |
+| `scripts/` | `assemble-site.mjs` (assembles the static site CI deploys to Pages) |
 
 ## Prerequisites (userspace, no sudo)
 
@@ -412,43 +414,45 @@ node wasm/server.mjs 8090 wasm          # COOP/COEP dev server
 `node wasm/run.mjs /runner/build/runner.html RUNNER_PASS` runs the runner headless.
 
 `runner/generated_blocks.json` is the authoritative runtime support manifest
-used to mark palette entries runnable or unavailable. Blocks whose constructors
-require a separately typed GRC companion
-object (for example a constellation, OFDM equalizer, packet formatter, or message
-queue) remain listed under `skipped`; those objects are not blocks and need a
-future typed-object registry rather than a JSON-to-block factory. Python-only and
-HEIR block definitions are intentionally not included.
+used to mark palette entries runnable or unavailable. The runner has a small
+typed-object registry for constellation variables used by Constellation
+Modulator. Other blocks whose constructors require a separately typed GRC
+companion object (for example an OFDM equalizer, packet formatter, or message
+queue) remain listed under `skipped`. Python-only hierarchy definitions are
+supported when their chain has been explicitly rebuilt as a C++ `hier_block2`
+in `registry.cpp`; the rest remain unavailable.
 
 ## Continuous integration
 
-Two workflows, mid-migration:
+`.github/workflows/deploy-wasm.yml` builds the whole stack from source and
+deploys to Cloudflare Pages on every merge to `main`. Nothing is prebuilt, so
+the deployed artifacts can never disagree with the source tree. Two caches keep
+that affordable:
 
-- **`.github/workflows/deploy-wasm.yml`** — the live one. Deploys to Cloudflare
-  Pages on every merge to `main`. It downloads a prebuilt `sysroot` + GNU Radio
-  libs + qtgui tarball from the `deps-vX` GitHub release (`DEPS_TAG`) rather than
-  building them, so **any change to the GNU Radio C++ requires repacking and
-  re-publishing that tarball** (`wasm/scripts/pack-deps.sh`) or CI silently links
-  stale libraries.
-- **`.github/workflows/build-wasm-from-source.yml`** — the replacement, manual
-  (`workflow_dispatch`) and non-deploying by default. Builds everything from
-  source and caches instead: `sysroot` cached as an output keyed on the dep
-  scripts, and `ccache` for GNU Radio/qtgui/runner, which are recompiled every
-  run. Nothing can go stale because nothing is prebuilt. `rebuild_sysroot: true`
-  forces the cold path (~1 h); a warm run is close to the current deploy time.
+- **`sysroot`** — Boost/FFTW/GMP/Qwt/VOLK/spdlog, cached as an *output* keyed on
+  `deps/env.sh` + `fetch-deps.sh` + `build-deps.sh` and the emsdk/Qt versions.
+  Rebuilt only when one of those changes (~25 min), a hit otherwise.
+- **`ccache`** — GNU Radio, qtgui and the runner are recompiled every run, with
+  ccache absorbing the cost. Caching `gr/build-gr` instead does *not* work:
+  `actions/checkout` stamps every source file with a fresh mtime, so a restored
+  ninja build dir rebuilds all ~520 objects anyway. ccache keys on preprocessed
+  content, so a one-file GR change recompiles one file.
 
-  ccache rather than caching `gr/build-gr` is deliberate: `actions/checkout`
-  stamps every source file with a fresh mtime, so a restored ninja build dir
-  would rebuild all 514 objects anyway. ccache keys on preprocessed content.
+Other triggers: `workflow_dispatch` builds without deploying unless you tick
+`deploy`, and `rebuild_sysroot` forces the cold path (~1 h) to test the dep
+scripts end to end. A weekly `schedule` run exists purely to keep the caches
+alive — GitHub evicts anything unused for 7 days, and it never deploys.
 
-Once a cold and a warm run of the second workflow look right, fold its build
-steps into `deploy-wasm.yml`, drop the `Fetch prebuilt deps` step and `DEPS_TAG`,
-and delete `pack-deps.sh` and the `deps-vX` releases. Caches evict after 7 days
-unused, so a repo that goes quiet pays for one cold run; a weekly scheduled run
-keeps them warm.
+This replaced a prebuilt `sysroot` + GR libs + qtgui tarball attached to a
+`deps-vX` GitHub release. That artifact had to be repacked by hand after any
+GNU Radio C++ change; when someone forgot, CI silently linked stale libraries
+and the deployed site behaved differently from every developer's machine.
 
 ## GNU Radio source changes (all guarded, desktop build unaffected)
 
-- `gnuradio-runtime/lib/thread/thread.cc` — `__EMSCRIPTEN__` branch (no prctl/affinity).
+- `gnuradio-runtime/lib/thread/thread.cc` — `__EMSCRIPTEN__` branch (no prctl/affinity);
+  `set_thread_name()` is a silent no-op there rather than an error log, which would
+  otherwise fire once per block thread and show up in the runner's error banner.
 - `gnuradio-runtime/lib/constants.cc.in` — fixed prefix under WASM (no `boost::dll`).
 - `gnuradio-runtime/lib/CMakeLists.txt` — libunwind made optional.
 - `gnuradio-runtime/lib/pmt/CMakeLists.txt`, `gr-fft`, `gr-blocks`, `gr-analog`

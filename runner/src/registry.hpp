@@ -32,6 +32,10 @@ using Factory = std::function<BuiltBlock(const nlohmann::json& params)>;
 // handling or richer live callbacks.
 const std::map<std::string, Factory>& block_registry();
 
+// Per-run typed objects (currently GRC constellation variables) are created
+// before stream blocks and retained by the custom hierarchy factories.
+void clear_runtime_objects();
+
 // Core (always-linked) blocks: blocks/analog/fft/filter. Deferred category blocks
 // register themselves via wasm_registry_add() when their side module is dlopen'd.
 void register_generated_blocks(std::map<std::string, Factory>& registry);

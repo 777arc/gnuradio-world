@@ -153,7 +153,6 @@
 #include <gnuradio/filter/rational_resampler.h>
 #include <gnuradio/filter/single_pole_iir_filter_cc.h>
 #include <gnuradio/filter/single_pole_iir_filter_ff.h>
-#include <gnuradio/math.h>
 #include <string_view>
 
 using namespace gr;
@@ -1798,10 +1797,6 @@ void register_generated_blocks(std::map<std::string, Factory>& registry)
     });
     registry.emplace("analog_simple_squelch_cc", [](const nlohmann::json& p) -> BuiltBlock {
         auto block = analog::simple_squelch_cc::make(wasm_registry::number<double>(p, "threshold", 0.0), wasm_registry::number<double>(p, "alpha", 0.0));
-        return { block, nullptr };
-    });
-    registry.emplace("analog_wfm_tx", [](const nlohmann::json& p) -> BuiltBlock {
-        auto block = gr::analog::frequency_modulator_fc::make(2 * (GR_M_PI) * wasm_registry::number<double>(p, "max_dev", 75000.0) / wasm_registry::number<int>(p, "quad_rate", 0));
         return { block, nullptr };
     });
     registry.emplace("fft_vxx", [](const nlohmann::json& p) -> BuiltBlock {

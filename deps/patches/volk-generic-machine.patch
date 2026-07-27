@@ -1,0 +1,56 @@
+VOLK: make the generic (no-SIMD) machine usable under Emscripten.
+
+Both hunks are required for a WASM build to run at all; without them every
+flowgraph dies during construction. Neither is emscripten-specific in principle
+-- they are latent bugs on any target whose only machine is `generic`.
+
+1. lib/volk_malloc.c -- the generic machine reports alignment == 1, and
+   aligned_alloc(1, ...) is rejected by Emscripten/musl, so volk_malloc()
+   returns NULL and GNU Radio's buffer allocation throws std::bad_alloc.
+
+2. tmpl/volk.tmpl.c -- get_machine() only accepts a machine whose caps beat
+   max_score, which starts at 0. The generic machine has caps == 0, so it is
+   never selected, max_machine stays NULL, and the NULL deref traps with
+   "operation does not support unaligned accesses".
+
+Applied by wasm/deps/fetch-deps.sh. Upstream VOLK is v3.1.2.
+
+diff --git a/lib/volk_malloc.c b/lib/volk_malloc.c
+index 61ad162..2bd4d0c 100644
+--- a/lib/volk_malloc.c
++++ b/lib/volk_malloc.c
+@@ -47,6 +47,12 @@ void* volk_malloc(size_t size, size_t alignment)
+     if (size % alignment) {
+         size += alignment - (size % alignment);
+     }
++    // The generic machine reports alignment == 1 (no alignment requirement).
++    // aligned_alloc(1, ...) is rejected by some libcs (e.g. Emscripten/musl),
++    // so satisfy alignment <= 1 with plain malloc in all backends.
++    if (alignment <= 1) {
++        return malloc(size);
++    }
+ #if HAVE_POSIX_MEMALIGN
+     // quoting posix_memalign() man page:
+     // "alignment must be a power of two and a multiple of sizeof(void *)"
+diff --git a/tmpl/volk.tmpl.c b/tmpl/volk.tmpl.c
+index 62a9400..f525304 100644
+--- a/tmpl/volk.tmpl.c
++++ b/tmpl/volk.tmpl.c
+@@ -34,7 +34,7 @@ struct volk_machine *get_machine(void)
+     struct volk_machine *max_machine = NULL;
+     for(i=0; i<n_volk_machines; i++) {
+       if(!(volk_machines[i]->caps & (~volk_get_lvarch()))) {
+-        if(volk_machines[i]->caps > max_score) {
++        if(max_machine == NULL || volk_machines[i]->caps > max_score) {
+           max_score = volk_machines[i]->caps;
+           max_machine = volk_machines[i];
+         }
+@@ -76,7 +76,7 @@ const char* volk_get_machine(void)
+     struct volk_machine *max_machine = NULL;
+     for(i=0; i<n_volk_machines; i++) {
+       if(!(volk_machines[i]->caps & (~volk_get_lvarch()))) {
+-        if(volk_machines[i]->caps > max_score) {
++        if(max_machine == NULL || volk_machines[i]->caps > max_score) {
+           max_score = volk_machines[i]->caps;
+           max_machine = volk_machines[i];
+         }

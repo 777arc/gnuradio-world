@@ -1,0 +1,209 @@
+options:
+    parameters:
+        author: Marc
+        copyright: ''
+        description: OFDM loopback with adjustable channel noise and a per-packet bit-error count.
+        generate_options: qt_gui
+        id: OFDM
+        title: OFDM Loopback and Bit Error Counter
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: noise_amplitude
+    id: variable_qtgui_range
+    parameters:
+        label: Noise amplitude
+        min_len: '200'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '0'
+        step: '0.005'
+        stop: '0.2'
+        value: '0.005'
+        widget: counter_slider
+    states:
+        coordinate: [760, 318]
+        rotation: 0
+        state: enabled
+-   name: payload
+    id: blocks_vector_source_x
+    parameters:
+        repeat: 'True'
+        tags: '[]'
+        type: byte
+        vector: '[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95]'
+        vlen: '1'
+    states:
+        coordinate: [20, 100]
+        rotation: 0
+        state: enabled
+-   name: packet_tagger
+    id: blocks_stream_to_tagged_stream
+    parameters:
+        len_tag_key: length
+        packet_len: '96'
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [240, 100]
+        rotation: 0
+        state: enabled
+-   name: transmitter
+    id: digital_ofdm_tx
+    parameters:
+        cp_len: '16'
+        fft_len: '64'
+        header_mod: '"BPSK"'
+        log: 'False'
+        occupied_carriers: ()
+        packet_len_key: length
+        payload_mod: '"BPSK"'
+        pilot_carriers: ()
+        pilot_symbols: ()
+        rolloff: '0'
+        scramble_bits: 'False'
+        sync_word1: ()
+        sync_word2: ()
+    states:
+        coordinate: [460, 100]
+        rotation: 0
+        state: enabled
+-   name: channel_noise
+    id: analog_noise_source_x
+    parameters:
+        amp: noise_amplitude
+        noise_type: analog.GR_GAUSSIAN
+        seed: '0'
+        type: complex
+    states:
+        coordinate: [750, 220]
+        rotation: 0
+        state: enabled
+-   name: add_noise
+    id: blocks_add_xx
+    parameters:
+        num_inputs: '2'
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [760, 100]
+        rotation: 0
+        state: enabled
+-   name: throttle
+    id: blocks_throttle
+    parameters:
+        ignoretag: 'True'
+        limit: auto
+        maximum: '0.1'
+        samples_per_second: '192000'
+        samp_rate: '192000'
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [960, 100]
+        rotation: 0
+        state: enabled
+-   name: strip_tx_tags
+    id: blocks_tag_gate
+    parameters:
+        propagate_tags: 'False'
+        single_key: '""'
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [1160, 100]
+        rotation: 0
+        state: enabled
+-   name: receiver
+    id: digital_ofdm_rx
+    parameters:
+        cp_len: '16'
+        fft_len: '64'
+        header_mod: '"BPSK"'
+        log: 'False'
+        occupied_carriers: ()
+        packet_len_key: '"length"'
+        payload_mod: '"BPSK"'
+        pilot_carriers: ()
+        pilot_symbols: ()
+        scramble_bits: 'False'
+        sync_word1: ()
+        sync_word2: ()
+    states:
+        coordinate: [1360, 100]
+        rotation: 0
+        state: enabled
+-   name: byte_errors
+    id: blocks_xor_xx
+    parameters:
+        num_inputs: '2'
+        type: byte
+    states:
+        coordinate: [1580, 100]
+        rotation: 0
+        state: enabled
+-   name: error_bits
+    id: blocks_unpack_k_bits_bb
+    parameters:
+        k: '8'
+    states:
+        coordinate: [1760, 100]
+        rotation: 0
+        state: enabled
+-   name: errors_as_float
+    id: blocks_uchar_to_float
+    parameters: {}
+    states:
+        coordinate: [1940, 100]
+        rotation: 0
+        state: enabled
+-   name: errors_per_packet
+    id: blocks_integrate_xx
+    parameters:
+        decim: '768'
+        type: float
+        vlen: '1'
+    states:
+        coordinate: [2130, 100]
+        rotation: 0
+        state: enabled
+-   name: bit_error_display
+    id: qtgui_number_sink
+    parameters:
+        autoscale: 'False'
+        avg: '0'
+        color1: '("black", "black")'
+        factor1: '1'
+        graph_type: qtgui.NUM_GRAPH_NONE
+        gui_hint: ''
+        label1: '"Bit errors in latest packet"'
+        max: '768'
+        min: '0'
+        name: '"OFDM Bit Errors"'
+        nconnections: '1'
+        type: float
+        unit1: '" bits"'
+        update_time: '0.1'
+    states:
+        coordinate: [2320, 100]
+        rotation: 0
+        state: enabled
+connections:
+- [payload, '0', packet_tagger, '0']
+- [payload, '0', byte_errors, '1']
+- [packet_tagger, '0', transmitter, '0']
+- [transmitter, '0', add_noise, '0']
+- [channel_noise, '0', add_noise, '1']
+- [add_noise, '0', throttle, '0']
+- [throttle, '0', strip_tx_tags, '0']
+- [strip_tx_tags, '0', receiver, '0']
+- [receiver, '0', byte_errors, '0']
+- [byte_errors, '0', error_bits, '0']
+- [error_bits, '0', errors_as_float, '0']
+- [errors_as_float, '0', errors_per_packet, '0']
+- [errors_per_packet, '0', bit_error_display, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0
