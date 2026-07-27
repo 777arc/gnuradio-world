@@ -8,13 +8,16 @@
 #include "grc_lower.hpp"
 #include <gnuradio/top_block.h>
 #include <gnuradio/block.h>
+#include <gnuradio/logger.h>
 #include <gnuradio/prefs.h>
 #include <QApplication>
 #include <QLabel>
+#include <QPointer>
 #include <QScreen>
 #include <QWidget>
 #include <QVBoxLayout>
 #include <QTimer>
+#include <spdlog/sinks/base_sink.h>
 #include <emscripten.h>
 #include <emscripten/heap.h>
 #include <dlfcn.h>
@@ -23,6 +26,8 @@
 #include <cstdlib>
 #include <functional>
 #include <map>
+#include <memory>
+#include <mutex>
 #include <set>
 #include <string>
 #include <thread>
@@ -68,23 +73,66 @@ static std::vector<StatBlock> g_stats;
 static double g_ref_samp_rate = 0.0;
 static std::chrono::steady_clock::time_point g_run_start;
 
-// Show a failed run inside the flowgraph window. Without this a construction
-// error is invisible: the #result div lives under Qt's canvas and the window
-// just stays empty (no sink widget was ever added).
-static void show_error_in_window(const std::string& msg) {
+// Show an error inside the flowgraph window. Without this a failure is invisible:
+// the #result div lives under Qt's canvas, and a graph that dies during
+// construction just leaves an empty window (no sink widget was ever added). The
+// banner is reused, and run_now() clears it with the rest of the layout, so a
+// later successful run starts clean. Main thread only.
+static QPointer<QLabel> g_error_banner;
+static void show_error_in_window(const QString& title, const std::string& msg) {
     if (!g_container || !g_container->layout())
         return;
-    auto* label = new QLabel(QStringLiteral("Flowgraph error\n\n") +
-                             QString::fromStdString(msg));
-    label->setWordWrap(true);
-    label->setAlignment(Qt::AlignCenter);
-    label->setTextInteractionFlags(Qt::TextSelectableByMouse);
-    label->setStyleSheet(QStringLiteral(
-        "color:#b00020; background:#fff3f3; border:1px solid #f0c0c0;"
-        "padding:16px; font-size:14px;"));
-    g_container->layout()->addWidget(label);
-    label->show();
+    if (!g_error_banner) {
+        g_error_banner = new QLabel(g_container);
+        g_error_banner->setWordWrap(true);
+        g_error_banner->setAlignment(Qt::AlignCenter);
+        g_error_banner->setTextInteractionFlags(Qt::TextSelectableByMouse);
+        g_error_banner->setStyleSheet(QStringLiteral(
+            "color:#b00020; background:#fff3f3; border:1px solid #f0c0c0;"
+            "padding:12px; font-size:14px;"));
+        g_container->layout()->addWidget(g_error_banner);
+    }
+    g_error_banner->setText(title + QStringLiteral("\n\n") + QString::fromStdString(msg));
+    g_error_banner->show();
 }
+
+// Mirror a message to the editor (parent frame), which logs it next to the Run
+// that produced it.
+static void post_error_to_editor(const std::string& msg) {
+    EM_ASM({
+        if (window.parent && window.parent !== window) {
+            var m = {};
+            m.type = 'gr-error';
+            m.message = UTF8ToString($0);
+            window.parent.postMessage(m, '*');
+        }
+    }, msg.c_str());
+}
+
+// GNU Radio logs scheduler/block failures — notably the exception
+// thread_body_wrapper catches when a block's work() throws — through spdlog. In
+// this build its default backend has NO sinks: gr::logging reads the sink from
+// the "log_file" pref, which is empty because there is no config file in the
+// browser, so every message is dropped. (Emscripten's stdout/stderr are not
+// visible here either.) Forward errors to the same places a failed run goes.
+class BrowserLogSink : public spdlog::sinks::base_sink<std::mutex> {
+protected:
+    void sink_it_(const spdlog::details::log_msg& msg) override {
+        if (msg.level < spdlog::level::err)
+            return;
+        const std::string text(msg.payload.begin(), msg.payload.end());
+        // Sinks run on GR's per-block threads; widgets and the DOM are main-thread
+        // only, so hop across via the Qt event loop.
+        QMetaObject::invokeMethod(
+            qApp,
+            [text] {
+                show_error_in_window(QStringLiteral("Runtime error"), text);
+                post_error_to_editor(text);
+            },
+            Qt::QueuedConnection);
+    }
+    void flush_() override {}
+};
 
 static void report(bool ok, const std::string& msg) {
     // marshalled to the browser main thread by Qt/emscripten as needed
@@ -93,16 +141,11 @@ static void report(bool ok, const std::string& msg) {
             document.body.appendChild(Object.assign(document.createElement('div'), {id:'result'}));
         d.setAttribute('data-status', $0 ? 'pass' : 'fail');
         d.textContent = ($0 ? 'RESULT: RUNNER_PASS ' : 'RESULT: RUNNER_FAIL ') + UTF8ToString($1);
-        // Forward failures to the editor (parent frame) so they land in its log.
-        if (!$0 && window.parent && window.parent !== window) {
-            var m = {};
-            m.type = 'gr-error';
-            m.message = UTF8ToString($1);
-            window.parent.postMessage(m, '*');
-        }
     }, ok ? 1 : 0, msg.c_str());
-    if (!ok)
-        show_error_in_window(msg);
+    if (!ok) {
+        show_error_in_window(QStringLiteral("Flowgraph error"), msg);
+        post_error_to_editor(msg);  // lands in the editor's log
+    }
 }
 
 static void run_now(const std::string& json_source) {
@@ -485,6 +528,10 @@ static char* flowgraph_from_url() {
 
 int main(int argc, char** argv) {
     QApplication app(argc, argv);
+
+    // Give GR's logger somewhere to go (see BrowserLogSink): without this every
+    // runtime error, including a block throwing out of work(), is discarded.
+    gr::logging::singleton().add_default_sink(std::make_shared<BrowserLogSink>());
 
     // Be explicit about the top-level window decorations. Qt's WASM platform
     // implements its draggable title bar and resize handles from these flags;

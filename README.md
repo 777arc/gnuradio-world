@@ -104,9 +104,10 @@ cd "$GR"                                           # add: QWT_CONFIG -= QwtDesig
 
 ```bash
 # GR C++ modules: no Python, static, emulated (software) double-mapped vmcircbuf.
-# -fPIC is required for the MAIN_MODULE/SIDE_MODULE dynamic linking (see note below).
+# -fPIC is required for the MAIN_MODULE/SIDE_MODULE dynamic linking (see note below);
+# -fexceptions keeps GR's own try/catch alive under Emscripten (see note below).
 emcmake cmake -S "$GR" -B wasm/gr/build-gr -GNinja \
-  -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-pthread -fPIC" -DCMAKE_C_FLAGS="-pthread -fPIC" \
+  -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-pthread -fPIC -fexceptions" -DCMAKE_C_FLAGS="-pthread -fPIC" \
   -DCMAKE_INSTALL_PREFIX="$SYSROOT" -DCMAKE_PREFIX_PATH="$SYSROOT" -DCMAKE_FIND_ROOT_PATH="$SYSROOT" \
   -DENABLE_DEFAULT=OFF -DENABLE_PYTHON=OFF -DENABLE_GR_QTGUI=OFF -DENABLE_GR_AUDIO=OFF \
   -DENABLE_GR_ANALOG=ON -DENABLE_GR_BLOCKS=ON -DENABLE_GR_DIGITAL=ON \
@@ -333,10 +334,17 @@ verify DSP correctness of the chain.
   unless `-fexceptions` (≡ `-sNO_DISABLE_EXCEPTION_CATCHING`) is on the *compile*
   line — having it only at link makes every `try`/`catch` in that object inert, so
   a bad block parameter escapes as an opaque `Uncaught <pointer>` that kills the
-  runtime instead of surfacing as `RUNNER_FAIL: <message>`. The runner target and
-  the side modules compile with it. The `build-gr` GR libraries currently do
-  **not**, so GR's own `thread_body_wrapper` catch (which logs exceptions thrown
-  from a block's `work()`) is dead: those still kill the worker silently.
+  runtime instead of surfacing as `RUNNER_FAIL: <message>`. Everything is compiled
+  with it: the runner target, the side modules, and the `build-gr` GR libraries
+  (so GR's `thread_body_wrapper` catches an exception thrown from a block's
+  `work()` and logs it instead of killing the worker).
+- **GR's logger needs a sink installed by hand.** `gr::logging` picks its sink
+  from the `log_file` pref, which is empty in the browser (no config file), so the
+  default backend has *no* sinks and silently drops every message — and
+  Emscripten's stdout/stderr are not visible here either. `runner.cpp` registers a
+  `BrowserLogSink` that mirrors error-level records into the flowgraph window and
+  posts them to the editor. Without it, a block that throws out of `work()` looks
+  like a graph that simply produces nothing.
 - **Symbol export is automatic:** `gen_side_exports.py` scans each side module's
   `env`/GOT imports and re-exports them from main with `--export-if-defined`, so
   you don't maintain an export list by hand. Side modules must stay ABI-matched to
