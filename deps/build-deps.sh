@@ -21,6 +21,12 @@ source ./env.sh
 
 JOBS="$(nproc)"
 
+# Scratch build trees for the CMake-based deps. Wiped per dep before configuring:
+# a cache left from a different $DEPS_SRC or $SYSROOT makes cmake abort with
+# "does not match the source used to generate cache", and these two builds are
+# cheap enough that a clean configure costs nothing.
+DEPS_BUILD="${DEPS_BUILD:-$WASM_ROOT/deps/build}"
+
 # VOLK's kernel generator needs Mako. Prefer an interpreter that already has it
 # (the system python on CI); otherwise fall back to a venv beside the sysroot.
 pick_python() {
@@ -41,17 +47,19 @@ DEPS_PYTHON="$(pick_python)"
 echo "[deps] python for VOLK codegen: $DEPS_PYTHON"
 
 # --- spdlog (bundled fmt), static, threaded ---------------------------------
-emcmake cmake -S "$DEPS_SRC/spdlog" -B build/spdlog "${WASM_CMAKE_ARGS[@]}" \
+rm -rf "$DEPS_BUILD/spdlog"
+emcmake cmake -S "$DEPS_SRC/spdlog" -B "$DEPS_BUILD/spdlog" "${WASM_CMAKE_ARGS[@]}" \
   -DSPDLOG_BUILD_SHARED=OFF -DSPDLOG_FMT_EXTERNAL=OFF \
   -DSPDLOG_BUILD_EXAMPLE=OFF -DSPDLOG_BUILD_TESTS=OFF -DSPDLOG_BUILD_BENCH=OFF
-cmake --build build/spdlog --target install
+cmake --build "$DEPS_BUILD/spdlog" --target install
 
 # --- VOLK (generic kernels only; neon probe forced off for wasm) ------------
-emcmake cmake -S "$DEPS_SRC/volk" -B build/volk "${WASM_CMAKE_ARGS[@]}" -Wno-dev \
+rm -rf "$DEPS_BUILD/volk"
+emcmake cmake -S "$DEPS_SRC/volk" -B "$DEPS_BUILD/volk" "${WASM_CMAKE_ARGS[@]}" -Wno-dev \
   -DPYTHON_EXECUTABLE="$DEPS_PYTHON" \
   -DENABLE_TESTING=OFF -DENABLE_PROFILING=OFF -DENABLE_MODTOOL=OFF \
   -Dneon_compile_result=FALSE
-cmake --build build/volk --target install
+cmake --build "$DEPS_BUILD/volk" --target install
 
 # --- Boost (custom clang-emscripten toolset; bundled emscripten.jam is the
 #     obsolete fastcomp/bitcode flow and does not work with modern emsdk) -----
@@ -113,7 +121,11 @@ QWT_INSTALL_PLUGINS  = $SYSROOT/plugins/designer
 QWT_INSTALL_FEATURES = $SYSROOT/features
 QMAKE_CXXFLAGS += -fPIC
 QMAKE_CFLAGS += -fPIC
-QWT_CONFIG -= QwtDesigner QwtExamples QwtPlayground
+# QwtDll is the load-bearing one: stock qwtconfig.pri enables it, and a shared
+# build ends in "wasm-ld: error: unknown file type: libqwt.so.6.2.0". The rest
+# are components the runner does not link (and whose Qt modules are absent from
+# the wasm Qt build) plus the sample apps and the .pc generator.
+QWT_CONFIG -= QwtDll QwtDesigner QwtExamples QwtPlayground QwtTests QwtPolar QwtSvg QwtOpenGL QwtPkgConfig QwtDesignerSelfContained
 # <<< gnuradio-wasm <<<
 CONF
 make distclean >/dev/null 2>&1 || true
