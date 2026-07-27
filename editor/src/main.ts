@@ -10,7 +10,9 @@ import { evaluate as evalExpr, buildScope, formatValue as fmtExprVal, serializeF
 type ParamType = 'number' | 'string' | 'enum';
 // `raw` marks a GRC dtype: raw parameter — free-form Python (vectors, matrices).
 // Like numeric params these are evaluated before the flowgraph goes to the runner.
-interface ParamDef { id: string; label: string; type: ParamType; def: any; options?: string[]; category?: string; hideIfEmpty?: boolean; raw?: boolean }
+// `dtype` keeps the original GRC dtype (only the generated blocks carry one); the
+// block face uses it to pick a truncation style for long values.
+interface ParamDef { id: string; label: string; type: ParamType; def: any; options?: string[]; category?: string; hideIfEmpty?: boolean; raw?: boolean; dtype?: string }
 // inTypes/outTypes give per-port dtypes (for converters); otherwise ports follow the
 // block's `type` param (complex/float) if it has one, else `dtype` (default complex).
 interface RunnableDef {
@@ -411,17 +413,34 @@ function fmtVal(v: any): string {
 let varScope: Scope = {};
 function rebuildScope() { varScope = buildScope(insts); }
 
+// What bounds a block's width in native GRC: every parameter value drawn on the
+// block face is truncated to `max(27 - len(label), 3)` characters, so no single
+// row can push the box past ~29 characters wide (grc/gui/canvas/param.py).
+// Style picks which end is dropped: <0 front, 0 centre (the default), >0 rear.
+function truncateValue(label: string, s: string, style = 0): string {
+  const maxLen = Math.max(27 - label.length, 3);
+  if (s.length <= maxLen) return s;
+  if (style < 0) return '...' + s.slice(3 - maxLen);
+  if (style > 0) return s.slice(0, maxLen - 3) + '...';
+  // Centre truncate, matching Python's floor division on the trailing slice.
+  return s.slice(0, Math.floor(maxLen / 2) - 3) + '...' + s.slice(-Math.ceil(maxLen / 2));
+}
+
 // The value string drawn on a block for parameter `p`. Numeric/expression params
 // are evaluated against the variable scope; anything that can't be resolved
 // (a filename, an unshimmed call, a bad expression) falls back to the raw text.
+// Native GRC keeps the tail of a path visible and the head of a long vector.
 function paramDisplay(p: ParamDef, raw: any): string {
-  if (p.type !== 'number') return fmtVal(raw);
-  if (typeof raw === 'number') return fmtVal(raw);
+  const cut = (s: string, style = 0) => truncateValue(p.label, s, style);
+  const fileStyle = p.dtype === 'file_open' || p.dtype === 'file_save' ? -1 : 0;
+  if (p.type !== 'number') return cut(fmtVal(raw), fileStyle);
+  if (typeof raw === 'number') return cut(fmtVal(raw));
   const s = String(raw ?? '').trim();
   if (!s) return '';
   const r = evalExpr(s, varScope);
-  if (!r.ok) return fmtVal(raw);
-  return typeof r.value === 'number' ? fmtVal(r.value) : fmtExprVal(r.value);
+  if (!r.ok) return cut(fmtVal(raw), fileStyle);
+  if (typeof r.value === 'number') return cut(fmtVal(r.value));
+  return cut(fmtExprVal(r.value), Array.isArray(r.value) ? 1 : 0);
 }
 
 function wrapValidationMessage(message: string, maxCharacters: number): string[] {
@@ -617,6 +636,7 @@ function installGeneratedBlocks(blocks: any[]) {
       type: p.dtype === 'enum' ? 'enum' :
         ['int', 'real', 'float', 'hex'].includes(String(p.dtype)) ? 'number' : 'string',
       raw: String(p.dtype) === 'raw',
+      dtype: p.dtype ? String(p.dtype) : undefined,
       def: generatedDefault(p),
       options: p.options ? p.options.map(String) : undefined,
       // "General" is the default tab; those params belong on the block face
@@ -1424,7 +1444,13 @@ function showPropsDialog(inst: Inst) {
 
   const overlay = document.createElement('div'); overlay.className = 'modal props';
   const dlg = document.createElement('div'); dlg.className = 'dlg';
-  const head = document.createElement('div'); head.className = 'dlghead'; head.textContent = 'Properties: ' + d.label;
+  const head = document.createElement('div'); head.className = 'dlghead withclose';
+  const headTitle = document.createElement('span'); headTitle.textContent = 'Properties: ' + d.label;
+  const headClose = document.createElement('button'); headClose.className = 'dlgclose';
+  headClose.type = 'button'; headClose.title = 'Close'; headClose.setAttribute('aria-label', 'Close');
+  headClose.textContent = '×';
+  headClose.onclick = () => overlay.remove();
+  head.append(headTitle, headClose);
   const tabBar = document.createElement('div'); tabBar.className = 'dlgtabs'; tabBar.setAttribute('role', 'tablist');
   const body = document.createElement('div'); body.className = 'dlgbody';
 
@@ -1505,7 +1531,8 @@ function showPropsDialog(inst: Inst) {
 
   activateTab('General');
   dlg.append(head, tabBar, body, foot); overlay.appendChild(dlg); document.body.appendChild(overlay);
-  overlay.addEventListener('mousedown', e => { if (e.target === overlay) overlay.remove(); });
+  // Unlike the informational dialogs, this one holds unsaved edits: a stray click
+  // on the backdrop must not discard them. Only OK/Cancel/× close it.
   refreshValidation();
   nameI.focus(); nameI.select();
 }

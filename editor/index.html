@@ -220,6 +220,10 @@
   .dlg { width:440px; max-height:82vh; background:#20232f; border:1px solid #46507a; border-radius:8px;
       display:flex; flex-direction:column; overflow:hidden; box-shadow:0 12px 44px #000b; }
   .dlghead { padding:12px 16px; font-size:14px; font-weight:600; color:#dce3f5; border-bottom:1px solid #333a4d; }
+  .dlghead.withclose { display:flex; align-items:center; justify-content:space-between; gap:12px; padding-right:8px; }
+  .dlgclose { flex:none; width:26px; height:26px; line-height:1; padding:0; border:0; border-radius:5px;
+      background:transparent; color:#9aa7c6; font-size:19px; cursor:pointer; }
+  .dlgclose:hover { background:#38415f; color:#e6e9f0; }
   .dlgtabs { display:flex; gap:2px; padding:8px 12px 0; border-bottom:1px solid #333a4d; overflow-x:auto; flex:none; }
   .dlgtab { padding:7px 12px; border:1px solid transparent; border-bottom:0; border-radius:5px 5px 0 0;
       background:transparent; color:#9aa7c6; white-space:nowrap; }
