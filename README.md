@@ -376,6 +376,8 @@ verify DSP correctness of the chain.
 | `tools/` | `generate_cpp.py` (host-side GRC → C++ generation, optional) |
 | `server.mjs` | COOP/COEP static dev server (needed for SharedArrayBuffer / pthreads) |
 | `run.mjs` | headless-Chromium test harness (waits on a page `#result`) |
+| `test_smoke.mjs` | runs example flowgraphs headlessly and asserts samples actually move; CI gates the deploy on it |
+| `test_lazy_scenarios.mjs` | verifies on-demand category side modules are fetched and `dlopen`'d |
 | `scripts/` | `assemble-site.mjs` (assembles the static site CI deploys to Pages) |
 
 ## Prerequisites (userspace, no sudo)
@@ -437,6 +439,13 @@ that affordable:
   `actions/checkout` stamps every source file with a fresh mtime, so a restored
   ninja build dir rebuilds all ~520 objects anyway. ccache keys on preprocessed
   content, so a one-file GR change recompiles one file.
+
+Before deploying, CI runs `wasm/test_smoke.mjs` and `wasm/test_lazy_scenarios.mjs`
+in headless Chromium. This is a gate, not a formality: a cleanly linked runner can
+still be dead on arrival (an unpatched VOLK once made `volk_malloc()` return NULL,
+so every flowgraph threw `std::bad_alloc` while CI stayed green). The smoke test
+requires every block in the runner's diagnostics snapshot to have moved items, so
+a graph that starts but stalls fails too.
 
 Other triggers: `workflow_dispatch` builds without deploying unless you tick
 `deploy`, and `rebuild_sysroot` forces the cold path (~1 h) to test the dep
