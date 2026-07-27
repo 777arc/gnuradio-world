@@ -5,7 +5,12 @@ const source = await readFile(new URL('../src/main.ts', import.meta.url), 'utf8'
 const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 
 assert.match(source, /function validateGraph\(/, 'missing shared graph validator');
-assert.match(source, /finite number or a variable control ID/, 'numeric fields must validate numbers and variable-control references');
+assert.match(source, /must be a number, a variable ID, or an expression of them/,
+  'numeric fields must validate numbers, variable references and expressions');
+assert.match(source, /!evaluates\(value, staticScope\)/,
+  'numeric fields must accept expressions that evaluate against the plain variables');
+assert.match(source, /may reference a live control only on its own/,
+  'an expression wrapped around a live control must be reported specifically');
 assert.match(source, /Block ID is required/, 'block IDs must be validated');
 assert.match(source, /is used more than once/, 'duplicate active block IDs must be validated');
 assert.match(source, /has unsupported value/, 'enum values must be validated');

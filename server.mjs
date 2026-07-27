@@ -24,6 +24,11 @@ const MIME = {
   '.svg': 'image/svg+xml',
 };
 
+async function isFile(path) {
+  try { return (await stat(path)).isFile(); }
+  catch { return false; }
+}
+
 function sigmfBytesPerSample(datatype) {
   const match = typeof datatype === 'string'
     ? /^([rc])[fiu](\d+)(?:_(?:le|be))?$/i.exec(datatype)
@@ -132,8 +137,15 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     if (urlPath.endsWith('/')) urlPath += 'index.html';
-    const filePath = normalize(join(root, urlPath));
-    if (!filePath.startsWith(root)) { res.writeHead(403); return res.end('forbidden'); }
+    const direct = normalize(join(root, urlPath));
+    if (!direct.startsWith(root)) { res.writeHead(403); return res.end('forbidden'); }
+    // The editor is served at the site root, matching the deployed layout
+    // (assemble-site.mjs copies editor/dist to the top of the site). Anything
+    // that isn't a file under wasm/ resolves against wasm/editor/dist/, which
+    // is where index.html, assets/ and blocks.json live.
+    const filePath = await isFile(direct)
+      ? direct
+      : normalize(join(root, 'editor', 'dist', urlPath));
     res.setHeader('Content-Type', MIME[extname(filePath)] || 'application/octet-stream');
     // HEAD (used by the editor's debug dialog to read wasm sizes): stat only,
     // report Content-Length, send no body.

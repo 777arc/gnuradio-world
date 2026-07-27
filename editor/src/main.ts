@@ -5,6 +5,7 @@
 
 import { dumpGrc, parseGrc, type GrcDoc, type GrcScalar } from './grc';
 import { boundsBetween, boundsIntersect, type Point } from './selection';
+import { evaluate as evalExpr, buildScope, formatValue as fmtExprVal, serializeForRunner, type Scope } from './expr';
 
 type ParamType = 'number' | 'string' | 'enum';
 interface ParamDef { id: string; label: string; type: ParamType; def: any; options?: string[]; category?: string; hideIfEmpty?: boolean }
@@ -18,6 +19,10 @@ interface RunnableDef {
   inLabelBase?: string; outLabelBase?: string;
   inStreamIndices?: number[]; outStreamIndices?: number[];
 }
+
+// Generated block-library metadata. The editor is served from the site root,
+// so blocks.json (Vite `public/`) sits next to index.html.
+const BLOCKS_URL = '/blocks.json';
 
 // GRC dtype -> port colour (from grc/core/Constants.py).
 const DTYPE_COLOR: Record<string, string> = {
@@ -393,6 +398,26 @@ function fmtVal(v: any): string {
   return String(v);
 }
 
+// Variable scope for expression evaluation, rebuilt each render() from the
+// flowgraph's variable blocks. The block face shows the *evaluated* result of a
+// parameter expression (like native GRC), while the stored value keeps the raw
+// expression (visible/editable in the Properties dialog).
+let varScope: Scope = {};
+function rebuildScope() { varScope = buildScope(insts); }
+
+// The value string drawn on a block for parameter `p`. Numeric/expression params
+// are evaluated against the variable scope; anything that can't be resolved
+// (a filename, an unshimmed call, a bad expression) falls back to the raw text.
+function paramDisplay(p: ParamDef, raw: any): string {
+  if (p.type !== 'number') return fmtVal(raw);
+  if (typeof raw === 'number') return fmtVal(raw);
+  const s = String(raw ?? '').trim();
+  if (!s) return '';
+  const r = evalExpr(s, varScope);
+  if (!r.ok) return fmtVal(raw);
+  return typeof r.value === 'number' ? fmtVal(r.value) : fmtExprVal(r.value);
+}
+
 function wrapValidationMessage(message: string, maxCharacters: number): string[] {
   const lines: string[] = [];
   for (const word of message.split(/\s+/)) {
@@ -451,6 +476,26 @@ function validateGraph(blocks: Inst[] = insts, connections: Conn[] = conns): Val
     return Number.isFinite(Number(value.trim()));
   };
 
+  // A numeric parameter may also hold a Python-subset expression (`samp_rate/2`,
+  // `2*pi*fc`, `firdes.low_pass(...)`), so it is valid when it evaluates against
+  // the flowgraph's variables. `staticScope` holds the plain `variable` blocks
+  // only — the values the Run path can bake in — while `fullScope` adds the live
+  // controls, and is used solely to explain the "expression around a live
+  // control" case below.
+  const activeBlocks = blocks.filter(active);
+  const staticScope = buildScope(activeBlocks.filter(block => block.id === 'variable'));
+  const fullScope = buildScope(activeBlocks);
+  const evaluates = (value: any, scope: Scope) =>
+    typeof value === 'string' && !!value.trim() && evalExpr(value.trim(), scope).ok;
+  // The concrete number an expression resolves to, or null when it isn't one.
+  const resolvedNumber = (value: any, scope: Scope): number | null => {
+    if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+    if (typeof value !== 'string' || !value.trim()) return null;
+    const result = evalExpr(value.trim(), scope);
+    return result.ok && typeof result.value === 'number' && Number.isFinite(result.value)
+      ? result.value : null;
+  };
+
   for (const block of blocks) {
     const def = RUNNABLE[block.id];
     if (!def) { add(block, BLOCK_FIELD, `Unknown block type "${block.id}".`); continue; }
@@ -464,8 +509,16 @@ function validateGraph(blocks: Inst[] = insts, connections: Conn[] = conns): Val
       if (param.type === 'number') {
         const variableReference = !VARIABLE_CONTROL_IDS.has(block.id) && typeof value === 'string' &&
           activeVariables.has(value.trim());
-        if (!finiteNumber(value) && !variableReference)
-          add(block, param.id, `${param.label} must be a finite number or a variable control ID.`);
+        if (!finiteNumber(value) && !variableReference && !evaluates(value, staticScope)) {
+          // An expression the live controls *could* satisfy is still rejected:
+          // the runner wires a control into a parameter only when the parameter
+          // is exactly the control's ID, so `freq/2` would never track the
+          // slider. Say so rather than reporting a generic bad expression.
+          const liveOnly = !VARIABLE_CONTROL_IDS.has(block.id) && evaluates(value, fullScope);
+          add(block, param.id, liveOnly
+            ? `${param.label} may reference a live control only on its own, not inside an expression.`
+            : `${param.label} must be a number, a variable ID, or an expression of them.`);
+        }
       } else if (param.type === 'enum' && param.options?.length && !param.options.includes(String(value))) {
         add(block, param.id, `${param.label} has unsupported value "${String(value)}".`);
       }
@@ -473,12 +526,14 @@ function validateGraph(blocks: Inst[] = insts, connections: Conn[] = conns): Val
 
     // Mirror the constraints enforced by the C++ Range widget constructor.
     if (block.id === 'variable_qtgui_range') {
-      const start = Number(block.params.start), stop = Number(block.params.stop);
-      const step = Number(block.params.step), minLength = Number(block.params.min_len);
-      if (Number.isFinite(start) && Number.isFinite(stop) && start > stop)
+      const start = resolvedNumber(block.params.start, staticScope);
+      const stop = resolvedNumber(block.params.stop, staticScope);
+      const step = resolvedNumber(block.params.step, staticScope);
+      const minLength = resolvedNumber(block.params.min_len, staticScope);
+      if (start !== null && stop !== null && start > stop)
         add(block, 'stop', 'Range Stop must be greater than or equal to Start.');
-      if (Number.isFinite(step) && step <= 0) add(block, 'step', 'Range Step must be greater than zero.');
-      if (Number.isFinite(minLength) && minLength < 1)
+      if (step !== null && step <= 0) add(block, 'step', 'Range Step must be greater than zero.');
+      if (minLength !== null && minLength < 1)
         add(block, 'min_len', 'Minimum Length must be at least 1.');
     }
   }
@@ -642,7 +697,7 @@ function geom(inst: Inst) {
   // block rendering (equivalent to GRC's `hide: part`).
   const rows = d.params
     .filter(p => !p.category && !(p.hideIfEmpty && !String(inst.params[p.id] ?? '').trim()))
-    .map(p => ({ id: p.id, l: p.label + ': ', v: fmtVal(inst.params[p.id]) }));
+    .map(p => ({ id: p.id, l: p.label + ': ', v: paramDisplay(p, inst.params[p.id]) }));
   const nports = Math.max(portCount(inst, 'in'), portCount(inst, 'out'), 1);
   const bodyH = Math.max(rows.length * ROW_H + PAD, nports * (PORT_H + PORT_GAP) + PAD, ROW_H);
   const h = TITLE_H + bodyH;
@@ -865,7 +920,40 @@ function grcConnectionKey(c: GrcScalar[] | Record<string, GrcScalar>): string {
     ? c : [c.src_blk_id, c.src_port_id, c.snk_blk_id, c.snk_port_id];
   return parts.map(String).join('\x1f');
 }
-function buildGrcDoc(): GrcDoc {
+// For the Run path we hand the runner a *resolved* .grc: numeric/expression
+// parameters are evaluated to concrete values so the C++ runner (which only
+// inlines plain variables + coerces numeric strings) can execute expressions
+// like `samp_rate/2` or `firdes.low_pass(...)`. The *saved* .grc keeps raw
+// expressions for desktop byte-compatibility.
+//
+// The run scope excludes the live variable-control blocks (qtgui_range/chooser/
+// push_button): a parameter that references a control (`freq`, or `freq/2`) then
+// fails static evaluation and is left as raw text, so the runner still wires it
+// to the live block instead of freezing it at the control's initial value.
+function buildRunScope(): Scope {
+  return buildScope(insts.filter(i => i.id === 'variable'));
+}
+function resolveParamsForRun(inst: Inst, scope: Scope): Record<string, any> {
+  const def = RUNNABLE[inst.id];
+  const out: Record<string, any> = { ...inst.params };
+  if (!def) return out;
+  for (const p of def.params) {
+    if (p.type !== 'number') continue;              // enum/string params pass through
+    const raw = out[p.id];
+    if (typeof raw !== 'string') continue;          // already a numeric/bool literal
+    const s = raw.trim();
+    if (!s || Number.isFinite(Number(s))) continue; // empty or a plain number already
+    const r = evalExpr(s, scope);
+    // Only substitute a concrete (non-string) result; symbolic values (enum
+    // constants) and anything referencing a live control are left as raw text.
+    if (r.ok && typeof r.value !== 'string') out[p.id] = serializeForRunner(r.value);
+  }
+  return out;
+}
+
+function buildGrcDoc(resolve = false): GrcDoc {
+  const runScope = resolve ? buildRunScope() : {};
+  const paramsOf = (i: Inst) => grcParams(resolve ? resolveParamsForRun(i, runScope) : i.params);
   const byUid = (u: string) => insts.find(i => i.uid === u);
   // options: a top-level block (not in `blocks`), carrying flowgraph metadata.
   const opt = insts.find(i => i.id === OPTIONS_ID);
@@ -879,7 +967,7 @@ function buildGrcDoc(): GrcDoc {
   const blocks = insts.filter(i => i.id !== OPTIONS_ID)
     .sort((a, b) => (Number(!isVar(a)) - Number(!isVar(b))) ||
       (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
-    .map(i => ({ name: i.name, id: i.id, parameters: grcParams(i.params), states: grcStates(i) }));
+    .map(i => ({ name: i.name, id: i.id, parameters: paramsOf(i), states: grcStates(i) }));
 
   // connections: 4-tuples for streams, dicts (file_format 2) for message ports.
   const connections: Array<GrcScalar[] | Record<string, GrcScalar>> = [];
@@ -902,6 +990,8 @@ function buildGrcDoc(): GrcDoc {
   return { options, blocks, connections, metadata: { file_format: fileFormat, grc_version: GRC_VERSION } };
 }
 function grcText(): string { return dumpGrc(buildGrcDoc()); }
+// The Run path's .grc, with parameter expressions evaluated to concrete values.
+function grcTextForRun(): string { return dumpGrc(buildGrcDoc(true)); }
 function downloadBlob(contents: BlobPart, type: string, filename: string) {
   const url = URL.createObjectURL(new Blob([contents], { type }));
   const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
@@ -1443,6 +1533,7 @@ const svgEl = <K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<strin
 };
 
 function render() {
+  rebuildScope();
   nodesG.textContent = ''; wiresG.textContent = '';
   nodesG.setAttribute('transform', `scale(${zoom})`);
   wiresG.setAttribute('transform', `scale(${zoom})`);
@@ -1829,7 +1920,9 @@ function run() {
     addedPaths.add(path);
   }
   // The runner parses native .grc directly (it lowers disabled/bypassed blocks
-  // and variables itself), so hand it the same document we save.
+  // and variables itself). We hand it a *resolved* doc — parameter expressions
+  // evaluated to concrete values — since the runner can't evaluate expressions;
+  // the saved/shared .grc keeps the raw expressions.
   if (pendingRunnerToken) pendingRunnerRecordings.delete(pendingRunnerToken);
   const token = typeof crypto.randomUUID === 'function'
     ? crypto.randomUUID()
@@ -1837,7 +1930,7 @@ function run() {
   pendingRunnerToken = token;
   pendingRunnerRecordings.set(token, recordingFiles);
   const url = '/runner/build/runner.html?recordingToken=' + encodeURIComponent(token) +
-    '#' + encodeURIComponent(grcText());
+    '#' + encodeURIComponent(grcTextForRun());
   const workspace = el('workspace');
   const pane = el('runPane');
   const frame = el('runFrame') as HTMLIFrameElement;
@@ -2023,7 +2116,7 @@ async function buildPalette() {
   blocksPanel.append(search, tree);
   pal.append(tabs, blocksPanel, examplesPanel, recordingsPanel);
   try {
-    LIB = await (await fetch('/editor/dist/blocks.json').then(r => r.ok ? r : fetch('/editor/public/blocks.json'))).json();
+    LIB = await (await fetch(BLOCKS_URL).then(r => r.ok ? r : fetch('/editor/public/blocks.json'))).json();
     installGeneratedBlocks(LIB.blocks || []);
   } catch (e) { log('block library not loaded: ' + e); }
   const draw = (q: string) => {
@@ -2541,7 +2634,7 @@ function showDebugInfo() {
 
       // block-library metadata size
       extra.appendChild(dbgKV('blocks.json (palette metadata)',
-        fmtBytes(await headSize('/editor/dist/blocks.json'))));
+        fmtBytes(await headSize(BLOCKS_URL))));
       extra.appendChild(dbgKV('Block definitions', `${blocks.length} total, ${blocks.filter(b => b.runnable).length} runnable`));
 
       // live runner stats, if the runner iframe is active (same-origin)

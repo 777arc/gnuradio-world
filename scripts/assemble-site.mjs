@@ -86,10 +86,11 @@ async function main() {
   await rm(OUT, { recursive: true, force: true });
   await mkdir(OUT, { recursive: true });
 
-  // 1. Editor UI (Vite build, base path /editor/dist/).
+  // 1. Editor UI (Vite build, base path /) -- the editor *is* the site root,
+  //    so its index.html/assets/blocks.json land directly in OUT.
   const editorDist = join(WASM, 'editor', 'dist');
   await stat(editorDist).catch(() => { throw new Error('missing wasm/editor/dist -- run `npm run build` in wasm/editor first'); });
-  await cp(editorDist, join(OUT, 'editor', 'dist'), { recursive: true });
+  await cp(editorDist, OUT, { recursive: true });
 
   // 2. Runner runtime files (runner.wasm + side modules + qtloader, no scratch).
   const runnerBuild = join(WASM, 'runner', 'build');
@@ -181,12 +182,14 @@ async function main() {
 /*.wasm
   Content-Type: application/wasm
 `);
-  //    _redirects: root -> editor, and 200-rewrite the bare listing paths to
-  //    their static manifests so the unmodified client's fetch() still works.
+  //    _redirects: 200-rewrite the bare listing paths to their static
+  //    manifests so the unmodified client's fetch() still works. The editor
+  //    itself is served from / by Pages' own index.html handling, so no root
+  //    redirect is needed.
   await writeFile(join(OUT, '_redirects'),
 `/example_flowgraphs   /example_flowgraphs/index.json   200
 /example_recordings   /example_recordings/index.json   200
-/   /editor/dist/   302
+/editor/dist/*        /                                301
 `);
 
   console.log(`\nAssembled site -> ${OUT}`);

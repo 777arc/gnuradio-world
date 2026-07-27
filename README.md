@@ -11,7 +11,7 @@ If already built, run using
 
 ```bash
 node wasm/server.mjs 8090 wasm
-# open http://localhost:8090/editor/dist/index.html
+# open http://localhost:8090/
 ```
 
 ## Quickstart (fresh Ubuntu 24.04)
@@ -149,7 +149,7 @@ Verify with `node wasm/test_lazy_scenarios.mjs`.
 
 ```bash
 node wasm/server.mjs 8090 wasm
-# open http://localhost:8090/editor/dist/index.html  → build a flowgraph → press ▶ Run
+# open http://localhost:8090/  → build a flowgraph → press ▶ Run
 ```
 
 The sections below explain the architecture and each component in more detail.
@@ -405,7 +405,7 @@ python3 wasm/editor/gen/gen_blocklib.py wasm/editor/public/blocks.json
 
 ```bash
 node wasm/server.mjs 8090 wasm          # COOP/COEP dev server
-# open http://localhost:8090/editor/dist/index.html  → build a flowgraph → ▶ Run
+# open http://localhost:8090/  → build a flowgraph → ▶ Run
 ```
 
 `node wasm/run.mjs /runner/build/runner.html RUNNER_PASS` runs the runner headless.
