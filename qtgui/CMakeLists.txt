@@ -8,9 +8,17 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets)
 set(CMAKE_AUTOMOC ON)
 
-set(GRQ /home/marc/gnuradio/gr-qtgui)
-set(GR  /home/marc/gnuradio)
-set(BUILDGR /home/marc/gnuradio/wasm/gr/build-gr)
+# Repo root: honor the GR env var (set by the CI workflow), else derive it from
+# this file's location (wasm/qtgui/ -> repo root) so any checkout path works.
+# Matches runner/CMakeLists.txt; hardcoding it breaks every build but this one.
+if(DEFINED ENV{GR})
+  set(GR $ENV{GR})
+else()
+  get_filename_component(GR "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE)
+endif()
+set(GRQ ${GR}/gr-qtgui)
+set(BUILDGR ${GR}/wasm/gr/build-gr)
+set(SYSROOT ${GR}/wasm/sysroot)
 
 add_library(gr_qtgui_ts STATIC
   ${GRQ}/lib/DisplayPlot.cc
@@ -71,6 +79,6 @@ target_include_directories(gr_qtgui_ts PUBLIC
   ${GR}/gr-filter/include
   ${GR}/gr-analog/include
   ${BUILDGR}/gnuradio-runtime/include
-  /home/marc/gnuradio/wasm/sysroot/include        # qwt headers
+  ${SYSROOT}/include                              # qwt headers
 )
 target_link_libraries(gr_qtgui_ts PUBLIC Qt6::Widgets Qt6::Gui Qt6::Core)
