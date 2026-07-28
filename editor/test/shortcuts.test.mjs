@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 
 const source = await readFile(new URL('../src/main.ts', import.meta.url), 'utf8');
 const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+const about = await readFile(new URL('../src/about.html', import.meta.url), 'utf8');
 
 const bindings = {
   'new/open/save': /key === 'n'.*clearFlowgraph[\s\S]*key === 'o'.*fileOpen[\s\S]*key === 's'.*saveFlowgraph/,
@@ -24,6 +25,15 @@ assert.match(source, /Ctrl\+K or F1/);
 assert.match(source, /hierarchical blocks are not supported in WebAssembly/);
 // The keyboard-shortcut help now lives in the Help menu (the old top-right button was removed).
 assert.match(source, /label: 'Keyboard Shortcuts', key: 'Ctrl\+K', run: showShortcutHelp/);
+assert.match(source,
+  /\{ label: 'File', items: \[\s*\{ label: 'About GNU Radio World', run: showAboutDialog \}/,
+  '"About GNU Radio World" must be the first item in the File menu');
+assert.match(source,
+  /import aboutHtml from '\.\/about\.html\?raw'[\s\S]*?openDialog\('About GNU Radio World'[\s\S]*?body\.innerHTML = aboutHtml/,
+  'the GNU Radio World dialog must render its separately editable HTML file');
+assert.match(about,
+  /only the WebAssembly modules corresponding[\s\S]*?limitless collection of out-of-tree modules[\s\S]*?downloaded only when you use them[\s\S]*?IQEngine[\s\S]*?real[\s\S]*?recordings of the corresponding signals/,
+  'the GNU Radio World dialog must explain on-demand modules, OOTs, and RF recordings');
 assert.doesNotMatch(source, /label: 'Generate'/);
 assert.doesNotMatch(source, /label: 'Find Blocks'/);
 assert.doesNotMatch(source, /label: 'Reload Blocks'/);

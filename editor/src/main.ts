@@ -8,6 +8,7 @@ import { boundsBetween, boundsIntersect, type Point } from './selection';
 import { constrainBlockPosition, SNAP_GRID_SIZE } from './grid';
 import { evaluate as evalExpr, buildScope, formatValue as fmtExprVal, serializeForRunner, type Scope } from './expr';
 import { EXAMPLES_REPO, examplePath, newExampleFileUrl, sanitizeExampleName } from './contribute';
+import aboutHtml from './about.html?raw';
 
 type ParamType = 'number' | 'string' | 'enum';
 // `raw` marks a GRC dtype: raw parameter — free-form Python (vectors, matrices).
@@ -2912,16 +2913,9 @@ function showErrorsDialog() {
   }, true);
 }
 function showAboutDialog() {
-  openDialog('About', body => {
-    const p = document.createElement('div'); p.className = 'about-body';
-    p.appendChild(document.createTextNode(
-      'GNU Radio Companion — WebAssembly edition. A browser port of the GNU Radio flowgraph editor: ' +
-      'place, connect and configure blocks, then run the flowgraph directly in your browser via the ' +
-      'WebAssembly runtime. '));
-    const a = document.createElement('a');
-    a.href = 'https://www.gnuradio.org/'; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'gnuradio.org';
-    p.appendChild(a);
-    body.appendChild(p);
+  openDialog('About GNU Radio World', body => {
+    body.classList.add('about-body');
+    body.innerHTML = aboutHtml;
   });
 }
 
@@ -3140,6 +3134,8 @@ interface TopMenu { label: string; items: (MenuItem | 'sep')[] }
 
 const MENUS: TopMenu[] = [
   { label: 'File', items: [
+    { label: 'About GNU Radio World', run: showAboutDialog },
+    'sep',
     { label: 'New', key: 'Ctrl+N', run: () => clearFlowgraph() },
     { label: 'Duplicate', key: 'Ctrl+Shift+D', run: duplicateFlowgraph, enabled: hasBlocks },
     { label: 'Open…', key: 'Ctrl+O', run: openFileDialog },

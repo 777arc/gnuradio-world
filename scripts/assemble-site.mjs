@@ -178,6 +178,13 @@ async function main() {
   const haveIQEngine = await stat(iqengineBuild).then(() => true).catch(() => false);
   if (haveIQEngine) {
     await cp(iqengineBuild, join(OUT, 'iqengine'), { recursive: true });
+    // SPA fallback for its client-side routes, as a copy OUTSIDE /iqengine/.
+    // Pages drops a 200-rewrite whose target its own rule matches (a loop), so
+    // "/iqengine/* -> /iqengine/index.html" silently falls through to the site
+    // root instead -- which is what a deep IQEngine URL used to land on. The
+    // page itself references its assets by absolute path, so it works from
+    // wherever it is served.
+    await cp(join(iqengineBuild, 'index.html'), join(OUT, 'iqengine-spa.html'));
     console.log('iqengine: copied client build');
   } else {
     console.warn('iqengine: no client build found, "open in IQEngine" links will 404 ' +
@@ -207,11 +214,41 @@ async function main() {
   //    redirect is needed. IQEngine is a single-page app, so any path under it
   //    that is not a real file has to land on its index.html; static assets
   //    match before _redirects is consulted, so its own JS/CSS still load.
+  //    That fallback must live outside /iqengine/ (see above), and dynamic
+  //    rules go last, after the static ones.
   await writeFile(join(OUT, '_redirects'),
 `/example_flowgraphs   /example_flowgraphs/index.json   200
 /example_recordings   /example_recordings/index.json   200
 /editor/dist/*        /                                301
-/iqengine/*           /iqengine/index.html             200
+/iqengine/*           /iqengine-spa.html               200
+`);
+  //    404.html: without it Pages answers every unmatched path with the site's
+  //    root index.html AND a 200. That is not merely untidy -- IQEngine probes
+  //    /api/config, /api/plugins/ and friends to discover whether it has a
+  //    backend, and a 200 full of HTML reads as "yes, and here is your config",
+  //    which crashes it. A real 404 is what its no-backend path expects.
+  await writeFile(join(OUT, '404.html'),
+`<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Not found — GNU Radio World</title>
+<style>
+  html,body { margin:0; height:100%; font-family:system-ui,Arial,sans-serif;
+              color:#e6e9f0; background:#1e2230; }
+  main { height:100%; display:flex; flex-direction:column; align-items:center;
+         justify-content:center; gap:12px; }
+  a { color:#8fb6ff; }
+</style>
+</head>
+<body>
+<main>
+  <h1>404</h1>
+  <p>Nothing here.</p>
+  <p><a href="/">Open the flowgraph editor</a></p>
+</main>
+</body>
+</html>
 `);
 
   console.log(`\nAssembled site -> ${OUT}`);
