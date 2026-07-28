@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import itertools
 import json
+import os
 import re
 from collections import defaultdict
 from pathlib import Path
@@ -22,7 +23,8 @@ import yaml
 from mako.template import Template
 
 
-REPO = Path(__file__).resolve().parents[2]
+WORLD = Path(__file__).resolve().parents[2]
+GR = Path(os.environ.get("GR", WORLD / "gnuradio")).resolve()
 MODULES = (
     "gr-blocks",
     "gr-analog",
@@ -521,7 +523,12 @@ def load_blocks() -> list[dict[str, Any]]:
     blocks = []
     for module in MODULES:
         short = module[len("gr-"):] if module.startswith("gr-") else module
-        for path in sorted((REPO / module / "grc").glob("*.block.yml")):
+        # Direct world-repo modules override same-named gitlinks that may exist
+        # in older GNU Radio revisions during the repository migration.
+        module_root = WORLD / module
+        if not module_root.is_dir():
+            module_root = GR / module
+        for path in sorted((module_root / "grc").glob("*.block.yml")):
             try:
                 block = yaml.safe_load(path.read_text())
             except Exception:
@@ -534,7 +541,8 @@ def load_blocks() -> list[dict[str, Any]]:
                 continue
             if block["id"] in INVALID_CPP_TEMPLATES:
                 continue
-            block["__path"] = str(path.relative_to(REPO))
+            base = WORLD if path.is_relative_to(WORLD) and not path.is_relative_to(GR) else GR
+            block["__path"] = str(path.relative_to(base))
             block["__module"] = short
             blocks.append(block)
     return blocks

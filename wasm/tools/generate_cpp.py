@@ -6,10 +6,10 @@ import sys
 import os
 import logging
 
-# Repo root derived from this script's location (wasm/tools/ -> repo root),
-# so it works regardless of checkout path (local or CI).
-REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-sys.path.insert(0, REPO)  # use this repo's `grc` package (has cpp workflows)
+# The world repo owns this tool; GNU Radio's Python GRC package is a submodule.
+WORLD = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+GR = os.path.abspath(os.environ.get("GR", os.path.join(WORLD, "gnuradio")))
+sys.path.insert(0, GR)  # use the pinned GNU Radio `grc` package
 
 # The system `gnuradio` apt package is intentionally NOT installed (it would
 # conflict with this repo's 3.11 grc). We only needed it for gr.prefix(), so
@@ -38,10 +38,10 @@ logging.basicConfig(level=logging.WARNING)
 def main(grc_file, out_dir):
     os.makedirs(out_dir, exist_ok=True)
     block_paths = [
-        os.path.join(REPO, "grc/blocks"),
-        os.path.join(REPO, "gr-blocks/grc"),
-        os.path.join(REPO, "gr-fft/grc"),
-        os.path.join(REPO, "gr-analog/grc"),
+        os.path.join(GR, "grc/blocks"),
+        os.path.join(GR, "gr-blocks/grc"),
+        os.path.join(GR, "gr-fft/grc"),
+        os.path.join(GR, "gr-analog/grc"),
     ]
     platform = Platform(
         name="GRC WASM codegen",

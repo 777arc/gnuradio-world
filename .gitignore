@@ -1,0 +1,15 @@
+wasm/.venv/
+wasm/deps/src/
+wasm/deps/build/
+wasm/sysroot/
+wasm/gr/
+wasm/chrome-headless-shell/
+wasm/node_modules/
+wasm/editor/node_modules/
+wasm/editor/dist/
+wasm/qtgui/build/
+wasm/runner/build/
+wasm-deps.tar.zst
+site/
+Qt/
+__pycache__/

@@ -18,9 +18,9 @@ node wasm/server.mjs 8090 wasm
 
 Builds the whole stack from source and serves the editor. The repo can live
 anywhere: `wasm/deps/env.sh`, the Qwt config and the runner/qtgui
-`CMakeLists.txt` all derive the repo root from their own location, or from `$GR`
-when it is set (which is what CI does). Only Qt is assumed to be under `~/Qt` —
-adjust the `QT_*` variables below if yours differs.
+`CMakeLists.txt` derive the world and WASM roots from their own locations, while
+`$GR` selects the GNU Radio source submodule (CI sets it explicitly). Only Qt is
+assumed to be under `~/Qt` — adjust the `QT_*` variables below if yours differs.
 
 **1. Toolchains and system packages**
 
@@ -46,9 +46,9 @@ aqt install-qt all_os wasm    6.9.1 wasm_multithread -O ~/Qt
 **2. Environment** (re-run in each new shell)
 
 ```bash
-cd /home/marc/gnuradio
+cd /home/marc/gnuradio-world
 source wasm/deps/env.sh                       # activates emsdk, exports $SYSROOT
-export GR=/home/marc/gnuradio
+export GR=/home/marc/gnuradio-world/gnuradio
 export QT_HOST=~/Qt/6.9.1/gcc_64
 export QT_WASM=~/Qt/6.9.1/wasm_multithread
 ```
@@ -193,7 +193,7 @@ compiled straight into an on-demand `<m>.wasm` side module. This is a
 module itself. Copy an existing OOT module (gr-foo is the simplest, gr-dvbs2 the
 most complex) as a working reference for every step.
 
-**1. Vendor it** at the repo top-level, next to the in-tree `gr-*`:
+**1. Vendor it** at the world-repo top level, beside the `gnuradio/` submodule:
 ```bash
 git clone --depth 1 https://github.com/<owner>/gr-<m>.git gr-<m>
 rm -rf gr-<m>/.git gr-<m>/.github

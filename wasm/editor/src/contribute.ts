@@ -9,7 +9,7 @@
 // .grc file is enough — there is no manifest to update.
 export const EXAMPLES_REPO = {
   owner: '777arc',
-  repo: 'gnuradio',
+  repo: 'gnuradio-world',
   branch: 'main',
   dir: 'wasm/example_flowgraphs',
 };

@@ -1,0 +1,20 @@
+[submodule "gnuradio"]
+	path = gnuradio
+	url = https://github.com/777arc/gnuradio.git
+	branch = main
+[submodule "gr-foo"]
+	path = gr-foo
+	url = https://github.com/777arc/gr-foo.git
+	branch = wasm-support
+[submodule "gr-dvbs2"]
+	path = gr-dvbs2
+	url = https://github.com/777arc/gr-dvbs2.git
+	branch = wasm-support
+[submodule "gr-dvbs2rx"]
+	path = gr-dvbs2rx
+	url = https://github.com/777arc/gr-dvbs2rx.git
+	branch = wasm-support
+[submodule "iqengine"]
+	path = iqengine
+	url = https://github.com/iqengine/iqengine.git
+	branch = url-datasource

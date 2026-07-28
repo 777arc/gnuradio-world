@@ -4,20 +4,28 @@ Build-time only (no Python at runtime). Emits id/label/category/params/ports so
 the TS editor can render a palette and property dialogs."""
 import sys, os, json, glob, yaml
 
-# Repo root derived from this script's location (wasm/editor/gen/ -> repo root),
-# so the generator works regardless of checkout path (local or CI).
-REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
-# Mirror the native GRC block search across every in-tree module. HEIR is
-# intentionally excluded from the WASM product, but all other definitions are
-# emitted so unavailable blocks can remain visible in the library.
-MODULES = ["grc/blocks"] + [
-    os.path.relpath(path, REPO)
-    for path in sorted(glob.glob(os.path.join(REPO, "gr-*", "grc")))
-    if os.path.basename(os.path.dirname(path)) != "gr-heir"
-# Runner-only blocks: browser-specific sinks with no upstream GNU Radio
-# definition (their factories are hand-written in runner/src/registry.cpp).
-] + ["wasm/blocks/grc"]
-MANIFEST = os.path.join(REPO, "wasm/runner/generated_blocks.json")
+# The world repo owns the app and OOT modules; GNU Radio is a source submodule.
+WORLD = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+GR = os.path.abspath(os.environ.get("GR", os.path.join(WORLD, "gnuradio")))
+
+# Mirror native GRC's block search. A direct world-repo OOT module overrides a
+# same-named gitlink in an older GNU Radio revision during the migration.
+module_dirs = {"grc": os.path.join(GR, "grc", "blocks")}
+for path in sorted(glob.glob(os.path.join(GR, "gr-*", "grc"))):
+    module = os.path.basename(os.path.dirname(path))
+    if module != "gr-heir":
+        module_dirs[module] = path
+for path in sorted(glob.glob(os.path.join(WORLD, "gr-*", "grc"))):
+    module = os.path.basename(os.path.dirname(path))
+    if module != "gr-heir":
+        module_dirs[module] = path
+MODULES = [module_dirs["grc"]] + [
+    module_dirs[module] for module in sorted(module_dirs) if module != "grc"
+] + [
+    # Runner-only blocks: browser-specific sinks with no upstream definition.
+    os.path.join(WORLD, "wasm", "blocks", "grc")
+]
+MANIFEST = os.path.join(WORLD, "wasm", "runner", "generated_blocks.json")
 
 def walk_tree(node, path, out):
     """Walk a GRC .tree.yml node, mapping block-id -> category path list."""
@@ -37,7 +45,7 @@ def load_categories():
     """block-id -> native category path from every module's *.tree.yml."""
     cats = {}
     for mod in MODULES:
-        for f in sorted(glob.glob(os.path.join(REPO, mod, "*.tree.yml"))):
+        for f in sorted(glob.glob(os.path.join(mod, "*.tree.yml"))):
             try:
                 walk_tree(yaml.safe_load(open(f)), [], cats)
             except Exception:
@@ -85,7 +93,7 @@ def main(out_path):
     block_module = manifest.get("block_module", {})
     blocks_by_id = {}
     for mod in MODULES:
-        for f in sorted(glob.glob(os.path.join(REPO, mod, "*.block.yml"))):
+        for f in sorted(glob.glob(os.path.join(mod, "*.block.yml"))):
             try:
                 d = yaml.safe_load(open(f))
             except Exception:

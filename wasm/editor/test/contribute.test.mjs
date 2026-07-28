@@ -46,12 +46,12 @@ assert.ok(!/[._-]\.grc$/.test(sanitizeExampleName('x'.repeat(63) + '_tail')));
 assert.equal(EXAMPLES_REPO.dir, 'wasm/example_flowgraphs');
 assert.equal(examplePath('My FG'), 'wasm/example_flowgraphs/My_FG.grc');
 assert.equal(newExampleFileUrl('My FG'),
-  'https://github.com/777arc/gnuradio/new/main?filename=wasm%2Fexample_flowgraphs%2FMy_FG.grc');
+  'https://github.com/777arc/gnuradio-world/new/main?filename=wasm%2Fexample_flowgraphs%2FMy_FG.grc');
 // Unsafe input is sanitised before it reaches the URL, and the result stays a
 // single query parameter (no stray & or # can be injected through the name).
 const hostile = newExampleFileUrl('a&b#c=d/../../evil');
 assert.equal(hostile,
-  'https://github.com/777arc/gnuradio/new/main?filename=wasm%2Fexample_flowgraphs%2Fevil.grc');
+  'https://github.com/777arc/gnuradio-world/new/main?filename=wasm%2Fexample_flowgraphs%2Fevil.grc');
 assert.equal(hostile.split('?').length, 2);
 
 console.log('contribute tests passed');

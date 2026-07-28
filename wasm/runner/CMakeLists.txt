@@ -13,16 +13,18 @@ set(CMAKE_CXX_LINK_LIBRARY_USING_WHOLE_ARCHIVE
     "-Wl,--whole-archive" "<LINK_ITEM>" "-Wl,--no-whole-archive")
 set(CMAKE_CXX_LINK_LIBRARY_USING_WHOLE_ARCHIVE_SUPPORTED TRUE)
 
-# Repo root: honor the GR env var (set by the CI workflow), else derive it from
-# this file's location (wasm/runner/ -> repo root) so any checkout path works.
+# GNU Radio is a submodule of the world repo. Keep its source root separate from
+# the WASM build/output root so the app can live outside the GNU Radio tree.
+get_filename_component(WORLD "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE)
 if(DEFINED ENV{GR})
   set(GR $ENV{GR})
 else()
-  get_filename_component(GR "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE)
+  set(GR "${WORLD}/gnuradio")
 endif()
-set(BUILDGR ${GR}/wasm/gr/build-gr)
-set(SYSROOT ${GR}/wasm/sysroot)
-set(QTGUI_TS ${GR}/wasm/qtgui/build/libgr_qtgui_ts.a)
+set(WASM_ROOT "${WORLD}/wasm")
+set(BUILDGR ${WASM_ROOT}/gr/build-gr)
+set(SYSROOT ${WASM_ROOT}/sysroot)
+set(QTGUI_TS ${WASM_ROOT}/qtgui/build/libgr_qtgui_ts.a)
 
 # Include search path shared by the main module and the category side modules.
 set(GR_INCLUDE_DIRS
@@ -33,9 +35,9 @@ set(GR_INCLUDE_DIRS
   ${GR}/gr-network/include ${GR}/gr-pdu/include ${GR}/gr-vocoder/include
   ${GR}/gr-qtgui/include
   ${GR}/gr-rds/include
-  ${GR}/gr-foo/include
-  ${GR}/gr-dvbs2/include
-  ${GR}/gr-dvbs2rx/include
+  ${WORLD}/gr-foo/include
+  ${WORLD}/gr-dvbs2/include
+  ${WORLD}/gr-dvbs2rx/include
   ${BUILDGR}/gnuradio-runtime/include ${SYSROOT}/include)
 
 # ---------------------------------------------------------------------------
@@ -215,7 +217,7 @@ list(APPEND SIDE_MODULE_OUTPUTS ${rds_out})
 # lib/*.cc are compiled straight into foo.wasm. selector/valve are Python
 # hier_block2s (no C++) and are excluded; packet_pad2's optional UHD tx_time
 # tagging is #ifdef FOO_UHD (undefined here), so no UHD dependency is pulled in.
-set(FOO_LIB ${GR}/gr-foo/lib)
+set(FOO_LIB ${WORLD}/gr-foo/lib)
 set(FOO_SOURCES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/generated_registry_foo.cpp
   ${FOO_LIB}/burst_tagger_impl.cc
@@ -251,7 +253,7 @@ list(APPEND SIDE_MODULE_OUTPUTS ${foo_out})
 # DVB-S2 transmit chain (bbheader -> bbscrambler -> bch -> ldpc -> interleaver ->
 # modulator -> physical). DVB-S2 constants come from the checked-in
 # include/dvbs2/dvbs2_config.h; lib/config.h is the empty generated stub.
-set(DVBS2_LIB ${GR}/gr-dvbs2/lib)
+set(DVBS2_LIB ${WORLD}/gr-dvbs2/lib)
 set(DVBS2_SOURCES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/generated_registry_dvbs2.cpp
   ${DVBS2_LIB}/bbheader_bb_impl.cc
@@ -285,7 +287,7 @@ list(APPEND SIDE_MODULE_OUTPUTS ${dvbs2_out})
 # back to the generic scalar path (no x86 intrinsics). Deps are stdlib-only.
 # DVB constants come from the checked-in include/dvbs2rx/dvb_config.h; lib/config.h
 # is the empty generated stub.
-set(DVBS2RX_LIB ${GR}/gr-dvbs2rx/lib)
+set(DVBS2RX_LIB ${WORLD}/gr-dvbs2rx/lib)
 set(DVBS2RX_SOURCES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/generated_registry_dvbs2rx.cpp
   ${DVBS2RX_LIB}/bbdeheader_bb_impl.cc
