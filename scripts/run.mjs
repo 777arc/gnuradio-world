@@ -4,14 +4,14 @@
 // (real time — Web Workers do real-time CPU work, unlike --virtual-time-budget),
 // then prints the RESULT line and optionally saves a screenshot.
 //
-// Usage: node run.mjs <url-path> [pass-token] [port] [timeoutMs] [screenshot.png]
+// Usage: node scripts/run.mjs <url-path> [pass-token] [port] [timeoutMs] [screenshot.png]
 import puppeteer from 'puppeteer-core';
 
 const [urlPath, token = 'PASS', port = '8090', timeoutMs = '30000', shot] = process.argv.slice(2);
 import { existsSync, readdirSync } from 'node:fs';
 // Native Linux headless chrome (downloaded via @puppeteer/browsers) — full CDP,
 // so we can waitForFunction on real (not virtual) time for Web Worker computation.
-const base = new URL('./chrome-headless-shell/', import.meta.url).pathname;
+const base = new URL('../chrome-headless-shell/', import.meta.url).pathname;
 const local = existsSync(base)
   ? readdirSync(base).map(d => `${base}${d}/chrome-headless-shell-linux64/chrome-headless-shell`)
   : [];

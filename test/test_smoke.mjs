@@ -12,7 +12,7 @@
 // that starts but produces nothing -- a missing length tag, a stalled buffer --
 // fails here too, which a RUNNER_PASS check alone would miss.
 //
-//   node test_smoke.mjs [port]
+//   node test/test_smoke.mjs [port]
 //
 // Serves the repository root (COOP/COEP, as SharedArrayBuffer requires) so there is no
 // background server to manage. Exits non-zero if any case fails.
@@ -22,7 +22,7 @@ import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { extname, join, normalize } from 'node:path';
 import puppeteer from 'puppeteer-core';
 
-const ROOT = normalize(new URL('.', import.meta.url).pathname);
+const ROOT = normalize(new URL('..', import.meta.url).pathname);
 const PORT = Number(process.argv[2] || 8101);
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.wasm': 'application/wasm',
                '.json': 'application/json', '.svg': 'image/svg+xml' };

@@ -130,7 +130,7 @@ this work (all handled by the build): everything is `-fPIC`; `MAIN_MODULE=2` +
 `EXPORT_ALL` + whole-archived core + a generated `side_exports.rsp` export every
 symbol the side modules import; side modules use `-sWASM_BIGINT` to match Qt's
 ABI; and `patch_runner_js.py` fixes a Qt+MAIN_MODULE `addFunction` assertion.
-Verify with `node test_lazy_scenarios.mjs`.
+Verify with `node test/test_lazy_scenarios.mjs`.
 
 **6. Run**
 
@@ -296,7 +296,7 @@ and construct a block, then expect `RESULT: RUNNER_PASS`:
 ```bash
 node server.mjs 8090 "$PWD" &                        # COOP/COEP dev server
 URL="/runner/build/runner.html#$(node -e 'process.stdout.write(encodeURIComponent(require("fs").readFileSync(process.argv[1],"utf8")))' my.grc)"
-node run.mjs "$URL" RUNNER_PASS 8090 45000           # headless chrome; prints the RESULT line
+node scripts/run.mjs "$URL" RUNNER_PASS 8090 45000   # headless chrome; prints the RESULT line
 ```
 In a hand-written `.grc`, **stream** connections are arrays `[blk, port, blk,
 port]`; **message** connections are objects `{src_blk_id, src_port_id, snk_blk_id,
@@ -392,10 +392,8 @@ verify DSP correctness of the chain.
 | `editor/` | the TypeScript flowgraph editor |
 | `tools/` | `generate_cpp.py` (host-side GRC → C++ generation, optional) |
 | `server.mjs` | COOP/COEP static dev server (needed for SharedArrayBuffer / pthreads) |
-| `run.mjs` | headless-Chromium test harness (waits on a page `#result`) |
-| `test_smoke.mjs` | runs example flowgraphs headlessly and asserts samples actually move; CI gates the deploy on it |
-| `test_lazy_scenarios.mjs` | verifies on-demand category side modules are fetched and `dlopen`'d |
-| `scripts/` | `assemble-site.mjs` (assembles the static site CI deploys to Pages) |
+| `test/` | `test_smoke.mjs` (runs example flowgraphs headlessly and asserts samples actually move) and `test_lazy_scenarios.mjs` (verifies on-demand category side modules are fetched and `dlopen`'d); CI gates the deploy on both |
+| `scripts/` | `assemble-site.mjs` (assembles the static site CI deploys to Pages), `serve_site.mjs` (serves an assembled site the way Cloudflare Pages does), `run.mjs` (headless-Chromium test harness, waits on a page `#result`) |
 | `iqengine/` | IQEngine as a git submodule; its client is built to `/iqengine/` on the site, so each SigMF recording in the editor gets an "open in IQEngine" link into its spectrogram view (via IQEngine's `url` data source, which reads the `.sigmf-meta`/`.sigmf-data` pair straight off their URLs) |
 
 ## Prerequisites (userspace, no sudo)
@@ -431,7 +429,7 @@ node server.mjs 8090 "$PWD"             # COOP/COEP dev server
 # open http://localhost:8090/  → build a flowgraph → ▶ Run
 ```
 
-`node run.mjs /runner/build/runner.html RUNNER_PASS` runs the runner headless.
+`node scripts/run.mjs /runner/build/runner.html RUNNER_PASS` runs the runner headless.
 
 `runner/generated_blocks.json` is the authoritative runtime support manifest
 used to mark palette entries runnable or unavailable. The runner has a small
@@ -458,7 +456,7 @@ that affordable:
   ninja build dir rebuilds all ~520 objects anyway. ccache keys on preprocessed
   content, so a one-file GR change recompiles one file.
 
-Before deploying, CI runs `test_smoke.mjs` and `test_lazy_scenarios.mjs`
+Before deploying, CI runs `test/test_smoke.mjs` and `test/test_lazy_scenarios.mjs`
 in headless Chromium. This is a gate, not a formality: a cleanly linked runner can
 still be dead on arrival (an unpatched VOLK once made `volk_malloc()` return NULL,
 so every flowgraph threw `std::bad_alloc` while CI stayed green). The smoke test

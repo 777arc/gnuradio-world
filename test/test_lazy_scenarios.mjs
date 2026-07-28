@@ -5,7 +5,7 @@ import { extname, join, normalize } from 'node:path';
 import { existsSync, readdirSync } from 'node:fs';
 import puppeteer from 'puppeteer-core';
 
-const ROOT = normalize(new URL('.', import.meta.url).pathname);
+const ROOT = normalize(new URL('..', import.meta.url).pathname);
 const PORT = 8096;
 const MIME = { '.html':'text/html','.js':'text/javascript','.wasm':'application/wasm','.json':'application/json','.svg':'image/svg+xml' };
 let fetched = [];

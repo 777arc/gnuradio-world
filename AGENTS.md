@@ -105,16 +105,17 @@ node server.mjs 8090 "$PWD"
 Useful validation:
 
 ```bash
-node test_lazy_scenarios.mjs
-node test_smoke.mjs
-node run.mjs /runner/build/runner.html RUNNER_PASS
+node test/test_lazy_scenarios.mjs
+node test/test_smoke.mjs
+node scripts/run.mjs /runner/build/runner.html RUNNER_PASS
 ```
 
-- `test_lazy_scenarios.mjs` verifies deferred category modules are fetched and
-  loaded.
-- `test_smoke.mjs` verifies blocks actually move samples, not merely that the
-  runner links or starts.
-- `run.mjs` is the headless Chromium harness and waits for a page `#result`.
+- `test/test_lazy_scenarios.mjs` verifies deferred category modules are fetched
+  and loaded.
+- `test/test_smoke.mjs` verifies blocks actually move samples, not merely that
+  the runner links or starts.
+- `scripts/run.mjs` is the headless Chromium harness and waits for a page
+  `#result`.
 
 For a fast out-of-tree module compile loop:
 
@@ -185,6 +186,6 @@ In handwritten `.grc` test fixtures:
 
 `.github/workflows/deploy-wasm.yml` builds everything from source and deploys on
 merges to `main`. It caches the dependency sysroot and uses ccache for GNU
-Radio/qtgui/runner objects. Before deployment, `test_smoke.mjs` and
-`test_lazy_scenarios.mjs` are required gates. Changes should leave those tests
+Radio/qtgui/runner objects. Before deployment, `test/test_smoke.mjs` and
+`test/test_lazy_scenarios.mjs` are required gates. Changes should leave those tests
 passing; a successful link alone is not adequate validation.

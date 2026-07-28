@@ -4,7 +4,7 @@
   "private": true,
   "description": "Headless test harness dependencies for the GNU Radio World browser build",
   "scripts": {
-    "test": "node test_smoke.mjs && node test_lazy_scenarios.mjs"
+    "test": "node test/test_smoke.mjs && node test/test_lazy_scenarios.mjs"
   },
   "dependencies": {
     "puppeteer-core": "^23.11.1"

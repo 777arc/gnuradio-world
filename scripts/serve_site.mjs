@@ -2,7 +2,7 @@
 // Serves an assembled site (scripts/assemble-site.mjs) the way Cloudflare
 // Pages serves it, so deploy-only behaviour can be checked without a deploy:
 //
-//   node scripts/assemble-site.mjs ./site && node serve_site.mjs ./site
+//   node scripts/assemble-site.mjs ./site && node scripts/serve_site.mjs ./site
 //
 // Pages' resolution order, which server.mjs does NOT reproduce:
 //   1. static asset wins (a directory serves its index.html)
@@ -15,7 +15,7 @@
 // files are served from example_recordings (on Pages they come from R2),
 // with range support, so an assembled site is fully clickable here.
 //
-// Usage: node serve_site.mjs [siteDir] [port]
+// Usage: node scripts/serve_site.mjs [siteDir] [port]
 import http from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { createReadStream } from 'node:fs';
@@ -24,7 +24,7 @@ import { pipeline } from 'node:stream/promises';
 
 const SITE = normalize(process.argv[2] || join(process.cwd(), 'site'));
 const PORT = Number(process.argv[3] || 8098);
-const RECORDINGS = join(new URL('.', import.meta.url).pathname, 'example_recordings');
+const RECORDINGS = join(new URL('..', import.meta.url).pathname, 'example_recordings');
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',

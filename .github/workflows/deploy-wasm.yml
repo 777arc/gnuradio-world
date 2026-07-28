@@ -213,8 +213,8 @@ jobs:
           npx --yes @puppeteer/browsers install chrome-headless-shell@stable \
             --path "$GITHUB_WORKSPACE"
           npm ci
-          node test_smoke.mjs           # flowgraphs run and produce samples
-          node test_lazy_scenarios.mjs  # on-demand side modules still load
+          node test/test_smoke.mjs           # flowgraphs run and produce samples
+          node test/test_lazy_scenarios.mjs  # on-demand side modules still load
 
       - name: Save ccache
         uses: actions/cache/save@v4
