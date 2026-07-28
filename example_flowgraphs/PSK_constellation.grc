@@ -1,11 +1,11 @@
 options:
     parameters:
-        author: ''
+        author: 'Marc'
         copyright: ''
         description: ''
         generate_options: qt_gui
         id: default
-        title: ''
+        title: 'PSK Tx with Constellation'
     states:
         coordinate: [10, 10]
         rotation: 0
