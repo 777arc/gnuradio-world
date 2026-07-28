@@ -1,0 +1,230 @@
+options:
+    parameters:
+        author: Marc
+        copyright: ''
+        description: Browser-safe DVB-S2 short-frame QPSK transmitter and DVB-S2RX FEC receiver loopback
+        generate_options: qt_gui
+        id: DVB_S2_Transmitter_and_Receiver_Loopback
+        title: DVB-S2 Transmitter and Receiver Loopback
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: channel_throttle
+    id: blocks_throttle
+    parameters:
+        samp_rate: '320000'
+        type: complex
+    states:
+        coordinate: [1560, 100]
+        rotation: 0
+        state: enabled
+-   name: decoded_packet_rate
+    id: wasm_packet_rate_sink
+    parameters:
+        items_per_packet: '188'
+        label: Decoded transport packets
+        name: DVB-S2 Receiver
+        type: byte
+        unit: ' pkt/s'
+        update_time: '2'
+    states:
+        coordinate: [1440, 670]
+        rotation: 0
+        state: enabled
+-   name: rx_bbdeheader
+    id: dvbs2rx_bbdeheader_bb
+    parameters:
+        framesize1: FECFRAME_NORMAL
+        framesize2: FECFRAME_SHORT
+        rate1: C1_2
+        rate2: C1_3
+        rate3: C1_4
+        rate4: C1_5_MEDIUM
+        rate5: C1_2
+        standard: STANDARD_DVBS2
+    states:
+        coordinate: [1150, 670]
+        rotation: 0
+        state: enabled
+-   name: rx_bbdescrambler
+    id: dvbs2rx_bbdescrambler_bb
+    parameters:
+        framesize1: FECFRAME_NORMAL
+        framesize2: FECFRAME_SHORT
+        rate1: C1_2
+        rate2: C1_3
+        rate3: C1_4
+        rate4: C1_5_MEDIUM
+        rate5: C1_2
+        standard: STANDARD_DVBS2
+    states:
+        coordinate: [850, 670]
+        rotation: 0
+        state: enabled
+-   name: rx_bch_decoder
+    id: dvbs2rx_bch_decoder_bb
+    parameters:
+        framesize1: FECFRAME_NORMAL
+        framesize2: FECFRAME_SHORT
+        outputmode: OM_MESSAGE
+        rate1: C1_2
+        rate2: C1_3
+        rate3: C1_4
+        rate4: C1_5_MEDIUM
+        rate5: C1_2
+        standard: STANDARD_DVBS2
+    states:
+        coordinate: [570, 670]
+        rotation: 0
+        state: enabled
+-   name: rx_ldpc_decoder
+    id: dvbs2rx_ldpc_decoder_cb
+    parameters:
+        constellation1: MOD_QPSK
+        constellation2: MOD_QPSK
+        framesize1: FECFRAME_NORMAL
+        framesize2: FECFRAME_SHORT
+        infomode: INFO_OFF
+        outputmode: OM_MESSAGE
+        rate1: C1_2
+        rate2: C1_3
+        rate3: C1_4
+        rate4: C1_5_MEDIUM
+        rate5: C1_2
+        standard: STANDARD_DVBS2
+    states:
+        coordinate: [280, 670]
+        rotation: 0
+        state: enabled
+-   name: transmitted_constellation
+    id: qtgui_const_sink_x
+    parameters:
+        alpha1: '1'
+        autoscale: 'False'
+        axislabels: 'True'
+        color1: '"blue"'
+        grid: 'True'
+        label1: DVB-S2 QPSK
+        legend: 'True'
+        marker1: '0'
+        name: DVB-S2 Transmitted Constellation
+        size: '1024'
+        style1: '1'
+        tr_chan: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_slope: qtgui.TRIG_SLOPE_POS
+        tr_tag: ''
+        update_time: '0.1'
+        width1: '1'
+        xmax: '2'
+        xmin: '-2'
+        ymax: '2'
+        ymin: '-2'
+    states:
+        coordinate: [1770, 100]
+        rotation: 0
+        state: enabled
+-   name: transport_stream_packet
+    id: blocks_vector_source_x
+    parameters:
+        repeat: 'True'
+        tags: '[]'
+        type: byte
+        vector: '[71, 64, 0, 16, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183]'
+        vlen: '1'
+    states:
+        coordinate: [20, 100]
+        rotation: 0
+        state: enabled
+-   name: tx_bbheader
+    id: dvbs2_bbheader_bb
+    parameters:
+        constellation1: MOD_QPSK
+        constellation2: MOD_QPSK
+        constellation3: MOD_QPSK
+        constellation4: MOD_QPSK
+        framesize1: FECFRAME_SHORT
+        framesize2: FECFRAME_NORMAL
+        framesize3: FECFRAME_NORMAL
+        framesize4: FECFRAME_NORMAL
+        goldcode1: '0'
+        goldcode2: '0'
+        goldcode3: '0'
+        goldcode4: '0'
+        nstreams: '1'
+        pilots1: PILOTS_OFF
+        pilots2: PILOTS_OFF
+        pilots3: PILOTS_OFF
+        pilots4: PILOTS_OFF
+        rate1_1: C1_4
+        rate1_2: C1_5_MEDIUM
+        rate1_3: C1_2
+        rate2_1: C1_4
+        rate2_2: C1_5_MEDIUM
+        rate2_3: C1_4
+        rate3_1: C1_4
+        rate3_2: C1_5_MEDIUM
+        rate3_3: C1_4
+        rate4_1: C1_4
+        rate4_2: C1_5_MEDIUM
+        rate4_3: C1_4
+        rolloff: RO_0_20
+    states:
+        coordinate: [270, 100]
+        rotation: 0
+        state: enabled
+-   name: tx_bbscrambler
+    id: dvbs2_bbscrambler_bb
+    parameters:
+    states:
+        coordinate: [560, 100]
+        rotation: 0
+        state: enabled
+-   name: tx_bch_encoder
+    id: dvbs2_bch_bb
+    parameters:
+    states:
+        coordinate: [730, 100]
+        rotation: 0
+        state: enabled
+-   name: tx_interleaver
+    id: dvbs2_interleaver_bb
+    parameters:
+    states:
+        coordinate: [1130, 100]
+        rotation: 0
+        state: enabled
+-   name: tx_ldpc_encoder
+    id: dvbs2_ldpc_bb
+    parameters:
+    states:
+        coordinate: [930, 100]
+        rotation: 0
+        state: enabled
+-   name: tx_qpsk_modulator
+    id: dvbs2_modulator_bc
+    parameters:
+    states:
+        coordinate: [1320, 100]
+        rotation: 0
+        state: enabled
+connections:
+- [channel_throttle, '0', rx_ldpc_decoder, '0']
+- [channel_throttle, '0', transmitted_constellation, '0']
+- [rx_bbdeheader, '0', decoded_packet_rate, '0']
+- [rx_bbdescrambler, '0', rx_bbdeheader, '0']
+- [rx_bch_decoder, '0', rx_bbdescrambler, '0']
+- [rx_ldpc_decoder, '0', rx_bch_decoder, '0']
+- [transport_stream_packet, '0', tx_bbheader, '0']
+- [tx_bbheader, '0', tx_bbscrambler, '0']
+- [tx_bbscrambler, '0', tx_bch_encoder, '0']
+- [tx_bch_encoder, '0', tx_ldpc_encoder, '0']
+- [tx_interleaver, '0', tx_qpsk_modulator, '0']
+- [tx_ldpc_encoder, '0', tx_interleaver, '0']
+- [tx_qpsk_modulator, '0', channel_throttle, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0
