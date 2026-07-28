@@ -311,6 +311,7 @@ const SVGNS = 'http://www.w3.org/2000/svg';
 const el = (id: string) => document.getElementById(id)!;
 const nodesG = el('nodes'), wiresG = el('wires'), selectionG = el('selectionOverlay');
 const svg = el('svg') as unknown as SVGSVGElement;
+const canvasScroll = el('canvasScroll');
 
 let insts: Inst[] = [];
 let conns: Conn[] = [];
@@ -1350,8 +1351,8 @@ const SHORTCUTS: [string, string][] = [
   ['Up / Down', 'Previous / next block type'], ['+ / −', 'Increase / decrease dynamic ports'],
   ['Ctrl++ / Ctrl+− / Ctrl+0', 'Zoom in / out / reset'], ['Ctrl+D', 'Hide disabled blocks'],
   ['Ctrl+E / R / B', 'Variable editor / console / block tree'], ['Scroll Lock', 'Toggle console autoscroll'],
-  ['Ctrl+F or /', 'Search blocks'], ['G', 'Toggle grid'], ['Ctrl+K or F1', 'Show these shortcuts'],
-  ['F5 / F6 / F7', 'Generate / execute / stop'], ['Escape', 'Close dialog or menu'],
+  ['G', 'Toggle grid'], ['Ctrl+K or F1', 'Show these shortcuts'],
+  ['F6 / F7', 'Execute / stop'], ['Escape', 'Close dialog or menu'],
 ];
 function showShortcutHelp() {
   closeMenu(); document.querySelector('.modal')?.remove();
@@ -1393,7 +1394,6 @@ document.addEventListener('keydown', e => {
   if (ctrl && key === 'l') { consume(e); el('log').textContent = ''; return; }
   if (ctrl && key === 'w') { consume(e); clearFlowgraph(); return; }
   if (ctrl && key === 'q') { consume(e); stop(); window.close(); return; }
-  if (e.key === 'F5') { consume(e); generateFlowgraph(); return; }
   if (e.key === 'F6') { consume(e); run(); return; }
   if (e.key === 'F7') { consume(e); stop(); return; }
   if (e.key === 'ScrollLock') { consume(e); autoScrollLog = !autoScrollLog; log(`console autoscroll ${autoScrollLog ? 'on' : 'off'}`); return; }
@@ -1404,10 +1404,6 @@ document.addEventListener('keydown', e => {
   if (ctrl && key === 'e') { consume(e); showVariableEditor(); return; }
   if (ctrl && key === 'r') { consume(e); el('canvasWrap').classList.toggle('console-hidden'); return; }
   if (ctrl && key === 'b') { consume(e); el('app').classList.toggle('hide-palette'); return; }
-  if (ctrl && key === 'f') {
-    consume(e); el('app').classList.remove('hide-palette'); paletteSearch?.focus(); paletteSearch?.select(); return;
-  }
-
   const active = document.activeElement;
   if (active && ['INPUT', 'SELECT', 'TEXTAREA'].includes(active.tagName)) return;
 
@@ -1440,9 +1436,6 @@ document.addEventListener('keydown', e => {
   else if (e.shiftKey && !ctrl && key === 'r') { consume(e); alignSelected('right'); }
   else if (!ctrl && (e.key === '+' || e.key === '=')) { consume(e); changePortCount(1); }
   else if (!ctrl && (e.key === '-' || e.key === '_')) { consume(e); changePortCount(-1); }
-  else if (!ctrl && e.key === '/') {
-    consume(e); el('app').classList.remove('hide-palette'); paletteSearch?.focus(); paletteSearch?.select();
-  }
   else if (!ctrl && !e.shiftKey && key === 'g') { consume(e); el('canvasWrap').classList.toggle('grid-hidden'); }
 });
 
@@ -1656,7 +1649,31 @@ function render() {
     for (let i = 0; i < portCount(inst, 'out'); i++) addPort(g, inst, 'out', i, portColor(inst, 'out', i));
     nodesG.appendChild(g);
   }
+  updateCanvasExtent();
 }
+
+// Grow the drawing surface past the viewport when blocks sit outside it, so the
+// canvas gets scrollbars like the native editor's QGraphicsView. Only the right
+// and bottom extents matter: constrainBlockPosition() keeps blocks out of
+// negative coordinates. The surface stays exactly viewport-sized otherwise
+// (svg is width/height 100%, see index.html) so one scrollbar appearing can
+// never squeeze the canvas enough to conjure up the other one.
+const CANVAS_MARGIN = 60;   // room for port tabs, validation labels and drop space
+function updateCanvasExtent() {
+  let right = 0, bottom = 0;
+  for (const inst of insts) {
+    if (hideDisabled && !inst.enabled) continue;
+    const { w, h } = geom(inst);
+    right = Math.max(right, inst.x + w);
+    bottom = Math.max(bottom, inst.y + h);
+  }
+  svg.style.minWidth = `${Math.ceil((right + CANVAS_MARGIN) * zoom)}px`;
+  svg.style.minHeight = `${Math.ceil((bottom + CANVAS_MARGIN) * zoom)}px`;
+}
+
+// The console overlays the bottom of the canvas; keep the scrolling area above
+// it so the horizontal scrollbar doesn't end up hidden underneath.
+new ResizeObserver(() => { canvasScroll.style.bottom = `${el('log').offsetHeight}px`; }).observe(el('log'));
 
 function addPort(g: SVGGElement, inst: Inst, kind: 'in' | 'out', idx: number, color: string) {
   // Native GRC ports are typed, colored tabs whose width follows their centered
@@ -2620,7 +2637,6 @@ const R_RECENT = "Recent-file history isn't available in the browser build; ther
 const R_QSS = "Qt style-sheet themes don't apply to the WebAssembly Qt GUI runner.";
 const R_FDESIGN = "gr_filter_design is a separate desktop program and can't be launched from the browser.";
 const R_HIER = "Hierarchical blocks aren't supported in the WebAssembly editor.";
-const R_RELOAD = "The block library is bundled at build time, so there's nothing to reload from disk.";
 const R_XML = "GRC no longer uses XML flowgraphs, so there are no XML parser errors to display.";
 const R_CODE = "The browser runner executes the flowgraph directly — there is no generated Python file to preview.";
 const R_COMPLEXITY = "Flowgraph-complexity metrics aren't implemented in the browser editor.";
@@ -2668,8 +2684,6 @@ function toggleSnapToGrid() {
   snapToGrid = !snapToGrid;
   log(`snap to grid ${snapToGrid ? 'on' : 'off'}`);
 }
-function focusPaletteSearch() { el('app').classList.remove('hide-palette'); paletteSearch?.focus(); paletteSearch?.select(); }
-function generateFlowgraph() { const doc = buildGrcDoc(); log(`generated ${doc.blocks.length} blocks, ${doc.connections.length} connections`); }
 function openLink(url: string) { window.open(url, '_blank', 'noopener'); }
 
 // ---- enable/state predicates (evaluated each time a menu opens) ----
@@ -3023,10 +3037,8 @@ const MENUS: TopMenu[] = [
     { label: 'Reset Zoom', key: 'Ctrl+0', run: () => setZoom(1) },
     'sep',
     { label: 'Flowgraph Errors', run: showErrorsDialog },
-    { label: 'Find Blocks', key: 'Ctrl+F', run: focusPaletteSearch },
   ] },
   { label: 'Run', items: [
-    { label: 'Generate', key: 'F5', run: generateFlowgraph },
     { label: 'Execute', key: 'F6', run: run },
     { label: 'Kill', key: 'F7', run: stop },
   ] },
@@ -3128,7 +3140,6 @@ const TOOLBAR: (Tool | 'sep')[] = [
   { icon: '↷', label: 'Redo', key: 'Ctrl+Y', run: redo },
   'sep',
   { icon: '⚠', label: 'Flowgraph Errors', run: showErrorsDialog },
-  { icon: '⚙', label: 'Generate', key: 'F5', run: generateFlowgraph },
   { icon: '▶', label: 'Execute', key: 'F6', run: run },
   { icon: '■', label: 'Kill', key: 'F7', run: stop },
   'sep',
@@ -3140,8 +3151,6 @@ const TOOLBAR: (Tool | 'sep')[] = [
   { icon: '⤳', label: 'Bypass', key: 'B', run: bypassSelected },
   { icon: '👁', label: 'Hide Disabled Blocks', key: 'Ctrl+D', run: toggleHideDisabled },
   'sep',
-  { icon: '🔍', label: 'Find Blocks', key: 'Ctrl+F', run: focusPaletteSearch },
-  { icon: '🔄', label: 'Reload Blocks', reason: R_RELOAD },
   { icon: '↧', label: 'Open Hier', reason: R_HIER },
 ];
 function buildToolbar() {

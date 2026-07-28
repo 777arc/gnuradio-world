@@ -183,11 +183,19 @@
   /* GRC-authentic light canvas */
   /* --grid-size mirrors SNAP_GRID_SIZE (times zoom, see setZoom) so the drawn
      grid lines up with where blocks actually snap. */
-  #canvasWrap { --grid-size:10px; min-height:0; position:relative; overflow:hidden; background:
-      linear-gradient(#e9eaec 1px, transparent 1px) 0 0/100% var(--grid-size),
-      linear-gradient(90deg, #e9eaec 1px, transparent 1px) 0 0/var(--grid-size) 100%, #f7f7f7; }
-  #canvasWrap.grid-hidden { background:#f7f7f7; }
+  #canvasWrap { --grid-size:10px; min-height:0; position:relative; overflow:hidden; background:#f7f7f7; }
+  /* Blocks live outside the visible area as soon as the flowgraph grows, so the
+     canvas scrolls like the native editor's QGraphicsView. `background-attachment:
+     local` keeps the drawn grid glued to the blocks while scrolling. */
+  #canvasScroll { position:absolute; inset:0; overflow:auto; background:
+      linear-gradient(#e9eaec 1px, transparent 1px) 0 0/var(--grid-size) var(--grid-size),
+      linear-gradient(90deg, #e9eaec 1px, transparent 1px) 0 0/var(--grid-size) var(--grid-size),
+      #f7f7f7; background-attachment:local, local; }
+  #canvasWrap.grid-hidden #canvasScroll { background:#f7f7f7; }
   #canvasWrap.console-hidden #log { display:none; }
+  /* min-width/min-height (set by render) grow the surface past the viewport when
+     blocks sit off-screen; 100% keeps it exactly viewport-sized otherwise, so no
+     scrollbar ever appears just because the other scrollbar took up room. */
   svg { width:100%; height:100%; display:block; }
   svg text { user-select:none; -webkit-user-select:none; -moz-user-select:none; }
   /* GRC block: light body, black border, bold black title, param rows */
@@ -283,19 +291,21 @@
   <div id="palette"></div>
   <div id="workspace">
     <div id="canvasWrap">
-      <svg id="svg">
-        <defs>
-          <marker id="arrow" viewBox="0 0 10 10" refX="8.5" refY="5"
-                  markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-            <path d="M0,0 L10,5 L0,10 z" fill="#2a2a2a"/>
-          </marker>
-          <marker id="arrow-selected" viewBox="0 0 10 10" refX="8.5" refY="5"
-                  markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-            <path d="M0,0 L10,5 L0,10 z" fill="#00b8c8"/>
-          </marker>
-        </defs>
-        <g id="wires"></g><g id="nodes"></g><g id="selectionOverlay"></g>
-      </svg>
+      <div id="canvasScroll">
+        <svg id="svg">
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="8.5" refY="5"
+                    markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="#2a2a2a"/>
+            </marker>
+            <marker id="arrow-selected" viewBox="0 0 10 10" refX="8.5" refY="5"
+                    markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="#00b8c8"/>
+            </marker>
+          </defs>
+          <g id="wires"></g><g id="nodes"></g><g id="selectionOverlay"></g>
+        </svg>
+      </div>
       <div id="log"></div>
     </div>
     <div id="paneSplitter" role="separator" aria-label="Resize flowgraph and runner panes"

@@ -12,8 +12,8 @@ const bindings = {
   'enable/disable/bypass': /key === 'e'.*setSelectedEnabled\(true\)[\s\S]*key === 'd'.*setSelectedEnabled\(false\)[\s\S]*key === 'b'.*bypassSelected/,
   'alignment': /alignSelected\('top'\)[\s\S]*alignSelected\('middle'\)[\s\S]*alignSelected\('bottom'\)[\s\S]*alignSelected\('left'\)[\s\S]*alignSelected\('center'\)[\s\S]*alignSelected\('right'\)/,
   'zoom': /NumpadAdd.*setZoom[\s\S]*NumpadSubtract.*setZoom[\s\S]*key === '0'.*setZoom\(1\)/,
-  'panels/search/grid': /key === 'e'[\s\S]*showVariableEditor[\s\S]*key === 'r'[\s\S]*console-hidden[\s\S]*key === 'b'[\s\S]*hide-palette[\s\S]*key === 'f'[\s\S]*paletteSearch[\s\S]*key === 'g'[\s\S]*grid-hidden/,
-  'generate/run/stop': /e\.key === 'F5'[\s\S]*e\.key === 'F6'.*run[\s\S]*e\.key === 'F7'.*stop/,
+  'panels/grid': /key === 'e'[\s\S]*showVariableEditor[\s\S]*key === 'r'[\s\S]*console-hidden[\s\S]*key === 'b'[\s\S]*hide-palette[\s\S]*key === 'g'[\s\S]*grid-hidden/,
+  'run/stop': /e\.key === 'F6'.*run[\s\S]*e\.key === 'F7'.*stop/,
   'capture/console': /key === 'p'.*saveConsole[\s\S]*key === 'p'.*saveScreenshot[\s\S]*key === 'l'.*textContent = ''/,
 };
 
@@ -24,5 +24,11 @@ assert.match(source, /Ctrl\+K or F1/);
 assert.match(source, /hierarchical blocks are not supported in WebAssembly/);
 // The keyboard-shortcut help now lives in the Help menu (the old top-right button was removed).
 assert.match(source, /label: 'Keyboard Shortcuts', key: 'Ctrl\+K', run: showShortcutHelp/);
+assert.doesNotMatch(source, /label: 'Generate'/);
+assert.doesNotMatch(source, /label: 'Find Blocks'/);
+assert.doesNotMatch(source, /label: 'Reload Blocks'/);
+assert.doesNotMatch(source, /e\.key === 'F5'/);
+assert.doesNotMatch(source, /ctrl && key === 'f'/);
+assert.doesNotMatch(source, /e\.key === '\/'/);
 assert.match(html, /id="menus"/);
 console.log(`checked ${Object.keys(bindings).length} native shortcut groups`);
