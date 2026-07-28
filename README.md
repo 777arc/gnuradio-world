@@ -102,11 +102,13 @@ python3 wasm/editor/gen/gen_blocklib.py wasm/editor/public/blocks.json
 
 # IQEngine client (git submodule), served from /iqengine/ so the recordings tab
 # can link into its spectrogram view. Optional; skip it and those links 404.
-# The feature flags trim it to what this site uses: no Python snippet editor
-# (it needs Pyodide from a CDN that this cross-origin-isolated site will not
-# load) and no Cyclostationary tab.
+# Hash routing because Cloudflare Pages cannot serve index.html for arbitrary
+# paths under a sub-directory; the feature flags trim it to what this site uses:
+# no Python snippet editor (it needs Pyodide from a CDN that this
+# cross-origin-isolated site will not load) and no Cyclostationary tab.
 git submodule update --init
 (cd iqengine/client && npm ci && \
+   IQENGINE_HASH_ROUTER=true \
    IQENGINE_FEATURE_FLAGS='{"displayPythonSnippet":false,"displayCyclostationaryTab":false,"linkLogoToBrowser":false}' npm run build -- --base=/iqengine/)
 ```
 

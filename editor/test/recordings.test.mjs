@@ -28,6 +28,10 @@ assert.match(source, /function iqengineViewUrl\([\s\S]*?new URL\(\s*'\/example_r
   'the IQEngine link must resolve both the meta and the data file to absolute URLs');
 assert.match(source, /\$\{IQENGINE_BASE\}\/view\/url\/\$\{base64Url\(metaUrl\)\}\/\$\{base64Url\(dataUrl\)\}\//,
   "the IQEngine link must use its 'url' data source route, base64url-encoded");
+// Hash routing: Cloudflare Pages serves /iqengine/ as static files and cannot
+// answer arbitrary paths under it with index.html, so the route goes after '#'.
+assert.match(source, /const IQENGINE_BASE = '\/iqengine\/#'/,
+  'the IQEngine route must ride in the URL fragment, not the path');
 assert.match(source, /viewLink\.textContent = 'open in IQEngine'[\s\S]*?viewLink\.onclick = event => event\.stopPropagation\(\)/,
   'clicking the IQEngine link must not also drop a File Source on the canvas');
 

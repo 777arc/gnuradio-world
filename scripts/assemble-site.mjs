@@ -176,15 +176,15 @@ async function main() {
   //    what its router uses as its basename.
   const iqengineBuild = join(WASM, '..', 'iqengine', 'client', 'build');
   const haveIQEngine = await stat(iqengineBuild).then(() => true).catch(() => false);
+  // It is built for hash routing (IQENGINE_HASH_ROUTER=true), so every URL the
+  // browser asks Pages for is a file that exists here -- /iqengine/ plus its
+  // assets -- and the route rides along after the '#'. Path routing would need
+  // Pages to answer arbitrary paths under /iqengine/ with index.html, which
+  // _redirects cannot do: a wildcard 200-rewrite is served as a 308 redirect,
+  // and dynamic rules are matched before static assets, so it swallows the
+  // app's own .js and .css requests as well.
   if (haveIQEngine) {
     await cp(iqengineBuild, join(OUT, 'iqengine'), { recursive: true });
-    // SPA fallback for its client-side routes, as a copy OUTSIDE /iqengine/.
-    // Pages drops a 200-rewrite whose target its own rule matches (a loop), so
-    // "/iqengine/* -> /iqengine/index.html" silently falls through to the site
-    // root instead -- which is what a deep IQEngine URL used to land on. The
-    // page itself references its assets by absolute path, so it works from
-    // wherever it is served.
-    await cp(join(iqengineBuild, 'index.html'), join(OUT, 'iqengine-spa.html'));
     console.log('iqengine: copied client build');
   } else {
     console.warn('iqengine: no client build found, "open in IQEngine" links will 404 ' +
@@ -211,16 +211,12 @@ async function main() {
   //    _redirects: 200-rewrite the bare listing paths to their static
   //    manifests so the unmodified client's fetch() still works. The editor
   //    itself is served from / by Pages' own index.html handling, so no root
-  //    redirect is needed. IQEngine is a single-page app, so any path under it
-  //    that is not a real file has to land on its index.html; static assets
-  //    match before _redirects is consulted, so its own JS/CSS still load.
-  //    That fallback must live outside /iqengine/ (see above), and dynamic
-  //    rules go last, after the static ones.
+  //    redirect is needed. IQEngine needs no rule at all: it is served as
+  //    static files (see above).
   await writeFile(join(OUT, '_redirects'),
 `/example_flowgraphs   /example_flowgraphs/index.json   200
 /example_recordings   /example_recordings/index.json   200
 /editor/dist/*        /                                301
-/iqengine/*           /iqengine-spa.html               200
 `);
   //    404.html: without it Pages answers every unmatched path with the site's
   //    root index.html AND a 200. That is not merely untidy -- IQEngine probes

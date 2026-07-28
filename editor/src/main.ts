@@ -2551,12 +2551,17 @@ async function cacheFlowgraphRecordings(doc: any, exampleName: string) {
 // base64url, so a recording needs no backend, no Azure account and no local
 // file picking to be viewable:
 //
-//   /iqengine/view/url/<base64url meta URL>/<base64url data URL>/<name>
+//   /iqengine/#/view/url/<base64url meta URL>/<base64url data URL>/<name>
+//
+// The route goes after the '#' because it is built for hash routing: Cloudflare
+// Pages cannot serve index.html for arbitrary paths under a sub-directory (a
+// wildcard rewrite there turns into a redirect and swallows the app's own asset
+// requests), so /iqengine/ has to stay a plain directory of static files.
 //
 // The URLs are absolute so the link keeps working if IQEngine ever moves to
 // another origin. The data file is on R2 for the deployed site and on this
 // server in dev; either way it is the manifest's downloadUrl.
-const IQENGINE_BASE = '/iqengine';
+const IQENGINE_BASE = '/iqengine/#';
 
 const base64Url = (text: string): string => {
   const bytes = new TextEncoder().encode(text);
