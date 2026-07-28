@@ -7,6 +7,7 @@ import { dumpGrc, parseGrc, type GrcDoc, type GrcScalar } from './grc';
 import { boundsBetween, boundsIntersect, type Point } from './selection';
 import { constrainBlockPosition, SNAP_GRID_SIZE } from './grid';
 import { evaluate as evalExpr, buildScope, formatValue as fmtExprVal, serializeForRunner, type Scope } from './expr';
+import { EXAMPLES_REPO, examplePath, newExampleFileUrl, sanitizeExampleName } from './contribute';
 
 type ParamType = 'number' | 'string' | 'enum';
 // `raw` marks a GRC dtype: raw parameter — free-form Python (vectors, matrices).
@@ -1223,6 +1224,20 @@ async function flowgraphToUrl(): Promise<string> {
   const base = location.href.split('#')[0].split('?')[0];
   return `${base}#fg=${param}`;
 }
+// Clipboard API needs a secure context / permission; fall back to a hidden
+// textarea + execCommand so http:// dev servers keep working.
+async function copyText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    const ok = document.execCommand('copy'); ta.remove();
+    return ok;
+  }
+}
 async function copyFlowgraphUrl() {
   let url: string;
   try { url = await flowgraphToUrl(); }
@@ -1232,18 +1247,8 @@ async function copyFlowgraphUrl() {
         'Use File ▸ Save to share it as a .json file instead.');
     return;
   }
-  try {
-    await navigator.clipboard.writeText(url);
-    log(`copied shareable URL to clipboard (${url.length} chars)`);
-  } catch {
-    // Clipboard API needs a secure context / permission; fall back to a manual copy.
-    const ta = document.createElement('textarea');
-    ta.value = url; ta.style.position = 'fixed'; ta.style.opacity = '0';
-    document.body.appendChild(ta); ta.select();
-    const ok = document.execCommand('copy'); ta.remove();
-    log(ok ? `copied shareable URL to clipboard (${url.length} chars)`
-          : 'could not copy automatically — URL logged below:\n' + url);
-  }
+  log(await copyText(url) ? `copied shareable URL to clipboard (${url.length} chars)`
+        : 'could not copy automatically — URL logged below:\n' + url);
 }
 function showVariableEditor() {
   closeMenu(); document.querySelector('.modal')?.remove();
@@ -2731,6 +2736,96 @@ function showAboutDialog() {
   });
 }
 
+// ---- contribute the open flowgraph as a repo example ----
+// The editor is a static site with no backend and no credentials, so a
+// contribution is a hand-off: the .grc goes on the clipboard and GitHub's web
+// new-file editor opens at the right path. GitHub forks the repo for anyone
+// without write access, so "Propose new file" becomes a pull request. Examples
+// come from the directory listing, so the PR only ever adds one .grc file.
+// The Options block's title is the only human name a flowgraph carries; without
+// one the dialog opens on the generic fallback for the contributor to replace.
+function suggestedExampleName(): string {
+  const opt = insts.find(i => i.id === OPTIONS_ID);
+  return sanitizeExampleName(String(opt?.params.title || '').trim());
+}
+function contributeExample() {
+  const grc = grcText();
+  let nameInput!: HTMLInputElement;
+  let pathLine!: HTMLElement;
+  let taken: string[] = [];
+  let clash!: HTMLElement;
+  const currentName = () => sanitizeExampleName(nameInput.value);
+  const refresh = () => {
+    const name = currentName();
+    pathLine.textContent = examplePath(name);
+    const exists = taken.some(f => f.toLowerCase() === name.toLowerCase());
+    clash.textContent = exists
+      ? `An example named ${name} already exists — pick another name unless you mean to replace it.` : '';
+    clash.hidden = !exists;
+  };
+  const overlay = openDialog('Contribute Example Flowgraph', body => {
+    const intro = document.createElement('div'); intro.className = 'contrib-intro';
+    intro.textContent =
+      `Share this flowgraph with the community. It is added to ${EXAMPLES_REPO.dir}/ in the ` +
+      `${EXAMPLES_REPO.owner}/${EXAMPLES_REPO.repo} repository through a pull request, and appears in the ` +
+      'Examples tab of the editor once merged.';
+    const steps = document.createElement('ol'); steps.className = 'contrib-steps';
+    for (const text of [
+      '“Copy & Open GitHub” copies this flowgraph and opens GitHub’s new-file page at the path below.',
+      'Paste (Ctrl+V) into the file editor on that page.',
+      'Click “Propose new file” — GitHub forks the repository for you and opens the pull request.',
+    ]) { const li = document.createElement('li'); li.textContent = text; steps.appendChild(li); }
+
+    const row = document.createElement('div'); row.className = 'contrib-name';
+    const label = document.createElement('label'); label.textContent = 'File name'; label.htmlFor = 'contribName';
+    nameInput = document.createElement('input');
+    nameInput.id = 'contribName'; nameInput.type = 'text'; nameInput.value = suggestedExampleName();
+    nameInput.oninput = refresh;
+    row.append(label, nameInput);
+    pathLine = document.createElement('div'); pathLine.className = 'contrib-path';
+    clash = document.createElement('div'); clash.className = 'contrib-warn'; clash.hidden = true;
+
+    body.append(intro, steps, row, pathLine, clash);
+
+    // Non-blocking nudge: a flowgraph with errors makes a poor example.
+    const issues = validateGraph();
+    if (issues.length) {
+      const warn = document.createElement('div'); warn.className = 'contrib-warn';
+      warn.textContent = `This flowgraph has ${issues.length} validation ` +
+        `${issues.length === 1 ? 'issue' : 'issues'} (View ▸ Flowgraph Errors) — consider fixing them first.`;
+      body.appendChild(warn);
+    }
+
+    // Guaranteed manual-copy path when the clipboard is unavailable.
+    const ta = document.createElement('textarea');
+    ta.className = 'contrib-copy'; ta.readOnly = true; ta.value = grc;
+    ta.onclick = () => ta.select();
+    body.appendChild(ta);
+  });
+
+  const foot = overlay.querySelector('.dlgfoot')!;
+  const go = document.createElement('button'); go.className = 'run'; go.textContent = 'Copy & Open GitHub';
+  go.onclick = () => {
+    // Both the clipboard write and the popup need the click's user activation, so
+    // start the copy without awaiting it and open the tab in the same tick.
+    const name = currentName();
+    const copied = copyText(grc);
+    openLink(newExampleFileUrl(name));
+    log(`opened a GitHub pull request page for ${examplePath(name)}`);
+    void copied.then(ok => log(ok
+      ? 'copied the flowgraph to the clipboard — paste it into the GitHub editor with Ctrl+V'
+      : 'could not copy automatically — copy the flowgraph text from the dialog instead'));
+  };
+  foot.prepend(go);
+
+  // Populate the "name already used" check once the example list arrives.
+  void fetch('/example_flowgraphs').then(r => r.json()).then(files => {
+    if (Array.isArray(files)) { taken = files.map(String); refresh(); }
+  }).catch(() => { /* listing unavailable (e.g. offline) — skip the check */ });
+  refresh();
+  nameInput.focus(); nameInput.select();
+}
+
 // ---- WebAssembly modules & debug info dialog ----
 const WASM_BASE = '/runner/build/';
 function fmtBytes(n: number | null): string {
@@ -2863,6 +2958,7 @@ const MENUS: TopMenu[] = [
     'sep',
     { label: 'Save', key: 'Ctrl+S', run: () => saveFlowgraph() },
     { label: 'Copy URL', run: copyFlowgraphUrl, enabled: hasBlocks },
+    { label: 'Contribute as Example…', run: contributeExample, enabled: hasBlocks },
     'sep',
     { label: 'Screen Capture…', key: 'Ctrl+P', run: saveScreenshot },
     'sep',
