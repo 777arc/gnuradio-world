@@ -511,8 +511,8 @@ and the deployed site behaved differently from every developer's machine.
 - `gr-fft/lib/fft.cc` — use `FFTW_ESTIMATE` under WASM (`FFTW_MEASURE` benchmarking
   hangs there).
 
-Build without `FORCE_SINGLE_MAPPED`, with `-DTRY_SHM_VMCIRCBUF=OFF` and
-`-DCMAKE_DISABLE_FIND_PACKAGE_libunwind=ON`. The runtime selects
+Build with `-DTRY_SHM_VMCIRCBUF=OFF` and
+`-DCMAKE_DISABLE_FIND_PACKAGE_libunwind=ON`. The WASM runtime selects
 `vmcircbuf_emulated`: a contiguous 2N-byte software mirror that preserves the
 native double-mapped scheduler and pointer behavior, then synchronizes completed
 writes before publishing them to readers. It uses twice the physical buffer memory

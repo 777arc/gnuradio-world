@@ -33,9 +33,6 @@ virtual aliases are already coherent.
 - The single-mapped realignment callbacks are not involved, avoiding their WASM
   wrap-boundary stalls and wakeup races.
 
-`FORCE_SINGLE_MAPPED` remains available as an explicit fallback/debug build, but it
-is not used by the normal WASM runner.
-
 ## Verification
 
 The emulated factory is exercised by `qa_vmcircbuf`, including a write that crosses

@@ -59,8 +59,8 @@ Important invariants are:
 - All GNU Radio, runner, and side-module objects need `-pthread -fPIC`.
 - Compile all of them with `-fexceptions`; setting it only at link time does not
   preserve C++ catch blocks under Emscripten.
-- Use `TRY_SHM_VMCIRCBUF=OFF` and disable `libunwind`. Do not use
-  `FORCE_SINGLE_MAPPED`; the WASM runtime uses `vmcircbuf_emulated`.
+- Use `TRY_SHM_VMCIRCBUF=OFF` and disable `libunwind`; the WASM runtime uses
+  `vmcircbuf_emulated`.
 - Side modules must use `WASM_BIGINT` to match Qt's ABI. Existing CMake rules
   already enforce this.
 
