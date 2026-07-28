@@ -1,0 +1,55 @@
+#!/usr/bin/env node
+// Reliable browser runner for the GNU Radio WASM phases. Drives Windows Chrome
+// (via WSL) with Puppeteer, waits for the page's #result div to leave "pending"
+// (real time — Web Workers do real-time CPU work, unlike --virtual-time-budget),
+// then prints the RESULT line and optionally saves a screenshot.
+//
+// Usage: node run.mjs <url-path> [pass-token] [port] [timeoutMs] [screenshot.png]
+import puppeteer from 'puppeteer-core';
+
+const [urlPath, token = 'PASS', port = '8090', timeoutMs = '30000', shot] = process.argv.slice(2);
+import { existsSync, readdirSync } from 'node:fs';
+// Native Linux headless chrome (downloaded via @puppeteer/browsers) — full CDP,
+// so we can waitForFunction on real (not virtual) time for Web Worker computation.
+const base = new URL('./chrome-headless-shell/', import.meta.url).pathname;
+const local = existsSync(base)
+  ? readdirSync(base).map(d => `${base}${d}/chrome-headless-shell-linux64/chrome-headless-shell`)
+  : [];
+const exe = [...local, '/mnt/c/Program Files/Google/Chrome/Application/chrome.exe'].find(existsSync);
+if (!exe) { console.error('chrome not found'); process.exit(2); }
+
+const browser = await puppeteer.launch({
+  executablePath: exe,
+  headless: true,
+  args: ['--no-sandbox', '--disable-gpu', '--use-gl=angle', '--use-angle=swiftshader',
+         '--enable-unsafe-swiftshader'],
+});
+try {
+  const page = await browser.newPage();
+  await page.setViewport({ width: 900, height: 640 });
+  const logs = [];
+  page.on('console', m => logs.push(m.text()));
+  page.on('pageerror', e => logs.push('PAGEERROR ' + e.message));
+  await page.goto(`http://localhost:${port}${urlPath}`, { waitUntil: 'load', timeout: 30000 });
+
+  let status = 'pending', text = '';
+  try {
+    await page.waitForFunction(
+      () => { const d = document.getElementById('result'); return d && d.dataset.status !== 'pending'; },
+      { timeout: Number(timeoutMs), polling: 200 });
+  } catch { /* fall through to whatever is there */ }
+  ({ status, text } = await page.evaluate(() => {
+    const d = document.getElementById('result');
+    return { status: d ? d.dataset.status : 'missing', text: d ? d.textContent : '' };
+  }));
+
+  if (shot) { await page.screenshot({ path: shot }); }
+  console.log('RUN', urlPath, '->', text || '(no #result)');
+  if (logs.length) console.log('--- page logs (tail) ---\n' + logs.slice(-25).join('\n'));
+  await browser.close();
+  process.exit(text.includes(token) ? 0 : 1);
+} catch (e) {
+  console.error('RUN error:', e.message);
+  await browser.close();
+  process.exit(3);
+}

@@ -17,7 +17,7 @@ name: Deploy WASM
 #            keys on preprocessed content, so a one-file GR change recompiles one
 #            file -- and nothing can go stale, because nothing is prebuilt.
 #
-# See wasm/README.md "Continuous integration". The weekly schedule exists only to
+# See README.md "Continuous integration". The weekly schedule exists only to
 # keep the caches alive: GitHub evicts anything unused for 7 days, and a cold run
 # costs about an hour.
 on:
@@ -101,8 +101,8 @@ jobs:
         if: ${{ !inputs.rebuild_sysroot }}
         uses: actions/cache/restore@v4
         with:
-          path: wasm/sysroot
-          key: wasm-sysroot-emsdk${{ env.EMSDK_VERSION }}-qt${{ env.QT_VERSION }}-${{ hashFiles('wasm/deps/env.sh', 'wasm/deps/fetch-deps.sh', 'wasm/deps/build-deps.sh') }}
+          path: sysroot
+          key: wasm-sysroot-emsdk${{ env.EMSDK_VERSION }}-qt${{ env.QT_VERSION }}-${{ hashFiles('deps/env.sh', 'deps/fetch-deps.sh', 'deps/build-deps.sh') }}
 
       - name: Build dependency sysroot
         if: steps.cache-sysroot.outputs.cache-hit != 'true'
@@ -110,15 +110,15 @@ jobs:
           source ~/emsdk/emsdk_env.sh
           export QT_HOST="$GITHUB_WORKSPACE/Qt/${QT_VERSION}/gcc_64"
           export QT_WASM="$GITHUB_WORKSPACE/Qt/${QT_VERSION}/wasm_multithread"
-          bash wasm/deps/fetch-deps.sh
-          bash wasm/deps/build-deps.sh
+          bash deps/fetch-deps.sh
+          bash deps/build-deps.sh
 
       - name: Save sysroot cache
         if: steps.cache-sysroot.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
-          path: wasm/sysroot
-          key: wasm-sysroot-emsdk${{ env.EMSDK_VERSION }}-qt${{ env.QT_VERSION }}-${{ hashFiles('wasm/deps/env.sh', 'wasm/deps/fetch-deps.sh', 'wasm/deps/build-deps.sh') }}
+          path: sysroot
+          key: wasm-sysroot-emsdk${{ env.EMSDK_VERSION }}-qt${{ env.QT_VERSION }}-${{ hashFiles('deps/env.sh', 'deps/fetch-deps.sh', 'deps/build-deps.sh') }}
 
       # --- ccache: restored loosely so any recent run seeds the new one --------
       - name: Restore ccache
@@ -138,7 +138,7 @@ jobs:
       - name: Build GNU Radio
         run: |
           source ~/emsdk/emsdk_env.sh
-          export SYSROOT="$GITHUB_WORKSPACE/wasm/sysroot"
+          export SYSROOT="$GITHUB_WORKSPACE/sysroot"
           # -fexceptions keeps GR's own try/catch alive under Emscripten: without
           # it the landing pads are dropped and an exception thrown from a block's
           # work() kills the worker instead of being caught and logged.
@@ -146,7 +146,7 @@ jobs:
           # back explicitly -- otherwise every component fails its dependency
           # check with "user force-enabled gr-blocks but configuration checked
           # failed".
-          emcmake cmake -S "$GITHUB_WORKSPACE/gnuradio" -B wasm/gr/build-gr -GNinja \
+          emcmake cmake -S "$GITHUB_WORKSPACE/gnuradio" -B gr/build-gr -GNinja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_CXX_FLAGS="-pthread -fPIC -fexceptions" -DCMAKE_C_FLAGS="-pthread -fPIC" \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
@@ -159,7 +159,7 @@ jobs:
             -DENABLE_GR_FFT=ON -DENABLE_GR_FILTER=ON -DENABLE_GR_FEC=ON -DENABLE_GR_DTV=ON \
             -DENABLE_GR_NETWORK=ON -DENABLE_GR_PDU=ON -DENABLE_GR_VOCODER=ON \
             -DTRY_SHM_VMCIRCBUF=OFF -DCMAKE_DISABLE_FIND_PACKAGE_libunwind=ON
-          cmake --build wasm/gr/build-gr
+          cmake --build gr/build-gr
 
       # --- qtgui, runner and editor (every run) -------------------------------
       - name: Build qtgui + runner + editor
@@ -169,20 +169,20 @@ jobs:
           export QT_HOST="$GITHUB_WORKSPACE/Qt/${QT_VERSION}/gcc_64"
           export QT_WASM="$GITHUB_WORKSPACE/Qt/${QT_VERSION}/wasm_multithread"
 
-          python3 wasm/runner/gen_registry.py
-          python3 wasm/editor/gen/gen_blocklib.py wasm/editor/public/blocks.json
+          python3 runner/gen_registry.py
+          python3 editor/gen/gen_blocklib.py editor/public/blocks.json
 
-          (cd wasm/qtgui && "$QT_WASM/bin/qt-cmake" -S . -B build -GNinja \
+          (cd qtgui && "$QT_WASM/bin/qt-cmake" -S . -B build -GNinja \
              -DQT_HOST_PATH="$QT_HOST" -DCMAKE_CXX_FLAGS="-pthread -fPIC" \
              -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
              && cmake --build build)
 
-          (cd wasm/runner && "$QT_WASM/bin/qt-cmake" -S . -B build -GNinja \
+          (cd runner && "$QT_WASM/bin/qt-cmake" -S . -B build -GNinja \
              -DQT_HOST_PATH="$QT_HOST" -DCMAKE_BUILD_TYPE=Release \
              -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
              && cmake --build build)
 
-          (cd wasm/editor && npm ci && npm run build)
+          (cd editor && npm ci && npm run build)
 
           # IQEngine client, served from /iqengine/ (its router reads the same
           # base as its basename), so the recordings tab can link into it.
@@ -208,13 +208,13 @@ jobs:
       - name: Smoke-test the runner
         run: |
           # --path gets a "chrome-headless-shell/<platform-version>/..." tree
-          # appended to it, so point it at wasm/ to land on the layout the test
-          # harnesses look for: wasm/chrome-headless-shell/<ver>/.../binary
+          # appended to it, so point it at the repository root to land on the
+          # layout the test harnesses expect: chrome-headless-shell/<ver>/.../binary
           npx --yes @puppeteer/browsers install chrome-headless-shell@stable \
-            --path "$GITHUB_WORKSPACE/wasm"
-          (cd wasm && npm ci)
-          node wasm/test_smoke.mjs           # flowgraphs run and produce samples
-          node wasm/test_lazy_scenarios.mjs  # on-demand side modules still load
+            --path "$GITHUB_WORKSPACE"
+          npm ci
+          node test_smoke.mjs           # flowgraphs run and produce samples
+          node test_lazy_scenarios.mjs  # on-demand side modules still load
 
       - name: Save ccache
         uses: actions/cache/save@v4
@@ -229,7 +229,7 @@ jobs:
           # Set as a repo variable (Settings > Secrets and variables > Actions >
           # Variables). If empty, oversized recordings are omitted.
           RECORDINGS_R2_BASE: ${{ vars.RECORDINGS_R2_BASE }}
-        run: node wasm/scripts/assemble-site.mjs ./site
+        run: node scripts/assemble-site.mjs ./site
 
       # Manual and scheduled runs keep the site as an artifact to inspect; pushes
       # deploy it, so uploading there would only burn storage.

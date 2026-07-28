@@ -1,15 +1,21 @@
-wasm/.venv/
-wasm/deps/src/
-wasm/deps/build/
-wasm/sysroot
-wasm/gr/
-wasm/chrome-headless-shell
-wasm/node_modules/
-wasm/editor/node_modules/
-wasm/editor/dist/
-wasm/qtgui/build/
-wasm/runner/build/
-wasm-deps.tar.zst
-site/
-Qt/
+/.venv/
+/deps/src/
+/deps/build/
+/sysroot
+/gr/
+/chrome-headless-shell
+/node_modules/
+/editor/node_modules/
+/editor/dist/
+/qtgui/build/
+/runner/build/
+/wasm-deps.tar.zst
+/site/
+/Qt/
 __pycache__/
+
+# Large IQ recordings are hosted on Cloudflare R2, not git (see
+# scripts/r2-cors.json and the deploy workflow). The tiny .sigmf-meta sidecars
+# ARE committed -- the site build reads them to build the recordings manifest
+# (datatype/sample-rate/etc.) on CI, where the data files are absent.
+/example_recordings/*.sigmf-data
