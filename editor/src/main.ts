@@ -2548,6 +2548,21 @@ const displayRecordingValue = (value: string | number | null): string => {
   return typeof value === 'number' ? value.toLocaleString() : value;
 };
 
+// Scale to a k/M/G prefix so recording counts and rates stay readable. Keeps up
+// to three significant digits and drops trailing zeros (1500000 -> "1.5 M").
+const displaySi = (value: number | null, unit: string): string => {
+  if (value === null || !Number.isFinite(value)) return '—';
+  const sign = value < 0 ? '-' : '';
+  let scaled = Math.abs(value), prefix = '';
+  for (const next of ['k', 'M', 'G']) {
+    if (scaled < 1000) break;
+    scaled /= 1000; prefix = next;
+  }
+  const digits = scaled >= 100 ? 0 : scaled >= 10 ? 1 : 2;
+  const text = Number(scaled.toFixed(digits)).toString();
+  return `${sign}${text} ${prefix}${unit}`.trimEnd();
+};
+
 const displayBytes = (bytes: number): string => {
   if (!Number.isFinite(bytes) || bytes < 0) return '—';
   const units = ['B', 'KiB', 'MiB', 'GiB'];
@@ -2651,9 +2666,9 @@ async function buildRecordings(panel: HTMLElement) {
       props.append(key, val);
     };
     addProperty('Data Type', recording.datatype);
-    addProperty('Sample Rate', recording.sampleRate);
+    addProperty('Sample Rate', displaySi(recording.sampleRate, 'Hz'));
     addProperty('Author', recording.author);
-    addProperty('Samples', recording.sampleCount);
+    addProperty('Samples', displaySi(recording.sampleCount, ''));
     // Size row doubles as the download row: the .sigmf-data comes from wherever
     // the manifest points (local server or R2), the .sigmf-meta is always local.
     const sizeKey = document.createElement('dt'); sizeKey.textContent = 'Size';
