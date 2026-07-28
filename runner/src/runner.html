@@ -77,6 +77,25 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
           window.__grMountedRecordings = recordingFiles.map(file => file.path);
 
           const instance = await qtLoad({
+            // runner.js and runner.wasm are one indivisible build: emcc bakes
+            // the EM_ASM string addresses of THIS link into runner.js's
+            // ASM_CONSTS table, and those addresses move on every link. A
+            // runner.js kept from an earlier deploy next to a freshly fetched
+            // runner.wasm therefore dies on main()'s first EM_ASM with
+            // "ASM_CONSTS[code] is not a function" — which is what a browser
+            // does when it reuses the 1.2 MB script from its in-memory cache but
+            // goes back to the network for the 19.5 MB wasm. Neither file has a
+            // version in its name, so scripts/assemble-site.mjs stamps a
+            // per-build id into this page (always fetched fresh: the editor
+            // gives it a unique recordingToken) and onto the <script> srcs
+            // below; carry it onto the files the runtime fetches by itself —
+            // runner.wasm and the dlopen'd category side modules — so one
+            // build's artifacts can only ever load as a set. Unstamped (dev
+            // server, smoke tests, where the tree is always self-consistent)
+            // __grBuildStamp is undefined and this hook stays inert.
+            locateFile: window.__grBuildStamp
+              ? (path, prefix) => `${prefix ?? ''}${path}?v=${window.__grBuildStamp}`
+              : undefined,
             qt: {
               onLoaded: () => showUi(screen),
               onExit: exitData =>

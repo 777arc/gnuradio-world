@@ -15,6 +15,7 @@
 import { readdir, readFile, stat, rm, mkdir, cp } from 'node:fs/promises';
 import { join, extname, dirname, relative } from 'node:path';
 import { writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 
 const SCRIPT_DIR = new URL('.', import.meta.url).pathname;
 const ROOT = join(SCRIPT_DIR, '..');
@@ -68,6 +69,49 @@ async function copyInto(srcFile, srcRoot, destRoot) {
   await cp(srcFile, dest);
 }
 
+// --- Version-lock the runner build -----------------------------------------
+// runner.js, runner.wasm and the category side modules are one indivisible
+// build: emcc bakes the EM_ASM string addresses of that link into runner.js's
+// ASM_CONSTS table, and a side module's imports only resolve against the main
+// module it was linked next to. None of the names carry a version, so a browser
+// holding a runner.js from the previous deploy while fetching this deploy's
+// runner.wasm crashes in main() with "ASM_CONSTS[code] is not a function" (the
+// script is small enough to be reused from the in-memory cache; the 19.5 MB wasm
+// is not, so it comes off the network).
+//
+// Fix: hash the whole runner build and put that stamp in every URL the page
+// asks for. runner.html itself is always fetched fresh — the editor appends a
+// unique recordingToken — so it is the trustworthy carrier: its <script> srcs
+// get ?v=<stamp>, and runner.html's locateFile hook puts the same stamp on
+// runner.wasm and the side modules. A deploy moves all of them at once, so
+// artifacts from two builds can no longer meet.
+async function stampRunnerBuild(destDir, srcFiles) {
+  const hash = createHash('sha256');
+  for (const f of [...srcFiles].sort()) {
+    hash.update(f.split('/').pop() + '\0');
+    hash.update(await readFile(f));
+  }
+  const stamp = hash.digest('hex').slice(0, 12);
+
+  const htmlPath = join(destDir, 'runner.html');
+  const html = await readFile(htmlPath, 'utf8');
+  let scripts = 0;
+  let out = html.replace(/(<script[^>]*\ssrc=")([^"?]+\.js)(")/g, (_, pre, src, post) => {
+    scripts++;
+    return `${pre}${src}?v=${stamp}${post}`;
+  });
+  if (scripts !== 2)
+    throw new Error(`runner.html: expected 2 external scripts to stamp, found ${scripts}`);
+  if (!out.includes('</head>'))
+    throw new Error('runner.html: no </head> to insert the build stamp before');
+  out = out.replace('</head>',
+    `  <script>window.__grBuildStamp = ${JSON.stringify(stamp)};</script>\n  </head>`);
+  if (!html.includes('window.__grBuildStamp'))
+    throw new Error('runner.html: locateFile hook is gone — the stamp would not reach runner.wasm');
+  await writeFile(htmlPath, out);
+  return stamp;
+}
+
 // Size of an R2-hosted recording, via a HEAD request. Used when the .sigmf-data
 // file isn't in the checkout (it's gitignored and lives only on R2), so the
 // manifest can still report a byte length. Returns null if unreachable/missing.
@@ -96,7 +140,8 @@ async function main() {
   const runnerBuild = join(ROOT, 'runner', 'build');
   const runnerFiles = await walkRuntimeFiles(runnerBuild);
   for (const f of runnerFiles) await copyInto(f, ROOT, OUT);
-  console.log(`runner/build: copied ${runnerFiles.length} runtime files`);
+  const stamp = await stampRunnerBuild(join(OUT, 'runner', 'build'), runnerFiles);
+  console.log(`runner/build: copied ${runnerFiles.length} runtime files, build stamp ${stamp}`);
 
   // 3. Example flowgraphs + manifest (matches GET /example_flowgraphs).
   const fgDir = join(ROOT, 'example_flowgraphs');
@@ -199,6 +244,21 @@ async function main() {
   //    CORS mode and so satisfies COEP. (The one casualty is its Pyodide
   //    <script> from a CDN, i.e. the python-snippet and siggen features, which
   //    this site does not use.)
+  //
+  //    The runner assets are also given a cache lifetime, which Pages otherwise
+  //    sets to `max-age=0, must-revalidate` -- a conditional request per file per
+  //    Run, and the pthread workers re-request runner.js as well (9 requests on a
+  //    repeat visit, all 304s). Safe now only because stampRunnerBuild() puts a
+  //    content hash in every URL the page asks for: a new build is a new URL, so
+  //    nothing can serve yesterday's runner.js to today's runner.wasm.
+  //
+  //    A day, not `immutable`, on purpose. `_headers` matches paths, not query
+  //    strings, so these rules also cover the UNSTAMPED URLs -- which is what
+  //    /runner/build/runner.html requests when opened directly instead of through
+  //    the editor (no recordingToken -> no stamp -> the locateFile hook is
+  //    inert). Freezing those for a year would let that one hand-debugging path
+  //    pin a stale runner.js across deploys and reproduce the very crash the
+  //    stamp exists to prevent. A day keeps the win and bounds the exposure.
   await writeFile(join(OUT, '_headers'),
 `/*
   Cross-Origin-Opener-Policy: same-origin
@@ -207,6 +267,15 @@ async function main() {
 
 /*.wasm
   Content-Type: application/wasm
+
+/runner/build/runner.js
+  Cache-Control: public, max-age=86400
+
+/runner/build/qtloader.js
+  Cache-Control: public, max-age=86400
+
+/runner/build/*.wasm
+  Cache-Control: public, max-age=86400
 `);
   //    _redirects: 200-rewrite the bare listing paths to their static
   //    manifests so the unmodified client's fetch() still works. The editor

@@ -459,6 +459,30 @@ so every flowgraph threw `std::bad_alloc` while CI stayed green). The smoke test
 requires every block in the runner's diagnostics snapshot to have moved items, so
 a graph that starts but stalls fails too.
 
+`assemble-site.mjs` then version-locks the runner: `runner.js`, `runner.wasm`
+and the category side modules are one indivisible build (emcc bakes that link's
+`EM_ASM` string addresses into `runner.js`'s `ASM_CONSTS` table), but none of the
+names carry a version. A browser that reuses a cached `runner.js` from the
+previous deploy while fetching this deploy's `runner.wasm` dies in `main()` with
+`ASM_CONSTS[code] is not a function` — the 1.2 MB script is small enough to come
+back from the in-memory cache, the 19.5 MB wasm is not. So the assembler hashes
+the runner build and stamps `?v=<hash>` onto the `<script>` srcs in
+`runner.html`, whose `locateFile` hook passes the same stamp to `runner.wasm` and
+every `dlopen`'d side module. `runner.html` itself is always fetched fresh (the
+editor appends a unique `recordingToken`), so it is the carrier. Served
+unstamped — dev server, smoke tests — the hook is inert.
+
+Because those URLs now change with their content, `_headers` gives them
+`Cache-Control: public, max-age=86400`, replacing the `max-age=0,
+must-revalidate` Pages defaults to. That is worth doing: the runner iframe
+reloads on every Run, and revalidating costs 9 conditional requests per repeat
+visit (the pthread workers re-request `runner.js` too) where a warm cache costs
+zero. It is a day rather than `immutable` because `_headers` matches paths, not
+query strings, so the rules also cover the *unstamped* URLs that
+`/runner/build/runner.html` requests when opened directly instead of through the
+editor — freezing those for a year would let that one hand-debugging path pin a
+stale `runner.js` across deploys and recreate the crash the stamp prevents.
+
 Other triggers: `workflow_dispatch` builds without deploying unless you tick
 `deploy`, and `rebuild_sysroot` forces the cold path (~1 h) to test the dep
 scripts end to end. A weekly `schedule` run exists purely to keep the caches
