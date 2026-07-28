@@ -1,9 +1,9 @@
 wasm/.venv/
 wasm/deps/src/
 wasm/deps/build/
-wasm/sysroot/
+wasm/sysroot
 wasm/gr/
-wasm/chrome-headless-shell/
+wasm/chrome-headless-shell
 wasm/node_modules/
 wasm/editor/node_modules/
 wasm/editor/dist/
