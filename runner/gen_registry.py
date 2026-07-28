@@ -74,6 +74,8 @@ OBJECT_PARAMETERS = {
 # Custom WASM factories provide widgets, live callbacks, or a browser-safe
 # implementation.  Do not emit duplicate generated code for them.
 CUSTOM_IDS = {
+    # Runner-only sink, defined in wasm/blocks/grc (no upstream GNU Radio block).
+    "wasm_packet_rate_sink",
     "variable_qtgui_range",
     "variable_qtgui_chooser",
     "variable_qtgui_push_button",

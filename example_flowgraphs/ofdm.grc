@@ -2,7 +2,7 @@ options:
     parameters:
         author: Marc
         copyright: ''
-        description: OFDM loopback with adjustable channel noise and a per-packet bit-error count.
+        description: OFDM tx and rx with packet rate counter
         generate_options: qt_gui
         id: OFDM_Loopback_and_Bit_Error_Counter
         title: OFDM Loopback and Bit Error Counter
@@ -147,6 +147,19 @@ blocks:
         coordinate: [240, 177]
         rotation: 0
         state: enabled
+-   name: packet_rate_display
+    id: wasm_packet_rate_sink
+    parameters:
+        items_per_packet: '96'
+        label: '"Packets decoded"'
+        name: '"OFDM Link Rate"'
+        type: byte
+        unit: '" pkt/s"'
+        update_time: '0.5'
+    states:
+        coordinate: [1760, 250]
+        rotation: 0
+        state: enabled
 -   name: payload
     id: blocks_vector_source_x
     parameters:
@@ -157,6 +170,39 @@ blocks:
         vlen: '1'
     states:
         coordinate: [230, 22]
+        rotation: 0
+        state: enabled
+-   name: reference_payload
+    id: blocks_vector_source_x
+    parameters:
+        repeat: 'True'
+        tags: '[]'
+        type: byte
+        vector: '[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95]'
+        vlen: '1'
+    states:
+        coordinate: [1180, 5]
+        rotation: 0
+        state: enabled
+-   name: error_pattern
+    id: blocks_vector_source_x
+    parameters:
+        repeat: 'True'
+        tags: '[]'
+        type: byte
+        vector: '[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]'
+        vlen: '1'
+    states:
+        coordinate: [1180, 250]
+        rotation: 0
+        state: enabled
+-   name: error_inject
+    id: blocks_xor_xx
+    parameters:
+        num_inputs: '2'
+        type: byte
+    states:
+        coordinate: [1500, 200]
         rotation: 0
         state: enabled
 -   name: receiver
@@ -260,9 +306,12 @@ connections:
 - [errors_as_float, '0', errors_per_packet, '0']
 - [errors_per_packet, '0', bit_error_display, '0']
 - [packet_tagger, '0', transmitter, '0']
-- [payload, '0', byte_errors, '1']
 - [payload, '0', packet_tagger, '0']
-- [receiver, '0', byte_errors, '0']
+- [reference_payload, '0', byte_errors, '1']
+- [receiver, '0', error_inject, '0']
+- [receiver, '0', packet_rate_display, '0']
+- [error_pattern, '0', error_inject, '1']
+- [error_inject, '0', byte_errors, '0']
 - [strip_tx_tags, '0', receiver, '0']
 - [strip_tx_tags, '0', x16, '0']
 - [throttle, '0', strip_tx_tags, '0']

@@ -5,6 +5,7 @@
 
 import { dumpGrc, parseGrc, type GrcDoc, type GrcScalar } from './grc';
 import { boundsBetween, boundsIntersect, type Point } from './selection';
+import { constrainBlockPosition } from './grid';
 import { evaluate as evalExpr, buildScope, formatValue as fmtExprVal, serializeForRunner, type Scope } from './expr';
 
 type ParamType = 'number' | 'string' | 'enum';
@@ -329,6 +330,9 @@ const CONNECT_CLICK_SLOP = 4;   // px of movement still treated as a click, not 
 let autoScrollLog = true;
 let zoom = 1;
 let hideDisabled = false;
+// Unlike desktop GRC's historical preference default, the WASM editor starts
+// with snapping enabled so newly opened sessions get aligned movement.
+let snapToGrid = true;
 let paletteSearch: HTMLInputElement | null = null;
 
 interface GraphSnapshot { insts: Inst[]; conns: Conn[]; counter: number }
@@ -1812,13 +1816,16 @@ window.addEventListener('mousemove', e => {
   if (marquee) { updateMarquee(svgPoint(e)); return; }
   if (!drag) return; const p = svgPoint(e);
   const primary = drag.starts.get(drag.inst.uid)!;
-  const nx = Math.round(p.x - drag.ox), ny = Math.round(p.y - drag.oy);
-  const dx = nx - primary.x, dy = ny - primary.y;
+  const target = constrainBlockPosition(p.x - drag.ox, p.y - drag.oy, snapToGrid);
+  const dx = target.x - primary.x, dy = target.y - primary.y;
+  let moved = false;
   for (const inst of insts) {
     const start = drag.starts.get(inst.uid); if (!start) continue;
-    inst.x = start.x + dx; inst.y = start.y + dy;
+    const position = constrainBlockPosition(start.x + dx, start.y + dy, snapToGrid);
+    moved ||= position.x !== inst.x || position.y !== inst.y;
+    inst.x = position.x; inst.y = position.y;
   }
-  drag.moved ||= dx !== 0 || dy !== 0; render();
+  drag.moved ||= moved; render();
 });
 window.addEventListener('mouseup', () => {
   if (connecting) cancelConnect();   // released away from a port: abandon the wire
@@ -2651,6 +2658,10 @@ function toggleConsole() { el('canvasWrap').classList.toggle('console-hidden'); 
 function toggleScrollLock() { autoScrollLog = !autoScrollLog; log(`console autoscroll ${autoScrollLog ? 'on' : 'off'}`); }
 function clearConsole() { el('log').textContent = ''; }
 function toggleHideDisabled() { hideDisabled = !hideDisabled; render(); }
+function toggleSnapToGrid() {
+  snapToGrid = !snapToGrid;
+  log(`snap to grid ${snapToGrid ? 'on' : 'off'}`);
+}
 function focusPaletteSearch() { el('app').classList.remove('hide-palette'); paletteSearch?.focus(); paletteSearch?.select(); }
 function generateFlowgraph() { const doc = buildGrcDoc(); log(`generated ${doc.blocks.length} blocks, ${doc.connections.length} connections`); }
 function openLink(url: string) { window.open(url, '_blank', 'noopener'); }
@@ -2903,7 +2914,7 @@ const MENUS: TopMenu[] = [
     { label: 'Hide Variables', reason: R_TODO },
     { label: 'Hide Disabled Blocks', key: 'Ctrl+D', run: toggleHideDisabled, check: () => hideDisabled },
     { label: 'Auto-Hide Port Labels', reason: R_TODO },
-    { label: 'Snap to Grid', reason: R_TODO },
+    { label: 'Snap to Grid', run: toggleSnapToGrid, check: () => snapToGrid },
     { label: 'Show Block Comments', reason: R_TODO },
     { label: 'Show All Block IDs', reason: R_TODO },
     { label: 'Show Properties Field Colors', reason: R_TODO },

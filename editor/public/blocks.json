@@ -76319,6 +76319,108 @@
      "optional": false
     }
    ]
+  },
+  {
+   "id": "wasm_packet_rate_sink",
+   "label": "WASM Packet Rate Sink",
+   "category": "QT",
+   "flags": [
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "core",
+   "params": [
+    {
+     "id": "name",
+     "label": "Name",
+     "dtype": "string",
+     "default": "\"Rate\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "type",
+     "label": "Input Type",
+     "dtype": "enum",
+     "default": "byte",
+     "category": "General",
+     "options": [
+      "complex",
+      "float",
+      "short",
+      "byte"
+     ],
+     "option_labels": null,
+     "option_attributes": {
+      "size": [
+       "gr.sizeof_gr_complex",
+       "gr.sizeof_float",
+       "gr.sizeof_short",
+       "gr.sizeof_char"
+      ]
+     },
+     "hide": "part"
+    },
+    {
+     "id": "items_per_packet",
+     "label": "Items per Packet",
+     "dtype": "int",
+     "default": "1",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "label",
+     "label": "Label",
+     "dtype": "string",
+     "default": "\"Rate\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "unit",
+     "label": "Unit",
+     "dtype": "string",
+     "default": "\" pkt/s\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "update_time",
+     "label": "Update Period (s)",
+     "dtype": "float",
+     "default": "0.5",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "${ type }",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": []
   }
  ]
 }

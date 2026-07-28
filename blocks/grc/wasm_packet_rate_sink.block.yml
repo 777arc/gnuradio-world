@@ -1,0 +1,56 @@
+id: wasm_packet_rate_sink
+label: WASM Packet Rate Sink
+category: '[QT]'
+flags: [cpp]
+
+documentation: |-
+    Displays the throughput of its input stream, measured against the wall clock
+    and refreshed on a timer.
+
+    Unlike QT GUI Number Sink -- which repaints only when samples arrive, so a
+    stream that stops leaves its last value frozen on screen -- this sink keeps
+    updating when nothing is arriving, and the reading decays to 0. That makes it
+    usable as a link-health indicator: when a receiver stops decoding packets,
+    the display says so.
+
+    Set Items per Packet to the packet length in stream items to read the display
+    in packets/s; leave it at 1 for items/s.
+
+    This block exists only in the WebAssembly runner -- it has no Python
+    implementation, so a flowgraph using it will not run in desktop GNU Radio.
+
+parameters:
+-   id: name
+    label: Name
+    dtype: string
+    default: '"Rate"'
+-   id: type
+    label: Input Type
+    dtype: enum
+    default: byte
+    options: [complex, float, short, byte]
+    option_attributes:
+        size: [gr.sizeof_gr_complex, gr.sizeof_float, gr.sizeof_short, gr.sizeof_char]
+    hide: part
+-   id: items_per_packet
+    label: Items per Packet
+    dtype: int
+    default: '1'
+-   id: label
+    label: Label
+    dtype: string
+    default: '"Rate"'
+-   id: unit
+    label: Unit
+    dtype: string
+    default: '" pkt/s"'
+-   id: update_time
+    label: Update Period (s)
+    dtype: float
+    default: '0.5'
+
+inputs:
+-   domain: stream
+    dtype: ${ type }
+
+file_format: 1

@@ -14,7 +14,9 @@ MODULES = ["grc/blocks"] + [
     os.path.relpath(path, REPO)
     for path in sorted(glob.glob(os.path.join(REPO, "gr-*", "grc")))
     if os.path.basename(os.path.dirname(path)) != "gr-heir"
-]
+# Runner-only blocks: browser-specific sinks with no upstream GNU Radio
+# definition (their factories are hand-written in runner/src/registry.cpp).
+] + ["wasm/blocks/grc"]
 MANIFEST = os.path.join(REPO, "wasm/runner/generated_blocks.json")
 
 def walk_tree(node, path, out):
