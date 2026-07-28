@@ -99,6 +99,15 @@ python3 wasm/editor/gen/gen_blocklib.py wasm/editor/public/blocks.json
 (cd wasm/qtgui  && "$QT_WASM/bin/qt-cmake" -S . -B build -GNinja -DQT_HOST_PATH="$QT_HOST" -DCMAKE_CXX_FLAGS="-pthread -fPIC" && cmake --build build)
 (cd wasm/runner && "$QT_WASM/bin/qt-cmake" -S . -B build -GNinja -DQT_HOST_PATH="$QT_HOST" -DCMAKE_BUILD_TYPE=Release && cmake --build build)
 (cd wasm/editor && npm install && npm run build)
+
+# IQEngine client (git submodule), served from /iqengine/ so the recordings tab
+# can link into its spectrogram view. Optional; skip it and those links 404.
+# The feature flags trim it to what this site uses: no Python snippet editor
+# (it needs Pyodide from a CDN that this cross-origin-isolated site will not
+# load) and no Cyclostationary tab.
+git submodule update --init
+(cd iqengine/client && npm ci && \
+   IQENGINE_FEATURE_FLAGS='{"displayPythonSnippet":false,"displayCyclostationaryTab":false,"linkLogoToBrowser":false}' npm run build -- --base=/iqengine/)
 ```
 
 > **Optimized vs. dev build.** `-DCMAKE_BUILD_TYPE=Release` runs the link-time
@@ -379,6 +388,7 @@ verify DSP correctness of the chain.
 | `test_smoke.mjs` | runs example flowgraphs headlessly and asserts samples actually move; CI gates the deploy on it |
 | `test_lazy_scenarios.mjs` | verifies on-demand category side modules are fetched and `dlopen`'d |
 | `scripts/` | `assemble-site.mjs` (assembles the static site CI deploys to Pages) |
+| `../iqengine/` | IQEngine as a git submodule; its client is built to `/iqengine/` on the site, so each SigMF recording in the editor gets an "open in IQEngine" link into its spectrogram view (via IQEngine's `url` data source, which reads the `.sigmf-meta`/`.sigmf-data` pair straight off their URLs) |
 
 ## Prerequisites (userspace, no sudo)
 

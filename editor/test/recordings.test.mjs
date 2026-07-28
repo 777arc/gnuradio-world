@@ -22,4 +22,13 @@ assert.match(source, /recordingDownloadsByFile\.get\(recording\.dataFile\)[\s\S]
 assert.match(source, /subscribeRecordingState\(recording\.dataFile,[\s\S]*?state\.kind === 'downloaded'[\s\S]*?✓ Downloaded/,
   'recording cards must reflect downloads initiated by example flowgraphs');
 
+// "open in IQEngine": the link has to carry absolute URLs for BOTH files, since
+// the data file can be on R2 while the .sigmf-meta is served from this site.
+assert.match(source, /function iqengineViewUrl\([\s\S]*?new URL\(\s*'\/example_recordings\/' \+ encodeURIComponent\(recording\.metaFile\),[\s\S]*?new URL\(recording\.downloadUrl,/,
+  'the IQEngine link must resolve both the meta and the data file to absolute URLs');
+assert.match(source, /\$\{IQENGINE_BASE\}\/view\/url\/\$\{base64Url\(metaUrl\)\}\/\$\{base64Url\(dataUrl\)\}\//,
+  "the IQEngine link must use its 'url' data source route, base64url-encoded");
+assert.match(source, /viewLink\.textContent = 'open in IQEngine'[\s\S]*?viewLink\.onclick = event => event\.stopPropagation\(\)/,
+  'clicking the IQEngine link must not also drop a File Source on the canvas');
+
 console.log('checked ci16 recording block-chain insertion');

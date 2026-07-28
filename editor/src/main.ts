@@ -2543,6 +2543,37 @@ async function cacheFlowgraphRecordings(doc: any, exampleName: string) {
   }
 }
 
+// ---- "open in IQEngine" -----------------------------------------------------
+// The IQEngine client is built from the git submodule and served from
+// /iqengine/ on this same site (see wasm/scripts/assemble-site.mjs). Its 'url'
+// data source takes a recording as a pair of URLs packed into the route as
+// base64url, so a recording needs no backend, no Azure account and no local
+// file picking to be viewable:
+//
+//   /iqengine/view/url/<base64url meta URL>/<base64url data URL>/<name>
+//
+// The URLs are absolute so the link keeps working if IQEngine ever moves to
+// another origin. The data file is on R2 for the deployed site and on this
+// server in dev; either way it is the manifest's downloadUrl.
+const IQENGINE_BASE = '/iqengine';
+
+const base64Url = (text: string): string => {
+  const bytes = new TextEncoder().encode(text);
+  let binary = '';
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+};
+
+function iqengineViewUrl(recording: ExampleRecording): string {
+  const metaUrl = new URL(
+    '/example_recordings/' + encodeURIComponent(recording.metaFile),
+    location.href,
+  ).href;
+  const dataUrl = new URL(recording.downloadUrl, location.href).href;
+  return `${IQENGINE_BASE}/view/url/${base64Url(metaUrl)}/${base64Url(dataUrl)}/` +
+    encodeURIComponent(recording.name);
+}
+
 const displayRecordingValue = (value: string | number | null): string => {
   if (value === null || value === '') return '—';
   return typeof value === 'number' ? value.toLocaleString() : value;
@@ -2689,6 +2720,18 @@ async function buildRecordings(panel: HTMLElement) {
       recording.metaFile,
     );
     props.append(sizeKey, sizeVal);
+    // View row: hand the recording to the IQEngine client bundled with the
+    // site. Nothing is downloaded here -- IQEngine reads the two files itself,
+    // in ranges, from wherever they live.
+    const viewKey = document.createElement('dt'); viewKey.textContent = 'View';
+    const viewVal = document.createElement('dd');
+    const viewLink = document.createElement('a'); viewLink.className = 'rec-dl';
+    viewLink.href = iqengineViewUrl(recording);
+    viewLink.target = '_blank'; viewLink.rel = 'noopener';
+    viewLink.textContent = 'open in IQEngine';
+    viewLink.onclick = event => event.stopPropagation();
+    viewVal.append(viewLink);
+    props.append(viewKey, viewVal);
     const progress = document.createElement('div'); progress.className = 'rec-progress'; progress.hidden = true;
     const track = document.createElement('div'); track.className = 'rec-progress-track';
     const fill = document.createElement('div'); fill.className = 'rec-progress-fill'; track.append(fill);

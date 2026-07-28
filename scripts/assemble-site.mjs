@@ -170,9 +170,28 @@ async function main() {
   const r2Note = R2_BASE ? ` (R2: ${R2_BASE})` : '';
   console.log(`example_recordings: ${manifest.length} included, ${skipped} omitted (>25 MiB, need R2)${r2Note}`);
 
-  // 5. Cloudflare control files.
+  // 5. IQEngine client (git submodule), served from /iqengine/ so the
+  //    "open in IQEngine" links on the recordings tab resolve same-origin.
+  //    Built with --base=/iqengine/ (see the deploy workflow), which is also
+  //    what its router uses as its basename.
+  const iqengineBuild = join(WASM, '..', 'iqengine', 'client', 'build');
+  const haveIQEngine = await stat(iqengineBuild).then(() => true).catch(() => false);
+  if (haveIQEngine) {
+    await cp(iqengineBuild, join(OUT, 'iqengine'), { recursive: true });
+    console.log('iqengine: copied client build');
+  } else {
+    console.warn('iqengine: no client build found, "open in IQEngine" links will 404 ' +
+      '(cd iqengine/client && npm ci && npm run build -- --base=/iqengine/)');
+  }
+
+  // 6. Cloudflare control files.
   //    _headers: restore the cross-origin isolation server.mjs sets, so
   //    SharedArrayBuffer + Emscripten pthreads work.
+  //    IQEngine is served under the same policy: its spectrogram view needs
+  //    nothing cross-origin except the recording itself, which is fetched in
+  //    CORS mode and so satisfies COEP. (The one casualty is its Pyodide
+  //    <script> from a CDN, i.e. the python-snippet and siggen features, which
+  //    this site does not use.)
   await writeFile(join(OUT, '_headers'),
 `/*
   Cross-Origin-Opener-Policy: same-origin
@@ -185,11 +204,14 @@ async function main() {
   //    _redirects: 200-rewrite the bare listing paths to their static
   //    manifests so the unmodified client's fetch() still works. The editor
   //    itself is served from / by Pages' own index.html handling, so no root
-  //    redirect is needed.
+  //    redirect is needed. IQEngine is a single-page app, so any path under it
+  //    that is not a real file has to land on its index.html; static assets
+  //    match before _redirects is consulted, so its own JS/CSS still load.
   await writeFile(join(OUT, '_redirects'),
 `/example_flowgraphs   /example_flowgraphs/index.json   200
 /example_recordings   /example_recordings/index.json   200
 /editor/dist/*        /                                301
+/iqengine/*           /iqengine/index.html             200
 `);
 
   console.log(`\nAssembled site -> ${OUT}`);
