@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>GNU Radio — WebAssembly Flowgraph Editor</title>
+<title>GNU Radio World</title>
 <style>
   * { box-sizing:border-box; }
   html,body { margin:0; height:100%; font-family:system-ui,Arial,sans-serif; color:#e6e9f0; background:#1e2230; }
@@ -17,7 +17,8 @@
   button:hover { filter:brightness(1.15); }
   /* ---- GRC-style menu bar (mirrors grc/gui/Bars.py MENU_BAR_LIST) ---- */
   #menubar { display:flex; align-items:center; gap:2px; padding:0 10px; height:34px; }
-  #menubar .brand { font-size:13px; font-weight:700; color:#aebbd6; margin-right:12px; letter-spacing:.02em; white-space:nowrap; }
+  #menubar .brand { display:flex; align-items:center; margin-right:12px; }
+  #menubar .brand img { height:20px; width:auto; display:block; }
   #menus { display:flex; gap:1px; }
   .menu-top { position:relative; padding:5px 10px; font-size:13px; color:#c3cbe0; border-radius:5px; cursor:pointer; user-select:none; }
   .menu-top:hover, .menu-top.open { background:#2a2f42; color:#fff; }
@@ -269,7 +270,8 @@
   .shortcut-row kbd { color:#fff; font:12px/1.4 monospace; }
   .shortcut-note { color:#9aa7c6; font-size:12px; margin:0 0 10px; }
   #log { position:absolute; bottom:0; left:0; right:0; max-height:26%; overflow:auto; background:#141722ee;
-      font:12px/1.5 monospace; padding:6px 10px; color:#a8b6d6; border-top:1px solid #333a4d; }
+      font:12px/1.5 monospace; white-space:pre-wrap; padding:6px 10px; color:#a8b6d6;
+      border-top:1px solid #333a4d; }
   #runPane { min-height:0; display:flex; flex-direction:column; overflow:hidden; background:#20232f;
       border-top:2px solid #46507a; }
   #runPane[hidden] { display:none; }
@@ -283,7 +285,7 @@
 <div id="app">
   <header>
     <div id="menubar">
-      <span class="brand">GNU Radio World</span>
+      <span class="brand"><img src="/gnuradio_world_logo.svg" alt="GNU Radio World" /></span>
       <nav id="menus" role="menubar" aria-label="Main menu"></nav>
     </div>
     <div id="toolbar" role="toolbar" aria-label="Editor toolbar"></div>

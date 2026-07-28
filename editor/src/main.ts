@@ -14,7 +14,11 @@ type ParamType = 'number' | 'string' | 'enum';
 // Like numeric params these are evaluated before the flowgraph goes to the runner.
 // `dtype` keeps the original GRC dtype (only the generated blocks carry one); the
 // block face uses it to pick a truncation style for long values.
-interface ParamDef { id: string; label: string; type: ParamType; def: any; options?: string[]; category?: string; hideIfEmpty?: boolean; raw?: boolean; dtype?: string }
+interface ParamDef {
+  id: string; label: string; type: ParamType; def: any; options?: string[];
+  category?: string; hideIfEmpty?: boolean; raw?: boolean; dtype?: string;
+  showWhen?: (params: Record<string, any>) => boolean;
+}
 // inTypes/outTypes give per-port dtypes (for converters); otherwise ports follow the
 // block's `type` param (complex/float) if it has one, else `dtype` (default complex).
 interface RunnableDef {
@@ -226,6 +230,18 @@ const RUNNABLE: Record<string, RunnableDef> = {
       { id: 'style1', label: 'Line 1 Style', type: 'enum', def: '1', options: LINE_STYLES, category: 'Config' },
       { id: 'marker1', label: 'Line 1 Marker', type: 'enum', def: '0', options: LINE_MARKERS, category: 'Config' },
       { id: 'alpha1', label: 'Line 1 Alpha', type: 'number', def: 1, category: 'Config' },
+      { id: 'label2', label: 'Line 2 Label', type: 'string', def: 'Signal 2', category: 'Config',
+        showWhen: p => p.type === 'complex' },
+      { id: 'width2', label: 'Line 2 Width', type: 'number', def: 1, category: 'Config',
+        showWhen: p => p.type === 'complex' },
+      { id: 'color2', label: 'Line 2 Color', type: 'enum', def: 'red', options: LINE_COLORS, category: 'Config',
+        showWhen: p => p.type === 'complex' },
+      { id: 'style2', label: 'Line 2 Style', type: 'enum', def: '1', options: LINE_STYLES, category: 'Config',
+        showWhen: p => p.type === 'complex' },
+      { id: 'marker2', label: 'Line 2 Marker', type: 'enum', def: '0', options: LINE_MARKERS, category: 'Config',
+        showWhen: p => p.type === 'complex' },
+      { id: 'alpha2', label: 'Line 2 Alpha', type: 'number', def: 1, category: 'Config',
+        showWhen: p => p.type === 'complex' },
     ] },
   qtgui_freq_sink_x: {
     label: 'QT GUI Frequency Sink', inputs: 1, outputs: 0, params: [
@@ -1461,7 +1477,9 @@ function showPropsDialog(inst: Inst) {
   const panels = new Map<string, HTMLDivElement>();
   const tabs: HTMLButtonElement[] = [];
   const controls = new Map<string, { node: HTMLElement; error: HTMLElement }>();
+  const conditionalRows: { param: ParamDef; row: HTMLElement }[] = [];
   let refreshValidation = () => {};
+  let refreshVisibility = () => {};
   const activateTab = (category: string) => {
     panels.forEach((panel, name) => panel.hidden = name !== category);
     tabs.forEach(tab => {
@@ -1504,17 +1522,24 @@ function showPropsDialog(inst: Inst) {
       const s = document.createElement('select');
       (p.options || []).forEach(o => { const opt = document.createElement('option'); opt.value = o; opt.textContent = o; s.appendChild(opt); });
       s.value = String(tmp.params[p.id]);
-      s.onchange = () => { tmp.params[p.id] = s.value; refreshValidation(); };
+      s.onchange = () => { tmp.params[p.id] = s.value; refreshVisibility(); refreshValidation(); };
       addField(p.category || 'General', `${p.label}  (${p.id})`, s, p.id);
+      if (p.showWhen) conditionalRows.push({ param: p, row: s.closest('.dlgrow') as HTMLElement });
     } else {
       const inp = document.createElement('input'); inp.value = String(tmp.params[p.id]);
       inp.oninput = () => {
         tmp.params[p.id] = p.type === 'number' ? numericOrExpression(inp.value) : inp.value;
-        refreshValidation();
+        refreshVisibility(); refreshValidation();
       };
       addField(p.category || 'General', `${p.label}  (${p.id})`, inp, p.id);
+      if (p.showWhen) conditionalRows.push({ param: p, row: inp.closest('.dlgrow') as HTMLElement });
     }
   }
+
+  refreshVisibility = () => {
+    conditionalRows.forEach(({ param, row }) => row.hidden = !param.showWhen!(tmp.params));
+  };
+  refreshVisibility();
 
   refreshValidation = () => {
     const candidate = { ...inst, name: tmp.name, params: tmp.params };

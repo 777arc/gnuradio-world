@@ -285,20 +285,34 @@ static gr::qtgui::trigger_slope trigger_slope_from(const json& p)
 }
 
 template <typename Sink>
-static void configure_first_line(const std::shared_ptr<Sink>& sink, const json& p)
+static void configure_line(const std::shared_ptr<Sink>& sink,
+                           const json& p,
+                           unsigned int line,
+                           const std::string& default_color)
 {
-    if (auto it = p.find("label1"); it != p.end() && it->is_string())
-        sink->set_line_label(0, unquoted(it->get<std::string>()));
-    sink->set_line_color(0, unquoted(p.value("color1", std::string("blue"))));
-    sink->set_line_width(0, static_cast<int>(number_from(p, "width1", 1)));
-    sink->set_line_style(0, static_cast<int>(number_from(p, "style1", 1)));
-    sink->set_line_marker(0, static_cast<int>(number_from(p, "marker1", 0)));
-    sink->set_line_alpha(0, number_from(p, "alpha1", 1.0));
+    const std::string suffix = std::to_string(line + 1);
+    if (auto it = p.find("label" + suffix); it != p.end() && it->is_string())
+        sink->set_line_label(line, unquoted(it->get<std::string>()));
+    sink->set_line_color(
+        line, unquoted(p.value("color" + suffix, default_color)));
+    sink->set_line_width(
+        line, static_cast<int>(number_from(p, "width" + suffix, 1)));
+    sink->set_line_style(
+        line, static_cast<int>(number_from(p, "style" + suffix, 1)));
+    sink->set_line_marker(
+        line, static_cast<int>(number_from(p, "marker" + suffix, 0)));
+    sink->set_line_alpha(line, number_from(p, "alpha" + suffix, 1.0));
 }
 
 template <typename Sink>
-static void configure_time_sink(const std::shared_ptr<Sink>& sink, const json& p)
+static void configure_time_sink(const std::shared_ptr<Sink>& sink,
+                                const json& p,
+                                unsigned int line_count)
 {
+    static const std::vector<std::string> default_colors = {
+        "blue", "red", "green", "black", "cyan", "magenta", "yellow",
+        "dark red", "dark green", "dark blue"
+    };
     sink->set_y_label(unquoted(p.value("ylabel", std::string("Amplitude"))),
                       unquoted(p.value("yunit", std::string())));
     sink->set_y_axis(number_from(p, "ymin", -1.0), number_from(p, "ymax", 1.0));
@@ -310,7 +324,8 @@ static void configure_time_sink(const std::shared_ptr<Sink>& sink, const json& p
     sink->enable_stem_plot(bool_from(p, "stemplot", false));
     if (!bool_from(p, "legend", true))
         sink->disable_legend();
-    configure_first_line(sink, p);
+    for (unsigned int line = 0; line < line_count; ++line)
+        configure_line(sink, p, line, default_colors[line % default_colors.size()]);
     sink->set_trigger_mode(trigger_mode_from(p),
                            trigger_slope_from(p),
                            static_cast<float>(number_from(p, "tr_level", 0.0)),
@@ -356,7 +371,7 @@ static void configure_freq_sink(const std::shared_ptr<Sink>& sink, const json& p
     sink->enable_axis_labels(bool_from(p, "axislabels", true));
     if (!bool_from(p, "legend", true))
         sink->disable_legend();
-    configure_first_line(sink, p);
+    configure_line(sink, p, 0, "blue");
     sink->set_trigger_mode(trigger_mode_from(p),
                            static_cast<float>(number_from(p, "tr_level", 0.0)),
                            static_cast<int>(number_from(p, "tr_chan", 0)),
@@ -3187,14 +3202,14 @@ static std::map<std::string, Factory>& registry_storage() {
              std::string nm = p.value("name", std::string("Scope")); int nc = p.value("nconnections", 1);
              if (is_float(p)) {
                  auto b = gr::qtgui::time_sink_f::make(n, sr, nm, nc);
-                 configure_time_sink(b, p);
+                 configure_time_sink(b, p, nc);
                  BuiltBlock result{ b, b->qwidget() };
                  result.numeric_setters["samp_rate"] =
                      [b](double value) { b->set_samp_rate(value); };
                  return result;
              }
              auto b = gr::qtgui::time_sink_c::make(n, sr, nm, nc);
-             configure_time_sink(b, p);
+             configure_time_sink(b, p, 2 * nc);
              BuiltBlock result{ b, b->qwidget() };
              result.numeric_setters["samp_rate"] =
                  [b](double value) { b->set_samp_rate(value); };
