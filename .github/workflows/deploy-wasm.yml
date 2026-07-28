@@ -158,7 +158,7 @@ jobs:
             -DENABLE_GR_ANALOG=ON -DENABLE_GR_BLOCKS=ON -DENABLE_GR_DIGITAL=ON \
             -DENABLE_GR_FFT=ON -DENABLE_GR_FILTER=ON -DENABLE_GR_FEC=ON -DENABLE_GR_DTV=ON \
             -DENABLE_GR_NETWORK=ON -DENABLE_GR_PDU=ON -DENABLE_GR_VOCODER=ON \
-            -DTRY_SHM_VMCIRCBUF=OFF -DCMAKE_DISABLE_FIND_PACKAGE_libunwind=ON
+            -DCMAKE_DISABLE_FIND_PACKAGE_libunwind=ON
           cmake --build gr/build-gr
 
       # --- qtgui, runner and editor (every run) -------------------------------

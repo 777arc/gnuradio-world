@@ -88,7 +88,7 @@ emcmake cmake -S "$GR" -B gr/build-gr -GNinja \
   -DENABLE_GR_ANALOG=ON -DENABLE_GR_BLOCKS=ON -DENABLE_GR_DIGITAL=ON \
   -DENABLE_GR_FFT=ON -DENABLE_GR_FILTER=ON -DENABLE_GR_FEC=ON -DENABLE_GR_DTV=ON \
   -DENABLE_GR_NETWORK=ON -DENABLE_GR_PDU=ON -DENABLE_GR_VOCODER=ON \
-  -DTRY_SHM_VMCIRCBUF=OFF -DCMAKE_DISABLE_FIND_PACKAGE_libunwind=ON
+  -DCMAKE_DISABLE_FIND_PACKAGE_libunwind=ON
 cmake --build gr/build-gr
 
 # Regenerate direct C++ factories and the matching editor palette.
@@ -415,8 +415,8 @@ verify DSP correctness of the chain.
 source deps/env.sh                      # pinned emsdk + $SYSROOT
 bash   deps/fetch-deps.sh               # pinned dep sources → deps/src
 bash   deps/build-deps.sh               # VOLK/Boost/spdlog/GMP/FFTW/Qwt → sysroot
-# GNU Radio C++ modules → gr/build-gr  (emcmake, ENABLE_PYTHON=OFF, static,
-#   -DTRY_SHM_VMCIRCBUF=OFF; see git history / env.sh for the exact configure line)
+# GNU Radio C++ modules → gr/build-gr  (emcmake, ENABLE_PYTHON=OFF, static;
+#   see git history / env.sh for the exact configure line)
 python3 runner/gen_registry.py
 python3 editor/gen/gen_blocklib.py editor/public/blocks.json
 (cd qtgui  && $QT_WASM/bin/qt-cmake -S . -B build -GNinja -DQT_HOST_PATH=$QT_HOST && cmake --build build)
@@ -511,8 +511,7 @@ and the deployed site behaved differently from every developer's machine.
 - `gr-fft/lib/fft.cc` — use `FFTW_ESTIMATE` under WASM (`FFTW_MEASURE` benchmarking
   hangs there).
 
-Build with `-DTRY_SHM_VMCIRCBUF=OFF` and
-`-DCMAKE_DISABLE_FIND_PACKAGE_libunwind=ON`. The WASM runtime selects
+Build with `-DCMAKE_DISABLE_FIND_PACKAGE_libunwind=ON`. The WASM runtime selects
 `vmcircbuf_emulated`: a contiguous 2N-byte software mirror that preserves the
 native double-mapped scheduler and pointer behavior, then synchronizes completed
 writes before publishing them to readers. It uses twice the physical buffer memory
