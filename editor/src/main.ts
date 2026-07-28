@@ -5,7 +5,7 @@
 
 import { dumpGrc, parseGrc, type GrcDoc, type GrcScalar } from './grc';
 import { boundsBetween, boundsIntersect, type Point } from './selection';
-import { constrainBlockPosition } from './grid';
+import { constrainBlockPosition, SNAP_GRID_SIZE } from './grid';
 import { evaluate as evalExpr, buildScope, formatValue as fmtExprVal, serializeForRunner, type Scope } from './expr';
 
 type ParamType = 'number' | 'string' | 'enum';
@@ -895,7 +895,8 @@ function changePortCount(delta: number) {
 }
 function setZoom(next: number) {
   zoom = Math.max(0.4, Math.min(2.5, next));
-  el('canvasWrap').style.setProperty('--grid-size', `${16 * zoom}px`); render();
+  // Draw the grid at the snap spacing so every line is a legal block position.
+  el('canvasWrap').style.setProperty('--grid-size', `${SNAP_GRID_SIZE * zoom}px`); render();
   log(`zoom ${Math.round(zoom * 100)}%`);
 }
 // ---- Options block: the singleton flowgraph-metadata block (GRC-style) ----

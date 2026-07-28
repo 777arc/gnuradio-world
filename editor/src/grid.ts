@@ -1,8 +1,8 @@
 import type { Point } from './selection';
 
-// Match grc/gui_qt/components/canvas/block.py. The native editor snaps block
-// coordinates in 10-unit increments even though the drawn canvas grid has its
-// own spacing.
+// Match grc/gui_qt/components/canvas/block.py, which snaps block coordinates in
+// 10-unit increments. Unlike the native editor (whose drawn grid uses a
+// different spacing) the canvas here draws its grid at this same size.
 export const SNAP_GRID_SIZE = 10;
 
 export function constrainBlockPosition(x: number, y: number, snapToGrid: boolean): Point {
