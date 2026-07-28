@@ -387,6 +387,8 @@ function log(s: string) {
 
 // GRC-style geometry: title bar + "Label: value" parameter rows, typed ports.
 const TITLE_H = 22, ROW_H = 15, PAD = 6, PORT_H = 15, PORT_GAP = 8;
+// Horizontal breathing room around the title/parameter text inside a block.
+const TEXT_PAD_L = 6, TEXT_PAD_R = 6;
 const PORT_FONT_SIZE = 10, PORT_LABEL_PAD = 4, PORT_MIN_W = 20;
 // A port's dtype: explicit per-port (converters), else the block's `type` param
 // (complex/float), else its fixed `dtype`, else complex.
@@ -727,7 +729,25 @@ function installGeneratedBlocks(blocks: any[]) {
     };
   }
 }
-const textW = (s: string, px: number) => s.length * px * 0.56;
+// Real glyph metrics: the old per-character estimate under-measured wide text
+// (caps, digits, bold titles) and let it spill past the block's right edge.
+const BLOCK_FONT = `'DejaVu Sans',Verdana,sans-serif`;
+const measureCtx = document.createElement('canvas').getContext('2d');
+const textWCache = new Map<string, number>();
+const textW = (s: string, px: number, bold = false) => {
+  const key = `${px}|${bold ? 'b' : 'n'}|${s}`;
+  const hit = textWCache.get(key);
+  if (hit !== undefined) return hit;
+  let w: number;
+  if (measureCtx) {
+    measureCtx.font = `${bold ? '700 ' : ''}${px}px ${BLOCK_FONT}`;
+    w = measureCtx.measureText(s).width;
+  } else {
+    w = s.length * px * 0.56;
+  }
+  textWCache.set(key, w);
+  return w;
+};
 function portCount(inst: Inst, kind: 'in' | 'out'): number {
   const d = RUNNABLE[inst.id];
   const key = kind === 'in'
@@ -750,9 +770,9 @@ function geom(inst: Inst) {
   const nports = Math.max(portCount(inst, 'in'), portCount(inst, 'out'), 1);
   const bodyH = Math.max(rows.length * ROW_H + PAD, nports * (PORT_H + PORT_GAP) + PAD, ROW_H);
   const h = TITLE_H + bodyH;
-  let w = textW(d.label, 13);
+  let w = textW(d.label, 13, true);
   for (const r of rows) w = Math.max(w, textW(r.l + r.v, 11));
-  w = Math.max(104, Math.ceil(w) + 22);
+  w = Math.max(104, Math.ceil(w) + TEXT_PAD_L + TEXT_PAD_R);
   return { d, rows, h, w };
 }
 type Edge = 'L' | 'R' | 'T' | 'B';
@@ -1652,7 +1672,7 @@ function render() {
     // parameter rows: "label: value"
     rows.forEach((r, i) => {
       const y = TITLE_H + PAD + i * ROW_H + 11;
-      const tx = svgEl('text', { class: 'param' + (fieldIssue(blockIssues, inst.uid, r.id) ? ' invalid' : ''), x: '6', y: String(y) });
+      const tx = svgEl('text', { class: 'param' + (fieldIssue(blockIssues, inst.uid, r.id) ? ' invalid' : ''), x: String(TEXT_PAD_L), y: String(y) });
       const l = document.createElementNS(SVGNS, 'tspan'); l.textContent = r.l;
       const v = document.createElementNS(SVGNS, 'tspan'); v.setAttribute('class', 'pval'); v.textContent = r.v;
       tx.appendChild(l); tx.appendChild(v); g.appendChild(tx);
@@ -1981,6 +2001,60 @@ paneSplitter.addEventListener('keydown', event => {
 });
 window.addEventListener('resize', () => {
   if (el('workspace').classList.contains('running')) applySplitRatio();
+});
+
+// ---- Vertical splitter between the block palette and the workspace ----
+const PALETTE_SPLITTER_WIDTH = 7;
+const MIN_PALETTE_WIDTH = 180;
+const MIN_WORKSPACE_WIDTH = 320;
+const DEFAULT_PALETTE_WIDTH = 460;
+let paletteWidth = DEFAULT_PALETTE_WIDTH;
+
+function applyPaletteWidth(width = paletteWidth) {
+  const app = el('app');
+  const maximum = Math.max(MIN_PALETTE_WIDTH,
+    app.clientWidth - PALETTE_SPLITTER_WIDTH - MIN_WORKSPACE_WIDTH);
+  paletteWidth = Math.round(Math.max(MIN_PALETTE_WIDTH, Math.min(maximum, width)));
+  app.style.setProperty('--palette-width', `${paletteWidth}px`);
+  paletteSplitter.setAttribute('aria-valuenow', String(paletteWidth));
+}
+
+const paletteSplitter = el('paletteSplitter');
+let resizingPalette = false;
+const paletteFromPointer = (clientX: number) =>
+  applyPaletteWidth(clientX - el('app').getBoundingClientRect().left - PALETTE_SPLITTER_WIDTH / 2);
+paletteSplitter.addEventListener('pointerdown', event => {
+  if (el('app').classList.contains('hide-palette')) return;
+  resizingPalette = true;
+  el('app').classList.add('resizing-palette');
+  paletteSplitter.setPointerCapture(event.pointerId);
+  paletteFromPointer(event.clientX);
+  event.preventDefault();
+});
+paletteSplitter.addEventListener('pointermove', event => {
+  if (resizingPalette) paletteFromPointer(event.clientX);
+});
+const finishPaletteResize = (event: PointerEvent) => {
+  if (!resizingPalette) return;
+  resizingPalette = false;
+  el('app').classList.remove('resizing-palette');
+  if (paletteSplitter.hasPointerCapture(event.pointerId))
+    paletteSplitter.releasePointerCapture(event.pointerId);
+};
+paletteSplitter.addEventListener('pointerup', finishPaletteResize);
+paletteSplitter.addEventListener('pointercancel', finishPaletteResize);
+paletteSplitter.addEventListener('dblclick', () => applyPaletteWidth(DEFAULT_PALETTE_WIDTH));
+paletteSplitter.addEventListener('keydown', event => {
+  if (el('app').classList.contains('hide-palette')) return;
+  if (event.key === 'ArrowLeft') applyPaletteWidth(paletteWidth - 20);
+  else if (event.key === 'ArrowRight') applyPaletteWidth(paletteWidth + 20);
+  else if (event.key === 'Home') applyPaletteWidth(MIN_PALETTE_WIDTH);
+  else if (event.key === 'End') applyPaletteWidth(Infinity);
+  else return;
+  event.preventDefault();
+});
+window.addEventListener('resize', () => {
+  if (!el('app').classList.contains('hide-palette')) applyPaletteWidth();
 });
 
 function run() {

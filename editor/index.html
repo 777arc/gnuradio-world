@@ -6,10 +6,15 @@
 <style>
   * { box-sizing:border-box; }
   html,body { margin:0; height:100%; font-family:system-ui,Arial,sans-serif; color:#e6e9f0; background:#1e2230; }
-  #app { --palette-width:460px; display:grid;
-      grid-template-columns:var(--palette-width) 1fr; grid-template-rows:auto 1fr; height:100vh; }
-  #app.hide-palette { --palette-width:0px; }
+  #app { --palette-width:460px; --palette-splitter-width:7px; display:grid;
+      grid-template-columns:var(--palette-width) var(--palette-splitter-width) 1fr;
+      grid-template-rows:auto 1fr; height:100vh; }
+  /* !important so hiding still wins over the inline width set by the splitter drag */
+  #app.hide-palette { --palette-width:0px !important; --palette-splitter-width:0px !important; }
   #app.hide-palette #palette { visibility:hidden; overflow:hidden; }
+  #app.hide-palette #paletteSplitter { visibility:hidden; }
+  #app.resizing-palette { cursor:col-resize; }
+  #app.resizing-palette iframe { pointer-events:none; }
   header { grid-column:1/4; display:flex; flex-direction:column; background:#181b26; border-bottom:1px solid #333a4d; }
   header .spacer { flex:1; }
   button { background:#2f3650; color:#e6e9f0; border:1px solid #46507a; border-radius:6px; padding:6px 12px; cursor:pointer; font-size:13px; }
@@ -89,7 +94,14 @@
   .debug-table .state-pending { color:#c9903a; }
   .debug-totals { margin-top:8px; font-size:12.5px; color:#aeb8d0; }
   #palette { min-height:0; background:#20232f; overflow:auto; }
-  #palette { border-right:1px solid #333a4d; }
+  /* Vertical splitter between the palette and the workspace (mirrors #paneSplitter) */
+  #paletteSplitter { min-width:0; position:relative; z-index:20; cursor:col-resize;
+      touch-action:none; background:#262b3b; border-left:1px solid #333a4d;
+      border-right:1px solid #11141d; outline:none; }
+  #paletteSplitter::after { content:''; position:absolute; width:2px; height:42px; border-radius:2px;
+      background:#7783a4; top:50%; left:2px; transform:translateY(-50%); }
+  #paletteSplitter:hover, #paletteSplitter:focus-visible { background:#343b52; }
+  #paletteSplitter:hover::after, #paletteSplitter:focus-visible::after { background:#b9c5e3; }
   #workspace { min-width:0; min-height:0; display:grid; --run-pane-height:0px;
       grid-template-rows:minmax(0,1fr) 0 0;
       overflow:hidden; transition:grid-template-rows .18s ease; }
@@ -157,7 +169,8 @@
   .cat-row { display:flex; align-items:center; gap:3px; padding:3px 8px 3px 0; cursor:pointer;
       font-size:13px; color:#c3cbe0; user-select:none; white-space:nowrap; }
   .cat-row:hover { background:#2a2f42; }
-  .tri { width:12px; min-width:12px; text-align:center; font-size:9px; color:#7f8bab; }
+  .tri { width:18px; min-width:18px; text-align:center; font-size:15px; line-height:1; color:#95a2c2; }
+  .cat-row:hover .tri { color:#dce3f5; }
   .pal-item { padding:3px 8px 3px 0; font-size:13px; cursor:pointer; color:#aeb8d0;
       user-select:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .pal-item:hover { background:#2a2f42; color:#fff; }
@@ -291,6 +304,9 @@
     <div id="toolbar" role="toolbar" aria-label="Editor toolbar"></div>
   </header>
   <div id="palette"></div>
+  <div id="paletteSplitter" role="separator" aria-label="Resize block palette"
+       aria-orientation="vertical" aria-valuemin="180" aria-valuemax="900"
+       aria-valuenow="460" tabindex="0"></div>
   <div id="workspace">
     <div id="canvasWrap">
       <div id="canvasScroll">
