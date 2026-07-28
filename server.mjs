@@ -2,7 +2,7 @@
 // Static dev server for the GNU Radio WASM port.
 // Sets COOP/COEP so the page is cross-origin isolated -> SharedArrayBuffer +
 // Emscripten pthreads work (needed by the thread-per-block scheduler).
-// Usage: node server.mjs [port] [rootDir]
+// Usage: node server.mjs [port] [absoluteRootDir]
 import http from 'node:http';
 import { createReadStream } from 'node:fs';
 import { readFile, readdir, stat } from 'node:fs/promises';

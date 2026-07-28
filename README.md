@@ -10,7 +10,7 @@ Qt 6 for WebAssembly.
 If already built, run using
 
 ```bash
-node server.mjs 8090 .
+node server.mjs 8090 "$PWD"
 # open http://localhost:8090/
 ```
 
@@ -135,7 +135,7 @@ Verify with `node test_lazy_scenarios.mjs`.
 **6. Run**
 
 ```bash
-node server.mjs 8090 .
+node server.mjs 8090 "$PWD"
 # open http://localhost:8090/  → build a flowgraph → press ▶ Run
 ```
 
@@ -288,7 +288,7 @@ main module) once the side module compiles clean.
 **8. Smoke-test headless** — build a tiny `.grc` that forces the module to load
 and construct a block, then expect `RESULT: RUNNER_PASS`:
 ```bash
-node server.mjs 8090 &                               # COOP/COEP dev server
+node server.mjs 8090 "$PWD" &                        # COOP/COEP dev server
 URL="/runner/build/runner.html#$(node -e 'process.stdout.write(encodeURIComponent(require("fs").readFileSync(process.argv[1],"utf8")))' my.grc)"
 node run.mjs "$URL" RUNNER_PASS 8090 45000           # headless chrome; prints the RESULT line
 ```
@@ -421,7 +421,7 @@ python3 editor/gen/gen_blocklib.py editor/public/blocks.json
 ## Run
 
 ```bash
-node server.mjs 8090 .                  # COOP/COEP dev server
+node server.mjs 8090 "$PWD"             # COOP/COEP dev server
 # open http://localhost:8090/  → build a flowgraph → ▶ Run
 ```
 

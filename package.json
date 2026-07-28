@@ -1,14 +1,11 @@
 {
-  "name": "wasm",
+  "name": "gnuradio-world",
   "version": "1.0.0",
-  "description": "Cross-compiling GNU Radio + GRC to run in a browser tab via Emscripten. Plan: two artifacts, runtime-first.",
-  "main": "index.js",
+  "private": true,
+  "description": "Headless test harness dependencies for the GNU Radio World browser build",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node test_smoke.mjs && node test_lazy_scenarios.mjs"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "dependencies": {
     "puppeteer-core": "^23.11.1"
   }

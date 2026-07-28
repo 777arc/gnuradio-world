@@ -99,7 +99,7 @@ Always serve the site through the repository server because WASM pthreads and
 `SharedArrayBuffer` require its COOP/COEP headers:
 
 ```bash
-node server.mjs 8090 .
+node server.mjs 8090 "$PWD"
 # open http://localhost:8090/
 ```
 
