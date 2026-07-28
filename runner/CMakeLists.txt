@@ -34,7 +34,7 @@ set(GR_INCLUDE_DIRS
   ${GR}/gr-fec/include ${GR}/gr-dtv/include
   ${GR}/gr-network/include ${GR}/gr-pdu/include ${GR}/gr-vocoder/include
   ${GR}/gr-qtgui/include
-  ${GR}/gr-rds/include
+  ${WORLD}/gr-rds/include
   ${WORLD}/gr-foo/include
   ${WORLD}/gr-dvbs2/include
   ${WORLD}/gr-dvbs2rx/include
@@ -186,10 +186,11 @@ endforeach()
 # Instead compile its own lib/*_impl.cc straight into the rds side module together
 # with the generated self-registering factory table. config.h and the *_impl.h
 # headers resolve next to the sources (gr-rds/lib); public rds/*.h headers come
-# from gr-rds/include (already in GR_INCLUDE_DIRS above). One source (parser_impl)
-# uses Boost.Locale on desktop; it is #ifdef __EMSCRIPTEN__-guarded to an inline
-# ISO-8859-2 conversion so no extra Boost component is needed here.
-set(RDS_LIB ${GR}/gr-rds/lib)
+# from gr-rds/include (already in GR_INCLUDE_DIRS above). The pristine upstream
+# submodule normally generates config.h and uses Boost.Locale for one ISO-8859-2
+# conversion; the browser build supplies narrow, header-only shims for both.
+set(RDS_LIB ${WORLD}/gr-rds/lib)
+set(RDS_WASM_SHIMS ${CMAKE_CURRENT_SOURCE_DIR}/src/rds_wasm_shims)
 set(RDS_SOURCES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/generated_registry_rds.cpp
   ${RDS_LIB}/decoder_impl.cc
@@ -203,10 +204,13 @@ add_custom_command(
     -sSIDE_MODULE=1 -pthread -fPIC -Oz -std=c++17
     -sNO_DISABLE_EXCEPTION_CATCHING
     -sWASM_BIGINT=1
+    -I${RDS_WASM_SHIMS}
     ${SIDE_INCLUDE_FLAGS}
     ${RDS_SOURCES}
     -o ${rds_out}
   DEPENDS ${RDS_SOURCES}
+          ${RDS_WASM_SHIMS}/config.h
+          ${RDS_WASM_SHIMS}/boost/locale.hpp
           ${CMAKE_CURRENT_SOURCE_DIR}/src/registry_helpers.hpp
           ${CMAKE_CURRENT_SOURCE_DIR}/src/registry.hpp
   COMMENT "Building category side module rds.wasm (out-of-tree gr-rds sources)"

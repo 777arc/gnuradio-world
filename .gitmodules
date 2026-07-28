@@ -18,3 +18,7 @@
 	path = iqengine
 	url = https://github.com/iqengine/iqengine.git
 	branch = url-datasource
+[submodule "gr-rds"]
+	path = gr-rds
+	url = https://github.com/bastibl/gr-rds.git
+	branch = maint-3.10

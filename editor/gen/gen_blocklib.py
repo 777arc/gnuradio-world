@@ -26,6 +26,11 @@ MODULES = [module_dirs["grc"]] + [
     os.path.join(WORLD, "blocks", "grc")
 ]
 MANIFEST = os.path.join(WORLD, "runner", "generated_blocks.json")
+OVERRIDES_PATH = os.path.join(WORLD, "runner", "block_overrides.yml")
+try:
+    BLOCK_OVERRIDES = yaml.safe_load(open(OVERRIDES_PATH)) or {}
+except Exception:
+    BLOCK_OVERRIDES = {}
 
 def walk_tree(node, path, out):
     """Walk a GRC .tree.yml node, mapping block-id -> category path list."""
@@ -101,6 +106,13 @@ def main(out_path):
             if not isinstance(d, dict) or "id" not in d:
                 continue
             block_id = str(d["id"])
+            override = BLOCK_OVERRIDES.get(block_id)
+            if override:
+                d["flags"] = override.get("flags", d.get("flags") or [])
+                parameter_dtypes = override.get("parameter_dtypes", {})
+                for param in d.get("parameters", []) or []:
+                    if isinstance(param, dict) and param.get("id") in parameter_dtypes:
+                        param["dtype"] = parameter_dtypes[param["id"]]
             block_category = normalize_category(categories.get(block_id, d.get("category")))
             # Keep the native category whenever one exists. A few upstream
             # definitions are accidentally uncategorized; retain them under a

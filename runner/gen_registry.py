@@ -53,6 +53,13 @@ DEFERRED_MODULES = ("digital", "dtv", "network", "pdu", "vocoder", "rds", "foo",
 # stay in core), so none depends on another side module.
 MODULE_DEPS: dict[str, list[str]] = {}
 
+# gr-rds is pinned directly to bastibl/gr-rds's default branch. Load its
+# browser-only C++ metadata from the world repository rather than making the
+# upstream submodule permanently dirty.
+BLOCK_OVERRIDES: dict[str, dict[str, Any]] = (
+    yaml.safe_load((WORLD / "runner" / "block_overrides.yml").read_text()) or {}
+)
+
 # These have direct C++ flags, but their constructor takes another GRC variable
 # object.  Supporting them requires a typed object registry, not a block factory.
 OBJECT_PARAMETERS = {
@@ -535,6 +542,14 @@ def load_blocks() -> list[dict[str, Any]]:
                 continue
             if not isinstance(block, dict) or "id" not in block:
                 continue
+            override = BLOCK_OVERRIDES.get(str(block["id"]))
+            if override:
+                block["flags"] = override.get("flags", block.get("flags") or [])
+                block["cpp_templates"] = override["cpp_templates"]
+                parameter_dtypes = override.get("parameter_dtypes", {})
+                for param in block.get("parameters", []) or []:
+                    if isinstance(param, dict) and param.get("id") in parameter_dtypes:
+                        param["dtype"] = parameter_dtypes[param["id"]]
             if "cpp" not in (block.get("flags") or []) or not block.get("cpp_templates"):
                 continue
             if str(block["id"]).startswith("variable_") or block["id"] in CUSTOM_IDS:

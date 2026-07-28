@@ -1,0 +1,36 @@
+# Browser-only metadata for pristine upstream submodules. Keep these overlays in
+# the world repository so the pinned submodule checkouts remain clean.
+rds_decoder:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <rds/decoder.h>']
+    declarations: 'rds::decoder::sptr ${id};'
+    make: 'this->${id} = rds::decoder::make(${log}, ${debug});'
+    link: [gnuradio-rds]
+
+rds_encoder:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <rds/encoder.h>']
+    declarations: 'rds::encoder::sptr ${id};'
+    make: 'this->${id} = rds::encoder::make(${pty_locale}, ${pty}, ${ms}, ${ps}, ${af1}, ${tp}, ${ta}, ${pi_country_code}, ${pi_coverage_area}, ${pi_reference_number}, ${radiotext}, ${max_latency});'
+    link: [gnuradio-rds]
+    callbacks: ['set_ps(${ps});']
+
+rds_parser:
+  flags: [python, cpp]
+  parameter_dtypes:
+    reset: int
+  cpp_templates:
+    includes: ['#include <rds/parser.h>']
+    declarations: 'rds::parser::sptr ${id};'
+    make: 'this->${id} = rds::parser::make(${log}, ${debug}, ${pty_locale});'
+    link: [gnuradio-rds]
+
+rds_tag_to_msg:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <rds/tag_to_msg.h>']
+    declarations: 'rds::tag_to_msg::sptr ${id};'
+    make: 'this->${id} = rds::tag_to_msg::make(${type.size}*${vlen});'
+    link: [gnuradio-rds]
