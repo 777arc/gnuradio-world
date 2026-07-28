@@ -2255,14 +2255,14 @@ function renderTree(node: Cat, container: HTMLElement, depth: number, q: string)
 let LIB: any = { blocks: [] };
 async function buildPalette() {
   const pal = el('palette');
-  // ---- tab bar: Blocks | Example Flowgraphs | Recordings ----
+  // ---- tab bar: Blocks | Example Flowgraphs | SigMF Recordings ----
   const tabs = document.createElement('div'); tabs.className = 'paltabs';
   const blocksPanel = document.createElement('div'); blocksPanel.className = 'paltab-panel';
   const examplesPanel = document.createElement('div'); examplesPanel.className = 'paltab-panel'; examplesPanel.hidden = true;
   const recordingsPanel = document.createElement('div'); recordingsPanel.className = 'paltab-panel'; recordingsPanel.hidden = true;
   const tabBlocks = document.createElement('button'); tabBlocks.className = 'paltab active'; tabBlocks.textContent = 'Blocks';
   const tabExamples = document.createElement('button'); tabExamples.className = 'paltab'; tabExamples.textContent = 'Example Flowgraphs';
-  const tabRecordings = document.createElement('button'); tabRecordings.className = 'paltab'; tabRecordings.textContent = 'Recordings';
+  const tabRecordings = document.createElement('button'); tabRecordings.className = 'paltab'; tabRecordings.textContent = 'SigMF Recordings';
   let examplesLoaded = false;
   let recordingsLoaded = false;
   const activate = (which: 'blocks' | 'examples' | 'recordings') => {
@@ -2650,19 +2650,36 @@ async function buildRecordings(panel: HTMLElement) {
       const val = document.createElement('dd'); val.textContent = displayRecordingValue(value);
       props.append(key, val);
     };
-    addProperty('core:datatype', recording.datatype);
-    addProperty('core:sample_rate', recording.sampleRate);
-    addProperty('core:author', recording.author);
+    addProperty('Data Type', recording.datatype);
+    addProperty('Sample Rate', recording.sampleRate);
+    addProperty('Author', recording.author);
     addProperty('Samples', recording.sampleCount);
-    addProperty('Size', displayBytes(recording.byteLength));
-    const meta = document.createElement('div'); meta.className = 'rec-meta';
-    meta.textContent = `${recording.dataFile} + ${recording.metaFile}`;
+    // Size row doubles as the download row: the .sigmf-data comes from wherever
+    // the manifest points (local server or R2), the .sigmf-meta is always local.
+    const sizeKey = document.createElement('dt'); sizeKey.textContent = 'Size';
+    const sizeVal = document.createElement('dd'); sizeVal.className = 'rec-size';
+    sizeVal.append(displayBytes(recording.byteLength));
+    const addDownloadLink = (label: string, url: string, fileName: string) => {
+      const link = document.createElement('a'); link.className = 'rec-dl';
+      link.href = url; link.download = fileName; link.rel = 'noopener';
+      link.textContent = label;
+      // Clicking a link must not also drop a File Source on the canvas.
+      link.onclick = event => event.stopPropagation();
+      sizeVal.append(link);
+    };
+    addDownloadLink('data file', recording.downloadUrl, recording.dataFile);
+    addDownloadLink(
+      'meta file',
+      '/example_recordings/' + encodeURIComponent(recording.metaFile),
+      recording.metaFile,
+    );
+    props.append(sizeKey, sizeVal);
     const progress = document.createElement('div'); progress.className = 'rec-progress'; progress.hidden = true;
     const track = document.createElement('div'); track.className = 'rec-progress-track';
     const fill = document.createElement('div'); fill.className = 'rec-progress-fill'; track.append(fill);
     const progressText = document.createElement('div'); progressText.className = 'rec-progress-text';
     progress.append(track, progressText);
-    item.append(head, props, meta, progress); list.append(item);
+    item.append(head, props, progress); list.append(item);
 
     const format = sigmfFileSourceFormat(recording.datatype);
     if (!format) {
@@ -2718,6 +2735,7 @@ async function buildRecordings(panel: HTMLElement) {
     item.onclick = () => { void useRecording(); };
     item.onkeydown = event => {
       if (event.key !== 'Enter' && event.key !== ' ') return;
+      if ((event.target as HTMLElement)?.closest('a')) return;
       event.preventDefault(); void useRecording();
     };
   }
