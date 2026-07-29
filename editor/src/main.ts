@@ -29,6 +29,7 @@ interface ParamDef {
 // block's `type` param (complex/float) if it has one, else `dtype` (default complex).
 interface RunnableDef {
   label: string; inputs: number; outputs: number; params: ParamDef[];
+  documentation?: string; apiDocumentation?: string;
   dtype?: string; inTypes?: string[]; outTypes?: string[];
   inDomains?: string[]; outDomains?: string[]; inIds?: string[]; outIds?: string[];
   inLabels?: string[]; outLabels?: string[];
@@ -713,6 +714,8 @@ function multiplicity(value: any, defaults: Record<string, any>): number {
 function installGeneratedBlocks(blocks: any[]) {
   for (const block of blocks) {
     if (!block.runnable) continue;
+    const documentation = String(block.documentation || '').trim();
+    const apiDocumentation = String(block.api_documentation || '').trim();
     const params: ParamDef[] = (block.params || []).map((p: any) => ({
       id: String(p.id), label: String(p.label || p.id),
       type: p.dtype === 'enum' ? 'enum' :
@@ -761,9 +764,12 @@ function installGeneratedBlocks(blocks: any[]) {
     const existing = RUNNABLE[block.id];
     if (existing) {
       // Hand-written definitions carry richer parameter/run-time support. Add
-      // the native port names from blocks.json without replacing that schema.
+      // the native documentation and port names from blocks.json without
+      // replacing that schema.
       // These definitions currently expose stream ports only, so omit optional
       // message-control ports that their WASM factories do not support.
+      existing.documentation = documentation;
+      existing.apiDocumentation = apiDocumentation;
       const streamInputs = inputs.filter(p => p.domain === 'stream');
       const streamOutputs = outputs.filter(p => p.domain === 'stream');
       existing.inLabels = streamInputs.slice(0, existing.inputs).map(p => p.name);
@@ -777,7 +783,7 @@ function installGeneratedBlocks(blocks: any[]) {
       continue;
     }
     RUNNABLE[block.id] = {
-      label: String(block.label || block.id), params,
+      label: String(block.label || block.id), params, documentation, apiDocumentation,
       inputs: inputs.length, outputs: outputs.length,
       inTypes: inputs.map(p => p.dtype), outTypes: outputs.map(p => p.dtype),
       inDomains: inputs.map(p => p.domain), outDomains: outputs.map(p => p.domain),
@@ -1576,7 +1582,12 @@ function showPropsDialog(inst: Inst) {
   const tabBar = document.createElement('div'); tabBar.className = 'dlgtabs'; tabBar.setAttribute('role', 'tablist');
   const body = document.createElement('div'); body.className = 'dlgbody';
 
-  const categories = ['General', ...d.params.map(p => p.category || 'General').filter((cat, i, all) => cat !== 'General' && all.indexOf(cat) === i)];
+  const categories = [
+    'General',
+    ...d.params.map(p => p.category || 'General')
+      .filter((cat, i, all) => cat !== 'General' && all.indexOf(cat) === i),
+    'Documentation',
+  ];
   const panels = new Map<string, HTMLDivElement>();
   const tabs: HTMLButtonElement[] = [];
   const controls = new Map<string, { node: HTMLElement; error: HTMLElement }>();
@@ -1606,6 +1617,23 @@ function showPropsDialog(inst: Inst) {
       activateTab(next.dataset.category!); next.focus();
     };
     tabs.push(tab); tabBar.appendChild(tab);
+  }
+
+  const docsPanel = panels.get('Documentation')!;
+  const addDocs = (title: string, text: string | undefined) => {
+    if (!text) return;
+    const section = document.createElement('section'); section.className = 'props-doc-section';
+    const heading = document.createElement('h3'); heading.textContent = title;
+    const content = document.createElement('div'); content.className = 'props-doc-text';
+    content.textContent = text;
+    section.append(heading, content); docsPanel.appendChild(section);
+  };
+  addDocs('Block description', d.documentation);
+  addDocs('API documentation', d.apiDocumentation);
+  if (!docsPanel.childElementCount) {
+    const empty = document.createElement('p'); empty.className = 'props-doc-empty';
+    empty.textContent = 'No documentation is available for this block.';
+    docsPanel.appendChild(empty);
   }
 
   const addField = (category: string, label: string, node: HTMLElement, field: string) => {

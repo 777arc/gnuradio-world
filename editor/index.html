@@ -258,6 +258,7 @@
   .modal { position:fixed; inset:0; background:#0009; display:flex; align-items:center; justify-content:center; z-index:150; }
   .dlg { width:440px; max-height:82vh; background:#20232f; border:1px solid #46507a; border-radius:8px;
       display:flex; flex-direction:column; overflow:hidden; box-shadow:0 12px 44px #000b; }
+  .modal.props .dlg { width:min(700px,92vw); }
   .dlghead { padding:12px 16px; font-size:14px; font-weight:600; color:#dce3f5; border-bottom:1px solid #333a4d; }
   .dlghead.withclose { display:flex; align-items:center; justify-content:space-between; gap:12px; padding-right:8px; }
   .dlgclose { flex:none; width:26px; height:26px; line-height:1; padding:0; border:0; border-radius:5px;
@@ -270,6 +271,11 @@
   .dlgtab.active { background:#20232f; color:#e6e9f0; border-color:#46507a; margin-bottom:-1px; }
   .dlgbody { padding:8px 16px 14px; overflow:auto; }
   .dlgpanel[hidden] { display:none; }
+  .props-doc-section { margin:8px 0 18px; }
+  .props-doc-section h3 { margin:0 0 8px; color:#dce3f5; font-size:13px; }
+  .props-doc-text { color:#c5cce0; font-size:12px; line-height:1.55; white-space:pre-wrap;
+      overflow-wrap:anywhere; }
+  .props-doc-empty { color:#9aa7c6; font-size:12px; font-style:italic; }
   .dlgrow { display:grid; grid-template-columns:1fr 1.25fr; gap:12px; align-items:center; margin:9px 0; }
   .dlgrow label { font-size:12px; color:#9aa7c6; text-align:right; }
   .dlgrow input, .dlgrow select, .dlgrow textarea { background:#171a24; color:#e6e9f0; border:1px solid #3a4366;
