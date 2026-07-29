@@ -183,21 +183,6 @@
   .pal-item.unavailable { color:#687083; cursor:not-allowed; }
   .pal-item.unavailable:hover { background:#252938; color:#7a8295; }
   .pal-item.unavailable::before { content:'\25CF'; color:#4b5160; font-size:8px; vertical-align:middle; margin-right:6px; }
-  /* Deferred-category blocks: their code lives in a side module fetched on first
-     use. A hollow amber ring means "will download"; a filled cyan dot means the
-     category has been downloaded this session. (Placed after .runnable so these
-     equal-specificity ::before rules win.) */
-  .pal-item.deferred::before { content:'\25CB'; color:#c9903a; font-size:9px;
-      vertical-align:middle; margin-right:6px; }
-  .pal-item.deferred.loaded::before { content:'\25CF'; color:#39b6c8; font-size:8px; }
-  .pal-item.deferred.loaded { color:#dde7f6; }
-  /* Category rows reflect aggregate download state of the deferred modules they
-     contain. */
-  .cat-row.mod-pending > .cat-name { color:#c9903a; }
-  .cat-row.mod-loaded  > .cat-name { color:#4fc3d6; }
-  .cat-row .cat-badge { margin-left:6px; font-size:10px; opacity:0.8; }
-  .cat-row.mod-pending .cat-badge { color:#c9903a; }
-  .cat-row.mod-loaded  .cat-badge { color:#4fc3d6; }
   /* GRC-authentic light canvas */
   /* --grid-size mirrors SNAP_GRID_SIZE (times zoom, see setZoom) so the drawn
      grid lines up with where blocks actually snap. */
