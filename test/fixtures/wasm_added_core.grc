@@ -1,0 +1,263 @@
+options:
+    parameters:
+        id: wasm_added_core
+        title: WASM added core blocks
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: freq_toggle
+    id: variable_qtgui_check_box
+    parameters:
+        label: Frequency shift
+        type: real
+        value: '250'
+        'true': '250'
+        'false': '-250'
+        gui_hint: ''
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: phase_entry
+    id: variable_qtgui_entry
+    parameters:
+        label: Phase
+        type: real
+        value: '0.25'
+        entry_signal: editingFinished
+        gui_hint: ''
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: iq_source
+    id: analog_sig_source_x
+    parameters:
+        type: complex
+        samp_rate: '32000'
+        waveform: analog.GR_COS_WAVE
+        frequency: '1000'
+        amplitude: '1'
+        offset: '0'
+        phase: '0'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: correctiq
+    id: blocks_correctiq
+    parameters: {}
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: correctiq_auto
+    id: blocks_correctiq_auto
+    parameters:
+        samp_rate: '32000'
+        syncWindow: '0.01'
+        freq: '1000'
+        gain: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: correctiq_man
+    id: blocks_correctiq_man
+    parameters:
+        real: '0'
+        imag: '0'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: freqshift
+    id: blocks_freqshift_cc
+    parameters:
+        sample_rate: '32000'
+        freq: freq_toggle
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: phase_shift
+    id: blocks_phase_shift
+    parameters:
+        shift: phase_entry
+        is_radians: 'True'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: swapiq
+    id: blocks_swapiq
+    parameters:
+        datatype: complex
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: iq_throttle
+    id: blocks_throttle
+    parameters:
+        type: complex
+        samp_rate: '32000'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: iq_sink
+    id: blocks_null_sink
+    parameters:
+        type: complex
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: float_source
+    id: analog_sig_source_x
+    parameters:
+        type: float
+        samp_rate: '32000'
+        waveform: analog.GR_COS_WAVE
+        frequency: '500'
+        amplitude: '1'
+        offset: '0'
+        phase: '0'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: filter_delay
+    id: filter_delay_fc
+    parameters:
+        taps: '[0.25, 0.5, 0.25]'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: delay_throttle
+    id: blocks_throttle
+    parameters:
+        type: complex
+        samp_rate: '32000'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: delay_sink
+    id: blocks_null_sink
+    parameters:
+        type: complex
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: byte_source
+    id: blocks_vector_source_x
+    parameters:
+        type: byte
+        vector: '[0, 1, 2, 3, 4, 5, 6, 7]'
+        repeat: 'True'
+        vlen: '1'
+        tags: '[]'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: ival
+    id: ival_decimator
+    parameters:
+        datatype: byte
+        decimation: '2'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: byte_throttle
+    id: blocks_throttle
+    parameters:
+        type: byte
+        samp_rate: '32000'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: byte_sink
+    id: blocks_null_sink
+    parameters:
+        type: byte
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: vector_source
+    id: blocks_vector_source_x
+    parameters:
+        type: complex
+        vector: '[1, 0, 0, 1]'
+        repeat: 'True'
+        vlen: '2'
+        tags: '[]'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: filterbank
+    id: filterbank_vcvcf
+    parameters:
+        taps: '[[1.0], [1.0]]'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: vector_to_stream
+    id: blocks_vector_to_stream
+    parameters:
+        type: complex
+        num_items: '2'
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: vector_throttle
+    id: blocks_throttle
+    parameters:
+        type: complex
+        samp_rate: '32000'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: vector_sink
+    id: blocks_null_sink
+    parameters:
+        type: complex
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+connections:
+- [iq_source, '0', correctiq, '0']
+- [correctiq, '0', correctiq_auto, '0']
+- [correctiq_auto, '0', correctiq_man, '0']
+- [correctiq_man, '0', freqshift, '0']
+- [freqshift, '0', phase_shift, '0']
+- [phase_shift, '0', swapiq, '0']
+- [swapiq, '0', iq_throttle, '0']
+- [iq_throttle, '0', iq_sink, '0']
+- [float_source, '0', filter_delay, '0']
+- [filter_delay, '0', delay_throttle, '0']
+- [delay_throttle, '0', delay_sink, '0']
+- [byte_source, '0', ival, '0']
+- [ival, '0', byte_throttle, '0']
+- [byte_throttle, '0', byte_sink, '0']
+- [vector_source, '0', filterbank, '0']
+- [filterbank, '0', vector_to_stream, '0']
+- [vector_to_stream, '0', vector_throttle, '0']
+- [vector_throttle, '0', vector_sink, '0']
+metadata:
+    file_format: 1

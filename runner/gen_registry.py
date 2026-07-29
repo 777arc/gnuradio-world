@@ -63,20 +63,14 @@ BLOCK_OVERRIDES: dict[str, dict[str, Any]] = (
 # These have direct C++ flags, but their constructor takes another GRC variable
 # object.  Supporting them requires a typed object registry, not a block factory.
 OBJECT_PARAMETERS = {
-    ("filterbank_vcvcf", "taps"),
-    ("digital_symbol_sync_xx", "constellation"),
     ("digital_protocol_formatter_async", "format"),
-    ("digital_constellation_soft_decoder_cf", "constellation"),
-    ("digital_constellation_encoder_bc", "constellation"),
     ("digital_protocol_formatter_bb", "format"),
     ("digital_ofdm_frame_equalizer_vcvc", "equalizer"),
     ("digital_protocol_parser_b", "format"),
     ("digital_framer_sink_1", "target_queue"),
     ("digital_ofdm_carrier_allocator_cvc", "occupied_carriers"),
     ("digital_packet_headergenerator_bb", "header_formatter"),
-    ("digital_constellation_receiver_cb", "constellation"),
     ("digital_packet_sink", "target_queue"),
-    ("digital_constellation_decoder_cb", "constellation"),
     ("digital_ofdm_serializer_vcc", "occupied_carriers"),
 }
 
@@ -88,6 +82,8 @@ CUSTOM_IDS = {
     "variable_qtgui_range",
     "variable_qtgui_chooser",
     "variable_qtgui_push_button",
+    "variable_qtgui_check_box",
+    "variable_qtgui_entry",
     "analog_sig_source_x",
     "analog_noise_source_x",
     "analog_random_source_x",
@@ -104,8 +100,28 @@ CUSTOM_IDS = {
     "analog_wfm_rcv_pll",
     "analog_wfm_tx",
     "blocks_null_source",
+    "blocks_correctiq",
+    "blocks_correctiq_auto",
+    "blocks_correctiq_man",
+    "blocks_freqshift_cc",
+    "blocks_phase_shift",
+    "blocks_swapiq",
+    "filter_delay_fc",
+    "filterbank_vcvcf",
+    "ival_decimator",
+    "fec_ber_bf",
+    "fec_encode_ccsds_27_bb",
+    "fec_decode_ccsds_27_fb",
+    "fec_depuncture_bb",
+    "fec_puncture_xx",
     "variable_constellation",
     "variable_constellation_rect",
+    "digital_constellation_decoder_cb",
+    "digital_constellation_encoder_bc",
+    "digital_constellation_receiver_cb",
+    "digital_constellation_soft_decoder_cf",
+    "digital_meas_evm_cc",
+    "digital_symbol_sync_xx",
     "digital_constellation_modulator",
     "digital_psk_demod",
     "digital_psk_mod",
@@ -137,8 +153,6 @@ CUSTOM_IDS = {
 }
 
 INVALID_CPP_TEMPLATES = {
-    # Upstream template references a nonexistent `${type}` parameter.
-    "filter_delay_fc",
     # Not present in the WASM static libraries because their optional native
     # dependencies/features (CtrlPort or libsndfile) are disabled.
     "blocks_ctrlport_probe2_x",

@@ -15,7 +15,7 @@ struct BuiltBlock {
     QWidget* widget = nullptr;  // non-null for GUI sinks and controls
 
     // Numeric GRC parameters that can be changed while the graph is running.
-    // QT GUI Range variables bind to these by parameter name.
+    // Live QT GUI variable controls bind to these by parameter name.
     std::map<std::string, std::function<void(double)>> numeric_setters;
 
     // Variable controls have no GNU Radio block. Instead they publish their

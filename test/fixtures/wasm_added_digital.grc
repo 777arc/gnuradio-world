@@ -1,0 +1,177 @@
+options:
+    parameters:
+        id: wasm_added_digital
+        title: WASM added digital blocks
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: constellation
+    id: variable_constellation
+    parameters:
+        type: qpsk
+        const_points: '[]'
+        sym_map: '[]'
+        rot_sym: '4'
+        dims: '1'
+        normalization: digital.constellation.AMPLITUDE_NORMALIZATION
+        npwr: '1'
+        soft_dec_lut: auto
+        precision: '8'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: source
+    id: blocks_vector_source_x
+    parameters:
+        type: byte
+        vector: '[0, 1, 2, 3]'
+        repeat: 'True'
+        vlen: '1'
+        tags: '[]'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: source_throttle
+    id: blocks_throttle
+    parameters:
+        type: byte
+        samp_rate: '16000'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: encoder
+    id: digital_constellation_encoder_bc
+    parameters:
+        constellation: constellation
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: decoder
+    id: digital_constellation_decoder_cb
+    parameters:
+        constellation: constellation
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: decoder_sink
+    id: blocks_null_sink
+    parameters:
+        type: byte
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: soft_decoder
+    id: digital_constellation_soft_decoder_cf
+    parameters:
+        constellation: constellation
+        npwr: '-1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: soft_sink
+    id: blocks_null_sink
+    parameters:
+        type: float
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: evm
+    id: digital_meas_evm_cc
+    parameters:
+        cons: constellation
+        meas_type: digital.evm_measurement_t.EVM_PERCENT
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: evm_sink
+    id: blocks_null_sink
+    parameters:
+        type: float
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: receiver
+    id: digital_constellation_receiver_cb
+    parameters:
+        constellation: constellation
+        loop_bw: '0.0628'
+        fmin: '-0.25'
+        fmax: '0.25'
+        showports: 'False'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: receiver_sink
+    id: blocks_null_sink
+    parameters:
+        type: byte
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: repeat
+    id: blocks_repeat
+    parameters:
+        type: complex
+        interp: '2'
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: symbol_sync
+    id: digital_symbol_sync_xx
+    parameters:
+        type: cc
+        ted_type: digital.TED_GARDNER
+        constellation: constellation
+        sps: '2'
+        ted_gain: '1'
+        loop_bw: '0.045'
+        damping: '1'
+        max_dev: '1.5'
+        osps: '1'
+        resamp_type: digital.IR_MMSE_8TAP
+        nfilters: '128'
+        pfb_mf_taps: '[]'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: sync_sink
+    id: blocks_null_sink
+    parameters:
+        type: complex
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+connections:
+- [source, '0', source_throttle, '0']
+- [source_throttle, '0', encoder, '0']
+- [encoder, '0', decoder, '0']
+- [decoder, '0', decoder_sink, '0']
+- [encoder, '0', soft_decoder, '0']
+- [soft_decoder, '0', soft_sink, '0']
+- [encoder, '0', evm, '0']
+- [evm, '0', evm_sink, '0']
+- [encoder, '0', receiver, '0']
+- [receiver, '0', receiver_sink, '0']
+- [encoder, '0', repeat, '0']
+- [repeat, '0', symbol_sync, '0']
+- [symbol_sync, '0', sync_sink, '0']
+metadata:
+    file_format: 1

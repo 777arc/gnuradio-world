@@ -1,0 +1,121 @@
+options:
+    parameters:
+        id: wasm_added_fec
+        title: WASM added FEC blocks
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: source
+    id: blocks_vector_source_x
+    parameters:
+        type: byte
+        vector: '[0, 1, 1, 0, 1, 0, 0, 1]'
+        repeat: 'True'
+        vlen: '1'
+        tags: '[]'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: source_throttle
+    id: blocks_throttle
+    parameters:
+        type: byte
+        samp_rate: '16000'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: ccsds_encoder
+    id: fec_encode_ccsds_27_bb
+    parameters: {}
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: uchar_to_float
+    id: blocks_uchar_to_float
+    parameters: {}
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: ccsds_decoder
+    id: fec_decode_ccsds_27_fb
+    parameters: {}
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: ccsds_sink
+    id: blocks_null_sink
+    parameters:
+        type: byte
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: puncture
+    id: fec_puncture_xx
+    parameters:
+        type: byte
+        puncsize: '4'
+        puncpat: '13'
+        delay: '0'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: depuncture
+    id: fec_depuncture_bb
+    parameters:
+        puncsize: '4'
+        puncpat: '13'
+        delay: '0'
+        sym: '127'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: puncture_sink
+    id: blocks_null_sink
+    parameters:
+        type: byte
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: ber
+    id: fec_ber_bf
+    parameters:
+        test_mode: 'False'
+        berminerrors: '100'
+        berlimit: '-7'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: ber_sink
+    id: blocks_null_sink
+    parameters:
+        type: float
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+connections:
+- [source, '0', source_throttle, '0']
+- [source_throttle, '0', ccsds_encoder, '0']
+- [ccsds_encoder, '0', uchar_to_float, '0']
+- [uchar_to_float, '0', ccsds_decoder, '0']
+- [ccsds_decoder, '0', ccsds_sink, '0']
+- [source_throttle, '0', puncture, '0']
+- [puncture, '0', depuncture, '0']
+- [depuncture, '0', puncture_sink, '0']
+- [source_throttle, '0', ber, '0']
+- [source_throttle, '0', ber, '1']
+- [ber, '0', ber_sink, '0']
+metadata:
+    file_format: 1

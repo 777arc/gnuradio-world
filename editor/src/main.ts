@@ -18,6 +18,7 @@ type ParamType = 'number' | 'string' | 'enum';
 interface ParamDef {
   id: string; label: string; type: ParamType; def: any; options?: string[];
   category?: string; hideIfEmpty?: boolean; raw?: boolean; dtype?: string;
+  optionAttributes?: Record<string, string[]>;
   showWhen?: (params: Record<string, any>) => boolean;
 }
 // inTypes/outTypes give per-port dtypes (for converters); otherwise ports follow the
@@ -117,6 +118,21 @@ const RUNNABLE: Record<string, RunnableDef> = {
     ],
   },
   blocks_null_source: { label: 'Null Source', inputs: 0, outputs: 1, params: [STREAM_TYPE_PARAM] },
+  blocks_swapiq: {
+    label: 'Swap IQ', inputs: 1, outputs: 1, params: [
+      { id: 'datatype', label: 'Input Type', type: 'enum', def: 'complex',
+        options: ['complex', 'short', 'byte'] },
+    ],
+    inTypes: ['$datatype'], outTypes: ['$datatype'],
+  },
+  ival_decimator: {
+    label: 'Interleaved Stream Decimator', inputs: 1, outputs: 1, params: [
+      { id: 'datatype', label: 'Input Type', type: 'enum', def: 'byte',
+        options: ['byte', 'short'] },
+      { id: 'decimation', label: 'Decimation', type: 'number', def: 1 },
+    ],
+    inTypes: ['$datatype'], outTypes: ['$datatype'],
+  },
   digital_psk_mod: {
     label: 'PSK Mod', inputs: 1, outputs: 1, params: [
       { id: 'constellation_points', label: 'Constellation Points', type: 'number', def: 8 },
@@ -198,6 +214,26 @@ const RUNNABLE: Record<string, RunnableDef> = {
       { id: 'value', label: 'Default Value', type: 'number', def: 0 },
       { id: 'pressed', label: 'Pressed', type: 'number', def: 1 },
       { id: 'released', label: 'Released', type: 'number', def: 0 },
+    ],
+  },
+  variable_qtgui_check_box: {
+    label: 'QT GUI Check Box', inputs: 0, outputs: 0, params: [
+      { id: 'label', label: 'Label', type: 'string', def: '' },
+      { id: 'type', label: 'Type', type: 'enum', def: 'int',
+        options: ['real', 'int', 'bool'] },
+      { id: 'value', label: 'Default Value', type: 'number', def: 1 },
+      { id: 'true', label: 'True', type: 'number', def: 1 },
+      { id: 'false', label: 'False', type: 'number', def: 0 },
+    ],
+  },
+  variable_qtgui_entry: {
+    label: 'QT GUI Entry', inputs: 0, outputs: 0, params: [
+      { id: 'label', label: 'Label', type: 'string', def: '' },
+      { id: 'type', label: 'Type', type: 'enum', def: 'int',
+        options: ['real', 'int', 'bool'] },
+      { id: 'value', label: 'Default Value', type: 'number', def: 0 },
+      { id: 'entry_signal', label: 'Update Trigger', type: 'enum',
+        def: 'editingFinished', options: ['returnPressed', 'editingFinished'] },
     ],
   },
   // ---- sinks ----
@@ -399,8 +435,15 @@ function portType(inst: Inst, kind: 'in' | 'out', i: number): string {
   if (domains?.[i] === 'message') return 'message';
   const arr = kind === 'in' ? d.inTypes : d.outTypes;
   if (arr && arr[i]) {
-    const match = arr[i].match(/^\$([A-Za-z_]\w*)$/);
-    return match ? String(inst.params[match[1]] || '') : arr[i];
+    const match = arr[i].match(/^\$([A-Za-z_]\w*)(?:\.([A-Za-z_]\w*))?$/);
+    if (!match) return arr[i];
+    const value = String(inst.params[match[1]] || '');
+    if (!match[2]) return value;
+    const param = d.params.find(p => p.id === match[1]);
+    const optionIndex = param?.options?.indexOf(value) ?? -1;
+    return optionIndex >= 0
+      ? String(param?.optionAttributes?.[match[2]]?.[optionIndex] || '')
+      : '';
   }
   return inst.params.type || d.dtype || 'complex';
 }
@@ -498,6 +541,7 @@ const BLOCK_FIELD = '__block';
 // reference another variable.
 const VARIABLE_CONTROL_IDS = new Set([
   'variable_qtgui_range', 'variable_qtgui_chooser', 'variable_qtgui_push_button',
+  'variable_qtgui_check_box', 'variable_qtgui_entry',
 ]);
 // Every block ID that can be the target of a numeric variable reference.
 const VARIABLE_IDS = new Set([...VARIABLE_CONTROL_IDS, 'variable']);
@@ -664,6 +708,10 @@ function installGeneratedBlocks(blocks: any[]) {
       dtype: p.dtype ? String(p.dtype) : undefined,
       def: generatedDefault(p),
       options: p.options ? p.options.map(String) : undefined,
+      optionAttributes: p.option_attributes
+        ? Object.fromEntries(Object.entries(p.option_attributes)
+            .map(([name, values]) => [name, (values as any[]).map(String)]))
+        : undefined,
       // "General" is the default tab; those params belong on the block face
       // (like GRC's default category), so only carry a real, non-General
       // category so geom()/the face renderer doesn't hide every param.
@@ -686,7 +734,8 @@ function installGeneratedBlocks(blocks: any[]) {
           const domain = String(port.domain || 'stream');
           const id = String(port.id || (domain === 'stream' ? streamIndex : port.label || i));
           result.push({
-            dtype: String(port.dtype || '').replace(/^\$\{\s*([A-Za-z_]\w*)\s*\}$/, '$$$1'),
+            dtype: String(port.dtype || '').replace(
+              /^\$\{\s*([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)?)\s*\}$/, '$$$1'),
             domain, id, name: count > 1 ? `${baseName}${i}` : baseName,
             streamIndex: domain === 'stream' ? streamIndex : -1,
           });

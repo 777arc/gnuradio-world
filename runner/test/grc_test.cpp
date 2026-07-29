@@ -94,6 +94,11 @@ static const json* find_block(const json& blocks, const std::string& name) {
 }
 
 int main() {
+    assert(grc_lower::is_variable_control("variable_qtgui_range"));
+    assert(grc_lower::is_variable_control("variable_qtgui_check_box"));
+    assert(grc_lower::is_variable_control("variable_qtgui_entry"));
+    assert(!grc_lower::is_variable_control("variable"));
+
     // ---- parser ----
     json g = grc_yaml::parse(kGraph);
     assert(g.at("blocks").is_array() && g["blocks"].size() == 7);

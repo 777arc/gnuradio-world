@@ -190,7 +190,7 @@ static void run_now(const std::string& json_source) {
         std::string ref_widget_name, ref_throttle_name, ref_maxrate_name;
 
         // Construct controls first so references such as frequency="freq" can
-        // be resolved regardless of where the Range appears in the graph JSON.
+        // be resolved regardless of where the control appears in the graph JSON.
         for (const auto& blk : j.at("blocks")) {
             const std::string id = blk.at("id").get<std::string>();
             if (!is_variable_control(id))

@@ -28,6 +28,11 @@
 #include <gnuradio/blocks/head.h>
 #include <gnuradio/blocks/delay.h>
 #include <gnuradio/blocks/interleaved_short_to_complex.h>
+#include <gnuradio/blocks/correctiq.h>
+#include <gnuradio/blocks/correctiq_auto.h>
+#include <gnuradio/blocks/correctiq_man.h>
+#include <gnuradio/blocks/correctiq_swapiq.h>
+#include <gnuradio/blocks/phase_shift.h>
 #include <gnuradio/blocks/rotator_cc.h>
 #include <gnuradio/blocks/repack_bits_bb.h>
 #include <gnuradio/blocks/skiphead.h>
@@ -38,13 +43,16 @@
 #include <gnuradio/digital/chunks_to_symbols.h>
 #include <gnuradio/digital/constellation.h>
 #include <gnuradio/digital/constellation_decoder_cb.h>
+#include <gnuradio/digital/constellation_encoder_bc.h>
 #include <gnuradio/digital/constellation_receiver_cb.h>
+#include <gnuradio/digital/constellation_soft_decoder_cf.h>
 #include <gnuradio/digital/crc32_bb.h>
 #include <gnuradio/digital/diff_decoder_bb.h>
 #include <gnuradio/digital/diff_encoder_bb.h>
 #include <gnuradio/digital/fll_band_edge_cc.h>
 #include <gnuradio/digital/header_payload_demux.h>
 #include <gnuradio/digital/map_bb.h>
+#include <gnuradio/digital/meas_evm_cc.h>
 #include <gnuradio/digital/ofdm_carrier_allocator_cvc.h>
 #include <gnuradio/digital/ofdm_chanest_vcvc.h>
 #include <gnuradio/digital/ofdm_cyclic_prefixer.h>
@@ -56,14 +64,25 @@
 #include <gnuradio/digital/packet_headergenerator_bb.h>
 #include <gnuradio/digital/packet_headerparser_b.h>
 #include <gnuradio/digital/pfb_clock_sync_ccf.h>
+#include <gnuradio/digital/symbol_sync_cc.h>
+#include <gnuradio/digital/symbol_sync_ff.h>
+#include <gnuradio/fec/ber_bf.h>
+#include <gnuradio/fec/decode_ccsds_27_fb.h>
+#include <gnuradio/fec/depuncture_bb.h>
+#include <gnuradio/fec/encode_ccsds_27_bb.h>
+#include <gnuradio/fec/puncture_bb.h>
+#include <gnuradio/fec/puncture_ff.h>
 #include <gnuradio/fft/fft_v.h>
 #include <gnuradio/fft/window.h>
 #include <gnuradio/filter/fft_filter_ccc.h>
 #include <gnuradio/filter/fft_filter_fff.h>
 #include <gnuradio/filter/firdes.h>
+#include <gnuradio/filter/filter_delay_fc.h>
+#include <gnuradio/filter/filterbank_vcvcf.h>
 #include <gnuradio/filter/fir_filter_blk.h>
 #include <gnuradio/filter/iir_filter_ffd.h>
 #include <gnuradio/filter/interp_fir_filter.h>
+#include <gnuradio/filter/ival_decimator.h>
 #include <gnuradio/filter/pm_remez.h>
 #include <gnuradio/filter/pfb_arb_resampler_ccf.h>
 #include <gnuradio/filter/single_pole_iir_filter_ff.h>
@@ -79,6 +98,7 @@
 #include <gnuradio/qtgui/waterfall_sink_f.h>
 #include <QBoxLayout>
 #include <QButtonGroup>
+#include <QCheckBox>
 #include <QTimer>
 #include <QComboBox>
 #include <QDial>
@@ -1186,6 +1206,95 @@ gr::digital::constellation_sptr named_constellation(const std::string& expressio
         return gr::digital::constellation_16qam::make()->base();
     throw std::runtime_error(
         "Constellation Modulator references unknown constellation object: " + value);
+}
+
+gr::digital::ted_type ted_type_from(const json& p)
+{
+    const std::string value = uppercase(
+        p.value("ted_type", std::string("digital.TED_MUELLER_AND_MULLER")));
+    if (value.find("MOD_MUELLER") != std::string::npos)
+        return gr::digital::TED_MOD_MUELLER_AND_MULLER;
+    if (value.find("MUELLER") != std::string::npos)
+        return gr::digital::TED_MUELLER_AND_MULLER;
+    if (value.find("ZERO_CROSSING") != std::string::npos)
+        return gr::digital::TED_ZERO_CROSSING;
+    if (value.find("GARDNER") != std::string::npos)
+        return gr::digital::TED_GARDNER;
+    if (value.find("EARLY_LATE") != std::string::npos)
+        return gr::digital::TED_EARLY_LATE;
+    if (value.find("DANDREA_AND_MENGALI_GEN_MSK") != std::string::npos)
+        return gr::digital::TED_DANDREA_AND_MENGALI_GEN_MSK;
+    if (value.find("MENGALI_AND_DANDREA_GMSK") != std::string::npos)
+        return gr::digital::TED_MENGALI_AND_DANDREA_GMSK;
+    if (value.find("SIGNUM_TIMES_SLOPE") != std::string::npos)
+        return gr::digital::TED_SIGNUM_TIMES_SLOPE_ML;
+    if (value.find("SIGNAL_TIMES_SLOPE") != std::string::npos)
+        return gr::digital::TED_SIGNAL_TIMES_SLOPE_ML;
+    throw std::runtime_error("Symbol Sync has an unsupported timing error detector");
+}
+
+gr::digital::ir_type resampler_type_from(const json& p)
+{
+    const std::string value = uppercase(
+        p.value("resamp_type", std::string("digital.IR_MMSE_8TAP")));
+    if (value.find("PFB_NO_MF") != std::string::npos)
+        return gr::digital::IR_PFB_NO_MF;
+    if (value.find("PFB_MF") != std::string::npos)
+        return gr::digital::IR_PFB_MF;
+    if (value.find("MMSE_8TAP") != std::string::npos)
+        return gr::digital::IR_MMSE_8TAP;
+    throw std::runtime_error("Symbol Sync has an unsupported resampler");
+}
+
+gr::digital::evm_measurement_t evm_type_from(const json& p)
+{
+    const std::string value = uppercase(
+        p.value("meas_type",
+                std::string("digital.evm_measurement_t.EVM_PERCENT")));
+    return value.find("EVM_DB") != std::string::npos
+               ? gr::digital::evm_measurement_t::EVM_DB
+               : gr::digital::evm_measurement_t::EVM_PERCENT;
+}
+
+template <typename Block>
+BuiltBlock finish_symbol_sync(const std::shared_ptr<Block>& block)
+{
+    BuiltBlock result{ block };
+    result.numeric_setters = {
+        { "loop_bw",
+          [block](double value) {
+              block->set_loop_bandwidth(static_cast<float>(value));
+          } },
+        { "damping",
+          [block](double value) {
+              block->set_damping_factor(static_cast<float>(value));
+          } },
+        { "ted_gain",
+          [block](double value) { block->set_ted_gain(static_cast<float>(value)); } },
+        { "sps",
+          [block](double value) { block->set_sps(static_cast<float>(value)); } },
+    };
+    return result;
+}
+
+template <typename Block>
+BuiltBlock make_symbol_sync(const json& p)
+{
+    auto block = Block::make(
+        ted_type_from(p),
+        static_cast<float>(number_from(p, "sps", 2.0)),
+        static_cast<float>(number_from(p, "loop_bw", 0.045)),
+        static_cast<float>(number_from(p, "damping", 1.0)),
+        static_cast<float>(number_from(p, "ted_gain", 1.0)),
+        static_cast<float>(number_from(p, "max_dev", 1.5)),
+        static_cast<int>(number_from(p, "osps", 1)),
+        named_constellation(
+            p.value("constellation",
+                    std::string("digital.constellation_bpsk().base()"))),
+        resampler_type_from(p),
+        static_cast<int>(number_from(p, "nfilters", 128)),
+        flat_sequence<float>(p, "pfb_mf_taps"));
+    return finish_symbol_sync(block);
 }
 
 gr::digital::constellation_sptr make_psk_constellation(unsigned int count,
@@ -2655,6 +2764,120 @@ BuiltBlock make_push_button(const json& p)
     return result;
 }
 
+double control_number(const json& p, const char* key, double fallback)
+{
+    auto item = p.find(key);
+    if (item == p.end() || item->is_null())
+        return fallback;
+    if (item->is_boolean())
+        return item->get<bool>() ? 1.0 : 0.0;
+    if (item->is_number())
+        return item->get<double>();
+    if (item->is_string()) {
+        const std::string value = uppercase(unquoted(item->get<std::string>()));
+        if (value == "TRUE")
+            return 1.0;
+        if (value == "FALSE")
+            return 0.0;
+        char* end = nullptr;
+        const double parsed = std::strtod(value.c_str(), &end);
+        if (end && end == value.c_str() + value.size())
+            return parsed;
+    }
+    throw std::runtime_error(std::string("QT GUI control parameter ") + key +
+                             " must be numeric or boolean");
+}
+
+BuiltBlock make_check_box(const json& p)
+{
+    const std::string type = unquoted(p.value("type", std::string("int")));
+    if (type != "real" && type != "int" && type != "bool")
+        throw std::runtime_error(
+            "QT GUI Check Box supports real, int, and bool values in WebAssembly");
+
+    const double false_value = control_number(p, "false", 0.0);
+    const double true_value = control_number(p, "true", 1.0);
+    const double initial = control_number(p, "value", true_value);
+    const bool checked =
+        std::abs(initial - true_value) <= std::abs(initial - false_value);
+    auto state = std::make_shared<ControlState>();
+    QString label = QString::fromStdString(
+        unquoted(p.value("label", std::string())));
+    if (label.isEmpty())
+        label = QString::fromStdString(p.value("__name", std::string("Check Box")));
+
+    auto* check_box = new QCheckBox(label);
+    check_box->setChecked(checked);
+    QObject::connect(check_box, &QCheckBox::toggled, check_box,
+                     [state, true_value, false_value](bool value) {
+                         state->publish(value ? true_value : false_value);
+                     });
+
+    BuiltBlock result;
+    result.widget = check_box;
+    result.is_variable = true;
+    result.variable_value = checked ? true_value : false_value;
+    result.subscribe = [state](std::function<void(double)> subscriber) {
+        state->subscribers.push_back(std::move(subscriber));
+    };
+    return result;
+}
+
+BuiltBlock make_entry(const json& p)
+{
+    const std::string type = unquoted(p.value("type", std::string("int")));
+    if (type != "real" && type != "int" && type != "bool")
+        throw std::runtime_error(
+            "QT GUI Entry supports real, int, and bool values in WebAssembly");
+    const bool integral = type == "int" || type == "bool";
+    const bool boolean = type == "bool";
+    const double requested = control_number(p, "value", 0.0);
+    const double initial =
+        boolean ? (requested != 0.0 ? 1.0 : 0.0)
+                : integral ? static_cast<double>(static_cast<long long>(requested))
+                           : requested;
+    auto state = std::make_shared<ControlState>();
+    QString label = QString::fromStdString(
+        unquoted(p.value("label", std::string())));
+    if (label.isEmpty())
+        label = QString::fromStdString(p.value("__name", std::string("Entry")));
+
+    auto* widget = new QWidget;
+    auto* layout = new QHBoxLayout(widget);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->addWidget(new QLabel(label + ": ", widget));
+    auto* entry = new QLineEdit(QString::number(initial, 'g', 12), widget);
+    layout->addWidget(entry);
+    const auto publish = [state, entry, integral, boolean, initial] {
+        bool ok = false;
+        double value = entry->text().toDouble(&ok);
+        if (!ok) {
+            entry->setText(QString::number(initial, 'g', 12));
+            return;
+        }
+        if (boolean)
+            value = value != 0.0 ? 1.0 : 0.0;
+        else if (integral)
+            value = static_cast<double>(static_cast<long long>(value));
+        entry->setText(QString::number(value, 'g', 12));
+        state->publish(value);
+    };
+    if (p.value("entry_signal", std::string("editingFinished")) ==
+        "returnPressed")
+        QObject::connect(entry, &QLineEdit::returnPressed, entry, publish);
+    else
+        QObject::connect(entry, &QLineEdit::editingFinished, entry, publish);
+
+    BuiltBlock result;
+    result.widget = widget;
+    result.is_variable = true;
+    result.variable_value = initial;
+    result.subscribe = [state](std::function<void(double)> subscriber) {
+        state->subscribers.push_back(std::move(subscriber));
+    };
+    return result;
+}
+
 } // namespace
 
 static std::map<std::string, Factory>& registry_storage() {
@@ -2671,6 +2894,12 @@ static std::map<std::string, Factory>& registry_storage() {
          }},
         {"variable_qtgui_push_button", [](const json& p) -> BuiltBlock {
              return make_push_button(p);
+         }},
+        {"variable_qtgui_check_box", [](const json& p) -> BuiltBlock {
+             return make_check_box(p);
+         }},
+        {"variable_qtgui_entry", [](const json& p) -> BuiltBlock {
+             return make_entry(p);
          }},
         // ---- sources ----
         {"analog_sig_source_x", [](const json& p) -> BuiltBlock {
@@ -2889,6 +3118,147 @@ static std::map<std::string, Factory>& registry_storage() {
         {"blocks_null_source", [](const json& p) -> BuiltBlock {
              return { gr::blocks::null_source::make(itemsize_of(p)), nullptr };
          }},
+        {"blocks_correctiq", [](const json&) -> BuiltBlock {
+             return { gr::blocks::correctiq::make(), nullptr };
+         }},
+        {"blocks_correctiq_auto", [](const json& p) -> BuiltBlock {
+             auto block = gr::blocks::correctiq_auto::make(
+                 number_from(p, "samp_rate", 32000.0),
+                 number_from(p, "freq", 0.0),
+                 static_cast<float>(number_from(p, "gain", 0.0)),
+                 static_cast<float>(number_from(p, "syncWindow", 2.0)));
+             BuiltBlock result{ block };
+             result.numeric_setters = {
+                 { "freq", [block](double value) { block->set_freq(value); } },
+                 { "gain",
+                   [block](double value) {
+                       block->set_gain(static_cast<float>(value));
+                   } },
+             };
+             return result;
+         }},
+        {"blocks_correctiq_man", [](const json& p) -> BuiltBlock {
+             auto block = gr::blocks::correctiq_man::make(
+                 static_cast<float>(number_from(p, "real", 0.0)),
+                 static_cast<float>(number_from(p, "imag", 0.0)));
+             BuiltBlock result{ block };
+             result.numeric_setters = {
+                 { "real",
+                   [block](double value) {
+                       block->set_real(static_cast<float>(value));
+                   } },
+                 { "imag",
+                   [block](double value) {
+                       block->set_imag(static_cast<float>(value));
+                   } },
+             };
+             return result;
+         }},
+        {"blocks_freqshift_cc", [](const json& p) -> BuiltBlock {
+             const double sample_rate = number_from(p, "sample_rate", 32000.0);
+             if (sample_rate == 0.0)
+                 throw std::runtime_error("Frequency Shift sample rate must be nonzero");
+             const auto phase_increment = [sample_rate](double frequency) {
+                 return 2.0 * PI * frequency / sample_rate;
+             };
+             auto block = gr::blocks::rotator_cc::make(
+                 phase_increment(number_from(p, "freq", 0.0)), false);
+             BuiltBlock result{ block };
+             result.numeric_setters["freq"] =
+                 [block, phase_increment](double value) {
+                     block->set_phase_inc(phase_increment(value));
+                 };
+             return result;
+         }},
+        {"blocks_phase_shift", [](const json& p) -> BuiltBlock {
+             auto block = gr::blocks::phase_shift::make(
+                 static_cast<float>(number_from(p, "shift", 0.0)),
+                 bool_from(p, "is_radians", true));
+             BuiltBlock result{ block };
+             result.numeric_setters["shift"] =
+                 [block](double value) {
+                     block->set_shift(static_cast<float>(value));
+                 };
+             return result;
+         }},
+        {"blocks_swapiq", [](const json& p) -> BuiltBlock {
+             const std::string type =
+                 unquoted(p.value("datatype", std::string("complex")));
+             if (type == "complex")
+                 return { gr::blocks::swap_iq::make(
+                              1, static_cast<int>(sizeof(gr_complex))),
+                          nullptr };
+             if (type == "short")
+                 return { gr::blocks::swap_iq::make(
+                              2, static_cast<int>(sizeof(std::int16_t))),
+                          nullptr };
+             if (type == "byte")
+                 return { gr::blocks::swap_iq::make(
+                              3, static_cast<int>(sizeof(std::int8_t))),
+                          nullptr };
+             throw std::runtime_error("Swap IQ type must be complex, short, or byte");
+         }},
+        {"filter_delay_fc", [](const json& p) -> BuiltBlock {
+             return { gr::filter::filter_delay_fc::make(
+                          flat_sequence<float>(p, "taps")),
+                      nullptr };
+         }},
+        {"filterbank_vcvcf", [](const json& p) -> BuiltBlock {
+             return { gr::filter::filterbank_vcvcf::make(
+                          nested_sequence<float>(p, "taps", {})),
+                      nullptr };
+         }},
+        {"ival_decimator", [](const json& p) -> BuiltBlock {
+             const std::string type =
+                 unquoted(p.value("datatype", std::string("byte")));
+             const int item_size =
+                 type == "byte" ? static_cast<int>(sizeof(std::int8_t))
+                                : type == "short"
+                                      ? static_cast<int>(sizeof(std::int16_t))
+                                      : 0;
+             if (item_size == 0)
+                 throw std::runtime_error(
+                     "Interleaved Stream Decimator type must be byte or short");
+             return { gr::filter::ival_decimator::make(
+                          static_cast<int>(number_from(p, "decimation", 1)),
+                          item_size),
+                      nullptr };
+         }},
+        {"fec_ber_bf", [](const json& p) -> BuiltBlock {
+             return { gr::fec::ber_bf::make(
+                          bool_from(p, "test_mode", false),
+                          static_cast<int>(number_from(p, "berminerrors", 100)),
+                          static_cast<float>(number_from(p, "berlimit", -7.0))),
+                      nullptr };
+         }},
+        {"fec_encode_ccsds_27_bb", [](const json&) -> BuiltBlock {
+             return { gr::fec::encode_ccsds_27_bb::make(), nullptr };
+         }},
+        {"fec_decode_ccsds_27_fb", [](const json&) -> BuiltBlock {
+             return { gr::fec::decode_ccsds_27_fb::make(), nullptr };
+         }},
+        {"fec_depuncture_bb", [](const json& p) -> BuiltBlock {
+             return { gr::fec::depuncture_bb::make(
+                          static_cast<int>(number_from(p, "puncsize", 2)),
+                          static_cast<int>(number_from(p, "puncpat", 3)),
+                          static_cast<int>(number_from(p, "delay", 0)),
+                          static_cast<std::uint8_t>(number_from(p, "sym", 127))),
+                      nullptr };
+         }},
+        {"fec_puncture_xx", [](const json& p) -> BuiltBlock {
+             const int size = static_cast<int>(number_from(p, "puncsize", 2));
+             const int pattern = static_cast<int>(number_from(p, "puncpat", 3));
+             const int delay = static_cast<int>(number_from(p, "delay", 0));
+             const std::string type =
+                 unquoted(p.value("type", std::string("byte")));
+             if (type == "byte")
+                 return { gr::fec::puncture_bb::make(size, pattern, delay),
+                          nullptr };
+             if (type == "float")
+                 return { gr::fec::puncture_ff::make(size, pattern, delay),
+                          nullptr };
+             throw std::runtime_error("Puncture type must be byte or float");
+         }},
         {"variable_constellation", [](const json& p) -> BuiltBlock {
              const std::string name = p.value("__name", std::string());
              if (name.empty())
@@ -2954,6 +3324,68 @@ static std::map<std::string, Factory>& registry_storage() {
              }
              runtime_constellations()[name] = std::move(object);
              return {};
+         }},
+        {"digital_constellation_decoder_cb", [](const json& p) -> BuiltBlock {
+             return { gr::digital::constellation_decoder_cb::make(
+                          named_constellation(
+                              p.value("constellation", std::string()))),
+                      nullptr };
+         }},
+        {"digital_constellation_encoder_bc", [](const json& p) -> BuiltBlock {
+             return { gr::digital::constellation_encoder_bc::make(
+                          named_constellation(
+                              p.value("constellation", std::string()))),
+                      nullptr };
+         }},
+        {"digital_constellation_receiver_cb", [](const json& p) -> BuiltBlock {
+             auto block = gr::digital::constellation_receiver_cb::make(
+                 named_constellation(p.value("constellation", std::string())),
+                 static_cast<float>(number_from(p, "loop_bw", 2.0 * PI / 100.0)),
+                 static_cast<float>(number_from(p, "fmin", -0.25)),
+                 static_cast<float>(number_from(p, "fmax", 0.25)));
+             BuiltBlock result{ block };
+             result.numeric_setters = {
+                 { "loop_bw",
+                   [block](double value) {
+                       block->set_loop_bandwidth(static_cast<float>(value));
+                   } },
+                 { "fmin",
+                   [block](double value) {
+                       block->set_min_freq(static_cast<float>(value));
+                   } },
+                 { "fmax",
+                   [block](double value) {
+                       block->set_max_freq(static_cast<float>(value));
+                   } },
+             };
+             return result;
+         }},
+        {"digital_constellation_soft_decoder_cf",
+         [](const json& p) -> BuiltBlock {
+             auto block = gr::digital::constellation_soft_decoder_cf::make(
+                 named_constellation(p.value("constellation", std::string())),
+                 static_cast<float>(number_from(p, "npwr", -1.0)));
+             BuiltBlock result{ block };
+             result.numeric_setters["npwr"] =
+                 [block](double value) {
+                     block->set_npwr(static_cast<float>(value));
+                 };
+             return result;
+         }},
+        {"digital_meas_evm_cc", [](const json& p) -> BuiltBlock {
+             return { gr::digital::meas_evm_cc::make(
+                          named_constellation(p.value("cons", std::string())),
+                          evm_type_from(p)),
+                      nullptr };
+         }},
+        {"digital_symbol_sync_xx", [](const json& p) -> BuiltBlock {
+             const std::string type =
+                 unquoted(p.value("type", std::string("cc")));
+             if (type == "cc" || type == "complex")
+                 return make_symbol_sync<gr::digital::symbol_sync_cc>(p);
+             if (type == "ff" || type == "float")
+                 return make_symbol_sync<gr::digital::symbol_sync_ff>(p);
+             throw std::runtime_error("Symbol Sync type must be cc or ff");
          }},
         {"digital_constellation_modulator", [](const json& p) -> BuiltBlock {
              const std::string constellation =

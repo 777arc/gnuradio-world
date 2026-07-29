@@ -24,7 +24,9 @@ using nlohmann::json;
 inline bool is_variable_control(const std::string& id) {
     return id == "variable_qtgui_range" ||
            id == "variable_qtgui_chooser" ||
-           id == "variable_qtgui_push_button";
+           id == "variable_qtgui_push_button" ||
+           id == "variable_qtgui_check_box" ||
+           id == "variable_qtgui_entry";
 }
 
 // A GRC scalar (int/string) rendered as a string, for connection port tokens.
