@@ -1,8 +1,10 @@
 # AGENTS.md
 
-Guide for AI agents working in this repository. It is the only top-level doc:
-build instructions, architecture, per-task checklists, and the non-obvious
-constraints that make the WASM build work. `CLAUDE.md` is a symlink to this file.
+Guide for AI agents working in this repository: build instructions, architecture,
+per-task checklists, and the non-obvious constraints that make the WASM build
+work. Everything developer-facing lives here — `README.md` is a short
+user-facing pitch that points back to this file, and `CLAUDE.md` is a symlink to
+it.
 
 ## Project overview
 
@@ -89,9 +91,13 @@ node server.mjs 8090 "$PWD"
 | `runner/` | the JSON-driven WASM flowgraph runner, generated C++ registry, and support manifest |
 | `editor/` | the TypeScript flowgraph editor |
 | `tools/` | `generate_cpp.py` (host-side GRC → C++ generation, optional) |
-| `server.mjs` | COOP/COEP static dev server (needed for SharedArrayBuffer / pthreads) |
-| `test/` | `test_smoke.mjs` (runs example flowgraphs headlessly and asserts samples actually move) and `test_lazy_scenarios.mjs` (verifies on-demand category side modules are fetched and `dlopen`'d); CI gates the deploy on both |
-| `scripts/` | `assemble-site.mjs` (assembles the static site CI deploys to Pages), `serve_site.mjs` (serves an assembled site the way Cloudflare Pages does), `run.mjs` (headless-Chromium test harness, waits on a page `#result`) |
+| `blocks/grc/` | `.block.yml` for runner-only blocks with no upstream GNU Radio equivalent (`wasm_packet_rate_sink`); read by *both* `gen_registry.py` and `gen_blocklib.py` alongside GNU Radio's own yaml |
+| `docs/` | `double-mapped-buffer.md` (the emulated vmcircbuf) and `diagnostics.md` (the runner's `__grstats` snapshot and debug panel, which the smoke test asserts against) |
+| `example_flowgraphs/` | the `.grc` files the editor's "Example Flowgraphs" palette tab lists (drop one in and it shows up); several are also smoke-test cases |
+| `example_recordings/` | SigMF recordings offered in the editor. Only the small `.sigmf-meta` sidecars are committed; `.sigmf-data` is git-ignored, so `assemble-site.mjs` builds the manifest from the metadata and points each recording either at Pages (data file present and under Cloudflare's 25 MiB/file cap) or at Cloudflare R2 (`RECORDINGS_R2_BASE` repo variable; bucket CORS in `scripts/r2-cors.json`), omitting any recording it can find neither way |
+| `server.mjs` | COOP/COEP static dev server (needed for SharedArrayBuffer / pthreads); serves the repo root, falls back to `editor/dist/` for `/`, mounts the built IQEngine client at `/iqengine/`, and synthesizes the `/example_flowgraphs` and `/example_recordings` listings the editor's tabs fetch |
+| `test/` | `test_smoke.mjs` (runs example flowgraphs headlessly and asserts samples actually move) and `test_lazy_scenarios.mjs` (verifies on-demand category side modules are fetched and `dlopen`'d), plus the `fixtures/` `.grc` they load; CI gates the deploy on both. `editor/test/` and `runner/test/` hold their own suites — see "Run and test" |
+| `scripts/` | `assemble-site.mjs` (assembles the static site CI deploys to Pages), `serve_site.mjs` (serves an assembled site the way Cloudflare Pages does), `run.mjs` (headless-Chromium test harness, waits on a page `#result`), `r2-cors.json` (CORS policy for the recordings bucket) |
 | `iqengine/` | IQEngine as a git submodule; its client is built to `/iqengine/` on the site, so each SigMF recording in the editor gets an "open in IQEngine" link into its spectrogram view (via IQEngine's `url` data source, which reads the `.sigmf-meta`/`.sigmf-data` pair straight off their URLs) |
 
 ## Toolchain and prerequisites
@@ -275,6 +281,30 @@ node scripts/run.mjs /runner/build/runner.html RUNNER_PASS
 - `scripts/run.mjs` is the headless Chromium harness and waits for a page
   `#result`.
 
+Both browser tests start their own COOP/COEP server on a private port, so they
+need no `server.mjs` running; `scripts/run.mjs` does (port 8090 by default, hence
+the server command above). `npm test` at the repository root runs the two of them.
+
+Two more suites exist and are *not* run by CI — run them by hand when you touch
+the code they cover:
+
+```bash
+(cd editor && npm test)                       # 11 node tests: shortcuts, selection, grid,
+                                              # canvas scroll, validation, time sink, expr,
+                                              # .grc round-trip, recordings, contribute,
+                                              # block categories. No browser, no WASM build.
+(cd runner/test && g++ -std=c++17 -I../src grc_test.cpp -o grc_test && ./grc_test)
+```
+
+`editor/test` covers editor logic (`expr.ts`, `grc.ts`, selection/grid geometry)
+that the smoke test cannot reach, including byte-exact `.grc` formatting — run it
+after any change under `editor/src`. `runner/test/grc_test.cpp` is a host-compiled
+regression test for the runner's `.grc` parser and lowering (`grc_yaml.hpp`,
+`grc_lower.hpp`); those headers are deliberately GNU-Radio-free so it builds with a
+plain host compiler in a second, with no Emscripten involved. `runner/test/` also
+holds a few hand-written `.grc` fixtures (analog/digital hierarchies, OFDM RX) for
+loading in the runner by hand; nothing runs them automatically.
+
 For a fast out-of-tree module compile loop:
 
 ```bash
@@ -422,9 +452,15 @@ copy that block's `cpp_templates` verbatim (gr-dvbs2's blocks ≈ gr-dtv's
     lists — **keep the three index-aligned** (they pair positionally).
 
 **4. Handle host-only deps** so the desktop build stays intact:
-  - Guard the offending code with `#ifdef __EMSCRIPTEN__` and provide a
-    browser-safe replacement (gr-rds's one Boost.Locale call → an inline
-    ISO-8859-2 conversion), **or**
+  - If the submodule is on a WASM branch you control, guard the offending code
+    with `#ifdef __EMSCRIPTEN__` and provide a browser-safe replacement, **or**
+  - if the submodule must stay pristine, satisfy the dependency from a
+    runner-owned shim include directory instead of touching the source: gr-rds
+    calls `boost::locale::conv::to_utf` once, to convert RadioText from
+    ISO-8859-2, and Boost.Locale is not in the WASM sysroot, so
+    [`runner/src/rds_wasm_shims/boost/locale.hpp`](runner/src/rds_wasm_shims/boost/locale.hpp)
+    implements exactly that one call inline and the rds side-module rule
+    prepends `-I${RDS_WASM_SHIMS}` ahead of the normal include flags, **or**
   - if it's already behind a feature macro, just leave that undefined (gr-foo's
     UHD `tx_time` tagging under `#ifdef FOO_UHD`), **or**
   - if a whole block is unusable in the browser (host networking, etc.), drop its
@@ -436,11 +472,12 @@ copy that block's `cpp_templates` verbatim (gr-dvbs2's blocks ≈ gr-dtv's
     (slower, still correct). Don't add `-msimd128`/`-msse4.1`.
 
 **5. Supply an empty `config.h`** if the impls include the file generated by the
-module's own CMake. Put it on the submodule's WASM branch, or keep it in a
-runner-owned shim include directory like
-[`runner/src/rds_wasm_shims/`](runner/src/rds_wasm_shims/) for a pristine
-upstream checkout. (Any real per-module constants header that ships in the repo,
-e.g. `dvbs2_config.h`, is used as-is.)
+module's own CMake. Put it on the submodule's WASM branch, or keep it in the same
+runner-owned shim include directory as step 4 —
+[`runner/src/rds_wasm_shims/`](runner/src/rds_wasm_shims/) holds both gr-rds's
+`config.h` and its `boost/locale.hpp` replacement, which is what lets that
+submodule stay pinned to pristine upstream. (Any real per-module constants header
+that ships in the repo, e.g. `dvbs2_config.h`, is used as-is.)
 
 **6. Register and wire the build:**
   - [`runner/gen_registry.py`](runner/gen_registry.py): add `"gr-<m>"` to
@@ -455,7 +492,7 @@ e.g. `dvbs2_config.h`, is used as-is.)
 
 **7. Generate, compile-check, build, verify:**
 ```bash
-python3 runner/gen_registry.py                      # expect "<m>=N", skipped {}
+python3 runner/gen_registry.py                      # expect "<m>=N" in the deferred list, and no new skips
 source ~/emsdk/emsdk_env.sh                          # emsdk 3.1.70 on PATH
 cmake --build runner/build --target side_modules    # FAST: builds <m>.wasm only, no main relink
 python3 editor/gen/gen_blocklib.py editor/public/blocks.json
@@ -465,6 +502,13 @@ python3 editor/gen/gen_blocklib.py editor/public/blocks.json
 The `side_modules` target is the fast inner loop for iterating on `cpp_templates`
 / source fixes; only do the full `cmake --build build` (which relinks the ~18 MB
 main module) once the side module compiles clean.
+
+`gen_registry.py` ends with one summary line — `generated core=N (+M custom);
+deferred: digital=38, dtv=52, …; skipped K`. `skipped` is a *count*, not a list,
+and it is never zero: the in-tree blocks needing a typed GRC companion object are
+permanently skipped (see `generated_blocks.json`'s `skipped` map for the names and
+reasons). What matters is that your module appears in the deferred list with the
+block count you expect and that `K` does not grow.
 
 **8. Smoke-test headless** — build a tiny `.grc` that forces the module to load
 and construct a block, then expect `RESULT: RUNNER_PASS`:
@@ -539,8 +583,30 @@ chain.
 - `gnuradio-runtime/lib/CMakeLists.txt` — libunwind made optional.
 - `gnuradio-runtime/lib/pmt/CMakeLists.txt`, `gr-fft`, `gr-blocks`, `gr-analog`
   `lib/CMakeLists.txt` — register libs for install/export in static builds too.
+- `gnuradio-runtime/lib/vmcircbuf.cc` — `__EMSCRIPTEN__` branch that returns the
+  `vmcircbuf_emulated` factory directly instead of probing the mmap /
+  shared-memory / temp-file backends, none of which can work in one flat linear
+  memory (`all_factories()` is narrowed the same way).
 - `gr-fft/lib/fft.cc` — use `FFTW_ESTIMATE` under WASM (`FFTW_MEASURE`
   benchmarking hangs there).
+
+gr-qtgui is not built by `gr/build-gr` (`ENABLE_GR_QTGUI=OFF`) — `qtgui/`
+compiles its sources against Qt 6 instead — but they carry WASM guards too, all
+`#ifdef __EMSCRIPTEN__`:
+
+- `gr-qtgui/lib/displayform.cc`, `include/gnuradio/qtgui/form_menus.h` — the
+  context menu and its dialogs use `popup()`/`open()` rather than `exec()`.
+  `exec()` runs a nested event loop, which cannot block the browser main thread in
+  a non-Asyncify build. The screenshot dialog keeps the captured pixmap alive and
+  saves it from the dialog's accepted signal instead of after `exec()` returns.
+- `gr-qtgui/lib/time_sink_c_impl.cc`, `time_sink_f_impl.cc` — drop an already
+  queued update event before posting a new one, so a display that paints slower
+  than the flowgraph produces shows the newest frame instead of accumulating
+  latency.
+- `gr-qtgui/lib/TimeDomainDisplayPlot.cc`, its header — `QwtPlotCanvas::ImmediatePaint`
+  plus antialiasing off and `FilterPointsAggressive` on the curves; Qwt's backing
+  pixmap and Qt's antialiased polyline rasterizer are both disproportionately
+  expensive on the browser canvas.
 
 Build with `-DCMAKE_DISABLE_FIND_PACKAGE_libunwind=ON`. The WASM runtime selects
 `vmcircbuf_emulated`: a contiguous 2N-byte software mirror that preserves the

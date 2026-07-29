@@ -5,10 +5,10 @@ GNU Radio entirely in your browser, ready to play with, nothing to install!
 - Includes popular out-of-tree modules (OOTs)
 - Many example flowgraphs
 - Example IQ recordings of signals to test them with
-- Submit your own example flowgraphs and recordings
 - On-demand fetching of WebAssembly modules and IQ recordings, to keep the load time short
 - Identical .grc flowgraph files as the native version
-- Share flowgraphs you create via URL only
+- Share flowgraphs you create entirely via URL
+- Submit your own example flowgraphs and recordings
 
 ## Limitations
 
@@ -20,3 +20,5 @@ GNU Radio entirely in your browser, ready to play with, nothing to install!
 ## Software stack and developers info
 
 See [AGENTS.md](AGENTS.md)
+
+Example recordings are currently stored in a Cloudflare R2 bucket, but that may change in the future.

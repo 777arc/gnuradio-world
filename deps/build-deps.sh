@@ -6,7 +6,7 @@
 #
 # Sources must already be under deps/src -- run deps/fetch-deps.sh first.
 # Qwt is cross-built with the host qmake pointed at the wasm Qt, so QT_HOST and
-# QT_WASM must be set (see README.md).
+# QT_WASM must be set (see AGENTS.md).
 #
 #   bash deps/fetch-deps.sh && bash deps/build-deps.sh
 #
