@@ -2124,17 +2124,21 @@ function stop() {
 // ---- Palette ----
 // ---- GRC-style block tree (collapsible categories + search) ----
 interface LibraryBlock { id: string; label: string; runnable: boolean; unavailableReason?: string; module: string }
-interface Cat { name: string; path: string; subs: Map<string, Cat>; blocks: LibraryBlock[] }
+interface Cat { name: string; subs: Map<string, Cat>; blocks: LibraryBlock[] }
 
 function buildTree(blocks: any[]): Cat {
-  const root: Cat = { name: '', path: '', subs: new Map(), blocks: [] };
+  const root: Cat = { name: '', subs: new Map(), blocks: [] };
   for (const b of blocks) {
-    const parts = String(b.category || 'Other').split('/').filter(Boolean);
-    let node = root, path = '';
+    // Generated metadata uses an array so a literal slash in a native category
+    // name (for example "Industrial I/O") is not mistaken for tree nesting.
+    // Accept the old string form as well for compatibility with stale metadata.
+    const category = b.category || ['Other'];
+    const parts = (Array.isArray(category) ? category : String(category).split('/'))
+      .map(String).filter(Boolean);
+    let node = root;
     for (const part of parts) {
-      path = path ? path + '/' + part : part;
       let sub = node.subs.get(part);
-      if (!sub) { sub = { name: part, path, subs: new Map(), blocks: [] }; node.subs.set(part, sub); }
+      if (!sub) { sub = { name: part, subs: new Map(), blocks: [] }; node.subs.set(part, sub); }
       node = sub;
     }
     node.blocks.push({

@@ -3,7 +3,10 @@
   {
    "id": "import_",
    "label": "Import",
-   "category": "Core/Other",
+   "category": [
+    "Core",
+    "Other"
+   ],
    "flags": [
     "python"
    ],
@@ -29,7 +32,10 @@
   {
    "id": "json_config",
    "label": "JSON Config",
-   "category": "Core/Variables",
+   "category": [
+    "Core",
+    "Variables"
+   ],
    "flags": [
     "show_id",
     "python"
@@ -67,7 +73,10 @@
   {
    "id": "note",
    "label": "Note",
-   "category": "Core/Misc",
+   "category": [
+    "Core",
+    "Misc"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -94,7 +103,10 @@
   {
    "id": "options",
    "label": "Options",
-   "category": "Core/Misc",
+   "category": [
+    "Core",
+    "Misc"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -176,7 +188,10 @@
   {
    "id": "pad_sink",
    "label": "Pad Sink",
-   "category": "Core/Misc",
+   "category": [
+    "Core",
+    "Misc"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -301,7 +316,10 @@
   {
    "id": "pad_source",
    "label": "Pad Source",
-   "category": "Core/Misc",
+   "category": [
+    "Core",
+    "Misc"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -426,7 +444,10 @@
   {
    "id": "parameter",
    "label": "Parameter",
-   "category": "Core/Variables",
+   "category": [
+    "Core",
+    "Variables"
+   ],
    "flags": [
     "show_id",
     "python",
@@ -527,7 +548,10 @@
   {
    "id": "snippet",
    "label": "Python Snippet",
-   "category": "Core/Misc",
+   "category": [
+    "Core",
+    "Misc"
+   ],
    "flags": [
     "python"
    ],
@@ -585,7 +609,10 @@
   {
    "id": "variable",
    "label": "Variable",
-   "category": "Core/Variables",
+   "category": [
+    "Core",
+    "Variables"
+   ],
    "flags": [
     "show_id",
     "python",
@@ -613,7 +640,10 @@
   {
    "id": "variable_config",
    "label": "Variable Config",
-   "category": "Core/Variables",
+   "category": [
+    "Core",
+    "Variables"
+   ],
    "flags": [
     "show_id",
     "python"
@@ -712,7 +742,10 @@
   {
    "id": "variable_function_probe",
    "label": "Function Probe",
-   "category": "Core/Variables",
+   "category": [
+    "Core",
+    "Variables"
+   ],
    "flags": [
     "show_id",
     "python"
@@ -783,7 +816,10 @@
   {
    "id": "yaml_config",
    "label": "YAML Config",
-   "category": "Core/Variables",
+   "category": [
+    "Core",
+    "Variables"
+   ],
    "flags": [
     "show_id",
     "python"
@@ -821,7 +857,10 @@
   {
    "id": "analog_agc2_xx",
    "label": "AGC2",
-   "category": "Core/Level Controllers",
+   "category": [
+    "Core",
+    "Level Controllers"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -929,7 +968,10 @@
   {
    "id": "analog_agc3_xx",
    "label": "AGC3",
-   "category": "Core/Level Controllers",
+   "category": [
+    "Core",
+    "Level Controllers"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -1046,7 +1088,10 @@
   {
    "id": "analog_agc_xx",
    "label": "AGC",
-   "category": "Core/Level Controllers",
+   "category": [
+    "Core",
+    "Level Controllers"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -1143,7 +1188,10 @@
   {
    "id": "analog_am_demod_cf",
    "label": "AM Demod",
-   "category": "Core/Modulators",
+   "category": [
+    "Core",
+    "Modulators"
+   ],
    "flags": [
     "python"
    ],
@@ -1220,7 +1268,10 @@
   {
    "id": "analog_const_source_x",
    "label": "Constant Source",
-   "category": "Core/Waveform Generators",
+   "category": [
+    "Core",
+    "Waveform Generators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -1288,7 +1339,10 @@
   {
    "id": "analog_cpfsk_bc",
    "label": "CPFSK",
-   "category": "Core/Deprecated",
+   "category": [
+    "Core",
+    "Deprecated"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -1355,7 +1409,10 @@
   {
    "id": "analog_ctcss_squelch_ff",
    "label": "CTCSS Squelch",
-   "category": "Core/Level Controllers",
+   "category": [
+    "Core",
+    "Level Controllers"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -1455,7 +1512,10 @@
   {
    "id": "analog_dpll_bb",
    "label": "Detect Peak",
-   "category": "Core/Peak Detectors",
+   "category": [
+    "Core",
+    "Peak Detectors"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -1511,7 +1571,10 @@
   {
    "id": "analog_fastnoise_source_x",
    "label": "Fast Noise Source",
-   "category": "Core/Waveform Generators",
+   "category": [
+    "Core",
+    "Waveform Generators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -1613,7 +1676,10 @@
   {
    "id": "analog_feedforward_agc_cc",
    "label": "Feed Forward AGC",
-   "category": "Core/Level Controllers",
+   "category": [
+    "Core",
+    "Level Controllers"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -1669,7 +1735,10 @@
   {
    "id": "analog_fm_deemph",
    "label": "FM Deemphasis",
-   "category": "Core/Modulators",
+   "category": [
+    "Core",
+    "Modulators"
+   ],
    "flags": [
     "python"
    ],
@@ -1724,7 +1793,10 @@
   {
    "id": "analog_fm_demod_cf",
    "label": "FM Demod",
-   "category": "Core/Modulators",
+   "category": [
+    "Core",
+    "Modulators"
+   ],
    "flags": [
     "python"
    ],
@@ -1834,7 +1906,10 @@
   {
    "id": "analog_fm_preemph",
    "label": "FM Preemphasis",
-   "category": "Core/Modulators",
+   "category": [
+    "Core",
+    "Modulators"
+   ],
    "flags": [
     "python"
    ],
@@ -1900,7 +1975,10 @@
   {
    "id": "analog_fmdet_cf",
    "label": "FM Detector",
-   "category": "Core/Other",
+   "category": [
+    "Core",
+    "Other"
+   ],
    "flags": [
     "python"
    ],
@@ -1977,7 +2055,10 @@
   {
    "id": "analog_frequency_modulator_fc",
    "label": "Frequency Mod",
-   "category": "Core/Modulators",
+   "category": [
+    "Core",
+    "Modulators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -2022,7 +2103,10 @@
   {
    "id": "analog_nbfm_rx",
    "label": "NBFM Receive",
-   "category": "Core/Modulators",
+   "category": [
+    "Core",
+    "Modulators"
+   ],
    "flags": [
     "python"
    ],
@@ -2099,7 +2183,10 @@
   {
    "id": "analog_nbfm_tx",
    "label": "NBFM Transmit",
-   "category": "Core/Modulators",
+   "category": [
+    "Core",
+    "Modulators"
+   ],
    "flags": [
     "python"
    ],
@@ -2187,7 +2274,10 @@
   {
    "id": "analog_noise_source_x",
    "label": "Noise Source",
-   "category": "Core/Waveform Generators",
+   "category": [
+    "Core",
+    "Waveform Generators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -2278,7 +2368,10 @@
   {
    "id": "analog_phase_modulator_fc",
    "label": "Phase Mod",
-   "category": "Core/Modulators",
+   "category": [
+    "Core",
+    "Modulators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -2323,7 +2416,10 @@
   {
    "id": "analog_pll_carriertracking_cc",
    "label": "PLL Carrier Tracking",
-   "category": "Core/Synchronizers",
+   "category": [
+    "Core",
+    "Synchronizers"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -2390,7 +2486,10 @@
   {
    "id": "analog_pll_freqdet_cf",
    "label": "PLL Frequency Detector",
-   "category": "Core/Synchronizers",
+   "category": [
+    "Core",
+    "Synchronizers"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -2457,7 +2556,10 @@
   {
    "id": "analog_pll_refout_cc",
    "label": "PLL Carrier Regeneration",
-   "category": "Core/Synchronizers",
+   "category": [
+    "Core",
+    "Synchronizers"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -2524,7 +2626,10 @@
   {
    "id": "analog_probe_avg_mag_sqrd_x",
    "label": "Probe Avg Mag^2",
-   "category": "Core/Measurement Tools",
+   "category": [
+    "Core",
+    "Measurement Tools"
+   ],
    "flags": [
     "python"
    ],
@@ -2614,7 +2719,10 @@
   {
    "id": "analog_pwr_squelch_xx",
    "label": "Power Squelch",
-   "category": "Core/Level Controllers",
+   "category": [
+    "Core",
+    "Level Controllers"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -2717,7 +2825,10 @@
   {
    "id": "analog_quadrature_demod_cf",
    "label": "Quadrature Demod",
-   "category": "Core/Modulators",
+   "category": [
+    "Core",
+    "Modulators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -2762,7 +2873,10 @@
   {
    "id": "analog_rail_ff",
    "label": "Rail",
-   "category": "Core/Level Controllers",
+   "category": [
+    "Core",
+    "Level Controllers"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -2818,7 +2932,10 @@
   {
    "id": "analog_random_source_x",
    "label": "Random Source",
-   "category": "Core/Waveform Generators",
+   "category": [
+    "Core",
+    "Waveform Generators"
+   ],
    "flags": [
     "python"
    ],
@@ -2913,7 +3030,10 @@
   {
    "id": "analog_random_uniform_source_x",
    "label": "Random Uniform Source",
-   "category": "Core/Waveform Generators",
+   "category": [
+    "Core",
+    "Waveform Generators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -2997,7 +3117,10 @@
   {
    "id": "analog_sig_source_x",
    "label": "Signal Source",
-   "category": "Core/Waveform Generators",
+   "category": [
+    "Core",
+    "Waveform Generators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -3160,7 +3283,10 @@
   {
    "id": "analog_simple_squelch_cc",
    "label": "Simple Squelch",
-   "category": "Core/Level Controllers",
+   "category": [
+    "Core",
+    "Level Controllers"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -3216,7 +3342,10 @@
   {
    "id": "analog_standard_squelch",
    "label": "Standard Squelch",
-   "category": "Core/Level Controllers",
+   "category": [
+    "Core",
+    "Level Controllers"
+   ],
    "flags": [
     "python"
    ],
@@ -3271,7 +3400,10 @@
   {
    "id": "analog_wfm_rcv",
    "label": "WBFM Receive",
-   "category": "Core/Modulators",
+   "category": [
+    "Core",
+    "Modulators"
+   ],
    "flags": [
     "python"
    ],
@@ -3337,7 +3469,10 @@
   {
    "id": "analog_wfm_rcv_pll",
    "label": "WBFM Receive PLL",
-   "category": "Core/Modulators",
+   "category": [
+    "Core",
+    "Modulators"
+   ],
    "flags": [
     "python"
    ],
@@ -3411,7 +3546,10 @@
   {
    "id": "analog_wfm_tx",
    "label": "WBFM Transmit",
-   "category": "Core/Modulators",
+   "category": [
+    "Core",
+    "Modulators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -3500,7 +3638,10 @@
   {
    "id": "audio_sink",
    "label": "Audio Sink",
-   "category": "Core/Audio",
+   "category": [
+    "Core",
+    "Audio"
+   ],
    "flags": [
     "throttle",
     "python",
@@ -3594,7 +3735,10 @@
   {
    "id": "audio_source",
    "label": "Audio Source",
-   "category": "Core/Audio",
+   "category": [
+    "Core",
+    "Audio"
+   ],
    "flags": [
     "throttle",
     "python",
@@ -3688,7 +3832,10 @@
   {
    "id": "blocks_abs_xx",
    "label": "Abs",
-   "category": "Core/Math Operators",
+   "category": [
+    "Core",
+    "Math Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -3754,7 +3901,10 @@
   {
    "id": "blocks_add_const_vxx",
    "label": "Add Const",
-   "category": "Core/Math Operators",
+   "category": [
+    "Core",
+    "Math Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -3849,7 +3999,10 @@
   {
    "id": "blocks_add_xx",
    "label": "Add",
-   "category": "Core/Math Operators",
+   "category": [
+    "Core",
+    "Math Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -3928,7 +4081,10 @@
   {
    "id": "blocks_and_const_xx",
    "label": "And Const",
-   "category": "Core/Boolean Operators",
+   "category": [
+    "Core",
+    "Boolean Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -3994,7 +4150,10 @@
   {
    "id": "blocks_and_xx",
    "label": "And",
-   "category": "Core/Boolean Operators",
+   "category": [
+    "Core",
+    "Boolean Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -4060,7 +4219,10 @@
   {
    "id": "blocks_argmax_xx",
    "label": "Argmax",
-   "category": "Core/Math Operators",
+   "category": [
+    "Core",
+    "Math Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -4145,7 +4307,10 @@
   {
    "id": "blocks_blockinterleaver_xx",
    "label": "Block interleaver",
-   "category": "Core/Stream Operators",
+   "category": [
+    "Core",
+    "Stream Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -4245,7 +4410,10 @@
   {
    "id": "blocks_burst_tagger",
    "label": "Burst Tagger",
-   "category": "Core/Peak Detectors",
+   "category": [
+    "Core",
+    "Peak Detectors"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -4356,7 +4524,10 @@
   {
    "id": "blocks_burst_to_stream",
    "label": "Burst to Stream",
-   "category": "Core/Stream Tag Tools",
+   "category": [
+    "Core",
+    "Stream Tag Tools"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -4454,7 +4625,10 @@
   {
    "id": "blocks_char_to_float",
    "label": "Char To Float",
-   "category": "Core/Type Converters",
+   "category": [
+    "Core",
+    "Type Converters"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -4510,7 +4684,10 @@
   {
    "id": "blocks_char_to_short",
    "label": "Char To Short",
-   "category": "Core/Type Converters",
+   "category": [
+    "Core",
+    "Type Converters"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -4555,7 +4732,10 @@
   {
    "id": "blocks_complex_to_arg",
    "label": "Complex to Arg",
-   "category": "Core/Type Converters",
+   "category": [
+    "Core",
+    "Type Converters"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -4600,7 +4780,10 @@
   {
    "id": "blocks_complex_to_float",
    "label": "Complex To Float",
-   "category": "Core/Type Converters",
+   "category": [
+    "Core",
+    "Type Converters"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -4653,7 +4836,10 @@
   {
    "id": "blocks_complex_to_imag",
    "label": "Complex to Imag",
-   "category": "Core/Type Converters",
+   "category": [
+    "Core",
+    "Type Converters"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -4698,7 +4884,10 @@
   {
    "id": "blocks_complex_to_interleaved_char",
    "label": "Complex To IChar",
-   "category": "Core/Type Converters",
+   "category": [
+    "Core",
+    "Type Converters"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -4765,7 +4954,10 @@
   {
    "id": "blocks_complex_to_interleaved_short",
    "label": "Complex To IShort",
-   "category": "Core/Type Converters",
+   "category": [
+    "Core",
+    "Type Converters"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -4832,7 +5024,10 @@
   {
    "id": "blocks_complex_to_mag",
    "label": "Complex to Mag",
-   "category": "Core/Type Converters",
+   "category": [
+    "Core",
+    "Type Converters"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -4877,7 +5072,10 @@
   {
    "id": "blocks_complex_to_mag_squared",
    "label": "Complex to Mag^2",
-   "category": "Core/Type Converters",
+   "category": [
+    "Core",
+    "Type Converters"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -4922,7 +5120,10 @@
   {
    "id": "blocks_complex_to_magphase",
    "label": "Complex To Mag Phase",
-   "category": "Core/Type Converters",
+   "category": [
+    "Core",
+    "Type Converters"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -4975,7 +5176,10 @@
   {
    "id": "blocks_complex_to_real",
    "label": "Complex To Real",
-   "category": "Core/Type Converters",
+   "category": [
+    "Core",
+    "Type Converters"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -5020,7 +5224,10 @@
   {
    "id": "blocks_conjugate_cc",
    "label": "Complex Conjugate",
-   "category": "Core/Math Operators",
+   "category": [
+    "Core",
+    "Math Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -5053,7 +5260,10 @@
   {
    "id": "blocks_copy",
    "label": "Copy",
-   "category": "Core/Misc",
+   "category": [
+    "Core",
+    "Misc"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -5159,7 +5369,10 @@
   {
    "id": "blocks_correctiq",
    "label": "Remove DC Spike",
-   "category": "Core/IQ Correction",
+   "category": [
+    "Core",
+    "IQ Correction"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -5189,7 +5402,10 @@
   {
    "id": "blocks_correctiq_auto",
    "label": "Remove DC Spike AutoSync",
-   "category": "Core/IQ Correction",
+   "category": [
+    "Core",
+    "IQ Correction"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -5288,7 +5504,10 @@
   {
    "id": "blocks_correctiq_man",
    "label": "IQ Correction Manual Offset",
-   "category": "Core/IQ Correction",
+   "category": [
+    "Core",
+    "IQ Correction"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -5357,7 +5576,10 @@
   {
    "id": "blocks_swapiq",
    "label": "Swap IQ",
-   "category": "Core/IQ Correction",
+   "category": [
+    "Core",
+    "IQ Correction"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -5414,7 +5636,10 @@
   {
    "id": "blocks_ctrlport_monitor_performance",
    "label": "CtrlPort Performance Monitor",
-   "category": "Core/Control Port",
+   "category": [
+    "Core",
+    "Control Port"
+   ],
    "flags": [
     "python"
    ],
@@ -5440,7 +5665,10 @@
   {
    "id": "blocks_ctrlport_probe2_c",
    "label": "Ctrlport Probe",
-   "category": "Core/Measurement Tools",
+   "category": [
+    "Core",
+    "Measurement Tools"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -5521,7 +5749,10 @@
   {
    "id": "blocks_ctrlport_probe2_x",
    "label": "Ctrlport Probe",
-   "category": "Core/Control Port",
+   "category": [
+    "Core",
+    "Control Port"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -5627,7 +5858,10 @@
   {
    "id": "blocks_ctrlport_probe_c",
    "label": "Ctrlport Complex Probe",
-   "category": "Core/Measurement Tools",
+   "category": [
+    "Core",
+    "Measurement Tools"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -5674,7 +5908,10 @@
   {
    "id": "blocks_ctrlport_monitor",
    "label": "CtrlPort Monitor",
-   "category": "Core/Control Port",
+   "category": [
+    "Core",
+    "Control Port"
+   ],
    "flags": [
     "python"
    ],
@@ -5700,7 +5937,10 @@
   {
    "id": "blocks_deinterleave",
    "label": "Deinterleave",
-   "category": "Core/Stream Operators",
+   "category": [
+    "Core",
+    "Stream Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -5792,7 +6032,10 @@
   {
    "id": "blocks_delay",
    "label": "Delay",
-   "category": "Core/Misc",
+   "category": [
+    "Core",
+    "Misc"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -5909,7 +6152,10 @@
   {
    "id": "blocks_divide_xx",
    "label": "Divide",
-   "category": "Core/Math Operators",
+   "category": [
+    "Core",
+    "Math Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -5988,7 +6234,10 @@
   {
    "id": "blocks_endian_swap",
    "label": "Endian Swap",
-   "category": "Core/Stream Operators",
+   "category": [
+    "Core",
+    "Stream Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -6047,7 +6296,10 @@
   {
    "id": "blocks_exponentiate_const_cci",
    "label": "Exponentiate Const Int",
-   "category": "Core/Math Operators",
+   "category": [
+    "Core",
+    "Math Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -6114,7 +6366,10 @@
   {
    "id": "blocks_file_descriptor_sink",
    "label": "File Descriptor Sink",
-   "category": "Core/File Operators",
+   "category": [
+    "Core",
+    "File Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -6186,7 +6441,10 @@
   {
    "id": "blocks_file_descriptor_source",
    "label": "File Descriptor Source",
-   "category": "Core/File Operators",
+   "category": [
+    "Core",
+    "File Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -6275,7 +6533,10 @@
   {
    "id": "blocks_file_meta_sink",
    "label": "File Meta Sink",
-   "category": "Core/File Operators",
+   "category": [
+    "Core",
+    "File Operators"
+   ],
    "flags": [
     "python"
    ],
@@ -6438,7 +6699,10 @@
   {
    "id": "blocks_file_meta_source",
    "label": "File Meta Source",
-   "category": "Core/File Operators",
+   "category": [
+    "Core",
+    "File Operators"
+   ],
    "flags": [
     "python"
    ],
@@ -6554,7 +6818,10 @@
   {
    "id": "blocks_file_sink",
    "label": "File Sink",
-   "category": "Core/File Operators",
+   "category": [
+    "Core",
+    "File Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -6660,7 +6927,10 @@
   {
    "id": "blocks_file_source",
    "label": "File Source",
-   "category": "Core/File Operators",
+   "category": [
+    "Core",
+    "File Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -6782,7 +7052,10 @@
   {
    "id": "blocks_float_to_char",
    "label": "Float To Char",
-   "category": "Core/Type Converters",
+   "category": [
+    "Core",
+    "Type Converters"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -6838,7 +7111,10 @@
   {
    "id": "blocks_float_to_complex",
    "label": "Float To Complex",
-   "category": "Core/Type Converters",
+   "category": [
+    "Core",
+    "Type Converters"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -6891,7 +7167,10 @@
   {
    "id": "blocks_float_to_int",
    "label": "Float To Int",
-   "category": "Core/Type Converters",
+   "category": [
+    "Core",
+    "Type Converters"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -6947,7 +7226,10 @@
   {
    "id": "blocks_float_to_short",
    "label": "Float To Short",
-   "category": "Core/Type Converters",
+   "category": [
+    "Core",
+    "Type Converters"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -7003,7 +7285,10 @@
   {
    "id": "blocks_float_to_uchar",
    "label": "Float To UChar",
-   "category": "Core/Type Converters",
+   "category": [
+    "Core",
+    "Type Converters"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -7070,7 +7355,10 @@
   {
    "id": "blocks_freqshift_cc",
    "label": "Frequency Shift",
-   "category": "Core/Math Operators",
+   "category": [
+    "Core",
+    "Math Operators"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -7123,7 +7411,10 @@
   {
    "id": "blocks_head",
    "label": "Head",
-   "category": "Core/Misc",
+   "category": [
+    "Core",
+    "Misc"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -7204,7 +7495,10 @@
   {
    "id": "blocks_int_to_float",
    "label": "Int To Float",
-   "category": "Core/Type Converters",
+   "category": [
+    "Core",
+    "Type Converters"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -7260,7 +7554,10 @@
   {
    "id": "blocks_integrate_xx",
    "label": "Integrate",
-   "category": "Core/Math Operators",
+   "category": [
+    "Core",
+    "Math Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -7339,7 +7636,10 @@
   {
    "id": "blocks_interleave",
    "label": "Interleave",
-   "category": "Core/Stream Operators",
+   "category": [
+    "Core",
+    "Stream Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -7431,7 +7731,10 @@
   {
    "id": "blocks_interleaved_char_to_complex",
    "label": "IChar To Complex",
-   "category": "Core/Type Converters",
+   "category": [
+    "Core",
+    "Type Converters"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -7498,7 +7801,10 @@
   {
    "id": "blocks_interleaved_short_to_complex",
    "label": "IShort To Complex",
-   "category": "Core/Type Converters",
+   "category": [
+    "Core",
+    "Type Converters"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -7582,7 +7888,10 @@
   {
    "id": "blocks_keep_m_in_n",
    "label": "Keep M in N",
-   "category": "Core/Stream Operators",
+   "category": [
+    "Core",
+    "Stream Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -7674,7 +7983,10 @@
   {
    "id": "blocks_keep_one_in_n",
    "label": "Keep 1 in N",
-   "category": "Core/Stream Operators",
+   "category": [
+    "Core",
+    "Stream Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -7755,7 +8067,10 @@
   {
    "id": "blocks_magphase_to_complex",
    "label": "Magnitude and Phase To Complex",
-   "category": "Core/Type Converters",
+   "category": [
+    "Core",
+    "Type Converters"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -7808,7 +8123,10 @@
   {
    "id": "blocks_matrix_interleaver",
    "label": "Matrix Interleaver",
-   "category": "Core/Stream Operators",
+   "category": [
+    "Core",
+    "Stream Operators"
+   ],
    "flags": [
     "python"
    ],
@@ -7913,7 +8231,10 @@
   {
    "id": "blocks_max_xx",
    "label": "Max",
-   "category": "Core/Math Operators",
+   "category": [
+    "Core",
+    "Math Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -8001,7 +8322,10 @@
   {
    "id": "blocks_message_debug",
    "label": "Message Debug",
-   "category": "Core/Message Tools",
+   "category": [
+    "Core",
+    "Message Tools"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -8092,7 +8416,10 @@
   {
    "id": "blocks_message_strobe",
    "label": "Message Strobe",
-   "category": "Core/Message Tools",
+   "category": [
+    "Core",
+    "Message Tools"
+   ],
    "flags": [
     "python"
    ],
@@ -8147,7 +8474,10 @@
   {
    "id": "blocks_message_strobe_random",
    "label": "Message Strobe Random-Delay",
-   "category": "Core/Message Tools",
+   "category": [
+    "Core",
+    "Message Tools"
+   ],
    "flags": [
     "python"
    ],
@@ -8234,7 +8564,10 @@
   {
    "id": "blocks_msg_meta_to_pair",
    "label": "Message Meta Value to Pair",
-   "category": "Core/Message Tools",
+   "category": [
+    "Core",
+    "Message Tools"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -8287,7 +8620,10 @@
   {
    "id": "blocks_min_xx",
    "label": "Min",
-   "category": "Core/Math Operators",
+   "category": [
+    "Core",
+    "Math Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -8375,7 +8711,10 @@
   {
    "id": "blocks_moving_average_xx",
    "label": "Moving Average",
-   "category": "Core/Level Controllers",
+   "category": [
+    "Core",
+    "Level Controllers"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -8482,7 +8821,10 @@
   {
    "id": "blocks_msgpair_to_var",
    "label": "Message Pair to Var",
-   "category": "Core/Message Tools",
+   "category": [
+    "Core",
+    "Message Tools"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -8515,7 +8857,10 @@
   {
    "id": "blocks_multiply_by_tag_value_cc",
    "label": "Multiply by Tag Value",
-   "category": "Core/Math Operators",
+   "category": [
+    "Core",
+    "Math Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -8571,7 +8916,10 @@
   {
    "id": "blocks_multiply_conjugate_cc",
    "label": "Multiply Conjugate",
-   "category": "Core/Math Operators",
+   "category": [
+    "Core",
+    "Math Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -8624,7 +8972,10 @@
   {
    "id": "blocks_multiply_const_vxx",
    "label": "Multiply Const",
-   "category": "Core/Math Operators",
+   "category": [
+    "Core",
+    "Math Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -8732,7 +9083,10 @@
   {
    "id": "blocks_multiply_const_xx",
    "label": "Scalar Multiply Const",
-   "category": "Core/Math Operators",
+   "category": [
+    "Core",
+    "Math Operators"
+   ],
    "flags": [
     "python",
     "cpp",
@@ -8818,7 +9172,10 @@
   {
    "id": "blocks_multiply_matrix_xx",
    "label": "Multiply by Matrix",
-   "category": "Core/Math Operators",
+   "category": [
+    "Core",
+    "Math Operators"
+   ],
    "flags": [
     "python"
    ],
@@ -8910,7 +9267,10 @@
   {
    "id": "blocks_multiply_xx",
    "label": "Multiply",
-   "category": "Core/Math Operators",
+   "category": [
+    "Core",
+    "Math Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -8989,7 +9349,10 @@
   {
    "id": "blocks_mute_xx",
    "label": "Mute",
-   "category": "Core/Level Controllers",
+   "category": [
+    "Core",
+    "Level Controllers"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -9068,7 +9431,10 @@
   {
    "id": "blocks_nlog10_ff",
    "label": "Log10",
-   "category": "Core/Math Operators",
+   "category": [
+    "Core",
+    "Math Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -9135,7 +9501,10 @@
   {
    "id": "blocks_nop",
    "label": "Nop",
-   "category": "Core/Misc",
+   "category": [
+    "Core",
+    "Misc"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -9216,7 +9585,10 @@
   {
    "id": "blocks_not_xx",
    "label": "Not",
-   "category": "Core/Boolean Operators",
+   "category": [
+    "Core",
+    "Boolean Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -9271,7 +9643,10 @@
   {
    "id": "blocks_null_sink",
    "label": "Null Sink",
-   "category": "Core/Misc",
+   "category": [
+    "Core",
+    "Misc"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -9354,7 +9729,10 @@
   {
    "id": "blocks_null_source",
    "label": "Null Source",
-   "category": "Core/Misc",
+   "category": [
+    "Core",
+    "Misc"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -9437,7 +9815,10 @@
   {
    "id": "blocks_or_xx",
    "label": "Or",
-   "category": "Core/Boolean Operators",
+   "category": [
+    "Core",
+    "Boolean Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -9503,7 +9884,10 @@
   {
    "id": "blocks_pack_k_bits_bb",
    "label": "Pack K Bits",
-   "category": "Core/Byte Operators",
+   "category": [
+    "Core",
+    "Byte Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -9548,7 +9932,10 @@
   {
    "id": "blocks_packed_to_unpacked_xx",
    "label": "Packed to Unpacked",
-   "category": "Core/Byte Operators",
+   "category": [
+    "Core",
+    "Byte Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -9642,7 +10029,10 @@
   {
    "id": "blocks_patterned_interleaver",
    "label": "Patterned Interleaver",
-   "category": "Core/Stream Operators",
+   "category": [
+    "Core",
+    "Stream Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -9723,7 +10113,10 @@
   {
    "id": "blocks_peak_detector2_fb",
    "label": "Peak Detector2",
-   "category": "Core/Peak Detectors",
+   "category": [
+    "Core",
+    "Peak Detectors"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -9798,7 +10191,10 @@
   {
    "id": "blocks_peak_detector_xb",
    "label": "Peak Detector",
-   "category": "Core/Peak Detectors",
+   "category": [
+    "Core",
+    "Peak Detectors"
+   ],
    "flags": [
     "python",
     "cpp",
@@ -9898,7 +10294,10 @@
   {
    "id": "blocks_phase_shift",
    "label": "Phase Shift",
-   "category": "Core/Misc",
+   "category": [
+    "Core",
+    "Misc"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -9965,7 +10364,10 @@
   {
    "id": "blocks_plateau_detector_fb",
    "label": "Plateau Detector",
-   "category": "Core/Peak Detectors",
+   "category": [
+    "Core",
+    "Peak Detectors"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -10021,7 +10423,10 @@
   {
    "id": "blocks_probe_rate",
    "label": "Probe Rate",
-   "category": "Core/Measurement Tools",
+   "category": [
+    "Core",
+    "Measurement Tools"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -10124,7 +10529,10 @@
   {
    "id": "blocks_probe_signal_vx",
    "label": "Probe Signal Vector",
-   "category": "Core/Measurement Tools",
+   "category": [
+    "Core",
+    "Measurement Tools"
+   ],
    "flags": [
     "show_id",
     "python",
@@ -10186,7 +10594,10 @@
   {
    "id": "blocks_probe_signal_x",
    "label": "Probe Signal",
-   "category": "Core/Measurement Tools",
+   "category": [
+    "Core",
+    "Measurement Tools"
+   ],
    "flags": [
     "show_id",
     "python",
@@ -10237,7 +10648,10 @@
   {
    "id": "blocks_regenerate_bb",
    "label": "Regenerate",
-   "category": "Core/Stream Operators",
+   "category": [
+    "Core",
+    "Stream Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -10293,7 +10707,10 @@
   {
    "id": "blocks_repack_bits_bb",
    "label": "Repack Bits",
-   "category": "Core/Byte Operators",
+   "category": [
+    "Core",
+    "Byte Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -10394,7 +10811,10 @@
   {
    "id": "blocks_repeat",
    "label": "Repeat",
-   "category": "Core/Stream Operators",
+   "category": [
+    "Core",
+    "Stream Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -10475,7 +10895,10 @@
   {
    "id": "blocks_rms_xx",
    "label": "RMS",
-   "category": "Core/Math Operators",
+   "category": [
+    "Core",
+    "Math Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -10539,7 +10962,10 @@
   {
    "id": "blocks_rotator_cc",
    "label": "Rotator",
-   "category": "Core/Math Operators",
+   "category": [
+    "Core",
+    "Math Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -10609,7 +11035,10 @@
   {
    "id": "blocks_sample_and_hold_xx",
    "label": "Sample and Hold",
-   "category": "Core/Level Controllers",
+   "category": [
+    "Core",
+    "Level Controllers"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -10674,7 +11103,10 @@
   {
    "id": "blocks_selector",
    "label": "Selector",
-   "category": "Core/Misc",
+   "category": [
+    "Core",
+    "Misc"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -10846,7 +11278,10 @@
   {
    "id": "blocks_short_to_char",
    "label": "Short To Char",
-   "category": "Core/Type Converters",
+   "category": [
+    "Core",
+    "Type Converters"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -10891,7 +11326,10 @@
   {
    "id": "blocks_short_to_float",
    "label": "Short To Float",
-   "category": "Core/Type Converters",
+   "category": [
+    "Core",
+    "Type Converters"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -10947,7 +11385,10 @@
   {
    "id": "blocks_sigmf_sink_minimal",
    "label": "SigMF Sink (Minimal)",
-   "category": "Core/File Operators",
+   "category": [
+    "Core",
+    "File Operators"
+   ],
    "flags": [
     "python",
     "deprecated"
@@ -11082,7 +11523,10 @@
   {
    "id": "blocks_sigmf_source_minimal",
    "label": "SigMF Source (Minimal)",
-   "category": "Core/File Operators",
+   "category": [
+    "Core",
+    "File Operators"
+   ],
    "flags": [
     "python",
     "deprecated"
@@ -11191,7 +11635,10 @@
   {
    "id": "blocks_skiphead",
    "label": "Skip Head",
-   "category": "Core/Misc",
+   "category": [
+    "Core",
+    "Misc"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -11272,7 +11719,10 @@
   {
    "id": "blocks_stream_demux",
    "label": "Stream Demux",
-   "category": "Core/Stream Operators",
+   "category": [
+    "Core",
+    "Stream Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -11364,7 +11814,10 @@
   {
    "id": "blocks_stream_mux",
    "label": "Stream Mux",
-   "category": "Core/Stream Operators",
+   "category": [
+    "Core",
+    "Stream Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -11456,7 +11909,10 @@
   {
    "id": "blocks_stream_to_streams",
    "label": "Stream to Streams",
-   "category": "Core/Stream Operators",
+   "category": [
+    "Core",
+    "Stream Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -11537,7 +11993,10 @@
   {
    "id": "blocks_stream_to_tagged_stream",
    "label": "Stream to Tagged Stream",
-   "category": "Core/Stream Tag Tools",
+   "category": [
+    "Core",
+    "Stream Tag Tools"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -11629,7 +12088,10 @@
   {
    "id": "blocks_stream_to_vector",
    "label": "Stream to Vector",
-   "category": "Core/Stream Operators",
+   "category": [
+    "Core",
+    "Stream Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -11710,7 +12172,10 @@
   {
    "id": "blocks_stream_to_vector_decimator",
    "label": "Stream to Vec Decim",
-   "category": "Core/Stream Operators",
+   "category": [
+    "Core",
+    "Stream Operators"
+   ],
    "flags": [
     "python"
    ],
@@ -11801,7 +12266,10 @@
   {
    "id": "blocks_streams_to_stream",
    "label": "Streams to Stream",
-   "category": "Core/Stream Operators",
+   "category": [
+    "Core",
+    "Stream Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -11882,7 +12350,10 @@
   {
    "id": "blocks_streams_to_vector",
    "label": "Streams to Vector",
-   "category": "Core/Stream Operators",
+   "category": [
+    "Core",
+    "Stream Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -11963,7 +12434,10 @@
   {
    "id": "blocks_stretch_ff",
    "label": "Stretch",
-   "category": "Core/Stream Operators",
+   "category": [
+    "Core",
+    "Stream Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -12019,7 +12493,10 @@
   {
    "id": "blocks_sub_xx",
    "label": "Subtract",
-   "category": "Core/Math Operators",
+   "category": [
+    "Core",
+    "Math Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -12098,7 +12575,10 @@
   {
    "id": "blocks_tag_debug",
    "label": "Tag Debug",
-   "category": "Core/Stream Tag Tools",
+   "category": [
+    "Core",
+    "Stream Tag Tools"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -12209,7 +12689,10 @@
   {
    "id": "blocks_tag_gate",
    "label": "Tag Gate",
-   "category": "Core/Stream Tag Tools",
+   "category": [
+    "Core",
+    "Stream Tag Tools"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -12307,7 +12790,10 @@
   {
    "id": "variable_tag_object",
    "label": "Tag Object",
-   "category": "Core/Variables",
+   "category": [
+    "Core",
+    "Variables"
+   ],
    "flags": [
     "show_id",
     "python"
@@ -12367,7 +12853,10 @@
   {
    "id": "blocks_tag_share",
    "label": "Tag Share",
-   "category": "Core/Stream Tag Tools",
+   "category": [
+    "Core",
+    "Stream Tag Tools"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -12470,7 +12959,10 @@
   {
    "id": "blocks_tagged_file_sink",
    "label": "Tagged File Sink",
-   "category": "Core/Stream Tag Tools",
+   "category": [
+    "Core",
+    "Stream Tag Tools"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -12542,7 +13034,10 @@
   {
    "id": "blocks_tagged_stream_align",
    "label": "Tagged Stream Align",
-   "category": "Core/Stream Tag Tools",
+   "category": [
+    "Core",
+    "Stream Tag Tools"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -12623,7 +13118,10 @@
   {
    "id": "blocks_tagged_stream_multiply_length",
    "label": "Tagged Stream Multiply Length Tag",
-   "category": "Core/Message Tools",
+   "category": [
+    "Core",
+    "Message Tools"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -12723,7 +13221,10 @@
   {
    "id": "blocks_tagged_stream_mux",
    "label": "Tagged Stream Mux",
-   "category": "Core/Stream Tag Tools",
+   "category": [
+    "Core",
+    "Stream Tag Tools"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -12826,7 +13327,10 @@
   {
    "id": "blocks_tags_strobe",
    "label": "Tags Strobe",
-   "category": "Core/Debug Tools",
+   "category": [
+    "Core",
+    "Debug Tools"
+   ],
    "flags": [
     "python"
    ],
@@ -12919,7 +13423,10 @@
   {
    "id": "blocks_test_tag_variable_rate_ff",
    "label": "Test Tag Variable Rate",
-   "category": "Core/Stream Tag Tools",
+   "category": [
+    "Core",
+    "Stream Tag Tools"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -12978,7 +13485,10 @@
   {
    "id": "blocks_threshold_ff",
    "label": "Threshold",
-   "category": "Core/Level Controllers",
+   "category": [
+    "Core",
+    "Level Controllers"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -13045,7 +13555,10 @@
   {
    "id": "blocks_throttle",
    "label": "Throttle (old)",
-   "category": "Core/Misc",
+   "category": [
+    "Core",
+    "Misc"
+   ],
    "flags": [
     "throttle",
     "python",
@@ -13139,7 +13652,10 @@
   {
    "id": "blocks_throttle2",
    "label": "Throttle",
-   "category": "Core/Misc",
+   "category": [
+    "Core",
+    "Misc"
+   ],
    "flags": [
     "throttle",
     "python",
@@ -13262,7 +13778,10 @@
   {
    "id": "blocks_transcendental",
    "label": "Transcendental",
-   "category": "Core/Math Operators",
+   "category": [
+    "Core",
+    "Math Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -13329,7 +13848,10 @@
   {
    "id": "blocks_uchar_to_float",
    "label": "UChar To Float",
-   "category": "Core/Type Converters",
+   "category": [
+    "Core",
+    "Type Converters"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -13362,7 +13884,10 @@
   {
    "id": "blocks_unpack_k_bits_bb",
    "label": "Unpack K Bits",
-   "category": "Core/Byte Operators",
+   "category": [
+    "Core",
+    "Byte Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -13407,7 +13932,10 @@
   {
    "id": "blocks_unpacked_to_packed_xx",
    "label": "Unpacked to Packed",
-   "category": "Core/Byte Operators",
+   "category": [
+    "Core",
+    "Byte Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -13501,7 +14029,10 @@
   {
    "id": "blocks_var_to_msg",
    "label": "Variable to Message",
-   "category": "Core/Message Tools",
+   "category": [
+    "Core",
+    "Message Tools"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -13545,7 +14076,10 @@
   {
    "id": "variable_save_restore",
    "label": "Variable Save Restore",
-   "category": "Core/Variables",
+   "category": [
+    "Core",
+    "Variables"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -13649,7 +14183,10 @@
   {
    "id": "blocks_vco_c",
    "label": "VCO (complex)",
-   "category": "Core/Waveform Generators",
+   "category": [
+    "Core",
+    "Waveform Generators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -13716,7 +14253,10 @@
   {
    "id": "blocks_vco_f",
    "label": "VCO",
-   "category": "Core/Waveform Generators",
+   "category": [
+    "Core",
+    "Waveform Generators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -13783,7 +14323,10 @@
   {
    "id": "blocks_vector_insert_x",
    "label": "Vector Insert",
-   "category": "Core/Stream Operators",
+   "category": [
+    "Core",
+    "Stream Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -13886,7 +14429,10 @@
   {
    "id": "blocks_vector_sink_x",
    "label": "Vector Sink",
-   "category": "Core/Debug Tools",
+   "category": [
+    "Core",
+    "Debug Tools"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -13958,7 +14504,10 @@
   {
    "id": "blocks_vector_source_x",
    "label": "Vector Source",
-   "category": "Core/Misc",
+   "category": [
+    "Core",
+    "Misc"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -14065,7 +14614,10 @@
   {
    "id": "blocks_vector_to_stream",
    "label": "Vector to Stream",
-   "category": "Core/Stream Operators",
+   "category": [
+    "Core",
+    "Stream Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -14146,7 +14698,10 @@
   {
    "id": "blocks_vector_to_streams",
    "label": "Vector to Streams",
-   "category": "Core/Stream Operators",
+   "category": [
+    "Core",
+    "Stream Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -14227,7 +14782,10 @@
   {
    "id": "blocks_wavfile_sink",
    "label": "Wav File Sink",
-   "category": "Core/File Operators",
+   "category": [
+    "Core",
+    "File Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -14475,7 +15033,10 @@
   {
    "id": "blocks_wavfile_source",
    "label": "Wav File Source",
-   "category": "Core/File Operators",
+   "category": [
+    "Core",
+    "File Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -14539,7 +15100,10 @@
   {
    "id": "blocks_xor_xx",
    "label": "Xor",
-   "category": "Core/Boolean Operators",
+   "category": [
+    "Core",
+    "Boolean Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -14605,7 +15169,10 @@
   {
    "id": "xmlrpc_client",
    "label": "XMLRPC Client",
-   "category": "Core/Misc",
+   "category": [
+    "Core",
+    "Misc"
+   ],
    "flags": [
     "python"
    ],
@@ -14664,7 +15231,10 @@
   {
    "id": "xmlrpc_server",
    "label": "XMLRPC Server",
-   "category": "Core/Misc",
+   "category": [
+    "Core",
+    "Misc"
+   ],
    "flags": [
     "python"
    ],
@@ -14701,7 +15271,10 @@
   {
    "id": "channels_amp_bal",
    "label": "Amplitude Balance",
-   "category": "Core/Impairment Models",
+   "category": [
+    "Core",
+    "Impairment Models"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -14743,7 +15316,10 @@
   {
    "id": "channels_cfo_model",
    "label": "CFO Model",
-   "category": "Core/Impairment Models",
+   "category": [
+    "Core",
+    "Impairment Models"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -14818,7 +15394,10 @@
   {
    "id": "channels_channel_model",
    "label": "Channel Model",
-   "category": "Core/Channel Models",
+   "category": [
+    "Core",
+    "Channel Models"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -14921,7 +15500,10 @@
   {
    "id": "channels_channel_model2",
    "label": "Channel Model 2",
-   "category": "Core/Channel Models",
+   "category": [
+    "Core",
+    "Channel Models"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -15034,7 +15616,10 @@
   {
    "id": "channels_conj_fs_iqcorr",
    "label": "Freq. Selective IQ Correction",
-   "category": "Core/Channel Models",
+   "category": [
+    "Core",
+    "Channel Models"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -15087,7 +15672,10 @@
   {
    "id": "channels_distortion_2_gen",
    "label": "Second Order Distortion",
-   "category": "Core/Impairment Models",
+   "category": [
+    "Core",
+    "Impairment Models"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -15129,7 +15717,10 @@
   {
    "id": "channels_distortion_3_gen",
    "label": "Third Order Distortion",
-   "category": "Core/Impairment Models",
+   "category": [
+    "Core",
+    "Impairment Models"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -15171,7 +15762,10 @@
   {
    "id": "channels_dynamic_channel_model",
    "label": "Dynamic Channel Model",
-   "category": "Core/Channel Models",
+   "category": [
+    "Core",
+    "Channel Models"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -15367,7 +15961,10 @@
   {
    "id": "channels_fading_model",
    "label": "Fading Model",
-   "category": "Core/Channel Models",
+   "category": [
+    "Core",
+    "Channel Models"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -15464,7 +16061,10 @@
   {
    "id": "channels_impairments",
    "label": "HW Impairments",
-   "category": "Core/Impairment Models",
+   "category": [
+    "Core",
+    "Impairment Models"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -15583,7 +16183,10 @@
   {
    "id": "channels_iqbal_gen",
    "label": "IQ Imbalance Generator",
-   "category": "Core/Impairment Models",
+   "category": [
+    "Core",
+    "Impairment Models"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -15653,7 +16256,10 @@
   {
    "id": "channels_phase_bal",
    "label": "Phase Balance",
-   "category": "Core/Impairment Models",
+   "category": [
+    "Core",
+    "Impairment Models"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -15695,7 +16301,10 @@
   {
    "id": "channels_phase_noise_gen",
    "label": "Phase Noise Generator",
-   "category": "Core/Impairment Models",
+   "category": [
+    "Core",
+    "Impairment Models"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -15748,7 +16357,10 @@
   {
    "id": "channels_quantizer",
    "label": "Quantizer",
-   "category": "Core/Impairment Models",
+   "category": [
+    "Core",
+    "Impairment Models"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -15790,7 +16402,10 @@
   {
    "id": "channels_selective_fading_model",
    "label": "Frequency Selective Fading Model",
-   "category": "Core/Channel Models",
+   "category": [
+    "Core",
+    "Channel Models"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -15920,7 +16535,10 @@
   {
    "id": "channels_selective_fading_model2",
    "label": "Frequency Selective Fading Model2",
-   "category": "Core/Channel Models",
+   "category": [
+    "Core",
+    "Channel Models"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -16080,7 +16698,10 @@
   {
    "id": "channels_sro_model",
    "label": "SRO Model",
-   "category": "Core/Impairment Models",
+   "category": [
+    "Core",
+    "Impairment Models"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -16155,7 +16776,10 @@
   {
    "id": "variable_adaptive_algorithm",
    "label": "Adaptive Algorithm",
-   "category": "Core/Equalizers",
+   "category": [
+    "Core",
+    "Equalizers"
+   ],
    "flags": [
     "show_id",
     "python"
@@ -16245,7 +16869,10 @@
   {
    "id": "digital_additive_scrambler_bb",
    "label": "Additive Scrambler (Deprecated)",
-   "category": "Core/Coding",
+   "category": [
+    "Core",
+    "Coding"
+   ],
    "flags": [
     "python",
     "cpp",
@@ -16346,7 +16973,10 @@
   {
    "id": "digital_additive_scrambler_xx",
    "label": "Additive Scrambler",
-   "category": "Core/Coding",
+   "category": [
+    "Core",
+    "Coding"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -16471,7 +17101,10 @@
   {
    "id": "digital_binary_slicer_fb",
    "label": "Binary Slicer",
-   "category": "Core/Symbol Coding",
+   "category": [
+    "Core",
+    "Symbol Coding"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -16504,7 +17137,10 @@
   {
    "id": "digital_burst_shaper_xx",
    "label": "Burst Shaper",
-   "category": "Core/Packet Operators",
+   "category": [
+    "Core",
+    "Packet Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -16622,7 +17258,10 @@
   {
    "id": "digital_chunks_to_symbols_xx",
    "label": "Chunks to Symbols",
-   "category": "Core/Symbol Coding",
+   "category": [
+    "Core",
+    "Symbol Coding"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -16741,7 +17380,10 @@
   {
    "id": "digital_clock_recovery_mm_xx",
    "label": "Clock Recovery MM",
-   "category": "Core/Deprecated",
+   "category": [
+    "Core",
+    "Deprecated"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -16849,7 +17491,10 @@
   {
    "id": "variable_constellation",
    "label": "Constellation Object",
-   "category": "Core/Modulators",
+   "category": [
+    "Core",
+    "Modulators"
+   ],
    "flags": [
     "show_id",
     "python",
@@ -16987,7 +17632,10 @@
   {
    "id": "digital_constellation_decoder_cb",
    "label": "Constellation Decoder",
-   "category": "Core/Symbol Coding",
+   "category": [
+    "Core",
+    "Symbol Coding"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -17032,7 +17680,10 @@
   {
    "id": "digital_constellation_encoder_bc",
    "label": "Constellation Encoder",
-   "category": "Core/Symbol Coding",
+   "category": [
+    "Core",
+    "Symbol Coding"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -17077,7 +17728,10 @@
   {
    "id": "digital_constellation_modulator",
    "label": "Constellation Modulator",
-   "category": "Core/Modulators",
+   "category": [
+    "Core",
+    "Modulators"
+   ],
    "flags": [
     "python"
    ],
@@ -17211,7 +17865,10 @@
   {
    "id": "digital_constellation_receiver_cb",
    "label": "Constellation Receiver",
-   "category": "Core/Symbol Coding",
+   "category": [
+    "Core",
+    "Symbol Coding"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -17348,7 +18005,10 @@
   {
    "id": "variable_constellation_rect",
    "label": "Constellation Rect. Object",
-   "category": "Core/Modulators",
+   "category": [
+    "Core",
+    "Modulators"
+   ],
    "flags": [
     "show_id",
     "python"
@@ -17463,7 +18123,10 @@
   {
    "id": "digital_constellation_soft_decoder_cf",
    "label": "Constellation Soft Decoder",
-   "category": "Core/Symbol Coding",
+   "category": [
+    "Core",
+    "Symbol Coding"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -17519,7 +18182,10 @@
   {
    "id": "digital_corr_est_cc",
    "label": "Correlation Estimator",
-   "category": "Core/Synchronizers",
+   "category": [
+    "Core",
+    "Synchronizers"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -17622,7 +18288,10 @@
   {
    "id": "digital_correlate_access_code_tag_xx",
    "label": "Correlate Access Code - Tag",
-   "category": "Core/Packet Operators",
+   "category": [
+    "Core",
+    "Packet Operators"
+   ],
    "flags": [
     "python",
     "cpp",
@@ -17709,7 +18378,10 @@
   {
    "id": "digital_correlate_access_code_xx_ts",
    "label": "Correlate Access Code - Tag Stream",
-   "category": "Core/Packet Operators",
+   "category": [
+    "Core",
+    "Packet Operators"
+   ],
    "flags": [
     "python",
     "cpp",
@@ -17796,7 +18468,10 @@
   {
    "id": "digital_costas_loop_cc",
    "label": "Costas Loop",
-   "category": "Core/Synchronizers",
+   "category": [
+    "Core",
+    "Synchronizers"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -17901,7 +18576,10 @@
   {
    "id": "digital_cpmmod_bc",
    "label": "Continuous Phase Modulation",
-   "category": "Core/Modulators",
+   "category": [
+    "Core",
+    "Modulators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -18002,7 +18680,10 @@
   {
    "id": "digital_crc16_async_bb",
    "label": "Async CRC16",
-   "category": "Core/Packet Operators",
+   "category": [
+    "Core",
+    "Packet Operators"
+   ],
    "flags": [
     "python",
     "cpp",
@@ -18054,7 +18735,10 @@
   {
    "id": "digital_crc32_async_bb",
    "label": "Async CRC32",
-   "category": "Core/Packet Operators",
+   "category": [
+    "Core",
+    "Packet Operators"
+   ],
    "flags": [
     "python",
     "cpp",
@@ -18106,7 +18790,10 @@
   {
    "id": "digital_crc32_bb",
    "label": "Stream CRC32",
-   "category": "Core/Packet Operators",
+   "category": [
+    "Core",
+    "Packet Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -18185,7 +18872,10 @@
   {
    "id": "digital_crc_append",
    "label": "CRC Append",
-   "category": "Core/Packet Operators",
+   "category": [
+    "Core",
+    "Packet Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -18307,7 +18997,10 @@
   {
    "id": "digital_crc_check",
    "label": "CRC Check",
-   "category": "Core/Packet Operators",
+   "category": [
+    "Core",
+    "Packet Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -18448,7 +19141,10 @@
   {
    "id": "digital_decision_feedback_equalizer",
    "label": "Decision Feedback Equalizer",
-   "category": "Core/Equalizers",
+   "category": [
+    "Core",
+    "Equalizers"
+   ],
    "flags": [
     "python"
    ],
@@ -18574,7 +19270,10 @@
   {
    "id": "digital_descrambler_bb",
    "label": "Descrambler",
-   "category": "Core/Coding",
+   "category": [
+    "Core",
+    "Coding"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -18641,7 +19340,10 @@
   {
    "id": "digital_diff_decoder_bb",
    "label": "Differential Decoder",
-   "category": "Core/Symbol Coding",
+   "category": [
+    "Core",
+    "Symbol Coding"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -18712,7 +19414,10 @@
   {
    "id": "digital_diff_encoder_bb",
    "label": "Differential Encoder",
-   "category": "Core/Symbol Coding",
+   "category": [
+    "Core",
+    "Symbol Coding"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -18783,7 +19488,10 @@
   {
    "id": "digital_diff_phasor_cc",
    "label": "Differential Phasor",
-   "category": "Core/Symbol Coding",
+   "category": [
+    "Core",
+    "Symbol Coding"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -18816,7 +19524,10 @@
   {
    "id": "digital_fll_band_edge_cc",
    "label": "FLL Band-Edge",
-   "category": "Core/Synchronizers",
+   "category": [
+    "Core",
+    "Synchronizers"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -18940,7 +19651,10 @@
   {
    "id": "digital_framer_sink_1",
    "label": "Framer Sink 1",
-   "category": "Core/Packet Operators",
+   "category": [
+    "Core",
+    "Packet Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -18976,7 +19690,10 @@
   {
    "id": "digital_gfsk_demod",
    "label": "GFSK Demod",
-   "category": "Core/Modulators",
+   "category": [
+    "Core",
+    "Modulators"
+   ],
    "flags": [
     "python"
    ],
@@ -19109,7 +19826,10 @@
   {
    "id": "digital_gfsk_mod",
    "label": "GFSK Mod",
-   "category": "Core/Modulators",
+   "category": [
+    "Core",
+    "Modulators"
+   ],
    "flags": [
     "python"
    ],
@@ -19226,7 +19946,10 @@
   {
    "id": "digital_glfsr_source_x",
    "label": "GLFSR Source",
-   "category": "Core/Waveform Generators",
+   "category": [
+    "Core",
+    "Waveform Generators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -19320,7 +20043,10 @@
   {
    "id": "digital_gmsk_demod",
    "label": "GMSK Demod",
-   "category": "Core/Modulators",
+   "category": [
+    "Core",
+    "Modulators"
+   ],
    "flags": [
     "python"
    ],
@@ -19442,7 +20168,10 @@
   {
    "id": "digital_gmsk_mod",
    "label": "GMSK Mod",
-   "category": "Core/Modulators",
+   "category": [
+    "Core",
+    "Modulators"
+   ],
    "flags": [
     "python"
    ],
@@ -19548,7 +20277,10 @@
   {
    "id": "digital_gmskmod_bc",
    "label": "GMSK Modulator",
-   "category": "Core/Modulators",
+   "category": [
+    "Core",
+    "Modulators"
+   ],
    "flags": [
     "python"
    ],
@@ -19614,7 +20346,10 @@
   {
    "id": "digital_hdlc_deframer_bp",
    "label": "HDLC Deframer",
-   "category": "Core/Packet Operators",
+   "category": [
+    "Core",
+    "Packet Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -19670,7 +20405,10 @@
   {
    "id": "digital_hdlc_framer_pb",
    "label": "HDLC Framer",
-   "category": "Core/Packet Operators",
+   "category": [
+    "Core",
+    "Packet Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -19715,7 +20453,10 @@
   {
    "id": "digital_header_payload_demux",
    "label": "Header/Payload Demux",
-   "category": "Core/Packet Operators",
+   "category": [
+    "Core",
+    "Packet Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -19914,7 +20655,10 @@
   {
    "id": "digital_linear_equalizer",
    "label": "Linear Equalizer",
-   "category": "Core/Equalizers",
+   "category": [
+    "Core",
+    "Equalizers"
+   ],
    "flags": [
     "python"
    ],
@@ -20029,7 +20773,10 @@
   {
    "id": "digital_map_bb",
    "label": "Map",
-   "category": "Core/Symbol Coding",
+   "category": [
+    "Core",
+    "Symbol Coding"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -20074,7 +20821,10 @@
   {
    "id": "digital_meas_evm_cc",
    "label": "EVM Measurement",
-   "category": "Core/Equalizers",
+   "category": [
+    "Core",
+    "Equalizers"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -20133,7 +20883,10 @@
   {
    "id": "variable_modulate_vector",
    "label": "Modulate Vector",
-   "category": "Core/Modulators",
+   "category": [
+    "Core",
+    "Modulators"
+   ],
    "flags": [
     "show_id",
     "python",
@@ -20183,7 +20936,10 @@
   {
    "id": "digital_mpsk_snr_est_cc",
    "label": "MPSK SNR Estimator",
-   "category": "Core/Measurement Tools",
+   "category": [
+    "Core",
+    "Measurement Tools"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -20260,7 +21016,10 @@
   {
    "id": "digital_msk_timing_recovery_cc",
    "label": "MSK Timing Recovery",
-   "category": "Core/Deprecated",
+   "category": [
+    "Core",
+    "Deprecated"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -20354,7 +21113,10 @@
   {
    "id": "digital_ofdm_carrier_allocator_cvc",
    "label": "OFDM Carrier Allocator",
-   "category": "Core/OFDM",
+   "category": [
+    "Core",
+    "OFDM"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -20471,7 +21233,10 @@
   {
    "id": "digital_ofdm_chanest_vcvc",
    "label": "OFDM Channel Estimation",
-   "category": "Core/OFDM",
+   "category": [
+    "Core",
+    "OFDM"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -20577,7 +21342,10 @@
   {
    "id": "digital_ofdm_cyclic_prefixer",
    "label": "OFDM Cyclic Prefixer",
-   "category": "Core/OFDM",
+   "category": [
+    "Core",
+    "OFDM"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -20655,7 +21423,10 @@
   {
    "id": "digital_ofdm_frame_equalizer_vcvc",
    "label": "OFDM Frame Equalizer",
-   "category": "Core/OFDM",
+   "category": [
+    "Core",
+    "OFDM"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -20761,7 +21532,10 @@
   {
    "id": "digital_ofdm_rx",
    "label": "OFDM Receiver",
-   "category": "Core/OFDM",
+   "category": [
+    "Core",
+    "OFDM"
+   ],
    "flags": [
     "python"
    ],
@@ -20963,7 +21737,10 @@
   {
    "id": "digital_ofdm_serializer_vcc",
    "label": "OFDM Serializer",
-   "category": "Core/OFDM",
+   "category": [
+    "Core",
+    "OFDM"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -21074,7 +21851,10 @@
   {
    "id": "digital_ofdm_sync_sc_cfb",
    "label": "Schmidl & Cox OFDM synch.",
-   "category": "Core/Other",
+   "category": [
+    "Core",
+    "Other"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -21166,7 +21946,10 @@
   {
    "id": "digital_ofdm_tx",
    "label": "OFDM Transmitter",
-   "category": "Core/OFDM",
+   "category": [
+    "Core",
+    "OFDM"
+   ],
    "flags": [
     "python"
    ],
@@ -21379,7 +22162,10 @@
   {
    "id": "digital_packet_headergenerator_bb",
    "label": "Packet Header Generator",
-   "category": "Core/Packet Operators",
+   "category": [
+    "Core",
+    "Packet Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -21435,7 +22221,10 @@
   {
    "id": "digital_packet_headergenerator_bb_default",
    "label": "Packet Header Generator (Default)",
-   "category": "Core/Packet Operators",
+   "category": [
+    "Core",
+    "Packet Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -21491,7 +22280,10 @@
   {
    "id": "digital_packet_headerparser_b",
    "label": "Packet Header Parser",
-   "category": "Core/Packet Operators",
+   "category": [
+    "Core",
+    "Packet Operators"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -21533,7 +22325,10 @@
   {
    "id": "digital_packet_headerparser_b_default",
    "label": "Packet Header Parser (Default)",
-   "category": "Core/Packet Operators",
+   "category": [
+    "Core",
+    "Packet Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -21589,7 +22384,10 @@
   {
    "id": "digital_packet_sink",
    "label": "Packet Sink",
-   "category": "Core/Packet Operators",
+   "category": [
+    "Core",
+    "Packet Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -21647,7 +22445,10 @@
   {
    "id": "digital_pfb_clock_sync_xxx",
    "label": "Polyphase Clock Sync",
-   "category": "Core/Synchronizers",
+   "category": [
+    "Core",
+    "Synchronizers"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -21812,7 +22613,10 @@
   {
    "id": "digital_pn_correlator_cc",
    "label": "PN Correlator",
-   "category": "Core/Synchronizers",
+   "category": [
+    "Core",
+    "Synchronizers"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -21879,7 +22683,10 @@
   {
    "id": "digital_probe_density_b",
    "label": "Probe Density",
-   "category": "Core/Measurement Tools",
+   "category": [
+    "Core",
+    "Measurement Tools"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -21926,7 +22733,10 @@
   {
    "id": "digital_probe_mpsk_snr_est_c",
    "label": "MPSK SNR Estimator Probe",
-   "category": "Core/Measurement Tools",
+   "category": [
+    "Core",
+    "Measurement Tools"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -22019,7 +22829,10 @@
   {
    "id": "digital_protocol_formatter_async",
    "label": "Protocol Formatter (Async)",
-   "category": "Core/Packet Operators",
+   "category": [
+    "Core",
+    "Packet Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -22072,7 +22885,10 @@
   {
    "id": "digital_protocol_formatter_bb",
    "label": "Protocol Formatter",
-   "category": "Core/Packet Operators",
+   "category": [
+    "Core",
+    "Packet Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -22128,7 +22944,10 @@
   {
    "id": "digital_protocol_parser_b",
    "label": "Protocol Parser",
-   "category": "Core/Packet Operators",
+   "category": [
+    "Core",
+    "Packet Operators"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -22173,7 +22992,10 @@
   {
    "id": "digital_psk_demod",
    "label": "PSK Demod",
-   "category": "Core/Deprecated",
+   "category": [
+    "Core",
+    "Deprecated"
+   ],
    "flags": [
     "python"
    ],
@@ -22340,7 +23162,10 @@
   {
    "id": "digital_psk_mod",
    "label": "PSK Mod",
-   "category": "Core/Deprecated",
+   "category": [
+    "Core",
+    "Deprecated"
+   ],
    "flags": [
     "python"
    ],
@@ -22474,7 +23299,10 @@
   {
    "id": "digital_qam_demod",
    "label": "QAM Demod",
-   "category": "Core/Deprecated",
+   "category": [
+    "Core",
+    "Deprecated"
+   ],
    "flags": [
     "python"
    ],
@@ -22641,7 +23469,10 @@
   {
    "id": "digital_qam_mod",
    "label": "QAM Mod",
-   "category": "Core/Deprecated",
+   "category": [
+    "Core",
+    "Deprecated"
+   ],
    "flags": [
     "python"
    ],
@@ -22775,7 +23606,10 @@
   {
    "id": "digital_scrambler_bb",
    "label": "Scrambler",
-   "category": "Core/Coding",
+   "category": [
+    "Core",
+    "Coding"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -22842,7 +23676,10 @@
   {
    "id": "digital_symbol_sync_xx",
    "label": "Symbol Sync",
-   "category": "Core/Synchronizers",
+   "category": [
+    "Core",
+    "Synchronizers"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -23098,7 +23935,10 @@
   {
    "id": "variable_header_format_default",
    "label": "Default Header Format Obj.",
-   "category": "Core/Packet Operators",
+   "category": [
+    "Core",
+    "Packet Operators"
+   ],
    "flags": [
     "show_id",
     "python",
@@ -23148,7 +23988,11 @@
   {
    "id": "dtv_atsc_deinterleaver",
    "label": "ATSC Deinterleaver",
-   "category": "Core/Digital Television/ATSC",
+   "category": [
+    "Core",
+    "Digital Television",
+    "ATSC"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -23197,7 +24041,11 @@
   {
    "id": "dtv_atsc_depad",
    "label": "ATSC Depad",
-   "category": "Core/Digital Television/ATSC",
+   "category": [
+    "Core",
+    "Digital Television",
+    "ATSC"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -23230,7 +24078,11 @@
   {
    "id": "dtv_atsc_derandomizer",
    "label": "ATSC Derandomizer",
-   "category": "Core/Digital Television/ATSC",
+   "category": [
+    "Core",
+    "Digital Television",
+    "ATSC"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -23271,7 +24123,11 @@
   {
    "id": "dtv_atsc_equalizer",
    "label": "ATSC Equalizer",
-   "category": "Core/Digital Television/ATSC",
+   "category": [
+    "Core",
+    "Digital Television",
+    "ATSC"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -23320,7 +24176,11 @@
   {
    "id": "dtv_atsc_field_sync_mux",
    "label": "ATSC Field Sync Mux",
-   "category": "Core/Digital Television/ATSC",
+   "category": [
+    "Core",
+    "Digital Television",
+    "ATSC"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -23353,7 +24213,11 @@
   {
    "id": "dtv_atsc_fpll",
    "label": "ATSC Receiver FPLL",
-   "category": "Core/Digital Television/ATSC",
+   "category": [
+    "Core",
+    "Digital Television",
+    "ATSC"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -23398,7 +24262,11 @@
   {
    "id": "dtv_atsc_fs_checker",
    "label": "ATSC Field Sync Checker",
-   "category": "Core/Digital Television/ATSC",
+   "category": [
+    "Core",
+    "Digital Television",
+    "ATSC"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -23439,7 +24307,11 @@
   {
    "id": "dtv_atsc_interleaver",
    "label": "ATSC Interleaver",
-   "category": "Core/Digital Television/ATSC",
+   "category": [
+    "Core",
+    "Digital Television",
+    "ATSC"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -23472,7 +24344,11 @@
   {
    "id": "dtv_atsc_pad",
    "label": "ATSC Pad",
-   "category": "Core/Digital Television/ATSC",
+   "category": [
+    "Core",
+    "Digital Television",
+    "ATSC"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -23505,7 +24381,11 @@
   {
    "id": "dtv_atsc_randomizer",
    "label": "ATSC Randomizer",
-   "category": "Core/Digital Television/ATSC",
+   "category": [
+    "Core",
+    "Digital Television",
+    "ATSC"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -23538,7 +24418,11 @@
   {
    "id": "dtv_atsc_rs_decoder",
    "label": "ATSC Reed\u2013Solomon Decoder",
-   "category": "Core/Digital Television/ATSC",
+   "category": [
+    "Core",
+    "Digital Television",
+    "ATSC"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -23587,7 +24471,11 @@
   {
    "id": "dtv_atsc_rs_encoder",
    "label": "ATSC RS Encoder",
-   "category": "Core/Digital Television/ATSC",
+   "category": [
+    "Core",
+    "Digital Television",
+    "ATSC"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -23620,7 +24508,11 @@
   {
    "id": "dtv_atsc_rx",
    "label": "ATSC Receive Pipeline",
-   "category": "Core/Digital Television/ATSC",
+   "category": [
+    "Core",
+    "Digital Television",
+    "ATSC"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -23673,7 +24565,11 @@
   {
    "id": "dtv_atsc_rx_filter",
    "label": "ATSC RX Filter",
-   "category": "Core/Digital Television/ATSC",
+   "category": [
+    "Core",
+    "Digital Television",
+    "ATSC"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -23726,7 +24622,11 @@
   {
    "id": "dtv_atsc_sync",
    "label": "ATSC Receiver SYNC",
-   "category": "Core/Digital Television/ATSC",
+   "category": [
+    "Core",
+    "Digital Television",
+    "ATSC"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -23771,7 +24671,11 @@
   {
    "id": "dtv_atsc_trellis_encoder",
    "label": "ATSC Trellis Encoder",
-   "category": "Core/Digital Television/ATSC",
+   "category": [
+    "Core",
+    "Digital Television",
+    "ATSC"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -23804,7 +24708,11 @@
   {
    "id": "dtv_atsc_viterbi_decoder",
    "label": "ATSC Viterbi Decoder",
-   "category": "Core/Digital Television/ATSC",
+   "category": [
+    "Core",
+    "Digital Television",
+    "ATSC"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -23853,7 +24761,11 @@
   {
    "id": "dtv_catv_frame_sync_enc_bb",
    "label": "Frame Sync Encoder",
-   "category": "Core/Digital Television/ITU-T J.83B",
+   "category": [
+    "Core",
+    "Digital Television",
+    "ITU-T J.83B"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -23920,7 +24832,11 @@
   {
    "id": "dtv_catv_randomizer_bb",
    "label": "Randomizer",
-   "category": "Core/Digital Television/ITU-T J.83B",
+   "category": [
+    "Core",
+    "Digital Television",
+    "ITU-T J.83B"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -23976,7 +24892,11 @@
   {
    "id": "dtv_catv_reed_solomon_enc_bb",
    "label": "Reed-Solomon Encoder",
-   "category": "Core/Digital Television/ITU-T J.83B",
+   "category": [
+    "Core",
+    "Digital Television",
+    "ITU-T J.83B"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -24009,7 +24929,11 @@
   {
    "id": "dtv_catv_transport_framing_enc_bb",
    "label": "Transport Framing Encoder",
-   "category": "Core/Digital Television/ITU-T J.83B",
+   "category": [
+    "Core",
+    "Digital Television",
+    "ITU-T J.83B"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -24042,7 +24966,11 @@
   {
    "id": "dtv_catv_trellis_enc_bb",
    "label": "Trellis Encoder",
-   "category": "Core/Digital Television/ITU-T J.83B",
+   "category": [
+    "Core",
+    "Digital Television",
+    "ITU-T J.83B"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -24098,7 +25026,11 @@
   {
    "id": "dtv_dvb_bbheader_bb",
    "label": "BBheader",
-   "category": "Core/Digital Television/DVB",
+   "category": [
+    "Core",
+    "Digital Television",
+    "DVB"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -24642,7 +25574,11 @@
   {
    "id": "dtv_dvb_bbscrambler_bb",
    "label": "BBscrambler",
-   "category": "Core/Digital Television/DVB",
+   "category": [
+    "Core",
+    "Digital Television",
+    "DVB"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -25082,7 +26018,11 @@
   {
    "id": "dtv_dvb_bch_bb",
    "label": "BCH Encoder",
-   "category": "Core/Digital Television/DVB",
+   "category": [
+    "Core",
+    "Digital Television",
+    "DVB"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -25522,7 +26462,11 @@
   {
    "id": "dtv_dvb_ldpc_bb",
    "label": "LDPC Encoder",
-   "category": "Core/Digital Television/DVB",
+   "category": [
+    "Core",
+    "Digital Television",
+    "DVB"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -25984,7 +26928,11 @@
   {
    "id": "dtv_dvbs2_interleaver_bb",
    "label": "Interleaver",
-   "category": "Core/Digital Television/DVB-S2",
+   "category": [
+    "Core",
+    "Digital Television",
+    "DVB-S2"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -26347,7 +27295,11 @@
   {
    "id": "dtv_dvbs2_modulator_bc",
    "label": "DVB-S2X Modulator",
-   "category": "Core/Digital Television/DVB-S2",
+   "category": [
+    "Core",
+    "Digital Television",
+    "DVB-S2"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -26761,7 +27713,11 @@
   {
    "id": "dtv_dvbs2_physical_cc",
    "label": "Physical Layer Framer",
-   "category": "Core/Digital Television/DVB-S2",
+   "category": [
+    "Core",
+    "Digital Television",
+    "DVB-S2"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -27157,7 +28113,11 @@
   {
    "id": "dtv_dvbt2_cellinterleaver_cc",
    "label": "Cell/Time Interleaver",
-   "category": "Core/Digital Television/DVB-T2",
+   "category": [
+    "Core",
+    "Digital Television",
+    "DVB-T2"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -27263,7 +28223,11 @@
   {
    "id": "dtv_dvbt2_framemapper_cc",
    "label": "Frame Mapper",
-   "category": "Core/Digital Television/DVB-T2",
+   "category": [
+    "Core",
+    "Digital Television",
+    "DVB-T2"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -27898,7 +28862,11 @@
   {
    "id": "dtv_dvbt2_freqinterleaver_cc",
    "label": "Frequency Interleaver",
-   "category": "Core/Digital Television/DVB-T2",
+   "category": [
+    "Core",
+    "Digital Television",
+    "DVB-T2"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -28221,7 +29189,11 @@
   {
    "id": "dtv_dvbt2_interleaver_bb",
    "label": "Bit Interleaver",
-   "category": "Core/Digital Television/DVB-T2",
+   "category": [
+    "Core",
+    "Digital Television",
+    "DVB-T2"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -28345,7 +29317,11 @@
   {
    "id": "dtv_dvbt2_miso_cc",
    "label": "MISO Processing",
-   "category": "Core/Digital Television/DVB-T2",
+   "category": [
+    "Core",
+    "Digital Television",
+    "DVB-T2"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -28618,7 +29594,11 @@
   {
    "id": "dtv_dvbt2_modulator_bc",
    "label": "DVB-T2 Modulator",
-   "category": "Core/Digital Television/DVB-T2",
+   "category": [
+    "Core",
+    "Digital Television",
+    "DVB-T2"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -28724,7 +29704,11 @@
   {
    "id": "dtv_dvbt2_p1insertion_cc",
    "label": "P1 Symbol Insertion",
-   "category": "Core/Digital Television/DVB-T2",
+   "category": [
+    "Core",
+    "Digital Television",
+    "DVB-T2"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -29039,7 +30023,11 @@
   {
    "id": "dtv_dvbt2_paprtr_cc",
    "label": "Tone Reservation PAPR",
-   "category": "Core/Digital Television/DVB-T2",
+   "category": [
+    "Core",
+    "Digital Television",
+    "DVB-T2"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -29357,7 +30345,11 @@
   {
    "id": "dtv_dvbt2_pilotgenerator_cc",
    "label": "Pilot Generator and IFFT",
-   "category": "Core/Digital Television/DVB-T2",
+   "category": [
+    "Core",
+    "Digital Television",
+    "DVB-T2"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -29783,7 +30775,11 @@
   {
    "id": "dtv_dvbt_bit_inner_deinterleaver",
    "label": "Bit Inner Deinterleaver",
-   "category": "Core/Digital Television/DVB-T",
+   "category": [
+    "Core",
+    "Digital Television",
+    "DVB-T"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -29902,7 +30898,11 @@
   {
    "id": "dtv_dvbt_bit_inner_interleaver",
    "label": "Bit Inner Interleaver",
-   "category": "Core/Digital Television/DVB-T",
+   "category": [
+    "Core",
+    "Digital Television",
+    "DVB-T"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -30021,7 +31021,11 @@
   {
    "id": "dtv_dvbt_convolutional_deinterleaver",
    "label": "Convolutional Deinterleaver",
-   "category": "Core/Digital Television/DVB-T",
+   "category": [
+    "Core",
+    "Digital Television",
+    "DVB-T"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -30088,7 +31092,11 @@
   {
    "id": "dtv_dvbt_convolutional_interleaver",
    "label": "Convolutional Interleaver",
-   "category": "Core/Digital Television/DVB-T",
+   "category": [
+    "Core",
+    "Digital Television",
+    "DVB-T"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -30155,7 +31163,11 @@
   {
    "id": "dtv_dvbt_demap",
    "label": "DVB-T Demap",
-   "category": "Core/Digital Television/DVB-T",
+   "category": [
+    "Core",
+    "Digital Television",
+    "DVB-T"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -30279,7 +31291,11 @@
   {
    "id": "dtv_dvbt_demod_reference_signals",
    "label": "Demod Reference Signals",
-   "category": "Core/Digital Television/DVB-T",
+   "category": [
+    "Core",
+    "Digital Television",
+    "DVB-T"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -30544,7 +31560,11 @@
   {
    "id": "dtv_dvbt_energy_descramble",
    "label": "Energy Descramble",
-   "category": "Core/Digital Television/DVB-T",
+   "category": [
+    "Core",
+    "Digital Television",
+    "DVB-T"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -30589,7 +31609,11 @@
   {
    "id": "dtv_dvbt_energy_dispersal",
    "label": "Energy Dispersal",
-   "category": "Core/Digital Television/DVB-T",
+   "category": [
+    "Core",
+    "Digital Television",
+    "DVB-T"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -30634,7 +31658,11 @@
   {
    "id": "dtv_dvbt_inner_coder",
    "label": "Inner Coder",
-   "category": "Core/Digital Television/DVB-T",
+   "category": [
+    "Core",
+    "Digital Television",
+    "DVB-T"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -30774,7 +31802,11 @@
   {
    "id": "dtv_dvbt_map",
    "label": "DVB-T Map",
-   "category": "Core/Digital Television/DVB-T",
+   "category": [
+    "Core",
+    "Digital Television",
+    "DVB-T"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -30898,7 +31930,11 @@
   {
    "id": "dtv_dvbt_ofdm_sym_acquisition",
    "label": "OFDM Symbol Acquisition",
-   "category": "Core/Digital Television/DVB-T",
+   "category": [
+    "Core",
+    "Digital Television",
+    "DVB-T"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -31001,7 +32037,11 @@
   {
    "id": "dtv_dvbt_reed_solomon_dec",
    "label": "Reed-Solomon Decoder",
-   "category": "Core/Digital Television/DVB-T",
+   "category": [
+    "Core",
+    "Digital Television",
+    "DVB-T"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -31123,7 +32163,11 @@
   {
    "id": "dtv_dvbt_reed_solomon_enc",
    "label": "Reed-Solomon Encoder",
-   "category": "Core/Digital Television/DVB-T",
+   "category": [
+    "Core",
+    "Digital Television",
+    "DVB-T"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -31245,7 +32289,11 @@
   {
    "id": "dtv_dvbt_reference_signals",
    "label": "Reference Signals",
-   "category": "Core/Digital Television/DVB-T",
+   "category": [
+    "Core",
+    "Digital Television",
+    "DVB-T"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -31510,7 +32558,11 @@
   {
    "id": "dtv_dvbt_symbol_inner_interleaver",
    "label": "Symbol Inner Interleaver",
-   "category": "Core/Digital Television/DVB-T",
+   "category": [
+    "Core",
+    "Digital Television",
+    "DVB-T"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -31593,7 +32645,11 @@
   {
    "id": "dtv_dvbt_viterbi_decoder",
    "label": "Viterbi Decoder",
-   "category": "Core/Digital Television/DVB-T",
+   "category": [
+    "Core",
+    "Digital Television",
+    "DVB-T"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -31747,7 +32803,10 @@
   {
    "id": "dvbs2_bbheader_bb",
    "label": "BBheader",
-   "category": "DVB/DVB-S2 VCM",
+   "category": [
+    "DVB",
+    "DVB-S2 VCM"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -33219,7 +34278,10 @@
   {
    "id": "dvbs2_bbheader_source",
    "label": "IP Packet Source",
-   "category": "DVB/DVB-S2 VCM",
+   "category": [
+    "DVB",
+    "DVB-S2 VCM"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -34842,7 +35904,10 @@
   {
    "id": "dvbs2_bbscrambler_bb",
    "label": "BBscrambler",
-   "category": "DVB/DVB-S2 VCM",
+   "category": [
+    "DVB",
+    "DVB-S2 VCM"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -34875,7 +35940,10 @@
   {
    "id": "dvbs2_bch_bb",
    "label": "BCH Encoder",
-   "category": "DVB/DVB-S2 VCM",
+   "category": [
+    "DVB",
+    "DVB-S2 VCM"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -34908,7 +35976,10 @@
   {
    "id": "dvbs2_interleaver_bb",
    "label": "Interleaver",
-   "category": "DVB/DVB-S2 VCM",
+   "category": [
+    "DVB",
+    "DVB-S2 VCM"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -34941,7 +36012,10 @@
   {
    "id": "dvbs2_ldpc_bb",
    "label": "LDPC Encoder",
-   "category": "DVB/DVB-S2 VCM",
+   "category": [
+    "DVB",
+    "DVB-S2 VCM"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -34974,7 +36048,10 @@
   {
    "id": "dvbs2_modulator_bc",
    "label": "DVB-S2X Modulator",
-   "category": "DVB/DVB-S2 VCM",
+   "category": [
+    "DVB",
+    "DVB-S2 VCM"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -35007,7 +36084,10 @@
   {
    "id": "dvbs2_physical_cc",
    "label": "Physical Layer Framer",
-   "category": "DVB/DVB-S2 VCM",
+   "category": [
+    "DVB",
+    "DVB-S2 VCM"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -35063,7 +36143,10 @@
   {
    "id": "dvbs2rx_bbdeheader_bb",
    "label": "BBdeheader",
-   "category": "DVB/DVB-S2 RX",
+   "category": [
+    "DVB",
+    "DVB-S2 RX"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -35503,7 +36586,10 @@
   {
    "id": "dvbs2rx_bbdescrambler_bb",
    "label": "BBdescrambler",
-   "category": "DVB/DVB-S2 RX",
+   "category": [
+    "DVB",
+    "DVB-S2 RX"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -35943,7 +37029,10 @@
   {
    "id": "dvbs2rx_bch_decoder_bb",
    "label": "BCH Decoder",
-   "category": "DVB/DVB-S2 RX",
+   "category": [
+    "DVB",
+    "DVB-S2 RX"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -36405,7 +37494,10 @@
   {
    "id": "dvbs2rx_ldpc_decoder_cb",
    "label": "LDPC Decoder",
-   "category": "DVB/DVB-S2 RX",
+   "category": [
+    "DVB",
+    "DVB-S2 RX"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -36935,7 +38027,10 @@
   {
    "id": "fec_async_decoder",
    "label": "FEC Async Decoder",
-   "category": "Core/Error Coding",
+   "category": [
+    "Core",
+    "Error Coding"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -37022,7 +38117,10 @@
   {
    "id": "fec_async_encoder",
    "label": "FEC Async Encoder",
-   "category": "Core/Error Coding",
+   "category": [
+    "Core",
+    "Error Coding"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -37126,7 +38224,10 @@
   {
    "id": "fec_ber_bf",
    "label": "BER",
-   "category": "Core/Error Coding",
+   "category": [
+    "Core",
+    "Error Coding"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -37201,7 +38302,10 @@
   {
    "id": "fec_bercurve_generator",
    "label": "BER Curve Gen.",
-   "category": "Core/Error Coding",
+   "category": [
+    "Core",
+    "Error Coding"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -37308,7 +38412,10 @@
   {
    "id": "fec_encode_ccsds_27_bb",
    "label": "Encode CCSDS 27",
-   "category": "Core/Error Coding",
+   "category": [
+    "Core",
+    "Error Coding"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -37338,7 +38445,10 @@
   {
    "id": "fec_decode_ccsds_27_fb",
    "label": "Decode CCSDS 27",
-   "category": "Core/Error Coding",
+   "category": [
+    "Core",
+    "Error Coding"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -37368,7 +38478,10 @@
   {
    "id": "fec_generic_decoder",
    "label": "FEC Decoder",
-   "category": "Core/Error Coding",
+   "category": [
+    "Core",
+    "Error Coding"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -37460,7 +38573,10 @@
   {
    "id": "fec_depuncture_bb",
    "label": "Depuncture",
-   "category": "Core/Error Coding",
+   "category": [
+    "Core",
+    "Error Coding"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -37535,7 +38651,10 @@
   {
    "id": "fec_generic_encoder",
    "label": "FEC Encoder",
-   "category": "Core/Error Coding",
+   "category": [
+    "Core",
+    "Error Coding"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -37627,7 +38746,10 @@
   {
    "id": "fec_extended_async_encoder",
    "label": "FEC Extended Async Encoder",
-   "category": "Core/Error Coding",
+   "category": [
+    "Core",
+    "Error Coding"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -37680,7 +38802,10 @@
   {
    "id": "fec_extended_decoder",
    "label": "FEC Extended Decoder",
-   "category": "Core/Error Coding",
+   "category": [
+    "Core",
+    "Error Coding"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -37776,7 +38901,10 @@
   {
    "id": "fec_extended_encoder",
    "label": "FEC Extended Encoder",
-   "category": "Core/Error Coding",
+   "category": [
+    "Core",
+    "Error Coding"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -37850,7 +38978,10 @@
   {
    "id": "fec_extended_tagged_decoder",
    "label": "FEC Extended Tagged Decoder",
-   "category": "Core/Error Coding",
+   "category": [
+    "Core",
+    "Error Coding"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -37947,7 +39078,10 @@
   {
    "id": "fec_extended_tagged_encoder",
    "label": "FEC Extended Tagged Encoder",
-   "category": "Core/Error Coding",
+   "category": [
+    "Core",
+    "Error Coding"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -38022,7 +39156,10 @@
   {
    "id": "fec_puncture_xx",
    "label": "Puncture",
-   "category": "Core/Error Coding",
+   "category": [
+    "Core",
+    "Error Coding"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -38105,7 +39242,10 @@
   {
    "id": "fec_tagged_decoder",
    "label": "FEC Tagged Decoder",
-   "category": "Core/Error Coding",
+   "category": [
+    "Core",
+    "Error Coding"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -38207,7 +39347,10 @@
   {
    "id": "fec_tagged_encoder",
    "label": "FEC Tagged Encoder",
-   "category": "Core/Error Coding",
+   "category": [
+    "Core",
+    "Error Coding"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -38309,7 +39452,11 @@
   {
    "id": "variable_ldpc_decoder_def",
    "label": "LDPC Decoder Definition",
-   "category": "Core/Error Coding/Decoders",
+   "category": [
+    "Core",
+    "Error Coding",
+    "Decoders"
+   ],
    "flags": [
     "show_id"
    ],
@@ -38394,7 +39541,11 @@
   {
    "id": "variable_ldpc_encoder_def",
    "label": "LDPC Encoder Definition",
-   "category": "Core/Error Coding/Encoders",
+   "category": [
+    "Core",
+    "Error Coding",
+    "Encoders"
+   ],
    "flags": [
     "show_id"
    ],
@@ -38468,7 +39619,11 @@
   {
    "id": "variable_tpc_decoder_def",
    "label": "TPC Decoder Definition",
-   "category": "Core/Error Coding/Decoders",
+   "category": [
+    "Core",
+    "Error Coding",
+    "Decoders"
+   ],
    "flags": [
     "show_id"
    ],
@@ -38631,7 +39786,11 @@
   {
    "id": "variable_tpc_encoder_def",
    "label": "TPC Encoder Definition",
-   "category": "Core/Error Coding/Encoders",
+   "category": [
+    "Core",
+    "Error Coding",
+    "Encoders"
+   ],
    "flags": [
     "show_id"
    ],
@@ -38760,7 +39919,11 @@
   {
    "id": "variable_cc_decoder_def",
    "label": "CC Decoder Definition",
-   "category": "Core/Error Coding/Decoders",
+   "category": [
+    "Core",
+    "Error Coding",
+    "Decoders"
+   ],
    "flags": [
     "show_id"
    ],
@@ -38921,7 +40084,11 @@
   {
    "id": "variable_cc_encoder_def",
    "label": "CC Encoder Definition",
-   "category": "Core/Error Coding/Encoders",
+   "category": [
+    "Core",
+    "Error Coding",
+    "Encoders"
+   ],
    "flags": [
     "show_id"
    ],
@@ -39060,7 +40227,11 @@
   {
    "id": "variable_ccsds_encoder_def",
    "label": "CCSDS Encoder Definition",
-   "category": "Core/Error Coding/Encoders",
+   "category": [
+    "Core",
+    "Error Coding",
+    "Encoders"
+   ],
    "flags": [
     "show_id"
    ],
@@ -39155,7 +40326,11 @@
   {
    "id": "variable_dummy_decoder_def",
    "label": "Dummy Decoder Definition",
-   "category": "Core/Error Coding/Decoders",
+   "category": [
+    "Core",
+    "Error Coding",
+    "Decoders"
+   ],
    "flags": [
     "show_id"
    ],
@@ -39229,7 +40404,11 @@
   {
    "id": "variable_dummy_encoder_def",
    "label": "Dummy Encoder Definition",
-   "category": "Core/Error Coding/Encoders",
+   "category": [
+    "Core",
+    "Error Coding",
+    "Encoders"
+   ],
    "flags": [
     "show_id"
    ],
@@ -39292,7 +40471,10 @@
   {
    "id": "variable_ldpc_G_matrix_def",
    "label": "LDPC Generator Matrix",
-   "category": "Core/Error Coding",
+   "category": [
+    "Core",
+    "Error Coding"
+   ],
    "flags": [
     "show_id"
    ],
@@ -39329,7 +40511,10 @@
   {
    "id": "variable_ldpc_H_matrix_def",
    "label": "LDPC Parity Check Matrix",
-   "category": "Core/Error Coding",
+   "category": [
+    "Core",
+    "Error Coding"
+   ],
    "flags": [
     "show_id"
    ],
@@ -39377,7 +40562,11 @@
   {
    "id": "variable_ldpc_bit_flip_decoder_def",
    "label": "LDPC Bit Flip Decoder Definition",
-   "category": "Core/Error Coding/Decoders",
+   "category": [
+    "Core",
+    "Error Coding",
+    "Decoders"
+   ],
    "flags": [
     "show_id"
    ],
@@ -39462,7 +40651,11 @@
   {
    "id": "variable_ldpc_encoder_G_def",
    "label": "LDPC Encoder Definition (via Generator)",
-   "category": "Core/Error Coding/Encoders",
+   "category": [
+    "Core",
+    "Error Coding",
+    "Encoders"
+   ],
    "flags": [
     "show_id"
    ],
@@ -39536,7 +40729,11 @@
   {
    "id": "variable_ldpc_encoder_H_def",
    "label": "LDPC Encoder Definition (via Parity Check)",
-   "category": "Core/Error Coding/Encoders",
+   "category": [
+    "Core",
+    "Error Coding",
+    "Encoders"
+   ],
    "flags": [
     "show_id"
    ],
@@ -39610,7 +40807,10 @@
   {
    "id": "variable_polar_code_configurator",
    "label": "POLAR code Configurator",
-   "category": "Core/Error Coding",
+   "category": [
+    "Core",
+    "Error Coding"
+   ],
    "flags": [
     "show_id"
    ],
@@ -39686,7 +40886,11 @@
   {
    "id": "variable_polar_decoder_sc_def",
    "label": "POLAR Decoder SC Definition",
-   "category": "Core/Error Coding/Decoders",
+   "category": [
+    "Core",
+    "Error Coding",
+    "Decoders"
+   ],
    "flags": [
     "show_id"
    ],
@@ -39782,7 +40986,11 @@
   {
    "id": "variable_polar_decoder_sc_list_def",
    "label": "POLAR Decoder SC List Definition",
-   "category": "Core/Error Coding/Decoders",
+   "category": [
+    "Core",
+    "Error Coding",
+    "Decoders"
+   ],
    "flags": [
     "show_id"
    ],
@@ -39889,7 +41097,11 @@
   {
    "id": "variable_polar_decoder_sc_systematic_def",
    "label": "systematic POLAR Decoder SC Definition",
-   "category": "Core/Error Coding/Decoders",
+   "category": [
+    "Core",
+    "Error Coding",
+    "Decoders"
+   ],
    "flags": [
     "show_id"
    ],
@@ -39974,7 +41186,11 @@
   {
    "id": "variable_polar_encoder_def",
    "label": "POLAR Encoder Definition",
-   "category": "Core/Error Coding/Encoders",
+   "category": [
+    "Core",
+    "Error Coding",
+    "Encoders"
+   ],
    "flags": [
     "show_id"
    ],
@@ -40081,7 +41297,11 @@
   {
    "id": "variable_polar_encoder_systematic_def",
    "label": "systematic POLAR Encoder Definition",
-   "category": "Core/Error Coding/Encoders",
+   "category": [
+    "Core",
+    "Error Coding",
+    "Encoders"
+   ],
    "flags": [
     "show_id"
    ],
@@ -40166,7 +41386,11 @@
   {
    "id": "variable_repetition_decoder_def",
    "label": "Repetition Decoder Definition",
-   "category": "Core/Error Coding/Decoders",
+   "category": [
+    "Core",
+    "Error Coding",
+    "Decoders"
+   ],
    "flags": [
     "show_id"
    ],
@@ -40262,7 +41486,11 @@
   {
    "id": "variable_repetition_encoder_def",
    "label": "Repetition Encoder Definition",
-   "category": "Core/Error Coding/Encoders",
+   "category": [
+    "Core",
+    "Error Coding",
+    "Encoders"
+   ],
    "flags": [
     "show_id"
    ],
@@ -40336,7 +41564,10 @@
   {
    "id": "fft_ctrlport_probe_psd",
    "label": "Ctrlport Probe PSD",
-   "category": "Core/Control Port",
+   "category": [
+    "Core",
+    "Control Port"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -40394,7 +41625,10 @@
   {
    "id": "fft_vxx",
    "label": "FFT",
-   "category": "Core/Fourier Analysis",
+   "category": [
+    "Core",
+    "Fourier Analysis"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -40514,7 +41748,10 @@
   {
    "id": "goertzel_fc",
    "label": "Goertzel",
-   "category": "Core/Fourier Analysis",
+   "category": [
+    "Core",
+    "Fourier Analysis"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -40581,7 +41818,10 @@
   {
    "id": "logpwrfft_x",
    "label": "Log Power FFT",
-   "category": "Core/Fourier Analysis",
+   "category": [
+    "Core",
+    "Fourier Analysis"
+   ],
    "flags": [
     "python"
    ],
@@ -40722,7 +41962,10 @@
   {
    "id": "band_pass_filter",
    "label": "Band Pass Filter",
-   "category": "Core/Filters",
+   "category": [
+    "Core",
+    "Filters"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -40935,7 +42178,10 @@
   {
    "id": "band_reject_filter",
    "label": "Band Reject Filter",
-   "category": "Core/Filters",
+   "category": [
+    "Core",
+    "Filters"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -41148,7 +42394,10 @@
   {
    "id": "dc_blocker_xx",
    "label": "DC Blocker",
-   "category": "Core/Filters",
+   "category": [
+    "Core",
+    "Filters"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -41230,7 +42479,10 @@
   {
    "id": "fft_filter_xxx",
    "label": "FFT Filter",
-   "category": "Core/Filters",
+   "category": [
+    "Core",
+    "Filters"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -41343,7 +42595,10 @@
   {
    "id": "filter_fft_low_pass_filter",
    "label": "FFT Low Pass Filter",
-   "category": "Core/Filters",
+   "category": [
+    "Core",
+    "Filters"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -41509,7 +42764,10 @@
   {
    "id": "filter_fft_rrc_filter",
    "label": "FFT Root Raised Cosine Filter",
-   "category": "Core/Filters",
+   "category": [
+    "Core",
+    "Filters"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -41652,7 +42910,10 @@
   {
    "id": "filter_delay_fc",
    "label": "Filter Delay",
-   "category": "Core/Filters",
+   "category": [
+    "Core",
+    "Filters"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -41705,7 +42966,10 @@
   {
    "id": "filterbank_vcvcf",
    "label": "Generic Filterbank",
-   "category": "Core/Filters",
+   "category": [
+    "Core",
+    "Filters"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -41750,7 +43014,10 @@
   {
    "id": "fir_filter_xxx",
    "label": "Decimating FIR Filter",
-   "category": "Core/Filters",
+   "category": [
+    "Core",
+    "Filters"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -41867,7 +43134,10 @@
   {
    "id": "freq_xlating_fft_filter_ccc",
    "label": "Frequency Xlating FFT Filter",
-   "category": "Core/Channelizers",
+   "category": [
+    "Core",
+    "Channelizers"
+   ],
    "flags": [
     "python"
    ],
@@ -41966,7 +43236,10 @@
   {
    "id": "freq_xlating_fir_filter_xxx",
    "label": "Frequency Xlating FIR Filter",
-   "category": "Core/Channelizers",
+   "category": [
+    "Core",
+    "Channelizers"
+   ],
    "flags": [
     "python"
    ],
@@ -42101,7 +43374,10 @@
   {
    "id": "high_pass_filter",
    "label": "High Pass Filter",
-   "category": "Core/Filters",
+   "category": [
+    "Core",
+    "Filters"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -42277,7 +43553,10 @@
   {
    "id": "hilbert_fc",
    "label": "Hilbert",
-   "category": "Core/Filters",
+   "category": [
+    "Core",
+    "Filters"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -42367,7 +43646,10 @@
   {
    "id": "iir_filter_xxx",
    "label": "IIR Filter",
-   "category": "Core/Filters",
+   "category": [
+    "Core",
+    "Filters"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -42482,7 +43764,10 @@
   {
    "id": "interp_fir_filter_xxx",
    "label": "Interpolating FIR Filter",
-   "category": "Core/Filters",
+   "category": [
+    "Core",
+    "Filters"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -42599,7 +43884,10 @@
   {
    "id": "ival_decimator",
    "label": "Interleaved Stream Decimator",
-   "category": "Core/Resamplers",
+   "category": [
+    "Core",
+    "Resamplers"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -42660,7 +43948,10 @@
   {
    "id": "low_pass_filter",
    "label": "Low Pass Filter",
-   "category": "Core/Filters",
+   "category": [
+    "Core",
+    "Filters"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -42836,7 +44127,10 @@
   {
    "id": "mmse_resampler_xx",
    "label": "Fractional Resampler",
-   "category": "Core/Resamplers",
+   "category": [
+    "Core",
+    "Resamplers"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -42927,7 +44221,10 @@
   {
    "id": "pfb_arb_resampler_xxx",
    "label": "Polyphase Arbitrary Resampler",
-   "category": "Core/Resamplers",
+   "category": [
+    "Core",
+    "Resamplers"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -43051,7 +44348,10 @@
   {
    "id": "pfb_channelizer_ccf",
    "label": "Polyphase Channelizer",
-   "category": "Core/Channelizers",
+   "category": [
+    "Core",
+    "Channelizers"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -43162,7 +44462,10 @@
   {
    "id": "pfb_channelizer_hier_ccf",
    "label": "Hierarchical Polyphase Channelizer",
-   "category": "Core/Channelizers",
+   "category": [
+    "Core",
+    "Channelizers"
+   ],
    "flags": [
     "python"
    ],
@@ -43283,7 +44586,10 @@
   {
    "id": "pfb_decimator_ccf",
    "label": "Polyphase Decimator",
-   "category": "Core/Channelizers",
+   "category": [
+    "Core",
+    "Channelizers"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -43400,7 +44706,10 @@
   {
    "id": "pfb_interpolator_ccf",
    "label": "Polyphase Interpolator",
-   "category": "Core/Channelizers",
+   "category": [
+    "Core",
+    "Channelizers"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -43478,7 +44787,10 @@
   {
    "id": "pfb_synthesizer_ccf",
    "label": "Polyphase Synthesizer",
-   "category": "Core/Channelizers",
+   "category": [
+    "Core",
+    "Channelizers"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -43589,7 +44901,10 @@
   {
    "id": "rational_resampler_xxx",
    "label": "Rational Resampler",
-   "category": "Core/Resamplers",
+   "category": [
+    "Core",
+    "Resamplers"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -43707,7 +45022,10 @@
   {
    "id": "root_raised_cosine_filter",
    "label": "Root Raised Cosine Filter",
-   "category": "Core/Filters",
+   "category": [
+    "Core",
+    "Filters"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -43852,7 +45170,10 @@
   {
    "id": "single_pole_iir_filter_xx",
    "label": "Single Pole IIR Filter",
-   "category": "Core/Filters",
+   "category": [
+    "Core",
+    "Filters"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -43927,7 +45248,10 @@
   {
    "id": "variable_band_pass_filter_taps",
    "label": "Band-pass Filter Taps",
-   "category": "Core/Filters",
+   "category": [
+    "Core",
+    "Filters"
+   ],
    "flags": [
     "show_id",
     "python",
@@ -44076,7 +45400,10 @@
   {
    "id": "variable_band_reject_filter_taps",
    "label": "Band-reject Filter Taps",
-   "category": "Core/Filters",
+   "category": [
+    "Core",
+    "Filters"
+   ],
    "flags": [
     "show_id",
     "python",
@@ -44225,7 +45552,10 @@
   {
    "id": "variable_file_filter_taps",
    "label": "Filter Taps Loader",
-   "category": "Core/Filters",
+   "category": [
+    "Core",
+    "Filters"
+   ],
    "flags": [
     "show_id",
     "python"
@@ -44263,7 +45593,10 @@
   {
    "id": "variable_high_pass_filter_taps",
    "label": "High-pass Filter Taps",
-   "category": "Core/Filters",
+   "category": [
+    "Core",
+    "Filters"
+   ],
    "flags": [
     "show_id",
     "python",
@@ -44384,7 +45717,10 @@
   {
    "id": "variable_low_pass_filter_taps",
    "label": "Low-pass Filter Taps",
-   "category": "Core/Filters",
+   "category": [
+    "Core",
+    "Filters"
+   ],
    "flags": [
     "show_id",
     "python",
@@ -44505,7 +45841,10 @@
   {
    "id": "variable_rrc_filter_taps",
    "label": "RRC Filter Taps",
-   "category": "Core/Filters",
+   "category": [
+    "Core",
+    "Filters"
+   ],
    "flags": [
     "show_id",
     "python",
@@ -44588,7 +45927,9 @@
   {
    "id": "foo_burst_tagger",
    "label": "Burst Tagger",
-   "category": "Foo",
+   "category": [
+    "Foo"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -44644,7 +45985,9 @@
   {
    "id": "foo_channel_model",
    "label": "Channel Model",
-   "category": "Foo",
+   "category": [
+    "Foo"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -44755,7 +46098,9 @@
   {
    "id": "foo_packet_dropper",
    "label": "Packet Dropper",
-   "category": "Foo",
+   "category": [
+    "Foo"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -44811,7 +46156,9 @@
   {
    "id": "foo_packet_pad2",
    "label": "Packet Pad2",
-   "category": "Foo",
+   "category": [
+    "Foo"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -44912,7 +46259,9 @@
   {
    "id": "foo_pad_tagged_stream",
    "label": "Pad Tagged Stream",
-   "category": "Foo",
+   "category": [
+    "Foo"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -44968,7 +46317,9 @@
   {
    "id": "foo_periodic_msg_source",
    "label": "Periodic Message Source",
-   "category": "Foo",
+   "category": [
+    "Foo"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -45060,7 +46411,9 @@
   {
    "id": "foo_random_periodic_msg_source",
    "label": "Random Periodic Message Source",
-   "category": "Foo",
+   "category": [
+    "Foo"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -45163,7 +46516,9 @@
   {
    "id": "foo_rtt_measure",
    "label": "RTT measure",
-   "category": "Foo",
+   "category": [
+    "Foo"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -45216,7 +46571,9 @@
   {
    "id": "foo_selector",
    "label": "Selector",
-   "category": "Foo",
+   "category": [
+    "Foo"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -45327,7 +46684,9 @@
   {
    "id": "foo_valve",
    "label": "Valve",
-   "category": "Foo",
+   "category": [
+    "Foo"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -45405,7 +46764,9 @@
   {
    "id": "foo_wireshark_connector",
    "label": "Wireshark Connector",
-   "category": "Foo",
+   "category": [
+    "Foo"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -45475,7 +46836,11 @@
   {
    "id": "iio_attr_sink",
    "label": "IIO Attribute Sink",
-   "category": "Core/Industrial I/O/Generic",
+   "category": [
+    "Core",
+    "Industrial I/O",
+    "Generic"
+   ],
    "flags": [
     "python"
    ],
@@ -45572,7 +46937,11 @@
   {
    "id": "iio_attr_source",
    "label": "IIO Attribute Source",
-   "category": "Core/Industrial I/O/Generic",
+   "category": [
+    "Core",
+    "Industrial I/O",
+    "Generic"
+   ],
    "flags": [
     "python"
    ],
@@ -45742,7 +47111,11 @@
   {
    "id": "iio_attr_updater",
    "label": "IIO Attribute Updater",
-   "category": "Core/Industrial I/O/Generic",
+   "category": [
+    "Core",
+    "Industrial I/O",
+    "Generic"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -45797,7 +47170,11 @@
   {
    "id": "iio_dds_control",
    "label": "DDS Control",
-   "category": "Core/Industrial I/O/Generic",
+   "category": [
+    "Core",
+    "Industrial I/O",
+    "Generic"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -46113,7 +47490,11 @@
   {
    "id": "iio_device_sink",
    "label": "IIO Device Sink",
-   "category": "Core/Industrial I/O/Generic",
+   "category": [
+    "Core",
+    "Industrial I/O",
+    "Generic"
+   ],
    "flags": [
     "python",
     "throttle"
@@ -46243,7 +47624,11 @@
   {
    "id": "iio_device_source",
    "label": "IIO Device Source",
-   "category": "Core/Industrial I/O/Generic",
+   "category": [
+    "Core",
+    "Industrial I/O",
+    "Generic"
+   ],
    "flags": [
     "python",
     "throttle"
@@ -46364,7 +47749,11 @@
   {
    "id": "iio_fmcomms2_sink",
    "label": "FMComms2/3/4 Sink",
-   "category": "Core/Industrial I/O/FMComms",
+   "category": [
+    "Core",
+    "Industrial I/O",
+    "FMComms"
+   ],
    "flags": [
     "python",
     "throttle"
@@ -46632,7 +48021,11 @@
   {
    "id": "iio_fmcomms2_source",
    "label": "FMComms2/3/4 Source",
-   "category": "Core/Industrial I/O/FMComms",
+   "category": [
+    "Core",
+    "Industrial I/O",
+    "FMComms"
+   ],
    "flags": [
     "python",
     "throttle"
@@ -46985,7 +48378,11 @@
   {
    "id": "iio_pluto_sink",
    "label": "PlutoSDR Sink",
-   "category": "Core/Industrial I/O/PlutoSDR",
+   "category": [
+    "Core",
+    "Industrial I/O",
+    "PlutoSDR"
+   ],
    "flags": [
     "python",
     "throttle"
@@ -47180,7 +48577,11 @@
   {
    "id": "iio_pluto_source",
    "label": "PlutoSDR Source",
-   "category": "Core/Industrial I/O/PlutoSDR",
+   "category": [
+    "Core",
+    "Industrial I/O",
+    "PlutoSDR"
+   ],
    "flags": [
     "python",
     "throttle"
@@ -47430,7 +48831,10 @@
   {
    "id": "network_socket_pdu",
    "label": "Socket PDU",
-   "category": "Core/Networking Tools",
+   "category": [
+    "Core",
+    "Networking Tools"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -47535,7 +48939,10 @@
   {
    "id": "network_tcp_sink",
    "label": "TCP Sink",
-   "category": "Core/Networking Tools",
+   "category": [
+    "Core",
+    "Networking Tools"
+   ],
    "flags": [
     "throttle"
    ],
@@ -47639,7 +49046,10 @@
   {
    "id": "network_tcp_source",
    "label": "TCP Source",
-   "category": "Core/Networking Tools",
+   "category": [
+    "Core",
+    "Networking Tools"
+   ],
    "flags": [
     "throttle"
    ],
@@ -47738,7 +49148,10 @@
   {
    "id": "network_tuntap_pdu",
    "label": "TUNTAP PDU",
-   "category": "Core/Networking Tools",
+   "category": [
+    "Core",
+    "Networking Tools"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -47811,7 +49224,10 @@
   {
    "id": "network_udp_sink",
    "label": "UDP Sink",
-   "category": "Core/Networking Tools",
+   "category": [
+    "Core",
+    "Networking Tools"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -47940,7 +49356,10 @@
   {
    "id": "network_udp_source",
    "label": "UDP Source",
-   "category": "Core/Networking Tools",
+   "category": [
+    "Core",
+    "Networking Tools"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -48092,7 +49511,10 @@
   {
    "id": "pdu_add_system_time",
    "label": "Add System Time",
-   "category": "Core/PDU Tools",
+   "category": [
+    "Core",
+    "PDU Tools"
+   ],
    "flags": [
     "python"
    ],
@@ -48136,7 +49558,10 @@
   {
    "id": "pdu_pdu_filter",
    "label": "PDU Filter",
-   "category": "Core/PDU Tools",
+   "category": [
+    "Core",
+    "PDU Tools"
+   ],
    "flags": [
     "python"
    ],
@@ -48208,7 +49633,10 @@
   {
    "id": "pdu_pdu_lambda",
    "label": "PDU Lambda",
-   "category": "Core/PDU Tools",
+   "category": [
+    "Core",
+    "PDU Tools"
+   ],
    "flags": [
     "python"
    ],
@@ -48284,7 +49712,10 @@
   {
    "id": "pdu_pdu_remove",
    "label": "PDU Remove",
-   "category": "Core/PDU Tools",
+   "category": [
+    "Core",
+    "PDU Tools"
+   ],
    "flags": [
     "python"
    ],
@@ -48328,7 +49759,10 @@
   {
    "id": "pdu_pdu_set",
    "label": "PDU Set",
-   "category": "Core/PDU Tools",
+   "category": [
+    "Core",
+    "PDU Tools"
+   ],
    "flags": [
     "python"
    ],
@@ -48383,7 +49817,10 @@
   {
    "id": "pdu_pdu_split",
    "label": "PDU Split",
-   "category": "Core/PDU Tools",
+   "category": [
+    "Core",
+    "PDU Tools"
+   ],
    "flags": [
     "python"
    ],
@@ -48441,7 +49878,10 @@
   {
    "id": "pdu_pdu_to_stream_x",
    "label": "PDU To Stream",
-   "category": "Core/PDU Tools",
+   "category": [
+    "Core",
+    "PDU Tools"
+   ],
    "flags": [
     "python"
    ],
@@ -48535,7 +49975,10 @@
   {
    "id": "pdu_pdu_to_tagged_stream",
    "label": "PDU to Tagged Stream",
-   "category": "Core/PDU Tools",
+   "category": [
+    "Core",
+    "PDU Tools"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -48601,7 +50044,10 @@
   {
    "id": "pdu_random_pdu",
    "label": "Random PDU Generator",
-   "category": "Core/PDU Tools",
+   "category": [
+    "Core",
+    "PDU Tools"
+   ],
    "flags": [
     "python"
    ],
@@ -48678,7 +50124,10 @@
   {
    "id": "pdu_tagged_stream_to_pdu",
    "label": "Tagged Stream to PDU",
-   "category": "Core/PDU Tools",
+   "category": [
+    "Core",
+    "PDU Tools"
+   ],
    "flags": [
     "python"
    ],
@@ -48743,7 +50192,10 @@
   {
    "id": "pdu_tags_to_pdu_x",
    "label": "Tags To PDU",
-   "category": "Core/PDU Tools",
+   "category": [
+    "Core",
+    "PDU Tools"
+   ],
    "flags": [
     "python"
    ],
@@ -48990,7 +50442,10 @@
   {
    "id": "pdu_take_skip_to_pdu",
    "label": "Take/Skip To PDU",
-   "category": "Core/PDU Tools",
+   "category": [
+    "Core",
+    "PDU Tools"
+   ],
    "flags": [
     "python"
    ],
@@ -49076,7 +50531,10 @@
   {
    "id": "pdu_time_delta",
    "label": "Time Delta",
-   "category": "Core/PDU Tools",
+   "category": [
+    "Core",
+    "PDU Tools"
+   ],
    "flags": [
     "python"
    ],
@@ -49131,7 +50589,11 @@
   {
    "id": "qtgui_grbackground",
    "label": "QT GUI App Background",
-   "category": "Core/GUI Widgets/QT",
+   "category": [
+    "Core",
+    "GUI Widgets",
+    "QT"
+   ],
    "flags": [
     "python"
    ],
@@ -49217,7 +50679,11 @@
   {
    "id": "qtgui_auto_correlator_sink",
    "label": "QT GUI Fast Auto-Correlator Sink",
-   "category": "Core/GUI Widgets/QT",
+   "category": [
+    "Core",
+    "GUI Widgets",
+    "QT"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -49367,7 +50833,11 @@
   {
    "id": "variable_qtgui_azelplot",
    "label": "QT GUI Az-El Plot",
-   "category": "Core/GUI Widgets/QT",
+   "category": [
+    "Core",
+    "GUI Widgets",
+    "QT"
+   ],
    "flags": [
     "show_id",
     "python"
@@ -49486,7 +50956,11 @@
   {
    "id": "qtgui_bercurve_sink",
    "label": "QT GUI Bercurve Sink",
-   "category": "Core/Instrumentation/QT",
+   "category": [
+    "Core",
+    "Instrumentation",
+    "QT"
+   ],
    "flags": [
     "python"
    ],
@@ -50338,7 +51812,11 @@
   {
    "id": "variable_qtgui_check_box",
    "label": "QT GUI Check Box",
-   "category": "Core/GUI Widgets/QT",
+   "category": [
+    "Core",
+    "GUI Widgets",
+    "QT"
+   ],
    "flags": [
     "show_id",
     "python",
@@ -50448,7 +51926,11 @@
   {
    "id": "variable_qtgui_chooser",
    "label": "QT GUI Chooser",
-   "category": "Core/GUI Widgets/QT",
+   "category": [
+    "Core",
+    "GUI Widgets",
+    "QT"
+   ],
    "flags": [
     "show_id",
     "python"
@@ -50709,7 +52191,11 @@
   {
    "id": "qtgui_compass",
    "label": "QT GUI Compass",
-   "category": "Core/GUI Widgets/QT",
+   "category": [
+    "Core",
+    "GUI Widgets",
+    "QT"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -51019,7 +52505,11 @@
   {
    "id": "qtgui_const_sink_x",
    "label": "QT GUI Constellation Sink",
-   "category": "Core/Instrumentation/QT",
+   "category": [
+    "Core",
+    "Instrumentation",
+    "QT"
+   ],
    "flags": [
     "python"
    ],
@@ -52025,7 +53515,11 @@
   {
    "id": "variable_qtgui_dial_control",
    "label": "QT GUI Dial",
-   "category": "Core/GUI Widgets/QT",
+   "category": [
+    "Core",
+    "GUI Widgets",
+    "QT"
+   ],
    "flags": [
     "show_id",
     "python"
@@ -52214,7 +53708,11 @@
   {
    "id": "qtgui_dialgauge",
    "label": "QT GUI Dial Gauge",
-   "category": "Core/GUI Widgets/QT",
+   "category": [
+    "Core",
+    "GUI Widgets",
+    "QT"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -52475,7 +53973,11 @@
   {
    "id": "variable_qtgui_distanceradar",
    "label": "QT GUI Distance Radar",
-   "category": "Core/GUI Widgets/QT",
+   "category": [
+    "Core",
+    "GUI Widgets",
+    "QT"
+   ],
    "flags": [
     "show_id",
     "python"
@@ -52614,7 +54116,11 @@
   {
    "id": "qtgui_edit_box_msg",
    "label": "QT GUI Message Edit Box",
-   "category": "Core/GUI Widgets/QT",
+   "category": [
+    "Core",
+    "GUI Widgets",
+    "QT"
+   ],
    "flags": [
     "python"
    ],
@@ -52762,7 +54268,11 @@
   {
    "id": "variable_qtgui_entry",
    "label": "QT GUI Entry",
-   "category": "Core/GUI Widgets/QT",
+   "category": [
+    "Core",
+    "GUI Widgets",
+    "QT"
+   ],
    "flags": [
     "show_id",
     "python",
@@ -52867,7 +54377,11 @@
   {
    "id": "qtgui_eye_sink_x",
    "label": "QT GUI Eye Sink",
-   "category": "Core/Instrumentation/QT",
+   "category": [
+    "Core",
+    "Instrumentation",
+    "QT"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -54457,7 +55971,11 @@
   {
    "id": "qtgui_freq_sink_x",
    "label": "QT GUI Frequency Sink",
-   "category": "Core/Instrumentation/QT",
+   "category": [
+    "Core",
+    "Instrumentation",
+    "QT"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -55391,7 +56909,11 @@
   {
    "id": "qtgui_graphicitem",
    "label": "QT GUI Graphic Item",
-   "category": "Core/GUI Widgets/QT",
+   "category": [
+    "Core",
+    "GUI Widgets",
+    "QT"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -55487,7 +57009,11 @@
   {
    "id": "qtgui_graphicoverlay",
    "label": "QT GUI Graphic Overlay Sample Source",
-   "category": "Core/GUI Widgets/QT",
+   "category": [
+    "Core",
+    "GUI Widgets",
+    "QT"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -55542,7 +57068,11 @@
   {
    "id": "qtgui_histogram_sink_x",
    "label": "QT GUI Histogram Sink",
-   "category": "Core/Instrumentation/QT",
+   "category": [
+    "Core",
+    "Instrumentation",
+    "QT"
+   ],
    "flags": [
     "python"
    ],
@@ -56483,7 +58013,11 @@
   {
    "id": "variable_qtgui_label",
    "label": "QT GUI Label",
-   "category": "Core/GUI Widgets/QT",
+   "category": [
+    "Core",
+    "GUI Widgets",
+    "QT"
+   ],
    "flags": [
     "show_id",
     "python",
@@ -56582,7 +58116,11 @@
   {
    "id": "qtgui_ledindicator",
    "label": "QT GUI LED Indicator",
-   "category": "Core/GUI Widgets/QT",
+   "category": [
+    "Core",
+    "GUI Widgets",
+    "QT"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -56785,7 +58323,11 @@
   {
    "id": "qtgui_levelgauge",
    "label": "QT GUI Level Gauge",
-   "category": "Core/GUI Widgets/QT",
+   "category": [
+    "Core",
+    "GUI Widgets",
+    "QT"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -57080,7 +58622,11 @@
   {
    "id": "qtgui_matrix_sink",
    "label": "QT GUI Matrix Sink",
-   "category": "Core/Instrumentation/QT",
+   "category": [
+    "Core",
+    "Instrumentation",
+    "QT"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -57295,7 +58841,11 @@
   {
    "id": "variable_qtgui_msgcheckbox",
    "label": "QT GUI Msg CheckBox",
-   "category": "Core/GUI Widgets/QT",
+   "category": [
+    "Core",
+    "GUI Widgets",
+    "QT"
+   ],
    "flags": [
     "show_id",
     "python"
@@ -57462,7 +59012,11 @@
   {
    "id": "qtgui_msgdigitalnumbercontrol",
    "label": "QT GUI Digital Number Control",
-   "category": "Core/GUI Widgets/QT",
+   "category": [
+    "Core",
+    "GUI Widgets",
+    "QT"
+   ],
    "flags": [
     "show_id",
     "python"
@@ -57674,7 +59228,11 @@
   {
    "id": "variable_qtgui_msg_push_button",
    "label": "QT GUI Msg Push Button",
-   "category": "Core/GUI Widgets/QT",
+   "category": [
+    "Core",
+    "GUI Widgets",
+    "QT"
+   ],
    "flags": [
     "show_id",
     "python"
@@ -57857,7 +59415,11 @@
   {
    "id": "qtgui_number_sink",
    "label": "QT GUI Number Sink",
-   "category": "Core/Instrumentation/QT",
+   "category": [
+    "Core",
+    "Instrumentation",
+    "QT"
+   ],
    "flags": [
     "show_id",
     "python",
@@ -58475,7 +60037,11 @@
   {
    "id": "variable_qtgui_numeric_entry",
    "label": "QT GUI Numeric Entry",
-   "category": "Core/GUI Widgets/QT",
+   "category": [
+    "Core",
+    "GUI Widgets",
+    "QT"
+   ],
    "flags": [
     "show_id",
     "python"
@@ -58601,7 +60167,11 @@
   {
    "id": "variable_qtgui_push_button",
    "label": "QT GUI Push Button",
-   "category": "Core/GUI Widgets/QT",
+   "category": [
+    "Core",
+    "GUI Widgets",
+    "QT"
+   ],
    "flags": [
     "show_id",
     "python",
@@ -58704,7 +60274,11 @@
   {
    "id": "variable_qtgui_range",
    "label": "QT GUI Range",
-   "category": "Core/GUI Widgets/QT",
+   "category": [
+    "Core",
+    "GUI Widgets",
+    "QT"
+   ],
    "flags": [
     "show_id",
     "python"
@@ -58867,7 +60441,11 @@
   {
    "id": "qtgui_rfnoc_f15_display",
    "label": "QT GUI RFNoC Fosphor Display (Byte Vector)",
-   "category": "Core/GUI Widgets/QT",
+   "category": [
+    "Core",
+    "GUI Widgets",
+    "QT"
+   ],
    "flags": [
     "python"
    ],
@@ -59042,7 +60620,11 @@
   {
    "id": "qtgui_sink_x",
    "label": "QT GUI Sink",
-   "category": "Core/Instrumentation/QT",
+   "category": [
+    "Core",
+    "Instrumentation",
+    "QT"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -59317,7 +60899,11 @@
   {
    "id": "qtgui_tab_widget",
    "label": "QT GUI Tab Widget",
-   "category": "Core/GUI Widgets/QT",
+   "category": [
+    "Core",
+    "GUI Widgets",
+    "QT"
+   ],
    "flags": [
     "show_id",
     "python",
@@ -59597,7 +61183,11 @@
   {
    "id": "qtgui_time_raster_sink_x",
    "label": "QT GUI Time Raster Sink",
-   "category": "Core/Instrumentation/QT",
+   "category": [
+    "Core",
+    "Instrumentation",
+    "QT"
+   ],
    "flags": [
     "python"
    ],
@@ -60220,7 +61810,11 @@
   {
    "id": "qtgui_time_sink_x",
    "label": "QT GUI Time Sink",
-   "category": "Core/Instrumentation/QT",
+   "category": [
+    "Core",
+    "Instrumentation",
+    "QT"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -61830,7 +63424,11 @@
   {
    "id": "variable_qtgui_toggle_button_msg",
    "label": "QT GUI Toggle Button",
-   "category": "Core/GUI Widgets/QT",
+   "category": [
+    "Core",
+    "GUI Widgets",
+    "QT"
+   ],
    "flags": [
     "show_id",
     "python"
@@ -62138,7 +63736,11 @@
   {
    "id": "variable_qtgui_toggle_switch",
    "label": "QT GUI Toggle Switch",
-   "category": "Core/GUI Widgets/QT",
+   "category": [
+    "Core",
+    "GUI Widgets",
+    "QT"
+   ],
    "flags": [
     "show_id",
     "python"
@@ -62411,7 +64013,11 @@
   {
    "id": "qtgui_vector_sink_f",
    "label": "QT GUI Vector Sink",
-   "category": "Core/Instrumentation/QT",
+   "category": [
+    "Core",
+    "Instrumentation",
+    "QT"
+   ],
    "flags": [
     "python"
    ],
@@ -63149,7 +64755,11 @@
   {
    "id": "qtgui_waterfall_sink_x",
    "label": "QT GUI Waterfall Sink",
-   "category": "Core/Instrumentation/QT",
+   "category": [
+    "Core",
+    "Instrumentation",
+    "QT"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -63810,7 +65420,9 @@
   {
    "id": "rds_decoder",
    "label": "RDS Decoder",
-   "category": "RDS",
+   "category": [
+    "RDS"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -63878,7 +65490,9 @@
   {
    "id": "rds_encoder",
    "label": "RDS Encoder",
-   "category": "RDS",
+   "category": [
+    "RDS"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -64202,7 +65816,9 @@
   {
    "id": "rds_panel",
    "label": "RDS Panel",
-   "category": "RDS",
+   "category": [
+    "RDS"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -64246,7 +65862,9 @@
   {
    "id": "rds_parser",
    "label": "RDS Parser",
-   "category": "RDS",
+   "category": [
+    "RDS"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -64342,7 +65960,9 @@
   {
    "id": "rds_tag_to_msg",
    "label": "Latency Tag to Message",
-   "category": "RDS",
+   "category": [
+    "RDS"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -64423,7 +66043,11 @@
   {
    "id": "soapy_airspyhf_source",
    "label": "Soapy AirspyHF Source",
-   "category": "Core/Soapy/Source",
+   "category": [
+    "Core",
+    "Soapy",
+    "Source"
+   ],
    "flags": [
     "python",
     "throttle"
@@ -64573,7 +66197,11 @@
   {
    "id": "soapy_bladerf_sink",
    "label": "Soapy BladeRF Sink",
-   "category": "Core/Soapy/Sink",
+   "category": [
+    "Core",
+    "Soapy",
+    "Sink"
+   ],
    "flags": [
     "python",
     "throttle"
@@ -64697,7 +66325,11 @@
   {
    "id": "soapy_bladerf_source",
    "label": "Soapy BladeRF Source",
-   "category": "Core/Soapy/Source",
+   "category": [
+    "Core",
+    "Soapy",
+    "Source"
+   ],
    "flags": [
     "python",
     "throttle"
@@ -64822,7 +66454,11 @@
   {
    "id": "soapy_custom_sink",
    "label": "Soapy Custom Sink",
-   "category": "Core/Soapy/Sink",
+   "category": [
+    "Core",
+    "Soapy",
+    "Sink"
+   ],
    "flags": [
     "python",
     "throttle"
@@ -65133,7 +66769,11 @@
   {
    "id": "soapy_custom_source",
    "label": "Soapy Custom Source",
-   "category": "Core/Soapy/Source",
+   "category": [
+    "Core",
+    "Soapy",
+    "Source"
+   ],
    "flags": [
     "python",
     "throttle"
@@ -65489,7 +67129,11 @@
   {
    "id": "soapy_hackrf_sink",
    "label": "Soapy HackRF Sink",
-   "category": "Core/Soapy/Sink",
+   "category": [
+    "Core",
+    "Soapy",
+    "Sink"
+   ],
    "flags": [
     "python",
     "throttle"
@@ -65613,7 +67257,11 @@
   {
    "id": "soapy_hackrf_source",
    "label": "Soapy HackRF Source",
-   "category": "Core/Soapy/Source",
+   "category": [
+    "Core",
+    "Soapy",
+    "Source"
+   ],
    "flags": [
     "python",
     "throttle"
@@ -65749,7 +67397,11 @@
   {
    "id": "soapy_limesdr_sink",
    "label": "Soapy LimeSDR Sink",
-   "category": "Core/Soapy/Sink",
+   "category": [
+    "Core",
+    "Soapy",
+    "Sink"
+   ],
    "flags": [
     "python",
     "throttle"
@@ -65873,7 +67525,11 @@
   {
    "id": "soapy_limesdr_source",
    "label": "Soapy LimeSDR Source",
-   "category": "Core/Soapy/Source",
+   "category": [
+    "Core",
+    "Soapy",
+    "Source"
+   ],
    "flags": [
     "python",
     "throttle"
@@ -65998,7 +67654,11 @@
   {
    "id": "soapy_plutosdr_sink",
    "label": "Soapy PLUTO Sink",
-   "category": "Core/Soapy/Sink",
+   "category": [
+    "Core",
+    "Soapy",
+    "Sink"
+   ],
    "flags": [
     "python",
     "throttle"
@@ -66111,7 +67771,11 @@
   {
    "id": "soapy_plutosdr_source",
    "label": "Soapy PLUTO Source",
-   "category": "Core/Soapy/Source",
+   "category": [
+    "Core",
+    "Soapy",
+    "Source"
+   ],
    "flags": [
     "python",
     "throttle"
@@ -66236,7 +67900,11 @@
   {
    "id": "soapy_rtlsdr_source",
    "label": "Soapy RTLSDR Source",
-   "category": "Core/Soapy/Source",
+   "category": [
+    "Core",
+    "Soapy",
+    "Source"
+   ],
    "flags": [
     "python",
     "throttle"
@@ -66383,7 +68051,11 @@
   {
    "id": "soapy_sdrplay_source",
    "label": "Soapy SDRPlay Source",
-   "category": "Core/Soapy/Source",
+   "category": [
+    "Core",
+    "Soapy",
+    "Source"
+   ],
    "flags": [
     "python",
     "throttle"
@@ -66563,7 +68235,11 @@
   {
    "id": "soapy_sink",
    "label": "Soapy Sink",
-   "category": "Core/Soapy/Deprecated",
+   "category": [
+    "Core",
+    "Soapy",
+    "Deprecated"
+   ],
    "flags": [
     "python",
     "throttle"
@@ -67103,7 +68779,11 @@
   {
    "id": "soapy_source",
    "label": "Soapy Source",
-   "category": "Core/Soapy/Deprecated",
+   "category": [
+    "Core",
+    "Soapy",
+    "Deprecated"
+   ],
    "flags": [
     "python",
     "throttle"
@@ -67814,7 +69494,10 @@
   {
    "id": "trellis_encoder_xx",
    "label": "Trellis Encoder",
-   "category": "Core/Trellis Coding",
+   "category": [
+    "Core",
+    "Trellis Coding"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -67937,7 +69620,10 @@
   {
    "id": "trellis_metrics_x",
    "label": "Trellis Metrics",
-   "category": "Core/Trellis Coding",
+   "category": [
+    "Core",
+    "Trellis Coding"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -68054,7 +69740,10 @@
   {
    "id": "trellis_pccc_decoder_combined_xx",
    "label": "PCCC Decoder Combo",
-   "category": "Core/Trellis Coding",
+   "category": [
+    "Core",
+    "Trellis Coding"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -68304,7 +69993,10 @@
   {
    "id": "trellis_pccc_decoder_x",
    "label": "PCCC Decoder",
-   "category": "Core/Trellis Coding",
+   "category": [
+    "Core",
+    "Trellis Coding"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -68476,7 +70168,10 @@
   {
    "id": "trellis_pccc_encoder_xx",
    "label": "PCCC Encoder",
-   "category": "Core/Trellis Coding",
+   "category": [
+    "Core",
+    "Trellis Coding"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -68615,7 +70310,10 @@
   {
    "id": "trellis_permutation",
    "label": "Trellis Permutation",
-   "category": "Core/Trellis Coding",
+   "category": [
+    "Core",
+    "Trellis Coding"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -68715,7 +70413,10 @@
   {
    "id": "trellis_sccc_decoder_combined_xx",
    "label": "SCCC Decoder Combo",
-   "category": "Core/Trellis Coding",
+   "category": [
+    "Core",
+    "Trellis Coding"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -68965,7 +70666,10 @@
   {
    "id": "trellis_sccc_decoder_x",
    "label": "SCCC Decoder",
-   "category": "Core/Trellis Coding",
+   "category": [
+    "Core",
+    "Trellis Coding"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -69137,7 +70841,10 @@
   {
    "id": "trellis_sccc_encoder_xx",
    "label": "SCCC Encoder",
-   "category": "Core/Trellis Coding",
+   "category": [
+    "Core",
+    "Trellis Coding"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -69276,7 +70983,10 @@
   {
    "id": "trellis_siso_combined_f",
    "label": "SISO Combo",
-   "category": "Core/Trellis Coding",
+   "category": [
+    "Core",
+    "Trellis Coding"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -69451,7 +71161,10 @@
   {
    "id": "trellis_siso_f",
    "label": "SISO",
-   "category": "Core/Trellis Coding",
+   "category": [
+    "Core",
+    "Trellis Coding"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -69585,7 +71298,10 @@
   {
    "id": "trellis_viterbi_combined_xx",
    "label": "Viterbi Combo",
-   "category": "Core/Trellis Coding",
+   "category": [
+    "Core",
+    "Trellis Coding"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -69760,7 +71476,10 @@
   {
    "id": "trellis_viterbi_x",
    "label": "Viterbi",
-   "category": "Core/Trellis Coding",
+   "category": [
+    "Core",
+    "Trellis Coding"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -69860,7 +71579,10 @@
   {
    "id": "uhd_amsg_source",
    "label": "UHD: USRP Async Msg Source",
-   "category": "Core/UHD",
+   "category": [
+    "Core",
+    "UHD"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -69893,7 +71615,12 @@
   {
    "id": "uhd_fpga_addsub",
    "label": "RFNoC Add/Subtract",
-   "category": "Core/UHD/RFNoC Image Builder/Blocks",
+   "category": [
+    "Core",
+    "UHD",
+    "RFNoC Image Builder",
+    "Blocks"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -69970,7 +71697,12 @@
   {
    "id": "uhd_fpga_chdr_dma_ta",
    "label": "CHDR DMA Transport Adapter",
-   "category": "Core/UHD/RFNoC Image Builder/Core",
+   "category": [
+    "Core",
+    "UHD",
+    "RFNoC Image Builder",
+    "Core"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -70023,7 +71755,12 @@
   {
    "id": "uhd_fpga_ddc",
    "label": "RFNoC DDC",
-   "category": "Core/UHD/RFNoC Image Builder/Blocks",
+   "category": [
+    "Core",
+    "UHD",
+    "RFNoC Image Builder",
+    "Blocks"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -70117,7 +71854,12 @@
   {
    "id": "uhd_fpga_device_bsp",
    "label": "RFNoC Device BSP",
-   "category": "Core/UHD/RFNoC Image Builder/Core",
+   "category": [
+    "Core",
+    "UHD",
+    "RFNoC Image Builder",
+    "Core"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -70465,7 +72207,12 @@
   {
    "id": "uhd_fpga_device_none",
    "label": "No Connect",
-   "category": "Core/UHD/RFNoC Image Builder/Core",
+   "category": [
+    "Core",
+    "UHD",
+    "RFNoC Image Builder",
+    "Core"
+   ],
    "flags": [
     "python"
    ],
@@ -70523,7 +72270,12 @@
   {
    "id": "uhd_fpga_duc",
    "label": "RFNoC DUC",
-   "category": "Core/UHD/RFNoC Image Builder/Blocks",
+   "category": [
+    "Core",
+    "UHD",
+    "RFNoC Image Builder",
+    "Blocks"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -70617,7 +72369,12 @@
   {
    "id": "uhd_fpga_eth_ta",
    "label": "Ethernet Transport Adapter",
-   "category": "Core/UHD/RFNoC Image Builder/Core",
+   "category": [
+    "Core",
+    "UHD",
+    "RFNoC Image Builder",
+    "Core"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -70732,7 +72489,12 @@
   {
    "id": "uhd_fpga_fft",
    "label": "RFNoC FFT",
-   "category": "Core/UHD/RFNoC Image Builder/Blocks",
+   "category": [
+    "Core",
+    "UHD",
+    "RFNoC Image Builder",
+    "Blocks"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -70951,7 +72713,12 @@
   {
    "id": "uhd_fpga_fir_filter",
    "label": "RFNoC FIR Filter",
-   "category": "Core/UHD/RFNoC Image Builder/Blocks",
+   "category": [
+    "Core",
+    "UHD",
+    "RFNoC Image Builder",
+    "Blocks"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -71027,7 +72794,12 @@
   {
    "id": "uhd_fpga_f15",
    "label": "RFNoC F15 (FPGA Fosphor)",
-   "category": "Core/UHD/RFNoC Image Builder/Blocks",
+   "category": [
+    "Core",
+    "UHD",
+    "RFNoC Image Builder",
+    "Blocks"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -71096,7 +72868,12 @@
   {
    "id": "uhd_fpga_keep_one_in_n",
    "label": "RFNoC Keep One-in-N",
-   "category": "Core/UHD/RFNoC Image Builder/Blocks",
+   "category": [
+    "Core",
+    "UHD",
+    "RFNoC Image Builder",
+    "Blocks"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -71168,7 +72945,12 @@
   {
    "id": "uhd_fpga_logpwr",
    "label": "RFNoC Log-Power Block",
-   "category": "Core/UHD/RFNoC Image Builder/Blocks",
+   "category": [
+    "Core",
+    "UHD",
+    "RFNoC Image Builder",
+    "Blocks"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -71240,7 +73022,12 @@
   {
    "id": "uhd_fpga_null_src_sink",
    "label": "RFNoC Null Source/Sink",
-   "category": "Core/UHD/RFNoC Image Builder/Blocks",
+   "category": [
+    "Core",
+    "UHD",
+    "RFNoC Image Builder",
+    "Blocks"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -71331,7 +73118,12 @@
   {
    "id": "uhd_fpga_radio",
    "label": "RFNoC Radio",
-   "category": "Core/UHD/RFNoC Image Builder/Blocks",
+   "category": [
+    "Core",
+    "UHD",
+    "RFNoC Image Builder",
+    "Blocks"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -71485,7 +73277,12 @@
   {
    "id": "uhd_fpga_replay",
    "label": "RFNoC DRAM Replay/Capture",
-   "category": "Core/UHD/RFNoC Image Builder/Blocks",
+   "category": [
+    "Core",
+    "UHD",
+    "RFNoC Image Builder",
+    "Blocks"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -71598,7 +73395,12 @@
   {
    "id": "uhd_fpga_sep",
    "label": "Stream Endpoint",
-   "category": "Core/UHD/RFNoC Image Builder/Core",
+   "category": [
+    "Core",
+    "UHD",
+    "RFNoC Image Builder",
+    "Core"
+   ],
    "flags": [
     "python"
    ],
@@ -71689,7 +73491,12 @@
   {
    "id": "uhd_fpga_siggen",
    "label": "RFNoC Signal Generator",
-   "category": "Core/UHD/RFNoC Image Builder/Blocks",
+   "category": [
+    "Core",
+    "UHD",
+    "RFNoC Image Builder",
+    "Blocks"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -71753,7 +73560,12 @@
   {
    "id": "uhd_fpga_split_stream",
    "label": "RFNoC Split Stream",
-   "category": "Core/UHD/RFNoC Image Builder/Blocks",
+   "category": [
+    "Core",
+    "UHD",
+    "RFNoC Image Builder",
+    "Blocks"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -71828,7 +73640,12 @@
   {
    "id": "uhd_fpga_switchboard",
    "label": "RFNoC Switchboard",
-   "category": "Core/UHD/RFNoC Image Builder/Blocks",
+   "category": [
+    "Core",
+    "UHD",
+    "RFNoC Image Builder",
+    "Blocks"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -71911,7 +73728,10 @@
   {
    "id": "uhd_fpga_vector_iir",
    "label": "RFNoC Vector IIR",
-   "category": "Core/Other",
+   "category": [
+    "Core",
+    "Other"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -71987,7 +73807,12 @@
   {
    "id": "uhd_fpga_window",
    "label": "RFNoC Window",
-   "category": "Core/UHD/RFNoC Image Builder/Blocks",
+   "category": [
+    "Core",
+    "UHD",
+    "RFNoC Image Builder",
+    "Blocks"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -72074,7 +73899,12 @@
   {
    "id": "uhd_msg_push_button",
    "label": "Replay Msg Push Button",
-   "category": "Core/UHD/RFNoC/Blocks",
+   "category": [
+    "Core",
+    "UHD",
+    "RFNoC",
+    "Blocks"
+   ],
    "flags": [
     "show_id",
     "python"
@@ -72285,7 +74115,12 @@
   {
    "id": "uhd_rfnoc_addsub",
    "label": "RFNoC Fast Add-Subtract Block",
-   "category": "Core/UHD/RFNoC/Blocks",
+   "category": [
+    "Core",
+    "UHD",
+    "RFNoC",
+    "Blocks"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -72357,7 +74192,12 @@
   {
    "id": "uhd_rfnoc_fft",
    "label": "RFNoC Fast Fourier Transform (FFT) Block",
-   "category": "Core/UHD/RFNoC/Blocks",
+   "category": [
+    "Core",
+    "UHD",
+    "RFNoC",
+    "Blocks"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -72594,7 +74434,12 @@
   {
    "id": "uhd_rfnoc_fosphor",
    "label": "RFNoC Fosphor Block",
-   "category": "Core/UHD/RFNoC/Blocks",
+   "category": [
+    "Core",
+    "UHD",
+    "RFNoC",
+    "Blocks"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -72844,7 +74689,12 @@
   {
    "id": "uhd_rfnoc_graph",
    "label": "RFNoC Graph (Device)",
-   "category": "Core/UHD/RFNoC/Device Control",
+   "category": [
+    "Core",
+    "UHD",
+    "RFNoC",
+    "Device Control"
+   ],
    "flags": [
     "show_id",
     "python"
@@ -72953,7 +74803,12 @@
   {
    "id": "uhd_rfnoc_keep_one_in_n",
    "label": "RFNoC Keep One in N Block",
-   "category": "Core/UHD/RFNoC/Blocks",
+   "category": [
+    "Core",
+    "UHD",
+    "RFNoC",
+    "Blocks"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -73039,7 +74894,12 @@
   {
    "id": "uhd_rfnoc_logpwr",
    "label": "RFNoC Log-Power Block",
-   "category": "Core/UHD/RFNoC/Blocks",
+   "category": [
+    "Core",
+    "UHD",
+    "RFNoC",
+    "Blocks"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -73103,7 +74963,12 @@
   {
    "id": "uhd_rfnoc_mb_controller",
    "label": "RFNoC Motherboard Controller",
-   "category": "Core/UHD/RFNoC/Device Control",
+   "category": [
+    "Core",
+    "UHD",
+    "RFNoC",
+    "Device Control"
+   ],
    "flags": [
     "python"
    ],
@@ -73230,7 +75095,12 @@
   {
    "id": "uhd_rfnoc_moving_avg",
    "label": "RFNoC Moving Average Block",
-   "category": "Core/UHD/RFNoC/Blocks",
+   "category": [
+    "Core",
+    "UHD",
+    "RFNoC",
+    "Blocks"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -73316,7 +75186,12 @@
   {
    "id": "uhd_rfnoc_null_src_sink",
    "label": "RFNoC Null Source Sink Block",
-   "category": "Core/UHD/RFNoC/Blocks",
+   "category": [
+    "Core",
+    "UHD",
+    "RFNoC",
+    "Blocks"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -73399,7 +75274,12 @@
   {
    "id": "uhd_rfnoc_rx_streamer",
    "label": "RFNoC Rx Streamer",
-   "category": "Core/UHD/RFNoC/Blocks",
+   "category": [
+    "Core",
+    "UHD",
+    "RFNoC",
+    "Blocks"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -73594,7 +75474,12 @@
   {
    "id": "uhd_rfnoc_split_stream",
    "label": "RFNoC Split Stream Block",
-   "category": "Core/UHD/RFNoC/Blocks",
+   "category": [
+    "Core",
+    "UHD",
+    "RFNoC",
+    "Blocks"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -73683,7 +75568,12 @@
   {
    "id": "uhd_rfnoc_switchboard",
    "label": "RFNoC Switchboard Block",
-   "category": "Core/UHD/RFNoC/Blocks",
+   "category": [
+    "Core",
+    "UHD",
+    "RFNoC",
+    "Blocks"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -73794,7 +75684,12 @@
   {
    "id": "uhd_rfnoc_tx_streamer",
    "label": "RFNoC Tx Streamer",
-   "category": "Core/UHD/RFNoC/Blocks",
+   "category": [
+    "Core",
+    "UHD",
+    "RFNoC",
+    "Blocks"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -73940,7 +75835,12 @@
   {
    "id": "uhd_rfnoc_vector_iir",
    "label": "RFNoC Vector IIR Block",
-   "category": "Core/UHD/RFNoC/Blocks",
+   "category": [
+    "Core",
+    "UHD",
+    "RFNoC",
+    "Blocks"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -74037,7 +75937,10 @@
   {
    "id": "video_sdl_sink",
    "label": "Video SDL Sink",
-   "category": "Core/Video",
+   "category": [
+    "Core",
+    "Video"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -74155,7 +76058,10 @@
   {
    "id": "vocoder_alaw_decode_bs",
    "label": "Alaw Audio Decoder",
-   "category": "Core/Audio",
+   "category": [
+    "Core",
+    "Audio"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -74188,7 +76094,10 @@
   {
    "id": "vocoder_alaw_encode_sb",
    "label": "g711 Alaw Audio Encoder",
-   "category": "Core/Audio",
+   "category": [
+    "Core",
+    "Audio"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -74221,7 +76130,10 @@
   {
    "id": "vocoder_codec2_decode_ps",
    "label": "CODEC2 Audio Decoder",
-   "category": "Core/Audio",
+   "category": [
+    "Core",
+    "Audio"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -74307,7 +76219,10 @@
   {
    "id": "vocoder_codec2_encode_sp",
    "label": "CODEC2 Audio Encoder",
-   "category": "Core/Audio",
+   "category": [
+    "Core",
+    "Audio"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -74393,7 +76308,10 @@
   {
    "id": "vocoder_cvsd_decode_bf",
    "label": "CVSD Decoder",
-   "category": "Core/Audio",
+   "category": [
+    "Core",
+    "Audio"
+   ],
    "flags": [
     "python"
    ],
@@ -74448,7 +76366,10 @@
   {
    "id": "vocoder_cvsd_decode_bs",
    "label": "CVSD Audio Decoder (Raw Bit-Level)",
-   "category": "Core/Audio",
+   "category": [
+    "Core",
+    "Audio"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -74481,7 +76402,10 @@
   {
    "id": "vocoder_cvsd_encode_fb",
    "label": "CVSD Encoder",
-   "category": "Core/Audio",
+   "category": [
+    "Core",
+    "Audio"
+   ],
    "flags": [
     "python"
    ],
@@ -74536,7 +76460,10 @@
   {
    "id": "vocoder_cvsd_encode_sb",
    "label": "CVSD Audio Encoder (Raw Bit-Level)",
-   "category": "Core/Audio",
+   "category": [
+    "Core",
+    "Audio"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -74569,7 +76496,10 @@
   {
    "id": "vocoder_freedv_rx_ss",
    "label": "FreeDV demodulator",
-   "category": "Core/Audio",
+   "category": [
+    "Core",
+    "Audio"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -74702,7 +76632,10 @@
   {
    "id": "vocoder_freedv_tx_ss",
    "label": "FreeDV modulator",
-   "category": "Core/Audio",
+   "category": [
+    "Core",
+    "Audio"
+   ],
    "flags": [],
    "runnable": false,
    "unavailable_reason": "not implemented in the WebAssembly runner",
@@ -74838,7 +76771,10 @@
   {
    "id": "vocoder_g721_decode_bs",
    "label": "g721 Audio Decoder",
-   "category": "Core/Audio",
+   "category": [
+    "Core",
+    "Audio"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -74871,7 +76807,10 @@
   {
    "id": "vocoder_g721_encode_sb",
    "label": "g721 Audio Encoder",
-   "category": "Core/Audio",
+   "category": [
+    "Core",
+    "Audio"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -74904,7 +76843,10 @@
   {
    "id": "vocoder_g723_24_decode_bs",
    "label": "g723_24 Audio Decoder",
-   "category": "Core/Audio",
+   "category": [
+    "Core",
+    "Audio"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -74937,7 +76879,10 @@
   {
    "id": "vocoder_g723_24_encode_sb",
    "label": "g723_24 Audio Encoder",
-   "category": "Core/Audio",
+   "category": [
+    "Core",
+    "Audio"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -74970,7 +76915,10 @@
   {
    "id": "vocoder_g723_40_decode_bs",
    "label": "g723_40 Audio Decoder",
-   "category": "Core/Audio",
+   "category": [
+    "Core",
+    "Audio"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -75003,7 +76951,10 @@
   {
    "id": "vocoder_g723_40_encode_sb",
    "label": "g723_40 Audio Encoder",
-   "category": "Core/Audio",
+   "category": [
+    "Core",
+    "Audio"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -75036,7 +76987,10 @@
   {
    "id": "vocoder_gsm_fr_decode_ps",
    "label": "GSM full-rate Audio Decoder",
-   "category": "Core/Audio",
+   "category": [
+    "Core",
+    "Audio"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -75069,7 +77023,10 @@
   {
    "id": "vocoder_gsm_fr_encode_sp",
    "label": "GSM full-rate Audio Encoder",
-   "category": "Core/Audio",
+   "category": [
+    "Core",
+    "Audio"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -75102,7 +77059,10 @@
   {
    "id": "vocoder_ulaw_decode_bs",
    "label": "ulaw Audio Decoder",
-   "category": "Core/Audio",
+   "category": [
+    "Core",
+    "Audio"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -75135,7 +77095,10 @@
   {
    "id": "vocoder_ulaw_encode_sb",
    "label": "ulaw Audio Encoder",
-   "category": "Core/Audio",
+   "category": [
+    "Core",
+    "Audio"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -75168,7 +77131,10 @@
   {
    "id": "zeromq_pub_msg_sink",
    "label": "ZMQ PUB Message Sink",
-   "category": "Core/ZeroMQ Interfaces",
+   "category": [
+    "Core",
+    "ZeroMQ Interfaces"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -75226,7 +77192,10 @@
   {
    "id": "zeromq_pub_sink",
    "label": "ZMQ PUB Sink",
-   "category": "Core/ZeroMQ Interfaces",
+   "category": [
+    "Core",
+    "ZeroMQ Interfaces"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -75382,7 +77351,10 @@
   {
    "id": "zeromq_pull_msg_source",
    "label": "ZMQ PULL Message Source",
-   "category": "Core/ZeroMQ Interfaces",
+   "category": [
+    "Core",
+    "ZeroMQ Interfaces"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -75440,7 +77412,10 @@
   {
    "id": "zeromq_pull_source",
    "label": "ZMQ PULL Source",
-   "category": "Core/ZeroMQ Interfaces",
+   "category": [
+    "Core",
+    "ZeroMQ Interfaces"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -75568,7 +77543,10 @@
   {
    "id": "zeromq_push_msg_sink",
    "label": "ZMQ PUSH Message Sink",
-   "category": "Core/ZeroMQ Interfaces",
+   "category": [
+    "Core",
+    "ZeroMQ Interfaces"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -75626,7 +77604,10 @@
   {
    "id": "zeromq_push_sink",
    "label": "ZMQ PUSH Sink",
-   "category": "Core/ZeroMQ Interfaces",
+   "category": [
+    "Core",
+    "ZeroMQ Interfaces"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -75754,7 +77735,10 @@
   {
    "id": "zeromq_rep_msg_sink",
    "label": "ZMQ REP Message Sink",
-   "category": "Core/ZeroMQ Interfaces",
+   "category": [
+    "Core",
+    "ZeroMQ Interfaces"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -75812,7 +77796,10 @@
   {
    "id": "zeromq_rep_sink",
    "label": "ZMQ REP Sink",
-   "category": "Core/ZeroMQ Interfaces",
+   "category": [
+    "Core",
+    "ZeroMQ Interfaces"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -75940,7 +77927,10 @@
   {
    "id": "zeromq_req_msg_source",
    "label": "ZMQ REQ Message Source",
-   "category": "Core/ZeroMQ Interfaces",
+   "category": [
+    "Core",
+    "ZeroMQ Interfaces"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -75998,7 +77988,10 @@
   {
    "id": "zeromq_req_source",
    "label": "ZMQ REQ Source",
-   "category": "Core/ZeroMQ Interfaces",
+   "category": [
+    "Core",
+    "ZeroMQ Interfaces"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -76126,7 +78119,10 @@
   {
    "id": "zeromq_sub_msg_source",
    "label": "ZMQ SUB Message Source",
-   "category": "Core/ZeroMQ Interfaces",
+   "category": [
+    "Core",
+    "ZeroMQ Interfaces"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -76184,7 +78180,10 @@
   {
    "id": "zeromq_sub_source",
    "label": "ZMQ SUB Source",
-   "category": "Core/ZeroMQ Interfaces",
+   "category": [
+    "Core",
+    "ZeroMQ Interfaces"
+   ],
    "flags": [
     "python",
     "cpp"
@@ -76323,7 +78322,9 @@
   {
    "id": "wasm_packet_rate_sink",
    "label": "WASM Packet Rate Sink",
-   "category": "QT",
+   "category": [
+    "QT"
+   ],
    "flags": [
     "cpp"
    ],

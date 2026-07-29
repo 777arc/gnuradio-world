@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Generate the editor's block-library JSON from GNU Radio .block.yml files.
 Build-time only (no Python at runtime). Emits id/label/category/params/ports so
-the TS editor can render a palette and property dialogs."""
+the TS editor can render a palette and property dialogs. Block categories are
+path-segment arrays so names containing "/" remain a single category."""
 import sys, os, json, glob, yaml
 
 # The world repo owns the app and OOT modules; GNU Radio is a source submodule.
@@ -72,7 +73,7 @@ def normalize_category(category):
         parts[0] = parts[0][1:-1]
     else:
         parts.insert(0, "Core")
-    return "/".join(parts)
+    return parts
 
 
 def port_list(items):
@@ -118,7 +119,7 @@ def main(out_path):
             # definitions are accidentally uncategorized; retain them under a
             # small fallback so runnable blocks never disappear from the web UI.
             if not block_category:
-                block_category = "Core/Other"
+                block_category = ["Core", "Other"]
             params = []
             param_categories = {}
             for p in d.get("parameters", []) or []:
