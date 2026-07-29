@@ -2028,15 +2028,29 @@ public:
             { ALT_FREQ, "Alt. Frequencies" }, { RADIOTEXT, "Radiotext" },
         };
         auto* grid = new QGridLayout(d_widget);
+        grid->setContentsMargins(10, 6, 10, 6);
+        grid->setHorizontalSpacing(10);
+        grid->setVerticalSpacing(2);
         int row = 0;
         for (const Row& entry : rows) {
             auto* name = new QLabel(QString::fromLatin1(entry.label), d_widget);
             auto* value = new QLabel(d_widget);
-            value->setWordWrap(true);
+            // No word wrap. A wrapping label's height depends on the width the
+            // layout hands it, so in a narrow or short flowgraph window the rows
+            // get a one-line height for two lines of text and the fields run into
+            // each other. One line per field, clipped at the right edge instead.
+            value->setWordWrap(false);
             value->setTextInteractionFlags(Qt::TextSelectableByMouse);
             value->setStyleSheet(
                 QStringLiteral("font-family:monospace; font-weight:600;"));
-            grid->addWidget(name, row, 0, Qt::AlignRight | Qt::AlignTop);
+            // The field names keep their width; only the value column gives way
+            // (Ignored) so a long radiotext can't force the whole panel wider
+            // than the flowgraph window.
+            name->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+            value->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
+            for (QLabel* label : { name, value })
+                label->setFixedHeight(label->sizeHint().height());
+            grid->addWidget(name, row, 0, Qt::AlignRight | Qt::AlignVCenter);
             grid->addWidget(value, row, 1);
             d_value[entry.field] = value;
             ++row;
@@ -2044,9 +2058,11 @@ public:
         grid->setColumnStretch(1, 1);
         d_widget->setMinimumWidth(420);
         // Text, not a plot: keep the rows at their natural height and let the
-        // sinks above absorb the slack, or a short flowgraph window clips the
-        // radiotext -- the one line the whole receiver exists to produce.
+        // sinks above absorb the slack, or a short flowgraph window squeezes the
+        // rows into one another and clips the radiotext -- the one line the whole
+        // receiver exists to produce.
         d_widget->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+        d_widget->setFixedHeight(d_widget->sizeHint().height());
 
         d_text[FREQUENCY] = QString::number(freq / 1e6, 'f', 1);
         d_dirty = true;
