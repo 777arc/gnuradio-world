@@ -28,3 +28,14 @@ GNU Radio, entirely in your browser — explore the open-source SDR ecosystem wi
 See [AGENTS.md](AGENTS.md)
 
 Example recordings are currently stored in a Cloudflare R2 bucket, but that may change in the future.
+
+## License
+
+GNU Radio World is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later version.
+
+The vendored submodules carry their own copyright holders and licenses, as do
+the third-party dependencies built into `sysroot/`.
+
+Copyright (C) 2026 Marc Lichtman

@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "description": "Headless test harness dependencies for the GNU Radio World browser build",
+  "author": "Marc Lichtman",
+  "license": "GPL-3.0-or-later",
   "scripts": {
     "test": "node test/test_smoke.mjs && node test/test_lazy_scenarios.mjs"
   },
