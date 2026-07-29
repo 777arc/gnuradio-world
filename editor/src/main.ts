@@ -7,6 +7,7 @@ import { dumpGrc, parseGrc, type GrcDoc, type GrcScalar } from './grc';
 import { boundsBetween, boundsIntersect, type Point } from './selection';
 import { constrainBlockPosition, SNAP_GRID_SIZE } from './grid';
 import { evaluate as evalExpr, buildScope, formatValue as fmtExprVal, serializeForRunner, type Scope } from './expr';
+import { wrapNoteText, NOTE_FONT_SIZE } from './note';
 import { EXAMPLES_REPO, examplePath, newExampleFileUrl, sanitizeExampleName } from './contribute';
 import aboutHtml from './about.html?raw';
 
@@ -20,6 +21,9 @@ interface ParamDef {
   category?: string; hideIfEmpty?: boolean; raw?: boolean; dtype?: string;
   optionAttributes?: Record<string, string[]>;
   showWhen?: (params: Record<string, any>) => boolean;
+  // Free-form prose (the Note block's text): edited in a textarea so it can hold
+  // line breaks, which .grc round-trips as a double-quoted `\n` scalar.
+  multiline?: boolean;
 }
 // inTypes/outTypes give per-port dtypes (for converters); otherwise ports follow the
 // block's `type` param (complex/float) if it has one, else `dtype` (default complex).
@@ -76,6 +80,15 @@ const RUNNABLE: Record<string, RunnableDef> = {
       { id: 'author', label: 'Author', type: 'string', def: '', hideIfEmpty: true },
       { id: 'copyright', label: 'Copyright', type: 'string', def: '', hideIfEmpty: true },
       { id: 'description', label: 'Description', type: 'string', def: '', hideIfEmpty: true },
+    ],
+  },
+  // GRC's canvas annotation. It has no GNU Radio block behind it — the runner
+  // drops it while lowering, the same way it drops `options` and `variable` —
+  // so a hand-written schema here is all the support it needs. Its text is the
+  // block's whole body, rendered wrapped (see noteGeom).
+  note: {
+    label: 'Note', inputs: 0, outputs: 0, params: [
+      { id: 'note', label: 'Note', type: 'string', def: '', multiline: true },
     ],
   },
   // ---- sources ----
@@ -810,8 +823,25 @@ function portCount(inst: Inst, kind: 'in' | 'out'): number {
   return Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : (kind === 'in' ? d.inputs : d.outputs);
 }
 
+// The Note block's body is its text, wrapped to a fixed column: one row per
+// wrapped line, drawn as plain label text (no "Note: " prefix, no truncation).
+const NOTE_ID = 'note';
+function noteGeom(inst: Inst, d: RunnableDef) {
+  const text = String(inst.params.note ?? '');
+  const lines = text.trim() ? wrapNoteText(text, s => textW(s, NOTE_FONT_SIZE)) : [];
+  const rows = lines.map(line => ({ id: 'note', l: line, v: '' }));
+  let w = textW(d.label, 13, true);
+  for (const line of lines) w = Math.max(w, textW(line, NOTE_FONT_SIZE));
+  return {
+    d, rows,
+    h: TITLE_H + Math.max(rows.length * ROW_H + PAD, ROW_H),
+    w: Math.max(104, Math.ceil(w) + TEXT_PAD_L + TEXT_PAD_R),
+  };
+}
+
 function geom(inst: Inst) {
   const d = RUNNABLE[inst.id];
+  if (inst.id === NOTE_ID) return noteGeom(inst, d);
   // Categorized parameters belong in the modal notebook, not in the compact
   // block rendering (equivalent to GRC's `hide: part`).
   const rows = d.params
@@ -1596,7 +1626,12 @@ function showPropsDialog(inst: Inst) {
       addField(p.category || 'General', `${p.label}  (${p.id})`, s, p.id);
       if (p.showWhen) conditionalRows.push({ param: p, row: s.closest('.dlgrow') as HTMLElement });
     } else {
-      const inp = document.createElement('input'); inp.value = String(tmp.params[p.id]);
+      // Prose params (the Note block) get a textarea so the text can contain the
+      // line breaks the block face honours; everything else stays a one-liner.
+      const inp = document.createElement(p.multiline ? 'textarea' : 'input') as
+        HTMLInputElement | HTMLTextAreaElement;
+      if (p.multiline) (inp as HTMLTextAreaElement).rows = 5;
+      inp.value = String(tmp.params[p.id]);
       inp.oninput = () => {
         tmp.params[p.id] = p.type === 'number' ? numericOrExpression(inp.value) : inp.value;
         refreshVisibility(); refreshValidation();

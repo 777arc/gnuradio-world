@@ -55,10 +55,11 @@ inline json coerce_numeric(const std::string& s) {
     return json(s);
 }
 
-// Lower: drop the options block, disabled blocks and their wires; inline plain
-// `variable` values into referencing params; hop stream connections over
-// bypassed blocks; keep variable controls. Connection port tokens in .grc are
-// already stream indices (== GR connect port numbers), so no remapping here.
+// Lower: drop the options block, `note` annotations, disabled blocks and their
+// wires; inline plain `variable` values into referencing params; hop stream
+// connections over bypassed blocks; keep variable controls. Connection port
+// tokens in .grc are already stream indices (== GR connect port numbers), so no
+// remapping here.
 inline json lower(const json& g) {
     static const json empty_arr = json::array();
     const json& blocks = (g.contains("blocks") && g["blocks"].is_array()) ? g["blocks"] : empty_arr;
@@ -161,7 +162,10 @@ inline json lower(const json& g) {
     json blocksOut = json::array();
     for (const auto& b : blocks) {
         const std::string id = b.value("id", std::string()), name = b.value("name", std::string());
-        if (id == "options" || id == "variable" || !active(name)) continue;
+        // `note` is a canvas annotation (GRC's comment block): it carries text
+        // for the editor only and has no GNU Radio block behind it, so it never
+        // reaches the factory registry.
+        if (id == "options" || id == "variable" || id == "note" || !active(name)) continue;
         json nb = json::object();
         nb["name"] = name; nb["id"] = id;
         nb["params"] = (b.contains("parameters") && b["parameters"].is_object())
