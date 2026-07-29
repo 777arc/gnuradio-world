@@ -1,4 +1,10 @@
-# GNU Radio World
+<p align="center">
+  <img src="editor/public/gnuradio_world_logo.svg" alt="GNU Radio World" width="700">
+</p>
+
+<p align="center">
+  <strong>🔍 <a href="https://gnuradioworld.com">Try it now at gnuradioworld.com</a> 🔍</strong>
+</p>
 
 GNU Radio entirely in your browser, ready to play with, nothing to install!
 
