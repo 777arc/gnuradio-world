@@ -70,14 +70,13 @@ node server.mjs 8090 "$PWD"
   thread-per-block scheduler, and renders gr-qtgui sinks to a canvas. Direct C++
   factories are generated from GRC's `cpp_templates`; handwritten factories in
   `src/registry.cpp` add browser widgets, live setters, and a few composed
-  blocks. The generated and custom registries currently expose 294 blocks from
+  blocks. The generated and custom registries currently expose hundreds of blocks from
   gr-blocks, gr-analog, gr-fft, gr-filter, gr-digital, gr-dtv, gr-network,
-  gr-pdu, gr-vocoder and gr-qtgui, plus the vendored out-of-tree modules (gr-rds,
-  gr-foo, gr-dvbs2, gr-dvbs2rx). Stream and message-port connections are both
+  gr-pdu, gr-vocoder and gr-qtgui, plus the vendored out-of-tree modules (including but not limited to gr-rds, gr-foo, gr-dvbs2, gr-dvbs2rx). Stream and message-port connections are both
   serialized by the editor. QT GUI Range controls can be referenced by ID from
   numeric block parameters and update those parameters while the graph is
   running.
-- **qtgui** (`qtgui/`): builds the gr-qtgui time/frequency/constellation sinks
+- **qtgui** (`qtgui/`): builds the gr-qtgui time/frequency/constellation/waterfall sinks
   (Qt5 upstream) against Qt 6 for WebAssembly, as a static lib the runner links.
 
 ### Layout
@@ -242,10 +241,9 @@ The runner is an Emscripten `MAIN_MODULE` that loads block categories on demand.
 `gen_registry.py` splits the block factories into a core registrar
 (blocks/analog/fft/filter, linked into the main module) and one self-registering
 `generated_registry_<m>.cpp` per deferred category
-(digital/dtv/network/pdu/vocoder). The runner CMake compiles each of those into a
+(including but not limited to digital/dtv/network/pdu/vocoder). The runner CMake compiles each of those into a
 `SIDE_MODULE` (`runner/build/<m>.wasm`); at run time `gr_run_json` inspects the
-flowgraph, `emscripten_dlopen`s only the categories it uses, and posts a
-`gr-module` message the editor uses to color the palette. Constraints that make
+flowgraph, `emscripten_dlopen`s only the categories it uses. Constraints that make
 this work (all handled by the build): everything is `-fPIC`; `MAIN_MODULE=2` +
 `EXPORT_ALL` + whole-archived core + a generated `side_exports.rsp` export every
 symbol the side modules import; side modules use `-sWASM_BIGINT` to match Qt's
@@ -356,8 +354,7 @@ part of the always-loaded core or an on-demand side module. To add one (say
    (cd editor && npm run build)
    ```
    The editor palette picks up the new blocks automatically: `gen_blocklib.py`
-   stamps each block with its `module`, and a deferred category shows amber
-   ("downloads on first use") → cyan once fetched.
+   stamps each block with its `module`.
 
 5. **Test lazy loading** with `node test/test_lazy_scenarios.mjs`.
 
