@@ -6,6 +6,7 @@
 #include "registry.hpp"
 #include "grc_yaml.hpp"
 #include "grc_lower.hpp"
+#include <gnuradio/blocks/probe_signal.h>
 #include <gnuradio/top_block.h>
 #include <gnuradio/block.h>
 #include <gnuradio/logger.h>
@@ -463,6 +464,28 @@ static std::string build_stats_json() {
         b["work_total_s"] = sb.blk->pc_work_time_total() / 1e9;  // ns -> s
         b["in_full"] = vmax(sb.blk->pc_input_buffers_full());    // 0..1
         b["out_full"] = vmax(sb.blk->pc_output_buffers_full());  // 0..1
+        // Probe Signal is deliberately observable in the diagnostics snapshot.
+        // Besides being useful in the debug panel, this lets browser tests verify
+        // sample values after they have passed through the WASM scheduler.
+        if (sb.id == "blocks_probe_signal_x") {
+            if (auto probe =
+                    std::dynamic_pointer_cast<gr::blocks::probe_signal_b>(sb.blk))
+                b["value"] = static_cast<unsigned int>(probe->level());
+            else if (auto probe =
+                         std::dynamic_pointer_cast<gr::blocks::probe_signal_s>(sb.blk))
+                b["value"] = probe->level();
+            else if (auto probe =
+                         std::dynamic_pointer_cast<gr::blocks::probe_signal_i>(sb.blk))
+                b["value"] = probe->level();
+            else if (auto probe =
+                         std::dynamic_pointer_cast<gr::blocks::probe_signal_f>(sb.blk))
+                b["value"] = probe->level();
+            else if (auto probe =
+                         std::dynamic_pointer_cast<gr::blocks::probe_signal_c>(sb.blk)) {
+                const gr_complex value = probe->level();
+                b["value"] = { value.real(), value.imag() };
+            }
+        }
         arr.push_back(b);
     }
     out["blocks"] = arr;

@@ -26,6 +26,13 @@ const ROOT = normalize(new URL('..', import.meta.url).pathname);
 const PORT = Number(process.argv[2] || 8101);
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.wasm': 'application/wasm',
                '.json': 'application/json', '.svg': 'image/svg+xml' };
+// First eight cf32_le samples from the fm_rds example recording. Keeping only
+// this prefix in the test makes it deterministic in CI, where the full
+// git-ignored recording is intentionally unavailable.
+const OFFSET_RECORDING_PATH = '/recordings/fm_rds_250k_1Msamples.sigmf-data';
+const OFFSET_RECORDING_BASE64 =
+  'dMG5PFtRrb3Awd88U7GpvUWBojxmwbK9gAHAOGlBtL3DgWG8WAGsvXFBuLxLsaW9/4H/vEAhoL064Ry9PBGevQ==';
+const OFFSET_SAMPLE = 3;
 
 // Flowgraphs to run. The pass rule is deliberately name-independent: EVERY block
 // in the diagnostics snapshot must have moved items. That stays valid when an
@@ -49,6 +56,11 @@ const server = http.createServer(async (req, res) => {
   res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
   try {
     let p = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+    if (p === '/__recording_test__') {
+      res.setHeader('Content-Type', 'text/html');
+      res.writeHead(200);
+      return res.end('<!doctype html><title>Recording test harness</title>');
+    }
     if (p.endsWith('/')) p += 'index.html';
     const fp = normalize(join(ROOT, p));
     if (!fp.startsWith(ROOT)) { res.writeHead(403); return res.end(); }
@@ -111,6 +123,82 @@ for (const test of CASES) {
     console.log('   items: ' + blocks.map(b => `${b.name}=${b.items}`).join(' '));
   else console.log('   no diagnostics snapshot — the graph never reached the scheduler');
   if (idle.length) console.log(`   produced nothing: ${idle.join(', ')}`);
+  if (!ok && logs.length) console.log('   logs: ' + logs.slice(-4).join('\n         '));
+  await page.close();
+}
+
+// Exercise the editor-to-runner recording handoff as an iframe, then assert the
+// value observed by a Probe Signal after the WASM scheduler has consumed the
+// one sample selected by File Source. The offset is deliberately a sample
+// index: for cf32 it must advance by 8 bytes, not 3 bytes.
+{
+  const test = {
+    name: 'File Source starts an example recording at its sample offset',
+    grc: 'test/fixtures/file_source_offset.grc',
+  };
+  const page = await browser.newPage();
+  const logs = [];
+  page.on('console', m => logs.push(m.text()));
+  page.on('pageerror', e => logs.push('PAGEERROR ' + e.message));
+
+  const grc = readFileSync(join(ROOT, test.grc), 'utf8');
+  const bytes = Buffer.from(OFFSET_RECORDING_BASE64, 'base64');
+  const expected = [
+    bytes.readFloatLE(OFFSET_SAMPLE * 8),
+    bytes.readFloatLE(OFFSET_SAMPLE * 8 + 4),
+  ];
+  await page.goto(`http://localhost:${PORT}/__recording_test__`,
+                  { waitUntil: 'load', timeout: 30000 });
+  await page.evaluate(({ grc, recordingBase64, recordingPath }) => {
+    const binary = atob(recordingBase64);
+    const bytes = Uint8Array.from(binary, char => char.charCodeAt(0));
+    window.__grTakeRecordingFiles = token => token === 'offset-test'
+      ? [{ path: recordingPath, blob: new Blob([bytes]) }]
+      : [];
+    const frame = document.createElement('iframe');
+    frame.id = 'runner';
+    frame.src = '/runner/build/runner.html?recordingToken=offset-test#' +
+      encodeURIComponent(grc);
+    document.body.appendChild(frame);
+  }, {
+    grc,
+    recordingBase64: OFFSET_RECORDING_BASE64,
+    recordingPath: OFFSET_RECORDING_PATH,
+  });
+
+  let verdict = '(no #result)';
+  let probe = null;
+  try {
+    await page.waitForFunction(() => {
+      const frame = document.getElementById('runner');
+      const result = frame?.contentDocument?.getElementById('result');
+      return result && result.dataset.status !== 'pending';
+    }, { timeout: 60000, polling: 200 });
+    verdict = await page.evaluate(() =>
+      document.getElementById('runner').contentDocument.getElementById('result').textContent);
+    await page.waitForFunction(() => {
+      const stats = document.getElementById('runner').contentWindow.__grstats;
+      if (!stats) return false;
+      const block = JSON.parse(stats).blocks.find(item => item.name === 'probe');
+      return block?.items === 1 && Array.isArray(block.value);
+    }, { timeout: 10000, polling: 100 });
+    probe = await page.evaluate(() => {
+      const stats = document.getElementById('runner').contentWindow.__grstats;
+      return JSON.parse(stats).blocks.find(item => item.name === 'probe');
+    });
+  } catch { /* report the captured state below */ }
+
+  const closeEnough = (actual, wanted) =>
+    Number.isFinite(actual) && Math.abs(actual - wanted) <= 1e-7;
+  const valueOk = probe?.value?.length === 2 &&
+    closeEnough(probe.value[0], expected[0]) &&
+    closeEnough(probe.value[1], expected[1]);
+  const ok = verdict.includes('RUNNER_PASS') && probe?.items === 1 && valueOk;
+  allOk = allOk && ok;
+  console.log(`\n[${ok ? 'OK' : 'FAIL'}] ${test.name}  (${test.grc})`);
+  console.log(`   ${verdict.trim()}`);
+  console.log(`   expected sample ${OFFSET_SAMPLE}: ${JSON.stringify(expected)}`);
+  console.log(`   observed: ${probe ? JSON.stringify(probe.value) : '(no probe value)'}`);
   if (!ok && logs.length) console.log('   logs: ' + logs.slice(-4).join('\n         '));
   await page.close();
 }

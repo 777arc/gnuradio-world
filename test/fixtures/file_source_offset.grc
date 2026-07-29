@@ -1,0 +1,35 @@
+options:
+    parameters:
+        id: file_source_offset
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: source
+    id: blocks_file_source
+    parameters:
+        begin_tag: pmt.PMT_NIL
+        file: /recordings/fm_rds_250k_1Msamples.sigmf-data
+        length: '1'
+        offset: '3'
+        repeat: 'False'
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: probe
+    id: blocks_probe_signal_x
+    parameters:
+        type: complex
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+connections:
+- [source, '0', probe, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0
