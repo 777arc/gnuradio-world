@@ -17,7 +17,7 @@ name: Deploy WASM
 #            keys on preprocessed content, so a one-file GR change recompiles one
 #            file -- and nothing can go stale, because nothing is prebuilt.
 #
-# See README.md "Continuous integration". The weekly schedule exists only to
+# See AGENTS.md "Continuous integration". The weekly schedule exists only to
 # keep the caches alive: GitHub evicts anything unused for 7 days, and a cold run
 # costs about an hour.
 on:
