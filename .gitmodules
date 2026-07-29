@@ -22,3 +22,7 @@
 	path = gr-rds
 	url = https://github.com/bastibl/gr-rds.git
 	branch = maint-3.10
+[submodule "gr-satellites"]
+	path = gr-satellites
+	url = https://github.com/daniestevez/gr-satellites.git
+	branch = main

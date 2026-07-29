@@ -38,6 +38,7 @@ set(GR_INCLUDE_DIRS
   ${WORLD}/gr-foo/include
   ${WORLD}/gr-dvbs2/include
   ${WORLD}/gr-dvbs2rx/include
+  ${WORLD}/gr-satellites/include
   ${BUILDGR}/gnuradio-runtime/include ${SYSROOT}/include)
 
 # ---------------------------------------------------------------------------
@@ -314,6 +315,100 @@ add_custom_command(
   COMMENT "Building category side module dvbs2rx.wasm (out-of-tree gr-dvbs2rx sources)"
   VERBATIM)
 list(APPEND SIDE_MODULE_OUTPUTS ${dvbs2rx_out})
+
+# gr-satellites: telemetry framing, coding, FEC, and utility blocks. Like the
+# other OOT modules, compile its implementation and bundled C/C++ codec sources
+# directly into an on-demand side module. The upstream CMake build generates an
+# otherwise empty config.h, supplied here as a runner-owned shim so the submodule
+# can remain pinned to a pristine upstream branch.
+set(SATELLITES_LIB ${WORLD}/gr-satellites/lib)
+set(SATELLITES_WASM_SHIMS ${CMAKE_CURRENT_SOURCE_DIR}/src/satellites_wasm_shims)
+set(SATELLITES_SOURCES
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/generated_registry_satellites.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/satellites_wasm_blocks.cpp
+  ${SATELLITES_LIB}/ax100_decode_impl.cc
+  ${SATELLITES_LIB}/convolutional_encoder_impl.cc
+  ${SATELLITES_LIB}/costas_loop_8apsk_cc_impl.cc
+  ${SATELLITES_LIB}/crc.cc
+  ${SATELLITES_LIB}/crc_append_impl.cc
+  ${SATELLITES_LIB}/crc_check_impl.cc
+  ${SATELLITES_LIB}/decode_ra_code_impl.cc
+  ${SATELLITES_LIB}/decode_rs_impl.cc
+  ${SATELLITES_LIB}/descrambler308_impl.cc
+  ${SATELLITES_LIB}/distributed_syncframe_soft_impl.cc
+  ${SATELLITES_LIB}/doppler_correction_impl.cc
+  ${SATELLITES_LIB}/encode_rs_impl.cc
+  ${SATELLITES_LIB}/fixedlen_to_pdu_impl.cc
+  ${SATELLITES_LIB}/frame_counter_impl.cc
+  ${SATELLITES_LIB}/golay24.c
+  ${SATELLITES_LIB}/kurtosis_impl.cc
+  ${SATELLITES_LIB}/level_to_message_impl.cc
+  ${SATELLITES_LIB}/lilacsat1_demux_impl.cc
+  ${SATELLITES_LIB}/manchester_sync_impl.cc
+  ${SATELLITES_LIB}/matrix_deinterleaver_soft_impl.cc
+  ${SATELLITES_LIB}/message_counter_impl.cc
+  ${SATELLITES_LIB}/nanocom_golay_decode_length_impl.cc
+  ${SATELLITES_LIB}/nrzi_decode_impl.cc
+  ${SATELLITES_LIB}/nrzi_encode_impl.cc
+  ${SATELLITES_LIB}/nusat_decoder_impl.cc
+  ${SATELLITES_LIB}/packet_csma_impl.cc
+  ${SATELLITES_LIB}/pdu_add_meta_impl.cc
+  ${SATELLITES_LIB}/pdu_head_tail_impl.cc
+  ${SATELLITES_LIB}/pdu_length_filter_impl.cc
+  ${SATELLITES_LIB}/pdu_scrambler_impl.cc
+  ${SATELLITES_LIB}/phase_unwrap_impl.cc
+  ${SATELLITES_LIB}/randomizer.c
+  ${SATELLITES_LIB}/selector_impl.cc
+  ${SATELLITES_LIB}/time_dependent_delay_impl.cc
+  ${SATELLITES_LIB}/u482c_decode_impl.cc
+  ${SATELLITES_LIB}/u482c_encode_impl.cc
+  ${SATELLITES_LIB}/varlen_packet_framer_impl.cc
+  ${SATELLITES_LIB}/varlen_packet_tagger_impl.cc
+  ${SATELLITES_LIB}/viterbi.c
+  ${SATELLITES_LIB}/viterbi_decoder_impl.cc
+  ${SATELLITES_LIB}/libfec/decode_rs_8.c
+  ${SATELLITES_LIB}/libfec/decode_rs_ccsds.c
+  ${SATELLITES_LIB}/libfec/decode_rs_char.c
+  ${SATELLITES_LIB}/libfec/encode_rs_8.c
+  ${SATELLITES_LIB}/libfec/encode_rs_ccsds.c
+  ${SATELLITES_LIB}/libfec/encode_rs_char.c
+  ${SATELLITES_LIB}/libfec/taltab.c
+  ${SATELLITES_LIB}/libfec/ccsds.c
+  ${SATELLITES_LIB}/libfec/init_rs_char.c
+  ${SATELLITES_LIB}/radecoder/ra_config.c
+  ${SATELLITES_LIB}/radecoder/ra_decoder_gen.c
+  ${SATELLITES_LIB}/radecoder/ra_lfsr.c
+  ${SATELLITES_LIB}/radecoder/ra_encoder.c
+  ${SATELLITES_LIB}/viterbi/viterbi.cc)
+add_library(satellites_side_objects OBJECT EXCLUDE_FROM_ALL ${SATELLITES_SOURCES})
+set_target_properties(satellites_side_objects PROPERTIES
+  C_STANDARD 11
+  C_STANDARD_REQUIRED ON)
+target_include_directories(satellites_side_objects PRIVATE
+  ${SATELLITES_WASM_SHIMS}
+  ${GR_INCLUDE_DIRS})
+target_compile_options(satellites_side_objects PRIVATE
+  -pthread -fPIC -Oz
+  $<$<COMPILE_LANGUAGE:CXX>:-fexceptions>)
+set(satellites_out ${CMAKE_CURRENT_BINARY_DIR}/satellites.wasm)
+add_custom_command(
+  OUTPUT ${satellites_out}
+  COMMAND ${CMAKE_CXX_COMPILER}
+    -sSIDE_MODULE=1 -pthread -fPIC -Oz -std=c++17
+    -sNO_DISABLE_EXCEPTION_CATCHING
+    -sWASM_BIGINT=1
+    $<TARGET_OBJECTS:satellites_side_objects>
+    -o ${satellites_out}
+  DEPENDS satellites_side_objects
+          ${SATELLITES_SOURCES}
+          ${SATELLITES_WASM_SHIMS}/config.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/satellites_wasm_blocks.hpp
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/registry_helpers.hpp
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/registry.hpp
+  COMMENT "Building category side module satellites.wasm (out-of-tree gr-satellites sources)"
+  COMMAND_EXPAND_LISTS
+  VERBATIM)
+list(APPEND SIDE_MODULE_OUTPUTS ${satellites_out})
 
 add_custom_target(side_modules ALL DEPENDS ${SIDE_MODULE_OUTPUTS})
 add_dependencies(runner side_modules)

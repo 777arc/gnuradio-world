@@ -39,6 +39,7 @@ MODULES = (
     "gr-foo",
     "gr-dvbs2",
     "gr-dvbs2rx",
+    "gr-satellites",
 )
 
 # Block categories whose C++ is statically linked into the main runner module and
@@ -46,7 +47,18 @@ MODULES = (
 # module that is fetched on demand the first time a flowgraph uses one of its
 # blocks (see the runner's dlopen loader and CMakeLists side-module targets).
 CORE_MODULES = ("blocks", "analog", "fft", "filter")
-DEFERRED_MODULES = ("digital", "dtv", "network", "pdu", "vocoder", "rds", "foo", "dvbs2", "dvbs2rx")
+DEFERRED_MODULES = (
+    "digital",
+    "dtv",
+    "network",
+    "pdu",
+    "vocoder",
+    "rds",
+    "foo",
+    "dvbs2",
+    "dvbs2rx",
+    "satellites",
+)
 
 # Load-order dependencies between DEFERRED modules only (core is always present).
 # Empty today: every deferred module references only core symbols (fec + qtgui
@@ -224,6 +236,7 @@ def fallback(dtype: str, default: Any) -> str:
 
 def vector_type(dtype: str) -> str | None:
     return {
+        "byte_vector": "std::uint8_t",
         "int_vector": "int",
         "real_vector": "float",
         "float_vector": "float",
@@ -384,12 +397,21 @@ def param_arg(block_id: str, param: dict[str, Any], namespace: dict[str, Any]) -
         enum = dict(param)
         enum["dtype"] = "enum"
         return Arg(enum_expression(enum))
-    if dtype == "raw" and pid in {"begin_tag", "true_key", "true_value", "false_key", "false_value"}:
+    if dtype == "raw" and pid in {
+        "begin_tag",
+        "true_key",
+        "true_value",
+        "false_key",
+        "false_value",
+        "meta",
+    }:
         return Arg(f"wasm_registry::pmt_value(p, {quoted_id})")
     if dtype == "raw" and pid == "gfpoly":
         return Arg(f"wasm_registry::number<int>(p, {quoted_id}, {fallback('int', default)})")
     if dtype == "raw" and pid == "special_tags":
         return Arg(f"wasm_registry::vector<std::string>(p, {quoted_id})")
+    if dtype == "raw" and pid == "sync_word":
+        return Arg(f"wasm_registry::vector<std::uint8_t>(p, {quoted_id})")
     if dtype == "raw" and pid == "cp_len":
         input_size = namespace.get("input_size", "0")
         return Arg(

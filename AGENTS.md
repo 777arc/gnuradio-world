@@ -28,7 +28,7 @@ WebAssembly.
   of wasm-specific aspects to it, but it attempts to look just like the native
   version.
 - `gnuradio/`: submodule of the main GNU Radio repo.
-- `gr-rds/`, `gr-foo/`, `gr-dvbs2/`, `gr-dvbs2rx/`: vendored out-of-tree GNU
+- `gr-rds/`, `gr-foo/`, `gr-dvbs2/`, `gr-dvbs2rx/`, `gr-satellites/`: vendored out-of-tree GNU
   Radio modules compiled as on-demand WASM side modules.
 - `deps/`: dependency fetch/build scripts, and any patches needed. Built
   dependencies are installed into the generated, git-ignored `sysroot/`.
@@ -74,7 +74,7 @@ node server.mjs 8090 "$PWD"
   `src/registry.cpp` add browser widgets, live setters, and a few composed
   blocks. The generated and custom registries currently expose hundreds of blocks from
   gr-blocks, gr-analog, gr-fft, gr-filter, gr-digital, gr-dtv, gr-network,
-  gr-pdu, gr-vocoder and gr-qtgui, plus the vendored out-of-tree modules (including but not limited to gr-rds, gr-foo, gr-dvbs2, gr-dvbs2rx). Stream and message-port connections are both
+  gr-pdu, gr-vocoder and gr-qtgui, plus the vendored out-of-tree modules (including but not limited to gr-rds, gr-foo, gr-dvbs2, gr-dvbs2rx, gr-satellites). Stream and message-port connections are both
   serialized by the editor. QT GUI Range controls can be referenced by ID from
   numeric block parameters and update those parameters while the graph is
   running.
@@ -393,7 +393,8 @@ part of the always-loaded core or an on-demand side module. To add one (say
 
 The recipe above assumes an in-tree `gr-<m>` built by `gr/build-gr`. A
 third-party OOT module (already done for [`gr-rds/`](gr-rds), [`gr-foo/`](gr-foo),
-[`gr-dvbs2/`](gr-dvbs2), [`gr-dvbs2rx/`](gr-dvbs2rx)) is **not** part of that
+[`gr-dvbs2/`](gr-dvbs2), [`gr-dvbs2rx/`](gr-dvbs2rx), and
+[`gr-satellites/`](gr-satellites)) is **not** part of that
 umbrella build, so there is no `libgnuradio-<m>.a`; instead its own `lib/*.cc` are
 compiled straight into an on-demand `<m>.wasm` side module. This is a
 **self-contained checklist** — following it needs no investigation beyond the

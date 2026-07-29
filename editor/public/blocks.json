@@ -67556,6 +67556,5294 @@
    ]
   },
   {
+   "id": "satellites_aausat4_check_fsm",
+   "label": "AAUSAT-4 remove FSM",
+   "category": [
+    "Satellites",
+    "Coding"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "",
+   "api_documentation": "docstring for block aausat4_remove_fsm",
+   "wiki_url": "",
+   "params": [],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "short",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true
+    },
+    {
+     "id": "long",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true
+    }
+   ]
+  },
+  {
+   "id": "satellites_adsb_kml",
+   "label": "GOMX-3 ADS-B to KML",
+   "category": [
+    "Satellites",
+    "GOMspace"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": []
+  },
+  {
+   "id": "satellites_ao40_deinterleaver",
+   "label": "AO-40 deinterleaver",
+   "category": [
+    "Satellites",
+    "Coding"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_ao40_syncframe",
+   "label": "AO-40 synchronize frame",
+   "category": [
+    "Satellites",
+    "Packet"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "threshold",
+     "label": "Threshold",
+     "dtype": "int",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "byte",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_autopolarization",
+   "label": "Auto-Polarization",
+   "category": [
+    "Satellites",
+    "Polarization"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "fft_size",
+     "label": "FFT size",
+     "dtype": "int",
+     "default": 2048,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "fft_avg",
+     "label": "FFT average",
+     "dtype": "int",
+     "default": "round(0.1 * samp_rate / 2048)",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "iir_weight",
+     "label": "IIR weight",
+     "dtype": "float",
+     "default": 0.1,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "complex",
+     "multiplicity": "1",
+     "optional": false
+    },
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "complex",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "signal",
+     "domain": "stream",
+     "dtype": "complex",
+     "multiplicity": "1",
+     "optional": false
+    },
+    {
+     "id": "",
+     "label": "orthogonal",
+     "domain": "stream",
+     "dtype": "complex",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_ax100_decode",
+   "label": "NanoCom AX100 decode",
+   "category": [
+    "Satellites",
+    "GOMspace"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "",
+   "api_documentation": "<+description of block+>\n\nReturn a shared_ptr to a new instance of satellites::ax100_decode.\n\nTo avoid accidental use of raw pointers, satellites::ax100_decode's\nconstructor is in a private implementation\nclass. satellites::ax100_decode::make is the public interface for\ncreating new instances.",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "verbose",
+     "label": "Verbose",
+     "dtype": "bool",
+     "default": "",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": [
+      "Yes",
+      "No"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_beesat_classifier",
+   "label": "BEESAT classifier",
+   "category": [
+    "Satellites",
+    "Telemetry"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "",
+   "api_documentation": "docstring for block beesat_classifier",
+   "wiki_url": "",
+   "params": [],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "BEESAT-1",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true
+    },
+    {
+     "id": "BEESAT-2",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true
+    },
+    {
+     "id": "BEESAT-4",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true
+    },
+    {
+     "id": "BEESAT-9",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true
+    },
+    {
+     "id": "TECHNOSAT",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true
+    }
+   ]
+  },
+  {
+   "id": "satellites_bme_submitter",
+   "label": "BME Telemetry Forwarder (Deprecated)",
+   "category": [
+    "Satellites",
+    "Deprecated"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "user",
+     "label": "User",
+     "dtype": "string",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "password",
+     "label": "Password",
+     "dtype": "string",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "satellite",
+     "label": "Satellite",
+     "dtype": "string",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": []
+  },
+  {
+   "id": "satellites_bme_ws_submitter",
+   "label": "BME Telemetry Forwarder (WebSocket)",
+   "category": [
+    "Satellites",
+    "Misc"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": []
+  },
+  {
+   "id": "satellites_cc11xx_packet_crop",
+   "label": "CC11xx packet crop",
+   "category": [
+    "Satellites",
+    "CC11xx"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "",
+   "api_documentation": "docstring for block cc11xx_packet_crop",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "use_crc16",
+     "label": "Use CRC16",
+     "dtype": "bool",
+     "default": "",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": [
+      "Yes",
+      "No"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_check_address",
+   "label": "Check AX.25 address",
+   "category": [
+    "Satellites",
+    "AX.25"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "Enter either an address (choose \"from\" for source or \"to\" for destination callsign) or a digipeater callsign or both.\nThe logical connective between 'address' and 'digipeater callsign' is an inclusive disjunction (OR).\nIf at least one callsign of both matches, the frame is passed to output port \"ok\".\nThe address callsign may have a SSID, the digipeater callsign must not have a SSID.\n\nExample and results:\nAddress: PCSAT-1 (from)\nDigicallsign: W3ADO\n\nEvery frame with PCSAT-1 as source callsign will be forwarded to output port \"ok\".\nEvery frame with \"via\" W3ADO (SSID is arbitrary) and hbit set (usually marked with an asterisk (*) to show that it was digipeated) will be forwarded to output port \"ok\".\nEverything else will be forwarded to output port \"fail\".",
+   "api_documentation": "docstring for block check_address",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "address",
+     "label": "Address",
+     "dtype": "string",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "direction",
+     "label": "Direction",
+     "dtype": "string",
+     "default": "",
+     "category": "General",
+     "options": [
+      "\"from\"",
+      "\"to\""
+     ],
+     "option_labels": [
+      "From",
+      "To"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "digicallsign",
+     "label": "Digicallsign",
+     "dtype": "string",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "ok",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true
+    },
+    {
+     "id": "fail",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true
+    }
+   ]
+  },
+  {
+   "id": "satellites_check_astrocast_crc",
+   "label": "Check Astrocast CRC-16",
+   "category": [
+    "Satellites",
+    "Packet"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "",
+   "api_documentation": "docstring for block check_astrocast_crc",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "verbose",
+     "label": "Verbose",
+     "dtype": "bool",
+     "default": "",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": [
+      "Yes",
+      "No"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "ok",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true
+    },
+    {
+     "id": "fail",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true
+    }
+   ]
+  },
+  {
+   "id": "satellites_check_hex_string",
+   "label": "Check Hex String",
+   "category": [
+    "Satellites",
+    "Misc"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "Checks data from input port from \"Starting Position\" on for a \"Hex String\".\n\nIf the incoming string matches the entered string, data will be passed to output port \"ok\", else to \"fail\".\n\nExample for a match:\n\nEntered block parameters:\n\"Hex String\" = 4450304E4641\t(ASCII for DP0NFA)\n\"Starting Position\" = 10\t\t(Starts counting from 0 on)\n\nData coming into input port: \"02300400000000003D0E4450304E4641000100C300B7142EF90F9C06290000000\"",
+   "api_documentation": "Checks incoming hex string from a specified position\nfor a given hex string.",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "hexstring",
+     "label": "Hex String",
+     "dtype": "string",
+     "default": "c0ffee",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "startindex",
+     "label": "Starting Position",
+     "dtype": "int",
+     "default": 0,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "ok",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true
+    },
+    {
+     "id": "fail",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true
+    }
+   ]
+  },
+  {
+   "id": "satellites_convolutional_encoder",
+   "label": "Convolutional Encoder",
+   "category": [
+    "Satellites",
+    "FEC"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "Generic convolutional encoder\n\nThis convolutional encoder can use any constraint length and polynomials.\nThe input should be a PDU containing the bits to be encoded (unpacked)\n\nOutput:\n    A PDU with the encoded bits (unpacked)\n\nParameters:\n    Contraint length: Constraint length (k) of the code\n    Polynomials: Polynomials defining the convolutional encoder",
+   "api_documentation": "Convolutional encoder\n\nReturn a shared_ptr to a new instance of satellites::convolutional_encoder.\n\nTo avoid accidental use of raw pointers, satellites::convolutional_encoder's\nconstructor is in a private implementation\nclass. satellites::convolutional_encoder::make is the public interface for\ncreating new instances.",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "constraint",
+     "label": "Constraint length",
+     "dtype": "int",
+     "default": 7,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "polynomials",
+     "label": "Polynomials",
+     "dtype": "int_vector",
+     "default": [
+      79,
+      109
+     ],
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_costas_loop_8apsk_cc",
+   "label": "8APSK Costas Loop",
+   "category": [
+    "Satellites",
+    "Synchronizers"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "",
+   "api_documentation": "8APSK Costas Loop\n\nMake an 8APSK Costas Loop block.\n\nParameters:\n  loop_bw: internal 2nd order loop bandwidth",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "loop_bw",
+     "label": "Loop bandwidth",
+     "dtype": "real",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "complex",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "complex",
+     "multiplicity": "1",
+     "optional": false
+    },
+    {
+     "id": "",
+     "label": "frequency",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": true
+    },
+    {
+     "id": "",
+     "label": "phase",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": true
+    },
+    {
+     "id": "",
+     "label": "error",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": true
+    }
+   ]
+  },
+  {
+   "id": "satellites_crc_append",
+   "label": "CRC Append",
+   "category": [
+    "Satellites",
+    "CRC"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "",
+   "api_documentation": "Calculates and appends a CRC to a PDU\n\nThe CRC append block receives a PDU, calculates the CRC of the PDU\ndata, appends it to the PDU, and sends that as its output.\nIt can support any CRC whose size is a multiple of 8 bits between\n8 and 64 bits.\n\nBuild the CRC append block.\n\nParameters:\n  num_bits: CRC size in bits (must be a multiple of 8)\n  poly: CRC polynomial, in MSB-first notation\n  initial_value: Initial register value\n  final_xor: Final XOR value\n  input_reflected: true if the input is LSB-first, false if not\n  result_reflected: true if the output is LSB-first, false if not\n  swap_endianness: true if the CRC is stored as little-endian in the PDU, false if not\n  skip_header_bytes: gives the number of header byte to skip in the CRC calculation",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "num_bits",
+     "label": "CRC size (bits)",
+     "dtype": "int",
+     "default": 32,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    },
+    {
+     "id": "poly",
+     "label": "CRC polynomial",
+     "dtype": "hex",
+     "default": "0x4C11DB7",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "initial_value",
+     "label": "Initial regsiter value",
+     "dtype": "hex",
+     "default": "0xFFFFFFFF",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    },
+    {
+     "id": "final_xor",
+     "label": "Final XOR value",
+     "dtype": "hex",
+     "default": "0xFFFFFFFF",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    },
+    {
+     "id": "input_reflected",
+     "label": "LSB-first input",
+     "dtype": "bool",
+     "default": true,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    },
+    {
+     "id": "result_reflected",
+     "label": "LSB-first result",
+     "dtype": "bool",
+     "default": true,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    },
+    {
+     "id": "swap_endianness",
+     "label": "LSB CRC in PDU",
+     "dtype": "bool",
+     "default": false,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    },
+    {
+     "id": "skip_header_bytes",
+     "label": "Header bytes to skip",
+     "dtype": "int",
+     "default": 0,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_crc_check",
+   "label": "CRC Check",
+   "category": [
+    "Satellites",
+    "CRC"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "",
+   "api_documentation": "Check the CRC at the end of a PDU\n\nThe CRC append block receives a PDU containing a CRC at its end,\nand checks whether the CRC is correct. The PDU is sent over the ok\nor fail output ports according to the result of this check.\nIt can support any CRC whose size is a multiple of 8 bits between\n8 and 64 bits.\n\nBuild the CRC append block.\n\nParameters:\n  num_bits: CRC size in bits (must be a multiple of 8)\n  poly: CRC polynomial, in MSB-first notation\n  initial_value: Initial register value\n  final_xor: Final XOR value\n  input_reflected: true if the input is LSB-first, false if not\n  result_reflected: true if the output is LSB-first, false if not\n  swap_endianness: true if the CRC is stored as little-endian in the PDU, false if not\n  discard_crc: If true, the CRC is removed from the PDU before sending it to the output port. If false, the CRC is preserved in the outupt PDU.\n  skip_header_bytes: gives the number of header byte to skip in the CRC calculation",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "num_bits",
+     "label": "CRC size (bits)",
+     "dtype": "int",
+     "default": 32,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    },
+    {
+     "id": "poly",
+     "label": "CRC polynomial",
+     "dtype": "hex",
+     "default": "0x4C11DB7",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "initial_value",
+     "label": "Initial regsiter value",
+     "dtype": "hex",
+     "default": "0xFFFFFFFF",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    },
+    {
+     "id": "final_xor",
+     "label": "Final XOR value",
+     "dtype": "hex",
+     "default": "0xFFFFFFFF",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    },
+    {
+     "id": "input_reflected",
+     "label": "LSB-first input",
+     "dtype": "bool",
+     "default": true,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    },
+    {
+     "id": "result_reflected",
+     "label": "LSB-first result",
+     "dtype": "bool",
+     "default": true,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    },
+    {
+     "id": "swap_endianness",
+     "label": "LSB CRC in PDU",
+     "dtype": "bool",
+     "default": false,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    },
+    {
+     "id": "discard_crc",
+     "label": "Discard CRC",
+     "dtype": "bool",
+     "default": false,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    },
+    {
+     "id": "skip_header_bytes",
+     "label": "Header bytes to skip",
+     "dtype": "int",
+     "default": 0,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "ok",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true
+    },
+    {
+     "id": "fail",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true
+    }
+   ]
+  },
+  {
+   "id": "satellites_csp_address_filter",
+   "label": "CSP Address Filter",
+   "category": [
+    "Satellites",
+    "CSP"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "Drops CSP packets whose source or destination address do not belong to the\nlists of allowed source and destination addresses.",
+   "api_documentation": "CSP Address Filter block",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "allowed_sources",
+     "label": "Allowed sources",
+     "dtype": "int_vector",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "allowed_destinations",
+     "label": "Allowed destinations",
+     "dtype": "int_vector",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_csp_zmq_pub",
+   "label": "CSP ZMQ PUB",
+   "category": [
+    "Satellites",
+    "CSP"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "address",
+     "label": "Address",
+     "dtype": "string",
+     "default": "\"tcp://localhost:6000\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": []
+  },
+  {
+   "id": "satellites_csp_zmq_sub",
+   "label": "CSP ZMQ SUB",
+   "category": [
+    "Satellites",
+    "CSP"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "address",
+     "label": "Address",
+     "dtype": "string",
+     "default": "\"tcp://localhost:7000\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "destinations",
+     "label": "Destinations",
+     "dtype": "int_vector",
+     "default": [],
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_decode_ra_code",
+   "label": "RA decoder",
+   "category": [
+    "Satellites",
+    "FEC"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "",
+   "api_documentation": "<+description of block+>\n\nReturn a shared_ptr to a new instance of satellites::decode_ra_code.\n\nTo avoid accidental use of raw pointers, satellites::decode_ra_code's\nconstructor is in a private implementation\nclass. satellites::decode_ra_code::make is the public interface for\ncreating new instances.",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "size",
+     "label": "Size",
+     "dtype": "int",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_decode_rs",
+   "label": "Reed-Solomon Decoder",
+   "category": [
+    "Satellites",
+    "FEC"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "",
+   "api_documentation": "<+description of block+>\n\nReturn a shared_ptr to a new instance of satellites::decode_rs.\n\nTo avoid accidental use of raw pointers, satellites::decode_rs's\nconstructor is in a private implementation\nclass. satellites::decode_rs::make is the public interface for\ncreating new instances.",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "nsym",
+     "label": "Bits per symbol",
+     "dtype": "int",
+     "default": 8,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "gfpoly",
+     "label": "Generator polynomial",
+     "dtype": "int",
+     "default": 285,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "fcr",
+     "label": "First consecutive root",
+     "dtype": "int",
+     "default": 1,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "prim",
+     "label": "Primitive element",
+     "dtype": "int",
+     "default": 1,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "nroots",
+     "label": "Number of roots",
+     "dtype": "int",
+     "default": 1,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "interleave",
+     "label": "Interleave depth",
+     "dtype": "int",
+     "default": 1,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_decode_rs_ccsds",
+   "label": "CCSDS Reed-Solomon Decoder",
+   "category": [
+    "Satellites",
+    "FEC"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "",
+   "api_documentation": "<+description of block+>\n\nReturn a shared_ptr to a new instance of satellites::decode_rs.\n\nTo avoid accidental use of raw pointers, satellites::decode_rs's\nconstructor is in a private implementation\nclass. satellites::decode_rs::make is the public interface for\ncreating new instances.",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "basis",
+     "label": "Basis",
+     "dtype": "enum",
+     "default": "",
+     "category": "General",
+     "options": [
+      "False",
+      "True"
+     ],
+     "option_labels": [
+      "Conventional",
+      "Dual"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "interleave",
+     "label": "Interleave depth",
+     "dtype": "int",
+     "default": 1,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_descrambler308",
+   "label": "IESS-308 descrambler",
+   "category": [
+    "Satellites",
+    "Scrambling"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "",
+   "api_documentation": "<+description of block+>\n\nReturn a shared_ptr to a new instance of satellites::descrambler308.\n\nTo avoid accidental use of raw pointers, satellites::descrambler308's\nconstructor is in a private implementation\nclass. satellites::descrambler308::make is the public interface for\ncreating new instances.",
+   "wiki_url": "",
+   "params": [],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "byte",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "byte",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_distributed_syncframe_soft",
+   "label": "Distributed synchronize frame (soft symbols)",
+   "category": [
+    "Satellites",
+    "Packet"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "",
+   "api_documentation": "<+description of block+>\n\nReturn a shared_ptr to a new instance of\nsatellites::distributed_syncframe_soft.\n\nTo avoid accidental use of raw pointers, satellites::distributed_syncframe_soft's\nconstructor is in a private implementation\nclass. satellites::distributed_syncframe_soft::make is the public interface for\ncreating new instances.",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "threshold",
+     "label": "Threshold",
+     "dtype": "int",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "syncword",
+     "label": "Syncword",
+     "dtype": "string",
+     "default": "11111110000111011110010110010010000001000100110001011101011011000",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "step",
+     "label": "Step",
+     "dtype": "int",
+     "default": "80",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_doppler_correction",
+   "label": "Doppler Correction",
+   "category": [
+    "Satellites",
+    "Doppler"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "The Doppler Correction block uses a text file listing frequency vs. time to\nperform Doppler correction on its input signal. The same block can be used\nfor Doppler simulation by inverting the frequency values in the input file\nor by taking the complex conjugate of the output of the block.\n\nThe text file should contain lines with a timestamp and a frequency\nseparated by a space. The timestamps are given in seconds, and typically\nconsist of UNIX time. The \"Start Time\" parameter in the block constructor\ngives the starting time, which is the timestamp corresponding to the first\nsample processed by the block. As long as the timestamps in the file and\nthis timestamp are consistent, the block will work correctly. The\nfrequencies are given in Hz.\n\nThe block can also use time tags such as those generated by the UHD Source\nblock to update its internal timestamp. In this case the timestamps in the\nfile should use UNIX seconds, since the UHD timestamps also use UNIX\nseconds. When using UHD time tags, the t0 parameter can be left as 0.\n\nThe Doppler correction block interpolates the frequency linearly between each\npair of entries in the text file, and generates a correction with continuous\nphase.\n\nInput:\n    A stream of IQ samples\nOutput:\n    The input shifted in frequency with a shift opposite to the one described\n    in the file\n\nParameters:\n    File: Frequency vs. time text file.\n    Sample rate: Input and output sample rate.\n    Start time: Timestamp correponding to the first sample processed by the block.",
+   "api_documentation": "Performs Doppler correction using a frequency vs. time file\n\nThe Doppler Correction block uses a text file listing frequency vs. time to\nperform Doppler correction on its input signal. The same block can be used\nfor Doppler simulation by inverting the frequency values in the input file or\nby taking the complex conjugate of the output of the block.\n\nThe text file should contain lines with a timestamp and a frequency separated\nby a space. The timestamps are given in seconds, and typically consist of\nUNIX time. The t0 parameter in the block constructor gives the starting time,\nwhich is the timestamp corresponding to the first sample processed by the\nblock. As long as the timestamps in the file and this timestamp are\nconsistent, the block will work correctly. The frequencies are given in Hz.\n\nThe block can also use time tags such as those generated by the UHD Source\nblock to update its internal timestamp. In this case the timestamps in the\nfile should use UNIX seconds, since the UHD timestamps also use UNIX\nseconds. When using UHD time tags, the t0 parameter can be left as 0.\n\nThe Doppler correction block interpolates the frequency linearly between each\npair of entries in the text file, and generates a correction with continuous\nphase.\n\nAn optional time synchronization tag functionality is provided, mainly\nintended for uplink Doppler correction of burst transmissions. When this tag\nis received, the Doppler correction block sets its internal time to the\ncurrent UNIX time of the PC. Usually, the \"packet_len\" tag at the beginning\nof the burst is used as time synchronization tag.\n\nBuild the Doppler Correction block.\n\nParameters:\n  filename: Path of the text file describing the Doppler data\n  samp_rate: Sample rate\n  t0: Timestamp corresponding to the first sample\n  timesync_tag: Tag used to trigger time synchronization to the current PC clock",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "file",
+     "label": "File",
+     "dtype": "file_open",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "samp_rate",
+     "label": "Sample rate",
+     "dtype": "float",
+     "default": "samp_rate",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "t0",
+     "label": "Start time",
+     "dtype": "float",
+     "default": 0,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "timesync_tag",
+     "label": "Time synchronization tag",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ 'none' if len(timesync_tag) else 'part' }"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "in",
+     "domain": "stream",
+     "dtype": "complex",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "out",
+     "domain": "stream",
+     "dtype": "complex",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_encode_rs",
+   "label": "Reed-Solomon Encoder",
+   "category": [
+    "Satellites",
+    "FEC"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "",
+   "api_documentation": "Reed-Solomon encoder\n\nConstructs a CCSDS Reed Solomon encoder using PDU IO.\n\nParameters:\n  dual_basis: Selects the dual or conventional basis.\n  interleave: Interleave depth.",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "nsym",
+     "label": "Bits per symbol",
+     "dtype": "int",
+     "default": 8,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "gfpoly",
+     "label": "Generator polynomial",
+     "dtype": "int",
+     "default": 285,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "fcr",
+     "label": "First consecutive root",
+     "dtype": "int",
+     "default": 1,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "prim",
+     "label": "Primitive element",
+     "dtype": "int",
+     "default": 1,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "nroots",
+     "label": "Number of roots",
+     "dtype": "int",
+     "default": 1,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "interleave",
+     "label": "Interleave depth",
+     "dtype": "int",
+     "default": 1,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_encode_rs_ccsds",
+   "label": "CCSDS Reed-Solomon Encoder",
+   "category": [
+    "Satellites",
+    "FEC"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "",
+   "api_documentation": "Reed-Solomon encoder\n\nConstructs a CCSDS Reed Solomon encoder using PDU IO.\n\nParameters:\n  dual_basis: Selects the dual or conventional basis.\n  interleave: Interleave depth.",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "basis",
+     "label": "Basis",
+     "dtype": "enum",
+     "default": "",
+     "category": "General",
+     "options": [
+      "False",
+      "True"
+     ],
+     "option_labels": [
+      "Conventional",
+      "Dual"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "interleave",
+     "label": "Interleave depth",
+     "dtype": "int",
+     "default": 1,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_encode_rs_ccsds_vector",
+   "label": "CCSDS Reed-Solomon Encoder (vector)",
+   "category": [
+    "Satellites",
+    "FEC"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "",
+   "api_documentation": "Reed-Solomon encoder\n\nConstructs a CCSDS Reed Solomon encoder using PDU IO.\n\nParameters:\n  dual_basis: Selects the dual or conventional basis.\n  interleave: Interleave depth.",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "frame_size",
+     "label": "Frame size",
+     "dtype": "int",
+     "default": 223,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "basis",
+     "label": "Basis",
+     "dtype": "enum",
+     "default": "",
+     "category": "General",
+     "options": [
+      "False",
+      "True"
+     ],
+     "option_labels": [
+      "Conventional",
+      "Dual"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "interleave",
+     "label": "Interleave depth",
+     "dtype": "int",
+     "default": 1,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "byte",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "byte",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_encode_rs_vector",
+   "label": "Reed-Solomon Encoder (vector)",
+   "category": [
+    "Satellites",
+    "FEC"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "",
+   "api_documentation": "Reed-Solomon encoder\n\nConstructs a CCSDS Reed Solomon encoder using PDU IO.\n\nParameters:\n  dual_basis: Selects the dual or conventional basis.\n  interleave: Interleave depth.",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "frame_size",
+     "label": "Frame size",
+     "dtype": "int",
+     "default": 223,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "nsym",
+     "label": "Bits per symbol",
+     "dtype": "int",
+     "default": 8,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "gfpoly",
+     "label": "Generator polynomial",
+     "dtype": "int",
+     "default": 285,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "fcr",
+     "label": "First consecutive root",
+     "dtype": "int",
+     "default": 1,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "prim",
+     "label": "Primitive element",
+     "dtype": "int",
+     "default": 1,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "nroots",
+     "label": "Number of roots",
+     "dtype": "int",
+     "default": 1,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "interleave",
+     "label": "Interleave depth",
+     "dtype": "int",
+     "default": 1,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "byte",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "byte",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_eseo_line_decoder",
+   "label": "ESEO Line Decoder",
+   "category": [
+    "Satellites",
+    "ESEO"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_eseo_packet_crop",
+   "label": "ESEO Packet Crop",
+   "category": [
+    "Satellites",
+    "ESEO"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "",
+   "api_documentation": "docstring for block eseo_packet_crop",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "drop_rs",
+     "label": "Drop Reed-Solomon",
+     "dtype": "bool",
+     "default": "",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": [
+      "Yes",
+      "No"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_fixedlen_to_pdu",
+   "label": "Fixed Length To PDU",
+   "category": [
+    "Satellites",
+    "Packet"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "Extracts PDUs of fixed maximum length according to syncword tags\n\nGiven an input stream containing tags that mark the location of frames, this\nblock extracts PDUs starting at the location of those tags. The length of\nthe PDUs is determined by either the presence of a packet length tag, if a\nkey for this tag has been specified and such tag is present in the first\nitem of the frame, or by the maximum packet length otherwise.  The data in\nthe PDUs may overlap if tags are spaced less than the PDU length.\n\nOutput:\n   PDUs containting the frames that start at the location marked by the tags.\n\nParameters:\n    Type: input stream type.\n    Syncword tag: name of the syncword tags to use.\n    Max packet length: maximum PDU length, in items of the input stream.\n    Pack bits: when the input type is bytes and this option is enabled,\n      8 bits per byte are packed in the output PDU. The packet length should\n      correspond to the number of bits, and be a multiple of 8.\n    Packet length tag key: key of the syncword tag to use for packet length.\n      If this key is empty, the max packet length is used for all the packets.",
+   "api_documentation": "Fixedlen to PDU\n\nExtracts PDUs of fixed maximum length according to syncword tags.\n\nGiven an input stream containing tags that mark the location of frames, this\nblock extracts PDUs starting at the location of those tags. The length of\nthe PDUs is determined by either the presence of a packet length tag, if a\nkey for this tag has been specified and such tag is present in the first\nitem of the frame, or by the maximum packet length otherwise.  The data in\nthe PDUs may overlap if tags are spaced less than the PDU length.\n\nMake a Fixedlen to PDU block.\n\nParameters:\n  type: Input stream type.\n  syncword_tag: Name of the syncword tags to use.\n  packet_len: Maximum PDU length, in items of the input stream.\n  pack: When the input type is bytes and this option is enabled, 8 bits per byte are packed in the output PDU. The packet length should correspond to the number of bits, and be a multiple of 8.\n  packet_len_tag_key: Key of the syncword tag to use for packet length. If this key is empty, the max packet length is used for all the packets.",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "type",
+     "label": "Type",
+     "dtype": "enum",
+     "default": "",
+     "category": "General",
+     "options": [
+      "complex",
+      "float",
+      "byte"
+     ],
+     "option_labels": null,
+     "option_attributes": {
+      "vector_type": [
+       "satellites.grtypes.complex_t",
+       "satellites.grtypes.float_t",
+       "satellites.grtypes.byte_t"
+      ]
+     },
+     "hide": "part"
+    },
+    {
+     "id": "syncword_tag",
+     "label": "Syncword tag",
+     "dtype": "string",
+     "default": "syncword",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "packet_len",
+     "label": "Max packet length",
+     "dtype": "int",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "pack",
+     "label": "Pack bits",
+     "dtype": "bool",
+     "default": "False",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ 'none' if type == 'byte' else 'all' }"
+    },
+    {
+     "id": "packet_len_tag_key",
+     "label": "Packet length tag key",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ 'none' if packet_len_tag_key else 'part' }"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "${ type }",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "pdus",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_frame_counter",
+   "label": "Frame Counter",
+   "category": [
+    "Satellites",
+    "Packet"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "The Frame Counter block counts frames of a fixed size that cross the block\nand outputs a message every time that new frames have crossed the block. The\nmessage contains the count.\n\nInput:\n    A stream of items.\nOutput:\n    A copy of the input stream. Messages containing frame count.",
+   "api_documentation": "Counts frames of fixed size.\n\nThe Frame Counter block counts frames of a fixed size that cross\nthe block and outputs a message every time that new frames have\ncrossed the block. The message contains the count.\n\nBuild the Frame Counter block.\n\nParameters:\n  itemsize: Size of the stream items.\n  frame_size: Size of the frames.",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "type",
+     "label": "IO Type",
+     "dtype": "enum",
+     "default": "",
+     "category": "General",
+     "options": [
+      "complex",
+      "float",
+      "int",
+      "short",
+      "byte"
+     ],
+     "option_labels": null,
+     "option_attributes": {
+      "size": [
+       "gr.sizeof_gr_complex",
+       "gr.sizeof_float",
+       "gr.sizeof_int",
+       "gr.sizeof_short",
+       "gr.sizeof_char"
+      ]
+     },
+     "hide": "part"
+    },
+    {
+     "id": "frame_size",
+     "label": "Frame size",
+     "dtype": "int",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "vlen",
+     "label": "Vector Length",
+     "dtype": "int",
+     "default": "1",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ 'part' if vlen == 1 else 'none' }"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "${ type }",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "${ type }",
+     "multiplicity": "1",
+     "optional": false
+    },
+    {
+     "id": "count",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_funcube_submit",
+   "label": "FUNcube Telemetry Forwarder",
+   "category": [
+    "Satellites",
+    "Misc"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "url",
+     "label": "URL",
+     "dtype": "string",
+     "default": "http://data.amsat-uk.org",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "site_id",
+     "label": "Site Id",
+     "dtype": "string",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "auth_code",
+     "label": "Auth Code",
+     "dtype": "string",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": []
+  },
+  {
+   "id": "satellites_hdlc_deframer",
+   "label": "HDLC Deframer",
+   "category": [
+    "Satellites",
+    "AX.25"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "check_fcs",
+     "label": "Check FCS",
+     "dtype": "bool",
+     "default": "True",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "max_length",
+     "label": "Maximum frame length (bytes)",
+     "dtype": "int",
+     "default": "10000",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "byte",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_hdlc_framer",
+   "label": "HDLC Framer",
+   "category": [
+    "Satellites",
+    "AX.25"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "",
+   "api_documentation": "docstring for block hdlc_framer",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "preamble_bytes",
+     "label": "Preamble bytes",
+     "dtype": "int",
+     "default": "50",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "postamble_bytes",
+     "label": "Postamble bytes",
+     "dtype": "int",
+     "default": "7",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_k2sat_deframer",
+   "label": "K2SAT deframer",
+   "category": [
+    "Satellites",
+    "Packet"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_kiss_to_pdu",
+   "label": "KISS to PDU",
+   "category": [
+    "Satellites",
+    "KISS"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "control_byte",
+     "label": "Expect control byte",
+     "dtype": "bool",
+     "default": "True",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": [
+      "Yes",
+      "No"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "byte",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_ks1q_header_remover",
+   "label": "KS-1Q header remover",
+   "category": [
+    "Satellites",
+    "Packet"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "",
+   "api_documentation": "docstring for block ks1q_header_remover",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "verbose",
+     "label": "Verbose",
+     "dtype": "bool",
+     "default": "",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": [
+      "Yes",
+      "No"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_kurtosis",
+   "label": "Kurtosis",
+   "category": [
+    "Satellites",
+    "Detectors"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "This block computes an unbiased estimate of the Kurtosis of a complex signal\nfor each block of M input samples. The block supports vectors, in which case\nthe Kurtosis is computed component-wise. This can be used to compute\nspectral Kurtosis, for instance.\n\nInput:\n    A stream of IQ samples (or vectors of IQ samples)\nOutput:\n    The stream decimated by the Block Size, with each output sample containing\n    the estimated Kurtosis of each block of input samples.\n\nParameters:\n    Block Size: Size of the block for the Kurtosis estimate\n    Vector Length: Vector length",
+   "api_documentation": "Estimates the Kurtosis of a complex signal\n\nThis block computes an unbiased estimate of the Kurtosis of a complex\nsignal for each block of M input samples. The block supports vectors,\nin which case the Kurtosis is computed component-wise. This can be used\nto compute spectral Kurtosis, for instance.\n\nBuild the Kurtosis block.\n\nParameters:\n  block_size: The block size to use to compute the Kurtosis estimate\n  vlen: Vector length",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "block_size",
+     "label": "Block Size",
+     "dtype": "int",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "vlen",
+     "label": "Vector Length",
+     "dtype": "int",
+     "default": "1",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ 'part' if vlen == 1 else 'none' }"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "complex",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_level_to_message",
+   "label": "Level to Message",
+   "category": [
+    "Satellites",
+    "Detectors"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "This block is mainly intended to be used with the output of the Threshold\nblock. It compares its input with a given threshold. Whenever the input\ncrosses the threshold, a message is output saying if the signal is now over\nthe threshold or below the threshold. If there are multiple threshold\ncrossings inside a work() call, only the last one is considered, so at most\nthere is an output message per work() call (i.e., the block only ever looks\nat the last input sample in each work() call).\n\nInput:\n    A stream of floating point samples\nOutput:\n    A message every time that the last sample in a work() call changes\n    from being below the threshold to above the threshold or vice versa.\n\nParameters:\n    Threshold: Threshold for the level change",
+   "api_documentation": "Converts changes in signal level to messages\n\nThis block is mainly intended to be used with the output of the Threshold\nblock. It compares its input with a given threshold. Whenever the input\ncrosses the threshold, a message is output saying if the signal is now over\nthe threshold or below the threshold. If there are multiple threshold\ncrossings inside a work() call, only the last one is considered, so at most\nthere is an output message per work() call (i.e., the block only ever looks\nat the last input sample in each work() call).\n\nBuild the Level to Message block.\n\nParameters:\n  threshold: Level change threshold",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "threshold",
+     "label": "Threshold",
+     "dtype": "float",
+     "default": "0.5",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "out",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_lilacsat1_demux",
+   "label": "LilacSat-1 demuxer",
+   "category": [
+    "Satellites",
+    "Packet"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "",
+   "api_documentation": "<+description of block+>\n\nReturn a shared_ptr to a new instance of satellites::lilacsat1_demux.\n\nTo avoid accidental use of raw pointers, satellits::lilacsat1_demux's\nconstructor is in a private implementation\nclass. satellites::lilacsat1_demux::make is the public interface for\ncreating new instances.",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "tag",
+     "label": "Tag",
+     "dtype": "string",
+     "default": "\"syncword\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "byte",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "frame",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    },
+    {
+     "id": "codec2",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_lilacsat1_gps_kml",
+   "label": "LilacSat-1 GPS to KML",
+   "category": [
+    "Satellites",
+    "Telemetry"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_manchester_sync",
+   "label": "Manchester Sync",
+   "category": [
+    "Satellites",
+    "Coding"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "",
+   "api_documentation": "Detects phase of a Manchester clock and integrates symbols\n\nThe Manchester Sync block operates on a Manchester coded signal at\ntwo samples per symbol (one sample per each half of the Manchester\npulse). The block detects which is the phase of the Manchester clock\n(i.e., what are the symbol boundaries), integrates symbols by\nsubtracting the appropriate halves, and outputs the symbols at one\nsample per symbol.\n\nThe detection of the Manchester clock phase is done using a high\nSNR approximation to the maximum likelihood metric. Detection is\ndone blockwise, with the size of the block indicated in the constructor.\n\nConstructs a Manchester Sync block.\n\nParameters:\n  block_size: Size of the block for metric evaluation (in symbols).",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "type",
+     "label": "IO Type",
+     "dtype": "enum",
+     "default": "",
+     "category": "General",
+     "options": [
+      "complex",
+      "float"
+     ],
+     "option_labels": null,
+     "option_attributes": {
+      "fcn": [
+       "cc",
+       "ff"
+      ]
+     },
+     "hide": "part"
+    },
+    {
+     "id": "block_size",
+     "label": "Block Size",
+     "dtype": "int",
+     "default": 0,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "${ type }",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "${ type }",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_matrix_deinterleaver_soft",
+   "label": "Matrix deinterleaver (soft symbols)",
+   "category": [
+    "Satellites",
+    "Coding"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "",
+   "api_documentation": "<+description of block+>\n\nReturn a shared_ptr to a new instance of\nsatellites::matrix_deinterleaver_soft.\n\nTo avoid accidental use of raw pointers, satellites::matrix_deinterleaver_soft's\nconstructor is in a private implementation\nclass. satellites::matrix_deinterleaver_soft::make is the public interface for\ncreating new instances.",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "rows",
+     "label": "Rows",
+     "dtype": "int",
+     "default": "80",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "cols",
+     "label": "Columns",
+     "dtype": "int",
+     "default": "65",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "output_size",
+     "label": "Output size",
+     "dtype": "int",
+     "default": "5132",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "output_skip",
+     "label": "Output skip",
+     "dtype": "int",
+     "default": "65",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_message_counter",
+   "label": "Message Counter",
+   "category": [
+    "Satellites",
+    "Packet"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "The Message Counter block counts messages that cross the block and outputs a\nmessage every time that a new message has crossed the block. The message\ncontains the count.\n\nInput:\n    Messages.\nOutput:\n    A copy of the input messages. Messages containing frame count.",
+   "api_documentation": "Counts messages\n\nThe Message Counter block counts messages that cross the block and outputs a\nmessage every time that a new message have crossed the block. The message\ncontains the count.\n\nBuild a Message Counter block.",
+   "wiki_url": "",
+   "params": [],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    },
+    {
+     "id": "count",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_nanocom_golay_decode_length",
+   "label": "NanoCom Golay Decode Length",
+   "category": [
+    "Satellites",
+    "GOMspace"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "Decodes Golay field in NanoCom packets and adds a length tag\n\nThis block acts as a sync block on a stream of unpacked bits. Whenever a tag\nmarking the start of a Golay field is found, the block reads the 24 bits\nfollowing the tag, attempts to perform Golay decoding, and if successful\nextracts the length field, computes the length in bits of the packet\nincluding the Golay field, and adds a tag with this length to the beginning\nof the Golay field so that the whole packet can be extracted as a PDU using\nthis length tag.\n\nInput:\n    A stream of bits containing Golay tags\nOutput:\n    The same stream of bits with packet length tags added\n\nParameters:\n    Golay start tag key: key of the tag marking the start of Golay fields\n    Length tag key: Key of the tag indicating the packet length",
+   "api_documentation": "Decodes Golay field in NanoCom packets and adds a length tag\n\nThis block acts as a sync block on a stream of unpacked bits. Whenever a tag\nmarking the start of a Golay field is found, the block reads the 24 bits\nfollowing the tag, attempts to perform Golay decoding, and if successful\nextracts the length field, computes the length in bits of the packet\nincluding the Golay field, and adds a tag with this length to the beginning\nof the Golay field so that the whole packet can be extracted as a PDU using\nthis length tag.\n\nBuild the NanoCom Golay Decode Length block.\n\nParameters:\n  golay_start_tag_key: Key of the tag marking the start of Golay fields\n  length_tag_key: Key of the tag indicating the packet length",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "golay_start_tag_key",
+     "label": "Golay start tag key",
+     "dtype": "string",
+     "default": "\"golay\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "length_tag_key",
+     "label": "Length tag key",
+     "dtype": "string",
+     "default": "\"packet_len\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "in",
+     "domain": "stream",
+     "dtype": "byte",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "out",
+     "domain": "stream",
+     "dtype": "byte",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_ngham_packet_crop",
+   "label": "NGHam Packet Crop",
+   "category": [
+    "Satellites",
+    "NGHam"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "",
+   "api_documentation": "Crops an NGHam packet according to its size tag\n\nInput: An NGHam packet with size tag and RS codeword\nOutput: The RS codeword appropriately cropped, routed to\nrs16 or rs32 according to the RS parity check bytes",
+   "wiki_url": "",
+   "params": [],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "rs16",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true
+    },
+    {
+     "id": "rs32",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true
+    }
+   ]
+  },
+  {
+   "id": "satellites_ngham_remove_padding",
+   "label": "NGHam Remove Padding",
+   "category": [
+    "Satellites",
+    "NGHam"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "",
+   "api_documentation": "Removes the padding on an NGHam packet\n\nAlso it automatically detects if RS check bytes are\nstill in the packet and removes them as well",
+   "wiki_url": "",
+   "params": [],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_nrzi_decode",
+   "label": "NRZI Decode",
+   "category": [
+    "Satellites",
+    "Coding"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "",
+   "api_documentation": "NRZI decode\n\nReturn a shared_ptr to a new instance of satellites::nrzi_decode.\n\nTo avoid accidental use of raw pointers, satellites::nrzi_decode's\nconstructor is in a private implementation\nclass. satellites::nrzi_decode::make is the public interface for\ncreating new instances.",
+   "wiki_url": "",
+   "params": [],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "byte",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "byte",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_nrzi_encode",
+   "label": "NRZI Encode",
+   "category": [
+    "Satellites",
+    "Coding"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "",
+   "api_documentation": "NRZI encode\n\nReturn a shared_ptr to a new instance of satellites::nrzi_encode.\n\nTo avoid accidental use of raw pointers, satellites::nrzi_encode's\nconstructor is in a private implementation\nclass. satellites::nrzi_encode::make is the public interface for\ncreating new instances.",
+   "wiki_url": "",
+   "params": [],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "byte",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "byte",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_nusat_decoder",
+   "label": "NuSat FEC Decoder",
+   "category": [
+    "Satellites",
+    "FEC"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "",
+   "api_documentation": "<+description of block+>\n\nReturn a shared_ptr to a new instance of satellites::nusat_decoder.\n\nTo avoid accidental use of raw pointers, satellites::nusat_decoder's\nconstructor is in a private implementation\nclass. satellites::nusat_decoder::make is the public interface for\ncreating new instances.",
+   "wiki_url": "",
+   "params": [],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_packet_csma",
+   "label": "Packet CSMA",
+   "category": [
+    "Satellites",
+    "Medium Access"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "This block implements a CSMA system for a stream of packets delimited by\npacket_len tags. The block expects to receive messages from a carrier sense\ndetector that indicate the current carrier sense state every time that the\nstate changes. These messages should be a pair containing a bool in the cdr.\n\nWhenever a new packet arrives to this block, the current status of the\ncarrier sense is checked, and the packet is only propagated to the output if\nthe carrier sense is false. Otherwise the packet is retained until carrier\nsense becomes false.\n\nAs an exception to this rule, if Back-to-back Priority is set to true and\na packet arrives back-to-back (meaning that it begins in the same work()\ncall as the end of the previous packet), then the packet is propagated to\nthe output immediately regardless of the current state of the carrier\nsense. This is mainly intended as a workaround for systems in which the\ncarrier sense might detect the packets transmitted by this system due to TX\nto RX leakage.\n\nInput:\n    A stream of items delimited by packet length tags\nOutput:\n    A stream of the same items, possibly retained for some time due to carrier sense\n\nParameters:\n    Type: Type of the stream items\n    Length Tag Key: Packet length key of the tagged stream\n    Back-to-back Priority: Transmit back-to-back packets ignoring the carrier sense\n    Vector Length: Vector length of the stream items",
+   "api_documentation": "Passes packets to the output only when carrier sense is not triggering\n\nThis block implements a CSMA system for a stream of packets delimited by\npacket_len tags. The block expects to receive messages from a carrier sense\ndetector that indicate the current carrier sense state every time that the\nstate changes. These messages should be a pair containing a bool in the cdr.\n\nWhenever a new packet arrives to this block, the current status of the\ncarrier sense is checked, and the packet is only propagated to the output if\nthe carrier sense is false. Otherwise the packet is retained until carrier\nsense becomes false.\n\nAs an exception to this rule, if 'back_to_back_priority' is set to true and a\npacket arrives back-to-back (meaning that it begins in the same work() call\nas the end of the previous packet), then the packet is propagated to the\noutput immediately regardless of the current state of the carrier sense. This\nis mainly intended as a workaround for systems in which the carrier sense\nmight detect the packets transmitted by this system due to TX to RX leakage.\n\nBuild the Level to Packet CSMA block.\n\nParameters:\n  itemsize: Size of the items in bytes.\n  back_to_back_priority: Transmit back-to-back packets ignoring the carrier sense.\n  len_tag_key: Packet length key of the tagged stream.",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "type",
+     "label": "Item Type",
+     "dtype": "enum",
+     "default": "",
+     "category": "General",
+     "options": [
+      "complex",
+      "float",
+      "int",
+      "short",
+      "byte"
+     ],
+     "option_labels": null,
+     "option_attributes": {
+      "size": [
+       "gr.sizeof_gr_complex",
+       "gr.sizeof_float",
+       "gr.sizeof_int",
+       "gr.sizeof_short",
+       "gr.sizeof_char"
+      ]
+     },
+     "hide": "part"
+    },
+    {
+     "id": "len_tag_key",
+     "label": "Length Tag Key",
+     "dtype": "string",
+     "default": "\"packet_len\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "back_to_back_priority",
+     "label": "Back-to-back Priority",
+     "dtype": "enum",
+     "default": "False",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": [
+      "Yes",
+      "No"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "vlen",
+     "label": "Vector Length",
+     "dtype": "int",
+     "default": "1",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ 'part' if vlen == 1 else 'none' }"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "${type}",
+     "multiplicity": "1",
+     "optional": false
+    },
+    {
+     "id": "",
+     "label": "carrier_sense",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "${type}",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_pdu_add_meta",
+   "label": "PDU add metadata",
+   "category": [
+    "Satellites",
+    "PDU"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "Adds some metadata to all PDUs passing through\n\nThe metadata should be a PMT dictionary, that is used to update\nthe dictionary from the PDU car.\n\nOutput:\n    A PDU with added metadata\n\nParameters:\n    Meta: A PMT dicitionary",
+   "api_documentation": "<+description of block+>\n\nReturn a shared_ptr to a new instance of satellites::pdu_add_meta.\n\nTo avoid accidental use of raw pointers, satellites::pdu_add_meta's\nconstructor is in a private implementation\nclass. satellites::pdu_add_meta::make is the public interface for\ncreating new instances.",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "meta",
+     "label": "Metadata",
+     "dtype": "raw",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_pdu_head_tail",
+   "label": "PDU Head/Tail",
+   "category": [
+    "Satellites",
+    "PDU"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "Slices some bytes from the beginning or end of a PDU\nThis works in the same manner that the head -c and tail -c UNIX commands,\nwith the difference that the Tail+ mode numbers the bytes of the PDU starting\nby 0, while the UNIX command numbers them starting by 1.\n\nOutput:\n    A PDU containing a slice of the bytes from the input PDU\n\nParameters:\n    Mode: the mode, which is:\n          - Head  to work as head -c num\n          - Head- to work as head -c -num\n          - Tail  to work as tail -c num\n          - Tail+ to work as tail -c +num (except for the numbering of the bytes)\n    Num: the number of bytes, as the num parameter of head or tail",
+   "api_documentation": "<+description of block+>\n\nReturn a shared_ptr to a new instance of satellites::pdu_head_tail.\n\nTo avoid accidental use of raw pointers, satellites::pdu_head_tail's\nconstructor is in a private implementation\nclass. satellites::pdu_head_tail::make is the public interface for\ncreating new instances.",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "mode",
+     "label": "Mode",
+     "dtype": "enum",
+     "default": "0",
+     "category": "General",
+     "options": [
+      "0",
+      "1",
+      "2",
+      "3"
+     ],
+     "option_labels": [
+      "Head",
+      "Head-",
+      "Tail",
+      "Tail+"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "num",
+     "label": "Number",
+     "dtype": "int",
+     "default": 0,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_pdu_length_filter",
+   "label": "PDU Length Filter",
+   "category": [
+    "Satellites",
+    "PDU"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "Filters PDUs according to its length\n\nPDUs whose length is between the minimum and maximum are passed through.\nOthers are dropped. A maximum length of -1 can be used to represent unlimited\nmaximum length.\n\nOutput:\n    The PDUs satisfying the lenght constraings\n\nParameters:\n    Minimum: Minimum length. A minimum length of 0 means no constraint.\n    Maximum: Maximum length. A maximum length of -1 means no constraint.",
+   "api_documentation": "<+description of block+>\n\nReturn a shared_ptr to a new instance of satellites::pdu_length_filter.\n\nTo avoid accidental use of raw pointers, satellites::pdu_length_filter's\nconstructor is in a private implementation\nclass. satellites::pdu_length_filter::make is the public interface for\ncreating new instances.",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "min",
+     "label": "Minimum",
+     "dtype": "int",
+     "default": 0,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "max",
+     "label": "Maximum",
+     "dtype": "int",
+     "default": -1,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_pdu_scrambler",
+   "label": "PDU Scrambler",
+   "category": [
+    "Satellites",
+    "PDU"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "PDU Scrambler\n\nUses a predefined sequence to implement a synchronous scrambler that acts\non PDUs. The scrambling sequence needs to be longer than the PDUs that the\nblock will process. PDUs which are longer than the sequence are dropped.\n\nOutput:\n    The scrambled PDUs\n\nParameters:\n    Sequence: The scrambling sequence to use.",
+   "api_documentation": "PDU Scrambler\n\nUses a predefined sequence to implement a synchronous scrambler that acts\non PDUs. The scrambling sequence needs to be longer than the PDUs that the\nblock will process. PDUs which are longer than the sequence are dropped.\n\nBuild the PDU Scrambler block.\n\nParameters:\n  sequence: The scrambling sequence to use.",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "sequence",
+     "label": "Sequence",
+     "dtype": "byte_vector",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_pdu_to_kiss",
+   "label": "PDU to KISS",
+   "category": [
+    "Satellites",
+    "KISS"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "control_byte",
+     "label": "Include control byte",
+     "dtype": "bool",
+     "default": "True",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": [
+      "Yes",
+      "No"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "include_timestamp",
+     "label": "Include timestamp",
+     "dtype": "bool",
+     "default": "False",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": [
+      "Yes",
+      "No"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_phase_unwrap",
+   "label": "Phase Unwrap",
+   "category": [
+    "Satellites",
+    "Doppler"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "The Phase Unwrap block unwraps a phase input by counting integer cycles. The\ninteger number of cycles is given as an int64_t, so that overflows are\nimpossible in most use cases. The output of the block is a vector of 12 bytes\nthat contains the integer number of cycles in the first 8 bytes and the\nfractional phase in radians in the last 4 bytes.\n\nInput:\n    A stream of float phases in radians\nOutput:\n    The integer number of cycles and fractional cycles in radians as described\n    above.",
+   "api_documentation": "Unwraps a phase time series.\n\nThe Phase Unwrap block unwraps a phase input by counting integer cycles. The\ninteger number of cycles is given as an int64_t, so that overflows are\nimpossible in most use cases. The output of the block is a vector of 12 bytes\nthat contains the integer number of cycles in the first 8 bytes and the\nfractional phase in radians in the last 4 bytes.\n\nBuild the Phase Unwrap block",
+   "wiki_url": "",
+   "params": [],
+   "inputs": [
+    {
+     "id": "",
+     "label": "in",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "out",
+     "domain": "stream",
+     "dtype": "byte",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_print_header",
+   "label": "Print CSP Header (Deprecated)",
+   "category": [
+    "Satellites",
+    "Deprecated"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "",
+   "api_documentation": "Print the CSP header of a CSP packet",
+   "wiki_url": "",
+   "params": [],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": []
+  },
+  {
+   "id": "satellites_print_timestamp",
+   "label": "Print timestamp",
+   "category": [
+    "Satellites",
+    "Misc"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "",
+   "api_documentation": "docstring for block print_timestamp",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "fmt",
+     "label": "Format",
+     "dtype": "string",
+     "default": "%Y-%m-%d %H:%M:%S",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "count",
+     "label": "Packet counter",
+     "dtype": "bool",
+     "default": "True",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": [
+      "Yes",
+      "No"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_pwsat2_submitter",
+   "label": "PW-Sat2 Telemetry Forwarder",
+   "category": [
+    "Satellites",
+    "Misc"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "credentials",
+     "label": "Credentials file",
+     "dtype": "string",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "tstamp",
+     "label": "Start of recording UTC (blank for realtime)",
+     "dtype": "string",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": []
+  },
+  {
+   "id": "satellites_pwsat2_telemetry_parser",
+   "label": "PW-Sat2 Telemetry Parser",
+   "category": [
+    "Satellites",
+    "Telemetry"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "pwsat2_path",
+     "label": "PW-Sat2 FramePayloadDecoder path",
+     "dtype": "string",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": []
+  },
+  {
+   "id": "satellites_reflect_bytes",
+   "label": "Reflect bytes",
+   "category": [
+    "Satellites",
+    "Misc"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "",
+   "api_documentation": "docstring for block reflect_bytes",
+   "wiki_url": "",
+   "params": [],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_selector",
+   "label": "Selector (dump inactive)",
+   "category": [
+    "Satellites",
+    "Misc"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "",
+   "api_documentation": "output[output_index][i] = input[input_index][i]\n\nConnect the sink at input index to the source at output index.\n\nAll the samples available from other input ports are consumed and dumped.\n\nOther output ports produce no samples.\n\nCreate new selector block and return a shared pointer to it\n\nParameters:\n  itemsize: size of the input and output items\n  input_index: the initially active input index\n  output_index: the initially active output index",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "type",
+     "label": "Type",
+     "dtype": "enum",
+     "default": "",
+     "category": "General",
+     "options": [
+      "complex",
+      "float",
+      "int",
+      "short",
+      "byte"
+     ],
+     "option_labels": null,
+     "option_attributes": {
+      "size": [
+       "gr.sizeof_gr_complex",
+       "gr.sizeof_float",
+       "gr.sizeof_int",
+       "gr.sizeof_short",
+       "gr.sizeof_char"
+      ]
+     },
+     "hide": "part"
+    },
+    {
+     "id": "enabled",
+     "label": "Enabled",
+     "dtype": "bool",
+     "default": "True",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": [
+      "Enabled",
+      "Disabled"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "num_inputs",
+     "label": "Number of Inputs",
+     "dtype": "int",
+     "default": 2,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "num_outputs",
+     "label": "Number of Outputs",
+     "dtype": "int",
+     "default": 2,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "input_index",
+     "label": "Input Index",
+     "dtype": "int",
+     "default": 0,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "output_index",
+     "label": "Output Index",
+     "dtype": "int",
+     "default": 0,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "vlen",
+     "label": "Vector Length",
+     "dtype": "int",
+     "default": "1",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ 'part' if vlen == 1 else 'none' }"
+    },
+    {
+     "id": "showports",
+     "label": "Show Msg Ports",
+     "dtype": "bool",
+     "default": "True",
+     "category": "General",
+     "options": [
+      "False",
+      "True"
+     ],
+     "option_labels": [
+      "Yes",
+      "No"
+     ],
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "${ type }",
+     "multiplicity": "${ num_inputs }",
+     "optional": false
+    },
+    {
+     "id": "en",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true
+    },
+    {
+     "id": "iindex",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true
+    },
+    {
+     "id": "oindex",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "${ type }",
+     "multiplicity": "${ num_outputs }",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_snet_classifier",
+   "label": "SNET classifier",
+   "category": [
+    "Satellites",
+    "Telemetry"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "",
+   "api_documentation": "docstring for block snet_classifier",
+   "wiki_url": "",
+   "params": [],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "SNET-A",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true
+    },
+    {
+     "id": "SNET-B",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true
+    },
+    {
+     "id": "SNET-C",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true
+    },
+    {
+     "id": "SNET-D",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true
+    }
+   ]
+  },
+  {
+   "id": "satellites_snet_deframer",
+   "label": "S-NET deframer",
+   "category": [
+    "Satellites",
+    "FEC"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "verbose",
+     "label": "Verbose",
+     "dtype": "bool",
+     "default": "",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": [
+      "Yes",
+      "No"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "buggy_crc",
+     "label": "Buggy CRC",
+     "dtype": "bool",
+     "default": true,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_submit",
+   "label": "Telemetry Forwarder",
+   "category": [
+    "Satellites",
+    "Misc"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "url",
+     "label": "URL",
+     "dtype": "string",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "noradID",
+     "label": "NORAD ID",
+     "dtype": "int",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "source",
+     "label": "Receiver callsign",
+     "dtype": "string",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "latitude",
+     "label": "Latitude (N is +, S is -)",
+     "dtype": "float",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "longitude",
+     "label": "Longitude (W is -, E is +)",
+     "dtype": "float",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "tstamp",
+     "label": "Start of recording UTC (blank for realtime)",
+     "dtype": "string",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": []
+  },
+  {
+   "id": "satellites_swap_crc",
+   "label": "Swap CRC endianness",
+   "category": [
+    "Satellites",
+    "CSP"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "",
+   "api_documentation": "docstring for block swap_crc",
+   "wiki_url": "",
+   "params": [],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_swap_header",
+   "label": "Swap CSP header endianness",
+   "category": [
+    "Satellites",
+    "CSP"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "",
+   "api_documentation": "docstring for block swap_header",
+   "wiki_url": "",
+   "params": [],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_swiatowid_packet_crop",
+   "label": "Swiatowid packet crop",
+   "category": [
+    "Satellites",
+    "Packet"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "",
+   "api_documentation": "docstring for block swiatowid_packet_crop",
+   "wiki_url": "",
+   "params": [],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_swiatowid_packet_split",
+   "label": "Swiatowid packet split",
+   "category": [
+    "Satellites",
+    "Packet"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "",
+   "api_documentation": "docstring for block swiatowid_packet_split",
+   "wiki_url": "",
+   "params": [],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_sx12xx_packet_crop",
+   "label": "SX12xx packet crop",
+   "category": [
+    "Satellites",
+    "SX12xx"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "",
+   "api_documentation": "Crop SX12xx FSK packet\n\nThis is based on the internal packet length field\n(first byte after sync word).",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "crc_len",
+     "label": "CRC length",
+     "dtype": "int",
+     "default": "2",
+     "category": "General",
+     "options": [
+      "0",
+      "1",
+      "2"
+     ],
+     "option_labels": [
+      "No CRC",
+      "CRC-8",
+      "CRC-16"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_time_dependent_delay",
+   "label": "Time-dependent Delay",
+   "category": [
+    "Satellites",
+    "Delay"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "This block is similar to the Doppler Correction block, in the sense that\nit uses a text file that lists a time series of delay vs. time. The format\nof this text file is very similar to the one used by Doppler Correction.\nEach line of the file contains a timestamp and a delay. The format of the\ntimestamp is the same as for Doppler correction. The delay is given in\nseconds.\n\nLike the Doppler Correction block, this block can use time tags to update\nits internal timestamp.\n\nThe block interpolates the delay linearly for each sample, and uses a\npolyphase filterbank to apply the appropriate delay.\n\nInput:\n    A stream of IQ samples\nOutput:\n    The input delayed by the time specified in the file\n\nParameters:\n    File: Frequency vs. time text file.\n    Sample rate: Input and output sample rate.\n    Start time: Timestamp correponding to the first sample processed by the block.\n    Taps: Taps for the fractional delay polyphase filterbank\n    Number of filters: Number of filters in the polyphase filterbank",
+   "api_documentation": "Applies a time-dependent group delay by using a delay vs. time textfile\n\nThis block is similar to the Doppler Correction block, in the sense that\nit uses a text file that lists a time series of delay vs. time. The format\nof this text file is very similar to the one used by Doppler Correction.\nEach line of the file contains a timestamp and a delay. The format of the\ntimestamp is the same as for Doppler correction. The delay is given in\nseconds.\n\nLike the Doppler Correction block, this block can use time tags to update\nits internal timestamp.\n\nThe block interpolates the delay linearly for each sample, and uses a\npolyphase filterbank to apply the appropriate delay.\n\nBuild the Time-dependent Delay block.\n\nParameters:\n  filename: Path of the text file describing the delay vs. time data\n  samp_rate: Sample rate\n  t0: Timestamp corresponding to the first sample\n  taps: Taps for the fractional delay polyphase filterbank\n  num_filters: Number of filters in the polyphase filterbank",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "file",
+     "label": "File",
+     "dtype": "file_open",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "samp_rate",
+     "label": "Sample rate",
+     "dtype": "float",
+     "default": "samp_rate",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "t0",
+     "label": "Start time",
+     "dtype": "float",
+     "default": 0,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "taps",
+     "label": "Taps",
+     "dtype": "float_vector",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "num_filters",
+     "label": "Number of filters",
+     "dtype": "int",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "in",
+     "domain": "stream",
+     "dtype": "complex",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "out",
+     "domain": "stream",
+     "dtype": "complex",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_u482c_decode",
+   "label": "NanoCom U482C FEC decode",
+   "category": [
+    "Satellites",
+    "GOMspace"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "",
+   "api_documentation": "<+description of block+>\n\nReturn a shared_ptr to a new instance of satellites::u482c_decode.\n\nTo avoid accidental use of raw pointers, satellites::u482c_decode's\nconstructor is in a private implementation\nclass. satellites::u482c_decode::make is the public interface for\ncreating new instances.",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "verbose",
+     "label": "Verbose",
+     "dtype": "bool",
+     "default": "",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": [
+      "Yes",
+      "No"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "viterbi",
+     "label": "Viterbi",
+     "dtype": "int",
+     "default": "-1",
+     "category": "General",
+     "options": [
+      "-1",
+      "0",
+      "1"
+     ],
+     "option_labels": [
+      "Auto",
+      "No",
+      "Yes"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "scrambler",
+     "label": "Scrambler",
+     "dtype": "int",
+     "default": "-1",
+     "category": "General",
+     "options": [
+      "-1",
+      "0",
+      "1"
+     ],
+     "option_labels": [
+      "Auto",
+      "No",
+      "Yes"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "rs",
+     "label": "Reed-Solomon",
+     "dtype": "int",
+     "default": "-1",
+     "category": "General",
+     "options": [
+      "-1",
+      "0",
+      "1"
+     ],
+     "option_labels": [
+      "Auto",
+      "No",
+      "Yes"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_u482c_encode",
+   "label": "NanoCom U482C FEC encode",
+   "category": [
+    "Satellites",
+    "GOMspace"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "",
+   "api_documentation": "U482C Encoder\n\nThis block is the opposite of u482c_encode. It performs frame encoding for\nthe legacy U482C and some modes of the AX100. Input/output is PDUs.  The main\ncharacteristic of the frame format implemented by this block is a 24-bit\nheader that is Golay (24, 12) encoded and contains the length of the payload\nand some flags about the encoding.\n\nCreate a U482C Encoder.\n\nParameters:\n  convolutional: Enable convolutional encoding (not supported)\n  scrambler: Enable CCSDS scrambling\n  rs: Enable Reed-Solomon encoding\n  preamble_len: Number of 0xAA bytes to add as preamble\n  flags_in_golay: Add flags in Golay field",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "convolutional",
+     "label": "Convolutional coding",
+     "dtype": "bool",
+     "default": "False",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "scrambler",
+     "label": "Scrambler",
+     "dtype": "bool",
+     "default": "True",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "rs",
+     "label": "Reed-Solomon",
+     "dtype": "bool",
+     "default": "True",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "preamble_len",
+     "label": "Preamble length",
+     "dtype": "int",
+     "default": "50",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "flags_in_golay",
+     "label": "Include flags in Golay field",
+     "dtype": "bool",
+     "default": "False",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_varlen_packet_framer",
+   "label": "Variable Length Packet Framer (Deprecated)",
+   "category": [
+    "Satellites",
+    "Deprecated"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "Prepends the packet length in the tagged stream.\n\n    Optionally prepends a sync word.",
+   "api_documentation": "insert a packet length field into a tagged stream\n\ninput: stream of bits (unpacked bytes) with packet_len tags\noutput: a tagged stream of bits containing field length + packet bits\n\nThis block prepends a packet length field into a tagged stream.\n\nParameters:\n  packet_key: tag key used to mark packets\n  length_field_size: size of the packet length header\n  endianness: header inserted msb or lsb\n  use_golay: compute 24-bit golay header from 12-bit length\n  sync_word: optional pre-header sync pattern",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "packetlen_tag",
+     "label": "Packet Length Tag",
+     "dtype": "string",
+     "default": "packet_len",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "length_field_size",
+     "label": "Packet Length Size",
+     "dtype": "int",
+     "default": "12",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "endianness",
+     "label": "Endianness",
+     "dtype": "raw",
+     "default": "gr.GR_MSB_FIRST",
+     "category": "General",
+     "options": [
+      "gr.GR_MSB_FIRST",
+      "gr.GR_LSB_FIRST"
+     ],
+     "option_labels": [
+      "MSB",
+      "LSB"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "use_golay",
+     "label": "Golay Encoding",
+     "dtype": "bool",
+     "default": "True",
+     "category": "General",
+     "options": [
+      "False",
+      "True"
+     ],
+     "option_labels": [
+      "Off",
+      "On"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "sync_word",
+     "label": "Sync Word",
+     "dtype": "raw",
+     "default": "()",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "byte",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "byte",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_varlen_packet_tagger",
+   "label": "Variable Length Packet Tagger (Deprecated)",
+   "category": [
+    "Satellites",
+    "Deprecated"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "Converts a stream of data into a tagged stream.\n\n    The packet length is extracted from a header in the stream.",
+   "api_documentation": "Examine input stream for sync tags and extract packet length.\n\ninput: stream of bits (unpacked bytes) with sync tags\noutput: a tagged stream of bits containing just the received packets\n\nThis block uses the sync tag on the input stream to identify\nthe header of packets.  The length of each packet is extracted\nfrom the stream's header.  The length of the header field and\nthe endianness are parameters.\n\nParameters:\n  sync_key\n  packet_key\n  length_field_size\n  max_packet_size\n  endianness\n  use_golay: For 24-bit golay headers",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "syncword_tag",
+     "label": "Syncword Tag",
+     "dtype": "string",
+     "default": "syncword",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "packetlen_tag",
+     "label": "Packet Length Tag",
+     "dtype": "string",
+     "default": "packet_len",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "length_field_size",
+     "label": "Packet Length Size",
+     "dtype": "int",
+     "default": "12",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "mtu",
+     "label": "MTU",
+     "dtype": "int",
+     "default": "255*8",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "endianness",
+     "label": "Endianness",
+     "dtype": "raw",
+     "default": "gr.GR_MSB_FIRST",
+     "category": "General",
+     "options": [
+      "gr.GR_MSB_FIRST",
+      "gr.GR_LSB_FIRST"
+     ],
+     "option_labels": [
+      "MSB",
+      "LSB"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "use_golay",
+     "label": "Golay Decoding",
+     "dtype": "bool",
+     "default": "True",
+     "category": "General",
+     "options": [
+      "False",
+      "True"
+     ],
+     "option_labels": [
+      "Off",
+      "On"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "byte",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "byte",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_viterbi_decoder",
+   "label": "Viterbi Decoder",
+   "category": [
+    "Satellites",
+    "FEC"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "Generic Viterbi decoder\n\nThis decoder can use any constraint length and polynomials.\nThe input should be a PDU containing the bits to be decoded (unpacked)\n\nOutput:\n    A PDU with the decoded bits (unpacked)\n\nParameters:\n    Contraint length: Constraint length (k) of the code\n    Polynomials: Polynomials defining the convolutional encoder",
+   "api_documentation": "Viterbi decoder\n\nReturn a shared_ptr to a new instance of satellites::viterbi_decoder.\n\nTo avoid accidental use of raw pointers, satellites::viterbi_decoder's\nconstructor is in a private implementation\nclass. satellites::viterbi_decoder::make is the public interface for\ncreating new instances.",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "constraint",
+     "label": "Constraint length",
+     "dtype": "int",
+     "default": 7,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "polynomials",
+     "label": "Polynomials",
+     "dtype": "int_vector",
+     "default": [
+      79,
+      109
+     ],
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
    "id": "soapy_airspyhf_source",
    "label": "Soapy AirspyHF Source",
    "category": [
