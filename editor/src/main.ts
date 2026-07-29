@@ -29,7 +29,7 @@ interface ParamDef {
 // block's `type` param (complex/float) if it has one, else `dtype` (default complex).
 interface RunnableDef {
   label: string; inputs: number; outputs: number; params: ParamDef[];
-  documentation?: string; apiDocumentation?: string;
+  documentation?: string; apiDocumentation?: string; wikiUrl?: string;
   dtype?: string; inTypes?: string[]; outTypes?: string[];
   inDomains?: string[]; outDomains?: string[]; inIds?: string[]; outIds?: string[];
   inLabels?: string[]; outLabels?: string[];
@@ -716,6 +716,7 @@ function installGeneratedBlocks(blocks: any[]) {
     if (!block.runnable) continue;
     const documentation = String(block.documentation || '').trim();
     const apiDocumentation = String(block.api_documentation || '').trim();
+    const wikiUrl = String(block.wiki_url || '').trim();
     const params: ParamDef[] = (block.params || []).map((p: any) => ({
       id: String(p.id), label: String(p.label || p.id),
       type: p.dtype === 'enum' ? 'enum' :
@@ -770,6 +771,7 @@ function installGeneratedBlocks(blocks: any[]) {
       // message-control ports that their WASM factories do not support.
       existing.documentation = documentation;
       existing.apiDocumentation = apiDocumentation;
+      existing.wikiUrl = wikiUrl;
       const streamInputs = inputs.filter(p => p.domain === 'stream');
       const streamOutputs = outputs.filter(p => p.domain === 'stream');
       existing.inLabels = streamInputs.slice(0, existing.inputs).map(p => p.name);
@@ -783,7 +785,7 @@ function installGeneratedBlocks(blocks: any[]) {
       continue;
     }
     RUNNABLE[block.id] = {
-      label: String(block.label || block.id), params, documentation, apiDocumentation,
+      label: String(block.label || block.id), params, documentation, apiDocumentation, wikiUrl,
       inputs: inputs.length, outputs: outputs.length,
       inTypes: inputs.map(p => p.dtype), outTypes: outputs.map(p => p.dtype),
       inDomains: inputs.map(p => p.domain), outDomains: outputs.map(p => p.domain),
@@ -1620,6 +1622,14 @@ function showPropsDialog(inst: Inst) {
   }
 
   const docsPanel = panels.get('Documentation')!;
+  if (d.wikiUrl) {
+    const wikiLink = document.createElement('a'); wikiLink.className = 'props-wiki-link';
+    wikiLink.href = d.wikiUrl;
+    wikiLink.target = '_blank';
+    wikiLink.rel = 'noopener noreferrer';
+    wikiLink.textContent = 'Open Wiki Page for this Block';
+    docsPanel.appendChild(wikiLink);
+  }
   const addDocs = (title: string, text: string | undefined) => {
     if (!text) return;
     const section = document.createElement('section'); section.className = 'props-doc-section';
@@ -1630,7 +1640,7 @@ function showPropsDialog(inst: Inst) {
   };
   addDocs('Block description', d.documentation);
   addDocs('API documentation', d.apiDocumentation);
-  if (!docsPanel.childElementCount) {
+  if (!d.documentation && !d.apiDocumentation) {
     const empty = document.createElement('p'); empty.className = 'props-doc-empty';
     empty.textContent = 'No documentation is available for this block.';
     docsPanel.appendChild(empty);

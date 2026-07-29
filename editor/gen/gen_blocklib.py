@@ -5,6 +5,7 @@ documentation so the TS editor can render the native-style property dialog.
 Block categories are path-segment arrays so names containing "/" remain a
 single category."""
 import sys, os, json, glob, re, ast, yaml
+from urllib.parse import urljoin
 
 # The world repo owns the app and OOT modules; GNU Radio is a source submodule.
 WORLD = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -29,6 +30,7 @@ MODULES = [module_dirs["grc"]] + [
 ]
 MANIFEST = os.path.join(WORLD, "runner", "generated_blocks.json")
 OVERRIDES_PATH = os.path.join(WORLD, "runner", "block_overrides.yml")
+WIKI_BLOCK_DOCS_URL_PREFIX = "https://wiki.gnuradio.org/index.php/"
 try:
     BLOCK_OVERRIDES = yaml.safe_load(open(OVERRIDES_PATH)) or {}
 except Exception:
@@ -347,6 +349,16 @@ def main(out_path):
             api_documentation = (
                 extract_cpp_doc(d) or extract_python_doc(d, block_id)
             ) if runnable else ""
+            doc_url = str(d.get("doc_url") or "").strip()
+            if doc_url:
+                wiki_url = urljoin(WIKI_BLOCK_DOCS_URL_PREFIX, doc_url)
+            elif block_category[0] == "Core":
+                wiki_url = urljoin(
+                    WIKI_BLOCK_DOCS_URL_PREFIX,
+                    str(d.get("label", block_id)).replace(" ", "_"),
+                )
+            else:
+                wiki_url = ""
             if runnable:
                 unavailable_reason = None
             elif block_id in skipped:
@@ -369,6 +381,7 @@ def main(out_path):
                 # hierarchy/widget docstring, so keep the sources separate.
                 "documentation": documentation,
                 "api_documentation": api_documentation,
+                "wiki_url": wiki_url,
                 "params": params,
                 "inputs": port_list(d.get("inputs")),
                 "outputs": port_list(d.get("outputs")),
