@@ -6,7 +6,7 @@
   <strong>🔍 <a href="https://gnuradioworld.com">Try it now at gnuradioworld.com</a> 🔍</strong>
 </p>
 
-GNU Radio entirely in your browser, ready to play with, nothing to install!
+GNU Radio, entirely in your browser — explore the open-source SDR ecosystem with zero install!
 
 - Includes popular out-of-tree modules (OOTs)
 - Many example flowgraphs
