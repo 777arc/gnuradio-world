@@ -27,6 +27,10 @@
   #menus { display:flex; gap:1px; }
   .menu-top { position:relative; padding:5px 10px; font-size:13px; color:#c3cbe0; border-radius:5px; cursor:pointer; user-select:none; }
   .menu-top:hover, .menu-top.open { background:#2a2f42; color:#fff; }
+  .github-link { display:flex; align-items:center; justify-content:center; width:28px; height:28px; margin-left:2px;
+      color:#c3cbe0; border-radius:5px; }
+  .github-link:hover { background:#2a2f42; color:#fff; }
+  .github-link svg { width:18px; height:18px; fill:currentColor; }
   .menu-drop { position:absolute; top:100%; left:0; z-index:300; min-width:236px; background:#272c3d;
       border:1px solid #46507a; border-radius:6px; padding:4px 0; box-shadow:0 10px 30px #000a; }
   .menuitem { display:flex; align-items:center; gap:10px; padding:6px 12px 6px 8px; font-size:13px;
@@ -289,6 +293,13 @@
     <div id="menubar">
       <span class="brand"><img src="/gnuradio_world_logo.svg" alt="GNU Radio World" /></span>
       <nav id="menus" role="menubar" aria-label="Main menu"></nav>
+      <a class="github-link" href="https://github.com/777arc/gnuradio-world"
+         target="_blank" rel="noopener noreferrer" aria-label="View 777arc/gnuradio-world on GitHub"
+         title="777arc/gnuradio-world on GitHub">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 .7a11.5 11.5 0 0 0-3.64 22.42c.58.1.79-.25.79-.56v-2.23c-3.22.7-3.9-1.37-3.9-1.37-.52-1.34-1.28-1.7-1.28-1.7-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.74-1.55-2.57-.3-5.28-1.29-5.28-5.69 0-1.26.45-2.29 1.19-3.1-.12-.3-.52-1.47.11-3.06 0 0 .97-.31 3.16 1.18a10.93 10.93 0 0 1 5.76 0c2.19-1.49 3.15-1.18 3.15-1.18.63 1.59.23 2.76.12 3.06.74.81 1.18 1.84 1.18 3.1 0 4.42-2.71 5.39-5.29 5.68.42.36.79 1.06.79 2.14v3.27c0 .31.21.67.79.56A11.5 11.5 0 0 0 12 .7Z"/>
+        </svg>
+      </a>
     </div>
     <div id="toolbar" role="toolbar" aria-label="Editor toolbar"></div>
   </header>
