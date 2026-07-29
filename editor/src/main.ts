@@ -1437,6 +1437,9 @@ function showMenu(x: number, y: number, inst: Inst) {
   };
   const sep = () => m.appendChild(Object.assign(document.createElement('div'), { className: 'ctxsep' }));
   item('Properties', () => showPropsDialog(inst));
+  // Same destination as the palette's "Show Examples": the Example Flowgraphs
+  // tab, filtered to the examples that use this block type.
+  item('Show Examples', () => showExamplesFor(inst.id, RUNNABLE[inst.id]?.label || inst.id));
   sep();
   item('Cut', () => { copyBlock(inst.uid); deleteBlocks(selectedBlocks.has(inst.uid) ? selectedBlocks : new Set([inst.uid])); });
   item('Copy', () => copyBlock(inst.uid));
@@ -2272,7 +2275,26 @@ function makeBlockItem(b: LibraryBlock, indent: number): HTMLElement {
   item.setAttribute('aria-disabled', String(!run));
   item.onclick = () => run ? addBlock(b.id) :
     log(`"${b.id}" is unavailable: ${b.unavailableReason || 'not implemented in WebAssembly'}`);
+  // Right-click works on unavailable blocks too: an example that uses one is
+  // still worth reading even when the runner cannot execute it.
+  item.oncontextmenu = e => {
+    e.preventDefault(); e.stopPropagation();
+    showPaletteMenu(e.clientX, e.clientY, b);
+  };
   return item;
+}
+// Right-click menu for a palette block (the canvas has its own, showMenu()).
+function showPaletteMenu(x: number, y: number, b: LibraryBlock) {
+  closeMenu();
+  const m = document.createElement('div'); m.className = 'ctxmenu';
+  const d = document.createElement('div'); d.className = 'ctxitem';
+  d.textContent = 'Show Examples';
+  d.onclick = () => { closeMenu(); showExamplesFor(b.id, b.label); };
+  m.appendChild(d);
+  document.body.appendChild(m);
+  m.style.left = Math.min(x, window.innerWidth - m.offsetWidth - 6) + 'px';
+  m.style.top = Math.min(y, window.innerHeight - m.offsetHeight - 6) + 'px';
+  menuEl = m;
 }
 function makeCatRow(name: string, container: HTMLElement, open: boolean, bold = false,
                     indent = 6): HTMLElement {
@@ -2302,6 +2324,7 @@ function renderTree(node: Cat, container: HTMLElement, depth: number, q: string)
 }
 
 let LIB: any = { blocks: [] };
+let activatePaletteTab: ((which: 'blocks' | 'examples' | 'recordings') => void) | null = null;
 async function buildPalette() {
   const pal = el('palette');
   // ---- tab bar: Blocks | Example Flowgraphs | SigMF Recordings ----
@@ -2328,6 +2351,7 @@ async function buildPalette() {
   tabBlocks.onclick = () => activate('blocks');
   tabExamples.onclick = () => activate('examples');
   tabRecordings.onclick = () => activate('recordings');
+  activatePaletteTab = activate;   // lets "Show Examples" switch tabs
   tabs.append(tabBlocks, tabExamples, tabRecordings);
 
   // ---- Blocks tab: search box + category tree (existing palette) ----
@@ -2353,6 +2377,22 @@ async function buildPalette() {
 // The examples live in example_flowgraphs/*.grc. The COOP/COEP dev server
 // (server.mjs) lists that directory at /example_flowgraphs, so new files show up
 // here automatically without a hand-maintained manifest.
+
+// "Show Examples" on a palette block filters this list to the examples that use
+// that block. Each entry's block ids are only known once its .grc has been
+// fetched and parsed, so the filter re-runs as those arrive.
+interface ExampleEntry { file: string; item: HTMLButtonElement; blockIds: Set<string> | null }
+const exampleEntries: ExampleEntry[] = [];
+let exampleFilter: { id: string; label: string } | null = null;
+let applyExampleFilter: (() => void) | null = null;
+
+function showExamplesFor(id: string, label: string) {
+  exampleFilter = { id, label };
+  activatePaletteTab?.('examples');   // builds the tab on first visit
+  applyExampleFilter?.();             // ...which is why this comes after
+  log(`showing example flowgraphs that use "${label}"`);
+}
+
 async function buildExamples(panel: HTMLElement) {
   const list = document.createElement('div'); list.className = 'ex-list';
   const status = document.createElement('div'); status.className = 'ex-empty'; status.textContent = 'Loading examples…';
@@ -2365,13 +2405,48 @@ async function buildExamples(panel: HTMLElement) {
     log('example flowgraphs not loaded: ' + e); return;
   }
   if (!files.length) { status.textContent = 'No example flowgraphs found.'; return; }
-  status.remove(); panel.append(list);
+
+  // Filter banner: only visible while a block filter is active, and its button
+  // is the way back to the full list.
+  const bar = document.createElement('div'); bar.className = 'ex-filter'; bar.hidden = true;
+  const barText = document.createElement('div'); barText.className = 'ex-filter-text';
+  const clear = document.createElement('button'); clear.className = 'ex-filter-clear';
+  clear.textContent = 'Show all';
+  clear.onclick = () => { exampleFilter = null; refresh(); log('showing all example flowgraphs'); };
+  bar.append(barText, clear);
+  const noMatch = document.createElement('div'); noMatch.className = 'ex-empty'; noMatch.hidden = true;
+
+  const refresh = () => {
+    const f = exampleFilter;
+    bar.hidden = !f;
+    let shown = 0, pending = 0;
+    for (const entry of exampleEntries) {
+      if (!f) { entry.item.hidden = false; continue; }
+      if (!entry.blockIds) { entry.item.hidden = true; pending++; continue; }
+      const match = entry.blockIds.has(f.id);
+      entry.item.hidden = !match;
+      if (match) shown++;
+    }
+    if (f) {
+      barText.textContent =
+        `Filtered: ${shown} of ${exampleEntries.length} examples use “${f.label}”` +
+        (pending ? ' (still loading…)' : '');
+      noMatch.textContent = pending ? '' : `No example flowgraph uses “${f.label}”.`;
+    }
+    noMatch.hidden = !f || shown > 0 || pending > 0;
+  };
+  applyExampleFilter = refresh;
+
+  status.remove(); panel.append(bar, list, noMatch);
+  exampleEntries.length = 0;
   for (const file of files) {
     const item = document.createElement('button'); item.className = 'ex-item';
     const title = document.createElement('div'); title.className = 'ex-title';
     title.textContent = file.replace(/\.grc$/, '');
     item.append(title);
     list.append(item);
+    const entry: ExampleEntry = { file, item, blockIds: null };
+    exampleEntries.push(entry);
     // Fetch the file to show its title/description and load it on click.
     fetch('/example_flowgraphs/' + file).then(r => r.text()).then(text => {
       const fg = parseGrc(text);
@@ -2388,7 +2463,10 @@ async function buildExamples(panel: HTMLElement) {
         const desc = document.createElement('div'); desc.className = 'ex-desc';
         desc.textContent = String(fgDesc); item.append(desc);
       }
-      const n = Array.isArray(fg.blocks) ? fg.blocks.length : 0;
+      const blocks = Array.isArray(fg.blocks) ? fg.blocks : [];
+      const n = blocks.length;
+      entry.blockIds = new Set(blocks.map((b: any) => String(b?.id)));
+      refresh();
       const meta = document.createElement('div'); meta.className = 'ex-meta';
       meta.textContent = `${file} · ${n} block${n === 1 ? '' : 's'}`;
       item.append(meta);
@@ -2400,10 +2478,14 @@ async function buildExamples(panel: HTMLElement) {
         } catch (err) { log(`failed to load example "${file}": ${err}`); }
       };
     }).catch(err => {
+      // An unparseable example can never match a block filter, but it must stop
+      // counting as pending or the banner claims it is still loading forever.
+      entry.blockIds = new Set(); refresh();
       item.disabled = true; title.textContent = `${file} (failed to load)`;
       log(`example "${file}" not loaded: ${err}`);
     });
   }
+  refresh();
 }
 
 // ---- Recordings tab -------------------------------------------------------

@@ -137,11 +137,21 @@
   .ex-item { text-align:left; background:#242a3b; border:1px solid #333a4d; border-radius:6px;
       padding:9px 11px; cursor:pointer; color:#dce3f5; display:block; width:100%; }
   .ex-item:hover { background:#2c3448; border-color:#46507a; filter:none; }
+  /* the class sets display:block, which would otherwise beat the UA [hidden] rule */
+  .ex-item[hidden] { display:none; }
   .ex-title { font-size:13px; font-weight:600; color:#e6e9f0; }
   .ex-author { font-size:11px; color:#8b96b5; margin-top:2px; font-style:italic; }
   .ex-desc { font-size:11px; color:#9aa7c6; margin-top:3px; line-height:1.4; }
   .ex-meta { font-size:10px; color:#6b768f; margin-top:4px; }
   .ex-empty { padding:16px 12px; font-size:12px; color:#7f8bab; line-height:1.5; }
+  /* "Show Examples" filter banner (block-filtered example list) */
+  .ex-filter { flex:none; display:flex; align-items:center; gap:8px; margin:8px 8px 0;
+      padding:7px 9px; background:#243a2c; border:1px solid #3fae63; border-radius:6px; }
+  .ex-filter[hidden] { display:none; }
+  .ex-filter-text { flex:1; font-size:11px; color:#cfe6d8; line-height:1.4; }
+  .ex-filter-clear { flex:none; font-size:11px; padding:4px 8px; border-radius:4px;
+      background:#2f4d3a; color:#e6f2ea; border:1px solid #3fae63; cursor:pointer; }
+  .ex-filter-clear:hover { background:#3a6048; filter:none; }
   /* SigMF recording list */
   .rec-list { padding:8px; display:flex; flex-direction:column; gap:8px; }
   .rec-item { background:#242a3b; border:1px solid #333a4d; border-radius:6px;

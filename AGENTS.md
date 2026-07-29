@@ -289,10 +289,11 @@ Two more suites exist and are *not* run by CI — run them by hand when you touc
 the code they cover:
 
 ```bash
-(cd editor && npm test)                       # 11 node tests: shortcuts, selection, grid,
+(cd editor && npm test)                       # 13 node tests: shortcuts, selection, grid,
                                               # canvas scroll, validation, time sink, expr,
                                               # .grc round-trip, recordings, contribute,
-                                              # block categories. No browser, no WASM build.
+                                              # block categories, note block, example filter.
+                                              # No browser, no WASM build.
 (cd runner/test && g++ -std=c++17 -I../src grc_test.cpp -o grc_test && ./grc_test)
 ```
 
