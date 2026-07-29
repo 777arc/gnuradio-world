@@ -1,0 +1,175 @@
+options:
+    parameters:
+        author: Claude
+        copyright: ''
+        description: Interactive amplitude modulation demo with time- and frequency-domain views
+        generate_options: qt_gui
+        id: am_modulation
+        title: AM Modulation
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: modulation_depth
+    id: variable_qtgui_range
+    parameters:
+        label: Modulation depth
+        min_len: '240'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '0'
+        step: '0.05'
+        stop: '1'
+        value: '0.7'
+        widget: counter_slider
+    states:
+        coordinate: [20, 20]
+        rotation: 0
+        state: enabled
+-   name: audio_tone
+    id: analog_sig_source_x
+    parameters:
+        amplitude: modulation_depth
+        frequency: '1000'
+        samp_rate: '48000'
+        type: float
+        waveform: analog.GR_COS_WAVE
+    states:
+        coordinate: [20, 160]
+        rotation: 0
+        state: enabled
+-   name: carrier
+    id: analog_sig_source_x
+    parameters:
+        amplitude: '1'
+        frequency: '10000'
+        samp_rate: '48000'
+        type: complex
+        waveform: analog.GR_COS_WAVE
+    states:
+        coordinate: [360, 300]
+        rotation: 0
+        state: enabled
+-   name: carrier_level
+    id: analog_const_source_x
+    parameters:
+        const: '1'
+        type: float
+    states:
+        coordinate: [20, 300]
+        rotation: 0
+        state: enabled
+-   name: envelope
+    id: blocks_add_xx
+    parameters:
+        type: float
+    states:
+        coordinate: [250, 180]
+        rotation: 0
+        state: enabled
+-   name: envelope_to_complex
+    id: blocks_float_to_complex
+    parameters:
+    states:
+        coordinate: [430, 180]
+        rotation: 0
+        state: enabled
+-   name: modulator
+    id: blocks_multiply_xx
+    parameters:
+        type: complex
+    states:
+        coordinate: [650, 220]
+        rotation: 0
+        state: enabled
+-   name: throttle
+    id: blocks_throttle
+    parameters:
+        samp_rate: '48000'
+        type: complex
+    states:
+        coordinate: [820, 220]
+        rotation: 0
+        state: enabled
+-   name: am_spectrum
+    id: qtgui_freq_sink_x
+    parameters:
+        alpha1: '1'
+        autoscale: 'False'
+        average: '0.2'
+        axislabels: 'True'
+        color1: '"blue"'
+        ctrlpanel: 'False'
+        fc: '0'
+        fftsize: '2048'
+        grid: 'True'
+        label1: AM signal
+        legend: 'True'
+        marker1: '-1'
+        name: AM Spectrum - Carrier and Sidebands
+        samp_rate: '48000'
+        tr_chan: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_tag: ''
+        update_time: '0.1'
+        width1: '1'
+        ymax: '10'
+        ymin: '-100'
+    states:
+        coordinate: [1020, 140]
+        rotation: 0
+        state: enabled
+-   name: am_waveform
+    id: qtgui_time_sink_x
+    parameters:
+        alpha1: '1'
+        alpha2: '1'
+        autoscale: 'False'
+        axislabels: 'True'
+        color1: blue
+        color2: red
+        ctrlpanel: 'False'
+        grid: 'True'
+        label1: In-phase
+        label2: Quadrature
+        legend: 'True'
+        marker1: '-1'
+        marker2: '-1'
+        name: AM Waveform and Envelope
+        samp_rate: '48000'
+        size: '1024'
+        stemplot: 'False'
+        style1: '1'
+        style2: '1'
+        tr_chan: '0'
+        tr_delay: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_slope: qtgui.TRIG_SLOPE_POS
+        tr_tag: ''
+        type: complex
+        update_time: '0.1'
+        width1: '1'
+        width2: '1'
+        ylabel: Amplitude
+        ymax: '2'
+        ymin: '-2'
+        yunit: ''
+    states:
+        coordinate: [1020, 300]
+        rotation: 0
+        state: enabled
+connections:
+- [audio_tone, '0', envelope, '0']
+- [carrier, '0', modulator, '1']
+- [carrier_level, '0', envelope, '1']
+- [envelope, '0', envelope_to_complex, '0']
+- [envelope_to_complex, '0', modulator, '0']
+- [modulator, '0', throttle, '0']
+- [throttle, '0', am_spectrum, '0']
+- [throttle, '0', am_waveform, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0

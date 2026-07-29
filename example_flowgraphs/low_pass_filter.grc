@@ -1,0 +1,138 @@
+options:
+    parameters:
+        author: Claude
+        copyright: ''
+        description: Compare a two-tone signal before and after a 5 kHz low-pass FIR filter
+        generate_options: qt_gui
+        id: low_pass_filter_demo
+        title: Low-Pass Filter
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: passband_tone
+    id: analog_sig_source_x
+    parameters:
+        amplitude: '1'
+        frequency: '2000'
+        samp_rate: '48000'
+        type: complex
+        waveform: analog.GR_COS_WAVE
+    states:
+        coordinate: [20, 110]
+        rotation: 0
+        state: enabled
+-   name: stopband_tone
+    id: analog_sig_source_x
+    parameters:
+        amplitude: '1'
+        frequency: '12000'
+        samp_rate: '48000'
+        type: complex
+        waveform: analog.GR_COS_WAVE
+    states:
+        coordinate: [20, 260]
+        rotation: 0
+        state: enabled
+-   name: two_tones
+    id: blocks_add_xx
+    parameters:
+        type: complex
+    states:
+        coordinate: [270, 180]
+        rotation: 0
+        state: enabled
+-   name: throttle
+    id: blocks_throttle
+    parameters:
+        samp_rate: '48000'
+        type: complex
+    states:
+        coordinate: [440, 180]
+        rotation: 0
+        state: enabled
+-   name: low_pass
+    id: low_pass_filter
+    parameters:
+        beta: '6.76'
+        cutoff_freq: '5000'
+        decim: '1'
+        gain: '1'
+        interp: '1'
+        samp_rate: '48000'
+        type: fir_filter_ccf
+        width: '2000'
+        win: window.WIN_HAMMING
+    states:
+        coordinate: [650, 250]
+        rotation: 0
+        state: enabled
+-   name: spectrum_before
+    id: qtgui_freq_sink_x
+    parameters:
+        alpha1: '1'
+        autoscale: 'False'
+        average: '0.2'
+        axislabels: 'True'
+        color1: '"blue"'
+        ctrlpanel: 'False'
+        fc: '0'
+        fftsize: '2048'
+        grid: 'True'
+        label1: Unfiltered
+        legend: 'True'
+        marker1: '-1'
+        name: Before Filter - 2 kHz and 12 kHz
+        samp_rate: '48000'
+        tr_chan: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_tag: ''
+        update_time: '0.1'
+        width1: '1'
+        ymax: '10'
+        ymin: '-100'
+    states:
+        coordinate: [650, 80]
+        rotation: 0
+        state: enabled
+-   name: spectrum_after
+    id: qtgui_freq_sink_x
+    parameters:
+        alpha1: '1'
+        autoscale: 'False'
+        average: '0.2'
+        axislabels: 'True'
+        color1: '"green"'
+        ctrlpanel: 'False'
+        fc: '0'
+        fftsize: '2048'
+        grid: 'True'
+        label1: Filtered
+        legend: 'True'
+        marker1: '-1'
+        name: After Filter - 12 kHz Rejected
+        samp_rate: '48000'
+        tr_chan: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_tag: ''
+        update_time: '0.1'
+        width1: '1'
+        ymax: '10'
+        ymin: '-100'
+    states:
+        coordinate: [880, 250]
+        rotation: 0
+        state: enabled
+connections:
+- [low_pass, '0', spectrum_after, '0']
+- [passband_tone, '0', two_tones, '0']
+- [stopband_tone, '0', two_tones, '1']
+- [throttle, '0', low_pass, '0']
+- [throttle, '0', spectrum_before, '0']
+- [two_tones, '0', throttle, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0

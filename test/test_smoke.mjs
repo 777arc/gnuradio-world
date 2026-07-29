@@ -35,6 +35,9 @@ const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.wasm': 'applica
 const CASES = [
   { name: 'analog demo (core module only)', grc: 'example_flowgraphs/example_1.grc' },
   { name: 'PSK constellation (hier block + qtgui sinks)', grc: 'example_flowgraphs/PSK_constellation.grc' },
+  { name: 'AM modulation example', grc: 'example_flowgraphs/am_modulation.grc' },
+  { name: 'FM loopback example', grc: 'example_flowgraphs/fm_loopback.grc' },
+  { name: 'low-pass filter example', grc: 'example_flowgraphs/low_pass_filter.grc' },
   { name: 'new core/filter blocks', grc: 'test/fixtures/wasm_added_core.grc' },
   { name: 'new constellation and synchronizer blocks', grc: 'test/fixtures/wasm_added_digital.grc' },
   { name: 'new FEC leaf blocks', grc: 'test/fixtures/wasm_added_fec.grc' },

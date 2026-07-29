@@ -1,0 +1,174 @@
+options:
+    parameters:
+        author: Claude
+        copyright: ''
+        description: Noisy FM transmitter and quadrature-demodulator loopback with live tone and noise controls
+        generate_options: qt_gui
+        id: fm_loopback
+        title: FM Loopback
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: tone_frequency
+    id: variable_qtgui_range
+    parameters:
+        label: Message tone frequency
+        min_len: '240'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '200'
+        step: '100'
+        stop: '3000'
+        value: '1000'
+        widget: counter_slider
+    states:
+        coordinate: [20, 20]
+        rotation: 0
+        state: enabled
+-   name: noise_amplitude
+    id: variable_qtgui_range
+    parameters:
+        label: Channel noise
+        min_len: '240'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '0'
+        step: '0.01'
+        stop: '0.5'
+        value: '0.05'
+        widget: counter_slider
+    states:
+        coordinate: [300, 20]
+        rotation: 0
+        state: enabled
+-   name: message_tone
+    id: analog_sig_source_x
+    parameters:
+        amplitude: '1'
+        frequency: tone_frequency
+        samp_rate: '48000'
+        type: float
+        waveform: analog.GR_COS_WAVE
+    states:
+        coordinate: [20, 170]
+        rotation: 0
+        state: enabled
+-   name: fm_modulator
+    id: analog_frequency_modulator_fc
+    parameters:
+        sensitivity: '0.6544984695'
+    states:
+        coordinate: [260, 170]
+        rotation: 0
+        state: enabled
+-   name: channel_noise
+    id: analog_noise_source_x
+    parameters:
+        amplitude: noise_amplitude
+        seed: '7'
+        type: complex
+    states:
+        coordinate: [260, 310]
+        rotation: 0
+        state: enabled
+-   name: noisy_channel
+    id: blocks_add_xx
+    parameters:
+        type: complex
+    states:
+        coordinate: [500, 210]
+        rotation: 0
+        state: enabled
+-   name: throttle
+    id: blocks_throttle
+    parameters:
+        samp_rate: '48000'
+        type: complex
+    states:
+        coordinate: [670, 210]
+        rotation: 0
+        state: enabled
+-   name: fm_demodulator
+    id: analog_quadrature_demod_cf
+    parameters:
+        gain: '1.5278874537'
+    states:
+        coordinate: [870, 310]
+        rotation: 0
+        state: enabled
+-   name: fm_spectrum
+    id: qtgui_freq_sink_x
+    parameters:
+        alpha1: '1'
+        autoscale: 'False'
+        average: '0.2'
+        axislabels: 'True'
+        color1: '"blue"'
+        ctrlpanel: 'False'
+        fc: '0'
+        fftsize: '2048'
+        grid: 'True'
+        label1: Noisy FM signal
+        legend: 'True'
+        marker1: '-1'
+        name: FM Channel Spectrum
+        samp_rate: '48000'
+        tr_chan: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_tag: ''
+        update_time: '0.1'
+        width1: '1'
+        ymax: '10'
+        ymin: '-100'
+    states:
+        coordinate: [870, 110]
+        rotation: 0
+        state: enabled
+-   name: recovered_message
+    id: qtgui_time_sink_x
+    parameters:
+        alpha1: '1'
+        autoscale: 'False'
+        axislabels: 'True'
+        color1: blue
+        ctrlpanel: 'False'
+        grid: 'True'
+        label1: Recovered tone
+        legend: 'True'
+        marker1: '-1'
+        name: Recovered FM Message
+        samp_rate: '48000'
+        size: '1024'
+        stemplot: 'False'
+        style1: '1'
+        tr_chan: '0'
+        tr_delay: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_slope: qtgui.TRIG_SLOPE_POS
+        tr_tag: ''
+        type: float
+        update_time: '0.1'
+        width1: '1'
+        ylabel: Amplitude
+        ymax: '1.5'
+        ymin: '-1.5'
+        yunit: ''
+    states:
+        coordinate: [1080, 310]
+        rotation: 0
+        state: enabled
+connections:
+- [channel_noise, '0', noisy_channel, '1']
+- [fm_demodulator, '0', recovered_message, '0']
+- [fm_modulator, '0', noisy_channel, '0']
+- [message_tone, '0', fm_modulator, '0']
+- [noisy_channel, '0', throttle, '0']
+- [throttle, '0', fm_demodulator, '0']
+- [throttle, '0', fm_spectrum, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0
