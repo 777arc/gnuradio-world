@@ -415,8 +415,10 @@ grep -rho '#include *<[a-z].*>' gr-<m>/lib/*.cc | sort -u   # spot host-only dep
 A block is directly generator-buildable only if it has a C++ impl. **Python-only
 blocks** — a `gr.hier_block2` (e.g. gr-foo's `selector`/`valve`) or a GUI QWidget
 (e.g. `rds_panel` = `rds.rdsPanel`) — have no automatic C++ path. Leave their yaml
-alone unless the hierarchy is rebuilt as a hand-written C++ `hier_block2` in the
-runner; otherwise they show greyed-out in the palette. **Host-only deps** not in
+alone unless the block is rebuilt by hand in `registry.cpp` (a C++ `hier_block2`
+for a hierarchy, a `QWidget` message sink for a GUI panel — `rds_panel` is the
+worked example) and its id added to `CUSTOM_IDS`; otherwise they show greyed-out
+in the palette. **Host-only deps** not in
 the WASM sysroot (UHD, Boost.Asio networking, Boost.Locale, libsndfile, …) must be
 dealt with in step 4.
 
@@ -536,6 +538,12 @@ chain.
   with numpy (the OFDM sync words), reproduce them exactly: numpy's legacy
   `RandomState(seed)` is MT19937 seeded identically to `std::mt19937(seed)`, and
   `randint(2)` is one 32-bit draw's low bit.
+- **Python GUI blocks** are the same story with a `QWidget` instead of a chain:
+  gr-rds's `rds_panel` is a Python QWidget, and it is the only place an RDS
+  receiver ever shows its decoded ASCII, so `registry.cpp` rebuilds it as a
+  message-sink block whose handler records the parser's `(type, text)` tuples and
+  whose QTimer paints them (message handlers run on GR threads; widgets are
+  main-thread only). See `example_flowgraphs/rds_receiver.grc`.
 - If a **core** hand-written factory references a **deferred** module's symbols
   (as `digital_psk_mod` uses a few `gr-digital` blocks), link that module's `.a`
   *normally* (not whole-archive) into the main module too, so just those objects

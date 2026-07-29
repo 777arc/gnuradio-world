@@ -1,0 +1,325 @@
+options:
+    parameters:
+        author: Marc
+        copyright: ''
+        description: Decodes RDS from the 57 kHz subcarrier of a broadcast FM station.
+        generate_options: qt_gui
+        id: RDS_Receiver
+        title: RDS Receiver
+    states:
+        coordinate: [20, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: rds_carrier
+    id: variable
+    parameters:
+        value: '57000'
+    states:
+        coordinate: [320, 10]
+        rotation: 0
+        state: enabled
+-   name: rds_samp_rate
+    id: variable
+    parameters:
+        value: '19000'
+    states:
+        coordinate: [440, 10]
+        rotation: 0
+        state: enabled
+-   name: samp_rate
+    id: variable
+    parameters:
+        value: '250000'
+    states:
+        coordinate: [210, 10]
+        rotation: 0
+        state: enabled
+-   name: agc
+    id: analog_agc_xx
+    parameters:
+        gain: '53'
+        max_gain: '1000'
+        rate: '0.002'
+        reference: '0.585'
+        type: complex
+    states:
+        coordinate: [650, 400]
+        rotation: 0
+        state: enabled
+-   name: biphase_delay
+    id: blocks_delay
+    parameters:
+        delay: '8'
+        type: complex
+    states:
+        coordinate: [340, 330]
+        rotation: 0
+        state: enabled
+-   name: biphase_sub
+    id: blocks_sub_xx
+    parameters:
+        type: complex
+    states:
+        coordinate: [470, 400]
+        rotation: 0
+        state: enabled
+-   name: constellation_receiver
+    id: digital_constellation_receiver_cb
+    parameters:
+        constellation: digital.constellation_bpsk().base()
+        fmax: '0.002'
+        fmin: '-0.002'
+        loop_bw: 2*math.pi/100
+        showports: 'False'
+    states:
+        coordinate: [1270, 400]
+        rotation: 0
+        state: enabled
+-   name: constellation_sink
+    id: qtgui_const_sink_x
+    parameters:
+        alpha1: '1'
+        autoscale: 'False'
+        axislabels: 'True'
+        color1: '"blue"'
+        grid: 'False'
+        label1: ''
+        legend: 'True'
+        marker1: '0'
+        name: RDS BPSK
+        size: '1024'
+        style1: '0'
+        tr_chan: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_slope: qtgui.TRIG_SLOPE_POS
+        tr_tag: ''
+        update_time: '0.1'
+        width1: '1'
+        xmax: '2'
+        xmin: '-2'
+        ymax: '2'
+        ymin: '-2'
+    states:
+        coordinate: [1600, 490]
+        rotation: 0
+        state: enabled
+-   name: diff_decoder
+    id: digital_diff_decoder_bb
+    parameters:
+        coding: digital.DIFF_DIFFERENTIAL
+        modulus: '2'
+    states:
+        coordinate: [350, 660]
+        rotation: 0
+        state: enabled
+-   name: discard_error
+    id: blocks_null_sink
+    parameters:
+        type: float
+    states:
+        coordinate: [1580, 300]
+        rotation: 0
+        state: enabled
+-   name: discard_freq
+    id: blocks_null_sink
+    parameters:
+        type: float
+    states:
+        coordinate: [1630, 420]
+        rotation: 0
+        state: enabled
+-   name: discard_phase
+    id: blocks_null_sink
+    parameters:
+        type: float
+    states:
+        coordinate: [1610, 360]
+        rotation: 0
+        state: enabled
+-   name: mpx_to_complex
+    id: blocks_float_to_complex
+    parameters:
+    states:
+        coordinate: [740, 110]
+        rotation: 0
+        state: enabled
+-   name: quad_demod
+    id: analog_quadrature_demod_cf
+    parameters:
+        gain: samp_rate/(2*math.pi*75e3)
+    states:
+        coordinate: [480, 110]
+        rotation: 0
+        state: enabled
+-   name: rds_decoder
+    id: rds_decoder
+    parameters:
+        debug: 'False'
+        log: 'False'
+    states:
+        coordinate: [610, 660]
+        rotation: 0
+        state: enabled
+-   name: rds_lo
+    id: analog_sig_source_x
+    parameters:
+        amplitude: '1'
+        frequency: -rds_carrier
+        samp_rate: samp_rate
+        type: complex
+        waveform: analog.GR_COS_WAVE
+    states:
+        coordinate: [540, 210]
+        rotation: 0
+        state: enabled
+-   name: rds_lpf
+    id: low_pass_filter
+    parameters:
+        beta: '6.76'
+        cutoff_freq: '3000'
+        decim: '5'
+        gain: '1'
+        interp: '1'
+        samp_rate: samp_rate
+        type: fir_filter_ccf
+        width: '2000'
+        win: window.WIN_HAMMING
+    states:
+        coordinate: [1150, 110]
+        rotation: 0
+        state: enabled
+-   name: rds_mixer
+    id: blocks_multiply_xx
+    parameters:
+        type: complex
+    states:
+        coordinate: [970, 110]
+        rotation: 0
+        state: enabled
+-   name: rds_panel
+    id: rds_panel
+    parameters:
+        freq: '100000000'
+        gui_hint: ''
+    states:
+        coordinate: [1000, 660]
+        rotation: 0
+        state: enabled
+-   name: rds_parser
+    id: rds_parser
+    parameters:
+        debug: 'False'
+        log: 'False'
+        pty_locale: '0'
+        reset: '0'
+    states:
+        coordinate: [810, 660]
+        rotation: 0
+        state: enabled
+-   name: recording
+    id: blocks_file_source
+    parameters:
+        begin_tag: pmt.PMT_NIL
+        file: /recordings/fm_rds_250k_1Msamples.sigmf-data
+        length: '0'
+        offset: '0'
+        repeat: 'True'
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [10, 110]
+        rotation: 0
+        state: enabled
+-   name: resample_19k
+    id: rational_resampler_xxx
+    parameters:
+        decim: '50'
+        fbw: '0'
+        interp: '19'
+        taps: '[]'
+        type: ccc
+    states:
+        coordinate: [1420, 110]
+        rotation: 0
+        state: enabled
+-   name: rrc_filter
+    id: root_raised_cosine_filter
+    parameters:
+        alpha: '1'
+        decim: '1'
+        gain: '1'
+        interp: '1'
+        ntaps: '151'
+        samp_rate: rds_samp_rate
+        sym_rate: rds_samp_rate/8
+        type: fir_filter_ccf
+    states:
+        coordinate: [60, 330]
+        rotation: 0
+        state: enabled
+-   name: symbol_sync
+    id: digital_symbol_sync_xx
+    parameters:
+        constellation: digital.constellation_bpsk().base()
+        damping: '1'
+        loop_bw: '0.01'
+        max_dev: '0.1'
+        nfilters: '128'
+        osps: '1'
+        pfb_mf_taps: '[]'
+        resamp_type: digital.IR_MMSE_8TAP
+        sps: '16'
+        ted_gain: '1'
+        ted_type: digital.TED_ZERO_CROSSING
+        type: cc
+    states:
+        coordinate: [830, 400]
+        rotation: 0
+        state: enabled
+-   name: throttle
+    id: blocks_throttle2
+    parameters:
+        ignoretag: 'True'
+        limit: auto
+        maximum: '0.1'
+        samples_per_second: samp_rate
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [260, 110]
+        rotation: 0
+        state: enabled
+connections:
+- [agc, '0', symbol_sync, '0']
+- [biphase_delay, '0', biphase_sub, '0']
+- [biphase_sub, '0', agc, '0']
+- [constellation_receiver, '0', diff_decoder, '0']
+- [constellation_receiver, '1', discard_error, '0']
+- [constellation_receiver, '2', discard_phase, '0']
+- [constellation_receiver, '3', discard_freq, '0']
+- [constellation_receiver, '4', constellation_sink, '0']
+- [diff_decoder, '0', rds_decoder, '0']
+- [mpx_to_complex, '0', rds_mixer, '0']
+- [quad_demod, '0', mpx_to_complex, '0']
+-   src_blk_id: rds_decoder
+    src_port_id: out
+    snk_blk_id: rds_parser
+    snk_port_id: in
+- [rds_lo, '0', rds_mixer, '1']
+- [rds_lpf, '0', resample_19k, '0']
+- [rds_mixer, '0', rds_lpf, '0']
+-   src_blk_id: rds_parser
+    src_port_id: out
+    snk_blk_id: rds_panel
+    snk_port_id: in
+- [recording, '0', throttle, '0']
+- [resample_19k, '0', rrc_filter, '0']
+- [rrc_filter, '0', biphase_delay, '0']
+- [rrc_filter, '0', biphase_sub, '1']
+- [symbol_sync, '0', constellation_receiver, '0']
+- [throttle, '0', quad_demod, '0']
+metadata:
+    file_format: 2
+    grc_version: 3.11.0.0

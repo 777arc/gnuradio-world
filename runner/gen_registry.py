@@ -79,6 +79,8 @@ OBJECT_PARAMETERS = {
 CUSTOM_IDS = {
     # Runner-only sink, defined in blocks/grc (no upstream GNU Radio block).
     "wasm_packet_rate_sink",
+    # gr-rds's display panel is a Python QWidget; registry.cpp rebuilds it in C++.
+    "rds_panel",
     "variable_qtgui_range",
     "variable_qtgui_chooser",
     "variable_qtgui_push_button",

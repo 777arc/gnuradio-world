@@ -309,6 +309,7 @@
     "rational_resampler_xxx",
     "rds_decoder",
     "rds_encoder",
+    "rds_panel",
     "rds_parser",
     "rds_tag_to_msg",
     "root_raised_cosine_filter",

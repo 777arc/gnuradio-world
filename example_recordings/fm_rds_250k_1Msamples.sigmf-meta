@@ -1,0 +1,16 @@
+{
+  "global": {
+    "core:version": "1.0.0",
+    "core:datatype": "cf32_le",
+    "core:description": "Short burst of RDS",
+    "core:sample_rate": 250000,
+    "core:author": "Marc Lichtman"
+  },
+  "captures": [
+    {
+      "core:sample_start": 0,
+      "core:frequency": 100000000
+    }
+  ],
+  "annotations": []
+}
