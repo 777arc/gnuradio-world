@@ -18,7 +18,7 @@ type ParamType = 'number' | 'string' | 'enum';
 // block face uses it to pick a truncation style for long values.
 interface ParamDef {
   id: string; label: string; type: ParamType; def: any; options?: string[];
-  category?: string; hideIfEmpty?: boolean; raw?: boolean; dtype?: string;
+  category?: string; hide?: string; hideIfEmpty?: boolean; raw?: boolean; dtype?: string;
   optionAttributes?: Record<string, string[]>;
   showWhen?: (params: Record<string, any>) => boolean;
   // Free-form prose (the Note block's text): edited in a textarea so it can hold
@@ -48,9 +48,9 @@ const DTYPE_COLOR: Record<string, string> = {
 };
 
 // A "type" selector shared by the type-parameterized blocks (like GRC's io-type param).
-const TYPE_PARAM: ParamDef = { id: 'type', label: 'Type', type: 'enum', def: 'complex', options: ['complex', 'float'] };
-const INTEGER_TYPE_PARAM: ParamDef = { id: 'type', label: 'Type', type: 'enum', def: 'byte', options: ['byte', 'short', 'int'] };
-const STREAM_TYPE_PARAM: ParamDef = { id: 'type', label: 'Type', type: 'enum', def: 'complex', options: ['complex', 'float', 'int', 'short', 'byte'] };
+const TYPE_PARAM: ParamDef = { id: 'type', label: 'Type', type: 'enum', def: 'complex', options: ['complex', 'float'], hide: 'part' };
+const INTEGER_TYPE_PARAM: ParamDef = { id: 'type', label: 'Type', type: 'enum', def: 'byte', options: ['byte', 'short', 'int'], hide: 'part' };
+const STREAM_TYPE_PARAM: ParamDef = { id: 'type', label: 'Type', type: 'enum', def: 'complex', options: ['complex', 'float', 'int', 'short', 'byte'], hide: 'part' };
 // GRC-native enum vocabularies (values stored/serialized verbatim, matching
 // grc block YAML so saved .grc is byte-compatible with desktop GRC).
 const BOOL_OPTIONS = ['True', 'False'];
@@ -772,6 +772,7 @@ function installGeneratedBlocks(blocks: any[]) {
         ['int', 'real', 'float', 'hex'].includes(String(p.dtype)) ? 'number' : 'string',
       raw: String(p.dtype) === 'raw',
       dtype: p.dtype ? String(p.dtype) : undefined,
+      hide: p.hide ? String(p.hide) : 'none',
       def: generatedDefault(p),
       options: p.options ? p.options.map(String) : undefined,
       optionAttributes: p.option_attributes
@@ -814,8 +815,14 @@ function installGeneratedBlocks(blocks: any[]) {
     const existing = RUNNABLE[block.id];
     if (existing) {
       // Hand-written definitions carry richer parameter/run-time support. Add
-      // the native documentation and port names from blocks.json without
-      // replacing that schema.
+      // the native face-visibility metadata, documentation and port names from
+      // blocks.json without replacing that schema. Clone each parameter because
+      // several hand-written definitions share TYPE_PARAM.
+      const generatedParams = new Map(params.map(p => [p.id, p]));
+      existing.params = existing.params.map(p => ({
+        ...p,
+        hide: generatedParams.get(p.id)?.hide ?? p.hide,
+      }));
       // These definitions currently expose stream ports only, so omit optional
       // message-control ports that their WASM factories do not support.
       existing.documentation = documentation;
@@ -899,16 +906,21 @@ function noteGeom(inst: Inst, d: RunnableDef) {
 function geom(inst: Inst) {
   const d = RUNNABLE[inst.id];
   if (inst.id === NOTE_ID) return noteGeom(inst, d);
-  // Categorized parameters belong in the modal notebook, not in the compact
-  // block rendering (equivalent to GRC's `hide: part`).
+  // Categorized parameters belong in the modal notebook. Native GRC also keeps
+  // parameters marked `hide: part` or `hide: all` off the block face.
   const rows = d.params
-    .filter(p => !p.category && !(p.hideIfEmpty && !String(inst.params[p.id] ?? '').trim()))
+    .filter(p => !p.category && p.hide !== 'part' && p.hide !== 'all' &&
+      !(p.hideIfEmpty && !String(inst.params[p.id] ?? '').trim()))
     .map(p => ({ id: p.id, l: p.label + ': ', v: paramDisplay(p, inst.params[p.id]) }));
+  // A Variable's identifier is its block instance name rather than a regular
+  // parameter, but it is part of the block's meaning and must stay visible.
+  if (inst.id === 'variable')
+    rows.unshift({ id: 'id', l: 'ID: ', v: truncateValue('ID', inst.name) });
   const nports = Math.max(portCount(inst, 'in'), portCount(inst, 'out'), 1);
   const bodyH = Math.max(rows.length * ROW_H + PAD, nports * (PORT_H + PORT_GAP) + PAD, ROW_H);
   const h = TITLE_H + bodyH;
   let w = textW(d.label, 13, true);
-  for (const r of rows) w = Math.max(w, textW(r.l + r.v, 11));
+  for (const r of rows) w = Math.max(w, textW(r.l, 11, true) + textW(r.v, 11));
   w = Math.max(104, Math.ceil(w) + TEXT_PAD_L + TEXT_PAD_R);
   return { d, rows, h, w };
 }
@@ -917,7 +929,11 @@ type Edge = 'L' | 'R' | 'T' | 'B';
 function portPos(inst: Inst, kind: 'in' | 'out', i: number): { x: number; y: number; edge: Edge } {
   const { w, h } = geom(inst);
   const pw = portWidth(inst, kind, i);
-  const vSlot = TITLE_H + PAD + i * (PORT_H + PORT_GAP) + PORT_H / 2;
+  // Center each side's port group independently, as native GRC does. Using the
+  // block midpoint also keeps a lone port centered when parameter rows change
+  // the block height or the opposite side has a different number of ports.
+  const count = portCount(inst, kind);
+  const vSlot = h / 2 + (i - (count - 1) / 2) * (PORT_H + PORT_GAP);
   const hSlot = 16 + i * (PORT_H + PORT_GAP) + PORT_H / 2;
   const map: Record<number, { in: Edge; out: Edge }> = {
     0: { in: 'L', out: 'R' }, 90: { in: 'T', out: 'B' },
@@ -1925,16 +1941,20 @@ function render() {
       transform: `translate(${inst.x},${inst.y})` });
     const rect = svgEl('rect', { class: 'body', width: String(w), height: String(h), rx: '2' });
     g.appendChild(rect);
-    // title + underline (GRC draws a rule under the bold title)
-    const t = svgEl('text', { class: 'title', x: String(w / 2), y: '15', 'text-anchor': 'middle' });
+    // Native GRC has no title separator. With no face parameters, center the
+    // title in the whole block instead of leaving it in an empty title row.
+    const titleAttrs: Record<string, string> = {
+      class: 'title', x: String(w / 2), y: rows.length ? '15' : String(h / 2),
+      'text-anchor': 'middle',
+    };
+    if (!rows.length) titleAttrs['dominant-baseline'] = 'central';
+    const t = svgEl('text', titleAttrs);
     t.textContent = d.label; g.appendChild(t);
-    g.appendChild(svgEl('line', { x1: '0', y1: String(TITLE_H), x2: String(w), y2: String(TITLE_H),
-      stroke: '#000', 'stroke-width': '1' }));
     // parameter rows: "label: value"
     rows.forEach((r, i) => {
       const y = TITLE_H + PAD + i * ROW_H + 11;
       const tx = svgEl('text', { class: 'param' + (fieldIssue(blockIssues, inst.uid, r.id) ? ' invalid' : ''), x: String(TEXT_PAD_L), y: String(y) });
-      const l = document.createElementNS(SVGNS, 'tspan'); l.textContent = r.l;
+      const l = document.createElementNS(SVGNS, 'tspan'); l.setAttribute('class', 'plabel'); l.textContent = r.l;
       const v = document.createElementNS(SVGNS, 'tspan'); v.setAttribute('class', 'pval'); v.textContent = r.v;
       tx.appendChild(l); tx.appendChild(v); g.appendChild(tx);
     });
