@@ -1203,12 +1203,51 @@ function portPos(inst: Inst, kind: 'in' | 'out', i: number): { x: number; y: num
   if (e === 'T') return { x: hSlot, y: -pw, edge: e };
   return { x: hSlot, y: h + pw, edge: e };
 }
-// Bezier control point offset outward from an edge (for nicely-curved wires).
-function ctrl(edge: Edge, x: number, y: number, k: number): [number, number] {
-  if (edge === 'L') return [x - k, y];
-  if (edge === 'R') return [x + k, y];
-  if (edge === 'T') return [x, y - k];
-  return [x, y + k];
+// Bezier control point for a wire leaving `edge`: `k` outward along the port's
+// own axis, `bow` perpendicular to it (down for side ports, right for top/bottom
+// ones) — see wireShape() for where the two numbers come from.
+function ctrl(edge: Edge, x: number, y: number, k: number, bow = 0): [number, number] {
+  if (edge === 'L') return [x - k, y + bow];
+  if (edge === 'R') return [x + k, y + bow];
+  if (edge === 'T') return [x + bow, y - k];
+  return [x + bow, y + k];
+}
+const horizontalEdge = (e: Edge) => e === 'L' || e === 'R';
+const outwardSign = (e: Edge) => (e === 'R' || e === 'B' ? 1 : -1);
+// Native GRC puts both bezier control points a flat 50px straight out of their
+// ports, and for an ordinary forward wire that is the right answer at any
+// length — a long one just draws as a lazy diagonal, which reads fine.
+//
+// A *backwards* wire is the case it handles badly: the sink sits behind the
+// source, so the wire leaves the port away from its destination and has to
+// double back, and 50px is not enough room to turn around in. Those get more
+// control length (scaled with the span, capped) plus a perpendicular bow:
+//   * BOW_MAX is what the curve is pulled by at each end. The control points
+//     carry the curve about three quarters of the way, so it buys ~0.75 of that
+//     in real clearance — enough to pass a tall block rather than graze it.
+//   * The bow ramps in with the span (nothing below BOW_START, full by
+//     BOW_FULL) and with the drift, the wire bowing *along* the direction it is
+//     already travelling. A level wire has no direction to bow in and stays
+//     straight; the drift ramp spans one port pitch so that is not a step
+//     change.
+//   * The two ends bow *opposite* ways. Bowing them alike swings the tail below
+//     a lower sink and hooks up into its port from underneath; opposing them
+//     keeps the loop in the corridor between the two blocks and brings it down
+//     into the port from above.
+// All of it needs both ports on the same axis — with one rotated block the
+// "perpendicular" of each end points a different way and the two would fight.
+const CTRL_FLAT = 50, CTRL_MAX = 220, CTRL_FRAC = 0.4;
+const BOW_MAX = 190, BOW_START = 180, BOW_FULL = 600, BOW_DRIFT_FULL = PORT_PITCH;
+function wireShape(ea: Edge, eb: Edge, x1: number, y1: number, x2: number, y2: number):
+    { k: number; bowA: number; bowB: number } {
+  const flat = { k: CTRL_FLAT, bowA: 0, bowB: 0 };
+  if (horizontalEdge(ea) !== horizontalEdge(eb)) return flat;
+  const [span, drift] = horizontalEdge(ea) ? [x2 - x1, y2 - y1] : [y2 - y1, x2 - x1];
+  if (span * outwardSign(ea) >= 0) return flat;             // forward: plain GRC curve
+  const ramp = Math.min(1, Math.max(0, (Math.abs(span) - BOW_START) / (BOW_FULL - BOW_START)));
+  const lean = Math.max(-1, Math.min(1, drift / BOW_DRIFT_FULL));
+  const bow = BOW_MAX * ramp * lean;
+  return { k: Math.max(CTRL_FLAT, Math.min(CTRL_MAX, Math.abs(span) * CTRL_FRAC)), bowA: bow, bowB: -bow };
 }
 
 function addBlock(id: string, x = 60 + (counter % 5) * 30, y = 60 + (counter % 7) * 24,
@@ -2195,11 +2234,13 @@ function render() {
     if (portMeta(a, 'out', c.fp).hidden || portMeta(b, 'in', c.tp).hidden) continue;
     const pa = portPos(a, 'out', c.fp), pb = portPos(b, 'in', c.tp);
     const x1 = a.x + pa.x, y1 = a.y + pa.y, x2 = b.x + pb.x, y2 = b.y + pb.y;
-    // Match native GRC exactly: a straight 15px run out of each port, a cubic
-    // bezier with control points 50px out, then a straight approach in.
+    // As in native GRC: a straight 15px run out of each port, a cubic bezier,
+    // then a straight approach in. Control points 50px out, except on a wire
+    // that has to double back on itself — see wireShape().
+    const { k, bowA, bowB } = wireShape(pa.edge, pb.edge, x1, y1, x2, y2);
     const [sx, sy] = ctrl(pa.edge, x1, y1, 15);
-    const [c1x, c1y] = ctrl(pa.edge, x1, y1, 50);
-    const [c2x, c2y] = ctrl(pb.edge, x2, y2, 50);
+    const [c1x, c1y] = ctrl(pa.edge, x1, y1, k, bowA);
+    const [c2x, c2y] = ctrl(pb.edge, x2, y2, k, bowB);
     const [ex, ey] = ctrl(pb.edge, x2, y2, 15);
     const d = `M${x1},${y1} L${sx},${sy} C${c1x},${c1y} ${c2x},${c2y} ${ex},${ey} L${x2},${y2}`;
     const isSelected = c === selectedConnection || (insts.length > 0 && selectedBlocks.size === insts.length);
