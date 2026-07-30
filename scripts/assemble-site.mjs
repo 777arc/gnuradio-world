@@ -274,6 +274,9 @@ async function main() {
 /runner/build/qtloader.js
   Cache-Control: public, max-age=86400
 
+/runner/build/browser_file_reader.js
+  Cache-Control: public, max-age=86400
+
 /runner/build/*.wasm
   Cache-Control: public, max-age=86400
 `);

@@ -61,8 +61,8 @@ assert.match(source, /const res = await fetch\('\/example_flowgraphs\/' \+ encod
   'loadExampleByName must fetch the example and fail loudly on a 404');
 assert.match(source, /loadFlowgraphAnimated\(fg\);\s*\/\/ resets history itself\s*setExampleHash\(file\);/,
   'a linked example must load the same way a clicked one does, and normalize the fragment');
-assert.match(source, /void cacheFlowgraphRecordings\(fg, title\);/,
-  'a linked example must pull down the SigMF recordings it references');
+assert.match(source, /void bindFlowgraphRecordings\(fg, title\);/,
+  'a linked example must bind the SigMF recordings it references');
 
 // ---- end to end on real data ----
 // Every shipped example must be reachable through the round trip a link makes:

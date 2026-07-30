@@ -364,7 +364,20 @@ const RUNNABLE: Record<string, RunnableDef> = {
     ], dtype: 'complex' },
 };
 
-interface Inst { uid: string; id: string; name: string; x: number; y: number; params: Record<string, any>; enabled: boolean; rotation: number; bypassed: boolean }
+interface Inst {
+  uid: string;
+  id: string;
+  name: string;
+  x: number;
+  y: number;
+  params: Record<string, any>;
+  enabled: boolean;
+  rotation: number;
+  bypassed: boolean;
+  // Browser File objects cannot be serialized into .grc. History snapshots
+  // retain this opaque token while the actual File stays in a session map.
+  localFileToken?: string;
+}
 interface Conn { from: string; fp: number; to: string; tp: number }
 interface ValidationIssue {
   uid: string;
@@ -403,6 +416,13 @@ let hideDisabled = false;
 // with snapping enabled so newly opened sessions get aligned movement.
 let snapToGrid = true;
 let paletteSearch: HTMLInputElement | null = null;
+
+const localFilesByToken = new Map<string, File>();
+function newLocalFileToken(): string {
+  return typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
 
 interface GraphSnapshot { insts: Inst[]; conns: Conn[]; counter: number }
 const graphHistory: GraphSnapshot[] = [];
@@ -1208,7 +1228,14 @@ function buildGrcDoc(resolve = false): GrcDoc {
 }
 function grcText(): string { return dumpGrc(buildGrcDoc()); }
 // The Run path's .grc, with parameter expressions evaluated to concrete values.
-function grcTextForRun(): string { return dumpGrc(buildGrcDoc(true)); }
+function grcTextForRun(fileOverrides: Map<string, string> = new Map()): string {
+  const doc = buildGrcDoc(true);
+  for (const block of doc.blocks) {
+    const path = fileOverrides.get(block.name);
+    if (path !== undefined) block.parameters.file = path;
+  }
+  return dumpGrc(doc);
+}
 function downloadBlob(contents: BlobPart, type: string, filename: string) {
   const url = URL.createObjectURL(new Blob([contents], { type }));
   const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
@@ -1626,7 +1653,11 @@ document.addEventListener('keydown', e => {
 function showPropsDialog(inst: Inst) {
   closeMenu();
   const d = RUNNABLE[inst.id]; if (!d) return;
-  const tmp: { name: string; params: Record<string, any> } = { name: inst.name, params: { ...inst.params } };
+  const tmp: { name: string; params: Record<string, any>; localFileToken?: string } = {
+    name: inst.name,
+    params: { ...inst.params },
+    localFileToken: inst.localFileToken,
+  };
 
   const overlay = document.createElement('div'); overlay.className = 'modal props';
   const dlg = document.createElement('div'); dlg.className = 'dlg';
@@ -1702,13 +1733,19 @@ function showPropsDialog(inst: Inst) {
     docsPanel.appendChild(empty);
   }
 
-  const addField = (category: string, label: string, node: HTMLElement, field: string) => {
+  const addField = (
+    category: string,
+    label: string,
+    node: HTMLElement,
+    field: string,
+    validationNode: HTMLElement = node,
+  ) => {
     const row = document.createElement('div'); row.className = 'dlgrow';
     const l = document.createElement('label'); l.textContent = label;
     const control = document.createElement('div'); control.className = 'field-control';
     const error = document.createElement('small'); error.className = 'field-error'; error.hidden = true;
     control.append(node, error); row.append(l, control); panels.get(category)!.appendChild(row);
-    controls.set(field, { node, error });
+    controls.set(field, { node: validationNode, error });
     return node;
   };
   const nameI = addField('General', 'ID', document.createElement('input'), NAME_FIELD) as HTMLInputElement;
@@ -1722,6 +1759,42 @@ function showPropsDialog(inst: Inst) {
       s.onchange = () => { tmp.params[p.id] = s.value; refreshVisibility(); refreshValidation(); };
       addField(p.category || 'General', `${p.label}  (${p.id})`, s, p.id);
       if (p.showWhen) conditionalRows.push({ param: p, row: s.closest('.dlgrow') as HTMLElement });
+    } else if (inst.id === 'blocks_file_source' && p.id === 'file' &&
+               p.dtype === 'file_open') {
+      const picker = document.createElement('div'); picker.className = 'file-picker';
+      const inp = document.createElement('input'); inp.value = String(tmp.params[p.id]);
+      const choose = document.createElement('button'); choose.type = 'button';
+      choose.textContent = 'Browse…';
+      const native = document.createElement('input'); native.type = 'file';
+      native.className = 'file-picker-native'; native.tabIndex = -1;
+      const detail = document.createElement('small'); detail.className = 'file-picker-detail';
+      const refreshDetail = () => {
+        const file = tmp.localFileToken
+          ? localFilesByToken.get(tmp.localFileToken) : undefined;
+        detail.textContent = file
+          ? `Local file · ${file.name} · ${displayBytes(file.size)}`
+          : 'No local file selected for this browser session.';
+      };
+      inp.oninput = () => {
+        tmp.params[p.id] = inp.value;
+        tmp.localFileToken = undefined;
+        refreshDetail(); refreshVisibility(); refreshValidation();
+      };
+      choose.onclick = () => native.click();
+      native.onchange = () => {
+        const file = native.files?.[0];
+        if (!file) return;
+        const token = newLocalFileToken();
+        localFilesByToken.set(token, file);
+        tmp.localFileToken = token;
+        tmp.params[p.id] = file.name;
+        inp.value = file.name;
+        refreshDetail(); refreshVisibility(); refreshValidation();
+      };
+      picker.append(inp, choose, native, detail);
+      addField(p.category || 'General', `${p.label}  (${p.id})`, picker, p.id, inp);
+      refreshDetail();
+      if (p.showWhen) conditionalRows.push({ param: p, row: picker.closest('.dlgrow') as HTMLElement });
     } else {
       // Prose params (the Note block) get a textarea so the text can contain the
       // line breaks the block face honours; everything else stays a one-liner.
@@ -1751,7 +1824,13 @@ function showPropsDialog(inst: Inst) {
   };
 
   const foot = document.createElement('div'); foot.className = 'dlgfoot';
-  const apply = () => { inst.name = tmp.name; inst.params = { ...tmp.params }; select(inst.uid); recordHistory(); };
+  const apply = () => {
+    inst.name = tmp.name;
+    inst.params = { ...tmp.params };
+    inst.localFileToken = tmp.localFileToken;
+    select(inst.uid);
+    recordHistory();
+  };
   const btn = (label: string, fn: () => void, cls = '') => {
     const b = document.createElement('button'); b.textContent = label; if (cls) b.className = cls; b.onclick = fn; return b;
   };
@@ -2114,14 +2193,16 @@ svg.addEventListener('contextmenu', e => {
 // ---- Run: hand the flowgraph to the WASM runner in the lower workspace pane ----
 const MIN_PANE_HEIGHT = 120;
 let lowerPaneRatio = 0.5;
-interface RunnerRecordingFile { path: string; blob: Blob }
-const pendingRunnerRecordings = new Map<string, RunnerRecordingFile[]>();
+type RunnerInputFile =
+  | { kind: 'local'; path: string; file: File }
+  | { kind: 'http'; path: string; url: string; size: number };
+const pendingRunnerRecordings = new Map<string, RunnerInputFile[]>();
 let pendingRunnerToken: string | null = null;
 
 // runner.html is same-origin and takes this one-time payload before Qt/WASM
-// starts. Keeping the Blob in cachedRecordingsByPath means later runs can make
-// another in-memory mount without downloading the recording again.
-(window as any).__grTakeRecordingFiles = (token: string): RunnerRecordingFile[] => {
+// starts. Descriptors retain either a browser File reference or a remote URL;
+// the runner reads bounded slices/ranges instead of materializing whole files.
+(window as any).__grTakeRecordingFiles = (token: string): RunnerInputFile[] => {
   const files = pendingRunnerRecordings.get(token) || [];
   pendingRunnerRecordings.delete(token);
   if (pendingRunnerToken === token) pendingRunnerToken = null;
@@ -2239,7 +2320,7 @@ window.addEventListener('resize', () => {
   if (!el('app').classList.contains('hide-palette')) applyPaletteWidth();
 });
 
-function run() {
+async function run() {
   const errors = validateGraph().filter(issue => issue.blocking);
   if (errors.length) {
     const first = errors[0];
@@ -2252,20 +2333,69 @@ function run() {
     return;
   }
   if (!insts.some(i => i.id !== OPTIONS_ID)) { log('nothing to run — add some blocks'); return; }
-  const recordingFiles: RunnerRecordingFile[] = [];
+  const recordingFiles: RunnerInputFile[] = [];
+  const fileOverrides = new Map<string, string>();
   const addedPaths = new Set<string>();
   for (const block of insts) {
     if (!block.enabled || block.bypassed || block.id !== 'blocks_file_source') continue;
-    const path = String(block.params.file || '');
-    if (!path.startsWith('/recordings/') || addedPaths.has(path)) continue;
-    const cached = cachedRecordingsByPath.get(path);
-    if (!cached) {
-      log(`cannot run: recording for "${block.name}" is not downloaded in this editor session`);
-      select(block.uid);
+    const savedPath = String(block.params.file || '');
+    if (block.localFileToken) {
+      const file = localFilesByToken.get(block.localFileToken);
+      if (!file) {
+        log(`cannot run: choose the local file for "${block.name}" again`);
+        select(block.uid);
+        return;
+      }
+      const path = `/local-files/${block.localFileToken}/${encodeURIComponent(file.name)}`;
+      fileOverrides.set(block.name, path);
+      if (!addedPaths.has(path)) {
+        recordingFiles.push({ kind: 'local', path, file });
+        addedPaths.add(path);
+      }
+      continue;
+    }
+
+    if (savedPath.startsWith('/recordings/')) {
+      const recording = await resolveRemoteRecording(savedPath);
+      if (!recording) {
+        log(`cannot run: recording for "${block.name}" is unavailable`);
+        select(block.uid);
+        return;
+      }
+      if (!addedPaths.has(savedPath)) {
+        recordingFiles.push({
+          kind: 'http',
+          path: savedPath,
+          url: recording.downloadUrl,
+          size: recording.byteLength,
+        });
+        addedPaths.add(savedPath);
+      }
+      continue;
+    }
+
+    if (!savedPath) {
+      log(`cannot run: choose a file for "${block.name}"`);
+    } else {
+      log(`cannot run: "${savedPath}" is not accessible to the browser; ` +
+          `open "${block.name}" properties and choose it with Browse`);
+    }
+    select(block.uid);
+    return;
+  }
+  for (const file of recordingFiles) {
+    if (file.kind === 'local' && file.file.size === 0) {
+      const block = insts.find(item => fileOverrides.get(item.name) === file.path);
+      log(`cannot run: local file for "${block?.name || 'File Source'}" is empty`);
+      if (block) select(block.uid);
       return;
     }
-    recordingFiles.push({ path, blob: cached.blob });
-    addedPaths.add(path);
+    if (file.kind === 'http' && file.size === 0) {
+      const block = insts.find(item => String(item.params.file || '') === file.path);
+      log(`cannot run: recording for "${block?.name || 'File Source'}" is empty`);
+      if (block) select(block.uid);
+      return;
+    }
   }
   // The runner parses native .grc directly (it lowers disabled/bypassed blocks
   // and variables itself). We hand it a *resolved* doc — parameter expressions
@@ -2278,7 +2408,7 @@ function run() {
   pendingRunnerToken = token;
   pendingRunnerRecordings.set(token, recordingFiles);
   const url = '/runner/build/runner.html?recordingToken=' + encodeURIComponent(token) +
-    '#' + encodeURIComponent(grcTextForRun());
+    '#' + encodeURIComponent(grcTextForRun(fileOverrides));
   const workspace = el('workspace');
   const pane = el('runPane');
   const frame = el('runFrame') as HTMLIFrameElement;
@@ -2538,7 +2668,7 @@ async function loadExampleByName(name: string) {
   loadFlowgraphAnimated(fg);          // resets history itself
   setExampleHash(file);               // normalizes e.g. a link written with .grc
   log(`loaded example "${title}" from link`);
-  void cacheFlowgraphRecordings(fg, title);
+  void bindFlowgraphRecordings(fg, title);
 }
 
 async function buildExamples(panel: HTMLElement) {
@@ -2631,7 +2761,7 @@ async function buildExamples(panel: HTMLElement) {
           loadFlowgraphAnimated(fg);
           setExampleHash(file);
           log(`loaded example "${fgTitle || file}"`);
-          void cacheFlowgraphRecordings(fg, String(fgTitle || file));
+          void bindFlowgraphRecordings(fg, String(fgTitle || file));
         } catch (err) { log(`failed to load example "${file}": ${err}`); }
       };
     }).catch(err => {
@@ -2660,52 +2790,18 @@ interface ExampleRecording {
   downloadUrl: string;
 }
 
-interface CachedRecording {
-  recording: ExampleRecording;
-  blob: Blob;
-  virtualPath: string;
-}
-
 interface FileSourceFormat {
   type: 'complex' | 'float' | 'int' | 'short' | 'byte';
   vlen: number;
 }
 
-const cachedRecordingsByFile = new Map<string, CachedRecording>();
-const cachedRecordingsByPath = new Map<string, CachedRecording>();
-type RecordingProgress = (received: number, expected: number) => void;
-interface RecordingDownload {
-  promise: Promise<CachedRecording>;
-  listeners: Set<RecordingProgress>;
-}
-type RecordingState =
-  | { kind: 'downloading'; received: number; expected: number }
-  | { kind: 'downloaded'; cached: CachedRecording }
-  | { kind: 'error' };
-const recordingDownloadsByFile = new Map<string, RecordingDownload>();
-const recordingStatesByFile = new Map<string, RecordingState>();
-const recordingStateListenersByFile =
-  new Map<string, Set<(state: RecordingState) => void>>();
+const remoteRecordingsByPath = new Map<string, ExampleRecording>();
 let exampleRecordingsPromise: Promise<ExampleRecording[]> | null = null;
 
-function setRecordingState(dataFile: string, state: RecordingState) {
-  recordingStatesByFile.set(dataFile, state);
-  for (const listener of recordingStateListenersByFile.get(dataFile) || [])
-    listener(state);
-}
-
-function subscribeRecordingState(
-  dataFile: string,
-  listener: (state: RecordingState) => void,
-) {
-  let listeners = recordingStateListenersByFile.get(dataFile);
-  if (!listeners) {
-    listeners = new Set();
-    recordingStateListenersByFile.set(dataFile, listeners);
-  }
-  listeners.add(listener);
-  const state = recordingStatesByFile.get(dataFile);
-  if (state) listener(state);
+function bindRemoteRecording(recording: ExampleRecording): string {
+  const path = '/recordings/' + recording.dataFile;
+  remoteRecordingsByPath.set(path, recording);
+  return path;
 }
 
 function loadExampleRecordings(): Promise<ExampleRecording[]> {
@@ -2715,7 +2811,9 @@ function loadExampleRecordings(): Promise<ExampleRecording[]> {
     if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
     const payload = await response.json();
     if (!Array.isArray(payload)) throw new Error('invalid recordings response');
-    return payload as ExampleRecording[];
+    const recordings = payload as ExampleRecording[];
+    for (const recording of recordings) bindRemoteRecording(recording);
+    return recordings;
   })().catch(error => {
     // A transient manifest failure should not make every later attempt fail.
     exampleRecordingsPromise = null;
@@ -2724,77 +2822,11 @@ function loadExampleRecordings(): Promise<ExampleRecording[]> {
   return exampleRecordingsPromise;
 }
 
-function downloadExampleRecording(
-  recording: ExampleRecording,
-  onProgress?: RecordingProgress,
-): Promise<CachedRecording> {
-  const existing = cachedRecordingsByFile.get(recording.dataFile);
-  if (existing) {
-    setRecordingState(recording.dataFile, { kind: 'downloaded', cached: existing });
-    onProgress?.(existing.blob.size, existing.blob.size);
-    return Promise.resolve(existing);
-  }
-
-  const active = recordingDownloadsByFile.get(recording.dataFile);
-  if (active) {
-    if (onProgress) active.listeners.add(onProgress);
-    return active.promise;
-  }
-
-  const listeners = new Set<RecordingProgress>();
-  if (onProgress) listeners.add(onProgress);
-  const reportProgress = (received: number, expected: number) => {
-    setRecordingState(recording.dataFile, { kind: 'downloading', received, expected });
-    for (const listener of listeners) listener(received, expected);
-  };
-  setRecordingState(recording.dataFile, {
-    kind: 'downloading',
-    received: 0,
-    expected: recording.byteLength,
-  });
-  const promise = (async () => {
-    try {
-      const response = await fetch(recording.downloadUrl);
-      if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
-      if (!response.body) throw new Error('streaming response body is unavailable');
-      const headerLength = Number(response.headers.get('Content-Length'));
-      const expected = Number.isFinite(headerLength) && headerLength > 0
-        ? headerLength : recording.byteLength;
-      const reader = response.body.getReader();
-      const chunks: ArrayBuffer[] = [];
-      let received = 0;
-      reportProgress(received, expected);
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        const chunk = new ArrayBuffer(value.byteLength);
-        new Uint8Array(chunk).set(value);
-        chunks.push(chunk);
-        received += value.byteLength;
-        reportProgress(received, expected);
-      }
-      if (expected > 0 && received !== expected)
-        throw new Error(`incomplete download (${received} of ${expected} bytes)`);
-      const cached: CachedRecording = {
-        recording,
-        blob: new Blob(chunks, { type: 'application/octet-stream' }),
-        virtualPath: '/recordings/' + recording.dataFile,
-      };
-      cachedRecordingsByFile.set(recording.dataFile, cached);
-      cachedRecordingsByPath.set(cached.virtualPath, cached);
-      setRecordingState(recording.dataFile, { kind: 'downloaded', cached });
-      return cached;
-    } catch (error) {
-      setRecordingState(recording.dataFile, { kind: 'error' });
-      throw error;
-    }
-  })();
-  recordingDownloadsByFile.set(recording.dataFile, { promise, listeners });
-  void promise.then(
-    () => recordingDownloadsByFile.delete(recording.dataFile),
-    () => recordingDownloadsByFile.delete(recording.dataFile),
-  );
-  return promise;
+async function resolveRemoteRecording(path: string): Promise<ExampleRecording | undefined> {
+  const existing = remoteRecordingsByPath.get(path);
+  if (existing) return existing;
+  await loadExampleRecordings();
+  return remoteRecordingsByPath.get(path);
 }
 
 function flowgraphRecordingPaths(doc: any): string[] {
@@ -2807,26 +2839,21 @@ function flowgraphRecordingPaths(doc: any): string[] {
   return [...paths];
 }
 
-async function cacheFlowgraphRecordings(doc: any, exampleName: string) {
+async function bindFlowgraphRecordings(doc: any, exampleName: string) {
   const paths = flowgraphRecordingPaths(doc);
   if (!paths.length) return;
   try {
     const recordings = await loadExampleRecordings();
     const byPath = new Map(recordings.map(recording =>
-      ['/recordings/' + recording.dataFile, recording] as const));
+      [bindRemoteRecording(recording), recording] as const));
     const missing = paths.filter(path => !byPath.has(path));
     for (const path of missing)
       log(`example "${exampleName}" references unavailable recording "${path}"`);
-    const needed = paths
-      .filter(path => !cachedRecordingsByPath.has(path))
-      .map(path => byPath.get(path))
-      .filter((recording): recording is ExampleRecording => !!recording);
-    if (!needed.length) return;
-    log(`downloading ${needed.length} recording${needed.length === 1 ? '' : 's'} for example "${exampleName}"…`);
-    await Promise.all(needed.map(recording => downloadExampleRecording(recording)));
-    log(`downloaded ${needed.length} recording${needed.length === 1 ? '' : 's'} for example "${exampleName}"`);
+    const ready = paths.filter(path => byPath.has(path)).length;
+    if (ready)
+      log(`ready to stream ${ready} recording${ready === 1 ? '' : 's'} for example "${exampleName}"`);
   } catch (error) {
-    log(`recordings for example "${exampleName}" not downloaded: ${error}`);
+    log(`recordings for example "${exampleName}" unavailable: ${error}`);
   }
 }
 
@@ -2919,15 +2946,16 @@ function isCi16Datatype(datatype: string | null): boolean {
   return /^ci16(?:_le)?$/i.test(datatype?.trim() || '');
 }
 
-async function addRecordingFileSource(cached: CachedRecording, format: FileSourceFormat) {
+async function addRecordingFileSource(recording: ExampleRecording, format: FileSourceFormat) {
   await paletteReady;
-  const addIShortToComplex = isCi16Datatype(cached.recording.datatype);
+  const addIShortToComplex = isCi16Datatype(recording.datatype);
   const converterId = 'blocks_interleaved_short_to_complex';
   if (addIShortToComplex && !RUNNABLE[converterId])
     throw new Error('IShort To Complex is not available');
 
+  const virtualPath = bindRemoteRecording(recording);
   const block = addBlock('blocks_file_source', undefined, undefined, {
-    file: cached.virtualPath,
+    file: virtualPath,
     type: format.type,
     repeat: 'False',
     vlen: format.vlen,
@@ -2951,13 +2979,13 @@ async function addRecordingFileSource(cached: CachedRecording, format: FileSourc
     selectedConnection = null;
     render();
     recordHistory();
-    log(`added File Source and IShort To Complex for "${cached.recording.name}"`);
+    log(`added streaming File Source and IShort To Complex for "${recording.name}"`);
     return;
   }
 
   render();
   recordHistory();
-  log(`added File Source for "${cached.recording.name}"`);
+  log(`added streaming File Source for "${recording.name}"`);
 }
 
 async function buildRecordings(panel: HTMLElement) {
@@ -2980,7 +3008,7 @@ async function buildRecordings(panel: HTMLElement) {
     const title = document.createElement('div'); title.className = 'rec-title';
     title.textContent = recording.name;
     const badge = document.createElement('span'); badge.className = 'rec-badge';
-    badge.textContent = 'Download';
+    badge.textContent = 'Stream';
     head.append(title, badge);
     const props = document.createElement('dl'); props.className = 'rec-props';
     const addProperty = (label: string, value: string | number | null) => {
@@ -3024,12 +3052,9 @@ async function buildRecordings(panel: HTMLElement) {
     viewLink.onclick = event => event.stopPropagation();
     viewVal.append(viewLink);
     props.append(viewKey, viewVal);
-    const progress = document.createElement('div'); progress.className = 'rec-progress'; progress.hidden = true;
-    const track = document.createElement('div'); track.className = 'rec-progress-track';
-    const fill = document.createElement('div'); fill.className = 'rec-progress-fill'; track.append(fill);
-    const progressText = document.createElement('div'); progressText.className = 'rec-progress-text';
-    progress.append(track, progressText);
-    item.append(head, props, progress); list.append(item);
+    const streamNote = document.createElement('div'); streamNote.className = 'rec-progress';
+    streamNote.textContent = 'Read on demand in bounded byte ranges while the flowgraph runs.';
+    item.append(head, props, streamNote); list.append(item);
 
     const format = sigmfFileSourceFormat(recording.datatype);
     if (!format) {
@@ -3039,47 +3064,11 @@ async function buildRecordings(panel: HTMLElement) {
       continue;
     }
 
-    let downloading = false;
-    subscribeRecordingState(recording.dataFile, state => {
-      item.classList.remove('downloading', 'downloaded', 'error');
-      if (state.kind === 'downloading') {
-        downloading = true;
-        item.classList.add('downloading');
-        badge.textContent = 'Downloading';
-        progress.hidden = false;
-        const percent = state.expected > 0
-          ? Math.min(100, state.received / state.expected * 100) : 0;
-        fill.style.width = `${percent}%`;
-        progressText.textContent =
-          `${displayBytes(state.received)} / ${displayBytes(state.expected)}`;
-      } else if (state.kind === 'downloaded') {
-        downloading = false;
-        item.classList.add('downloaded');
-        badge.textContent = '✓ Downloaded';
-        progress.hidden = false;
-        fill.style.width = '100%';
-        progressText.textContent = `${displayBytes(state.cached.blob.size)} downloaded`;
-      } else {
-        downloading = false;
-        item.classList.add('error');
-        badge.textContent = 'Retry';
-        progress.hidden = false;
-        progressText.textContent = 'Download failed';
-      }
-    });
     const useRecording = async () => {
-      if (downloading) return;
-      const existing = cachedRecordingsByFile.get(recording.dataFile);
-      if (existing) {
-        await addRecordingFileSource(existing, format);
-        return;
-      }
-
       try {
-        const cached = await downloadExampleRecording(recording);
-        await addRecordingFileSource(cached, format);
+        await addRecordingFileSource(recording, format);
       } catch (error) {
-        log(`recording "${recording.name}" not downloaded: ${error}`);
+        log(`recording "${recording.name}" could not be added: ${error}`);
       }
     };
     item.onclick = () => { void useRecording(); };

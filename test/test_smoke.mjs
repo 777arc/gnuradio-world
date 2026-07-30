@@ -17,9 +17,10 @@
 // Serves the repository root (COOP/COEP, as SharedArrayBuffer requires) so there is no
 // background server to manage. Exits non-zero if any case fails.
 import http from 'node:http';
-import { readFile } from 'node:fs/promises';
+import { mkdtemp, open, readFile, rm } from 'node:fs/promises';
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { extname, join, normalize } from 'node:path';
+import { tmpdir } from 'node:os';
 import puppeteer from 'puppeteer-core';
 
 const ROOT = normalize(new URL('..', import.meta.url).pathname);
@@ -33,6 +34,7 @@ const OFFSET_RECORDING_PATH = '/recordings/fm_rds_250k_1Msamples.sigmf-data';
 const OFFSET_RECORDING_BASE64 =
   'dMG5PFtRrb3Awd88U7GpvUWBojxmwbK9gAHAOGlBtL3DgWG8WAGsvXFBuLxLsaW9/4H/vEAhoL064Ry9PBGevQ==';
 const OFFSET_SAMPLE = 3;
+const rangeRequests = [];
 
 // Flowgraphs to run. Each .grc is handed straight to runner.html, which is NOT
 // the editor's Run path: parameter expressions are resolved by the editor
@@ -73,8 +75,27 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(200);
       return res.end('<!doctype html><title>Recording test harness</title>');
     }
+    if (p === '/__range_recording__') {
+      const bytes = Buffer.from(OFFSET_RECORDING_BASE64, 'base64');
+      const match = /^bytes=(\d+)-(\d+)$/.exec(req.headers.range || '');
+      if (!match) { res.writeHead(400); return res.end('Range required'); }
+      const start = Number(match[1]), end = Number(match[2]);
+      rangeRequests.push({ start, end });
+      if (start < 0 || end < start || end >= bytes.length) {
+        res.setHeader('Content-Range', `bytes */${bytes.length}`);
+        res.writeHead(416); return res.end();
+      }
+      const body = bytes.subarray(start, end + 1);
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Accept-Ranges', 'bytes');
+      res.setHeader('Content-Range', `bytes ${start}-${end}/${bytes.length}`);
+      res.setHeader('Content-Length', body.length);
+      res.writeHead(206);
+      return res.end(body);
+    }
     if (p.endsWith('/')) p += 'index.html';
-    const fp = normalize(join(ROOT, p));
+    const editorAsset = p === '/index.html' || p === '/blocks.json' || p.startsWith('/assets/');
+    const fp = normalize(join(editorAsset ? join(ROOT, 'editor/dist') : ROOT, p));
     if (!fp.startsWith(ROOT)) { res.writeHead(403); return res.end(); }
     const body = await readFile(fp);
     res.setHeader('Content-Type', MIME[extname(fp)] || 'application/octet-stream');
@@ -216,6 +237,182 @@ for (const test of CASES) {
   console.log(`   observed: ${probe ? JSON.stringify(probe.value) : '(no probe value)'}`);
   if (!ok && logs.length) console.log('   logs: ' + logs.slice(-4).join('\n         '));
   await page.close();
+}
+
+// Exercise the HTTP backend. The test server refuses requests without Range,
+// so this cannot accidentally pass by downloading the complete recording.
+{
+  const test = {
+    name: 'File Source streams an example recording with bounded HTTP ranges',
+    grc: 'test/fixtures/file_source_offset.grc',
+  };
+  const page = await browser.newPage();
+  const logs = [];
+  page.on('console', m => logs.push(m.text()));
+  page.on('pageerror', e => logs.push('PAGEERROR ' + e.message));
+
+  const grc = readFileSync(join(ROOT, test.grc), 'utf8');
+  const bytes = Buffer.from(OFFSET_RECORDING_BASE64, 'base64');
+  const expected = [
+    bytes.readFloatLE(OFFSET_SAMPLE * 8),
+    bytes.readFloatLE(OFFSET_SAMPLE * 8 + 4),
+  ];
+  rangeRequests.length = 0;
+  await page.goto(`http://localhost:${PORT}/__recording_test__`,
+                  { waitUntil: 'load', timeout: 30000 });
+  await page.evaluate(({ grc, recordingPath, size, port }) => {
+    window.__grTakeRecordingFiles = token => token === 'range-test'
+      ? [{
+          kind: 'http',
+          path: recordingPath,
+          url: `http://localhost:${port}/__range_recording__`,
+          size,
+        }]
+      : [];
+    const frame = document.createElement('iframe');
+    frame.id = 'runner';
+    frame.src = '/runner/build/runner.html?recordingToken=range-test#' +
+      encodeURIComponent(grc);
+    document.body.appendChild(frame);
+  }, {
+    grc,
+    recordingPath: OFFSET_RECORDING_PATH,
+    size: bytes.length,
+    port: PORT,
+  });
+
+  let verdict = '(no #result)', probe = null, fileStats = [];
+  try {
+    await page.waitForFunction(() => {
+      const frame = document.getElementById('runner');
+      const result = frame?.contentDocument?.getElementById('result');
+      return result && result.dataset.status !== 'pending';
+    }, { timeout: 60000, polling: 200 });
+    verdict = await page.evaluate(() =>
+      document.getElementById('runner').contentDocument.getElementById('result').textContent);
+    await page.waitForFunction(() => {
+      const runner = document.getElementById('runner')?.contentWindow;
+      if (!runner?.__grstats) return false;
+      return JSON.parse(runner.__grstats).blocks.find(item => item.name === 'probe')?.items === 1;
+    }, { timeout: 10000, polling: 100 });
+    ({ probe, fileStats } = await page.evaluate(() => {
+      const runner = document.getElementById('runner').contentWindow;
+      return {
+        probe: JSON.parse(runner.__grstats).blocks.find(item => item.name === 'probe'),
+        fileStats: Object.values(runner.__grFileStats || {}),
+      };
+    }));
+  } catch { /* report captured state below */ }
+
+  const valueOk = probe?.value?.length === 2 &&
+    Math.abs(probe.value[0] - expected[0]) <= 1e-7 &&
+    Math.abs(probe.value[1] - expected[1]) <= 1e-7;
+  const expectedStart = OFFSET_SAMPLE * 8;
+  const rangesOk = rangeRequests.length === 1 &&
+    rangeRequests[0].start === expectedStart &&
+    rangeRequests[0].end === expectedStart + 7;
+  const bounded = fileStats.length === 1 &&
+    fileStats[0].maxChunkBytes <= 2 * 1024 * 1024 &&
+    fileStats[0].bytesRead === 8;
+  const ok = verdict.includes('RUNNER_PASS') && valueOk && rangesOk && bounded;
+  allOk = allOk && ok;
+  console.log(`\n[${ok ? 'OK' : 'FAIL'}] ${test.name}  (${test.grc})`);
+  console.log(`   ${verdict.trim()}`);
+  console.log(`   ranges: ${JSON.stringify(rangeRequests)}  stats: ${JSON.stringify(fileStats)}`);
+  if (!ok && logs.length) console.log('   logs: ' + logs.slice(-6).join('\n         '));
+  await page.close();
+}
+
+// Select a sparse >4 GiB file through the actual editor UI and read one byte
+// beyond the 32-bit boundary. A whole-file implementation would OOM; a
+// truncated offset would observe the wrong byte.
+{
+  const test = {
+    name: 'Editor File Source streams a local file beyond 4 GiB',
+    grc: 'test/fixtures/local_file_source_large_offset.grc',
+  };
+  const largeOffset = 4294967312;
+  const expected = 0xa5;
+  const tempDir = await mkdtemp(join(tmpdir(), 'gnuradio-world-file-source-'));
+  const sparsePath = join(tempDir, 'large-sparse.bin');
+  const handle = await open(sparsePath, 'w');
+  await handle.truncate(largeOffset + 1);
+  await handle.write(Buffer.from([expected]), 0, 1, largeOffset);
+  await handle.close();
+
+  const page = await browser.newPage();
+  const logs = [];
+  page.on('console', m => logs.push(m.text()));
+  page.on('pageerror', e => logs.push('PAGEERROR ' + e.message));
+  let verdict = '(no #result)', probe = null, fileStats = [], selectedSize = null;
+  try {
+    await page.goto(`http://localhost:${PORT}/`, { waitUntil: 'networkidle0', timeout: 60000 });
+    const openInput = await page.$('#fileOpen');
+    await openInput.uploadFile(join(ROOT, test.grc));
+    await page.waitForFunction(() =>
+      [...document.querySelectorAll('#nodes .title')]
+        .some(node => node.textContent === 'File Source'), { timeout: 10000 });
+
+    await page.evaluate(() => {
+      const title = [...document.querySelectorAll('#nodes .title')]
+        .find(node => node.textContent === 'File Source');
+      const group = title?.closest('.blk');
+      group?.dispatchEvent(new MouseEvent('contextmenu', {
+        bubbles: true, cancelable: true, clientX: 200, clientY: 200,
+      }));
+    });
+    await page.evaluate(() => {
+      const properties = [...document.querySelectorAll('.ctxitem')]
+        .find(item => item.textContent === 'Properties');
+      properties?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await page.waitForSelector('.file-picker-native');
+    await (await page.$('.file-picker-native')).uploadFile(sparsePath);
+    selectedSize = await page.$eval(
+      '.file-picker-native', input => input.files?.[0]?.size ?? null);
+    await page.evaluate(() => {
+      const ok = [...document.querySelectorAll('.dlgfoot button')]
+        .find(button => button.textContent === 'OK');
+      ok?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await page.click('button[aria-label="Execute"]');
+    await page.waitForFunction(() => {
+      const frame = document.getElementById('runFrame');
+      const result = frame?.contentDocument?.getElementById('result');
+      return result && result.dataset.status !== 'pending';
+    }, { timeout: 60000, polling: 200 });
+    verdict = await page.evaluate(() =>
+      document.getElementById('runFrame').contentDocument.getElementById('result').textContent);
+    await page.waitForFunction(() => {
+      const runner = document.getElementById('runFrame')?.contentWindow;
+      if (!runner?.__grstats) return false;
+      return JSON.parse(runner.__grstats).blocks.find(item => item.name === 'probe')?.items === 1;
+    }, { timeout: 10000, polling: 100 });
+    ({ probe, fileStats } = await page.evaluate(() => {
+      const runner = document.getElementById('runFrame').contentWindow;
+      return {
+        probe: JSON.parse(runner.__grstats).blocks.find(item => item.name === 'probe'),
+        fileStats: Object.values(runner.__grFileStats || {}),
+      };
+    }));
+  } catch (error) {
+    logs.push('TESTERROR ' + error.message);
+  } finally {
+    await page.close();
+    await rm(tempDir, { recursive: true, force: true });
+  }
+
+  const bounded = fileStats.length === 1 &&
+    fileStats[0].ringBytes <= 16 * 1024 * 1024 &&
+    fileStats[0].maxChunkBytes <= 2 * 1024 * 1024 &&
+    fileStats[0].bytesRead === 1;
+  const ok = verdict.includes('RUNNER_PASS') && probe?.value === expected && bounded;
+  allOk = allOk && ok;
+  console.log(`\n[${ok ? 'OK' : 'FAIL'}] ${test.name}  (${test.grc})`);
+  console.log(`   ${verdict.trim()}`);
+  console.log(`   selected size: ${selectedSize}  observed: ${probe?.value ?? '(no probe)'}  ` +
+              `stats: ${JSON.stringify(fileStats)}`);
+  if (!ok && logs.length) console.log('   logs: ' + logs.slice(-8).join('\n         '));
 }
 
 await browser.close();

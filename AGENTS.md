@@ -777,6 +777,28 @@ writes before publishing them to readers. It uses twice the physical buffer
 memory and one mirror copy per produced byte because WebAssembly cannot create
 true VM aliases. See [docs/double-mapped-buffer.md](docs/double-mapped-buffer.md).
 
+### Browser-backed File Source
+
+The WASM registry replaces GNU Radio's POSIX-backed `blocks_file_source` with
+`runner/src/browser_file_source.cpp`. A File Source can be bound either to a
+local `File` selected with the editor's Properties → Browse control or to an
+example recording URL from Pages/R2. The binding is session-only: `.grc` files
+keep the human-readable filename or `/recordings/...` path and never serialize a
+browser file handle.
+
+Each running source owns a `browser_file_reader.js` worker. It reads local files
+with bounded `File.slice()` calls and remote recordings with required HTTP Range
+requests, then feeds a fixed 16 MiB ring in shared WASM memory. Individual reads
+are capped at 2 MiB, so source memory is independent of recording size. Servers
+must return `206` with a matching `Content-Range`; a `200` response is rejected
+before its body is consumed. Keep R2's CORS policy in `scripts/r2-cors.json`
+configured to allow the `Range` request header and expose `Content-Range`.
+
+`test/test_smoke.mjs` covers both backends. Its local-file case selects a sparse
+file larger than 4 GiB through the actual editor and reads beyond the 32-bit
+boundary; its HTTP endpoint refuses non-Range requests and verifies the exact
+range consumed.
+
 ## Continuous integration
 
 `.github/workflows/deploy-wasm.yml` builds the whole stack from source and

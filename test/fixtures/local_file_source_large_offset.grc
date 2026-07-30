@@ -1,0 +1,35 @@
+options:
+    parameters:
+        id: local_file_source_large_offset
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: source
+    id: blocks_file_source
+    parameters:
+        begin_tag: pmt.PMT_NIL
+        file: select-in-browser.bin
+        length: '1'
+        offset: '4294967312'
+        repeat: 'False'
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [80, 80]
+        rotation: 0
+        state: enabled
+-   name: probe
+    id: blocks_probe_signal_x
+    parameters:
+        type: byte
+    states:
+        coordinate: [330, 80]
+        rotation: 0
+        state: enabled
+connections:
+- [source, '0', probe, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0

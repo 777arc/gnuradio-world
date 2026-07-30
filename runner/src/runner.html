@@ -28,30 +28,108 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
     <div id="screen"></div>
 
     <script type="text/javascript">
-      async function recordingFilesForRun(status) {
+      function inputSourcesForRun() {
         const token = new URLSearchParams(location.search).get('recordingToken');
         if (!token) return [];
         if (window.parent === window ||
             typeof window.parent.__grTakeRecordingFiles !== 'function')
-          throw new Error('recording cache is unavailable');
+          throw new Error('browser file bindings are unavailable');
 
         const descriptors = window.parent.__grTakeRecordingFiles(token);
-        const files = [];
-        for (let index = 0; index < descriptors.length; ++index) {
-          const descriptor = descriptors[index];
-          if (!descriptor.blob || typeof descriptor.blob.arrayBuffer !== 'function' ||
-              typeof descriptor.path !== 'string' ||
-              !descriptor.path.startsWith('/recordings/'))
-            throw new Error('invalid cached recording');
-          status.textContent =
-            `Preparing recording ${index + 1} of ${descriptors.length}…`;
-          files.push({
-            path: descriptor.path,
-            data: new Uint8Array(await descriptor.blob.arrayBuffer()),
-          });
-        }
-        return files;
+        return descriptors.map(descriptor => {
+          if (typeof descriptor.path !== 'string' ||
+              (!descriptor.path.startsWith('/recordings/') &&
+               !descriptor.path.startsWith('/local-files/')))
+            throw new Error('invalid browser file path');
+          // Accept the old {blob} shape during local development so an editor
+          // and runner rebuilt in either order fail gracefully.
+          if (descriptor.kind === 'local' || descriptor.blob) {
+            const file = descriptor.file || descriptor.blob;
+            if (!file || typeof file.slice !== 'function' ||
+                !Number.isSafeInteger(file.size))
+              throw new Error('invalid local browser file');
+            return { kind: 'local', path: descriptor.path, file, size: file.size };
+          }
+          if (descriptor.kind === 'http') {
+            if (typeof descriptor.url !== 'string' ||
+                !Number.isSafeInteger(descriptor.size) || descriptor.size < 0)
+              throw new Error('invalid remote browser file');
+            return {
+              kind: 'http',
+              path: descriptor.path,
+              url: new URL(descriptor.url, location.href).href,
+              size: descriptor.size,
+            };
+          }
+          throw new Error('unknown browser file source');
+        });
       }
+
+      // BrowserFileSource.start() is called from GNU Radio's scheduler-launch
+      // pthread and proxies here only to create a dedicated reader worker. The
+      // reader and DSP block then communicate exclusively through atomics in a
+      // fixed-size ring in shared WebAssembly.Memory.
+      let nextFileReaderId = 1;
+      const fileReaders = new Map();
+      window.__grFileStats = Object.create(null);
+      window.__grStartBrowserFileSource = (
+        path, memory, ringPointer, capacityItems, itemSize,
+        controlPointer, errorPointer, offsetItems, lengthItems, repeat
+      ) => {
+        const source = window.__grInputSources && window.__grInputSources[path];
+        if (!source) throw new Error(`file is not bound in this session: ${path}`);
+        const id = nextFileReaderId++;
+        const workerUrl = new URL('browser_file_reader.js', location.href);
+        if (window.__grBuildStamp) workerUrl.searchParams.set('v', window.__grBuildStamp);
+        const worker = new Worker(workerUrl);
+        const stats = {
+          path,
+          ringBytes: capacityItems * itemSize,
+          maxChunkBytes: 0,
+          bytesRead: 0,
+          state: 'starting',
+        };
+        window.__grFileStats[id] = stats;
+        fileReaders.set(id, worker);
+        worker.onmessage = event => {
+          const message = event.data || {};
+          if (Number.isFinite(message.bytesRead)) stats.bytesRead = message.bytesRead;
+          if (Number.isFinite(message.maxChunkBytes))
+            stats.maxChunkBytes = Math.max(stats.maxChunkBytes, message.maxChunkBytes);
+          if (message.type) stats.state = message.type;
+          if (message.type === 'error') console.error(`File Source ${path}: ${message.message}`);
+          if (message.type === 'eof' || message.type === 'cancelled' || message.type === 'error')
+            fileReaders.delete(id);
+        };
+        worker.onerror = event => {
+          stats.state = 'error';
+          console.error(`File Source worker ${path}: ${event.message || 'worker error'}`);
+          fileReaders.delete(id);
+        };
+        worker.postMessage({
+          source,
+          memory,
+          ringPointer,
+          capacityItems,
+          itemSize,
+          controlPointer,
+          errorPointer,
+          errorCapacity: 512,
+          offsetItems,
+          lengthItems,
+          repeat,
+        });
+        stats.state = 'running';
+        return id;
+      };
+      window.__grStopBrowserFileSource = id => {
+        const worker = fileReaders.get(id);
+        if (worker) worker.terminate();
+        fileReaders.delete(id);
+        const stats = window.__grFileStats[id];
+        if (stats && stats.state !== 'eof' && stats.state !== 'error')
+          stats.state = 'cancelled';
+      };
 
       // Mirror the flowgraph's stdout into the editor's console pane.
       //
@@ -101,12 +179,12 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
         try {
           showUi(spinner);
           status.textContent = 'Loading…';
-          const recordingFiles = await recordingFilesForRun(status);
+          const inputSources = inputSourcesForRun();
           status.textContent = 'Loading GNU Radio…';
-          window.__grRecordingData = Object.create(null);
-          for (const file of recordingFiles)
-            window.__grRecordingData[file.path] = file.data;
-          window.__grMountedRecordings = recordingFiles.map(file => file.path);
+          window.__grInputSources = Object.create(null);
+          for (const source of inputSources)
+            window.__grInputSources[source.path] = source;
+          window.__grMountedRecordings = inputSources.map(source => source.path);
 
           const instance = await qtLoad({
             // runner.js and runner.wasm are one indivisible build: emcc bakes
