@@ -49,7 +49,8 @@ using grc_lower::is_variable_control;
 static bool is_runtime_object(const std::string& id)
 {
     return id == "variable_constellation" ||
-           id == "variable_constellation_rect";
+           id == "variable_constellation_rect" ||
+           id == "variable_cc_decoder_def";
 }
 
 static nlohmann::json resolve_variables(
@@ -120,8 +121,9 @@ static void post_error_to_editor(const std::string& msg) {
 // thread_body_wrapper catches when a block's work() throws — through spdlog. In
 // this build its default backend has NO sinks: gr::logging reads the sink from
 // the "log_file" pref, which is empty because there is no config file in the
-// browser, so every message is dropped. (Emscripten's stdout/stderr are not
-// visible here either.) Forward errors to the same places a failed run goes.
+// browser, so every message is dropped. (Plain stdout is a separate path: it
+// reaches console.log, and runner.html forwards it to the editor's console
+// pane.) Forward errors to the same places a failed run goes.
 class BrowserLogSink : public spdlog::sinks::base_sink<std::mutex> {
 protected:
     void sink_it_(const spdlog::details::log_msg& msg) override {
@@ -453,6 +455,11 @@ static std::string build_stats_json() {
         b["name"] = sb.name;
         b["id"] = sb.id;
         b["ref"] = sb.is_ref;
+        // Message-only blocks (no stream port on either side: PDU croppers, CRC
+        // checkers, framers) have no item counter at all, so "items" below stays
+        // 0 for them however well they are working. Flag them so consumers can
+        // tell "moved nothing" apart from "has nothing to count".
+        b["msg_only"] = !sb.has_out && !sb.has_in;
         // Cumulative item count at a representative port; JS differentiates it
         // over the poll interval to get items/s (true flow, indep. of counters).
         uint64_t items = 0;

@@ -1,0 +1,134 @@
+options:
+    parameters:
+        id: wasm_satellites_demodulators
+        title: gr-satellites demodulator components
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: iq
+    id: analog_sig_source_x
+    parameters:
+        type: complex
+        samp_rate: '48000'
+        waveform: analog.GR_COS_WAVE
+        freq: '1700'
+        amp: '0.5'
+        offset: '0'
+        phase: '0'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: iq_throttle
+    id: blocks_throttle
+    parameters:
+        type: complex
+        samp_rate: '48000'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: fsk
+    id: satellites_fsk_demodulator
+    parameters:
+        baudrate: '1200'
+        samp_rate: '48000'
+        iq: 'True'
+        subaudio: 'False'
+        options: '""'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: fsk_sink
+    id: blocks_null_sink
+    parameters:
+        type: float
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: afsk
+    id: satellites_afsk_demodulator
+    parameters:
+        baudrate: '1200'
+        samp_rate: '48000'
+        af_carrier: '1700'
+        deviation: '500'
+        iq: 'True'
+        options: '""'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: afsk_sink
+    id: blocks_null_sink
+    parameters:
+        type: float
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: bpsk
+    id: satellites_bpsk_demodulator
+    parameters:
+        baudrate: '1200'
+        samp_rate: '48000'
+        f_offset: '0'
+        differential: 'False'
+        manchester: 'False'
+        iq: 'True'
+        options: '""'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: bpsk_sink
+    id: blocks_null_sink
+    parameters:
+        type: float
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: bpsk_diff
+    id: satellites_bpsk_demodulator
+    parameters:
+        baudrate: '1200'
+        samp_rate: '48000'
+        f_offset: '0'
+        differential: 'True'
+        manchester: 'True'
+        iq: 'True'
+        options: '""'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: bpsk_diff_sink
+    id: blocks_null_sink
+    parameters:
+        type: float
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+connections:
+- [iq, '0', iq_throttle, '0']
+- [iq_throttle, '0', fsk, '0']
+- [fsk, '0', fsk_sink, '0']
+- [iq_throttle, '0', afsk, '0']
+- [afsk, '0', afsk_sink, '0']
+- [iq_throttle, '0', bpsk, '0']
+- [bpsk, '0', bpsk_sink, '0']
+- [iq_throttle, '0', bpsk_diff, '0']
+- [bpsk_diff, '0', bpsk_diff_sink, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0

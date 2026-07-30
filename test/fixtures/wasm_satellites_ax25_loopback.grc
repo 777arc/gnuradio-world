@@ -1,0 +1,158 @@
+options:
+    parameters:
+        id: wasm_satellites_ax25_loopback
+        title: gr-satellites AX.25 framer/deframer loopback
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: payload
+    id: blocks_vector_source_x
+    parameters:
+        type: byte
+        vector: '[130, 160, 144, 100, 96, 100, 96, 154, 96, 168, 144, 152, 64, 97, 3, 240, 72, 101, 108, 108, 111, 32, 65, 88, 46, 50, 53]'
+        repeat: 'True'
+        vlen: '1'
+        tags: '[]'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: throttle
+    id: blocks_throttle
+    parameters:
+        type: byte
+        samp_rate: '54000'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: tagger
+    id: blocks_stream_to_tagged_stream
+    parameters:
+        type: byte
+        vlen: '1'
+        packet_len: '27'
+        len_tag_key: packet_len
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: to_pdu
+    id: pdu_tagged_stream_to_pdu
+    parameters:
+        type: byte
+        tag: packet_len
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: framer
+    id: satellites_hdlc_framer
+    parameters:
+        preamble_bytes: '16'
+        postamble_bytes: '4'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: bits
+    id: pdu_pdu_to_stream_x
+    parameters:
+        type: byte
+        early_behavior: pdu.EARLY_BURST_APPEND
+        depth: '4096'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: nrzi_encode
+    id: satellites_nrzi_encode
+    parameters: {}
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: scrambler
+    id: digital_scrambler_bb
+    parameters:
+        mask: '0x21'
+        seed: '0'
+        len: '16'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: to_float
+    id: blocks_char_to_float
+    parameters:
+        vlen: '1'
+        scale: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: centre
+    id: blocks_add_const_vxx
+    parameters:
+        type: float
+        const: '-0.5'
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: deframer
+    id: satellites_ax25_deframer
+    parameters:
+        g3ruh_scrambler: 'True'
+        options: '""'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: frames
+    id: pdu_pdu_to_stream_x
+    parameters:
+        type: byte
+        early_behavior: pdu.EARLY_BURST_APPEND
+        depth: '4096'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: frame_sink
+    id: blocks_null_sink
+    parameters:
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+connections:
+- [payload, '0', throttle, '0']
+- [throttle, '0', tagger, '0']
+- [tagger, '0', to_pdu, '0']
+- [bits, '0', nrzi_encode, '0']
+- [nrzi_encode, '0', scrambler, '0']
+- [scrambler, '0', to_float, '0']
+- [to_float, '0', centre, '0']
+- [centre, '0', deframer, '0']
+- [frames, '0', frame_sink, '0']
+-   src_blk_id: to_pdu
+    src_port_id: pdus
+    snk_blk_id: framer
+    snk_port_id: in
+-   src_blk_id: framer
+    src_port_id: out
+    snk_blk_id: bits
+    snk_port_id: pdus
+-   src_blk_id: deframer
+    src_port_id: out
+    snk_blk_id: frames
+    snk_port_id: pdus
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0

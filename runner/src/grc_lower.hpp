@@ -69,8 +69,17 @@ inline json lower(const json& g) {
     for (const auto& b : blocks) {
         if (!b.contains("name") || !b["name"].is_string()) continue;
         std::string st = "enabled";
-        if (b.contains("states") && b["states"].is_object())
-            st = b["states"].value("state", std::string("enabled"));
+        if (b.contains("states") && b["states"].is_object()) {
+            // GRC writes `state: enabled|disabled|bypassed`, but files saved by
+            // older versions (several gr-satellites examples) carry the boolean
+            // `state: true|false` instead.
+            const auto& s = b["states"];
+            auto it = s.find("state");
+            if (it != s.end() && it->is_boolean())
+                st = it->get<bool>() ? "enabled" : "disabled";
+            else if (it != s.end() && it->is_string())
+                st = it->get<std::string>();
+        }
         stateOf[b["name"].get<std::string>()] = st;
     }
     auto enabled = [&](const std::string& n) { auto it = stateOf.find(n); return it != stateOf.end() && it->second != "disabled"; };

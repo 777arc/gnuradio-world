@@ -1,0 +1,362 @@
+options:
+    parameters:
+        author: gr-satellites (Daniel Estevez), adapted for WebAssembly
+        copyright: ''
+        description: 'AX.25 over AFSK, transmitted and received in one flowgraph. Adapted from gr-satellites examples/ax25/afsk.grc: the audio card round trip is replaced by a single Throttle that paces the payload, and the KISS/TCP interface by a vector source of one AX.25 frame plus a Message Debug sink. The receive chain is unchanged - 1700 Hz AFSK with 500 Hz deviation, Gardner symbol sync, NRZ-I decoding and HDLC deframing with an FCS check.'
+        generate_options: qt_gui
+        id: satellites_ax25_afsk
+        title: AX.25 AFSK loopback (gr-satellites)
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: samp_rate
+    id: variable
+    parameters:
+        value: '48000'
+    states:
+        coordinate: [200, 40]
+        rotation: 0
+        state: enabled
+-   name: samp_per_sym
+    id: variable
+    parameters:
+        value: '40'
+    states:
+        coordinate: [340, 40]
+        rotation: 0
+        state: enabled
+-   name: baudrate
+    id: variable
+    parameters:
+        value: samp_rate/samp_per_sym
+    states:
+        coordinate: [480, 40]
+        rotation: 0
+        state: enabled
+-   name: payload
+    id: blocks_vector_source_x
+    parameters:
+        type: byte
+        vector: '[130, 160, 144, 100, 96, 100, 96, 154, 96, 168, 144, 152, 64, 97, 3, 240, 72, 101, 108, 108, 111, 32, 102, 114, 111, 109, 32, 65, 88, 46, 50, 53]'
+        repeat: 'True'
+        vlen: '1'
+        tags: '[]'
+    states:
+        coordinate: [40, 300]
+        rotation: 0
+        state: enabled
+-   name: payload_throttle
+    id: blocks_throttle
+    parameters:
+        type: byte
+        samp_rate: samp_rate
+    states:
+        coordinate: [200, 300]
+        rotation: 0
+        state: enabled
+-   name: frame_tagger
+    id: blocks_stream_to_tagged_stream
+    parameters:
+        type: byte
+        vlen: '1'
+        packet_len: '32'
+        len_tag_key: packet_len
+    states:
+        coordinate: [360, 300]
+        rotation: 0
+        state: enabled
+-   name: to_pdu
+    id: pdu_tagged_stream_to_pdu
+    parameters:
+        type: byte
+        tag: packet_len
+    states:
+        coordinate: [560, 300]
+        rotation: 0
+        state: enabled
+-   name: hdlc_framer
+    id: satellites_hdlc_framer
+    parameters:
+        preamble_bytes: '50'
+        postamble_bytes: '7'
+    states:
+        coordinate: [720, 300]
+        rotation: 0
+        state: enabled
+-   name: framed_bits
+    id: pdu_pdu_to_stream_x
+    parameters:
+        type: byte
+        early_behavior: pdu.EARLY_BURST_APPEND
+        depth: '4096'
+    states:
+        coordinate: [900, 300]
+        rotation: 0
+        state: enabled
+-   name: nrzi_encode
+    id: satellites_nrzi_encode
+    parameters: {}
+    states:
+        coordinate: [1080, 300]
+        rotation: 0
+        state: enabled
+-   name: repeat
+    id: blocks_repeat
+    parameters:
+        type: byte
+        interp: samp_per_sym
+        vlen: '1'
+    states:
+        coordinate: [1240, 300]
+        rotation: 0
+        state: enabled
+-   name: bits_to_float
+    id: blocks_char_to_float
+    parameters:
+        vlen: '1'
+        scale: '1'
+    states:
+        coordinate: [1400, 300]
+        rotation: 0
+        state: enabled
+-   name: fm_modulator
+    id: analog_frequency_modulator_fc
+    parameters:
+        sensitivity: 2*math.pi*1000/samp_rate
+    states:
+        coordinate: [1560, 300]
+        rotation: 0
+        state: enabled
+-   name: af_carrier
+    id: analog_sig_source_x
+    parameters:
+        type: complex
+        samp_rate: samp_rate
+        waveform: analog.GR_SIN_WAVE
+        frequency: '1200'
+        amplitude: '1'
+    states:
+        coordinate: [1400, 440]
+        rotation: 0
+        state: enabled
+-   name: upmix
+    id: blocks_multiply_xx
+    parameters:
+        type: complex
+        num_inputs: '2'
+        vlen: '1'
+    states:
+        coordinate: [1720, 300]
+        rotation: 0
+        state: enabled
+-   name: to_audio
+    id: blocks_complex_to_real
+    parameters:
+        vlen: '1'
+    states:
+        coordinate: [1880, 300]
+        rotation: 0
+        state: enabled
+-   name: analytic
+    id: hilbert_fc
+    parameters:
+        num_taps: '65'
+        win: window.WIN_HAMMING
+        beta: '6.76'
+    states:
+        coordinate: [220, 620]
+        rotation: 0
+        state: enabled
+-   name: lo
+    id: analog_sig_source_x
+    parameters:
+        type: complex
+        samp_rate: samp_rate
+        waveform: analog.GR_COS_WAVE
+        frequency: '-1700'
+        amplitude: '1'
+    states:
+        coordinate: [220, 760]
+        rotation: 0
+        state: enabled
+-   name: downmix
+    id: blocks_multiply_xx
+    parameters:
+        type: complex
+        num_inputs: '2'
+        vlen: '1'
+    states:
+        coordinate: [420, 620]
+        rotation: 0
+        state: enabled
+-   name: quad_demod
+    id: analog_quadrature_demod_cf
+    parameters:
+        gain: samp_rate/(2*math.pi*500)
+    states:
+        coordinate: [580, 620]
+        rotation: 0
+        state: enabled
+-   name: matched_filter
+    id: fir_filter_xxx
+    parameters:
+        type: fff
+        decim: '1'
+        taps: '[1/samp_per_sym] * samp_per_sym'
+        samp_delay: '0'
+    states:
+        coordinate: [760, 620]
+        rotation: 0
+        state: enabled
+-   name: symbol_sync
+    id: digital_symbol_sync_xx
+    parameters:
+        type: ff
+        ted_type: digital.TED_GARDNER
+        sps: samp_per_sym
+        loop_bw: '0.03'
+        damping: '1.0'
+        ted_gain: '1.0'
+        max_dev: '0.1'
+        osps: '1'
+        constellation: digital.constellation_bpsk().base()
+        resamp_type: digital.IR_MMSE_8TAP
+        nfilters: '128'
+        pfb_mf_taps: '[]'
+    states:
+        coordinate: [960, 620]
+        rotation: 0
+        state: enabled
+-   name: slicer
+    id: digital_binary_slicer_fb
+    parameters: {}
+    states:
+        coordinate: [1200, 620]
+        rotation: 0
+        state: enabled
+-   name: nrzi_decode
+    id: satellites_nrzi_decode
+    parameters: {}
+    states:
+        coordinate: [1360, 620]
+        rotation: 0
+        state: enabled
+-   name: hdlc_deframer
+    id: satellites_hdlc_deframer
+    parameters:
+        check_fcs: 'True'
+        max_length: '10000'
+    states:
+        coordinate: [1520, 620]
+        rotation: 0
+        state: enabled
+-   name: frames
+    id: blocks_message_debug
+    parameters:
+        en_uvec: 'True'
+        log_level: info
+    states:
+        coordinate: [1720, 620]
+        rotation: 0
+        state: enabled
+-   name: audio_scope
+    id: qtgui_time_sink_x
+    parameters:
+        type: float
+        name: 'Transmitted AFSK audio'
+        size: '1024'
+        samp_rate: samp_rate
+        nconnections: '1'
+        grid: 'False'
+        autoscale: 'False'
+        ymin: '-1.5'
+        ymax: '1.5'
+        ylabel: Amplitude
+        yunit: ""
+        entags: 'True'
+        legend: 'True'
+        axislabels: 'True'
+        ctrlpanel: 'False'
+        stemplot: 'False'
+        update_time: '0.10'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_slope: qtgui.TRIG_SLOPE_POS
+        tr_level: '0.0'
+        tr_delay: '0'
+        tr_chan: '0'
+        tr_tag: ""
+        gui_hint: ''
+    states:
+        coordinate: [220, 900]
+        rotation: 0
+        state: enabled
+-   name: symbol_scope
+    id: qtgui_time_sink_x
+    parameters:
+        type: float
+        name: 'Recovered soft symbols'
+        size: '256'
+        samp_rate: baudrate
+        nconnections: '1'
+        grid: 'False'
+        autoscale: 'True'
+        ymin: '-2'
+        ymax: '2'
+        ylabel: Amplitude
+        yunit: ""
+        entags: 'True'
+        legend: 'True'
+        axislabels: 'True'
+        ctrlpanel: 'False'
+        stemplot: 'False'
+        update_time: '0.10'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_slope: qtgui.TRIG_SLOPE_POS
+        tr_level: '0.0'
+        tr_delay: '0'
+        tr_chan: '0'
+        tr_tag: ""
+        gui_hint: ''
+    states:
+        coordinate: [960, 900]
+        rotation: 0
+        state: enabled
+connections:
+- [payload, '0', payload_throttle, '0']
+- [payload_throttle, '0', frame_tagger, '0']
+- [frame_tagger, '0', to_pdu, '0']
+- [framed_bits, '0', nrzi_encode, '0']
+- [nrzi_encode, '0', repeat, '0']
+- [repeat, '0', bits_to_float, '0']
+- [bits_to_float, '0', fm_modulator, '0']
+- [fm_modulator, '0', upmix, '0']
+- [af_carrier, '0', upmix, '1']
+- [upmix, '0', to_audio, '0']
+- [to_audio, '0', analytic, '0']
+- [to_audio, '0', audio_scope, '0']
+- [analytic, '0', downmix, '1']
+- [lo, '0', downmix, '0']
+- [downmix, '0', quad_demod, '0']
+- [quad_demod, '0', matched_filter, '0']
+- [matched_filter, '0', symbol_sync, '0']
+- [symbol_sync, '0', slicer, '0']
+- [symbol_sync, '0', symbol_scope, '0']
+- [slicer, '0', nrzi_decode, '0']
+- [nrzi_decode, '0', hdlc_deframer, '0']
+-   src_blk_id: to_pdu
+    src_port_id: pdus
+    snk_blk_id: hdlc_framer
+    snk_port_id: in
+-   src_blk_id: hdlc_framer
+    src_port_id: out
+    snk_blk_id: framed_bits
+    snk_port_id: pdus
+-   src_blk_id: hdlc_deframer
+    src_port_id: out
+    snk_blk_id: frames
+    snk_port_id: print_pdu
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0

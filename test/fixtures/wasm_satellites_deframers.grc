@@ -1,0 +1,1001 @@
+options:
+    parameters:
+        id: wasm_satellites_deframers
+        title: gr-satellites deframer rebuilds
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: noise
+    id: analog_noise_source_x
+    parameters:
+        type: float
+        noise_type: analog.GR_GAUSSIAN
+        amp: '1'
+        seed: '42'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: throttle
+    id: blocks_throttle
+    parameters:
+        type: float
+        samp_rate: '200000'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: ax25
+    id: satellites_ax25_deframer
+    parameters:
+        g3ruh_scrambler: 'True'
+        options: '""'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: ax25_stream
+    id: pdu_pdu_to_stream_x
+    parameters:
+        type: byte
+        early_behavior: pdu.EARLY_BURST_APPEND
+        depth: '64'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: ax25_sink
+    id: blocks_null_sink
+    parameters:
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: ua01
+    id: satellites_ua01_deframer
+    parameters:
+        options: '""'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: ua01_stream
+    id: pdu_pdu_to_stream_x
+    parameters:
+        type: byte
+        early_behavior: pdu.EARLY_BURST_APPEND
+        depth: '64'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: ua01_sink
+    id: blocks_null_sink
+    parameters:
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: ax100
+    id: satellites_ax100_deframer
+    parameters:
+        mode: '"RS"'
+        scrambler: '"CCSDS"'
+        threshold: '4'
+        options: '""'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: ax100_stream
+    id: pdu_pdu_to_stream_x
+    parameters:
+        type: byte
+        early_behavior: pdu.EARLY_BURST_APPEND
+        depth: '64'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: ax100_sink
+    id: blocks_null_sink
+    parameters:
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: u482c
+    id: satellites_u482c_deframer
+    parameters:
+        threshold: '4'
+        options: '""'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: u482c_stream
+    id: pdu_pdu_to_stream_x
+    parameters:
+        type: byte
+        early_behavior: pdu.EARLY_BURST_APPEND
+        depth: '64'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: u482c_sink
+    id: blocks_null_sink
+    parameters:
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: ccsds_rs
+    id: satellites_ccsds_rs_deframer
+    parameters:
+        frame_size: '223'
+        precoding: None
+        rs_basis: '"dual"'
+        rs_interleaving: '1'
+        scrambler: '"CCSDS"'
+        threshold: '4'
+        options: '""'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: ccsds_rs_stream
+    id: pdu_pdu_to_stream_x
+    parameters:
+        type: byte
+        early_behavior: pdu.EARLY_BURST_APPEND
+        depth: '64'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: ccsds_rs_sink
+    id: blocks_null_sink
+    parameters:
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: ccsds_cat
+    id: satellites_ccsds_concatenated_deframer
+    parameters:
+        frame_size: '223'
+        precoding: None
+        rs_basis: '"dual"'
+        rs_interleaving: '1'
+        scrambler: '"CCSDS"'
+        convolutional: '"CCSDS"'
+        threshold: '4'
+        options: '""'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: ccsds_cat_stream
+    id: pdu_pdu_to_stream_x
+    parameters:
+        type: byte
+        early_behavior: pdu.EARLY_BURST_APPEND
+        depth: '64'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: ccsds_cat_sink
+    id: blocks_null_sink
+    parameters:
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: ao40_fec
+    id: satellites_ao40_fec_deframer
+    parameters:
+        threshold: '8'
+        short_frames: 'False'
+        crc: 'False'
+        options: '""'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: ao40_fec_stream
+    id: pdu_pdu_to_stream_x
+    parameters:
+        type: byte
+        early_behavior: pdu.EARLY_BURST_APPEND
+        depth: '64'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: ao40_fec_sink
+    id: blocks_null_sink
+    parameters:
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: ao40_unc
+    id: satellites_ao40_uncoded_deframer
+    parameters:
+        threshold: '3'
+        options: '""'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: ao40_unc_stream
+    id: pdu_pdu_to_stream_x
+    parameters:
+        type: byte
+        early_behavior: pdu.EARLY_BURST_APPEND
+        depth: '64'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: ao40_unc_sink
+    id: blocks_null_sink
+    parameters:
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: aalto1
+    id: satellites_aalto1_deframer
+    parameters:
+        threshold: '4'
+        options: '""'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: aalto1_stream
+    id: pdu_pdu_to_stream_x
+    parameters:
+        type: byte
+        early_behavior: pdu.EARLY_BURST_APPEND
+        depth: '64'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: aalto1_sink
+    id: blocks_null_sink
+    parameters:
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: reaktor
+    id: satellites_reaktor_hello_world_deframer
+    parameters:
+        threshold: '4'
+        options: '""'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: reaktor_stream
+    id: pdu_pdu_to_stream_x
+    parameters:
+        type: byte
+        early_behavior: pdu.EARLY_BURST_APPEND
+        depth: '64'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: reaktor_sink
+    id: blocks_null_sink
+    parameters:
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: binar1
+    id: satellites_binar1_deframer
+    parameters:
+        options: '""'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: binar1_stream
+    id: pdu_pdu_to_stream_x
+    parameters:
+        type: byte
+        early_behavior: pdu.EARLY_BURST_APPEND
+        depth: '64'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: binar1_sink
+    id: blocks_null_sink
+    parameters:
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: binar2
+    id: satellites_binar2_deframer
+    parameters:
+        options: '""'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: binar2_stream
+    id: pdu_pdu_to_stream_x
+    parameters:
+        type: byte
+        early_behavior: pdu.EARLY_BURST_APPEND
+        depth: '64'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: binar2_sink
+    id: blocks_null_sink
+    parameters:
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: endurosat
+    id: satellites_endurosat_deframer
+    parameters:
+        threshold: '0'
+        options: '""'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: endurosat_stream
+    id: pdu_pdu_to_stream_x
+    parameters:
+        type: byte
+        early_behavior: pdu.EARLY_BURST_APPEND
+        depth: '64'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: endurosat_sink
+    id: blocks_null_sink
+    parameters:
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: geoscan
+    id: satellites_geoscan_deframer
+    parameters:
+        threshold: '4'
+        frame_size: '66'
+        options: '""'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: geoscan_stream
+    id: pdu_pdu_to_stream_x
+    parameters:
+        type: byte
+        early_behavior: pdu.EARLY_BURST_APPEND
+        depth: '64'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: geoscan_sink
+    id: blocks_null_sink
+    parameters:
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: lucky7
+    id: satellites_lucky7_deframer
+    parameters:
+        threshold: '1'
+        options: '""'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: lucky7_stream
+    id: pdu_pdu_to_stream_x
+    parameters:
+        type: byte
+        early_behavior: pdu.EARLY_BURST_APPEND
+        depth: '64'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: lucky7_sink
+    id: blocks_null_sink
+    parameters:
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: nusat
+    id: satellites_nusat_deframer
+    parameters:
+        threshold: '0'
+        options: '""'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: nusat_stream
+    id: pdu_pdu_to_stream_x
+    parameters:
+        type: byte
+        early_behavior: pdu.EARLY_BURST_APPEND
+        depth: '64'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: nusat_sink
+    id: blocks_null_sink
+    parameters:
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: astrocast
+    id: satellites_astrocast_fx25_deframer
+    parameters:
+        threshold: '8'
+        nrzi: 'True'
+        options: '""'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: astrocast_stream
+    id: pdu_pdu_to_stream_x
+    parameters:
+        type: byte
+        early_behavior: pdu.EARLY_BURST_APPEND
+        depth: '64'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: astrocast_sink
+    id: blocks_null_sink
+    parameters:
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: fossasat
+    id: satellites_fossasat_deframer
+    parameters:
+        threshold: '0'
+        options: '""'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: fossasat_stream
+    id: pdu_pdu_to_stream_x
+    parameters:
+        type: byte
+        early_behavior: pdu.EARLY_BURST_APPEND
+        depth: '64'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: fossasat_sink
+    id: blocks_null_sink
+    parameters:
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: grizu
+    id: satellites_grizu263a_deframer
+    parameters:
+        threshold: '8'
+        options: '""'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: grizu_stream
+    id: pdu_pdu_to_stream_x
+    parameters:
+        type: byte
+        early_behavior: pdu.EARLY_BURST_APPEND
+        depth: '64'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: grizu_sink
+    id: blocks_null_sink
+    parameters:
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: smogp_sig
+    id: satellites_smogp_signalling_deframer
+    parameters:
+        threshold: '8'
+        protocol: 'False'
+        options: '""'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: smogp_sig_stream
+    id: pdu_pdu_to_stream_x
+    parameters:
+        type: byte
+        early_behavior: pdu.EARLY_BURST_APPEND
+        depth: '64'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: smogp_sig_sink
+    id: blocks_null_sink
+    parameters:
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: lilacsat1
+    id: satellites_lilacsat_1_deframer
+    parameters:
+        threshold: '4'
+        options: '""'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: lilacsat1_stream
+    id: pdu_pdu_to_stream_x
+    parameters:
+        type: byte
+        early_behavior: pdu.EARLY_BURST_APPEND
+        depth: '64'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: lilacsat1_sink
+    id: blocks_null_sink
+    parameters:
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: ngham
+    id: satellites_ngham_deframer
+    parameters:
+        decode_rs: 'False'
+        threshold: '4'
+        options: '""'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: ngham_stream
+    id: pdu_pdu_to_stream_x
+    parameters:
+        type: byte
+        early_behavior: pdu.EARLY_BURST_APPEND
+        depth: '64'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: ngham_sink
+    id: blocks_null_sink
+    parameters:
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: qubik
+    id: satellites_qubik_deframer
+    parameters:
+        threshold: '4'
+        options: '""'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: qubik_stream
+    id: pdu_pdu_to_stream_x
+    parameters:
+        type: byte
+        early_behavior: pdu.EARLY_BURST_APPEND
+        depth: '64'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: qubik_sink
+    id: blocks_null_sink
+    parameters:
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: sat3cat1
+    id: satellites_sat_3cat_1_deframer
+    parameters:
+        threshold: '4'
+        options: '""'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: sat3cat1_stream
+    id: pdu_pdu_to_stream_x
+    parameters:
+        type: byte
+        early_behavior: pdu.EARLY_BURST_APPEND
+        depth: '64'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: sat3cat1_sink
+    id: blocks_null_sink
+    parameters:
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: tt64
+    id: satellites_tt64_deframer
+    parameters:
+        threshold: '1'
+        options: '""'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: tt64_stream
+    id: pdu_pdu_to_stream_x
+    parameters:
+        type: byte
+        early_behavior: pdu.EARLY_BURST_APPEND
+        depth: '64'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: tt64_sink
+    id: blocks_null_sink
+    parameters:
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: swiatowid
+    id: satellites_swiatowid_deframer
+    parameters:
+        threshold: '0'
+        options: '""'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: swiatowid_stream
+    id: pdu_pdu_to_stream_x
+    parameters:
+        type: byte
+        early_behavior: pdu.EARLY_BURST_APPEND
+        depth: '64'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: swiatowid_sink
+    id: blocks_null_sink
+    parameters:
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: ops_sat
+    id: satellites_ops_sat_deframer
+    parameters:
+        options: '""'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: ops_sat_stream
+    id: pdu_pdu_to_stream_x
+    parameters:
+        type: byte
+        early_behavior: pdu.EARLY_BURST_APPEND
+        depth: '64'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: ops_sat_sink
+    id: blocks_null_sink
+    parameters:
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: aistech2
+    id: satellites_aistechsat_2_deframer
+    parameters:
+        threshold: '4'
+        options: '""'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: aistech2_stream
+    id: pdu_pdu_to_stream_x
+    parameters:
+        type: byte
+        early_behavior: pdu.EARLY_BURST_APPEND
+        depth: '64'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: aistech2_sink
+    id: blocks_null_sink
+    parameters:
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+connections:
+- [noise, '0', throttle, '0']
+- [throttle, '0', ax25, '0']
+- [ax25_stream, '0', ax25_sink, '0']
+- [throttle, '0', ua01, '0']
+- [ua01_stream, '0', ua01_sink, '0']
+- [throttle, '0', ax100, '0']
+- [ax100_stream, '0', ax100_sink, '0']
+- [throttle, '0', u482c, '0']
+- [u482c_stream, '0', u482c_sink, '0']
+- [throttle, '0', ccsds_rs, '0']
+- [ccsds_rs_stream, '0', ccsds_rs_sink, '0']
+- [throttle, '0', ccsds_cat, '0']
+- [ccsds_cat_stream, '0', ccsds_cat_sink, '0']
+- [throttle, '0', ao40_fec, '0']
+- [ao40_fec_stream, '0', ao40_fec_sink, '0']
+- [throttle, '0', ao40_unc, '0']
+- [ao40_unc_stream, '0', ao40_unc_sink, '0']
+- [throttle, '0', aalto1, '0']
+- [aalto1_stream, '0', aalto1_sink, '0']
+- [throttle, '0', reaktor, '0']
+- [reaktor_stream, '0', reaktor_sink, '0']
+- [throttle, '0', binar1, '0']
+- [binar1_stream, '0', binar1_sink, '0']
+- [throttle, '0', binar2, '0']
+- [binar2_stream, '0', binar2_sink, '0']
+- [throttle, '0', endurosat, '0']
+- [endurosat_stream, '0', endurosat_sink, '0']
+- [throttle, '0', geoscan, '0']
+- [geoscan_stream, '0', geoscan_sink, '0']
+- [throttle, '0', lucky7, '0']
+- [lucky7_stream, '0', lucky7_sink, '0']
+- [throttle, '0', nusat, '0']
+- [nusat_stream, '0', nusat_sink, '0']
+- [throttle, '0', astrocast, '0']
+- [astrocast_stream, '0', astrocast_sink, '0']
+- [throttle, '0', fossasat, '0']
+- [fossasat_stream, '0', fossasat_sink, '0']
+- [throttle, '0', grizu, '0']
+- [grizu_stream, '0', grizu_sink, '0']
+- [throttle, '0', smogp_sig, '0']
+- [smogp_sig_stream, '0', smogp_sig_sink, '0']
+- [throttle, '0', lilacsat1, '0']
+- [lilacsat1_stream, '0', lilacsat1_sink, '0']
+- [throttle, '0', ngham, '0']
+- [ngham_stream, '0', ngham_sink, '0']
+- [throttle, '0', qubik, '0']
+- [qubik_stream, '0', qubik_sink, '0']
+- [throttle, '0', sat3cat1, '0']
+- [sat3cat1_stream, '0', sat3cat1_sink, '0']
+- [throttle, '0', tt64, '0']
+- [tt64_stream, '0', tt64_sink, '0']
+- [throttle, '0', swiatowid, '0']
+- [swiatowid_stream, '0', swiatowid_sink, '0']
+- [throttle, '0', ops_sat, '0']
+- [ops_sat_stream, '0', ops_sat_sink, '0']
+- [throttle, '0', aistech2, '0']
+- [aistech2_stream, '0', aistech2_sink, '0']
+-   src_blk_id: ax25
+    src_port_id: out
+    snk_blk_id: ax25_stream
+    snk_port_id: pdus
+-   src_blk_id: ua01
+    src_port_id: out
+    snk_blk_id: ua01_stream
+    snk_port_id: pdus
+-   src_blk_id: ax100
+    src_port_id: out
+    snk_blk_id: ax100_stream
+    snk_port_id: pdus
+-   src_blk_id: u482c
+    src_port_id: out
+    snk_blk_id: u482c_stream
+    snk_port_id: pdus
+-   src_blk_id: ccsds_rs
+    src_port_id: out
+    snk_blk_id: ccsds_rs_stream
+    snk_port_id: pdus
+-   src_blk_id: ccsds_cat
+    src_port_id: out
+    snk_blk_id: ccsds_cat_stream
+    snk_port_id: pdus
+-   src_blk_id: ao40_fec
+    src_port_id: out
+    snk_blk_id: ao40_fec_stream
+    snk_port_id: pdus
+-   src_blk_id: ao40_unc
+    src_port_id: out
+    snk_blk_id: ao40_unc_stream
+    snk_port_id: pdus
+-   src_blk_id: aalto1
+    src_port_id: out
+    snk_blk_id: aalto1_stream
+    snk_port_id: pdus
+-   src_blk_id: reaktor
+    src_port_id: out
+    snk_blk_id: reaktor_stream
+    snk_port_id: pdus
+-   src_blk_id: binar1
+    src_port_id: out
+    snk_blk_id: binar1_stream
+    snk_port_id: pdus
+-   src_blk_id: binar2
+    src_port_id: out
+    snk_blk_id: binar2_stream
+    snk_port_id: pdus
+-   src_blk_id: endurosat
+    src_port_id: out
+    snk_blk_id: endurosat_stream
+    snk_port_id: pdus
+-   src_blk_id: geoscan
+    src_port_id: out
+    snk_blk_id: geoscan_stream
+    snk_port_id: pdus
+-   src_blk_id: lucky7
+    src_port_id: out
+    snk_blk_id: lucky7_stream
+    snk_port_id: pdus
+-   src_blk_id: nusat
+    src_port_id: out
+    snk_blk_id: nusat_stream
+    snk_port_id: pdus
+-   src_blk_id: astrocast
+    src_port_id: out
+    snk_blk_id: astrocast_stream
+    snk_port_id: pdus
+-   src_blk_id: fossasat
+    src_port_id: out
+    snk_blk_id: fossasat_stream
+    snk_port_id: pdus
+-   src_blk_id: grizu
+    src_port_id: out
+    snk_blk_id: grizu_stream
+    snk_port_id: pdus
+-   src_blk_id: smogp_sig
+    src_port_id: out
+    snk_blk_id: smogp_sig_stream
+    snk_port_id: pdus
+-   src_blk_id: lilacsat1
+    src_port_id: out
+    snk_blk_id: lilacsat1_stream
+    snk_port_id: pdus
+-   src_blk_id: ngham
+    src_port_id: out
+    snk_blk_id: ngham_stream
+    snk_port_id: pdus
+-   src_blk_id: qubik
+    src_port_id: out
+    snk_blk_id: qubik_stream
+    snk_port_id: pdus
+-   src_blk_id: sat3cat1
+    src_port_id: out
+    snk_blk_id: sat3cat1_stream
+    snk_port_id: pdus
+-   src_blk_id: tt64
+    src_port_id: out
+    snk_blk_id: tt64_stream
+    snk_port_id: pdus
+-   src_blk_id: swiatowid
+    src_port_id: out
+    snk_blk_id: swiatowid_stream
+    snk_port_id: pdus
+-   src_blk_id: ops_sat
+    src_port_id: out
+    snk_blk_id: ops_sat_stream
+    snk_port_id: pdus
+-   src_blk_id: aistech2
+    src_port_id: out
+    snk_blk_id: aistech2_stream
+    snk_port_id: pdus
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0

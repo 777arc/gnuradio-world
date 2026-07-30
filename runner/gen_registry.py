@@ -61,9 +61,10 @@ DEFERRED_MODULES = (
 )
 
 # Load-order dependencies between DEFERRED modules only (core is always present).
-# Empty today: every deferred module references only core symbols (fec + qtgui
-# stay in core), so none depends on another side module.
-MODULE_DEPS: dict[str, list[str]] = {}
+# gr-satellites' rebuilt Python hierarchies wrap their message ports with
+# gr::pdu::{pdu_to_tagged_stream,tagged_stream_to_pdu}, which live in the pdu
+# side module, so pdu.wasm has to be loaded first for those imports to resolve.
+MODULE_DEPS: dict[str, list[str]] = {"satellites": ["pdu"]}
 
 # gr-rds is pinned directly to bastibl/gr-rds's default branch. Load its
 # browser-only C++ metadata from the world repository rather than making the
@@ -128,6 +129,9 @@ CUSTOM_IDS = {
     "fec_decode_ccsds_27_fb",
     "fec_depuncture_bb",
     "fec_puncture_xx",
+    "variable_cc_decoder_def",
+    "fec_async_decoder",
+    "fec_extended_decoder",
     "variable_constellation",
     "variable_constellation_rect",
     "digital_constellation_decoder_cb",
@@ -573,7 +577,10 @@ def load_blocks() -> list[dict[str, Any]]:
         module_root = WORLD / module
         if not module_root.is_dir():
             module_root = GR / module
-        for path in sorted((module_root / "grc").glob("*.block.yml")):
+        # Recursive: gr-satellites is the only module that groups its block
+        # metadata into grc/ subdirectories (components/deframers, hier, ccsds,
+        # ...). Every other module keeps grc/ flat, so rglob costs nothing there.
+        for path in sorted((module_root / "grc").rglob("*.block.yml")):
             try:
                 block = yaml.safe_load(path.read_text())
             except Exception:

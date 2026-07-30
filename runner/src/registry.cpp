@@ -8,6 +8,9 @@
 #include <gnuradio/analog/quadrature_demod_cf.h>
 #include <gnuradio/analog/random_uniform_source.h>
 #include <gnuradio/blocks/add_const_ff.h>
+#include <gnuradio/blocks/float_to_uchar.h>
+#include <gnuradio/blocks/uchar_to_float.h>
+#include <gnuradio/blocks/unpacked_to_packed.h>
 #include <gnuradio/blocks/throttle.h>
 #include <gnuradio/blocks/vector_source.h>
 #include <gnuradio/blocks/packed_to_unpacked.h>
@@ -40,6 +43,7 @@
 #include <gnuradio/blocks/threshold_ff.h>
 #include <gnuradio/blocks/unpack_k_bits_bb.h>
 #include <gnuradio/digital/additive_scrambler.h>
+#include <gnuradio/digital/binary_slicer_fb.h>
 #include <gnuradio/digital/chunks_to_symbols.h>
 #include <gnuradio/digital/constellation.h>
 #include <gnuradio/digital/constellation_decoder_cb.h>
@@ -66,10 +70,14 @@
 #include <gnuradio/digital/pfb_clock_sync_ccf.h>
 #include <gnuradio/digital/symbol_sync_cc.h>
 #include <gnuradio/digital/symbol_sync_ff.h>
+#include <gnuradio/fec/async_decoder.h>
 #include <gnuradio/fec/ber_bf.h>
+#include <gnuradio/fec/cc_decoder.h>
 #include <gnuradio/fec/decode_ccsds_27_fb.h>
+#include <gnuradio/fec/decoder.h>
 #include <gnuradio/fec/depuncture_bb.h>
 #include <gnuradio/fec/encode_ccsds_27_bb.h>
+#include <gnuradio/fec/generic_decoder.h>
 #include <gnuradio/fec/puncture_bb.h>
 #include <gnuradio/fec/puncture_ff.h>
 #include <gnuradio/fft/fft_v.h>
@@ -1210,6 +1218,90 @@ gr::digital::constellation_sptr named_constellation(const std::string& expressio
     throw std::runtime_error(
         "Constellation Modulator references unknown constellation object: " + value);
 }
+
+// CC Decoder Definition objects, keyed by their GRC variable name. Like
+// variable_constellation these are GRC *variables* rather than blocks: the
+// factory constructs one and files it here, and the FEC blocks that take a
+// "Decoder Obj." parameter look it up by name.
+std::map<std::string, gr::fec::generic_decoder::sptr>& runtime_cc_decoders()
+{
+    static std::map<std::string, gr::fec::generic_decoder::sptr> objects;
+    return objects;
+}
+
+gr::fec::generic_decoder::sptr named_cc_decoder(const std::string& expression)
+{
+    const std::string value = unquoted(expression);
+    auto found = runtime_cc_decoders().find(value);
+    if (found != runtime_cc_decoders().end())
+        return found->second;
+    throw std::runtime_error("FEC block references unknown decoder object: " + value);
+}
+
+cc_mode_t cc_mode_from(const json& p, const char* key)
+{
+    const std::string value = uppercase(unquoted(p.value(key, std::string("CC_STREAMING"))));
+    if (value.find("TERMINATED") != std::string::npos)
+        return CC_TERMINATED;
+    if (value.find("TAILBITING") != std::string::npos)
+        return CC_TAILBITING;
+    if (value.find("TRUNCATED") != std::string::npos)
+        return CC_TRUNCATED;
+    return CC_STREAMING;
+}
+
+// C++ rebuild of gr-fec's Python fec.extended_decoder hier block, for the
+// parameter set gr-satellites actually uses (threading=None, ann=None,
+// puncpat='11'). Under those the Python chain collapses to the decoder's
+// declared input conversion followed by fec.decoder, plus an optional unpack.
+class ExtendedDecoder : public gr::hier_block2
+{
+public:
+    using sptr = std::shared_ptr<ExtendedDecoder>;
+    static sptr make(gr::fec::generic_decoder::sptr decoder)
+    {
+        return gnuradio::make_block_sptr<ExtendedDecoder>(std::move(decoder));
+    }
+
+    explicit ExtendedDecoder(gr::fec::generic_decoder::sptr decoder)
+        : gr::hier_block2("extended_decoder",
+                          gr::io_signature::make(1, 1, sizeof(float)),
+                          gr::io_signature::make(1, 1, sizeof(char)))
+    {
+        const std::string in_conv = gr::fec::get_decoder_input_conversion(decoder);
+        const std::string out_conv = gr::fec::get_decoder_output_conversion(decoder);
+        const bool needs_float_to_uchar =
+            in_conv == "uchar" || in_conv == "packed_bits";
+        float bias = gr::fec::get_shift(decoder);
+        if (bias == 0.0f && in_conv == "packed_bits")
+            bias = 128.0f;
+
+        std::vector<gr::basic_block_sptr> chain;
+        if (bias != 0.0f && !needs_float_to_uchar)
+            chain.push_back(gr::blocks::add_const_ff::make(bias));
+        if (needs_float_to_uchar)
+            chain.push_back(gr::blocks::float_to_uchar::make(1, 48.0f, bias));
+        if (in_conv == "packed_bits") {
+            chain.push_back(gr::blocks::uchar_to_float::make());
+            chain.push_back(gr::blocks::add_const_ff::make(-128.0f));
+            chain.push_back(gr::digital::binary_slicer_fb::make());
+            chain.push_back(
+                gr::blocks::unpacked_to_packed_bb::make(1, gr::GR_LSB_FIRST));
+        }
+        chain.push_back(
+            gr::fec::decoder::make(decoder,
+                                   gr::fec::get_decoder_input_item_size(decoder),
+                                   gr::fec::get_decoder_output_item_size(decoder)));
+        if (out_conv == "unpack")
+            chain.push_back(
+                gr::blocks::packed_to_unpacked_bb::make(1, gr::GR_MSB_FIRST));
+
+        connect(self(), 0, chain.front(), 0);
+        for (std::size_t i = 0; i + 1 < chain.size(); ++i)
+            connect(chain[i], 0, chain[i + 1], 0);
+        connect(chain.back(), 0, self(), 0);
+    }
+};
 
 gr::digital::ted_type ted_type_from(const json& p)
 {
@@ -3421,6 +3513,39 @@ static std::map<std::string, Factory>& registry_storage() {
                  return { gr::fec::puncture_ff::make(size, pattern, delay),
                           nullptr };
              throw std::runtime_error("Puncture type must be byte or float");
+         }},
+        {"variable_cc_decoder_def", [](const json& p) -> BuiltBlock {
+             const std::string name = p.value("__name", std::string());
+             if (name.empty())
+                 throw std::runtime_error("CC Decoder Definition requires a block name");
+             // Parallelism (ndim) builds a list of decoders in GRC. Only the
+             // scalar form has a single object to hand to a block parameter.
+             if (static_cast<int>(number_from(p, "ndim", 0)) != 0)
+                 throw std::runtime_error(
+                     "CC Decoder Definition parallelism must be 0 in the browser");
+             runtime_cc_decoders()[name] = gr::fec::code::cc_decoder::make(
+                 static_cast<int>(number_from(p, "framebits", 2048)),
+                 static_cast<int>(number_from(p, "k", 7)),
+                 static_cast<int>(number_from(p, "rate", 2)),
+                 flat_sequence<int>(p, "polys"),
+                 static_cast<int>(number_from(p, "state_start", 0)),
+                 static_cast<int>(number_from(p, "state_end", -1)),
+                 cc_mode_from(p, "mode"),
+                 bool_from(p, "padding", false));
+             return {};
+         }},
+        {"fec_async_decoder", [](const json& p) -> BuiltBlock {
+             return { gr::fec::async_decoder::make(
+                          named_cc_decoder(p.value("decoder", std::string())),
+                          bool_from(p, "packed", false),
+                          bool_from(p, "rev_pack", true),
+                          static_cast<int>(number_from(p, "mtu", 1500))),
+                      nullptr };
+         }},
+        {"fec_extended_decoder", [](const json& p) -> BuiltBlock {
+             return { ExtendedDecoder::make(
+                          named_cc_decoder(p.value("decoder_list", std::string()))),
+                      nullptr };
          }},
         {"variable_constellation", [](const json& p) -> BuiltBlock {
              const std::string name = p.value("__name", std::string());

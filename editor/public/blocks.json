@@ -39070,8 +39070,8 @@
     "Error Coding"
    ],
    "flags": [],
-   "runnable": false,
-   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "runnable": true,
+   "unavailable_reason": null,
    "module": "core",
    "documentation": "",
    "api_documentation": "",
@@ -39875,8 +39875,8 @@
     "Error Coding"
    ],
    "flags": [],
-   "runnable": false,
-   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "runnable": true,
+   "unavailable_reason": null,
    "module": "core",
    "documentation": "",
    "api_documentation": "",
@@ -41028,8 +41028,8 @@
    "flags": [
     "show_id"
    ],
-   "runnable": false,
-   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "runnable": true,
+   "unavailable_reason": null,
    "module": "core",
    "documentation": "",
    "api_documentation": "",
@@ -44438,13 +44438,14 @@
     "Channelizers"
    ],
    "flags": [
-    "python"
+    "python",
+    "cpp"
    ],
-   "runnable": false,
-   "unavailable_reason": "Python-only block",
+   "runnable": true,
+   "unavailable_reason": null,
    "module": "core",
    "documentation": "",
-   "api_documentation": "",
+   "api_documentation": "FIR filter combined with frequency translation with\nIN_T input, OUT_T output and TAP_T taps\n\nThis class efficiently combines a frequency translation\n(typically \"down conversion\") with a FIR filter (typically\nlow-pass) and decimation.  It is ideally suited for a \"channel\nselection filter\" and can be efficiently used to select and\ndecimate a narrow band signal out of wide bandwidth input.\n\nUses a single input array to produce a single output array.\nAdditional inputs and/or outputs are ignored.\n\n- freq (input):\nReceives a PMT pair: (intern(\"freq\"), double(frequency).\nThe block then sets its frequency translation value to\nthe new frequency provided by the message. A tag is then\nproduced when the new frequency is applied to let\ndownstream blocks know when this has taken affect.\nUse the filter's group delay to determine when the\ntransients after the change have settled down.\n\nFIR filter with IN_T input, OUT_T output, and\nTAP_T taps that also frequency translates a signal from\ncenter_freq.\n\nConstruct a FIR filter with the given taps and a composite\nfrequency translation that shifts center_freq down to zero\nHz. The frequency translation logically comes before the\nfiltering operation.\n\nParameters:\n  decimation: set the integer decimation rate\n  taps: a vector/list of taps of type TAP_T\n  center_freq: Center frequency of signal to down convert from (Hz)\n  sampling_freq: Sampling rate of signal (in Hz)",
    "wiki_url": "https://wiki.gnuradio.org/index.php/Frequency_Xlating_FIR_Filter",
    "params": [
     {
@@ -51248,13 +51249,14 @@
     "PDU Tools"
    ],
    "flags": [
-    "python"
+    "python",
+    "cpp"
    ],
-   "runnable": false,
-   "unavailable_reason": "Python-only block",
-   "module": "core",
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "pdu",
    "documentation": "",
-   "api_documentation": "",
+   "api_documentation": "Emit a PDU data as a simple GR stream.\n\nThe PDU to Stream block takes data stored in the uniform vector PDU\nand emits it with UHD style tx_sob and tx_eob tags. If desired, the\nmetadata dictionary can contain a tx_time tag which will append a UHD\nstyle tx_time tag to the tx_sob sample causing transmission at a well\ndefined point in time.\n\nReturn a shared_ptr to a new instance of pdu_utils::pdu_to_stream_x.\n\nParameters:\n  early_pdu_behavior: - behavior for bursts received before previous one is done processing\n  max_queue_size: - max number of PDUs to queue",
    "wiki_url": "https://wiki.gnuradio.org/index.php/PDU_To_Stream",
    "params": [
     {
@@ -51503,13 +51505,14 @@
     "PDU Tools"
    ],
    "flags": [
-    "python"
+    "python",
+    "cpp"
    ],
-   "runnable": false,
-   "unavailable_reason": "Python-only block",
-   "module": "core",
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "pdu",
    "documentation": "",
-   "api_documentation": "",
+   "api_documentation": "Turns received stream data and tags into PDUs and sends\nthem through a message port.\n\nThe sent message is a PMT-pair (created by pmt::cons()). The\nfirst element is a dictionary containing all the tags. The\nsecond is a vector containing the actual data.\n\nConstruct a tagged_stream_to_pdu block\n\nParameters:\n  type: PDU type of gr::types::vector_type\n  lengthtagname: The name of the tag that specifies how long the packet is.",
    "wiki_url": "https://wiki.gnuradio.org/index.php/Tagged_Stream_to_PDU",
    "params": [
     {
@@ -67556,6 +67559,6463 @@
    ]
   },
   {
+   "id": "satellites_ccsds_telemetry_parser",
+   "label": "CCSDS Telemetry Parser",
+   "category": [
+    "Satellites",
+    "CCSDS"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true
+    }
+   ]
+  },
+  {
+   "id": "satellites_pathID_demultiplexer",
+   "label": "Path ID Demultiplexer",
+   "category": [
+    "Satellites",
+    "CCSDS"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "pathID_outputs",
+     "label": "Path ID outputs",
+     "dtype": "int_vector",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "${ len(pathID_outputs) }",
+     "optional": false
+    },
+    {
+     "id": "discarded",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_space_packet_parser",
+   "label": "Space Packet Parser",
+   "category": [
+    "Satellites",
+    "CCSDS"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "time_header",
+     "label": "Time Header",
+     "dtype": "enum",
+     "default": "drop_down",
+     "category": "General",
+     "options": [
+      "0",
+      "1"
+     ],
+     "option_labels": [
+      "Yes",
+      "No"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "id_time",
+     "label": "Time Format ID",
+     "dtype": "raw",
+     "default": "'default_value'",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('none' if time_header == '0' else 'all') }"
+    },
+    {
+     "id": "time_format",
+     "label": "Time Format",
+     "dtype": "enum",
+     "default": "drop_down",
+     "category": "General",
+     "options": [
+      "0",
+      "1",
+      "2",
+      "3",
+      "4"
+     ],
+     "option_labels": [
+      "CUC",
+      "CDS",
+      "CCS",
+      "ASCII A",
+      "ASCII B"
+     ],
+     "option_attributes": null,
+     "hide": "${ ('none' if time_header == '0' else 'all') }"
+    },
+    {
+     "id": "pfield",
+     "label": "PField Presence",
+     "dtype": "enum",
+     "default": "drop_down",
+     "category": "General",
+     "options": [
+      "1",
+      "0"
+     ],
+     "option_labels": [
+      "Yes",
+      "No"
+     ],
+     "option_attributes": null,
+     "hide": "${ ('all' if time_format > '2' or time_header == '1' else 'none') }"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": []
+  },
+  {
+   "id": "satellites_space_packet_primaryheader_adder",
+   "label": "Space Packet Primary Header Adder",
+   "category": [
+    "Satellites",
+    "CCSDS"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "ccsds_version",
+     "label": "CCSDS Version",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "all"
+    },
+    {
+     "id": "packet_type",
+     "label": "Packet Type",
+     "dtype": "enum",
+     "default": "drop_down",
+     "category": "General",
+     "options": [
+      "0",
+      "1"
+     ],
+     "option_labels": [
+      "Telemetry",
+      "Telecommand"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "secondary_header_flag",
+     "label": "Secondary Header Flag",
+     "dtype": "enum",
+     "default": "drop_down",
+     "category": "General",
+     "options": [
+      "1",
+      "0"
+     ],
+     "option_labels": [
+      "Yes",
+      "No"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "AP_ID",
+     "label": "Application ID",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "sequence_flags",
+     "label": "Sequence Flags",
+     "dtype": "raw",
+     "default": "3",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "all"
+    },
+    {
+     "id": "count_or_name",
+     "label": "Count or Name",
+     "dtype": "enum",
+     "default": "drop_down",
+     "category": "General",
+     "options": [
+      "0",
+      "1"
+     ],
+     "option_labels": [
+      "Count",
+      "Name"
+     ],
+     "option_attributes": null,
+     "hide": "${ ('none' if packet_type == '1' else 'all') }"
+    },
+    {
+     "id": "packet_sequence_count",
+     "label": "Packet Sequence Count",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "all"
+    },
+    {
+     "id": "packet_sequence_name",
+     "label": "Packet Sequence Name",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('none' if count_or_name == '1' and packet_type == '1' else 'all') }"
+    },
+    {
+     "id": "data_length",
+     "label": "Data Length",
+     "dtype": "raw",
+     "default": "40000",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "all"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_space_packet_time_stamp_adder",
+   "label": "Space Packet Time Stamp Adder",
+   "category": [
+    "Satellites",
+    "CCSDS"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "manual_automatic",
+     "label": "Manual or Automatic Time",
+     "dtype": "enum",
+     "default": "drop_down",
+     "category": "General",
+     "options": [
+      "0",
+      "1"
+     ],
+     "option_labels": [
+      "Manual",
+      "Automatic"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "time_format",
+     "label": "Time Format",
+     "dtype": "enum",
+     "default": "drop_down",
+     "category": "General",
+     "options": [
+      "0",
+      "1",
+      "2",
+      "3",
+      "4"
+     ],
+     "option_labels": [
+      "CUC",
+      "CDS",
+      "CCS",
+      "ASCII A",
+      "ASCII B"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "id_time",
+     "label": "Time Format ID",
+     "dtype": "raw",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "pfield",
+     "label": "PField Presence",
+     "dtype": "enum",
+     "default": "drop_down",
+     "category": "General",
+     "options": [
+      "1",
+      "0"
+     ],
+     "option_labels": [
+      "Yes",
+      "No"
+     ],
+     "option_attributes": null,
+     "hide": "${ ('all' if time_format > '2' else 'none') }"
+    },
+    {
+     "id": "pfield_extension",
+     "label": "PField Extension",
+     "dtype": "enum",
+     "default": "drop_down",
+     "category": "General",
+     "options": [
+      "1",
+      "0"
+     ],
+     "option_labels": [
+      "Yes",
+      "No"
+     ],
+     "option_attributes": null,
+     "hide": "${ ('none' if time_format == '0' and pfield == '1' else 'all') }"
+    },
+    {
+     "id": "time_code_identification_cuc",
+     "label": "Time Code Identification",
+     "dtype": "enum",
+     "default": "drop_down",
+     "category": "General",
+     "options": [
+      "1",
+      "2"
+     ],
+     "option_labels": [
+      "1958 January 1 epoch",
+      "Agency Defined epoch"
+     ],
+     "option_attributes": null,
+     "hide": "${ ('none' if time_format == '0' else 'all') }"
+    },
+    {
+     "id": "epoch_year_cuc",
+     "label": "Epoch Year",
+     "dtype": "raw",
+     "default": "1",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('none' if time_format == '0' and time_code_identification_cuc == '2' else 'all') }"
+    },
+    {
+     "id": "epoch_month_cuc",
+     "label": "Epoch Month",
+     "dtype": "raw",
+     "default": "1",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('none' if time_format == '0' and time_code_identification_cuc == '2' else 'all') }"
+    },
+    {
+     "id": "epoch_day_cuc",
+     "label": "Epoch Day",
+     "dtype": "raw",
+     "default": "1",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('none' if time_format == '0' and time_code_identification_cuc == '2' else 'all') }"
+    },
+    {
+     "id": "pfield_extension_extended",
+     "label": "PField Extension extended",
+     "dtype": "enum",
+     "default": "drop_down",
+     "category": "General",
+     "options": [
+      "1",
+      "0"
+     ],
+     "option_labels": [
+      "Yes",
+      "No"
+     ],
+     "option_attributes": null,
+     "hide": "${ ('none' if time_format == '0' and pfield == '1' and pfield_extension == '1' else 'all') }"
+    },
+    {
+     "id": "rsvd_cuc",
+     "label": "Reserved for Mission Definition",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('none' if time_format == '0' and pfield == '1' and pfield_extension == '1' else 'all') }"
+    },
+    {
+     "id": "time_code_identification_cds",
+     "label": "Time Code Identification",
+     "dtype": "raw",
+     "default": "4",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "all"
+    },
+    {
+     "id": "epoch_identification_cds",
+     "label": "Epoch Identification",
+     "dtype": "enum",
+     "default": "drop_down",
+     "category": "General",
+     "options": [
+      "0",
+      "1"
+     ],
+     "option_labels": [
+      "1958 January 1 Epoch",
+      "Agency Defined Epoch"
+     ],
+     "option_attributes": null,
+     "hide": "${ ('none' if time_format == '1' else 'all') }"
+    },
+    {
+     "id": "epoch_year_cds",
+     "label": "Epoch Year",
+     "dtype": "raw",
+     "default": "1",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('none' if time_format == '1' and epoch_identification_cds == '1' else 'all') }"
+    },
+    {
+     "id": "epoch_month_cds",
+     "label": "Epoch Month",
+     "dtype": "raw",
+     "default": "1",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('none' if time_format == '1' and epoch_identification_cds == '1' else 'all') }"
+    },
+    {
+     "id": "epoch_day_cds",
+     "label": "Epoch Day",
+     "dtype": "raw",
+     "default": "1",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('none' if time_format == '1' and epoch_identification_cds == '1' else 'all') }"
+    },
+    {
+     "id": "time_code_identification_ccs",
+     "label": "Time Code Identification",
+     "dtype": "raw",
+     "default": "5",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "all"
+    },
+    {
+     "id": "year",
+     "label": "Year",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('none' if manual_automatic == '0' else 'all') }"
+    },
+    {
+     "id": "month",
+     "label": "Month",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('none' if manual_automatic == '0' else 'all') }"
+    },
+    {
+     "id": "day",
+     "label": "Day",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('none' if manual_automatic == '0' else 'all') }"
+    },
+    {
+     "id": "hour",
+     "label": "Hour",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('none' if manual_automatic == '0' else 'all') }"
+    },
+    {
+     "id": "minute",
+     "label": "Minute",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('none' if manual_automatic == '0' else 'all') }"
+    },
+    {
+     "id": "second",
+     "label": "Second",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('none' if manual_automatic == '0' else 'all') }"
+    },
+    {
+     "id": "microsecond",
+     "label": "Microsecond",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('none' if manual_automatic == '0' else 'all') }"
+    },
+    {
+     "id": "picosecond",
+     "label": "Picosecond",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('none' if manual_automatic == '0' and time_format == '1' and length_of_submillisecond_cds() == '2' else 'all') }"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_telecommand_parser",
+   "label": "Telecommand Parser",
+   "category": [
+    "Satellites",
+    "CCSDS"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": []
+  },
+  {
+   "id": "satellites_telecommand_primaryheader_adder",
+   "label": "Telecommand Primary Header Adder",
+   "category": [
+    "Satellites",
+    "CCSDS"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "transfer_frame_version",
+     "label": "Transfer Frame Version",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "all"
+    },
+    {
+     "id": "bypass",
+     "label": "Bypass",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "control",
+     "label": "Control",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "rsvd_space",
+     "label": "RSVD Spare",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "all"
+    },
+    {
+     "id": "spacecraft_id",
+     "label": "Spacecraft ID",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "virtual_channel_id",
+     "label": "Virtual Channel ID",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "frame_length",
+     "label": "Frame Length",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "all"
+    },
+    {
+     "id": "frame_sequence_number",
+     "label": "Frame Sequence Number",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "all"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_telemetry_ocf_adder",
+   "label": "Telemetry OCF Adder",
+   "category": [
+    "Satellites",
+    "CCSDS"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "control_word_type",
+     "label": "Control Word Type",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "all"
+    },
+    {
+     "id": "clcw_version_number",
+     "label": "CLCW version number",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "all"
+    },
+    {
+     "id": "status_field",
+     "label": "Status Field",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "cop_in_effect",
+     "label": "COP in effect",
+     "dtype": "raw",
+     "default": "1",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "all"
+    },
+    {
+     "id": "virtual_channel_identification",
+     "label": "Virtual Channel Identificationo",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "rsvd_spare1",
+     "label": "RSVD Spare 1",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "all"
+    },
+    {
+     "id": "no_rf_avail",
+     "label": "No RF Avail",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "no_bit_lock",
+     "label": "No Bit Lock",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "lockout",
+     "label": "Lockout",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "wait",
+     "label": "Wait",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "retransmit",
+     "label": "Retransmit",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "farmb_counter",
+     "label": "Farm-B Counter",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "all"
+    },
+    {
+     "id": "rsvd_spare2",
+     "label": "RSVD Spare 2",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "all"
+    },
+    {
+     "id": "report_value",
+     "label": "Report Value",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_telemetry_packet_reconstruction",
+   "label": "Telemetry Packet Reconstruction",
+   "category": [
+    "Satellites",
+    "CCSDS"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_telemetry_primaryheader_adder",
+   "label": "Telemetry Primary Header Adder",
+   "category": [
+    "Satellites",
+    "CCSDS"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "coding",
+     "label": "Coding",
+     "dtype": "enum",
+     "default": "drop_down",
+     "category": "General",
+     "options": [
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7"
+     ],
+     "option_labels": [
+      "Uncoded",
+      "Convolutional",
+      "Reed Solomon",
+      "Concatenated",
+      "Turbo",
+      "LDPC on a Transfer Frame",
+      "LDPC on a Stream of SMTFS"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "reed_solomon_concat",
+     "label": "Reed Solomon or Concatenated",
+     "dtype": "enum",
+     "default": "drop_down",
+     "category": "General",
+     "options": [
+      "0",
+      "1"
+     ],
+     "option_labels": [
+      "32-bit Compatibility",
+      "Octet Compatibility"
+     ],
+     "option_attributes": null,
+     "hide": "${ ('none' if coding == '3' or coding == '4' else 'all') }"
+    },
+    {
+     "id": "e",
+     "label": "Error Correction Capability",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('none' if coding == '3' or coding == '4' else 'all') }"
+    },
+    {
+     "id": "q",
+     "label": "Number of Virtuall Fill Symbols",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('none' if coding == '3' or coding == '4' else 'all') }"
+    },
+    {
+     "id": "I",
+     "label": "Interleaving Depth",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('none' if coding == '3' or coding == '4' else 'all') }"
+    },
+    {
+     "id": "turbo",
+     "label": "Turbo",
+     "dtype": "enum",
+     "default": "drop_down",
+     "category": "General",
+     "options": [
+      "223",
+      "446",
+      "892",
+      "1115"
+     ],
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('none' if coding == '5' else 'all') }"
+    },
+    {
+     "id": "ldpc_tf",
+     "label": "LDPC applied to TF",
+     "dtype": "enum",
+     "default": "drop_down",
+     "category": "General",
+     "options": [
+      "0",
+      "1",
+      "2",
+      "3"
+     ],
+     "option_labels": [
+      "rate-1/2",
+      "rate-2/3",
+      "rate-4/5",
+      "rate-7/8"
+     ],
+     "option_attributes": null,
+     "hide": "${ ('none' if coding == '6' else 'all') }"
+    },
+    {
+     "id": "ldpc_tf_size",
+     "label": "LDPC Size",
+     "dtype": "enum",
+     "default": "drop_down",
+     "category": "General",
+     "options": [
+      "128",
+      "512",
+      "2048"
+     ],
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('none' if coding == '6' and ldpc_tf < '3' else 'all') }"
+    },
+    {
+     "id": "size",
+     "label": "Size",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('none' if coding == '1' or coding == '2' or coding == '7' else 'all') }"
+    },
+    {
+     "id": "transfer_frame_version_number",
+     "label": "Transfer Frame Version Number",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "all"
+    },
+    {
+     "id": "spacecraft_id",
+     "label": "Spacecraft ID",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "virtual_channel_id",
+     "label": "Virtual Channel ID",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "ocf_flag",
+     "label": "OCF Flag",
+     "dtype": "enum",
+     "default": "drop_down",
+     "category": "General",
+     "options": [
+      "1",
+      "0"
+     ],
+     "option_labels": [
+      "Yes",
+      "No"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "master_channel_frame_count",
+     "label": "Master Channel Frame Count",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "virtual_channel_frame_count",
+     "label": "Virtual Channel Frame Count",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "transfer_frame_secondary_header_flag",
+     "label": "Transfer Frame Secondary Header Flag",
+     "dtype": "enum",
+     "default": "drop_down",
+     "category": "General",
+     "options": [
+      "1",
+      "0"
+     ],
+     "option_labels": [
+      "Yes",
+      "No"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "synch_flag",
+     "label": "Synch Flag",
+     "dtype": "enum",
+     "default": "drop_down",
+     "category": "General",
+     "options": [
+      "1",
+      "0"
+     ],
+     "option_labels": [
+      "Yes",
+      "No"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "packet_order_flag",
+     "label": "Packet Order Flag",
+     "dtype": "enum",
+     "default": "drop_down",
+     "category": "General",
+     "options": [
+      "1",
+      "0"
+     ],
+     "option_labels": [
+      "Yes",
+      "No"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "segment_length_id",
+     "label": "Segment Length ID",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "first_header_pointer",
+     "label": "First Header Pointer",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "all"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_virtual_channel_demultiplexer",
+   "label": "Virtual Channel Demultiplexer",
+   "category": [
+    "Satellites",
+    "CCSDS"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "vc_outputs",
+     "label": "Virtual Channel ID outputs",
+     "dtype": "int_vector",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "${ len(vc_outputs) }",
+     "optional": false
+    },
+    {
+     "id": "discarded",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "variable_time_format_parameters",
+   "label": "Time Format Parameters",
+   "category": [
+    "Satellites",
+    "CCSDS"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "time_format_general",
+     "label": "Time Format",
+     "dtype": "enum",
+     "default": "drop_down",
+     "category": "General",
+     "options": [
+      "0",
+      "1",
+      "2",
+      "3",
+      "4"
+     ],
+     "option_labels": [
+      "CUC",
+      "CDS",
+      "CCS",
+      "ASCII A",
+      "ASCII B"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "basic_time",
+     "label": "Basic Time",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('none' if time_format_general == '0' else 'all') }"
+    },
+    {
+     "id": "frac_time",
+     "label": "Fractional Time",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('none' if time_format_general == '0' else 'all') }"
+    },
+    {
+     "id": "additional_basic_time",
+     "label": "Basic time additional",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('none' if time_format_general == '0' else 'all') }"
+    },
+    {
+     "id": "additional_fractional_time",
+     "label": "Basic time additional additional",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('none' if time_format_general == '0' else 'all') }"
+    },
+    {
+     "id": "length_of_day_cds",
+     "label": "Length of Day",
+     "dtype": "enum",
+     "default": "drop_down",
+     "category": "General",
+     "options": [
+      "0",
+      "1"
+     ],
+     "option_labels": [
+      "16-bit day segment",
+      "24-bit day segments"
+     ],
+     "option_attributes": null,
+     "hide": "${ ('none' if time_format_general == '1' else 'all') }"
+    },
+    {
+     "id": "length_of_submillisecond_cds",
+     "label": "Length of Submilliseconds",
+     "dtype": "enum",
+     "default": "drop_down",
+     "category": "General",
+     "options": [
+      "0",
+      "1",
+      "2"
+     ],
+     "option_labels": [
+      "Millisecond",
+      "Microsecond",
+      "Picosecond"
+     ],
+     "option_attributes": null,
+     "hide": "${ ('none' if time_format_general == '1' else 'all') }"
+    },
+    {
+     "id": "calendar_variation_ccs",
+     "label": "Calendar variation",
+     "dtype": "enum",
+     "default": "drop_down",
+     "category": "General",
+     "options": [
+      "0",
+      "1"
+     ],
+     "option_labels": [
+      "Month of year/day of month",
+      "Day of year"
+     ],
+     "option_attributes": null,
+     "hide": "${ ('none' if time_format_general == '2' else 'all') }"
+    },
+    {
+     "id": "number_of_subsecond_ccs",
+     "label": "Number of Subseconds",
+     "dtype": "enum",
+     "default": "drop_down",
+     "category": "General",
+     "options": [
+      "0",
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6"
+     ],
+     "option_labels": [
+      "1 s",
+      "10^-2 s",
+      "10^-4 s",
+      "10^-6 s",
+      "10^-8 s",
+      "10^-10 s",
+      "10^-12 s"
+     ],
+     "option_attributes": null,
+     "hide": "${ ('none' if time_format_general == '2' else 'all') }"
+    },
+    {
+     "id": "ascii_dec_num",
+     "label": "ASCII Decimals",
+     "dtype": "raw",
+     "default": "1",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('none' if time_format_general > '2' else 'all') }"
+    },
+    {
+     "id": "add_z_terminator",
+     "label": "Add Z terminator",
+     "dtype": "enum",
+     "default": "drop_down",
+     "category": "General",
+     "options": [
+      "1",
+      "0"
+     ],
+     "option_labels": [
+      "Yes",
+      "No"
+     ],
+     "option_attributes": null,
+     "hide": "${ ('none' if time_format_general > '2' else 'all') }"
+    },
+    {
+     "id": "value",
+     "label": "Default Value",
+     "dtype": "raw",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [],
+   "outputs": []
+  },
+  {
+   "id": "satellites_codec2_udp_sink",
+   "label": "Codec2 UDP sink",
+   "category": [
+    "Satellites",
+    "Data sinks"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "Sends Codec2 digital voice frames by UDP\n\nEach 7 byte frame is sent in a different UDP packet to ensure minimum latency\n\nInput:\n    A stream of PDUs containing Codec2 frames\n\nParameters:\n    IP: destination IP to send the UDP packets to\n    Port: destination port to send the UDP packets to\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "ip",
+     "label": "IP",
+     "dtype": "string",
+     "default": "127.0.0.1",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "port",
+     "label": "Port",
+     "dtype": "int",
+     "default": 7000,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": []
+  },
+  {
+   "id": "satellites_file_receiver",
+   "label": "File Receiver",
+   "category": [
+    "Satellites",
+    "Data sinks"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "Reassembles a files transmitted in chunks and saves them\n\nInput:\n    PDUs with packets containing file chunks\n\nParameters:\n    FileReceiver class: chunk format definition, which is a class in satellites.filereceiver\n    Path: path of the directory to save files to\n    Verbose: print additional information to the standard output\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "receiver",
+     "label": "FileReceiver class",
+     "dtype": "string",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "path",
+     "label": "Path",
+     "dtype": "string",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "verbose",
+     "label": "Verbose",
+     "dtype": "bool",
+     "default": false,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": []
+  },
+  {
+   "id": "satellites_hexdump_sink",
+   "label": "Hexdump Sink",
+   "category": [
+    "Satellites",
+    "Data sinks"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "Prints PDUs in hex to the standard output\n\nThis block is a wrapper over the Message Debug block\n\nInput:\n    PDUs\n\nParameters:\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": []
+  },
+  {
+   "id": "satellites_image_receiver",
+   "label": "Image Receiver",
+   "category": [
+    "Satellites",
+    "Data sinks"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "Reassembles images transmitted in chunks and displays them in real time\n\nThe images are also saved to files in a directory\n\nInput:\n    PDUs with packets containing image chunks\n\nParameters:\n    ImageReceiver class: chunk format definition, which is a class in satellites.filereceiver\n    Path: path of the directory to save files to\n    Verbose: print additional information to the standard output\n    Display: show the image in real time using feh\n    Fullscreen: run feh in fullscreen\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "receiver",
+     "label": "ImageReceiver class",
+     "dtype": "string",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "path",
+     "label": "Path",
+     "dtype": "string",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "verbose",
+     "label": "Verbose",
+     "dtype": "bool",
+     "default": false,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    },
+    {
+     "id": "display",
+     "label": "Display",
+     "dtype": "bool",
+     "default": true,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    },
+    {
+     "id": "fullscreen",
+     "label": "Fullscreen",
+     "dtype": "bool",
+     "default": true,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": []
+  },
+  {
+   "id": "satellites_kiss_file_sink",
+   "label": "KISS File Sink",
+   "category": [
+    "Satellites",
+    "Data sinks"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "Saves PDUs to a file using the KISS protocol/format\n\nInput:\n    PDUs with packets\n\nParameters:\n    File: path of the output file\n    Append file: selects whether the output file should be overwritten or appended to\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "file",
+     "label": "File",
+     "dtype": "file_save",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "append",
+     "label": "Append file",
+     "dtype": "bool",
+     "default": "False",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": [
+      "Append",
+      "Overwrite"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": []
+  },
+  {
+   "id": "satellites_kiss_server_sink",
+   "label": "KISS Server Sink",
+   "category": [
+    "Satellites",
+    "Data sinks"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "Saves PDUs using the KISS protocol to clients connected to this TCP server\n\nInput:\n    PDUs with packets\n\nParameters:\n    Address: Address to bind to. Use \"\" to bind on all addresses.\n    Port: Port to listen on\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "address",
+     "label": "Address",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "port",
+     "label": "Port",
+     "dtype": "int",
+     "default": 8100,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": []
+  },
+  {
+   "id": "satellites_telemetry_parser",
+   "label": "Telemetry Parser",
+   "category": [
+    "Satellites",
+    "Data sinks"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "Parses telemetry frames according to a construct telemetry definition\n\nThe parser prints the output to the standard output or a file\n\nInput:\n    PDUs containing telemetry frames\n\nParameters:\n    Telemetry Definition: the telemetry definition to use for parsing, which must be an object of satellites.telemetry supporting the parse() method\n    Output: selects standard output or file as output destination\n    File: selects the path of the output file\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "definition",
+     "label": "Telemetry Definition",
+     "dtype": "string",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "output",
+     "label": "Output",
+     "dtype": "enum",
+     "default": "stdout",
+     "category": "General",
+     "options": [
+      "stdout",
+      "file"
+     ],
+     "option_labels": [
+      "Standard output (stdout)",
+      "File"
+     ],
+     "option_attributes": null,
+     "hide": "${ 'part' if output == 'file' else 'none' }"
+    },
+    {
+     "id": "file",
+     "label": "File",
+     "dtype": "file_save",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ 'all' if output == 'stdout' else 'none' }"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": []
+  },
+  {
+   "id": "satellites_telemetry_submit",
+   "label": "Telemetry Submit",
+   "category": [
+    "Satellites",
+    "Data sinks"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "Sends telemetry frames to an online telemetry data base server\n\nThis block uses the gr-satellites config file at ~/.gr_satellites/config.ini to set up the server configuration\n\nInput:\n    PDUs with telemetry frames\n\nParameters:\n    Server: selects the server to submit telemetry to\n    URL: url of the custom SIDS server (for Custom SIDS server)\n    NORAD ID: NORAD ID of the satellite (for SatNOGS and BME)\n    TCP server port: TCP port where the proxy is listening (for HIT)\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "server",
+     "label": "Server",
+     "dtype": "enum",
+     "default": "\"SatNOGS\"",
+     "category": "General",
+     "options": [
+      "\"SatNOGS\"",
+      "\"FUNcube\"",
+      "\"PWSat\"",
+      "\"BME\"",
+      "\"BMEWS\"",
+      "\"HIT\"",
+      "\"SIDS\""
+     ],
+     "option_labels": [
+      "SatNOGS DB",
+      "AMSAT-UK Data Warehouse",
+      "PW-Sat2 Ground Station",
+      "BME Ground Station (Deprecated)",
+      "BME Ground Station (WebSocket)",
+      "Harbin Institute of Technology",
+      "Custom SIDS server"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "url",
+     "label": "URL",
+     "dtype": "string",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ 'all' if server != '\"SIDS\"' else 'none' }"
+    },
+    {
+     "id": "norad",
+     "label": "NORAD ID",
+     "dtype": "int",
+     "default": 0,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ 'all' if server not in ['\"SatNOGS\"', '\"BME\"', '\"SIDS\"'] else 'none' }"
+    },
+    {
+     "id": "port",
+     "label": "TCP server port",
+     "dtype": "int",
+     "default": 0,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ 'none' if server == '\"HIT\"' else 'all' }"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": []
+  },
+  {
+   "id": "satellites_kiss_file_source",
+   "label": "KISS File Source",
+   "category": [
+    "Satellites",
+    "Data sources"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "Reads a file in KISS format, outputing PDUs\n\nOutput:\n    The frames stored in the KISS file, as PDUs\n\nParameters:\n     File: the file to read from\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "file",
+     "label": "File",
+     "dtype": "file_open",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_aalto1_deframer",
+   "label": "AALTO-1 Deframer",
+   "category": [
+    "Satellites",
+    "Deframers"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "Deframes AALTO-1 custom packets\n\nThe frames are transmitted by a Texas Intruments CC1125 transceiver with a PN9 scrambler and a CRC-16 CCITT (as in AX.25)\n\nInput:\n    A stream of soft symbols containing AALTO-1 packets\n\nOutput:\n    PDUs with the deframed AALTO-1 packets\n\nParameters:\n    Syncword threshold: number of bit errors to allow in syncword detection\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "Hierarchical block to deframe the AALTO-1 custom framing\n\nThis framing is based in a TI CC1125 transceiver\nwith a PN9 scrambler, and a CRC-16 CCITT (as in AX.25).\n\nThe input is a float stream of soft symbols. The output are PDUs\nwith frames.\n\nArgs:\n    syncword_threshold: number of bit errors allowed in syncword (int)\n    options: Options from argparse",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "threshold",
+     "label": "Syncword threshold",
+     "dtype": "int",
+     "default": 0,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_aausat4_deframer",
+   "label": "AAUSAT-4 Deframer",
+   "category": [
+    "Satellites",
+    "Deframers"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "Deframes custom packets from AAUSAT-4\n\nThe AAUSAT-4 framing is similar to the CCSDS concatenated protocol\n\nInput:\n    A stream of soft symbols containing AAUSAT-4 packets\n\nOutput:\n    PDUs with the deframed AAUSAT-4 packets\n\nParameters:\n    Syncword threshold: number of bit errors to allow in syncword detection\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "threshold",
+     "label": "Syncword threshold",
+     "dtype": "int",
+     "default": 0,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_aistechsat_2_deframer",
+   "label": "AISTECHSAT-2 custom deframer",
+   "category": [
+    "Satellites",
+    "Deframers"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "Deframes a signal using the AISTECHSAT-2 custom CCSDS-like protocol\n\nInput:\n    A stream of soft symbols containing packets using the AISTECHSAT-2 custom protocol\n\nOutput:\n    PDUs with the deframed packets\n\nParameters:\n    Syncword threshold: number of bit errors to allow in the detection of the 32 bit syncword\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "Hierarchical block to deframe CCSDS Reed-Solomon TM frames\n\nThe input is a float stream of soft symbols. The output are PDUs\nwith frames.\n\nArgs:\n    frame_size: frame size (not including parity check bytes) (int)\n    precoding: either None or 'differential' for differential precoding\n               (str)\n    rs_en: If Reed-Solomon should be enabled or not (bool)\n    rs_basis: Reed-Solomon basis, either 'conventional' or 'dual' (str)\n    rs_interleaving: Reed-Solomon interleaving depth (int)\n    scrambler: scrambler to use, either 'CCSDS' or 'none' (str)\n    syncword_threshold: number of bit errors allowed in syncword (int)\n    options: Options from argparse",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "threshold",
+     "label": "Syncword threshold",
+     "dtype": "int",
+     "default": 0,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_ao40_fec_deframer",
+   "label": "AO-40 FEC Deframer",
+   "category": [
+    "Satellites",
+    "Deframers"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "Deframes a signal using the AO-40 FEC protocol\n\nInput:\n    A stream of soft symbols containing packets using the AO-40 FEC protocol\n\nOutput:\n    PDUs with the deframed packets\n\nParameters:\n    Syncword threshold: number of bit errors to allow in the detection of the 32 bit syncword\n    Use short frames (SMOG-P): enable usage of short frames, which is a variant employed by SMOG-P and ATL-1\n    Use CRC-16 ARC: use CRC-16 ARC (used in SMOG-1)\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "Hierarchical block to deframe the AO-40 FEC protocol.\n\nThe input is a float stream of soft symbols. The output are PDUs\nwith frames.\n\nArgs:\n    syncword_threshold: number of bit errors allowed in syncword (int)\n    short_frames: use short frames (used in SMOG-P) (bool)\n    crc: use CRC-16 ARC (used in SMOG-P) (bool)\n    options: Options from argparse",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "threshold",
+     "label": "Syncword threshold",
+     "dtype": "int",
+     "default": 0,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "short_frames",
+     "label": "Use short frames (SMOG-P)",
+     "dtype": "bool",
+     "default": "False",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "crc",
+     "label": "Use CRC-16 ARC",
+     "dtype": "bool",
+     "default": "False",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_ao40_uncoded_deframer",
+   "label": "AO-40 Uncoded Deframer",
+   "category": [
+    "Satellites",
+    "Deframers"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "Deframes AO-40 uncoded packets\n\nThe packets have 512 bytes of payload and a CRC-16\n\nInput:\n    A stream of soft symbols containing AO-40 uncoded packets\n\nOutput:\n    PDUs with the deframed AO-40 packets\n\nParameters:\n    Syncword threshold: number of bit errors to allow in syncword detection\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "Hierarchical block to deframe the AO-40 uncoded framing.\n\nThe input is a float stream of soft symbols. The output are PDUs\nwith frames.\n\nArgs:\n    syncword_threshold: number of bit errors allowed in syncword (int)\n    options: Options from argparse",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "threshold",
+     "label": "Syncword threshold",
+     "dtype": "int",
+     "default": 0,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_astrocast_fx25_deframer",
+   "label": "Astrocast FX.25 Deframer",
+   "category": [
+    "Satellites",
+    "Deframers"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "Deframes Astrocast somewhat-noncompliant FX.25 packets\n\nInput:\n    A stream of soft symbols containing Astrocast FX.25 packets\n\nOutput:\n    PDUs with the deframed Astrocast FX.25 packets\n\nParameters:\n    Syncword threshold: number of bit errors to allow in syncword detection\n    Coding: selects NRZ-I or NRZ coding\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "Hierarchical block to deframe the Astrocast (somewhat non-compliant) FX.25\n\nThe input is a float stream of soft symbols. The output are PDUs\nwith frames.\n\nArgs:\n    syncword_threshold: number of bit errors allowed in syncword (int)\n    nrzi: use NRZ-I instead of NRZ (bool)\n    options: Options from argparse",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "threshold",
+     "label": "Syncword threshold",
+     "dtype": "int",
+     "default": 0,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "nrzi",
+     "label": "Coding",
+     "dtype": "enum",
+     "default": "True",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": [
+      "NRZ-I",
+      "NRZ"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_ax100_deframer",
+   "label": "GOMspace AX100 Deframer",
+   "category": [
+    "Satellites",
+    "Deframers"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "Deframes a signal using one of the two protocols of the GOMspace NanoCom AX100\n\nInput:\n    A stream of soft symbols containing packets from the AX100 transceiver\n\nOutput:\n    PDUs with the deframed packets\n\nParameters:\n    Mode: indicates the AX100 mode (protocol), which can be ASM+Golay or Reed Solomon\n    Scrambler: enables or disables the CCSDS synchronous scrambler (only ASM+Golay mode)\n    Syncword threshold: number of bit errors to allow in the detection of the 32 bit syncword\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "Hierarchical block to deframe the GOMspace AX100 protocols.\n\nThe input is a float stream of soft symbols. The output are PDUs\nwith frames (most likely CSP frames).\n\nArgs:\n    mode: mode to use ('RS' or 'ASM') (string)\n    scrambler: scrambler to use, either 'CCSDS' or 'none'\n               (only for ASM mode) (str)\n    syncword_threshold: number of bit errors allowed in syncword (int)\n    syncword: syncword to use (str)\n    options: Options from argparse",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "mode",
+     "label": "Mode",
+     "dtype": "enum",
+     "default": "\"RS\"",
+     "category": "General",
+     "options": [
+      "\"RS\"",
+      "\"ASM\""
+     ],
+     "option_labels": [
+      "Reed Solomon",
+      "ASM+Golay"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "scrambler",
+     "label": "Scrambler",
+     "dtype": "enum",
+     "default": "\"CCSDS\"",
+     "category": "General",
+     "options": [
+      "\"CCSDS\"",
+      "\"none\""
+     ],
+     "option_labels": [
+      "CCSDS",
+      "None"
+     ],
+     "option_attributes": null,
+     "hide": "${ 'none' if mode == '\"ASM\"' else 'all' }"
+    },
+    {
+     "id": "threshold",
+     "label": "Syncword threshold",
+     "dtype": "int",
+     "default": 0,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_ax25_deframer",
+   "label": "AX.25 Deframer",
+   "category": [
+    "Satellites",
+    "Deframers"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "Deframes AX.25 packets\n\nThis block performs NRZ-I decoding, frame boundary detection, bit de-stuffing, and CRC-16 checking.\n\nInput:\n    A stream of soft symbols containing AX.25 packets\n\nOutput:\n    PDUs with the deframed AX.25 packets\n\nParameters:\n    G3RUH scrambling: Perform G3RUH descrambling\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "Hierarchical block to deframe AX.25.\n\nThe input is a float stream of soft symbols. The output are PDUs\nwith AX.25 frames.\n\nThe input should be NRZ-I encoded and optionally G3RUH scrambled.\n\nArgs:\n    g3ruh_scrambler: use G3RUH descrambling (boolean)\n    options: Options from argparse",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "g3ruh_scrambler",
+     "label": "G3RUH scrambling",
+     "dtype": "bool",
+     "default": "True",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_ax5043_deframer",
+   "label": "AX5043 Deframer",
+   "category": [
+    "Satellites",
+    "Deframers"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "Deframes AX5043 FEC packets\n\nInput:\n    A stream of soft symbols containing AX5043 FEC packets\n\nOutput:\n    PDUs with the deframed packets\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_binar1_deframer",
+   "label": "BINAR-1 Deframer",
+   "category": [
+    "Satellites",
+    "Deframers"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "Deframes BINAR-1 custom packets\n\nInput:\n    A stream of soft symbols containing BINAR-1 packets\n\nOutput:\n    PDUs with the deframed packets\n\nCommand line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "Hierarchical block to deframe the BINAR-1 custom framing\n\nThis framing uses a custom syncword, a 1-byte packet length\nfield, no scrambling, and CRC-16 CCITT FALSE (as in CCSDS\ntransfer frames). the packet length field was supposed to\nalways have the value 0x56, but we have seen other values\nsuch as 0x4b being used.\n\nThe input is a float stream of soft symbols. The output are PDUs\nwith frames.\n\nArgs:\n    syncword_threshold: number of bit errors allowed in syncword (int)\n    options: Options from argparse",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_binar2_deframer",
+   "label": "BINAR-2 Deframer",
+   "category": [
+    "Satellites",
+    "Deframers"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "Deframes BINAR-2 custom packets\n\nInput:\n    A stream of soft symbols containing BINAR-2 packets\n\nOutput:\n    PDUs with the deframed packets\n\nCommand line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "Hierarchical block to deframe BINAR-2 custom framing\n\nThe input is a float stream of soft symbols. The output are PDUs\nwith frames.\n\nArgs:\n    syncword_threshold: number of bit errors allowed in syncword (int)\n    options: Options from argparse",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_ccsds_concatenated_deframer",
+   "label": "CCSDS Concatenated Deframer",
+   "category": [
+    "Satellites",
+    "Deframers"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "Deframes a signal using the CCSDS concatenated TM protocol\n\nInput:\n    A stream of soft symbols containing packets using the CCSDS concatenated TM protocol\n\nOutput:\n    PDUs with the deframed packets\n\nParameters:\n    Frame size (bytes): the size of the frame in bytes, after Reed-Solomon decoding\n    Precoding: selects no precoding or differential precoding\n    Reed-Solomon basis: toggles the usage of the conventional or dual basis definition for the Reed-Solomon code\n    Reed-Solomon interleave depth: number of interleaved Reed-Solomon codewords\n    Scrambler: enables or disables the CCSDS synchronous scrambler\n    Convolutional code: selects the polynomials and inversion branches used to define the convolutional encoder\n    Syncword threshold: number of bit errors to allow in the detection of the 32 bit syncword\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "Hierarchical block to deframe CCSDS concatenated\n(convolutional + Reed-Solomon) TM frames\n\nThe input is a float stream of soft symbols. The output are PDUs\nwith frames.\n\nArgs:\n    frame_size: frame size (not including parity check bytes) (int)\n    precoding: either None or 'differential' for differential precoding\n               (str)\n    rs_en: If Reed-Solomon should be enabled or not (bool)\n    rs_basis: Reed-Solomon basis, either 'conventional' or 'dual' (str)\n    rs_interleaving: Reed-Solomon interleaving depth (int)\n    scrambler: scrambler to use, either 'CCSDS' or 'none' (str)\n    convolutional: convolutional code to use, one of the following:\n        'CCSDS', 'NASA-DSN', 'CCSDS uninverted',\n        'NASA-DSN uninverted' (str)\n    syncword_threshold: number of bit errors allowed in syncword (int)\n    options: Options from argparse",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "frame_size",
+     "label": "Frame size (bytes)",
+     "dtype": "int",
+     "default": 223,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "precoding",
+     "label": "Precoding",
+     "dtype": "string",
+     "default": "None",
+     "category": "General",
+     "options": [
+      "None",
+      "\"differential\""
+     ],
+     "option_labels": [
+      "None",
+      "Differential"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "rs_basis",
+     "label": "Reed-Solomon basis",
+     "dtype": "enum",
+     "default": "\"dual\"",
+     "category": "General",
+     "options": [
+      "\"conventional\"",
+      "\"dual\""
+     ],
+     "option_labels": [
+      "Conventional",
+      "Dual"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "rs_interleaving",
+     "label": "Reed-Solomon interleave depth",
+     "dtype": "int",
+     "default": 1,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "scrambler",
+     "label": "Scrambler",
+     "dtype": "enum",
+     "default": "\"CCSDS\"",
+     "category": "General",
+     "options": [
+      "\"CCSDS\"",
+      "\"none\""
+     ],
+     "option_labels": [
+      "CCSDS",
+      "None"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "convolutional",
+     "label": "Convolutional code",
+     "dtype": "enum",
+     "default": "\"CCSDS\"",
+     "category": "General",
+     "options": [
+      "\"CCSDS\"",
+      "\"NASA-DSN\"",
+      "\"CCSDS uninverted\"",
+      "\"NASA-DSN uninverted\""
+     ],
+     "option_labels": [
+      "CCSDS",
+      "NASA-DSN",
+      "CCSDS uninverted",
+      "NASA-DSN uninverted"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "threshold",
+     "label": "Syncword threshold",
+     "dtype": "int",
+     "default": 0,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_ccsds_rs_deframer",
+   "label": "CCSDS Reed-Solomon Deframer",
+   "category": [
+    "Satellites",
+    "Deframers"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "Deframes a signal using the CCSDS Reed-Solomon TM protocol\n\nInput:\n    A stream of soft symbols containing packets using the CCSDS Reed-Solomon TM protocol\n\nOutput:\n    PDUs with the deframed packets\n\nParameters:\n    Frame size (bytes): the size of the frame in bytes, after Reed-Solomon decoding\n    Precoding: selects no precoding or differential precoding\n    Reed-Solomon basis: toggles the usage of the conventional or dual basis definition for the Reed-Solomon code\n    Reed-Solomon interleave depth: number of interleaved Reed-Solomon codewords\n    Scrambler: enables or disables the CCSDS synchronous scrambler\n    Syncword threshold: number of bit errors to allow in the detection of the 32 bit syncword\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "Hierarchical block to deframe CCSDS Reed-Solomon TM frames\n\nThe input is a float stream of soft symbols. The output are PDUs\nwith frames.\n\nArgs:\n    frame_size: frame size (not including parity check bytes) (int)\n    precoding: either None or 'differential' for differential precoding\n               (str)\n    rs_en: If Reed-Solomon should be enabled or not (bool)\n    rs_basis: Reed-Solomon basis, either 'conventional' or 'dual' (str)\n    rs_interleaving: Reed-Solomon interleaving depth (int)\n    scrambler: scrambler to use, either 'CCSDS' or 'none' (str)\n    syncword_threshold: number of bit errors allowed in syncword (int)\n    options: Options from argparse",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "frame_size",
+     "label": "Frame size (bytes)",
+     "dtype": "int",
+     "default": 223,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "precoding",
+     "label": "Precoding",
+     "dtype": "string",
+     "default": "None",
+     "category": "General",
+     "options": [
+      "None",
+      "\"differential\""
+     ],
+     "option_labels": [
+      "None",
+      "Differential"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "rs_basis",
+     "label": "Reed-Solomon basis",
+     "dtype": "enum",
+     "default": "\"dual\"",
+     "category": "General",
+     "options": [
+      "\"conventional\"",
+      "\"dual\""
+     ],
+     "option_labels": [
+      "Conventional",
+      "Dual"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "rs_interleaving",
+     "label": "Reed-Solomon interleave depth",
+     "dtype": "int",
+     "default": 1,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "scrambler",
+     "label": "Scrambler",
+     "dtype": "enum",
+     "default": "\"CCSDS\"",
+     "category": "General",
+     "options": [
+      "\"CCSDS\"",
+      "\"none\""
+     ],
+     "option_labels": [
+      "CCSDS",
+      "None"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "threshold",
+     "label": "Syncword threshold",
+     "dtype": "int",
+     "default": 0,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_ccsds_deframer",
+   "label": "CCSDS Uncoded Deframer",
+   "category": [
+    "Satellites",
+    "Deframers"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "Deframes a signal using the CCSDS TM protocol\n\nInput:\n    A stream of soft symbols containing packets using the CCSDS TM protocol\n\nOutput:\n    PDUs with the deframed packets\n\nParameters:\n    Frame size (bytes): the size of the frame in bytes\n    Precoding: selects no precoding or differential precoding\n    Scrambler: enables or disables the CCSDS synchronous scrambler\n    Syncword threshold: number of bit errors to allow in the detection of the 32 bit syncword\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "Hierarchical block to deframe CCSDS Reed-Solomon TM frames\n\nThe input is a float stream of soft symbols. The output are PDUs\nwith frames.\n\nArgs:\n    frame_size: frame size (not including parity check bytes) (int)\n    precoding: either None or 'differential' for differential precoding\n               (str)\n    rs_en: If Reed-Solomon should be enabled or not (bool)\n    rs_basis: Reed-Solomon basis, either 'conventional' or 'dual' (str)\n    rs_interleaving: Reed-Solomon interleaving depth (int)\n    scrambler: scrambler to use, either 'CCSDS' or 'none' (str)\n    syncword_threshold: number of bit errors allowed in syncword (int)\n    options: Options from argparse",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "frame_size",
+     "label": "Frame size (bytes)",
+     "dtype": "int",
+     "default": 223,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "precoding",
+     "label": "Precoding",
+     "dtype": "string",
+     "default": "None",
+     "category": "General",
+     "options": [
+      "None",
+      "\"differential\""
+     ],
+     "option_labels": [
+      "None",
+      "Differential"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "scrambler",
+     "label": "Scrambler",
+     "dtype": "enum",
+     "default": "\"CCSDS\"",
+     "category": "General",
+     "options": [
+      "\"CCSDS\"",
+      "\"none\""
+     ],
+     "option_labels": [
+      "CCSDS",
+      "None"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "threshold",
+     "label": "Syncword threshold",
+     "dtype": "int",
+     "default": 0,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_diy1_deframer",
+   "label": "DIY-1 Deframer",
+   "category": [
+    "Satellites",
+    "Deframers"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "Deframes DIY-1 RFM22 packets\n\nInput:\n    A stream of soft symbols containing DIY-1 packets\n\nOutput:\n    PDUs with the deframed packets\n\nCommand line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_endurosat_deframer",
+   "label": "Endurosat Deframer",
+   "category": [
+    "Satellites",
+    "Deframers"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "Deframes Endurosat packets\n\nThese frames are formed by a preamble of 5 0xaa bytes, the 0x7e flag as syncword, followed by one byte indicating the packet length, then the packet (length 0 to 128 bytes), and finally a CRC-16. The CRC-16 applies to the packet and packet length.\n\nInput:\n    A stream of soft symbols containing Endurosat packets\n\nOutput:\n    PDUs with the deframed Endurosat packets\n\nParameters:\n    Syncword threshold: number of bit errors to allow in syncword detection\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "Hierarchical block to deframe Endurosat frames.\n\nThese frames are formed by a preamble of 5 0xaa bytes,\nthe 0x7e flag as syncword, followed by one byte indicating\nthe packet length, then the packet (length 0 to 128 bytes),\nand finally a CRC-16. The CRC-16 applies to the packet and\npacket length.\n\nThe input is a float stream of soft symbols. The output are PDUs\nwith frames.\n\nArgs:\n    syncword_threshold: number of bit errors allowed in syncword (int)\n    options: Options from argparse",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "threshold",
+     "label": "Syncword threshold",
+     "dtype": "int",
+     "default": 0,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_eseo_deframer",
+   "label": "ESEO Deframer",
+   "category": [
+    "Satellites",
+    "Deframers"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "Deframes ESEO custom frames\n\nThe frames use G3RUH scrambling and Reed-Solomon\n\nInput:\n    A stream of soft symbols containing ESEO frames\n\nOutput:\n    PDUs with the deframed ESEO frames\n\nParameters:\n    Syncword threshold: number of bit errors to allow in syncword detection\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "threshold",
+     "label": "Syncword threshold",
+     "dtype": "int",
+     "default": 0,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_fossasat_deframer",
+   "label": "FOSSASAT Deframer",
+   "category": [
+    "Satellites",
+    "Deframers"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "Deframes FOSSASAT-1/2 packets\n\nThis framing is based on Semtech SX126x transceiver with PN9 scrambler, bit order swapping and a CRC-16.\n\nInput:\n    A stream of soft symbols containing FOSSASAT-1/2 packets\n\nOutput:\n    PDUs with the deframed Reaktor Hello World packets\n\nParameters:\n    Syncword threshold: number of bit errors to allow in syncword detection\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "Hierarchical block to deframe FOSSASAT-1/2 custom framing\n\nThis framing is based on Semtech SX126x transceiver\nwith PN9 scrambler, bit order swapping and a CRC-16.\n\nThe input is a float stream of soft symbols. The output are PDUs\nwith frames.\n\nArgs:\n    syncword_threshold: number of bit errors allowed in syncword (int)\n    options: Options from argparse",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "threshold",
+     "label": "Syncword threshold",
+     "dtype": "int",
+     "default": 0,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_geoscan_deframer",
+   "label": "GEOSCAN Deframer",
+   "category": [
+    "Satellites",
+    "Deframers"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "Deframes GEOSCAN custom packets\n\nThe frames are transmitted by a Texas Intruments CC1125 transceiver with a PN9 scrambler and the built-in CRC.\n\nInput:\n    A stream of soft symbols containing GEOSCAN packets\n\nOutput:\n    PDUs with the deframed GEOSCAN packets\n\nParameters:\n    Frame size: size of the decode frame in bytes\n    Syncword threshold: number of bit errors to allow in syncword detection\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "Hierarchical block to deframe the GEOSCAN custom framing\n\nThis framing is based in a TI CC1125 transceiver\nwith a PN9 scrambler, and the built-in CRC.\n\nThe input is a float stream of soft symbols. The output are PDUs\nwith frames.\n\nArgs:\n    syncword_threshold: number of bit errors allowed in syncword (int)\n    frame_size: size of the decode frame in bytes\n    options: Options from argparse",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "threshold",
+     "label": "Syncword threshold",
+     "dtype": "int",
+     "default": 0,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    },
+    {
+     "id": "frame_size",
+     "label": "Frame length (bytes)",
+     "dtype": "int",
+     "default": 66,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_grizu263a_deframer",
+   "label": "Grizu-263A Deframer",
+   "category": [
+    "Satellites",
+    "Deframers"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "Deframes Grizu-263A packets\n\nThis framing is based on Semtech SX1268 transceiver with PN9 scrambler, bit order swapping and a CRC-16.\n\nInput:\n    A stream of soft symbols containing Reaktor Hello World packets\n\nOutput:\n    PDUs with the deframed Reaktor Hello World packets\n\nParameters:\n    Syncword threshold: number of bit errors to allow in syncword detection\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "Hierarchical block to deframe Grizu-263A custom framing\n\nThis framing is based on Semtech SX1268 transceiver\nwith PN9 scrambler, bit order swapping and a CRC-16.\n\nThe input is a float stream of soft symbols. The output are PDUs\nwith frames.\n\nArgs:\n    syncword_threshold: number of bit errors allowed in syncword (int)\n    options: Options from argparse",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "threshold",
+     "label": "Syncword threshold",
+     "dtype": "int",
+     "default": 0,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_hades_deframer",
+   "label": "HADES Deframer",
+   "category": [
+    "Satellites",
+    "Deframers"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "Deframes HADES packets\n\nSee the following documents for the specifications\nhttps://www.amsat-ea.org/app/download/13595424/AMSAT+EA+-+Descripci%C3%B3n+de+transmisiones+de+HADES-D.pdf\nhttps://www.amsat-ea.org/app/download/13595777/AMSAT+EA+-+HADES-D+Transmissions+description.pdf\nhttps://www.amsat-ea.org/app/download/13945587/AMSAT+EA+-+Transmissions+description+for+MARIA-G_UNNE-1_HADES-R_HADES-ICM.pdf\n\nInput:\n    A stream of soft symbols containing HADES packets\n\nOutput:\n    PDUs with the deframed HADES packets\n\nParameters:\n    Satellite: satellite to use\n    Syncword threshold: number of bit errors to allow in syncword detection\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "satellite",
+     "label": "Satellite",
+     "dtype": "enum",
+     "default": "\"HADES-D\"",
+     "category": "General",
+     "options": [
+      "\"HADES-D\"",
+      "\"HADES-R\""
+     ],
+     "option_labels": [
+      "HADES-D",
+      "HADES-R"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "threshold",
+     "label": "Syncword threshold",
+     "dtype": "int",
+     "default": 0,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_hsu_sat1_deframer",
+   "label": "HSU-SAT1 Deframer",
+   "category": [
+    "Satellites",
+    "Deframers"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "Deframes HSU-SAT1 packets\n\nInput:\n    A stream of soft symbols containing HSU-SAT1 packets\n\nOutput:\n    PDUs with the deframed packets\n\nCommand line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_ideassat_deframer",
+   "label": "IDEASSat Deframer",
+   "category": [
+    "Satellites",
+    "Deframers"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "Deframes IDEASSat ad-hoc packets\n\nInput:\n    A stream of soft symbols containing IDEASSat packets\n\nOutput:\n    PDUs with the deframed packets\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_k2sat_deframer_component",
+   "label": "K2SAT Deframer",
+   "category": [
+    "Satellites",
+    "Deframers"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "Deframes K2SAT image packets\n\nThe frames use the CCSDS r=1/2, k=7 convolutional code and the IESS-308 (V.35) asynchronous scrambler\n\nInput:\n    A stream of soft symbols containing K2SAT image packets\n\nOutput:\n    PDUs with the deframed K2SAT image packets\n\nParameters:\n    Syncword threshold: number of bit errors to allow in syncword detection\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "threshold",
+     "label": "Syncword threshold",
+     "dtype": "int",
+     "default": 0,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_light1_deframer",
+   "label": "Light-1 Deframer",
+   "category": [
+    "Satellites",
+    "Deframers"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "Deframes Light-1 packets\n\nThe frames are transmitted by a Texas Intruments CC1125 transceiver with a PN9 scrambler and a CRC-16\n\nInput:\n    A stream of soft symbols containing Light-1\n\nOutput:\n    PDUs with the deframed Light-1\n\nParameters:\n    Syncword threshold: number of bit errors to allow in syncword detection\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "Hierarchical block to deframe the Reaktor Hello World custom framing\n\nThis framing is based in a TI CC1125 transceiver\nwith a PN9 scrambler, and a CRC-16.\n\nThe input is a float stream of soft symbols. The output are PDUs\nwith frames.\n\nArgs:\n    syncword_threshold: number of bit errors allowed in syncword (int)\n    options: Options from argparse",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "threshold",
+     "label": "Syncword threshold",
+     "dtype": "int",
+     "default": 0,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_lilacsat_1_deframer",
+   "label": "LilacSat-1 Deframer",
+   "category": [
+    "Satellites",
+    "Deframers"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "Deframes LilacSat-1 packets\n\nThe frames use CCSDS Viterbi and synchronous scrambling and have Codec2 digital\nvoice frames interleaved with a KISS stream that contains telemetry packets\n\nInput:\n    A stream of soft symbols containing LilacSat-1 frames\n\nOutput:\n    out port: PDUs with chunks of a KISS stream\n    codec2 port: Codec2 digital voice frames\n\nParameters:\n    Syncword threshold: number of bit errors to allow in syncword detection\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "Hierarchical block to deframe LilacSat-1 frames\n\nThe input is a float stream of soft symbols. The output are PDUs\nwith chunks of a KISS stream. The additional output is codec2 data.\n\nArgs:\n    syncword_threshold: number of bit errors allowed in syncword (int)\n    options: Options from argparse",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "threshold",
+     "label": "Syncword threshold",
+     "dtype": "int",
+     "default": 0,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true
+    },
+    {
+     "id": "codec2",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true
+    }
+   ]
+  },
+  {
+   "id": "satellites_lucky7_deframer",
+   "label": "Lucky-7 Deframer",
+   "category": [
+    "Satellites",
+    "Deframers"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "Deframes Lucky-7 packets\n\nThe frames are transmitted by a SiLabs Si4463 transceiver with a PN9 scrambler and a CRC-16\n\nInput:\n    A stream of soft symbols containing Lucky-7 packets\n\nOutput:\n    PDUs with the deframed Lucky-7 packets\n\nParameters:\n    Syncword threshold: number of bit errors to allow in syncword detection\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "Hierarchical block to deframe the Lucky-7 custom framing\n\nThis framing is based in a SiLabs Si4463 transceiver\nwith a PN9 scrambler, and a CRC-16.\n\nThe input is a float stream of soft symbols. The output are PDUs\nwith frames.\n\nArgs:\n    syncword_threshold: number of bit errors allowed in syncword (int)\n    options: Options from argparse",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "threshold",
+     "label": "Syncword threshold",
+     "dtype": "int",
+     "default": 0,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_mobitex_deframer",
+   "label": "Mobitex Deframer",
+   "category": [
+    "Satellites",
+    "Deframers"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "Deframes Mobitex or Mobitex-NX packets\n\nThis block performs frame synchronization, FEC, descrambling and deinterleaving as required by the Mobitex protocol\n\nInput:\n    A stream of soft symbols containing Mobitex packets\n\nOutput:\n    PDUs with the deframed Mobitex packets\n\nParameters:\n    Use Mobitex-NX: Use Mobitex-NX mode instead of Mobitex\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "nx",
+     "label": "Use Mobitex-NX",
+     "dtype": "bool",
+     "default": "False",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_ngham_deframer",
+   "label": "NGHam Deframer",
+   "category": [
+    "Satellites",
+    "Deframers"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "Deframes NGHam packets\n\nThe NGHam protocol is described in https://github.com/skagmo/ngham\n\nInput:\n    A stream of soft symbols containing NGHam packets\n\nOutput:\n    PDUs with the deframed NGHam packets\n\nParameters:\n    Syncword threshold: number of bit errors to allow in syncword detection\n    Use Reed-Solomon: enable or disable Reed-Solomon decoding\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "Hierarchical block to deframe NGHam frames\n\nThese use a CCSDS scrambler and CCSDS Reed-Solomon\nReed-Solomon decoding is currently not implemented\n\nThe input is a float stream of soft symbols. The output are PDUs\nwith frames.\n\nArgs:\n    decode_rs: use Reed-Solomon decoding (bool)\n    syncword_threshold: number of bit errors allowed in syncword (int)\n    options: Options from argparse",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "decode_rs",
+     "label": "Use Reed-Solomon",
+     "dtype": "bool",
+     "default": "False",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "threshold",
+     "label": "Syncword threshold",
+     "dtype": "int",
+     "default": 0,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_nusat_deframer",
+   "label": "NuSat Deframer",
+   "category": [
+    "Satellites",
+    "Deframers"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "Deframes Nusat packets\n\nThe frames use a a (64, 60) Reed-Solomon code and a CRC-8\n\nInput:\n    A stream of soft symbols containing NuSat packets\n\nOutput:\n    PDUs with the deframed NuSat packets\n\nParameters:\n    Syncword threshold: number of bit errors to allow in syncword detection\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "Hierarchical block to deframe the NuSat custom protocol\n\nThe input is a float stream of soft symbols. The output are PDUs\nwith frames.\n\nArgs:\n    syncword_threshold: number of bit errors allowed in syncword (int)\n    options: Options from argparse",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "threshold",
+     "label": "Syncword threshold",
+     "dtype": "int",
+     "default": 0,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_openlst_deframer",
+   "label": "OpenLST Deframer",
+   "category": [
+    "Satellites",
+    "Deframers"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "Deframes a signal using the OpenLST protocol\n\nInput:\n    A stream of soft symbols containing OpenLST frames\n\nOutput:\n    PDUs with the deframed packets\n\nParameters:\n    Syncword threshold: number of bit errors to allow in the detection of the 32 bit syncword\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "threshold",
+     "label": "Syncword threshold",
+     "dtype": "int",
+     "default": 2,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_ops_sat_deframer",
+   "label": "OPS-SAT Deframer",
+   "category": [
+    "Satellites",
+    "Deframers"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "Deframes OPS-SAT packets\n\nThe frames are AX.25 with CCSDS Reed-Solomon codewords as payload\n\nInput:\n    A stream of soft symbols containing OPS-SAT packets\n\nOutput:\n    PDUs with the deframed OPS-SAT packets\n\nParameters:\n    Syncword threshold: number of bit errors to allow in syncword detection\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "Hierarchical block to deframe OPS-SAT AX.25 + Reed-Solomon.\n\nThe input is a float stream of soft symbols. The output are PDUs\nwith Reed-Solomon decoded data.\n\nThe input should be NRZ-I encoded and G3RUH scrambled.\n\nArgs:\n    options: Options from argparse",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "threshold",
+     "label": "Syncword threshold",
+     "dtype": "int",
+     "default": 0,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_qubik_deframer",
+   "label": "QUBIK Deframer",
+   "category": [
+    "Satellites",
+    "Deframers"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "Deframes QUBIK packets\n\nQUBIK packets use a custom 32-bit syncword, CCSDS Reed-Solomon, CCSDS\nscrambling (unusually applied before Reed-Solomon encoding), and a CRC-32C.\n\nInput:\n    A stream of soft symbols containing QUBIK packets\n\nOutput:\n    PDUs with the deframed QUBIK packets\n\nParameters:\n    Syncword threshold: number of bit errors to allow in syncword detection\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "Hierarchical block to deframe QUBIK custom frames\n\nQUBIK frames use a custom 32-bit syncword, CCSDS Reed-Solomon,\nCCSDS scrambling (unusually applied before Reed-Solomon encoding),\nand a CRC-32C and CRC-16-CCITT-FALSE.\n\nhttps://gitlab.com/amsat-dl/erminaz/erminaz-comms-sw/-/blob/master/test/flowgraphs/qubik_transceiver.grc?ref_type=heads\nhttps://gitlab.com/librespacefoundation/satnogs/gr-satnogs/-/blob/master/lib/ieee802_15_4_variant_decoder.cc?ref_type=heads\n\nThe input is a float stream of soft symbols. The output are PDUs\nwith frames.\n\nArgs:\n    syncword_threshold: number of bit errors allowed in syncword (int)\n    options: Options from argparse",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "threshold",
+     "label": "Syncword threshold",
+     "dtype": "int",
+     "default": 4,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_reaktor_hello_world_deframer",
+   "label": "Reaktor Hello World Deframer",
+   "category": [
+    "Satellites",
+    "Deframers"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "Deframes Reaktor Hello World packets\n\nThe frames are transmitted by a Texas Intruments CC1125 transceiver with a PN9 scrambler and a CRC-16\n\nInput:\n    A stream of soft symbols containing Reaktor Hello World packets\n\nOutput:\n    PDUs with the deframed Reaktor Hello World packets\n\nParameters:\n    Syncword threshold: number of bit errors to allow in syncword detection\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "Hierarchical block to deframe the Reaktor Hello World custom framing\n\nThis framing is based in a TI CC1125 transceiver\nwith a PN9 scrambler, and a CRC-16.\n\nThe input is a float stream of soft symbols. The output are PDUs\nwith frames.\n\nArgs:\n    syncword_threshold: number of bit errors allowed in syncword (int)\n    options: Options from argparse",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "threshold",
+     "label": "Syncword threshold",
+     "dtype": "int",
+     "default": 0,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_sanosat_deframer",
+   "label": "SanoSat-1 Deframer",
+   "category": [
+    "Satellites",
+    "Deframers"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "Deframes SanoSat-1 packets\n\nSee https://amsat-np.org/transmission-protocol-for-sanosat-1/ for the specifications\n\nInput:\n    A stream of soft symbols containing SanoSat-1 packets\n\nOutput:\n    PDUs with the deframed SanoSat-1 packets\n\nParameters:\n    Syncword threshold: number of bit errors to allow in syncword detection\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "threshold",
+     "label": "Syncword threshold",
+     "dtype": "int",
+     "default": 0,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_sat_3cat_1_deframer",
+   "label": "3CAT-1 Deframer",
+   "category": [
+    "Satellites",
+    "Deframers"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "Deframes 3CAT-1 packets\n\nThe frames are transmitted by a CC1101 chip with PN9 scrambler and use a (255,223) Reed-Solomon code for the payload\n\nInput:\n    A stream of soft symbols containing 3CAT-1 packets\n\nOutput:\n    PDUs with the deframed 3CAT-1 packets\n\nParameters:\n    Syncword threshold: number of bit errors to allow in syncword detection\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "Hierarchical block to deframe the 3CAT-1 custom framing\n\nThis framing is based in a Texas Intruments CC1101 transceiver\nwith a PN9 scrambler, and a (255,223) Reed-Solomon code\n\nThe input is a float stream of soft symbols. The output are PDUs\nwith frames.\n\nArgs:\n    syncword_threshold: number of bit errors allowed in syncword (int)\n    options: Options from argparse",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "threshold",
+     "label": "Syncword threshold",
+     "dtype": "int",
+     "default": 0,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_smogp_ra_deframer",
+   "label": "SMOG-P RA Deframer",
+   "category": [
+    "Satellites",
+    "Deframers"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "Deframes SMOG-P, SMOG-1 or MRC-100 RA FEC frames\n\nThe frames use a Repeat-Accumulate FEC\n\nInput:\n    A stream of soft symbols containing RA frames\n\nOutput:\n    PDUs with the decoded RA frames\n\nParameters:\n    Frame size: size of the decode frame in bytes\n    Syncword threshold: number of bit errors to allow in syncword detection\n    Protocol: chooses between the different protocol variants\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "frame_size",
+     "label": "Frame size (bytes)",
+     "dtype": "int",
+     "default": 128,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "threshold",
+     "label": "Syncword threshold",
+     "dtype": "int",
+     "default": 0,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "protocol",
+     "label": "Protocol",
+     "dtype": "enum",
+     "default": "\"SMOG-P\"",
+     "category": "General",
+     "options": [
+      "\"SMOG-P\"",
+      "\"SMOG-1\"",
+      "\"MRC-100\""
+     ],
+     "option_labels": [
+      "SMOG-P",
+      "SMOG-1",
+      "MRC-100"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_smogp_signalling_deframer",
+   "label": "SMOG-P Signalling Deframer",
+   "category": [
+    "Satellites",
+    "Deframers"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "Deframes SMOG-P or SMOG-1 signalling frames\n\nInput:\n    A stream of soft symbols containing signalling frames\n\nOutput:\n    PDUs with the deframed signalling frames\n\nParameters:\n    Syncword threshold: number of bit errors to allow in syncword detection\n    Protocol: chooses between SMOG-P older protocol and SMOG-1 newer protocol\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "Hierarchical block to deframe the SMOG-P signalling frames\n\nThe input is a float stream of soft symbols. The output are PDUs\nwith signalling frames.\n\nArgs:\n    new_protocol: enable new protocol used in SMOG-1 (bool)\n    syncword_threshold: number of bit errors allowed in syncword (int)\n    options: Options from argparse",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "threshold",
+     "label": "Syncword threshold",
+     "dtype": "int",
+     "default": 0,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "protocol",
+     "label": "Protocol",
+     "dtype": "enum",
+     "default": "False",
+     "category": "General",
+     "options": [
+      "False",
+      "True"
+     ],
+     "option_labels": [
+      "SMOG-P",
+      "SMOG-1"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_snet_deframer_component",
+   "label": "S-NET Deframer",
+   "category": [
+    "Satellites",
+    "Deframers"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "Deframes S-NET packets\n\nThe frames use BCH FEC and interleaving\n\nInput:\n    A stream of soft symbols containing S-NET packets\n\nOutput:\n    PDUs with the deframed S-NET packets\n\nParameters:\n    Syncword threshold: number of bit errors to allow in syncword detection\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "threshold",
+     "label": "Syncword threshold",
+     "dtype": "int",
+     "default": 0,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_spino_deframer",
+   "label": "SPINO Deframer",
+   "category": [
+    "Satellites",
+    "Deframers"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "Deframes a signal using the SPINO deframer\n\nInput:\n    A stream of soft symbols containing SPINO frames\n\nOutput:\n    PDUs with the deframed packets\n\nParameters:\n    Syncword threshold: number of bit errors to allow in the detection of the 32 bit syncword\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "threshold",
+     "label": "Syncword threshold",
+     "dtype": "int",
+     "default": 0,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_swiatowid_deframer",
+   "label": "Swiatowid Image Deframer",
+   "category": [
+    "Satellites",
+    "Deframers"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "Deframes Swiatowid image packets\n\nThe frames use a (58,48) Reed-Solomon code and a CRC-16CCITT\n\nInput:\n    A stream of soft symbols containing Swiatowid image packets\n\nOutput:\n    PDUs with the deframed Swiatowid image packets\n\nParameters:\n    Syncword threshold: number of bit errors to allow in syncword detection\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "Hierarchical block to deframe the Swiatowid custom image protocol\n\nThe input is a float stream of soft symbols. The output are PDUs\nwith image frames.\n\nArgs:\n    syncword_threshold: number of bit errors allowed in syncword (int)\n    options: Options from argparse",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "threshold",
+     "label": "Syncword threshold",
+     "dtype": "int",
+     "default": 0,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_tt64_deframer",
+   "label": "TT-64 Deframer",
+   "category": [
+    "Satellites",
+    "Deframers"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "Deframes packets with the TT64 protocol\n\nThe TT64 protcol is used by QB50 AT03 and uses a Reed-Solomon (64,48) code and CRC16-ARC\n\nInput:\n    A stream of soft symbols containing TT64 packets\n\nOutput:\n    PDUs with the deframed TT64 packets\n\nParameters:\n    Syncword threshold: number of bit errors to allow in syncword detection\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "Hierarchical block to deframe the TT-64 framing, used by QB50 AT04 Pegasus\n\nThe input is a float stream of soft symbols. The output are PDUs\nwith frames.\n\nArgs:\n    syncword_threshold: number of bit errors allowed in syncword (int)\n    options: Options from argparse",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "threshold",
+     "label": "Syncword threshold",
+     "dtype": "int",
+     "default": 0,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_u482c_deframer",
+   "label": "GOMspace U482C Deframer",
+   "category": [
+    "Satellites",
+    "Deframers"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "Deframes a signal using the protocol of the GOMspace NanoCom U482C\n\nInput:\n    A stream of soft symbols containing packets from the U482C transceiver\n\nOutput:\n    PDUs with the deframed packets\n\nParameters:\n    Syncword threshold: number of bit errors to allow in the detection of the 32 bit syncword\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "Hierarchical block to deframe the GOMspace U482C protocol.\n\nThe input is a float stream of soft symbols. The output are PDUs\nwith frames (most likely CSP frames).\n\nArgs:\n    syncword_threshold: number of bit errors allowed in syncword (int)\n    options: Options from argparse",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "threshold",
+     "label": "Syncword threshold",
+     "dtype": "int",
+     "default": 0,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_ua01_deframer",
+   "label": "UA01 Deframer",
+   "category": [
+    "Satellites",
+    "Deframers"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "Deframes UA01 non-conformant AX.25 packets\n\nThis block performs two layers of NRZ-I decoding, G3RUH descrambling, frame boundary detection, bit de-stuffing, and CRC-16 checking.\n\nInput:\n    A stream of soft symbols containing UA01 packets\n\nOutput:\n    PDUs with the deframed AX.25 packets\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "Hierarchical block to deframe UA01 non-conformant AX.25.\n\nThe input is a float stream of soft symbols. The output are PDUs\nwith UA01 frames.\n\nThe input should be doubly NRZ-I encoded and G3RUH scrambled.\n\nArgs:\n    options: Options from argparse",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_usp_deframer",
+   "label": "USP Deframer",
+   "category": [
+    "Satellites",
+    "Deframers"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "Deframes Unified SPUTNIX Protocol (USP) frames\n\n\nThis framing is based on the CCSDS concatenated framing, but is\noptimized for variable frame size and borrows some ideas from\nDVB-S2.\n\nThe description of the protocol can be found in\nhttps://sputnix.ru/tpl/docs/amateurs/USP%20protocol%20description%20v1.04.pdf\n\nInput:\n    A stream of soft symbols containing USP frames\n\nOutput:\n    PDUs with the deframed USP frames\n\nParameters:\n    Syncword threshold: number of bit errors to allow in syncword detection\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "threshold",
+     "label": "Syncword threshold",
+     "dtype": "int",
+     "default": 0,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_yusat_deframer",
+   "label": "YUSAT Deframer",
+   "category": [
+    "Satellites",
+    "Deframers"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "Deframes Yusat ad-hoc packets\n\nInput:\n    A stream of soft symbols containing YUSAT packets\n\nOutput:\n    PDUs with the deframed packets\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_afsk_demodulator",
+   "label": "AFSK Demodulator",
+   "category": [
+    "Satellites",
+    "Demodulators"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "Demodulates an AFSK signal\n\nInput:\n    A stream of samples containing an AFSK signal. If real input is used, the signal is expected to be already FM-demodulated. If IQ (complex) input is used, the signal should not be FM-demodulated.\n\nOutput:\n    The demodulated AFSK soft symbols, normalized to amplitude one\n\nParameters:\n    Baudrate: The FSK baudrate in symbols per second\n    Sample rate: The input sample rate in samples per second\n    AF carrier: The audio frequency in Hz at which the FSK tones are centred\n    Deviation: The separation in Hz between the tones and the AF carrier. A negative value indicates that the low tone represents the symbol 1.\n    IQ input: enables IQ (complex) input\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "Hierarchical block to demodulate AFSK.\n\nThe input can be either IQ or real. For IQ input, it is assumed\nthat the data is FM modulated, so FM demodulation is performed.\nFor real input, it is assumed that the data is already FM\ndemodulated.\n\nArgs:\n    baudrate: Baudrate in symbols per second (float)\n    sample_rate: Sample rate in samples per second (float)\n    iq: Whether the input is IQ or real (bool)\n    af_carrier: Audio frequency carrier in Hz (float)\n    deviation: Deviation in Hz, negative inverts the sidebands (float)\n    dump_path: Path to dump internal signals to files (str)\n    options: Options from argparse",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "baudrate",
+     "label": "Baudrate",
+     "dtype": "float",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "samp_rate",
+     "label": "Sample rate",
+     "dtype": "float",
+     "default": "samp_rate",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "af_carrier",
+     "label": "AF carrier",
+     "dtype": "float",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "deviation",
+     "label": "Deviation",
+     "dtype": "float",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "iq",
+     "label": "IQ input",
+     "dtype": "bool",
+     "default": false,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "${ 'complex' if iq else 'float' }",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_bpsk_demodulator",
+   "label": "BPSK Demodulator",
+   "category": [
+    "Satellites",
+    "Demodulators"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "Demodulates a BPSK signal\n\nInput:\n    A stream of RF samples containing a real or IQ (complex) BPSK signal\n\nOutput:\n    The demodulated BPSK soft symbols, normalized to amplitude one\n\nParameters:\n    Baudrate: The BPSK baudrate in symbols per second\n    Sample rate: The input sample rate in samples per second\n    Frequency offset: The centre frequency of the BPSK signal in the input in Hz\n    Differential: Enables non-coherent differential demodulation of DBPSK\n    Manchester: Enables Manchester decoding\n    IQ input: enables IQ (complex) input\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "Hierarchical block to demodulate BPSK.\n\nThe input can be either IQ or real.\n\nArgs:\n    baudrate: Baudrate in symbols per second (float)\n    sample_rate: Sample rate in samples per second (float)\n    iq: Whether the input is IQ or real (bool)\n    f_offset: Frequency offset in Hz (float)\n    differential: Perform non-coherent DBPSK decoding (bool)\n    manchester: Use Manchester coding (bool)\n    dump_path: Path to dump internal signals to files (str)\n    options: Options from argparse",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "baudrate",
+     "label": "Baudrate",
+     "dtype": "float",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "samp_rate",
+     "label": "Sample rate",
+     "dtype": "float",
+     "default": "samp_rate",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "f_offset",
+     "label": "Frequency offset (Hz)",
+     "dtype": "float",
+     "default": 0,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "differential",
+     "label": "Differential",
+     "dtype": "bool",
+     "default": false,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "manchester",
+     "label": "Manchester",
+     "dtype": "bool",
+     "default": false,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "iq",
+     "label": "IQ input",
+     "dtype": "bool",
+     "default": false,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "${ 'complex' if iq else 'float' }",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_fsk_demodulator",
+   "label": "FSK Demodulator",
+   "category": [
+    "Satellites",
+    "Demodulators"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "Demodulates an FSK signal\n\nInput:\n    A stream of samples containing an FSK signal. If real input is used, the signal is expected to be already FM-demodulated. If IQ (complex) input is used, the signal should not be FM-demodulated.\n\nOutput:\n    The demodulated FSK soft symbols, normalized to amplitude one\n\nParameters:\n    Baudrate: The FSK baudrate in symbols per second\n    Sample rate: The input sample rate in samples per second\n    IQ input: enables IQ (complex) input\n    Subaudio: use subaudio demodulation\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "Hierarchical block to demodulate FSK.\n\nThe input can be either IQ or real. For IQ input, it is assumed\nthat the data is FM modulated, so FM demodulation is performed.\nFor real input, it is assumed that the data is already FM\ndemodulated.\n\nArgs:\n    baudrate: Baudrate in symbols per second (float)\n    sample_rate: Sample rate in samples per second (float)\n    iq: Whether the input is IQ or real (bool)\n    deviation: Deviation in Hz, negative inverts sidebands (float)\n    subaudio: Use subaudio demodulation (bool)\n    dc_block: Use DC-block (bool)\n    dump_path: Path to dump internal signals to files (str)\n    options: Options from argparse",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "baudrate",
+     "label": "Baudrate",
+     "dtype": "float",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "samp_rate",
+     "label": "Sample rate",
+     "dtype": "float",
+     "default": "samp_rate",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "iq",
+     "label": "IQ input",
+     "dtype": "bool",
+     "default": false,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    },
+    {
+     "id": "subaudio",
+     "label": "Subaudio",
+     "dtype": "bool",
+     "default": false,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "${ 'complex' if iq else 'float' }",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_kiss_transport",
+   "label": "KISS Transport",
+   "category": [
+    "Satellites",
+    "Transports"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "Implements fragmentation/defragmentation using the KISS protocol\n\nInput:\n    PDUs containing consecutive bytes of a KISS stream\n\nOutput:\n    PDUs with the packets contained inside the KISS stream\n\nParameters:\n    Expect control byte: specifies whether the KISS stream uses a control byte before the packet payload\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "use_control",
+     "label": "Expect control byte",
+     "dtype": "bool",
+     "default": "True",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_nanolink_transport",
+   "label": "NANOLINK Transport",
+   "category": [
+    "Satellites",
+    "Transports"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "Implements NANOLINK frame reception from a stream of bytes.\n\n Input:\n     PDUs containing consecutive bytes of stream containing NANOLINK frames\n\n Output:\n     PDUs with the frames contained inside the stream\n\n Parameters:\n     Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_tm_kiss_transport",
+   "label": "TM KISS Transport",
+   "category": [
+    "Satellites",
+    "Transports"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "Implements fragmentation/defragmentation using the KISS protocol in TM frames payload\n\nInput:\n    PDUs containing TM frames with KISS stream payload\n\nOutput:\n    PDUs with the packets contained inside the KISS stream of each selected virtual channel\n\nParameters:\n    Virtual channels: List of virtual channels to extract\n    Short TM: Use short TM header from BY02 and other missions\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "virtual_channels",
+     "label": "Virtual channels",
+     "dtype": "int_vector",
+     "default": [
+      0
+     ],
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "short_tm",
+     "label": "Short TM",
+     "dtype": "bool",
+     "default": "False",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_satellite_decoder",
+   "label": "Satellite decoder",
+   "category": [
+    "Satellites",
+    "Core"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "This block brings into gnuradio-companion most of the functionality of the gr_satellites command line tool\n\nInput:\n    A stream of samples, which can be either real or complex (for IQ input)\nOutput:\n    PDUs with decoded frames\n\nThe block performs demodulation, deframing and FEC according to the protocols used by the satellite specified.\n\nParameters:\n    Satellite definition: Selects the method to specify the satellite to use\n    File: Path to a YAML file with the SatYAML file describing the satellite, if using the YAML file definition method\n    Satellite name: Name of the satellite, if using the satellite name definition method\n    NORAD ID: NORAD ID of the satellite, if using the NORAD ID definition method\n    Sample Rate: sample rate in sps of the input stream\n    IQ input: selects whether IQ or real input is used\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "definition",
+     "label": "Satellite definition",
+     "dtype": "enum",
+     "default": "",
+     "category": "General",
+     "options": [
+      "name",
+      "norad",
+      "file"
+     ],
+     "option_labels": [
+      "Satellite name",
+      "NORAD ID",
+      "YAML file"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "file",
+     "label": "File",
+     "dtype": "file_open",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ 'none' if definition == 'file' else 'all' }"
+    },
+    {
+     "id": "name",
+     "label": "Satellite name",
+     "dtype": "string",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ 'none' if definition == 'name' else 'all' }"
+    },
+    {
+     "id": "norad",
+     "label": "NORAD ID",
+     "dtype": "int",
+     "default": 0,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ 'none' if definition == 'norad' else 'all' }"
+    },
+    {
+     "id": "samp_rate",
+     "label": "Sample Rate",
+     "dtype": "float",
+     "default": "samp_rate",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "iq",
+     "label": "IQ input",
+     "dtype": "bool",
+     "default": false,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    },
+    {
+     "id": "options",
+     "label": "Command line options",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "${ 'complex' if iq else 'float' }",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_ccsds_descrambler",
+   "label": "CCSDS descrambler",
+   "category": [
+    "Satellites",
+    "Scrambling"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [],
+   "inputs": [
+    {
+     "id": "",
+     "label": "in",
+     "domain": "message",
+     "dtype": "message",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "out",
+     "domain": "message",
+     "dtype": "message",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_ccsds_viterbi",
+   "label": "CCSDS/NASA-GSFC Viterbi decoder",
+   "category": [
+    "Satellites",
+    "FEC"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [],
+   "inputs": [
+    {
+     "id": "",
+     "label": "in",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "out",
+     "domain": "stream",
+     "dtype": "byte",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_pn9_scrambler",
+   "label": "PN9 scrambler",
+   "category": [
+    "Satellites",
+    "Scrambling"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [],
+   "inputs": [
+    {
+     "id": "",
+     "label": "in",
+     "domain": "message",
+     "dtype": "message",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "out",
+     "domain": "message",
+     "dtype": "message",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_rms_agc",
+   "label": "RMS AGC",
+   "category": [
+    "Satellites",
+    "Level Controllers"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "alpha",
+     "label": "Alpha",
+     "dtype": "real",
+     "default": "1e-2",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "reference",
+     "label": "Reference",
+     "dtype": "real",
+     "default": "1.0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "in",
+     "domain": "stream",
+     "dtype": "complex",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "out",
+     "domain": "stream",
+     "dtype": "complex",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_si4463_scrambler",
+   "label": "SI4463 scrambler",
+   "category": [
+    "Satellites",
+    "Scrambling"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [],
+   "inputs": [
+    {
+     "id": "",
+     "label": "in",
+     "domain": "message",
+     "dtype": "message",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "out",
+     "domain": "message",
+     "dtype": "message",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_sync_to_pdu",
+   "label": "Sync and create PDU",
+   "category": [
+    "Satellites",
+    "Packet Operators"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "packlen",
+     "label": "Packet length (bits)",
+     "dtype": "int",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "sync",
+     "label": "Syncword",
+     "dtype": "string",
+     "default": "\"00011010110011111111110000011101\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "threshold",
+     "label": "Syncword threshold",
+     "dtype": "int",
+     "default": "4",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "in",
+     "domain": "stream",
+     "dtype": "byte",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "out",
+     "domain": "message",
+     "dtype": "message",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_sync_to_pdu_packed",
+   "label": "Sync and create packed PDU",
+   "category": [
+    "Satellites",
+    "Packet Operators"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "packlen",
+     "label": "Packet length (bytes)",
+     "dtype": "int",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "sync",
+     "label": "Syncword",
+     "dtype": "string",
+     "default": "\"00011010110011111111110000011101\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "threshold",
+     "label": "Syncword threshold",
+     "dtype": "int",
+     "default": "4",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "in",
+     "domain": "stream",
+     "dtype": "byte",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "out",
+     "domain": "message",
+     "dtype": "message",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_sync_to_pdu_soft",
+   "label": "Sync and create PDU soft",
+   "category": [
+    "Satellites",
+    "Packet Operators"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "packlen",
+     "label": "Packet length (bits)",
+     "dtype": "int",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "sync",
+     "label": "Syncword",
+     "dtype": "string",
+     "default": "\"00011010110011111111110000011101\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "threshold",
+     "label": "Syncword threshold",
+     "dtype": "int",
+     "default": "4",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "in",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "out",
+     "domain": "message",
+     "dtype": "message",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
    "id": "satellites_aausat4_check_fsm",
    "label": "AAUSAT-4 remove FSM",
    "category": [
@@ -70012,12 +76472,15 @@
     "Satellites",
     "AX.25"
    ],
-   "flags": [],
-   "runnable": false,
-   "unavailable_reason": "not implemented in the WebAssembly runner",
-   "module": "core",
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "satellites",
    "documentation": "",
-   "api_documentation": "",
+   "api_documentation": "docstring for block hdlc_deframer",
    "wiki_url": "",
    "params": [
     {
@@ -72822,6 +79285,78 @@
      "hide": "none"
     }
    ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_usp_ax25_crop",
+   "label": "USP AX.25 Crop",
+   "category": [
+    "Satellites",
+    "USP"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "Extracts the AX.25 encapsulated in a USP packet\n\nThis block ignores the ethertype field, reads the length field, and\ncrops and outputs the encapsulated AX.25 frame, cropping extra padding\nat the end according to the length field.\n\nInput:\n    A PDU containing a USP packet\n\nOutput:\n    A PDU containing the encapsulated AX.25 frame",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "satellites_usp_pls_crop",
+   "label": "USP PLS Crop",
+   "category": [
+    "Satellites",
+    "USP"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "Crops USP frames according to the PLS\n\nThe PLS is a 64 bit field at the beginning of the frame that indicates\nthe coding and frame size. This block correlates the PLS against the\nset of all possible PLS's to detect the correct PLS for the frame and\nthen crops out the PLS and the end of the message according to the\nframe size indicated by the detected PLS.\n\nInput:\n    A PDU of soft symbols which contains the PLS followed by the FEC frame\n\nOutput:\n    The FEC frame; the PLS is removed and the FEC frame is trimmed to the\n    correct size",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [],
    "inputs": [
     {
      "id": "in",

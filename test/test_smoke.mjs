@@ -34,7 +34,14 @@ const OFFSET_RECORDING_BASE64 =
   'dMG5PFtRrb3Awd88U7GpvUWBojxmwbK9gAHAOGlBtL3DgWG8WAGsvXFBuLxLsaW9/4H/vEAhoL064Ry9PBGevQ==';
 const OFFSET_SAMPLE = 3;
 
-// Flowgraphs to run. The pass rule is deliberately name-independent: EVERY block
+// Flowgraphs to run. Each .grc is handed straight to runner.html, which is NOT
+// the editor's Run path: parameter expressions are resolved by the editor
+// (resolveParamsForRun -> editor/src/expr.ts) and never by the C++ runner. So
+// every case here has to be expression-free, which is why the gr-satellites
+// AX.25 examples -- which keep upstream's `2*math.pi*1000/samp_rate` and friends
+// -- are covered by the expression-free fixtures below instead of directly.
+//
+// The pass rule is deliberately name-independent: EVERY block
 // in the diagnostics snapshot must have moved items. That stays valid when an
 // example is edited, and it catches a graph that starts but stalls somewhere in
 // the middle -- the "missing length tag" signature, where the source runs and
@@ -48,6 +55,11 @@ const CASES = [
   { name: 'new core/filter blocks', grc: 'test/fixtures/wasm_added_core.grc' },
   { name: 'new constellation and synchronizer blocks', grc: 'test/fixtures/wasm_added_digital.grc' },
   { name: 'new FEC leaf blocks', grc: 'test/fixtures/wasm_added_fec.grc' },
+  { name: 'gr-satellites hier rebuilds', grc: 'test/fixtures/wasm_satellites_hier.grc' },
+  { name: 'gr-satellites AX.25 framer/deframer loopback',
+    grc: 'test/fixtures/wasm_satellites_ax25_loopback.grc' },
+  { name: 'gr-satellites demodulator components',
+    grc: 'test/fixtures/wasm_satellites_demodulators.grc' },
 ];
 
 const server = http.createServer(async (req, res) => {
@@ -113,7 +125,10 @@ for (const test of CASES) {
   await new Promise(r => setTimeout(r, 4000));
   const stats = await page.evaluate(() => window.__grstats || null);
   const blocks = stats ? JSON.parse(stats).blocks : [];
-  const idle = blocks.filter(b => !(b.items > 0)).map(b => `${b.name} (${b.id})`);
+  // Message-only blocks carry no item counter (see msg_only in the runner's
+  // snapshot), so requiring items > 0 of them would fail every PDU chain.
+  const idle = blocks.filter(b => !b.msg_only && !(b.items > 0))
+                     .map(b => `${b.name} (${b.id})`);
 
   const ok = started && blocks.length > 0 && idle.length === 0;
   allOk = allOk && ok;

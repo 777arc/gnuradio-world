@@ -82,7 +82,7 @@ const scenarios = [
       { name:'swiatowid_split', id:'satellites_swiatowid_packet_split', params:{} },
       { name:'sx12xx', id:'satellites_sx12xx_packet_crop', params:{} } ],
       connections:[['src',0,'enc',0],['enc',0,'snk',0]] },
-    expectFetch: ['satellites.wasm'] },
+    expectFetch: ['pdu.wasm', 'satellites.wasm'] },
   { name: 'gr-satellites message transforms',
     fg: { blocks:[
       { name:'src', id:'blocks_vector_source_x',
@@ -125,7 +125,7 @@ const scenarios = [
         { src_blk_id:'check', src_port_id:'ok',
           snk_blk_id:'debug', snk_port_id:'print_pdu' },
       ] },
-    expectFetch: ['satellites.wasm'],
+    expectFetch: ['pdu.wasm', 'satellites.wasm'],
     expectLog: '01 02 03 0a 05 06 07 08' },
 ];
 

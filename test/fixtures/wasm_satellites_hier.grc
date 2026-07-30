@@ -1,0 +1,274 @@
+options:
+    parameters:
+        id: wasm_satellites_hier
+        title: gr-satellites hier block rebuilds
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: bits
+    id: blocks_vector_source_x
+    parameters:
+        type: byte
+        vector: '[0, 0, 0, 1, 1, 0, 1, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 1, 0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1, 0, 1, 0]'
+        repeat: 'True'
+        vlen: '1'
+        tags: '[]'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: bit_throttle
+    id: blocks_throttle
+    parameters:
+        type: byte
+        samp_rate: '64000'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: syncer
+    id: satellites_sync_to_pdu
+    parameters:
+        packlen: '32'
+        sync: '"00011010110011111111110000011101"'
+        threshold: '4'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: descrambler
+    id: satellites_ccsds_descrambler
+    parameters: {}
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: descrambled_stream
+    id: pdu_pdu_to_stream_x
+    parameters:
+        type: byte
+        early_behavior: pdu.EARLY_BURST_APPEND
+        depth: '64'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: descrambled_sink
+    id: blocks_null_sink
+    parameters:
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: packed_syncer
+    id: satellites_sync_to_pdu_packed
+    parameters:
+        packlen: '4'
+        sync: '"00011010110011111111110000011101"'
+        threshold: '4'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: pn9
+    id: satellites_pn9_scrambler
+    parameters: {}
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: pn9_stream
+    id: pdu_pdu_to_stream_x
+    parameters:
+        type: byte
+        early_behavior: pdu.EARLY_BURST_APPEND
+        depth: '64'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: pn9_sink
+    id: blocks_null_sink
+    parameters:
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: si_syncer
+    id: satellites_sync_to_pdu
+    parameters:
+        packlen: '32'
+        sync: '"00011010110011111111110000011101"'
+        threshold: '4'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: si4463
+    id: satellites_si4463_scrambler
+    parameters: {}
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: si4463_stream
+    id: pdu_pdu_to_stream_x
+    parameters:
+        type: byte
+        early_behavior: pdu.EARLY_BURST_APPEND
+        depth: '64'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: si4463_sink
+    id: blocks_null_sink
+    parameters:
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: soft_bits
+    id: blocks_vector_source_x
+    parameters:
+        type: float
+        vector: '[-1, -1, -1, 1, 1, -1, 1, -1, 1, 1, -1, -1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, -1, -1, -1, -1, -1, 1, 1, 1, -1, 1, 1, -1, 1, -1, -1, 1, -1, 1, 1, 1, -1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, -1, -1, 1, -1, -1, 1, 1, 1, -1, 1, -1]'
+        repeat: 'True'
+        vlen: '1'
+        tags: '[]'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: soft_throttle
+    id: blocks_throttle
+    parameters:
+        type: float
+        samp_rate: '64000'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: soft_syncer
+    id: satellites_sync_to_pdu_soft
+    parameters:
+        packlen: '32'
+        sync: '"00011010110011111111110000011101"'
+        threshold: '4'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: soft_stream
+    id: pdu_pdu_to_stream_x
+    parameters:
+        type: float
+        early_behavior: pdu.EARLY_BURST_APPEND
+        depth: '64'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: soft_sink
+    id: blocks_null_sink
+    parameters:
+        type: float
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: iq
+    id: analog_sig_source_x
+    parameters:
+        type: complex
+        samp_rate: '32000'
+        waveform: analog.GR_COS_WAVE
+        freq: '1000'
+        amp: '0.05'
+        offset: '0'
+        phase: '0'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: iq_throttle
+    id: blocks_throttle
+    parameters:
+        type: complex
+        samp_rate: '32000'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: agc
+    id: satellites_rms_agc
+    parameters:
+        alpha: '1e-2'
+        reference: '1.0'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: agc_sink
+    id: blocks_null_sink
+    parameters:
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+connections:
+- [bits, '0', bit_throttle, '0']
+- [bit_throttle, '0', syncer, '0']
+- [bit_throttle, '0', packed_syncer, '0']
+- [bit_throttle, '0', si_syncer, '0']
+- [descrambled_stream, '0', descrambled_sink, '0']
+- [pn9_stream, '0', pn9_sink, '0']
+- [si4463_stream, '0', si4463_sink, '0']
+- [soft_bits, '0', soft_throttle, '0']
+- [soft_throttle, '0', soft_syncer, '0']
+- [soft_stream, '0', soft_sink, '0']
+- [iq, '0', iq_throttle, '0']
+- [iq_throttle, '0', agc, '0']
+- [agc, '0', agc_sink, '0']
+-   src_blk_id: syncer
+    src_port_id: out
+    snk_blk_id: descrambler
+    snk_port_id: in
+-   src_blk_id: descrambler
+    src_port_id: out
+    snk_blk_id: descrambled_stream
+    snk_port_id: pdus
+-   src_blk_id: packed_syncer
+    src_port_id: out
+    snk_blk_id: pn9
+    snk_port_id: in
+-   src_blk_id: pn9
+    src_port_id: out
+    snk_blk_id: pn9_stream
+    snk_port_id: pdus
+-   src_blk_id: si_syncer
+    src_port_id: out
+    snk_blk_id: si4463
+    snk_port_id: in
+-   src_blk_id: si4463
+    src_port_id: out
+    snk_blk_id: si4463_stream
+    snk_port_id: pdus
+-   src_blk_id: soft_syncer
+    src_port_id: out
+    snk_blk_id: soft_stream
+    snk_port_id: pdus
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0

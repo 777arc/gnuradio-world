@@ -93,11 +93,11 @@ node server.mjs 8090 "$PWD"
 | `tools/` | `generate_cpp.py` (host-side GRC → C++ generation, optional) |
 | `blocks/grc/` | `.block.yml` for runner-only blocks with no upstream GNU Radio equivalent (`wasm_packet_rate_sink`); read by *both* `gen_registry.py` and `gen_blocklib.py` alongside GNU Radio's own yaml |
 | `docs/` | `double-mapped-buffer.md` (the emulated vmcircbuf) and `diagnostics.md` (the runner's `__grstats` snapshot and debug panel, which the smoke test asserts against) |
-| `example_flowgraphs/` | the `.grc` files the editor's "Example Flowgraphs" palette tab lists (drop one in and it shows up); several are also smoke-test cases |
+| `example_flowgraphs/` | the `.grc` files the editor's "Example Flowgraphs" palette tab lists (drop one in and it shows up); several are also smoke-test cases. Test changes here with `scripts/run_example.mjs`, which drives the real editor — see "Run and test" |
 | `example_recordings/` | SigMF recordings offered in the editor. Only the small `.sigmf-meta` sidecars are committed; `.sigmf-data` is git-ignored, so `assemble-site.mjs` builds the manifest from the metadata and points each recording either at Pages (data file present and under Cloudflare's 25 MiB/file cap) or at Cloudflare R2 (`RECORDINGS_R2_BASE` repo variable; bucket CORS in `scripts/r2-cors.json`), omitting any recording it can find neither way |
 | `server.mjs` | COOP/COEP static dev server (needed for SharedArrayBuffer / pthreads); serves the repo root, falls back to `editor/dist/` for `/`, mounts the built IQEngine client at `/iqengine/`, and synthesizes the `/example_flowgraphs` and `/example_recordings` listings the editor's tabs fetch |
 | `test/` | `test_smoke.mjs` (runs example flowgraphs headlessly and asserts samples actually move) and `test_lazy_scenarios.mjs` (verifies on-demand category side modules are fetched and `dlopen`'d), plus the `fixtures/` `.grc` they load; CI gates the deploy on both. `editor/test/` and `runner/test/` hold their own suites — see "Run and test" |
-| `scripts/` | `assemble-site.mjs` (assembles the static site CI deploys to Pages), `serve_site.mjs` (serves an assembled site the way Cloudflare Pages does), `run.mjs` (headless-Chromium test harness, waits on a page `#result`), `r2-cors.json` (CORS policy for the recordings bucket) |
+| `scripts/` | `assemble-site.mjs` (assembles the static site CI deploys to Pages), `serve_site.mjs` (serves an assembled site the way Cloudflare Pages does), `run.mjs` (headless-Chromium test harness, waits on a page `#result`), `run_example.mjs` (opens an example in the real editor and presses Run), `r2-cors.json` (CORS policy for the recordings bucket) |
 | `iqengine/` | IQEngine as a git submodule; its client is built to `/iqengine/` on the site, so each SigMF recording in the editor gets an "open in IQEngine" link into its spectrogram view (via IQEngine's `url` data source, which reads the `.sigmf-meta`/`.sigmf-data` pair straight off their URLs) |
 
 ## Toolchain and prerequisites
@@ -285,11 +285,54 @@ Both browser tests start their own COOP/COEP server on a private port, so they
 need no `server.mjs` running; `scripts/run.mjs` does (port 8090 by default, hence
 the server command above). `npm test` at the repository root runs the two of them.
 
+### Example flowgraphs: test them through the editor
+
+**When you add or edit anything in `example_flowgraphs/`, run it through the
+actual editor before calling it done.** Those files are opened from the editor's
+Example Flowgraphs tab and reach the runner via its Run button, and none of the
+headless harnesses take that path — `scripts/run.mjs` and `test/test_smoke.mjs`
+both hand the .grc straight to `runner.html`, skipping every step the editor
+performs on the way. Two classes of bug live in that gap, and both are silent:
+
+- **Parameter ids.** A hand-written `RUNNABLE` schema in `editor/src/main.ts`
+  supersedes the generated one, and parameters it does not declare are dropped
+  without a word, leaving the schema default in place. `analog_sig_source_x`
+  declares `frequency`/`amplitude`, so a .grc written with GRC's own `freq`/`amp`
+  loads with those values silently replaced. The runner reads
+  `p.value("frequency", p.value("freq", …))` and accepts either, so such a
+  flowgraph is *correct* fed directly to `runner.html` and *wrong* through the
+  editor — it still runs, every block still moves samples, it just quietly
+  computes something else. Take parameter ids from the hand-written schema for
+  any block that has one.
+- **Editor-side validation.** Connection type checks, required-parameter checks
+  and expression resolution all happen in the editor. A flowgraph the runner
+  would execute happily can still be refused before it ever gets there.
+
+One command does it:
+
+```bash
+node server.mjs 8090 "$PWD" &                 # the editor has to be served
+(cd editor && npm run build)                  # and built
+node scripts/run_example.mjs satellites_ax25_afsk.grc
+# → RESULT: EXAMPLE_PASS
+```
+
+It loads the example from the palette tab, presses Run, and fails on any of: the
+editor refusing the flowgraph, `RUNNER_FAIL`, a block sitting at zero items, or a
+flowgraph that contains a printing block (Message Debug and friends) yet printed
+nothing — that last one being what catches the mis-parameterised case above,
+which otherwise looks perfectly healthy. Add `--expect='<substring>'` to assert
+specific console output, e.g. the hex of a frame you expect to decode.
+
+`editor/test/example-flowgraphs.test.mjs` covers the cheap half of this in CI
+(every example parses, and every arithmetic parameter is one `expr.ts` can
+evaluate), but it does not run a browser, so it cannot see either failure above.
+
 Two more suites exist and are *not* run by CI — run them by hand when you touch
 the code they cover:
 
 ```bash
-(cd editor && npm test)                       # 13 node tests: shortcuts, selection, grid,
+(cd editor && npm test)                       # 15 node tests: shortcuts, selection, grid,
                                               # canvas scroll, validation, time sink, expr,
                                               # .grc round-trip, recordings, contribute,
                                               # block categories, note block, example filter.
@@ -321,9 +364,31 @@ used to mark palette entries runnable or unavailable. The runner has a small
 typed-object registry for constellation variables used by Constellation
 Modulator. Other blocks whose constructors require a separately typed GRC
 companion object (for example an OFDM equalizer, packet formatter, or message
-queue) remain listed under `skipped`. Python-only hierarchy definitions are
-supported when their chain has been explicitly rebuilt as a C++ `hier_block2` in
-`registry.cpp`; the rest remain unavailable.
+queue) remain listed under `skipped`. It also holds a typed-object entry for
+gr-fec's CC Decoder Definition (`variable_cc_decoder_def`), which
+`fec_async_decoder` and `fec_extended_decoder` look up by name. Python-only
+hierarchy definitions are supported when their chain has been explicitly rebuilt
+as a C++ `hier_block2` in `registry.cpp`; the rest remain unavailable.
+
+gr-satellites is the largest such rebuild. Its hierarchies, demodulators and
+deframers are all Python with no C++ path upstream, so they live in
+[`runner/src/satellites_wasm_hier.cpp`](runner/src/satellites_wasm_hier.cpp)
+(`hier/` scramblers, `sync_to_pdu*`, `rms_agc`, `ccsds_viterbi`, and the AFSK /
+FSK / BPSK demodulator components) and
+[`runner/src/satellites_wasm_deframers.cpp`](runner/src/satellites_wasm_deframers.cpp)
+(`hdlc_deframer` plus ~29 deframer components). Each class mirrors the block set
+and connection order of the Python file named in its comment, so the two stay
+diffable; syncwords and packet lengths are copied verbatim. The GRC `options`
+parameter is an argparse command line for the `gr_satellites` tool — nothing in
+the browser supplies one, so the rebuilds hard-code the defaults those parsers
+declare (collected as named constants at the top of the hier file).
+
+The deframers still missing are the ones whose Python defines extra
+protocol-specific helper blocks inline (`diy1`, `hades`, `hsu_sat1`, `ideassat`,
+`ax5043`, `mobitex`, `k2sat`, `openlst`, `sanosat`, `smogp_ra`, `spino`, `yusat`,
+`eseo`, `snet`, `aausat4`, `usp`): a UART decoder, a packet cropper, a 4x4
+interleaver and so on. Each needs its own C++ block before its deframer can be
+assembled, which is why they are not simply compositions like the rest.
 
 ## Registry and module conventions
 
@@ -336,7 +401,8 @@ blocks live in [`runner/src/registry.cpp`](runner/src/registry.cpp).
 - Put block metadata that cannot be rendered in `INVALID_CPP_TEMPLATES`, with a
   reason.
 - Python-only `gr.hier_block2` definitions are unavailable unless explicitly
-  rebuilt as C++ hierarchies in `runner/src/registry.cpp`.
+  rebuilt as C++ hierarchies in `runner/src/registry.cpp` (or, for gr-satellites,
+  `satellites_wasm_hier.cpp` / `satellites_wasm_deframers.cpp`).
 - Blocks absent from the WASM registry remain visible but disabled in the editor
   palette.
 - Symbol exports for side modules are generated automatically by
@@ -346,7 +412,37 @@ In handwritten `.grc` test fixtures:
 
 - Stream connections are arrays: `[block, port, block, port]`.
 - Message connections are objects with `src_blk_id`, `src_port_id`,
-  `snk_blk_id`, and `snk_port_id` (see `grc_lower.hpp`).
+  `snk_blk_id`, and `snk_port_id` (see `grc_lower.hpp`) — written as a *block*
+  mapping, not an inline `{...}` one, which the runner's YAML subset ignores
+  silently. See "Runtime gotchas" below.
+- Parameter **expressions** depend on how the flowgraph reaches the runner. On
+  the editor's Run path they are fine: `resolveParamsForRun()` in
+  `editor/src/main.ts` evaluates every numeric/`raw` parameter through
+  [`editor/src/expr.ts`](editor/src/expr.ts) — a Python-subset evaluator covering
+  arithmetic, `math`/`numpy`/`firdes`, list literals and repetition — and hands
+  the runner a *resolved* .grc. `example_flowgraphs/rds_receiver.grc` relies on
+  this (`2*math.pi/100`, `samp_rate/(2*math.pi*75e3)`).
+  A .grc loaded **straight into `runner.html#<grc>`** gets no such pass: the C++
+  side only inlines plain `variable` blocks and coerces numeric strings, so
+  `1/8.0` or `255*8` fails there. That is the path `test_smoke.mjs` and
+  `scripts/run.mjs` use, so any example added as a smoke case must have its
+  arithmetic pre-computed (referencing a `variable` by name is still fine).
+  So the split is: `example_flowgraphs/` keeps upstream's expression form (it is
+  loaded through the editor) and `test/fixtures/` stays expression-free (it is
+  loaded through the headless harness). `editor/test/example-flowgraphs.test.mjs`
+  guards the first half — it parses every example and asserts each arithmetic
+  parameter evaluates against that flowgraph's own variable scope, which is the
+  failure that otherwise only shows up as a dead Run button.
+- Enum and string parameters are *not* evaluated on either path; they reach the
+  factory as raw text (`gr.GR_MSB_FIRST`, `'"CCSDS"'`), which is what
+  `wasm_registry::choice()` normalizes.
+- Which parameters get evaluated is `EVALUATED_DTYPES` in `main.ts`: the numeric
+  dtypes, `raw`, and the vector dtypes. Vectors matter because GRC's commonest
+  idiom of all — filter taps as `firdes.low_pass(...)` or `[1/sps] * sps` — is a
+  `*_vector`, and a taps dtype is usually *templated* (`${ type.taps }` resolving
+  through the `type` param's `option_attributes`), so `effectiveDtype()` has to
+  resolve the template before the lookup. `editor/test/example-flowgraphs.test.mjs`
+  re-implements both and asserts its copy of the set still matches main.ts.
 
 ## Adding a category (module) of blocks
 
@@ -551,6 +647,44 @@ chain.
   *normally* (not whole-archive) into the main module too, so just those objects
   are pulled into core; the rest stay in the side module. See the `gr-digital`
   entry in `target_link_libraries` for the pattern.
+- If a **deferred** module's factory references *another deferred* module's
+  symbols, the `.a` trick does not help: `gen_side_exports.py` re-exports with
+  `--export-if-defined`, so a symbol nothing in main references is never pulled
+  in, never defined, never exported, and the side module fails at `dlopen` with
+  `bad export type for '<mangled name>': undefined`. Add the edge to
+  `MODULE_DEPS` instead. gr-satellites' rebuilt hierarchies wrap their message
+  ports with `gr::pdu::{pdu_to_tagged_stream,tagged_stream_to_pdu}`, hence
+  `MODULE_DEPS = {"satellites": ["pdu"]}`.
+- **gr-satellites is the only module with `grc/` subdirectories**
+  (`components/deframers`, `components/demodulators`, `hier`, `ccsds`, `usp`,
+  `core`, ...), which is why `gen_registry.py` and `gen_blocklib.py` both walk
+  `grc/` recursively. It ships no `.tree.yml`; every block carries an explicit
+  `category: '[Satellites]/...'`, so the palette categories come for free.
+- **The runner's YAML parser accepts flow *sequences* but not flow *mappings*.**
+  A message connection written inline as
+  `- {src_blk_id: a, src_port_id: out, ...}` is **silently dropped** — the graph
+  builds and runs, and only the missing PDUs give it away. Use the block-mapping
+  form GRC and the editor actually emit:
+  ```yaml
+  -   src_blk_id: a
+      src_port_id: out
+      snk_blk_id: b
+      snk_port_id: in
+  ```
+- **`pdu_pdu_to_tagged_stream` has zero stream inputs** and in practice is not
+  scheduled in this runtime, so a PDU chain terminated with it sits at zero
+  items. Terminate with `pdu_pdu_to_stream_x` ("PDU To Stream", a plain
+  `sync_block`) instead — that is also how the smoke fixtures make message-only
+  chains observable to the item counters.
+- **`blocks_throttle` sleeps in proportion to the whole buffer it is handed**, so
+  a low rate on a wide stream stalls visibly: a 1200 B/s throttle in front of a
+  65536-item buffer emits nothing for ~55 s. Put one throttle at the highest rate
+  in the graph and let backpressure pace everything upstream, rather than
+  throttling a slow payload stream.
+- **Message-only blocks report `items: 0` forever** — `gr_stats_json()` reads
+  `nitems_written`/`nitems_read`, which do not exist for a block with no stream
+  ports. The snapshot flags them as `msg_only` and `test_smoke.mjs` exempts them
+  from its "every block moved items" rule.
 - **Exception catching is a compile-time flag.** Emscripten drops landing pads
   unless `-fexceptions` (≡ `-sNO_DISABLE_EXCEPTION_CATCHING`) is on the *compile*
   line — having it only at link makes every `try`/`catch` in that object inert, so
@@ -559,6 +693,24 @@ chain.
   with it: the runner target, the side modules, and the `build-gr` GR libraries
   (so GR's `thread_body_wrapper` catches an exception thrown from a block's
   `work()` and logs it instead of killing the worker).
+- **What a running flowgraph prints reaches the editor's console pane.** Blocks
+  that report to the user do it by printing — Message Debug dumps each PDU, Print
+  Header / Print Timestamp annotate frames — and Emscripten sends that to
+  console.log, i.e. devtools, where nobody looks. `runner.html` sets Emscripten's
+  `print` hook to also batch the lines to the parent frame as a `gr-print`
+  message, which `main.ts` appends to `#log` under the canvas. Batched (~10
+  posts/second, 200 lines each) and capped at both ends because a Message Debug
+  on a fast frame source emits well over a thousand lines a second; the editor
+  reports what it shed. Note this is *stdout*, which is separate from the GR
+  logger below.
+- **The editor drops parameters its schema does not declare, silently.** A
+  hand-written `RUNNABLE` entry supersedes the generated one, and its parameter
+  ids win: `analog_sig_source_x` declares `frequency`/`amplitude`, so a .grc
+  written with GRC's own `freq`/`amp` loads with those values replaced by the
+  schema defaults. The runner accepts both spellings, so such a flowgraph runs
+  correctly when handed straight to `runner.html` and silently wrong through the
+  editor. When authoring a .grc by hand, take parameter ids from the hand-written
+  schema in `main.ts` for any block that has one.
 - **GR's logger needs a sink installed by hand.** `gr::logging` picks its sink
   from the `log_file` pref, which is empty in the browser (no config file), so the
   default backend has *no* sinks and silently drops every message — and

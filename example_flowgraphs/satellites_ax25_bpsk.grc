@@ -1,0 +1,289 @@
+options:
+    parameters:
+        author: Daniel Estevez
+        copyright: ''
+        description: AX.25 over BPSK, transmitted and received in one flowgraph
+        generate_options: qt_gui
+        id: AX_25_BPSK_loopback_using_gr_satellites
+        title: AX.25 BPSK loopback using gr-satellites
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: baudrate
+    id: variable
+    parameters:
+        value: samp_rate/samp_per_sym
+    states:
+        coordinate: [470, 30]
+        rotation: 0
+        state: enabled
+-   name: samp_per_sym
+    id: variable
+    parameters:
+        value: '8'
+    states:
+        coordinate: [350, 30]
+        rotation: 0
+        state: enabled
+-   name: samp_rate
+    id: variable
+    parameters:
+        value: '9600'
+    states:
+        coordinate: [230, 30]
+        rotation: 0
+        state: enabled
+-   name: bpsk_const
+    id: variable_constellation
+    parameters:
+        const_points: '[]'
+        dims: '1'
+        normalization: digital.constellation.AMPLITUDE_NORMALIZATION
+        npwr: '1'
+        precision: '8'
+        rot_sym: '2'
+        soft_dec_lut: auto
+        sym_map: '[]'
+        type: bpsk
+    states:
+        coordinate: [90, 460]
+        rotation: 0
+        state: enabled
+-   name: bpsk_demod
+    id: satellites_bpsk_demodulator
+    parameters:
+        baudrate: baudrate
+        differential: 'False'
+        f_offset: '0'
+        iq: 'True'
+        manchester: 'False'
+        options: '""'
+        samp_rate: samp_rate
+    states:
+        coordinate: [420, 310]
+        rotation: 0
+        state: enabled
+-   name: frame_tagger
+    id: blocks_stream_to_tagged_stream
+    parameters:
+        len_tag_key: packet_len
+        packet_len: '31'
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [460, 150]
+        rotation: 0
+        state: enabled
+-   name: framed_bits
+    id: pdu_pdu_to_stream_x
+    parameters:
+        depth: '4096'
+        early_behavior: pdu.EARLY_BURST_APPEND
+        type: byte
+    states:
+        coordinate: [1200, 150]
+        rotation: 0
+        state: enabled
+-   name: frames
+    id: blocks_message_debug
+    parameters:
+        en_uvec: 'True'
+        log_level: info
+    states:
+        coordinate: [1390, 310]
+        rotation: 0
+        state: enabled
+-   name: hdlc_deframer
+    id: satellites_hdlc_deframer
+    parameters:
+        check_fcs: 'True'
+        max_length: '10000'
+    states:
+        coordinate: [1060, 310]
+        rotation: 0
+        state: enabled
+-   name: hdlc_framer
+    id: satellites_hdlc_framer
+    parameters:
+        postamble_bytes: '7'
+        preamble_bytes: '50'
+    states:
+        coordinate: [990, 150]
+        rotation: 0
+        state: enabled
+-   name: modulator
+    id: digital_constellation_modulator
+    parameters:
+        constellation: bpsk_const
+        differential: 'False'
+        excess_bw: '0.35'
+        log: 'False'
+        samples_per_symbol: samp_per_sym
+        truncate: 'False'
+        verbose: 'False'
+    states:
+        coordinate: [90, 310]
+        rotation: 0
+        state: enabled
+-   name: nrzi_decode
+    id: satellites_nrzi_decode
+    parameters:
+    states:
+        coordinate: [870, 310]
+        rotation: 0
+        state: enabled
+-   name: nrzi_encode
+    id: satellites_nrzi_encode
+    parameters:
+    states:
+        coordinate: [1450, 150]
+        rotation: 0
+        state: enabled
+-   name: pack
+    id: blocks_unpacked_to_packed_xx
+    parameters:
+        bits_per_chunk: '1'
+        endianness: gr.GR_MSB_FIRST
+        num_ports: '1'
+        type: byte
+    states:
+        coordinate: [1630, 150]
+        rotation: 0
+        state: enabled
+-   name: payload
+    id: blocks_vector_source_x
+    parameters:
+        repeat: 'True'
+        tags: '[]'
+        type: byte
+        vector: '[130, 160, 144, 100, 96, 100, 96, 154, 96, 168, 144, 152, 64, 97, 3, 240, 72, 101, 108, 108, 111, 32, 102, 114, 111, 109, 32, 66, 80, 83, 75]'
+        vlen: '1'
+    states:
+        coordinate: [20, 150]
+        rotation: 0
+        state: enabled
+-   name: payload_throttle
+    id: blocks_throttle
+    parameters:
+        samp_rate: samp_rate
+        type: byte
+    states:
+        coordinate: [270, 150]
+        rotation: 0
+        state: enabled
+-   name: slicer
+    id: digital_binary_slicer_fb
+    parameters:
+    states:
+        coordinate: [670, 310]
+        rotation: 0
+        state: enabled
+-   name: spectrum
+    id: qtgui_freq_sink_x
+    parameters:
+        alpha1: '1'
+        autoscale: 'False'
+        average: '0.2'
+        axislabels: 'True'
+        color1: '"blue"'
+        ctrlpanel: 'False'
+        fc: '0'
+        fftsize: '2048'
+        grid: 'True'
+        label1: BPSK signal
+        legend: 'True'
+        marker1: '-1'
+        name: Transmitted BPSK spectrum
+        samp_rate: samp_rate
+        style1: '1'
+        tr_chan: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_tag: ''
+        update_time: '0.1'
+        width1: '1'
+        ymax: '10'
+        ymin: '-100'
+    states:
+        coordinate: [360, 490]
+        rotation: 0
+        state: enabled
+-   name: symbol_scope
+    id: qtgui_time_sink_x
+    parameters:
+        alpha1: '1'
+        alpha2: '1'
+        autoscale: 'True'
+        axislabels: 'True'
+        color1: blue
+        color2: red
+        ctrlpanel: 'False'
+        grid: 'False'
+        label1: Signal 1
+        label2: Signal 2
+        legend: 'True'
+        marker1: '0'
+        marker2: '0'
+        name: Recovered soft symbols
+        samp_rate: baudrate
+        size: '256'
+        stemplot: 'False'
+        style1: '1'
+        style2: '1'
+        tr_chan: '0'
+        tr_delay: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_slope: qtgui.TRIG_SLOPE_POS
+        tr_tag: ''
+        type: float
+        update_time: '0.1'
+        width1: '1'
+        width2: '1'
+        ylabel: Amplitude
+        ymax: '2'
+        ymin: '-2'
+        yunit: ''
+    states:
+        coordinate: [680, 460]
+        rotation: 0
+        state: enabled
+-   name: to_pdu
+    id: pdu_tagged_stream_to_pdu
+    parameters:
+        tag: packet_len
+        type: byte
+    states:
+        coordinate: [730, 150]
+        rotation: 0
+        state: enabled
+connections:
+- [bpsk_demod, '0', slicer, '0']
+- [bpsk_demod, '0', symbol_scope, '0']
+- [frame_tagger, '0', to_pdu, '0']
+- [framed_bits, '0', nrzi_encode, '0']
+-   src_blk_id: hdlc_deframer
+    src_port_id: out
+    snk_blk_id: frames
+    snk_port_id: print_pdu
+-   src_blk_id: hdlc_framer
+    src_port_id: out
+    snk_blk_id: framed_bits
+    snk_port_id: pdus
+- [modulator, '0', bpsk_demod, '0']
+- [modulator, '0', spectrum, '0']
+- [nrzi_decode, '0', hdlc_deframer, '0']
+- [nrzi_encode, '0', pack, '0']
+- [pack, '0', modulator, '0']
+- [payload, '0', payload_throttle, '0']
+- [payload_throttle, '0', frame_tagger, '0']
+- [slicer, '0', nrzi_decode, '0']
+-   src_blk_id: to_pdu
+    src_port_id: pdus
+    snk_blk_id: hdlc_framer
+    snk_port_id: in
+metadata:
+    file_format: 2
+    grc_version: 3.11.0.0

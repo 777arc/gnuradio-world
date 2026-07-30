@@ -431,10 +431,27 @@ function restoreHistory(index: number) {
 function undo() { restoreHistory(historyIndex - 1); }
 function redo() { restoreHistory(historyIndex + 1); }
 
-function log(s: string) {
-  const l = el('log'); l.textContent += s + '\n';
+// The console pane holds at most this many lines. A running flowgraph can print
+// continuously (a Message Debug on a fast frame source emits hundreds of lines a
+// second), and an unbounded textContent grows without limit and gets slower with
+// every append, so drop the oldest lines once the pane is full.
+const LOG_MAX_LINES = 4000;
+
+// Append a burst in one pass. A running flowgraph delivers stdout in batches of
+// up to a couple of hundred lines; rewriting the pane once per batch instead of
+// once per line keeps the cost proportional to the batch, not to batch x buffer.
+function logLines(lines: string[]) {
+  if (!lines.length) return;
+  const l = el('log');
+  const existing = l.textContent ? l.textContent.split('\n') : [];
+  if (existing.length && existing[existing.length - 1] === '') existing.pop();
+  const all = existing.concat(lines);
+  const kept = all.length > LOG_MAX_LINES ? all.slice(all.length - LOG_MAX_LINES) : all;
+  l.textContent = kept.join('\n') + '\n';
   if (autoScrollLog) l.scrollTop = l.scrollHeight;
 }
+
+function log(s: string) { logLines([s]); }
 
 // GRC-style geometry: title bar + "Label: value" parameter rows, typed ports.
 const TITLE_H = 22, ROW_H = 15, PAD = 6, PORT_H = 15, PORT_GAP = 8;
@@ -449,6 +466,18 @@ function portType(inst: Inst, kind: 'in' | 'out', i: number): string {
   if (domains?.[i] === 'message') return 'message';
   const arr = kind === 'in' ? d.inTypes : d.outTypes;
   if (arr && arr[i]) {
+    // GRC's optional-IQ idiom: `${ 'complex' if iq else 'float' }`. expandPorts
+    // only normalizes a bare `${ name }`, so this arrives as the raw template.
+    const conditional = arr[i].match(
+      /^\$\{\s*'(\w+)'\s+if\s+([A-Za-z_]\w*)\s+else\s+'(\w+)'\s*\}$/);
+    if (conditional) {
+      const flag = String(inst.params[conditional[2]] ?? '').trim().toLowerCase();
+      return flag === 'true' || flag === '1' ? conditional[1] : conditional[3];
+    }
+    // Any other unresolved template: report the type as unknown rather than as
+    // the template text, so the connection validator skips the check instead of
+    // rejecting every connection to the port.
+    if (/^\$\{.*\}$/.test(arr[i])) return '';
     const match = arr[i].match(/^\$([A-Za-z_]\w*)(?:\.([A-Za-z_]\w*))?$/);
     if (!match) return arr[i];
     const value = String(inst.params[match[1]] || '');
@@ -1091,15 +1120,41 @@ function grcConnectionKey(c: GrcScalar[] | Record<string, GrcScalar>): string {
 function buildRunScope(): Scope {
   return buildScope(insts.filter(i => i.id === 'variable'));
 }
+// GRC lets a parameter's dtype depend on another parameter: `fir_filter_xxx`
+// declares `taps` as `${ type.taps }`, which resolves through the `type` param's
+// option_attributes to `real_vector` or `complex_vector`. Resolve that here so
+// the caller sees the concrete dtype rather than the template.
+function effectiveDtype(inst: Inst, def: RunnableDef, p: ParamDef): string {
+  const dtype = String(p.dtype ?? '');
+  const match = dtype.match(/^\$\{\s*([A-Za-z_]\w*)(?:\.([A-Za-z_]\w*))?\s*\}$/);
+  if (!match) return dtype;
+  const value = String(inst.params[match[1]] ?? '');
+  if (!match[2]) return value;
+  const source = def.params.find((q: ParamDef) => q.id === match[1]);
+  const index = source?.options?.indexOf(value) ?? -1;
+  return index >= 0 ? String(source?.optionAttributes?.[match[2]]?.[index] ?? '') : '';
+}
+
+// Parameters whose value is a Python expression rather than a literal, and so
+// have to be evaluated before the runner (which parses JSON-ish scalars and
+// vectors, not Python) sees them.
+const EVALUATED_DTYPES = new Set([
+  'int', 'real', 'float', 'hex', 'raw',
+  'int_vector', 'real_vector', 'float_vector', 'complex_vector',
+]);
+
 function resolveParamsForRun(inst: Inst, scope: Scope): Record<string, any> {
   const def = RUNNABLE[inst.id];
   const out: Record<string, any> = { ...inst.params };
   if (!def) return out;
   for (const p of def.params) {
-    // Numeric and `raw` (vector/matrix) params are evaluated; enum/string params
-    // pass through. `raw` covers things like an OFDM carrier allocation written
-    // as `list(range(-26, -21)) + ...`, which the runner can't evaluate itself.
-    if (p.type !== 'number' && !p.raw) continue;
+    // Numeric, vector and `raw` params are evaluated; enum/string params pass
+    // through. `raw` covers things like an OFDM carrier allocation written as
+    // `list(range(-26, -21)) + ...`; the vector dtypes cover the commonest GRC
+    // idiom of all, filter taps written as `firdes.low_pass(...)` or
+    // `[1/sps] * sps`. Neither is something the runner can evaluate itself.
+    if (p.type !== 'number' && !p.raw &&
+        !EVALUATED_DTYPES.has(effectiveDtype(inst, def, p))) continue;
     const raw = out[p.id];
     if (typeof raw !== 'string') continue;          // already a numeric/bool literal
     const s = raw.trim();
@@ -2293,6 +2348,15 @@ window.addEventListener('message', (e) => {
   // here so the reason is in the log next to the Run that caused it.
   if (d.type === 'gr-error' && typeof d.message === 'string') {
     log(`run failed: ${d.message}`);
+    return;
+  }
+  // Anything the running flowgraph printed: Message Debug's PDU dumps, Print
+  // Header, Print Timestamp. The runner batches these, so `lines` is a burst and
+  // `dropped` counts what it shed to keep up.
+  if (d.type === 'gr-print' && Array.isArray(d.lines)) {
+    const lines = d.lines.map(String);
+    if (d.dropped > 0) lines.push(`… ${d.dropped} more line(s) dropped`);
+    logLines(lines);
     return;
   }
   if (d.type !== 'gr-module' || typeof d.module !== 'string') return;

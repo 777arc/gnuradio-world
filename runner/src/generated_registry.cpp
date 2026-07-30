@@ -134,6 +134,7 @@
 #include <gnuradio/filter/fft_filter_fff.h>
 #include <gnuradio/filter/fir_filter_blk.h>
 #include <gnuradio/filter/firdes.h>
+#include <gnuradio/filter/freq_xlating_fir_filter.h>
 #include <gnuradio/filter/hilbert_fc.h>
 #include <gnuradio/filter/iir_filter_ccc.h>
 #include <gnuradio/filter/iir_filter_ccd.h>
@@ -2953,6 +2954,33 @@ void register_generated_blocks(std::map<std::string, Factory>& registry)
             return { block, nullptr };
         }
         throw std::runtime_error("unsupported type selection for fir_filter_xxx");
+    });
+    registry.emplace("freq_xlating_fir_filter_xxx", [](const nlohmann::json& p) -> BuiltBlock {
+        if (wasm_registry::text(p, "type", "ccc") == "ccc") {
+            auto block = filter::freq_xlating_fir_filter_ccc::make(wasm_registry::number<int>(p, "decim", 1), wasm_registry::vector<gr_complex>(p, "taps"), wasm_registry::number<double>(p, "center_freq", 0.0), wasm_registry::number<double>(p, "samp_rate", 0.0));
+            return { block, nullptr };
+        }
+        else if (wasm_registry::text(p, "type", "ccc") == "ccf") {
+            auto block = filter::freq_xlating_fir_filter_ccf::make(wasm_registry::number<int>(p, "decim", 1), wasm_registry::vector<float>(p, "taps"), wasm_registry::number<double>(p, "center_freq", 0.0), wasm_registry::number<double>(p, "samp_rate", 0.0));
+            return { block, nullptr };
+        }
+        else if (wasm_registry::text(p, "type", "ccc") == "fcc") {
+            auto block = filter::freq_xlating_fir_filter_fcc::make(wasm_registry::number<int>(p, "decim", 1), wasm_registry::vector<gr_complex>(p, "taps"), wasm_registry::number<double>(p, "center_freq", 0.0), wasm_registry::number<double>(p, "samp_rate", 0.0));
+            return { block, nullptr };
+        }
+        else if (wasm_registry::text(p, "type", "ccc") == "fcf") {
+            auto block = filter::freq_xlating_fir_filter_fcf::make(wasm_registry::number<int>(p, "decim", 1), wasm_registry::vector<float>(p, "taps"), wasm_registry::number<double>(p, "center_freq", 0.0), wasm_registry::number<double>(p, "samp_rate", 0.0));
+            return { block, nullptr };
+        }
+        else if (wasm_registry::text(p, "type", "ccc") == "scc") {
+            auto block = filter::freq_xlating_fir_filter_scc::make(wasm_registry::number<int>(p, "decim", 1), wasm_registry::vector<gr_complex>(p, "taps"), wasm_registry::number<double>(p, "center_freq", 0.0), wasm_registry::number<double>(p, "samp_rate", 0.0));
+            return { block, nullptr };
+        }
+        else if (wasm_registry::text(p, "type", "ccc") == "scf") {
+            auto block = filter::freq_xlating_fir_filter_scf::make(wasm_registry::number<int>(p, "decim", 1), wasm_registry::vector<float>(p, "taps"), wasm_registry::number<double>(p, "center_freq", 0.0), wasm_registry::number<double>(p, "samp_rate", 0.0));
+            return { block, nullptr };
+        }
+        throw std::runtime_error("unsupported type selection for freq_xlating_fir_filter_xxx");
     });
     registry.emplace("high_pass_filter", [](const nlohmann::json& p) -> BuiltBlock {
         if (wasm_registry::text(p, "type", "fir_filter_ccf") == "fir_filter_ccf" && wasm_registry::text(p, "win", "window.WIN_HAMMING") == "window.WIN_HAMMING") {

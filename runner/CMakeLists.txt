@@ -326,6 +326,8 @@ set(SATELLITES_WASM_SHIMS ${CMAKE_CURRENT_SOURCE_DIR}/src/satellites_wasm_shims)
 set(SATELLITES_SOURCES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/generated_registry_satellites.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/satellites_wasm_blocks.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/satellites_wasm_hier.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/satellites_wasm_deframers.cpp
   ${SATELLITES_LIB}/ax100_decode_impl.cc
   ${SATELLITES_LIB}/convolutional_encoder_impl.cc
   ${SATELLITES_LIB}/costas_loop_8apsk_cc_impl.cc
@@ -403,6 +405,8 @@ add_custom_command(
           ${SATELLITES_SOURCES}
           ${SATELLITES_WASM_SHIMS}/config.h
           ${CMAKE_CURRENT_SOURCE_DIR}/src/satellites_wasm_blocks.hpp
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/satellites_wasm_hier.hpp
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/satellites_wasm_deframers.hpp
           ${CMAKE_CURRENT_SOURCE_DIR}/src/registry_helpers.hpp
           ${CMAKE_CURRENT_SOURCE_DIR}/src/registry.hpp
   COMMENT "Building category side module satellites.wasm (out-of-tree gr-satellites sources)"

@@ -53,6 +53,38 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
         return files;
       }
 
+      // Mirror the flowgraph's stdout into the editor's console pane.
+      //
+      // Blocks that report to the user do it by printing: Message Debug dumps
+      // each PDU, Print Header / Print Timestamp annotate frames. Emscripten
+      // sends that to console.log, which means devtools — so from the editor a
+      // decoding flowgraph looks like it produced nothing. Forward it to the
+      // parent frame, which appends it to the log under the canvas.
+      //
+      // Batched and capped on purpose: a Message Debug on a fast frame source
+      // emits several hundred lines a second, and one postMessage per line
+      // would swamp both this frame and the editor's DOM.
+      const STDOUT_FLUSH_MS = 100;      // coalesce bursts into ~10 posts/second
+      const STDOUT_MAX_BATCH = 200;     // lines kept per flush; the rest counted
+      let stdoutQueue = [], stdoutDropped = 0, stdoutTimer = 0;
+
+      function flushStdout() {
+        stdoutTimer = 0;
+        if (!stdoutQueue.length && !stdoutDropped) return;
+        const lines = stdoutQueue;
+        const dropped = stdoutDropped;
+        stdoutQueue = [];
+        stdoutDropped = 0;
+        window.parent.postMessage({ type: 'gr-print', lines, dropped }, '*');
+      }
+
+      function queueStdout(text) {
+        if (!(window.parent && window.parent !== window)) return;
+        if (stdoutQueue.length >= STDOUT_MAX_BATCH) stdoutDropped++;
+        else stdoutQueue.push(String(text));
+        if (!stdoutTimer) stdoutTimer = setTimeout(flushStdout, STDOUT_FLUSH_MS);
+      }
+
       async function init()
       {
         const spinner = document.querySelector('#qtspinner');
@@ -96,6 +128,9 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
             locateFile: window.__grBuildStamp
               ? (path, prefix) => `${prefix ?? ''}${path}?v=${window.__grBuildStamp}`
               : undefined,
+            // Emscripten's stdout hook. Keep the console.log so devtools and the
+            // headless tests still see it, and mirror it to the editor.
+            print: (text) => { console.log(text); queueStdout(text); },
             qt: {
               onLoaded: () => showUi(screen),
               onExit: exitData =>

@@ -213,9 +213,30 @@ T choice(const nlohmann::json& params,
         if (value == option.first)
             return option.second;
     }
+    // Some yaml enums quote their option values ('"RS"', '"CCSDS"', ...), so the
+    // generated match keys carry the quote characters while text() above has
+    // already stripped them from the incoming value. Compare unquoted too.
+    for (const auto& option : choices) {
+        if (value == strip_quotes(option.first))
+            return option.second;
+    }
     const std::string normalized = normalize_enum(value);
     for (const auto& option : choices) {
-        if (normalized == normalize_enum(option.first))
+        if (normalized == normalize_enum(strip_quotes(option.first)))
+            return option.second;
+    }
+    // Last resort: compare only the trailing identifier. The generator renders
+    // some enum option values with their namespace stripped (yaml's
+    // `gr.GR_MSB_FIRST` becomes the match key `GR_MSB_FIRST`) while a .grc still
+    // carries the fully qualified spelling. Enumerator names are unique within
+    // one parameter, so matching on the tail cannot become ambiguous.
+    auto tail = [](const std::string& s) {
+        const auto pos = s.rfind('.');
+        return pos == std::string::npos ? s : s.substr(pos + 1);
+    };
+    const std::string value_tail = tail(normalized);
+    for (const auto& option : choices) {
+        if (value_tail == tail(normalize_enum(strip_quotes(option.first))))
             return option.second;
     }
     throw std::runtime_error(std::string(key) + " has unsupported value '" + value + "'");

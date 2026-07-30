@@ -304,7 +304,11 @@ def main(out_path):
     block_module = manifest.get("block_module", {})
     blocks_by_id = {}
     for mod in MODULES:
-        for f in sorted(glob.glob(os.path.join(mod, "*.block.yml"))):
+        # Recursive: gr-satellites groups its block metadata into grc/
+        # subdirectories (components/deframers, hier, ccsds, ...); every other
+        # module keeps grc/ flat, so the recursive walk costs nothing there.
+        for f in sorted(glob.glob(os.path.join(mod, "**", "*.block.yml"),
+                                 recursive=True)):
             try:
                 d = yaml.safe_load(open(f))
             except Exception:
