@@ -286,12 +286,19 @@ def port_list(items):
     for p in items or []:
         if not isinstance(p, dict):
             continue
-        out.append({"id": str(p.get("id", "")),
-                    "label": p.get("label", ""),
-                    "domain": p.get("domain", "stream"),
-                    "dtype": str(p.get("dtype", "")),
-                    "multiplicity": str(p.get("multiplicity", "1")),
-                    "optional": p.get("optional", False)})
+        port = {"id": str(p.get("id", "")),
+                "label": p.get("label", ""),
+                "domain": p.get("domain", "stream"),
+                "dtype": str(p.get("dtype", "")),
+                "multiplicity": str(p.get("multiplicity", "1")),
+                "optional": p.get("optional", False)}
+        # These are absent on most ports; preserve them only where native GRC
+        # has dynamic vector lengths or visibility to keep blocks.json compact.
+        if "vlen" in p:
+            port["vlen"] = str(p["vlen"])
+        if "hide" in p:
+            port["hide"] = p["hide"]
+        out.append(port)
     return out
 
 def main(out_path):

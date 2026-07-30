@@ -18,12 +18,33 @@ type ParamType = 'number' | 'string' | 'enum';
 // block face uses it to pick a truncation style for long values.
 interface ParamDef {
   id: string; label: string; type: ParamType; def: any; options?: string[];
+  optionLabels?: string[];
   category?: string; hide?: string; hideIfEmpty?: boolean; raw?: boolean; dtype?: string;
   optionAttributes?: Record<string, string[]>;
   showWhen?: (params: Record<string, any>) => boolean;
   // Free-form prose (the Note block's text): edited in a textarea so it can hold
   // line breaks, which .grc round-trips as a double-quoted `\n` scalar.
   multiline?: boolean;
+}
+interface PortTemplate {
+  dtype: string;
+  vlen: string;
+  domain: string;
+  id: string;
+  label: string;
+  multiplicity: string;
+  optional: boolean;
+  hide: string | boolean;
+}
+interface ResolvedPort {
+  dtype: string;
+  vlen: number | string;
+  domain: string;
+  id: string;
+  name: string;
+  streamIndex: number;
+  optional: boolean;
+  hidden: boolean;
 }
 // inTypes/outTypes give per-port dtypes (for converters); otherwise ports follow the
 // block's `type` param (complex/float) if it has one, else `dtype` (default complex).
@@ -35,6 +56,7 @@ interface RunnableDef {
   inLabels?: string[]; outLabels?: string[];
   inLabelBase?: string; outLabelBase?: string;
   inStreamIndices?: number[]; outStreamIndices?: number[];
+  inputTemplates?: PortTemplate[]; outputTemplates?: PortTemplate[];
 }
 
 // Generated block-library metadata. The editor is served from the site root,
@@ -478,17 +500,162 @@ const TITLE_H = 22, ROW_H = 15, PAD = 6, PORT_H = 15, PORT_GAP = 8;
 // Horizontal breathing room around the title/parameter text inside a block.
 const TEXT_PAD_L = 6, TEXT_PAD_R = 6;
 const PORT_FONT_SIZE = 10, PORT_LABEL_PAD = 4, PORT_MIN_W = 20;
+
+function templateScope(params: Record<string, any>): Scope {
+  const scope: Scope = { ...varScope };
+  for (const [id, raw] of Object.entries(params)) {
+    const text = String(raw ?? '').trim();
+    if (typeof raw === 'number' || typeof raw === 'boolean') scope[id] = raw;
+    else if (text === 'True' || text === 'False') scope[id] = text === 'True';
+    else if (text && Number.isFinite(Number(text))) scope[id] = Number(text);
+    else scope[id] = text;
+  }
+  return scope;
+}
+
+function templateValue(raw: any, params: Record<string, any>): any {
+  const text = String(raw ?? '').trim();
+  const match = text.match(/^\$\{\s*([\s\S]*?)\s*\}$/);
+  if (!match) return raw;
+  const result = evalExpr(match[1], templateScope(params));
+  return result.ok ? result.value : raw;
+}
+
+function pythonBool(raw: any): boolean {
+  if (typeof raw === 'boolean') return raw;
+  if (typeof raw === 'number') return raw !== 0;
+  const text = String(raw ?? '').trim();
+  return text !== '' && text !== 'False' && text !== 'false' && text !== '0';
+}
+
+function portHidden(raw: string | boolean, params: Record<string, any>): boolean {
+  const text = String(raw ?? '').trim();
+  const not = text.match(/^\$\{\s*not\s+([A-Za-z_]\w*)\s*\}$/);
+  if (not) return !pythonBool(params[not[1]]);
+  const direct = text.match(/^\$\{\s*([A-Za-z_]\w*)\s*\}$/);
+  if (direct) return pythonBool(params[direct[1]]);
+  const value = templateValue(raw, params);
+  // Unsupported native expressions (for example `${ type.hide }`) should
+  // remain visible, matching the editor's historical fallback, rather than
+  // treating the unevaluated non-empty template text as truthy.
+  return value === raw && /^\$\{.*\}$/.test(text) ? false : pythonBool(value);
+}
+
+function templateMultiplicity(raw: any, params: Record<string, any>): number {
+  const value = templateValue(raw, params);
+  const number = Number(value);
+  // GRC's EvaluatedPInt falls back to one for zero, negative or invalid values.
+  return Number.isFinite(number) && number >= 1 ? Math.trunc(number) : 1;
+}
+
+function resolvedPorts(inst: Inst, kind: 'in' | 'out'): ResolvedPort[] | null {
+  const d = RUNNABLE[inst.id];
+  const templates = kind === 'in' ? d.inputTemplates : d.outputTemplates;
+  if (!templates) return null;
+  const result: ResolvedPort[] = [];
+  let streamIndex = 0;
+  for (const port of templates) {
+    const count = templateMultiplicity(port.multiplicity, inst.params);
+    const domain = port.domain || 'stream';
+    const baseName = String(port.label ||
+      (domain === 'stream' ? kind : port.id) || kind);
+    const hidden = portHidden(port.hide, inst.params);
+    for (let i = 0; i < count; ++i) {
+      const currentStreamIndex = domain === 'stream' ? streamIndex : -1;
+      result.push({
+        dtype: port.dtype.replace(
+          /^\$\{\s*([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)?)\s*\}$/, '$$$1'),
+        vlen: templateValue(port.vlen, inst.params),
+        domain,
+        id: domain === 'stream' ? String(currentStreamIndex) : String(port.id || baseName),
+        name: count > 1 ? `${baseName}${i}` : baseName,
+        streamIndex: currentStreamIndex,
+        optional: port.optional,
+        hidden,
+      });
+      if (domain === 'stream') ++streamIndex;
+    }
+  }
+  return result;
+}
+
+function legacyPortCount(inst: Inst, kind: 'in' | 'out'): number {
+  const d = RUNNABLE[inst.id];
+  const key = kind === 'in'
+    ? (d.params.some(p => p.id === 'num_inputs') ? 'num_inputs' :
+       d.params.some(p => p.id === 'nconnections') && d.inputs ? 'nconnections' : '')
+    : (d.params.some(p => p.id === 'num_outputs') ? 'num_outputs' :
+       d.params.some(p => p.id === 'nconnections') && !d.inputs ? 'nconnections' : '');
+  if (!key) return kind === 'in' ? d.inputs : d.outputs;
+  const value = Number(inst.params[key]);
+  return Number.isFinite(value) ? Math.max(1, Math.trunc(value)) : (kind === 'in' ? d.inputs : d.outputs);
+}
+
+function portMeta(inst: Inst, kind: 'in' | 'out', i: number): ResolvedPort {
+  const dynamic = resolvedPorts(inst, kind);
+  if (dynamic?.[i]) return dynamic[i];
+  const d = RUNNABLE[inst.id];
+  const domains = kind === 'in' ? d.inDomains : d.outDomains;
+  const types = kind === 'in' ? d.inTypes : d.outTypes;
+  const ids = kind === 'in' ? d.inIds : d.outIds;
+  const labels = kind === 'in' ? d.inLabels : d.outLabels;
+  const indices = kind === 'in' ? d.inStreamIndices : d.outStreamIndices;
+  const domain = domains?.[i] || 'stream';
+  return {
+    dtype: types?.[i] || '',
+    vlen: 1,
+    domain,
+    id: ids?.[i] ?? (domain === 'stream' ? String(indices?.[i] ?? i) : String(i)),
+    name: labels?.[i] || `${kind}${legacyPortCount(inst, kind) > 1 ? i : ''}`,
+    streamIndex: domain === 'stream' ? (indices?.[i] ?? i) : -1,
+    optional: false,
+    hidden: false,
+  };
+}
+
+function visiblePortIndices(inst: Inst, kind: 'in' | 'out'): number[] {
+  const count = portCount(inst, kind);
+  return Array.from({ length: count }, (_, i) => i)
+    .filter(i => !portMeta(inst, kind, i).hidden);
+}
+
+function remapConnectionsForPortChange(inst: Inst, nextParams: Record<string, any>) {
+  if (!RUNNABLE[inst.id].inputTemplates && !RUNNABLE[inst.id].outputTemplates) return;
+  const next = { ...inst, params: nextParams };
+  const portKey = (port: ResolvedPort) =>
+    port.domain === 'stream' ? `stream:${port.streamIndex}` : `message:${port.id}`;
+  const mappings = (kind: 'in' | 'out') => {
+    const oldPorts = resolvedPorts(inst, kind) || [];
+    const newPorts = resolvedPorts(next, kind) || [];
+    const newByKey = new Map(newPorts.map((port, index) => [portKey(port), index]));
+    return oldPorts.map(port => newByKey.get(portKey(port)) ?? -1);
+  };
+  const inputs = mappings('in'), outputs = mappings('out');
+  conns = conns.flatMap(connection => {
+    if (connection.to === inst.uid) {
+      const nextPort = inputs[connection.tp] ?? -1;
+      if (nextPort < 0) return [];
+      connection.tp = nextPort;
+    }
+    if (connection.from === inst.uid) {
+      const nextPort = outputs[connection.fp] ?? -1;
+      if (nextPort < 0) return [];
+      connection.fp = nextPort;
+    }
+    return [connection];
+  });
+}
+
 // A port's dtype: explicit per-port (converters), else the block's `type` param
 // (complex/float), else its fixed `dtype`, else complex.
 function portType(inst: Inst, kind: 'in' | 'out', i: number): string {
   const d = RUNNABLE[inst.id];
-  const domains = kind === 'in' ? d.inDomains : d.outDomains;
-  if (domains?.[i] === 'message') return 'message';
-  const arr = kind === 'in' ? d.inTypes : d.outTypes;
-  if (arr && arr[i]) {
+  const meta = portMeta(inst, kind, i);
+  if (meta.domain === 'message') return 'message';
+  if (meta.dtype) {
     // GRC's optional-IQ idiom: `${ 'complex' if iq else 'float' }`. expandPorts
     // only normalizes a bare `${ name }`, so this arrives as the raw template.
-    const conditional = arr[i].match(
+    const conditional = meta.dtype.match(
       /^\$\{\s*'(\w+)'\s+if\s+([A-Za-z_]\w*)\s+else\s+'(\w+)'\s*\}$/);
     if (conditional) {
       const flag = String(inst.params[conditional[2]] ?? '').trim().toLowerCase();
@@ -497,9 +664,9 @@ function portType(inst: Inst, kind: 'in' | 'out', i: number): string {
     // Any other unresolved template: report the type as unknown rather than as
     // the template text, so the connection validator skips the check instead of
     // rejecting every connection to the port.
-    if (/^\$\{.*\}$/.test(arr[i])) return '';
-    const match = arr[i].match(/^\$([A-Za-z_]\w*)(?:\.([A-Za-z_]\w*))?$/);
-    if (!match) return arr[i];
+    if (/^\$\{.*\}$/.test(meta.dtype)) return '';
+    const match = meta.dtype.match(/^\$([A-Za-z_]\w*)(?:\.([A-Za-z_]\w*))?$/);
+    if (!match) return meta.dtype;
     const value = String(inst.params[match[1]] || '');
     if (!match[2]) return value;
     const param = d.params.find(p => p.id === match[1]);
@@ -515,6 +682,8 @@ const portColor = (inst: Inst, kind: 'in' | 'out', i: number) =>
 
 function portLabel(inst: Inst, kind: 'in' | 'out', i: number): string {
   const d = RUNNABLE[inst.id];
+  if (kind === 'in' ? d.inputTemplates : d.outputTemplates)
+    return portMeta(inst, kind, i).name;
   const labels = kind === 'in' ? d.inLabels : d.outLabels;
   const base = kind === 'in' ? d.inLabelBase : d.outLabelBase;
   const count = portCount(inst, kind);
@@ -564,7 +733,11 @@ function truncateValue(label: string, s: string, style = 0): string {
 function paramDisplay(p: ParamDef, raw: any): string {
   const cut = (s: string, style = 0) => truncateValue(p.label, s, style);
   const fileStyle = p.dtype === 'file_open' || p.dtype === 'file_save' ? -1 : 0;
-  if (p.type !== 'number') return cut(fmtVal(raw), fileStyle);
+  if (p.type !== 'number') {
+    const optionIndex = p.options?.indexOf(String(raw)) ?? -1;
+    const display = optionIndex >= 0 ? p.optionLabels?.[optionIndex] ?? raw : raw;
+    return cut(fmtVal(display), fileStyle);
+  }
   if (typeof raw === 'number') return cut(fmtVal(raw));
   const s = String(raw ?? '').trim();
   if (!s) return '';
@@ -693,6 +866,27 @@ function validateGraph(blocks: Inst[] = insts, connections: Conn[] = conns): Val
       if (minLength !== null && minLength < 1)
         add(block, 'min_len', 'Minimum Length must be at least 1.');
     }
+    if (block.id === 'blocks_selector') {
+      const numInputs = resolvedNumber(block.params.num_inputs, staticScope);
+      const numOutputs = resolvedNumber(block.params.num_outputs, staticScope);
+      const inputIndex = resolvedNumber(block.params.input_index, staticScope);
+      const outputIndex = resolvedNumber(block.params.output_index, staticScope);
+      const vlen = resolvedNumber(block.params.vlen, staticScope);
+      const positiveInteger = (value: number | null) =>
+        value !== null && Number.isInteger(value) && value >= 1;
+      if (numInputs !== null && !positiveInteger(numInputs))
+        add(block, 'num_inputs', 'Number of Inputs must be a positive integer.');
+      if (numOutputs !== null && !positiveInteger(numOutputs))
+        add(block, 'num_outputs', 'Number of Outputs must be a positive integer.');
+      if (vlen !== null && !positiveInteger(vlen))
+        add(block, 'vlen', 'Vector Length must be a positive integer.');
+      if (inputIndex !== null && numInputs !== null &&
+          (!Number.isInteger(inputIndex) || inputIndex < 0 || inputIndex >= numInputs))
+        add(block, 'input_index', 'Input Index must select an available input port.');
+      if (outputIndex !== null && numOutputs !== null &&
+          (!Number.isInteger(outputIndex) || outputIndex < 0 || outputIndex >= numOutputs))
+        add(block, 'output_index', 'Output Index must select an available output port.');
+    }
   }
 
   const byUid = new Map(blocks.map(block => [block.uid, block]));
@@ -716,8 +910,10 @@ function validateGraph(blocks: Inst[] = insts, connections: Conn[] = conns): Val
       add(sink, BLOCK_FIELD, `Input port ${connection.tp} has more than one connection.`, connection);
     else occupiedInputs.set(inputKey, connection);
 
-    const sourceDomain = sourceDef.outDomains?.[connection.fp] || 'stream';
-    const sinkDomain = sinkDef.inDomains?.[connection.tp] || 'stream';
+    const sourcePort = portMeta(source, 'out', connection.fp);
+    const sinkPort = portMeta(sink, 'in', connection.tp);
+    const sourceDomain = sourcePort.domain;
+    const sinkDomain = sinkPort.domain;
     if (sourceDomain !== sinkDomain) {
       add(sink, BLOCK_FIELD, `Cannot connect ${sourceDomain} output to ${sinkDomain} input.`, connection);
       continue;
@@ -727,6 +923,32 @@ function validateGraph(blocks: Inst[] = insts, connections: Conn[] = conns): Val
       const sinkType = portType(sink, 'in', connection.tp);
       if (sourceType && sinkType && sourceType !== sinkType)
         add(sink, BLOCK_FIELD, `Connection type mismatch: ${sourceType} output to ${sinkType} input.`, connection);
+      else {
+        const sourceVlen = Number(sourcePort.vlen);
+        const sinkVlen = Number(sinkPort.vlen);
+        if (Number.isFinite(sourceVlen) && Number.isFinite(sinkVlen) && sourceVlen !== sinkVlen)
+          add(sink, BLOCK_FIELD,
+            `Connection vector-length mismatch: ${sourceVlen} output to ${sinkVlen} input.`,
+            connection);
+      }
+    }
+  }
+  // Selector's configured stream multiplicity is part of its topology, not
+  // merely a drawing hint. Native GRC requires every non-optional clone to be
+  // connected; otherwise the runtime would infer fewer ports than the selected
+  // indices and configured counts describe.
+  for (const block of blocks.filter(block => active(block) && block.id === 'blocks_selector')) {
+    for (const kind of ['in', 'out'] as const) {
+      const ports = resolvedPorts(block, kind) || [];
+      ports.forEach((port, index) => {
+        if (port.domain !== 'stream' || port.optional) return;
+        const connected = connections.some(connection => kind === 'in'
+          ? connection.to === block.uid && connection.tp === index
+          : connection.from === block.uid && connection.fp === index);
+        if (!connected)
+          add(block, BLOCK_FIELD,
+            `${kind === 'in' ? 'Input' : 'Output'} port ${port.streamIndex} is not connected.`);
+      });
     }
   }
   return issues;
@@ -747,6 +969,10 @@ function setFieldError(node: HTMLElement, errorNode: HTMLElement, message: strin
 function generatedDefault(p: any): any {
   const value = (p.dtype === 'enum' && (p.default === undefined || p.default === ''))
     ? (p.options?.[0] ?? '') : (p.default ?? '');
+  if (p.dtype === 'bool') {
+    if (typeof value === 'boolean') return value ? 'True' : 'False';
+    return String(value).trim().toLowerCase() === 'true' ? 'True' : 'False';
+  }
   if (['int', 'real', 'float', 'hex'].includes(String(p.dtype)))
     return numericOrExpression(String(value));
   return String(value);
@@ -755,9 +981,11 @@ function generatedDefault(p: any): any {
 function multiplicity(value: any, defaults: Record<string, any>): number {
   const text = String(value ?? '1').trim();
   const direct = Number(text);
-  if (Number.isFinite(direct)) return Math.max(0, Math.trunc(direct));
+  if (Number.isFinite(direct)) return direct >= 1 ? Math.trunc(direct) : 1;
   const match = text.match(/^\$\{\s*([A-Za-z_]\w*)\s*\}$/);
-  return match ? Math.max(0, Math.trunc(Number(defaults[match[1]]) || 0)) : 1;
+  if (!match) return 1;
+  const number = Number(defaults[match[1]]);
+  return Number.isFinite(number) && number >= 1 ? Math.trunc(number) : 1;
 }
 
 function installGeneratedBlocks(blocks: any[]) {
@@ -768,13 +996,15 @@ function installGeneratedBlocks(blocks: any[]) {
     const wikiUrl = String(block.wiki_url || '').trim();
     const params: ParamDef[] = (block.params || []).map((p: any) => ({
       id: String(p.id), label: String(p.label || p.id),
-      type: p.dtype === 'enum' ? 'enum' :
+      type: p.dtype === 'enum' || p.dtype === 'bool' ? 'enum' :
         ['int', 'real', 'float', 'hex'].includes(String(p.dtype)) ? 'number' : 'string',
       raw: String(p.dtype) === 'raw',
       dtype: p.dtype ? String(p.dtype) : undefined,
       hide: p.hide ? String(p.hide) : 'none',
       def: generatedDefault(p),
-      options: p.options ? p.options.map(String) : undefined,
+      options: p.options ? p.options.map(String) :
+        p.dtype === 'bool' ? ['True', 'False'] : undefined,
+      optionLabels: p.option_labels ? p.option_labels.map(String) : undefined,
       optionAttributes: p.option_attributes
         ? Object.fromEntries(Object.entries(p.option_attributes)
             .map(([name, values]) => [name, (values as any[]).map(String)]))
@@ -811,6 +1041,16 @@ function installGeneratedBlocks(blocks: any[]) {
       }
       return result;
     };
+    const portTemplates = (ports: any[]): PortTemplate[] => (ports || []).map((port: any) => ({
+      dtype: String(port.dtype || ''),
+      vlen: String(port.vlen || '1'),
+      domain: String(port.domain || 'stream'),
+      id: String(port.id || ''),
+      label: String(port.label || ''),
+      multiplicity: String(port.multiplicity || '1'),
+      optional: !!port.optional,
+      hide: port.hide ?? false,
+    }));
     const inputs = expandPorts(block.inputs, 'in'), outputs = expandPorts(block.outputs, 'out');
     const existing = RUNNABLE[block.id];
     if (existing) {
@@ -822,6 +1062,7 @@ function installGeneratedBlocks(blocks: any[]) {
       existing.params = existing.params.map(p => ({
         ...p,
         hide: generatedParams.get(p.id)?.hide ?? p.hide,
+        optionLabels: generatedParams.get(p.id)?.optionLabels ?? p.optionLabels,
       }));
       // These definitions currently expose stream ports only, so omit optional
       // message-control ports that their WASM factories do not support.
@@ -853,6 +1094,8 @@ function installGeneratedBlocks(blocks: any[]) {
         ? portBaseName(block.outputs[0], 'out', 0) : undefined,
       inStreamIndices: inputs.map(p => p.streamIndex),
       outStreamIndices: outputs.map(p => p.streamIndex),
+      inputTemplates: portTemplates(block.inputs),
+      outputTemplates: portTemplates(block.outputs),
     };
   }
 }
@@ -876,15 +1119,19 @@ const textW = (s: string, px: number, bold = false) => {
   return w;
 };
 function portCount(inst: Inst, kind: 'in' | 'out'): number {
-  const d = RUNNABLE[inst.id];
-  const key = kind === 'in'
-    ? (d.params.some(p => p.id === 'num_inputs') ? 'num_inputs' :
-       d.params.some(p => p.id === 'nconnections') && d.inputs ? 'nconnections' : '')
-    : (d.params.some(p => p.id === 'num_outputs') ? 'num_outputs' :
-       d.params.some(p => p.id === 'nconnections') && !d.inputs ? 'nconnections' : '');
-  if (!key) return kind === 'in' ? d.inputs : d.outputs;
-  const value = Number(inst.params[key]);
-  return Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : (kind === 'in' ? d.inputs : d.outputs);
+  return resolvedPorts(inst, kind)?.length ?? legacyPortCount(inst, kind);
+}
+
+function parameterHideValue(hide: string | undefined, params: Record<string, any>): string {
+  const text = String(hide || 'none').trim();
+  if (text === 'none' || text === 'part' || text === 'all') return text;
+  // The common native GRC vector-length rule, used by Selector and over a
+  // hundred other blocks: hide vlen on the face while it remains one.
+  const conditional = text.match(
+    /^\$\{\s*['"](none|part|all)['"]\s+if\s+([A-Za-z_]\w*)\s*==\s*(-?(?:\d+(?:\.\d*)?|\.\d+))\s+else\s+['"](none|part|all)['"]\s*\}$/);
+  if (conditional)
+    return Number(params[conditional[2]]) === Number(conditional[3]) ? conditional[1] : conditional[4];
+  return text;
 }
 
 // The Note block's body is its text, wrapped to a fixed column: one row per
@@ -909,14 +1156,18 @@ function geom(inst: Inst) {
   // Categorized parameters belong in the modal notebook. Native GRC also keeps
   // parameters marked `hide: part` or `hide: all` off the block face.
   const rows = d.params
-    .filter(p => !p.category && p.hide !== 'part' && p.hide !== 'all' &&
-      !(p.hideIfEmpty && !String(inst.params[p.id] ?? '').trim()))
+    .filter(p => {
+      const hide = parameterHideValue(p.hide, inst.params);
+      return !p.category && hide !== 'part' && hide !== 'all' &&
+        !(p.hideIfEmpty && !String(inst.params[p.id] ?? '').trim());
+    })
     .map(p => ({ id: p.id, l: p.label + ': ', v: paramDisplay(p, inst.params[p.id]) }));
   // A Variable's identifier is its block instance name rather than a regular
   // parameter, but it is part of the block's meaning and must stay visible.
   if (inst.id === 'variable')
     rows.unshift({ id: 'id', l: 'ID: ', v: truncateValue('ID', inst.name) });
-  const nports = Math.max(portCount(inst, 'in'), portCount(inst, 'out'), 1);
+  const nports = Math.max(visiblePortIndices(inst, 'in').length,
+    visiblePortIndices(inst, 'out').length, 1);
   const bodyH = Math.max(rows.length * ROW_H + PAD, nports * (PORT_H + PORT_GAP) + PAD, ROW_H);
   const h = TITLE_H + bodyH;
   let w = textW(d.label, 13, true);
@@ -932,9 +1183,11 @@ function portPos(inst: Inst, kind: 'in' | 'out', i: number): { x: number; y: num
   // Center each side's port group independently, as native GRC does. Using the
   // block midpoint also keeps a lone port centered when parameter rows change
   // the block height or the opposite side has a different number of ports.
-  const count = portCount(inst, kind);
-  const vSlot = h / 2 + (i - (count - 1) / 2) * (PORT_H + PORT_GAP);
-  const hSlot = 16 + i * (PORT_H + PORT_GAP) + PORT_H / 2;
+  const visible = visiblePortIndices(inst, kind);
+  const count = visible.length;
+  const slot = Math.max(0, visible.indexOf(i));
+  const vSlot = h / 2 + (slot - (count - 1) / 2) * (PORT_H + PORT_GAP);
+  const hSlot = 16 + slot * (PORT_H + PORT_GAP) + PORT_H / 2;
   const map: Record<number, { in: Edge; out: Edge }> = {
     0: { in: 'L', out: 'R' }, 90: { in: 'T', out: 'B' },
     180: { in: 'R', out: 'L' }, 270: { in: 'B', out: 'T' },
@@ -1080,7 +1333,11 @@ function changePortCount(delta: number) {
   for (const block of blocks) {
     const key = candidates.find(id => RUNNABLE[block.id].params.some(p => p.id === id));
     if (!key) continue;
-    block.params[key] = Math.max(1, Math.trunc(Number(block.params[key]) || 1) + delta); changed = true;
+    const nextParams = { ...block.params,
+      [key]: Math.max(1, Math.trunc(Number(block.params[key]) || 1) + delta) };
+    remapConnectionsForPortChange(block, nextParams);
+    block.params = nextParams;
+    changed = true;
   }
   if (changed) { render(); recordHistory(); }
 }
@@ -1227,14 +1484,15 @@ function buildGrcDoc(resolve = false): GrcDoc {
   for (const c of conns) {
     const src = byUid(c.from), snk = byUid(c.to);
     if (!src || !snk) continue;
-    const sd = RUNNABLE[src.id], kd = RUNNABLE[snk.id];
-    const message = sd?.outDomains?.[c.fp] === 'message' || kd?.inDomains?.[c.tp] === 'message';
+    const sourcePort = portMeta(src, 'out', c.fp);
+    const sinkPort = portMeta(snk, 'in', c.tp);
+    const message = sourcePort.domain === 'message' || sinkPort.domain === 'message';
     if (message) {
-      connections.push({ src_blk_id: src.name, src_port_id: sd?.outIds?.[c.fp] ?? String(c.fp),
-        snk_blk_id: snk.name, snk_port_id: kd?.inIds?.[c.tp] ?? String(c.tp) });
+      connections.push({ src_blk_id: src.name, src_port_id: sourcePort.id,
+        snk_blk_id: snk.name, snk_port_id: sinkPort.id });
     } else {
-      connections.push([src.name, String(sd?.outStreamIndices?.[c.fp] ?? c.fp),
-        snk.name, String(kd?.inStreamIndices?.[c.tp] ?? c.tp)]);
+      connections.push([src.name, String(sourcePort.streamIndex),
+        snk.name, String(sinkPort.streamIndex)]);
     }
   }
   connections.sort((a, b) => grcConnectionKey(a) < grcConnectionKey(b) ? -1 : 1);
@@ -1280,7 +1538,18 @@ function importParams(def: RunnableDef, raw: Record<string, any> = {}): Record<s
 }
 // Map a GRC connection port token (stream index or message port id) to the
 // block's editor port index.
-function portIndex(def: RunnableDef | undefined, kind: 'in' | 'out', token: string): number {
+function portIndex(inst: Inst, kind: 'in' | 'out', token: string): number {
+  const ports = resolvedPorts(inst, kind);
+  if (ports) {
+    const num = Number(token);
+    if (Number.isInteger(num) && String(num) === token.trim()) {
+      const idx = ports.findIndex(port => port.domain === 'stream' && port.streamIndex === num);
+      return idx >= 0 ? idx : num;
+    }
+    const idx = ports.findIndex(port => port.id === token);
+    return idx >= 0 ? idx : 0;
+  }
+  const def = RUNNABLE[inst.id];
   const num = Number(token);
   if (Number.isInteger(num) && String(num) === token.trim()) {
     const arr = kind === 'in' ? def?.inStreamIndices : def?.outStreamIndices;
@@ -1317,7 +1586,6 @@ function loadFlowgraph(doc: any) {
       params: importParams(def, b.parameters || {}), enabled: flags.enabled,
       rotation: Number(b.states?.rotation) || 0, bypassed: flags.bypassed });
   });
-  const defOf = (uid: string) => RUNNABLE[insts.find(i => i.uid === uid)!.id];
   for (const c of doc.connections || []) {
     let from: string | undefined, to: string | undefined, sp: string, tp: string;
     if (Array.isArray(c)) {
@@ -1328,7 +1596,7 @@ function loadFlowgraph(doc: any) {
       sp = String(c.src_port_id); tp = String(c.snk_port_id);
     } else continue;
     if (!from || !to) continue;
-    conns.push({ from, fp: portIndex(defOf(from), 'out', sp), to, tp: portIndex(defOf(to), 'in', tp) });
+    conns.push({ from, fp: portIndex(G0(from), 'out', sp), to, tp: portIndex(G0(to), 'in', tp) });
   }
   ensureOptionsBlock();
   selected = null; selectedBlocks.clear(); selectedConnection = null; cancelConnect();
@@ -1770,7 +2038,12 @@ function showPropsDialog(inst: Inst) {
   for (const p of d.params) {
     if (p.type === 'enum') {
       const s = document.createElement('select');
-      (p.options || []).forEach(o => { const opt = document.createElement('option'); opt.value = o; opt.textContent = o; s.appendChild(opt); });
+      (p.options || []).forEach((o, index) => {
+        const opt = document.createElement('option');
+        opt.value = o;
+        opt.textContent = p.optionLabels?.[index] ?? o;
+        s.appendChild(opt);
+      });
       s.value = String(tmp.params[p.id]);
       s.onchange = () => { tmp.params[p.id] = s.value; refreshVisibility(); refreshValidation(); };
       addField(p.category || 'General', `${p.label}  (${p.id})`, s, p.id);
@@ -1842,6 +2115,7 @@ function showPropsDialog(inst: Inst) {
   const foot = document.createElement('div'); foot.className = 'dlgfoot';
   const apply = () => {
     inst.name = tmp.name;
+    remapConnectionsForPortChange(inst, tmp.params);
     inst.params = { ...tmp.params };
     inst.localFileToken = tmp.localFileToken;
     select(inst.uid);
@@ -1906,6 +2180,7 @@ function render() {
   // wires (from output right-edge to input left-edge, GRC-style curves)
   for (const c of conns) {
     const a = G(c.from), b = G(c.to); if (!a || !b || (hideDisabled && (!a.enabled || !b.enabled))) continue;
+    if (portMeta(a, 'out', c.fp).hidden || portMeta(b, 'in', c.tp).hidden) continue;
     const pa = portPos(a, 'out', c.fp), pb = portPos(b, 'in', c.tp);
     const x1 = a.x + pa.x, y1 = a.y + pa.y, x2 = b.x + pb.x, y2 = b.y + pb.y;
     // Match native GRC exactly: a straight 15px run out of each port, a cubic
@@ -1971,8 +2246,10 @@ function render() {
     // Drag from anywhere on the block; ports stopPropagation so they still connect.
     g.addEventListener('mousedown', e => startDrag(e, inst));
     g.addEventListener('contextmenu', e => { e.preventDefault(); e.stopPropagation(); if (!selectedBlocks.has(inst.uid)) select(inst.uid); showMenu(e.clientX, e.clientY, inst); });
-    for (let i = 0; i < portCount(inst, 'in'); i++) addPort(g, inst, 'in', i, portColor(inst, 'in', i));
-    for (let i = 0; i < portCount(inst, 'out'); i++) addPort(g, inst, 'out', i, portColor(inst, 'out', i));
+    for (const i of visiblePortIndices(inst, 'in'))
+      addPort(g, inst, 'in', i, portColor(inst, 'in', i));
+    for (const i of visiblePortIndices(inst, 'out'))
+      addPort(g, inst, 'out', i, portColor(inst, 'out', i));
     nodesG.appendChild(g);
   }
   updateCanvasExtent();

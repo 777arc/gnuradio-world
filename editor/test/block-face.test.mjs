@@ -11,13 +11,13 @@ assert.equal(multiply?.params?.find(param => param.id === 'type')?.hide, 'part',
   'Multiply IO Type must retain native hide metadata');
 assert.match(source, /hide: p\.hide \? String\(p\.hide\) : 'none'/,
   'generated parameters must carry native hide metadata into the editor');
-assert.match(source, /p\.hide !== 'part' && p\.hide !== 'all'/,
-  'part/all parameters must stay off the block face');
+assert.match(source, /const hide = parameterHideValue\(p\.hide, inst\.params\);[\s\S]*?hide !== 'part' && hide !== 'all'/,
+  'literal and dynamically evaluated part/all parameters must stay off the block face');
 assert.match(source,
   /if \(inst\.id === 'variable'\)\s*rows\.unshift\({ id: 'id', l: 'ID: ', v: truncateValue\('ID', inst\.name\) }\)/,
   'Variable blocks must show their instance ID on the block face');
 assert.match(source,
-  /const count = portCount\(inst, kind\);\s*const vSlot = h \/ 2 \+ \(i - \(count - 1\) \/ 2\) \* \(PORT_H \+ PORT_GAP\)/,
+  /const visible = visiblePortIndices\(inst, kind\);[\s\S]*?const slot = Math\.max\(0, visible\.indexOf\(i\)\);[\s\S]*?const vSlot = h \/ 2 \+ \(slot - \(count - 1\) \/ 2\) \* \(PORT_H \+ PORT_GAP\)/,
   'each input/output port group must be centered vertically on the block');
 assert.match(source, /textW\(r\.l, 11, true\) \+ textW\(r\.v, 11\)/,
   'block width must account for bold parameter labels');

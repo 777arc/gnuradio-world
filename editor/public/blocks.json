@@ -323,7 +323,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "${ num_streams }",
-     "optional": "${optional}"
+     "optional": "${optional}",
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": []
@@ -455,7 +456,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "${ num_streams }",
-     "optional": "${optional}"
+     "optional": "${optional}",
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -2817,7 +2819,8 @@
      "domain": "stream",
      "dtype": "float",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "hide": "${ type.hide }"
     }
    ]
   },
@@ -3389,7 +3392,8 @@
      "domain": "message",
      "dtype": "",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "hide": "${ not showports }"
     }
    ],
    "outputs": [
@@ -4031,7 +4035,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -4041,7 +4046,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -4132,7 +4138,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -4142,7 +4149,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -4217,7 +4225,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "${ num_inputs }",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -4227,7 +4236,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -4444,7 +4454,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "${ num_inputs }",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -4667,7 +4678,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "1"
     },
     {
      "id": "",
@@ -4675,7 +4687,8 @@
      "domain": "stream",
      "dtype": "short",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "1"
     }
    ],
    "outputs": [
@@ -4685,7 +4698,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "1"
     }
    ]
   },
@@ -4779,7 +4793,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -4789,7 +4804,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -4841,7 +4857,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -4851,7 +4868,8 @@
      "domain": "stream",
      "dtype": "float",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -4892,7 +4910,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -4902,7 +4921,8 @@
      "domain": "stream",
      "dtype": "short",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -4943,7 +4963,8 @@
      "domain": "stream",
      "dtype": "complex",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -4953,7 +4974,8 @@
      "domain": "stream",
      "dtype": "float",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -4994,7 +5016,8 @@
      "domain": "stream",
      "dtype": "complex",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -5004,7 +5027,8 @@
      "domain": "stream",
      "dtype": "float",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     },
     {
      "id": "",
@@ -5012,7 +5036,8 @@
      "domain": "stream",
      "dtype": "float",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -5053,7 +5078,8 @@
      "domain": "stream",
      "dtype": "complex",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -5063,7 +5089,8 @@
      "domain": "stream",
      "dtype": "float",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -5136,7 +5163,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vector_output.vlen }"
     }
    ]
   },
@@ -5209,7 +5237,8 @@
      "domain": "stream",
      "dtype": "short",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vector_output.vlen }"
     }
    ]
   },
@@ -5250,7 +5279,8 @@
      "domain": "stream",
      "dtype": "complex",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -5260,7 +5290,8 @@
      "domain": "stream",
      "dtype": "float",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -5301,7 +5332,8 @@
      "domain": "stream",
      "dtype": "complex",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -5311,7 +5343,8 @@
      "domain": "stream",
      "dtype": "float",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -5352,7 +5385,8 @@
      "domain": "stream",
      "dtype": "complex",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -5362,7 +5396,8 @@
      "domain": "stream",
      "dtype": "float",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     },
     {
      "id": "",
@@ -5370,7 +5405,8 @@
      "domain": "stream",
      "dtype": "float",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -5411,7 +5447,8 @@
      "domain": "stream",
      "dtype": "complex",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -5421,7 +5458,8 @@
      "domain": "stream",
      "dtype": "float",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -5554,7 +5592,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     },
     {
      "id": "en",
@@ -5562,7 +5601,8 @@
      "domain": "message",
      "dtype": "",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "hide": "${ not showports }"
     }
    ],
    "outputs": [
@@ -5572,7 +5612,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -6255,7 +6296,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -6265,7 +6307,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "${ num_streams }",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -6370,7 +6413,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "${ num_ports }",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     },
     {
      "id": "dly",
@@ -6378,7 +6422,8 @@
      "domain": "message",
      "dtype": "",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "hide": "${ not showports }"
     }
    ],
    "outputs": [
@@ -6388,7 +6433,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "${ num_ports }",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -6463,7 +6509,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "${ num_inputs }",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -6473,7 +6520,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -6601,7 +6649,8 @@
      "domain": "stream",
      "dtype": "complex",
      "multiplicity": "${ num_ports }",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -6611,7 +6660,8 @@
      "domain": "stream",
      "dtype": "complex",
      "multiplicity": "${ num_ports }",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -6688,7 +6738,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": []
@@ -6784,7 +6835,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -6952,7 +7004,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": []
@@ -7075,7 +7128,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -7186,7 +7240,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": []
@@ -7315,7 +7370,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -7367,7 +7423,8 @@
      "domain": "stream",
      "dtype": "float",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -7377,7 +7434,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -7418,7 +7476,8 @@
      "domain": "stream",
      "dtype": "float",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     },
     {
      "id": "",
@@ -7426,7 +7485,8 @@
      "domain": "stream",
      "dtype": "float",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -7436,7 +7496,8 @@
      "domain": "stream",
      "dtype": "complex",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -7488,7 +7549,8 @@
      "domain": "stream",
      "dtype": "float",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -7498,7 +7560,8 @@
      "domain": "stream",
      "dtype": "int",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -7550,7 +7613,8 @@
      "domain": "stream",
      "dtype": "float",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -7560,7 +7624,8 @@
      "domain": "stream",
      "dtype": "short",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -7623,7 +7688,8 @@
      "domain": "stream",
      "dtype": "float",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -7633,7 +7699,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -7769,7 +7836,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -7779,7 +7847,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -7831,7 +7900,8 @@
      "domain": "stream",
      "dtype": "int",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -7841,7 +7911,8 @@
      "domain": "stream",
      "dtype": "float",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -7916,7 +7987,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -7926,7 +7998,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -8014,7 +8087,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "${ num_streams }",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -8024,7 +8098,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -8087,7 +8162,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vector_input.vlen }"
     }
    ],
    "outputs": [
@@ -8177,7 +8253,8 @@
      "domain": "stream",
      "dtype": "short",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vector_input.vlen }"
     }
    ],
    "outputs": [
@@ -8275,7 +8352,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "1"
     }
    ],
    "outputs": [
@@ -8285,7 +8363,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "1"
     }
    ]
   },
@@ -8362,7 +8441,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -8372,7 +8452,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -8413,7 +8494,8 @@
      "domain": "stream",
      "dtype": "float",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     },
     {
      "id": "",
@@ -8421,7 +8503,8 @@
      "domain": "stream",
      "dtype": "float",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -8431,7 +8514,8 @@
      "domain": "stream",
      "dtype": "complex",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -8532,7 +8616,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -8542,7 +8627,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -8626,7 +8712,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "${ num_inputs }",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -8636,7 +8723,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen_out }"
     }
    ]
   },
@@ -9030,7 +9118,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "${ num_inputs }",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -9040,7 +9129,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen_out }"
     }
    ]
   },
@@ -9143,7 +9233,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -9153,7 +9244,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -9295,7 +9387,8 @@
      "domain": "stream",
      "dtype": "complex",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     },
     {
      "id": "",
@@ -9303,7 +9396,8 @@
      "domain": "stream",
      "dtype": "complex",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -9313,7 +9407,8 @@
      "domain": "stream",
      "dtype": "complex",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -9417,7 +9512,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -9427,7 +9523,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -9509,7 +9606,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -9519,7 +9617,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -9692,7 +9791,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "${ num_inputs }",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -9702,7 +9802,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -9850,7 +9951,8 @@
      "domain": "stream",
      "dtype": "float",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -9860,7 +9962,8 @@
      "domain": "stream",
      "dtype": "float",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -9937,7 +10040,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "${ num_ports }",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -9947,7 +10051,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "${ num_ports }",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -10096,7 +10201,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "${ num_inputs }",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": []
@@ -10186,7 +10292,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "${ num_outputs }",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -10486,7 +10593,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "${ 1+max(pattern) }",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -10496,7 +10604,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -10917,7 +11026,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -10994,7 +11104,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": []
@@ -11298,7 +11409,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -11308,7 +11420,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -11669,7 +11782,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "${ num_inputs }",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     },
     {
      "id": "en",
@@ -11677,7 +11791,8 @@
      "domain": "message",
      "dtype": "",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "hide": "${ showports }"
     },
     {
      "id": "iindex",
@@ -11685,7 +11800,8 @@
      "domain": "message",
      "dtype": "",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "hide": "${ showports }"
     },
     {
      "id": "oindex",
@@ -11693,7 +11809,8 @@
      "domain": "message",
      "dtype": "",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "hide": "${ showports }"
     }
    ],
    "outputs": [
@@ -11703,7 +11820,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "${ num_outputs }",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -11744,7 +11862,8 @@
      "domain": "stream",
      "dtype": "short",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -11754,7 +11873,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -11806,7 +11926,8 @@
      "domain": "stream",
      "dtype": "short",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -11816,7 +11937,8 @@
      "domain": "stream",
      "dtype": "float",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -12149,7 +12271,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -12159,7 +12282,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -12247,7 +12371,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -12257,7 +12382,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "${ num_outputs }",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -12345,7 +12471,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "${ num_inputs }",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -12355,7 +12482,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -12432,7 +12560,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -12442,7 +12571,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "${ num_streams }",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -12530,7 +12660,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -12540,7 +12671,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -12617,7 +12749,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -12627,7 +12760,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen*num_items }"
     }
    ]
   },
@@ -12724,7 +12858,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -12801,7 +12936,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "${ num_streams }",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -12811,7 +12947,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -12888,7 +13025,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "${ num_streams }",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -12898,7 +13036,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen*num_streams }"
     }
    ]
   },
@@ -12950,7 +13089,8 @@
      "domain": "stream",
      "dtype": "float",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -12960,7 +13100,8 @@
      "domain": "stream",
      "dtype": "float",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -13035,7 +13176,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "${ num_inputs }",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -13045,7 +13187,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -13161,7 +13304,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "${ num_inputs }",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": []
@@ -13256,7 +13400,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -13266,7 +13411,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -13423,7 +13569,8 @@
      "domain": "stream",
      "dtype": "${ io_type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     },
     {
      "id": "",
@@ -13431,7 +13578,8 @@
      "domain": "stream",
      "dtype": "${ share_type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -13441,7 +13589,8 @@
      "domain": "stream",
      "dtype": "${ io_type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -13518,7 +13667,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": []
@@ -13596,7 +13746,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -13606,7 +13757,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -13694,7 +13846,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     },
     {
      "id": "set_scalar",
@@ -13712,7 +13865,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -13811,7 +13965,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "${ ninputs }",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -13821,7 +13976,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -13920,7 +14076,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -14148,7 +14305,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -14158,7 +14316,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -14277,7 +14436,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -14287,7 +14447,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -14701,7 +14862,8 @@
      "domain": "message",
      "dtype": "",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "hide": "${not show_msg_ports.show}"
     },
     {
      "id": "restore",
@@ -14709,7 +14871,8 @@
      "domain": "message",
      "dtype": "",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "hide": "${not show_msg_ports.show}"
     }
    ],
    "outputs": []
@@ -15042,7 +15205,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": []
@@ -15156,7 +15320,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -15233,7 +15398,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen*num_items }"
     }
    ],
    "outputs": [
@@ -15243,7 +15409,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -15320,7 +15487,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen*num_streams }"
     }
    ],
    "outputs": [
@@ -15330,7 +15498,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "${ num_streams }",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -18605,7 +18774,8 @@
      "domain": "message",
      "dtype": "",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "hide": "${ not showports }"
     },
     {
      "id": "rotate_phase",
@@ -18613,7 +18783,8 @@
      "domain": "message",
      "dtype": "",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "hide": "${ not showports }"
     }
    ],
    "outputs": [
@@ -19951,7 +20122,8 @@
      "domain": "stream",
      "dtype": "complex",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "vlen": "${num_taps_fwd+num_taps_rev}"
     },
     {
      "id": "",
@@ -21381,7 +21553,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ items_per_symbol if output_symbols else 1 }"
     },
     {
      "id": "",
@@ -21389,7 +21562,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ items_per_symbol if output_symbols else 1 }"
     }
    ]
   },
@@ -21502,7 +21676,8 @@
      "domain": "stream",
      "dtype": "complex",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "vlen": "${num_taps}"
     },
     {
      "id": "",
@@ -21616,7 +21791,8 @@
      "domain": "stream",
      "dtype": "complex",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "1"
     }
    ],
    "outputs": [
@@ -21626,7 +21802,8 @@
      "domain": "stream",
      "dtype": "float",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "1"
     }
    ]
   },
@@ -21988,7 +22165,8 @@
      "domain": "stream",
      "dtype": "complex",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ fft_len }"
     }
    ]
   },
@@ -22090,7 +22268,8 @@
      "domain": "stream",
      "dtype": "complex",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ len(sync_symbol1) }"
     }
    ],
    "outputs": [
@@ -22100,7 +22279,8 @@
      "domain": "stream",
      "dtype": "complex",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ len(sync_symbol1) }"
     }
    ]
   },
@@ -22174,7 +22354,8 @@
      "domain": "stream",
      "dtype": "complex",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ input_size }"
     }
    ],
    "outputs": [
@@ -22286,7 +22467,8 @@
      "domain": "stream",
      "dtype": "complex",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ fft_len }"
     }
    ],
    "outputs": [
@@ -22296,7 +22478,8 @@
      "domain": "stream",
      "dtype": "complex",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ fft_len }"
     }
    ]
   },
@@ -22611,7 +22794,8 @@
      "domain": "stream",
      "dtype": "complex",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ fft_len }"
     }
    ],
    "outputs": [
@@ -24851,7 +25035,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "207"
     },
     {
      "id": "",
@@ -24859,7 +25044,8 @@
      "domain": "stream",
      "dtype": "short",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "2"
     }
    ],
    "outputs": [
@@ -24869,7 +25055,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "207"
     },
     {
      "id": "",
@@ -24877,7 +25064,8 @@
      "domain": "stream",
      "dtype": "short",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "2"
     }
    ]
   },
@@ -24907,7 +25095,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "188"
     }
    ],
    "outputs": [
@@ -24947,7 +25136,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "188"
     },
     {
      "id": "",
@@ -24955,7 +25145,8 @@
      "domain": "stream",
      "dtype": "short",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "2"
     }
    ],
    "outputs": [
@@ -24965,7 +25156,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "188"
     }
    ]
   },
@@ -24995,7 +25187,8 @@
      "domain": "stream",
      "dtype": "float",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "832"
     },
     {
      "id": "",
@@ -25003,7 +25196,8 @@
      "domain": "stream",
      "dtype": "short",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "2"
     }
    ],
    "outputs": [
@@ -25013,7 +25207,8 @@
      "domain": "stream",
      "dtype": "float",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "832"
     },
     {
      "id": "",
@@ -25021,7 +25216,8 @@
      "domain": "stream",
      "dtype": "short",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "2"
     }
    ]
   },
@@ -25051,7 +25247,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "256"
     }
    ],
    "outputs": [
@@ -25061,7 +25258,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "1024"
     }
    ]
   },
@@ -25143,7 +25341,8 @@
      "domain": "stream",
      "dtype": "float",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "832"
     }
    ],
    "outputs": [
@@ -25153,7 +25352,8 @@
      "domain": "stream",
      "dtype": "float",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "832"
     },
     {
      "id": "",
@@ -25161,7 +25361,8 @@
      "domain": "stream",
      "dtype": "short",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "2"
     }
    ]
   },
@@ -25191,7 +25392,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "256"
     }
    ],
    "outputs": [
@@ -25201,7 +25403,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "256"
     }
    ]
   },
@@ -25241,7 +25444,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "256"
     }
    ]
   },
@@ -25271,7 +25475,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "256"
     }
    ],
    "outputs": [
@@ -25281,7 +25486,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "256"
     }
    ]
   },
@@ -25311,7 +25517,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "207"
     },
     {
      "id": "",
@@ -25319,7 +25526,8 @@
      "domain": "stream",
      "dtype": "short",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "2"
     }
    ],
    "outputs": [
@@ -25329,7 +25537,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "188"
     },
     {
      "id": "",
@@ -25337,7 +25546,8 @@
      "domain": "stream",
      "dtype": "short",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "2"
     }
    ]
   },
@@ -25367,7 +25577,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "256"
     }
    ],
    "outputs": [
@@ -25377,7 +25588,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "256"
     }
    ]
   },
@@ -25549,7 +25761,8 @@
      "domain": "stream",
      "dtype": "float",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "832"
     }
    ]
   },
@@ -25579,7 +25792,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "256"
     }
    ],
    "outputs": [
@@ -25589,7 +25803,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "256"
     }
    ]
   },
@@ -25619,7 +25834,8 @@
      "domain": "stream",
      "dtype": "float",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "832"
     },
     {
      "id": "",
@@ -25627,7 +25843,8 @@
      "domain": "stream",
      "dtype": "short",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "2"
     }
    ],
    "outputs": [
@@ -25637,7 +25854,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "207"
     },
     {
      "id": "",
@@ -25645,7 +25863,8 @@
      "domain": "stream",
      "dtype": "short",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "2"
     }
    ]
   },
@@ -31279,7 +31498,8 @@
      "domain": "stream",
      "dtype": "complex",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ fftsize.vlength }"
     }
    ],
    "outputs": [
@@ -31289,7 +31509,8 @@
      "domain": "stream",
      "dtype": "complex",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ fftsize.vlength }"
     }
    ]
   },
@@ -31722,7 +31943,8 @@
      "domain": "stream",
      "dtype": "complex",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ fftsize.vlength }"
     }
    ]
   },
@@ -31838,7 +32060,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ transmission_mode.payload_length }"
     }
    ],
    "outputs": [
@@ -31848,7 +32071,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "${ hierarchy.num_streams }",
-     "optional": false
+     "optional": false,
+     "vlen": "${ transmission_mode.payload_length }"
     }
    ]
   },
@@ -31964,7 +32188,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "${ hierarchy.num_streams }",
-     "optional": false
+     "optional": false,
+     "vlen": "${ transmission_mode.payload_length }"
     }
    ],
    "outputs": [
@@ -31974,7 +32199,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ transmission_mode.payload_length }"
     }
    ]
   },
@@ -32038,7 +32264,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "1"
     }
    ],
    "outputs": [
@@ -32048,7 +32275,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ blocks*I }"
     }
    ]
   },
@@ -32112,7 +32340,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ blocks*I }"
     }
    ],
    "outputs": [
@@ -32122,7 +32351,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "1"
     }
    ]
   },
@@ -32243,7 +32473,8 @@
      "domain": "stream",
      "dtype": "complex",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ transmission_mode.payload_length }"
     }
    ],
    "outputs": [
@@ -32253,7 +32484,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ transmission_mode.payload_length }"
     }
    ]
   },
@@ -32515,7 +32747,8 @@
      "domain": "stream",
      "dtype": "complex",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ transmission_mode.fft_length }"
     }
    ],
    "outputs": [
@@ -32525,7 +32758,8 @@
      "domain": "stream",
      "dtype": "complex",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ transmission_mode.payload_length }"
     }
    ]
   },
@@ -32567,7 +32801,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ nsize*188 }"
     }
    ],
    "outputs": [
@@ -32577,7 +32812,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "1"
     }
    ]
   },
@@ -32619,7 +32855,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "1"
     }
    ],
    "outputs": [
@@ -32629,7 +32866,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ 1504*nsize }"
     }
    ]
   },
@@ -32766,7 +33004,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ ninput }"
     }
    ],
    "outputs": [
@@ -32776,7 +33015,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ noutput }"
     }
    ]
   },
@@ -32897,7 +33137,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ transmission_mode.payload_length }"
     }
    ],
    "outputs": [
@@ -32907,7 +33148,8 @@
      "domain": "stream",
      "dtype": "complex",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ transmission_mode.payload_length }"
     }
    ]
   },
@@ -33017,7 +33259,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ fft_length }"
     }
    ]
   },
@@ -33136,7 +33379,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ blocks*(n-s) }"
     }
    ],
    "outputs": [
@@ -33146,7 +33390,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ blocks*(k-s) }"
     }
    ]
   },
@@ -33265,7 +33510,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ blocks*(k-s) }"
     }
    ],
    "outputs": [
@@ -33275,7 +33521,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ blocks*(n-s) }"
     }
    ]
   },
@@ -33537,7 +33784,8 @@
      "domain": "stream",
      "dtype": "complex",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ transmission_mode.payload_length }"
     }
    ],
    "outputs": [
@@ -33547,7 +33795,8 @@
      "domain": "stream",
      "dtype": "complex",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ transmission_mode.fft_length }"
     }
    ]
   },
@@ -33627,7 +33876,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ transmission_mode.payload_length }"
     }
    ],
    "outputs": [
@@ -33637,7 +33887,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ transmission_mode.payload_length }"
     }
    ]
   },
@@ -42892,7 +43143,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ fft_size }"
     }
    ],
    "outputs": [
@@ -42902,7 +43154,8 @@
      "domain": "stream",
      "dtype": "complex",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ fft_size }"
     }
    ]
   },
@@ -43122,7 +43375,8 @@
      "domain": "stream",
      "dtype": "float",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ fft_size }"
     }
    ]
   },
@@ -44188,7 +44442,8 @@
      "domain": "stream",
      "dtype": "complex",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ len(taps) }"
     }
    ],
    "outputs": [
@@ -44198,7 +44453,8 @@
      "domain": "stream",
      "dtype": "complex",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ len(taps) }"
     }
    ]
   },
@@ -46480,7 +46736,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -46490,7 +46747,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -47582,7 +47840,8 @@
      "domain": "stream",
      "dtype": "complex",
      "multiplicity": "1",
-     "optional": 0
+     "optional": 0,
+     "vlen": "1"
     }
    ],
    "outputs": [
@@ -47592,7 +47851,8 @@
      "domain": "stream",
      "dtype": "complex",
      "multiplicity": "1",
-     "optional": 0
+     "optional": 0,
+     "vlen": "1"
     }
    ]
   },
@@ -47961,7 +48221,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "${ num_inputs }",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -47971,7 +48232,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "${ num_outputs }",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -48044,7 +48306,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -48054,7 +48317,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -50374,7 +50638,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": []
@@ -50480,7 +50745,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -50693,7 +50959,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": []
@@ -50852,7 +51119,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -51792,7 +52060,8 @@
      "domain": "message",
      "dtype": "",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "hide": "${ cfg_port.hide }"
     },
     {
      "id": "",
@@ -51810,7 +52079,8 @@
      "domain": "message",
      "dtype": "",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "hide": "${ pub_det.hide }"
     },
     {
      "id": "pdus",
@@ -58318,7 +58588,8 @@
      "domain": "message",
      "dtype": "",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "hide": "${ not showports }"
     },
     {
      "id": "bw",
@@ -58326,7 +58597,8 @@
      "domain": "message",
      "dtype": "",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "hide": "${ not showports }"
     }
    ],
    "outputs": [
@@ -58336,7 +58608,8 @@
      "domain": "message",
      "dtype": "",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "hide": "${ not showports }"
     }
    ]
   },
@@ -60288,7 +60561,8 @@
      "domain": "stream",
      "dtype": "float",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": []
@@ -62074,7 +62348,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "vlen": "${fftsize}"
     },
     {
      "id": "",
@@ -62082,7 +62357,9 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "vlen": "${fftsize}",
+     "hide": "${ not wf_enabled }"
     }
    ],
    "outputs": [
@@ -62364,7 +62641,8 @@
      "domain": "message",
      "dtype": "",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "hide": "${ not showports }"
     }
    ],
    "outputs": [
@@ -62374,7 +62652,8 @@
      "domain": "message",
      "dtype": "",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "hide": "${ not showports }"
     }
    ]
   },
@@ -66238,7 +66517,8 @@
      "domain": "stream",
      "dtype": "float",
      "multiplicity": "${ nconnections }",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -66248,7 +66528,8 @@
      "domain": "message",
      "dtype": "",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "hide": "${ not showports }"
     }
    ]
   },
@@ -66898,7 +67179,8 @@
      "domain": "message",
      "dtype": "",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "hide": "${ not showports }"
     },
     {
      "id": "bw",
@@ -66906,7 +67188,8 @@
      "domain": "message",
      "dtype": "",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "hide": "${ not showports }"
     }
    ],
    "outputs": [
@@ -66916,7 +67199,8 @@
      "domain": "message",
      "dtype": "",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "hide": "${ not showports }"
     }
    ]
   },
@@ -67544,7 +67828,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "${ num_inputs }",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -73642,7 +73927,8 @@
      "domain": "stream",
      "dtype": "float",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "1"
     }
    ],
    "outputs": [
@@ -73652,7 +73938,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "1"
     }
    ]
   },
@@ -73743,7 +74030,8 @@
      "domain": "stream",
      "dtype": "complex",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "1"
     }
    ],
    "outputs": [
@@ -73753,7 +74041,8 @@
      "domain": "stream",
      "dtype": "complex",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "1"
     }
    ]
   },
@@ -73855,7 +74144,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "1"
     }
    ],
    "outputs": [
@@ -73928,7 +74218,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "1"
     }
    ],
    "outputs": [
@@ -74001,7 +74292,8 @@
      "domain": "stream",
      "dtype": "float",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "1"
     }
    ],
    "outputs": [
@@ -75980,7 +76272,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ frame_size }"
     }
    ],
    "outputs": [
@@ -75990,7 +76283,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ 255 * interleave }"
     }
    ]
   },
@@ -76097,7 +76391,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ frame_size }"
     }
    ],
    "outputs": [
@@ -76107,7 +76402,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ (2**nsym - 1) * interleave }"
     }
    ]
   },
@@ -76382,7 +76678,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -76392,7 +76689,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     },
     {
      "id": "count",
@@ -76787,7 +77085,8 @@
      "domain": "stream",
      "dtype": "complex",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${vlen}"
     }
    ],
    "outputs": [
@@ -76797,7 +77096,8 @@
      "domain": "stream",
      "dtype": "float",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${vlen}"
     }
    ]
   },
@@ -77503,7 +77803,8 @@
      "domain": "stream",
      "dtype": "${type}",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${vlen}"
     },
     {
      "id": "",
@@ -77521,7 +77822,8 @@
      "domain": "stream",
      "dtype": "${type}",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${vlen}"
     }
    ]
   },
@@ -77867,7 +78169,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "12"
     }
    ]
   },
@@ -78237,7 +78540,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "${ num_inputs }",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     },
     {
      "id": "en",
@@ -78245,7 +78549,8 @@
      "domain": "message",
      "dtype": "",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "hide": "${ showports }"
     },
     {
      "id": "iindex",
@@ -78253,7 +78558,8 @@
      "domain": "message",
      "dtype": "",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "hide": "${ showports }"
     },
     {
      "id": "oindex",
@@ -78261,7 +78567,8 @@
      "domain": "message",
      "dtype": "",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "hide": "${ showports }"
     }
    ],
    "outputs": [
@@ -78271,7 +78578,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "${ num_outputs }",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -83797,7 +84105,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": [
@@ -83807,7 +84116,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -85483,7 +85793,8 @@
      "domain": "rfnoc.io.xport",
      "dtype": "s16",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "hide": "${ device not in (\"x410\", \"x440\") }"
     },
     {
      "id": "qsfp1",
@@ -85491,7 +85802,8 @@
      "domain": "rfnoc.io.xport",
      "dtype": "s16",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "hide": "${ device not in (\"x410\", \"x440\") }"
     },
     {
      "id": "chdr_dma_s",
@@ -85499,7 +85811,8 @@
      "domain": "rfnoc.io.xport",
      "dtype": "s16",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "hide": "${ device not in (\"x410\", \"x440\") }"
     },
     {
      "id": "dram",
@@ -85507,7 +85820,8 @@
      "domain": "rfnoc.io.axi4_mm",
      "dtype": "s8",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "hide": "${ not ENABLE_DRAM or device in (\"x410\", \"x440\",)}"
     },
     {
      "id": "dram0",
@@ -85515,7 +85829,8 @@
      "domain": "rfnoc.io.axi4_mm",
      "dtype": "s8",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "hide": "${ not ENABLE_DRAM or not device in (\"x410\", \"x440\",) }"
     },
     {
      "id": "dram1",
@@ -85523,7 +85838,8 @@
      "domain": "rfnoc.io.axi4_mm",
      "dtype": "s8",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "hide": "${ not ENABLE_DRAM or not device in (\"x410\", \"x440\",) }"
     }
    ],
    "outputs": [
@@ -85533,7 +85849,8 @@
      "domain": "rfnoc.io.radio",
      "dtype": "sc32",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ 8 if device in (\"x440\",) else 4 if device in (\"x410\",) and RF_BW == 400  else 2 if device in (\"x410\",) and RF_BW == 200 else 1}"
     },
     {
      "id": "radio1",
@@ -85541,7 +85858,8 @@
      "domain": "rfnoc.io.radio",
      "dtype": "sc32",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ 8 if device in (\"x440\",) else 4 if device in (\"x410\",) and RF_BW == 400  else 2 if device in (\"x410\",) and RF_BW == 200 else 1}"
     },
     {
      "id": "radio_clk",
@@ -85549,7 +85867,8 @@
      "domain": "rfnoc.clk",
      "dtype": "message",
      "multiplicity": "1",
-     "optional": "${ device not in (\"x310\", \"x300\", \"n300\", \"n310\", \"n320\", \"e31x\", \"e320\", \"x410\") }"
+     "optional": "${ device not in (\"x310\", \"x300\", \"n300\", \"n310\", \"n320\", \"e31x\", \"e320\", \"x410\") }",
+     "hide": "${ device not in (\"x310\", \"x300\", \"n300\", \"n310\", \"n320\", \"e31x\", \"e320\", \"x410\") }"
     },
     {
      "id": "radio0_clk",
@@ -85557,7 +85876,8 @@
      "domain": "rfnoc.clk",
      "dtype": "message",
      "multiplicity": "1",
-     "optional": "${ device not in (\"x440\",) }"
+     "optional": "${ device not in (\"x440\",) }",
+     "hide": "${ device not in (\"x440\",) }"
     },
     {
      "id": "radio1_clk",
@@ -85565,7 +85885,8 @@
      "domain": "rfnoc.clk",
      "dtype": "message",
      "multiplicity": "1",
-     "optional": "${ device not in (\"x440\",) }"
+     "optional": "${ device not in (\"x440\",) }",
+     "hide": "${ device not in (\"x440\",) }"
     },
     {
      "id": "ce_clk",
@@ -85581,7 +85902,8 @@
      "domain": "rfnoc.clk",
      "dtype": "message",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "hide": "${ not ENABLE_DRAM }"
     },
     {
      "id": "time",
@@ -85589,7 +85911,8 @@
      "domain": "rfnoc.io.time_keeper",
      "dtype": "f32",
      "multiplicity": "1",
-     "optional": "${ device not in (\"x310\", \"x300\", \"n300\", \"n310\", \"n320\", \"e31x\", \"e320\", \"x410\") }"
+     "optional": "${ device not in (\"x310\", \"x300\", \"n300\", \"n310\", \"n320\", \"e31x\", \"e320\", \"x410\") }",
+     "hide": "${ device not in (\"x310\", \"x300\", \"n300\", \"n310\", \"n320\", \"e31x\", \"e320\", \"x410\") }"
     },
     {
      "id": "time0",
@@ -85597,7 +85920,8 @@
      "domain": "rfnoc.io.time_keeper",
      "dtype": "f32",
      "multiplicity": "1",
-     "optional": "${ device not in (\"x440\",) }"
+     "optional": "${ device not in (\"x440\",) }",
+     "hide": "${ device not in (\"x440\",) }"
     },
     {
      "id": "time1",
@@ -85605,7 +85929,8 @@
      "domain": "rfnoc.io.time_keeper",
      "dtype": "f32",
      "multiplicity": "1",
-     "optional": "${ device not in (\"x440\",) }"
+     "optional": "${ device not in (\"x440\",) }",
+     "hide": "${ device not in (\"x440\",) }"
     },
     {
      "id": "pps",
@@ -85613,7 +85938,8 @@
      "domain": "rfnoc.io.gpio",
      "dtype": "bit",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "hide": "${ device not in (\"x410\",) }"
     },
     {
      "id": "pps0",
@@ -85621,7 +85947,8 @@
      "domain": "rfnoc.io.gpio",
      "dtype": "bit",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "hide": "${ device not in (\"x440\",) }"
     },
     {
      "id": "pps1",
@@ -85629,7 +85956,8 @@
      "domain": "rfnoc.io.gpio",
      "dtype": "bit",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "hide": "${ device not in (\"x440\",) }"
     },
     {
      "id": "chdr_dma_m",
@@ -85637,7 +85965,8 @@
      "domain": "rfnoc.io.xport",
      "dtype": "s16",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "hide": "${ device not in (\"x410\", \"x440\") }"
     }
    ]
   },
@@ -85693,7 +86022,8 @@
      "domain": "rfnoc.data",
      "dtype": "fc32",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "hide": "${ in_out == 'out' }"
     }
    ],
    "outputs": [
@@ -85703,7 +86033,8 @@
      "domain": "rfnoc.data",
      "dtype": "fc32",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "hide": "${ in_out == 'in' }"
     }
    ]
   },
@@ -86711,7 +87042,8 @@
      "domain": "rfnoc.io.radio",
      "dtype": "sc32",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ NIPC }"
     },
     {
      "id": "in_",
@@ -86947,7 +87279,8 @@
      "domain": "rfnoc.data",
      "dtype": "fc32",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "hide": "${ data == 'False' }"
     }
    ],
    "outputs": [
@@ -86957,7 +87290,8 @@
      "domain": "rfnoc.data",
      "dtype": "fc32",
      "multiplicity": "1",
-     "optional": true
+     "optional": true,
+     "hide": "${ data == 'False' }"
     }
    ]
   },
@@ -87914,7 +88248,8 @@
      "domain": "rfnoc",
      "dtype": "sc16",
      "multiplicity": "${num_chans}",
-     "optional": false
+     "optional": false,
+     "vlen": "1"
     }
    ],
    "outputs": [
@@ -87924,7 +88259,8 @@
      "domain": "rfnoc",
      "dtype": "sc16",
      "multiplicity": "${num_chans}",
-     "optional": false
+     "optional": false,
+     "vlen": "1"
     }
    ]
   },
@@ -88775,7 +89111,8 @@
      "domain": "rfnoc",
      "dtype": "sc16",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "hide": "${ ( True if str(btype) == 'source' else False ) }"
     }
    ],
    "outputs": [
@@ -88785,7 +89122,8 @@
      "domain": "rfnoc",
      "dtype": "sc16",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "hide": "${ ( True if str(btype) == 'sink' else False ) }"
     }
    ]
   },
@@ -88988,7 +89326,8 @@
      "domain": "stream",
      "dtype": "${ output_type.type }",
      "multiplicity": "${ num_chans }",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -89340,7 +89679,9 @@
      "domain": "stream",
      "dtype": "${ input_type.type }",
      "multiplicity": "${ num_chans }",
-     "optional": true
+     "optional": true,
+     "vlen": "${ vlen }",
+     "hide": "${ 'all' if num_chans == 0 else 'none' }"
     },
     {
      "id": "in",
@@ -89586,7 +89927,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "${ num_channels }",
-     "optional": false
+     "optional": false,
+     "vlen": "1"
     }
    ],
    "outputs": []
@@ -89747,7 +90089,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ {\"codec2.MODE_3200\": 64, \"codec2.MODE_2400\": 48, \"codec2.MODE_1600\": 64, \"codec2.MODE_1400\": 56, \"codec2.MODE_1300\": 52, \"codec2.MODE_1200\": 48, \"codec2.MODE_700\": 28, \"codec2.MODE_700B\": 28, \"codec2.MODE_700C\": 28, \"codec2.MODE_WB\": 64, \"codec2.MODE_450\": 18, \"codec2.MODE_450PWB\": 18}[mode] }"
     }
    ],
    "outputs": [
@@ -89849,7 +90192,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ {\"codec2.MODE_3200\": 64, \"codec2.MODE_2400\": 48, \"codec2.MODE_1600\": 64, \"codec2.MODE_1400\": 56, \"codec2.MODE_1300\": 52, \"codec2.MODE_1200\": 48, \"codec2.MODE_700\": 28, \"codec2.MODE_700B\": 28, \"codec2.MODE_700C\": 28, \"codec2.MODE_WB\": 64, \"codec2.MODE_450\": 18, \"codec2.MODE_450PWB\": 18}[mode] }"
     }
    ]
   },
@@ -90593,7 +90937,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "33"
     }
    ],
    "outputs": [
@@ -90642,7 +90987,8 @@
      "domain": "stream",
      "dtype": "byte",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "33"
     }
    ]
   },
@@ -90945,7 +91291,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": []
@@ -91144,7 +91491,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -91341,7 +91689,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": []
@@ -91539,7 +91888,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ],
    "outputs": []
@@ -91738,7 +92088,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
@@ -91947,7 +92298,8 @@
      "domain": "stream",
      "dtype": "${ type }",
      "multiplicity": "1",
-     "optional": false
+     "optional": false,
+     "vlen": "${ vlen }"
     }
    ]
   },
