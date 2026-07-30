@@ -5,6 +5,20 @@ import type { Point } from './selection';
 // different spacing) the canvas here draws its grid at this same size.
 export const SNAP_GRID_SIZE = 10;
 
+// Round dimensions outward so geometry derived from a snapped block origin also
+// lands on the grid. `multiple` is useful for centered features: a block height
+// spanning two grid cells keeps both odd and even port groups grid-aligned.
+export function ceilToGrid(value: number, multiple = SNAP_GRID_SIZE): number {
+  return Math.ceil(value / multiple) * multiple;
+}
+
+// Port groups use a two-cell pitch. When `span` is also a multiple of two grid
+// cells, every centered slot is a grid coordinate for both odd and even counts.
+export function centeredPortSlot(span: number, count: number, index: number): number {
+  const pitch = SNAP_GRID_SIZE * 2;
+  return span / 2 + (index - (count - 1) / 2) * pitch;
+}
+
 export function constrainBlockPosition(x: number, y: number, snapToGrid: boolean): Point {
   if (snapToGrid) {
     x = Math.round(x / SNAP_GRID_SIZE) * SNAP_GRID_SIZE;

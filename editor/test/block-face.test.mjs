@@ -17,8 +17,14 @@ assert.match(source,
   /if \(inst\.id === 'variable'\)\s*rows\.unshift\({ id: 'id', l: 'ID: ', v: truncateValue\('ID', inst\.name\) }\)/,
   'Variable blocks must show their instance ID on the block face');
 assert.match(source,
-  /const visible = visiblePortIndices\(inst, kind\);[\s\S]*?const slot = Math\.max\(0, visible\.indexOf\(i\)\);[\s\S]*?const vSlot = h \/ 2 \+ \(slot - \(count - 1\) \/ 2\) \* \(PORT_H \+ PORT_GAP\)/,
+  /const visible = visiblePortIndices\(inst, kind\);[\s\S]*?const slot = Math\.max\(0, visible\.indexOf\(i\)\);[\s\S]*?const vSlot = centeredPortSlot\(h, count, slot\)/,
   'each input/output port group must be centered vertically on the block');
+assert.match(source,
+  /const h = ceilToGrid\(TITLE_H \+ bodyH, PORT_PITCH\);[\s\S]*?w = ceilToGrid\(/,
+  'block height and width must keep port attachment points on the grid');
+assert.match(source,
+  /function portWidth[\s\S]*?return ceilToGrid\(/,
+  'port widths must keep their outer wire attachment edge on the grid');
 assert.match(source, /textW\(r\.l, 11, true\) \+ textW\(r\.v, 11\)/,
   'block width must account for bold parameter labels');
 assert.match(source, /l\.setAttribute\('class', 'plabel'\)/,

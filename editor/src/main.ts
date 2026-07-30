@@ -5,7 +5,7 @@
 
 import { dumpGrc, parseGrc, type GrcDoc, type GrcScalar } from './grc';
 import { boundsBetween, boundsIntersect, type Point } from './selection';
-import { constrainBlockPosition, SNAP_GRID_SIZE } from './grid';
+import { ceilToGrid, centeredPortSlot, constrainBlockPosition, SNAP_GRID_SIZE } from './grid';
 import { evaluate as evalExpr, buildScope, formatValue as fmtExprVal, serializeForRunner, type Scope } from './expr';
 import { wrapNoteText, NOTE_FONT_SIZE } from './note';
 import { EXAMPLES_REPO, examplePath, newExampleFileUrl, sanitizeExampleName } from './contribute';
@@ -496,7 +496,10 @@ function logLines(lines: string[]) {
 function log(s: string) { logLines([s]); }
 
 // GRC-style geometry: title bar + "Label: value" parameter rows, typed ports.
-const TITLE_H = 22, ROW_H = 15, PAD = 6, PORT_H = 15, PORT_GAP = 8;
+const TITLE_H = 22, ROW_H = 15, PAD = 6, PORT_H = 15;
+// Keeping ports two grid cells apart lets centered odd and even port groups
+// share the same grid-aligned geometry.
+const PORT_PITCH = SNAP_GRID_SIZE * 2;
 // Horizontal breathing room around the title/parameter text inside a block.
 const TEXT_PAD_L = 6, TEXT_PAD_R = 6;
 const PORT_FONT_SIZE = 10, PORT_LABEL_PAD = 4, PORT_MIN_W = 20;
@@ -694,8 +697,8 @@ function portLabel(inst: Inst, kind: 'in' | 'out', i: number): string {
 }
 
 function portWidth(inst: Inst, kind: 'in' | 'out', i: number): number {
-  return Math.max(PORT_MIN_W, Math.ceil(textW(portLabel(inst, kind, i), PORT_FONT_SIZE)) +
-    2 * PORT_LABEL_PAD);
+  return ceilToGrid(Math.max(PORT_MIN_W,
+    Math.ceil(textW(portLabel(inst, kind, i), PORT_FONT_SIZE)) + 2 * PORT_LABEL_PAD));
 }
 
 function fmtVal(v: any): string {
@@ -1168,11 +1171,13 @@ function geom(inst: Inst) {
     rows.unshift({ id: 'id', l: 'ID: ', v: truncateValue('ID', inst.name) });
   const nports = Math.max(visiblePortIndices(inst, 'in').length,
     visiblePortIndices(inst, 'out').length, 1);
-  const bodyH = Math.max(rows.length * ROW_H + PAD, nports * (PORT_H + PORT_GAP) + PAD, ROW_H);
-  const h = TITLE_H + bodyH;
+  const bodyH = Math.max(rows.length * ROW_H + PAD, nports * PORT_PITCH + PAD, ROW_H);
+  // Two grid cells keep a centered port group on-grid for both odd and even
+  // port counts. Width is one-cell aligned so right-edge ports align as well.
+  const h = ceilToGrid(TITLE_H + bodyH, PORT_PITCH);
   let w = textW(d.label, 13, true);
   for (const r of rows) w = Math.max(w, textW(r.l, 11, true) + textW(r.v, 11));
-  w = Math.max(104, Math.ceil(w) + TEXT_PAD_L + TEXT_PAD_R);
+  w = ceilToGrid(Math.max(104, Math.ceil(w) + TEXT_PAD_L + TEXT_PAD_R));
   return { d, rows, h, w };
 }
 type Edge = 'L' | 'R' | 'T' | 'B';
@@ -1186,8 +1191,8 @@ function portPos(inst: Inst, kind: 'in' | 'out', i: number): { x: number; y: num
   const visible = visiblePortIndices(inst, kind);
   const count = visible.length;
   const slot = Math.max(0, visible.indexOf(i));
-  const vSlot = h / 2 + (slot - (count - 1) / 2) * (PORT_H + PORT_GAP);
-  const hSlot = 16 + slot * (PORT_H + PORT_GAP) + PORT_H / 2;
+  const vSlot = centeredPortSlot(h, count, slot);
+  const hSlot = PORT_PITCH + slot * PORT_PITCH;
   const map: Record<number, { in: Edge; out: Edge }> = {
     0: { in: 'L', out: 'R' }, 90: { in: 'T', out: 'B' },
     180: { in: 'R', out: 'L' }, 270: { in: 'B', out: 'T' },
@@ -1217,8 +1222,10 @@ function addBlock(id: string, x = 60 + (counter % 5) * 30, y = 60 + (counter % 7
   const params: Record<string, any> = {};
   d.params.forEach(p => params[p.id] = p.def);
   Object.assign(params, paramOverrides);
+  const position = constrainBlockPosition(x, y, snapToGrid);
   const inst: Inst = {
-    uid, id, name: id.replace(/^.*_/, '') + counter, x, y, params,
+    uid, id, name: id.replace(/^.*_/, '') + counter,
+    x: position.x, y: position.y, params,
     enabled: true, rotation: 0, bypassed: false,
   };
   insts.push(inst);
@@ -1245,8 +1252,9 @@ function duplicateBlock(uid: string) {
   const s = insts.find(i => i.uid === uid); if (!s) return;
   if (s.id === OPTIONS_ID) { log('only one Options block is allowed per flowgraph'); return; }
   const nu = 'b' + (++counter);
+  const position = constrainBlockPosition(s.x + 24, s.y + 24, snapToGrid);
   insts.push({ uid: nu, id: s.id, name: s.id.replace(/^.*_/, '') + counter,
-    x: s.x + 24, y: s.y + 24, params: { ...s.params }, enabled: s.enabled,
+    x: position.x, y: position.y, params: { ...s.params }, enabled: s.enabled,
     rotation: s.rotation, bypassed: s.bypassed });
   select(nu); recordHistory();
 }
@@ -1270,8 +1278,10 @@ function pasteBlock(x = 80, y = 80) {
   const remap = new Map<string, string>();
   const added: Inst[] = clipboard.blocks.map(source => {
     const uid = 'b' + (++counter); remap.set(source.uid, uid);
+    const position = constrainBlockPosition(
+      x + source.x - minX, y + source.y - minY, snapToGrid);
     return { ...clone(source), uid, name: source.id.replace(/^.*_/, '') + counter,
-      x: x + source.x - minX, y: y + source.y - minY };
+      x: position.x, y: position.y };
   });
   insts.push(...added);
   conns.push(...clipboard.connections.map(c => ({ ...c, from: remap.get(c.from)!, to: remap.get(c.to)! })));
@@ -1313,6 +1323,8 @@ function alignSelected(alignment: Alignment) {
     else if (alignment === 'left') b.block.x = left;
     else if (alignment === 'center') b.block.x = Math.round((left + right - b.w) / 2);
     else b.block.x = right - b.w;
+    const position = constrainBlockPosition(b.block.x, b.block.y, snapToGrid);
+    b.block.x = position.x; b.block.y = position.y;
   }
   render(); recordHistory();
 }
