@@ -18,4 +18,5 @@ __pycache__/
 # scripts/r2-cors.json and the deploy workflow). The tiny .sigmf-meta sidecars
 # ARE committed -- the site build reads them to build the recordings manifest
 # (datatype/sample-rate/etc.) on CI, where the data files are absent.
-/example_recordings/*.sigmf-data
+# The ** covers collections kept in a sub-directory (example_recordings/estevez/).
+/example_recordings/**/*.sigmf-data

@@ -1,0 +1,95 @@
+options:
+    parameters:
+        author: Daniel Estevez
+        copyright: ''
+        description: 'LilacSat-1 image downlink: BPSK demodulator and LilacSat-1 deframer, printing the frames the image is carried in'
+        generate_options: no_gui
+        id: image_receiver_lilacsat1
+        title: gr-satellites LilacSat-1 image downlink
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: samp_rate
+    id: variable
+    parameters:
+        value: '48000'
+    states:
+        coordinate: [220, 20]
+        rotation: 0
+        state: enabled
+-   name: recording
+    id: blocks_file_source
+    parameters:
+        begin_tag: pmt.PMT_NIL
+        file: /recordings/estevez/lilacsat1-image.sigmf-data
+        length: '0'
+        offset: '0'
+        repeat: 'False'
+        type: short
+        vlen: '1'
+    states:
+        coordinate: [30, 200]
+        rotation: 0
+        state: enabled
+-   name: to_float
+    id: blocks_short_to_float
+    parameters:
+        scale: '32767'
+        vlen: '1'
+    states:
+        coordinate: [250, 200]
+        rotation: 0
+        state: enabled
+-   name: bpsk_demod
+    id: satellites_bpsk_demodulator
+    parameters:
+        baudrate: '9600'
+        differential: 'False'
+        f_offset: '12000'
+        iq: 'False'
+        manchester: 'False'
+        options: '""'
+        samp_rate: samp_rate
+    states:
+        coordinate: [470, 200]
+        rotation: 0
+        state: enabled
+-   name: deframer
+    id: satellites_lilacsat_1_deframer
+    parameters:
+        options: '""'
+        threshold: '4'
+    states:
+        coordinate: [720, 200]
+        rotation: 0
+        state: enabled
+-   name: frames
+    id: blocks_message_debug
+    parameters:
+        en_uvec: 'True'
+        log_level: info
+    states:
+        coordinate: [980, 200]
+        rotation: 0
+        state: enabled
+-   name: image_note
+    id: note
+    parameters:
+        note: Upstream assembles the JPEG with the Python image receiver, behind the all-in-one Satellite Decoder. Both are Python-only, so the chain is explicit here and the KISS frames carrying the image are printed.
+    states:
+        coordinate: [700, 340]
+        rotation: 0
+        state: enabled
+connections:
+- [recording, '0', to_float, '0']
+- [to_float, '0', bpsk_demod, '0']
+- [bpsk_demod, '0', deframer, '0']
+-   src_blk_id: deframer
+    src_port_id: out
+    snk_blk_id: frames
+    snk_port_id: print_pdu
+metadata:
+    file_format: 2
+    grc_version: 3.11.0.0

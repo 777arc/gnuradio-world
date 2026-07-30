@@ -1,0 +1,17 @@
+{
+  "global": {
+    "core:version": "1.0.0",
+    "core:datatype": "ri16_le",
+    "core:description": "LilacSat-1 (NORAD 42725) [image downlink]: 9k6 BPSK downlink at 436.51 MHz (LilacSat-1 framing). 48 kHz audio recording (real samples, SSB receiver output) from the daniestevez/satellite-recordings collection.",
+    "core:sample_rate": 48000.0,
+    "core:author": "Daniel Estévez",
+    "core:license": "https://unlicense.org/"
+  },
+  "captures": [
+    {
+      "core:sample_start": 0,
+      "core:frequency": 0
+    }
+  ],
+  "annotations": []
+}

@@ -6,7 +6,7 @@
 import http from 'node:http';
 import { createReadStream } from 'node:fs';
 import { readFile, readdir, stat } from 'node:fs/promises';
-import { extname, join, normalize } from 'node:path';
+import { extname, join, normalize, sep } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 
 const port = Number(process.argv[2] || 8080);
@@ -80,9 +80,17 @@ function sigmfBytesPerSample(datatype) {
   return Number.isInteger(bytes) && bytes > 0 ? bytes : null;
 }
 
+// Recordings may sit in sub-directories of example_recordings/ (a whole
+// collection at a time, e.g. estevez/), so names are '/'-joined relative paths
+// and every URL built from one has to be encoded per segment -- encodeURIComponent
+// on the whole path would turn its separators into %2F.
+const encodeRecordingPath = path =>
+  path.split('/').map(encodeURIComponent).join('/');
+
 async function listExampleRecordings() {
   const dir = join(root, 'example_recordings');
-  const files = await readdir(dir);
+  const files = (await readdir(dir, { recursive: true }))
+    .map(file => file.split(sep).join('/'));
   const fileSet = new Set(files);
   const bases = files
     .filter(file => file.endsWith('.sigmf-meta'))
@@ -116,7 +124,7 @@ async function listExampleRecordings() {
         author,
         sampleCount,
         byteLength: dataStat.size,
-        downloadUrl: '/example_recordings/' + encodeURIComponent(dataFile),
+        downloadUrl: '/example_recordings/' + encodeRecordingPath(dataFile),
       };
     } catch {
       // A malformed/unreadable metadata document is not a usable SigMF recording.
@@ -199,7 +207,10 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(416);
         return res.end();
       }
-      const safeName = recording.dataFile.replace(/[^\x20-\x7e]|["\\]/g, '_');
+      // A file name, not a path: a recording inside a collection sub-directory
+      // still downloads under its own base name.
+      const safeName = recording.dataFile.split('/').pop()
+        .replace(/[^\x20-\x7e]|["\\]/g, '_');
       res.setHeader('Content-Disposition', `attachment; filename="${safeName}"`);
       if (range) {
         res.setHeader('Content-Length', range.end - range.start + 1);

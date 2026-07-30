@@ -3145,6 +3145,13 @@ interface FileSourceFormat {
   vlen: number;
 }
 
+// A recording's dataFile/metaFile are relative paths under example_recordings/,
+// so a whole collection can live in a sub-directory (estevez/). URLs built from
+// one are encoded per segment: encodeURIComponent on the whole path would turn
+// its separators into %2F. Mirrors encodeRecordingPath in server.mjs.
+const encodeRecordingPath = (path: string): string =>
+  path.split('/').map(encodeURIComponent).join('/');
+
 const remoteRecordingsByPath = new Map<string, ExampleRecording>();
 let exampleRecordingsPromise: Promise<ExampleRecording[]> | null = null;
 
@@ -3235,7 +3242,7 @@ const base64Url = (text: string): string => {
 
 function iqengineViewUrl(recording: ExampleRecording): string {
   const metaUrl = new URL(
-    '/example_recordings/' + encodeURIComponent(recording.metaFile),
+    '/example_recordings/' + encodeRecordingPath(recording.metaFile),
     location.href,
   ).href;
   const dataUrl = new URL(recording.downloadUrl, location.href).href;
@@ -3377,7 +3384,9 @@ async function buildRecordings(panel: HTMLElement) {
     sizeVal.append(displayBytes(recording.byteLength));
     const addDownloadLink = (label: string, url: string, fileName: string) => {
       const link = document.createElement('a'); link.className = 'rec-dl';
-      link.href = url; link.download = fileName; link.rel = 'noopener';
+      // download= is a file name, not a path: a recording in a collection
+      // sub-directory still saves under its own base name.
+      link.href = url; link.download = fileName.split('/').pop()!; link.rel = 'noopener';
       link.textContent = label;
       // Clicking a link must not also drop a File Source on the canvas.
       link.onclick = event => event.stopPropagation();
@@ -3386,7 +3395,7 @@ async function buildRecordings(panel: HTMLElement) {
     addDownloadLink('data file', recording.downloadUrl, recording.dataFile);
     addDownloadLink(
       'meta file',
-      '/example_recordings/' + encodeURIComponent(recording.metaFile),
+      '/example_recordings/' + encodeRecordingPath(recording.metaFile),
       recording.metaFile,
     );
     props.append(sizeKey, sizeVal);

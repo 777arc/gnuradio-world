@@ -1,0 +1,17 @@
+{
+  "global": {
+    "core:version": "1.0.0",
+    "core:datatype": "ri16_le",
+    "core:description": "KOYO (NORAD 98273): 9k6 FSK downlink at 435.4 MHz (AX.25 G3RUH framing). 48 kHz audio recording (real samples, SSB receiver output) from the daniestevez/satellite-recordings collection.",
+    "core:sample_rate": 48000.0,
+    "core:author": "Daniel Estévez",
+    "core:license": "https://unlicense.org/"
+  },
+  "captures": [
+    {
+      "core:sample_start": 0,
+      "core:frequency": 0
+    }
+  ],
+  "annotations": []
+}

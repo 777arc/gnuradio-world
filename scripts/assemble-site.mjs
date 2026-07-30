@@ -13,7 +13,7 @@
 //
 // Usage:  node scripts/assemble-site.mjs [outDir]   (default ./site)
 import { readdir, readFile, stat, rm, mkdir, cp } from 'node:fs/promises';
-import { join, extname, dirname, relative } from 'node:path';
+import { join, extname, dirname, relative, sep } from 'node:path';
 import { writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 
@@ -48,6 +48,14 @@ function sigmfBytesPerSample(datatype) {
   const bytes = components * bitsPerComponent / 8;
   return Number.isInteger(bytes) && bytes > 0 ? bytes : null;
 }
+
+// Recordings may live in sub-directories (a whole collection at a time, e.g.
+// estevez/), so a recording name is a '/'-joined relative path, and every URL
+// built from one -- same-origin and R2 alike -- is encoded per segment rather
+// than with encodeURIComponent, which would turn the separators into %2F.
+// Mirrors server.mjs, as does everything else in this manifest.
+const encodeRecordingPath = path =>
+  path.split('/').map(encodeURIComponent).join('/');
 
 async function walkRuntimeFiles(dir) {
   const out = [];
@@ -153,7 +161,8 @@ async function main() {
 
   // 4. Example recordings + manifest (matches GET /example_recordings), size-gated.
   const recDir = join(ROOT, 'example_recordings');
-  const recFiles = new Set(await readdir(recDir).catch(() => []));
+  const recFiles = new Set((await readdir(recDir, { recursive: true }).catch(() => []))
+    .map(f => f.split(sep).join('/')));
   // A recording is defined by its (committed) .sigmf-meta. The .sigmf-data may
   // be present locally (dev) or absent (CI, where it's gitignored and lives on
   // R2). Pairing is resolved per-recording in the loop below.
@@ -169,7 +178,7 @@ async function main() {
     const dataFile = name + '.sigmf-data';
     const metaFile = name + '.sigmf-meta';
     const localData = recFiles.has(dataFile);
-    const r2Url = R2_BASE + '/' + encodeURIComponent(dataFile);
+    const r2Url = R2_BASE + '/' + encodeRecordingPath(dataFile);
 
     // Resolve where the data comes from and its byte length. Local files under
     // the Pages 25 MiB limit ship with the site; anything larger, and anything
@@ -202,11 +211,13 @@ async function main() {
     manifest.push({
       name, dataFile, metaFile, datatype, sampleRate, author, sampleCount,
       byteLength,
-      downloadUrl: fromR2 ? r2Url : '/example_recordings/' + encodeURIComponent(dataFile),
+      downloadUrl: fromR2 ? r2Url : '/example_recordings/' + encodeRecordingPath(dataFile),
     });
     // Only copy the (large) data file to the site when it's served from Pages;
     // R2-hosted ones live in the bucket. The tiny .sigmf-meta is always copied
-    // so the deployed site stays self-describing.
+    // so the deployed site stays self-describing. mkdir first: a recording in a
+    // collection sub-directory needs that directory created under OUT.
+    await mkdir(dirname(join(OUT, 'example_recordings', metaFile)), { recursive: true });
     if (!fromR2)
       await cp(join(recDir, dataFile), join(OUT, 'example_recordings', dataFile));
     await cp(join(recDir, metaFile), join(OUT, 'example_recordings', metaFile));

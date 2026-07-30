@@ -1,0 +1,17 @@
+{
+  "global": {
+    "core:version": "1.0.0",
+    "core:datatype": "ri16_le",
+    "core:description": "PicSat (NORAD 43132): BPSK at 1200/9600 baud. 48 kHz audio recording (real samples, SSB receiver output) from the daniestevez/satellite-recordings collection.",
+    "core:sample_rate": 48000.0,
+    "core:author": "Daniel Estévez",
+    "core:license": "https://unlicense.org/"
+  },
+  "captures": [
+    {
+      "core:sample_start": 0,
+      "core:frequency": 0
+    }
+  ],
+  "annotations": []
+}

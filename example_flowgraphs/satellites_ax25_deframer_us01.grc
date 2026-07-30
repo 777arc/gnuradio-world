@@ -1,0 +1,85 @@
+options:
+    parameters:
+        author: Daniel Estevez
+        copyright: ''
+        description: AX.25 deframer component fed by the US01 recording
+        generate_options: no_gui
+        id: ax25_deframer_us01
+        title: gr-satellites AX.25 deframer (US01)
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: samp_rate
+    id: variable
+    parameters:
+        value: '48000'
+    states:
+        coordinate: [220, 20]
+        rotation: 0
+        state: enabled
+-   name: recording
+    id: blocks_file_source
+    parameters:
+        begin_tag: pmt.PMT_NIL
+        file: /recordings/estevez/us01.sigmf-data
+        length: '0'
+        offset: '0'
+        repeat: 'False'
+        type: short
+        vlen: '1'
+    states:
+        coordinate: [30, 200]
+        rotation: 0
+        state: enabled
+-   name: to_float
+    id: blocks_short_to_float
+    parameters:
+        scale: '32767'
+        vlen: '1'
+    states:
+        coordinate: [250, 200]
+        rotation: 0
+        state: enabled
+-   name: fsk_demod
+    id: satellites_fsk_demodulator
+    parameters:
+        baudrate: '9600'
+        iq: 'False'
+        options: '""'
+        samp_rate: samp_rate
+        subaudio: 'False'
+    states:
+        coordinate: [470, 200]
+        rotation: 0
+        state: enabled
+-   name: deframer
+    id: satellites_ax25_deframer
+    parameters:
+        g3ruh_scrambler: 'True'
+        options: '""'
+    states:
+        coordinate: [720, 200]
+        rotation: 0
+        state: enabled
+-   name: frames
+    id: blocks_message_debug
+    parameters:
+        en_uvec: 'True'
+        log_level: info
+    states:
+        coordinate: [960, 200]
+        rotation: 0
+        state: enabled
+connections:
+- [recording, '0', to_float, '0']
+- [to_float, '0', fsk_demod, '0']
+- [fsk_demod, '0', deframer, '0']
+-   src_blk_id: deframer
+    src_port_id: out
+    snk_blk_id: frames
+    snk_port_id: print_pdu
+metadata:
+    file_format: 2
+    grc_version: 3.11.0.0

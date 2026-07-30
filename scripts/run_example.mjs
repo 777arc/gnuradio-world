@@ -122,7 +122,12 @@ try {
     }));
   }
 
-  const printed = pane.filter(l => l.trim() && !/^(Editor ready|opened |loaded example|▶ running)/.test(l));
+  // What the *flowgraph* printed. Everything the editor itself logs has to be
+  // filtered out, or the "printed nothing" check below silently passes: an
+  // example backed by a recording always logs its "ready to stream" binding line
+  // before the graph even starts.
+  const EDITOR_LOG = /^(Editor ready|opened |loaded example|▶ running|ready to stream |recordings for example |example "[^"]*" references unavailable recording)/;
+  const printed = pane.filter(l => l.trim() && !EDITOR_LOG.test(l));
   console.log(`runner: ${verdict.trim()}`);
   console.log(`blocks moving items: ${moved}${idle.length ? `  | idle: ${idle.join(', ')}` : ''}`);
   console.log(`console pane: ${pane.length} lines, ${printed.length} from the flowgraph`);
