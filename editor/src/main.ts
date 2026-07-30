@@ -1143,7 +1143,9 @@ const NOTE_ID = 'note';
 function noteGeom(inst: Inst, d: RunnableDef) {
   const text = String(inst.params.note ?? '');
   const lines = text.trim() ? wrapNoteText(text, s => textW(s, NOTE_FONT_SIZE)) : [];
-  const rows = lines.map(line => ({ id: 'note', l: line, v: '' }));
+  // The text goes in the value tspan, not the label one: `.plabel` is bold, and a
+  // note's prose is body text, not a parameter name.
+  const rows = lines.map(line => ({ id: 'note', l: '', v: line }));
   let w = textW(d.label, 13, true);
   for (const line of lines) w = Math.max(w, textW(line, NOTE_FONT_SIZE));
   return {
