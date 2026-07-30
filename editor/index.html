@@ -134,11 +134,20 @@
   .paltab-panel[hidden] { display:none; }
   /* Example flowgraph list */
   .ex-list { padding:8px; display:flex; flex-direction:column; gap:8px; }
+  /* the copy-link button overlays the example button, so they are siblings */
+  .ex-row { position:relative; }
   .ex-item { text-align:left; background:#242a3b; border:1px solid #333a4d; border-radius:6px;
-      padding:9px 11px; cursor:pointer; color:#dce3f5; display:block; width:100%; }
+      padding:9px 30px 9px 11px; cursor:pointer; color:#dce3f5; display:block; width:100%; }
   .ex-item:hover { background:#2c3448; border-color:#46507a; filter:none; }
-  /* the class sets display:block, which would otherwise beat the UA [hidden] rule */
-  .ex-item[hidden] { display:none; }
+  /* the classes set display:block, which would otherwise beat the UA [hidden] rule */
+  .ex-item[hidden], .ex-row[hidden] { display:none; }
+  /* faint until the row is hovered, but never invisible — it is the only place
+     the per-example link is offered */
+  .ex-link { position:absolute; top:5px; right:5px; padding:2px 4px; font-size:11px; line-height:1;
+      background:transparent; border:1px solid transparent; border-radius:4px; cursor:pointer;
+      opacity:.35; transition:opacity .12s; }
+  .ex-row:hover .ex-link, .ex-link:focus-visible { opacity:.85; }
+  .ex-link:hover { opacity:1; background:#39415a; border-color:#46507a; filter:none; }
   .ex-title { font-size:13px; font-weight:600; color:#e6e9f0; }
   .ex-author { font-size:11px; color:#8b96b5; margin-top:2px; font-style:italic; }
   .ex-desc { font-size:11px; color:#9aa7c6; margin-top:3px; line-height:1.4; }

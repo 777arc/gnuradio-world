@@ -42,7 +42,9 @@ assert.match(source, /noMatch\.textContent = pending \? '' : `No example flowgra
   'a filter that matches nothing must say so rather than showing an empty list');
 
 // .ex-item sets display:block, which beats the UA [hidden] rule unless undone.
-assert.match(html, /\.ex-item\[hidden\] \{ display:none; \}/,
+// The filter hides the row wrapper (button + copy-link button), so it needs the
+// same treatment.
+assert.match(html, /\.ex-item\[hidden\], \.ex-row\[hidden\] \{ display:none; \}/,
   'hidden example items must actually be hidden');
 assert.match(html, /\.ex-filter \{[^}]*\}/, 'the filter banner needs styling');
 assert.match(html, /\.ex-filter-clear \{[^}]*\}/, 'the "Show all" button needs styling');

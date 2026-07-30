@@ -1071,6 +1071,7 @@ function ensureOptionsBlock() {
 function clearFlowgraph(record = true) {
   insts = []; conns = []; counter = 0; selected = null; selectedBlocks.clear();
   selectedConnection = null; cancelConnect(); ensureOptionsBlock(); render();
+  setExampleHash(null);   // the canvas is empty; any #example= in the URL is stale
   if (record) recordHistory();
 }
 
@@ -2483,7 +2484,9 @@ async function buildPalette() {
 // "Show Examples" on a palette block filters this list to the examples that use
 // that block. Each entry's block ids are only known once its .grc has been
 // fetched and parsed, so the filter re-runs as those arrive.
-interface ExampleEntry { file: string; item: HTMLButtonElement; blockIds: Set<string> | null }
+// `item` is the row wrapper (button + its copy-link button), so hiding it hides
+// both.
+interface ExampleEntry { file: string; item: HTMLElement; blockIds: Set<string> | null }
 const exampleEntries: ExampleEntry[] = [];
 let exampleFilter: { id: string; label: string } | null = null;
 let applyExampleFilter: (() => void) | null = null;
@@ -2493,6 +2496,49 @@ function showExamplesFor(id: string, label: string) {
   activatePaletteTab?.('examples');   // builds the tab on first visit
   applyExampleFilter?.();             // ...which is why this comes after
   log(`showing example flowgraphs that use "${label}"`);
+}
+
+// ---- deep links to an example (#example=<name>) ----------------------------
+// Every example in the palette hands out a link to itself. Unlike the #fg= share
+// URL, which embeds a frozen gzipped copy of the flowgraph, this carries only the
+// file name: the link stays short and always opens the current version of that
+// example. The fragment is left in the address bar on load so the link can be
+// bookmarked and reloaded.
+function exampleFileName(name: string): string {
+  const base = String(name).split(/[\\/]/).pop() || '';   // name only, never a path
+  return base.endsWith('.grc') ? base : base + '.grc';
+}
+function exampleUrl(file: string): string {
+  const base = location.href.split('#')[0].split('?')[0];
+  return `${base}#example=${encodeURIComponent(file.replace(/\.grc$/, ''))}`;
+}
+// Loading an example points the address bar at it, so the link can be copied
+// straight out of the URL bar and a reload brings the same example back. Every
+// other way of replacing the canvas (New, Close, opening a .grc) clears it again
+// with setExampleHash(null), so the URL never claims an example that is no longer
+// on the canvas. replaceState rather than assigning location.hash: no history
+// entry, hence no Back button that looks like it should undo the load but cannot.
+function setExampleHash(file: string | null) {
+  const url = file ? exampleUrl(file) : location.href.split('#')[0];
+  if (url !== location.href) history.replaceState(null, '', url);
+}
+async function copyExampleUrl(file: string) {
+  const url = exampleUrl(file);
+  log(await copyText(url) ? `copied a link to "${file}": ${url}`
+        : 'could not copy automatically — link logged below:\n' + url);
+}
+// Used by the #example= hash on startup; the palette's own click handler loads
+// the .grc it already fetched instead of going through here.
+async function loadExampleByName(name: string) {
+  const file = exampleFileName(name);
+  const res = await fetch('/example_flowgraphs/' + encodeURIComponent(file));
+  if (!res.ok) throw new Error(`${file}: HTTP ${res.status}`);
+  const fg = parseGrc(await res.text());
+  const title = String(fg.options?.parameters?.title || file);
+  loadFlowgraphAnimated(fg);          // resets history itself
+  setExampleHash(file);               // normalizes e.g. a link written with .grc
+  log(`loaded example "${title}" from link`);
+  void cacheFlowgraphRecordings(fg, title);
 }
 
 async function buildExamples(panel: HTMLElement) {
@@ -2542,12 +2588,20 @@ async function buildExamples(panel: HTMLElement) {
   status.remove(); panel.append(bar, list, noMatch);
   exampleEntries.length = 0;
   for (const file of files) {
+    // A row, not just the button, because the copy-link button sits on top of it
+    // and a button cannot contain another button.
+    const row = document.createElement('div'); row.className = 'ex-row';
     const item = document.createElement('button'); item.className = 'ex-item';
     const title = document.createElement('div'); title.className = 'ex-title';
     title.textContent = file.replace(/\.grc$/, '');
     item.append(title);
-    list.append(item);
-    const entry: ExampleEntry = { file, item, blockIds: null };
+    const link = document.createElement('button'); link.className = 'ex-link';
+    link.textContent = '🔗'; link.title = `Copy a link to this example (${exampleUrl(file)})`;
+    link.setAttribute('aria-label', `Copy a link to ${file}`);
+    link.onclick = e => { e.stopPropagation(); void copyExampleUrl(file); };
+    row.append(item, link);
+    list.append(row);
+    const entry: ExampleEntry = { file, item: row, blockIds: null };
     exampleEntries.push(entry);
     // Fetch the file to show its title/description and load it on click.
     fetch('/example_flowgraphs/' + file).then(r => r.text()).then(text => {
@@ -2575,6 +2629,7 @@ async function buildExamples(panel: HTMLElement) {
       item.onclick = () => {
         try {
           loadFlowgraphAnimated(fg);
+          setExampleHash(file);
           log(`loaded example "${fgTitle || file}"`);
           void cacheFlowgraphRecordings(fg, String(fgTitle || file));
         } catch (err) { log(`failed to load example "${file}": ${err}`); }
@@ -3577,7 +3632,7 @@ buildToolbar();
 el('btnStop').addEventListener('click', stop);
 (el('fileOpen') as HTMLInputElement).addEventListener('change', async event => {
   const input = event.currentTarget as HTMLInputElement, file = input.files?.[0]; if (!file) return;
-  try { loadFlowgraph(parseGrc(await file.text())); }
+  try { loadFlowgraph(parseGrc(await file.text())); setExampleHash(null); }
   catch (error) { log('could not open flowgraph: ' + error); }
   input.value = '';
 });
@@ -3608,6 +3663,15 @@ paletteReady.then(async () => {
       localStorage.removeItem(token); loadFlowgraph(parseGrc(saved)); resetHistory();
       cleanUrl();
     } catch (error) { log('could not duplicate flowgraph: ' + error); }
+    return;
+  }
+  // #example=<name> opens one of example_flowgraphs/*.grc by name. The fragment
+  // is deliberately left in place: it is short, and keeping it makes the link
+  // bookmarkable and reloadable.
+  const example = hash.get('example');
+  if (example) {
+    try { await loadExampleByName(example); }
+    catch (error) { log(`could not load example "${example}" from link: ${error}`); }
     return;
   }
   const fg = hash.get('fg');
