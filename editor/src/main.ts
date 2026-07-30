@@ -3140,6 +3140,12 @@ interface ExampleRecording {
   downloadUrl: string;
 }
 
+interface RecordingDirectory {
+  name: string;
+  directories: Map<string, RecordingDirectory>;
+  recordings: ExampleRecording[];
+}
+
 interface FileSourceFormat {
   type: 'complex' | 'float' | 'int' | 'short' | 'byte';
   vlen: number;
@@ -3345,6 +3351,136 @@ async function addRecordingFileSource(recording: ExampleRecording, format: FileS
   log(`added streaming File Source for "${recording.name}"`);
 }
 
+function makeRecordingItem(recording: ExampleRecording): HTMLElement {
+  const item = document.createElement('article'); item.className = 'rec-item';
+  item.tabIndex = 0; item.setAttribute('role', 'button');
+  const head = document.createElement('div'); head.className = 'rec-head';
+  const title = document.createElement('div'); title.className = 'rec-title';
+  // The containing directory rows already show the relative path. Keep the
+  // card itself to the recording's basename instead of repeating that path.
+  title.textContent = recording.name.split('/').filter(Boolean).pop() || recording.name;
+  const badge = document.createElement('span'); badge.className = 'rec-badge';
+  badge.textContent = 'Stream';
+  head.append(title, badge);
+  const props = document.createElement('dl'); props.className = 'rec-props';
+  const addProperty = (label: string, value: string | number | null) => {
+    const key = document.createElement('dt'); key.textContent = label;
+    const val = document.createElement('dd'); val.textContent = displayRecordingValue(value);
+    props.append(key, val);
+  };
+  addProperty('Data Type', recording.datatype);
+  addProperty('Sample Rate', displaySi(recording.sampleRate, 'Hz'));
+  addProperty('Author', recording.author);
+  addProperty('Samples', displaySi(recording.sampleCount, ''));
+  // Size row doubles as the download row: the .sigmf-data comes from wherever
+  // the manifest points (local server or R2), the .sigmf-meta is always local.
+  const sizeKey = document.createElement('dt'); sizeKey.textContent = 'Size';
+  const sizeVal = document.createElement('dd'); sizeVal.className = 'rec-size';
+  sizeVal.append(displayBytes(recording.byteLength));
+  const addDownloadLink = (label: string, url: string, fileName: string) => {
+    const link = document.createElement('a'); link.className = 'rec-dl';
+    // download= is a file name, not a path: a recording in a collection
+    // sub-directory still saves under its own base name.
+    link.href = url; link.download = fileName.split('/').pop()!; link.rel = 'noopener';
+    link.textContent = label;
+    // Clicking a link must not also drop a File Source on the canvas.
+    link.onclick = event => event.stopPropagation();
+    sizeVal.append(link);
+  };
+  addDownloadLink('data file', recording.downloadUrl, recording.dataFile);
+  addDownloadLink(
+    'meta file',
+    '/example_recordings/' + encodeRecordingPath(recording.metaFile),
+    recording.metaFile,
+  );
+  props.append(sizeKey, sizeVal);
+  // View row: hand the recording to the IQEngine client bundled with the
+  // site. Nothing is downloaded here -- IQEngine reads the two files itself,
+  // in ranges, from wherever they live.
+  const viewKey = document.createElement('dt'); viewKey.textContent = 'View';
+  const viewVal = document.createElement('dd');
+  const viewLink = document.createElement('a'); viewLink.className = 'rec-dl';
+  viewLink.href = iqengineViewUrl(recording);
+  viewLink.target = '_blank'; viewLink.rel = 'noopener';
+  viewLink.textContent = 'open in IQEngine';
+  viewLink.onclick = event => event.stopPropagation();
+  viewVal.append(viewLink);
+  props.append(viewKey, viewVal);
+  const streamNote = document.createElement('div'); streamNote.className = 'rec-progress';
+  streamNote.textContent = 'Read on demand in bounded byte ranges while the flowgraph runs.';
+  item.append(head, props, streamNote);
+
+  const format = sigmfFileSourceFormat(recording.datatype);
+  if (!format) {
+    badge.textContent = 'Unsupported';
+    item.setAttribute('aria-disabled', 'true');
+    item.title = `File Source cannot directly represent ${recording.datatype || 'this datatype'}`;
+    return item;
+  }
+
+  const useRecording = async () => {
+    try {
+      await addRecordingFileSource(recording, format);
+    } catch (error) {
+      log(`recording "${recording.name}" could not be added: ${error}`);
+    }
+  };
+  item.onclick = () => { void useRecording(); };
+  item.onkeydown = event => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    if ((event.target as HTMLElement)?.closest('a')) return;
+    event.preventDefault(); void useRecording();
+  };
+  return item;
+}
+
+function buildRecordingTree(recordings: ExampleRecording[]): RecordingDirectory {
+  const root: RecordingDirectory = { name: '', directories: new Map(), recordings: [] };
+  for (const recording of recordings) {
+    const parts = recording.name.split('/').filter(Boolean);
+    parts.pop(); // the recording basename is rendered as the card
+    let directory = root;
+    for (const name of parts) {
+      let child = directory.directories.get(name);
+      if (!child) {
+        child = { name, directories: new Map(), recordings: [] };
+        directory.directories.set(name, child);
+      }
+      directory = child;
+    }
+    directory.recordings.push(recording);
+  }
+  return root;
+}
+
+function recordingTreeCount(directory: RecordingDirectory): number {
+  let count = directory.recordings.length;
+  for (const child of directory.directories.values()) count += recordingTreeCount(child);
+  return count;
+}
+
+function renderRecordingTree(directory: RecordingDirectory, container: HTMLElement) {
+  const byName = (a: string, b: string) => a.localeCompare(b, undefined, { numeric: true });
+  for (const child of [...directory.directories.values()].sort((a, b) => byName(a.name, b.name))) {
+    const details = document.createElement('details'); details.className = 'rec-directory';
+    // Deliberately do not set details.open: every directory, including nested
+    // ones, starts collapsed and the browser supplies keyboard disclosure.
+    const summary = document.createElement('summary'); summary.className = 'rec-directory-head';
+    const name = document.createElement('span'); name.className = 'rec-directory-name';
+    name.textContent = child.name;
+    const count = document.createElement('span'); count.className = 'rec-directory-count';
+    const total = recordingTreeCount(child);
+    count.textContent = `${total} recording${total === 1 ? '' : 's'}`;
+    summary.append(name, count);
+    const contents = document.createElement('div'); contents.className = 'rec-directory-contents';
+    renderRecordingTree(child, contents);
+    details.append(summary, contents);
+    container.append(details);
+  }
+  for (const recording of [...directory.recordings].sort((a, b) => byName(a.name, b.name)))
+    container.append(makeRecordingItem(recording));
+}
+
 async function buildRecordings(panel: HTMLElement) {
   const list = document.createElement('div'); list.className = 'rec-list';
   const status = document.createElement('div'); status.className = 'ex-empty';
@@ -3358,85 +3494,7 @@ async function buildRecordings(panel: HTMLElement) {
   }
   if (!recordings.length) { status.textContent = 'No SigMF recordings found.'; return; }
   status.remove(); panel.append(list);
-  for (const recording of recordings) {
-    const item = document.createElement('article'); item.className = 'rec-item';
-    item.tabIndex = 0; item.setAttribute('role', 'button');
-    const head = document.createElement('div'); head.className = 'rec-head';
-    const title = document.createElement('div'); title.className = 'rec-title';
-    title.textContent = recording.name;
-    const badge = document.createElement('span'); badge.className = 'rec-badge';
-    badge.textContent = 'Stream';
-    head.append(title, badge);
-    const props = document.createElement('dl'); props.className = 'rec-props';
-    const addProperty = (label: string, value: string | number | null) => {
-      const key = document.createElement('dt'); key.textContent = label;
-      const val = document.createElement('dd'); val.textContent = displayRecordingValue(value);
-      props.append(key, val);
-    };
-    addProperty('Data Type', recording.datatype);
-    addProperty('Sample Rate', displaySi(recording.sampleRate, 'Hz'));
-    addProperty('Author', recording.author);
-    addProperty('Samples', displaySi(recording.sampleCount, ''));
-    // Size row doubles as the download row: the .sigmf-data comes from wherever
-    // the manifest points (local server or R2), the .sigmf-meta is always local.
-    const sizeKey = document.createElement('dt'); sizeKey.textContent = 'Size';
-    const sizeVal = document.createElement('dd'); sizeVal.className = 'rec-size';
-    sizeVal.append(displayBytes(recording.byteLength));
-    const addDownloadLink = (label: string, url: string, fileName: string) => {
-      const link = document.createElement('a'); link.className = 'rec-dl';
-      // download= is a file name, not a path: a recording in a collection
-      // sub-directory still saves under its own base name.
-      link.href = url; link.download = fileName.split('/').pop()!; link.rel = 'noopener';
-      link.textContent = label;
-      // Clicking a link must not also drop a File Source on the canvas.
-      link.onclick = event => event.stopPropagation();
-      sizeVal.append(link);
-    };
-    addDownloadLink('data file', recording.downloadUrl, recording.dataFile);
-    addDownloadLink(
-      'meta file',
-      '/example_recordings/' + encodeRecordingPath(recording.metaFile),
-      recording.metaFile,
-    );
-    props.append(sizeKey, sizeVal);
-    // View row: hand the recording to the IQEngine client bundled with the
-    // site. Nothing is downloaded here -- IQEngine reads the two files itself,
-    // in ranges, from wherever they live.
-    const viewKey = document.createElement('dt'); viewKey.textContent = 'View';
-    const viewVal = document.createElement('dd');
-    const viewLink = document.createElement('a'); viewLink.className = 'rec-dl';
-    viewLink.href = iqengineViewUrl(recording);
-    viewLink.target = '_blank'; viewLink.rel = 'noopener';
-    viewLink.textContent = 'open in IQEngine';
-    viewLink.onclick = event => event.stopPropagation();
-    viewVal.append(viewLink);
-    props.append(viewKey, viewVal);
-    const streamNote = document.createElement('div'); streamNote.className = 'rec-progress';
-    streamNote.textContent = 'Read on demand in bounded byte ranges while the flowgraph runs.';
-    item.append(head, props, streamNote); list.append(item);
-
-    const format = sigmfFileSourceFormat(recording.datatype);
-    if (!format) {
-      badge.textContent = 'Unsupported';
-      item.setAttribute('aria-disabled', 'true');
-      item.title = `File Source cannot directly represent ${recording.datatype || 'this datatype'}`;
-      continue;
-    }
-
-    const useRecording = async () => {
-      try {
-        await addRecordingFileSource(recording, format);
-      } catch (error) {
-        log(`recording "${recording.name}" could not be added: ${error}`);
-      }
-    };
-    item.onclick = () => { void useRecording(); };
-    item.onkeydown = event => {
-      if (event.key !== 'Enter' && event.key !== ' ') return;
-      if ((event.target as HTMLElement)?.closest('a')) return;
-      event.preventDefault(); void useRecording();
-    };
-  }
+  renderRecordingTree(buildRecordingTree(recordings), list);
 }
 
 // ---- GRC-style menu bar + toolbar ----------------------------------------

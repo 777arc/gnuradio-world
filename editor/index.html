@@ -163,6 +163,20 @@
   .ex-filter-clear:hover { background:#3a6048; filter:none; }
   /* SigMF recording list */
   .rec-list { padding:8px; display:flex; flex-direction:column; gap:8px; }
+  .rec-directory { background:#202535; border:1px solid #333a4d; border-radius:6px;
+      overflow:hidden; }
+  .rec-directory-head { display:flex; align-items:center; gap:7px; padding:7px 9px;
+      color:#c3cbe0; cursor:pointer; user-select:none; list-style:none; }
+  .rec-directory-head::-webkit-details-marker { display:none; }
+  .rec-directory-head::before { content:'\25B8'; width:12px; color:#95a2c2;
+      font-size:14px; line-height:1; }
+  .rec-directory[open] > .rec-directory-head::before { content:'\25BE'; }
+  .rec-directory-head:hover { background:#2a2f42; color:#e6e9f0; }
+  .rec-directory-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis;
+      white-space:nowrap; font-size:13px; font-weight:600; }
+  .rec-directory-count { flex:none; color:#7f8bab; font-size:10px; font-weight:400; }
+  .rec-directory-contents { display:flex; flex-direction:column; gap:8px; padding:1px 8px 8px 18px;
+      border-left:1px solid #333a4d; }
   .rec-item { background:#242a3b; border:1px solid #333a4d; border-radius:6px;
       padding:10px 11px; color:#dce3f5; cursor:pointer; outline:none; }
   .rec-item:hover, .rec-item:focus-visible { background:#2c3448; border-color:#46507a; }
