@@ -23,6 +23,8 @@ const TimeSelector = ({ currentFFT }: TimeSelectorProps) => {
   const cursorEndFFT = Math.floor(cursorTime.end / fftSize);
   const cursorYStart = cursorStartFFT - currentFFT;
   const cursorYEnd = cursorEndFFT - currentFFT;
+  const offsetSamples = `Offset: ${Math.round(cursorTime.start)} samples`;
+  const lengthSamples = `Length: ${Math.round(cursorTime.end - cursorTime.start)} samples`;
 
   // update diff
   useEffect(() => {
@@ -129,9 +131,13 @@ const TimeSelector = ({ currentFFT }: TimeSelectorProps) => {
             shadowBlur={5}
           />
 
-          <Text text={diffSamples} fontFamily={APP_FONT_FAMILY} fontSize={APP_FONT_SIZE} x={0} y={cursorYStart + 5} fill={'white'} />
+          <Text text={offsetSamples} fontFamily={APP_FONT_FAMILY} fontSize={APP_FONT_SIZE} x={0} y={cursorYStart + 5} fill={'white'} />
 
-          <Text text={diffSeconds} fontFamily={APP_FONT_FAMILY} fontSize={APP_FONT_SIZE} x={0} y={cursorYStart + 21} fill={'white'} />
+          <Text text={lengthSamples} fontFamily={APP_FONT_FAMILY} fontSize={APP_FONT_SIZE} x={0} y={cursorYStart + 21} fill={'white'} />
+
+          <Text text={diffSamples} fontFamily={APP_FONT_FAMILY} fontSize={APP_FONT_SIZE} x={0} y={cursorYStart + 37} fill={'white'} />
+
+          <Text text={diffSeconds} fontFamily={APP_FONT_FAMILY} fontSize={APP_FONT_SIZE} x={0} y={cursorYStart + 53} fill={'white'} />
         </>
       </Layer>
     </>
