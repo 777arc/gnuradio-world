@@ -15,10 +15,10 @@ interface SidebarProps {
 const Sidebar = ({ currentFFT, currentTab, setCurrentTab }: SidebarProps) => {
   return (
     <div className="flex flex-col w-64 ml-3">
-      {/* Deliberately not a <details>: the settings are the viewer's primary
-          controls, so the panel is always open and has no disclosure triangle. */}
-      <div className="pl-2 bg-primary outline outline-1 outline-primary text-base-100">Settings</div>
-      <div className="outline outline-1 outline-primary p-2">
+      {/* Deliberately not a <details> and deliberately unframed: the settings are
+          the viewer's primary controls, so they are always open with no
+          disclosure triangle, header bar or outline around them. */}
+      <div className="p-2">
         <SettingsPane currentFFT={currentFFT} currentTab={currentTab} setCurrentTab={setCurrentTab} />
       </div>
     </div>
