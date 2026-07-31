@@ -82,10 +82,14 @@ blocks:
         rotation: 0
         state: enabled
 -   name: throttle
-    id: blocks_throttle
+    id: blocks_throttle2
     parameters:
-        samp_rate: '48000'
+        ignoretag: 'True'
+        limit: auto
+        maximum: '0.1'
+        samples_per_second: '48000'
         type: complex
+        vlen: '1'
     states:
         coordinate: [670, 210]
         rotation: 0

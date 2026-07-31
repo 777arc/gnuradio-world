@@ -3746,12 +3746,19 @@ static std::map<std::string, Factory>& registry_storage() {
              return result;
          }},
         // ---- flow control ----
+        // Deprecated upstream and hidden from the editor palette in favour of
+        // blocks_throttle2 (generated factory, same gr::blocks::throttle), but
+        // kept so an existing .grc still runs. `samples_per_second` is GRC's own
+        // id; `samp_rate` is the spelling this editor wrote before it matched.
         {"blocks_throttle", [](const json& p) -> BuiltBlock {
-             auto b = gr::blocks::throttle::make(
-                 itemsize_of(p), p.value("samp_rate", 32000.0), true);
+             const double rate = p.contains("samples_per_second")
+                 ? number_from(p, "samples_per_second", 32000.0)
+                 : number_from(p, "samp_rate", 32000.0);
+             auto b = gr::blocks::throttle::make(itemsize_of(p), rate, true);
              BuiltBlock result{ b };
-             result.numeric_setters["samp_rate"] =
-                 [b](double value) { b->set_sample_rate(value); };
+             const auto set_rate = [b](double value) { b->set_sample_rate(value); };
+             result.numeric_setters["samples_per_second"] = set_rate;
+             result.numeric_setters["samp_rate"] = set_rate;
              return result;
          }},
         {"blocks_head", [](const json& p) -> BuiltBlock {

@@ -180,10 +180,9 @@ const RUNNABLE: Record<string, RunnableDef> = {
     inTypes: ['byte'], outTypes: ['complex'],
   },
   // ---- flow control ----
-  blocks_throttle: {
-    label: 'Throttle', inputs: 1, outputs: 1, params: [
-      STREAM_TYPE_PARAM,
-      { id: 'samp_rate', label: 'Sample Rate', type: 'number', def: 32000 }] },
+  // Throttle (blocks_throttle2) has no hand-written entry: the generated schema
+  // already matches upstream, and the deprecated blocks_throttle it replaced is
+  // kept loadable through LEGACY_PARAM_IDS below.
   blocks_head: {
     label: 'Head', inputs: 1, outputs: 1, params: [
       STREAM_TYPE_PARAM,
@@ -1578,13 +1577,25 @@ function stateToFlags(state: any): { enabled: boolean; bypassed: boolean } {
   const s = String(state ?? 'enabled');
   return { enabled: s !== 'disabled', bypassed: s === 'bypassed' };
 }
+// Parameter ids this editor wrote before its schema matched upstream GRC's, per
+// block id: `current id -> id found in old files`. Consulted only when the
+// current id is absent, so an existing .grc keeps its value instead of silently
+// falling back to the schema default.
+const LEGACY_PARAM_IDS: Record<string, Record<string, string>> = {
+  // Deprecated "Throttle (old)", superseded by blocks_throttle2. Its rate was
+  // written as `samp_rate`; upstream has always called it samples_per_second.
+  blocks_throttle: { samples_per_second: 'samp_rate' },
+};
 // GRC stores param values as strings; numeric fields become numbers (or keep a
 // variable-reference expression), everything else stays a string.
-function importParams(def: RunnableDef, raw: Record<string, any> = {}): Record<string, any> {
+function importParams(def: RunnableDef, raw: Record<string, any> = {},
+                      blockId?: string): Record<string, any> {
   const params: Record<string, any> = {};
+  const legacy = (blockId && LEGACY_PARAM_IDS[blockId]) || {};
   for (const p of def.params) {
-    const present = raw[p.id] !== undefined && raw[p.id] !== null;
-    const value = present ? raw[p.id] : p.def;
+    const key = raw[p.id] !== undefined && raw[p.id] !== null ? p.id : legacy[p.id] ?? p.id;
+    const present = raw[key] !== undefined && raw[key] !== null;
+    const value = present ? raw[key] : p.def;
     params[p.id] = p.type === 'number' ? numericOrExpression(String(value)) : String(value);
   }
   return params;
@@ -1636,7 +1647,7 @@ function loadFlowgraph(doc: any) {
     const uid = 'b' + (++counter), name = String(b.name || b.id);
     nameToUid.set(name, uid);
     insts.push({ uid, id: b.id, name, x: Number(coord[0]) || 0, y: Number(coord[1]) || 0,
-      params: importParams(def, b.parameters || {}), enabled: flags.enabled,
+      params: importParams(def, b.parameters || {}, b.id), enabled: flags.enabled,
       rotation: Number(b.states?.rotation) || 0, bypassed: flags.bypassed });
   });
   for (const c of doc.connections || []) {
@@ -2789,9 +2800,18 @@ function stop() {
 interface LibraryBlock { id: string; label: string; runnable: boolean; unavailableReason?: string; module: string }
 interface Cat { name: string; subs: Map<string, Cat>; blocks: LibraryBlock[] }
 
+// Blocks that stay loadable and runnable but are not offered in the palette:
+// upstream deprecated them in favour of a replacement listed right beside them,
+// and showing both only invites picking the wrong one. A .grc that already uses
+// one still opens, runs and round-trips.
+const PALETTE_HIDDEN = new Set([
+  'blocks_throttle',   // "Throttle (old)" — superseded by blocks_throttle2
+]);
+
 function buildTree(blocks: any[]): Cat {
   const root: Cat = { name: '', subs: new Map(), blocks: [] };
   for (const b of blocks) {
+    if (PALETTE_HIDDEN.has(b.id)) continue;
     // Generated metadata uses an array so a literal slash in a native category
     // name (for example "Industrial I/O") is not mistaken for tree nesting.
     // Accept the old string form as well for compatibility with stale metadata.
@@ -4045,23 +4065,35 @@ el('btnStop').addEventListener('click', stop);
   input.value = '';
 });
 
-const paletteReady = buildPalette();
 // Seed with a multi-source demo (signal + noise -> add -> throttle -> scope).
-addBlock('analog_sig_source_x', 50, 70);
-addBlock('analog_noise_source_x', 50, 230);
-addBlock('blocks_add_xx', 300, 130);
-addBlock('blocks_throttle', 500, 130);
-addBlock('qtgui_time_sink_x', 690, 130);
-const [src, noise, add, thr, snk] = insts;
-conns.push({ from: src.uid, fp: 0, to: add.uid, tp: 0 });
-conns.push({ from: noise.uid, fp: 0, to: add.uid, tp: 1 });
-conns.push({ from: add.uid, fp: 0, to: thr.uid, tp: 0 });
-conns.push({ from: thr.uid, fp: 0, to: snk.uid, tp: 0 });
+// Runs only once the palette has loaded, because Throttle is a generated schema:
+// RUNNABLE holds nothing for it until installGeneratedBlocks() has run, and
+// addBlock() on an unknown id returns null.
+function seedDemoFlowgraph() {
+  const src = addBlock('analog_sig_source_x', 50, 70);
+  const noise = addBlock('analog_noise_source_x', 50, 230);
+  const add = addBlock('blocks_add_xx', 300, 130);
+  // The schema default for the rate is the expression `samp_rate`; this demo has
+  // no such variable, so give it the same literal rate the sources use.
+  const thr = addBlock('blocks_throttle2', 500, 130, { samples_per_second: 32000 });
+  const snk = addBlock('qtgui_time_sink_x', 690, 130);
+  if (!src || !noise || !add || !thr || !snk) return;
+  conns.push({ from: src.uid, fp: 0, to: add.uid, tp: 0 });
+  conns.push({ from: noise.uid, fp: 0, to: add.uid, tp: 1 });
+  conns.push({ from: add.uid, fp: 0, to: thr.uid, tp: 0 });
+  conns.push({ from: thr.uid, fp: 0, to: snk.uid, tp: 0 });
+  ensureOptionsBlock();
+  select(null); render();
+}
+
+const paletteReady = buildPalette();
 ensureOptionsBlock();
 select(null); render();
-historyReady = true; resetHistory();
 log('Editor ready. Click ▶ Run to execute the flowgraph in WebAssembly.');
-paletteReady.then(async () => {
+// A flowgraph named by the URL fragment wins over the demo; anything else (no
+// fragment, or one that could not be opened) leaves the demo on the canvas.
+// Returns whether the fragment claimed the canvas.
+async function loadFlowgraphFromUrl(): Promise<boolean> {
   const hash = new URLSearchParams(location.hash.slice(1));
   const cleanUrl = () => history.replaceState(null, '', location.href.split('#')[0]);
   const token = hash.get('duplicate');
@@ -4070,23 +4102,31 @@ paletteReady.then(async () => {
       const saved = localStorage.getItem(token); if (!saved) throw new Error('duplicate data is no longer available');
       localStorage.removeItem(token); loadFlowgraph(parseGrc(saved)); resetHistory();
       cleanUrl();
+      return true;
     } catch (error) { log('could not duplicate flowgraph: ' + error); }
-    return;
+    return false;
   }
   // #example=<name> opens one of example_flowgraphs/*.grc by name. The fragment
   // is deliberately left in place: it is short, and keeping it makes the link
   // bookmarkable and reloadable.
   const example = hash.get('example');
   if (example) {
-    try { await loadExampleByName(example); }
+    try { await loadExampleByName(example); return true; }
     catch (error) { log(`could not load example "${example}" from link: ${error}`); }
-    return;
+    return false;
   }
   const fg = hash.get('fg');
-  if (!fg) return;
+  if (!fg) return false;
   try {
     loadFlowgraph(parseGrc(await gunzip(base64UrlToBytes(fg)))); resetHistory();
     log('loaded flowgraph from URL');
     cleanUrl();
+    return true;
   } catch (error) { log('could not load flowgraph from URL: ' + error); }
+  return false;
+}
+
+paletteReady.then(async () => {
+  if (!await loadFlowgraphFromUrl()) seedDemoFlowgraph();
+  historyReady = true; resetHistory();
 });

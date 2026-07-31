@@ -14,10 +14,10 @@ for (const block of library.blocks || []) {
     `${block.id} must carry native-style wiki metadata`);
 }
 
-assert.match(byId.get('blocks_throttle')?.api_documentation || '',
+assert.match(byId.get('blocks_throttle2')?.api_documentation || '',
   /average rate does\s+not exceed samples_per_sec/,
   'C++ Doxygen class prose must be shipped as API documentation');
-assert.match(byId.get('blocks_throttle')?.api_documentation || '',
+assert.match(byId.get('blocks_throttle2')?.api_documentation || '',
   /Parameters:\s+itemsize:/,
   'constructor parameter docs must be retained');
 assert.match(byId.get('qtgui_time_sink_x')?.api_documentation || '',

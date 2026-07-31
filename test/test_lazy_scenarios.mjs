@@ -37,7 +37,7 @@ const scenarios = [
   { name: 'core-only (no deferred block)',
     fg: { blocks:[
       { name:'src', id:'analog_sig_source_x', params:{ type:'float', samp_rate:32000, waveform:'cos', frequency:1000, amplitude:1.0 } },
-      { name:'thr', id:'blocks_throttle', params:{ type:'float', samp_rate:32000 } },
+      { name:'thr', id:'blocks_throttle2', params:{ type:'float', samples_per_second:32000, vlen:1, ignoretag:'True', limit:'auto', maximum:0.1 } },
       { name:'snk', id:'blocks_null_sink', params:{ type:'float' } } ],
       connections:[['src',0,'thr',0],['thr',0,'snk',0]] },
     expectFetch: [] },

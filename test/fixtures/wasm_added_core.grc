@@ -100,10 +100,14 @@ blocks:
         rotation: 0
         state: enabled
 -   name: iq_throttle
-    id: blocks_throttle
+    id: blocks_throttle2
     parameters:
+        ignoretag: 'True'
+        limit: auto
+        maximum: '0.1'
+        samples_per_second: '32000'
         type: complex
-        samp_rate: '32000'
+        vlen: '1'
     states:
         coordinate: [0, 0]
         rotation: 0
@@ -139,10 +143,14 @@ blocks:
         rotation: 0
         state: enabled
 -   name: delay_throttle
-    id: blocks_throttle
+    id: blocks_throttle2
     parameters:
+        ignoretag: 'True'
+        limit: auto
+        maximum: '0.1'
+        samples_per_second: '32000'
         type: complex
-        samp_rate: '32000'
+        vlen: '1'
     states:
         coordinate: [0, 0]
         rotation: 0
@@ -177,10 +185,14 @@ blocks:
         rotation: 0
         state: enabled
 -   name: byte_throttle
-    id: blocks_throttle
+    id: blocks_throttle2
     parameters:
+        ignoretag: 'True'
+        limit: auto
+        maximum: '0.1'
+        samples_per_second: '32000'
         type: byte
-        samp_rate: '32000'
+        vlen: '1'
     states:
         coordinate: [0, 0]
         rotation: 0
@@ -224,10 +236,14 @@ blocks:
         rotation: 0
         state: enabled
 -   name: vector_throttle
-    id: blocks_throttle
+    id: blocks_throttle2
     parameters:
+        ignoretag: 'True'
+        limit: auto
+        maximum: '0.1'
+        samples_per_second: '32000'
         type: complex
-        samp_rate: '32000'
+        vlen: '1'
     states:
         coordinate: [0, 0]
         rotation: 0

@@ -73,8 +73,9 @@ blocks:
         rotation: 0
         state: enabled
 -   name: thr
-    id: blocks_throttle
+    id: blocks_throttle2
     parameters:
+        samples_per_second: '32000'
         type: complex
     states:
         coordinate: [490, 130]

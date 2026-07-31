@@ -220,10 +220,14 @@ blocks:
         rotation: 0
         state: enabled
 -   name: payload_throttle
-    id: blocks_throttle
+    id: blocks_throttle2
     parameters:
-        samp_rate: samp_rate
+        ignoretag: 'True'
+        limit: auto
+        maximum: '0.1'
+        samples_per_second: samp_rate
         type: byte
+        vlen: '1'
     states:
         coordinate: [260, 160]
         rotation: 0

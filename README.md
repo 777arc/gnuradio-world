@@ -23,6 +23,12 @@ GNU Radio, entirely in your browser — explore the open-source SDR ecosystem wi
 - Heir blocks need the C++ template
 - Expressions are supported for block params, but it's a subset of the arbitrary Python native GNU Radio allows, e.g. no firdes(), but simple Python expressions work.
 
+## Coming Soon
+
+- Beginner level tutorial where an animated cursor shows you how to add blocks and run the flowgraph and such
+- Method of embedding just the flowgraph and output GUI in a webpage, eg PySDR section, to demonstrate a DSP concept, but with the ability to open the full editor in a new tab
+- 
+
 ## Software stack and developers info
 
 See [AGENTS.md](AGENTS.md)

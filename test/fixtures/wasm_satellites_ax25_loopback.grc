@@ -20,10 +20,14 @@ blocks:
         rotation: 0
         state: enabled
 -   name: throttle
-    id: blocks_throttle
+    id: blocks_throttle2
     parameters:
+        ignoretag: 'True'
+        limit: auto
+        maximum: '0.1'
+        samples_per_second: '54000'
         type: byte
-        samp_rate: '54000'
+        vlen: '1'
     states:
         coordinate: [0, 0]
         rotation: 0

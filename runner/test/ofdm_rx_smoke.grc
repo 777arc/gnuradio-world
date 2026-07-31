@@ -46,10 +46,14 @@ blocks:
     scramble_bits: 'False'
     log: 'False'
 - name: throttle
-  id: blocks_throttle
+  id: blocks_throttle2
   parameters:
+    ignoretag: 'True'
+    limit: auto
+    maximum: '0.1'
+    samples_per_second: '192000'
     type: complex
-    samp_rate: '192000'
+    vlen: '1'
 - name: tag_gate
   id: blocks_tag_gate
   parameters:

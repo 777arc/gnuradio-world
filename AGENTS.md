@@ -676,11 +676,19 @@ chain.
   items. Terminate with `pdu_pdu_to_stream_x` ("PDU To Stream", a plain
   `sync_block`) instead — that is also how the smoke fixtures make message-only
   chains observable to the item counters.
-- **`blocks_throttle` sleeps in proportion to the whole buffer it is handed**, so
-  a low rate on a wide stream stalls visibly: a 1200 B/s throttle in front of a
-  65536-item buffer emits nothing for ~55 s. Put one throttle at the highest rate
-  in the graph and let backpressure pace everything upstream, rather than
-  throttling a slow payload stream.
+- **Use `blocks_throttle2` ("Throttle"), never `blocks_throttle`.** Upstream
+  deprecated the latter as "Throttle (old)"; both wrap the same
+  `gr::blocks::throttle`, but only throttle2 exposes `limit`/`maximum`. Without
+  that cap a throttle sleeps in proportion to the whole buffer it is handed, so a
+  low rate on a wide stream stalls visibly: a 1200 B/s throttle in front of a
+  65536-item buffer emits nothing for ~55 s. `limit: time` with `maximum: 0.1`
+  bounds the sleep; `limit: auto` (the default) reproduces the old behavior
+  exactly. Also put one throttle at the highest rate in the graph and let
+  backpressure pace everything upstream, rather than throttling a slow payload
+  stream. The old block is kept registered and loadable for existing .grc files —
+  `PALETTE_HIDDEN` in `main.ts` keeps it out of the palette, and `main.ts`'s
+  `LEGACY_PARAM_IDS` maps the `samp_rate` spelling this editor used onto GRC's
+  own `samples_per_second` on load — but nothing in the repo should use it.
 - **Message-only blocks report `items: 0` forever** — `gr_stats_json()` reads
   `nitems_written`/`nitems_read`, which do not exist for a block with no stream
   ports. The snapshot flags them as `msg_only` and `test_smoke.mjs` exempts them
