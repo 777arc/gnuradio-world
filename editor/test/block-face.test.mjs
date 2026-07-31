@@ -31,6 +31,11 @@ assert.match(source, /l\.setAttribute\('class', 'plabel'\)/,
   'parameter labels and values must have distinct styles');
 assert.match(html, /\.blk \.plabel\s*{\s*font-weight:700;\s*}/,
   'parameter labels must render bold');
+for (const id of ['title', 'author', 'description']) {
+  assert.match(source,
+    new RegExp(`id: '${id}', label: '[^']+', type: 'string', def: '' }`),
+    `Options ${id} must remain visible on the block face when empty`);
+}
 assert.match(source, /y: rows\.length \? '15' : String\(h \/ 2\)/,
   'a block without visible parameters must center its title vertically');
 assert.doesNotMatch(source, /title \+ underline|GRC draws a rule under/,

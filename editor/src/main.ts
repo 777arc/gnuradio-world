@@ -96,13 +96,14 @@ const RUNNABLE: Record<string, RunnableDef> = {
   // GRC's per-flowgraph Options block: identification metadata for the graph.
   // Exactly one is auto-inserted per flowgraph (see ensureOptionsBlock). It has
   // no ports and becomes the top-level `options:` block in the saved .grc.
-  // Metadata params are `hideIfEmpty` so blank fields don't clutter the block face.
+  // Title, Author, and Description are an intentional exception to blank-value
+  // hiding: their labels remain visible on the Options block even when empty.
   options: {
     label: 'Options', inputs: 0, outputs: 0, params: [
-      { id: 'title', label: 'Title', type: 'string', def: '', hideIfEmpty: true },
-      { id: 'author', label: 'Author', type: 'string', def: '', hideIfEmpty: true },
+      { id: 'title', label: 'Title', type: 'string', def: '' },
+      { id: 'author', label: 'Author', type: 'string', def: '' },
       { id: 'copyright', label: 'Copyright', type: 'string', def: '', hideIfEmpty: true },
-      { id: 'description', label: 'Description', type: 'string', def: '', hideIfEmpty: true },
+      { id: 'description', label: 'Description', type: 'string', def: '' },
     ],
   },
   // GRC's canvas annotation. It has no GNU Radio block behind it — the runner
