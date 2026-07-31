@@ -9,6 +9,8 @@ import { readFile } from 'node:fs/promises';
 
 const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 const source = await readFile(new URL('../src/main.ts', import.meta.url), 'utf8');
+const timeSelector = await readFile(new URL(
+  '../src/recording/pages/recording-view/components/time-selector.tsx', import.meta.url), 'utf8');
 
 const between = (from, to) => {
   const start = source.indexOf(from);
@@ -57,6 +59,25 @@ assert.match(open, /frame\.src = recordingViewUrl\(metaUrl, dataUrl, tab\.source
   "the pane frames the viewer's 'url' data source route, the same one the recordings palette builds");
 assert.match(open, /recordingTabs\.get\(key\) !== tab\) return;/,
   'a File Source deleted mid-load must not leave an orphaned frame or blob URL behind');
+
+// ---- time selection updates the associated File Source ---------------------
+assert.match(timeSelector, /type: 'gr-recording-selection'[\s\S]*?offset:[\s\S]*?length:/,
+  'the recording time selector must send its offset and length to the editor');
+assert.match(timeSelector, /window\.parent\.postMessage\([\s\S]*?window\.location\.origin/,
+  'selection updates must be restricted to the recording view origin');
+const selection = between('function applyRecordingSelection', '\nasync function openRecordingPane');
+assert.match(selection, /event\.origin !== location\.origin/,
+  'the editor must reject cross-origin selection messages');
+assert.match(selection, /candidate\.frame\?\.contentWindow === event\.source/,
+  'the editor must associate a selection message with its sending recording tab');
+assert.match(selection, /block\.id !== 'blocks_file_source'/,
+  'selection updates must only modify File Source blocks');
+assert.match(selection, /recordingSourceFor\(block\)\?\.key !== tab\.source\.key/,
+  'selection updates must only modify File Sources associated with that recording');
+assert.match(selection, /block\.params\.offset = offset;[\s\S]*?block\.params\.length = length;/,
+  'the associated File Source must receive both sample parameters');
+assert.match(selection, /render\(\);\s*recordHistory\(\);/,
+  'selection changes must redraw the block and participate in undo history');
 
 // ---- local files: synthesized SigMF over blob: URLs -------------------------
 assert.match(open, /dataUrl = URL\.createObjectURL\(file\)/,

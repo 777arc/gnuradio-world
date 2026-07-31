@@ -36,6 +36,21 @@ const TimeSelector = ({ currentFFT }: TimeSelectorProps) => {
     setDiffSeconds('Δ ' + formattedSeconds.time + ' ' + formattedSeconds.unit);
   }, [cursorTime, cursorTimeEnabled]);
 
+  // The editor embeds this view in the recording tab associated with a File
+  // Source. Let a drag settle before updating that block so one gesture becomes
+  // one flowgraph edit instead of one edit per pointer-move event.
+  useEffect(() => {
+    if (!cursorTimeEnabled || window.parent === window) return;
+    const timeout = window.setTimeout(() => {
+      window.parent.postMessage({
+        type: 'gr-recording-selection',
+        offset: Math.max(0, Math.round(cursorTime.start)),
+        length: Math.max(0, Math.round(cursorTime.end - cursorTime.start)),
+      }, window.location.origin);
+    }, 150);
+    return () => window.clearTimeout(timeout);
+  }, [cursorTime, cursorTimeEnabled]);
+
   // Sample-start bar
   const handleDragMoveStart = (e) => {
     e.target.x(0); // keep line in the same x location

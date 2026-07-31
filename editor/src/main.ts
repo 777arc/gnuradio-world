@@ -2815,6 +2815,33 @@ function recordingPaneMessage(tab: RecordingTab, message: string) {
   tab.status.hidden = false;
 }
 
+function applyRecordingSelection(event: MessageEvent, data: any): boolean {
+  if (event.origin !== location.origin) return false;
+  const tab = [...recordingTabs.values()].find(candidate =>
+    candidate.frame?.contentWindow === event.source);
+  if (!tab) return false;
+
+  const offset = Number(data.offset);
+  const length = Number(data.length);
+  if (!Number.isSafeInteger(offset) || offset < 0 ||
+      !Number.isSafeInteger(length) || length < 0) return false;
+
+  let changed = false;
+  for (const block of insts) {
+    if (block.id !== 'blocks_file_source' ||
+        recordingSourceFor(block)?.key !== tab.source.key) continue;
+    if (block.params.offset === offset && block.params.length === length) continue;
+    block.params.offset = offset;
+    block.params.length = length;
+    changed = true;
+  }
+  if (changed) {
+    render();
+    recordHistory();
+  }
+  return changed;
+}
+
 async function openRecordingPane(key: string) {
   const tab = recordingTabs.get(key);
   if (!tab || tab.frame || tab.opening) return;
@@ -3152,6 +3179,10 @@ const loadedModules = new Set<string>();
 window.addEventListener('message', (e) => {
   const d = (e as MessageEvent).data;
   if (!d) return;
+  if (d.type === 'gr-recording-selection') {
+    applyRecordingSelection(e as MessageEvent, d);
+    return;
+  }
   // A flowgraph that fails to build shows an error in the runner pane; mirror it
   // here so the reason is in the log next to the Run that caused it.
   if (d.type === 'gr-error' && typeof d.message === 'string') {
