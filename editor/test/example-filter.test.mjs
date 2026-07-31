@@ -25,8 +25,8 @@ assert.match(source, /activatePaletteTab = activate;/,
 // Matching is by block id against the ids in each example .grc.
 assert.match(source, /entry\.blockIds = new Set\(blocks\.map\(\(b: any\) => String\(b\?\.id\)\)\);\s*refresh\(\);/,
   'each example must record its block ids as its .grc arrives, and re-filter');
-assert.match(source, /const match = entry\.blockIds\.has\(f\.id\);\s*entry\.item\.hidden = !match;/,
-  'the filter must hide examples that do not use the selected block');
+assert.match(source, /const match = entry\.blockIds\.has\(f\.id\) && hit;\s*entry\.item\.hidden = !match;/,
+  'the filter must hide examples that do not use the selected block (or miss the search)');
 assert.match(source, /if \(!entry\.blockIds\) \{ entry\.item\.hidden = true; pending\+\+; continue; \}/,
   'examples whose .grc has not arrived yet count as pending, not as matches');
 assert.match(source, /entry\.blockIds = new Set\(\); refresh\(\);/,

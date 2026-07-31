@@ -2989,7 +2989,10 @@ async function buildPalette() {
 // fetched and parsed, so the filter re-runs as those arrive.
 // `item` is the row wrapper (button + its copy-link button), so hiding it hides
 // both.
-interface ExampleEntry { file: string; item: HTMLElement; blockIds: Set<string> | null }
+// `text` is what the search box matches against: the file name plus the title,
+// author and description out of the .grc, lowercased. It starts as the file name
+// alone, because that is all that is known before the .grc arrives.
+interface ExampleEntry { file: string; item: HTMLElement; blockIds: Set<string> | null; text: string }
 const exampleEntries: ExampleEntry[] = [];
 let exampleFilter: { id: string; label: string } | null = null;
 let applyExampleFilter: (() => void) | null = null;
@@ -3057,6 +3060,23 @@ async function buildExamples(panel: HTMLElement) {
   }
   if (!files.length) { status.textContent = 'No example flowgraphs found.'; return; }
 
+  // Search box: matches every whitespace-separated term against the entry's
+  // title/author/description/file name, so "estevez afsk" narrows by both. It is
+  // independent of the block filter below — both apply at once.
+  const search = document.createElement('input');
+  search.className = 'palsearch ex-search';
+  search.placeholder = 'Search examples…';
+  search.setAttribute('aria-label', 'Search example flowgraphs');
+  let terms: string[] = [];
+  const onQuery = () => {
+    terms = search.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    refresh();
+  };
+  search.oninput = onQuery;
+  search.onkeydown = e => {
+    if (e.key === 'Escape' && search.value) { e.stopPropagation(); search.value = ''; onQuery(); }
+  };
+
   // Filter banner: only visible while a block filter is active, and its button
   // is the way back to the full list.
   const bar = document.createElement('div'); bar.className = 'ex-filter'; bar.hidden = true;
@@ -3069,26 +3089,31 @@ async function buildExamples(panel: HTMLElement) {
 
   const refresh = () => {
     const f = exampleFilter;
+    const q = terms.join(' ');
     bar.hidden = !f;
     let shown = 0, pending = 0;
     for (const entry of exampleEntries) {
-      if (!f) { entry.item.hidden = false; continue; }
+      const hit = terms.every(t => entry.text.includes(t));
+      if (!f) { entry.item.hidden = !hit; if (hit) shown++; continue; }
       if (!entry.blockIds) { entry.item.hidden = true; pending++; continue; }
-      const match = entry.blockIds.has(f.id);
+      const match = entry.blockIds.has(f.id) && hit;
       entry.item.hidden = !match;
       if (match) shown++;
     }
     if (f) {
       barText.textContent =
         `Filtered: ${shown} of ${exampleEntries.length} examples use “${f.label}”` +
+        (q ? ` and match “${q}”` : '') +
         (pending ? ' (still loading…)' : '');
-      noMatch.textContent = pending ? '' : `No example flowgraph uses “${f.label}”.`;
+      noMatch.textContent = pending ? '' : `No example flowgraph uses “${f.label}”${q ? ` and matches “${q}”` : ''}.`;
+    } else if (q) {
+      noMatch.textContent = `No example flowgraph matches “${q}”.`;
     }
-    noMatch.hidden = !f || shown > 0 || pending > 0;
+    noMatch.hidden = (!f && !q) || shown > 0 || pending > 0;
   };
   applyExampleFilter = refresh;
 
-  status.remove(); panel.append(bar, list, noMatch);
+  status.remove(); panel.append(search, bar, list, noMatch);
   exampleEntries.length = 0;
   for (const file of files) {
     // A row, not just the button, because the copy-link button sits on top of it
@@ -3104,7 +3129,7 @@ async function buildExamples(panel: HTMLElement) {
     link.onclick = e => { e.stopPropagation(); void copyExampleUrl(file); };
     row.append(item, link);
     list.append(row);
-    const entry: ExampleEntry = { file, item: row, blockIds: null };
+    const entry: ExampleEntry = { file, item: row, blockIds: null, text: file.toLowerCase() };
     exampleEntries.push(entry);
     // Fetch the file to show its title/description and load it on click.
     fetch('/example_flowgraphs/' + file).then(r => r.text()).then(text => {
@@ -3113,6 +3138,7 @@ async function buildExamples(panel: HTMLElement) {
       const fgTitle = params.title || params.id;
       const fgAuthor = params.author;
       const fgDesc = params.description || params.comment;
+      entry.text = [file, fgTitle, fgAuthor, fgDesc].filter(Boolean).join(' ').toLowerCase();
       if (fgTitle) title.textContent = String(fgTitle);
       if (fgAuthor) {
         const author = document.createElement('div'); author.className = 'ex-author';

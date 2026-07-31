@@ -27,7 +27,7 @@ assert.match(source, /link\.onclick = e => \{ e\.stopPropagation\(\); void copyE
   'copying the link must not also load the example (the row underneath is a button)');
 assert.match(source, /row\.append\(item, link\);\s*list\.append\(row\);/,
   'the link button must be a sibling of the example button, not nested inside it');
-assert.match(source, /const entry: ExampleEntry = \{ file, item: row, blockIds: null \};/,
+assert.match(source, /const entry: ExampleEntry = \{ file, item: row, blockIds: null,/,
   'the block filter must hide the whole row, not just the example button');
 assert.match(html, /\.ex-row \{ position:relative; \}/, 'the row positions the link button');
 assert.match(html, /\.ex-link \{[^}]*\}/, 'the copy-link button needs styling');

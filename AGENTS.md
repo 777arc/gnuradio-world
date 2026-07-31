@@ -335,7 +335,8 @@ the code they cover:
 (cd editor && npm test)                       # 15 node tests: shortcuts, selection, grid,
                                               # canvas scroll, validation, time sink, expr,
                                               # .grc round-trip, recordings, contribute,
-                                              # block categories, note block, example filter.
+                                              # block categories, note block, example
+                                              # filter/search.
                                               # No browser, no WASM build.
 (cd runner/test && g++ -std=c++17 -I../src grc_test.cpp -o grc_test && ./grc_test)
 ```
