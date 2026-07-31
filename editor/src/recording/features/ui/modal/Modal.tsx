@@ -16,7 +16,7 @@ export const ModalDialog = ({ heading, setShowModal, children, classList }: Moda
   return (
     <dialog aria-labelledby={heading.replace(/ /g, '')} className="modal modal-open w-full h-full">
       <div className={`modal-box ${classList}`}>
-        <h3 id={heading.replace(/ /g, '')} className="font-bold text-lg text-primary">
+        <h3 id={heading.replace(/ /g, '')} className="font-bold text-primary">
           {heading}
         </h3>
         <button

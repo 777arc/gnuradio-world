@@ -4,6 +4,7 @@
 
 import React, { Fragment, useCallback, useMemo, useRef, useState } from 'react';
 import { Layer, Rect, Text } from 'react-konva';
+import { APP_FONT_FAMILY, APP_FONT_SIZE } from '@/utils/constants';
 import { Annotation, SigMFMetadata } from '@/utils/sigmfMetadata';
 import { useSpectrogramContext } from '../../hooks/use-spectrogram-context';
 import { Html } from 'react-konva-utils';
@@ -182,13 +183,13 @@ const AnnotationViewer = ({ currentFFT }: AnnotationViewerProps) => {
   return (
     <Layer>
       {/* Button to add a new annotation */}
-      <Rect x={10} y={10} width={122} height={20} fill="black" opacity={0.6} onClick={newAnnotationClick} />
+      <Rect x={10} y={10} width={98} height={20} fill="black" opacity={0.6} onClick={newAnnotationClick} />
       <Text
         text="Add Annotation"
-        fontFamily="serif"
-        fontSize={18}
-        x={12}
-        y={12}
+        fontFamily={APP_FONT_FAMILY}
+        fontSize={APP_FONT_SIZE}
+        x={14}
+        y={14}
         fill="white"
         onClick={newAnnotationClick}
         key="newannotation"
@@ -324,7 +325,7 @@ const AnnotationViewer = ({ currentFFT }: AnnotationViewerProps) => {
                             position: 'absolute',
                           }}
                         >
-                          <label style={{ width: '200px', fontSize: '16px' }}>
+                          <label style={{ width: '200px', fontSize: '13px' }}>
                             <span>Hit Enter to Finish</span>
                           </label>
                           <input
@@ -332,7 +333,7 @@ const AnnotationViewer = ({ currentFFT }: AnnotationViewerProps) => {
                             value={editAnnotationLabelText}
                             onChange={(e) => setEditAnnotationLabelText(e.target.value)}
                             onKeyDown={onAnnotationsLabelKeyDown}
-                            style={{ width: '200px', fontSize: '16px', color: 'black' }}
+                            style={{ width: '200px', fontSize: '13px', color: 'black' }}
                           />
                         </div>
                       </Html>

@@ -11,22 +11,22 @@ export const MetaViewer = ({ meta }: MetaViewerProps) => {
   return (
     <div className="flex justify-evenly border border-primary p-2">
       <div className="flex">
-        <div className="text-primary mr-2 text-sm">data type:</div>
-        <div className="text-base-content text-sm">{meta.getDataType()}</div>
+        <div className="text-primary mr-2">data type:</div>
+        <div className="text-base-content">{meta.getDataType()}</div>
       </div>
       <div className="flex">
-        <div className="text-primary mr-2 text-sm">sample rate:</div>
-        <div className="text-base-content text-sm">
+        <div className="text-primary mr-2">sample rate:</div>
+        <div className="text-base-content">
           {unitPrefixHz(meta.getSampleRate()).freq} {unitPrefixHz(meta.getSampleRate()).unit}
         </div>
       </div>
       <div className="flex">
-        <div className="text-primary mr-2 text-sm">file name:</div>
-        <div className="text-base-content text-sm">{meta.getFileName()}</div>
+        <div className="text-primary mr-2">file name:</div>
+        <div className="text-base-content">{meta.getFileName()}</div>
       </div>
       <div className="flex">
-        <div className="text-primary mr-2 text-sm">description:</div>
-        <div className="text-base-content text-sm">{meta.getDescription()}</div>
+        <div className="text-primary mr-2">description:</div>
+        <div className="text-base-content">{meta.getDescription()}</div>
       </div>
     </div>
   );

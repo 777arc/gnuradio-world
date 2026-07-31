@@ -16,9 +16,7 @@ import { IQPlot } from './components/iq-plot';
 import { FrequencyPlot } from './components/frequency-plot';
 import { TimePlot } from './components/time-plot';
 import { Sidebar } from './components/sidebar';
-import GlobalProperties from './components/global-properties';
 import MetaViewer from './components/meta-viewer';
-import MetaRaw from './components/meta-raw';
 import AnnotationList from './components/annotation/annotation-list';
 import ScrollBar from './components/scroll-bar';
 import { MINIMAP_FFT_SIZE, MIN_SPECTROGRAM_HEIGHT } from '@/utils/constants';
@@ -116,11 +114,6 @@ export function DisplaySpectrogram({ currentFFT, setCurrentFFT, currentTab }) {
   );
 }
 
-export function DisplayMetadataRaw() {
-  const { meta } = useSpectrogramContext();
-  return <MetaRaw meta={meta} />;
-}
-
 export function DisplayMetaSummary() {
   const { meta } = useSpectrogramContext();
   return <MetaViewer meta={meta} />;
@@ -135,7 +128,7 @@ export function RecordingViewPage() {
   if (!meta) {
     return (
       <div className="flex flex-col items-center justify-center h-full">
-        <div className="text-2xl font-bold">Loading...</div>
+        <div className="font-bold">Loading...</div>
       </div>
     );
   }
@@ -153,28 +146,11 @@ export function RecordingViewPage() {
           </div>
           <div className="mt-3 mb-0 px-2 py-0" style={{ margin: '5px' }}>
             <details>
-              <summary className="pl-2 mt-2 bg-primary outline outline-1 outline-primary text-lg text-base-100 hover:bg-green-800">
+              <summary className="pl-2 mt-2 bg-primary outline outline-1 outline-primary text-base-100 hover:bg-green-800">
                 Annotations
               </summary>
               <div className="outline outline-1 outline-primary p-2">
                 <AnnotationList setCurrentFFT={setCurrentFFT} currentFFT={currentFFT} />
-              </div>
-            </details>
-
-            <details>
-              <summary className="pl-2 mt-2 bg-primary outline outline-1 outline-primary text-lg text-base-100 hover:bg-green-800">
-                Global Properties
-              </summary>
-              <div className="outline outline-1 outline-primary p-2">
-                <GlobalProperties />
-              </div>
-            </details>
-            <details>
-              <summary className="pl-2 mt-2 bg-primary outline outline-1 outline-primary text-lg text-base-100 hover:bg-green-800">
-                Raw Metadata
-              </summary>
-              <div className="outline outline-1 outline-primary p-2">
-                <DisplayMetadataRaw />
               </div>
             </details>
           </div>

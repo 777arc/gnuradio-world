@@ -36,8 +36,9 @@ WebAssembly.
   adapted from IQEngine, which gives every File Source a recording tab showing
   the signal in a spectrogram-based interface. It is a second entry of the
   editor's own Vite build and includes only the SigMF URL/blob reader,
-  spectrogram, Time/Frequency/IQ plots, settings, annotations and metadata used
-  here — no backend, plugins, Cyclostationary UI, or Pyodide.
+  spectrogram, Time/Frequency/IQ plots, settings, annotations and the metadata
+  summary used here — no backend, plugins, Cyclostationary UI, Pyodide, or
+  metadata editors.
 
 The editor passes a serialized `.grc` flowgraph to the runner. The runner is an
 Emscripten `MAIN_MODULE`; deferred block categories are ABI-matched
@@ -841,8 +842,23 @@ working:
   metadata as inferred.
 - The viewer is deliberately a narrow slice: URL/blob SigMF sources,
   spectrogram plus Time/Frequency/IQ plots, recording settings, annotations and
-  metadata. IQEngine's plugins, Cyclostationary view, backends/authentication and
-  Pyodide path are not included.
+  the metadata summary bar under the plot. IQEngine's plugins, Cyclostationary
+  view, backends/authentication and Pyodide path are not included, and neither
+  are its Global Properties and Raw Metadata editors — nothing here writes a
+  `.sigmf-meta` back. The settings pane is a plain always-open panel, not a
+  `<details>`; Annotations is the only collapsible section left.
+- **The viewer has exactly one text size**: the editor's own chrome font,
+  system-ui at 13px. The rules are the un-layered block at the top of
+  [`editor/src/recording/features/ui/styles/tailwind_index.css`](editor/src/recording/features/ui/styles/tailwind_index.css)
+  — un-layered because daisyUI hard-codes a font-size on `.input`, `.label-text`,
+  `.btn`, `.tab`, `.menu` and `.table` from the components layer, which any
+  `@layer base` rule loses to. Size is set on `body` in px and never on `:root`,
+  so tailwind's rem-based spacing and widths (the sidebar's `w-64`, and the px
+  offsets in `recording-view.tsx` hand-tuned against it) stay put. Text drawn on
+  a canvas inherits none of that, so the konva labels (rulers, selectors,
+  annotations) and `CanvasPlot`'s axes read `APP_FONT_FAMILY`/`APP_FONT_SIZE`
+  from [`editor/src/recording/utils/constants.ts`](editor/src/recording/utils/constants.ts)
+  instead. Prefer those over a new `text-*` utility.
 - **The Time/Frequency/IQ tabs draw on a plain 2D canvas, not plotly.** Upstream
   uses `react-plotly.js`, which is ~4.7 MB — several times the rest of the viewer
   — for one trace type, and its size is why upstream loads those three tabs

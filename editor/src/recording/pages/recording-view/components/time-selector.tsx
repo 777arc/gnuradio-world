@@ -4,6 +4,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Layer, Rect, Text } from 'react-konva';
+import { APP_FONT_FAMILY, APP_FONT_SIZE } from '@/utils/constants';
 import { unitPrefixSamples, unitPrefixSeconds } from '@/utils/rf-functions';
 import { useCursorContext } from '../hooks/use-cursor-context';
 import { useSpectrogramContext } from '../hooks/use-spectrogram-context';
@@ -128,9 +129,9 @@ const TimeSelector = ({ currentFFT }: TimeSelectorProps) => {
             shadowBlur={5}
           />
 
-          <Text text={diffSamples} fontFamily="serif" fontSize={24} x={0} y={cursorYStart + 5} fill={'white'} />
+          <Text text={diffSamples} fontFamily={APP_FONT_FAMILY} fontSize={APP_FONT_SIZE} x={0} y={cursorYStart + 5} fill={'white'} />
 
-          <Text text={diffSeconds} fontFamily="serif" fontSize={24} x={0} y={cursorYStart + 35} fill={'white'} />
+          <Text text={diffSeconds} fontFamily={APP_FONT_FAMILY} fontSize={APP_FONT_SIZE} x={0} y={cursorYStart + 21} fill={'white'} />
         </>
       </Layer>
     </>

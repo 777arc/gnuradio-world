@@ -95,7 +95,7 @@ const SettingsPane = ({ currentFFT, currentTab, setCurrentTab }: SettingsPanePro
                inactive state has to name its own background and text color. */
             className={`${
               currentTab === Tab[key] ? 'bg-primary text-base-100' : 'bg-base-100 text-primary'
-            } flex-auto px-1 py-0 rounded-none whitespace-nowrap outline outline-primary outline-1 text-xs hover:bg-accent hover:text-base-100`}
+            } flex-auto px-1 py-0 rounded-none whitespace-nowrap outline outline-primary outline-1 hover:bg-accent hover:text-base-100`}
           >
             {key}
           </button>
@@ -103,7 +103,7 @@ const SettingsPane = ({ currentFFT, currentTab, setCurrentTab }: SettingsPanePro
       </div>
 
       <label className="mb-3" id="formZoom">
-        <span className="label-text text-base ">Zoom Out Level</span>
+        <span className="label-text">Zoom Out Level</span>
         <input
           type="range"
           className="range range-xs range-primary"
@@ -119,7 +119,7 @@ const SettingsPane = ({ currentFFT, currentTab, setCurrentTab }: SettingsPanePro
       </label>
 
       <label className="mb-1" id="toggle">
-        <span className="label-text text-base">Toggle Time Cursors</span>
+        <span className="label-text">Toggle Time Cursors</span>
         <input
           type="checkbox"
           className="toggle toggle-primary float-right"
@@ -138,7 +138,7 @@ const SettingsPane = ({ currentFFT, currentTab, setCurrentTab }: SettingsPanePro
       </label>
 
       <label className="mb-3" id="toggle">
-        <span className="label-text text-base">Toggle Freq. Cursors</span>
+        <span className="label-text">Toggle Freq. Cursors</span>
         <input
           type="checkbox"
           className="toggle toggle-primary float-right"
@@ -166,7 +166,7 @@ const SettingsPane = ({ currentFFT, currentTab, setCurrentTab }: SettingsPanePro
 
       <div className="mb-3" id="formMagMax">
         <label>
-          <span className="label-text text-base">Magnitude Color Mapping</span>
+          <span className="label-text">Magnitude Color Mapping</span>
         </label>
 
         <DualRangeSlider
@@ -182,7 +182,7 @@ const SettingsPane = ({ currentFFT, currentTab, setCurrentTab }: SettingsPanePro
 
       <div className="mt-4">
         <div className="dropdown dropdown-hover dropdown-right w-full">
-          <label tabIndex={0} className="btn btn-outline btn-success btn-sm w-full text-base">
+          <label tabIndex={0} className="btn btn-outline btn-success btn-sm w-full">
             Colormap <ArrowRightIcon />
           </label>
           <ul className="p-2 shadow menu dropdown-content mt-0 z-[1] bg-base-100 rounded-box w-52">
@@ -203,7 +203,7 @@ const SettingsPane = ({ currentFFT, currentTab, setCurrentTab }: SettingsPanePro
 
       <div className="mt-4">
         <div className="dropdown dropdown-hover dropdown-right w-full">
-          <label tabIndex={0} className="btn btn-outline btn-success btn-sm w-full text-base">
+          <label tabIndex={0} className="btn btn-outline btn-success btn-sm w-full">
             FFT Size <ArrowRightIcon />
           </label>
           <ul className="p-2 shadow menu dropdown-content z-[1] mt-0 bg-base-100 rounded-box w-52">
@@ -225,7 +225,7 @@ const SettingsPane = ({ currentFFT, currentTab, setCurrentTab }: SettingsPanePro
       <>
         <div className="mt-2" id="formTaps">
           <label className="label">
-            <span className="label-text text-base">
+            <span className="label-text">
               FIR Filter Taps
               <a
                 style={{ textDecoration: 'none', color: 'white', marginLeft: '5px' }}
@@ -256,7 +256,7 @@ const SettingsPane = ({ currentFFT, currentTab, setCurrentTab }: SettingsPanePro
 
       <div className="mt-2">
         <div className="dropdown dropdown-hover dropdown-right w-full">
-          <label tabIndex={0} className="btn btn-outline btn-success btn-sm w-full text-base">
+          <label tabIndex={0} className="btn btn-outline btn-success btn-sm w-full">
             Example Filter Taps <ArrowRightIcon />
           </label>
           <ul className="p-2 shadow menu dropdown-content z-[1] mt-0 bg-base-100 rounded-box w-96">
@@ -280,7 +280,7 @@ const SettingsPane = ({ currentFFT, currentTab, setCurrentTab }: SettingsPanePro
 
       <div className="mt-4 mb-2">
         <div className="dropdown dropdown-hover dropdown-right w-full">
-          <label tabIndex={0} className="btn btn-outline btn-success btn-sm w-full text-base">
+          <label tabIndex={0} className="btn btn-outline btn-success btn-sm w-full">
             Window <ArrowRightIcon />
           </label>
           <ul className="p-2 shadow menu dropdown-content z-[1] mt-0 bg-base-100 rounded-box w-70">
@@ -295,7 +295,7 @@ const SettingsPane = ({ currentFFT, currentTab, setCurrentTab }: SettingsPanePro
 
       <div id="toggleFreq">
         <label className="label py-0">
-          <span className="label-text text-base">Display RF Freq</span>
+          <span className="label-text">Display RF Freq</span>
           <input
             type="checkbox"
             className="toggle toggle-primary"
@@ -309,7 +309,7 @@ const SettingsPane = ({ currentFFT, currentTab, setCurrentTab }: SettingsPanePro
 
       <div id="toggleSquaring">
         <label className="label pb-0 pt-2">
-          <span className="label-text text-base">Square Signal</span>
+          <span className="label-text">Square Signal</span>
           <input
             type="checkbox"
             className="toggle toggle-primary"
@@ -323,7 +323,7 @@ const SettingsPane = ({ currentFFT, currentTab, setCurrentTab }: SettingsPanePro
 
       <div id="toggleFreqShift">
         <label className="label pb-0 pt-2">
-          <span className="label-text text-base">Frequency Shift</span>
+          <span className="label-text">Frequency Shift</span>
 
           <input
             type="checkbox"
@@ -336,7 +336,7 @@ const SettingsPane = ({ currentFFT, currentTab, setCurrentTab }: SettingsPanePro
         </label>
         {context.freqShift && (
           <>
-            <div className="text-base pl-6">
+            <div className="pl-6">
               Baseband: {unitPrefixHz(cursorContext.cursorFreqShift * sampleRate).freq}{' '}
               {unitPrefixHz(cursorContext.cursorFreqShift * sampleRate).unit} <br></br>
               RF: {unitPrefixHz(cursorContext.cursorFreqShift * sampleRate + coreFrequency).freq}{' '}

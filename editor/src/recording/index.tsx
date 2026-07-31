@@ -41,7 +41,7 @@ const router = createHashRouter([
   },
   {
     path: '*',
-    element: <div className="p-4 text-lg">No recording selected.</div>,
+    element: <div className="p-4">No recording selected.</div>,
   },
 ]);
 

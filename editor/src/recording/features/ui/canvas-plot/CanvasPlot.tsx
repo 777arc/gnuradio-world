@@ -16,6 +16,7 @@
 // what keeps a 650k-point time series (spectrogramHeight * fftSize samples) at a
 // few milliseconds a frame while looking identical to the full polyline.
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { APP_FONT_FAMILY, APP_FONT_SIZE } from '@/utils/constants';
 
 // ---- theme (from @/utils/plotlyTemplate, so the plots keep matching the app) --
 const PLOT_BG = '#05041C';
@@ -23,7 +24,9 @@ const GRID = '#283442';
 const AXIS_LINE = '#506784';
 const FONT_COLOR = '#f2f5fa';
 const MUTED = '#a8b0c0';
-const FONT_FAMILY = '"Open Sans", verdana, arial, sans-serif';
+// Tick labels, axis titles, legend and hover readout all draw at the app's one
+// text size -- canvas text inherits nothing from the stylesheet.
+const FONT = `${APP_FONT_SIZE}px ${APP_FONT_FAMILY}`;
 export const COLORWAY = [
   '#4CE091',
   '#84cae7',
@@ -423,7 +426,7 @@ export const CanvasPlot = ({
 
     // tick labels
     ctx.fillStyle = MUTED;
-    ctx.font = `12px ${FONT_FAMILY}`;
+    ctx.font = FONT;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     for (const value of xTicks.values) {
@@ -441,7 +444,7 @@ export const CanvasPlot = ({
 
     // axis titles
     ctx.fillStyle = FONT_COLOR;
-    ctx.font = `13px ${FONT_FAMILY}`;
+    ctx.font = FONT;
     if (xTitle) {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'bottom';
@@ -495,7 +498,7 @@ export const CanvasPlot = ({
     if (showLegend) {
       const named = traces.filter((trace) => trace.name);
       if (named.length) {
-        ctx.font = `12px ${FONT_FAMILY}`;
+        ctx.font = FONT;
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
         const rowH = 18;
@@ -546,7 +549,7 @@ export const CanvasPlot = ({
         });
       }
       if (rows.length) {
-        ctx.font = `12px ${FONT_FAMILY}`;
+        ctx.font = FONT;
         const header = `${xTitle ?? 'x'}: ${formatReadout(xValue)}`;
         const textW = Math.max(
           ctx.measureText(header).width,

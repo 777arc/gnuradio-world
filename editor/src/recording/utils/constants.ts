@@ -2,6 +2,13 @@
 // Copyright (c) 2023 Marc Lichtman
 // Licensed under the MIT License
 
+// The editor's chrome font (editor/index.html), which the viewer's DOM picks up
+// from the base rules in features/ui/styles/tailwind_index.css. Text drawn on a
+// canvas -- konva labels on the spectrogram, the plot axes in
+// features/ui/canvas-plot -- inherits nothing from CSS, so it names them here.
+export const APP_FONT_FAMILY = 'system-ui, Arial, sans-serif';
+export const APP_FONT_SIZE = 13;
+
 export const MINIMUM_SCROLL_HANDLE_HEIGHT_PIXELS = 10;
 export const COLORMAP_DEFAULT = 'viridis';
 export const MINIMAP_FFT_SIZE = 64;

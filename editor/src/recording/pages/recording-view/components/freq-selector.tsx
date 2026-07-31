@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Layer, Rect, Text } from 'react-konva';
+import { APP_FONT_FAMILY, APP_FONT_SIZE } from '@/utils/constants';
 import { unitPrefixHz } from '@/utils/rf-functions';
 import { useSpectrogramContext } from '../hooks/use-spectrogram-context';
 import { useCursorContext } from '../hooks/use-cursor-context';
@@ -139,14 +140,14 @@ const FreqSelector = () => {
             shadowBlur={5}
           />
 
-          <Text text={lowerText} fontFamily="serif" fontSize={24} x={lowerPosition + 5} y={0} fill={'white'} />
-          <Text text={upperText} fontFamily="serif" fontSize={24} x={upperPosition + 5} y={0} fill={'white'} />
+          <Text text={lowerText} fontFamily={APP_FONT_FAMILY} fontSize={APP_FONT_SIZE} x={lowerPosition + 5} y={0} fill={'white'} />
+          <Text text={upperText} fontFamily={APP_FONT_FAMILY} fontSize={APP_FONT_SIZE} x={upperPosition + 5} y={0} fill={'white'} />
           <Text
             text={diffText}
-            fontFamily="serif"
-            fontSize={24}
-            x={upperPosition / 2 + lowerPosition / 2 - 70}
-            y={25}
+            fontFamily={APP_FONT_FAMILY}
+            fontSize={APP_FONT_SIZE}
+            x={upperPosition / 2 + lowerPosition / 2 - 38}
+            y={16}
             fill={'white'}
           />
         </>

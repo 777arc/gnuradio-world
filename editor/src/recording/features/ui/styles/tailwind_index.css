@@ -2,6 +2,33 @@
 @tailwind components;
 @tailwind utilities;
 
+/* The viewer is framed inside the editor and has to read as the same
+   application, so it takes the editor's chrome font -- system-ui at 13px, see
+   editor/index.html -- rather than tailwind's 16px ui-sans-serif default.
+   Two things about how this is written matter:
+     - the size is px on the *body*, never on :root, so every rem-based spacing
+       and width stays put (the sidebar's w-64, and the px offsets in
+       recording-view.tsx that are hand-tuned against it);
+     - it sits outside @layer, because daisyUI hard-codes a font-size on .input,
+       .label-text, .btn, .tab, .menu and .table from the components layer,
+       which any @layer base rule loses to.
+   Only text-bearing elements are named: MUI and FontAwesome size their SVG
+   icons off font-size, so a blanket rule would shrink the icons too. */
+body,
+button,
+input,
+optgroup,
+select,
+textarea,
+.btn,
+.tab,
+.label-text,
+.menu,
+.table {
+  font-family: system-ui, Arial, sans-serif;
+  font-size: 13px;
+}
+
 @layer base {
   ul,
   ol {
@@ -20,12 +47,14 @@
     @apply text-primary;
   }
 
+  /* Headings keep their weight and color but not a size of their own -- there is
+     one text size in this viewer, see the block above the layer. */
   h1 {
-    @apply text-primary text-2xl my-4 font-bold;
+    @apply text-primary my-4 font-bold;
   }
 
   h2 {
-    @apply text-primary text-lg mt-1;
+    @apply text-primary mt-1;
   }
 
   h3 {
@@ -85,11 +114,11 @@
   }
 
   .slider-left-value {
-    @apply absolute text-lg mt-1 left-px;
+    @apply absolute mt-1 left-px;
   }
 
   .slider-right-value {
-    @apply absolute text-lg mb-10 mt-1 right-px;
+    @apply absolute mb-10 mt-1 right-px;
   }
 
   .slider-track {

@@ -4,6 +4,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Layer, Rect, Text } from 'react-konva';
+import { APP_FONT_FAMILY, APP_FONT_SIZE } from '@/utils/constants';
 import { useSpectrogramContext } from '../hooks/use-spectrogram-context';
 
 interface RulerSideProps {
@@ -65,8 +66,8 @@ const RulerSide = ({ currentRowAtTop }: RulerSideProps) => {
           // for Text params see https://konvajs.org/api/Konva.Text.html
           <Text
             text={label.text}
-            fontFamily="serif"
-            fontSize={16}
+            fontFamily={APP_FONT_FAMILY}
+            fontSize={APP_FONT_SIZE}
             x={label.x}
             y={label.y}
             fill="white"

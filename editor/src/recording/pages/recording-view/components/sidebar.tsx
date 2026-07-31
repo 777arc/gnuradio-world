@@ -15,14 +15,12 @@ interface SidebarProps {
 const Sidebar = ({ currentFFT, currentTab, setCurrentTab }: SidebarProps) => {
   return (
     <div className="flex flex-col w-64 ml-3">
-      <details open>
-        <summary className="pl-2 bg-primary outline outline-1 outline-primary text-lg text-base-100 hover:bg-green-800">
-          Settings
-        </summary>
-        <div className="outline outline-1 outline-primary p-2">
-          <SettingsPane currentFFT={currentFFT} currentTab={currentTab} setCurrentTab={setCurrentTab} />
-        </div>
-      </details>
+      {/* Deliberately not a <details>: the settings are the viewer's primary
+          controls, so the panel is always open and has no disclosure triangle. */}
+      <div className="pl-2 bg-primary outline outline-1 outline-primary text-base-100">Settings</div>
+      <div className="outline outline-1 outline-primary p-2">
+        <SettingsPane currentFFT={currentFFT} currentTab={currentTab} setCurrentTab={setCurrentTab} />
+      </div>
     </div>
   );
 };

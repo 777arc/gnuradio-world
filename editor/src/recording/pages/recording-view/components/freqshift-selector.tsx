@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Layer, Rect, Text } from 'react-konva';
+import { APP_FONT_FAMILY, APP_FONT_SIZE } from '@/utils/constants';
 import { unitPrefixHz } from '@/utils/rf-functions';
 import { useSpectrogramContext } from '../hooks/use-spectrogram-context';
 import { useCursorContext } from '../hooks/use-cursor-context';
@@ -57,7 +58,7 @@ const FreqShiftSelector = () => {
             dash={[3, 6]} // X pixels long and Y pixels apart
           ></Rect>
 
-          <Text text={text} fontFamily="serif" fontSize={24} x={position + 5} y={0} fill={'white'} />
+          <Text text={text} fontFamily={APP_FONT_FAMILY} fontSize={APP_FONT_SIZE} x={position + 5} y={0} fill={'white'} />
         </>
       </Layer>
     </>
