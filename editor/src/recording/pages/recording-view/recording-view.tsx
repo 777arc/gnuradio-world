@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useSpectrogram } from './hooks/use-spectrogram';
 import { Layer, Stage, Image } from 'react-konva';
@@ -7,7 +7,7 @@ import { KonvaEventObject } from 'konva/lib/Node';
 import { RulerTop } from './components/ruler-top';
 import { RulerSide } from './components/ruler-side';
 import { SpectrogramContextProvider, useSpectrogramContext } from './hooks/use-spectrogram-context';
-import { CursorContextProvider } from './hooks/use-cursor-context';
+import { CursorContextProvider, useCursorContext } from './hooks/use-cursor-context';
 import { useMeta } from '@/api/metadata/queries';
 // Upstream loads these three lazily because they pulled in plotly, ~4.5 MB of
 // JavaScript for three tabs. They draw on a plain canvas now (see
@@ -119,6 +119,41 @@ export function DisplayMetaSummary() {
   return <MetaViewer meta={meta} />;
 }
 
+function FileSourceSelectionSync({ setCurrentFFT }) {
+  const { fftSize, meta, setCanDownload } = useSpectrogramContext();
+  const { setCursorTimeFromFileSource, setCursorTimeEnabled } = useCursorContext();
+  const fftSizeRef = useRef(fftSize);
+  const totalSamplesRef = useRef(meta.getTotalSamples());
+
+  useEffect(() => { fftSizeRef.current = fftSize; }, [fftSize]);
+  useEffect(() => { totalSamplesRef.current = meta.getTotalSamples(); }, [meta]);
+
+  useEffect(() => {
+    if (window.parent === window) return;
+    const receiveSelection = (event: MessageEvent) => {
+      const data = event.data;
+      if (event.origin !== window.location.origin || event.source !== window.parent ||
+          data?.type !== 'gr-file-source-selection') return;
+      const offset = Number(data.offset);
+      const length = Number(data.length);
+      if (!Number.isSafeInteger(offset) || offset < 0 ||
+          !Number.isSafeInteger(length) || length < 0) return;
+      const enabled = offset !== 0 || length !== 0;
+      const openEnded = offset !== 0 && length === 0;
+      const end = openEnded ? totalSamplesRef.current : offset + length;
+      setCursorTimeFromFileSource({ start: offset, end }, openEnded);
+      setCursorTimeEnabled(enabled);
+      setCanDownload(enabled);
+      if (enabled) setCurrentFFT(Math.floor(offset / fftSizeRef.current));
+    };
+    window.addEventListener('message', receiveSelection);
+    window.parent.postMessage({ type: 'gr-recording-ready' }, window.location.origin);
+    return () => window.removeEventListener('message', receiveSelection);
+  }, [setCanDownload, setCursorTimeFromFileSource, setCursorTimeEnabled, setCurrentFFT]);
+
+  return null;
+}
+
 export function RecordingViewPage() {
   const { type, account, container, filePath } = useParams();
   const { data: meta } = useMeta(type, account, container, filePath);
@@ -135,6 +170,7 @@ export function RecordingViewPage() {
   return (
     <SpectrogramContextProvider type={type} account={account} container={container} filePath={filePath}>
       <CursorContextProvider>
+        <FileSourceSelectionSync setCurrentFFT={setCurrentFFT} />
         <div className="mb-0 ml-0 mr-0 p-0 pt-3">
           <div className="flex flex-row w-full">
             <Sidebar currentFFT={currentFFT} currentTab={currentTab} setCurrentTab={setCurrentTab} />

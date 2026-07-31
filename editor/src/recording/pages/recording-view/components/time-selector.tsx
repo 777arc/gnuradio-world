@@ -17,14 +17,14 @@ const TimeSelector = ({ currentFFT }: TimeSelectorProps) => {
   const [diffSamples, setDiffSamples] = useState('');
   const [diffSeconds, setDiffSeconds] = useState('');
   const { spectrogramWidth, spectrogramHeight, meta, fftSize } = useSpectrogramContext();
-  const { cursorTime, cursorTimeEnabled, setCursorTime } = useCursorContext();
+  const { cursorTime, cursorTimeEnabled, cursorTimeOpenEnded, setCursorTime } = useCursorContext();
 
   const cursorStartFFT = Math.floor(cursorTime.start / fftSize);
   const cursorEndFFT = Math.floor(cursorTime.end / fftSize);
   const cursorYStart = cursorStartFFT - currentFFT;
   const cursorYEnd = cursorEndFFT - currentFFT;
   const offsetSamples = `Offset: ${Math.round(cursorTime.start)} samples`;
-  const lengthSamples = `Length: ${Math.round(cursorTime.end - cursorTime.start)} samples`;
+  const lengthSamples = `Length: ${cursorTimeOpenEnded ? 0 : Math.round(cursorTime.end - cursorTime.start)} samples`;
 
   // update diff
   useEffect(() => {
@@ -45,11 +45,11 @@ const TimeSelector = ({ currentFFT }: TimeSelectorProps) => {
       window.parent.postMessage({
         type: 'gr-recording-selection',
         offset: Math.max(0, Math.round(cursorTime.start)),
-        length: Math.max(0, Math.round(cursorTime.end - cursorTime.start)),
+        length: cursorTimeOpenEnded ? 0 : Math.max(0, Math.round(cursorTime.end - cursorTime.start)),
       }, window.location.origin);
     }, 150);
     return () => window.clearTimeout(timeout);
-  }, [cursorTime, cursorTimeEnabled]);
+  }, [cursorTime, cursorTimeEnabled, cursorTimeOpenEnded]);
 
   // Sample-start bar
   const handleDragMoveStart = (e) => {

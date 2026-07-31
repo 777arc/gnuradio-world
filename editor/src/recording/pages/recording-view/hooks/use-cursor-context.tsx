@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { useSpectrogramContext } from './use-spectrogram-context';
 import { useGetIQData } from '@/api/iqdata/Queries';
 import { useDebounce } from 'usehooks-ts';
@@ -6,6 +6,8 @@ import { useDebounce } from 'usehooks-ts';
 interface CursorContextProperties {
   cursorTime: Cursor;
   setCursorTime: (cursorTime: Cursor) => void;
+  setCursorTimeFromFileSource: (cursorTime: Cursor, openEnded: boolean) => void;
+  cursorTimeOpenEnded: boolean;
   cursorFreq: Cursor;
   setCursorFreq: (cursorFreq: Cursor) => void;
   cursorFreqShift: number;
@@ -28,10 +30,19 @@ interface Cursor {
 }
 
 export function CursorContextProvider({ children }) {
-  const [cursorTime, setCursorTime] = useState<Cursor>({
+  const [cursorTime, setCursorTimeState] = useState<Cursor>({
     start: 0,
     end: 0,
   });
+  const [cursorTimeOpenEnded, setCursorTimeOpenEnded] = useState<boolean>(false);
+  const setCursorTime = useCallback((next: Cursor) => {
+    setCursorTimeState(next);
+    setCursorTimeOpenEnded(false);
+  }, []);
+  const setCursorTimeFromFileSource = useCallback((next: Cursor, openEnded: boolean) => {
+    setCursorTimeState(next);
+    setCursorTimeOpenEnded(openEnded);
+  }, []);
   const [cursorFreq, setCursorFreq] = useState<Cursor>({
     start: 0,
     end: 0,
@@ -73,6 +84,8 @@ export function CursorContextProvider({ children }) {
       value={{
         cursorTime,
         setCursorTime,
+        setCursorTimeFromFileSource,
+        cursorTimeOpenEnded,
         cursorFreq,
         setCursorFreq,
         cursorFreqShift,

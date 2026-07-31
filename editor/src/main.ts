@@ -2647,6 +2647,8 @@ interface RecordingSource {
   token?: string;         // local: key into localFilesByToken
   datatype?: string;      // local: SigMF datatype inferred from the block
   sampleRate?: number;    // local: samp_rate from the flowgraph, when numeric
+  offset: number;         // File Source selection, in samples
+  length: number;
 }
 
 interface RecordingTab {
@@ -2656,6 +2658,9 @@ interface RecordingTab {
   status: HTMLElement;
   frame: HTMLIFrameElement | null;
   opening: boolean;
+  ready: boolean;
+  viewerOffset: number | null;
+  viewerLength: number | null;
   blobUrls: string[];
 }
 
@@ -2691,8 +2696,18 @@ function localRecordingDatatype(block: Inst): string {
   return converter && converter.from === type ? converter.datatype : scalar;
 }
 
+function fileSourceSelection(block: Inst): { offset: number; length: number } {
+  const resolved = resolveParamsForRun(block, varScope);
+  const samples = (value: any): number => {
+    const number = Number(value);
+    return Number.isSafeInteger(number) && number > 0 ? number : 0;
+  };
+  return { offset: samples(resolved.offset), length: samples(resolved.length) };
+}
+
 function recordingSourceFor(block: Inst): RecordingSource | null {
   const savedPath = String(block.params.file || '');
+  const selection = fileSourceSelection(block);
   if (block.localFileToken) {
     const file = localFilesByToken.get(block.localFileToken);
     if (!file) return null;   // picked in a previous session; the File is gone
@@ -2703,6 +2718,7 @@ function recordingSourceFor(block: Inst): RecordingSource | null {
       kind: 'local', path: savedPath, token: block.localFileToken,
       datatype: localRecordingDatatype(block),
       sampleRate: Number.isFinite(rate) && rate > 0 ? rate : undefined,
+      ...selection,
     };
   }
   if (!savedPath.startsWith('/recordings/')) return null;
@@ -2713,6 +2729,7 @@ function recordingSourceFor(block: Inst): RecordingSource | null {
   return {
     key: savedPath, label: name.split('/').pop() || name, title: relative, name,
     kind: 'remote', path: savedPath,
+    ...selection,
   };
 }
 
@@ -2751,7 +2768,10 @@ function createRecordingTab(source: RecordingSource): RecordingTab {
   wireWorkspaceTab(entry);
   workspaceTabs.push(entry);
   el('workspaceTabs').appendChild(button);
-  return { source, entry, label, status, frame: null, opening: false, blobUrls: [] };
+  return {
+    source, entry, label, status, frame: null, opening: false, ready: false,
+    viewerOffset: null, viewerLength: null, blobUrls: [],
+  };
 }
 
 function destroyRecordingTab(tab: RecordingTab) {
@@ -2777,6 +2797,9 @@ function syncRecordingTabs() {
     tab.label.textContent = source.label;
     tab.entry.button.title = source.title;
     tab.entry.button.setAttribute('aria-label', `Recording ${source.title}`);
+    if (tab.ready &&
+        (tab.viewerOffset !== source.offset || tab.viewerLength !== source.length))
+      postFileSourceSelection(tab);
   }
 
   // Keep the bar in canvas order. Only the buttons are reordered: re-inserting a
@@ -2815,10 +2838,23 @@ function recordingPaneMessage(tab: RecordingTab, message: string) {
   tab.status.hidden = false;
 }
 
+function recordingTabForMessage(event: MessageEvent): RecordingTab | null {
+  if (event.origin !== location.origin) return null;
+  return [...recordingTabs.values()].find(candidate =>
+    candidate.frame?.contentWindow === event.source) || null;
+}
+
+function postFileSourceSelection(tab: RecordingTab) {
+  if (!tab.ready || !tab.frame?.contentWindow) return;
+  const { offset, length } = tab.source;
+  tab.frame.contentWindow.postMessage(
+    { type: 'gr-file-source-selection', offset, length }, location.origin);
+  tab.viewerOffset = offset;
+  tab.viewerLength = length;
+}
+
 function applyRecordingSelection(event: MessageEvent, data: any): boolean {
-  if (event.origin !== location.origin) return false;
-  const tab = [...recordingTabs.values()].find(candidate =>
-    candidate.frame?.contentWindow === event.source);
+  const tab = recordingTabForMessage(event);
   if (!tab) return false;
 
   const offset = Number(data.offset);
@@ -2826,11 +2862,17 @@ function applyRecordingSelection(event: MessageEvent, data: any): boolean {
   if (!Number.isSafeInteger(offset) || offset < 0 ||
       !Number.isSafeInteger(length) || length < 0) return false;
 
+  // Remember what the viewer already shows before render() synchronizes the
+  // tabs, so the resulting block edit is not immediately echoed back.
+  tab.viewerOffset = offset;
+  tab.viewerLength = length;
+
   let changed = false;
   for (const block of insts) {
     if (block.id !== 'blocks_file_source' ||
         recordingSourceFor(block)?.key !== tab.source.key) continue;
-    if (block.params.offset === offset && block.params.length === length) continue;
+    const current = fileSourceSelection(block);
+    if (current.offset === offset && current.length === length) continue;
     block.params.offset = offset;
     block.params.length = length;
     changed = true;
@@ -3179,6 +3221,14 @@ const loadedModules = new Set<string>();
 window.addEventListener('message', (e) => {
   const d = (e as MessageEvent).data;
   if (!d) return;
+  if (d.type === 'gr-recording-ready') {
+    const tab = recordingTabForMessage(e as MessageEvent);
+    if (tab) {
+      tab.ready = true;
+      postFileSourceSelection(tab);
+    }
+    return;
+  }
   if (d.type === 'gr-recording-selection') {
     applyRecordingSelection(e as MessageEvent, d);
     return;

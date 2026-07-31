@@ -11,6 +11,8 @@ const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 const source = await readFile(new URL('../src/main.ts', import.meta.url), 'utf8');
 const timeSelector = await readFile(new URL(
   '../src/recording/pages/recording-view/components/time-selector.tsx', import.meta.url), 'utf8');
+const recordingView = await readFile(new URL(
+  '../src/recording/pages/recording-view/recording-view.tsx', import.meta.url), 'utf8');
 
 const between = (from, to) => {
   const start = source.indexOf(from);
@@ -66,9 +68,9 @@ assert.match(timeSelector, /type: 'gr-recording-selection'[\s\S]*?offset:[\s\S]*
 assert.match(timeSelector, /window\.parent\.postMessage\([\s\S]*?window\.location\.origin/,
   'selection updates must be restricted to the recording view origin');
 const selection = between('function applyRecordingSelection', '\nasync function openRecordingPane');
-assert.match(selection, /event\.origin !== location\.origin/,
+assert.match(source, /function recordingTabForMessage[\s\S]*?event\.origin !== location\.origin/,
   'the editor must reject cross-origin selection messages');
-assert.match(selection, /candidate\.frame\?\.contentWindow === event\.source/,
+assert.match(source, /function recordingTabForMessage[\s\S]*?candidate\.frame\?\.contentWindow === event\.source/,
   'the editor must associate a selection message with its sending recording tab');
 assert.match(selection, /block\.id !== 'blocks_file_source'/,
   'selection updates must only modify File Source blocks');
@@ -78,6 +80,25 @@ assert.match(selection, /block\.params\.offset = offset;[\s\S]*?block\.params\.l
   'the associated File Source must receive both sample parameters');
 assert.match(selection, /render\(\);\s*recordHistory\(\);/,
   'selection changes must redraw the block and participate in undo history');
+
+assert.match(source, /type: 'gr-file-source-selection', offset, length/,
+  'the editor must send File Source selection parameters into the recording view');
+assert.match(source, /d\.type === 'gr-recording-ready'[\s\S]*?postFileSourceSelection\(tab\)/,
+  'the editor must initialize the cursor after the recording view is ready');
+assert.match(source, /tab\.viewerOffset !== source\.offset \|\| tab\.viewerLength !== source\.length/,
+  'later File Source parameter edits must be synchronized into an open recording view');
+assert.match(recordingView, /data\?\.type !== 'gr-file-source-selection'/,
+  'the recording view must listen for File Source selection updates');
+assert.match(recordingView, /const enabled = offset !== 0 \|\| length !== 0;/,
+  'only a zero-offset, zero-length File Source may leave the time cursor disabled');
+assert.match(recordingView, /const openEnded = offset !== 0 && length === 0;[\s\S]*?openEnded \? totalSamplesRef\.current : offset \+ length/,
+  'a zero length at a nonzero offset must extend to the recording end');
+assert.match(recordingView, /setCursorTimeFromFileSource\(\{ start: offset, end \}, openEnded\)/,
+  'the cursor must retain whether its recording-end selection represents GNU Radio length zero');
+assert.match(timeSelector, /length: cursorTimeOpenEnded \? 0 :/,
+  'an open-ended cursor must preserve File Source length zero when synchronized back');
+assert.match(recordingView, /if \(enabled\) setCurrentFFT\(Math\.floor\(offset \/ fftSizeRef\.current\)\)/,
+  'an initialized selection must be scrolled into view');
 
 // ---- local files: synthesized SigMF over blob: URLs -------------------------
 assert.match(open, /dataUrl = URL\.createObjectURL\(file\)/,
