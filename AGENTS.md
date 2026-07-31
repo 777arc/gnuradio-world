@@ -66,8 +66,8 @@ node server.mjs 8090 "$PWD"
   place/connect/configure, right-click actions (cut/copy/paste, rotate,
   enable/disable, bypass), a Properties dialog, and a Run button that hands the
   flowgraph `.grc` to the runner. The editor canvas and embedded Qt GUI runner
-  share tabs in the workspace, with the console remaining visible below either
-  tab.
+  share tabs in the workspace, joined by one *recording tab* per File Source
+  (see below), with the console remaining visible below any of them.
 - **Runner** (`runner/`): a generic C++/WASM "player" — parses the flowgraph
   `.grc`, builds blocks via a `block-id → factory` registry, runs the GNU Radio
   thread-per-block scheduler, and renders gr-qtgui sinks to a canvas. Direct C++
@@ -99,7 +99,7 @@ node server.mjs 8090 "$PWD"
 | `server.mjs` | COOP/COEP static dev server (needed for SharedArrayBuffer / pthreads); serves the repo root, falls back to `editor/dist/` for `/`, mounts the built IQEngine client at `/iqengine/`, and synthesizes the `/example_flowgraphs` and `/example_recordings` listings the editor's tabs fetch |
 | `test/` | `test_smoke.mjs` (runs example flowgraphs headlessly and asserts samples actually move) and `test_lazy_scenarios.mjs` (verifies on-demand category side modules are fetched and `dlopen`'d), plus the `fixtures/` `.grc` they load; CI gates the deploy on both. `editor/test/` and `runner/test/` hold their own suites — see "Run and test" |
 | `scripts/` | `assemble-site.mjs` (assembles the static site CI deploys to Pages), `serve_site.mjs` (serves an assembled site the way Cloudflare Pages does), `run.mjs` (headless-Chromium test harness, waits on a page `#result`), `run_example.mjs` (opens an example in the real editor and presses Run), `r2-cors.json` (CORS policy for the recordings bucket) |
-| `iqengine/` | IQEngine as a git submodule; its client is built to `/iqengine/` on the site, so each SigMF recording in the editor gets an "open in IQEngine" link into its spectrogram view (via IQEngine's `url` data source, which reads the `.sigmf-meta`/`.sigmf-data` pair straight off their URLs) |
+| `iqengine/` | IQEngine as a git submodule; its client is built to `/iqengine/` on the site, so each SigMF recording in the editor gets an "open in IQEngine" link into its spectrogram view (via IQEngine's `url` data source, which reads the `.sigmf-meta`/`.sigmf-data` pair straight off their URLs) and each File Source gets a recording tab framing that same view |
 
 ## Toolchain and prerequisites
 
@@ -201,15 +201,18 @@ python3 editor/gen/gen_blocklib.py editor/public/blocks.json
 (cd editor && npm install && npm run build)
 
 # IQEngine client (git submodule), served from /iqengine/ so the recordings tab
-# can link into its spectrogram view. Optional; skip it and those links 404.
+# can link into its spectrogram view and the editor's recording tabs can frame
+# it. Optional; skip it and those links 404 and the recording tabs say so.
 # Hash routing because Cloudflare Pages cannot serve index.html for arbitrary
 # paths under a sub-directory; the feature flags trim it to what this site uses:
 # no Python snippet editor (it needs Pyodide from a CDN that this
-# cross-origin-isolated site will not load) and no Cyclostationary tab.
+# cross-origin-isolated site will not load), no Cyclostationary tab, and no site
+# header or outreach banner, since a framed recording view sits inside the
+# editor's own chrome.
 git submodule update --init
 (cd iqengine/client && npm ci && \
    IQENGINE_HASH_ROUTER=true \
-   IQENGINE_FEATURE_FLAGS='{"displayPythonSnippet":false,"displayCyclostationaryTab":false,"linkLogoToBrowser":false}' npm run build -- --base=/iqengine/)
+   IQENGINE_FEATURE_FLAGS='{"displayPythonSnippet":false,"displayCyclostationaryTab":false,"linkLogoToBrowser":false,"displaySiteHeader":false,"useIQEngineOutReach":false}' npm run build -- --base=/iqengine/)
 ```
 
 > **Optimized vs. dev build.** `-DCMAKE_BUILD_TYPE=Release` runs the link-time
@@ -333,8 +336,9 @@ Two more suites exist and are *not* run by CI — run them by hand when you touc
 the code they cover:
 
 ```bash
-(cd editor && npm test)                       # 15 node tests: shortcuts, selection, grid,
-                                              # canvas scroll, validation, time sink, expr,
+(cd editor && npm test)                       # 22 node tests: shortcuts, selection, grid,
+                                              # canvas scroll, workspace/recording tabs,
+                                              # validation, time sink, expr,
                                               # .grc round-trip, recordings, contribute,
                                               # block categories, note block, example
                                               # filter/search.
@@ -808,6 +812,47 @@ configured to allow the `Range` request header and expose `Content-Range`.
 file larger than 4 GiB through the actual editor and reads beyond the 32-bit
 boundary; its HTTP endpoint refuses non-Range requests and verifies the exact
 range consumed.
+
+### Recording tabs
+
+Every File Source with something to show gets its own workspace tab holding the
+IQEngine recording view for it — added when a recording is clicked in the
+palette, when an example that references one is opened, or when a file is picked
+with Properties → Browse. Each tab is an `<iframe>` on the IQEngine client this
+site already ships at `/iqengine/`, driven through the same `url` data-source
+route as the recordings tab's "open in IQEngine" link (`iqengineUrl()` in
+`editor/src/main.ts` builds both). The rules that keep it working:
+
+- **The tab set is derived state.** `syncRecordingTabs()` rebuilds it from
+  `insts` at the end of every `render()`, so no mutation path has to remember to
+  update it, and nothing about a tab reaches the `.grc`. It must stay synchronous
+  and network-free: a remote tab's label comes from the `/recordings/...` path,
+  not from the recordings manifest.
+- **The iframe is created on first activation, never at sync time.** That is what
+  defers both downloads the feature would otherwise force on everyone: IQEngine's
+  ~2 MB bundle (later tabs hit the HTTP cache) and the recording's samples. Once
+  created it is kept, so revisiting a tab refetches nothing.
+- **Inactive recording panes hide with `visibility:hidden`, not the `hidden`
+  attribute.** `display:none` collapses an iframe to zero size, and IQEngine sizes
+  its spectrogram off the window it is in; it would come back sized for nothing.
+  Panels are also never re-inserted into the DOM when tabs reorder — moving an
+  iframe reloads the document inside it — so only the buttons are reordered.
+- **A local file has no SigMF metadata**, so `synthesizedSigmfMeta()` writes a
+  minimal one from the File Source: datatype from its `type` param (a `short`
+  or `byte` source whose only sink is an interleaved-to-complex converter is
+  `ci16_le`/`ci8`, the chain the recordings tab builds), sample rate from the
+  flowgraph's `samp_rate` when it is numeric, and the sample count from the
+  file size. Both it and the file itself are handed over as `blob:` URLs, which
+  Chrome answers with `206`/`Content-Range` exactly like an HTTP recording, so a
+  multi-gigabyte local file is still read in bounded pieces. The pane labels the
+  metadata as inferred.
+- The IQEngine build hides its own header (`displaySiteHeader:false`, alongside
+  `useIQEngineOutReach:false`) because a framed recording view sits inside the
+  editor's chrome. Building IQEngine stays optional: without it, a recording tab
+  says so instead of framing the dev server's 404.
+
+`editor/test/recording-tabs.test.mjs` pins all of the above. It does not run a
+browser, so a change here also wants the manual pass in "Run and test".
 
 ## Continuous integration
 

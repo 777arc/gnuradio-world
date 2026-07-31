@@ -2320,6 +2320,7 @@ function render() {
     nodesG.appendChild(g);
   }
   updateCanvasExtent();
+  syncRecordingTabs();   // one workspace tab per File Source with a recording
 }
 
 // Grow the drawing surface past the viewport when blocks sit outside it, so the
@@ -2557,39 +2558,53 @@ type RunnerInputFile =
 const pendingRunnerRecordings = new Map<string, RunnerInputFile[]>();
 let pendingRunnerToken: string | null = null;
 
-type WorkspaceTab = 'editor' | 'qtgui';
-const workspaceTabButtons = [
-  el('tabEditor') as HTMLButtonElement,
-  el('tabQtGui') as HTMLButtonElement,
+// Editor and QT GUI are the two fixed tabs; recording tabs ('rec:<key>') are
+// added and removed by syncRecordingTabs() as File Sources come and go, so the
+// bar is a registry rather than the pair of buttons it used to be.
+type WorkspaceTab = 'editor' | 'qtgui' | string;
+interface WorkspaceTabEntry { id: WorkspaceTab; button: HTMLButtonElement; panel: HTMLElement }
+const workspaceTabs: WorkspaceTabEntry[] = [
+  { id: 'editor', button: el('tabEditor') as HTMLButtonElement, panel: el('editorPane') },
+  { id: 'qtgui', button: el('tabQtGui') as HTMLButtonElement, panel: el('runPane') },
 ];
+let activeWorkspaceTab: WorkspaceTab = 'editor';
 
 function activateWorkspaceTab(tab: WorkspaceTab) {
+  if (!workspaceTabs.some(entry => entry.id === tab)) tab = 'editor';
+  activeWorkspaceTab = tab;
   const editorActive = tab === 'editor';
   el('editorPane').hidden = !editorActive;
-  el('runPane').hidden = editorActive;
-  workspaceTabButtons.forEach((button, index) => {
-    const active = index === (editorActive ? 0 : 1);
-    button.classList.toggle('active', active);
-    button.setAttribute('aria-selected', String(active));
-    button.tabIndex = active ? 0 : -1;
-  });
+  el('runPane').hidden = tab !== 'qtgui';
+  for (const entry of workspaceTabs) {
+    const active = entry.id === tab;
+    entry.button.classList.toggle('active', active);
+    entry.button.setAttribute('aria-selected', String(active));
+    entry.button.tabIndex = active ? 0 : -1;
+    if (isRecordingTabId(entry.id)) entry.panel.classList.toggle('active', active);
+  }
+  // Nothing of IQEngine — neither its bundle nor the recording's samples — is
+  // fetched until the tab showing it is opened for the first time.
+  if (isRecordingTabId(tab)) void openRecordingPane(recordingTabKey(tab));
 }
 
-workspaceTabButtons.forEach((button, index) => {
-  button.addEventListener('click', () => activateWorkspaceTab(index ? 'qtgui' : 'editor'));
-  button.addEventListener('keydown', event => {
+function wireWorkspaceTab(entry: WorkspaceTabEntry) {
+  entry.button.addEventListener('click', () => activateWorkspaceTab(entry.id));
+  entry.button.addEventListener('keydown', event => {
+    const index = workspaceTabs.indexOf(entry);
+    if (index < 0) return;
     let next = index;
-    if (event.key === 'ArrowLeft') next = (index + workspaceTabButtons.length - 1) % workspaceTabButtons.length;
-    else if (event.key === 'ArrowRight') next = (index + 1) % workspaceTabButtons.length;
+    if (event.key === 'ArrowLeft') next = (index + workspaceTabs.length - 1) % workspaceTabs.length;
+    else if (event.key === 'ArrowRight') next = (index + 1) % workspaceTabs.length;
     else if (event.key === 'Home') next = 0;
-    else if (event.key === 'End') next = workspaceTabButtons.length - 1;
+    else if (event.key === 'End') next = workspaceTabs.length - 1;
     else return;
-    const target = workspaceTabButtons[next];
-    activateWorkspaceTab(next ? 'qtgui' : 'editor');
-    target.focus();
+    const target = workspaceTabs[next];
+    activateWorkspaceTab(target.id);
+    target.button.focus();
     event.preventDefault();
   });
-});
+}
+workspaceTabs.forEach(wireWorkspaceTab);
 
 function setRunnerRunning(running: boolean, status?: string) {
   el('workspace').classList.toggle('running', running);
@@ -2610,6 +2625,259 @@ function setRunnerRunning(running: boolean, status?: string) {
   if (pendingRunnerToken === token) pendingRunnerToken = null;
   return files;
 };
+
+// ---- Recording tabs (an embedded IQEngine recording view per File Source) ----
+// Every File Source with something to show gets its own workspace tab holding
+// the IQEngine client that is already built into this site (/iqengine/), driven
+// through its 'url' data source exactly like the recordings palette's "open in
+// IQEngine" link. One <iframe> per tab, created the first time that tab is
+// activated and kept alive afterwards, which is what makes both halves of the
+// laziness hold: IQEngine's bundle is requested once (later tabs hit the HTTP
+// cache) and a recording's samples are requested only for tabs actually opened.
+//
+// The tab set is derived state — it never reaches the .grc — so it is rebuilt
+// from `insts` on every render() rather than tracked through each mutation.
+interface RecordingSource {
+  key: string;            // '/recordings/<path>' or 'local:<token>'
+  label: string;          // tab text
+  title: string;          // tooltip: the full path or file name
+  name: string;           // display name handed to IQEngine
+  kind: 'remote' | 'local';
+  path: string;           // remote: the /recordings/... path this resolves through
+  token?: string;         // local: key into localFilesByToken
+  datatype?: string;      // local: SigMF datatype inferred from the block
+  sampleRate?: number;    // local: samp_rate from the flowgraph, when numeric
+}
+
+interface RecordingTab {
+  source: RecordingSource;
+  entry: WorkspaceTabEntry;
+  label: HTMLElement;
+  status: HTMLElement;
+  frame: HTMLIFrameElement | null;
+  opening: boolean;
+  blobUrls: string[];
+}
+
+const recordingTabs = new Map<string, RecordingTab>();
+let recordingTabCounter = 0;
+
+const isRecordingTabId = (id: WorkspaceTab): boolean => id.startsWith('rec:');
+const recordingTabKey = (id: WorkspaceTab): string => id.slice(4);
+
+// A local file has no SigMF metadata, so the datatype is inferred from the File
+// Source itself. GNU Radio reads interleaved I/Q integers as a scalar stream fed
+// into a converter, so a short/byte source whose only sink is that converter is
+// a complex recording — the same shape addRecordingFileSource() builds for ci16.
+const FILE_SOURCE_DATATYPES: Record<string, string> = {
+  complex: 'cf32_le', float: 'rf32_le', int: 'ri32_le', short: 'ri16_le', byte: 'ri8',
+};
+const INTERLEAVED_CONVERTERS: Record<string, { from: string; datatype: string }> = {
+  blocks_interleaved_short_to_complex: { from: 'short', datatype: 'ci16_le' },
+  blocks_interleaved_char_to_complex: { from: 'byte', datatype: 'ci8' },
+};
+const SIGMF_SAMPLE_BYTES: Record<string, number> = {
+  cf32_le: 8, rf32_le: 4, ri32_le: 4, ci16_le: 4, ri16_le: 2, ci8: 2, ri8: 1,
+};
+
+function localRecordingDatatype(block: Inst): string {
+  const type = String(block.params.type || 'complex');
+  const scalar = FILE_SOURCE_DATATYPES[type] || 'cf32_le';
+  if (Number(block.params.vlen ?? 1) > 1) return scalar;
+  const sinks = conns.filter(c => c.from === block.uid)
+    .map(c => insts.find(i => i.uid === c.to)?.id || '');
+  if (sinks.length !== 1) return scalar;
+  const converter = INTERLEAVED_CONVERTERS[sinks[0]];
+  return converter && converter.from === type ? converter.datatype : scalar;
+}
+
+function recordingSourceFor(block: Inst): RecordingSource | null {
+  const savedPath = String(block.params.file || '');
+  if (block.localFileToken) {
+    const file = localFilesByToken.get(block.localFileToken);
+    if (!file) return null;   // picked in a previous session; the File is gone
+    const rate = Number(varScope['samp_rate']);
+    return {
+      key: 'local:' + block.localFileToken,
+      label: file.name, title: file.name, name: file.name,
+      kind: 'local', path: savedPath, token: block.localFileToken,
+      datatype: localRecordingDatatype(block),
+      sampleRate: Number.isFinite(rate) && rate > 0 ? rate : undefined,
+    };
+  }
+  if (!savedPath.startsWith('/recordings/')) return null;
+  // The label comes from the path, not from the recordings manifest, so drawing
+  // the tab never has to wait on (or trigger) a fetch.
+  const relative = savedPath.slice('/recordings/'.length);
+  const name = relative.replace(/\.sigmf-data$/, '');
+  return {
+    key: savedPath, label: name.split('/').pop() || name, title: relative, name,
+    kind: 'remote', path: savedPath,
+  };
+}
+
+function recordingSources(): RecordingSource[] {
+  const sources: RecordingSource[] = [];
+  const seen = new Set<string>();
+  for (const block of insts) {
+    if (block.id !== 'blocks_file_source') continue;
+    const source = recordingSourceFor(block);
+    if (!source || seen.has(source.key)) continue;   // two File Sources, one tab
+    seen.add(source.key);
+    sources.push(source);
+  }
+  return sources;
+}
+
+function createRecordingTab(source: RecordingSource): RecordingTab {
+  const id = ++recordingTabCounter;
+  const button = document.createElement('button');
+  button.type = 'button'; button.className = 'workspace-tab'; button.id = `tabRecording${id}`;
+  button.setAttribute('role', 'tab'); button.setAttribute('aria-selected', 'false');
+  button.tabIndex = -1;
+  const label = document.createElement('span'); label.className = 'workspace-tab-label';
+  button.appendChild(label);
+
+  const panel = document.createElement('section');
+  panel.className = 'workspace-panel recording-pane'; panel.id = `recordingPane${id}`;
+  panel.setAttribute('role', 'tabpanel'); panel.setAttribute('aria-labelledby', button.id);
+  button.setAttribute('aria-controls', panel.id);
+  const status = document.createElement('div'); status.className = 'rec-pane-status';
+  status.textContent = 'Open this tab to load the recording view.';
+  panel.appendChild(status);
+  el('workspaceContent').appendChild(panel);
+
+  const entry: WorkspaceTabEntry = { id: 'rec:' + source.key, button, panel };
+  wireWorkspaceTab(entry);
+  workspaceTabs.push(entry);
+  el('workspaceTabs').appendChild(button);
+  return { source, entry, label, status, frame: null, opening: false, blobUrls: [] };
+}
+
+function destroyRecordingTab(tab: RecordingTab) {
+  for (const url of tab.blobUrls) URL.revokeObjectURL(url);
+  tab.entry.button.remove();
+  tab.entry.panel.remove();   // drops the iframe, and with it IQEngine's workers
+  const index = workspaceTabs.indexOf(tab.entry);
+  if (index >= 0) workspaceTabs.splice(index, 1);
+  recordingTabs.delete(tab.source.key);
+}
+
+// Called from render(), so it must stay synchronous and free of network calls.
+function syncRecordingTabs() {
+  const sources = recordingSources();
+  const wanted = new Set(sources.map(source => source.key));
+  for (const tab of [...recordingTabs.values()])
+    if (!wanted.has(tab.source.key)) destroyRecordingTab(tab);
+
+  for (const source of sources) {
+    let tab = recordingTabs.get(source.key);
+    if (!tab) { tab = createRecordingTab(source); recordingTabs.set(source.key, tab); }
+    tab.source = source;
+    tab.label.textContent = source.label;
+    tab.entry.button.title = source.title;
+    tab.entry.button.setAttribute('aria-label', `Recording ${source.title}`);
+  }
+
+  // Keep the bar in canvas order. Only the buttons are reordered: re-inserting a
+  // panel would re-insert its iframe, which reloads the document inside it.
+  const order = [workspaceTabs[0], workspaceTabs[1],
+    ...sources.map(source => recordingTabs.get(source.key)!.entry)];
+  workspaceTabs.length = 0; workspaceTabs.push(...order);
+  const bar = el('workspaceTabs');
+  if (order.some((entry, index) => bar.children[index] !== entry.button))
+    for (const entry of order) bar.appendChild(entry.button);
+
+  if (!workspaceTabs.some(entry => entry.id === activeWorkspaceTab))
+    activateWorkspaceTab('editor');
+}
+
+// A local file is a bare stream of samples: no sample rate, no datatype, nothing
+// IQEngine can read. Synthesize the smallest SigMF that describes it from what
+// the flowgraph already says, and label the result as inferred.
+function synthesizedSigmfMeta(source: RecordingSource, file: File): string {
+  const datatype = source.datatype || 'cf32_le';
+  const global: Record<string, any> = {
+    'core:datatype': datatype,
+    'core:version': '1.0.0',
+    'core:description':
+      'Synthesized by GNU Radio World from the File Source parameters; this file carries no SigMF metadata.',
+    // Supplying the sample count spares IQEngine a HEAD request, which a blob:
+    // URL does not reliably answer.
+    'traceability:sample_length': Math.floor(file.size / (SIGMF_SAMPLE_BYTES[datatype] || 8)),
+  };
+  if (source.sampleRate) global['core:sample_rate'] = source.sampleRate;
+  return JSON.stringify({ global, captures: [{ 'core:sample_start': 0 }], annotations: [] });
+}
+
+function recordingPaneMessage(tab: RecordingTab, message: string) {
+  tab.status.textContent = message;
+  tab.status.hidden = false;
+}
+
+async function openRecordingPane(key: string) {
+  const tab = recordingTabs.get(key);
+  if (!tab || tab.frame || tab.opening) return;
+  tab.opening = true;
+  try {
+    recordingPaneMessage(tab, 'Loading the IQEngine recording view…');
+    // Building IQEngine is optional (see AGENTS.md); say so rather than framing
+    // the dev server's 404 text.
+    const probe = await fetch('/iqengine/', { method: 'HEAD' }).catch(() => null);
+    if (probe && !probe.ok) {
+      recordingPaneMessage(tab,
+        'IQEngine is not part of this build, so the recording view is unavailable. ' +
+        'Build it with: cd iqengine/client && npm ci && npm run build -- --base=/iqengine/');
+      return;
+    }
+
+    // The File Source can be deleted while the manifest fetch above is in
+    // flight; anything created past this point would never be cleaned up.
+    if (recordingTabs.get(key) !== tab) return;
+
+    let metaUrl: string, dataUrl: string;
+    if (tab.source.kind === 'remote') {
+      const recording = await resolveRemoteRecording(tab.source.path);
+      if (recordingTabs.get(key) !== tab) return;
+      if (!recording) {
+        recordingPaneMessage(tab, `The recording "${tab.source.title}" is not available.`);
+        return;
+      }
+      metaUrl = new URL(
+        '/example_recordings/' + encodeRecordingPath(recording.metaFile), location.href).href;
+      dataUrl = new URL(recording.downloadUrl, location.href).href;
+    } else {
+      const file = localFilesByToken.get(tab.source.token!);
+      if (!file) {
+        recordingPaneMessage(tab, 'Choose the local file for this File Source again.');
+        return;
+      }
+      // Blob URLs, not a copy of the file: IQEngine reads them with the same
+      // ranged requests it uses for an HTTP recording.
+      dataUrl = URL.createObjectURL(file);
+      metaUrl = URL.createObjectURL(
+        new Blob([synthesizedSigmfMeta(tab.source, file)], { type: 'application/json' }));
+      tab.blobUrls.push(dataUrl, metaUrl);
+      const note = document.createElement('div'); note.className = 'rec-pane-note';
+      note.textContent = `Metadata inferred from the File Source: ${tab.source.datatype}` +
+        (tab.source.sampleRate ? ` at ${displaySi(tab.source.sampleRate, 'Hz')}` : ', sample rate unknown') +
+        '. A local file carries no SigMF metadata.';
+      tab.entry.panel.insertBefore(note, tab.status);
+    }
+
+    const frame = document.createElement('iframe');
+    frame.className = 'rec-pane-frame';
+    frame.title = `IQEngine recording view — ${tab.source.name}`;
+    frame.addEventListener('load', () => { tab.status.hidden = true; });
+    tab.entry.panel.appendChild(frame);
+    tab.frame = frame;
+    frame.src = iqengineUrl(metaUrl, dataUrl, tab.source.name);
+  } catch (error) {
+    recordingPaneMessage(tab, `The recording view could not be opened: ${error}`);
+  } finally {
+    tab.opening = false;
+  }
+}
 
 // ---- Vertical splitter between the block palette and the workspace ----
 const PALETTE_SPLITTER_WIDTH = 7;
@@ -3278,14 +3546,20 @@ const base64Url = (text: string): string => {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 };
 
+// Shared with the recording tabs, which embed the same route in an iframe and
+// pass blob: URLs for a locally picked file.
+function iqengineUrl(metaUrl: string, dataUrl: string, name: string): string {
+  return `${IQENGINE_BASE}/view/url/${base64Url(metaUrl)}/${base64Url(dataUrl)}/` +
+    encodeURIComponent(name);
+}
+
 function iqengineViewUrl(recording: ExampleRecording): string {
   const metaUrl = new URL(
     '/example_recordings/' + encodeRecordingPath(recording.metaFile),
     location.href,
   ).href;
   const dataUrl = new URL(recording.downloadUrl, location.href).href;
-  return `${IQENGINE_BASE}/view/url/${base64Url(metaUrl)}/${base64Url(dataUrl)}/` +
-    encodeURIComponent(recording.name);
+  return iqengineUrl(metaUrl, dataUrl, recording.name);
 }
 
 const displayRecordingValue = (value: string | number | null): string => {

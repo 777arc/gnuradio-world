@@ -110,10 +110,12 @@
   #paletteSplitter:hover::after, #paletteSplitter:focus-visible::after { background:#b9c5e3; }
   #workspace { min-width:0; min-height:0; display:grid;
       grid-template-rows:auto minmax(0,1fr) auto; overflow:hidden; }
-  #workspaceTabs { display:flex; flex:none; background:#1b1e29; border-bottom:1px solid #333a4d; }
-  .workspace-tab { display:flex; align-items:center; justify-content:center; gap:8px; min-width:126px;
+  #workspaceTabs { display:flex; flex:none; background:#1b1e29; border-bottom:1px solid #333a4d;
+      overflow-x:auto; scrollbar-width:thin; }
+  .workspace-tab { display:flex; flex:none; align-items:center; justify-content:center; gap:8px; min-width:126px;
       padding:8px 18px; font-size:12px; color:#9aa7c6; background:#1b1e29; border:0;
       border-right:1px solid #333a4d; border-radius:0; cursor:pointer; }
+  .workspace-tab-label { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:180px; }
   .workspace-tab:hover { background:#242a3b; color:#dce3f5; filter:none; }
   .workspace-tab.active { background:#20232f; color:#e6e9f0; font-weight:600;
       box-shadow:inset 0 -2px 0 #58a6ff; }
@@ -129,6 +131,17 @@
   #workspaceContent { min-width:0; min-height:0; position:relative; overflow:hidden; }
   .workspace-panel { position:absolute; inset:0; min-width:0; min-height:0; }
   .workspace-panel[hidden] { display:none; }
+  /* Recording tabs (one embedded IQEngine recording view per File Source).
+     Inactive ones are hidden with visibility, not display:none: collapsing an
+     iframe to zero size resizes the window IQEngine measures its spectrogram
+     against, and it would come back sized for nothing. */
+  .recording-pane { display:flex; flex-direction:column; overflow:hidden; background:#20232f; }
+  .recording-pane:not(.active) { visibility:hidden; }
+  .rec-pane-note { flex:none; padding:6px 12px; font-size:11px; color:#c9903a;
+      background:#221f18; border-bottom:1px solid #333a4d; }
+  .rec-pane-status { flex:none; padding:14px; font-size:12.5px; color:#9aa7c6; }
+  .rec-pane-status code { font-family:monospace; color:#c3cbe0; }
+  .rec-pane-frame { min-height:0; flex:1; display:block; width:100%; border:0; background:#fff; }
   /* Palette tabs (Blocks / Example Flowgraphs / Recordings) */
   #palette { display:flex; flex-direction:column; overflow:hidden; }
   .paltabs { display:flex; flex:none; border-bottom:1px solid #333a4d; }
