@@ -146,10 +146,15 @@ export function RecordingViewPage() {
           </div>
           <div className="mt-3 mb-0 px-2 py-0" style={{ margin: '5px' }}>
             <details>
-              <summary className="pl-2 mt-2 bg-primary outline outline-1 outline-primary text-base-100 hover:bg-green-800">
+              {/* Styled like the editor's own section headers: a recessed bar
+                  over a panel-colored body, both boxed in the divider color. */}
+              <summary
+                className="cursor-pointer select-none rounded-t-md border border-base-300 bg-base-200 px-3 py-1.5
+                  text-base-content hover:bg-raised"
+              >
                 Annotations
               </summary>
-              <div className="outline outline-1 outline-primary p-2">
+              <div className="rounded-b-md border border-t-0 border-base-300 p-2">
                 <AnnotationList setCurrentFFT={setCurrentFFT} currentFFT={currentFFT} />
               </div>
             </details>

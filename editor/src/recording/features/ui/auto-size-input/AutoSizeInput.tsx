@@ -60,7 +60,7 @@ export const AutoSizeInput = ({
           type={type ?? 'text'}
           title={content}
           value={content ?? ''}
-          className={`bg-base-100 input input-autosize no-spin ${className}`}
+          className={`bg-field border border-line input input-autosize no-spin ${className}`}
           style={{ width, minWidth: minWidth ?? width }}
           autoFocus
           onChange={changeHandler}

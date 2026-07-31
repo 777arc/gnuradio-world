@@ -37,40 +37,57 @@ textarea,
     padding: revert;
   }
 
+  /* The editor's own button (editor/index.html): a slate fill with a blue-grey
+     border that brightens on hover, not a filled accent pill. */
   button {
-    @apply rounded-lg bg-primary text-base-100 px-2 py-1 hover:bg-accent
-    transition-all hover:shadow-lg hover:shadow-accent/40 focus:opacity-[0.85]
-    focus:shadow-none active:opacity-[0.85] active:shadow-none disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none;
+    @apply rounded-md border border-secondary bg-neutral text-base-content px-3 py-1
+    transition-[filter,background-color] hover:brightness-[1.15] focus:opacity-[0.85]
+    disabled:pointer-events-none disabled:opacity-50;
+  }
+
+  /* Fields match the editor's dialog inputs: near-black well, light text. */
+  input[type='text'],
+  input[type='number'],
+  input[type='search'],
+  select,
+  textarea,
+  .input,
+  .textarea {
+    @apply bg-field text-base-content border border-line rounded-md;
   }
 
   a {
-    @apply text-primary;
+    @apply text-accent;
+  }
+
+  /* daisyUI menus (the settings dropdowns) are lists of <a>; they are menu
+     entries rather than links, so they keep the ordinary text color. */
+  .menu a {
+    @apply text-base-content;
+  }
+
+  .menu a:hover {
+    @apply bg-selected;
   }
 
   /* Headings keep their weight and color but not a size of their own -- there is
      one text size in this viewer, see the block above the layer. */
   h1 {
-    @apply text-primary my-4 font-bold;
+    @apply text-base-content my-4 font-bold;
   }
 
   h2 {
-    @apply text-primary mt-1;
+    @apply text-base-content mt-1 font-semibold;
   }
 
-  h3 {
-    @apply text-primary;
-  }
-
-  h4 {
-    @apply text-primary;
-  }
-
+  h3,
+  h4,
   h5 {
-    @apply text-primary;
+    @apply text-base-content font-semibold;
   }
 
   body {
-    @apply text-base-content;
+    @apply text-base-content bg-base-100;
   }
 
   td {
@@ -134,11 +151,11 @@ textarea,
   }
 
   .thumb::-webkit-slider-thumb {
-    @apply bg-accent cursor-pointer h-4 w-4 mt-1 pointer-events-auto relative rounded-lg appearance-none;
+    @apply bg-primary cursor-pointer h-4 w-4 mt-1 pointer-events-auto relative rounded-lg appearance-none;
   }
 
   .thumb::-moz-range-thumb {
-    @apply bg-accent cursor-pointer h-4 w-4 mt-1 pointer-events-auto relative rounded-lg appearance-none;
+    @apply bg-primary cursor-pointer h-4 w-4 mt-1 pointer-events-auto relative rounded-lg appearance-none;
   }
 
   code {

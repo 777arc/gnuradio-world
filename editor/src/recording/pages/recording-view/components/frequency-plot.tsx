@@ -44,7 +44,7 @@ export const FrequencyPlot = ({ displayedIQ, fftStepSize }: FreqPlotProps) => {
 
   return (
     <div className="px-3">
-      <p className="text-primary text-center">
+      <p className="text-muted text-center">
         Below shows the power spectral density of the sample range displayed on the spectrogram tab
       </p>
       {fftStepSize === 0 ? (
@@ -59,7 +59,7 @@ export const FrequencyPlot = ({ displayedIQ, fftStepSize }: FreqPlotProps) => {
       ) : (
         <>
           <h1 className="text-center">Plot only visible when Zoom Out Level is minimum (0)</h1>
-          <p className="text-primary text-center mb-6">(Otherwise the IQ samples are not contiguous)</p>
+          <p className="text-muted text-center mb-6">(Otherwise the IQ samples are not contiguous)</p>
         </>
       )}
     </div>

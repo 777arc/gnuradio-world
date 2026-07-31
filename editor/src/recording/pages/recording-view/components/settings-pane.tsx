@@ -11,6 +11,13 @@ import { IconProp } from '@fortawesome/fontawesome-svg-core';
 import { unitPrefixHz } from '@/utils/rf-functions';
 import { Tab, TAB_NAMES } from '../tabs';
 
+// The dropdown triggers are <label>s, so the base layer's <button> rule does not
+// reach them; these restate the editor's button and menu popup over daisyUI's
+// .btn / .dropdown-content.
+const DROPDOWN_BUTTON =
+  'btn btn-sm w-full font-normal bg-neutral border-secondary text-base-content hover:bg-raised hover:border-secondary';
+const DROPDOWN_MENU = 'p-2 shadow-lg menu dropdown-content z-[1] mt-0 bg-base-100 border border-secondary rounded-md';
+
 interface SettingsPaneProps {
   currentFFT: number;
   currentTab: Tab;
@@ -91,11 +98,15 @@ const SettingsPane = ({ currentFFT, currentTab, setCurrentTab }: SettingsPanePro
             key={key}
             type="button"
             onClick={() => setCurrentTab(Tab[key])}
-            /* The base layer styles every <button> as a filled primary pill, so the
-               inactive state has to name its own background and text color. */
+            /* The editor's workspace tabs: a recessed strip, the active tab
+               raised to the panel color with a blue underline. The base layer
+               styles every <button> as a bordered slate button, so all of it
+               has to be named here. */
             className={`${
-              currentTab === Tab[key] ? 'bg-primary text-base-100' : 'bg-base-100 text-primary'
-            } flex-auto px-1 py-0 rounded-none whitespace-nowrap outline outline-primary outline-1 hover:bg-accent hover:text-base-100`}
+              currentTab === Tab[key]
+                ? 'bg-base-100 text-base-content font-semibold shadow-[inset_0_-2px_0_#58a6ff]'
+                : 'bg-base-200 text-muted hover:bg-raised hover:text-base-content'
+            } flex-auto px-1 py-1 rounded-none border-0 border-r border-base-300 last:border-r-0 whitespace-nowrap`}
           >
             {key}
           </button>
@@ -182,10 +193,10 @@ const SettingsPane = ({ currentFFT, currentTab, setCurrentTab }: SettingsPanePro
 
       <div className="mt-4">
         <div className="dropdown dropdown-hover dropdown-right w-full">
-          <label tabIndex={0} className="btn btn-outline btn-success btn-sm w-full">
+          <label tabIndex={0} className={DROPDOWN_BUTTON}>
             Colormap <ArrowRightIcon />
           </label>
-          <ul className="p-2 shadow menu dropdown-content mt-0 z-[1] bg-base-100 rounded-box w-52">
+          <ul className={`${DROPDOWN_MENU} w-52`}>
             {Object.entries(colMaps).map(([value]) => (
               <li
                 key={value}
@@ -194,7 +205,7 @@ const SettingsPane = ({ currentFFT, currentTab, setCurrentTab }: SettingsPanePro
                   context.setColmap(e.currentTarget.dataset.value);
                 }}
               >
-                {context.colmap === value ? <a className="bg-primary text-black">{value}</a> : <a>{value}</a>}
+                {context.colmap === value ? <a className="bg-selected text-base-content">{value}</a> : <a>{value}</a>}
               </li>
             ))}
           </ul>
@@ -203,10 +214,10 @@ const SettingsPane = ({ currentFFT, currentTab, setCurrentTab }: SettingsPanePro
 
       <div className="mt-4">
         <div className="dropdown dropdown-hover dropdown-right w-full">
-          <label tabIndex={0} className="btn btn-outline btn-success btn-sm w-full">
+          <label tabIndex={0} className={DROPDOWN_BUTTON}>
             FFT Size <ArrowRightIcon />
           </label>
-          <ul className="p-2 shadow menu dropdown-content z-[1] mt-0 bg-base-100 rounded-box w-52">
+          <ul className={`${DROPDOWN_MENU} w-52`}>
             {fftSizes.map((x, index) => (
               <li
                 key={index}
@@ -215,7 +226,7 @@ const SettingsPane = ({ currentFFT, currentTab, setCurrentTab }: SettingsPanePro
                   context.setFFTSize(parseInt(e.currentTarget.dataset.value));
                 }}
               >
-                {context.fftSize === x ? <a className="bg-primary text-black">{x}</a> : <a>{x}</a>}
+                {context.fftSize === x ? <a className="bg-selected text-base-content">{x}</a> : <a>{x}</a>}
               </li>
             ))}
           </ul>
@@ -228,7 +239,7 @@ const SettingsPane = ({ currentFFT, currentTab, setCurrentTab }: SettingsPanePro
             <span className="label-text">
               FIR Filter Taps
               <a
-                style={{ textDecoration: 'none', color: 'white', marginLeft: '5px' }}
+                className="text-muted hover:text-base-content no-underline ml-1"
                 target="_blank"
                 rel="noreferrer"
                 href="https://pysdr.org/content/filters.html"
@@ -241,13 +252,13 @@ const SettingsPane = ({ currentFFT, currentTab, setCurrentTab }: SettingsPanePro
           <div className="mt-2 flex">
             <input
               type="text"
-              className="h-8 w-54 rounded-l text-base-100 ml-1 pl-2"
+              className="h-8 w-54 rounded-r-none ml-1 pl-2"
               defaultValue={localTaps}
               onChange={(e) => {
                 setLocalTaps(e.target.value);
               }}
             />
-            <button className="rounded-none rounded-r" onClick={onSubmitTaps}>
+            <button className="rounded-l-none border-l-0" onClick={onSubmitTaps}>
               <FontAwesomeIcon icon={faArrowRight as IconProp} />
             </button>
           </div>
@@ -256,10 +267,10 @@ const SettingsPane = ({ currentFFT, currentTab, setCurrentTab }: SettingsPanePro
 
       <div className="mt-2">
         <div className="dropdown dropdown-hover dropdown-right w-full">
-          <label tabIndex={0} className="btn btn-outline btn-success btn-sm w-full">
+          <label tabIndex={0} className={DROPDOWN_BUTTON}>
             Example Filter Taps <ArrowRightIcon />
           </label>
-          <ul className="p-2 shadow menu dropdown-content z-[1] mt-0 bg-base-100 rounded-box w-96">
+          <ul className={`${DROPDOWN_MENU} w-96`}>
             <li
               key={0}
               data-value="[0.021019600765633,0.05574786251380393,0.04504671465435009,-0.012858837474581268,-0.042883835223827396,0.013822126400016621,0.05882808073316635,-0.014316809227248763,-0.10299625870988743,0.015410773935742991,0.31701869995313076,0.48460819626209206,0.31701869995313076,0.015410773935742991,-0.10299625870988743,-0.014316809227248763,0.05882808073316635,0.013822126400016621,-0.042883835223827396,-0.012858837474581268,0.04504671465435009,0.05574786251380393,0.021019600765633]"
@@ -280,13 +291,15 @@ const SettingsPane = ({ currentFFT, currentTab, setCurrentTab }: SettingsPanePro
 
       <div className="mt-4 mb-2">
         <div className="dropdown dropdown-hover dropdown-right w-full">
-          <label tabIndex={0} className="btn btn-outline btn-success btn-sm w-full">
+          <label tabIndex={0} className={DROPDOWN_BUTTON}>
             Window <ArrowRightIcon />
           </label>
-          <ul className="p-2 shadow menu dropdown-content z-[1] mt-0 bg-base-100 rounded-box w-70">
+          <ul className={`${DROPDOWN_MENU} w-70`}>
             {windowFunctions.map((value) => (
               <li key={value} data-value={value} onClick={onChangeWindowFunction}>
-                <a className={'capitalize ' + (context.windowFunction === value && 'bg-primary text-black')}>{value}</a>
+                <a className={'capitalize ' + (context.windowFunction === value && 'bg-selected text-base-content')}>
+                  {value}
+                </a>
               </li>
             ))}
           </ul>
@@ -345,14 +358,14 @@ const SettingsPane = ({ currentFFT, currentTab, setCurrentTab }: SettingsPanePro
                 Normalized:{' '}
                 <input
                   type="text"
-                  className="h-5 w-20 rounded-l text-base-100 ml-1 pl-2"
+                  className="h-5 w-20 rounded-r-none ml-1 pl-2"
                   value={localFreqShift}
                   onChange={(e) => {
                     setLocalFreqShift(e.target.value);
                   }}
                 />
                 <button
-                  className="rounded-none rounded-r h-5"
+                  className="rounded-l-none border-l-0 h-5"
                   onClick={() => {
                     cursorContext.setCursorFreqShift(parseFloat(localFreqShift));
                   }}

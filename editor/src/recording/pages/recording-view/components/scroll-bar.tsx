@@ -4,7 +4,12 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Layer, Rect, Image } from 'react-konva';
-import { MINIMUM_SCROLL_HANDLE_HEIGHT_PIXELS, MINIMAP_FFT_SIZE } from '@/utils/constants';
+import {
+  MINIMUM_SCROLL_HANDLE_HEIGHT_PIXELS,
+  MINIMAP_FFT_SIZE,
+  APP_MARK_COLOR,
+  APP_WELL_COLOR,
+} from '@/utils/constants';
 import { useGetMinimapIQ, useRawIQData } from '@/api/iqdata/Queries';
 import { useSpectrogramContext } from '../hooks/use-spectrogram-context';
 import { colMaps } from '@/utils/colormap';
@@ -180,7 +185,7 @@ const ScrollBar = ({ currentFFT, setCurrentFFT }: ScrollBarProps) => {
           <Rect
             x={0}
             y={0}
-            fill="grey"
+            fill={APP_WELL_COLOR}
             width={MINIMAP_FFT_SIZE}
             height={spectrogramHeight}
             strokeWidth={4}
@@ -223,7 +228,7 @@ const ScrollBar = ({ currentFFT, setCurrentFFT }: ScrollBarProps) => {
             width={5}
             height={spectrogramHeight / 100}
             fillEnabled={true}
-            fill="grey"
+            fill={APP_MARK_COLOR}
             strokeWidth={0}
             key={Math.random() * 1000000 + Math.random()}
           />

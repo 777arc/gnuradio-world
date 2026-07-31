@@ -4,7 +4,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Layer, Rect, Text } from 'react-konva';
-import { APP_FONT_FAMILY, APP_FONT_SIZE } from '@/utils/constants';
+import { APP_FONT_FAMILY, APP_FONT_SIZE, APP_TEXT_COLOR, APP_TICK_COLOR } from '@/utils/constants';
 import { useSpectrogramContext } from '../hooks/use-spectrogram-context';
 
 const RulerTop = () => {
@@ -57,7 +57,7 @@ const RulerTop = () => {
             width={tick.width}
             height={tick.height}
             fillEnabled={false}
-            stroke="white"
+            stroke={APP_TICK_COLOR}
             strokeWidth={1}
             key={index}
           />
@@ -70,7 +70,7 @@ const RulerTop = () => {
             fontSize={APP_FONT_SIZE}
             x={label.x}
             y={label.y}
-            fill="white"
+            fill={APP_TEXT_COLOR}
             key={index}
             wrap={'none'}
           />

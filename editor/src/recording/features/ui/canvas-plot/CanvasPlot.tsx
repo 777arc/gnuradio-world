@@ -18,25 +18,29 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { APP_FONT_FAMILY, APP_FONT_SIZE } from '@/utils/constants';
 
-// ---- theme (from @/utils/plotlyTemplate, so the plots keep matching the app) --
-const PLOT_BG = '#05041C';
-const GRID = '#283442';
-const AXIS_LINE = '#506784';
-const FONT_COLOR = '#f2f5fa';
-const MUTED = '#a8b0c0';
+// ---- theme (the editor's chrome colors, see editor/tailwind.config.cjs) ------
+const PLOT_BG = '#1b1e29'; // recessed surface, one step under the panel
+const GRID = '#2f3548';
+const AXIS_LINE = '#46507a';
+const FONT_COLOR = '#e6e9f0';
+const MUTED = '#9aa7c6';
+const TOOLTIP_BG = '#11141d'; // the editor's hover tooltip (#wasmTip)
 // Tick labels, axis titles, legend and hover readout all draw at the app's one
 // text size -- canvas text inherits nothing from the stylesheet.
 const FONT = `${APP_FONT_SIZE}px ${APP_FONT_FAMILY}`;
+// Leads with the editor's own accent colors (the blue of an active workspace
+// tab, the green of Run, the amber and red it warns with) and only then reaches
+// for hues the editor has no use for.
 export const COLORWAY = [
-  '#4CE091',
-  '#84cae7',
-  '#136f63',
+  '#58a6ff',
+  '#3fae63',
+  '#c9903a',
+  '#ff7b72',
+  '#4fc3d6',
   '#ab63fa',
-  '#FFA15A',
-  '#19d3f3',
-  '#FF6692',
   '#B6E880',
   '#FF97FF',
+  '#FF6692',
   '#FECB52',
 ];
 
@@ -464,7 +468,7 @@ export const CanvasPlot = ({
     if (rangeSlider && geo.sliderH > 0) {
       const full = autoView(extent, xPad);
       const sliderView: View = { x0: full.x0, x1: full.x1, y0: full.y0, y1: full.y1 };
-      ctx.fillStyle = '#0b0a26';
+      ctx.fillStyle = '#171a24';
       ctx.fillRect(plotX, geo.sliderY, plotW, geo.sliderH);
       ctx.save();
       ctx.beginPath();
@@ -484,12 +488,12 @@ export const CanvasPlot = ({
       const left = plotX + ((view.x0 - sliderView.x0) / span) * plotW;
       const right = plotX + ((view.x1 - sliderView.x0) / span) * plotW;
       // Mask what is outside the window, then outline it and its two handles.
-      ctx.fillStyle = 'rgba(5, 4, 28, 0.72)';
+      ctx.fillStyle = 'rgba(17, 20, 29, 0.72)';
       ctx.fillRect(plotX, geo.sliderY, Math.max(0, left - plotX), geo.sliderH);
       ctx.fillRect(Math.min(right, plotX + plotW), geo.sliderY, Math.max(0, plotX + plotW - right), geo.sliderH);
       ctx.strokeStyle = AXIS_LINE;
       ctx.strokeRect(plotX + 0.5, geo.sliderY + 0.5, plotW - 1, geo.sliderH - 1);
-      ctx.fillStyle = '#f2f5fa';
+      ctx.fillStyle = FONT_COLOR;
       ctx.fillRect(left - SLIDER_HANDLE_W / 2, geo.sliderY, SLIDER_HANDLE_W / 2, geo.sliderH);
       ctx.fillRect(right, geo.sliderY, SLIDER_HANDLE_W / 2, geo.sliderH);
     }
@@ -507,7 +511,7 @@ export const CanvasPlot = ({
         const boxH = named.length * rowH + 8;
         const boxX = plotX + plotW - boxW - 8;
         const boxY = plotY + 8;
-        ctx.fillStyle = 'rgba(5, 4, 28, 0.7)';
+        ctx.fillStyle = 'rgba(17, 20, 29, 0.7)';
         ctx.fillRect(boxX, boxY, boxW, boxH);
         named.forEach((trace, index) => {
           const color = trace.color ?? COLORWAY[traces.indexOf(trace) % COLORWAY.length];
@@ -559,7 +563,7 @@ export const CanvasPlot = ({
         const boxH = 8 + (rows.length + 1) * 16;
         const boxX = Math.min(hover.px + 12, plotX + plotW - boxW - 2);
         const boxY = Math.min(Math.max(hover.py - boxH / 2, plotY + 2), plotY + plotH - boxH - 2);
-        ctx.fillStyle = 'rgba(5, 4, 28, 0.92)';
+        ctx.fillStyle = TOOLTIP_BG;
         ctx.strokeStyle = AXIS_LINE;
         ctx.lineWidth = 1;
         ctx.fillRect(boxX, boxY, boxW, boxH);
@@ -767,9 +771,11 @@ const ModeBarButton = ({
     title={title}
     aria-label={title}
     onClick={onClick}
-    // !bg-transparent because the app's base layer styles every <button> as a
-    // filled primary button, which is not what a mode bar icon should look like.
-    className="!bg-transparent !p-0 !shadow-none w-6 h-6 flex items-center justify-center text-base-content/60 hover:!text-primary"
+    // !bg-transparent/!border-0 because the app's base layer styles every
+    // <button> as a bordered slate button, which is not what a mode bar icon
+    // should look like.
+    className="!bg-transparent !border-0 !p-0 !shadow-none w-6 h-6 flex items-center justify-center
+      text-muted hover:!text-base-content"
   >
     <svg viewBox="0 0 14 14" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.4">
       {children}

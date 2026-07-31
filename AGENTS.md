@@ -859,6 +859,21 @@ working:
   annotations) and `CanvasPlot`'s axes read `APP_FONT_FAMILY`/`APP_FONT_SIZE`
   from [`editor/src/recording/utils/constants.ts`](editor/src/recording/utils/constants.ts)
   instead. Prefer those over a new `text-*` utility.
+- **The viewer's colors are the editor's, not IQEngine's.** The daisyUI theme in
+  [`editor/tailwind.config.cjs`](editor/tailwind.config.cjs) maps every token onto
+  a color taken from `editor/index.html` (`base-100` = the `#20232f` panel fill,
+  `base-200` the recessed strip, `base-300` the divider, `neutral`/`secondary` the
+  slate button and its border, `primary` the `#3fae63` green, `accent` the
+  `#58a6ff` blue), plus an `extend.colors` set — `field`, `line`, `raised`,
+  `selected`, `muted` — for the chrome colors daisyUI has no token for. Style with
+  those tokens rather than a literal hex, and if the editor's chrome changes,
+  change them here too. Two places CSS cannot reach need the values spelled out:
+  `CanvasPlot`'s theme constants and colorway, and the konva chrome (rulers, the
+  minimap scrollbar) which reads `APP_TEXT_COLOR`/`APP_TICK_COLOR`/
+  `APP_WELL_COLOR`/`APP_MARK_COLOR` from `utils/constants.ts`. Konva overlays
+  drawn *on the spectrogram* — annotation boxes, the freq/time cursors — keep
+  their high-contrast white/red/blue instead, because they sit over an arbitrary
+  colormap.
 - **The Time/Frequency/IQ tabs draw on a plain 2D canvas, not plotly.** Upstream
   uses `react-plotly.js`, which is ~4.7 MB — several times the rest of the viewer
   — for one trace type, and its size is why upstream loads those three tabs

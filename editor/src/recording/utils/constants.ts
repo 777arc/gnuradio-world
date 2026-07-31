@@ -9,6 +9,16 @@
 export const APP_FONT_FAMILY = 'system-ui, Arial, sans-serif';
 export const APP_FONT_SIZE = 13;
 
+// Same story for color: konva draws the rulers and the minimap scrollbar onto
+// the page chrome, where the editor's palette applies (see
+// editor/tailwind.config.cjs). Overlays drawn *on the spectrogram* are not in
+// this set -- they sit over an arbitrary colormap and keep their high-contrast
+// white/red/blue.
+export const APP_TEXT_COLOR = '#e6e9f0'; // base-content
+export const APP_TICK_COLOR = '#9aa7c6'; // muted
+export const APP_WELL_COLOR = '#171a24'; // field, the recessed track/placeholder
+export const APP_MARK_COLOR = '#7783a4'; // scrollbar-thumb grey of the editor's splitters
+
 export const MINIMUM_SCROLL_HANDLE_HEIGHT_PIXELS = 10;
 export const COLORMAP_DEFAULT = 'viridis';
 export const MINIMAP_FFT_SIZE = 64;

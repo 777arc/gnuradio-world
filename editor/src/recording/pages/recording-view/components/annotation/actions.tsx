@@ -80,7 +80,7 @@ export const Actions = ({
             <div>
               <textarea
                 aria-labelledby={'Annotation' + index}
-                className="w-full textarea bg-base-100 text-base-content overflow-hidden hover:overflow-auto"
+                className="w-full textarea bg-field border border-line text-base-content overflow-hidden hover:overflow-auto"
                 rows={8}
                 onChange={onChangeHandler}
                 value={currentAnnotation}

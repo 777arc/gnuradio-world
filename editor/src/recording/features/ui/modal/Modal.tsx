@@ -15,13 +15,14 @@ export const ModalDialog = ({ heading, setShowModal, children, classList }: Moda
 
   return (
     <dialog aria-labelledby={heading.replace(/ /g, '')} className="modal modal-open w-full h-full">
-      <div className={`modal-box ${classList}`}>
-        <h3 id={heading.replace(/ /g, '')} className="font-bold text-primary">
+      {/* border + radius match the editor's own dialogs (.dlg in editor/index.html) */}
+      <div className={`modal-box rounded-lg border border-secondary ${classList}`}>
+        <h3 id={heading.replace(/ /g, '')} className="font-bold text-base-content">
           {heading}
         </h3>
         <button
           aria-label={'Close'}
-          className="absolute right-2 top-2 bg-base-100 text-primary font-bold"
+          className="absolute right-2 top-2 border-0 bg-transparent text-muted hover:text-base-content font-bold"
           onClick={() => {
             setShowModal(false);
           }}

@@ -42,7 +42,7 @@ export const IQPlot = ({ displayedIQ, fftStepSize }: IQPlotProps) => {
 
   return (
     <div className="px-3">
-      <p className="text-primary text-center">Below shows the first 10k IQ samples displayed on the spectrogram tab</p>
+      <p className="text-muted text-center">Below shows the first 10k IQ samples displayed on the spectrogram tab</p>
       {fftStepSize === 0 ? (
         <CanvasPlot
           traces={[{ x: I ?? new Float32Array(), y: Q ?? new Float32Array(), mode: 'markers', markerSize: 3 }]}
@@ -55,7 +55,7 @@ export const IQPlot = ({ displayedIQ, fftStepSize }: IQPlotProps) => {
       ) : (
         <>
           <h1 className="text-center">Plot only visible when Zoom Out Level is minimum (0)</h1>
-          <p className="text-primary text-center mb-6">(Otherwise the IQ samples are not contiguous)</p>
+          <p className="text-muted text-center mb-6">(Otherwise the IQ samples are not contiguous)</p>
         </>
       )}
     </div>
