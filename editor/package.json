@@ -42,13 +42,11 @@
     "fftshift": "1.0.1",
     "js-yaml": "^5.2.2",
     "konva": "9.3.14",
-    "plotly.js": "2.35.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "react-hot-toast": "2.4.1",
     "react-konva": "18.2.10",
     "react-konva-utils": "1.0.6",
-    "react-plotly.js": "2.6.0",
     "react-router-dom": "6.26.1",
     "usehooks-ts": "^2.9.1"
   }

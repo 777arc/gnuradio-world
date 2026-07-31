@@ -104,7 +104,7 @@ node server.mjs 8090 "$PWD"
 | `test/` | `test_smoke.mjs` (runs example flowgraphs headlessly and asserts samples actually move) and `test_lazy_scenarios.mjs` (verifies on-demand category side modules are fetched and `dlopen`'d), plus the `fixtures/` `.grc` they load; CI gates the deploy on both. `editor/test/` and `runner/test/` hold their own suites — see "Run and test" |
 | `scripts/` | `assemble-site.mjs` (assembles the static site CI deploys to Pages), `serve_site.mjs` (serves an assembled site the way Cloudflare Pages does), `run.mjs` (headless-Chromium test harness, waits on a page `#result`), `run_example.mjs` (opens an example in the real editor and presses Run), `r2-cors.json` (CORS policy for the recordings bucket) |
 | `editor/recording/` | HTML shell for the built-in recording view, emitted at `/recording/` by the normal editor build |
-| `editor/src/recording/` | Focused IQEngine-derived SigMF URL/blob reader, bounded range loader, FFT/spectrogram DSP, plots and recording-view UI |
+| `editor/src/recording/` | Focused IQEngine-derived SigMF URL/blob reader, bounded range loader, FFT/spectrogram DSP, plots and recording-view UI. Its `features/ui/canvas-plot/` is repo-owned, not IQEngine's |
 
 ## Toolchain and prerequisites
 
@@ -843,6 +843,17 @@ working:
   spectrogram plus Time/Frequency/IQ plots, recording settings, annotations and
   metadata. IQEngine's plugins, Cyclostationary view, backends/authentication and
   Pyodide path are not included.
+- **The Time/Frequency/IQ tabs draw on a plain 2D canvas, not plotly.** Upstream
+  uses `react-plotly.js`, which is ~4.7 MB — several times the rest of the viewer
+  — for one trace type, and its size is why upstream loads those three tabs
+  lazily. [`editor/src/recording/features/ui/canvas-plot/CanvasPlot.tsx`](editor/src/recording/features/ui/canvas-plot/CanvasPlot.tsx)
+  replaces it: same theme, ticks, hover readout, mode bar, legend and range
+  slider, plus pan/wheel-zoom/double-click-autoscale and plotly's `uirevision`
+  rule (new data re-autoranges only while the reader has not zoomed). Dense
+  traces use min/max decimation, one vertical segment per pixel column, which is
+  what keeps the Time tab's ~650k points per trace at a few ms a frame. It is
+  repo-owned code, so it is the one file under `src/recording/` that has no
+  upstream counterpart to diff against.
 
 `editor/test/recording-tabs.test.mjs` pins all of the above. It does not run a
 browser, so a change here also wants the manual pass in "Run and test".

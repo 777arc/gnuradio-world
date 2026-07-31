@@ -1,4 +1,4 @@
-import React, { useEffect, useState, Suspense, lazy } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useSpectrogram } from './hooks/use-spectrogram';
 import { Layer, Stage, Image } from 'react-konva';
@@ -9,12 +9,12 @@ import { RulerSide } from './components/ruler-side';
 import { SpectrogramContextProvider, useSpectrogramContext } from './hooks/use-spectrogram-context';
 import { CursorContextProvider } from './hooks/use-cursor-context';
 import { useMeta } from '@/api/metadata/queries';
-// Plotly is ~4.5 MB of JavaScript and only the Time/Frequency/IQ tabs use it;
-// the spectrogram is drawn with konva. Loading these three on demand keeps that
-// out of the initial download for anyone who only looks at the spectrogram.
-const IQPlot = lazy(() => import('./components/iq-plot').then((m) => ({ default: m.IQPlot })));
-const FrequencyPlot = lazy(() => import('./components/frequency-plot').then((m) => ({ default: m.FrequencyPlot })));
-const TimePlot = lazy(() => import('./components/time-plot').then((m) => ({ default: m.TimePlot })));
+// Upstream loads these three lazily because they pulled in plotly, ~4.5 MB of
+// JavaScript for three tabs. They draw on a plain canvas now (see
+// @/features/ui/canvas-plot), so they are a few KB and cost nothing to import.
+import { IQPlot } from './components/iq-plot';
+import { FrequencyPlot } from './components/frequency-plot';
+import { TimePlot } from './components/time-plot';
 import { Sidebar } from './components/sidebar';
 import GlobalProperties from './components/global-properties';
 import MetaViewer from './components/meta-viewer';
@@ -108,11 +108,9 @@ export function DisplaySpectrogram({ currentFFT, setCurrentFFT, currentTab }) {
           </div>
         </>
       )}
-      <Suspense fallback={<div className="text-lg text-primary p-3">Loading plot...</div>}>
-        {currentTab === Tab.Time && <TimePlot displayedIQ={displayedIQ} fftStepSize={fftStepSize} />}
-        {currentTab === Tab.Frequency && <FrequencyPlot displayedIQ={displayedIQ} fftStepSize={fftStepSize} />}
-        {currentTab === Tab.IQ && <IQPlot displayedIQ={displayedIQ} fftStepSize={fftStepSize} />}
-      </Suspense>
+      {currentTab === Tab.Time && <TimePlot displayedIQ={displayedIQ} fftStepSize={fftStepSize} />}
+      {currentTab === Tab.Frequency && <FrequencyPlot displayedIQ={displayedIQ} fftStepSize={fftStepSize} />}
+      {currentTab === Tab.IQ && <IQPlot displayedIQ={displayedIQ} fftStepSize={fftStepSize} />}
     </>
   );
 }

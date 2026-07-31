@@ -1,7 +1,6 @@
-import Plot from 'react-plotly.js';
 import React, { useEffect, useState } from 'react';
 import { fftshift } from 'fftshift';
-import { template } from '@/utils/plotlyTemplate';
+import { CanvasPlot } from '@/features/ui/canvas-plot/CanvasPlot';
 import { FFT } from '@/utils/fft';
 import { useSpectrogramContext } from '../hooks/use-spectrogram-context';
 
@@ -49,39 +48,13 @@ export const FrequencyPlot = ({ displayedIQ, fftStepSize }: FreqPlotProps) => {
         Below shows the power spectral density of the sample range displayed on the spectrogram tab
       </p>
       {fftStepSize === 0 ? (
-        <Plot
-          data={[
-            {
-              x: frequencies,
-              y: magnitudes,
-              type: 'scattergl',
-            },
-          ]}
-          layout={{
-            width: spectrogramWidth,
-            height: spectrogramHeight,
-            margin: {
-              l: 0,
-              r: 0,
-              b: 0,
-              t: 0,
-              pad: 0,
-            },
-            dragmode: 'pan',
-            template: template,
-            xaxis: {
-              title: 'Frequency',
-              rangeslider: {}, // this makes it display
-            },
-            yaxis: {
-              title: 'Magnitude',
-              fixedrange: false,
-            },
-          }}
-          config={{
-            displayModeBar: true,
-            scrollZoom: true,
-          }}
+        <CanvasPlot
+          traces={[{ x: frequencies, y: magnitudes }]}
+          width={spectrogramWidth}
+          height={spectrogramHeight}
+          xTitle="Frequency"
+          yTitle="Magnitude"
+          rangeSlider
         />
       ) : (
         <>

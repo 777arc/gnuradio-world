@@ -1,6 +1,5 @@
-import Plot from 'react-plotly.js';
 import React, { useEffect, useState } from 'react';
-import { template } from '@/utils/plotlyTemplate';
+import { CanvasPlot } from '@/features/ui/canvas-plot/CanvasPlot';
 import { useSpectrogramContext } from '../hooks/use-spectrogram-context';
 import { useCursorContext } from '../hooks/use-cursor-context';
 
@@ -44,46 +43,18 @@ export const TimePlot = ({ displayedIQ, fftStepSize }: TimePlotProps) => {
         Below shows the time domain of the sample range displayed on the spectrogram tab
       </p>
       {fftStepSize === 0 ? (
-        <Plot
-          data={[
-            {
-              y: I,
-              type: 'scattergl', // scattergl renders on an html5 canvas, whereas regular scatter creates svg objects that get inserted in the current document, consuming muuuuuch more memory
-              name: 'I',
-            },
-            {
-              y: Q,
-              type: 'scattergl',
-              name: 'Q',
-            },
+        <CanvasPlot
+          traces={[
+            { y: I ?? new Float32Array(), name: 'I' },
+            { y: Q ?? new Float32Array(), name: 'Q' },
           ]}
-          layout={{
-            width: spectrogramWidth,
-            height: spectrogramHeight,
-            margin: {
-              l: 0,
-              r: 0,
-              b: 0,
-              t: 0,
-              pad: 0,
-            },
-            dragmode: 'pan',
-            showlegend: true,
-            template: template,
-            xaxis: {
-              title: 'Time',
-              rangeslider: {},
-            },
-            yaxis: {
-              title: 'Samples',
-              fixedrange: true,
-            },
-            uirevision: 'true', // keeps zoom/pan the same when data changes
-          }}
-          config={{
-            displayModeBar: true,
-            scrollZoom: true,
-          }}
+          width={spectrogramWidth}
+          height={spectrogramHeight}
+          xTitle="Time"
+          yTitle="Samples"
+          showLegend
+          yFixedRange
+          rangeSlider
         />
       ) : (
         <>

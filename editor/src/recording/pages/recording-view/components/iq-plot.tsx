@@ -1,6 +1,5 @@
-import Plot from 'react-plotly.js';
 import React, { useEffect, useState } from 'react';
-import { template } from '@/utils/plotlyTemplate';
+import { CanvasPlot } from '@/features/ui/canvas-plot/CanvasPlot';
 import { useSpectrogramContext } from '../hooks/use-spectrogram-context';
 import { useCursorContext } from '../hooks/use-cursor-context';
 
@@ -45,42 +44,13 @@ export const IQPlot = ({ displayedIQ, fftStepSize }: IQPlotProps) => {
     <div className="px-3">
       <p className="text-primary text-center">Below shows the first 10k IQ samples displayed on the spectrogram tab</p>
       {fftStepSize === 0 ? (
-        <Plot
-          data={[
-            {
-              x: I,
-              y: Q,
-              type: 'scattergl',
-              mode: 'markers',
-              marker: {
-                size: 3,
-              },
-            },
-          ]}
-          layout={{
-            width: spectrogramHeight,
-            height: spectrogramHeight, // so it's square
-            margin: {
-              l: 0,
-              r: 0,
-              b: 0,
-              t: 0,
-              pad: 0,
-            },
-            dragmode: 'pan',
-            template: template,
-            xaxis: {
-              title: 'I',
-            },
-            yaxis: {
-              title: 'Q',
-            },
-            uirevision: 'true', // keeps zoom/pan the same when data changes
-          }}
-          config={{
-            displayModeBar: true,
-            scrollZoom: true,
-          }}
+        <CanvasPlot
+          traces={[{ x: I ?? new Float32Array(), y: Q ?? new Float32Array(), mode: 'markers', markerSize: 3 }]}
+          width={spectrogramHeight}
+          height={spectrogramHeight} // so it's square
+          xTitle="I"
+          yTitle="Q"
+          xPad={0.05}
         />
       ) : (
         <>
