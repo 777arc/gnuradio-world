@@ -12,8 +12,9 @@ assert.match(html, /#canvasScroll \{[^}]*background-attachment:local, local;/s,
   'the drawn grid scrolls with the blocks instead of staying pinned to the viewport');
 assert.match(html, /svg \{ width:100%; height:100%/,
   'the surface stays viewport-sized so one scrollbar cannot conjure up the other');
-assert.match(html, /<div id="workspaceContent">[\s\S]*<\/svg>[\s\S]*<\/section>\s*<\/div>\s*<div id="log">/,
-  'the console stays outside the tabbed workspace content');
+assert.match(html,
+  /<div id="workspaceContent">[\s\S]*<\/svg>[\s\S]*<\/section>\s*<\/div>\s*<div id="consoleSplitter"[\s\S]*?<div id="log">/,
+  'the console and its splitter stay outside the tabbed workspace content');
 
 assert.match(source, /nodesG\.appendChild\(g\);\s*\}\s*updateCanvasExtent\(\);/,
   'render() refreshes the canvas extent after laying blocks out');

@@ -8,7 +8,7 @@ assert.match(html,
   /id="workspaceTabs"[^>]*role="tablist"[\s\S]*id="tabEditor"[^>]*role="tab"[\s\S]*id="tabQtGui"[^>]*role="tab"/,
   'the right-side workspace exposes Editor and QT GUI tabs');
 assert.match(html,
-  /id="workspaceContent"[\s\S]*id="editorPane"[^>]*role="tabpanel"[\s\S]*id="runPane"[^>]*role="tabpanel"[\s\S]*<\/div>\s*<div id="log">/,
+  /id="workspaceContent"[\s\S]*id="editorPane"[^>]*role="tabpanel"[\s\S]*id="runPane"[^>]*role="tabpanel"[\s\S]*<\/div>\s*<div id="consoleSplitter"[\s\S]*?<div id="log">/,
   'the console is a persistent row below both tab panels');
 assert.match(html, /#editorPane\[hidden\], #runPane\[hidden\] \{ display:none; \}/,
   'panel-specific display rules cannot override the inactive tab hidden state');

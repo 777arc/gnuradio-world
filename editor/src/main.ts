@@ -2933,6 +2933,69 @@ window.addEventListener('resize', () => {
   if (!el('app').classList.contains('hide-palette')) applyPaletteWidth();
 });
 
+// ---- Horizontal splitter between the workspace panels and the console pane ----
+// Until it is dragged the console keeps its CSS auto-sizing (grows with output up
+// to 26vh); a drag pins an explicit height, and a double-click gives that back.
+const CONSOLE_SPLITTER_HEIGHT = 7;
+const MIN_CONSOLE_HEIGHT = 29;
+const MIN_WORKSPACE_CONTENT_HEIGHT = 120;
+let consoleHeight = 0;   // 0 while auto-sized
+
+function applyConsoleHeight(height: number | null = consoleHeight) {
+  const workspace = el('workspace');
+  if (height === null) {
+    consoleHeight = 0;
+    workspace.classList.remove('console-resized');
+    workspace.style.removeProperty('--console-height');
+    consoleSplitter.removeAttribute('aria-valuenow');
+    return;
+  }
+  const maximum = Math.max(MIN_CONSOLE_HEIGHT,
+    workspace.clientHeight - el('workspaceTabs').offsetHeight
+      - CONSOLE_SPLITTER_HEIGHT - MIN_WORKSPACE_CONTENT_HEIGHT);
+  consoleHeight = Math.round(Math.max(MIN_CONSOLE_HEIGHT, Math.min(maximum, height)));
+  workspace.classList.add('console-resized');
+  workspace.style.setProperty('--console-height', `${consoleHeight}px`);
+  consoleSplitter.setAttribute('aria-valuenow', String(consoleHeight));
+}
+
+const consoleSplitter = el('consoleSplitter');
+let resizingConsole = false;
+const consoleFromPointer = (clientY: number) => applyConsoleHeight(
+  el('workspace').getBoundingClientRect().bottom - clientY - CONSOLE_SPLITTER_HEIGHT / 2);
+consoleSplitter.addEventListener('pointerdown', event => {
+  resizingConsole = true;
+  el('app').classList.add('resizing-console');
+  consoleSplitter.setPointerCapture(event.pointerId);
+  consoleFromPointer(event.clientY);
+  event.preventDefault();
+});
+consoleSplitter.addEventListener('pointermove', event => {
+  if (resizingConsole) consoleFromPointer(event.clientY);
+});
+const finishConsoleResize = (event: PointerEvent) => {
+  if (!resizingConsole) return;
+  resizingConsole = false;
+  el('app').classList.remove('resizing-console');
+  if (consoleSplitter.hasPointerCapture(event.pointerId))
+    consoleSplitter.releasePointerCapture(event.pointerId);
+};
+consoleSplitter.addEventListener('pointerup', finishConsoleResize);
+consoleSplitter.addEventListener('pointercancel', finishConsoleResize);
+consoleSplitter.addEventListener('dblclick', () => applyConsoleHeight(null));
+consoleSplitter.addEventListener('keydown', event => {
+  // Arrows nudge from wherever the pane currently sits, auto-sized or not.
+  const current = consoleHeight || el('log').getBoundingClientRect().height;
+  if (event.key === 'ArrowUp') applyConsoleHeight(current + 20);
+  else if (event.key === 'ArrowDown') applyConsoleHeight(current - 20);
+  else if (event.key === 'Home') applyConsoleHeight(MIN_CONSOLE_HEIGHT);
+  else if (event.key === 'End') applyConsoleHeight(Infinity);
+  else if (event.key === 'Escape') applyConsoleHeight(null);
+  else return;
+  event.preventDefault();
+});
+window.addEventListener('resize', () => { if (consoleHeight) applyConsoleHeight(); });
+
 async function run() {
   const errors = validateGraph().filter(issue => issue.blocking);
   if (errors.length) {

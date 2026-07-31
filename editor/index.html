@@ -109,7 +109,17 @@
   #paletteSplitter:hover, #paletteSplitter:focus-visible { background:#343b52; }
   #paletteSplitter:hover::after, #paletteSplitter:focus-visible::after { background:#b9c5e3; }
   #workspace { min-width:0; min-height:0; display:grid;
-      grid-template-rows:auto minmax(0,1fr) auto; overflow:hidden; }
+      grid-template-rows:auto minmax(0,1fr) auto auto; overflow:hidden; }
+  /* Horizontal splitter between the workspace panels and the console pane */
+  #consoleSplitter { height:7px; position:relative; z-index:20; cursor:row-resize;
+      touch-action:none; background:#262b3b; border-top:1px solid #333a4d;
+      border-bottom:1px solid #11141d; outline:none; }
+  #consoleSplitter::after { content:''; position:absolute; height:2px; width:42px; border-radius:2px;
+      background:#7783a4; left:50%; top:2px; transform:translateX(-50%); }
+  #consoleSplitter:hover, #consoleSplitter:focus-visible { background:#343b52; }
+  #consoleSplitter:hover::after, #consoleSplitter:focus-visible::after { background:#b9c5e3; }
+  #app.resizing-console { cursor:row-resize; }
+  #app.resizing-console iframe { pointer-events:none; }
   #workspaceTabs { display:flex; flex:none; background:#1b1e29; border-bottom:1px solid #333a4d;
       overflow-x:auto; scrollbar-width:thin; }
   .workspace-tab { display:flex; flex:none; align-items:center; justify-content:center; gap:8px; min-width:126px;
@@ -254,7 +264,10 @@
       linear-gradient(90deg, #e9eaec 1px, transparent 1px) 0 0/var(--grid-size) var(--grid-size),
       #f7f7f7; background-attachment:local, local; }
   #canvasWrap.grid-hidden #canvasScroll { background:#f7f7f7; }
-  #workspace.console-hidden #log { display:none; }
+  #workspace.console-hidden #log, #workspace.console-hidden #consoleSplitter { display:none; }
+  /* Until the splitter is dragged the console keeps auto-sizing to its content
+     (see the #log rule below); a drag pins it to an explicit height instead. */
+  #workspace.console-resized #log { height:var(--console-height); max-height:none; }
   /* min-width/min-height (set by render) grow the surface past the viewport when
      blocks sit off-screen; 100% keeps it exactly viewport-sized otherwise, so no
      scrollbar ever appears just because the other scrollbar took up room. */
@@ -425,6 +438,8 @@
         <iframe id="runFrame" title="GNU Radio QT GUI" hidden></iframe>
       </section>
     </div>
+    <div id="consoleSplitter" role="separator" aria-label="Resize console"
+         aria-orientation="horizontal" aria-valuemin="29" tabindex="0"></div>
     <div id="log"></div>
   </div>
 </div>
