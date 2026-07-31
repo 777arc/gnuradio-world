@@ -1,0 +1,23 @@
+{
+  "//": [
+    "The vendored recording view is IQEngine code, written against IQEngine's own",
+    "tsconfig (non-strict, React JSX, '@/...' self-references). Nothing type-checks",
+    "it: `vite build` transpiles with esbuild and never runs tsc. These settings",
+    "exist so an editor resolves the imports the way the bundler does."
+  ],
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": false,
+    "skipLibCheck": true,
+    "allowJs": true,
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "baseUrl": ".",
+    "paths": { "@/*": ["./*"] }
+  },
+  "include": ["."]
+}

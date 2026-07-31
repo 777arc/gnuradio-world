@@ -1,0 +1,118 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  ul,
+  ol {
+    list-style: revert;
+    margin: revert;
+    padding: revert;
+  }
+
+  button {
+    @apply rounded-lg bg-primary text-base-100 px-2 py-1 hover:bg-accent
+    transition-all hover:shadow-lg hover:shadow-accent/40 focus:opacity-[0.85]
+    focus:shadow-none active:opacity-[0.85] active:shadow-none disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none;
+  }
+
+  a {
+    @apply text-primary;
+  }
+
+  h1 {
+    @apply text-primary text-2xl my-4 font-bold;
+  }
+
+  h2 {
+    @apply text-primary text-lg mt-1;
+  }
+
+  h3 {
+    @apply text-primary;
+  }
+
+  h4 {
+    @apply text-primary;
+  }
+
+  h5 {
+    @apply text-primary;
+  }
+
+  body {
+    @apply text-base-content;
+  }
+
+  td {
+    @apply border-b border-base-content/25;
+  }
+
+  .label-text {
+    @apply !text-base-content font-bold text-center;
+  }
+
+  .repocard {
+    @apply card rounded-xl w-72 m-3 bg-neutral bg-opacity-50 outline-secondary outline-1 outline;
+  }
+
+  .repoimage {
+    @apply h-48 rounded-lg mt-3;
+  }
+
+  .repocardbody {
+    @apply card-body p-3;
+  }
+
+  .repocardbutton {
+    @apply bg-primary opacity-75 text-lg text-base-100 hover:bg-accent hover:opacity-100 rounded-t-none !border-none text-center;
+  }
+
+  .leadership-card-header {
+    @apply w-56 rounded-t-xl p-2 text-center bg-primary text-base-100 font-bold;
+  }
+
+  .leadership-card-body {
+    @apply w-56 bg-base-100 rounded-b-xl p-2 text-center;
+  }
+
+  .slider {
+    @apply relative w-48;
+  }
+
+  .slider-container {
+    @apply h-8 flex items-center justify-center;
+  }
+
+  .slider-left-value {
+    @apply absolute text-lg mt-1 left-px;
+  }
+
+  .slider-right-value {
+    @apply absolute text-lg mb-10 mt-1 right-px;
+  }
+
+  .slider-track {
+    @apply absolute rounded-sm h-1 bg-base-content z-10 w-full opacity-50;
+  }
+
+  .slider-range {
+    @apply absolute rounded-sm h-1 bg-primary z-20 w-full;
+  }
+
+  .thumb {
+    @apply pointer-events-none absolute h-0 w-48 outline-none appearance-none;
+  }
+
+  .thumb::-webkit-slider-thumb {
+    @apply bg-accent cursor-pointer h-4 w-4 mt-1 pointer-events-auto relative rounded-lg appearance-none;
+  }
+
+  .thumb::-moz-range-thumb {
+    @apply bg-accent cursor-pointer h-4 w-4 mt-1 pointer-events-auto relative rounded-lg appearance-none;
+  }
+
+  code {
+    background-color: rgba(255, 255, 255, 0.2);
+  }
+}

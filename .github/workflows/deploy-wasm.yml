@@ -50,8 +50,8 @@ jobs:
     # A cold run builds Boost/FFTW/GMP/Qwt/VOLK plus all of GNU Radio on 4 cores.
     timeout-minutes: 180
     steps:
-      # GNU Radio, the OOT modules, and the IQEngine client are all pinned
-      # submodules of this application repository.
+      # GNU Radio and the OOT modules are all pinned submodules of this
+      # application repository.
       - uses: actions/checkout@v4
         with:
           submodules: true
@@ -182,21 +182,9 @@ jobs:
              -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
              && cmake --build build)
 
+          # Two entries: the editor at / and the recording view at /recording/,
+          # which the editor's recording tabs frame same-origin.
           (cd editor && npm ci && npm run build)
-
-          # IQEngine client, served from /iqengine/ (its router reads the same
-          # base as its basename), so the recordings tab can link into it and
-          # the editor's recording tabs can frame it. Hash routing because Pages
-          # cannot serve index.html for arbitrary paths under a sub-directory;
-          # feature flags trim it to what this site uses: no Python snippet
-          # editor (it needs Pyodide from a CDN, which this cross-origin-isolated
-          # site will not load), no Cyclostationary tab, and no site header or
-          # outreach banner, since a framed recording view sits inside the
-          # editor's own chrome.
-          (cd iqengine/client && npm ci && \
-             IQENGINE_HASH_ROUTER=true \
-             IQENGINE_FEATURE_FLAGS='{"displayPythonSnippet":false,"displayCyclostationaryTab":false,"linkLogoToBrowser":false,"displaySiteHeader":false,"useIQEngineOutReach":false}' \
-             npm run build -- --base=/iqengine/)
 
       - name: ccache stats
         run: ccache --show-stats

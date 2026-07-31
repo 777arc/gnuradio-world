@@ -2582,8 +2582,8 @@ function activateWorkspaceTab(tab: WorkspaceTab) {
     entry.button.tabIndex = active ? 0 : -1;
     if (isRecordingTabId(entry.id)) entry.panel.classList.toggle('active', active);
   }
-  // Nothing of IQEngine — neither its bundle nor the recording's samples — is
-  // fetched until the tab showing it is opened for the first time.
+  // Nothing of the recording view — neither its bundle nor the recording's
+  // samples — is fetched until the tab showing it is opened for the first time.
   if (isRecordingTabId(tab)) void openRecordingPane(recordingTabKey(tab));
 }
 
@@ -2626,14 +2626,14 @@ function setRunnerRunning(running: boolean, status?: string) {
   return files;
 };
 
-// ---- Recording tabs (an embedded IQEngine recording view per File Source) ----
+// ---- Recording tabs (an embedded recording view per File Source) ------------
 // Every File Source with something to show gets its own workspace tab holding
-// the IQEngine client that is already built into this site (/iqengine/), driven
-// through its 'url' data source exactly like the recordings palette's "open in
-// IQEngine" link. One <iframe> per tab, created the first time that tab is
-// activated and kept alive afterwards, which is what makes both halves of the
-// laziness hold: IQEngine's bundle is requested once (later tabs hit the HTTP
-// cache) and a recording's samples are requested only for tabs actually opened.
+// the recording viewer this same build emits at /recording/ (adapted from
+// IQEngine; see editor/src/recording/), driven through its 'url' data source.
+// One <iframe> per tab, created the first time that tab is activated and kept
+// alive afterwards, which is what makes both halves of the laziness hold: the
+// viewer bundle is requested once (later tabs hit the HTTP cache) and a
+// recording's samples are requested only for tabs actually opened.
 //
 // The tab set is derived state — it never reaches the .grc — so it is rebuilt
 // from `insts` on every render() rather than tracked through each mutation.
@@ -2641,7 +2641,7 @@ interface RecordingSource {
   key: string;            // '/recordings/<path>' or 'local:<token>'
   label: string;          // tab text
   title: string;          // tooltip: the full path or file name
-  name: string;           // display name handed to IQEngine
+  name: string;           // display name handed to the recording view
   kind: 'remote' | 'local';
   path: string;           // remote: the /recordings/... path this resolves through
   token?: string;         // local: key into localFilesByToken
@@ -2757,7 +2757,7 @@ function createRecordingTab(source: RecordingSource): RecordingTab {
 function destroyRecordingTab(tab: RecordingTab) {
   for (const url of tab.blobUrls) URL.revokeObjectURL(url);
   tab.entry.button.remove();
-  tab.entry.panel.remove();   // drops the iframe, and with it IQEngine's workers
+  tab.entry.panel.remove();   // drops the iframe, and with it the viewer's fetches
   const index = workspaceTabs.indexOf(tab.entry);
   if (index >= 0) workspaceTabs.splice(index, 1);
   recordingTabs.delete(tab.source.key);
@@ -2793,8 +2793,8 @@ function syncRecordingTabs() {
 }
 
 // A local file is a bare stream of samples: no sample rate, no datatype, nothing
-// IQEngine can read. Synthesize the smallest SigMF that describes it from what
-// the flowgraph already says, and label the result as inferred.
+// the recording view can read. Synthesize the smallest SigMF that describes it
+// from what the flowgraph already says, and label the result as inferred.
 function synthesizedSigmfMeta(source: RecordingSource, file: File): string {
   const datatype = source.datatype || 'cf32_le';
   const global: Record<string, any> = {
@@ -2802,8 +2802,8 @@ function synthesizedSigmfMeta(source: RecordingSource, file: File): string {
     'core:version': '1.0.0',
     'core:description':
       'Synthesized by GNU Radio World from the File Source parameters; this file carries no SigMF metadata.',
-    // Supplying the sample count spares IQEngine a HEAD request, which a blob:
-    // URL does not reliably answer.
+    // Supplying the sample count spares the viewer a HEAD request, which a
+    // blob: URL does not reliably answer.
     'traceability:sample_length': Math.floor(file.size / (SIGMF_SAMPLE_BYTES[datatype] || 8)),
   };
   if (source.sampleRate) global['core:sample_rate'] = source.sampleRate;
@@ -2820,18 +2820,9 @@ async function openRecordingPane(key: string) {
   if (!tab || tab.frame || tab.opening) return;
   tab.opening = true;
   try {
-    recordingPaneMessage(tab, 'Loading the IQEngine recording view…');
-    // Building IQEngine is optional (see AGENTS.md); say so rather than framing
-    // the dev server's 404 text.
-    const probe = await fetch('/iqengine/', { method: 'HEAD' }).catch(() => null);
-    if (probe && !probe.ok) {
-      recordingPaneMessage(tab,
-        'IQEngine is not part of this build, so the recording view is unavailable. ' +
-        'Build it with: cd iqengine/client && npm ci && npm run build -- --base=/iqengine/');
-      return;
-    }
+    recordingPaneMessage(tab, 'Loading the recording view…');
 
-    // The File Source can be deleted while the manifest fetch above is in
+    // The File Source can be deleted while the manifest fetch below is in
     // flight; anything created past this point would never be cleaned up.
     if (recordingTabs.get(key) !== tab) return;
 
@@ -2852,7 +2843,7 @@ async function openRecordingPane(key: string) {
         recordingPaneMessage(tab, 'Choose the local file for this File Source again.');
         return;
       }
-      // Blob URLs, not a copy of the file: IQEngine reads them with the same
+      // Blob URLs, not a copy of the file: the viewer reads them with the same
       // ranged requests it uses for an HTTP recording.
       dataUrl = URL.createObjectURL(file);
       metaUrl = URL.createObjectURL(
@@ -2867,11 +2858,11 @@ async function openRecordingPane(key: string) {
 
     const frame = document.createElement('iframe');
     frame.className = 'rec-pane-frame';
-    frame.title = `IQEngine recording view — ${tab.source.name}`;
+    frame.title = `Recording view — ${tab.source.name}`;
     frame.addEventListener('load', () => { tab.status.hidden = true; });
     tab.entry.panel.appendChild(frame);
     tab.frame = frame;
-    frame.src = iqengineUrl(metaUrl, dataUrl, tab.source.name);
+    frame.src = recordingViewUrl(metaUrl, dataUrl, tab.source.name);
   } catch (error) {
     recordingPaneMessage(tab, `The recording view could not be opened: ${error}`);
   } finally {
@@ -3583,24 +3574,24 @@ async function bindFlowgraphRecordings(doc: any, exampleName: string) {
   }
 }
 
-// ---- IQEngine recording route -----------------------------------------------
-// The IQEngine client is built from the git submodule and served from
-// /iqengine/ on this same site (see scripts/assemble-site.mjs). Its 'url'
-// data source takes a recording as a pair of URLs packed into the route as
+// ---- Recording view route ---------------------------------------------------
+// The recording view is this same Vite build's second entry (editor/recording/
+// + editor/src/recording/, adapted from IQEngine), emitted at /recording/. Its
+// 'url' data source takes a recording as a pair of URLs packed into the route as
 // base64url, so a recording needs no backend, no Azure account and no local
 // file picking to be viewable:
 //
-//   /iqengine/#/view/url/<base64url meta URL>/<base64url data URL>/<name>
+//   /recording/#/view/url/<base64url meta URL>/<base64url data URL>/<name>
 //
-// The route goes after the '#' because it is built for hash routing: Cloudflare
+// The route goes after the '#' because the viewer uses hash routing: Cloudflare
 // Pages cannot serve index.html for arbitrary paths under a sub-directory (a
 // wildcard rewrite there turns into a redirect and swallows the app's own asset
-// requests), so /iqengine/ has to stay a plain directory of static files.
+// requests), so /recording/ has to stay a plain directory of static files.
 //
-// The URLs are absolute so the route keeps working if IQEngine ever moves to
-// another origin. The data file is on R2 for the deployed site and on this
-// server in dev; either way it is the manifest's downloadUrl.
-const IQENGINE_BASE = '/iqengine/#';
+// The URLs are absolute so the route keeps working wherever the viewer is
+// served from. The data file is on R2 for the deployed site and on this server
+// in dev; either way it is the manifest's downloadUrl.
+const RECORDING_VIEW_BASE = '/recording/#';
 
 const base64Url = (text: string): string => {
   const bytes = new TextEncoder().encode(text);
@@ -3611,8 +3602,8 @@ const base64Url = (text: string): string => {
 
 // Used by the recording tabs, which embed this route in an iframe and pass
 // blob: URLs for a locally picked file.
-function iqengineUrl(metaUrl: string, dataUrl: string, name: string): string {
-  return `${IQENGINE_BASE}/view/url/${base64Url(metaUrl)}/${base64Url(dataUrl)}/` +
+function recordingViewUrl(metaUrl: string, dataUrl: string, name: string): string {
+  return `${RECORDING_VIEW_BASE}/view/url/${base64Url(metaUrl)}/${base64Url(dataUrl)}/` +
     encodeURIComponent(name);
 }
 

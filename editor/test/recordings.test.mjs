@@ -44,22 +44,22 @@ assert.match(readerWorker, /response\.status !== 206[\s\S]*?response\.body\?\.ca
 // A recording tab has to carry absolute URLs for BOTH files, since the data
 // file can be on R2 while the .sigmf-meta is served from this site.
 assert.match(source, /metaUrl = new URL\(\s*'\/example_recordings\/' \+ encodeRecordingPath\(recording\.metaFile\), location\.href\)\.href;\s*dataUrl = new URL\(recording\.downloadUrl,/,
-  'the IQEngine route must resolve both the meta and the data file to absolute URLs');
+  'the recording-view route must resolve both the meta and the data file to absolute URLs');
 // Collections live in sub-directories of example_recordings/, so a recording
 // name is a relative path and its URLs must be encoded a segment at a time.
 assert.match(source, /const encodeRecordingPath = \(path: string\): string =>\s*\n?\s*path\.split\('\/'\)\.map\(encodeURIComponent\)\.join\('\/'\)/,
   'recording URLs must be encoded per path segment, not with encodeURIComponent');
 assert.doesNotMatch(source, /'\/example_recordings\/' \+ encodeURIComponent\(/,
   'no recording URL may collapse its path separators into %2F');
-assert.match(source, /\$\{IQENGINE_BASE\}\/view\/url\/\$\{base64Url\(metaUrl\)\}\/\$\{base64Url\(dataUrl\)\}\//,
-  "the IQEngine route must use its 'url' data source, base64url-encoded");
-// Hash routing: Cloudflare Pages serves /iqengine/ as static files and cannot
+assert.match(source, /\$\{RECORDING_VIEW_BASE\}\/view\/url\/\$\{base64Url\(metaUrl\)\}\/\$\{base64Url\(dataUrl\)\}\//,
+  "the recording-view route must use its 'url' data source, base64url-encoded");
+// Hash routing: Cloudflare Pages serves /recording/ as static files and cannot
 // answer arbitrary paths under it with index.html, so the route goes after '#'.
-assert.match(source, /const IQENGINE_BASE = '\/iqengine\/#'/,
-  'the IQEngine route must ride in the URL fragment, not the path');
+assert.match(source, /const RECORDING_VIEW_BASE = '\/recording\/#'/,
+  'the recording-view route must ride in the URL fragment, not the path');
 // The recording view is reached through its workspace tab now; the palette
 // entry offers only the two download links.
 assert.doesNotMatch(source, /open in IQEngine/,
-  'the recordings palette must not link out to IQEngine in a new tab');
+  'the recordings palette must not link out to a separate viewer in a new tab');
 
 console.log('checked ci16 recording block-chain insertion');

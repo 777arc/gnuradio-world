@@ -14,10 +14,6 @@
 	path = gr-dvbs2rx
 	url = https://github.com/777arc/gr-dvbs2rx.git
 	branch = wasm-support
-[submodule "iqengine"]
-	path = iqengine
-	url = https://github.com/iqengine/iqengine.git
-	branch = url-datasource
 [submodule "gr-rds"]
 	path = gr-rds
 	url = https://github.com/bastibl/gr-rds.git

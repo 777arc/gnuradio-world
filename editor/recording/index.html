@@ -1,0 +1,25 @@
+<!doctype html>
+<!-- The built-in recording view: the second entry of the editor's Vite build,
+     emitted at /recording/. The editor frames one of these per File Source.
+     Adapted from IQEngine's client/index.html; the Pyodide <script> that shell
+     loads off a CDN is deliberately absent, and so is the API/auth machinery. -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#05041C" />
+    <meta name="description" content="SigMF recording view: spectrogram, time/frequency/IQ plots, annotations and metadata" />
+    <title>Recording View</title>
+    <style>
+      /* The viewer is framed inside the editor, so the page itself never scrolls
+         sideways and the body carries the theme background from the first paint
+         rather than flashing white while the bundle loads. */
+      html, body { margin: 0; background: #05041c; }
+    </style>
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+    <script type="module" src="/src/recording/index.tsx"></script>
+  </body>
+</html>

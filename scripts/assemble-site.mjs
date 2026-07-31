@@ -226,35 +226,23 @@ async function main() {
   const r2Note = R2_BASE ? ` (R2: ${R2_BASE})` : '';
   console.log(`example_recordings: ${manifest.length} included, ${skipped} omitted (>25 MiB, need R2)${r2Note}`);
 
-  // 5. IQEngine client (git submodule), served from /iqengine/ so the editor's
-  //    recording tabs frame it same-origin.
-  //    Built with --base=/iqengine/ (see the deploy workflow), which is also
-  //    what its router uses as its basename.
-  const iqengineBuild = join(ROOT, 'iqengine', 'client', 'build');
-  const haveIQEngine = await stat(iqengineBuild).then(() => true).catch(() => false);
-  // It is built for hash routing (IQENGINE_HASH_ROUTER=true), so every URL the
-  // browser asks Pages for is a file that exists here -- /iqengine/ plus its
-  // assets -- and the route rides along after the '#'. Path routing would need
-  // Pages to answer arbitrary paths under /iqengine/ with index.html, which
-  // _redirects cannot do: a wildcard 200-rewrite is served as a 308 redirect,
-  // and dynamic rules are matched before static assets, so it swallows the
-  // app's own .js and .css requests as well.
-  if (haveIQEngine) {
-    await cp(iqengineBuild, join(OUT, 'iqengine'), { recursive: true });
-    console.log('iqengine: copied client build');
-  } else {
-    console.warn('iqengine: no client build found, the editor recording tabs will say so ' +
-      '(cd iqengine/client && npm ci && npm run build -- --base=/iqengine/)');
-  }
+  // 5. The recording view needs no step of its own: it is the editor build's
+  //    second entry, so editor/dist/recording/ came along with the copy of
+  //    editor/dist in step 1 and lands at /recording/. It uses hash routing, so
+  //    every URL the browser asks Pages for is a file that exists there and the
+  //    route rides along after the '#'. Path routing would need Pages to answer
+  //    arbitrary paths under /recording/ with index.html, which _redirects
+  //    cannot do: a wildcard 200-rewrite is served as a 308 redirect, and
+  //    dynamic rules are matched before static assets, so it would swallow the
+  //    page's own .js and .css requests as well.
 
   // 6. Cloudflare control files.
   //    _headers: restore the cross-origin isolation server.mjs sets, so
   //    SharedArrayBuffer + Emscripten pthreads work.
-  //    IQEngine is served under the same policy: its spectrogram view needs
-  //    nothing cross-origin except the recording itself, which is fetched in
-  //    CORS mode and so satisfies COEP. (The one casualty is its Pyodide
-  //    <script> from a CDN, i.e. the python-snippet and siggen features, which
-  //    this site does not use.)
+  //    The recording view is served under the same policy: it needs nothing
+  //    cross-origin except the recording itself, which is fetched in CORS mode
+  //    and so satisfies COEP. (This is also why it carries no Pyodide: that
+  //    loads off a CDN, which cross-origin isolation forbids.)
   //
   //    The runner assets are also given a cache lifetime, which Pages otherwise
   //    sets to `max-age=0, must-revalidate` -- a conditional request per file per
@@ -294,18 +282,16 @@ async function main() {
   //    _redirects: 200-rewrite the bare listing paths to their static
   //    manifests so the unmodified client's fetch() still works. The editor
   //    itself is served from / by Pages' own index.html handling, so no root
-  //    redirect is needed. IQEngine needs no rule at all: it is served as
-  //    static files (see above).
+  //    redirect is needed. The recording view needs no rule at all: it is
+  //    served as static files (see above).
   await writeFile(join(OUT, '_redirects'),
 `/example_flowgraphs   /example_flowgraphs/index.json   200
 /example_recordings   /example_recordings/index.json   200
 /editor/dist/*        /                                301
 `);
   //    404.html: without it Pages answers every unmatched path with the site's
-  //    root index.html AND a 200. That is not merely untidy -- IQEngine probes
-  //    /api/config, /api/plugins/ and friends to discover whether it has a
-  //    backend, and a 200 full of HTML reads as "yes, and here is your config",
-  //    which crashes it. A real 404 is what its no-backend path expects.
+  //    root index.html AND a 200, which is both untidy and a trap for any code
+  //    that probes for a path to decide whether it exists.
   await writeFile(join(OUT, '404.html'),
 `<!doctype html>
 <html lang="en">

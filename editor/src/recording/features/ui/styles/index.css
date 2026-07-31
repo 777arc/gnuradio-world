@@ -1,0 +1,57 @@
+/* Copyright (c) 2022 Microsoft Corporation */
+
+/* Copyright (c) 2023 Marc Lichtman */
+
+/* Licensed under the MIT License */
+
+.zoom {
+  transition: transform 0.2s; /* Animation */
+  width: 200px;
+  height: 100px;
+  margin: 0 auto;
+}
+
+.zoom:hover {
+  transform: translate(150px, 0) scale(3);
+}
+
+/* this is only so that in datatype column we get newlines after each thing */
+div.datatypetext {
+  white-space: pre-wrap;
+}
+
+.no-spin::-webkit-inner-spin-button,
+.no-spin::-webkit-outer-spin-button {
+  appearance: none !important;
+  margin: 0 !important;
+}
+
+.no-spin {
+  appearance: textfield !important;
+}
+
+.hide {
+  position: absolute;
+  opacity: 0;
+  z-index: -100;
+  white-space: pre;
+}
+
+.input-autosize {
+  min-width: 1px;
+  padding: 0;
+  max-width: 250px;
+}
+
+.input-number {
+  max-width: 60px;
+}
+
+.percent {
+  stroke-dasharray: 100;
+  stroke-dashoffset: calc(100 - var(--val));
+}
+
+.fifty {
+  --val: 50;
+}

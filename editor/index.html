@@ -141,9 +141,9 @@
   #workspaceContent { min-width:0; min-height:0; position:relative; overflow:hidden; }
   .workspace-panel { position:absolute; inset:0; min-width:0; min-height:0; }
   .workspace-panel[hidden] { display:none; }
-  /* Recording tabs (one embedded IQEngine recording view per File Source).
+  /* Recording tabs (one embedded recording view per File Source).
      Inactive ones are hidden with visibility, not display:none: collapsing an
-     iframe to zero size resizes the window IQEngine measures its spectrogram
+     iframe to zero size resizes the window the viewer measures its spectrogram
      against, and it would come back sized for nothing. */
   .recording-pane { display:flex; flex-direction:column; overflow:hidden; background:#20232f; }
   .recording-pane:not(.active) { visibility:hidden; }
