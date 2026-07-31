@@ -21,19 +21,25 @@
 //
 // Usage: node scripts/run_example.mjs <example.grc | title substring>
 //                                     [port] [runSeconds] [--expect=<substring>]
+//                                     [--reject=<substring>]...
 // Exits non-zero if the editor refuses the flowgraph, the runner fails, a block
-// sits idle, a flowgraph with a printing block prints nothing, or --expect is
-// given and never appears in the console pane.
+// sits idle, a flowgraph with a printing block prints nothing, --expect is
+// absent, or any --reject substring appears in the console pane.
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import puppeteer from 'puppeteer-core';
 
 const args = process.argv.slice(2);
 const expectIndex = args.findIndex(a => a.startsWith('--expect='));
 const expect = expectIndex >= 0 ? args.splice(expectIndex, 1)[0].slice('--expect='.length) : '';
+const rejects = args.filter(a => a.startsWith('--reject=')).map(
+  a => a.slice('--reject='.length));
+for (let i = args.length - 1; i >= 0; --i)
+  if (args[i].startsWith('--reject=')) args.splice(i, 1);
 const [target, port = '8090', runSeconds = '25'] = args;
 if (!target) {
   console.error('usage: node scripts/run_example.mjs <example.grc | title> [port] [runSeconds] ' +
-                '[--expect=<substring the console must contain>]');
+                '[--expect=<substring the console must contain>] ' +
+                '[--reject=<substring the console must not contain>]...');
   process.exit(2);
 }
 
@@ -143,8 +149,11 @@ try {
                 'but printed nothing — it runs without producing anything.');
   const missing = expect && !pane.some(l => l.includes(expect));
   if (missing) console.log(`MISSING: the console never contained ${JSON.stringify(expect)}`);
+  const rejected = rejects.filter(value => pane.some(l => l.includes(value)));
+  for (const value of rejected)
+    console.log(`REJECTED: the console contained ${JSON.stringify(value)}`);
   ok = !refused.length && verdict.includes('RUNNER_PASS') && idle.length === 0 &&
-       !silent && !missing;
+       !silent && !missing && rejected.length === 0;
 } catch (err) {
   console.error('failed:', err.message);
 } finally {

@@ -503,6 +503,14 @@ const PORT_PITCH = SNAP_GRID_SIZE * 2;
 // Horizontal breathing room around the title/parameter text inside a block.
 const TEXT_PAD_L = 6, TEXT_PAD_R = 6;
 const PORT_FONT_SIZE = 10, PORT_LABEL_PAD = 4, PORT_MIN_W = 20;
+// A face with dozens of parameters (dvbs2_bbheader_source has 37) grows into a
+// wall that dwarfs everything else on the canvas, so it is cut to this many
+// lines with the last one saying how many are missing. Properties still shows
+// the whole set; only the drawn face is capped.
+const MAX_FACE_ROWS = 14, MORE_ROW_ID = '__more';
+// Rows sit centered in the body: the height is rounded up to the port pitch, and
+// giving that slack to the bottom alone left the text visibly high in the block.
+const rowsTop = (h: number, rows: number) => (h + TITLE_H - rows * ROW_H) / 2;
 
 function templateScope(params: Record<string, any>): Scope {
   const scope: Scope = { ...varScope };
@@ -1150,7 +1158,7 @@ function noteGeom(inst: Inst, d: RunnableDef) {
   for (const line of lines) w = Math.max(w, textW(line, NOTE_FONT_SIZE));
   return {
     d, rows,
-    h: TITLE_H + Math.max(rows.length * ROW_H + PAD, ROW_H),
+    h: TITLE_H + Math.max(rows.length * ROW_H + 2 * PAD, ROW_H),
     w: Math.max(104, Math.ceil(w) + TEXT_PAD_L + TEXT_PAD_R),
   };
 }
@@ -1171,6 +1179,11 @@ function geom(inst: Inst) {
   // parameter, but it is part of the block's meaning and must stay visible.
   if (inst.id === 'variable')
     rows.unshift({ id: 'id', l: 'ID: ', v: truncateValue('ID', inst.name) });
+  if (rows.length > MAX_FACE_ROWS) {
+    const hidden = rows.length - (MAX_FACE_ROWS - 1);
+    rows.length = MAX_FACE_ROWS - 1;
+    rows.push({ id: MORE_ROW_ID, l: '', v: `… ${hidden} more parameters` });
+  }
   const nports = Math.max(visiblePortIndices(inst, 'in').length,
     visiblePortIndices(inst, 'out').length, 1);
   const bodyH = Math.max(rows.length * ROW_H + PAD, nports * PORT_PITCH + PAD, ROW_H);
@@ -2294,8 +2307,9 @@ function render() {
     t.textContent = d.label; g.appendChild(t);
     // parameter rows: "label: value"
     rows.forEach((r, i) => {
-      const y = TITLE_H + PAD + i * ROW_H + 11;
-      const tx = svgEl('text', { class: 'param' + (fieldIssue(blockIssues, inst.uid, r.id) ? ' invalid' : ''), x: String(TEXT_PAD_L), y: String(y) });
+      const y = rowsTop(h, rows.length) + i * ROW_H + 11;
+      const tx = svgEl('text', { class: 'param' + (fieldIssue(blockIssues, inst.uid, r.id) ? ' invalid' : '') +
+        (r.id === MORE_ROW_ID ? ' pmore' : ''), x: String(TEXT_PAD_L), y: String(y) });
       const l = document.createElementNS(SVGNS, 'tspan'); l.setAttribute('class', 'plabel'); l.textContent = r.l;
       const v = document.createElementNS(SVGNS, 'tspan'); v.setAttribute('class', 'pval'); v.textContent = r.v;
       tx.appendChild(l); tx.appendChild(v); g.appendChild(tx);

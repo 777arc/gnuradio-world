@@ -38,6 +38,24 @@ for (const id of ['title', 'author', 'description']) {
 }
 assert.match(source, /y: rows\.length \? '15' : String\(h \/ 2\)/,
   'a block without visible parameters must center its title vertically');
+assert.match(source,
+  /if \(rows\.length > MAX_FACE_ROWS\) {[\s\S]*?rows\.length = MAX_FACE_ROWS - 1;[\s\S]*?more parameters/,
+  'a face with more parameters than the cap must be cut and say how many it dropped');
+assert.match(source, /const y = rowsTop\(h, rows\.length\) \+ i \* ROW_H \+ 11/,
+  'parameter rows must be centered in the body so top and bottom padding match');
+// dvbs2_bbheader_bb has 29 face parameters; without the cap it draws ~480px tall.
+{
+  const visible = param => {
+    const hide = String(param.hide || 'none').trim();
+    return hide !== 'part' && hide !== 'all' &&
+      !/^\$\{\s*['"](none|part|all)['"]\s+if\s+\w+\s*==/.test(hide);
+  };
+  const tallest = Math.max(...(library.blocks || []).map(block =>
+    (block.params || []).filter(p =>
+      (!p.category || p.category === 'General') && visible(p)).length));
+  assert.ok(tallest > 14,
+    'the row cap is only meaningful while some block still has more face parameters than it');
+}
 assert.doesNotMatch(source, /title \+ underline|GRC draws a rule under/,
   'the web renderer must not claim native GRC has a title separator');
 assert.doesNotMatch(source, /svgEl\('line',\s*{\s*x1: '0',\s*y1: String\(TITLE_H\)/,
