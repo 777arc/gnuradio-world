@@ -226,8 +226,8 @@ async function main() {
   const r2Note = R2_BASE ? ` (R2: ${R2_BASE})` : '';
   console.log(`example_recordings: ${manifest.length} included, ${skipped} omitted (>25 MiB, need R2)${r2Note}`);
 
-  // 5. IQEngine client (git submodule), served from /iqengine/ so the
-  //    "open in IQEngine" links on the recordings tab resolve same-origin.
+  // 5. IQEngine client (git submodule), served from /iqengine/ so the editor's
+  //    recording tabs frame it same-origin.
   //    Built with --base=/iqengine/ (see the deploy workflow), which is also
   //    what its router uses as its basename.
   const iqengineBuild = join(ROOT, 'iqengine', 'client', 'build');
@@ -243,7 +243,7 @@ async function main() {
     await cp(iqengineBuild, join(OUT, 'iqengine'), { recursive: true });
     console.log('iqengine: copied client build');
   } else {
-    console.warn('iqengine: no client build found, "open in IQEngine" links will 404 ' +
+    console.warn('iqengine: no client build found, the editor recording tabs will say so ' +
       '(cd iqengine/client && npm ci && npm run build -- --base=/iqengine/)');
   }
 

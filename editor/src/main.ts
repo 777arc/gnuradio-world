@@ -3583,7 +3583,7 @@ async function bindFlowgraphRecordings(doc: any, exampleName: string) {
   }
 }
 
-// ---- "open in IQEngine" -----------------------------------------------------
+// ---- IQEngine recording route -----------------------------------------------
 // The IQEngine client is built from the git submodule and served from
 // /iqengine/ on this same site (see scripts/assemble-site.mjs). Its 'url'
 // data source takes a recording as a pair of URLs packed into the route as
@@ -3597,7 +3597,7 @@ async function bindFlowgraphRecordings(doc: any, exampleName: string) {
 // wildcard rewrite there turns into a redirect and swallows the app's own asset
 // requests), so /iqengine/ has to stay a plain directory of static files.
 //
-// The URLs are absolute so the link keeps working if IQEngine ever moves to
+// The URLs are absolute so the route keeps working if IQEngine ever moves to
 // another origin. The data file is on R2 for the deployed site and on this
 // server in dev; either way it is the manifest's downloadUrl.
 const IQENGINE_BASE = '/iqengine/#';
@@ -3609,20 +3609,11 @@ const base64Url = (text: string): string => {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 };
 
-// Shared with the recording tabs, which embed the same route in an iframe and
-// pass blob: URLs for a locally picked file.
+// Used by the recording tabs, which embed this route in an iframe and pass
+// blob: URLs for a locally picked file.
 function iqengineUrl(metaUrl: string, dataUrl: string, name: string): string {
   return `${IQENGINE_BASE}/view/url/${base64Url(metaUrl)}/${base64Url(dataUrl)}/` +
     encodeURIComponent(name);
-}
-
-function iqengineViewUrl(recording: ExampleRecording): string {
-  const metaUrl = new URL(
-    '/example_recordings/' + encodeRecordingPath(recording.metaFile),
-    location.href,
-  ).href;
-  const dataUrl = new URL(recording.downloadUrl, location.href).href;
-  return iqengineUrl(metaUrl, dataUrl, recording.name);
 }
 
 const displayRecordingValue = (value: string | number | null): string => {
@@ -3763,18 +3754,6 @@ function makeRecordingItem(recording: ExampleRecording): HTMLElement {
     recording.metaFile,
   );
   props.append(sizeKey, sizeVal);
-  // View row: hand the recording to the IQEngine client bundled with the
-  // site. Nothing is downloaded here -- IQEngine reads the two files itself,
-  // in ranges, from wherever they live.
-  const viewKey = document.createElement('dt'); viewKey.textContent = 'View';
-  const viewVal = document.createElement('dd');
-  const viewLink = document.createElement('a'); viewLink.className = 'rec-dl';
-  viewLink.href = iqengineViewUrl(recording);
-  viewLink.target = '_blank'; viewLink.rel = 'noopener';
-  viewLink.textContent = 'open in IQEngine';
-  viewLink.onclick = event => event.stopPropagation();
-  viewVal.append(viewLink);
-  props.append(viewKey, viewVal);
   const streamNote = document.createElement('div'); streamNote.className = 'rec-progress';
   streamNote.textContent = 'Read on demand in bounded byte ranges while the flowgraph runs.';
   item.append(head, props, streamNote);

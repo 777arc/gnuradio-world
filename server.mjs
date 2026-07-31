@@ -12,9 +12,9 @@ import { pipeline } from 'node:stream/promises';
 const port = Number(process.argv[2] || 8080);
 const root = normalize(process.argv[3] || new URL('.', import.meta.url).pathname);
 
-// The IQEngine client (git submodule), served under /iqengine/ so that
-// "open in IQEngine" links from the recordings tab work in dev exactly as they
-// do on the deployed site. Build it with:
+// The IQEngine client (git submodule), served under /iqengine/ so that the
+// editor's recording tabs frame it in dev exactly as they do on the deployed
+// site. Build it with:
 //   cd iqengine/client && npm ci && npm run build -- --base=/iqengine/
 const IQENGINE_PREFIX = '/iqengine';
 const IQENGINE_ROOT = normalize(join(root, 'iqengine', 'client', 'build'));

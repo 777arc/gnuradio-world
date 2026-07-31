@@ -33,8 +33,8 @@ WebAssembly.
 - `deps/`: dependency fetch/build scripts, and any patches needed. Built
   dependencies are installed into the generated, git-ignored `sysroot/`.
 - `iqengine/`: optional IQEngine submodule/client, served under `/iqengine/`,
-  which lets any example recording open in an IQEngine spectrogram-based
-  interface for viewing the signal.
+  which gives every File Source a recording tab showing the signal in an
+  IQEngine spectrogram-based interface.
 
 The editor passes a serialized `.grc` flowgraph to the runner. The runner is an
 Emscripten `MAIN_MODULE`; deferred block categories are ABI-matched
@@ -99,7 +99,7 @@ node server.mjs 8090 "$PWD"
 | `server.mjs` | COOP/COEP static dev server (needed for SharedArrayBuffer / pthreads); serves the repo root, falls back to `editor/dist/` for `/`, mounts the built IQEngine client at `/iqengine/`, and synthesizes the `/example_flowgraphs` and `/example_recordings` listings the editor's tabs fetch |
 | `test/` | `test_smoke.mjs` (runs example flowgraphs headlessly and asserts samples actually move) and `test_lazy_scenarios.mjs` (verifies on-demand category side modules are fetched and `dlopen`'d), plus the `fixtures/` `.grc` they load; CI gates the deploy on both. `editor/test/` and `runner/test/` hold their own suites — see "Run and test" |
 | `scripts/` | `assemble-site.mjs` (assembles the static site CI deploys to Pages), `serve_site.mjs` (serves an assembled site the way Cloudflare Pages does), `run.mjs` (headless-Chromium test harness, waits on a page `#result`), `run_example.mjs` (opens an example in the real editor and presses Run), `r2-cors.json` (CORS policy for the recordings bucket) |
-| `iqengine/` | IQEngine as a git submodule; its client is built to `/iqengine/` on the site, so each SigMF recording in the editor gets an "open in IQEngine" link into its spectrogram view (via IQEngine's `url` data source, which reads the `.sigmf-meta`/`.sigmf-data` pair straight off their URLs) and each File Source gets a recording tab framing that same view |
+| `iqengine/` | IQEngine as a git submodule; its client is built to `/iqengine/` on the site, so each File Source in the editor gets a recording tab framing its spectrogram view (via IQEngine's `url` data source, which reads the `.sigmf-meta`/`.sigmf-data` pair straight off their URLs) |
 
 ## Toolchain and prerequisites
 
@@ -200,9 +200,9 @@ python3 editor/gen/gen_blocklib.py editor/public/blocks.json
 (cd runner && "$QT_WASM/bin/qt-cmake" -S . -B build -GNinja -DQT_HOST_PATH="$QT_HOST" -DCMAKE_BUILD_TYPE=Release && cmake --build build)
 (cd editor && npm install && npm run build)
 
-# IQEngine client (git submodule), served from /iqengine/ so the recordings tab
-# can link into its spectrogram view and the editor's recording tabs can frame
-# it. Optional; skip it and those links 404 and the recording tabs say so.
+# IQEngine client (git submodule), served from /iqengine/ so the editor's
+# recording tabs can frame its spectrogram view. Optional; skip it and those
+# tabs say so instead.
 # Hash routing because Cloudflare Pages cannot serve index.html for arbitrary
 # paths under a sub-directory; the feature flags trim it to what this site uses:
 # no Python snippet editor (it needs Pyodide from a CDN that this
@@ -819,9 +819,9 @@ Every File Source with something to show gets its own workspace tab holding the
 IQEngine recording view for it — added when a recording is clicked in the
 palette, when an example that references one is opened, or when a file is picked
 with Properties → Browse. Each tab is an `<iframe>` on the IQEngine client this
-site already ships at `/iqengine/`, driven through the same `url` data-source
-route as the recordings tab's "open in IQEngine" link (`iqengineUrl()` in
-`editor/src/main.ts` builds both). The rules that keep it working:
+site already ships at `/iqengine/`, driven through IQEngine's `url` data-source
+route (`iqengineUrl()` in `editor/src/main.ts` builds it). The rules that keep it
+working:
 
 - **The tab set is derived state.** `syncRecordingTabs()` rebuilds it from
   `insts` at the end of every `render()`, so no mutation path has to remember to
