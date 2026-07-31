@@ -28,6 +28,7 @@ import TimeSelector from './components/time-selector';
 import { AnnotationViewer } from './components/annotation/annotation-viewer';
 import TimeSelectorMinimap from './components/time-selector-minimap';
 import { useWindowSize } from 'usehooks-ts';
+import { Tab } from './tabs';
 
 export function DisplaySpectrogram({ currentFFT, setCurrentFFT, currentTab }) {
   const {
@@ -125,20 +126,11 @@ export function DisplayMetaSummary() {
   return <MetaViewer meta={meta} />;
 }
 
-enum Tab {
-  Spectrogram,
-  Time,
-  Frequency,
-  IQ,
-}
-
 export function RecordingViewPage() {
   const { type, account, container, filePath } = useParams();
   const { data: meta } = useMeta(type, account, container, filePath);
   const [currentTab, setCurrentTab] = useState<Tab>(Tab.Spectrogram);
   const [currentFFT, setCurrentFFT] = useState<number>(0);
-  // Upstream has a fifth, Cyclostationary tab, which is not part of this port.
-  const Tabs = Object.keys(Tab).filter((key) => isNaN(Number(key)));
 
   if (!meta) {
     return (
@@ -152,26 +144,9 @@ export function RecordingViewPage() {
       <CursorContextProvider>
         <div className="mb-0 ml-0 mr-0 p-0 pt-3">
           <div className="flex flex-row w-full">
-            <Sidebar currentFFT={currentFFT} />
+            <Sidebar currentFFT={currentFFT} currentTab={currentTab} setCurrentTab={setCurrentTab} />
             <div className="flex flex-col pl-3">
-              <div className="flex space-x-2 border-b border-primary w-full sm:pl-12 lg:pl-32" id="tabsbar">
-                {Tabs.map((key) => {
-                  return (
-                    <div
-                      key={key}
-                      onClick={() => {
-                        setCurrentTab(Tab[key as keyof typeof Tab]);
-                      }}
-                      className={` ${
-                        currentTab === Tab[key as keyof typeof Tab] ? 'bg-primary !text-base-100' : ''
-                      } inline-block px-3 py-0 outline outline-primary outline-1 text-lg text-primary hover:text-accent hover:shadow-lg hover:shadow-accent`}
-                    >
-                      {key}
-                    </div>
-                  );
-                })}
-              </div>
-              {/* The following displays the spectrogram, time, freq, and IQ plots depending on which one is selected*/}
+              {/* The plot chooser lives at the top of the settings pane; this displays whichever it selected */}
               <DisplaySpectrogram currentFFT={currentFFT} setCurrentFFT={setCurrentFFT} currentTab={currentTab} />
               <DisplayMetaSummary />
             </div>

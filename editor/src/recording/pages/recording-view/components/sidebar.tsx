@@ -4,12 +4,15 @@
 
 import React from 'react';
 import SettingsPane from './settings-pane';
+import { Tab } from '../tabs';
 
 interface SidebarProps {
   currentFFT: number;
+  currentTab: Tab;
+  setCurrentTab: (tab: Tab) => void;
 }
 
-const Sidebar = ({ currentFFT }) => {
+const Sidebar = ({ currentFFT, currentTab, setCurrentTab }: SidebarProps) => {
   return (
     <div className="flex flex-col w-64 ml-3">
       <details open>
@@ -17,7 +20,7 @@ const Sidebar = ({ currentFFT }) => {
           Settings
         </summary>
         <div className="outline outline-1 outline-primary p-2">
-          <SettingsPane currentFFT={currentFFT} />
+          <SettingsPane currentFFT={currentFFT} currentTab={currentTab} setCurrentTab={setCurrentTab} />
         </div>
       </details>
     </div>

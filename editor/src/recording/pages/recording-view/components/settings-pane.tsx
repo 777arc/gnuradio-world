@@ -9,12 +9,15 @@ import { useSpectrogramContext } from '../hooks/use-spectrogram-context';
 import { useCursorContext } from '../hooks/use-cursor-context';
 import { IconProp } from '@fortawesome/fontawesome-svg-core';
 import { unitPrefixHz } from '@/utils/rf-functions';
+import { Tab, TAB_NAMES } from '../tabs';
 
 interface SettingsPaneProps {
   currentFFT: number;
+  currentTab: Tab;
+  setCurrentTab: (tab: Tab) => void;
 }
 
-const SettingsPane = ({ currentFFT }) => {
+const SettingsPane = ({ currentFFT, currentTab, setCurrentTab }: SettingsPaneProps) => {
   const fftSizes = [64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536];
   const zoomLevels = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
   const windowFunctions = ['hamming', 'rectangle', 'hanning', 'barlett', 'blackman'];
@@ -81,6 +84,24 @@ const SettingsPane = ({ currentFFT }) => {
 
   return (
     <div className="form-control">
+      {/* Which plot is shown; replaces the tab bar that used to sit above the spectrogram */}
+      <div className="flex w-full mb-3" id="plotchooser">
+        {TAB_NAMES.map((key) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setCurrentTab(Tab[key])}
+            /* The base layer styles every <button> as a filled primary pill, so the
+               inactive state has to name its own background and text color. */
+            className={`${
+              currentTab === Tab[key] ? 'bg-primary text-base-100' : 'bg-base-100 text-primary'
+            } flex-auto px-1 py-0 rounded-none whitespace-nowrap outline outline-primary outline-1 text-xs hover:bg-accent hover:text-base-100`}
+          >
+            {key}
+          </button>
+        ))}
+      </div>
+
       <label className="mb-3" id="formZoom">
         <span className="label-text text-base ">Zoom Out Level</span>
         <input
