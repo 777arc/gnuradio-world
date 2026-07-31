@@ -100,7 +100,7 @@
   .debug-table .state-pending { color:#c9903a; }
   .debug-totals { margin-top:8px; font-size:12.5px; color:#aeb8d0; }
   #palette { min-height:0; background:#20232f; overflow:auto; }
-  /* Vertical splitter between the palette and the workspace (mirrors #paneSplitter) */
+  /* Vertical splitter between the palette and the workspace */
   #paletteSplitter { min-width:0; position:relative; z-index:20; cursor:col-resize;
       touch-action:none; background:#262b3b; border-left:1px solid #333a4d;
       border-right:1px solid #11141d; outline:none; }
@@ -108,20 +108,27 @@
       background:#7783a4; top:50%; left:2px; transform:translateY(-50%); }
   #paletteSplitter:hover, #paletteSplitter:focus-visible { background:#343b52; }
   #paletteSplitter:hover::after, #paletteSplitter:focus-visible::after { background:#b9c5e3; }
-  #workspace { min-width:0; min-height:0; display:grid; --run-pane-height:0px;
-      grid-template-rows:minmax(0,1fr) 0 0;
-      overflow:hidden; transition:grid-template-rows .18s ease; }
-  #workspace.running { grid-template-rows:minmax(120px,1fr) 7px var(--run-pane-height); }
-  #workspace.resizing { transition:none; cursor:row-resize; }
-  #workspace.resizing iframe { pointer-events:none; }
-  #paneSplitter { min-height:0; height:7px; position:relative; z-index:20; cursor:row-resize;
-      touch-action:none; visibility:hidden; background:#262b3b; border-top:1px solid #46507a;
-      border-bottom:1px solid #11141d; outline:none; }
-  #workspace.running #paneSplitter { visibility:visible; }
-  #paneSplitter::after { content:''; position:absolute; width:42px; height:2px; border-radius:2px;
-      background:#7783a4; left:50%; top:2px; transform:translateX(-50%); }
-  #paneSplitter:hover, #paneSplitter:focus-visible { background:#343b52; }
-  #paneSplitter:hover::after, #paneSplitter:focus-visible::after { background:#b9c5e3; }
+  #workspace { min-width:0; min-height:0; display:grid;
+      grid-template-rows:auto minmax(0,1fr) auto; overflow:hidden; }
+  #workspaceTabs { display:flex; flex:none; background:#1b1e29; border-bottom:1px solid #333a4d; }
+  .workspace-tab { display:flex; align-items:center; justify-content:center; gap:8px; min-width:126px;
+      padding:8px 18px; font-size:12px; color:#9aa7c6; background:#1b1e29; border:0;
+      border-right:1px solid #333a4d; border-radius:0; cursor:pointer; }
+  .workspace-tab:hover { background:#242a3b; color:#dce3f5; filter:none; }
+  .workspace-tab.active { background:#20232f; color:#e6e9f0; font-weight:600;
+      box-shadow:inset 0 -2px 0 #58a6ff; }
+  #runIndicator { width:8px; height:8px; border-radius:50%; background:#3fae63;
+      box-shadow:0 0 0 2px #3fae6333; opacity:0; transform:scale(.7); transition:.15s; }
+  #workspace.running #runIndicator { opacity:1; transform:scale(1); animation:run-pulse 1.7s ease-in-out infinite; }
+  @keyframes run-pulse {
+    50% { box-shadow:0 0 0 5px #3fae6300; }
+  }
+  @media (prefers-reduced-motion:reduce) {
+    #workspace.running #runIndicator { animation:none; }
+  }
+  #workspaceContent { min-width:0; min-height:0; position:relative; overflow:hidden; }
+  .workspace-panel { position:absolute; inset:0; min-width:0; min-height:0; }
+  .workspace-panel[hidden] { display:none; }
   /* Palette tabs (Blocks / Example Flowgraphs / Recordings) */
   #palette { display:flex; flex-direction:column; overflow:hidden; }
   .paltabs { display:flex; flex:none; border-bottom:1px solid #333a4d; }
@@ -224,7 +231,8 @@
   /* GRC-authentic light canvas */
   /* --grid-size mirrors SNAP_GRID_SIZE (times zoom, see setZoom) so the drawn
      grid lines up with where blocks actually snap. */
-  #canvasWrap { --grid-size:10px; min-height:0; position:relative; overflow:hidden; background:#f7f7f7; }
+  #canvasWrap { --grid-size:10px; width:100%; height:100%; min-height:0; position:relative;
+      overflow:hidden; background:#f7f7f7; }
   /* Blocks live outside the visible area as soon as the flowgraph grows, so the
      canvas scrolls like the native editor's QGraphicsView. `background-attachment:
      local` keeps the drawn grid glued to the blocks while scrolling. */
@@ -233,7 +241,7 @@
       linear-gradient(90deg, #e9eaec 1px, transparent 1px) 0 0/var(--grid-size) var(--grid-size),
       #f7f7f7; background-attachment:local, local; }
   #canvasWrap.grid-hidden #canvasScroll { background:#f7f7f7; }
-  #canvasWrap.console-hidden #log { display:none; }
+  #workspace.console-hidden #log { display:none; }
   /* min-width/min-height (set by render) grow the surface past the viewport when
      blocks sit off-screen; 100% keeps it exactly viewport-sized otherwise, so no
      scrollbar ever appears just because the other scrollbar took up room. */
@@ -328,16 +336,21 @@
       border-bottom:1px solid #303548; font-size:12px; }
   .shortcut-row kbd { color:#fff; font:12px/1.4 monospace; }
   .shortcut-note { color:#9aa7c6; font-size:12px; margin:0 0 10px; }
-  #log { position:absolute; bottom:0; left:0; right:0; max-height:26%; overflow:auto; background:#141722ee;
+  #log { min-height:29px; max-height:26vh; overflow:auto; background:#141722ee;
       font:12px/1.5 monospace; white-space:pre-wrap; padding:6px 10px; color:#a8b6d6;
       border-top:1px solid #333a4d; }
   #runPane { min-height:0; display:flex; flex-direction:column; overflow:hidden; background:#20232f;
-      border-top:2px solid #46507a; }
-  #runPane[hidden] { display:none; }
+      color:#dce3f5; }
   #runBar { min-height:38px; padding:5px 10px; display:flex; align-items:center; gap:10px;
       border-bottom:1px solid #333a4d; color:#dce3f5; font-size:13px; }
   #runBar .spacer { flex:1; }
+  #runBar button:disabled { opacity:.45; cursor:default; filter:none; }
+  #runEmpty { min-height:0; flex:1; display:grid; place-items:center; padding:24px;
+      color:#8f9ab5; text-align:center; font-size:13px; }
+  #runEmpty[hidden] { display:none; }
   #runFrame { min-height:0; flex:1; display:block; width:100%; border:0; background:#fff; }
+  #runFrame[hidden] { display:none; }
+  #editorPane[hidden], #runPane[hidden] { display:none; }
 </style>
 </head>
 <body>
@@ -361,31 +374,45 @@
        aria-orientation="vertical" aria-valuemin="180" aria-valuemax="900"
        aria-valuenow="460" tabindex="0"></div>
   <div id="workspace">
-    <div id="canvasWrap">
-      <div id="canvasScroll">
-        <svg id="svg">
-          <defs>
-            <marker id="arrow" viewBox="0 0 10 10" refX="8.5" refY="5"
-                    markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-              <path d="M0,0 L10,5 L0,10 z" fill="#2a2a2a"/>
-            </marker>
-            <marker id="arrow-selected" viewBox="0 0 10 10" refX="8.5" refY="5"
-                    markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-              <path d="M0,0 L10,5 L0,10 z" fill="#00b8c8"/>
-            </marker>
-          </defs>
-          <g id="wires"></g><g id="nodes"></g><g id="selectionOverlay"></g>
-        </svg>
-      </div>
-      <div id="log"></div>
+    <div id="workspaceTabs" role="tablist" aria-label="Workspace views">
+      <button id="tabEditor" class="workspace-tab active" type="button" role="tab"
+              aria-controls="editorPane" aria-selected="true">Editor</button>
+      <button id="tabQtGui" class="workspace-tab" type="button" role="tab"
+              aria-controls="runPane" aria-selected="false" tabindex="-1">
+        QT GUI <span id="runIndicator" aria-hidden="true"></span>
+      </button>
     </div>
-    <div id="paneSplitter" role="separator" aria-label="Resize flowgraph and runner panes"
-         aria-orientation="horizontal" aria-valuemin="15" aria-valuemax="85"
-         aria-valuenow="50" tabindex="0"></div>
-    <section id="runPane" hidden>
-      <div id="runBar"><b>Running flowgraph…</b><span class="spacer"></span><button id="btnStop">✕ Stop</button></div>
-      <iframe id="runFrame" title="Running GNU Radio flowgraph"></iframe>
-    </section>
+    <div id="workspaceContent">
+      <div id="editorPane" class="workspace-panel" role="tabpanel" aria-labelledby="tabEditor">
+        <div id="canvasWrap">
+          <div id="canvasScroll">
+            <svg id="svg">
+              <defs>
+                <marker id="arrow" viewBox="0 0 10 10" refX="8.5" refY="5"
+                        markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M0,0 L10,5 L0,10 z" fill="#2a2a2a"/>
+                </marker>
+                <marker id="arrow-selected" viewBox="0 0 10 10" refX="8.5" refY="5"
+                        markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M0,0 L10,5 L0,10 z" fill="#00b8c8"/>
+                </marker>
+              </defs>
+              <g id="wires"></g><g id="nodes"></g><g id="selectionOverlay"></g>
+            </svg>
+          </div>
+        </div>
+      </div>
+      <section id="runPane" class="workspace-panel" role="tabpanel" aria-labelledby="tabQtGui" hidden>
+        <div id="runBar">
+          <b id="runStatus">No flowgraph running</b>
+          <span class="spacer"></span>
+          <button id="btnStop" disabled>✕ Stop</button>
+        </div>
+        <div id="runEmpty">Run a flowgraph to open its QT GUI here.</div>
+        <iframe id="runFrame" title="GNU Radio QT GUI" hidden></iframe>
+      </section>
+    </div>
+    <div id="log"></div>
   </div>
 </div>
 <input id="fileOpen" type="file" accept="application/json,.json" hidden />

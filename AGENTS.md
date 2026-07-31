@@ -65,8 +65,9 @@ node server.mjs 8090 "$PWD"
   registry are greyed out and cannot be placed. The editor supports
   place/connect/configure, right-click actions (cut/copy/paste, rotate,
   enable/disable, bypass), a Properties dialog, and a Run button that hands the
-  flowgraph `.grc` to the runner. While running, a draggable horizontal splitter
-  resizes the editor canvas and embedded runner panes.
+  flowgraph `.grc` to the runner. The editor canvas and embedded Qt GUI runner
+  share tabs in the workspace, with the console remaining visible below either
+  tab.
 - **Runner** (`runner/`): a generic C++/WASM "player" — parses the flowgraph
   `.grc`, builds blocks via a `block-id → factory` registry, runs the GNU Radio
   thread-per-block scheduler, and renders gr-qtgui sinks to a canvas. Direct C++

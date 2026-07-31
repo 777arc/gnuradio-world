@@ -1961,7 +1961,7 @@ document.addEventListener('keydown', e => {
   if (ctrl && key === '0') { consume(e); setZoom(1); return; }
   if (ctrl && key === 'd') { consume(e); hideDisabled = !hideDisabled; render(); return; }
   if (ctrl && key === 'e') { consume(e); showVariableEditor(); return; }
-  if (ctrl && key === 'r') { consume(e); el('canvasWrap').classList.toggle('console-hidden'); return; }
+  if (ctrl && key === 'r') { consume(e); el('workspace').classList.toggle('console-hidden'); return; }
   if (ctrl && key === 'b') { consume(e); el('app').classList.toggle('hide-palette'); return; }
   const active = document.activeElement;
   if (active && ['INPUT', 'SELECT', 'TEXTAREA'].includes(active.tagName)) return;
@@ -2341,10 +2341,6 @@ function updateCanvasExtent() {
   svg.style.minHeight = `${Math.ceil((bottom + CANVAS_MARGIN) * zoom)}px`;
 }
 
-// The console overlays the bottom of the canvas; keep the scrolling area above
-// it so the horizontal scrollbar doesn't end up hidden underneath.
-new ResizeObserver(() => { canvasScroll.style.bottom = `${el('log').offsetHeight}px`; }).observe(el('log'));
-
 function addPort(g: SVGGElement, inst: Inst, kind: 'in' | 'out', idx: number, color: string) {
   // Native GRC ports are typed, colored tabs whose width follows their centered
   // label. The connection attaches to the tab's outer edge.
@@ -2554,14 +2550,56 @@ svg.addEventListener('contextmenu', e => {
   menuEl = m;
 });
 
-// ---- Run: hand the flowgraph to the WASM runner in the lower workspace pane ----
-const MIN_PANE_HEIGHT = 120;
-let lowerPaneRatio = 0.5;
+// ---- Workspace tabs and embedded WASM runner ----
 type RunnerInputFile =
   | { kind: 'local'; path: string; file: File }
   | { kind: 'http'; path: string; url: string; size: number };
 const pendingRunnerRecordings = new Map<string, RunnerInputFile[]>();
 let pendingRunnerToken: string | null = null;
+
+type WorkspaceTab = 'editor' | 'qtgui';
+const workspaceTabButtons = [
+  el('tabEditor') as HTMLButtonElement,
+  el('tabQtGui') as HTMLButtonElement,
+];
+
+function activateWorkspaceTab(tab: WorkspaceTab) {
+  const editorActive = tab === 'editor';
+  el('editorPane').hidden = !editorActive;
+  el('runPane').hidden = editorActive;
+  workspaceTabButtons.forEach((button, index) => {
+    const active = index === (editorActive ? 0 : 1);
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-selected', String(active));
+    button.tabIndex = active ? 0 : -1;
+  });
+}
+
+workspaceTabButtons.forEach((button, index) => {
+  button.addEventListener('click', () => activateWorkspaceTab(index ? 'qtgui' : 'editor'));
+  button.addEventListener('keydown', event => {
+    let next = index;
+    if (event.key === 'ArrowLeft') next = (index + workspaceTabButtons.length - 1) % workspaceTabButtons.length;
+    else if (event.key === 'ArrowRight') next = (index + 1) % workspaceTabButtons.length;
+    else if (event.key === 'Home') next = 0;
+    else if (event.key === 'End') next = workspaceTabButtons.length - 1;
+    else return;
+    const target = workspaceTabButtons[next];
+    activateWorkspaceTab(next ? 'qtgui' : 'editor');
+    target.focus();
+    event.preventDefault();
+  });
+});
+
+function setRunnerRunning(running: boolean, status?: string) {
+  el('workspace').classList.toggle('running', running);
+  el('runStatus').textContent = status || (running ? 'Running flowgraph…' : 'No flowgraph running');
+  (el('btnStop') as HTMLButtonElement).disabled = !running;
+  const qtTab = el('tabQtGui');
+  const qtLabel = running ? 'QT GUI — flowgraph running' : 'QT GUI';
+  qtTab.title = qtLabel;
+  qtTab.setAttribute('aria-label', qtLabel);
+}
 
 // runner.html is same-origin and takes this one-time payload before Qt/WASM
 // starts. Descriptors retain either a browser File reference or a remote URL;
@@ -2572,63 +2610,6 @@ let pendingRunnerToken: string | null = null;
   if (pendingRunnerToken === token) pendingRunnerToken = null;
   return files;
 };
-
-function applySplitRatio(ratio = lowerPaneRatio) {
-  const workspace = el('workspace');
-  const splitter = el('paneSplitter');
-  const splitterHeight = 7;
-  const available = Math.max(0, workspace.clientHeight - splitterHeight);
-  if (!available) return;
-  const minimum = Math.min(MIN_PANE_HEIGHT, available / 2);
-  const lowerHeight = Math.max(minimum, Math.min(available - minimum, available * ratio));
-  lowerPaneRatio = lowerHeight / available;
-  workspace.style.setProperty('--run-pane-height', `${lowerHeight}px`);
-  splitter.setAttribute('aria-valuenow', String(Math.round(lowerPaneRatio * 100)));
-}
-
-function splitFromPointer(clientY: number) {
-  const workspace = el('workspace');
-  const rect = workspace.getBoundingClientRect();
-  const available = Math.max(1, rect.height - 7);
-  applySplitRatio((rect.bottom - clientY - 3.5) / available);
-}
-
-const paneSplitter = el('paneSplitter');
-let resizingPanes = false;
-paneSplitter.addEventListener('pointerdown', event => {
-  if (!el('workspace').classList.contains('running')) return;
-  resizingPanes = true;
-  el('workspace').classList.add('resizing');
-  paneSplitter.setPointerCapture(event.pointerId);
-  splitFromPointer(event.clientY);
-  event.preventDefault();
-});
-paneSplitter.addEventListener('pointermove', event => {
-  if (resizingPanes) splitFromPointer(event.clientY);
-});
-const finishPaneResize = (event: PointerEvent) => {
-  if (!resizingPanes) return;
-  resizingPanes = false;
-  el('workspace').classList.remove('resizing');
-  if (paneSplitter.hasPointerCapture(event.pointerId))
-    paneSplitter.releasePointerCapture(event.pointerId);
-};
-paneSplitter.addEventListener('pointerup', finishPaneResize);
-paneSplitter.addEventListener('pointercancel', finishPaneResize);
-paneSplitter.addEventListener('dblclick', () => applySplitRatio(0.5));
-paneSplitter.addEventListener('keydown', event => {
-  if (!el('workspace').classList.contains('running')) return;
-  if (event.key === 'ArrowUp') lowerPaneRatio += 0.03;
-  else if (event.key === 'ArrowDown') lowerPaneRatio -= 0.03;
-  else if (event.key === 'Home') lowerPaneRatio = 0.85;
-  else if (event.key === 'End') lowerPaneRatio = 0.15;
-  else return;
-  applySplitRatio();
-  event.preventDefault();
-});
-window.addEventListener('resize', () => {
-  if (el('workspace').classList.contains('running')) applySplitRatio();
-});
 
 // ---- Vertical splitter between the block palette and the workspace ----
 const PALETTE_SPLITTER_WIDTH = 7;
@@ -2773,12 +2754,11 @@ async function run() {
   pendingRunnerRecordings.set(token, recordingFiles);
   const url = '/runner/build/runner.html?recordingToken=' + encodeURIComponent(token) +
     '#' + encodeURIComponent(grcTextForRun(fileOverrides));
-  const workspace = el('workspace');
-  const pane = el('runPane');
   const frame = el('runFrame') as HTMLIFrameElement;
-  pane.hidden = false;
-  applySplitRatio();
-  workspace.classList.add('running');
+  el('runEmpty').hidden = true;
+  frame.hidden = false;
+  setRunnerRunning(true);
+  activateWorkspaceTab('qtgui');
   frame.src = url;
   const doc = buildGrcDoc();
   log('▶ running ' + doc.blocks.length + ' blocks, ' + doc.connections.length + ' connections');
@@ -2791,8 +2771,10 @@ function stop() {
   }
   const frame = el('runFrame') as HTMLIFrameElement;
   frame.src = 'about:blank'; // unloading the iframe stops its WASM workers
-  el('workspace').classList.remove('running');
-  el('runPane').hidden = true;
+  frame.hidden = true;
+  el('runEmpty').hidden = false;
+  setRunnerRunning(false);
+  activateWorkspaceTab('editor');
   log('■ flowgraph stopped');
 }
 
@@ -2851,6 +2833,7 @@ window.addEventListener('message', (e) => {
   // A flowgraph that fails to build shows an error in the runner pane; mirror it
   // here so the reason is in the log next to the Run that caused it.
   if (d.type === 'gr-error' && typeof d.message === 'string') {
+    setRunnerRunning(false, 'Flowgraph failed');
     log(`run failed: ${d.message}`);
     return;
   }
@@ -3598,7 +3581,7 @@ function selectAll() {
 }
 function openPropsForSelected() { if (selected) showPropsDialog(G0(selected)); }
 function togglePalette() { el('app').classList.toggle('hide-palette'); }
-function toggleConsole() { el('canvasWrap').classList.toggle('console-hidden'); }
+function toggleConsole() { el('workspace').classList.toggle('console-hidden'); }
 function toggleScrollLock() { autoScrollLog = !autoScrollLog; log(`console autoscroll ${autoScrollLog ? 'on' : 'off'}`); }
 function clearConsole() { el('log').textContent = ''; }
 function toggleHideDisabled() { hideDisabled = !hideDisabled; render(); }
@@ -3929,7 +3912,7 @@ const MENUS: TopMenu[] = [
       check: () => !el('app').classList.contains('hide-palette') },
     'sep',
     { label: 'Show Console Panel', key: 'Ctrl+R', run: toggleConsole,
-      check: () => !el('canvasWrap').classList.contains('console-hidden') },
+      check: () => !el('workspace').classList.contains('console-hidden') },
     { label: 'Console Scroll Lock', run: toggleScrollLock, check: () => !autoScrollLog },
     { label: 'Save Console', key: 'Ctrl+Shift+P', run: saveConsole },
     { label: 'Clear Console', key: 'Ctrl+L', run: clearConsole },
