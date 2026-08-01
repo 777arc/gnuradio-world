@@ -7,7 +7,7 @@ options:
         id: PSK_Tx_with_Constellation
         title: PSK Tx with Constellation
     states:
-        coordinate: [10, 20]
+        coordinate: [10, 10]
         rotation: 0
         state: enabled
 blocks:
@@ -24,7 +24,7 @@ blocks:
         value: '0.01'
         widget: counter_slider
     states:
-        coordinate: [240, 310]
+        coordinate: [230, 10]
         rotation: 0
         state: enabled
 -   name: mod7
@@ -36,7 +36,7 @@ blocks:
         mod_code: '"gray"'
         samples_per_symbol: '2'
     states:
-        coordinate: [220, 100]
+        coordinate: [220, 150]
         rotation: 0
         state: enabled
 -   name: throttle4
@@ -49,7 +49,7 @@ blocks:
         type: complex
         vlen: '1'
     states:
-        coordinate: [670, 120]
+        coordinate: [660, 170]
         rotation: 0
         state: enabled
 -   name: x2
@@ -59,7 +59,7 @@ blocks:
         seed: '0'
         type: complex
     states:
-        coordinate: [260, 230]
+        coordinate: [220, 290]
         rotation: 0
         state: enabled
 -   name: x8
@@ -71,7 +71,7 @@ blocks:
         repeat: 'True'
         type: byte
     states:
-        coordinate: [10, 110]
+        coordinate: [10, 160]
         rotation: 0
         state: enabled
 -   name: x9
@@ -100,7 +100,7 @@ blocks:
         ymax: '2'
         ymin: '-2'
     states:
-        coordinate: [910, 130]
+        coordinate: [900, 180]
         rotation: 0
         state: enabled
 -   name: xx3
@@ -108,7 +108,7 @@ blocks:
     parameters:
         type: complex
     states:
-        coordinate: [480, 130]
+        coordinate: [470, 180]
         rotation: 0
         state: enabled
 connections:

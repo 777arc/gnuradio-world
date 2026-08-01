@@ -7,7 +7,7 @@ options:
         id: RDS_Receiver
         title: RDS Receiver
     states:
-        coordinate: [20, 10]
+        coordinate: [10, 10]
         rotation: 0
         state: enabled
 blocks:
@@ -16,7 +16,7 @@ blocks:
     parameters:
         value: '57000'
     states:
-        coordinate: [320, 10]
+        coordinate: [220, 10]
         rotation: 0
         state: enabled
 -   name: rds_samp_rate
@@ -24,7 +24,7 @@ blocks:
     parameters:
         value: '19000'
     states:
-        coordinate: [440, 10]
+        coordinate: [360, 10]
         rotation: 0
         state: enabled
 -   name: samp_rate
@@ -32,7 +32,7 @@ blocks:
     parameters:
         value: '250000'
     states:
-        coordinate: [210, 10]
+        coordinate: [510, 10]
         rotation: 0
         state: enabled
 -   name: agc
@@ -44,7 +44,7 @@ blocks:
         reference: '0.585'
         type: complex
     states:
-        coordinate: [650, 400]
+        coordinate: [750, 430]
         rotation: 0
         state: enabled
 -   name: biphase_delay
@@ -53,7 +53,7 @@ blocks:
         delay: '8'
         type: complex
     states:
-        coordinate: [340, 330]
+        coordinate: [350, 440]
         rotation: 0
         state: enabled
 -   name: biphase_sub
@@ -61,7 +61,7 @@ blocks:
     parameters:
         type: complex
     states:
-        coordinate: [470, 400]
+        coordinate: [560, 440]
         rotation: 0
         state: enabled
 -   name: constellation_receiver
@@ -73,7 +73,7 @@ blocks:
         loop_bw: 2*math.pi/100
         showports: 'False'
     states:
-        coordinate: [1270, 400]
+        coordinate: [1410, 380]
         rotation: 0
         state: enabled
 -   name: constellation_sink
@@ -102,7 +102,7 @@ blocks:
         ymax: '2'
         ymin: '-2'
     states:
-        coordinate: [1600, 490]
+        coordinate: [70, 710]
         rotation: 0
         state: enabled
 -   name: diff_decoder
@@ -111,7 +111,7 @@ blocks:
         coding: digital.DIFF_DIFFERENTIAL
         modulus: '2'
     states:
-        coordinate: [350, 660]
+        coordinate: [70, 630]
         rotation: 0
         state: enabled
 -   name: discard_error
@@ -119,7 +119,7 @@ blocks:
     parameters:
         type: float
     states:
-        coordinate: [1580, 300]
+        coordinate: [70, 810]
         rotation: 0
         state: enabled
 -   name: discard_freq
@@ -127,7 +127,7 @@ blocks:
     parameters:
         type: float
     states:
-        coordinate: [1630, 420]
+        coordinate: [70, 890]
         rotation: 0
         state: enabled
 -   name: discard_phase
@@ -135,14 +135,14 @@ blocks:
     parameters:
         type: float
     states:
-        coordinate: [1610, 360]
+        coordinate: [70, 970]
         rotation: 0
         state: enabled
 -   name: mpx_to_complex
     id: blocks_float_to_complex
     parameters:
     states:
-        coordinate: [740, 110]
+        coordinate: [780, 140]
         rotation: 0
         state: enabled
 -   name: quad_demod
@@ -150,7 +150,7 @@ blocks:
     parameters:
         gain: samp_rate/(2*math.pi*75e3)
     states:
-        coordinate: [480, 110]
+        coordinate: [510, 140]
         rotation: 0
         state: enabled
 -   name: rds_decoder
@@ -159,7 +159,7 @@ blocks:
         debug: 'False'
         log: 'False'
     states:
-        coordinate: [610, 660]
+        coordinate: [360, 630]
         rotation: 0
         state: enabled
 -   name: rds_lo
@@ -171,7 +171,7 @@ blocks:
         type: complex
         waveform: analog.GR_COS_WAVE
     states:
-        coordinate: [540, 210]
+        coordinate: [780, 240]
         rotation: 0
         state: enabled
 -   name: rds_lpf
@@ -187,7 +187,7 @@ blocks:
         width: '2000'
         win: window.WIN_HAMMING
     states:
-        coordinate: [1150, 110]
+        coordinate: [1200, 110]
         rotation: 0
         state: enabled
 -   name: rds_mixer
@@ -195,7 +195,7 @@ blocks:
     parameters:
         type: complex
     states:
-        coordinate: [970, 110]
+        coordinate: [1010, 150]
         rotation: 0
         state: enabled
 -   name: rds_panel
@@ -204,7 +204,7 @@ blocks:
         freq: '100000000'
         gui_hint: ''
     states:
-        coordinate: [1000, 660]
+        coordinate: [740, 630]
         rotation: 0
         state: enabled
 -   name: rds_parser
@@ -215,7 +215,7 @@ blocks:
         pty_locale: '0'
         reset: '0'
     states:
-        coordinate: [810, 660]
+        coordinate: [550, 620]
         rotation: 0
         state: enabled
 -   name: recording
@@ -241,7 +241,7 @@ blocks:
         taps: '[]'
         type: ccc
     states:
-        coordinate: [1420, 110]
+        coordinate: [1420, 140]
         rotation: 0
         state: enabled
 -   name: rrc_filter
@@ -256,7 +256,7 @@ blocks:
         sym_rate: rds_samp_rate/8
         type: fir_filter_ccf
     states:
-        coordinate: [60, 330]
+        coordinate: [70, 400]
         rotation: 0
         state: enabled
 -   name: symbol_sync
@@ -275,7 +275,7 @@ blocks:
         ted_type: digital.TED_ZERO_CROSSING
         type: cc
     states:
-        coordinate: [830, 400]
+        coordinate: [950, 380]
         rotation: 0
         state: enabled
 -   name: throttle
@@ -288,7 +288,7 @@ blocks:
         type: complex
         vlen: '1'
     states:
-        coordinate: [260, 110]
+        coordinate: [270, 120]
         rotation: 0
         state: enabled
 connections:

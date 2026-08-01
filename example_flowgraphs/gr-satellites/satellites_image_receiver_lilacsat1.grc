@@ -16,7 +16,7 @@ blocks:
     parameters:
         value: '48000'
     states:
-        coordinate: [220, 20]
+        coordinate: [210, 10]
         rotation: 0
         state: enabled
 -   name: recording
@@ -30,7 +30,7 @@ blocks:
         type: short
         vlen: '1'
     states:
-        coordinate: [30, 200]
+        coordinate: [10, 180]
         rotation: 0
         state: enabled
 -   name: to_float
@@ -39,7 +39,7 @@ blocks:
         scale: '32767'
         vlen: '1'
     states:
-        coordinate: [250, 200]
+        coordinate: [270, 210]
         rotation: 0
         state: enabled
 -   name: bpsk_demod
@@ -53,7 +53,7 @@ blocks:
         options: '""'
         samp_rate: samp_rate
     states:
-        coordinate: [470, 200]
+        coordinate: [470, 180]
         rotation: 0
         state: enabled
 -   name: deframer
@@ -62,7 +62,7 @@ blocks:
         options: '""'
         threshold: '4'
     states:
-        coordinate: [720, 200]
+        coordinate: [730, 200]
         rotation: 0
         state: enabled
 -   name: frames
@@ -71,7 +71,7 @@ blocks:
         en_uvec: 'True'
         log_level: info
     states:
-        coordinate: [980, 200]
+        coordinate: [1030, 140]
         rotation: 0
         state: enabled
 -   name: image_note
@@ -79,7 +79,7 @@ blocks:
     parameters:
         note: Upstream assembles the JPEG with the Python image receiver, behind the all-in-one Satellite Decoder. Both are Python-only, so the chain is explicit here and the KISS frames carrying the image are printed.
     states:
-        coordinate: [700, 340]
+        coordinate: [350, 10]
         rotation: 0
         state: enabled
 connections:

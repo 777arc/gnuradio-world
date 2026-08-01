@@ -18,7 +18,7 @@ blocks:
         swap: 'False'
         vector_input: 'False'
     states:
-        coordinate: [462, 128]
+        coordinate: [270, 140]
         rotation: 0
         state: enabled
 -   name: source4
@@ -32,7 +32,7 @@ blocks:
         type: short
         vlen: '1'
     states:
-        coordinate: [33, 128]
+        coordinate: [10, 110]
         rotation: 0
         state: enabled
 -   name: throttle23
@@ -45,7 +45,7 @@ blocks:
         type: complex
         vlen: '1'
     states:
-        coordinate: [712, 129]
+        coordinate: [500, 120]
         rotation: 0
         state: enabled
 -   name: x2
@@ -65,7 +65,7 @@ blocks:
         samp_rate: '32000'
         update_time: '0.1'
     states:
-        coordinate: [993, 133]
+        coordinate: [740, 120]
         rotation: 0
         state: enabled
 connections:

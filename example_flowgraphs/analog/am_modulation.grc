@@ -24,7 +24,7 @@ blocks:
         value: '0.7'
         widget: counter_slider
     states:
-        coordinate: [20, 20]
+        coordinate: [220, 10]
         rotation: 0
         state: enabled
 -   name: audio_tone
@@ -36,7 +36,7 @@ blocks:
         type: float
         waveform: analog.GR_COS_WAVE
     states:
-        coordinate: [20, 160]
+        coordinate: [10, 150]
         rotation: 0
         state: enabled
 -   name: carrier
@@ -48,7 +48,7 @@ blocks:
         type: complex
         waveform: analog.GR_COS_WAVE
     states:
-        coordinate: [360, 300]
+        coordinate: [440, 280]
         rotation: 0
         state: enabled
 -   name: carrier_level
@@ -57,7 +57,7 @@ blocks:
         const: '1'
         type: float
     states:
-        coordinate: [20, 300]
+        coordinate: [10, 270]
         rotation: 0
         state: enabled
 -   name: envelope
@@ -65,14 +65,14 @@ blocks:
     parameters:
         type: float
     states:
-        coordinate: [250, 180]
+        coordinate: [240, 170]
         rotation: 0
         state: enabled
 -   name: envelope_to_complex
     id: blocks_float_to_complex
     parameters:
     states:
-        coordinate: [430, 180]
+        coordinate: [440, 180]
         rotation: 0
         state: enabled
 -   name: modulator
@@ -80,7 +80,7 @@ blocks:
     parameters:
         type: complex
     states:
-        coordinate: [650, 220]
+        coordinate: [670, 190]
         rotation: 0
         state: enabled
 -   name: throttle
@@ -93,7 +93,7 @@ blocks:
         type: complex
         vlen: '1'
     states:
-        coordinate: [820, 220]
+        coordinate: [860, 180]
         rotation: 0
         state: enabled
 -   name: am_spectrum
@@ -122,7 +122,7 @@ blocks:
         ymax: '10'
         ymin: '-100'
     states:
-        coordinate: [1020, 140]
+        coordinate: [1100, 180]
         rotation: 0
         state: enabled
 -   name: am_waveform
@@ -162,7 +162,7 @@ blocks:
         ymin: '-2'
         yunit: ''
     states:
-        coordinate: [1020, 300]
+        coordinate: [1100, 300]
         rotation: 0
         state: enabled
 connections:

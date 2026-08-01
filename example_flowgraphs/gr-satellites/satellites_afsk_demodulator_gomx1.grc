@@ -16,7 +16,7 @@ blocks:
     parameters:
         value: '48000'
     states:
-        coordinate: [220, 20]
+        coordinate: [230, 10]
         rotation: 0
         state: enabled
 -   name: recording
@@ -30,7 +30,7 @@ blocks:
         type: short
         vlen: '1'
     states:
-        coordinate: [30, 200]
+        coordinate: [10, 110]
         rotation: 0
         state: enabled
 -   name: to_float
@@ -39,7 +39,7 @@ blocks:
         scale: '32767'
         vlen: '1'
     states:
-        coordinate: [250, 200]
+        coordinate: [270, 140]
         rotation: 0
         state: enabled
 -   name: afsk_demod
@@ -52,7 +52,7 @@ blocks:
         options: '""'
         samp_rate: samp_rate
     states:
-        coordinate: [470, 200]
+        coordinate: [470, 120]
         rotation: 0
         state: enabled
 -   name: head
@@ -61,7 +61,7 @@ blocks:
         num_items: '8000'
         type: float
     states:
-        coordinate: [700, 200]
+        coordinate: [710, 140]
         rotation: 0
         state: enabled
 -   name: soft_symbols
@@ -80,7 +80,7 @@ blocks:
         ymin: '-4'
         yunit: ''
     states:
-        coordinate: [900, 184]
+        coordinate: [900, 130]
         rotation: 0
         state: enabled
 connections:

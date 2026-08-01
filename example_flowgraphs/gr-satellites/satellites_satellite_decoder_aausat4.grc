@@ -16,7 +16,7 @@ blocks:
     parameters:
         value: '48000'
     states:
-        coordinate: [220, 20]
+        coordinate: [230, 10]
         rotation: 0
         state: enabled
 -   name: viterbi_def
@@ -35,7 +35,7 @@ blocks:
         state_start: '0'
         value: '"aausat4_long"'
     states:
-        coordinate: [400, 20]
+        coordinate: [370, 10]
         rotation: 0
         state: enabled
 -   name: recording
@@ -49,7 +49,7 @@ blocks:
         type: short
         vlen: '1'
     states:
-        coordinate: [30, 200]
+        coordinate: [10, 230]
         rotation: 0
         state: enabled
 -   name: to_float
@@ -58,7 +58,7 @@ blocks:
         scale: '32767'
         vlen: '1'
     states:
-        coordinate: [250, 200]
+        coordinate: [270, 260]
         rotation: 0
         state: enabled
 -   name: fsk_demod
@@ -70,7 +70,7 @@ blocks:
         samp_rate: samp_rate
         subaudio: 'False'
     states:
-        coordinate: [470, 200]
+        coordinate: [470, 250]
         rotation: 0
         state: enabled
 -   name: syncword
@@ -80,14 +80,14 @@ blocks:
         sync: '"010011110101101000110100010000110101010101000010"'
         threshold: '8'
     states:
-        coordinate: [700, 200]
+        coordinate: [700, 250]
         rotation: 0
         state: enabled
 -   name: fsm
     id: satellites_aausat4_check_fsm
     parameters:
     states:
-        coordinate: [930, 200]
+        coordinate: [980, 250]
         rotation: 0
         state: enabled
 -   name: viterbi
@@ -98,14 +98,14 @@ blocks:
         packed: 'False'
         rev_pack: 'False'
     states:
-        coordinate: [1120, 200]
+        coordinate: [1250, 260]
         rotation: 0
         state: enabled
 -   name: descrambler
     id: satellites_ccsds_descrambler
     parameters:
     states:
-        coordinate: [1330, 200]
+        coordinate: [1490, 270]
         rotation: 0
         state: enabled
 -   name: reed_solomon
@@ -114,7 +114,7 @@ blocks:
         basis: 'False'
         interleave: '1'
     states:
-        coordinate: [1520, 200]
+        coordinate: [70, 450]
         rotation: 0
         state: enabled
 -   name: frames
@@ -123,7 +123,7 @@ blocks:
         en_uvec: 'True'
         log_level: info
     states:
-        coordinate: [1720, 200]
+        coordinate: [430, 390]
         rotation: 0
         state: enabled
 -   name: decoder_note
@@ -131,7 +131,7 @@ blocks:
     parameters:
         note: 'Satellite Decoder and the AAUSAT-4 deframer are both Python-only, so the deframer is built here from the blocks it uses: soft syncword search, FSM removal, terminated r=1/2 K=7 Viterbi, CCSDS descrambling and Reed-Solomon. Only the long-frame branch is wired: the short one needs PDU To Tagged Stream, which this runtime does not schedule.'
     states:
-        coordinate: [700, 340]
+        coordinate: [610, 10]
         rotation: 0
         state: enabled
 connections:

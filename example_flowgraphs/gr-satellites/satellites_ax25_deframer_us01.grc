@@ -16,7 +16,7 @@ blocks:
     parameters:
         value: '48000'
     states:
-        coordinate: [220, 20]
+        coordinate: [230, 10]
         rotation: 0
         state: enabled
 -   name: recording
@@ -30,7 +30,7 @@ blocks:
         type: short
         vlen: '1'
     states:
-        coordinate: [30, 200]
+        coordinate: [10, 140]
         rotation: 0
         state: enabled
 -   name: to_float
@@ -39,7 +39,7 @@ blocks:
         scale: '32767'
         vlen: '1'
     states:
-        coordinate: [250, 200]
+        coordinate: [270, 170]
         rotation: 0
         state: enabled
 -   name: fsk_demod
@@ -51,7 +51,7 @@ blocks:
         samp_rate: samp_rate
         subaudio: 'False'
     states:
-        coordinate: [470, 200]
+        coordinate: [470, 160]
         rotation: 0
         state: enabled
 -   name: deframer
@@ -60,7 +60,7 @@ blocks:
         g3ruh_scrambler: 'True'
         options: '""'
     states:
-        coordinate: [720, 200]
+        coordinate: [700, 170]
         rotation: 0
         state: enabled
 -   name: frames
@@ -69,7 +69,7 @@ blocks:
         en_uvec: 'True'
         log_level: info
     states:
-        coordinate: [960, 200]
+        coordinate: [980, 110]
         rotation: 0
         state: enabled
 connections:

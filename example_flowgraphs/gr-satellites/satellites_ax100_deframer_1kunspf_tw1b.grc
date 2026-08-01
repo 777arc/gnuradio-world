@@ -16,7 +16,7 @@ blocks:
     parameters:
         value: '48000'
     states:
-        coordinate: [220, 20]
+        coordinate: [230, 10]
         rotation: 0
         state: enabled
 -   name: asm_recording
@@ -30,7 +30,7 @@ blocks:
         type: short
         vlen: '1'
     states:
-        coordinate: [30, 200]
+        coordinate: [10, 140]
         rotation: 0
         state: enabled
 -   name: asm_recording_to_float
@@ -39,7 +39,7 @@ blocks:
         scale: '32767'
         vlen: '1'
     states:
-        coordinate: [250, 200]
+        coordinate: [270, 170]
         rotation: 0
         state: enabled
 -   name: rs_recording
@@ -53,7 +53,7 @@ blocks:
         type: short
         vlen: '1'
     states:
-        coordinate: [30, 440]
+        coordinate: [10, 330]
         rotation: 0
         state: enabled
 -   name: rs_recording_to_float
@@ -62,7 +62,7 @@ blocks:
         scale: '32767'
         vlen: '1'
     states:
-        coordinate: [250, 440]
+        coordinate: [270, 360]
         rotation: 0
         state: enabled
 -   name: asm_note
@@ -70,7 +70,7 @@ blocks:
     parameters:
         note: ASM+Golay mode
     states:
-        coordinate: [470, 130]
+        coordinate: [370, 10]
         rotation: 0
         state: enabled
 -   name: rs_note
@@ -78,7 +78,7 @@ blocks:
     parameters:
         note: Reed-Solomon mode
     states:
-        coordinate: [470, 370]
+        coordinate: [510, 10]
         rotation: 0
         state: enabled
 -   name: asm_demod
@@ -90,7 +90,7 @@ blocks:
         samp_rate: samp_rate
         subaudio: 'False'
     states:
-        coordinate: [470, 200]
+        coordinate: [470, 160]
         rotation: 0
         state: enabled
 -   name: rs_demod
@@ -102,7 +102,7 @@ blocks:
         samp_rate: samp_rate
         subaudio: 'False'
     states:
-        coordinate: [470, 440]
+        coordinate: [470, 350]
         rotation: 0
         state: enabled
 -   name: asm_deframer
@@ -113,7 +113,7 @@ blocks:
         scrambler: '"CCSDS"'
         threshold: '4'
     states:
-        coordinate: [720, 200]
+        coordinate: [700, 160]
         rotation: 0
         state: enabled
 -   name: rs_deframer
@@ -124,7 +124,7 @@ blocks:
         scrambler: '"CCSDS"'
         threshold: '4'
     states:
-        coordinate: [720, 440]
+        coordinate: [700, 350]
         rotation: 0
         state: enabled
 -   name: asm_frames
@@ -133,7 +133,7 @@ blocks:
         en_uvec: 'True'
         log_level: info
     states:
-        coordinate: [980, 200]
+        coordinate: [1040, 110]
         rotation: 0
         state: enabled
 -   name: rs_frames
@@ -142,7 +142,7 @@ blocks:
         en_uvec: 'True'
         log_level: info
     states:
-        coordinate: [980, 440]
+        coordinate: [1040, 300]
         rotation: 0
         state: enabled
 connections:

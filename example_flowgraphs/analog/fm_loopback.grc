@@ -24,7 +24,7 @@ blocks:
         value: '1000'
         widget: counter_slider
     states:
-        coordinate: [20, 20]
+        coordinate: [220, 10]
         rotation: 0
         state: enabled
 -   name: noise_amplitude
@@ -40,7 +40,7 @@ blocks:
         value: '0.05'
         widget: counter_slider
     states:
-        coordinate: [300, 20]
+        coordinate: [440, 10]
         rotation: 0
         state: enabled
 -   name: message_tone
@@ -52,7 +52,7 @@ blocks:
         type: float
         waveform: analog.GR_COS_WAVE
     states:
-        coordinate: [20, 170]
+        coordinate: [10, 150]
         rotation: 0
         state: enabled
 -   name: fm_modulator
@@ -60,7 +60,7 @@ blocks:
     parameters:
         sensitivity: '0.6544984695'
     states:
-        coordinate: [260, 170]
+        coordinate: [220, 170]
         rotation: 0
         state: enabled
 -   name: channel_noise
@@ -70,7 +70,7 @@ blocks:
         seed: '7'
         type: complex
     states:
-        coordinate: [260, 310]
+        coordinate: [220, 250]
         rotation: 0
         state: enabled
 -   name: noisy_channel
@@ -78,7 +78,7 @@ blocks:
     parameters:
         type: complex
     states:
-        coordinate: [500, 210]
+        coordinate: [480, 170]
         rotation: 0
         state: enabled
 -   name: throttle
@@ -91,7 +91,7 @@ blocks:
         type: complex
         vlen: '1'
     states:
-        coordinate: [670, 210]
+        coordinate: [670, 160]
         rotation: 0
         state: enabled
 -   name: fm_demodulator
@@ -99,7 +99,7 @@ blocks:
     parameters:
         gain: '1.5278874537'
     states:
-        coordinate: [870, 310]
+        coordinate: [910, 180]
         rotation: 0
         state: enabled
 -   name: fm_spectrum
@@ -128,7 +128,7 @@ blocks:
         ymax: '10'
         ymin: '-100'
     states:
-        coordinate: [870, 110]
+        coordinate: [910, 260]
         rotation: 0
         state: enabled
 -   name: recovered_message
@@ -162,7 +162,7 @@ blocks:
         ymin: '-1.5'
         yunit: ''
     states:
-        coordinate: [1080, 310]
+        coordinate: [1170, 170]
         rotation: 0
         state: enabled
 connections:
