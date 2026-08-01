@@ -100,7 +100,7 @@ node server.mjs 8090 "$PWD"
 | `blocks/grc/` | `.block.yml` for runner-only blocks with no upstream GNU Radio equivalent (`wasm_packet_rate_sink`); read by *both* `gen_registry.py` and `gen_blocklib.py` alongside GNU Radio's own yaml |
 | `docs/` | `double-mapped-buffer.md` (the emulated vmcircbuf) and `diagnostics.md` (the runner's `__grstats` snapshot and debug panel, which the smoke test asserts against) |
 | `example_flowgraphs/` | the `.grc` files the editor's "Example Flowgraphs" palette tab lists (drop one in and it shows up); several are also smoke-test cases. Each is directly linkable as `#example=<file name without .grc>` (the 🔗 on its palette entry copies that link). Test changes here with `scripts/run_example.mjs`, which drives the real editor — see "Run and test" |
-| `example_recordings/` | Historical/local recording copies used by a few tests and the one-time R2 metadata migration utility. The application and site assembly do not discover, copy, or serve recordings from this directory. Production discovery comes exclusively from R2's generated `index.json`; adding a matched `.sigmf-data`/`.sigmf-meta` pair to the bucket is sufficient. |
+| `example_recordings/` | Historical/local recording copies used by a few tests and the one-time R2 metadata migration utility. Do not add production recordings here. The application and site assembly do not discover, copy, or serve this directory. Production discovery comes exclusively from R2's generated `index.json`. |
 | `workers/sigmf-indexer/` | Scheduled Cloudflare Worker bound to the recordings R2 bucket. Daily at 09:00 UTC (4:00 AM EST) it pairs `.sigmf-data`/`.sigmf-meta` keys, derives the searchable metadata and byte/sample counts, and atomically replaces the bucket's `index.json`. It also has a bearer-protected manual rebuild endpoint. |
 | `server.mjs` | COOP/COEP static dev server (needed for SharedArrayBuffer / pthreads); serves the repo root, falls back to `editor/dist/` for `/`, and synthesizes the `/example_flowgraphs` listing. Recording discovery and objects always come directly from R2. |
 | `test/` | `test_smoke.mjs` (runs example flowgraphs headlessly and asserts samples actually move) and `test_lazy_scenarios.mjs` (verifies on-demand category side modules are fetched and `dlopen`'d), plus the `fixtures/` `.grc` they load; CI gates the deploy on both. `editor/test/` and `runner/test/` hold their own suites — see "Run and test" |
@@ -795,8 +795,8 @@ true VM aliases. See [docs/double-mapped-buffer.md](docs/double-mapped-buffer.md
 
 The WASM registry replaces GNU Radio's POSIX-backed `blocks_file_source` with
 `runner/src/browser_file_source.cpp`. A File Source can be bound either to a
-local `File` selected with the editor's Properties → Browse control or to an
-example recording URL from Pages/R2. The binding is session-only: `.grc` files
+local `File` selected with the editor's Properties → Browse control or to a
+recording URL from R2. The binding is session-only: `.grc` files
 keep the human-readable filename or `/recordings/...` path and never serialize a
 browser file handle.
 
@@ -812,6 +812,36 @@ configured to allow the `Range` request header and expose `Content-Range`.
 file larger than 4 GiB through the actual editor and reads beyond the 32-bit
 boundary; its HTTP endpoint refuses non-Range requests and verifies the exact
 range consumed.
+
+### R2 recording source of truth
+
+Production recordings live only in the Cloudflare R2 bucket
+`gnuradio-wasm-recordings`, whose public custom domain is
+`https://recordings.gnuradioworld.com`. The browser cannot address an R2 bucket
+by its bucket name; it uses that HTTPS domain. The editor defaults to this base,
+with `VITE_RECORDINGS_R2_BASE` available as a build-time override.
+
+[`workers/sigmf-indexer/`](workers/sigmf-indexer/) is bound to the bucket as
+`RECORDINGS`. At 09:00 UTC daily (4:00 AM fixed EST) it lists every object,
+pairs keys with the same base and `.sigmf-data`/`.sigmf-meta` suffixes, reads
+the SigMF metadata, derives byte and sample counts, and replaces the bucket's
+`index.json`. Its authenticated `POST /rebuild` endpoint performs the same job
+on demand. The editor fetches that live index with `cache: no-store`, then
+constructs both object URLs from each base key. `server.mjs`,
+`scripts/assemble-site.mjs`, and Cloudflare Pages never build or serve a
+recording manifest and never inspect `example_recordings/`.
+
+To publish a recording, upload both matching objects directly to R2 using the
+dashboard, the S3-compatible API, rclone, or another R2 client, then wait for
+the daily run or invoke the manual rebuild. Collection prefixes are part of the
+base key: `estevez/ao73.sigmf-data` pairs with
+`estevez/ao73.sigmf-meta`. No checkout, commit, editor rebuild, or Pages deploy
+is part of this workflow.
+
+Keep [`scripts/r2-cors.json`](scripts/r2-cors.json) applied to the bucket. It
+allows the production origins and `http://localhost:8090`, permits GET/HEAD and
+Range requests, and exposes `Content-Length`/`Content-Range`. Local testing must
+use `http://localhost:8090/`, matching that exact allowed origin.
 
 ### Recording tabs
 

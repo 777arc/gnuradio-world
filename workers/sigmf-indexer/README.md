@@ -70,31 +70,26 @@ The request waits for the rebuild and returns JSON containing `ok`,
 `recordings`, and `index_key`. Missing or incorrect credentials cannot start a
 scan. The daily cron does not use or require this secret.
 
-## Upload the metadata sidecars
+## Publish a recording
 
-This repository historically put recording data in R2 but served the small
-metadata sidecars from Pages. The indexer intentionally requires both objects
-to be present in R2. Preview the repository's metadata upload with:
+Upload matching `<base>.sigmf-data` and `<base>.sigmf-meta` objects directly to
+the `gnuradio-wasm-recordings` R2 bucket using the Cloudflare dashboard, its
+S3-compatible API, rclone, or another R2 client. Use the same full base key for
+both objects; collection prefixes are significant. For example:
 
-```bash
-npm run upload-meta
+```text
+estevez/ao73.sigmf-data
+estevez/ao73.sigmf-meta
 ```
 
-After checking the bucket and keys shown in the preview, upload them and invoke
-the manual rebuild:
+Then wait for the daily index run or use the authenticated manual rebuild. The
+editor reads the resulting `index.json`, metadata, and sample data directly
+from `https://recordings.gnuradioworld.com`. Do not add the recording or an
+index to this repository, and do not rebuild or redeploy the website.
 
-```bash
-npm run upload-meta -- --apply
-
-curl --fail-with-body -X POST \
-  -H "Authorization: Bearer $REBUILD_TOKEN" \
-  https://gnuradio-world-sigmf-indexer.<account-subdomain>.workers.dev/rebuild
-```
-
-The uploader validates every sidecar before making remote changes, preserves
-collection prefixes in object keys, uploads four objects at a time, and is safe
-to rerun because R2 replaces metadata objects under the same keys. Use
-`--bucket <name>` if the target differs from `gnuradio-wasm-recordings`.
+`npm run upload-meta` remains only as a repeatable copy of the completed legacy
+metadata migration from `example_recordings/`; it is not the publishing path
+for new recordings.
 
 For a local scheduled-trigger check, run:
 

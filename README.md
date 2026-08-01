@@ -33,10 +33,11 @@ GNU Radio, entirely in your browser — explore the open-source SDR ecosystem wi
 
 See [AGENTS.md](AGENTS.md)
 
-Example recordings are discovered and streamed directly from a Cloudflare R2
-bucket. Adding a matching `.sigmf-data`/`.sigmf-meta` pair to that bucket makes
-it available after the bucket indexer's next run; no repository change or site
-deployment is needed.
+Example recordings are discovered and streamed directly from the Cloudflare R2
+bucket `gnuradio-wasm-recordings`, publicly served at
+`https://recordings.gnuradioworld.com`. Adding a matching
+`.sigmf-data`/`.sigmf-meta` pair makes it available after the bucket indexer's
+next daily or manual run; no repository change or site deployment is needed.
 
 ## License
 
