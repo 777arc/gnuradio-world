@@ -4091,13 +4091,8 @@ async function buildRecordings(panel: HTMLElement) {
 
 // Reasons shown when hovering an action that is unavailable in the WASM build.
 const R_QUIT = "A browser tab can't quit the application — just close the tab instead.";
-const R_RECENT = "Recent-file history isn't available in the browser build; there's no local filesystem to remember paths from.";
-const R_QSS = "Qt style-sheet themes don't apply to the WebAssembly Qt GUI runner.";
-const R_FDESIGN = "gr_filter_design is a separate desktop program and can't be launched from the browser.";
 const R_HIER = "Hierarchical blocks aren't supported in the WebAssembly editor.";
 const R_XML = "GRC no longer uses XML flowgraphs, so there are no XML parser errors to display.";
-const R_CODE = "The browser runner executes the flowgraph directly — there is no generated Python file to preview.";
-const R_COMPLEXITY = "Flowgraph-complexity metrics aren't implemented in the browser editor.";
 const R_TODO = "This display option isn't implemented in the browser editor yet.";
 
 // ---- hover tooltip (explains why an action is unavailable) ----
@@ -4421,7 +4416,6 @@ const MENUS: TopMenu[] = [
     { label: 'New', key: 'Ctrl+N', run: () => clearFlowgraph() },
     { label: 'Duplicate', key: 'Ctrl+Shift+D', run: duplicateFlowgraph, enabled: hasBlocks },
     { label: 'Open…', key: 'Ctrl+O', run: openFileDialog },
-    { label: 'Open Recent', reason: R_RECENT },
     'sep',
     { label: 'Save', key: 'Ctrl+S', run: () => saveFlowgraph() },
     { label: 'Copy URL', run: copyFlowgraphUrl, enabled: hasBlocks },
@@ -4471,7 +4465,6 @@ const MENUS: TopMenu[] = [
     { label: 'Clear Console', key: 'Ctrl+L', run: clearConsole },
     'sep',
     { label: 'Show Variable Editor', key: 'Ctrl+E', run: showVariableEditor },
-    { label: 'Move Variable Editor to Sidebar', reason: R_TODO },
     { label: 'Show parameter expressions in block', reason: R_TODO },
     { label: 'Show parameter value in block', reason: R_TODO },
     'sep',
@@ -4483,8 +4476,6 @@ const MENUS: TopMenu[] = [
     { label: 'Show All Block IDs', reason: R_TODO },
     { label: 'Show Properties Field Colors', reason: R_TODO },
     'sep',
-    { label: 'Generated Code Preview', reason: R_CODE },
-    'sep',
     { label: 'Zoom In', key: 'Ctrl++', run: () => setZoom(zoom * 1.15) },
     { label: 'Zoom Out', key: 'Ctrl+-', run: () => setZoom(zoom / 1.15) },
     { label: 'Reset Zoom', key: 'Ctrl+0', run: () => setZoom(1) },
@@ -4494,12 +4485,6 @@ const MENUS: TopMenu[] = [
   { label: 'Run', items: [
     { label: 'Execute', key: 'F6', run: run },
     { label: 'Kill', key: 'F7', run: stop },
-  ] },
-  { label: 'Tools', items: [
-    { label: 'Filter Design Tool', reason: R_FDESIGN },
-    { label: 'Set Default QT GUI Theme', reason: R_QSS },
-    'sep',
-    { label: 'Show Flowgraph Complexity', reason: R_COMPLEXITY },
   ] },
   { label: 'Help', items: [
     { label: 'Help', key: 'F1', run: () => openLink('https://wiki.gnuradio.org/index.php/Main_Page') },

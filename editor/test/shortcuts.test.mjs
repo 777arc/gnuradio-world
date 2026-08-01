@@ -37,6 +37,13 @@ assert.match(about,
 assert.doesNotMatch(source, /label: 'Generate'/);
 assert.doesNotMatch(source, /label: 'Find Blocks'/);
 assert.doesNotMatch(source, /label: 'Reload Blocks'/);
+assert.doesNotMatch(source, /label: 'Tools'/);
+assert.doesNotMatch(source, /label: 'Filter Design Tool'/);
+assert.doesNotMatch(source, /label: 'Set Default QT GUI Theme'/);
+assert.doesNotMatch(source, /label: 'Show Flowgraph Complexity'/);
+assert.doesNotMatch(source, /label: 'Open Recent'/);
+assert.doesNotMatch(source, /label: 'Move Variable Editor to Sidebar'/);
+assert.doesNotMatch(source, /label: 'Generated Code Preview'/);
 assert.doesNotMatch(source, /e\.key === 'F5'/);
 assert.doesNotMatch(source, /ctrl && key === 'f'/);
 assert.doesNotMatch(source, /e\.key === '\/'/);
