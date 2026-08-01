@@ -9,7 +9,7 @@ interface TimePlotProps {
 }
 
 export const TimePlot = ({ displayedIQ, fftStepSize }: TimePlotProps) => {
-  const { spectrogramWidth, spectrogramHeight, freqShift } = useSpectrogramContext();
+  const { spectrogramWidth, spectrogramHeight, freqShift, meta } = useSpectrogramContext();
   const { cursorFreqShift } = useCursorContext(); // cursorFreqShift is in normalized freq (-0.5 to +0.5) regardless of if display RF is on
   const [I, setI] = useState<Float32Array>();
   const [Q, setQ] = useState<Float32Array>();
@@ -37,6 +37,13 @@ export const TimePlot = ({ displayedIQ, fftStepSize }: TimePlotProps) => {
     }
   }, [displayedIQ, freqShift, cursorFreqShift]);
 
+  // A real recording is carried as I/Q with Q = 0, so its Q trace is a flat line
+  // that says nothing -- unless a frequency shift is applied, which mixes the
+  // real signal down and does produce a genuine imaginary part.
+  const showQ = meta?.isComplex() !== false || freqShift;
+  const traces = [{ y: I ?? new Float32Array(), name: showQ ? 'I' : 'Real' }];
+  if (showQ) traces.push({ y: Q ?? new Float32Array(), name: 'Q' });
+
   return (
     <div className="px-3">
       <p className="text-muted text-center">
@@ -44,10 +51,7 @@ export const TimePlot = ({ displayedIQ, fftStepSize }: TimePlotProps) => {
       </p>
       {fftStepSize === 0 ? (
         <CanvasPlot
-          traces={[
-            { y: I ?? new Float32Array(), name: 'I' },
-            { y: Q ?? new Float32Array(), name: 'Q' },
-          ]}
+          traces={traces}
           width={spectrogramWidth}
           height={spectrogramHeight}
           xTitle="Time"

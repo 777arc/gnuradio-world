@@ -9,7 +9,7 @@ interface IQPlotProps {
 }
 
 export const IQPlot = ({ displayedIQ, fftStepSize }: IQPlotProps) => {
-  const { spectrogramWidth, spectrogramHeight, freqShift } = useSpectrogramContext();
+  const { spectrogramWidth, spectrogramHeight, freqShift, meta } = useSpectrogramContext();
   const { cursorFreqShift } = useCursorContext(); // cursorFreqShift is in normalized freq (-0.5 to +0.5) regardless of if display RF is on
   const [I, setI] = useState<Float32Array>();
   const [Q, setQ] = useState<Float32Array>();
@@ -40,9 +40,21 @@ export const IQPlot = ({ displayedIQ, fftStepSize }: IQPlotProps) => {
     }
   }, [displayedIQ, freqShift]);
 
+  // A real recording has no imaginary part, so every point sits on the I axis.
+  // Say so rather than leaving the reader with an unexplained flat line; a
+  // frequency shift mixes it down to a genuinely complex signal, which does
+  // spread out here.
+  const realValued = meta?.isComplex() === false && !freqShift;
+
   return (
     <div className="px-3">
       <p className="text-muted text-center">Below shows the first 10k IQ samples displayed on the spectrogram tab</p>
+      {realValued && (
+        <p className="text-muted text-center">
+          This recording is real-valued, so Q is zero for every sample. Enable the frequency shift to see the complex
+          signal it mixes down to.
+        </p>
+      )}
       {fftStepSize === 0 ? (
         <CanvasPlot
           traces={[{ x: I ?? new Float32Array(), y: Q ?? new Float32Array(), mode: 'markers', markerSize: 3 }]}

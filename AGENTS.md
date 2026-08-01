@@ -336,10 +336,11 @@ Two more suites exist and are *not* run by CI — run them by hand when you touc
 the code they cover:
 
 ```bash
-(cd editor && npm test)                       # 22 node tests: shortcuts, selection, grid,
+(cd editor && npm test)                       # 23 node tests: shortcuts, selection, grid,
                                               # canvas scroll, workspace/recording tabs,
                                               # validation, time sink, expr,
-                                              # .grc round-trip, recordings, contribute,
+                                              # .grc round-trip, recordings, real-valued
+                                              # recordings, contribute,
                                               # block categories, note block, example
                                               # filter/search.
                                               # No browser, no WASM build.
@@ -875,6 +876,21 @@ working:
   Chrome answers with `206`/`Content-Range` exactly like an HTTP recording, so a
   multi-gigabyte local file is still read in bounded pieces. The pane labels the
   metadata as inferred.
+- **Real-valued recordings** (SigMF's `r*` datatypes — an `rf32_le` File Source
+  of type `float`, an `ri16_le` one of type `short`, and so on) are supported by
+  widening each sample to the interleaved I/Q the rest of the viewer works on,
+  with Q = 0, in `convertToFloat32()`. That is deliberately the *only* place the
+  difference lives: the FFT of a signal with no imaginary part is
+  Hermitian-symmetric, so the spectrogram and frequency plot show the negative
+  half mirroring the positive one — which is exactly what a real recording should
+  look like — with no changes to either. `dataTypeToBytesPerIQSample()` is the
+  other half: a real sample is one component, not two, so `ri16_le` is 2 bytes
+  where `ci16_le` is 4, and every byte offset, sample count and range read
+  follows from it. The Time plot drops its Q trace and labels the remaining one
+  "Real", and the IQ plot says why every point is on the I axis — unless the
+  frequency shift is on, which mixes a real signal down to a genuinely complex
+  one and makes both meaningful again. `editor/test/real-recordings.test.mjs`
+  pins the datatype table, the widening, and the mirrored spectrum.
 - The viewer is deliberately a narrow slice: URL/blob SigMF sources,
   spectrogram plus Time/Frequency/IQ plots, recording settings, annotations and
   the metadata summary bar under the plot. IQEngine's plugins, Cyclostationary

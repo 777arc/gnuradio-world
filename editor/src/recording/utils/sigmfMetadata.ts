@@ -1,4 +1,4 @@
-import { dataTypeToBytesPerIQSample } from './selector';
+import { dataTypeIsComplex, dataTypeToBytesPerIQSample } from './selector';
 import { metadataValidator } from './validators';
 import { CLIENT_TYPE_URL, urlRecordingLocation } from './url-datasource';
 export class SigMFMetadata {
@@ -44,6 +44,14 @@ export class SigMFMetadata {
 
   getBytesPerIQSample(): number {
     return dataTypeToBytesPerIQSample(this.global['core:datatype']) ?? 2;
+  }
+
+  // A real recording is read into the same interleaved I/Q the rest of the
+  // viewer works on, with Q = 0, so this only affects what is worth showing:
+  // the spectrogram and frequency plot are unchanged (they show the mirrored
+  // spectrum a real signal has), while the Time and IQ plots have no Q to draw.
+  isComplex(): boolean {
+    return dataTypeIsComplex(this.global['core:datatype']);
   }
 
   getVersion() {

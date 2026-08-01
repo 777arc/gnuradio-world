@@ -155,18 +155,28 @@ export function range(start: number, end: number): number[] {
   return Array.apply(0, Array(end - start)).map((element, index) => index + start);
 }
 
+// SigMF spells a datatype as <r|c><f|i|u><bits>[_le|_be]: 'c' for complex, 'r'
+// for a real-valued recording, which stores one component per sample instead of
+// two. Anything not explicitly marked real is treated as complex -- that is the
+// common case, and it also preserves how the loose spellings convertToFloat32
+// accepts ('i8', 'u8') were handled before real recordings were supported.
+export function dataTypeIsComplex(dataType: string): boolean {
+  return !/^r/i.test(String(dataType ?? '').trim());
+}
+
+// Components per sample: 2 for complex, 1 for real. This is the only place the
+// difference in file layout matters -- real samples are widened to interleaved
+// I/Q with Q = 0 as they are read (see convertToFloat32), so everything past
+// that point works on one layout.
+export function dataTypeToComponentsPerSample(dataType: string): number {
+  return dataTypeIsComplex(dataType) ? 2 : 1;
+}
+
 export function dataTypeToBytesPerIQSample(dataType: string): number {
-  // remember there are 2 numbers per IQ sample
-  if (dataType.includes('8')) {
-    return 2;
-  } else if (dataType.includes('16')) {
-    return 4;
-  } else if (dataType.includes('32')) {
-    return 8;
-  } else if (dataType.includes('64')) {
-    return 16;
-  } else {
+  const bits = Number(/(\d+)/.exec(String(dataType ?? ''))?.[1]);
+  if (bits !== 8 && bits !== 16 && bits !== 32 && bits !== 64) {
     console.error('unsupported datatype');
     return 2;
   }
+  return (bits / 8) * dataTypeToComponentsPerSample(dataType);
 }
