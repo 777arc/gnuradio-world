@@ -267,8 +267,10 @@ list(APPEND SIDE_MODULE_OUTPUTS ${foo_out})
 # Boost set; it stays greyed out in the palette. The other 7 blocks form the
 # DVB-S2 transmit chain (bbheader -> bbscrambler -> bch -> ldpc -> interleaver ->
 # modulator -> physical). DVB-S2 constants come from the checked-in
-# include/dvbs2/dvbs2_config.h; lib/config.h is the empty generated stub.
+# include/dvbs2/dvbs2_config.h; the config.h its CMake would have generated comes
+# from a runner-owned shim, so the submodule carries only its WASM DSP fix.
 set(DVBS2_LIB ${WORLD}/gr-dvbs2/lib)
+set(DVBS2_WASM_SHIMS ${CMAKE_CURRENT_SOURCE_DIR}/src/dvbs2_wasm_shims)
 set(DVBS2_SOURCES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/generated_registry_dvbs2.cpp
   ${DVBS2_LIB}/bbheader_bb_impl.cc
@@ -285,10 +287,12 @@ add_custom_command(
     -sSIDE_MODULE=1 -pthread -fPIC -Oz -std=c++17
     -sNO_DISABLE_EXCEPTION_CATCHING
     -sWASM_BIGINT=1
+    -I${DVBS2_WASM_SHIMS}
     ${SIDE_INCLUDE_FLAGS}
     ${DVBS2_SOURCES}
     -o ${dvbs2_out}
   DEPENDS ${DVBS2_SOURCES}
+          ${DVBS2_WASM_SHIMS}/config.h
           ${CMAKE_CURRENT_SOURCE_DIR}/src/registry_helpers.hpp
           ${CMAKE_CURRENT_SOURCE_DIR}/src/registry.hpp
   COMMENT "Building category side module dvbs2.wasm (out-of-tree gr-dvbs2 sources)"

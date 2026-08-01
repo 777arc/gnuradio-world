@@ -543,8 +543,9 @@ git submodule add -b <branch> https://github.com/<upstream>/gr-<m>.git gr-<m>
 Steps 3 and 5 exist so this stays possible: block metadata and generated headers
 both live in this repository, so a normal OOT module needs no branch of its own
 and bumping it is a plain `fetch` + `checkout` with nothing to rebase. Of the five
-vendored modules only gr-dvbs2 is a fork, and only because a WASM correctness fix
-had to go in its `lib/`. Do not create one to hold yaml.
+vendored modules only gr-dvbs2 is a fork, and it is upstream plus exactly one
+commit: a WASM buffer-wrap fix that had to go in its `lib/`. Do not create a fork
+to hold yaml or a generated header.
 
 **2. Triage the blocks** — which have a C++ path, and what they depend on:
 ```bash
@@ -639,12 +640,12 @@ module's own CMake. Put it in a runner-owned `runner/src/<m>_wasm_shims/`, the
 same place as step 4, and add `-I${<M>_WASM_SHIMS}` to the module's side-module
 rule *ahead of* `${SIDE_INCLUDE_FLAGS}`. The impls include it as `"config.h"`, so
 with no copy beside the sources it resolves from there; nothing else on the
-include path defines one. `foo`, `dvbs2rx` and `satellites` each have such a
-directory, and [`runner/src/rds_wasm_shims/`](runner/src/rds_wasm_shims/) holds
-both gr-rds's `config.h` and its `boost/locale.hpp` replacement. This is a large
-part of what lets those submodules stay pinned to pristine upstream. (Any real
+include path defines one. All five vendored modules do this — no submodule holds
+a `config.h` of its own — and [`runner/src/rds_wasm_shims/`](runner/src/rds_wasm_shims/)
+additionally holds gr-rds's `boost/locale.hpp` replacement. Together with step 3
+this is what lets the submodules stay pinned to pristine upstream. (Any real
 per-module constants header that ships in the repo, e.g. `dvbs2_config.h`, is used
-as-is; gr-dvbs2 keeps its stub in-tree because it is a fork anyway.)
+as-is.)
 
 **6. Register and wire the build:**
   - [`runner/gen_registry.py`](runner/gen_registry.py): add `"gr-<m>"` to
