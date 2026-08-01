@@ -33,6 +33,36 @@ GNU Radio, entirely in your browser — explore the open-source SDR ecosystem wi
 
 See [AGENTS.md](AGENTS.md)
 
+### How out-of-tree modules are integrated
+
+Each OOT module is vendored as a git submodule and compiled into its own
+WebAssembly side module, fetched on demand the first time a flowgraph uses one of
+its blocks. The guiding rule is that **everything the browser build needs lives in
+this repository, not in the submodule**, so each one stays pinned to a pristine
+upstream commit and bumping it is a plain `fetch` + `checkout` with nothing to
+rebase. Only a genuine source-level fix justifies a fork, which intend to be merged upstream eventually.
+
+When adding a new OOT to GNU Radio World there are steps to take, and some tweaks to make, they all fall into one of the following buckets:
+
+| bucket | what it is | where it lives |
+|---|---|---|
+| **Block metadata** | The `cpp_templates` the factory generator renders into C++, plus anything else the browser needs changed about a block: retyped parameters, a recategorised palette entry, or enum options the vendored C++ doesn't define | `runner/oot_cpp_templates/gr-<m>.yml` — one file per module |
+| **Missing headers and host-only deps** | The `config.h` the module's own CMake would have generated, and browser-safe replacements for anything absent from the WASM sysroot (host networking, locale conversion, audio file I/O) | `runner/src/<m>_wasm_shims/` |
+| **Blocks with no C++ upstream** | Python `gr.hier_block2` compositions, Python QWidget GUI panels, and Python-only utility blocks, rebuilt by hand as C++ so the browser gets the same block id | `runner/src/registry.cpp`, or dedicated `runner/src/<m>_wasm_*.cpp` files for a module with many |
+| **Registration** | That the module exists, that its blocks are fetched on demand rather than always loaded, and any load-order dependency on another on-demand module | `runner/gen_registry.py` |
+| **Build wiring** | The module's include directory and the side-module rule listing which of its sources to compile | `runner/CMakeLists.txt` |
+| **Deliberate omissions** | Blocks that cannot work in a browser sandbox at all — host networking, hardware I/O — get no entry anywhere and simply compile out. They stay visible but greyed out in the palette | *(nothing to write)* |
+
+Two generators read the metadata file — one emits the runtime C++ factories, the
+other the editor palette — through a shared merge in `tools/block_overrides.py`,
+so a block's runtime behaviour and the palette entry describing it cannot drift
+apart. A typo'd or misfiled block id is rejected rather than silently ignored.
+
+The step-by-step checklist, including the standard fixes for the handful of ways
+a block can fail to generate, is in [AGENTS.md](AGENTS.md).
+
+## Example Recordings Management
+
 Example recordings are discovered and streamed directly from the Cloudflare R2
 bucket `gnuradio-wasm-recordings`, publicly served at
 `https://recordings.gnuradioworld.com`. Adding a matching
