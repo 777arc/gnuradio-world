@@ -22,6 +22,14 @@ export const APP_MARK_COLOR = '#7783a4'; // scrollbar-thumb grey of the editor's
 export const MINIMUM_SCROLL_HANDLE_HEIGHT_PIXELS = 10;
 export const COLORMAP_DEFAULT = 'viridis';
 export const MINIMAP_FFT_SIZE = 64;
+// One FFT per row of the minimap image, so this is its height in pixels -- and,
+// since each row is its own ranged read, also the number of requests it costs.
+// It is drawn stretched to the spectrogram height either way, so more rows buy
+// vertical detail, not size.
+export const MINIMAP_NUM_FFTS = 200;
+// How many of those reads are allowed in flight at once. Every one of them is a
+// single FFT's worth of bytes, so the wall clock is round trips, not bandwidth.
+export const MINIMAP_MAX_CONCURRENT_FETCHES = 16;
 export const FETCH_PADDING = 50; // how many extra ffts we fetch, in order to smooth scrolling
 export const MIN_SPECTROGRAM_HEIGHT = 650;
 export const INITIAL_METADATA_SNIPPET = `{

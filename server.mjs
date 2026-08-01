@@ -4,10 +4,8 @@
 // Emscripten pthreads work (needed by the thread-per-block scheduler).
 // Usage: node server.mjs [port] [absoluteRootDir]
 import http from 'node:http';
-import { createReadStream } from 'node:fs';
 import { readFile, readdir, stat } from 'node:fs/promises';
-import { extname, join, normalize, sep } from 'node:path';
-import { pipeline } from 'node:stream/promises';
+import { extname, join, normalize } from 'node:path';
 
 const port = Number(process.argv[2] || 8080);
 const root = normalize(process.argv[3] || new URL('.', import.meta.url).pathname);
@@ -35,96 +33,9 @@ const MIME = {
   '.map': 'application/json',
 };
 
-// Single "bytes=start-end" range only; that is all a browser sends for a
-// download or a recording-view block fetch. Returns null when there is nothing to
-// honour (no header, or a form we do not implement -- callers then send the
-// whole file, which is always a valid answer).
-function parseRange(header, size) {
-  const match = /^bytes=(\d*)-(\d*)$/.exec((header || '').trim());
-  if (!match) return null;
-  const [, rawStart, rawEnd] = match;
-  let start, end;
-  if (rawStart === '') {
-    if (rawEnd === '') return null;
-    start = Math.max(0, size - Number(rawEnd));   // suffix range: last N bytes
-    end = size - 1;
-  } else {
-    start = Number(rawStart);
-    end = rawEnd === '' ? size - 1 : Math.min(Number(rawEnd), size - 1);
-  }
-  if (!Number.isFinite(start) || !Number.isFinite(end)) return null;
-  if (start > end || start >= size) return 'unsatisfiable';
-  return { start, end };
-}
-
 async function isFile(path) {
   try { return (await stat(path)).isFile(); }
   catch { return false; }
-}
-
-function sigmfBytesPerSample(datatype) {
-  const match = typeof datatype === 'string'
-    ? /^([rc])[fiu](\d+)(?:_(?:le|be))?$/i.exec(datatype)
-    : null;
-  if (!match) return null;
-  const bitsPerComponent = Number(match[2]);
-  const components = match[1].toLowerCase() === 'c' ? 2 : 1;
-  const bytes = components * bitsPerComponent / 8;
-  return Number.isInteger(bytes) && bytes > 0 ? bytes : null;
-}
-
-// Recordings may sit in sub-directories of example_recordings/ (a whole
-// collection at a time, e.g. estevez/), so names are '/'-joined relative paths
-// and every URL built from one has to be encoded per segment -- encodeURIComponent
-// on the whole path would turn its separators into %2F.
-const encodeRecordingPath = path =>
-  path.split('/').map(encodeURIComponent).join('/');
-
-async function listExampleRecordings() {
-  const dir = join(root, 'example_recordings');
-  const files = (await readdir(dir, { recursive: true }))
-    .map(file => file.split(sep).join('/'));
-  const fileSet = new Set(files);
-  const bases = files
-    .filter(file => file.endsWith('.sigmf-meta'))
-    .map(file => file.slice(0, -'.sigmf-meta'.length))
-    .filter(base => fileSet.has(base + '.sigmf-data'))
-    .sort((a, b) => a.localeCompare(b));
-
-  const recordings = await Promise.all(bases.map(async name => {
-    const dataFile = name + '.sigmf-data';
-    const metaFile = name + '.sigmf-meta';
-    try {
-      const [metadataText, dataStat] = await Promise.all([
-        readFile(join(dir, metaFile), 'utf8'),
-        stat(join(dir, dataFile)),
-      ]);
-      const metadata = JSON.parse(metadataText);
-      const global = metadata && typeof metadata.global === 'object' ? metadata.global : {};
-      const datatype = typeof global['core:datatype'] === 'string' ? global['core:datatype'] : null;
-      const sampleRate = typeof global['core:sample_rate'] === 'number' ? global['core:sample_rate'] : null;
-      const author = typeof global['core:author'] === 'string' ? global['core:author'] : null;
-      const bytesPerSample = sigmfBytesPerSample(datatype);
-      const sampleCount = bytesPerSample && dataStat.size % bytesPerSample === 0
-        ? dataStat.size / bytesPerSample
-        : null;
-      return {
-        name,
-        dataFile,
-        metaFile,
-        datatype,
-        sampleRate,
-        author,
-        sampleCount,
-        byteLength: dataStat.size,
-        downloadUrl: '/example_recordings/' + encodeRecordingPath(dataFile),
-      };
-    } catch {
-      // A malformed/unreadable metadata document is not a usable SigMF recording.
-      return null;
-    }
-  }));
-  return recordings.filter(recording => recording !== null);
 }
 
 const server = http.createServer(async (req, res) => {
@@ -150,60 +61,6 @@ const server = http.createServer(async (req, res) => {
       res.setHeader('Content-Type', 'application/json');
       res.writeHead(200);
       return res.end(JSON.stringify(files));
-    }
-    // Only expose complete, parseable SigMF recording pairs. Sample count is
-    // calculated without loading the (potentially large) data file.
-    if (urlPath === '/example_recordings' || urlPath === '/example_recordings/') {
-      let recordings = [];
-      try { recordings = await listExampleRecordings(); }
-      catch (error) {
-        if (error?.code !== 'ENOENT') throw error;
-      }
-      res.setHeader('Content-Type', 'application/json');
-      res.writeHead(200);
-      return res.end(JSON.stringify(recordings));
-    }
-    // Stream recording data rather than passing it through readFile(). This
-    // keeps server memory flat and lets the editor report download progress
-    // from Content-Length.
-    if (urlPath.startsWith('/example_recordings/') && urlPath.endsWith('.sigmf-data')) {
-      const requested = urlPath.slice('/example_recordings/'.length);
-      const recordings = await listExampleRecordings();
-      const recording = recordings.find(item => item.dataFile === requested);
-      if (!recording) {
-        res.writeHead(404);
-        return res.end('recording not found');
-      }
-      const dataPath = join(root, 'example_recordings', recording.dataFile);
-      res.setHeader('Content-Type', 'application/octet-stream');
-      // The recording view reads a recording in blocks, so byte ranges have to
-      // work here the same way they do on R2; without this every FFT it draws
-      // would drag down the whole file.
-      res.setHeader('Accept-Ranges', 'bytes');
-      const range = parseRange(req.headers.range, recording.byteLength);
-      if (range === 'unsatisfiable') {
-        res.setHeader('Content-Range', `bytes */${recording.byteLength}`);
-        res.writeHead(416);
-        return res.end();
-      }
-      // A file name, not a path: a recording inside a collection sub-directory
-      // still downloads under its own base name.
-      const safeName = recording.dataFile.split('/').pop()
-        .replace(/[^\x20-\x7e]|["\\]/g, '_');
-      res.setHeader('Content-Disposition', `attachment; filename="${safeName}"`);
-      if (range) {
-        res.setHeader('Content-Length', range.end - range.start + 1);
-        res.setHeader('Content-Range', `bytes ${range.start}-${range.end}/${recording.byteLength}`);
-        res.writeHead(206);
-        if (req.method === 'HEAD') return res.end();
-        await pipeline(createReadStream(dataPath, { start: range.start, end: range.end }), res);
-        return;
-      }
-      res.setHeader('Content-Length', recording.byteLength);
-      res.writeHead(200);
-      if (req.method === 'HEAD') return res.end();
-      await pipeline(createReadStream(dataPath), res);
-      return;
     }
     if (urlPath.endsWith('/')) urlPath += 'index.html';
     const direct = normalize(join(root, urlPath));

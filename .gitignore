@@ -5,6 +5,7 @@
 /gr/
 /chrome-headless-shell
 /node_modules/
+/workers/*/node_modules/
 /editor/node_modules/
 /editor/dist/
 /qtgui/build/
@@ -14,9 +15,8 @@
 /Qt/
 __pycache__/
 
-# Large IQ recordings are hosted on Cloudflare R2, not git (see
-# scripts/r2-cors.json and the deploy workflow). The tiny .sigmf-meta sidecars
-# ARE committed -- the site build reads them to build the recordings manifest
-# (datatype/sample-rate/etc.) on CI, where the data files are absent.
-# The ** covers collections kept in a sub-directory (example_recordings/estevez/).
+# Production IQ recordings and metadata are hosted on Cloudflare R2. The editor
+# reads the Worker's live bucket index and never discovers recordings here.
+# Local data copies remain ignored because a few browser tests use them; the
+# historical tracked metadata sidecars are no longer deployment inputs.
 /example_recordings/**/*.sigmf-data

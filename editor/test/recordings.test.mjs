@@ -41,16 +41,21 @@ assert.match(readerWorker, /Range: `bytes=\$\{start\}-\$\{end - 1\}`/,
 assert.match(readerWorker, /response\.status !== 206[\s\S]*?response\.body\?\.cancel/,
   'a server that ignores Range must be rejected before its body is consumed');
 
-// A recording tab has to carry absolute URLs for BOTH files, since the data
-// file can be on R2 while the .sigmf-meta is served from this site.
-assert.match(source, /metaUrl = new URL\(\s*'\/example_recordings\/' \+ encodeRecordingPath\(recording\.metaFile\), location\.href\)\.href;\s*dataUrl = new URL\(recording\.downloadUrl,/,
-  'the recording-view route must resolve both the meta and the data file to absolute URLs');
-// Collections live in sub-directories of example_recordings/, so a recording
-// name is a relative path and its URLs must be encoded a segment at a time.
+// Discovery and both recording objects come from the live R2 bucket. Nothing
+// under example_recordings in the repository or assembled Pages site is used.
+assert.match(source, /fetch\(recordingsBucketUrl\('index\.json'\), \{ cache: 'no-store' \}\)/,
+  'recording discovery must fetch the live R2 index');
+assert.match(source, /metaUrl = recording\.metadataUrl;\s*dataUrl = new URL\(recording\.downloadUrl,/,
+  'the recording-view route must use R2 URLs for both objects');
+assert.match(source, /addDownloadLink\('meta file', recording\.metadataUrl, recording\.metaFile\)/,
+  'the metadata download must point to R2');
+assert.doesNotMatch(source, /['"]\/example_recordings/,
+  'the editor must not read repository or Pages recording files');
+assert.match(source, /base_filename[\s\S]*?number_of_samples[\s\S]*?recordingFromR2Index/,
+  'the editor must normalize the Worker index schema');
+// Collections use nested R2 keys, so URLs must be encoded a segment at a time.
 assert.match(source, /const encodeRecordingPath = \(path: string\): string =>\s*\n?\s*path\.split\('\/'\)\.map\(encodeURIComponent\)\.join\('\/'\)/,
   'recording URLs must be encoded per path segment, not with encodeURIComponent');
-assert.doesNotMatch(source, /'\/example_recordings\/' \+ encodeURIComponent\(/,
-  'no recording URL may collapse its path separators into %2F');
 assert.match(source, /\$\{RECORDING_VIEW_BASE\}\/view\/url\/\$\{base64Url\(metaUrl\)\}\/\$\{base64Url\(dataUrl\)\}\//,
   "the recording-view route must use its 'url' data source, base64url-encoded");
 // Hash routing: Cloudflare Pages serves /recording/ as static files and cannot

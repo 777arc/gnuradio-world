@@ -12,19 +12,15 @@
 //
 // Two deployment bugs came from that third step and from a rewrite whose
 // target its own rule matched; both looked perfect under server.mjs. Recording
-// files are served from example_recordings (on Pages they come from R2),
-// with range support, so an assembled site is fully clickable here.
+// discovery, metadata, and data go directly to R2 and need no handling here.
 //
 // Usage: node scripts/serve_site.mjs [siteDir] [port]
 import http from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
-import { createReadStream } from 'node:fs';
 import { extname, join, normalize } from 'node:path';
-import { pipeline } from 'node:stream/promises';
 
 const SITE = normalize(process.argv[2] || join(process.cwd(), 'site'));
 const PORT = Number(process.argv[3] || 8098);
-const RECORDINGS = join(new URL('..', import.meta.url).pathname, 'example_recordings');
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
@@ -56,29 +52,6 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(status);
     res.end(body);
   };
-
-  // Recordings, with range support, standing in for the R2 bucket.
-  if (path.startsWith('/example_recordings/')) {
-    const file = join(RECORDINGS, path.slice('/example_recordings/'.length));
-    if (!await isFile(file)) { res.writeHead(404); return res.end('recording not found'); }
-    const size = (await stat(file)).size;
-    const range = /^bytes=(\d+)-(\d*)$/.exec(req.headers.range || '');
-    res.setHeader('Accept-Ranges', 'bytes');
-    res.setHeader('Content-Type', 'application/octet-stream');
-    if (range) {
-      const start = Number(range[1]);
-      const end = range[2] ? Math.min(Number(range[2]), size - 1) : size - 1;
-      res.setHeader('Content-Range', `bytes ${start}-${end}/${size}`);
-      res.setHeader('Content-Length', end - start + 1);
-      res.writeHead(206);
-      if (req.method === 'HEAD') return res.end();
-      return pipeline(createReadStream(file, { start, end }), res);
-    }
-    res.setHeader('Content-Length', size);
-    res.writeHead(200);
-    if (req.method === 'HEAD') return res.end();
-    return pipeline(createReadStream(file), res);
-  }
 
   try {
     // 1. static asset

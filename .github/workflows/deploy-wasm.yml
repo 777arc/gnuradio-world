@@ -163,6 +163,10 @@ jobs:
 
       # --- qtgui, runner and editor (every run) -------------------------------
       - name: Build qtgui + runner + editor
+        env:
+          # The editor reads the live recording index and both SigMF objects
+          # directly from this public R2 base URL.
+          VITE_RECORDINGS_R2_BASE: ${{ vars.RECORDINGS_R2_BASE }}
         run: |
           source ~/emsdk/emsdk_env.sh
           export GR="$GITHUB_WORKSPACE/gnuradio"
@@ -214,11 +218,6 @@ jobs:
 
       # --- Assemble the static site and deploy --------------------------------
       - name: Assemble site
-        env:
-          # Public base URL of the R2 bucket holding oversized recordings.
-          # Set as a repo variable (Settings > Secrets and variables > Actions >
-          # Variables). If empty, oversized recordings are omitted.
-          RECORDINGS_R2_BASE: ${{ vars.RECORDINGS_R2_BASE }}
         run: node scripts/assemble-site.mjs ./site
 
       # Manual and scheduled runs keep the site as an artifact to inspect; pushes

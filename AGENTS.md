@@ -100,8 +100,9 @@ node server.mjs 8090 "$PWD"
 | `blocks/grc/` | `.block.yml` for runner-only blocks with no upstream GNU Radio equivalent (`wasm_packet_rate_sink`); read by *both* `gen_registry.py` and `gen_blocklib.py` alongside GNU Radio's own yaml |
 | `docs/` | `double-mapped-buffer.md` (the emulated vmcircbuf) and `diagnostics.md` (the runner's `__grstats` snapshot and debug panel, which the smoke test asserts against) |
 | `example_flowgraphs/` | the `.grc` files the editor's "Example Flowgraphs" palette tab lists (drop one in and it shows up); several are also smoke-test cases. Each is directly linkable as `#example=<file name without .grc>` (the 🔗 on its palette entry copies that link). Test changes here with `scripts/run_example.mjs`, which drives the real editor — see "Run and test" |
-| `example_recordings/` | SigMF recordings offered in the editor. Only the small `.sigmf-meta` sidecars are committed; `.sigmf-data` is git-ignored, so `assemble-site.mjs` builds the manifest from the metadata and points each recording either at Pages (data file present and under Cloudflare's 25 MiB/file cap) or at Cloudflare R2 (`RECORDINGS_R2_BASE` repo variable; bucket CORS in `scripts/r2-cors.json`), omitting any recording it can find neither way. A recording may live in a sub-directory (a collection at a time: `estevez/` is the SigMF conversion of daniestevez/satellite-recordings) — both `server.mjs` and `assemble-site.mjs` walk recursively, and the recording's name is then its relative path (`estevez/ao73`), which is also its R2 key, so every URL built from it is encoded per path segment |
-| `server.mjs` | COOP/COEP static dev server (needed for SharedArrayBuffer / pthreads); serves the repo root, falls back to `editor/dist/` for `/`, and synthesizes the `/example_flowgraphs` and `/example_recordings` listings the editor's tabs fetch |
+| `example_recordings/` | Historical/local recording copies used by a few tests and the one-time R2 metadata migration utility. The application and site assembly do not discover, copy, or serve recordings from this directory. Production discovery comes exclusively from R2's generated `index.json`; adding a matched `.sigmf-data`/`.sigmf-meta` pair to the bucket is sufficient. |
+| `workers/sigmf-indexer/` | Scheduled Cloudflare Worker bound to the recordings R2 bucket. Daily at 09:00 UTC (4:00 AM EST) it pairs `.sigmf-data`/`.sigmf-meta` keys, derives the searchable metadata and byte/sample counts, and atomically replaces the bucket's `index.json`. It also has a bearer-protected manual rebuild endpoint. |
+| `server.mjs` | COOP/COEP static dev server (needed for SharedArrayBuffer / pthreads); serves the repo root, falls back to `editor/dist/` for `/`, and synthesizes the `/example_flowgraphs` listing. Recording discovery and objects always come directly from R2. |
 | `test/` | `test_smoke.mjs` (runs example flowgraphs headlessly and asserts samples actually move) and `test_lazy_scenarios.mjs` (verifies on-demand category side modules are fetched and `dlopen`'d), plus the `fixtures/` `.grc` they load; CI gates the deploy on both. `editor/test/` and `runner/test/` hold their own suites — see "Run and test" |
 | `scripts/` | `assemble-site.mjs` (assembles the static site CI deploys to Pages), `serve_site.mjs` (serves an assembled site the way Cloudflare Pages does), `run.mjs` (headless-Chromium test harness, waits on a page `#result`), `run_example.mjs` (opens an example in the real editor and presses Run), `r2-cors.json` (CORS policy for the recordings bucket) |
 | `editor/recording/` | HTML shell for the built-in recording view, emitted at `/recording/` by the normal editor build |
@@ -155,6 +156,10 @@ source deps/env.sh                            # activates emsdk, exports $SYSROO
 export GR="$PWD/gnuradio"
 export QT_HOST=~/Qt/6.9.1/gcc_64
 export QT_WASM=~/Qt/6.9.1/wasm_multithread
+# Optional override for the production recording bucket custom domain. Vite
+# defaults to https://recordings.gnuradioworld.com; only this stable base is
+# embedded, while discovery, metadata, and data are fetched live from R2.
+export VITE_RECORDINGS_R2_BASE=https://recordings.gnuradioworld.com
 ```
 
 ## Build workflow
@@ -822,7 +827,7 @@ working:
   `insts` at the end of every `render()`, so no mutation path has to remember to
   update it, and nothing about a tab reaches the `.grc`. It must stay synchronous
   and network-free: a remote tab's label comes from the `/recordings/...` path,
-  not from the recordings manifest.
+  not from the R2 recording index.
 - **The iframe is created on first activation, never at sync time.** That defers
   both the viewer bundle (later tabs hit the HTTP cache) and the recording's
   samples. Once created it is kept, so revisiting a tab refetches nothing.

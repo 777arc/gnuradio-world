@@ -1,0 +1,18 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "gnuradio-world-sigmf-indexer",
+  "main": "src/index.js",
+  "compatibility_date": "2026-07-31",
+  "triggers": {
+    "crons": ["0 9 * * *"]
+  },
+  "r2_buckets": [
+    {
+      "binding": "RECORDINGS",
+      "bucket_name": "gnuradio-wasm-recordings"
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}

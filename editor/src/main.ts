@@ -2905,7 +2905,7 @@ async function openRecordingPane(key: string) {
   try {
     recordingPaneMessage(tab, 'Loading the recording view…');
 
-    // The File Source can be deleted while the manifest fetch below is in
+    // The File Source can be deleted while the bucket index fetch below is in
     // flight; anything created past this point would never be cleaned up.
     if (recordingTabs.get(key) !== tab) return;
 
@@ -2917,8 +2917,7 @@ async function openRecordingPane(key: string) {
         recordingPaneMessage(tab, `The recording "${tab.source.title}" is not available.`);
         return;
       }
-      metaUrl = new URL(
-        '/example_recordings/' + encodeRecordingPath(recording.metaFile), location.href).href;
+      metaUrl = recording.metadataUrl;
       dataUrl = new URL(recording.downloadUrl, location.href).href;
     } else {
       const file = localFilesByToken.get(tab.source.token!);
@@ -3575,8 +3574,9 @@ async function buildExamples(panel: HTMLElement) {
 }
 
 // ---- Recordings tab -------------------------------------------------------
-// server.mjs discovers matching .sigmf-data/.sigmf-meta pairs and returns the
-// global SigMF fields plus a sample count derived from data size and datatype.
+// The R2 bucket's scheduled Worker owns index.json. The editor reads that
+// index and both SigMF objects directly from R2, so publishing a recording does
+// not require a repository or Pages rebuild.
 interface ExampleRecording {
   name: string;
   dataFile: string;
@@ -3587,6 +3587,16 @@ interface ExampleRecording {
   sampleCount: number | null;
   byteLength: number;
   downloadUrl: string;
+  metadataUrl: string;
+}
+
+interface R2RecordingIndexEntry {
+  base_filename?: unknown;
+  datatype?: unknown;
+  sample_rate?: unknown;
+  author?: unknown;
+  byte_length?: unknown;
+  number_of_samples?: unknown;
 }
 
 interface RecordingDirectory {
@@ -3600,12 +3610,63 @@ interface FileSourceFormat {
   vlen: number;
 }
 
-// A recording's dataFile/metaFile are relative paths under example_recordings/,
-// so a whole collection can live in a sub-directory (estevez/). URLs built from
-// one are encoded per segment: encodeURIComponent on the whole path would turn
-// its separators into %2F. Mirrors encodeRecordingPath in server.mjs.
+// A recording key may contain collection prefixes (estevez/). Encode it one
+// segment at a time: encodeURIComponent on the whole key would turn its path
+// separators into %2F.
 const encodeRecordingPath = (path: string): string =>
   path.split('/').map(encodeURIComponent).join('/');
+
+const RECORDINGS_R2_BASE = String(
+  import.meta.env.VITE_RECORDINGS_R2_BASE || 'https://recordings.gnuradioworld.com',
+)
+  .replace(/\/+$/, '');
+
+function recordingsBucketUrl(key: string): string {
+  if (!RECORDINGS_R2_BASE)
+    throw new Error('VITE_RECORDINGS_R2_BASE was not set when the editor was built');
+  return RECORDINGS_R2_BASE + '/' + encodeRecordingPath(key);
+}
+
+function finiteNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function indexBytesPerSample(datatype: string | null): number | null {
+  const match = datatype?.match(/^([rc])[fiu](\d+)(?:_(?:le|be))?$/i);
+  if (!match) return null;
+  const bytes = (match[1].toLowerCase() === 'c' ? 2 : 1) * Number(match[2]) / 8;
+  return Number.isInteger(bytes) && bytes > 0 ? bytes : null;
+}
+
+function recordingFromR2Index(raw: R2RecordingIndexEntry): ExampleRecording | null {
+  if (typeof raw?.base_filename !== 'string') return null;
+  const name = raw.base_filename;
+  const segments = name.split('/');
+  if (!name || segments.some(segment => !segment || segment === '.' || segment === '..')) return null;
+
+  const datatype = typeof raw.datatype === 'string' ? raw.datatype : null;
+  const sampleCount = finiteNumber(raw.number_of_samples);
+  const indexedBytes = finiteNumber(raw.byte_length);
+  const bytesPerSample = indexBytesPerSample(datatype);
+  const byteLength = indexedBytes ??
+    (sampleCount !== null && bytesPerSample !== null ? sampleCount * bytesPerSample : null);
+  if (byteLength === null || !Number.isSafeInteger(byteLength) || byteLength < 0) return null;
+
+  const dataFile = name + '.sigmf-data';
+  const metaFile = name + '.sigmf-meta';
+  return {
+    name,
+    dataFile,
+    metaFile,
+    datatype,
+    sampleRate: finiteNumber(raw.sample_rate),
+    author: typeof raw.author === 'string' ? raw.author : null,
+    sampleCount,
+    byteLength,
+    downloadUrl: recordingsBucketUrl(dataFile),
+    metadataUrl: recordingsBucketUrl(metaFile),
+  };
+}
 
 const remoteRecordingsByPath = new Map<string, ExampleRecording>();
 let exampleRecordingsPromise: Promise<ExampleRecording[]> | null = null;
@@ -3619,15 +3680,19 @@ function bindRemoteRecording(recording: ExampleRecording): string {
 function loadExampleRecordings(): Promise<ExampleRecording[]> {
   if (exampleRecordingsPromise) return exampleRecordingsPromise;
   exampleRecordingsPromise = (async () => {
-    const response = await fetch('/example_recordings');
+    const response = await fetch(recordingsBucketUrl('index.json'), { cache: 'no-store' });
     if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
     const payload = await response.json();
-    if (!Array.isArray(payload)) throw new Error('invalid recordings response');
-    const recordings = payload as ExampleRecording[];
+    if (!Array.isArray(payload)) throw new Error('invalid R2 recordings index');
+    const recordings = payload
+      .map(entry => recordingFromR2Index(entry as R2RecordingIndexEntry))
+      .filter((entry): entry is ExampleRecording => entry !== null);
+    if (recordings.length !== payload.length)
+      console.warn(`ignored ${payload.length - recordings.length} invalid R2 recording index entries`);
     for (const recording of recordings) bindRemoteRecording(recording);
     return recordings;
   })().catch(error => {
-    // A transient manifest failure should not make every later attempt fail.
+    // A transient bucket-index failure should not make every later attempt fail.
     exampleRecordingsPromise = null;
     throw error;
   });
@@ -3683,9 +3748,8 @@ async function bindFlowgraphRecordings(doc: any, exampleName: string) {
 // wildcard rewrite there turns into a redirect and swallows the app's own asset
 // requests), so /recording/ has to stay a plain directory of static files.
 //
-// The URLs are absolute so the route keeps working wherever the viewer is
-// served from. The data file is on R2 for the deployed site and on this server
-// in dev; either way it is the manifest's downloadUrl.
+// The URLs are absolute R2 URLs so the route keeps working wherever the viewer
+// is served from. Both the metadata and data objects come from the bucket.
 const RECORDING_VIEW_BASE = '/recording/#';
 
 const base64Url = (text: string): string => {
@@ -3818,8 +3882,7 @@ function makeRecordingItem(recording: ExampleRecording): HTMLElement {
   addProperty('Sample Rate', displaySi(recording.sampleRate, 'Hz'));
   addProperty('Author', recording.author);
   addProperty('Samples', displaySi(recording.sampleCount, ''));
-  // Size row doubles as the download row: the .sigmf-data comes from wherever
-  // the manifest points (local server or R2), the .sigmf-meta is always local.
+  // Both files and the index come directly from the recording bucket.
   const sizeKey = document.createElement('dt'); sizeKey.textContent = 'Size';
   const sizeVal = document.createElement('dd'); sizeVal.className = 'rec-size';
   sizeVal.append(displayBytes(recording.byteLength));
@@ -3834,11 +3897,7 @@ function makeRecordingItem(recording: ExampleRecording): HTMLElement {
     sizeVal.append(link);
   };
   addDownloadLink('data file', recording.downloadUrl, recording.dataFile);
-  addDownloadLink(
-    'meta file',
-    '/example_recordings/' + encodeRecordingPath(recording.metaFile),
-    recording.metaFile,
-  );
+  addDownloadLink('meta file', recording.metadataUrl, recording.metaFile);
   props.append(sizeKey, sizeVal);
   const streamNote = document.createElement('div'); streamNote.className = 'rec-progress';
   streamNote.textContent = 'Read on demand in bounded byte ranges while the flowgraph runs.';

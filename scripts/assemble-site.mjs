@@ -2,18 +2,17 @@
 // Assemble the static site to deploy to Cloudflare Pages.
 //
 // Produces ./site containing only what the browser actually loads at runtime,
-// plus the Cloudflare control files (_headers, _redirects) and the JSON
-// manifests that server.mjs serves dynamically in dev.
+// plus the Cloudflare control files (_headers, _redirects) and the flowgraph
+// manifest that server.mjs serves dynamically in dev.
 //
 // Excluded on purpose:
 //   - sysroot, gr  -> compile/link inputs, never served
 //   - runner/build CMake/ninja/autogen/.a/.rsp scratch
-//   - example_recordings/*.sigmf-data larger than Cloudflare's 25 MiB/file cap
-//     (those get an R2 bucket later; the manifest simply omits them)
+//   - example_recordings (the editor reads index, metadata, and data from R2)
 //
 // Usage:  node scripts/assemble-site.mjs [outDir]   (default ./site)
 import { readdir, readFile, stat, rm, mkdir, cp } from 'node:fs/promises';
-import { join, extname, dirname, relative, sep } from 'node:path';
+import { join, extname, dirname, relative } from 'node:path';
 import { writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 
@@ -21,41 +20,9 @@ const SCRIPT_DIR = new URL('.', import.meta.url).pathname;
 const ROOT = join(SCRIPT_DIR, '..');
 const OUT = process.argv[2] || join(process.cwd(), 'site');
 
-// Cloudflare Pages rejects any single file >= 25 MiB.
-const MAX_FILE = 25 * 1024 * 1024;
-
-// Recordings too big for Pages are served from Cloudflare R2 instead. Set this
-// to the bucket's public base URL (e.g. https://recordings.gnuradio-wasm.dev or
-// the r2.dev dev URL) via the CI env. When unset (local assemble), oversized
-// recordings are omitted from the manifest, exactly as before. The R2 bucket
-// must send CORS headers for this site's origin -- the app fetches the data
-// file cross-origin in CORS mode, and the site is cross-origin-isolated.
-const R2_BASE = (process.env.RECORDINGS_R2_BASE || '').replace(/\/+$/, '');
-
 // runner/build files the browser needs (everything else there is build scratch).
 const RUNTIME_EXT = new Set(['.html', '.js', '.mjs', '.wasm', '.svg', '.css', '.data', '.mem']);
 const SKIP_DIR = name => name === 'CMakeFiles' || name.endsWith('_autogen');
-
-// --- SigMF sample-count helper, mirrored from server.mjs so the static
-//     recordings manifest is byte-identical to the dev server's response. ---
-function sigmfBytesPerSample(datatype) {
-  const match = typeof datatype === 'string'
-    ? /^([rc])[fiu](\d+)(?:_(?:le|be))?$/i.exec(datatype)
-    : null;
-  if (!match) return null;
-  const bitsPerComponent = Number(match[2]);
-  const components = match[1].toLowerCase() === 'c' ? 2 : 1;
-  const bytes = components * bitsPerComponent / 8;
-  return Number.isInteger(bytes) && bytes > 0 ? bytes : null;
-}
-
-// Recordings may live in sub-directories (a whole collection at a time, e.g.
-// estevez/), so a recording name is a '/'-joined relative path, and every URL
-// built from one -- same-origin and R2 alike -- is encoded per segment rather
-// than with encodeURIComponent, which would turn the separators into %2F.
-// Mirrors server.mjs, as does everything else in this manifest.
-const encodeRecordingPath = path =>
-  path.split('/').map(encodeURIComponent).join('/');
 
 async function walkRuntimeFiles(dir) {
   const out = [];
@@ -120,20 +87,6 @@ async function stampRunnerBuild(destDir, srcFiles) {
   return stamp;
 }
 
-// Size of an R2-hosted recording, via a HEAD request. Used when the .sigmf-data
-// file isn't in the checkout (it's gitignored and lives only on R2), so the
-// manifest can still report a byte length. Returns null if unreachable/missing.
-async function r2ContentLength(url) {
-  try {
-    const res = await fetch(url, { method: 'HEAD' });
-    if (!res.ok) return null;
-    const len = res.headers.get('content-length');
-    return len == null ? null : Number(len);
-  } catch {
-    return null;
-  }
-}
-
 async function main() {
   await rm(OUT, { recursive: true, force: true });
   await mkdir(OUT, { recursive: true });
@@ -159,74 +112,7 @@ async function main() {
   await writeFile(join(OUT, 'example_flowgraphs', 'index.json'), JSON.stringify(grcFiles));
   console.log(`example_flowgraphs: ${grcFiles.length} .grc`);
 
-  // 4. Example recordings + manifest (matches GET /example_recordings), size-gated.
-  const recDir = join(ROOT, 'example_recordings');
-  const recFiles = new Set((await readdir(recDir, { recursive: true }).catch(() => []))
-    .map(f => f.split(sep).join('/')));
-  // A recording is defined by its (committed) .sigmf-meta. The .sigmf-data may
-  // be present locally (dev) or absent (CI, where it's gitignored and lives on
-  // R2). Pairing is resolved per-recording in the loop below.
-  const bases = [...recFiles]
-    .filter(f => f.endsWith('.sigmf-meta'))
-    .map(f => f.slice(0, -'.sigmf-meta'.length))
-    .sort((a, b) => a.localeCompare(b));
-
-  const manifest = [];
-  let skipped = 0;
-  await mkdir(join(OUT, 'example_recordings'), { recursive: true });
-  for (const name of bases) {
-    const dataFile = name + '.sigmf-data';
-    const metaFile = name + '.sigmf-meta';
-    const localData = recFiles.has(dataFile);
-    const r2Url = R2_BASE + '/' + encodeRecordingPath(dataFile);
-
-    // Resolve where the data comes from and its byte length. Local files under
-    // the Pages 25 MiB limit ship with the site; anything larger, and anything
-    // not in the checkout, is served from R2 (size via HEAD).
-    let byteLength, fromR2;
-    if (localData) {
-      byteLength = (await stat(join(recDir, dataFile))).size;
-      fromR2 = byteLength >= MAX_FILE;
-      if (fromR2 && !R2_BASE) { skipped++; continue; }   // too big, no R2 -> omit
-    } else {
-      if (!R2_BASE) { skipped++; continue; }             // no local data, no R2 -> omit
-      fromR2 = true;
-      byteLength = await r2ContentLength(r2Url);
-      if (byteLength == null) {                          // not uploaded/unreachable
-        console.warn(`  ! ${dataFile}: not found on R2, omitting`);
-        skipped++;
-        continue;
-      }
-    }
-
-    const metadata = JSON.parse(await readFile(join(recDir, metaFile), 'utf8'));
-    const g = metadata && typeof metadata.global === 'object' ? metadata.global : {};
-    const datatype = typeof g['core:datatype'] === 'string' ? g['core:datatype'] : null;
-    const sampleRate = typeof g['core:sample_rate'] === 'number' ? g['core:sample_rate'] : null;
-    const author = typeof g['core:author'] === 'string' ? g['core:author'] : null;
-    const bps = sigmfBytesPerSample(datatype);
-    const sampleCount = bps && byteLength % bps === 0 ? byteLength / bps : null;
-    // R2-hosted files use their absolute cross-origin URL; Pages-hosted files
-    // are fetched same-origin.
-    manifest.push({
-      name, dataFile, metaFile, datatype, sampleRate, author, sampleCount,
-      byteLength,
-      downloadUrl: fromR2 ? r2Url : '/example_recordings/' + encodeRecordingPath(dataFile),
-    });
-    // Only copy the (large) data file to the site when it's served from Pages;
-    // R2-hosted ones live in the bucket. The tiny .sigmf-meta is always copied
-    // so the deployed site stays self-describing. mkdir first: a recording in a
-    // collection sub-directory needs that directory created under OUT.
-    await mkdir(dirname(join(OUT, 'example_recordings', metaFile)), { recursive: true });
-    if (!fromR2)
-      await cp(join(recDir, dataFile), join(OUT, 'example_recordings', dataFile));
-    await cp(join(recDir, metaFile), join(OUT, 'example_recordings', metaFile));
-  }
-  await writeFile(join(OUT, 'example_recordings', 'index.json'), JSON.stringify(manifest));
-  const r2Note = R2_BASE ? ` (R2: ${R2_BASE})` : '';
-  console.log(`example_recordings: ${manifest.length} included, ${skipped} omitted (>25 MiB, need R2)${r2Note}`);
-
-  // 5. The recording view needs no step of its own: it is the editor build's
+  // 4. The recording view needs no step of its own: it is the editor build's
   //    second entry, so editor/dist/recording/ came along with the copy of
   //    editor/dist in step 1 and lands at /recording/. It uses hash routing, so
   //    every URL the browser asks Pages for is a file that exists there and the
@@ -236,7 +122,7 @@ async function main() {
   //    dynamic rules are matched before static assets, so it would swallow the
   //    page's own .js and .css requests as well.
 
-  // 6. Cloudflare control files.
+  // 5. Cloudflare control files.
   //    _headers: restore the cross-origin isolation server.mjs sets, so
   //    SharedArrayBuffer + Emscripten pthreads work.
   //    The recording view is served under the same policy: it needs nothing
@@ -279,14 +165,12 @@ async function main() {
 /runner/build/*.wasm
   Cache-Control: public, max-age=86400
 `);
-  //    _redirects: 200-rewrite the bare listing paths to their static
-  //    manifests so the unmodified client's fetch() still works. The editor
-  //    itself is served from / by Pages' own index.html handling, so no root
-  //    redirect is needed. The recording view needs no rule at all: it is
-  //    served as static files (see above).
+  //    _redirects: 200-rewrite the bare flowgraph listing path to its static
+  //    manifest. Recordings need no rule: their index and objects come from R2.
+  //    The editor itself is served from / by Pages' own index.html handling,
+  //    and the recording view is served as static files (see above).
   await writeFile(join(OUT, '_redirects'),
 `/example_flowgraphs   /example_flowgraphs/index.json   200
-/example_recordings   /example_recordings/index.json   200
 /editor/dist/*        /                                301
 `);
   //    404.html: without it Pages answers every unmatched path with the site's

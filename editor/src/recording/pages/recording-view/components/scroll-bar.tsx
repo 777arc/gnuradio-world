@@ -47,7 +47,9 @@ const ScrollBar = ({ currentFFT, setCurrentFFT }: ScrollBarProps) => {
   const [scalingFactor, setScalingFactor] = useState(1);
 
   const ffts = useMemo(() => {
-    if (!minimapData) return null;
+    // A recording shorter than one FFT yields no rows at all, so there is
+    // nothing to draw and minimapData[0] below would not exist.
+    if (!minimapData || minimapData.length === 0) return null;
     // transform the minimap data (array of float32 arrays) into an one big FLOAT32ARRAY. i.e., concatenation
     const iqData = new Float32Array(minimapData.length * minimapData[0].length);
     for (let i = 0; i < minimapData.length; i++) {
