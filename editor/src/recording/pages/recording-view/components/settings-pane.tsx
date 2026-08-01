@@ -9,6 +9,7 @@ import { useSpectrogramContext } from '../hooks/use-spectrogram-context';
 import { useCursorContext } from '../hooks/use-cursor-context';
 import { IconProp } from '@fortawesome/fontawesome-svg-core';
 import { unitPrefixHz } from '@/utils/rf-functions';
+import { CHANNELIZER_OVERSAMPLING_CHOICES, CHANNELIZER_TAPS_CHOICES } from '@/utils/channelizer';
 import { Tab, TAB_NAMES } from '../tabs';
 
 // The dropdown triggers are <label>s, so the base layer's <button> rule does not
@@ -32,6 +33,7 @@ const SettingsPane = ({ currentFFT, currentTab, setCurrentTab }: SettingsPanePro
   const sampleRate = context.meta?.getSampleRate() || 0;
   const coreFrequency = context.meta?.getCenterFrequency();
   const cursorContext = useCursorContext();
+  const isChannelizer = context.spectrogramMethod === 'channelizer';
   const [localTaps, setLocalTaps] = useState(JSON.stringify(context.taps));
   const [localFreqShift, setLocalFreqShift] = useState('');
 
@@ -215,7 +217,10 @@ const SettingsPane = ({ currentFFT, currentTab, setCurrentTab }: SettingsPanePro
       <div className="mt-4">
         <div className="dropdown dropdown-hover dropdown-right w-full">
           <label tabIndex={0} className={DROPDOWN_BUTTON}>
-            FFT Size <ArrowRightIcon />
+            {/* The same number under either method -- it is the DFT length for
+                the FFT and the branch count for the channelizer -- but nobody
+                calls a filter bank's channel count an FFT size. */}
+            {isChannelizer ? 'Channels' : 'FFT Size'} <ArrowRightIcon />
           </label>
           <ul className={`${DROPDOWN_MENU} w-52`}>
             {fftSizes.map((x, index) => (
@@ -289,22 +294,102 @@ const SettingsPane = ({ currentFFT, currentTab, setCurrentTab }: SettingsPanePro
         </div>
       </div>
 
-      <div className="mt-4 mb-2">
-        <div className="dropdown dropdown-hover dropdown-right w-full">
-          <label tabIndex={0} className={DROPDOWN_BUTTON}>
-            Window <ArrowRightIcon />
-          </label>
-          <ul className={`${DROPDOWN_MENU} w-70`}>
-            {windowFunctions.map((value) => (
-              <li key={value} data-value={value} onClick={onChangeWindowFunction}>
-                <a className={'capitalize ' + (context.windowFunction === value && 'bg-selected text-base-content')}>
-                  {value}
-                </a>
-              </li>
-            ))}
-          </ul>
-        </div>
+      {/* How a row of the spectrogram is computed. Off is one FFT per block of
+          fftSize samples, which is what every other SDR tool shows; on is a
+          polyphase near-perfect-reconstruction filter bank of fftSize channels
+          (see @/utils/channelizer), which confines a tone to the one or two
+          channels it falls in instead of smearing it across the row. The window
+          function only means anything to the FFT, so it is swapped out for the
+          channelizer's own description. */}
+      <div className="mt-4" id="toggleChannelizer">
+        <label className="label py-0">
+          <span className="label-text">Polyphase Channelizer</span>
+          <input
+            type="checkbox"
+            className="toggle toggle-primary"
+            checked={context.spectrogramMethod === 'channelizer'}
+            onChange={(e) => {
+              context.setSpectrogramMethod(e.target.checked ? 'channelizer' : 'fft');
+            }}
+          />
+        </label>
       </div>
+
+      {isChannelizer ? (
+        <div className="mt-2 mb-2">
+          {/* How long the prototype filter is, in taps per branch. More taps is a
+              finer design grid, so less complementarity ripple and less leakage
+              into the neighbouring channels -- paid for in arithmetic per row and
+              in how many rows a transient smears across. */}
+          <div className="dropdown dropdown-hover dropdown-right w-full">
+            <label tabIndex={0} className={DROPDOWN_BUTTON}>
+              Taps per Branch <ArrowRightIcon />
+            </label>
+            <ul className={`${DROPDOWN_MENU} w-52`}>
+              {CHANNELIZER_TAPS_CHOICES.map((value) => (
+                <li
+                  key={value}
+                  data-value={String(value)}
+                  onClick={(e) => {
+                    context.setChannelizerTaps(parseInt(e.currentTarget.dataset.value));
+                  }}
+                >
+                  {context.channelizerTaps === value ? (
+                    <a className="bg-selected text-base-content">{value}</a>
+                  ) : (
+                    <a>{value}</a>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* How fast the bank runs relative to the display. The row grid does
+              not change -- the extra frames are averaged into the row they
+              belong to -- so this settles the noise floor and catches a
+              transient that falls between two critically sampled frames,
+              without moving the time axis. */}
+          <div className="dropdown dropdown-hover dropdown-right w-full mt-2">
+            <label tabIndex={0} className={DROPDOWN_BUTTON}>
+              Oversampling <ArrowRightIcon />
+            </label>
+            <ul className={`${DROPDOWN_MENU} w-52`}>
+              {CHANNELIZER_OVERSAMPLING_CHOICES.map((value) => (
+                <li
+                  key={value}
+                  data-value={String(value)}
+                  onClick={(e) => {
+                    context.setChannelizerOversampling(parseInt(e.currentTarget.dataset.value));
+                  }}
+                >
+                  <a
+                    className={context.channelizerOversampling === value ? 'bg-selected text-base-content' : undefined}
+                  >
+                    {value}× {value === 1 ? '(critical)' : `(${100 - 100 / value}% overlap)`}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-2 mb-2">
+          <div className="dropdown dropdown-hover dropdown-right w-full">
+            <label tabIndex={0} className={DROPDOWN_BUTTON}>
+              Window <ArrowRightIcon />
+            </label>
+            <ul className={`${DROPDOWN_MENU} w-70`}>
+              {windowFunctions.map((value) => (
+                <li key={value} data-value={value} onClick={onChangeWindowFunction}>
+                  <a className={'capitalize ' + (context.windowFunction === value && 'bg-selected text-base-content')}>
+                    {value}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
 
       <div id="toggleFreq">
         <label className="label py-0">

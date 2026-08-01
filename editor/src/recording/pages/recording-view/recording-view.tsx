@@ -35,6 +35,9 @@ export function DisplaySpectrogram({ currentFFT, setCurrentFFT, currentTab }) {
     magnitudeMax,
     colmap,
     windowFunction,
+    spectrogramMethod,
+    channelizerTaps,
+    channelizerOversampling,
     fftSize,
     fftStepSize,
     meta,
@@ -59,7 +62,10 @@ export function DisplaySpectrogram({ currentFFT, setCurrentFFT, currentTab }) {
     magnitudeMin,
     magnitudeMax,
     colmap,
-    windowFunction
+    windowFunction,
+    spectrogramMethod,
+    channelizerTaps,
+    channelizerOversampling
   );
 
   function handleWheel(evt: KonvaEventObject<WheelEvent>): void {

@@ -352,11 +352,12 @@ Two more suites exist and are *not* run by CI — run them by hand when you touc
 the code they cover:
 
 ```bash
-(cd editor && npm test)                       # 23 node tests: shortcuts, selection, grid,
+(cd editor && npm test)                       # 24 node tests: shortcuts, selection, grid,
                                               # canvas scroll, workspace/recording tabs,
                                               # validation, time sink, expr,
                                               # .grc round-trip, recordings, real-valued
-                                              # recordings, contribute,
+                                              # recordings, polyphase channelizer,
+                                              # contribute,
                                               # block categories, note block, example
                                               # filter/search.
                                               # No browser, no WASM build.

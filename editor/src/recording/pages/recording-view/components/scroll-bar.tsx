@@ -60,6 +60,11 @@ const ScrollBar = ({ currentFFT, setCurrentFFT }: ScrollBarProps) => {
       console.log('minimapData[0].length:', minimapData[0].length, 'MINIMAP_FFT_SIZE:', MINIMAP_FFT_SIZE);
       throw new Error('Minimap data does not have the correct length');
     }
+    // Always an FFT, whatever the spectrogram's own method is: each minimap row
+    // is its own ranged read from a different point in the recording, so
+    // consecutive rows here are not consecutive samples. A channelizer row
+    // reaches into its neighbours, which would mean filtering across those
+    // seams. It is a 64-bin thumbnail either way.
     const ffts_calc = calcFfts(iqData, MINIMAP_FFT_SIZE, windowFunction, minimapData.length);
     const min = Math.min(...ffts_calc);
     const max = Math.max(...ffts_calc);
