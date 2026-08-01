@@ -3394,9 +3394,9 @@ async function buildPalette() {
 }
 
 // ---- Example Flowgraphs tab ------------------------------------------------
-// The examples live in example_flowgraphs/*.grc. The COOP/COEP dev server
-// (server.mjs) lists that directory at /example_flowgraphs, so new files show up
-// here automatically without a hand-maintained manifest.
+// The examples live anywhere below example_flowgraphs/. The COOP/COEP dev
+// server (server.mjs) lists that tree at /example_flowgraphs, so new files and
+// directories show up here automatically without a hand-maintained manifest.
 
 // "Show Examples" on a palette block filters this list to the examples that use
 // that block. Each entry's block ids are only known once its .grc has been
@@ -3407,6 +3407,11 @@ async function buildPalette() {
 // author and description out of the .grc, lowercased. It starts as the file name
 // alone, because that is all that is known before the .grc arrives.
 interface ExampleEntry { file: string; item: HTMLElement; blockIds: Set<string> | null; text: string }
+interface ExampleDirectory {
+  name: string;
+  directories: Map<string, ExampleDirectory>;
+  files: string[];
+}
 const exampleEntries: ExampleEntry[] = [];
 let exampleFilter: { id: string; label: string } | null = null;
 let applyExampleFilter: (() => void) | null = null;
@@ -3421,12 +3426,22 @@ function showExamplesFor(id: string, label: string) {
 // ---- deep links to an example (#example=<name>) ----------------------------
 // Every example in the palette hands out a link to itself. Unlike the #fg= share
 // URL, which embeds a frozen gzipped copy of the flowgraph, this carries only the
-// file name: the link stays short and always opens the current version of that
-// example. The fragment is left in the address bar on load so the link can be
-// bookmarked and reloaded.
+// relative path: the link stays short and always opens the current version of
+// that example. The fragment is left in the address bar on load so the link can
+// be bookmarked and reloaded.
+function normalizeExamplePath(name: string): string {
+  let path = String(name).replace(/\\/g, '/');
+  if (!path.endsWith('.grc')) path += '.grc';
+  const parts = path.split('/');
+  if (parts.some(part => !part || part === '.' || part === '..'))
+    throw new Error('invalid example flowgraph path');
+  return parts.join('/');
+}
 function exampleFileName(name: string): string {
-  const base = String(name).split(/[\\/]/).pop() || '';   // name only, never a path
-  return base.endsWith('.grc') ? base : base + '.grc';
+  return normalizeExamplePath(name).split('/').pop()!;
+}
+function encodeExamplePath(path: string): string {
+  return path.split('/').map(encodeURIComponent).join('/');
 }
 function exampleUrl(file: string): string {
   const base = location.href.split('#')[0].split('?')[0];
@@ -3450,8 +3465,8 @@ async function copyExampleUrl(file: string) {
 // Used by the #example= hash on startup; the palette's own click handler loads
 // the .grc it already fetched instead of going through here.
 async function loadExampleByName(name: string) {
-  const file = exampleFileName(name);
-  const res = await fetch('/example_flowgraphs/' + encodeURIComponent(file));
+  const file = normalizeExamplePath(name);
+  const res = await fetch('/example_flowgraphs/' + encodeExamplePath(file));
   if (!res.ok) throw new Error(`${file}: HTTP ${res.status}`);
   const fg = parseGrc(await res.text());
   const title = String(fg.options?.parameters?.title || file);
@@ -3460,6 +3475,31 @@ async function loadExampleByName(name: string) {
   setCurrentFileName(file);           // Save writes the example back under its own name
   log(`loaded example "${title}" from link`);
   void bindFlowgraphRecordings(fg, title);
+}
+
+function buildExampleTree(files: string[]): ExampleDirectory {
+  const root: ExampleDirectory = { name: '', directories: new Map(), files: [] };
+  for (const file of files) {
+    const parts = file.split('/');
+    const basename = parts.pop()!;
+    let directory = root;
+    for (const name of parts) {
+      let child = directory.directories.get(name);
+      if (!child) {
+        child = { name, directories: new Map(), files: [] };
+        directory.directories.set(name, child);
+      }
+      directory = child;
+    }
+    directory.files.push([...parts, basename].join('/'));
+  }
+  return root;
+}
+
+function exampleTreeCount(directory: ExampleDirectory): number {
+  let count = directory.files.length;
+  for (const child of directory.directories.values()) count += exampleTreeCount(child);
+  return count;
 }
 
 async function buildExamples(panel: HTMLElement) {
@@ -3515,6 +3555,17 @@ async function buildExamples(panel: HTMLElement) {
       entry.item.hidden = !match;
       if (match) shown++;
     }
+    // A directory stays visible when any descendant is visible. Filtering and
+    // searching expand matching paths so the result is not hidden in a closed
+    // disclosure; clearing the query leaves the user's open state alone.
+    const directories = [...list.querySelectorAll<HTMLDetailsElement>('.ex-directory')].reverse();
+    for (const details of directories) {
+      const contents = details.querySelector<HTMLElement>(':scope > .rec-directory-contents');
+      const hasVisibleChild = !!contents && [...contents.children]
+        .some(child => !(child as HTMLElement).hidden);
+      details.hidden = !hasVisibleChild;
+      if ((f || q) && hasVisibleChild) details.open = true;
+    }
     if (f) {
       barText.textContent =
         `Filtered: ${shown} of ${exampleEntries.length} examples use “${f.label}”` +
@@ -3530,24 +3581,27 @@ async function buildExamples(panel: HTMLElement) {
 
   status.remove(); panel.append(search, bar, list, noMatch);
   exampleEntries.length = 0;
-  for (const file of files) {
+  const addExample = (file: string, container: HTMLElement) => {
     // A row, not just the button, because the copy-link button sits on top of it
     // and a button cannot contain another button.
     const row = document.createElement('div'); row.className = 'ex-row';
     const item = document.createElement('button'); item.className = 'ex-item';
     const title = document.createElement('div'); title.className = 'ex-title';
-    title.textContent = file.replace(/\.grc$/, '');
+    title.textContent = exampleFileName(file).replace(/\.grc$/, '');
     item.append(title);
     const link = document.createElement('button'); link.className = 'ex-link';
     link.textContent = '🔗'; link.title = `Copy a link to this example (${exampleUrl(file)})`;
     link.setAttribute('aria-label', `Copy a link to ${file}`);
     link.onclick = e => { e.stopPropagation(); void copyExampleUrl(file); };
     row.append(item, link);
-    list.append(row);
+    container.append(row);
     const entry: ExampleEntry = { file, item: row, blockIds: null, text: file.toLowerCase() };
     exampleEntries.push(entry);
     // Fetch the file to show its title/description and load it on click.
-    fetch('/example_flowgraphs/' + file).then(r => r.text()).then(text => {
+    fetch('/example_flowgraphs/' + encodeExamplePath(file)).then(r => {
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.text();
+    }).then(text => {
       const fg = parseGrc(text);
       const params = fg.options?.parameters || {};
       const fgTitle = params.title || params.id;
@@ -3586,7 +3640,28 @@ async function buildExamples(panel: HTMLElement) {
       item.disabled = true; title.textContent = `${file} (failed to load)`;
       log(`example "${file}" not loaded: ${err}`);
     });
-  }
+  };
+
+  const renderDirectory = (directory: ExampleDirectory, container: HTMLElement) => {
+    const byName = (a: string, b: string) => a.localeCompare(b, undefined, { numeric: true });
+    for (const child of [...directory.directories.values()].sort((a, b) => byName(a.name, b.name))) {
+      const details = document.createElement('details');
+      details.className = 'rec-directory ex-directory';
+      const summary = document.createElement('summary'); summary.className = 'rec-directory-head';
+      const name = document.createElement('span'); name.className = 'rec-directory-name';
+      name.textContent = child.name;
+      const count = document.createElement('span'); count.className = 'rec-directory-count';
+      const total = exampleTreeCount(child);
+      count.textContent = `${total} example${total === 1 ? '' : 's'}`;
+      summary.append(name, count);
+      const contents = document.createElement('div'); contents.className = 'rec-directory-contents';
+      renderDirectory(child, contents);
+      details.append(summary, contents);
+      container.append(details);
+    }
+    for (const file of [...directory.files].sort(byName)) addExample(file, container);
+  };
+  renderDirectory(buildExampleTree(files), list);
   refresh();
 }
 
@@ -4594,9 +4669,9 @@ async function loadFlowgraphFromUrl(): Promise<boolean> {
     } catch (error) { log('could not duplicate flowgraph: ' + error); }
     return false;
   }
-  // #example=<name> opens one of example_flowgraphs/*.grc by name. The fragment
-  // is deliberately left in place: it is short, and keeping it makes the link
-  // bookmarkable and reloadable.
+  // #example=<path> opens a .grc anywhere below example_flowgraphs/. The
+  // fragment is deliberately left in place: it is short, and keeping it makes
+  // the link bookmarkable and reloadable.
   const example = hash.get('example');
   if (example) {
     try { await loadExampleByName(example); return true; }

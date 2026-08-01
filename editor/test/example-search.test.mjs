@@ -1,7 +1,8 @@
 // Search box on the Example Flowgraphs tab: matches title, author, description
 // and .grc file name, and composes with the "Show Examples" block filter.
 import assert from 'node:assert/strict';
-import { readFile, readdir } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
+import { exampleFiles as files, exampleFilePath } from './example-files.mjs';
 
 const source = await readFile(new URL('../src/main.ts', import.meta.url), 'utf8');
 const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
@@ -37,12 +38,10 @@ assert.match(source, /if \(e\.key === 'Escape' && search\.value\) \{[^}]*search\
 
 // End-to-end sanity on real data: the fields the search reads are actually
 // present in the shipped examples, so a search over them can match something.
-const dir = new URL('../../example_flowgraphs/', import.meta.url);
-const files = (await readdir(dir)).filter(f => f.endsWith('.grc'));
 assert.ok(files.length, 'no example flowgraphs to check against');
 let withTitle = 0, withAuthor = 0, withDesc = 0;
 for (const file of files) {
-  const text = await readFile(new URL(file, dir), 'utf8');
+  const text = await readFile(exampleFilePath(file), 'utf8');
   if (/^\s*title: \S/m.test(text)) withTitle++;
   if (/^\s*author: \S/m.test(text)) withAuthor++;
   if (/^\s*(description|comment): \S/m.test(text)) withDesc++;

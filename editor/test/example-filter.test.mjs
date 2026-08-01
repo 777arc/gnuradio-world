@@ -1,7 +1,8 @@
 // "Show Examples" on a palette block: filters the Example Flowgraphs tab to the
 // examples that instantiate that block, with a visible, clearable banner.
 import assert from 'node:assert/strict';
-import { readFile, readdir } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
+import { exampleFiles as files, exampleFilePath } from './example-files.mjs';
 
 const source = await readFile(new URL('../src/main.ts', import.meta.url), 'utf8');
 const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
@@ -51,12 +52,10 @@ assert.match(html, /\.ex-filter-clear \{[^}]*\}/, 'the "Show all" button needs s
 
 // End-to-end sanity on real data: the block ids the filter matches on are the
 // ones that appear in the shipped examples.
-const dir = new URL('../../example_flowgraphs/', import.meta.url);
-const files = (await readdir(dir)).filter(f => f.endsWith('.grc'));
 assert.ok(files.length, 'no example flowgraphs to check against');
 const ids = new Set();
 for (const file of files)
-  for (const m of (await readFile(new URL(file, dir), 'utf8')).matchAll(/^ {4}id: (\S+)\s*$/gm))
+  for (const m of (await readFile(exampleFilePath(file), 'utf8')).matchAll(/^ {4}id: (\S+)\s*$/gm))
     ids.add(m[1]);
 const library = JSON.parse(await readFile(new URL('../public/blocks.json', import.meta.url), 'utf8'));
 const known = new Set((library.blocks || []).map(b => b.id));

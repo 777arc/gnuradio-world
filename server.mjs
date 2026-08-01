@@ -4,8 +4,9 @@
 // Emscripten pthreads work (needed by the thread-per-block scheduler).
 // Usage: node server.mjs [port] [absoluteRootDir]
 import http from 'node:http';
-import { readFile, readdir, stat } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
+import { findExampleFlowgraphs } from './scripts/example-flowgraphs.mjs';
 
 const port = Number(process.argv[2] || 8080);
 const root = normalize(process.argv[3] || new URL('.', import.meta.url).pathname);
@@ -53,11 +54,11 @@ const server = http.createServer(async (req, res) => {
     // entry, so /recording/ resolves to editor/dist/recording/index.html through
     // the same fallback the editor itself uses, and its route lives after the
     // '#' where the server never sees it.
-    // Directory listing for the example flowgraphs, so the editor can discover
-    // whatever .grc files live in example_flowgraphs/ without a manifest.
+    // Recursive listing for the example flowgraphs, so the editor can discover
+    // .grc files anywhere below example_flowgraphs/ without a manifest.
     if (urlPath === '/example_flowgraphs' || urlPath === '/example_flowgraphs/') {
       const dir = join(root, 'example_flowgraphs');
-      const files = (await readdir(dir)).filter(f => f.endsWith('.grc')).sort();
+      const files = await findExampleFlowgraphs(dir);
       res.setHeader('Content-Type', 'application/json');
       res.writeHead(200);
       return res.end(JSON.stringify(files));

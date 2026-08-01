@@ -1,9 +1,10 @@
 // Deep links to an example flowgraph: every entry in the Example Flowgraphs tab
 // hands out a #example=<name> URL, and opening one loads that example on startup.
 // Unlike the #fg= share URL (a frozen gzipped copy of the flowgraph), this
-// carries only the file name, so it always opens the current version.
+// carries only the relative path, so it always opens the current version.
 import assert from 'node:assert/strict';
-import { readFile, readdir } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
+import { exampleFiles as files } from './example-files.mjs';
 
 const source = await readFile(new URL('../src/main.ts', import.meta.url), 'utf8');
 const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
@@ -14,18 +15,21 @@ assert.match(source, /function exampleUrl\(file: string\): string \{[\s\S]*?#exa
 assert.match(source, /const base = location\.href\.split\('#'\)\[0\]\.split\('\?'\)\[0\];/,
   'the link must drop any existing fragment/query from the current URL');
 
-// A name that arrives from a URL is untrusted: only the file name may survive.
-assert.match(source, /function exampleFileName\(name: string\): string \{[\s\S]*?split\(\/\[\\\\\/\]\/\)\.pop\(\)/,
-  'exampleFileName must strip any path so a link cannot fetch outside example_flowgraphs/');
-assert.match(source, /return base\.endsWith\('\.grc'\) \? base : base \+ '\.grc';/,
+// A path that arrives from a URL is untrusted: nested segments are retained,
+// but empty, current-directory and parent-directory segments are rejected.
+assert.match(source, /function normalizeExamplePath\(name: string\): string \{[\s\S]*?replace\(\/\\\\\/g, '\/'\)[\s\S]*?parts\.some\(part => !part \|\| part === '\.' \|\| part === '\.\.'\)/,
+  'normalizeExamplePath must normalize separators and reject traversal paths');
+assert.match(source, /if \(!path\.endsWith\('\.grc'\)\) path \+= '\.grc';/,
   'the .grc suffix must be optional in the link');
+assert.match(source, /function encodeExamplePath\(path: string\): string \{\s*return path\.split\('\/'\)\.map\(encodeURIComponent\)\.join\('\/'\);/,
+  'nested paths must encode each segment without encoding their separators');
 
 // ---- handing it out ----
 assert.match(source, /const link = document\.createElement\('button'\); link\.className = 'ex-link';/,
   'each example row needs its own copy-link button');
 assert.match(source, /link\.onclick = e => \{ e\.stopPropagation\(\); void copyExampleUrl\(file\); \};/,
   'copying the link must not also load the example (the row underneath is a button)');
-assert.match(source, /row\.append\(item, link\);\s*list\.append\(row\);/,
+assert.match(source, /row\.append\(item, link\);\s*container\.append\(row\);/,
   'the link button must be a sibling of the example button, not nested inside it');
 assert.match(source, /const entry: ExampleEntry = \{ file, item: row, blockIds: null,/,
   'the block filter must hide the whole row, not just the example button');
@@ -55,7 +59,7 @@ assert.match(source, /loadFlowgraph\(parseGrc\(await file\.text\(\)\)\); setExam
 assert.match(source, /let currentFileName: string \| null = null;/,
   'the file a Save writes to must be tracked');
 assert.match(source, /function setCurrentFileName\(file: string \| null\) \{\s*currentFileName = file \? exampleFileName\(file\) : null;/,
-  'the name must go through exampleFileName: name only, always .grc');
+  'Save must keep only the basename even when the example lives in a directory');
 assert.match(source, /const file = currentFileName \|\| 'flowgraph\.grc';\s*downloadBlob\(grcText\(\), 'application\/x-yaml', file\);/,
   'saveFlowgraph must download under the current file name, falling back to flowgraph.grc');
 assert.match(source, /insts = \[\]; conns = \[\]; counter = 0;\s*\/\/[\s\S]*?setCurrentFileName\(null\);/,
@@ -77,7 +81,7 @@ assert.match(source, /catch \(error\) \{ log\(`could not load example "\$\{examp
 const startup = source.slice(source.indexOf("const example = hash.get('example')"));
 assert.ok(!/cleanUrl\(\)/.test(startup.slice(0, startup.indexOf("hash.get('fg')"))),
   'the #example= fragment must survive in the address bar');
-assert.match(source, /const res = await fetch\('\/example_flowgraphs\/' \+ encodeURIComponent\(file\)\);\s*if \(!res\.ok\) throw new Error/,
+assert.match(source, /const res = await fetch\('\/example_flowgraphs\/' \+ encodeExamplePath\(file\)\);\s*if \(!res\.ok\) throw new Error/,
   'loadExampleByName must fetch the example and fail loudly on a 404');
 assert.match(source, /loadFlowgraphAnimated\(fg\);\s*\/\/ resets history itself\s*setExampleHash\(file\);/,
   'a linked example must load the same way a clicked one does, and normalize the fragment');
@@ -86,21 +90,22 @@ assert.match(source, /void bindFlowgraphRecordings\(fg, title\);/,
 
 // ---- end to end on real data ----
 // Every shipped example must be reachable through the round trip a link makes:
-// file name -> #example=<name> -> exampleFileName() -> the same file.
-const files = (await readdir(new URL('../../example_flowgraphs/', import.meta.url)))
-  .filter(f => f.endsWith('.grc'));
+// relative path -> #example=<path> -> normalizeExamplePath() -> the same path.
 assert.ok(files.length, 'no example flowgraphs to link to');
-const fileName = name => {
-  const base = String(name).split(/[\\/]/).pop() || '';
-  return base.endsWith('.grc') ? base : base + '.grc';
+const normalizeExamplePath = name => {
+  let path = String(name).replace(/\\/g, '/');
+  if (!path.endsWith('.grc')) path += '.grc';
+  const parts = path.split('/');
+  if (parts.some(part => !part || part === '.' || part === '..')) throw new Error('invalid');
+  return parts.join('/');
 };
-for (const file of files) {
+for (const file of [...files, 'collection/subcollection/example.grc']) {
   const url = `https://example.test/#example=${encodeURIComponent(file.replace(/\.grc$/, ''))}`;
   const name = new URLSearchParams(new URL(url).hash.slice(1)).get('example');
-  assert.equal(fileName(name), file, `link round trip failed for ${file}`);
+  assert.equal(normalizeExamplePath(name), file, `link round trip failed for ${file}`);
 }
 // And the traversal guard actually holds.
-assert.equal(fileName('../../etc/passwd'), 'passwd.grc');
-assert.equal(fileName('/example_flowgraphs/rds_receiver.grc'), 'rds_receiver.grc');
+assert.throws(() => normalizeExamplePath('../../etc/passwd'));
+assert.throws(() => normalizeExamplePath('/example_flowgraphs/rds_receiver.grc'));
 
 console.log(`example-link: ok (${files.length} examples round-trip)`);

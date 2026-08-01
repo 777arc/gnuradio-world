@@ -15,6 +15,7 @@ import { readdir, readFile, stat, rm, mkdir, cp } from 'node:fs/promises';
 import { join, extname, dirname, relative } from 'node:path';
 import { writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
+import { findExampleFlowgraphs } from './example-flowgraphs.mjs';
 
 const SCRIPT_DIR = new URL('.', import.meta.url).pathname;
 const ROOT = join(SCRIPT_DIR, '..');
@@ -106,9 +107,13 @@ async function main() {
 
   // 3. Example flowgraphs + manifest (matches GET /example_flowgraphs).
   const fgDir = join(ROOT, 'example_flowgraphs');
-  const grcFiles = (await readdir(fgDir)).filter(f => f.endsWith('.grc')).sort();
+  const grcFiles = await findExampleFlowgraphs(fgDir);
   await mkdir(join(OUT, 'example_flowgraphs'), { recursive: true });
-  for (const f of grcFiles) await cp(join(fgDir, f), join(OUT, 'example_flowgraphs', f));
+  for (const f of grcFiles) {
+    const destination = join(OUT, 'example_flowgraphs', f);
+    await mkdir(dirname(destination), { recursive: true });
+    await cp(join(fgDir, f), destination);
+  }
   await writeFile(join(OUT, 'example_flowgraphs', 'index.json'), JSON.stringify(grcFiles));
   console.log(`example_flowgraphs: ${grcFiles.length} .grc`);
 

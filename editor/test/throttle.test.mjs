@@ -4,7 +4,8 @@
 // gr::blocks::throttle; only throttle2 exposes the limit/maximum cap that keeps
 // a low-rate throttle from stalling on a wide buffer.
 import assert from 'node:assert/strict';
-import { readFile, readdir } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
+import { exampleFiles, exampleFilePath } from './example-files.mjs';
 
 const source = await readFile(new URL('../src/main.ts', import.meta.url), 'utf8');
 const library = JSON.parse(await readFile(
@@ -40,9 +41,8 @@ assert.match(source, /const thr = addBlock\('blocks_throttle2'/,
   'the demo must connect the instance addBlock returned, not a position in insts');
 
 // ---- nothing shipped in the repo uses the deprecated block ----
-const exampleDir = new URL('../../example_flowgraphs/', import.meta.url);
-for (const name of (await readdir(exampleDir)).filter(n => n.endsWith('.grc'))) {
-  const text = await readFile(new URL(name, exampleDir), 'utf8');
+for (const name of exampleFiles) {
+  const text = await readFile(exampleFilePath(name), 'utf8');
   assert.doesNotMatch(text, /id: blocks_throttle$/m,
     `${name} must use blocks_throttle2, not the deprecated Throttle (old)`);
 }

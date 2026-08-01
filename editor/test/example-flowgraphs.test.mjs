@@ -17,10 +17,11 @@
 //      flowgraph's own variable scope.
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
-import { readFile, readdir } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { exampleFiles as files, exampleFilePath } from './example-files.mjs';
 
 // expr.ts/grc.ts are TypeScript; bundle them to importable mjs (as expr.test.mjs does).
 const out = join(tmpdir(), `examples-test-${process.pid}.mjs`);
@@ -66,13 +67,11 @@ function effectiveDtype(block, def, param) {
     'EVALUATED_DTYPES in main.ts and this test have drifted apart');
 }
 
-const dir = new URL('../../example_flowgraphs/', import.meta.url);
-const files = (await readdir(dir)).filter(f => f.endsWith('.grc')).sort();
 assert.ok(files.length > 0, 'no example flowgraphs found');
 
 let checked = 0;
 for (const file of files) {
-  const text = await readFile(new URL(file, dir), 'utf8');
+  const text = await readFile(exampleFilePath(file), 'utf8');
 
   let doc;
   try {

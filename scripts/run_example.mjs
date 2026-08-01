@@ -26,6 +26,7 @@
 // sits idle, a flowgraph with a printing block prints nothing, --expect is
 // absent, or any --reject substring appears in the console pane.
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { basename, resolve, sep } from 'node:path';
 import puppeteer from 'puppeteer-core';
 
 const args = process.argv.slice(2);
@@ -56,12 +57,16 @@ let expectsOutput = false;
 // form works on the command line.
 let title = target;
 if (target.endsWith('.grc')) {
-  const path = new URL(`../example_flowgraphs/${target.replace(/^.*\//, '')}`,
-                      import.meta.url).pathname;
+  const exampleRoot = new URL('../example_flowgraphs/', import.meta.url).pathname;
+  const path = resolve(exampleRoot, target);
+  const rootPrefix = exampleRoot.endsWith(sep) ? exampleRoot : exampleRoot + sep;
+  if (!path.startsWith(rootPrefix)) {
+    console.error(`example path escapes example_flowgraphs: ${target}`); process.exit(2);
+  }
   if (!existsSync(path)) { console.error(`no such example: ${path}`); process.exit(2); }
   const text = readFileSync(path, 'utf8');
   const match = text.match(/^\s+title:\s*(.+?)\s*$/m);
-  title = match ? match[1].replace(/^['"]|['"]$/g, '') : target.replace(/\.grc$/, '');
+  title = match ? match[1].replace(/^['"]|['"]$/g, '') : basename(target, '.grc');
   expectsOutput = PRINTING_BLOCKS.some(
     id => new RegExp(`^\\s+id:\\s*${id}\\s*$`, 'm').test(text));
 }
@@ -94,7 +99,10 @@ try {
   const entry = await page.evaluateHandle(t => {
     const leaf = [...document.querySelectorAll('div')].find(
       d => d.children.length === 0 && (d.textContent || '').trim().includes(t));
-    return leaf && (leaf.closest('div[class]') || leaf);
+    if (!leaf) return null;
+    for (let parent = leaf.parentElement; parent; parent = parent.parentElement)
+      if (parent instanceof HTMLDetailsElement) parent.open = true;
+    return leaf.closest('.ex-row')?.querySelector('.ex-item') || leaf;
   }, title);
   if (!entry.asElement()) throw new Error(`example not listed in the editor: ${title}`);
   await entry.asElement().click();
