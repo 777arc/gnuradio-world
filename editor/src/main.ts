@@ -4645,33 +4645,11 @@ el('btnStop').addEventListener('click', stop);
   input.value = '';
 });
 
-// Seed with a multi-source demo (signal + noise -> add -> throttle -> scope).
-// Runs only once the palette has loaded, because Throttle is a generated schema:
-// RUNNABLE holds nothing for it until installGeneratedBlocks() has run, and
-// addBlock() on an unknown id returns null.
-function seedDemoFlowgraph() {
-  const src = addBlock('analog_sig_source_x', 50, 70);
-  const noise = addBlock('analog_noise_source_x', 50, 230);
-  const add = addBlock('blocks_add_xx', 300, 130);
-  // The schema default for the rate is the expression `samp_rate`; this demo has
-  // no such variable, so give it the same literal rate the sources use.
-  const thr = addBlock('blocks_throttle2', 500, 130, { samples_per_second: 32000 });
-  const snk = addBlock('qtgui_time_sink_x', 690, 130);
-  if (!src || !noise || !add || !thr || !snk) return;
-  conns.push({ from: src.uid, fp: 0, to: add.uid, tp: 0 });
-  conns.push({ from: noise.uid, fp: 0, to: add.uid, tp: 1 });
-  conns.push({ from: add.uid, fp: 0, to: thr.uid, tp: 0 });
-  conns.push({ from: thr.uid, fp: 0, to: snk.uid, tp: 0 });
-  ensureOptionsBlock();
-  select(null); render();
-}
-
 const paletteReady = buildPalette();
 ensureOptionsBlock();
 select(null); render();
 log('Editor ready. Click ▶ Run to execute the flowgraph in WebAssembly.');
-// A flowgraph named by the URL fragment wins over the demo; anything else (no
-// fragment, or one that could not be opened) leaves the demo on the canvas.
+// A flowgraph named by the URL fragment wins over the default example.
 // Returns whether the fragment claimed the canvas.
 async function loadFlowgraphFromUrl(): Promise<boolean> {
   const hash = new URLSearchParams(location.hash.slice(1));
@@ -4707,6 +4685,9 @@ async function loadFlowgraphFromUrl(): Promise<boolean> {
 }
 
 paletteReady.then(async () => {
-  if (!await loadFlowgraphFromUrl()) seedDemoFlowgraph();
+  if (!await loadFlowgraphFromUrl()) {
+    try { await loadExampleByName('PSK_constellation.grc'); }
+    catch (error) { log(`could not load default example "PSK_constellation.grc": ${error}`); }
+  }
   historyReady = true; resetHistory();
 });

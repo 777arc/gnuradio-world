@@ -31,14 +31,11 @@ assert.match(source, /LEGACY_PARAM_IDS[\s\S]{0,400}blocks_throttle: \{ samples_p
 assert.match(source, /function importParams\([^)]*blockId\?: string\)/,
   'importParams must receive the block id so it can consult LEGACY_PARAM_IDS');
 
-// ---- the seeded demo waits for the palette ----
-// Throttle has no hand-written RUNNABLE entry, so RUNNABLE learns about it only
-// when installGeneratedBlocks() runs. Seeding the demo before that would place
-// nothing and leave the startup path throwing on the missing block.
-assert.match(source, /paletteReady\.then\(async \(\) => \{[\s\S]{0,200}seedDemoFlowgraph\(\)/,
-  'the demo flowgraph must be seeded only after the block library has loaded');
-assert.match(source, /const thr = addBlock\('blocks_throttle2'/,
-  'the demo must connect the instance addBlock returned, not a position in insts');
+// ---- the default example waits for the palette ----
+// Loading a flowgraph needs the generated block schemas installed first.
+assert.match(source,
+  /paletteReady\.then\(async \(\) => \{[\s\S]{0,300}loadExampleByName\('PSK_constellation\.grc'\)/,
+  'PSK_constellation.grc must be loaded as the default only after the block library is ready');
 
 // ---- nothing shipped in the repo uses the deprecated block ----
 for (const name of exampleFiles) {
