@@ -1427,10 +1427,21 @@ function ensureOptionsBlock() {
   if (!insts.some(i => i.id === OPTIONS_ID)) insts.unshift(makeOptionsInst());
 }
 
+// The file name Save writes back to: whatever file the canvas was loaded from
+// (an example, or a .grc opened from disk), so editing an example and saving it
+// keeps its own name instead of everything landing as flowgraph.grc. Anything
+// that replaces the canvas with something that came from no file clears it, and
+// Save falls back to flowgraph.grc.
+let currentFileName: string | null = null;
+function setCurrentFileName(file: string | null) {
+  currentFileName = file ? exampleFileName(file) : null;   // name only, always .grc
+}
+
 function clearFlowgraph(record = true) {
   insts = []; conns = []; counter = 0; selected = null; selectedBlocks.clear();
   selectedConnection = null; cancelConnect(); ensureOptionsBlock(); render();
   setExampleHash(null);   // the canvas is empty; any #example= in the URL is stale
+  setCurrentFileName(null);
   if (record) recordHistory();
 }
 
@@ -1582,8 +1593,9 @@ function downloadBlob(contents: BlobPart, type: string, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 function saveFlowgraph() {
-  downloadBlob(grcText(), 'application/x-yaml', 'flowgraph.grc');
-  log(`saved ${insts.length} blocks`);
+  const file = currentFileName || 'flowgraph.grc';
+  downloadBlob(grcText(), 'application/x-yaml', file);
+  log(`saved ${insts.length} blocks to ${file}`);
 }
 
 // ---- .grc import (parsed GrcDoc tree -> editor model) ----
@@ -1642,6 +1654,9 @@ function loadFlowgraph(doc: any) {
   if (!doc || !Array.isArray(doc.blocks))
     throw new Error('not a GNU Radio .grc flowgraph');
   insts = []; conns = []; counter = 0;
+  // Whatever was on the canvas is gone, and with it the file Save writes to; the
+  // callers that do know a name (an example, an opened .grc) set it back after.
+  setCurrentFileName(null);
   // options: a top-level block in .grc; becomes the editor's singleton Options.
   const optRaw = doc.options || {};
   const optFlags = stateToFlags(optRaw.states?.state);
@@ -3442,6 +3457,7 @@ async function loadExampleByName(name: string) {
   const title = String(fg.options?.parameters?.title || file);
   loadFlowgraphAnimated(fg);          // resets history itself
   setExampleHash(file);               // normalizes e.g. a link written with .grc
+  setCurrentFileName(file);           // Save writes the example back under its own name
   log(`loaded example "${title}" from link`);
   void bindFlowgraphRecordings(fg, title);
 }
@@ -3558,6 +3574,7 @@ async function buildExamples(panel: HTMLElement) {
         try {
           loadFlowgraphAnimated(fg);
           setExampleHash(file);
+          setCurrentFileName(file);
           log(`loaded example "${fgTitle || file}"`);
           void bindFlowgraphRecordings(fg, String(fgTitle || file));
         } catch (err) { log(`failed to load example "${file}": ${err}`); }
@@ -4531,7 +4548,7 @@ buildToolbar();
 el('btnStop').addEventListener('click', stop);
 (el('fileOpen') as HTMLInputElement).addEventListener('change', async event => {
   const input = event.currentTarget as HTMLInputElement, file = input.files?.[0]; if (!file) return;
-  try { loadFlowgraph(parseGrc(await file.text())); setExampleHash(null); }
+  try { loadFlowgraph(parseGrc(await file.text())); setExampleHash(null); setCurrentFileName(file.name); }
   catch (error) { log('could not open flowgraph: ' + error); }
   input.value = '';
 });

@@ -349,7 +349,19 @@ the code they cover:
 
 `editor/test` covers editor logic (`expr.ts`, `grc.ts`, selection/grid geometry)
 that the smoke test cannot reach, including byte-exact `.grc` formatting — run it
-after any change under `editor/src`. `runner/test/grc_test.cpp` is a host-compiled
+after any change under `editor/src`.
+
+**Do not add a new `*.test.mjs` for every change.** A new suite is for a genuinely
+new area of behavior — a new view, a new subsystem, a new file format concern.
+Anything smaller belongs in the existing suite that already covers the code it
+touches (a Save-path tweak goes in `example-link.test.mjs`, a schema tweak in
+`grc.test.mjs`, and so on), and plenty of small changes need no new assertion at
+all — running the existing suites is enough. Every new file also has to be added
+to the `test` script in `editor/package.json` and to the list above, so a suite
+per change turns into a long tail of near-empty files nobody reads. Same rule for
+`test/` at the repository root and `runner/test/`.
+
+`runner/test/grc_test.cpp` is a host-compiled
 regression test for the runner's `.grc` parser and lowering (`grc_yaml.hpp`,
 `grc_lower.hpp`); those headers are deliberately GNU-Radio-free so it builds with a
 plain host compiler in a second, with no Emscripten involved. `runner/test/` also

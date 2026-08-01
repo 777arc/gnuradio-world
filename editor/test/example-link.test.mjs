@@ -39,13 +39,33 @@ assert.match(html, /\.ex-row:hover \.ex-link, \.ex-link:focus-visible \{ opacity
 // there and survives a reload.
 assert.match(source, /function setExampleHash\(file: string \| null\) \{\s*const url = file \? exampleUrl\(file\) : location\.href\.split\('#'\)\[0\];\s*if \(url !== location\.href\) history\.replaceState\(null, '', url\);/,
   'setExampleHash must rewrite the fragment in place, without adding a history entry');
-assert.match(source, /loadFlowgraphAnimated\(fg\);\s*setExampleHash\(file\);\s*log\(`loaded example "\$\{fgTitle \|\| file\}"`\)/,
+assert.match(source, /loadFlowgraphAnimated\(fg\);\s*setExampleHash\(file\);\s*setCurrentFileName\(file\);\s*log\(`loaded example "\$\{fgTitle \|\| file\}"`\)/,
   'clicking an example in the palette must update the URL to its link');
 // ...and stops claiming an example once the canvas holds something else.
 assert.match(source, /ensureOptionsBlock\(\); render\(\);\s*setExampleHash\(null\);/,
   'New/Close must drop a stale #example= from the URL');
 assert.match(source, /loadFlowgraph\(parseGrc\(await file\.text\(\)\)\); setExampleHash\(null\);/,
   'opening a .grc file must drop a stale #example= from the URL');
+
+// ---- Save writes back under the same name ----
+// Editing an example and saving it must download <example>.grc, not the generic
+// flowgraph.grc. Same file name the link carries, through the same helper, so a
+// name from a URL cannot become a path. loadFlowgraph() clears it and only the
+// callers that know a file name set it again, so no load path inherits a stale one.
+assert.match(source, /let currentFileName: string \| null = null;/,
+  'the file a Save writes to must be tracked');
+assert.match(source, /function setCurrentFileName\(file: string \| null\) \{\s*currentFileName = file \? exampleFileName\(file\) : null;/,
+  'the name must go through exampleFileName: name only, always .grc');
+assert.match(source, /const file = currentFileName \|\| 'flowgraph\.grc';\s*downloadBlob\(grcText\(\), 'application\/x-yaml', file\);/,
+  'saveFlowgraph must download under the current file name, falling back to flowgraph.grc');
+assert.match(source, /insts = \[\]; conns = \[\]; counter = 0;\s*\/\/[\s\S]*?setCurrentFileName\(null\);/,
+  'loadFlowgraph must clear the name, so a #fg=/#duplicate= load does not inherit one');
+assert.match(source, /setExampleHash\(null\);\s*\/\/ the canvas is empty[^\n]*\n\s*setCurrentFileName\(null\);/,
+  'New/Close must clear the name');
+assert.match(source, /setExampleHash\(file\);\s*\/\/ normalizes[^\n]*\n\s*setCurrentFileName\(file\);/,
+  'an example opened from a link must be saved back under its own name');
+assert.match(source, /setExampleHash\(null\); setCurrentFileName\(file\.name\);/,
+  'a .grc opened from disk must be saved back under its own name');
 
 // ---- opening it ----
 assert.match(source, /const example = hash\.get\('example'\);\s*if \(example\) \{[\s\S]*?await loadExampleByName\(example\);/,
