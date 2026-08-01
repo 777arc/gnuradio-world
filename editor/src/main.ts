@@ -6,6 +6,7 @@
 import { dumpGrc, parseGrc, type GrcDoc, type GrcScalar } from './grc';
 import { boundsBetween, boundsIntersect, type Point } from './selection';
 import { ceilToGrid, centeredPortSlot, constrainBlockPosition, SNAP_GRID_SIZE } from './grid';
+import { arrangeFlowgraph, type LayoutNode } from './layout';
 import { evaluate as evalExpr, buildScope, formatValue as fmtExprVal, serializeForRunner, type Scope } from './expr';
 import { wrapNoteText, NOTE_FONT_SIZE } from './note';
 import { EXAMPLES_REPO, examplePath, newExampleFileUrl, sanitizeExampleName } from './contribute';
@@ -1381,6 +1382,36 @@ function alignSelected(alignment: Alignment) {
     b.block.x = position.x; b.block.y = position.y;
   }
   render(); recordHistory();
+}
+// Auto-arrange: hand the whole flowgraph to the layout engine and drop every
+// block on the coordinate it comes back with. Everything the engine needs is
+// measured here — box size, how far the port tabs stick out on each side, and
+// the y offset of every port — so `layout.ts` stays DOM-free and unit testable.
+function autoArrangeBlocks() {
+  if (!insts.length) return;
+  // Ports have to face the way the layout flows, so a hand-rotated block is
+  // straightened first: a 90° block's ports sit on its top and bottom edges, and
+  // no left-to-right wire into one of those can ever come out straight.
+  for (const inst of insts) inst.rotation = 0;
+  const nodes: LayoutNode[] = insts.map(inst => {
+    const { w, h } = geom(inst);
+    const offsets = (kind: 'in' | 'out') =>
+      Array.from({ length: portCount(inst, kind) }, (_, i) => portPos(inst, kind, i).y);
+    const pad = (kind: 'in' | 'out') =>
+      Math.max(0, ...visiblePortIndices(inst, kind).map(i => portWidth(inst, kind, i)));
+    return {
+      uid: inst.uid, w, h, leftPad: pad('in'), rightPad: pad('out'),
+      in: offsets('in'), out: offsets('out'), pinned: inst.id === OPTIONS_ID,
+    };
+  });
+  const byUid = new Map(insts.map(inst => [inst.uid, inst]));
+  for (const at of arrangeFlowgraph(nodes, conns)) {
+    const inst = byUid.get(at.uid)!;
+    const position = constrainBlockPosition(at.x, at.y, snapToGrid);
+    inst.x = position.x; inst.y = position.y;
+  }
+  render(); recordHistory();
+  log(`arranged ${insts.length} block${insts.length === 1 ? '' : 's'}`);
 }
 function cycleBlockType(direction: number) {
   const blocks = selectedInsts(); let changed = false;
@@ -4447,6 +4478,7 @@ const MENUS: TopMenu[] = [
       { label: 'Horizontal Align Center', key: 'Shift+C', run: () => alignSelected('center') },
       { label: 'Horizontal Align Right', key: 'Shift+R', run: () => alignSelected('right') },
     ] },
+    { label: 'Auto-Arrange Blocks', run: autoArrangeBlocks, enabled: hasBlocks },
     'sep',
     { label: 'Enable', key: 'E', run: () => setSelectedEnabled(true), enabled: hasSel },
     { label: 'Disable', key: 'D', run: () => setSelectedEnabled(false), enabled: hasSel },

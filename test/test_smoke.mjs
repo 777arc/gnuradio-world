@@ -49,11 +49,11 @@ const rangeRequests = [];
 // the middle -- the "missing length tag" signature, where the source runs and
 // everything downstream sits at zero.
 const CASES = [
-  { name: 'analog demo (core module only)', grc: 'example_flowgraphs/example_1.grc' },
+  { name: 'OFDM loopback (deferred digital module)', grc: 'example_flowgraphs/ofdm/ofdm.grc' },
   { name: 'PSK constellation (hier block + qtgui sinks)', grc: 'example_flowgraphs/PSK_constellation.grc' },
-  { name: 'AM modulation example', grc: 'example_flowgraphs/am_modulation.grc' },
-  { name: 'FM loopback example', grc: 'example_flowgraphs/fm_loopback.grc' },
-  { name: 'low-pass filter example', grc: 'example_flowgraphs/low_pass_filter.grc' },
+  { name: 'AM modulation example', grc: 'example_flowgraphs/analog/am_modulation.grc' },
+  { name: 'FM loopback example (core module only)', grc: 'example_flowgraphs/analog/fm_loopback.grc' },
+  { name: 'low-pass filter example', grc: 'example_flowgraphs/analog/low_pass_filter.grc' },
   { name: 'new core/filter blocks', grc: 'test/fixtures/wasm_added_core.grc' },
   { name: 'new constellation and synchronizer blocks', grc: 'test/fixtures/wasm_added_digital.grc' },
   { name: 'new FEC leaf blocks', grc: 'test/fixtures/wasm_added_fec.grc' },

@@ -68,8 +68,8 @@ node server.mjs 8090 "$PWD"
   hierarchy. In-tree definitions remain visible; blocks absent from the WASM
   registry are greyed out and cannot be placed. The editor supports
   place/connect/configure, right-click actions (cut/copy/paste, rotate,
-  enable/disable, bypass), a Properties dialog, and a Run button that hands the
-  flowgraph `.grc` to the runner. The editor canvas and embedded Qt GUI runner
+  enable/disable, bypass), a Properties dialog, Edit ▸ Auto-Arrange Blocks (see
+  below), and a Run button that hands the flowgraph `.grc` to the runner. The editor canvas and embedded Qt GUI runner
   share tabs in the workspace, joined by one *recording tab* per File Source
   (see below). The recording viewer is part of this same Vite build, with the
   console remaining visible below any tab.
@@ -107,6 +107,22 @@ node server.mjs 8090 "$PWD"
 | `scripts/` | `assemble-site.mjs` (assembles the static site CI deploys to Pages), `serve_site.mjs` (serves an assembled site the way Cloudflare Pages does), `run.mjs` (headless-Chromium test harness, waits on a page `#result`), `run_example.mjs` (opens an example in the real editor and presses Run), `r2-cors.json` (CORS policy for the recordings bucket) |
 | `editor/recording/` | HTML shell for the built-in recording view, emitted at `/recording/` by the normal editor build |
 | `editor/src/recording/` | Focused IQEngine-derived SigMF URL/blob reader, bounded range loader, FFT/spectrogram DSP, plots and recording-view UI. Its `features/ui/canvas-plot/` is repo-owned, not IQEngine's |
+
+### Auto-arrange (Edit ▸ Auto-Arrange Blocks)
+
+Rewrites every block coordinate so the flowgraph reads as a left-to-right
+flowchart. The engine is [`editor/src/layout.ts`](editor/src/layout.ts), which
+takes measured boxes and returns coordinates and touches neither the DOM nor the
+editor's own types; `autoArrangeBlocks()` in `main.ts` does the measuring (box
+size from `geom()`, port tab overhang from `portWidth()`, port offsets from
+`portPos()`), applies the result, and records one history entry so the whole
+arrangement undoes in a single Ctrl+Z. Nothing about it reaches the `.grc` beyond
+the coordinates GRC already stores.
+
+There is no automated test for it: whether an arrangement reads well is a
+judgement for the eye, so check a change here by arranging a few of the busier
+examples (`rds/rds_receiver.grc`, `ofdm/ofdm.grc`,
+`gr-satellites/satellites_ax25_afsk.grc`) in the editor and looking at them.
 
 ## Toolchain and prerequisites
 
