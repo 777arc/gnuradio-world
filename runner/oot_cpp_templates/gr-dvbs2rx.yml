@@ -1,0 +1,148 @@
+# Browser-only block metadata for the vendored out-of-tree module gr-dvbs2rx (drmpeg).
+#
+# Keeping these overlays here instead of in the submodule's own .block.yml is what
+# lets that submodule stay pinned to a pristine upstream commit: nothing in the
+# checkout has to be edited, rebased, or pushed to a fork to add a block. See
+# tools/block_overrides.py for the supported keys, and AGENTS.md for the
+# out-of-tree checklist this file is step 3 of.
+#
+# All four blocks are recategorised out of '[Core]/Digital Television/DVB', which
+# upstream shares with in-tree gr-dtv, so the palette does not merge two
+# different DVB implementations into one category.
+
+dvbs2rx_bbdeheader_bb:
+    flags: [python, cpp]
+    category: '[DVB]/DVB-S2 RX'
+    cpp_templates:
+        includes: ['#include <dvbs2rx/bbdeheader_bb.h>']
+        declarations: dvbs2rx::bbdeheader_bb::sptr ${id};
+        make: |-
+            this->${id} = dvbs2rx::bbdeheader_bb::make(${standard.val},
+            % if str(standard) == 'STANDARD_DVBT2':
+            ${framesize1.val},
+            % else:
+            ${framesize2.val},
+            % endif
+            % if str(standard) == 'STANDARD_DVBT2':
+            % if str(framesize1) == 'FECFRAME_NORMAL':
+            ${rate1.val}
+            % else:
+            ${rate2.val}
+            % endif
+            % else:
+            % if str(framesize2) == 'FECFRAME_NORMAL':
+            ${rate3.val}
+            % elif str(framesize2) == 'FECFRAME_MEDIUM':
+            ${rate4.val}
+            % else:
+            ${rate5.val}
+            % endif
+            % endif
+            );
+        link: [gnuradio-dvbs2rx]
+        translations:
+            dvbs2rx\.: 'dvbs2rx::'
+
+dvbs2rx_bbdescrambler_bb:
+    flags: [python, cpp]
+    category: '[DVB]/DVB-S2 RX'
+    cpp_templates:
+        includes: ['#include <dvbs2rx/bbdescrambler_bb.h>']
+        declarations: dvbs2rx::bbdescrambler_bb::sptr ${id};
+        make: |-
+            this->${id} = dvbs2rx::bbdescrambler_bb::make(${standard.val},
+            % if str(standard) == 'STANDARD_DVBT2':
+            ${framesize1.val},
+            % else:
+            ${framesize2.val},
+            % endif
+            % if str(standard) == 'STANDARD_DVBT2':
+            % if str(framesize1) == 'FECFRAME_NORMAL':
+            ${rate1.val}
+            % else:
+            ${rate2.val}
+            % endif
+            % else:
+            % if str(framesize2) == 'FECFRAME_NORMAL':
+            ${rate3.val}
+            % elif str(framesize2) == 'FECFRAME_MEDIUM':
+            ${rate4.val}
+            % else:
+            ${rate5.val}
+            % endif
+            % endif
+            );
+        link: [gnuradio-dvbs2rx]
+        translations:
+            dvbs2rx\.: 'dvbs2rx::'
+
+dvbs2rx_bch_decoder_bb:
+    flags: [python, cpp]
+    category: '[DVB]/DVB-S2 RX'
+    cpp_templates:
+        includes: ['#include <dvbs2rx/bch_decoder_bb.h>']
+        declarations: dvbs2rx::bch_decoder_bb::sptr ${id};
+        make: |-
+            this->${id} = dvbs2rx::bch_decoder_bb::make(${standard.val},
+            % if str(standard) == 'STANDARD_DVBT2':
+            ${framesize1.val},
+            % else:
+            ${framesize2.val},
+            % endif
+            % if str(standard) == 'STANDARD_DVBT2':
+            % if str(framesize1) == 'FECFRAME_NORMAL':
+            ${rate1.val},
+            % else:
+            ${rate2.val},
+            % endif
+            % else:
+            % if str(framesize2) == 'FECFRAME_NORMAL':
+            ${rate3.val},
+            % elif str(framesize2) == 'FECFRAME_MEDIUM':
+            ${rate4.val},
+            % else:
+            ${rate5.val},
+            % endif
+            % endif
+            ${outputmode.val});
+        link: [gnuradio-dvbs2rx]
+        translations:
+            dvbs2rx\.: 'dvbs2rx::'
+
+dvbs2rx_ldpc_decoder_cb:
+    flags: [python, cpp]
+    category: '[DVB]/DVB-S2 RX'
+    cpp_templates:
+        includes: ['#include <dvbs2rx/ldpc_decoder_cb.h>']
+        declarations: dvbs2rx::ldpc_decoder_cb::sptr ${id};
+        make: |-
+            this->${id} = dvbs2rx::ldpc_decoder_cb::make(${standard.val},
+            % if str(standard) == 'STANDARD_DVBT2':
+            ${framesize1.val},
+            % else:
+            ${framesize2.val},
+            % endif
+            % if str(standard) == 'STANDARD_DVBT2':
+            % if str(framesize1) == 'FECFRAME_NORMAL':
+            ${rate1.val},
+            % else:
+            ${rate2.val},
+            % endif
+            % else:
+            % if str(framesize2) == 'FECFRAME_NORMAL':
+            ${rate3.val},
+            % elif str(framesize2) == 'FECFRAME_MEDIUM':
+            ${rate4.val},
+            % else:
+            ${rate5.val},
+            % endif
+            % endif
+            % if str(standard) == 'STANDARD_DVBT2':
+            ${constellation1.val},
+            % else:
+            ${constellation2.val},
+            % endif
+            ${outputmode.val}, ${infomode.val});
+        link: [gnuradio-dvbs2rx]
+        translations:
+            dvbs2rx\.: 'dvbs2rx::'

@@ -29,12 +29,15 @@ MODULES = [module_dirs["grc"]] + [
     os.path.join(WORLD, "blocks", "grc")
 ]
 MANIFEST = os.path.join(WORLD, "runner", "generated_blocks.json")
-OVERRIDES_PATH = os.path.join(WORLD, "runner", "block_overrides.yml")
 WIKI_BLOCK_DOCS_URL_PREFIX = "https://wiki.gnuradio.org/index.php/"
-try:
-    BLOCK_OVERRIDES = yaml.safe_load(open(OVERRIDES_PATH)) or {}
-except Exception:
-    BLOCK_OVERRIDES = {}
+
+# The same browser-only block metadata the runtime factory generator applies
+# (runner/oot_cpp_templates/ + runner/block_overrides.yml), through the same
+# module. Palette entry and runtime factory must describe the same block, and a
+# second copy of the merge here would be free to drift from runner/gen_registry.py.
+sys.path.insert(0, os.path.join(WORLD, "tools"))
+import block_overrides
+BLOCK_OVERRIDES = block_overrides.load()
 
 
 # Native GRC imports each Python binding and reads its generated __doc__ string.
@@ -325,12 +328,7 @@ def main(out_path):
             block_id = str(d["id"])
             override = BLOCK_OVERRIDES.get(block_id)
             if override:
-                d["flags"] = override.get("flags", d.get("flags") or [])
-                d["cpp_templates"] = override.get("cpp_templates", d.get("cpp_templates") or {})
-                parameter_dtypes = override.get("parameter_dtypes", {})
-                for param in d.get("parameters", []) or []:
-                    if isinstance(param, dict) and param.get("id") in parameter_dtypes:
-                        param["dtype"] = parameter_dtypes[param["id"]]
+                block_overrides.apply(d, override)
             block_category = normalize_category(categories.get(block_id, d.get("category")))
             # Keep the native category whenever one exists. A few upstream
             # definitions are accidentally uncategorized; retain them under a

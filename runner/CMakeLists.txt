@@ -227,7 +227,10 @@ list(APPEND SIDE_MODULE_OUTPUTS ${rds_out})
 # lib/*.cc are compiled straight into foo.wasm. selector/valve are Python
 # hier_block2s (no C++) and are excluded; packet_pad2's optional UHD tx_time
 # tagging is #ifdef FOO_UHD (undefined here), so no UHD dependency is pulled in.
+# The submodule is pinned to pristine upstream, so the config.h its CMake would
+# have generated comes from a runner-owned shim instead.
 set(FOO_LIB ${WORLD}/gr-foo/lib)
+set(FOO_WASM_SHIMS ${CMAKE_CURRENT_SOURCE_DIR}/src/foo_wasm_shims)
 set(FOO_SOURCES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/generated_registry_foo.cpp
   ${FOO_LIB}/burst_tagger_impl.cc
@@ -246,10 +249,12 @@ add_custom_command(
     -sSIDE_MODULE=1 -pthread -fPIC -Oz -std=c++17
     -sNO_DISABLE_EXCEPTION_CATCHING
     -sWASM_BIGINT=1
+    -I${FOO_WASM_SHIMS}
     ${SIDE_INCLUDE_FLAGS}
     ${FOO_SOURCES}
     -o ${foo_out}
   DEPENDS ${FOO_SOURCES}
+          ${FOO_WASM_SHIMS}/config.h
           ${CMAKE_CURRENT_SOURCE_DIR}/src/registry_helpers.hpp
           ${CMAKE_CURRENT_SOURCE_DIR}/src/registry.hpp
   COMMENT "Building category side module foo.wasm (out-of-tree gr-foo sources)"
@@ -295,9 +300,11 @@ list(APPEND SIDE_MODULE_OUTPUTS ${dvbs2_out})
 # Its LDPC/BCH decoder is a header-only SIMD library (lib/*.hh) that dispatches on
 # __AVX2__/__SSE4_1__/__ARM_NEON__ — none defined under Emscripten, so it falls
 # back to the generic scalar path (no x86 intrinsics). Deps are stdlib-only.
-# DVB constants come from the checked-in include/dvbs2rx/dvb_config.h; lib/config.h
-# is the empty generated stub.
+# DVB constants come from the checked-in include/dvbs2rx/dvb_config.h. The
+# submodule is pinned to pristine upstream, so the config.h its CMake would have
+# generated comes from a runner-owned shim instead.
 set(DVBS2RX_LIB ${WORLD}/gr-dvbs2rx/lib)
+set(DVBS2RX_WASM_SHIMS ${CMAKE_CURRENT_SOURCE_DIR}/src/dvbs2rx_wasm_shims)
 set(DVBS2RX_SOURCES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/generated_registry_dvbs2rx.cpp
   ${DVBS2RX_LIB}/bbdeheader_bb_impl.cc
@@ -311,10 +318,12 @@ add_custom_command(
     -sSIDE_MODULE=1 -pthread -fPIC -Oz -std=c++17
     -sNO_DISABLE_EXCEPTION_CATCHING
     -sWASM_BIGINT=1
+    -I${DVBS2RX_WASM_SHIMS}
     ${SIDE_INCLUDE_FLAGS}
     ${DVBS2RX_SOURCES}
     -o ${dvbs2rx_out}
   DEPENDS ${DVBS2RX_SOURCES}
+          ${DVBS2RX_WASM_SHIMS}/config.h
           ${CMAKE_CURRENT_SOURCE_DIR}/src/registry_helpers.hpp
           ${CMAKE_CURRENT_SOURCE_DIR}/src/registry.hpp
   COMMENT "Building category side module dvbs2rx.wasm (out-of-tree gr-dvbs2rx sources)"

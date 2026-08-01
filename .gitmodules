@@ -4,16 +4,16 @@
 	branch = main
 [submodule "gr-foo"]
 	path = gr-foo
-	url = https://github.com/777arc/gr-foo.git
-	branch = wasm-support
+	url = https://github.com/bastibl/gr-foo.git
+	branch = maint-3.10
 [submodule "gr-dvbs2"]
 	path = gr-dvbs2
 	url = https://github.com/777arc/gr-dvbs2.git
 	branch = wasm-support
 [submodule "gr-dvbs2rx"]
 	path = gr-dvbs2rx
-	url = https://github.com/777arc/gr-dvbs2rx.git
-	branch = wasm-support
+	url = https://github.com/drmpeg/gr-dvbs2rx.git
+	branch = master
 [submodule "gr-rds"]
 	path = gr-rds
 	url = https://github.com/bastibl/gr-rds.git
