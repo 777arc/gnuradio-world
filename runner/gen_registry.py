@@ -44,6 +44,7 @@ MODULES = (
     "gr-dvbs2",
     "gr-dvbs2rx",
     "gr-satellites",
+    "gr-paint",
 )
 
 # Block categories whose C++ is statically linked into the main runner module and
@@ -62,6 +63,7 @@ DEFERRED_MODULES = (
     "dvbs2",
     "dvbs2rx",
     "satellites",
+    "paint",
 )
 
 # Load-order dependencies between DEFERRED modules only (core is always present).

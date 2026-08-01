@@ -28,8 +28,7 @@ WebAssembly.
   of wasm-specific aspects to it, but it attempts to look just like the native
   version.
 - `gnuradio/`: submodule of the main GNU Radio repo.
-- `gr-rds/`, `gr-foo/`, `gr-dvbs2/`, `gr-dvbs2rx/`, `gr-satellites/`: vendored out-of-tree GNU
-  Radio modules compiled as on-demand WASM side modules.
+- Vendored out-of-tree GNU Radio modules (e.g., gr-rds) compiled as on-demand WASM side modules.
 - `deps/`: dependency fetch/build scripts, and any patches needed. Built
   dependencies are installed into the generated, git-ignored `sysroot/`.
 - `editor/recording/` + `editor/src/recording/`: the focused recording viewer
@@ -80,7 +79,7 @@ node server.mjs 8090 "$PWD"
   `src/registry.cpp` add browser widgets, live setters, and a few composed
   blocks. The generated and custom registries currently expose hundreds of blocks from
   gr-blocks, gr-analog, gr-fft, gr-filter, gr-digital, gr-dtv, gr-network,
-  gr-pdu, gr-vocoder and gr-qtgui, plus the vendored out-of-tree modules (including but not limited to gr-rds, gr-foo, gr-dvbs2, gr-dvbs2rx, gr-satellites). Stream and message-port connections are both
+  gr-pdu, gr-vocoder and gr-qtgui, plus the vendored out-of-tree modules (including but not limited to gr-rds, gr-foo, gr-dvbs2, gr-dvbs2rx, gr-satellites, gr-paint). Stream and message-port connections are both
   serialized by the editor. QT GUI Range controls can be referenced by ID from
   numeric block parameters and update those parameters while the graph is
   running.
@@ -526,8 +525,8 @@ part of the always-loaded core or an on-demand side module. To add one (say
 
 The recipe above assumes an in-tree `gr-<m>` built by `gr/build-gr`. A
 third-party OOT module (already done for [`gr-rds/`](gr-rds), [`gr-foo/`](gr-foo),
-[`gr-dvbs2/`](gr-dvbs2), [`gr-dvbs2rx/`](gr-dvbs2rx), and
-[`gr-satellites/`](gr-satellites)) is **not** part of that
+[`gr-dvbs2/`](gr-dvbs2), [`gr-dvbs2rx/`](gr-dvbs2rx), [`gr-satellites/`](gr-satellites),
+and [`gr-paint/`](gr-paint)) is **not** part of that
 umbrella build, so there is no `libgnuradio-<m>.a`; instead its own `lib/*.cc` are
 compiled straight into an on-demand `<m>.wasm` side module. This is a
 **self-contained checklist** — following it needs no investigation beyond the
@@ -542,7 +541,7 @@ git submodule add -b <branch> https://github.com/<upstream>/gr-<m>.git gr-<m>
 ```
 Steps 3 and 5 exist so this stays possible: block metadata and generated headers
 both live in this repository, so a normal OOT module needs no branch of its own
-and bumping it is a plain `fetch` + `checkout` with nothing to rebase. Of the five
+and bumping it is a plain `fetch` + `checkout` with nothing to rebase. Of all the
 vendored modules only gr-dvbs2 is a fork, and it is upstream plus exactly one
 commit: a WASM buffer-wrap fix that had to go in its `lib/`. Do not create a fork
 to hold yaml or a generated header.
@@ -640,8 +639,9 @@ module's own CMake. Put it in a runner-owned `runner/src/<m>_wasm_shims/`, the
 same place as step 4, and add `-I${<M>_WASM_SHIMS}` to the module's side-module
 rule *ahead of* `${SIDE_INCLUDE_FLAGS}`. The impls include it as `"config.h"`, so
 with no copy beside the sources it resolves from there; nothing else on the
-include path defines one. All five vendored modules do this — no submodule holds
-a `config.h` of its own — and [`runner/src/rds_wasm_shims/`](runner/src/rds_wasm_shims/)
+include path defines one. All but one vendored modules do this — no submodule
+holds a `config.h` of its own; gr-paint is the exception, guarding its include
+behind `#ifdef HAVE_CONFIG_H`, which nothing defines, so it needs no shim — and [`runner/src/rds_wasm_shims/`](runner/src/rds_wasm_shims/)
 additionally holds gr-rds's `boost/locale.hpp` replacement. Together with step 3
 this is what lets the submodules stay pinned to pristine upstream. (Any real
 per-module constants header that ships in the repo, e.g. `dvbs2_config.h`, is used

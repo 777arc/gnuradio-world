@@ -22,3 +22,7 @@
 	path = gr-satellites
 	url = https://github.com/daniestevez/gr-satellites.git
 	branch = main
+[submodule "gr-paint"]
+	path = gr-paint
+	url = https://github.com/drmpeg/gr-paint.git
+	branch = master

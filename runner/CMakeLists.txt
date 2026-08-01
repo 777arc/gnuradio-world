@@ -39,6 +39,7 @@ set(GR_INCLUDE_DIRS
   ${WORLD}/gr-dvbs2/include
   ${WORLD}/gr-dvbs2rx/include
   ${WORLD}/gr-satellites/include
+  ${WORLD}/gr-paint/include
   ${BUILDGR}/gnuradio-runtime/include ${SYSROOT}/include)
 
 # ---------------------------------------------------------------------------
@@ -333,6 +334,35 @@ add_custom_command(
   COMMENT "Building category side module dvbs2rx.wasm (out-of-tree gr-dvbs2rx sources)"
   VERBATIM)
 list(APPEND SIDE_MODULE_OUTPUTS ${dvbs2rx_out})
+
+# gr-paint (drmpeg): the spectrum painter, which turns a stream of image luma
+# bytes into a complex signal whose spectrogram draws the picture. One C++ block
+# (paint_bc); its only deps are gr-fft and VOLK, both linked into the main
+# module already, so there is no MODULE_DEPS edge. It includes "config.h" behind
+# `#ifdef HAVE_CONFIG_H`, which nothing here defines, so unlike the other OOT
+# modules it needs no config.h shim. paint_image_source is a PIL-based Python
+# sync_block with no C++ path; it has no factory and stays greyed out in the
+# palette, so feed paint_bc from a File Source of raw luma bytes instead.
+set(PAINT_LIB ${WORLD}/gr-paint/lib)
+set(PAINT_SOURCES
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/generated_registry_paint.cpp
+  ${PAINT_LIB}/paint_bc_impl.cc)
+set(paint_out ${CMAKE_CURRENT_BINARY_DIR}/paint.wasm)
+add_custom_command(
+  OUTPUT ${paint_out}
+  COMMAND ${CMAKE_CXX_COMPILER}
+    -sSIDE_MODULE=1 -pthread -fPIC -Oz -std=c++17
+    -sNO_DISABLE_EXCEPTION_CATCHING
+    -sWASM_BIGINT=1
+    ${SIDE_INCLUDE_FLAGS}
+    ${PAINT_SOURCES}
+    -o ${paint_out}
+  DEPENDS ${PAINT_SOURCES}
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/registry_helpers.hpp
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/registry.hpp
+  COMMENT "Building category side module paint.wasm (out-of-tree gr-paint sources)"
+  VERBATIM)
+list(APPEND SIDE_MODULE_OUTPUTS ${paint_out})
 
 # gr-satellites: telemetry framing, coding, FEC, and utility blocks. Like the
 # other OOT modules, compile its implementation and bundled C/C++ codec sources
