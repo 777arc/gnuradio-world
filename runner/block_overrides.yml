@@ -1,5 +1,7 @@
 # Browser-only metadata for pristine upstream submodules. Keep these overlays in
 # the world repository so the pinned submodule checkouts remain clean.
+# At some point, look into upstreaming them
+
 rds_decoder:
   flags: [python, cpp]
   cpp_templates:
