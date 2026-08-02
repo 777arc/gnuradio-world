@@ -96,8 +96,10 @@ node server.mjs 8090 "$PWD"
 | `runner/` | the JSON-driven WASM flowgraph runner, generated C++ registry, and support manifest |
 | `editor/` | the TypeScript flowgraph editor |
 | `tools/` | `block_overrides.py` (the browser-only block-metadata overlay loader/merger shared by `gen_registry.py` and `gen_blocklib.py`) and `generate_cpp.py` (host-side GRC → C++ generation, optional) |
-| `runner/oot_cpp_templates/` | one `gr-<m>.yml` per out-of-tree module, holding every browser-only addition to its blocks (`cpp_templates`, retyped params, pruned enum options). This is why the OOT submodules need no fork; `runner/block_overrides.yml` is the same thing for blocks in the `gnuradio/` submodule |
+| `blocks/` | everything a human wrote about blocks, as opposed to `runner/`, which is the app plus everything generated. See "Where a block's source lives" below |
 | `blocks/grc/` | `.block.yml` for runner-only blocks with no upstream GNU Radio equivalent (`wasm_packet_rate_sink`); read by *both* `gen_registry.py` and `gen_blocklib.py` alongside GNU Radio's own yaml |
+| `blocks/src/` | hand-written block implementations not owned by any one vendored module — `browser_file_source.cpp` and the like |
+| `blocks/overlays/<module>/` | one directory per module, holding `metadata.yml` (every browser-only addition to that module's blocks: `cpp_templates`, retyped/re-defaulted/relabelled params, pruned enum options, replaced `documentation`) plus, for an out-of-tree module, its `shims/` and any C++ rebuilt from a Python-only block. This is why the submodules need no fork. `blocks/overlays/gnuradio/` is the in-tree equivalent, metadata only |
 | `docs/` | `double-mapped-buffer.md` (the emulated vmcircbuf) and `diagnostics.md` (the runner's `__grstats` snapshot and debug panel, which the smoke test asserts against) |
 | `example_flowgraphs/` | the `.grc` files the editor's "Example Flowgraphs" palette tab lists recursively (files may be organized in nested directories, which appear as collapsible folders); several are also smoke-test cases. Each is directly linkable as `#example=<relative path without .grc>` (the 🔗 on its palette entry copies that link). Test changes here with `scripts/run_example.mjs`, which drives the real editor — see "Run and test" |
 | `example_recordings/` | Historical/local recording copies used by a few tests and the one-time R2 metadata migration utility. Do not add production recordings here. The application and site assembly do not discover, copy, or serve this directory. Production discovery comes exclusively from R2's generated `index.json`. |
@@ -258,8 +260,8 @@ python3 editor/gen/gen_blocklib.py editor/public/blocks.json
 ```
 
 Do not hand-edit generated registry or palette artifacts; change source block
-metadata (for a vendored out-of-tree module, its `runner/oot_cpp_templates/`
-file rather than the submodule's own yaml), `runner/gen_registry.py`, or the
+metadata (for a vendored module, its `blocks/overlays/<module>/metadata.yml`
+rather than the submodule's own yaml), `runner/gen_registry.py`, or the
 handwritten registry as appropriate, then regenerate.
 
 ### On-demand category modules
@@ -409,10 +411,10 @@ as a C++ `hier_block2` in `registry.cpp`; the rest remain unavailable.
 
 gr-satellites is the largest such rebuild. Its hierarchies, demodulators and
 deframers are all Python with no C++ path upstream, so they live in
-[`runner/src/satellites_wasm_hier.cpp`](runner/src/satellites_wasm_hier.cpp)
+[`blocks/overlays/gr-satellites/satellites_hier.cpp`](blocks/overlays/gr-satellites/satellites_hier.cpp)
 (`hier/` scramblers, `sync_to_pdu*`, `rms_agc`, `ccsds_viterbi`, and the AFSK /
 FSK / BPSK demodulator components) and
-[`runner/src/satellites_wasm_deframers.cpp`](runner/src/satellites_wasm_deframers.cpp)
+[`blocks/overlays/gr-satellites/satellites_deframers.cpp`](blocks/overlays/gr-satellites/satellites_deframers.cpp)
 (`hdlc_deframer` plus ~29 deframer components). Each class mirrors the block set
 and connection order of the Python file named in its comment, so the two stay
 diffable; syncwords and packet lengths are copied verbatim. The GRC `options`
@@ -427,11 +429,45 @@ protocol-specific helper blocks inline (`diy1`, `hades`, `hsu_sat1`, `ideassat`,
 interleaver and so on. Each needs its own C++ block before its deframer can be
 assembled, which is why they are not simply compositions like the rest.
 
+## Where a block's source lives
+
+One rule decides it: **`blocks/` is what a human wrote about blocks; `runner/` is
+the app plus everything generated.** So `generated_registry*.cpp`,
+`generated_modules.cpp` and `generated_blocks.json` stay under `runner/` — they
+are build outputs — and the `gr-<m>/` submodules stay at the repository root,
+because they are pristine checkouts rather than anything of ours.
+
+Within `blocks/`:
+
+| what | where |
+|------|-------|
+| metadata for a block with no upstream definition | `blocks/grc/<id>.block.yml` |
+| its implementation, and any browser replacement of an **in-tree** GNU Radio block | `blocks/src/` |
+| browser-only metadata for one module's blocks | `blocks/overlays/<module>/metadata.yml` |
+| a headers-only stand-in for a host-only dependency | `blocks/overlays/gr-<m>/shims/` |
+| C++ rebuilt from an **out-of-tree** module's Python-only block | `blocks/overlays/gr-<m>/` |
+
+`blocks/overlays/gnuradio/` is the one directory holding metadata alone. The
+GNU Radio submodule is not one module but fifteen, so there is no single module
+to attribute its C++ to and no single module its block ids can be checked
+against — which is exactly why `blocks/src/` exists and why `validate()` skips
+the ownership check for that directory only. Everything else is uniform: a
+module is a directory, and `block_overrides.load()` discovers it by name, so
+adding a module is adding a directory rather than editing a list.
+
+The overlay directories are on the compiler's include path (`GR_INCLUDE_DIRS` in
+`runner/CMakeLists.txt`), so a rebuilt block's header resolves by bare name from
+the generated registrar that constructs it. Keep those filenames unique across
+modules — they share one flat search path.
+
 ## Registry and module conventions
 
 Direct C++ factories are generated from GRC `.block.yml` `cpp_templates`.
-Factories needing browser widgets, live setters, or browser-specific composed
-blocks live in [`runner/src/registry.cpp`](runner/src/registry.cpp).
+The factory *table* — every `block-id → factory` entry, including the
+hand-written ones needing browser widgets, live setters, or a browser-specific
+composed block — lives in [`runner/src/registry.cpp`](runner/src/registry.cpp).
+The classes those factories construct live in `blocks/` per the table above; the
+table stays whole because it is the index.
 
 - Add handwritten factory IDs to `CUSTOM_IDS` in `runner/gen_registry.py` to
   avoid duplicate generated factories.
@@ -439,7 +475,7 @@ blocks live in [`runner/src/registry.cpp`](runner/src/registry.cpp).
   reason.
 - Python-only `gr.hier_block2` definitions are unavailable unless explicitly
   rebuilt as C++ hierarchies in `runner/src/registry.cpp` (or, for gr-satellites,
-  `satellites_wasm_hier.cpp` / `satellites_wasm_deframers.cpp`).
+  `blocks/overlays/gr-satellites/satellites_{hier,deframers}.cpp`).
 - Blocks absent from the WASM registry remain visible but disabled in the editor
   palette.
 - Symbol exports for side modules are generated automatically by
@@ -556,17 +592,25 @@ grep -rho '#include *<[a-z].*>' gr-<m>/lib/*.cc | sort -u   # spot host-only dep
 ```
 A block is directly generator-buildable only if it has a C++ impl. **Python-only
 blocks** — a `gr.hier_block2` (e.g. gr-foo's `selector`/`valve`) or a GUI QWidget
-(e.g. `rds_panel` = `rds.rdsPanel`) — have no automatic C++ path. Give them no
-step 3 entry unless the block is rebuilt by hand (a C++ `hier_block2` for a
-hierarchy, a `QWidget` message sink for a GUI panel — `rds_panel` in
-`registry.cpp` is the worked example, with its id added to `CUSTOM_IDS`; the ~60
-gr-satellites rebuilds instead keep a step 3 entry whose `make` calls into
-`satellites_wasm_*.cpp`). Without one they show greyed-out in the palette. **Host-only deps** not in
-the WASM sysroot (UHD, Boost.Asio networking, Boost.Locale, libsndfile, …) must be
-dealt with in step 4.
+(e.g. `rds_panel` = `rds.rdsPanel`) — have no automatic C++ path, and without a
+hand-written rebuild they show greyed-out in the palette. Three kinds of rebuild,
+all landing in the module's own `blocks/overlays/gr-<m>/`:
+
+- a **GUI panel** becomes a `QWidget` message sink — `rds_panel.hpp` is the
+  worked example — with its id added to `CUSTOM_IDS` and *no* step 3 entry,
+  since `registry.cpp` supplies the factory;
+- a **hierarchy** becomes a C++ `hier_block2`. The ~60 gr-satellites rebuilds do
+  keep a step 3 entry, whose `make` calls into `satellites_*.cpp` beside their
+  `metadata.yml`;
+- a block resting on a **host facility the browser also has** becomes a browser
+  one: gr-paint's PIL-based `paint_image_source` decodes with `fetch` +
+  `createImageBitmap` instead, again via `CUSTOM_IDS`.
+
+**Host-only deps** not in the WASM sysroot (UHD, Boost.Asio networking,
+Boost.Locale, libsndfile, …) must be dealt with in step 4.
 
 **3. Add `cpp_templates` for each C++ block** in a new
-`runner/oot_cpp_templates/gr-<m>.yml`. This is what the generator turns into a
+`blocks/overlays/gr-<m>/metadata.yml`. This is what the generator turns into a
 factory. **Never edit the submodule's own `.block.yml`** — every browser-only
 addition goes in this one file, which is what lets the submodule stay pinned to a
 pristine upstream commit instead of a fork you have to rebase and push:
@@ -584,7 +628,7 @@ The file is picked up by its name alone — no loader, generator, or build chang
 key and is imported by *both* `runner/gen_registry.py` and
 `editor/gen/gen_blocklib.py`, so the runtime factory and the palette entry
 describing it always come from the same merge. Its in-tree counterpart is
-[`runner/block_overrides.yml`](runner/block_overrides.yml), for overlays on blocks
+[`blocks/overlays/gnuradio/metadata.yml`](blocks/overlays/gnuradio/metadata.yml), for overlays on blocks
 in the `gnuradio/` submodule itself.
 
 Mirror the arg order of the existing Python `templates: make:`, resolved against
@@ -619,7 +663,7 @@ submodule at all (gr-dvbs2 is forked solely for a WASM buffer-wrap fix):
     keeps the submodule pristine: gr-rds
     calls `boost::locale::conv::to_utf` once, to convert RadioText from
     ISO-8859-2, and Boost.Locale is not in the WASM sysroot, so
-    [`runner/src/rds_wasm_shims/boost/locale.hpp`](runner/src/rds_wasm_shims/boost/locale.hpp)
+    [`blocks/overlays/gr-rds/shims/boost/locale.hpp`](blocks/overlays/gr-rds/shims/boost/locale.hpp)
     implements exactly that one call inline and the rds side-module rule
     prepends `-I${RDS_WASM_SHIMS}` ahead of the normal include flags, **or**
   - if it's already behind a feature macro, just leave that undefined (gr-foo's
@@ -636,13 +680,13 @@ submodule at all (gr-dvbs2 is forked solely for a WASM buffer-wrap fix):
     (slower, still correct). Don't add `-msimd128`/`-msse4.1`.
 
 **5. Supply an empty `config.h`** if the impls include the file generated by the
-module's own CMake. Put it in a runner-owned `runner/src/<m>_wasm_shims/`, the
-same place as step 4, and add `-I${<M>_WASM_SHIMS}` to the module's side-module
-rule *ahead of* `${SIDE_INCLUDE_FLAGS}`. The impls include it as `"config.h"`, so
+module's own CMake. Put it in `blocks/overlays/gr-<m>/shims/`, the same place as
+step 4, and point the module's `-I${<M>_WASM_SHIMS}` at it *ahead of*
+`${SIDE_INCLUDE_FLAGS}` in its side-module rule. The impls include it as `"config.h"`, so
 with no copy beside the sources it resolves from there; nothing else on the
 include path defines one. All but one vendored modules do this — no submodule
 holds a `config.h` of its own; gr-paint is the exception, guarding its include
-behind `#ifdef HAVE_CONFIG_H`, which nothing defines, so it needs no shim — and [`runner/src/rds_wasm_shims/`](runner/src/rds_wasm_shims/)
+behind `#ifdef HAVE_CONFIG_H`, which nothing defines, so it needs no shim — and [`blocks/overlays/gr-rds/shims/`](blocks/overlays/gr-rds/shims/)
 additionally holds gr-rds's `boost/locale.hpp` replacement. Together with step 3
 this is what lets the submodules stay pinned to pristine upstream. (Any real
 per-module constants header that ships in the repo, e.g. `dvbs2_config.h`, is used
@@ -650,7 +694,10 @@ as-is.)
 
 **6. Register and wire the build:**
   - [`runner/gen_registry.py`](runner/gen_registry.py): add `"gr-<m>"` to
-    `MODULES` and the short name `"<m>"` to `DEFERRED_MODULES`.
+    `MODULES` and the short name `"<m>"` to `DEFERRED_MODULES`. The overlay
+    loader needs nothing — it discovers `blocks/overlays/gr-<m>/` by name — and
+    `GR_INCLUDE_DIRS` picks that directory up by glob, so a rebuilt block's
+    header is already on the include path.
   - [`runner/CMakeLists.txt`](runner/CMakeLists.txt): add `${WORLD}/gr-<m>/include`
     to `GR_INCLUDE_DIRS`, then copy an existing OOT `add_custom_command` (the
     `rds` / `foo` / `dvbs2` block) — list `generated_registry_<m>.cpp` plus the
@@ -711,6 +758,31 @@ chain.
   message-sink block whose handler records the parser's `(type, text)` tuples and
   whose QTimer paints them (message handlers run on GR threads; widgets are
   main-thread only). See `example_flowgraphs/rds_receiver.grc`.
+- **Python blocks whose dependency is a browser capability** get rebuilt around
+  the browser's version of it. gr-paint's `paint_image_source` ("Image File
+  Source") is a Python `gr.sync_block` that decodes an image with PIL and emits
+  one luma line per `work()`; there is neither PIL nor a filesystem here, so
+  [`blocks/overlays/gr-paint/paint_image_source.cpp`](blocks/overlays/gr-paint/paint_image_source.cpp) names
+  the image with a **URL** and lets the platform decode it — `fetch` →
+  `createImageBitmap` → `OffscreenCanvas`, then grayscale / autocontrast /
+  invert / BT.709 in JS (`__grLoadImageSource` in `runner.html`). Two things
+  generalize from it:
+  - **A decode is asynchronous and a GNU Radio constructor is not.** The
+    constructor only *starts* the job (returning an id); the wait is a futex in
+    `work()`, on the source's own scheduler thread, where blocking stalls
+    nothing else — the same split `BrowserFileSource` uses. Do not try to
+    resolve it in the constructor: that runs on the browser main thread, which
+    cannot block in a non-Asyncify build.
+  - **The image size is not known until the decode finishes**, so unlike the
+    Python this block does not `set_output_multiple(width)` — buffers are sized
+    before any block's `start()`. It emits at line granularity instead, tagging
+    `image_width`/`line_num` at each line start, which is equivalent here
+    because Spectrum Painter reads its width from its own parameter.
+
+  Cross-origin isolation applies: an image on another origin must be served with
+  permissive CORS headers or the fetch fails (with the reason in the editor's
+  console pane). `example_flowgraphs/paint/paint_image_waterfall.grc` therefore
+  paints a same-origin asset, `editor/public/example_images/gnuradio_logo.png`.
 - If a **core** hand-written factory references a **deferred** module's symbols
   (as `digital_psk_mod` uses a few `gr-digital` blocks), link that module's `.a`
   *normally* (not whole-archive) into the main module too, so just those objects
@@ -857,7 +929,7 @@ true VM aliases. See [docs/double-mapped-buffer.md](docs/double-mapped-buffer.md
 ### Browser-backed File Source
 
 The WASM registry replaces GNU Radio's POSIX-backed `blocks_file_source` with
-`runner/src/browser_file_source.cpp`. A File Source can be bound either to a
+`blocks/src/browser_file_source.cpp`. A File Source can be bound either to a
 local `File` selected with the editor's Properties → Browse control or to a
 recording URL from R2. The binding is session-only: `.grc` files
 keep the human-readable filename or `/recordings/...` path and never serialize a

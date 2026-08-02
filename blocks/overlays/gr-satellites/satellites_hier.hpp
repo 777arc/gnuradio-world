@@ -4,7 +4,7 @@
 // (python/hier, python/components/...), which has no C++ path at all, so the
 // browser gets the same block ids backed by the same chains reassembled here as
 // real hier_block2s. The factories are wired up through
-// runner/block_overrides.yml so the pinned submodule stays pristine.
+// the metadata.yml beside this file so the pinned submodule stays pristine.
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 

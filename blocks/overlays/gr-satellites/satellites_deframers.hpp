@@ -4,7 +4,7 @@
 // Everything under gr-satellites/python/components/deframers is a Python
 // gr.hier_block2 with no C++ path upstream; each takes a float stream of soft
 // symbols and emits frames as PDUs on a message port named "out". Wired up
-// through runner/block_overrides.yml so the pinned submodule stays pristine.
+// through the metadata.yml beside this file so the pinned submodule stays pristine.
 //
 // Signatures mirror the Python constructors, except that the argparse `options`
 // object is dropped: nothing in the browser supplies a command line, so each

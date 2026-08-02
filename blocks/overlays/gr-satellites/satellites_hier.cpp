@@ -1,9 +1,9 @@
 // C++ rebuilds of gr-satellites' Python gr.hier_block2 compositions.
-// See satellites_wasm_hier.hpp. Each class mirrors the block layout and
+// See satellites_hier.hpp. Each class mirrors the block layout and
 // connection order of the corresponding file under gr-satellites/python/, so a
 // diff against the Python stays readable.
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "satellites_wasm_hier.hpp"
+#include "satellites_hier.hpp"
 
 #include <gnuradio/blocks/add_const_ff.h>
 #include <gnuradio/blocks/divide.h>

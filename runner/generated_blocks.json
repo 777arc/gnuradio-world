@@ -298,6 +298,7 @@
     "mmse_resampler_xx",
     "network_socket_pdu",
     "network_tuntap_pdu",
+    "paint_image_source",
     "paint_paint_bc",
     "pdu_pdu_to_stream_x",
     "pdu_pdu_to_tagged_stream",

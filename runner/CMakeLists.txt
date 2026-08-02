@@ -26,9 +26,20 @@ set(BUILDGR ${WASM_ROOT}/gr/build-gr)
 set(SYSROOT ${WASM_ROOT}/sysroot)
 set(QTGUI_TS ${WASM_ROOT}/qtgui/build/libgr_qtgui_ts.a)
 
+# Hand-written block sources live outside runner/ so that runner/src/ holds the
+# app and the generated factories only. blocks/src/ is what is not owned by any
+# one vendored module; blocks/overlays/gr-<m>/ is that module's browser-side
+# additions (metadata.yml, shims/, and any C++ rebuilt from a Python-only block).
+set(BLOCKS ${WORLD}/blocks)
+file(GLOB BLOCK_OVERLAY_DIRS ${BLOCKS}/overlays/gr-*)
+
 # Include search path shared by the main module and the category side modules.
+# The overlay directories are on it so a rebuilt block's header resolves by name
+# from the generated registrar that constructs it.
 set(GR_INCLUDE_DIRS
   ${CMAKE_CURRENT_SOURCE_DIR}/src
+  ${BLOCKS}/src
+  ${BLOCK_OVERLAY_DIRS}
   ${GR}/gnuradio-runtime/include ${GR}/gr-blocks/include ${GR}/gr-fft/include
   ${GR}/gr-filter/include ${GR}/gr-analog/include ${GR}/gr-digital/include
   ${GR}/gr-fec/include ${GR}/gr-dtv/include
@@ -59,7 +70,8 @@ set(GR_INCLUDE_DIRS
 qt_add_executable(runner
   src/runner.cpp
   src/registry.cpp
-  src/browser_file_source.cpp
+  ${BLOCKS}/src/browser_file_source.cpp
+  ${BLOCKS}/overlays/gr-paint/paint_image_source.cpp
   src/generated_registry.cpp
   src/generated_modules.cpp)
 target_include_directories(runner PRIVATE ${GR_INCLUDE_DIRS})
@@ -197,7 +209,7 @@ endforeach()
 # submodule normally generates config.h and uses Boost.Locale for one ISO-8859-2
 # conversion; the browser build supplies narrow, header-only shims for both.
 set(RDS_LIB ${WORLD}/gr-rds/lib)
-set(RDS_WASM_SHIMS ${CMAKE_CURRENT_SOURCE_DIR}/src/rds_wasm_shims)
+set(RDS_WASM_SHIMS ${BLOCKS}/overlays/gr-rds/shims)
 set(RDS_SOURCES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/generated_registry_rds.cpp
   ${RDS_LIB}/decoder_impl.cc
@@ -231,7 +243,7 @@ list(APPEND SIDE_MODULE_OUTPUTS ${rds_out})
 # The submodule is pinned to pristine upstream, so the config.h its CMake would
 # have generated comes from a runner-owned shim instead.
 set(FOO_LIB ${WORLD}/gr-foo/lib)
-set(FOO_WASM_SHIMS ${CMAKE_CURRENT_SOURCE_DIR}/src/foo_wasm_shims)
+set(FOO_WASM_SHIMS ${BLOCKS}/overlays/gr-foo/shims)
 set(FOO_SOURCES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/generated_registry_foo.cpp
   ${FOO_LIB}/burst_tagger_impl.cc
@@ -271,7 +283,7 @@ list(APPEND SIDE_MODULE_OUTPUTS ${foo_out})
 # include/dvbs2/dvbs2_config.h; the config.h its CMake would have generated comes
 # from a runner-owned shim, so the submodule carries only its WASM DSP fix.
 set(DVBS2_LIB ${WORLD}/gr-dvbs2/lib)
-set(DVBS2_WASM_SHIMS ${CMAKE_CURRENT_SOURCE_DIR}/src/dvbs2_wasm_shims)
+set(DVBS2_WASM_SHIMS ${BLOCKS}/overlays/gr-dvbs2/shims)
 set(DVBS2_SOURCES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/generated_registry_dvbs2.cpp
   ${DVBS2_LIB}/bbheader_bb_impl.cc
@@ -309,7 +321,7 @@ list(APPEND SIDE_MODULE_OUTPUTS ${dvbs2_out})
 # submodule is pinned to pristine upstream, so the config.h its CMake would have
 # generated comes from a runner-owned shim instead.
 set(DVBS2RX_LIB ${WORLD}/gr-dvbs2rx/lib)
-set(DVBS2RX_WASM_SHIMS ${CMAKE_CURRENT_SOURCE_DIR}/src/dvbs2rx_wasm_shims)
+set(DVBS2RX_WASM_SHIMS ${BLOCKS}/overlays/gr-dvbs2rx/shims)
 set(DVBS2RX_SOURCES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/generated_registry_dvbs2rx.cpp
   ${DVBS2RX_LIB}/bbdeheader_bb_impl.cc
@@ -341,8 +353,9 @@ list(APPEND SIDE_MODULE_OUTPUTS ${dvbs2rx_out})
 # module already, so there is no MODULE_DEPS edge. It includes "config.h" behind
 # `#ifdef HAVE_CONFIG_H`, which nothing here defines, so unlike the other OOT
 # modules it needs no config.h shim. paint_image_source is a PIL-based Python
-# sync_block with no C++ path; it has no factory and stays greyed out in the
-# palette, so feed paint_bc from a File Source of raw luma bytes instead.
+# sync_block with no C++ path, so the browser decodes instead: it is rebuilt in
+# blocks/overlays/gr-paint/paint_image_source.cpp and, being a CUSTOM_ID, is
+# registered from the main module rather than from here.
 set(PAINT_LIB ${WORLD}/gr-paint/lib)
 set(PAINT_SOURCES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/generated_registry_paint.cpp
@@ -370,12 +383,12 @@ list(APPEND SIDE_MODULE_OUTPUTS ${paint_out})
 # otherwise empty config.h, supplied here as a runner-owned shim so the submodule
 # can remain pinned to a pristine upstream branch.
 set(SATELLITES_LIB ${WORLD}/gr-satellites/lib)
-set(SATELLITES_WASM_SHIMS ${CMAKE_CURRENT_SOURCE_DIR}/src/satellites_wasm_shims)
+set(SATELLITES_WASM_SHIMS ${BLOCKS}/overlays/gr-satellites/shims)
 set(SATELLITES_SOURCES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/generated_registry_satellites.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/satellites_wasm_blocks.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/satellites_wasm_hier.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/satellites_wasm_deframers.cpp
+  ${BLOCKS}/overlays/gr-satellites/satellites_blocks.cpp
+  ${BLOCKS}/overlays/gr-satellites/satellites_hier.cpp
+  ${BLOCKS}/overlays/gr-satellites/satellites_deframers.cpp
   ${SATELLITES_LIB}/ax100_decode_impl.cc
   ${SATELLITES_LIB}/convolutional_encoder_impl.cc
   ${SATELLITES_LIB}/costas_loop_8apsk_cc_impl.cc
@@ -452,9 +465,9 @@ add_custom_command(
   DEPENDS satellites_side_objects
           ${SATELLITES_SOURCES}
           ${SATELLITES_WASM_SHIMS}/config.h
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/satellites_wasm_blocks.hpp
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/satellites_wasm_hier.hpp
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/satellites_wasm_deframers.hpp
+          ${BLOCKS}/overlays/gr-satellites/satellites_blocks.hpp
+          ${BLOCKS}/overlays/gr-satellites/satellites_hier.hpp
+          ${BLOCKS}/overlays/gr-satellites/satellites_deframers.hpp
           ${CMAKE_CURRENT_SOURCE_DIR}/src/registry_helpers.hpp
           ${CMAKE_CURRENT_SOURCE_DIR}/src/registry.hpp
   COMMENT "Building category side module satellites.wasm (out-of-tree gr-satellites sources)"

@@ -131,6 +131,134 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
           stats.state = 'cancelled';
       };
 
+      // gr-paint's Image File Source, decoded by the browser.
+      //
+      // Upstream is a Python block that opens a local file with PIL. There is
+      // no PIL and no filesystem here, so the block names its image with a URL
+      // and this decodes it with the platform's own image support, applying the
+      // same pipeline the Python does: grayscale, optional autocontrast,
+      // optional inversion, optional flip, downscale to the Spectrum Painter's
+      // 4096px limit, and the ITU-R BT.709 level mapping.
+      //
+      // ImageSourceWasm (blocks/overlays/gr-paint/paint_image_source.cpp) drives
+      // this in two steps, because a decode is asynchronous and a GNU Radio
+      // constructor is not:
+      // __grLoadImageSource starts the job and returns an id immediately,
+      // and __grTakeImageSource copies the finished pixels into WASM memory
+      // once the block's own scheduler thread has waited for the state word.
+      const IMAGE_SOURCE_STATE = { loading: 0, ready: 1, failed: 2 };
+      const imageSourceJobs = new Map();
+      let nextImageSourceId = 1;
+
+      window.__grLoadImageSource = (
+        url, memory, controlPointer, errorPointer, errorCapacity,
+        maxWidth, maxPixels, flip, bt709Map, invert, autocontrast
+      ) => {
+        const id = nextImageSourceId++;
+        const job = { pixels: null, released: false };
+        imageSourceJobs.set(id, job);
+
+        const control = new Int32Array(memory.buffer, controlPointer, 4);
+        const finish = (state, width, height) => {
+          if (job.released) return;
+          Atomics.store(control, 1, width | 0);
+          Atomics.store(control, 2, height | 0);
+          Atomics.store(control, 0, state);
+          Atomics.notify(control, 0);
+        };
+        const fail = error => {
+          if (job.released) return;
+          const text = String((error && error.message) || error || 'image load failed');
+          const bytes = new TextEncoder().encode(text).subarray(0, errorCapacity - 1);
+          new Uint8Array(memory.buffer, errorPointer, errorCapacity).set(bytes);
+          Atomics.store(control, 3, bytes.length);
+          finish(IMAGE_SOURCE_STATE.failed, 0, 0);
+        };
+
+        (async () => {
+          // Cross-origin isolation means an image from another origin has to be
+          // served with permissive CORS headers; without them the fetch fails
+          // here rather than tainting a canvas later, which is the clearer
+          // failure of the two.
+          const response = await fetch(url, { mode: 'cors', credentials: 'omit' });
+          if (!response.ok)
+            throw new Error(`HTTP ${response.status} ${response.statusText} for ${url}`);
+          const bitmap = await createImageBitmap(await response.blob());
+
+          let width = bitmap.width;
+          let height = bitmap.height;
+          if (!width || !height) throw new Error('the image has no pixels');
+          if (width > maxWidth) {
+            const scale = maxWidth / width;
+            width = Math.floor(width * scale);
+            height = Math.max(1, Math.floor(height * scale));
+          }
+          if (width * height > maxPixels) {
+            bitmap.close();
+            throw new Error(
+              `image is too large: ${width}x${height} px exceeds the ` +
+              `${maxPixels} px limit`);
+          }
+
+          const canvas = new OffscreenCanvas(width, height);
+          const context = canvas.getContext('2d', { willReadFrequently: true });
+          context.imageSmoothingQuality = 'high';
+          // For waterfalls that scroll from the top. Flipping while drawing
+          // costs nothing, where PIL needs a second pass over the pixels.
+          if (flip) { context.translate(0, height); context.scale(1, -1); }
+          context.drawImage(bitmap, 0, 0, width, height);
+          bitmap.close();
+
+          const rgba = context.getImageData(0, 0, width, height).data;
+          const luma = new Uint8Array(width * height);
+          // PIL's ImageOps.grayscale is convert("L"), i.e. the ITU-R 601-2
+          // luma coefficients. Alpha is ignored, as it is there; a transparent
+          // PNG therefore comes out over black.
+          for (let i = 0, p = 0; i < luma.length; i++, p += 4)
+            luma[i] = (rgba[p] * 299 + rgba[p + 1] * 587 + rgba[p + 2] * 114) / 1000;
+
+          if (autocontrast) {
+            // ImageOps.autocontrast with the default cutoff: stretch the
+            // extremes to the full range through a truncating LUT.
+            let low = 255, high = 0;
+            for (let i = 0; i < luma.length; i++) {
+              if (luma[i] < low) low = luma[i];
+              if (luma[i] > high) high = luma[i];
+            }
+            if (high > low) {
+              const scale = 255 / (high - low);
+              for (let i = 0; i < luma.length; i++)
+                luma[i] = Math.min(255, Math.max(0, Math.trunc((luma[i] - low) * scale)));
+            }
+          }
+          if (invert)
+            for (let i = 0; i < luma.length; i++) luma[i] = 255 - luma[i];
+          if (bt709Map)
+            // Scale brightness into the BT.709 studio range, 16..235.
+            for (let i = 0; i < luma.length; i++)
+              luma[i] = Math.floor(luma[i] * 219 / 255) + 16;
+
+          job.pixels = luma;
+          finish(IMAGE_SOURCE_STATE.ready, width, height);
+        })().catch(fail);
+
+        return id;
+      };
+
+      window.__grTakeImageSource = (id, memory, destinationPointer, byteLength) => {
+        const job = imageSourceJobs.get(id);
+        if (!job || !job.pixels || job.pixels.length !== byteLength) return 0;
+        new Uint8Array(memory.buffer, destinationPointer, byteLength).set(job.pixels);
+        imageSourceJobs.delete(id);
+        return 1;
+      };
+
+      window.__grReleaseImageSource = id => {
+        const job = imageSourceJobs.get(id);
+        if (job) job.released = true;   // a decode still in flight writes nothing
+        imageSourceJobs.delete(id);
+      };
+
       // Mirror the flowgraph's stdout into the editor's console pane.
       //
       // Blocks that report to the user do it by printing: Message Debug dumps

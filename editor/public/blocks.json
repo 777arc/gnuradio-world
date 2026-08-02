@@ -51131,17 +51131,17 @@
     "Paint"
    ],
    "flags": [],
-   "runnable": false,
-   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "runnable": true,
+   "unavailable_reason": null,
    "module": "core",
-   "documentation": "",
-   "api_documentation": "",
+   "documentation": "Produces monochrome image lines for the Spectrum Painter, which paints\nthem into a receiver's waterfall.\n\nThis build decodes the image with the browser rather than with\nPython-Imaging, so Image URL names a URL, not a local path. Any format\nthe browser can display works (PNG, JPEG, GIF, WebP, ...). A relative\nURL resolves against this site, so /example_images/gnuradio_logo.png is\nthe logo shipped with the \"Paint an Image Into a Waterfall\" example.\n\nCORS: this page is cross-origin isolated, so an image on another origin\nhas to be served with permissive CORS headers\n(Access-Control-Allow-Origin). Wikimedia and most public CDNs are; an\narbitrary web server, and most image links copied out of a browser's\naddress bar, are not. There is no way around it from this side -- the\nbrowser refuses to read pixels it did not get permission for. A URL\nthat is refused reports the reason in the console pane under the\nflowgraph, and anything served from this site always works.\n\nAn image wider than 4096 pixels is scaled down to 4096, the Spectrum\nPainter's limit. The decoded width is printed to the console when the\nflowgraph starts: type it into the Spectrum Painter's Image Width.",
+   "api_documentation": "Given an image file readable by Python-Imaging, this block produces\nmonochrome lines suitable for input to spectrum_paint",
    "wiki_url": "",
    "params": [
     {
      "id": "image_file",
-     "label": "Image File",
-     "dtype": "file_open",
+     "label": "Image URL",
+     "dtype": "string",
      "default": "",
      "category": "General",
      "options": null,
@@ -51153,7 +51153,7 @@
      "id": "image_flip",
      "label": "Flip image?",
      "dtype": "enum",
-     "default": "False",
+     "default": "0",
      "category": "General",
      "options": [
       "0",
@@ -51170,7 +51170,7 @@
      "id": "bt709_map",
      "label": "ITU-R BT.709",
      "dtype": "enum",
-     "default": "True",
+     "default": "1",
      "category": "General",
      "options": [
       "1",
@@ -51187,7 +51187,7 @@
      "id": "image_invert",
      "label": "Invert brightness?",
      "dtype": "enum",
-     "default": "False",
+     "default": "0",
      "category": "General",
      "options": [
       "0",
@@ -51204,7 +51204,7 @@
      "id": "autocontrast",
      "label": "\"Enhance\" contrast?",
      "dtype": "enum",
-     "default": "False",
+     "default": "0",
      "category": "General",
      "options": [
       "0",
@@ -51221,7 +51221,7 @@
      "id": "repeatmode",
      "label": "Repeat",
      "dtype": "enum",
-     "default": "Yes",
+     "default": "1",
      "category": "General",
      "options": [
       "0",

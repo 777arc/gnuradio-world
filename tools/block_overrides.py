@@ -6,16 +6,22 @@ generator, retyped parameters, and pruned enum options.  Keeping those overlays
 here rather than in the module sources means every submodule -- in-tree GNU Radio
 and out-of-tree alike -- can stay pinned to a pristine upstream commit.
 
-Two sources are merged, both read by ``load()``:
+Every overlay lives under ``blocks/overlays/<module>/metadata.yml``, one
+directory per module, and ``load()`` reads them all:
 
-``runner/oot_cpp_templates/gr-<m>.yml``
-    One file per out-of-tree module, holding every browser-only addition for it.
-    A block id here must belong to ``gr-<m>``; ``validate()`` enforces that, so a
-    file stays a complete account of one module.
+``blocks/overlays/gr-<m>/metadata.yml``
+    One out-of-tree module's block metadata.  A block id here must belong to
+    ``gr-<m>``; ``validate()`` enforces that, so the file stays a complete
+    account of one module.  Its directory holds that module's other browser-side
+    additions too -- ``shims/`` for the headers that stand in for host-only
+    dependencies, and any C++ rebuilt from a Python-only block.
 
-``runner/block_overrides.yml``
-    The same overlays for blocks in the GNU Radio tree itself, which has no
-    per-module file because it is one submodule.
+``blocks/overlays/gnuradio/metadata.yml``
+    The same overlays for blocks in the GNU Radio tree itself.  It is the one
+    directory whose ids are not checked against a single module, because that
+    submodule *is* many modules (gr-blocks, gr-analog, ...).  C++ for the
+    in-tree rebuilds lives in ``blocks/src/`` rather than here, for the same
+    reason: there is no one module to attribute it to.
 
 Both generators must apply these identically -- the runtime factory and the
 palette entry describing it are only in agreement because they come from the same
@@ -29,12 +35,19 @@ Supported keys, all optional except where an entry would otherwise do nothing:
 ``category``
     Replaces the palette category, for a module whose upstream category collides
     with an in-tree one.
+``documentation``
+    Replaces the prose the Properties dialog shows under "Block description".
+    For a block the browser build implements differently enough that upstream's
+    own description would mislead -- gr-paint's Image File Source takes a URL and
+    is subject to the page's CORS rules, neither of which upstream can mention.
 ``cpp_templates``
     The GRC C++ template mapping the factory generator renders.
-``parameter_dtypes`` / ``parameter_defaults``
-    Retype or re-default one parameter by id.  Used where upstream's dtype is
-    ``raw`` holding an expression the generator cannot type (a ``pmt.intern(...)``
-    call becomes a plain ``string`` the template wraps itself).
+``parameter_dtypes`` / ``parameter_defaults`` / ``parameter_labels``
+    Retype, re-default or relabel one parameter by id.  Retyping is used where
+    upstream's dtype is ``raw`` holding an expression the generator cannot type
+    (a ``pmt.intern(...)`` call becomes a plain ``string`` the template wraps
+    itself).  Relabelling is for a parameter the browser build gives a different
+    meaning: gr-paint's Image File Source names a URL, not a local file.
 ``prune_options``
     Drop enum options the WASM build cannot name -- an enumerator absent from the
     vendored C++ enum fails the side-module compile.  Takes option *values* and
@@ -45,18 +58,21 @@ Supported keys, all optional except where an entry would otherwise do nothing:
 
 from __future__ import annotations
 
-import glob
 import os
 from typing import Any
 
 import yaml
 
 WORLD = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-OOT_DIR = os.path.join(WORLD, "runner", "oot_cpp_templates")
-IN_TREE_PATH = os.path.join(WORLD, "runner", "block_overrides.yml")
+OVERLAY_DIR = os.path.join(WORLD, "blocks", "overlays")
+METADATA = "metadata.yml"
+# The in-tree submodule's overlay directory. Its ids span every gr-* under
+# gnuradio/, so validate() cannot pin them to one module the way it does for OOT.
+IN_TREE_MODULE = "gnuradio"
 
-KEYS = {"flags", "category", "cpp_templates", "parameter_dtypes",
-        "parameter_defaults", "prune_options"}
+KEYS = {"flags", "category", "cpp_templates", "documentation",
+        "parameter_dtypes", "parameter_defaults", "parameter_labels",
+        "prune_options"}
 
 
 def _read(path: str) -> dict[str, Any]:
@@ -74,12 +90,27 @@ def load() -> dict[str, dict[str, Any]]:
     A block id appearing in two files is an error rather than last-one-wins: the
     loser would apply nowhere and leave no trace, which is the same silent
     failure validate() exists to prevent.
+
+    An overlay directory is discovered by its name alone, so adding a module is
+    adding a directory -- there is no list here to keep in step with it.
     """
     overrides: dict[str, dict[str, Any]] = {}
     duplicates = []
-    sources = [(os.path.basename(p)[len("gr-"):-len(".yml")], p)
-               for p in sorted(glob.glob(os.path.join(OOT_DIR, "gr-*.yml")))]
-    sources.append((None, IN_TREE_PATH))
+    sources = []
+    for directory in sorted(os.listdir(OVERLAY_DIR)):
+        path = os.path.join(OVERLAY_DIR, directory, METADATA)
+        if not os.path.isdir(os.path.join(OVERLAY_DIR, directory)):
+            continue
+        # Discovery is by directory, so a misnamed metadata file would leave the
+        # whole module silently un-overlaid. Say so instead.
+        if not os.path.isfile(path):
+            raise SystemExit(
+                f"block override errors:\n  blocks/overlays/{directory}/ has no "
+                f"{METADATA}")
+        module = (None if directory == IN_TREE_MODULE
+                  else directory[len("gr-"):] if directory.startswith("gr-")
+                  else directory)
+        sources.append((module, path))
     for module, path in sources:
         for block_id, entry in _read(path).items():
             rel = os.path.relpath(path, WORLD)
@@ -101,11 +132,14 @@ def apply(block: dict[str, Any], override: dict[str, Any]) -> None:
     block["flags"] = override.get("flags", block.get("flags") or [])
     if "category" in override:
         block["category"] = override["category"]
+    if "documentation" in override:
+        block["documentation"] = override["documentation"]
     block["cpp_templates"] = override.get(
         "cpp_templates", block.get("cpp_templates") or {})
 
     dtypes = override.get("parameter_dtypes") or {}
     defaults = override.get("parameter_defaults") or {}
+    labels = override.get("parameter_labels") or {}
     prune = override.get("prune_options") or {}
     for param in block.get("parameters") or []:
         if not isinstance(param, dict):
@@ -115,6 +149,8 @@ def apply(block: dict[str, Any], override: dict[str, Any]) -> None:
             param["dtype"] = dtypes[pid]
         if pid in defaults:
             param["default"] = defaults[pid]
+        if pid in labels:
+            param["label"] = labels[pid]
         if pid in prune:
             _prune_options(block, param, prune[pid])
 

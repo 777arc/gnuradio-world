@@ -5,5 +5,5 @@
 // in include/dvbs2/dvbs2_config.h). The browser side module compiles those
 // sources directly, with no gr-dvbs2 configure step, so an empty header is
 // enough. Kept here rather than in the submodule so that fork carries nothing
-// but its one WASM buffer-wrap fix -- see runner/oot_cpp_templates/gr-dvbs2.yml
+// but its one WASM buffer-wrap fix -- see ../metadata.yml
 // for the same reasoning applied to its block metadata.

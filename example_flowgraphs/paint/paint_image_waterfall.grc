@@ -1,0 +1,85 @@
+options:
+    parameters:
+        author: gr-paint (Ron Economos, W6RZ)
+        copyright: ''
+        description: Paint an image fetched from a URL into a waterfall display.
+        generate_options: qt_gui
+        id: paint_image_waterfall
+        title: Paint an Image Into a Waterfall
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: samp_rate
+    id: variable
+    parameters:
+        value: '163840'
+    states:
+        coordinate: [200, 10]
+        rotation: 0
+        state: enabled
+-   name: image
+    id: paint_image_source
+    parameters:
+        autocontrast: '0'
+        bt709_map: '1'
+        image_file: /example_images/gnuradio_logo.png
+        image_flip: '0'
+        image_invert: '0'
+        repeatmode: '1'
+    states:
+        coordinate: [10, 110]
+        rotation: 0
+        state: enabled
+-   name: painter
+    id: paint_paint_bc
+    parameters:
+        equalization: EQUALIZATION_OFF
+        randomsrc: INTERNAL
+        repeats: '4'
+        width: '288'
+    states:
+        coordinate: [280, 110]
+        rotation: 0
+        state: enabled
+-   name: throttle
+    id: blocks_throttle2
+    parameters:
+        ignoretag: 'True'
+        limit: time
+        maximum: '0.02'
+        samples_per_second: samp_rate
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [520, 110]
+        rotation: 0
+        state: enabled
+-   name: waterfall
+    id: qtgui_waterfall_sink_x
+    parameters:
+        alpha1: '1'
+        axislabels: 'True'
+        color1: '0'
+        fc: '0'
+        fftsize: '4096'
+        grid: 'False'
+        int_max: '-57'
+        int_min: '-83'
+        label1: ''
+        legend: 'True'
+        name: Painted Spectrum
+        samp_rate: samp_rate
+        update_time: '0.025'
+    states:
+        coordinate: [750, 110]
+        rotation: 0
+        state: enabled
+connections:
+- [image, '0', painter, '0']
+- [painter, '0', throttle, '0']
+- [throttle, '0', waterfall, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0

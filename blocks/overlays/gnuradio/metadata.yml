@@ -1,6 +1,6 @@
 # Browser-only block metadata for blocks in the GNU Radio tree itself, so the
 # gnuradio/ submodule stays pinned to a pristine commit. The out-of-tree modules
-# have one file each under runner/oot_cpp_templates/; this file is the in-tree
+# have a directory each under blocks/overlays/; this file is the in-tree
 # equivalent, which needs no per-module split because gr/ is one submodule.
 #
 # Supported keys are documented in tools/block_overrides.py, which loads both.

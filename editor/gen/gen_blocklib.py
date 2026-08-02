@@ -32,7 +32,7 @@ MANIFEST = os.path.join(WORLD, "runner", "generated_blocks.json")
 WIKI_BLOCK_DOCS_URL_PREFIX = "https://wiki.gnuradio.org/index.php/"
 
 # The same browser-only block metadata the runtime factory generator applies
-# (runner/oot_cpp_templates/ + runner/block_overrides.yml), through the same
+# (blocks/overlays/*/metadata.yml), through the same
 # module. Palette entry and runtime factory must describe the same block, and a
 # second copy of the merge here would be free to drift from runner/gen_registry.py.
 sys.path.insert(0, os.path.join(WORLD, "tools"))

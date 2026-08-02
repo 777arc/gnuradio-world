@@ -1,13 +1,13 @@
 // C++ rebuilds of gr-satellites' Python deframer components.
-// See satellites_wasm_deframers.hpp. Each class mirrors the block set and
+// See satellites_deframers.hpp. Each class mirrors the block set and
 // connection order of the corresponding file under
 // gr-satellites/python/components/deframers, so a diff against the Python stays
 // readable. Syncwords and packet lengths are copied verbatim from there.
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "satellites_wasm_deframers.hpp"
+#include "satellites_deframers.hpp"
 
-#include "satellites_wasm_blocks.hpp"
-#include "satellites_wasm_hier.hpp"
+#include "satellites_blocks.hpp"
+#include "satellites_hier.hpp"
 
 #include <gnuradio/blocks/add_const_ff.h>
 #include <gnuradio/blocks/char_to_float.h>

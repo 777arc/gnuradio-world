@@ -46,9 +46,9 @@ When adding a new OOT to GNU Radio World there are steps to take, and some tweak
 
 | bucket | what it is | where it lives |
 |---|---|---|
-| **Block metadata** | The `cpp_templates` the factory generator renders into C++, plus anything else the browser needs changed about a block: retyped parameters, a recategorised palette entry, or enum options the vendored C++ doesn't define | `runner/oot_cpp_templates/gr-<m>.yml` — one file per module |
-| **Missing headers and host-only deps** | The `config.h` the module's own CMake would have generated, and browser-safe replacements for anything absent from the WASM sysroot (host networking, locale conversion, audio file I/O) | `runner/src/<m>_wasm_shims/` |
-| **Blocks with no C++ upstream** | Python `gr.hier_block2` compositions, Python QWidget GUI panels, and Python-only utility blocks, rebuilt by hand as C++ so the browser gets the same block id | `runner/src/registry.cpp`, or dedicated `runner/src/<m>_wasm_*.cpp` files for a module with many |
+| **Block metadata** | The `cpp_templates` the factory generator renders into C++, plus anything else the browser needs changed about a block: retyped parameters, a recategorised palette entry, or enum options the vendored C++ doesn't define | `blocks/overlays/gr-<m>/metadata.yml` — one directory per module |
+| **Missing headers and host-only deps** | The `config.h` the module's own CMake would have generated, and browser-safe replacements for anything absent from the WASM sysroot (host networking, locale conversion, audio file I/O) | `blocks/overlays/gr-<m>/shims/` |
+| **Blocks with no C++ upstream** | Python `gr.hier_block2` compositions, Python QWidget GUI panels, and Python-only utility blocks, rebuilt by hand as C++ so the browser gets the same block id | `blocks/overlays/gr-<m>/`, beside that module's metadata; the factory that constructs them is registered in `runner/src/registry.cpp` |
 | **Registration** | That the module exists, that its blocks are fetched on demand rather than always loaded, and any load-order dependency on another on-demand module | `runner/gen_registry.py` |
 | **Build wiring** | The module's include directory and the side-module rule listing which of its sources to compile | `runner/CMakeLists.txt` |
 | **Deliberate omissions** | Blocks that cannot work in a browser sandbox at all — host networking, hardware I/O — get no entry anywhere and simply compile out. They stay visible but greyed out in the palette | *(nothing to write)* |

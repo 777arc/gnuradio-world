@@ -1,6 +1,6 @@
 // Browser-native ports of gr-satellites Python utility blocks.
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "satellites_wasm_blocks.hpp"
+#include "satellites_blocks.hpp"
 
 #include <gnuradio/block.h>
 #include <gnuradio/io_signature.h>

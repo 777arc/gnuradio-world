@@ -73,8 +73,8 @@ DEFERRED_MODULES = (
 MODULE_DEPS: dict[str, list[str]] = {"satellites": ["pdu"]}
 
 # Browser-only block metadata kept in this repository so every submodule can stay
-# pinned to a pristine upstream commit: one file per out-of-tree module under
-# runner/oot_cpp_templates/, plus runner/block_overrides.yml for in-tree blocks.
+# pinned to a pristine upstream commit: one directory per module under
+# blocks/overlays/, each holding that module's metadata.yml.
 # The editor's palette generator applies the same overlays through the same
 # module, so a block's runtime factory and its palette entry cannot disagree.
 BLOCK_OVERRIDES: dict[str, dict[str, Any]] = block_overrides.load()
@@ -98,8 +98,13 @@ OBJECT_PARAMETERS = {
 CUSTOM_IDS = {
     # Runner-only sink, defined in blocks/grc (no upstream GNU Radio block).
     "wasm_packet_rate_sink",
-    # gr-rds's display panel is a Python QWidget; registry.cpp rebuilds it in C++.
+    # gr-rds's display panel is a Python QWidget, rebuilt in C++ at
+    # blocks/overlays/gr-rds/rds_panel.hpp.
     "rds_panel",
+    # gr-paint's Image File Source decodes with PIL; the browser decodes instead
+    # (blocks/overlays/gr-paint/paint_image_source.cpp), so its image is named by
+    # URL rather than by path.
+    "paint_image_source",
     "variable_qtgui_range",
     "variable_qtgui_chooser",
     "variable_qtgui_push_button",
