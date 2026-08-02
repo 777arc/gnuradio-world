@@ -16,7 +16,6 @@ export function useSpectrogram(currentFFT) {
     setFFTStepSize,
     setSpectrogramHeight,
     meta,
-    taps,
     squareSignal,
   } = useSpectrogramContext();
 
@@ -26,7 +25,6 @@ export function useSpectrogram(currentFFT) {
     container,
     filePath,
     fftSize,
-    taps,
     squareSignal,
     fftStepSize
   );
@@ -77,7 +75,6 @@ export function useSpectrogram(currentFFT) {
     fftStepSize,
     totalFFTs,
     spectrogramHeight,
-    taps,
     squareSignal,
   ]);
 

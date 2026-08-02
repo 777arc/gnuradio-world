@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowRight } from '@fortawesome/free-solid-svg-icons';
-import HelpOutlineOutlinedIcon from '@mui/icons-material/HelpOutlineOutlined';
 import ArrowRightIcon from '@mui/icons-material/ArrowRight';
 import DualRangeSlider from '@/features/ui/dual-range-slider/DualRangeSlider';
 import { colMaps } from '@/utils/colormap';
@@ -34,7 +33,6 @@ const SettingsPane = ({ currentFFT, currentTab, setCurrentTab }: SettingsPanePro
   const coreFrequency = context.meta?.getCenterFrequency();
   const cursorContext = useCursorContext();
   const isChannelizer = context.spectrogramMethod === 'channelizer';
-  const [localTaps, setLocalTaps] = useState(JSON.stringify(context.taps));
   const [localFreqShift, setLocalFreqShift] = useState('');
 
   const onChangeWindowFunction = (event) => {
@@ -42,32 +40,10 @@ const SettingsPane = ({ currentFFT, currentTab, setCurrentTab }: SettingsPanePro
     context.setWindowFunction(newWindowFunction);
   };
 
-  const updateTaps = (taps_string: string) => {
-    if (taps_string[0] === '[' && taps_string.slice(-1) === ']') {
-      let temp_taps = taps_string.slice(1, -1).split(',');
-      let temp_number_taps = temp_taps.map((x) => parseFloat(x));
-      let taps = Float32Array.from(temp_number_taps);
-      context.setTaps(temp_number_taps);
-      console.debug('valid taps, found', taps.length, 'taps');
-    } else {
-      console.warn('invalid taps');
-    }
-  };
-
-  const onSubmitTaps = () => {
-    updateTaps(localTaps);
-  };
-
   // When you drag the freqshift selector line, update the text box
   useEffect(() => {
     setLocalFreqShift(String(Math.round(cursorContext.cursorFreqShift * 100000) / 100000));
   }, [cursorContext.cursorFreqShift]);
-
-  const onClickPremadeTaps = (event) => {
-    let taps_string = event.currentTarget.dataset.value;
-    setLocalTaps(taps_string);
-    updateTaps(taps_string);
-  };
 
   const onPressDownloadSelectedSamples = (e) => {
     // Grab metadata and remove the parts that shouldn't be included in the metafile
@@ -234,62 +210,6 @@ const SettingsPane = ({ currentFFT, currentTab, setCurrentTab }: SettingsPanePro
                 {context.fftSize === x ? <a className="bg-selected text-base-content">{x}</a> : <a>{x}</a>}
               </li>
             ))}
-          </ul>
-        </div>
-      </div>
-
-      <>
-        <div className="mt-2" id="formTaps">
-          <label className="label">
-            <span className="label-text">
-              FIR Filter Taps
-              <a
-                className="text-muted hover:text-base-content no-underline ml-1"
-                target="_blank"
-                rel="noreferrer"
-                href="https://pysdr.org/content/filters.html"
-              >
-                <HelpOutlineOutlinedIcon />
-              </a>
-            </span>
-          </label>
-
-          <div className="mt-2 flex">
-            <input
-              type="text"
-              className="h-8 w-54 rounded-r-none ml-1 pl-2"
-              defaultValue={localTaps}
-              onChange={(e) => {
-                setLocalTaps(e.target.value);
-              }}
-            />
-            <button className="rounded-l-none border-l-0" onClick={onSubmitTaps}>
-              <FontAwesomeIcon icon={faArrowRight as IconProp} />
-            </button>
-          </div>
-        </div>
-      </>
-
-      <div className="mt-2">
-        <div className="dropdown dropdown-hover dropdown-right w-full">
-          <label tabIndex={0} className={DROPDOWN_BUTTON}>
-            Example Filter Taps <ArrowRightIcon />
-          </label>
-          <ul className={`${DROPDOWN_MENU} w-96`}>
-            <li
-              key={0}
-              data-value="[0.021019600765633,0.05574786251380393,0.04504671465435009,-0.012858837474581268,-0.042883835223827396,0.013822126400016621,0.05882808073316635,-0.014316809227248763,-0.10299625870988743,0.015410773935742991,0.31701869995313076,0.48460819626209206,0.31701869995313076,0.015410773935742991,-0.10299625870988743,-0.014316809227248763,0.05882808073316635,0.013822126400016621,-0.042883835223827396,-0.012858837474581268,0.04504671465435009,0.05574786251380393,0.021019600765633]"
-              onClick={onClickPremadeTaps}
-            >
-              <a>Low Pass Filter, Keep Center 50%</a>
-            </li>
-            <li
-              key={1}
-              data-value="[0.016149208122345958,0.0315506154302014,0.044989927419396177,0.05039076977222029,0.036274497853720514,0.007612901271369674,-0.02948294665811137,-0.053019565543615366,-0.048888438402198676,-0.004134055886676617,0.07118987013413654,0.15929327646574953,0.22747019061450077,0.2546143327815347,0.22747019061450077,0.15929327646574953,0.07118987013413654,-0.004134055886676617,-0.048888438402198676,-0.053019565543615366,-0.02948294665811137,0.007612901271369674,0.036274497853720514,0.05039076977222029,0.044989927419396177,0.0315506154302014,0.016149208122345958]"
-              onClick={onClickPremadeTaps}
-            >
-              <a>Low Pass Filter, Keep Center 25%</a>
-            </li>
           </ul>
         </div>
       </div>

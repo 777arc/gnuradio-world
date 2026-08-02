@@ -5,10 +5,11 @@ import { useMeta } from '@/api/metadata/queries';
 import { applyProcessing } from '@/utils/fetch-more-data-source';
 import { groupContiguousIndexes } from '@/utils/group';
 
-// Upstream also runs the visible IQ through a user-supplied Python snippet, via
-// Pyodide loaded off a CDN. That is gone here (a cross-origin-isolated page
-// cannot load it anyway), so the processing chain is taps + squaring only, and
-// the client no longer needs credentials or a picked data source to construct.
+// Upstream also runs the visible IQ through a user-supplied FIR filter and a
+// Python snippet, the latter via Pyodide loaded off a CDN. Both are gone here (a
+// cross-origin-isolated page cannot load Pyodide anyway), so the processing chain
+// is squaring only, and the client no longer needs credentials or a picked data
+// source to construct.
 
 const MAXIMUM_SAMPLES_PER_REQUEST = 1024 * 256;
 
@@ -36,7 +37,6 @@ export function useGetIQData(
   container: string,
   filePath: string,
   fftSize: number, // we grab 2x this many floats/ints
-  taps: number[] = [1],
   squareSignal: boolean = false,
   fftStepSize: number = 0
 ) {
@@ -107,7 +107,6 @@ export function useGetIQData(
           container,
           filePath,
           fftSize,
-          taps,
           squareSignal,
         ]);
 
@@ -124,7 +123,7 @@ export function useGetIQData(
           iqData.forEach((data, index) => {
             iqDataFloatArray.set(data, index * fftSize * 2);
           });
-          const result = applyProcessing(iqDataFloatArray, taps, squareSignal);
+          const result = applyProcessing(iqDataFloatArray, squareSignal);
 
           for (let i = 0; i < group.count; i++) {
             currentProcessedData[group.start + i] = result.slice(i * fftSize * 2, (i + 1) * fftSize * 2);
@@ -133,13 +132,13 @@ export function useGetIQData(
         // performance.mark('end');
         // const performanceMeasure = performance.measure('processing', 'start', 'end');
         queryClient.setQueryData(
-          ['processedIQData', type, account, container, filePath, fftSize, taps, squareSignal],
+          ['processedIQData', type, account, container, filePath, fftSize, squareSignal],
           currentProcessedData
         );
 
         return currentProcessedData;
       },
-      [taps.join(','), squareSignal, fftSize] // if any of these things change, it reprocesses the data
+      [squareSignal, fftSize] // if any of these things change, it reprocesses the data
     ),
     enabled: !!meta,
   });

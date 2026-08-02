@@ -4,41 +4,12 @@
 
 import { dataTypeIsComplex } from './selector';
 
-export function convolve(array, taps) {
-  // make sure its an odd number of taps
-  if (taps.length % 2 !== 1) taps.push(0);
-
-  let I = array.filter((element, index) => {
-    return index % 2 === 0;
-  });
-  let Q = array.filter((element, index) => {
-    return index % 2 === 1;
-  });
-
-  let offset = ~~(taps.length / 2);
-  let output = new Float32Array(array.length);
-  for (let i = 0; i < array.length / 2; i++) {
-    let kmin = i >= offset ? 0 : offset - i;
-    let kmax = i + offset < array.length / 2 ? taps.length - 1 : array.length / 2 - 1 - i + offset;
-    output[i * 2] = 0; // I
-    output[i * 2 + 1] = 0; // Q
-    for (let k = kmin; k <= kmax; k++) {
-      output[i * 2] += I[i - offset + k] * taps[k]; // I
-      output[i * 2 + 1] += Q[i - offset + k] * taps[k]; // Q
-    }
-  }
-  return output;
-}
-
-// Upstream has a third processing stage here: a user-supplied Python snippet run
-// through Pyodide. It is not part of this port, so taps and squaring are all
-// that is applied.
-export function applyProcessing(samples, taps, squareSignal) {
+// Upstream has two more processing stages here: a user-supplied FIR filter and a
+// Python snippet run through Pyodide. Neither is part of this port, so squaring
+// is all that is applied.
+export function applyProcessing(samples, squareSignal) {
   if (squareSignal) {
     for (let i = 0; i < samples.length; i++) samples[i] = samples[i] * samples[i];
-  }
-  if (taps && taps.length !== 1) {
-    samples = convolve(samples, taps); // we apply the taps here and not in the FFT calcs so transients dont hurt us as much
   }
   return samples;
 }

@@ -37,8 +37,6 @@ interface SpectrogramContextProperties {
   setSquareSignal: (squareSignal: boolean) => void;
   freqShift: boolean;
   setFreqShift: (freqShift: boolean) => void;
-  taps: number[];
-  setTaps: (taps: number[]) => void;
   meta: SigMFMetadata;
   setMeta: (meta: SigMFMetadata) => void;
   canDownload: boolean;
@@ -90,7 +88,6 @@ export function SpectrogramContextProvider({
   const [includeRfFreq, setIncludeRfFreq] = useState<boolean>(false);
   const [squareSignal, setSquareSignal] = useState<boolean>(false);
   const [freqShift, setFreqShift] = useState<boolean>(false);
-  const [taps, setTaps] = useState<number[]>([1]);
   const { data: originMeta } = useMeta(type, account, container, filePath);
   const [meta, setMeta] = useState<SigMFMetadata>(originMeta);
   const [canDownload, setCanDownload] = useState<boolean>(false);
@@ -140,8 +137,6 @@ export function SpectrogramContextProvider({
         setSquareSignal,
         freqShift,
         setFreqShift,
-        taps,
-        setTaps,
         meta,
         setMeta,
         canDownload,
