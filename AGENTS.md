@@ -407,7 +407,7 @@ queue) remain listed under `skipped`. It also holds a typed-object entry for
 gr-fec's CC Decoder Definition (`variable_cc_decoder_def`), which
 `fec_async_decoder` and `fec_extended_decoder` look up by name. Python-only
 hierarchy definitions are supported when their chain has been explicitly rebuilt
-as a C++ `hier_block2` in `registry.cpp`; the rest remain unavailable.
+as a C++ `hier_block2` in `blocks/src/`; the rest remain unavailable.
 
 gr-satellites is the largest such rebuild. Its hierarchies, demodulators and
 deframers are all Python with no C++ path upstream, so they live in
@@ -442,7 +442,7 @@ Within `blocks/`:
 | what | where |
 |------|-------|
 | metadata for a block with no upstream definition | `blocks/grc/<id>.block.yml` |
-| its implementation, and any browser replacement of an **in-tree** GNU Radio block | `blocks/src/` |
+| its implementation, any browser replacement of an **in-tree** GNU Radio block, and any C++ rebuild of an in-tree Python hier block | `blocks/src/` — `<module>_hier.hpp` per GNU Radio module rebuilt |
 | browser-only metadata for one module's blocks | `blocks/overlays/<module>/metadata.yml` |
 | a headers-only stand-in for a host-only dependency | `blocks/overlays/gr-<m>/shims/` |
 | C++ rebuilt from an **out-of-tree** module's Python-only block | `blocks/overlays/gr-<m>/` |
@@ -469,13 +469,21 @@ composed block — lives in [`runner/src/registry.cpp`](runner/src/registry.cpp)
 The classes those factories construct live in `blocks/` per the table above; the
 table stays whole because it is the index.
 
+The line between the two is **whether the code reads a flowgraph parameter**.
+Anything taking a `const json&` — the `*_from()` decoders, the widget builders,
+the `make_*()` factory helpers — is factory-side and stays in `registry.cpp`
+beside the table. A block class, and the pure functions it is built out of (the
+OFDM sync words, the PSK constellation), take plain C++ arguments and belong in
+`blocks/`. That is what lets the block headers stay free of `nlohmann/json` and
+of `BuiltBlock`.
+
 - Add handwritten factory IDs to `CUSTOM_IDS` in `runner/gen_registry.py` to
   avoid duplicate generated factories.
 - Put block metadata that cannot be rendered in `INVALID_CPP_TEMPLATES`, with a
   reason.
 - Python-only `gr.hier_block2` definitions are unavailable unless explicitly
-  rebuilt as C++ hierarchies in `runner/src/registry.cpp` (or, for gr-satellites,
-  `blocks/overlays/gr-satellites/satellites_{hier,deframers}.cpp`).
+  rebuilt as C++ hierarchies in `blocks/src/<module>_hier.hpp` (or, for
+  gr-satellites, `blocks/overlays/gr-satellites/satellites_{hier,deframers}.cpp`).
 - Blocks absent from the WASM registry remain visible but disabled in the editor
   palette.
 - Symbol exports for side modules are generated automatically by
@@ -741,14 +749,14 @@ chain.
 
 - **Hand-written factories** (blocks needing a `QWidget`, live setters, or a
   browser-safe reimplementation) live in
-  [`runner/src/registry.cpp`](runner/src/registry.cpp); list their ids in
+  [`runner/src/registry.cpp`](runner/src/registry.cpp), over classes in `blocks/`; list their ids in
   `CUSTOM_IDS` in `gen_registry.py` so no duplicate generated factory is emitted.
   A block whose `cpp_templates` can't be rendered goes in `INVALID_CPP_TEMPLATES`
   with a reason.
 - **Python hier blocks** (`gr.hier_block2` compositions such as PSK Mod or the
   OFDM Transmitter) have no C++ path at all, so the browser gets the same block
-  id backed by the same chain rebuilt as a C++ `hier_block2` in `registry.cpp`
-  (`digital_psk_mod`, `digital_ofdm_tx`). Where the Python block computes defaults
+  id backed by the same chain rebuilt as a C++ `hier_block2` in
+  `blocks/src/digital_hier.hpp` (`digital_psk_mod`, `digital_ofdm_tx`). Where the Python block computes defaults
   with numpy (the OFDM sync words), reproduce them exactly: numpy's legacy
   `RandomState(seed)` is MT19937 seeded identically to `std::mt19937(seed)`, and
   `randint(2)` is one 32-bit draw's low bit.
