@@ -21,6 +21,14 @@ export const APP_MARK_COLOR = '#7783a4'; // scrollbar-thumb grey of the editor's
 
 export const MINIMUM_SCROLL_HANDLE_HEIGHT_PIXELS = 10;
 export const COLORMAP_DEFAULT = 'viridis';
+
+// How each spectrogram row is turned into magnitudes: one FFT per block of
+// fftSize samples ('fft', see utils/selector), or a polyphase
+// near-perfect-reconstruction filter bank of the same fftSize channels
+// ('channelizer', see utils/channelizer). FFT stays the default -- it is what a
+// reader coming from any other SDR tool expects to be looking at.
+export type SpectrogramMethod = 'fft' | 'channelizer';
+export const SPECTROGRAM_METHOD_DEFAULT: SpectrogramMethod = 'fft';
 export const MINIMAP_FFT_SIZE = 64;
 // One FFT per row of the minimap image, so this is its height in pixels -- and,
 // since each row is its own ranged read, also the number of requests it costs.
