@@ -45,4 +45,13 @@ assert.match(source, /!uids\.has\(i\.uid\) \|\| i\.id === OPTIONS_ID/,
 assert.match(source, /only one Options block is allowed per flowgraph/,
   'adding a second Options block must be refused');
 
+// A new flowgraph matches native GRC's default_flow_graph.grc template: Options
+// plus a samp_rate Variable of 32000, which upstream flowgraphs assume exists.
+assert.match(source, /const DEFAULT_SAMP_RATE = '32000';/,
+  "a new flowgraph's samp_rate must default to GRC's 32000");
+assert.match(source, /function makeSampRateInst\(\)[\s\S]*?id: 'variable', name: 'samp_rate'/,
+  'the default samp_rate must be a plain Variable block named samp_rate');
+assert.match(source, /insts\.push\(makeSampRateInst\(\)\);[\s\S]*?ensureOptionsBlock\(\); render\(\);/,
+  'New/Close must seed the canvas with the default samp_rate variable');
+
 console.log('checked editor-side flowgraph validation and error presentation');

@@ -1458,6 +1458,22 @@ function ensureOptionsBlock() {
   if (!insts.some(i => i.id === OPTIONS_ID)) insts.unshift(makeOptionsInst());
 }
 
+// ---- the default (new) flowgraph ----
+// A new flowgraph is not empty in native GRC: it is loaded from the template in
+// `grc/core/default_flow_graph.grc`, which holds the Options block plus a
+// `samp_rate` variable of 32000 — which is why upstream flowgraphs refer to
+// `samp_rate` as if it were always there. Same two blocks, same value, same
+// positions here. It is an ordinary Variable once placed: renameable, editable,
+// and deletable like any other block.
+const DEFAULT_SAMP_RATE = '32000';
+function makeSampRateInst(): Inst {
+  const params: Record<string, any> = {};
+  RUNNABLE['variable'].params.forEach(p => params[p.id] = p.def);
+  params.value = DEFAULT_SAMP_RATE;
+  return { uid: 'b' + (++counter), id: 'variable', name: 'samp_rate',
+    x: 200, y: 10, params, enabled: true, rotation: 0, bypassed: false };
+}
+
 // The file name Save writes back to: whatever file the canvas was loaded from
 // (an example, or a .grc opened from disk), so editing an example and saving it
 // keeps its own name instead of everything landing as flowgraph.grc. Anything
@@ -1470,6 +1486,7 @@ function setCurrentFileName(file: string | null) {
 
 function clearFlowgraph(record = true) {
   insts = []; conns = []; counter = 0; selected = null; selectedBlocks.clear();
+  insts.push(makeSampRateInst());   // the default flowgraph's one variable
   selectedConnection = null; cancelConnect(); ensureOptionsBlock(); render();
   setExampleHash(null);   // the canvas is empty; any #example= in the URL is stale
   setCurrentFileName(null);
