@@ -1,0 +1,669 @@
+# Browser-only block metadata for the vendored out-of-tree module gr-satellites.
+#
+# Keeping these overlays here instead of in the submodule's own .block.yml is what
+# lets that submodule stay pinned to a pristine upstream commit: nothing in the
+# checkout has to be edited, rebased, or pushed to a fork to add a block. See
+# tools/block_overrides.py for the supported keys, and AGENTS.md for the
+# out-of-tree checklist this file is step 3 of.
+#
+# By far the largest of these files: gr-satellites' demodulators, deframers and
+# hierarchies are all Python with no C++ path upstream, so most entries below do
+# not point at a vendored block at all. They point at the browser rebuilds in
+# runner/src/satellites_wasm_{blocks,hier,deframers}.cpp, each of which mirrors
+# the Python file named in its comment there.
+# At some point, look into upstreaming these.
+
+# gr-satellites ships C++ implementations for its low-level coding, framing,
+# FEC, and utility blocks, but most of its GRC metadata only declares Python
+# generation. Keep upstream's main branch pristine and provide the equivalent
+# browser-only C++ templates here.
+satellites_ax100_decode:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <satellites/ax100_decode.h>']
+    make: 'this->${id} = satellites::ax100_decode::make(${verbose});'
+
+satellites_convolutional_encoder:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <satellites/convolutional_encoder.h>']
+    make: 'this->${id} = satellites::convolutional_encoder::make(${constraint}, ${polynomials});'
+
+satellites_costas_loop_8apsk_cc:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <satellites/costas_loop_8apsk_cc.h>']
+    make: 'this->${id} = satellites::costas_loop_8apsk_cc::make(${loop_bw});'
+
+satellites_crc_append:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <satellites/crc_append.h>']
+    make: 'this->${id} = satellites::crc_append::make(${num_bits}, ${poly}, ${initial_value}, ${final_xor}, ${input_reflected}, ${result_reflected}, ${swap_endianness}, ${skip_header_bytes});'
+
+satellites_crc_check:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <satellites/crc_check.h>']
+    make: 'this->${id} = satellites::crc_check::make(${num_bits}, ${poly}, ${initial_value}, ${final_xor}, ${input_reflected}, ${result_reflected}, ${swap_endianness}, ${discard_crc}, ${skip_header_bytes});'
+
+satellites_decode_ra_code:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <satellites/decode_ra_code.h>']
+    make: 'this->${id} = satellites::decode_ra_code::make(${size});'
+
+satellites_decode_rs:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <satellites/decode_rs.h>']
+    make: 'this->${id} = satellites::decode_rs::make(${nsym}, ${gfpoly}, ${fcr}, ${prim}, ${nroots}, ${interleave});'
+
+satellites_descrambler308:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <satellites/descrambler308.h>']
+    make: 'this->${id} = satellites::descrambler308::make();'
+
+satellites_distributed_syncframe_soft:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <satellites/distributed_syncframe_soft.h>']
+    make: 'this->${id} = satellites::distributed_syncframe_soft::make(${threshold}, ${syncword}, ${step});'
+
+satellites_doppler_correction:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <satellites/doppler_correction.h>']
+    make: 'this->${id} = satellites::doppler_correction::make(${file}, ${samp_rate}, ${t0}, ${timesync_tag});'
+
+satellites_encode_rs:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <satellites/encode_rs.h>']
+    make: 'this->${id} = satellites::encode_rs::make(${nsym}, ${gfpoly}, ${fcr}, ${prim}, ${nroots}, ${interleave});'
+
+satellites_fixedlen_to_pdu:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <satellites/fixedlen_to_pdu.h>']
+    make: 'this->${id} = satellites::fixedlen_to_pdu::make(${type.vector_type}, ${syncword_tag}, ${packet_len}, ${pack if type == "byte" else False}, ${packet_len_tag_key});'
+    translations:
+      'satellites\.grtypes\.': 'types::'
+
+satellites_frame_counter:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <satellites/frame_counter.h>']
+    make: 'this->${id} = satellites::frame_counter::make(${type.size}*${vlen}, ${frame_size});'
+
+satellites_kurtosis:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <satellites/kurtosis.h>']
+    make: 'this->${id} = satellites::kurtosis::make(${block_size}, ${vlen});'
+
+satellites_level_to_message:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <satellites/level_to_message.h>']
+    make: 'this->${id} = satellites::level_to_message::make(${threshold});'
+
+satellites_lilacsat1_demux:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <satellites/lilacsat1_demux.h>']
+    make: 'this->${id} = satellites::lilacsat1_demux::make(${tag});'
+
+satellites_manchester_sync:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <satellites/manchester_sync.h>']
+    make: 'this->${id} = satellites::manchester_sync_${type.fcn}::make(${block_size});'
+
+satellites_matrix_deinterleaver_soft:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <satellites/matrix_deinterleaver_soft.h>']
+    make: 'this->${id} = satellites::matrix_deinterleaver_soft::make(${rows}, ${cols}, ${output_size}, ${output_skip});'
+
+satellites_message_counter:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <satellites/message_counter.h>']
+    make: 'this->${id} = satellites::message_counter::make();'
+
+satellites_nanocom_golay_decode_length:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <satellites/nanocom_golay_decode_length.h>']
+    make: 'this->${id} = satellites::nanocom_golay_decode_length::make(${golay_start_tag_key}, ${length_tag_key});'
+
+satellites_nrzi_decode:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <satellites/nrzi_decode.h>']
+    make: 'this->${id} = satellites::nrzi_decode::make();'
+
+satellites_nrzi_encode:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <satellites/nrzi_encode.h>']
+    make: 'this->${id} = satellites::nrzi_encode::make();'
+
+satellites_nusat_decoder:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <satellites/nusat_decoder.h>']
+    make: 'this->${id} = satellites::nusat_decoder::make();'
+
+satellites_packet_csma:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <satellites/packet_csma.h>']
+    make: 'this->${id} = satellites::packet_csma::make(${type.size}*${vlen}, ${back_to_back_priority}, ${len_tag_key});'
+
+satellites_pdu_add_meta:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <satellites/pdu_add_meta.h>']
+    make: 'this->${id} = satellites::pdu_add_meta::make(${meta});'
+
+satellites_pdu_head_tail:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <satellites/pdu_head_tail.h>']
+    make: 'this->${id} = satellites::pdu_head_tail::make(${mode}, ${num});'
+
+satellites_pdu_length_filter:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <satellites/pdu_length_filter.h>']
+    make: 'this->${id} = satellites::pdu_length_filter::make(${min}, ${max});'
+
+satellites_pdu_scrambler:
+  flags: [python, cpp]
+  parameter_dtypes:
+    sequence: byte_vector
+  cpp_templates:
+    includes: ['#include <satellites/pdu_scrambler.h>']
+    make: 'this->${id} = satellites::pdu_scrambler::make(${sequence});'
+
+satellites_phase_unwrap:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <satellites/phase_unwrap.h>']
+    make: 'this->${id} = satellites::phase_unwrap::make();'
+
+satellites_time_dependent_delay:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <satellites/time_dependent_delay.h>']
+    make: 'this->${id} = satellites::time_dependent_delay::make(${file}, ${samp_rate}, ${t0}, ${taps}, ${num_filters});'
+
+satellites_u482c_decode:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <satellites/u482c_decode.h>']
+    make: 'this->${id} = satellites::u482c_decode::make(${verbose}, ${viterbi}, ${scrambler}, ${rs});'
+
+satellites_u482c_encode:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <satellites/u482c_encode.h>']
+    make: 'this->${id} = satellites::u482c_encode::make(${convolutional}, ${scrambler}, ${rs}, ${preamble_len}, ${flags_in_golay});'
+
+satellites_varlen_packet_framer:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <satellites/varlen_packet_framer.h>']
+    make: 'this->${id} = satellites::varlen_packet_framer::make(${packetlen_tag}, ${length_field_size}, ${endianness}, ${use_golay}, ${sync_word});'
+
+satellites_varlen_packet_tagger:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <satellites/varlen_packet_tagger.h>']
+    make: 'this->${id} = satellites::varlen_packet_tagger::make(${syncword_tag}, ${packetlen_tag}, ${length_field_size}, ${mtu}, ${endianness}, ${use_golay});'
+
+satellites_viterbi_decoder:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <satellites/viterbi_decoder.h>']
+    make: 'this->${id} = satellites::viterbi_decoder::make(${constraint}, ${polynomials});'
+
+# Python-only gr-satellites utility blocks rebuilt as small C++ message blocks
+# for the browser. Their implementations are runner-owned so the upstream
+# gr-satellites main branch can remain pristine.
+satellites_aausat4_check_fsm:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_blocks.hpp"']
+    make: 'this->${id} = wasm_satellites::make_aausat4_check_fsm();'
+
+satellites_beesat_classifier:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_blocks.hpp"']
+    make: 'this->${id} = wasm_satellites::make_beesat_classifier();'
+
+satellites_cc11xx_packet_crop:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_blocks.hpp"']
+    make: 'this->${id} = wasm_satellites::make_cc11xx_packet_crop(${use_crc16});'
+
+satellites_check_address:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_blocks.hpp"']
+    make: 'this->${id} = wasm_satellites::make_check_address(${address}, ${direction}, ${digicallsign});'
+
+satellites_check_astrocast_crc:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_blocks.hpp"']
+    make: 'this->${id} = wasm_satellites::make_check_astrocast_crc(${verbose});'
+
+satellites_check_hex_string:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_blocks.hpp"']
+    make: 'this->${id} = wasm_satellites::make_check_hex_string(${hexstring}, ${startindex});'
+
+satellites_csp_address_filter:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_blocks.hpp"']
+    make: 'this->${id} = wasm_satellites::make_csp_address_filter(${allowed_sources}, ${allowed_destinations});'
+
+satellites_decode_rs_ccsds:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <satellites/decode_rs.h>']
+    make: 'this->${id} = satellites::decode_rs::make(${basis}, ${interleave});'
+
+satellites_encode_rs_ccsds:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <satellites/encode_rs.h>']
+    make: 'this->${id} = satellites::encode_rs::make(${basis}, ${interleave});'
+
+satellites_encode_rs_ccsds_vector:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <satellites/encode_rs.h>']
+    make: 'this->${id} = satellites::encode_rs::make(${frame_size}, ${basis}, ${interleave});'
+
+satellites_encode_rs_vector:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <satellites/encode_rs.h>']
+    make: 'this->${id} = satellites::encode_rs::make(${frame_size}, ${nsym}, ${gfpoly}, ${fcr}, ${prim}, ${nroots}, ${interleave});'
+
+satellites_eseo_packet_crop:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_blocks.hpp"']
+    make: 'this->${id} = wasm_satellites::make_eseo_packet_crop(${drop_rs});'
+
+satellites_hdlc_framer:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_blocks.hpp"']
+    make: 'this->${id} = wasm_satellites::make_hdlc_framer(${preamble_bytes}, ${postamble_bytes});'
+
+satellites_ks1q_header_remover:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_blocks.hpp"']
+    make: 'this->${id} = wasm_satellites::make_ks1q_header_remover(${verbose});'
+
+satellites_ngham_packet_crop:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_blocks.hpp"']
+    make: 'this->${id} = wasm_satellites::make_ngham_packet_crop();'
+
+satellites_ngham_remove_padding:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_blocks.hpp"']
+    make: 'this->${id} = wasm_satellites::make_ngham_remove_padding();'
+
+satellites_print_header:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_blocks.hpp"']
+    make: 'this->${id} = wasm_satellites::make_print_header();'
+
+satellites_print_timestamp:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_blocks.hpp"']
+    make: 'this->${id} = wasm_satellites::make_print_timestamp(${fmt}, ${count});'
+
+satellites_reflect_bytes:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_blocks.hpp"']
+    make: 'this->${id} = wasm_satellites::make_reflect_bytes();'
+
+satellites_snet_classifier:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_blocks.hpp"']
+    make: 'this->${id} = wasm_satellites::make_snet_classifier();'
+
+satellites_swap_crc:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_blocks.hpp"']
+    make: 'this->${id} = wasm_satellites::make_swap_crc();'
+
+satellites_swap_header:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_blocks.hpp"']
+    make: 'this->${id} = wasm_satellites::make_swap_header();'
+
+satellites_swiatowid_packet_crop:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_blocks.hpp"']
+    make: 'this->${id} = wasm_satellites::make_swiatowid_packet_crop();'
+
+satellites_swiatowid_packet_split:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_blocks.hpp"']
+    make: 'this->${id} = wasm_satellites::make_swiatowid_packet_split();'
+
+satellites_sx12xx_packet_crop:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_blocks.hpp"']
+    make: 'this->${id} = wasm_satellites::make_sx12xx_packet_crop(${crc_len});'
+
+# gr-satellites' Python gr.hier_block2 hierarchies, rebuilt as C++ hier_block2s
+# in runner/src/satellites_wasm_hier.cpp. These have no C++ path upstream.
+satellites_ccsds_descrambler:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_hier.hpp"']
+    make: 'this->${id} = wasm_satellites::make_ccsds_descrambler();'
+
+satellites_pn9_scrambler:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_hier.hpp"']
+    make: 'this->${id} = wasm_satellites::make_pn9_scrambler();'
+
+satellites_si4463_scrambler:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_hier.hpp"']
+    make: 'this->${id} = wasm_satellites::make_si4463_scrambler();'
+
+satellites_rms_agc:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_hier.hpp"']
+    make: 'this->${id} = wasm_satellites::make_rms_agc(${alpha}, ${reference});'
+
+satellites_sync_to_pdu:
+  flags: [python, cpp]
+  # 'sync' is dtype raw upstream, which the generator cannot type; it is
+  # always a bit-string literal, so present it as a string.
+  parameter_dtypes:
+    sync: string
+  cpp_templates:
+    includes: ['#include "satellites_wasm_hier.hpp"']
+    make: 'this->${id} = wasm_satellites::make_sync_to_pdu(${packlen}, ${sync}, ${threshold});'
+
+satellites_sync_to_pdu_packed:
+  flags: [python, cpp]
+  # 'sync' is dtype raw upstream, which the generator cannot type; it is
+  # always a bit-string literal, so present it as a string.
+  parameter_dtypes:
+    sync: string
+  cpp_templates:
+    includes: ['#include "satellites_wasm_hier.hpp"']
+    make: 'this->${id} = wasm_satellites::make_sync_to_pdu_packed(${packlen}, ${sync}, ${threshold});'
+
+satellites_sync_to_pdu_soft:
+  flags: [python, cpp]
+  # 'sync' is dtype raw upstream, which the generator cannot type; it is
+  # always a bit-string literal, so present it as a string.
+  parameter_dtypes:
+    sync: string
+  cpp_templates:
+    includes: ['#include "satellites_wasm_hier.hpp"']
+    make: 'this->${id} = wasm_satellites::make_sync_to_pdu_soft(${packlen}, ${sync}, ${threshold});'
+
+satellites_ccsds_viterbi:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_hier.hpp"']
+    make: 'this->${id} = wasm_satellites::make_ccsds_viterbi("CCSDS");'
+
+# gr-satellites' Python demodulator components, rebuilt as C++ hier_block2s. The
+# `options` argparse string is not honoured; the rebuilds use gr_satellites' own
+# defaults for it.
+satellites_fsk_demodulator:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_hier.hpp"']
+    make: 'this->${id} = wasm_satellites::make_fsk_demodulator(${baudrate}, ${samp_rate}, ${iq}, ${subaudio});'
+
+satellites_afsk_demodulator:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_hier.hpp"']
+    make: 'this->${id} = wasm_satellites::make_afsk_demodulator(${baudrate}, ${samp_rate}, ${iq}, ${af_carrier}, ${deviation});'
+
+satellites_bpsk_demodulator:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_hier.hpp"']
+    make: 'this->${id} = wasm_satellites::make_bpsk_demodulator(${baudrate}, ${samp_rate}, ${f_offset}, ${differential}, ${manchester}, ${iq});'
+
+# gr-satellites' Python deframer components, rebuilt as C++ hier_block2s in
+# runner/src/satellites_wasm_deframers.cpp. The `options` argparse string is not
+# honoured; the rebuilds use gr_satellites' own defaults for it.
+satellites_hdlc_deframer:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_deframers.hpp"']
+    make: 'this->${id} = wasm_satellites::make_hdlc_deframer(${check_fcs}, ${max_length});'
+
+satellites_ax25_deframer:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_deframers.hpp"']
+    make: 'this->${id} = wasm_satellites::make_ax25_deframer(${g3ruh_scrambler});'
+
+satellites_ua01_deframer:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_deframers.hpp"']
+    make: 'this->${id} = wasm_satellites::make_ua01_deframer();'
+
+satellites_ax100_deframer:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_deframers.hpp"']
+    make: 'this->${id} = wasm_satellites::make_ax100_deframer(${mode}, ${scrambler}, ${threshold}, "10010011000010110101000111011110");'
+
+satellites_u482c_deframer:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_deframers.hpp"']
+    make: 'this->${id} = wasm_satellites::make_u482c_deframer(${threshold});'
+
+satellites_ccsds_rs_deframer:
+  flags: [python, cpp]
+  # 'precoding' is an enum whose first option is the Python literal None,
+  # which the generator would render as a PMT alongside the string options.
+  parameter_dtypes:
+    precoding: string
+  cpp_templates:
+    includes: ['#include "satellites_wasm_deframers.hpp"']
+    make: 'this->${id} = wasm_satellites::make_ccsds_rs_deframer(${frame_size}, ${precoding}, true, ${rs_basis}, ${rs_interleaving}, ${scrambler}, ${threshold});'
+
+satellites_ccsds_deframer:
+  flags: [python, cpp]
+  # 'precoding' is an enum whose first option is the Python literal None,
+  # which the generator would render as a PMT alongside the string options.
+  parameter_dtypes:
+    precoding: string
+  cpp_templates:
+    includes: ['#include "satellites_wasm_deframers.hpp"']
+    make: 'this->${id} = wasm_satellites::make_ccsds_rs_deframer(${frame_size}, ${precoding}, false, "dual", 1, ${scrambler}, ${threshold});'
+
+satellites_ccsds_concatenated_deframer:
+  flags: [python, cpp]
+  # 'precoding' is an enum whose first option is the Python literal None,
+  # which the generator would render as a PMT alongside the string options.
+  parameter_dtypes:
+    precoding: string
+  cpp_templates:
+    includes: ['#include "satellites_wasm_deframers.hpp"']
+    make: 'this->${id} = wasm_satellites::make_ccsds_concatenated_deframer(${frame_size}, ${precoding}, true, ${rs_basis}, ${rs_interleaving}, ${scrambler}, ${threshold}, ${convolutional});'
+
+satellites_aistechsat_2_deframer:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_deframers.hpp"']
+    make: 'this->${id} = wasm_satellites::make_aistechsat_2_deframer(${threshold});'
+
+satellites_ao40_uncoded_deframer:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_deframers.hpp"']
+    make: 'this->${id} = wasm_satellites::make_ao40_uncoded_deframer(${threshold});'
+
+satellites_ao40_fec_deframer:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_deframers.hpp"']
+    make: 'this->${id} = wasm_satellites::make_ao40_fec_deframer(${threshold}, ${short_frames}, ${crc});'
+
+satellites_aalto1_deframer:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_deframers.hpp"']
+    make: 'this->${id} = wasm_satellites::make_aalto1_deframer(${threshold});'
+
+satellites_reaktor_hello_world_deframer:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_deframers.hpp"']
+    make: 'this->${id} = wasm_satellites::make_reaktor_hello_world_deframer(${threshold}, "00110101001011100011010100101110");'
+
+satellites_light1_deframer:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_deframers.hpp"']
+    make: 'this->${id} = wasm_satellites::make_reaktor_hello_world_deframer(${threshold}, "10010011000010110101000111011110");'
+
+satellites_binar1_deframer:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_deframers.hpp"']
+    make: 'this->${id} = wasm_satellites::make_binar1_deframer(0);'
+
+satellites_endurosat_deframer:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_deframers.hpp"']
+    make: 'this->${id} = wasm_satellites::make_endurosat_deframer(${threshold});'
+
+satellites_binar2_deframer:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_deframers.hpp"']
+    make: 'this->${id} = wasm_satellites::make_binar2_deframer(0);'
+
+satellites_geoscan_deframer:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_deframers.hpp"']
+    make: 'this->${id} = wasm_satellites::make_geoscan_deframer(${frame_size}, ${threshold});'
+
+satellites_lucky7_deframer:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_deframers.hpp"']
+    make: 'this->${id} = wasm_satellites::make_lucky7_deframer(${threshold});'
+
+satellites_nusat_deframer:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_deframers.hpp"']
+    make: 'this->${id} = wasm_satellites::make_nusat_deframer(${threshold});'
+
+satellites_astrocast_fx25_deframer:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_deframers.hpp"']
+    make: 'this->${id} = wasm_satellites::make_astrocast_fx25_deframer(${threshold}, ${nrzi});'
+
+satellites_fossasat_deframer:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_deframers.hpp"']
+    make: 'this->${id} = wasm_satellites::make_fossasat_deframer(${threshold});'
+
+satellites_grizu263a_deframer:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_deframers.hpp"']
+    make: 'this->${id} = wasm_satellites::make_grizu263a_deframer(${threshold});'
+
+satellites_smogp_signalling_deframer:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_deframers.hpp"']
+    make: 'this->${id} = wasm_satellites::make_smogp_signalling_deframer(${protocol}, ${threshold});'
+
+satellites_lilacsat_1_deframer:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_deframers.hpp"']
+    make: 'this->${id} = wasm_satellites::make_lilacsat_1_deframer(${threshold});'
+
+satellites_ngham_deframer:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_deframers.hpp"']
+    make: 'this->${id} = wasm_satellites::make_ngham_deframer(${decode_rs}, ${threshold});'
+
+satellites_qubik_deframer:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_deframers.hpp"']
+    make: 'this->${id} = wasm_satellites::make_qubik_deframer(${threshold});'
+
+satellites_sat_3cat_1_deframer:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_deframers.hpp"']
+    make: 'this->${id} = wasm_satellites::make_sat_3cat_1_deframer(${threshold});'
+
+satellites_tt64_deframer:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_deframers.hpp"']
+    make: 'this->${id} = wasm_satellites::make_tt64_deframer(${threshold});'
+
+satellites_swiatowid_deframer:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_deframers.hpp"']
+    make: 'this->${id} = wasm_satellites::make_swiatowid_deframer(${threshold});'
+
+satellites_ops_sat_deframer:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include "satellites_wasm_deframers.hpp"']
+    make: 'this->${id} = wasm_satellites::make_ops_sat_deframer();'

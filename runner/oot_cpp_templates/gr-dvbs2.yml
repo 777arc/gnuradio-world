@@ -1,0 +1,138 @@
+# Browser-only block metadata for the vendored out-of-tree module gr-dvbs2 (drmpeg).
+#
+# Keeping these overlays here instead of in the submodule's own .block.yml is what
+# lets that submodule stay pinned to a pristine upstream commit: nothing in the
+# checkout has to be edited, rebased, or pushed to a fork to add a block. See
+# tools/block_overrides.py for the supported keys, and AGENTS.md for the
+# out-of-tree checklist this file is step 3 of.
+#
+# bbheader_source is absent: it is a UDP transport-stream source built on
+# Boost.Asio host networking, which has no meaning in the browser sandbox, so it
+# is excluded from the side module and stays greyed out in the palette.
+#
+# bbheader_bb prunes the constellations above 32APSK. The vendored C++ enum does
+# not define them, and the generated factory names every option in its choice
+# table, so leaving them in fails the side-module compile.
+
+dvbs2_bbheader_bb:
+    flags: [python, cpp]
+    prune_options:
+        constellation1:
+        - MOD_64APSK
+        - MOD_8_16_20_20APSK
+        - MOD_4_12_20_28APSK
+        - MOD_128APSK
+        - MOD_256APSK
+        constellation2:
+        - MOD_64APSK
+        - MOD_8_16_20_20APSK
+        - MOD_4_12_20_28APSK
+        - MOD_128APSK
+        - MOD_256APSK
+        constellation3:
+        - MOD_64APSK
+        - MOD_8_16_20_20APSK
+        - MOD_4_12_20_28APSK
+        - MOD_128APSK
+        - MOD_256APSK
+        constellation4:
+        - MOD_64APSK
+        - MOD_8_16_20_20APSK
+        - MOD_4_12_20_28APSK
+        - MOD_128APSK
+        - MOD_256APSK
+    cpp_templates:
+        includes: ['#include <dvbs2/bbheader_bb.h>']
+        declarations: dvbs2::bbheader_bb::sptr ${id};
+        make: |-
+            this->${id} = dvbs2::bbheader_bb::make(${nstreams},
+                ${framesize1.val},
+                % if str(framesize1) == 'FECFRAME_NORMAL':
+                ${rate1_1.val},
+                % elif str(framesize1) == 'FECFRAME_MEDIUM':
+                ${rate1_2.val},
+                % else:
+                ${rate1_3.val},
+                % endif
+                ${constellation1.val}, ${pilots1.val}, ${goldcode1},
+                ${framesize2.val},
+                % if str(framesize2) == 'FECFRAME_NORMAL':
+                ${rate2_1.val},
+                % elif str(framesize2) == 'FECFRAME_MEDIUM':
+                ${rate2_2.val},
+                % else:
+                ${rate2_3.val},
+                % endif
+                ${constellation2.val}, ${pilots2.val}, ${goldcode2},
+                ${framesize3.val},
+                % if str(framesize3) == 'FECFRAME_NORMAL':
+                ${rate3_1.val},
+                % elif str(framesize3) == 'FECFRAME_MEDIUM':
+                ${rate3_2.val},
+                % else:
+                ${rate3_3.val},
+                % endif
+                ${constellation3.val}, ${pilots3.val}, ${goldcode3},
+                ${framesize4.val},
+                % if str(framesize4) == 'FECFRAME_NORMAL':
+                ${rate4_1.val},
+                % elif str(framesize4) == 'FECFRAME_MEDIUM':
+                ${rate4_2.val},
+                % else:
+                ${rate4_3.val},
+                % endif
+                ${constellation4.val}, ${pilots4.val}, ${goldcode4},
+                ${rolloff.val});
+        link: [gnuradio-dvbs2]
+        translations:
+            dvbs2\.: 'dvbs2::'
+
+dvbs2_bbscrambler_bb:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <dvbs2/bbscrambler_bb.h>']
+        declarations: dvbs2::bbscrambler_bb::sptr ${id};
+        make: this->${id} = dvbs2::bbscrambler_bb::make();
+        link: [gnuradio-dvbs2]
+
+dvbs2_bch_bb:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <dvbs2/bch_bb.h>']
+        declarations: dvbs2::bch_bb::sptr ${id};
+        make: this->${id} = dvbs2::bch_bb::make();
+        link: [gnuradio-dvbs2]
+
+dvbs2_interleaver_bb:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <dvbs2/interleaver_bb.h>']
+        declarations: dvbs2::interleaver_bb::sptr ${id};
+        make: this->${id} = dvbs2::interleaver_bb::make();
+        link: [gnuradio-dvbs2]
+
+dvbs2_ldpc_bb:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <dvbs2/ldpc_bb.h>']
+        declarations: dvbs2::ldpc_bb::sptr ${id};
+        make: this->${id} = dvbs2::ldpc_bb::make();
+        link: [gnuradio-dvbs2]
+
+dvbs2_modulator_bc:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <dvbs2/modulator_bc.h>']
+        declarations: dvbs2::modulator_bc::sptr ${id};
+        make: this->${id} = dvbs2::modulator_bc::make();
+        link: [gnuradio-dvbs2]
+
+dvbs2_physical_cc:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <dvbs2/physical_cc.h>']
+        declarations: dvbs2::physical_cc::sptr ${id};
+        make: this->${id} = dvbs2::physical_cc::make(${dummyframes.val});
+        link: [gnuradio-dvbs2]
+        translations:
+            dvbs2\.: 'dvbs2::'

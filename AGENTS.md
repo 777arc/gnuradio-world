@@ -28,8 +28,7 @@ WebAssembly.
   of wasm-specific aspects to it, but it attempts to look just like the native
   version.
 - `gnuradio/`: submodule of the main GNU Radio repo.
-- `gr-rds/`, `gr-foo/`, `gr-dvbs2/`, `gr-dvbs2rx/`, `gr-satellites/`: vendored out-of-tree GNU
-  Radio modules compiled as on-demand WASM side modules.
+- Vendored out-of-tree GNU Radio modules (e.g., gr-rds) compiled as on-demand WASM side modules.
 - `deps/`: dependency fetch/build scripts, and any patches needed. Built
   dependencies are installed into the generated, git-ignored `sysroot/`.
 - `editor/recording/` + `editor/src/recording/`: the focused recording viewer
@@ -80,7 +79,7 @@ node server.mjs 8090 "$PWD"
   `src/registry.cpp` add browser widgets, live setters, and a few composed
   blocks. The generated and custom registries currently expose hundreds of blocks from
   gr-blocks, gr-analog, gr-fft, gr-filter, gr-digital, gr-dtv, gr-network,
-  gr-pdu, gr-vocoder and gr-qtgui, plus the vendored out-of-tree modules (including but not limited to gr-rds, gr-foo, gr-dvbs2, gr-dvbs2rx, gr-satellites). Stream and message-port connections are both
+  gr-pdu, gr-vocoder and gr-qtgui, plus the vendored out-of-tree modules (including but not limited to gr-rds, gr-foo, gr-dvbs2, gr-dvbs2rx, gr-satellites, gr-paint). Stream and message-port connections are both
   serialized by the editor. QT GUI Range controls can be referenced by ID from
   numeric block parameters and update those parameters while the graph is
   running.
@@ -96,7 +95,8 @@ node server.mjs 8090 "$PWD"
 | `qtgui/` | Qt6 build of the gr-qtgui sink chain |
 | `runner/` | the JSON-driven WASM flowgraph runner, generated C++ registry, and support manifest |
 | `editor/` | the TypeScript flowgraph editor |
-| `tools/` | `generate_cpp.py` (host-side GRC → C++ generation, optional) |
+| `tools/` | `block_overrides.py` (the browser-only block-metadata overlay loader/merger shared by `gen_registry.py` and `gen_blocklib.py`) and `generate_cpp.py` (host-side GRC → C++ generation, optional) |
+| `runner/oot_cpp_templates/` | one `gr-<m>.yml` per out-of-tree module, holding every browser-only addition to its blocks (`cpp_templates`, retyped params, pruned enum options). This is why the OOT submodules need no fork; `runner/block_overrides.yml` is the same thing for blocks in the `gnuradio/` submodule |
 | `blocks/grc/` | `.block.yml` for runner-only blocks with no upstream GNU Radio equivalent (`wasm_packet_rate_sink`); read by *both* `gen_registry.py` and `gen_blocklib.py` alongside GNU Radio's own yaml |
 | `docs/` | `double-mapped-buffer.md` (the emulated vmcircbuf) and `diagnostics.md` (the runner's `__grstats` snapshot and debug panel, which the smoke test asserts against) |
 | `example_flowgraphs/` | the `.grc` files the editor's "Example Flowgraphs" palette tab lists recursively (files may be organized in nested directories, which appear as collapsible folders); several are also smoke-test cases. Each is directly linkable as `#example=<relative path without .grc>` (the 🔗 on its palette entry copies that link). Test changes here with `scripts/run_example.mjs`, which drives the real editor — see "Run and test" |
@@ -258,8 +258,9 @@ python3 editor/gen/gen_blocklib.py editor/public/blocks.json
 ```
 
 Do not hand-edit generated registry or palette artifacts; change source block
-metadata, `runner/gen_registry.py`, or the handwritten registry as appropriate,
-then regenerate.
+metadata (for a vendored out-of-tree module, its `runner/oot_cpp_templates/`
+file rather than the submodule's own yaml), `runner/gen_registry.py`, or the
+handwritten registry as appropriate, then regenerate.
 
 ### On-demand category modules
 
@@ -525,8 +526,8 @@ part of the always-loaded core or an on-demand side module. To add one (say
 
 The recipe above assumes an in-tree `gr-<m>` built by `gr/build-gr`. A
 third-party OOT module (already done for [`gr-rds/`](gr-rds), [`gr-foo/`](gr-foo),
-[`gr-dvbs2/`](gr-dvbs2), [`gr-dvbs2rx/`](gr-dvbs2rx), and
-[`gr-satellites/`](gr-satellites)) is **not** part of that
+[`gr-dvbs2/`](gr-dvbs2), [`gr-dvbs2rx/`](gr-dvbs2rx), [`gr-satellites/`](gr-satellites),
+and [`gr-paint/`](gr-paint)) is **not** part of that
 umbrella build, so there is no `libgnuradio-<m>.a`; instead its own `lib/*.cc` are
 compiled straight into an on-demand `<m>.wasm` side module. This is a
 **self-contained checklist** — following it needs no investigation beyond the
@@ -534,10 +535,17 @@ module itself. Copy an existing OOT module (gr-foo is the simplest, gr-dvbs2 the
 most complex) as a working reference for every step.
 
 **1. Add it as a submodule** at the world-repo top level, beside the `gnuradio/`
-submodule. Pin the GNU Radio-compatible default or maintenance branch:
+submodule. Pin **upstream's own** GNU Radio-compatible default or maintenance
+branch, not a fork:
 ```bash
-git submodule add -b <branch> https://github.com/<owner>/gr-<m>.git gr-<m>
+git submodule add -b <branch> https://github.com/<upstream>/gr-<m>.git gr-<m>
 ```
+Steps 3 and 5 exist so this stays possible: block metadata and generated headers
+both live in this repository, so a normal OOT module needs no branch of its own
+and bumping it is a plain `fetch` + `checkout` with nothing to rebase. Of all the
+vendored modules only gr-dvbs2 is a fork, and it is upstream plus exactly one
+commit: a WASM buffer-wrap fix that had to go in its `lib/`. Do not create a fork
+to hold yaml or a generated header.
 
 **2. Triage the blocks** — which have a C++ path, and what they depend on:
 ```bash
@@ -548,50 +556,67 @@ grep -rho '#include *<[a-z].*>' gr-<m>/lib/*.cc | sort -u   # spot host-only dep
 ```
 A block is directly generator-buildable only if it has a C++ impl. **Python-only
 blocks** — a `gr.hier_block2` (e.g. gr-foo's `selector`/`valve`) or a GUI QWidget
-(e.g. `rds_panel` = `rds.rdsPanel`) — have no automatic C++ path. Leave their yaml
-alone unless the block is rebuilt by hand in `registry.cpp` (a C++ `hier_block2`
-for a hierarchy, a `QWidget` message sink for a GUI panel — `rds_panel` is the
-worked example) and its id added to `CUSTOM_IDS`; otherwise they show greyed-out
-in the palette. **Host-only deps** not in
+(e.g. `rds_panel` = `rds.rdsPanel`) — have no automatic C++ path. Give them no
+step 3 entry unless the block is rebuilt by hand (a C++ `hier_block2` for a
+hierarchy, a `QWidget` message sink for a GUI panel — `rds_panel` in
+`registry.cpp` is the worked example, with its id added to `CUSTOM_IDS`; the ~60
+gr-satellites rebuilds instead keep a step 3 entry whose `make` calls into
+`satellites_wasm_*.cpp`). Without one they show greyed-out in the palette. **Host-only deps** not in
 the WASM sysroot (UHD, Boost.Asio networking, Boost.Locale, libsndfile, …) must be
 dealt with in step 4.
 
-**3. Add `cpp_templates` to each C++ block's `.block.yml`.** This is what the
-generator turns into a factory. Add `flags: [python, cpp]` near the top and, right
-before `file_format:`:
+**3. Add `cpp_templates` for each C++ block** in a new
+`runner/oot_cpp_templates/gr-<m>.yml`. This is what the generator turns into a
+factory. **Never edit the submodule's own `.block.yml`** — every browser-only
+addition goes in this one file, which is what lets the submodule stay pinned to a
+pristine upstream commit instead of a fork you have to rebase and push:
 ```yaml
-cpp_templates:
-    includes: ['#include <<m>/<block>.h>']
-    declarations: '<m>::<block>::sptr ${id};'
-    make: 'this->${id} = <m>::<block>::make(${arg1}, ${arg2});'
-    link: ['gnuradio-<m>']
+<m>_<block>:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <<m>/<block>.h>']
+        declarations: '<m>::<block>::sptr ${id};'
+        make: 'this->${id} = <m>::<block>::make(${arg1}, ${arg2});'
+        link: ['gnuradio-<m>']
 ```
-Keep those changes on the submodule's WASM branch. If the submodule must remain
-on a pristine upstream branch, put the same browser-only metadata in
-[`runner/block_overrides.yml`](runner/block_overrides.yml), as gr-rds does.
+The file is picked up by its name alone — no loader, generator, or build change.
+[`tools/block_overrides.py`](tools/block_overrides.py) documents every supported
+key and is imported by *both* `runner/gen_registry.py` and
+`editor/gen/gen_blocklib.py`, so the runtime factory and the palette entry
+describing it always come from the same merge. Its in-tree counterpart is
+[`runner/block_overrides.yml`](runner/block_overrides.yml), for overlays on blocks
+in the `gnuradio/` submodule itself.
+
 Mirror the arg order of the existing Python `templates: make:`, resolved against
-the C++ `make()` signature from step 2. If the module has an in-tree analogue,
-copy that block's `cpp_templates` verbatim (gr-dvbs2's blocks ≈ gr-dtv's
-`dtv_dvb*`). Three generator constraints, each with a standard fix:
+the C++ `make()` signature from step 2 — the two are no longer adjacent in one
+file, so read the block's yaml alongside what you write. If the module has an
+in-tree analogue, copy that block's `cpp_templates` verbatim (gr-dvbs2's blocks ≈
+gr-dtv's `dtv_dvb*`). Three generator constraints, each with a standard fix:
   - **Foreign-namespace enum values.** When `${param.val}` expands to
     `<m>.SOMETHING`, add `translations: {<m>\.: '<m>::'}` under `cpp_templates`
     (the generated file has `using namespace gr;`, so `<m>::SOMETHING` resolves).
     This mirrors gr-dtv's `dtv\.: 'dtv::'`.
   - **`raw` params the generator can't type** make the whole block *skip* (watch
-    for it in the `gen_registry.py` "skipped" output). Retype in the yaml: a PMT
-    (`pmt.intern("x")`) → `dtype: string` default `x`, and wrap the make in
-    `pmt.intern(...)` (native) / `pmt::intern(...)` (cpp); a bare numeric
-    expression → `int`/`real`.
+    for it in the `gen_registry.py` "skipped" output). Retype with
+    `parameter_dtypes` / `parameter_defaults`: a PMT (`pmt.intern("x")`) →
+    `dtype: string` default `x`, with the `make` wrapping it in `pmt::intern(...)`
+    itself (gr-foo's `burst_tagger`); a bare numeric expression → `int`/`real`.
   - **Stale enum options (yaml vs. header drift).** If the generated code names an
-    enumerator the vendored C++ enum lacks (`no member named '<m>::FOO'`), prune
-    that option from the param's `options`/`option_labels`/`option_attributes.val`
-    lists — **keep the three index-aligned** (they pair positionally).
+    enumerator the vendored C++ enum lacks (`no member named '<m>::FOO'`), list
+    that option under `prune_options: {<param id>: [FOO, ...]}`. It drops the
+    matching entry from `options`, `option_labels` and every `option_attributes`
+    list at once, so the three stay index-aligned (they pair positionally) without
+    you editing them by hand. gr-dvbs2's `bbheader_bb` is the worked example.
 
-**4. Handle host-only deps** so the desktop build stays intact:
-  - If the submodule is on a WASM branch you control, guard the offending code
-    with `#ifdef __EMSCRIPTEN__` and provide a browser-safe replacement, **or**
-  - if the submodule must stay pristine, satisfy the dependency from a
-    runner-owned shim include directory instead of touching the source: gr-rds
+A typo'd or misfiled block id is rejected rather than silently ignored:
+`gen_registry.py` fails if an overlay matches no known block, names a block from a
+different module, uses an unknown key, or duplicates an id in another file.
+
+**4. Handle host-only deps** so the desktop build stays intact. Unlike step 3,
+these can need a real source change, which is the only reason left to fork a
+submodule at all (gr-dvbs2 is forked solely for a WASM buffer-wrap fix):
+  - Prefer a runner-owned shim include directory over touching the source, which
+    keeps the submodule pristine: gr-rds
     calls `boost::locale::conv::to_utf` once, to convert RadioText from
     ISO-8859-2, and Boost.Locale is not in the WASM sysroot, so
     [`runner/src/rds_wasm_shims/boost/locale.hpp`](runner/src/rds_wasm_shims/boost/locale.hpp)
@@ -600,20 +625,28 @@ copy that block's `cpp_templates` verbatim (gr-dvbs2's blocks ≈ gr-dtv's
   - if it's already behind a feature macro, just leave that undefined (gr-foo's
     UHD `tx_time` tagging under `#ifdef FOO_UHD`), **or**
   - if a whole block is unusable in the browser (host networking, etc.), drop its
-    source from step 6 and leave its yaml Python-only (gr-dvbs2's `bbheader_source`
-    = a Boost.Asio UDP source).
+    source from step 6 and simply give it no entry in step 3's file, which leaves
+    it Python-only and greyed out (gr-dvbs2's `bbheader_source` = a Boost.Asio UDP
+    source), **or**
+  - only if none of those work, fork the submodule and guard the offending code
+    with `#ifdef __EMSCRIPTEN__`.
   - **Header-only SIMD libraries** that dispatch on `__AVX2__` / `__SSE4_1__` /
     `__ARM_NEON__` (gr-dvbs2rx's LDPC/BCH decoder) need nothing: Emscripten defines
     none of those, so they fall back to their generic scalar path and compile as-is
     (slower, still correct). Don't add `-msimd128`/`-msse4.1`.
 
 **5. Supply an empty `config.h`** if the impls include the file generated by the
-module's own CMake. Put it on the submodule's WASM branch, or keep it in the same
-runner-owned shim include directory as step 4 —
-[`runner/src/rds_wasm_shims/`](runner/src/rds_wasm_shims/) holds both gr-rds's
-`config.h` and its `boost/locale.hpp` replacement, which is what lets that
-submodule stay pinned to pristine upstream. (Any real per-module constants header
-that ships in the repo, e.g. `dvbs2_config.h`, is used as-is.)
+module's own CMake. Put it in a runner-owned `runner/src/<m>_wasm_shims/`, the
+same place as step 4, and add `-I${<M>_WASM_SHIMS}` to the module's side-module
+rule *ahead of* `${SIDE_INCLUDE_FLAGS}`. The impls include it as `"config.h"`, so
+with no copy beside the sources it resolves from there; nothing else on the
+include path defines one. All but one vendored modules do this — no submodule
+holds a `config.h` of its own; gr-paint is the exception, guarding its include
+behind `#ifdef HAVE_CONFIG_H`, which nothing defines, so it needs no shim — and [`runner/src/rds_wasm_shims/`](runner/src/rds_wasm_shims/)
+additionally holds gr-rds's `boost/locale.hpp` replacement. Together with step 3
+this is what lets the submodules stay pinned to pristine upstream. (Any real
+per-module constants header that ships in the repo, e.g. `dvbs2_config.h`, is used
+as-is.)
 
 **6. Register and wire the build:**
   - [`runner/gen_registry.py`](runner/gen_registry.py): add `"gr-<m>"` to

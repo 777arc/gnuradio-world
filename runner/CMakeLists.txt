@@ -39,6 +39,7 @@ set(GR_INCLUDE_DIRS
   ${WORLD}/gr-dvbs2/include
   ${WORLD}/gr-dvbs2rx/include
   ${WORLD}/gr-satellites/include
+  ${WORLD}/gr-paint/include
   ${BUILDGR}/gnuradio-runtime/include ${SYSROOT}/include)
 
 # ---------------------------------------------------------------------------
@@ -227,7 +228,10 @@ list(APPEND SIDE_MODULE_OUTPUTS ${rds_out})
 # lib/*.cc are compiled straight into foo.wasm. selector/valve are Python
 # hier_block2s (no C++) and are excluded; packet_pad2's optional UHD tx_time
 # tagging is #ifdef FOO_UHD (undefined here), so no UHD dependency is pulled in.
+# The submodule is pinned to pristine upstream, so the config.h its CMake would
+# have generated comes from a runner-owned shim instead.
 set(FOO_LIB ${WORLD}/gr-foo/lib)
+set(FOO_WASM_SHIMS ${CMAKE_CURRENT_SOURCE_DIR}/src/foo_wasm_shims)
 set(FOO_SOURCES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/generated_registry_foo.cpp
   ${FOO_LIB}/burst_tagger_impl.cc
@@ -246,10 +250,12 @@ add_custom_command(
     -sSIDE_MODULE=1 -pthread -fPIC -Oz -std=c++17
     -sNO_DISABLE_EXCEPTION_CATCHING
     -sWASM_BIGINT=1
+    -I${FOO_WASM_SHIMS}
     ${SIDE_INCLUDE_FLAGS}
     ${FOO_SOURCES}
     -o ${foo_out}
   DEPENDS ${FOO_SOURCES}
+          ${FOO_WASM_SHIMS}/config.h
           ${CMAKE_CURRENT_SOURCE_DIR}/src/registry_helpers.hpp
           ${CMAKE_CURRENT_SOURCE_DIR}/src/registry.hpp
   COMMENT "Building category side module foo.wasm (out-of-tree gr-foo sources)"
@@ -262,8 +268,10 @@ list(APPEND SIDE_MODULE_OUTPUTS ${foo_out})
 # Boost set; it stays greyed out in the palette. The other 7 blocks form the
 # DVB-S2 transmit chain (bbheader -> bbscrambler -> bch -> ldpc -> interleaver ->
 # modulator -> physical). DVB-S2 constants come from the checked-in
-# include/dvbs2/dvbs2_config.h; lib/config.h is the empty generated stub.
+# include/dvbs2/dvbs2_config.h; the config.h its CMake would have generated comes
+# from a runner-owned shim, so the submodule carries only its WASM DSP fix.
 set(DVBS2_LIB ${WORLD}/gr-dvbs2/lib)
+set(DVBS2_WASM_SHIMS ${CMAKE_CURRENT_SOURCE_DIR}/src/dvbs2_wasm_shims)
 set(DVBS2_SOURCES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/generated_registry_dvbs2.cpp
   ${DVBS2_LIB}/bbheader_bb_impl.cc
@@ -280,10 +288,12 @@ add_custom_command(
     -sSIDE_MODULE=1 -pthread -fPIC -Oz -std=c++17
     -sNO_DISABLE_EXCEPTION_CATCHING
     -sWASM_BIGINT=1
+    -I${DVBS2_WASM_SHIMS}
     ${SIDE_INCLUDE_FLAGS}
     ${DVBS2_SOURCES}
     -o ${dvbs2_out}
   DEPENDS ${DVBS2_SOURCES}
+          ${DVBS2_WASM_SHIMS}/config.h
           ${CMAKE_CURRENT_SOURCE_DIR}/src/registry_helpers.hpp
           ${CMAKE_CURRENT_SOURCE_DIR}/src/registry.hpp
   COMMENT "Building category side module dvbs2.wasm (out-of-tree gr-dvbs2 sources)"
@@ -295,9 +305,11 @@ list(APPEND SIDE_MODULE_OUTPUTS ${dvbs2_out})
 # Its LDPC/BCH decoder is a header-only SIMD library (lib/*.hh) that dispatches on
 # __AVX2__/__SSE4_1__/__ARM_NEON__ — none defined under Emscripten, so it falls
 # back to the generic scalar path (no x86 intrinsics). Deps are stdlib-only.
-# DVB constants come from the checked-in include/dvbs2rx/dvb_config.h; lib/config.h
-# is the empty generated stub.
+# DVB constants come from the checked-in include/dvbs2rx/dvb_config.h. The
+# submodule is pinned to pristine upstream, so the config.h its CMake would have
+# generated comes from a runner-owned shim instead.
 set(DVBS2RX_LIB ${WORLD}/gr-dvbs2rx/lib)
+set(DVBS2RX_WASM_SHIMS ${CMAKE_CURRENT_SOURCE_DIR}/src/dvbs2rx_wasm_shims)
 set(DVBS2RX_SOURCES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/generated_registry_dvbs2rx.cpp
   ${DVBS2RX_LIB}/bbdeheader_bb_impl.cc
@@ -311,15 +323,46 @@ add_custom_command(
     -sSIDE_MODULE=1 -pthread -fPIC -Oz -std=c++17
     -sNO_DISABLE_EXCEPTION_CATCHING
     -sWASM_BIGINT=1
+    -I${DVBS2RX_WASM_SHIMS}
     ${SIDE_INCLUDE_FLAGS}
     ${DVBS2RX_SOURCES}
     -o ${dvbs2rx_out}
   DEPENDS ${DVBS2RX_SOURCES}
+          ${DVBS2RX_WASM_SHIMS}/config.h
           ${CMAKE_CURRENT_SOURCE_DIR}/src/registry_helpers.hpp
           ${CMAKE_CURRENT_SOURCE_DIR}/src/registry.hpp
   COMMENT "Building category side module dvbs2rx.wasm (out-of-tree gr-dvbs2rx sources)"
   VERBATIM)
 list(APPEND SIDE_MODULE_OUTPUTS ${dvbs2rx_out})
+
+# gr-paint (drmpeg): the spectrum painter, which turns a stream of image luma
+# bytes into a complex signal whose spectrogram draws the picture. One C++ block
+# (paint_bc); its only deps are gr-fft and VOLK, both linked into the main
+# module already, so there is no MODULE_DEPS edge. It includes "config.h" behind
+# `#ifdef HAVE_CONFIG_H`, which nothing here defines, so unlike the other OOT
+# modules it needs no config.h shim. paint_image_source is a PIL-based Python
+# sync_block with no C++ path; it has no factory and stays greyed out in the
+# palette, so feed paint_bc from a File Source of raw luma bytes instead.
+set(PAINT_LIB ${WORLD}/gr-paint/lib)
+set(PAINT_SOURCES
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/generated_registry_paint.cpp
+  ${PAINT_LIB}/paint_bc_impl.cc)
+set(paint_out ${CMAKE_CURRENT_BINARY_DIR}/paint.wasm)
+add_custom_command(
+  OUTPUT ${paint_out}
+  COMMAND ${CMAKE_CXX_COMPILER}
+    -sSIDE_MODULE=1 -pthread -fPIC -Oz -std=c++17
+    -sNO_DISABLE_EXCEPTION_CATCHING
+    -sWASM_BIGINT=1
+    ${SIDE_INCLUDE_FLAGS}
+    ${PAINT_SOURCES}
+    -o ${paint_out}
+  DEPENDS ${PAINT_SOURCES}
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/registry_helpers.hpp
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/registry.hpp
+  COMMENT "Building category side module paint.wasm (out-of-tree gr-paint sources)"
+  VERBATIM)
+list(APPEND SIDE_MODULE_OUTPUTS ${paint_out})
 
 # gr-satellites: telemetry framing, coding, FEC, and utility blocks. Like the
 # other OOT modules, compile its implementation and bundled C/C++ codec sources

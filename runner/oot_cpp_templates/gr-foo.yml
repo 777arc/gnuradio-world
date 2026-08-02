@@ -1,0 +1,96 @@
+# Browser-only block metadata for the vendored out-of-tree module gr-foo.
+#
+# Keeping these overlays here instead of in the submodule's own .block.yml is what
+# lets that submodule stay pinned to a pristine upstream commit: nothing in the
+# checkout has to be edited, rebased, or pushed to a fork to add a block. See
+# tools/block_overrides.py for the supported keys, and AGENTS.md for the
+# out-of-tree checklist this file is step 3 of.
+#
+# selector and valve are gr.hier_block2 compositions with no C++ upstream and no
+# browser rebuild, so they are absent here and stay greyed out in the palette.
+# burst_tagger's and periodic_msg_source's PMT parameters are retyped: upstream
+# holds a pmt.intern(...) call in a `raw` param, which the generator cannot type,
+# so the browser takes the bare string and the template does the interning.
+
+foo_burst_tagger:
+    flags: [python, cpp]
+    parameter_dtypes:
+        tag_name: string
+    parameter_defaults:
+        tag_name: burst_len
+    cpp_templates:
+        includes: ['#include <foo/burst_tagger.h>']
+        declarations: foo::burst_tagger::sptr ${id};
+        make: this->${id} = foo::burst_tagger::make(pmt::intern(${tag_name}), ${mult});
+        link: [gnuradio-foo]
+
+foo_channel_model:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <foo/channel_model.h>']
+        declarations: foo::channel_model::sptr ${id};
+        make: this->${id} = foo::channel_model::make(${noise_voltage}, ${freq_offset}, ${epsilon}, ${taps},
+            ${seed}, ${block_tags});
+        link: [gnuradio-foo]
+
+foo_packet_dropper:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <foo/packet_dropper.h>']
+        declarations: foo::packet_dropper::sptr ${id};
+        make: this->${id} = foo::packet_dropper::make(${drop_rate}, ${seed});
+        link: [gnuradio-foo]
+
+foo_packet_pad2:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <foo/packet_pad2.h>']
+        declarations: foo::packet_pad2::sptr ${id};
+        make: this->${id} = foo::packet_pad2::make(${debug}, ${delay}, ${delay_sec}, ${pad_front}, ${pad_tail});
+        link: [gnuradio-foo]
+
+foo_pad_tagged_stream:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <foo/pad_tagged_stream.h>']
+        declarations: foo::pad_tagged_stream::sptr ${id};
+        make: this->${id} = foo::pad_tagged_stream::make(${buffer_size}, ${len_tag_name});
+        link: [gnuradio-foo]
+
+foo_periodic_msg_source:
+    flags: [python, cpp]
+    parameter_dtypes:
+        msg: string
+    parameter_defaults:
+        msg: Hello World!
+    cpp_templates:
+        includes: ['#include <foo/periodic_msg_source.h>']
+        declarations: foo::periodic_msg_source::sptr ${id};
+        make: this->${id} = foo::periodic_msg_source::make(pmt::intern(${msg}), ${interval}, ${num}, ${quit},
+            ${debug});
+        link: [gnuradio-foo]
+
+foo_random_periodic_msg_source:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <foo/random_periodic_msg_source.h>']
+        declarations: foo::random_periodic_msg_source::sptr ${id};
+        make: this->${id} = foo::random_periodic_msg_source::make(${msg_len}, ${interval}, ${num}, ${quit},
+            ${debug}, ${seed});
+        link: [gnuradio-foo]
+
+foo_rtt_measure:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <foo/rtt_measure.h>']
+        declarations: foo::rtt_measure::sptr ${id};
+        make: this->${id} = foo::rtt_measure::make(${interval});
+        link: [gnuradio-foo]
+
+foo_wireshark_connector:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <foo/wireshark_connector.h>']
+        declarations: foo::wireshark_connector::sptr ${id};
+        make: this->${id} = foo::wireshark_connector::make(static_cast<foo::LinkType>(${tech}), ${debug});
+        link: [gnuradio-foo]

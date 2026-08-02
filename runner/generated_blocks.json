@@ -298,6 +298,7 @@
     "mmse_resampler_xx",
     "network_socket_pdu",
     "network_tuntap_pdu",
+    "paint_paint_bc",
     "pdu_pdu_to_stream_x",
     "pdu_pdu_to_tagged_stream",
     "pdu_tagged_stream_to_pdu",
@@ -471,7 +472,8 @@
     "foo",
     "dvbs2",
     "dvbs2rx",
-    "satellites"
+    "satellites",
+    "paint"
   ],
   "module_deps": {
     "satellites": [
@@ -712,6 +714,7 @@
     "satellites_u482c_encode": "satellites",
     "satellites_varlen_packet_framer": "satellites",
     "satellites_varlen_packet_tagger": "satellites",
-    "satellites_viterbi_decoder": "satellites"
+    "satellites_viterbi_decoder": "satellites",
+    "paint_paint_bc": "paint"
   }
 }

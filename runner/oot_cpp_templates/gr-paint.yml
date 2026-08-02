@@ -1,0 +1,24 @@
+# Browser-only block metadata for the vendored out-of-tree module gr-paint (drmpeg).
+#
+# Keeping these overlays here instead of in the submodule's own .block.yml is what
+# lets that submodule stay pinned to a pristine upstream commit: nothing in the
+# checkout has to be edited, rebased, or pushed to a fork to add a block. See
+# tools/block_overrides.py for the supported keys, and AGENTS.md for the
+# out-of-tree checklist this file is step 3 of.
+#
+# paint_bc is the module's only C++ block. paint_image_source is a Python
+# gr.sync_block that decodes an image with PIL, so it has no C++ path and no
+# browser rebuild; it is absent here and stays greyed out in the palette. Feed
+# paint_bc from a File Source holding raw luma bytes instead -- that is what
+# gr-paint's own tgatoluma.c produces.
+
+paint_paint_bc:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <paint/paint_bc.h>']
+        declarations: paint::paint_bc::sptr ${id};
+        make: this->${id} = paint::paint_bc::make(${width}, ${repeats}, ${equalization.val},
+            ${randomsrc.val}, ${randomsrc.ports});
+        link: [gnuradio-paint]
+        translations:
+            paint\.: 'paint::'

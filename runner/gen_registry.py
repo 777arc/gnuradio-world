@@ -15,6 +15,7 @@ import itertools
 import json
 import os
 import re
+import sys
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
@@ -24,6 +25,9 @@ from mako.template import Template
 
 
 WORLD = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(WORLD / "tools"))
+import block_overrides  # noqa: E402  (needs WORLD on the path first)
+
 GR = Path(os.environ.get("GR", WORLD / "gnuradio")).resolve()
 MODULES = (
     "gr-blocks",
@@ -40,6 +44,7 @@ MODULES = (
     "gr-dvbs2",
     "gr-dvbs2rx",
     "gr-satellites",
+    "gr-paint",
 )
 
 # Block categories whose C++ is statically linked into the main runner module and
@@ -58,6 +63,7 @@ DEFERRED_MODULES = (
     "dvbs2",
     "dvbs2rx",
     "satellites",
+    "paint",
 )
 
 # Load-order dependencies between DEFERRED modules only (core is always present).
@@ -66,12 +72,12 @@ DEFERRED_MODULES = (
 # side module, so pdu.wasm has to be loaded first for those imports to resolve.
 MODULE_DEPS: dict[str, list[str]] = {"satellites": ["pdu"]}
 
-# gr-rds is pinned directly to bastibl/gr-rds's default branch. Load its
-# browser-only C++ metadata from the world repository rather than making the
-# upstream submodule permanently dirty.
-BLOCK_OVERRIDES: dict[str, dict[str, Any]] = (
-    yaml.safe_load((WORLD / "runner" / "block_overrides.yml").read_text()) or {}
-)
+# Browser-only block metadata kept in this repository so every submodule can stay
+# pinned to a pristine upstream commit: one file per out-of-tree module under
+# runner/oot_cpp_templates/, plus runner/block_overrides.yml for in-tree blocks.
+# The editor's palette generator applies the same overlays through the same
+# module, so a block's runtime factory and its palette entry cannot disagree.
+BLOCK_OVERRIDES: dict[str, dict[str, Any]] = block_overrides.load()
 
 # These have direct C++ flags, but their constructor takes another GRC variable
 # object.  Supporting them requires a typed object registry, not a block factory.
@@ -570,6 +576,9 @@ def render_block(block: dict[str, Any]) -> tuple[list[str], str]:
 
 def load_blocks() -> list[dict[str, Any]]:
     blocks = []
+    # Every block id seen, mapped to its module, so an overlay that matched
+    # nothing can be reported rather than silently doing nothing.
+    seen: dict[str, str] = {}
     for module in MODULES:
         short = module[len("gr-"):] if module.startswith("gr-") else module
         # Direct world-repo modules override same-named gitlinks that may exist
@@ -587,14 +596,10 @@ def load_blocks() -> list[dict[str, Any]]:
                 continue
             if not isinstance(block, dict) or "id" not in block:
                 continue
+            seen[str(block["id"])] = short
             override = BLOCK_OVERRIDES.get(str(block["id"]))
             if override:
-                block["flags"] = override.get("flags", block.get("flags") or [])
-                block["cpp_templates"] = override["cpp_templates"]
-                parameter_dtypes = override.get("parameter_dtypes", {})
-                for param in block.get("parameters", []) or []:
-                    if isinstance(param, dict) and param.get("id") in parameter_dtypes:
-                        param["dtype"] = parameter_dtypes[param["id"]]
+                block_overrides.apply(block, override)
             if "cpp" not in (block.get("flags") or []) or not block.get("cpp_templates"):
                 continue
             if str(block["id"]).startswith("variable_") or block["id"] in CUSTOM_IDS:
@@ -605,6 +610,7 @@ def load_blocks() -> list[dict[str, Any]]:
             block["__path"] = str(path.relative_to(base))
             block["__module"] = short
             blocks.append(block)
+    block_overrides.validate(BLOCK_OVERRIDES, seen)
     return blocks
 
 
