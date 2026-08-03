@@ -6,6 +6,7 @@
 #include "registry.hpp"
 #include "grc_yaml.hpp"
 #include "grc_lower.hpp"
+#include "flat_flowgraph.h"
 #include <gnuradio/blocks/probe_signal.h>
 #include <gnuradio/top_block.h>
 #include <gnuradio/block.h>
@@ -36,6 +37,8 @@
 
 static gr::top_block_sptr g_tb;
 static QWidget* g_container = nullptr;
+static unsigned int g_run_generation = 0;
+static std::string g_pending_success_message;
 
 struct VariableControl {
     double value;
@@ -78,6 +81,7 @@ struct StatBlock {
     bool is_ref = false;   // the reference point for the realtime factor
 };
 static std::vector<StatBlock> g_stats;
+static int g_scheduler_workers = 0;
 static double g_ref_samp_rate = 0.0;
 static std::chrono::steady_clock::time_point g_run_start;
 
@@ -112,6 +116,22 @@ static void post_error_to_editor(const std::string& msg) {
             var m = {};
             m.type = 'gr-error';
             m.message = UTF8ToString($0);
+            window.parent.postMessage(m, '*');
+        }
+    }, msg.c_str());
+}
+
+// Informational runner messages use their own event rather than stdout so they
+// appear promptly and individually in the editor console. Keep console.log as
+// well so direct runner pages and the browser smoke suite can inspect them.
+static void post_info_to_editor(const std::string& msg) {
+    EM_ASM({
+        var text = UTF8ToString($0);
+        console.log(text);
+        if (window.parent && window.parent !== window) {
+            var m = {};
+            m.type = 'gr-info';
+            m.message = text;
             window.parent.postMessage(m, '*');
         }
     }, msg.c_str());
@@ -163,6 +183,65 @@ static void report(bool ok, const std::string& msg) {
     }
 }
 
+static int worker_tier_for(int required_workers) {
+    if (required_workers <= 16) return 16;
+    if (required_workers <= 64) return 64;
+    return 256;
+}
+
+static void start_prepared_flowgraph(unsigned int generation) {
+    if (generation != g_run_generation || !g_tb)
+        return;
+    g_run_start = std::chrono::steady_clock::now();
+    auto tb = g_tb;
+    std::thread([tb] { tb->run(); }).detach();
+    const std::string msg = g_pending_success_message;
+    QTimer::singleShot(2500, [msg] { report(true, msg); });
+}
+
+// Called on the browser main thread after every newly allocated Worker has
+// loaded the main WASM module and all currently loaded side modules.
+extern "C" EMSCRIPTEN_KEEPALIVE void gr_finish_worker_preload(
+    int generation, int succeeded) {
+    EM_ASM({ globalThis.__grTierPreloading = false; });
+    if (!succeeded) {
+        if (static_cast<unsigned int>(generation) == g_run_generation)
+            report(false, "worker preload failed");
+        return;
+    }
+    start_prepared_flowgraph(static_cast<unsigned int>(generation));
+}
+
+static void preload_workers_then_start(int target, unsigned int generation) {
+    EM_ASM({
+        var target = $0;
+        var generation = $1;
+        globalThis.__grPoolTier = target;
+        globalThis.__grTierPreloading = true;
+        var loads = [];
+        try {
+            while (PThread.unusedWorkers.length + PThread.runningWorkers.length < target) {
+                PThread.allocateUnusedWorker();
+                var worker = PThread.unusedWorkers[PThread.unusedWorkers.length - 1];
+                loads.push(PThread.loadWasmModuleToWorker(worker));
+            }
+        } catch (error) {
+            console.error('worker preload failed:', error);
+            globalThis.__grTierPreloading = false;
+            _gr_finish_worker_preload(generation, 0);
+            return;
+        }
+        Promise.all(loads).then(function() {
+            globalThis.__grTierPreloading = false;
+            _gr_finish_worker_preload(generation, 1);
+        }).catch(function(error) {
+            console.error('worker preload failed:', error);
+            globalThis.__grTierPreloading = false;
+            _gr_finish_worker_preload(generation, 0);
+        });
+    }, target, generation);
+}
+
 static void run_now(const std::string& json_source) {
     try {
         auto j = nlohmann::json::parse(json_source);
@@ -189,6 +268,7 @@ static void run_now(const std::string& json_source) {
 
         // Reset the diagnostics snapshot for this run.
         g_stats.clear();
+        g_scheduler_workers = 0;
         g_ref_samp_rate = 0.0;
         std::string ref_widget_name, ref_throttle_name, ref_maxrate_name;
 
@@ -293,18 +373,44 @@ static void run_now(const std::string& json_source) {
         std::string ref = !ref_widget_name.empty() ? ref_widget_name
                         : !ref_throttle_name.empty() ? ref_throttle_name : ref_maxrate_name;
         for (auto& sb : g_stats) sb.is_ref = (sb.name == ref);
+        // This is exactly the list scheduler_tpb uses to create its one thread
+        // per primitive block. Unlike the URL-time estimate it recursively
+        // expands every instantiated hierarchy with its actual parameters.
+        auto flat = g_tb->flatten();
+        const int scheduler_workers = static_cast<int>(flat->calc_used_blocks().size());
+        g_scheduler_workers = scheduler_workers;
+        // Give diagnostics a sane timestamp while an upgraded tier is loading;
+        // start_prepared_flowgraph resets it when sample processing begins.
         g_run_start = std::chrono::steady_clock::now();
+        const int required_workers = scheduler_workers + 1; // detached tb->run()
+        const int exact_tier = worker_tier_for(required_workers);
+        const int selected_tier = EM_ASM_INT({ return globalThis.__grPoolTier || 16; });
+        const int target_tier = std::max(selected_tier, exact_tier);
+        const int allocated_workers = EM_ASM_INT({
+            return PThread.unusedWorkers.length + PThread.runningWorkers.length;
+        });
+        const int missing_workers = std::max(0, target_tier - allocated_workers);
 
-        // Run the flowgraph on its OWN thread. If we called start() here (on the
-        // main browser thread, before/around app.exec()), GR's per-block worker
-        // creations would block the main thread because Emscripten needs the main
-        // event loop to spawn workers — deadlock for graphs that exhaust the pool.
-        // From a worker thread, those creations are serviced by the running loop.
-        auto tb = g_tb;
-        std::thread([tb] { tb->run(); }).detach();
+        std::string count_msg = "workers: calc_used_blocks() = " +
+            std::to_string(scheduler_workers) + "; " +
+            std::to_string(required_workers) + " required including flowgraph runner; tier " +
+            std::to_string(selected_tier);
+        if (target_tier != selected_tier)
+            count_msg += " -> " + std::to_string(target_tier);
+        post_info_to_editor(count_msg);
 
-        std::string msg = "blocks=" + std::to_string(nblocks) + " sinks=" + std::to_string(nsinks);
-        QTimer::singleShot(2500, [msg] { report(true, msg); });
+        g_pending_success_message = "blocks=" + std::to_string(nblocks) +
+            " sinks=" + std::to_string(nsinks);
+        const unsigned int generation = ++g_run_generation;
+        if (missing_workers > 0) {
+            post_info_to_editor("workers: preloading " +
+                std::to_string(missing_workers) + " missing worker" +
+                (missing_workers == 1 ? "" : "s") + " before scheduler start");
+            preload_workers_then_start(target_tier, generation);
+        } else {
+            EM_ASM({ globalThis.__grPoolTier = $0; }, target_tier);
+            start_prepared_flowgraph(generation);
+        }
     } catch (const std::exception& e) {
         report(false, std::string("exception: ") + e.what());
     }
@@ -442,7 +548,7 @@ static std::string build_stats_json() {
     // Emscripten's Module runtime symbols, and touching a non-exported one
     // (Module.PThread, Module.HEAP8, ...) aborts the whole runtime.
     out["wasm_heap"] = (double)emscripten_get_heap_size();
-    out["dsp_threads"] = (int)g_stats.size();  // GR runs one thread per block
+    out["dsp_threads"] = g_scheduler_workers;
     // runner.html selects this before Emscripten initializes its worker pool.
     // Read the same value here so diagnostics report the active tier rather
     // than duplicating a build-time constant that can drift from the runtime.

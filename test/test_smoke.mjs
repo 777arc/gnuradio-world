@@ -71,7 +71,8 @@ const CASES = [
   { name: 'gr-satellites AX.25 framer/deframer loopback',
     grc: 'test/fixtures/wasm_satellites_ax25_loopback.grc' },
   { name: 'gr-satellites demodulator components',
-    grc: 'test/fixtures/wasm_satellites_demodulators.grc' },
+    grc: 'test/fixtures/wasm_satellites_demodulators.grc', exactWorkers: 41,
+    preloadedWorkers: 48, expectedPool: 64 },
 ];
 
 const server = http.createServer(async (req, res) => {
@@ -141,18 +142,34 @@ for (const test of CASES) {
   const stats = await page.evaluate(() => window.__grstats || null);
   const blocks = stats ? JSON.parse(stats).blocks : [];
   const pool = stats ? JSON.parse(stats).pool : null;
-  const expectedPool = expectedPoolTier(grc);
+  const dspThreads = stats ? JSON.parse(stats).dsp_threads : null;
+  const initialExpectedPool = expectedPoolTier(grc);
   const monitor = await page.evaluate(() => ({
     tier: document.getElementById('d-tier')?.textContent?.trim() || '',
     workers: document.getElementById('d-workers')?.textContent?.trim() || '',
     threads: document.getElementById('d-thr')?.textContent?.trim() || '',
     tierBoundaries: [0, 15, 16, 63, 64].map(window.__grPoolTierForBlockCount),
+    workerStats: window.__grWorkerStats ? { ...window.__grWorkerStats } : null,
   }));
-  const monitorOk = pool === expectedPool &&
+  const workerLogOk = logs.some(line =>
+    line.includes('workers: calc_used_blocks() = ') &&
+    (test.exactWorkers === undefined ||
+     line.includes(`workers: calc_used_blocks() = ${test.exactWorkers};`)));
+  const preloadLogOk = test.preloadedWorkers === undefined || logs.some(line =>
+    line.includes(`workers: preloading ${test.preloadedWorkers} missing workers`));
+  const correctedPoolOk = test.preloadedWorkers === undefined ||
+    (pool === 64 && monitor.workerStats?.allocated === 64 &&
+     monitor.workerStats?.additionalCreated === 0);
+  const poolOk = test.expectedPool === undefined
+    ? [16, 64, 256].includes(pool) && pool >= initialExpectedPool
+    : pool === test.expectedPool;
+  const monitorOk = poolOk &&
     JSON.stringify(monitor.tierBoundaries) === JSON.stringify([16, 16, 64, 64, 256]) &&
     new RegExp(`^tier ${pool} \\+\\d+ extra$`).test(monitor.tier) &&
     /^active workers \d+$/.test(monitor.workers) &&
-    monitor.threads === `dsp threads ${blocks.length}`;
+    monitor.threads === `dsp threads ${dspThreads}` &&
+    (test.exactWorkers === undefined || dspThreads === test.exactWorkers) &&
+    workerLogOk && preloadLogOk && correctedPoolOk;
   // Message-only blocks carry no item counter (see msg_only in the runner's
   // snapshot), so requiring items > 0 of them would fail every PDU chain.
   const idle = blocks.filter(b => !b.msg_only && !(b.items > 0))
@@ -168,7 +185,8 @@ for (const test of CASES) {
   if (idle.length) console.log(`   produced nothing: ${idle.join(', ')}`);
   if (!monitorOk)
     console.log(`   diagnostics headline mismatch: ${JSON.stringify(monitor)}, ` +
-      `pool=${pool}, expectedPool=${expectedPool}`);
+      `pool=${pool}, initialExpectedPool=${initialExpectedPool}, ` +
+      `expectedPool=${test.expectedPool ?? 'any corrected tier'}`);
   if (!ok && logs.length) console.log('   logs: ' + logs.slice(-4).join('\n         '));
   await page.close();
 }

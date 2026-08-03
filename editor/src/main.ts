@@ -2664,6 +2664,10 @@ window.addEventListener('message', (e) => {
     log(`run failed: ${d.message}`);
     return;
   }
+  if (d.type === 'gr-info' && typeof d.message === 'string') {
+    log(d.message);
+    return;
+  }
   // Anything the running flowgraph printed: Message Debug's PDU dumps, Print
   // Header, Print Timestamp. The runner batches these, so `lines` is a burst and
   // `dropped` counts what it shed to keep up.

@@ -101,7 +101,11 @@ qt_add_executable(runner
 # this string as a JavaScript expression, so it can prewarm 16/64/256 workers
 # from the flowgraph size instead of baking in one pool size for every run.
 set_property(TARGET runner PROPERTY QT_WASM_PTHREAD_POOL_SIZE "globalThis.__grPoolTier")
-target_include_directories(runner PRIVATE ${GR_INCLUDE_DIRS})
+target_include_directories(runner PRIVATE
+  ${GR_INCLUDE_DIRS}
+  # Needed only to inspect the exact flattened block list before scheduler
+  # startup. This is the same pinned runtime implementation we link below.
+  ${GR}/gnuradio-runtime/lib)
 # -fexceptions is required at COMPILE time, not just at link: Emscripten's default
 # (catching disabled) drops the landing pads, so runner.cpp's try/catch around
 # flowgraph construction never fires and a block's std::runtime_error escapes to
@@ -140,7 +144,7 @@ target_link_options(runner PRIVATE
   # EXPORT_ALL covers functions but not Emscripten's special exception-handling
   # data globals, which category side modules import as GOT.mem entries. Export
   # them (and the registry shim) explicitly so side-module relocation resolves.
-  -sEXPORTED_FUNCTIONS=_main,_gr_run_json,_free,_malloc,_wasm_registry_add
+  -sEXPORTED_FUNCTIONS=_main,_gr_run_json,_gr_finish_worker_preload,_free,_malloc,_wasm_registry_add
   # The remaining symbols side modules import from main (libc++abi/compiler-rt:
   # __cxa_pure_virtual, std type-info vtables, the thread_local exception globals,
   # …) are exported via the generated response file appended at the end of this

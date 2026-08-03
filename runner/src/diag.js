@@ -50,7 +50,11 @@
       var before = workerCount();
       var result = allocateUnusedWorker.apply(PThread, arguments);
       var after = workerCount();
-      if (after > before) workerTracker.additionalCreated += after - before;
+      // Workers deliberately added to reach a corrected tier are still
+      // prewarmed capacity, not scheduler-created extras. runner.cpp brackets
+      // that asynchronous preload with this global flag.
+      if (after > before && !globalThis.__grTierPreloading)
+        workerTracker.additionalCreated += after - before;
       return result;
     };
     window.__grWorkerStats = workerTracker;

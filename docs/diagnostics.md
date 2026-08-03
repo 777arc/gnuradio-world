@@ -152,6 +152,12 @@ so the bottleneck lights up without reading numbers.
    `PTHREAD_POOL_SIZE` is evaluated during module initialization. Top-level
    variables make the estimate conservative; hierarchy expansion can require
    extra workers, which the separate `+N extra` counter exposes.
+7. Before scheduler startup, the runner flattens the fully constructed graph and
+   calls the same `calc_used_blocks()` used by GNU Radio's thread-per-block
+   scheduler. If hierarchy expansion crosses a tier boundary, the missing
+   workers are allocated and initialized before `tb->run()`. The exact count and
+   any corrective preload are written to the editor console; the same exact
+   count drives the headline's `dsp threads` value.
 
 ### Findings worth remembering
 
