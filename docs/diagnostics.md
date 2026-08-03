@@ -65,7 +65,7 @@ so the bottleneck lights up without reading numbers.
 
 ```
 ┌─ diagnostics ──────────────────────────────────────────── [▲ expand] ─┐
-│ ● 1.00× realtime   CPU 38%   mem 214/512 MB   28 fps   thr 3/64        │  ← always visible
+│ ● realtime 1.00×  cpu 38%  tier 64 +2 extra  active workers 65         │  ← always visible
 │   bottleneck: qtgui_time_sink ▓                                        │
 ├───────────────────────────────────────────────────────────────────────┤
 │ block            work µs  CPU%  in▓full out▓full  items/s   ▁▂▃▅▇  ▐   │  ← expanded
@@ -89,8 +89,13 @@ so the bottleneck lights up without reading numbers.
 - Linear memory current (`HEAP8.byteLength`), **peak**, and growth-event count
   (memory growth is expensive — worth surfacing)
 - Optional `mallinfo` in-use vs. arena
-- **Active pthreads busy vs. pool** (e.g. `3/64`) — pinning at pool size means
-  worker starvation
+- **Active pool tier and DSP thread count** (e.g. `tier 64 +2 extra`, `dsp
+  threads 3`) —
+  the tier makes the runner's prewarmed capacity explicit, while a DSP count
+  approaching it warns of worker starvation
+- **Dynamically-created and active workers** (e.g. `tier 64 +2 extra`, `active
+  workers 65`) — the extra count is cumulative for the life of the runner,
+  while active is the number of Emscripten pthread workers currently assigned
 - Flowgraph uptime
 
 ### Scheduler / DSP — the "keeping up" core
@@ -135,6 +140,18 @@ so the bottleneck lights up without reading numbers.
    `document` aborts the runtime.
 4. Buffer-fullness (spike #1) is buffer-implementation-agnostic: the counters read
    `items_available` / `space_available` / `bufsize`.
+5. Worker-pool counts come from Emscripten's closure-local `PThread` object in
+   `diag.js` (never the unavailable `Module.PThread`). The panel snapshots the
+   prewarmed arrays on its first tick, then wraps `allocateUnusedWorker()` so
+   `additionalCreated` remains cumulative even after an extra worker returns to
+   the unused pool. The toolchain is pinned, and the smoke test guards this
+   internal integration.
+6. `runner.html` selects the smallest prewarmed tier in **16 / 64 / 256** that
+   fits the top-level flowgraph block count plus one scheduler-launch worker.
+   The choice happens before the modularized Emscripten runtime starts, because
+   `PTHREAD_POOL_SIZE` is evaluated during module initialization. Top-level
+   variables make the estimate conservative; hierarchy expansion can require
+   extra workers, which the separate `+N extra` counter exposes.
 
 ### Findings worth remembering
 

@@ -28,6 +28,40 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
     <div id="screen"></div>
 
     <script type="text/javascript">
+      // Emscripten evaluates PTHREAD_POOL_SIZE when runner_entry() starts, so
+      // select the prewarmed tier now, before runner.js is instantiated by Qt.
+      // One worker is reserved for the detached top-block run thread; GNU Radio
+      // then normally creates one scheduler worker per stream block. Counting
+      // every top-level GRC block is intentionally conservative because some are
+      // variables rather than scheduler blocks. Hierarchies can expand the other
+      // way, in which case PTHREAD_POOL_SIZE_STRICT=0 permits extra workers.
+      function poolTierForBlockCount(blockCount) {
+        const requiredWorkers = Math.max(0, Number(blockCount) || 0) + 1;
+        if (requiredWorkers <= 16) return 16;
+        if (requiredWorkers <= 64) return 64;
+        return 256;
+      }
+
+      function flowgraphBlockCount() {
+        if (!location.hash || location.hash.length <= 1) return 0;
+        try {
+          const grc = decodeURIComponent(location.hash.substring(1));
+          const start = grc.search(/^blocks:\s*$/m);
+          if (start < 0) return 0;
+          const afterStart = grc.substring(start).replace(/^blocks:\s*\n?/, '');
+          const end = afterStart.search(/^(?:connections|metadata):\s*$/m);
+          const blockSection = end < 0 ? afterStart : afterStart.substring(0, end);
+          return (blockSection.match(/^-\s+name\s*:/gm) || []).length;
+        } catch (error) {
+          console.warn('Could not size pthread tier from flowgraph:', error);
+          return 0;
+        }
+      }
+
+      window.__grPoolTierForBlockCount = poolTierForBlockCount;
+      window.__grFlowgraphBlockCount = flowgraphBlockCount();
+      window.__grPoolTier = poolTierForBlockCount(window.__grFlowgraphBlockCount);
+
       function inputSourcesForRun() {
         const token = new URLSearchParams(location.search).get('recordingToken');
         if (!token) return [];

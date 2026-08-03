@@ -26,6 +26,46 @@
   var jankCount = 0, jankT = performance.now();
   var expanded = false;
   var el = {};               // cached DOM nodes
+  var workerTracker = null;  // prewarmed tier + cumulative dynamic allocations
+
+  // PThread is Emscripten's closure-local worker-pool object. It is deliberately
+  // read directly here rather than through Module.PThread, which this Qt build
+  // does not export. Install the wrapper lazily on the first diagnostics tick:
+  // by then the configured pool has been prewarmed, and any workers the graph
+  // managed to add before that tick are visible in the two pool arrays.
+  function workerCount() {
+    return PThread.unusedWorkers.length + PThread.runningWorkers.length;
+  }
+  function installWorkerTracker(prewarmed) {
+    if (workerTracker || typeof PThread === 'undefined') return;
+    var allocated = workerCount();
+    workerTracker = {
+      prewarmed: prewarmed,
+      additionalCreated: Math.max(0, allocated - prewarmed),
+      active: PThread.runningWorkers.length,
+      allocated: allocated
+    };
+    var allocateUnusedWorker = PThread.allocateUnusedWorker;
+    PThread.allocateUnusedWorker = function () {
+      var before = workerCount();
+      var result = allocateUnusedWorker.apply(PThread, arguments);
+      var after = workerCount();
+      if (after > before) workerTracker.additionalCreated += after - before;
+      return result;
+    };
+    window.__grWorkerStats = workerTracker;
+  }
+  function readWorkerStats(prewarmed) {
+    try {
+      installWorkerTracker(prewarmed);
+      if (!workerTracker) return null;
+      workerTracker.active = PThread.runningWorkers.length;
+      workerTracker.allocated = workerCount();
+      return workerTracker;
+    } catch (e) {
+      return null;
+    }
+  }
 
   function spark(arr, lo, hi) {
     if (!arr || !arr.length) return '';
@@ -102,7 +142,9 @@
         '<span id="d-cpu"><span class="k">cpu</span> --</span>' +
         '<span id="d-mem"><span class="k">wasm</span> --</span>' +
         '<span id="d-fps"><span class="k">fps</span> --</span>' +
-        '<span id="d-thr"><span class="k">thr</span> --</span>' +
+        '<span id="d-tier"><span class="k">tier</span> --</span>' +
+        '<span id="d-workers"><span class="k">active workers</span> --</span>' +
+        '<span id="d-thr"><span class="k">dsp threads</span> --</span>' +
         '<span id="d-jank"><span class="k">jank</span> --</span>' +
         '<span id="d-bot" class="grow"><span class="k">bottleneck</span> --</span>' +
         '<span class="btn" id="d-btn">metrics ▲</span>' +
@@ -114,7 +156,7 @@
     document.body.appendChild(root);
 
     el.root = root;
-    ['d-dot','d-rt','d-cpu','d-mem','d-fps','d-thr','d-jank','d-bot','d-rows'].forEach(function (id) {
+    ['d-dot','d-rt','d-cpu','d-mem','d-fps','d-tier','d-workers','d-thr','d-jank','d-bot','d-rows'].forEach(function (id) {
       el[id] = document.getElementById(id);
     });
     root.querySelector('.bar').addEventListener('click', function () {
@@ -171,8 +213,13 @@
     el['d-cpu'].innerHTML = '<span class="k">cpu</span> ' + Math.round(sumCpu) + '% <span class="k">/' + cores + 'c</span>';
     el['d-mem'].innerHTML = '<span class="k">wasm</span> ' + (st ? mb(st.wasm_heap) : '--') + 'MB';
     el['d-fps'].innerHTML = '<span class="k">fps</span> ' + Math.round(fps);
-    el['d-thr'].innerHTML = '<span class="k">thr</span> ' +
-      (st ? st.dsp_threads + '/' + st.pool : '--');
+    var workers = st ? readWorkerStats(st.pool) : null;
+    el['d-tier'].innerHTML = '<span class="k">tier</span> ' +
+      (st ? st.pool + (workers ? ' +' + workers.additionalCreated + ' extra' : '') : '--');
+    el['d-workers'].innerHTML = '<span class="k">active workers</span> ' +
+      (workers ? workers.active : '--');
+    el['d-thr'].innerHTML = '<span class="k">dsp threads</span> ' +
+      (st ? st.dsp_threads : '--');
     el['d-jank'].innerHTML = '<span class="k">jank</span> ' + jank.toFixed(0) + '/s';
     el['d-bot'].innerHTML = '<span class="k">bottleneck</span> ' + botName +
       (botCpu > 0 ? ' (' + Math.round(botCpu) + '%)' : '');

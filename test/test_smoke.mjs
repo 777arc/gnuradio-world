@@ -34,6 +34,18 @@ const OFFSET_RECORDING_BASE64 =
 const OFFSET_SAMPLE = 3;
 const rangeRequests = [];
 
+function expectedPoolTier(grc) {
+  const start = grc.search(/^blocks:\s*$/m);
+  if (start < 0) return 16;
+  const afterStart = grc.slice(start).replace(/^blocks:\s*\n?/, '');
+  const end = afterStart.search(/^(?:connections|metadata):\s*$/m);
+  const blockSection = end < 0 ? afterStart : afterStart.slice(0, end);
+  const blockCount = (blockSection.match(/^-\s+name\s*:/gm) || []).length;
+  if (blockCount + 1 <= 16) return 16;
+  if (blockCount + 1 <= 64) return 64;
+  return 256;
+}
+
 // Flowgraphs to run. Each .grc is handed straight to runner.html, which is NOT
 // the editor's Run path: parameter expressions are resolved by the editor
 // (resolveParamsForRun -> editor/src/expr.ts) and never by the C++ runner. So
@@ -128,12 +140,25 @@ for (const test of CASES) {
   await new Promise(r => setTimeout(r, 4000));
   const stats = await page.evaluate(() => window.__grstats || null);
   const blocks = stats ? JSON.parse(stats).blocks : [];
+  const pool = stats ? JSON.parse(stats).pool : null;
+  const expectedPool = expectedPoolTier(grc);
+  const monitor = await page.evaluate(() => ({
+    tier: document.getElementById('d-tier')?.textContent?.trim() || '',
+    workers: document.getElementById('d-workers')?.textContent?.trim() || '',
+    threads: document.getElementById('d-thr')?.textContent?.trim() || '',
+    tierBoundaries: [0, 15, 16, 63, 64].map(window.__grPoolTierForBlockCount),
+  }));
+  const monitorOk = pool === expectedPool &&
+    JSON.stringify(monitor.tierBoundaries) === JSON.stringify([16, 16, 64, 64, 256]) &&
+    new RegExp(`^tier ${pool} \\+\\d+ extra$`).test(monitor.tier) &&
+    /^active workers \d+$/.test(monitor.workers) &&
+    monitor.threads === `dsp threads ${blocks.length}`;
   // Message-only blocks carry no item counter (see msg_only in the runner's
   // snapshot), so requiring items > 0 of them would fail every PDU chain.
   const idle = blocks.filter(b => !b.msg_only && !(b.items > 0))
                      .map(b => `${b.name} (${b.id})`);
 
-  const ok = started && blocks.length > 0 && idle.length === 0;
+  const ok = started && blocks.length > 0 && idle.length === 0 && monitorOk;
   allOk = allOk && ok;
   console.log(`\n[${ok ? 'OK' : 'FAIL'}] ${test.name}  (${test.grc})`);
   console.log(`   ${verdict.trim()}`);
@@ -141,6 +166,9 @@ for (const test of CASES) {
     console.log('   items: ' + blocks.map(b => `${b.name}=${b.items}`).join(' '));
   else console.log('   no diagnostics snapshot — the graph never reached the scheduler');
   if (idle.length) console.log(`   produced nothing: ${idle.join(', ')}`);
+  if (!monitorOk)
+    console.log(`   diagnostics headline mismatch: ${JSON.stringify(monitor)}, ` +
+      `pool=${pool}, expectedPool=${expectedPool}`);
   if (!ok && logs.length) console.log('   logs: ' + logs.slice(-4).join('\n         '));
   await page.close();
 }

@@ -443,7 +443,13 @@ static std::string build_stats_json() {
     // (Module.PThread, Module.HEAP8, ...) aborts the whole runtime.
     out["wasm_heap"] = (double)emscripten_get_heap_size();
     out["dsp_threads"] = (int)g_stats.size();  // GR runs one thread per block
-    out["pool"] = 64;                          // matches -sPTHREAD_POOL_SIZE
+    // runner.html selects this before Emscripten initializes its worker pool.
+    // Read the same value here so diagnostics report the active tier rather
+    // than duplicating a build-time constant that can drift from the runtime.
+    out["pool"] = EM_ASM_INT({
+        return (typeof globalThis.__grPoolTier === 'number')
+            ? globalThis.__grPoolTier : 16;
+    });
 
     auto vmax = [](const std::vector<float>& v) {
         return v.empty() ? 0.0f : *std::max_element(v.begin(), v.end());

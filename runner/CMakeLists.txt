@@ -95,6 +95,12 @@ qt_add_executable(runner
   ${BLOCKS}/overlays/gr-paint/paint_image_source.cpp
   src/generated_registry.cpp
   src/generated_modules.cpp)
+# Qt's WASM finalizer appends its own pool setting after ordinary link options.
+# Use the supported target property so its final setting is the tier selected by
+# runner.html before the modularized Emscripten runtime starts. Emscripten emits
+# this string as a JavaScript expression, so it can prewarm 16/64/256 workers
+# from the flowgraph size instead of baking in one pool size for every run.
+set_property(TARGET runner PROPERTY QT_WASM_PTHREAD_POOL_SIZE "globalThis.__grPoolTier")
 target_include_directories(runner PRIVATE ${GR_INCLUDE_DIRS})
 # -fexceptions is required at COMPILE time, not just at link: Emscripten's default
 # (catching disabled) drops the landing pads, so runner.cpp's try/catch around
@@ -139,10 +145,10 @@ target_link_options(runner PRIVATE
   # __cxa_pure_virtual, std type-info vtables, the thread_local exception globals,
   # …) are exported via the generated response file appended at the end of this
   # file (-Wl,@side_exports.rsp); EXPORT_ALL alone does not cover them.
-  # Prewarm a large worker pool: GR runs one thread per block, and if start()
-  # exhausts the pool it blocks the main browser thread creating a worker
-  # (deadlock). Must cover Qt's threads + the largest flowgraph's block count.
-  -sPTHREAD_POOL_SIZE=64 -sPTHREAD_POOL_SIZE_STRICT=0
+  # GR runs one thread per block. The initial worker count is selected by
+  # runner.html before startup; permit extra workers when hierarchy expansion
+  # makes the top-level flowgraph count underestimate the scheduler thread count.
+  -sPTHREAD_POOL_SIZE_STRICT=0
   -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=268435456
   -sALLOW_TABLE_GROWTH=1
   -sNO_DISABLE_EXCEPTION_CATCHING
