@@ -5,34 +5,12 @@
 // Usage: node server.mjs [port] [absoluteRootDir]
 import http from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
-import { extname, join, normalize } from 'node:path';
+import { join, normalize } from 'node:path';
 import { findExampleFlowgraphs } from './scripts/example-flowgraphs.mjs';
+import { contentType, setIsolationHeaders } from './scripts/http-support.mjs';
 
 const port = Number(process.argv[2] || 8080);
 const root = normalize(process.argv[3] || new URL('.', import.meta.url).pathname);
-
-const MIME = {
-  '.html': 'text/html; charset=utf-8',
-  '.js': 'text/javascript; charset=utf-8',
-  '.mjs': 'text/javascript; charset=utf-8',
-  '.wasm': 'application/wasm',
-  '.json': 'application/json',
-  '.grc': 'application/x-yaml; charset=utf-8',
-  '.css': 'text/css; charset=utf-8',
-  '.data': 'application/octet-stream',
-  '.svg': 'image/svg+xml',
-  // the rest are only reached by the recording view's assets
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.gif': 'image/gif',
-  '.ico': 'image/x-icon',
-  '.woff': 'font/woff',
-  '.woff2': 'font/woff2',
-  '.ttf': 'font/ttf',
-  '.txt': 'text/plain; charset=utf-8',
-  '.map': 'application/json',
-};
 
 async function isFile(path) {
   try { return (await stat(path)).isFile(); }
@@ -44,9 +22,7 @@ const server = http.createServer(async (req, res) => {
 
   // Cross-origin isolation headers on every response, the recording view's
   // included: it fetches the recording in CORS mode, which satisfies COEP.
-  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
-  res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
-  res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+  setIsolationHeaders(res);
   res.setHeader('Cache-Control', 'no-store');
 
   try {
@@ -73,7 +49,7 @@ const server = http.createServer(async (req, res) => {
     const filePath = await isFile(direct)
       ? direct
       : normalize(join(root, 'editor', 'dist', urlPath));
-    res.setHeader('Content-Type', MIME[extname(filePath)] || 'application/octet-stream');
+    res.setHeader('Content-Type', contentType(filePath));
     // HEAD (used by the editor's debug dialog to read wasm sizes): stat only,
     // report Content-Length, send no body.
     if (req.method === 'HEAD') {

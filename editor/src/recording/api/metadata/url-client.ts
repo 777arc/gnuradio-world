@@ -1,13 +1,8 @@
-import { Annotation, CaptureSegment, SigMFMetadata, Track } from '@/utils/sigmfMetadata';
+import { Annotation, CaptureSegment, SigMFMetadata } from '@/utils/sigmfMetadata';
 import { MetadataClient } from './metadata-client';
-import { SmartQueryResult } from '../Models';
 import { CLIENT_TYPE_URL, fetchDataFileByteLength, urlRecordingLocation } from '@/utils/url-datasource';
 
 export class UrlClient implements MetadataClient {
-  track(account: string, container: string, filepath: string): Promise<Track> {
-    throw new Error('track not supported for url data sources');
-  }
-
   async getMeta(account: string, container: string, filePath: string): Promise<SigMFMetadata> {
     const { metaUrl, dataUrl } = urlRecordingLocation(account, container);
     const response = await fetch(metaUrl);
@@ -36,23 +31,4 @@ export class UrlClient implements MetadataClient {
     return metadata;
   }
 
-  // A URL recording is a single file, not a browsable data source.
-  async getDataSourceMetaPaths(account: string, container: string): Promise<string[]> {
-    return [];
-  }
-
-  updateMeta(account: string, container: string, filePath: string, meta: object): Promise<any> {
-    // Nothing to write to: the recording is someone else's static file.
-    return Promise.resolve(meta as SigMFMetadata);
-  }
-
-  async smartQuery(queryString: string, signal: AbortSignal): Promise<SmartQueryResult> {
-    throw new Error('smartQuery not supported for url data sources');
-  }
-
-  features() {
-    return {
-      canUpdateMeta: false,
-    };
-  }
 }

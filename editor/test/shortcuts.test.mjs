@@ -1,8 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { editorSource as source, markupSource as html } from './editor-contract-source.mjs';
 
-const source = await readFile(new URL('../src/main.ts', import.meta.url), 'utf8');
-const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 const about = await readFile(new URL('../src/about.html', import.meta.url), 'utf8');
 
 const bindings = {

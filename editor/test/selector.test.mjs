@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { editorSource as source } from './editor-contract-source.mjs';
 
-const source = await readFile(new URL('../src/main.ts', import.meta.url), 'utf8');
 const library = JSON.parse(await readFile(
   new URL('../public/blocks.json', import.meta.url), 'utf8'));
 const selector = (library.blocks || []).find(block => block.id === 'blocks_selector');

@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
 import { build } from 'esbuild';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { editorSource as source, markupSource as html } from './editor-contract-source.mjs';
 
 const out = join(tmpdir(), `selection-test-${process.pid}.mjs`);
 await build({
@@ -24,8 +24,6 @@ assert.equal(boundsIntersect(
   { x: 20, y: 20, width: 39, height: 39 },
   { x: 60, y: 60, width: 30, height: 30 }), false, 'separate blocks are not selected');
 
-const source = await readFile(new URL('../src/main.ts', import.meta.url), 'utf8');
-const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 assert.match(source, /svg\.addEventListener\('mousedown'[\s\S]*marquee = /,
   'canvas presses must begin marquee selection');
 assert.match(source, /window\.addEventListener\('mousemove'[\s\S]*updateMarquee/,

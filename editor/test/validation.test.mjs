@@ -1,57 +1,79 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { bundleModule } from './bundle-module.mjs';
+import { mainSource as main, cssSource as css } from './editor-contract-source.mjs';
 
-const source = await readFile(new URL('../src/main.ts', import.meta.url), 'utf8');
-const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+const { validateFlowgraph, NAME_FIELD, BLOCK_FIELD } =
+  await bundleModule('../src/validation.ts');
 
-assert.match(source, /function validateGraph\(/, 'missing shared graph validator');
-assert.match(source, /must be a number, a variable ID, or an expression of them/,
-  'numeric fields must validate numbers, variable references and expressions');
-assert.match(source, /!evaluates\(value, staticScope\)/,
-  'numeric fields must accept expressions that evaluate against the plain variables');
-assert.match(source, /may reference a live control only on its own/,
-  'an expression wrapped around a live control must be reported specifically');
-assert.match(source, /Block ID is required/, 'block IDs must be validated');
-assert.match(source, /is used more than once/, 'duplicate active block IDs must be validated');
-assert.match(source, /has unsupported value/, 'enum values must be validated');
-assert.match(source, /Connection type mismatch/, 'stream connection types must be validated');
-assert.match(source, /validateGraph\(\)\.filter\(issue => issue\.blocking\)/,
-  'Run must refuse active validation errors');
-assert.match(source, /class: 'validation-error'/, 'canvas error messages must be rendered below blocks');
-assert.match(source, /setFieldError\(/, 'property fields must receive live error states');
+const inst = (uid, id, name, params = {}, extra = {}) => ({
+  uid, id, name, params, x: 0, y: 0, enabled: true, rotation: 0,
+  bypassed: false, ...extra,
+});
+const port = (domain = 'stream', vlen = 1, optional = false) =>
+  ({ domain, vlen, optional, streamIndex: 0 });
+const ports = {
+  portCount(block, kind) {
+    const def = block.id === 'analog_sig_source_x' ? [0, 1]
+      : block.id === 'blocks_null_sink' ? [1, 0]
+      : block.id === 'blocks_complex_to_mag_squared' ? [1, 1]
+      : [0, 0];
+    return def[kind === 'in' ? 0 : 1];
+  },
+  portMeta() { return port(); },
+  portType(block, kind) {
+    if (block.id === 'blocks_complex_to_mag_squared') return kind === 'in' ? 'complex' : 'float';
+    return block.params.type || 'complex';
+  },
+  resolvedPorts() { return []; },
+};
 
-assert.match(html, /\.blk\.invalid rect\.body/, 'invalid blocks must have a red canvas style');
-assert.match(html, /\.wire\.invalid/, 'invalid connections must have a red canvas style');
-assert.match(html, /\.field-invalid/, 'invalid editor fields must have a red form style');
-assert.match(html, /\.field-error/, 'field-level messages must have a compact error style');
+const signal = inst('sig', 'analog_sig_source_x', 'sig', {
+  type: 'complex', samp_rate: 'samp_rate', waveform: 'analog.GR_COS_WAVE',
+  frequency: 'samp_rate/4', amplitude: '1',
+});
+const variable = inst('rate', 'variable', 'samp_rate', { value: '32000' });
+assert.deepEqual(validateFlowgraph([variable, signal], [], ports), [],
+  'numeric expressions may use active plain variables');
 
-// Plain Variable block: registered as a schema and a reference target. It is
-// saved to .grc like any block; the runner inlines its value during lowering.
-assert.match(source, /\n\s*variable:\s*{[\s\S]*?label: 'Variable'/, 'plain Variable block must be registered');
-assert.match(source, /VARIABLE_IDS = new Set\(\[\.\.\.VARIABLE_CONTROL_IDS, 'variable'\]\)/,
-  'plain Variable must be a valid numeric reference target');
-assert.match(source, /insts\.filter\(i => i\.id !== OPTIONS_ID\)/,
-  'every block except Options must be written to the .grc');
+const invalid = validateFlowgraph([
+  inst('missing', 'analog_sig_source_x', '', {
+    type: 'wrong', samp_rate: 'not_defined', waveform: 'bad', frequency: 1, amplitude: 1,
+  }),
+  inst('one', 'variable', 'duplicate', { value: 1 }),
+  inst('two', 'variable', 'duplicate', { value: 2 }),
+], [], ports);
+assert.ok(invalid.some(issue => issue.field === NAME_FIELD && issue.message === 'Block ID is required.'));
+assert.ok(invalid.some(issue => issue.message.includes('is used more than once')));
+assert.ok(invalid.some(issue => issue.message.includes('must be a number')));
+assert.ok(invalid.some(issue => issue.message.includes('unsupported value')));
 
-// Options block: the GRC-style per-flowgraph metadata singleton
-// (title/author/copyright/description), auto-inserted and never emitted.
-assert.match(source, /\n\s*options:\s*{[\s\S]*?label: 'Options'/, 'Options block must be registered');
-assert.match(source, /id: 'title'[\s\S]*?id: 'author'[\s\S]*?id: 'copyright'[\s\S]*?id: 'description'/,
-  'Options block must carry title/author/copyright/description metadata');
-assert.match(source, /function ensureOptionsBlock\(\)/, 'a flowgraph must guarantee one Options block');
-assert.match(source, /i\.id !== OPTIONS_ID/, 'the Options block must not be emitted to the runner');
-assert.match(source, /!uids\.has\(i\.uid\) \|\| i\.id === OPTIONS_ID/,
-  'the Options block must be protected from deletion');
-assert.match(source, /only one Options block is allowed per flowgraph/,
-  'adding a second Options block must be refused');
+const live = inst('range', 'variable_qtgui_range', 'freq', {
+  label: '', rangeType: 'float', value: 10, start: 20, stop: 10, step: 0,
+  widget: 'slider', orient: 'QtCore.Qt.Horizontal', min_len: 0,
+});
+signal.params.frequency = 'freq/2';
+const liveIssues = validateFlowgraph([live, signal], [], ports);
+assert.ok(liveIssues.some(issue => issue.message.includes('only on its own')));
+assert.ok(liveIssues.some(issue => issue.field === 'stop'));
+assert.ok(liveIssues.some(issue => issue.field === 'step'));
+assert.ok(liveIssues.some(issue => issue.field === 'min_len'));
 
-// A new flowgraph matches native GRC's default_flow_graph.grc template: Options
-// plus a samp_rate Variable of 32000, which upstream flowgraphs assume exists.
-assert.match(source, /const DEFAULT_SAMP_RATE = '32000';/,
-  "a new flowgraph's samp_rate must default to GRC's 32000");
-assert.match(source, /function makeSampRateInst\(\)[\s\S]*?id: 'variable', name: 'samp_rate'/,
-  'the default samp_rate must be a plain Variable block named samp_rate');
-assert.match(source, /insts\.push\(makeSampRateInst\(\)\);[\s\S]*?ensureOptionsBlock\(\); render\(\);/,
-  'New/Close must seed the canvas with the default samp_rate variable');
+const sink = inst('sink', 'blocks_null_sink', 'sink', { type: 'float' });
+const mismatch = validateFlowgraph([signal, sink], [{ from: 'sig', fp: 0, to: 'sink', tp: 0 }], ports);
+assert.ok(mismatch.some(issue => issue.field === BLOCK_FIELD && issue.message.includes('type mismatch')));
+const badPort = validateFlowgraph([signal, sink], [{ from: 'sig', fp: 4, to: 'sink', tp: 0 }], ports);
+assert.ok(badPort.some(issue => issue.message.includes('invalid output port')));
 
-console.log('checked editor-side flowgraph validation and error presentation');
+const disabled = inst('disabled', 'unknown', '', {}, { enabled: false });
+assert.ok(validateFlowgraph([disabled], [], ports).every(issue => !issue.blocking),
+  'disabled-block diagnostics do not prevent a run');
+
+// Keep a small integration contract for presentation and run wiring. Business
+// rules above are tested through the module API instead of source regexes.
+assert.match(main, /validateGraph\(\)\.filter\(issue => issue\.blocking\)/);
+assert.match(main, /class: 'validation-error'/);
+assert.match(main, /setFieldError\(/);
+for (const selector of ['.blk.invalid rect.body', '.wire.invalid', '.field-invalid', '.field-error'])
+  assert.ok(css.includes(selector), `missing ${selector} validation style`);
+
+console.log('checked validation behavior and error presentation');

@@ -188,7 +188,7 @@ jobs:
 
           # Two entries: the editor at / and the recording view at /recording/,
           # which the editor's recording tabs frame same-origin.
-          (cd editor && npm ci && npm run build)
+          (cd editor && npm ci && npm run typecheck && npm test && npm run build)
 
       - name: ccache stats
         run: ccache --show-stats

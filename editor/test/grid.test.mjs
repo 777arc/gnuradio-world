@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
-import { readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { editorSource as source } from './editor-contract-source.mjs';
 
 const out = join(tmpdir(), `grid-test-${process.pid}.mjs`);
 await build({
@@ -39,7 +39,6 @@ assert.deepEqual(
   [30, 50, 70],
   'an odd centered port group stays on the grid');
 
-const source = await readFile(new URL('../src/main.ts', import.meta.url), 'utf8');
 assert.match(source, /let snapToGrid = true;/,
   'snap to grid is enabled by default');
 assert.match(source, /label: 'Snap to Grid', run: toggleSnapToGrid, check: \(\) => snapToGrid/,

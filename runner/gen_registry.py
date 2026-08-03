@@ -29,48 +29,21 @@ sys.path.insert(0, str(WORLD / "tools"))
 import block_overrides  # noqa: E402  (needs WORLD on the path first)
 
 GR = Path(os.environ.get("GR", WORLD / "gnuradio")).resolve()
-MODULES = (
-    "gr-blocks",
-    "gr-analog",
-    "gr-fft",
-    "gr-filter",
-    "gr-digital",
-    "gr-dtv",
-    "gr-network",
-    "gr-pdu",
-    "gr-vocoder",
-    "gr-rds",
-    "gr-foo",
-    "gr-dvbs2",
-    "gr-dvbs2rx",
-    "gr-satellites",
-    "gr-paint",
-)
+MODULE_CONFIG = json.loads((Path(__file__).with_name("modules.json")).read_text())
 
 # Block categories whose C++ is statically linked into the main runner module and
 # always available. Everything else is compiled into a per-module WebAssembly side
 # module that is fetched on demand the first time a flowgraph uses one of its
 # blocks (see the runner's dlopen loader and CMakeLists side-module targets).
-CORE_MODULES = ("blocks", "analog", "fft", "filter")
-DEFERRED_MODULES = (
-    "digital",
-    "dtv",
-    "network",
-    "pdu",
-    "vocoder",
-    "rds",
-    "foo",
-    "dvbs2",
-    "dvbs2rx",
-    "satellites",
-    "paint",
-)
+CORE_MODULES = tuple(MODULE_CONFIG["core"])
+DEFERRED_MODULES = tuple(MODULE_CONFIG["deferred"])
+MODULES = tuple(f"gr-{module}" for module in (*CORE_MODULES, *DEFERRED_MODULES))
 
 # Load-order dependencies between DEFERRED modules only (core is always present).
 # gr-satellites' rebuilt Python hierarchies wrap their message ports with
 # gr::pdu::{pdu_to_tagged_stream,tagged_stream_to_pdu}, which live in the pdu
 # side module, so pdu.wasm has to be loaded first for those imports to resolve.
-MODULE_DEPS: dict[str, list[str]] = {"satellites": ["pdu"]}
+MODULE_DEPS: dict[str, list[str]] = MODULE_CONFIG["module_deps"]
 
 # Browser-only block metadata kept in this repository so every submodule can stay
 # pinned to a pristine upstream commit: one directory per module under
@@ -197,6 +170,41 @@ INVALID_CPP_TEMPLATES = {
     "vocoder_gsm_fr_decode_ps",
     "vocoder_gsm_fr_encode_sp",
 }
+
+
+def validate_configuration() -> None:
+    """Keep the cross-language module and custom-factory manifests honest."""
+    core = list(CORE_MODULES)
+    deferred = list(DEFERRED_MODULES)
+    if len(set(core)) != len(core) or len(set(deferred)) != len(deferred):
+        raise SystemExit("runner/modules.json contains duplicate module names")
+    overlap = sorted(set(core) & set(deferred))
+    if overlap:
+        raise SystemExit(f"runner/modules.json marks modules core and deferred: {overlap}")
+    known_deferred = set(deferred)
+    for module, dependencies in MODULE_DEPS.items():
+        unknown = sorted(({module, *dependencies}) - known_deferred)
+        if unknown:
+            raise SystemExit(
+                f"runner/modules.json has unknown deferred dependency names: {unknown}")
+
+    registry_source = (WORLD / "runner" / "src" / "registry.cpp").read_text()
+    try:
+        custom_table = registry_source.split(
+            "const std::map<std::string, Factory> custom = {", 1)[1].split(
+            "      // Custom factories intentionally win", 1)[0]
+    except IndexError as error:
+        raise SystemExit("could not locate the custom factory table in registry.cpp") from error
+    registered = set(re.findall(r'^        \{"([^"]+)",', custom_table, re.MULTILINE))
+    missing = sorted(CUSTOM_IDS - registered)
+    unexpected = sorted(registered - CUSTOM_IDS)
+    if missing or unexpected:
+        details = []
+        if missing:
+            details.append("CUSTOM_IDS without a factory: " + ", ".join(missing))
+        if unexpected:
+            details.append("factories absent from CUSTOM_IDS: " + ", ".join(unexpected))
+        raise SystemExit("custom factory registry mismatch:\n  " + "\n  ".join(details))
 
 
 def cpp_atom(value: Any) -> str:
@@ -719,6 +727,7 @@ def write_module_map(output_dir: Path, block_module: dict[str, str]) -> None:
 
 
 def generate(output_dir: Path, manifest: Path) -> None:
+    validate_configuration()
     factories: dict[str, list[str]] = defaultdict(list)
     includes: dict[str, set[str]] = defaultdict(set)
     supported = sorted(CUSTOM_IDS)

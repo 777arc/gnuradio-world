@@ -25,9 +25,9 @@
 // Exits non-zero if the editor refuses the flowgraph, the runner fails, a block
 // sits idle, a flowgraph with a printing block prints nothing, --expect is
 // absent, or any --reject substring appears in the console pane.
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { basename, resolve, sep } from 'node:path';
-import puppeteer from 'puppeteer-core';
+import { launchBrowser } from './browser-test-support.mjs';
 
 const args = process.argv.slice(2);
 const expectIndex = args.findIndex(a => a.startsWith('--expect='));
@@ -71,17 +71,7 @@ if (target.endsWith('.grc')) {
     id => new RegExp(`^\\s+id:\\s*${id}\\s*$`, 'm').test(text));
 }
 
-const base = new URL('../chrome-headless-shell/', import.meta.url).pathname;
-const exe = (existsSync(base)
-  ? readdirSync(base).map(d => `${base}${d}/chrome-headless-shell-linux64/chrome-headless-shell`)
-  : []).find(existsSync);
-if (!exe) { console.error('chrome-headless-shell not found'); process.exit(2); }
-
-const browser = await puppeteer.launch({
-  executablePath: exe, headless: true,
-  args: ['--no-sandbox', '--disable-gpu', '--use-gl=angle', '--use-angle=swiftshader',
-         '--enable-unsafe-swiftshader'],
-});
+const browser = await launchBrowser(new URL('..', import.meta.url).pathname);
 let ok = false;
 try {
   const page = await browser.newPage();

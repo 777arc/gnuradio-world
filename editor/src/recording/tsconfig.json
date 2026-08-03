@@ -1,9 +1,8 @@
 {
   "//": [
-    "The vendored recording view is IQEngine code, written against IQEngine's own",
-    "tsconfig (non-strict, React JSX, '@/...' self-references). Nothing type-checks",
-    "it: `vite build` transpiles with esbuild and never runs tsc. These settings",
-    "exist so an editor resolves the imports the way the bundler does."
+    "The recording view began as IQEngine code and retains its non-strict React",
+    "settings and '@/...' self-references so it stays easy to compare upstream.",
+    "It is nevertheless type-checked by npm run typecheck; Vite alone only transpiles."
   ],
   "compilerOptions": {
     "target": "ES2020",

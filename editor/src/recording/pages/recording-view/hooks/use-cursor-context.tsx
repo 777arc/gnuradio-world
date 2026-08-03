@@ -18,8 +18,6 @@ interface CursorContextProperties {
   setCursorTimeEnabled: (cursorTimeEnabled: boolean) => void;
   cursorFreqEnabled: boolean;
   setCursorFreqEnabled: (cursorFreqEnabled: boolean) => void;
-  cursorFreqShiftEnabled: boolean;
-  setCursorFreqShiftEnabled: (cursorFreqShiftEnabled: boolean) => void;
 }
 
 export const CursorContext = createContext<CursorContextProperties>(null);

@@ -18,15 +18,13 @@
 // background server to manage. Exits non-zero if any case fails.
 import http from 'node:http';
 import { mkdtemp, open, readFile, rm, writeFile } from 'node:fs/promises';
-import { readFileSync, existsSync, readdirSync } from 'node:fs';
-import { extname, join, normalize } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { join, normalize } from 'node:path';
 import { tmpdir } from 'node:os';
-import puppeteer from 'puppeteer-core';
+import { contentType, launchBrowser, setIsolationHeaders } from '../scripts/browser-test-support.mjs';
 
 const ROOT = normalize(new URL('..', import.meta.url).pathname);
 const PORT = Number(process.argv[2] || 8101);
-const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.wasm': 'application/wasm',
-               '.json': 'application/json', '.svg': 'image/svg+xml' };
 // First eight cf32_le samples from the fm_rds example recording. Keeping only
 // this prefix in the test makes it deterministic in CI, where the full
 // git-ignored recording is intentionally unavailable.
@@ -50,7 +48,7 @@ const rangeRequests = [];
 // everything downstream sits at zero.
 const CASES = [
   { name: 'OFDM loopback (deferred digital module)', grc: 'example_flowgraphs/ofdm/ofdm.grc' },
-  { name: 'PSK constellation (hier block + qtgui sinks)', grc: 'example_flowgraphs/PSK_constellation.grc' },
+  { name: 'PSK constellation (hier block + qtgui sinks)', grc: 'example_flowgraphs/digital/psk_constellation.grc' },
   { name: 'AM modulation example', grc: 'example_flowgraphs/analog/am_modulation.grc' },
   { name: 'FM loopback example (core module only)', grc: 'example_flowgraphs/analog/fm_loopback.grc' },
   { name: 'low-pass filter example', grc: 'example_flowgraphs/analog/low_pass_filter.grc' },
@@ -65,9 +63,7 @@ const CASES = [
 ];
 
 const server = http.createServer(async (req, res) => {
-  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
-  res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
-  res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+  setIsolationHeaders(res);
   try {
     let p = decodeURIComponent(new URL(req.url, 'http://x').pathname);
     if (p === '/__recording_test__') {
@@ -98,28 +94,14 @@ const server = http.createServer(async (req, res) => {
     const fp = normalize(join(editorAsset ? join(ROOT, 'editor/dist') : ROOT, p));
     if (!fp.startsWith(ROOT)) { res.writeHead(403); return res.end(); }
     const body = await readFile(fp);
-    res.setHeader('Content-Type', MIME[extname(fp)] || 'application/octet-stream');
+    res.setHeader('Content-Type', contentType(fp));
     res.writeHead(200);
     res.end(body);
   } catch { res.writeHead(404); res.end('not found'); }
 });
 await new Promise(r => server.listen(PORT, r));
 
-const base = join(ROOT, 'chrome-headless-shell');
-const exe = existsSync(base)
-  ? readdirSync(base).map(d => join(base, d, 'chrome-headless-shell-linux64', 'chrome-headless-shell')).find(existsSync)
-  : undefined;
-if (!exe) {
-  console.error('chrome-headless-shell not found under chrome-headless-shell/.\n' +
-                'Install it with:  npx @puppeteer/browsers install chrome-headless-shell@stable --path .');
-  process.exit(2);
-}
-
-const browser = await puppeteer.launch({
-  executablePath: exe, headless: true,
-  args: ['--no-sandbox', '--disable-gpu', '--use-gl=angle', '--use-angle=swiftshader',
-         '--enable-unsafe-swiftshader'],
-});
+const browser = await launchBrowser(ROOT);
 
 let allOk = true;
 for (const test of CASES) {

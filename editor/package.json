@@ -8,7 +8,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "test": "node test/shortcuts.test.mjs && node test/selection.test.mjs && node test/grid.test.mjs && node test/canvas-scroll.test.mjs && node test/workspace-tabs.test.mjs && node test/recording-tabs.test.mjs && node test/validation.test.mjs && node test/time-sink.test.mjs && node test/expr.test.mjs && node test/grc.test.mjs && node test/recordings.test.mjs && node test/real-recordings.test.mjs && node test/channelizer.test.mjs && node test/contribute.test.mjs && node test/block-categories.test.mjs && node test/block-face.test.mjs && node test/selector.test.mjs && node test/note.test.mjs && node test/throttle.test.mjs && node test/example-filter.test.mjs && node test/example-search.test.mjs && node test/example-link.test.mjs && node test/example-directories.test.mjs && node test/documentation.test.mjs && node test/example-flowgraphs.test.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p src/recording/tsconfig.json",
+    "check": "npm run typecheck && npm test && npm run build",
+    "test": "node test/run.mjs",
     "preview": "vite preview"
   },
   "devDependencies": {

@@ -1,0 +1,374 @@
+export type ParamType = 'number' | 'string' | 'enum';
+// `raw` marks a GRC dtype: raw parameter — free-form Python (vectors, matrices).
+// Like numeric params these are evaluated before the flowgraph goes to the runner.
+// `dtype` keeps the original GRC dtype (only the generated blocks carry one); the
+// block face uses it to pick a truncation style for long values.
+export interface ParamDef {
+  id: string; label: string; type: ParamType; def: any; options?: string[];
+  optionLabels?: string[];
+  category?: string; hide?: string; hideIfEmpty?: boolean; raw?: boolean; dtype?: string;
+  optionAttributes?: Record<string, string[]>;
+  showWhen?: (params: Record<string, any>) => boolean;
+  // Free-form prose (the Note block's text): edited in a textarea so it can hold
+  // line breaks, which .grc round-trips as a double-quoted `\n` scalar.
+  multiline?: boolean;
+}
+export interface PortTemplate {
+  dtype: string;
+  vlen: string;
+  domain: string;
+  id: string;
+  label: string;
+  multiplicity: string;
+  optional: boolean;
+  hide: string | boolean;
+}
+export interface ResolvedPort {
+  dtype: string;
+  vlen: number | string;
+  domain: string;
+  id: string;
+  name: string;
+  streamIndex: number;
+  optional: boolean;
+  hidden: boolean;
+}
+// inTypes/outTypes give per-port dtypes (for converters); otherwise ports follow the
+// block's `type` param (complex/float) if it has one, else `dtype` (default complex).
+export interface RunnableDef {
+  label: string; inputs: number; outputs: number; params: ParamDef[];
+  documentation?: string; apiDocumentation?: string; wikiUrl?: string;
+  dtype?: string; inTypes?: string[]; outTypes?: string[];
+  inDomains?: string[]; outDomains?: string[]; inIds?: string[]; outIds?: string[];
+  inLabels?: string[]; outLabels?: string[];
+  inLabelBase?: string; outLabelBase?: string;
+  inStreamIndices?: number[]; outStreamIndices?: number[];
+  inputTemplates?: PortTemplate[]; outputTemplates?: PortTemplate[];
+}
+
+// Generated block-library metadata. The editor is served from the site root,
+// so blocks.json (Vite `public/`) sits next to index.html.
+export const BLOCKS_URL = '/blocks.json';
+
+// GRC dtype -> port colour (from grc/core/Constants.py).
+export const DTYPE_COLOR: Record<string, string> = {
+  complex: '#2196F3', float: '#F57C00', int: '#009688',
+  short: '#FFEB3B', byte: '#D500F9', message: '#BDBDBD', '': '#ffffff',
+};
+
+// A "type" selector shared by the type-parameterized blocks (like GRC's io-type param).
+const TYPE_PARAM: ParamDef = { id: 'type', label: 'Type', type: 'enum', def: 'complex', options: ['complex', 'float'], hide: 'part' };
+const INTEGER_TYPE_PARAM: ParamDef = { id: 'type', label: 'Type', type: 'enum', def: 'byte', options: ['byte', 'short', 'int'], hide: 'part' };
+const STREAM_TYPE_PARAM: ParamDef = { id: 'type', label: 'Type', type: 'enum', def: 'complex', options: ['complex', 'float', 'int', 'short', 'byte'], hide: 'part' };
+// GRC-native enum vocabularies (values stored/serialized verbatim, matching
+// grc block YAML so saved .grc is byte-compatible with desktop GRC).
+const BOOL_OPTIONS = ['True', 'False'];
+const TRIGGER_MODES = ['qtgui.TRIG_MODE_FREE', 'qtgui.TRIG_MODE_AUTO', 'qtgui.TRIG_MODE_NORM', 'qtgui.TRIG_MODE_TAG'];
+const TRIGGER_SLOPES = ['qtgui.TRIG_SLOPE_POS', 'qtgui.TRIG_SLOPE_NEG'];
+const LINE_COLORS = ['blue', 'red', 'green', 'black', 'cyan', 'magenta', 'yellow', 'dark red', 'dark green', 'dark blue'];
+// The frequency/constellation sinks store colours as quoted strings in GRC.
+const LINE_COLORS_Q = LINE_COLORS.map(c => `"${c}"`);
+const LINE_STYLES = ['1', '2', '3', '4', '5', '0'];
+// GRC's frequency-sink Average options (None / Low / Medium / High smoothing).
+const FFT_AVERAGES = ['1.0', '0.2', '0.1', '0.05'];
+const LINE_MARKERS = ['0', '1', '2', '3', '4', '6', '7', '8', '9', '-1'];
+// Waterfall intensity color-map ids (match WaterfallDisplayPlot / GRC):
+// 0 Multi Color, 1 White Hot, 2 Black Hot, 3 Incandescent, 5 Sunset, 6 Cool.
+const WATERFALL_COLORS = ['0', '1', '2', '3', '5', '6'];
+
+// Curated schemas for blocks the WASM runner registry supports. Param names (and the
+// `type` values complex/float) match the runner's factories exactly.
+export const RUNNABLE: Record<string, RunnableDef> = {
+  // ---- flowgraph options ----
+  // GRC's per-flowgraph Options block: identification metadata for the graph.
+  // Exactly one is auto-inserted per flowgraph (see ensureOptionsBlock). It has
+  // no ports and becomes the top-level `options:` block in the saved .grc.
+  // Title, Author, and Description are an intentional exception to blank-value
+  // hiding: their labels remain visible on the Options block even when empty.
+  options: {
+    label: 'Options', inputs: 0, outputs: 0, params: [
+      { id: 'title', label: 'Title', type: 'string', def: '' },
+      { id: 'author', label: 'Author', type: 'string', def: '' },
+      { id: 'copyright', label: 'Copyright', type: 'string', def: '', hideIfEmpty: true },
+      { id: 'description', label: 'Description', type: 'string', def: '' },
+    ],
+  },
+  // GRC's canvas annotation. It has no GNU Radio block behind it — the runner
+  // drops it while lowering, the same way it drops `options` and `variable` —
+  // so a hand-written schema here is all the support it needs. Its text is the
+  // block's whole body, rendered wrapped (see noteGeom).
+  note: {
+    label: 'Note', inputs: 0, outputs: 0, params: [
+      { id: 'note', label: 'Note', type: 'string', def: '', multiline: true },
+    ],
+  },
+  // ---- sources ----
+  analog_sig_source_x: {
+    label: 'Signal Source', inputs: 0, outputs: 1, params: [
+      TYPE_PARAM,
+      { id: 'samp_rate', label: 'Sample Rate', type: 'number', def: 32000 },
+      { id: 'waveform', label: 'Waveform', type: 'enum', def: 'analog.GR_COS_WAVE',
+        options: ['analog.GR_CONST_WAVE', 'analog.GR_SIN_WAVE', 'analog.GR_COS_WAVE', 'analog.GR_SQR_WAVE', 'analog.GR_TRI_WAVE', 'analog.GR_SAW_WAVE'] },
+      { id: 'frequency', label: 'Frequency', type: 'number', def: 2000 },
+      { id: 'amplitude', label: 'Amplitude', type: 'number', def: 1.0 },
+    ],
+  },
+  analog_noise_source_x: {
+    label: 'Noise Source', inputs: 0, outputs: 1, params: [
+      TYPE_PARAM,
+      { id: 'amplitude', label: 'Amplitude', type: 'number', def: 1.0 },
+      { id: 'seed', label: 'Seed', type: 'number', def: 0 }] },
+  analog_random_source_x: {
+    label: 'Random Source', inputs: 0, outputs: 1, params: [
+      INTEGER_TYPE_PARAM,
+      { id: 'min', label: 'Minimum', type: 'number', def: 0 },
+      { id: 'max', label: 'Maximum', type: 'number', def: 2 },
+      { id: 'num_samps', label: 'Num Samples', type: 'number', def: 1000 },
+      { id: 'repeat', label: 'Repeat', type: 'enum', def: 'True', options: BOOL_OPTIONS },
+    ],
+  },
+  analog_random_uniform_source_x: {
+    label: 'Random Uniform Source', inputs: 0, outputs: 1, params: [
+      INTEGER_TYPE_PARAM,
+      { id: 'minimum', label: 'Minimum', type: 'number', def: 0 },
+      { id: 'maximum', label: 'Maximum', type: 'number', def: 2 },
+      { id: 'seed', label: 'Seed', type: 'number', def: 0 },
+    ],
+  },
+  analog_const_source_x: {
+    label: 'Constant Source', inputs: 0, outputs: 1, params: [
+      { id: 'type', label: 'Type', type: 'enum', def: 'complex', options: ['complex', 'float', 'int', 'short', 'byte'] },
+      { id: 'const', label: 'Constant', type: 'string', def: '0' },
+    ],
+  },
+  blocks_null_source: { label: 'Null Source', inputs: 0, outputs: 1, params: [STREAM_TYPE_PARAM] },
+  blocks_swapiq: {
+    label: 'Swap IQ', inputs: 1, outputs: 1, params: [
+      { id: 'datatype', label: 'Input Type', type: 'enum', def: 'complex',
+        options: ['complex', 'short', 'byte'] },
+    ],
+    inTypes: ['$datatype'], outTypes: ['$datatype'],
+  },
+  ival_decimator: {
+    label: 'Interleaved Stream Decimator', inputs: 1, outputs: 1, params: [
+      { id: 'datatype', label: 'Input Type', type: 'enum', def: 'byte',
+        options: ['byte', 'short'] },
+      { id: 'decimation', label: 'Decimation', type: 'number', def: 1 },
+    ],
+    inTypes: ['$datatype'], outTypes: ['$datatype'],
+  },
+  digital_psk_mod: {
+    label: 'PSK Mod', inputs: 1, outputs: 1, params: [
+      { id: 'constellation_points', label: 'Constellation Points', type: 'number', def: 8 },
+      { id: 'mod_code', label: 'Gray Code', type: 'enum', def: '"gray"', options: ['"gray"', '"none"'] },
+      { id: 'differential', label: 'Differential', type: 'enum', def: 'True', options: BOOL_OPTIONS },
+      { id: 'samples_per_symbol', label: 'Samples/Symbol', type: 'number', def: 2 },
+      { id: 'excess_bw', label: 'Excess BW', type: 'number', def: 0.35 },
+    ],
+    inTypes: ['byte'], outTypes: ['complex'],
+  },
+  // ---- flow control ----
+  // Throttle (blocks_throttle2) has no hand-written entry: the generated schema
+  // already matches upstream, and the deprecated blocks_throttle it replaced is
+  // kept loadable through LEGACY_PARAM_IDS below.
+  blocks_head: {
+    label: 'Head', inputs: 1, outputs: 1, params: [
+      STREAM_TYPE_PARAM,
+      { id: 'num_items', label: 'Num Items', type: 'number', def: 10000000 }] },
+  blocks_delay: {
+    label: 'Delay', inputs: 1, outputs: 1, params: [
+      STREAM_TYPE_PARAM,
+      { id: 'delay', label: 'Delay (items)', type: 'number', def: 0 }] },
+  // ---- math (type-parameterized: complex or float) ----
+  blocks_add_xx: { label: 'Add', inputs: 2, outputs: 1, params: [TYPE_PARAM] },
+  blocks_sub_xx: { label: 'Subtract', inputs: 2, outputs: 1, params: [TYPE_PARAM] },
+  blocks_multiply_xx: { label: 'Multiply', inputs: 2, outputs: 1, params: [TYPE_PARAM] },
+  blocks_divide_xx: { label: 'Divide', inputs: 2, outputs: 1, params: [TYPE_PARAM] },
+  blocks_multiply_const_xx: {
+    label: 'Multiply Const', inputs: 1, outputs: 1, params: [
+      TYPE_PARAM,
+      { id: 'constant', label: 'Constant', type: 'number', def: 1.0 }] },
+  blocks_conjugate_cc: { label: 'Conjugate', inputs: 1, outputs: 1, params: [], dtype: 'complex' },
+  // ---- type converters (per-port dtypes) ----
+  blocks_complex_to_mag: { label: 'Complex to Mag', inputs: 1, outputs: 1, params: [],
+    inTypes: ['complex'], outTypes: ['float'] },
+  blocks_complex_to_mag_squared: { label: 'Complex to Mag^2', inputs: 1, outputs: 1, params: [],
+    inTypes: ['complex'], outTypes: ['float'] },
+  blocks_complex_to_float: { label: 'Complex to Float', inputs: 1, outputs: 2, params: [],
+    inTypes: ['complex'], outTypes: ['float', 'float'] },
+  blocks_float_to_complex: { label: 'Float to Complex', inputs: 2, outputs: 1, params: [],
+    inTypes: ['float', 'float'], outTypes: ['complex'] },
+  // ---- variables / controls ----
+  variable: {
+    label: 'Variable', inputs: 0, outputs: 0, params: [
+      { id: 'value', label: 'Value', type: 'number', def: '0' },
+    ],
+  },
+  variable_qtgui_range: {
+    label: 'QT GUI Range', inputs: 0, outputs: 0, params: [
+      { id: 'label', label: 'Label', type: 'string', def: '' },
+      { id: 'rangeType', label: 'Type', type: 'enum', def: 'float', options: ['float', 'int'] },
+      { id: 'value', label: 'Default Value', type: 'number', def: 50 },
+      { id: 'start', label: 'Start', type: 'number', def: 0 },
+      { id: 'stop', label: 'Stop', type: 'number', def: 100 },
+      { id: 'step', label: 'Step', type: 'number', def: 1 },
+      { id: 'widget', label: 'Widget', type: 'enum', def: 'counter_slider',
+        options: ['counter_slider', 'counter', 'slider', 'dial', 'eng_slider', 'eng'] },
+      { id: 'orient', label: 'Orientation', type: 'enum', def: 'QtCore.Qt.Horizontal',
+        options: ['QtCore.Qt.Horizontal', 'QtCore.Qt.Vertical'] },
+      { id: 'min_len', label: 'Minimum Length', type: 'number', def: 200 },
+    ],
+  },
+  variable_qtgui_chooser: {
+    label: 'QT GUI Chooser', inputs: 0, outputs: 0, params: [
+      { id: 'label', label: 'Label', type: 'string', def: '' },
+      { id: 'options', label: 'Options', type: 'string', def: '0, 1, 2' },
+      { id: 'labels', label: 'Labels', type: 'string', def: '' },
+      { id: 'value', label: 'Default option', type: 'number', def: 0 },
+      { id: 'widget', label: 'Widget', type: 'enum', def: 'combo_box',
+        options: ['combo_box', 'radio_buttons'] },
+      { id: 'orient', label: 'Orientation', type: 'enum', def: 'Qt.QVBoxLayout',
+        options: ['Qt.QHBoxLayout', 'Qt.QVBoxLayout'] },
+    ],
+  },
+  variable_qtgui_push_button: {
+    label: 'QT GUI Push Button', inputs: 0, outputs: 0, params: [
+      { id: 'label', label: 'Label', type: 'string', def: '' },
+      { id: 'value', label: 'Default Value', type: 'number', def: 0 },
+      { id: 'pressed', label: 'Pressed', type: 'number', def: 1 },
+      { id: 'released', label: 'Released', type: 'number', def: 0 },
+    ],
+  },
+  variable_qtgui_check_box: {
+    label: 'QT GUI Check Box', inputs: 0, outputs: 0, params: [
+      { id: 'label', label: 'Label', type: 'string', def: '' },
+      { id: 'type', label: 'Type', type: 'enum', def: 'int',
+        options: ['real', 'int', 'bool'] },
+      { id: 'value', label: 'Default Value', type: 'number', def: 1 },
+      { id: 'true', label: 'True', type: 'number', def: 1 },
+      { id: 'false', label: 'False', type: 'number', def: 0 },
+    ],
+  },
+  variable_qtgui_entry: {
+    label: 'QT GUI Entry', inputs: 0, outputs: 0, params: [
+      { id: 'label', label: 'Label', type: 'string', def: '' },
+      { id: 'type', label: 'Type', type: 'enum', def: 'int',
+        options: ['real', 'int', 'bool'] },
+      { id: 'value', label: 'Default Value', type: 'number', def: 0 },
+      { id: 'entry_signal', label: 'Update Trigger', type: 'enum',
+        def: 'editingFinished', options: ['returnPressed', 'editingFinished'] },
+    ],
+  },
+  // ---- sinks ----
+  blocks_null_sink: { label: 'Null Sink', inputs: 1, outputs: 0, params: [STREAM_TYPE_PARAM] },
+  qtgui_time_sink_x: {
+    label: 'QT GUI Time Sink', inputs: 1, outputs: 0, params: [
+      TYPE_PARAM,
+      { id: 'name', label: 'Title', type: 'string', def: 'Scope' },
+      { id: 'size', label: 'Num Points', type: 'number', def: 1024 },
+      { id: 'samp_rate', label: 'Sample Rate', type: 'number', def: 32000 },
+      { id: 'ylabel', label: 'Y Axis Label', type: 'string', def: 'Amplitude', category: 'General' },
+      { id: 'yunit', label: 'Y Axis Unit', type: 'string', def: '', category: 'General' },
+      { id: 'grid', label: 'Grid', type: 'enum', def: 'False', options: BOOL_OPTIONS, category: 'General' },
+      { id: 'autoscale', label: 'Autoscale', type: 'enum', def: 'False', options: BOOL_OPTIONS, category: 'General' },
+      { id: 'ymin', label: 'Y min', type: 'number', def: -1, category: 'General' },
+      { id: 'ymax', label: 'Y max', type: 'number', def: 1, category: 'General' },
+      { id: 'update_time', label: 'Update Period', type: 'number', def: 0.1, category: 'General' },
+      { id: 'tr_mode', label: 'Trigger Mode', type: 'enum', def: 'qtgui.TRIG_MODE_FREE', options: TRIGGER_MODES, category: 'Trigger' },
+      { id: 'tr_slope', label: 'Trigger Slope', type: 'enum', def: 'qtgui.TRIG_SLOPE_POS', options: TRIGGER_SLOPES, category: 'Trigger' },
+      { id: 'tr_level', label: 'Trigger Level', type: 'number', def: 0, category: 'Trigger' },
+      { id: 'tr_delay', label: 'Trigger Delay', type: 'number', def: 0, category: 'Trigger' },
+      { id: 'tr_chan', label: 'Trigger Channel', type: 'number', def: 0, category: 'Trigger' },
+      { id: 'tr_tag', label: 'Trigger Tag Key', type: 'string', def: '', category: 'Trigger' },
+      { id: 'ctrlpanel', label: 'Control Panel', type: 'enum', def: 'False', options: BOOL_OPTIONS, category: 'Config' },
+      { id: 'legend', label: 'Legend', type: 'enum', def: 'True', options: BOOL_OPTIONS, category: 'Config' },
+      { id: 'axislabels', label: 'Axis Labels', type: 'enum', def: 'True', options: BOOL_OPTIONS, category: 'Config' },
+      { id: 'stemplot', label: 'Stem Plot', type: 'enum', def: 'False', options: BOOL_OPTIONS, category: 'Config' },
+      { id: 'label1', label: 'Line 1 Label', type: 'string', def: 'Signal 1', category: 'Config' },
+      { id: 'width1', label: 'Line 1 Width', type: 'number', def: 1, category: 'Config' },
+      { id: 'color1', label: 'Line 1 Color', type: 'enum', def: 'blue', options: LINE_COLORS, category: 'Config' },
+      { id: 'style1', label: 'Line 1 Style', type: 'enum', def: '1', options: LINE_STYLES, category: 'Config' },
+      { id: 'marker1', label: 'Line 1 Marker', type: 'enum', def: '0', options: LINE_MARKERS, category: 'Config' },
+      { id: 'alpha1', label: 'Line 1 Alpha', type: 'number', def: 1, category: 'Config' },
+      { id: 'label2', label: 'Line 2 Label', type: 'string', def: 'Signal 2', category: 'Config',
+        showWhen: p => p.type === 'complex' },
+      { id: 'width2', label: 'Line 2 Width', type: 'number', def: 1, category: 'Config',
+        showWhen: p => p.type === 'complex' },
+      { id: 'color2', label: 'Line 2 Color', type: 'enum', def: 'red', options: LINE_COLORS, category: 'Config',
+        showWhen: p => p.type === 'complex' },
+      { id: 'style2', label: 'Line 2 Style', type: 'enum', def: '1', options: LINE_STYLES, category: 'Config',
+        showWhen: p => p.type === 'complex' },
+      { id: 'marker2', label: 'Line 2 Marker', type: 'enum', def: '0', options: LINE_MARKERS, category: 'Config',
+        showWhen: p => p.type === 'complex' },
+      { id: 'alpha2', label: 'Line 2 Alpha', type: 'number', def: 1, category: 'Config',
+        showWhen: p => p.type === 'complex' },
+    ] },
+  qtgui_freq_sink_x: {
+    label: 'QT GUI Frequency Sink', inputs: 1, outputs: 0, params: [
+      { id: 'name', label: 'Title', type: 'string', def: 'Spectrum' },
+      { id: 'fftsize', label: 'FFT Size', type: 'number', def: 1024 },
+      { id: 'samp_rate', label: 'Sample Rate', type: 'number', def: 32000 },
+      { id: 'fc', label: 'Center Frequency', type: 'number', def: 0 },
+      { id: 'grid', label: 'Grid', type: 'enum', def: 'False', options: BOOL_OPTIONS, category: 'General' },
+      { id: 'autoscale', label: 'Autoscale', type: 'enum', def: 'False', options: BOOL_OPTIONS, category: 'General' },
+      // FFT smoothing alpha, as in GRC: 1 = off, 0.2/0.1/0.05 = low/medium/high.
+      { id: 'average', label: 'Average (1 = off)', type: 'enum', def: '1.0', options: FFT_AVERAGES, category: 'General' },
+      { id: 'ymin', label: 'Y min', type: 'number', def: -140, category: 'General' },
+      { id: 'ymax', label: 'Y max', type: 'number', def: 10, category: 'General' },
+      { id: 'update_time', label: 'Update Period', type: 'number', def: 0.1, category: 'General' },
+      { id: 'tr_mode', label: 'Trigger Mode', type: 'enum', def: 'qtgui.TRIG_MODE_FREE', options: TRIGGER_MODES, category: 'Trigger' },
+      { id: 'tr_level', label: 'Trigger Level', type: 'number', def: 0, category: 'Trigger' },
+      { id: 'tr_chan', label: 'Trigger Channel', type: 'number', def: 0, category: 'Trigger' },
+      { id: 'tr_tag', label: 'Trigger Tag Key', type: 'string', def: '', category: 'Trigger' },
+      { id: 'ctrlpanel', label: 'Control Panel', type: 'enum', def: 'False', options: BOOL_OPTIONS, category: 'Config' },
+      { id: 'legend', label: 'Legend', type: 'enum', def: 'True', options: BOOL_OPTIONS, category: 'Config' },
+      { id: 'axislabels', label: 'Axis Labels', type: 'enum', def: 'True', options: BOOL_OPTIONS, category: 'Config' },
+      { id: 'label1', label: 'Line 1 Label', type: 'string', def: '', category: 'Config' },
+      { id: 'width1', label: 'Line 1 Width', type: 'number', def: 1, category: 'Config' },
+      { id: 'color1', label: 'Line 1 Color', type: 'enum', def: '"blue"', options: LINE_COLORS_Q, category: 'Config' },
+      { id: 'style1', label: 'Line 1 Style', type: 'enum', def: '1', options: LINE_STYLES, category: 'Config' },
+      { id: 'marker1', label: 'Line 1 Marker', type: 'enum', def: '-1', options: LINE_MARKERS, category: 'Config' },
+      { id: 'alpha1', label: 'Line 1 Alpha', type: 'number', def: 1, category: 'Config' },
+    ], dtype: 'complex' },
+  qtgui_const_sink_x: {
+    label: 'QT GUI Constellation Sink', inputs: 1, outputs: 0, params: [
+      { id: 'name', label: 'Title', type: 'string', def: 'Constellation' },
+      { id: 'size', label: 'Num Points', type: 'number', def: 1024 },
+      { id: 'update_time', label: 'Update Period', type: 'number', def: 0.1 },
+      { id: 'autoscale', label: 'Autoscale', type: 'enum', def: 'False', options: BOOL_OPTIONS },
+      { id: 'grid', label: 'Grid', type: 'enum', def: 'False', options: BOOL_OPTIONS },
+      { id: 'xmin', label: 'X min', type: 'number', def: -2 },
+      { id: 'xmax', label: 'X max', type: 'number', def: 2 },
+      { id: 'ymin', label: 'Y min', type: 'number', def: -2 },
+      { id: 'ymax', label: 'Y max', type: 'number', def: 2 },
+      { id: 'tr_mode', label: 'Trigger Mode', type: 'enum', def: 'qtgui.TRIG_MODE_FREE', options: TRIGGER_MODES, category: 'Trigger' },
+      { id: 'tr_slope', label: 'Trigger Slope', type: 'enum', def: 'qtgui.TRIG_SLOPE_POS', options: TRIGGER_SLOPES, category: 'Trigger' },
+      { id: 'tr_level', label: 'Trigger Level', type: 'number', def: 0, category: 'Trigger' },
+      { id: 'tr_chan', label: 'Trigger Channel', type: 'number', def: 0, category: 'Trigger' },
+      { id: 'tr_tag', label: 'Trigger Tag Key', type: 'string', def: '', category: 'Trigger' },
+      { id: 'legend', label: 'Legend', type: 'enum', def: 'True', options: BOOL_OPTIONS, category: 'Config' },
+      { id: 'axislabels', label: 'Axis Labels', type: 'enum', def: 'True', options: BOOL_OPTIONS, category: 'Config' },
+      { id: 'label1', label: 'Line 1 Label', type: 'string', def: '', category: 'Config' },
+      { id: 'width1', label: 'Line 1 Width', type: 'number', def: 1, category: 'Config' },
+      { id: 'color1', label: 'Line 1 Color', type: 'enum', def: '"blue"', options: LINE_COLORS_Q, category: 'Config' },
+      { id: 'style1', label: 'Line 1 Style', type: 'enum', def: '1', options: LINE_STYLES, category: 'Config' },
+      { id: 'marker1', label: 'Line 1 Marker', type: 'enum', def: '0', options: LINE_MARKERS, category: 'Config' },
+      { id: 'alpha1', label: 'Line 1 Alpha', type: 'number', def: 1, category: 'Config' },
+    ], dtype: 'complex' },
+  qtgui_waterfall_sink_x: {
+    label: 'QT GUI Waterfall Sink', inputs: 1, outputs: 0, params: [
+      { id: 'name', label: 'Title', type: 'string', def: 'Waterfall' },
+      { id: 'fftsize', label: 'FFT Size', type: 'number', def: 1024 },
+      { id: 'samp_rate', label: 'Sample Rate', type: 'number', def: 32000 },
+      { id: 'fc', label: 'Center Frequency', type: 'number', def: 0 },
+      { id: 'int_min', label: 'Intensity Min', type: 'number', def: -140, category: 'General' },
+      { id: 'int_max', label: 'Intensity Max', type: 'number', def: 10, category: 'General' },
+      { id: 'grid', label: 'Grid', type: 'enum', def: 'False', options: BOOL_OPTIONS, category: 'General' },
+      { id: 'update_time', label: 'Update Period', type: 'number', def: 0.1, category: 'General' },
+      { id: 'legend', label: 'Legend', type: 'enum', def: 'True', options: BOOL_OPTIONS, category: 'Config' },
+      { id: 'axislabels', label: 'Axis Labels', type: 'enum', def: 'True', options: BOOL_OPTIONS, category: 'Config' },
+      { id: 'label1', label: 'Line 1 Label', type: 'string', def: '', category: 'Config' },
+      { id: 'color1', label: 'Line 1 Color', type: 'enum', def: '0', options: WATERFALL_COLORS, category: 'Config' },
+      { id: 'alpha1', label: 'Line 1 Alpha', type: 'number', def: 1, category: 'Config' },
+    ], dtype: 'complex' },
+};

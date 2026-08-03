@@ -1,0 +1,11 @@
+{
+  "core": ["blocks", "analog", "fft", "filter"],
+  "in_tree_deferred": ["digital", "dtv", "network", "pdu", "vocoder"],
+  "deferred": [
+    "digital", "dtv", "network", "pdu", "vocoder",
+    "rds", "foo", "dvbs2", "dvbs2rx", "satellites", "paint"
+  ],
+  "module_deps": {
+    "satellites": ["pdu"]
+  }
+}

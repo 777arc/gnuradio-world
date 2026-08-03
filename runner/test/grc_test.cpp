@@ -2,7 +2,7 @@
 // (grc_lower). These headers are GNU-Radio-free by design, so this compiles with
 // a plain host compiler:
 //
-//   g++ -std=c++17 -I../src grc_test.cpp -o grc_test && ./grc_test
+//   g++ -std=c++17 -I../src -I../third_party grc_test.cpp -o grc_test && ./grc_test
 //
 #include "grc_yaml.hpp"
 #include "grc_lower.hpp"

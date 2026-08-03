@@ -2,7 +2,7 @@
 // Maps a GRC block id (e.g. "analog_sig_source_x") to a factory that constructs
 // the block from a JSON params object. GUI sink blocks also return their QWidget.
 #pragma once
-#include "json.hpp"
+#include <nlohmann/json.hpp>
 #include <gnuradio/basic_block.h>
 #include <functional>
 #include <map>

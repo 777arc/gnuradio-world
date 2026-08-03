@@ -6,8 +6,8 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { exampleFiles, exampleFilePath } from './example-files.mjs';
+import { editorSource as source } from './editor-contract-source.mjs';
 
-const source = await readFile(new URL('../src/main.ts', import.meta.url), 'utf8');
 const library = JSON.parse(await readFile(
   new URL('../public/blocks.json', import.meta.url), 'utf8'));
 const byId = new Map((library.blocks || []).map(block => [block.id, block]));
@@ -34,8 +34,8 @@ assert.match(source, /function importParams\([^)]*blockId\?: string\)/,
 // ---- the default example waits for the palette ----
 // Loading a flowgraph needs the generated block schemas installed first.
 assert.match(source,
-  /paletteReady\.then\(async \(\) => \{[\s\S]{0,300}loadExampleByName\('PSK_constellation\.grc'\)/,
-  'PSK_constellation.grc must be loaded as the default only after the block library is ready');
+  /paletteReady\.then\(async \(\) => \{[\s\S]{0,300}loadExampleByName\('digital\/psk_constellation\.grc'\)/,
+  'digital/psk_constellation.grc must be loaded as the default only after the block library is ready');
 
 // ---- nothing shipped in the repo uses the deprecated block ----
 for (const name of exampleFiles) {

@@ -33,7 +33,6 @@ type Tok =
   | { t: 'op'; v: string }
   | { t: 'eof' };
 
-const OPS3 = ['**='];                                   // (unused, reserved)
 const OPS2 = ['**', '//', '==', '!=', '<=', '>=', '<<', '>>'];
 const OPS1 = '+-*/%()[]{},:.<>|&^~';
 
@@ -205,7 +204,6 @@ class Parser {
 
 // ------------------------------------------------------- value helpers ----
 
-function isNum(v: Value): v is number { return typeof v === 'number'; }
 function toC(v: Value): Complex {
   if (v instanceof Complex) return v;
   if (typeof v === 'number') return new Complex(v, 0);
@@ -542,7 +540,7 @@ function lowPass(gain: number, fs: number, cutoff: number, transition: number, w
 }
 function rrc(gain: number, fs: number, symRate: number, alpha: number, ntaps: number): number[] {
   const taps = new Array(ntaps).fill(0);
-  const spb = fs / symRate; const scale = 0;
+  const spb = fs / symRate;
   for (let i = 0; i < ntaps; i++) {
     const x1 = Math.PI * (i - ntaps / 2) / spb;
     let num: number, den: number;

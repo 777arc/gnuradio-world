@@ -7,7 +7,7 @@
 // types (int/float/bool/null/string). This is not a general YAML parser — it
 // covers exactly what flowgraphs use.
 
-#include "json.hpp" // nlohmann::json
+#include <nlohmann/json.hpp>
 
 #include <cctype>
 #include <cerrno>

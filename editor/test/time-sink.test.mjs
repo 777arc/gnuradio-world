@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { editorSource as editor } from './editor-contract-source.mjs';
 
-const editor = await readFile(new URL('../src/main.ts', import.meta.url), 'utf8');
 const runner = await readFile(
   new URL('../../runner/src/registry.cpp', import.meta.url), 'utf8');
 

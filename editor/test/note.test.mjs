@@ -7,6 +7,7 @@ import { readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { editorSource as source, markupSource as html } from './editor-contract-source.mjs';
 
 // ---- wrapping (note.ts is TypeScript; bundle it, same as grid.test.mjs) ----
 const out = join(tmpdir(), `note-test-${process.pid}.mjs`);
@@ -35,9 +36,6 @@ for (const line of wrap('the quick brown fox jumps over the lazy dog', 60))
 assert.ok(NOTE_MAX_TEXT_W > 0, 'the note column must have a width');
 
 // ---- editor wiring ----
-const source = await readFile(new URL('../src/main.ts', import.meta.url), 'utf8');
-const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
-
 assert.match(source, /\n\s*note:\s*{[\s\S]*?label: 'Note'/,
   'the Note block must be registered as a hand-written schema (that is what makes it placeable)');
 assert.match(source, /id: 'note'[^}]*multiline: true/,

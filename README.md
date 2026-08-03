@@ -18,16 +18,17 @@ GNU Radio, entirely in your browser — explore the open-source SDR ecosystem wi
 
 ## Limitations
 
-- SDR hardware support coming soon! We want to make sure to get it right the first time
-- No Python blocks, they can be converted to C++ with AI
-- Heir blocks need the C++ template
-- Expressions are supported for block params, but it's a subset of the arbitrary Python native GNU Radio allows, e.g. no firdes(), but simple Python expressions work.
+- Browser sandboxing means native SDR hardware and host-only network/audio devices are unavailable.
+- There is no Python runtime in the browser. Python-only blocks and hierarchies need a C++ implementation.
+- Parameter expressions support a practical Python subset—arithmetic, lists,
+  `math`/`numpy`, and common `firdes` filter designers—but not arbitrary Python.
 
 ## Coming Soon
 
-- Beginner level tutorial where an animated cursor shows you how to add blocks and run the flowgraph and such
-- Method of embedding just the flowgraph and output GUI in a webpage, eg PySDR section, to demonstrate a DSP concept, but with the ability to open the full editor in a new tab
-- 
+- A beginner tutorial with an animated cursor that demonstrates adding blocks
+  and running a flowgraph.
+- An embeddable flowgraph and GUI view for interactive DSP examples, with a link
+  to open the full editor in a new tab.
 
 ## Software stack and developers info
 
@@ -40,7 +41,8 @@ WebAssembly side module, fetched on demand the first time a flowgraph uses one o
 its blocks. The guiding rule is that **everything the browser build needs lives in
 this repository, not in the submodule**, so each one stays pinned to a pristine
 upstream commit and bumping it is a plain `fetch` + `checkout` with nothing to
-rebase. Only a genuine source-level fix justifies a fork, which intend to be merged upstream eventually.
+rebase. Only a genuine source-level fix justifies a fork, and those fixes should
+eventually be merged upstream.
 
 When adding a new OOT to GNU Radio World there are steps to take, and some tweaks to make, they all fall into one of the following buckets:
 
@@ -49,7 +51,7 @@ When adding a new OOT to GNU Radio World there are steps to take, and some tweak
 | **Block metadata** | The `cpp_templates` the factory generator renders into C++, plus anything else the browser needs changed about a block: retyped parameters, a recategorised palette entry, or enum options the vendored C++ doesn't define | `blocks/overlays/gr-<m>/metadata.yml` — one directory per module |
 | **Missing headers and host-only deps** | The `config.h` the module's own CMake would have generated, and browser-safe replacements for anything absent from the WASM sysroot (host networking, locale conversion, audio file I/O) | `blocks/overlays/gr-<m>/shims/` |
 | **Blocks with no C++ upstream** | Python `gr.hier_block2` compositions, Python QWidget GUI panels, and Python-only utility blocks, rebuilt by hand as C++ so the browser gets the same block id | `blocks/overlays/gr-<m>/`, beside that module's metadata; the factory that constructs them is registered in `runner/src/registry.cpp` |
-| **Registration** | That the module exists, that its blocks are fetched on demand rather than always loaded, and any load-order dependency on another on-demand module | `runner/gen_registry.py` |
+| **Registration** | Whether the module is core or fetched on demand, plus any load-order dependency on another side module | `runner/modules.json` |
 | **Build wiring** | The module's include directory and the side-module rule listing which of its sources to compile | `runner/CMakeLists.txt` |
 | **Deliberate omissions** | Blocks that cannot work in a browser sandbox at all — host networking, hardware I/O — get no entry anywhere and simply compile out. They stay visible but greyed out in the palette | *(nothing to write)* |
 

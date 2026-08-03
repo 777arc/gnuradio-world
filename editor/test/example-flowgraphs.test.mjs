@@ -22,6 +22,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { exampleFiles as files, exampleFilePath } from './example-files.mjs';
+import { mainSource } from './editor-contract-source.mjs';
 
 // expr.ts/grc.ts are TypeScript; bundle them to importable mjs (as expr.test.mjs does).
 const out = join(tmpdir(), `examples-test-${process.pid}.mjs`);
@@ -59,8 +60,7 @@ function effectiveDtype(block, def, param) {
 
 // Fail loudly if main.ts's set and this one stop agreeing.
 {
-  const src = await readFile(new URL('../src/main.ts', import.meta.url), 'utf8');
-  const block = src.match(/const EVALUATED_DTYPES = new Set\(\[([\s\S]*?)\]\)/);
+  const block = mainSource.match(/const EVALUATED_DTYPES = new Set\(\[([\s\S]*?)\]\)/);
   assert.ok(block, 'main.ts no longer defines EVALUATED_DTYPES');
   const theirs = new Set([...block[1].matchAll(/'([a-z_]+)'/g)].map(m => m[1]));
   assert.deepEqual([...theirs].sort(), [...EVALUATED_DTYPES].sort(),

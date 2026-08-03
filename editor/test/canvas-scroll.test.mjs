@@ -1,8 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
-
-const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
-const source = await readFile(new URL('../src/main.ts', import.meta.url), 'utf8');
+import { editorSource as source, markupSource as html } from './editor-contract-source.mjs';
 
 assert.match(html, /<div id="canvasScroll">\s*<svg id="svg">/,
   'the canvas svg lives inside a dedicated scrolling container');

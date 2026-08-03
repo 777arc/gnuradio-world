@@ -3,7 +3,7 @@
 // consumes. This is the "generate" step GRC/the editor used to do; kept free of
 // GNU Radio headers so it can be unit-tested natively (see tests).
 
-#include "json.hpp" // nlohmann::json
+#include <nlohmann/json.hpp>
 
 #include <cerrno>
 #include <cstdlib>

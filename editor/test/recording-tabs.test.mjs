@@ -6,9 +6,8 @@
 // URLs with it.
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { editorSource as source, markupSource as html } from './editor-contract-source.mjs';
 
-const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
-const source = await readFile(new URL('../src/main.ts', import.meta.url), 'utf8');
 const timeSelector = await readFile(new URL(
   '../src/recording/pages/recording-view/components/time-selector.tsx', import.meta.url), 'utf8');
 const recordingView = await readFile(new URL(

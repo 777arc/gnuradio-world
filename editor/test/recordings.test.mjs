@@ -1,97 +1,71 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { bundleModule } from './bundle-module.mjs';
+import { mainSource as main } from './editor-contract-source.mjs';
 
-const source = await readFile(new URL('../src/main.ts', import.meta.url), 'utf8');
+const catalog = await bundleModule('../src/recording-catalog.ts', {
+  define: { 'import.meta.env': JSON.stringify({
+    VITE_RECORDINGS_R2_BASE: 'https://recordings.example.test/',
+  }) },
+});
+
+assert.equal(catalog.encodeRecordingPath('collection/a b.sigmf-data'),
+  'collection/a%20b.sigmf-data');
+assert.equal(catalog.indexBytesPerSample('cf32_le'), 8);
+assert.equal(catalog.indexBytesPerSample('ci16'), 4);
+assert.equal(catalog.indexBytesPerSample('rf32'), 4);
+assert.equal(catalog.indexBytesPerSample('bad'), null);
+
+const recording = catalog.recordingFromR2Index({
+  base_filename: 'collection/capture one', datatype: 'ci16_le',
+  sample_rate: 2_000_000, number_of_samples: 100, author: 'GNU Radio',
+});
+assert.ok(recording);
+assert.equal(recording.byteLength, 400, 'byte length is derived when the index omits it');
+assert.equal(recording.downloadUrl,
+  'https://recordings.example.test/collection/capture%20one.sigmf-data');
+assert.equal(recording.metadataUrl,
+  'https://recordings.example.test/collection/capture%20one.sigmf-meta');
+assert.equal(catalog.recordingFromR2Index({ base_filename: '../escape', byte_length: 1 }), null);
+assert.equal(catalog.recordingFromR2Index({ base_filename: 'missing-size' }), null);
+
+assert.deepEqual(catalog.sigmfFileSourceFormat('cf32_le'), { type: 'complex', vlen: 1 });
+assert.deepEqual(catalog.sigmfFileSourceFormat('ci16'), { type: 'short', vlen: 1 });
+assert.deepEqual(catalog.sigmfFileSourceFormat('ru8'), { type: 'byte', vlen: 1 });
+assert.equal(catalog.sigmfFileSourceFormat('ci16_be'), null);
+assert.equal(catalog.isCi16Datatype(' CI16_LE '), true);
+assert.equal(catalog.isCi16Datatype('cf32_le'), false);
+assert.match(catalog.recordingViewUrl(recording.metadataUrl, recording.downloadUrl, recording.name),
+  /^\/recording\/#\/view\/url\/[A-Za-z0-9_-]+\/[A-Za-z0-9_-]+\/collection%2Fcapture%20one$/);
+
+const other = { ...recording, name: 'collection/nested/other' };
+const tree = catalog.buildRecordingTree([recording, other]);
+assert.equal(catalog.recordingTreeCount(tree), 2);
+assert.equal(tree.directories.get('collection').recordings.length, 1);
+assert.equal(tree.directories.get('collection').directories.get('nested').recordings.length, 1);
+assert.equal(catalog.displaySi(1_500_000, 'S/s'), '1.5 MS/s');
+assert.equal(catalog.displayBytes(2048), '2.0 KiB');
+
+// Browser integration contracts not represented by the pure catalog module.
 const runnerHtml = await readFile(new URL('../../runner/src/runner.html', import.meta.url), 'utf8');
 const readerWorker = await readFile(
   new URL('../../runner/src/browser_file_reader.js', import.meta.url), 'utf8');
+assert.match(main, /converterId = 'blocks_interleaved_short_to_complex'/);
+assert.match(main, /scale_factor: 32767\.0/);
+assert.match(main, /bindFlowgraphRecordings\(fg,/);
+assert.match(main, /type RunnerInputFile[\s\S]*?kind: 'local'[\s\S]*?kind: 'http'/);
+assert.doesNotMatch(main, /new Blob\(chunks/);
+assert.match(main, /fetch\(recordingsBucketUrl\('index\.json'\), \{ cache: 'no-store' \}\)/);
+assert.doesNotMatch(main, /['"]\/example_recordings/);
+assert.match(main, /const LOCAL_FILE_PARAMS[\s\S]*?paint_image_source: 'image_file'/);
+assert.doesNotMatch(runnerHtml, /\.arrayBuffer\(\)/);
+assert.match(readerWorker, /MAX_CHUNK_BYTES = 2 \* 1024 \* 1024/);
+assert.match(readerWorker, /Range: `bytes=\$\{start\}-\$\{end - 1\}`/);
 
-assert.match(source, /function isCi16Datatype\([^)]*\)[\s\S]*?\^ci16\(\?:_le\)\?\$/,
-  'ci16 and ci16_le recordings must be recognized');
-assert.match(source, /converterId = 'blocks_interleaved_short_to_complex'/,
-  'ci16 recording insertion must use IShort To Complex');
-assert.match(source, /vector_input: 'False'/,
-  'IShort To Complex must accept the File Source scalar stream');
-assert.match(source, /scale_factor: 32767\.0/,
-  'automatically inserted IShort To Complex must normalize ci16 samples');
-assert.match(source, /conns\.push\(\{ from: block\.uid, fp: 0, to: converter\.uid, tp: 0 \}\)/,
-  'the File Source must be connected to IShort To Complex');
-assert.match(source, /function flowgraphRecordingPaths\([^)]*\)[\s\S]*?blocks_file_source[\s\S]*?\/recordings\//,
-  'example flowgraphs must discover recording-backed File Sources');
-assert.match(source, /loadFlowgraphAnimated\(fg\)[\s\S]*?bindFlowgraphRecordings\(fg,/,
-  'opening an example flowgraph must bind its referenced recordings');
-assert.match(source, /type RunnerInputFile[\s\S]*?kind: 'local'[\s\S]*?kind: 'http'/,
-  'the runner handoff must support local files and remote range sources');
-assert.match(source, /remoteRecordingsByPath[\s\S]*?bindRemoteRecording/,
-  'recordings must be bound as remote descriptors rather than complete Blobs');
-assert.doesNotMatch(source, /new Blob\(chunks/,
-  'the editor must never accumulate a complete recording Blob');
-assert.match(source, /native\.type = 'file'[\s\S]*?localFilesByToken\.set/,
-  'File Source properties must bind a browser-selected local File');
-assert.match(source, /fileOverrides\.set\(block\.name, path\)/,
-  'local browser paths must only override the temporary run document');
-assert.match(source, /badge\.textContent = 'Stream'/,
-  'recording cards must describe bounded streaming rather than whole downloads');
-assert.doesNotMatch(runnerHtml, /\.arrayBuffer\(\)/,
-  'runner startup must not materialize a complete browser File');
-assert.match(readerWorker, /MAX_CHUNK_BYTES = 2 \* 1024 \* 1024/,
-  'browser reader chunks must have a fixed memory bound');
-assert.match(readerWorker, /Range: `bytes=\$\{start\}-\$\{end - 1\}`/,
-  'remote recordings must use HTTP byte ranges');
-assert.match(readerWorker, /response\.status !== 206[\s\S]*?response\.body\?\.cancel/,
-  'a server that ignores Range must be rejected before its body is consumed');
-
-// Discovery and both recording objects come from the live R2 bucket. Nothing
-// under example_recordings in the repository or assembled Pages site is used.
-assert.match(source, /fetch\(recordingsBucketUrl\('index\.json'\), \{ cache: 'no-store' \}\)/,
-  'recording discovery must fetch the live R2 index');
-assert.match(source, /metaUrl = recording\.metadataUrl;\s*dataUrl = new URL\(recording\.downloadUrl,/,
-  'the recording-view route must use R2 URLs for both objects');
-assert.match(source, /addDownloadLink\('meta file', recording\.metadataUrl, recording\.metaFile\)/,
-  'the metadata download must point to R2');
-assert.doesNotMatch(source, /['"]\/example_recordings/,
-  'the editor must not read repository or Pages recording files');
-assert.match(source, /base_filename[\s\S]*?number_of_samples[\s\S]*?recordingFromR2Index/,
-  'the editor must normalize the Worker index schema');
-// Collections use nested R2 keys, so URLs must be encoded a segment at a time.
-assert.match(source, /const encodeRecordingPath = \(path: string\): string =>\s*\n?\s*path\.split\('\/'\)\.map\(encodeURIComponent\)\.join\('\/'\)/,
-  'recording URLs must be encoded per path segment, not with encodeURIComponent');
-assert.match(source, /\$\{RECORDING_VIEW_BASE\}\/view\/url\/\$\{base64Url\(metaUrl\)\}\/\$\{base64Url\(dataUrl\)\}\//,
-  "the recording-view route must use its 'url' data source, base64url-encoded");
-// Hash routing: Cloudflare Pages serves /recording/ as static files and cannot
-// answer arbitrary paths under it with index.html, so the route goes after '#'.
-assert.match(source, /const RECORDING_VIEW_BASE = '\/recording\/#'/,
-  'the recording-view route must ride in the URL fragment, not the path');
-// The recording view is reached through its workspace tab now; the palette
-// entry offers only the two download links.
-assert.doesNotMatch(source, /open in IQEngine/,
-  'the recordings palette must not link out to a separate viewer in a new tab');
-
-// A file picked from this computer is not only for recordings: gr-paint's Image
-// File Source binds a picture through the same session-only token, so one table
-// drives the Browse control, the Run-path rewrite and the runner handoff for
-// both blocks.
-assert.match(source,
-  /const LOCAL_FILE_PARAMS[\s\S]*?blocks_file_source: 'file'[\s\S]*?paint_image_source: 'image_file'/,
-  'blocks that name a browser-opened file must share one parameter table');
-assert.match(source, /LOCAL_FILE_PARAMS\[inst\.id\] === p\.id && p\.dtype === 'file_open'/,
-  'every block in that table must get the Browse control');
-assert.match(source,
-  /const param = LOCAL_FILE_PARAMS\[block\.id\];\s*\n\s*if \(path !== undefined && param\)\s*block\.parameters\[param\] = path;/,
-  'the run document must be rewritten through each block\'s own file parameter');
-// A retyped image_file (it was `string` while the block only accepted a URL)
-// silently removes that Browse control, which is exactly the regression to
-// catch here rather than in a browser.
 const library = JSON.parse(await readFile(
   new URL('../public/blocks.json', import.meta.url), 'utf8'));
 const imageFile = (library.blocks || []).find(block => block.id === 'paint_image_source')
   ?.params.find(param => param.id === 'image_file');
-assert.equal(imageFile?.dtype, 'file_open',
-  'Image File Source must keep the file_open dtype the picker keys on');
-assert.match(runnerHtml, /const imageSourceBlob = async name => \{[\s\S]*?__grInputSources/,
-  'a locally bound image must be read from the page instead of fetched');
-assert.match(runnerHtml,
-  /const decodeImageSourceBlob[\s\S]*?createImageBitmap\(blob\)[\s\S]*?new Image\(\)/,
-  'an SVG createImageBitmap refuses must fall back to an <img> decode');
+assert.equal(imageFile?.dtype, 'file_open');
 
-console.log('checked ci16 recording block-chain insertion');
+console.log('checked recording catalog, formats, and streaming integration');

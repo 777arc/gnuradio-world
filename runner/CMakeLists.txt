@@ -26,6 +26,26 @@ set(BUILDGR ${WASM_ROOT}/gr/build-gr)
 set(SYSROOT ${WASM_ROOT}/sysroot)
 set(QTGUI_TS ${WASM_ROOT}/qtgui/build/libgr_qtgui_ts.a)
 
+# Module topology is shared with gen_registry.py. CMake still owns the concrete
+# source lists below, while modules.json owns which categories are core/deferred.
+file(READ ${CMAKE_CURRENT_SOURCE_DIR}/modules.json MODULE_CONFIG_JSON)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+  ${CMAKE_CURRENT_SOURCE_DIR}/modules.json)
+function(json_array_to_list output key)
+  string(JSON count LENGTH "${MODULE_CONFIG_JSON}" ${key})
+  set(values "")
+  if(count GREATER 0)
+    math(EXPR last "${count} - 1")
+    foreach(index RANGE 0 ${last})
+      string(JSON value GET "${MODULE_CONFIG_JSON}" ${key} ${index})
+      list(APPEND values ${value})
+    endforeach()
+  endif()
+  set(${output} ${values} PARENT_SCOPE)
+endfunction()
+json_array_to_list(IN_TREE_DEFERRED_MODULES in_tree_deferred)
+json_array_to_list(ALL_DEFERRED_MODULES deferred)
+
 # Hand-written block sources live outside runner/ so that runner/src/ holds the
 # app and the generated factories only. blocks/src/ is what is not owned by any
 # one vendored module; blocks/overlays/gr-<m>/ is that module's browser-side
@@ -38,6 +58,7 @@ file(GLOB BLOCK_OVERLAY_DIRS ${BLOCKS}/overlays/gr-*)
 # from the generated registrar that constructs it.
 set(GR_INCLUDE_DIRS
   ${CMAKE_CURRENT_SOURCE_DIR}/src
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party
   ${BLOCKS}/src
   ${BLOCK_OVERLAY_DIRS}
   ${GR}/gnuradio-runtime/include ${GR}/gr-blocks/include ${GR}/gr-fft/include
@@ -165,39 +186,50 @@ set_property(TARGET runner APPEND PROPERTY LINK_DEPENDS
 # -O2 because these are the on-demand download payloads. No Qt — the block
 # factories construct GR blocks only; GUI sinks stay in the core module.
 # ---------------------------------------------------------------------------
-set(DEFERRED_MODULES digital dtv network pdu vocoder)
-
 # Assemble -I flags for the raw em++ side-module compile.
 set(SIDE_INCLUDE_FLAGS "")
 foreach(dir ${GR_INCLUDE_DIRS})
   list(APPEND SIDE_INCLUDE_FLAGS -I${dir})
 endforeach()
 
-set(SIDE_MODULE_OUTPUTS "")
-foreach(m ${DEFERRED_MODULES})
-  set(src ${CMAKE_CURRENT_SOURCE_DIR}/src/generated_registry_${m}.cpp)
-  set(lib ${BUILDGR}/gr-${m}/lib/libgnuradio-${m}.a)
-  set(out ${CMAKE_CURRENT_BINARY_DIR}/${m}.wasm)
+# Every ordinary side module uses the same Emscripten ABI and exception flags.
+# Keep that contract in one helper so a new category cannot quietly diverge.
+function(add_side_module module)
+  cmake_parse_arguments(SIDE "" "" "SOURCES;INCLUDE_DIRS;DEPENDS" ${ARGN})
+  set(local_include_flags "")
+  foreach(dir ${SIDE_INCLUDE_DIRS})
+    list(APPEND local_include_flags -I${dir})
+  endforeach()
+  set(out ${CMAKE_CURRENT_BINARY_DIR}/${module}.wasm)
   add_custom_command(
     OUTPUT ${out}
     COMMAND ${CMAKE_CXX_COMPILER}
       -sSIDE_MODULE=1 -pthread -fPIC -Oz -std=c++17
       -sNO_DISABLE_EXCEPTION_CATCHING
-      # Must match the main module's ABI: Qt links the main with WASM_BIGINT, so
-      # i64 params are passed natively. Without this the side module legalises i64
-      # into two i32s and shared functions (e.g. nlohmann dump_integer<uint64>)
-      # fail WebAssembly.instantiate with an imported-function type mismatch.
+      # Must match the Qt-linked main module's i64 ABI.
       -sWASM_BIGINT=1
+      ${local_include_flags}
       ${SIDE_INCLUDE_FLAGS}
-      ${src}
-      ${lib}
+      ${SIDE_SOURCES}
       -o ${out}
-    DEPENDS ${src} ${lib}
+    DEPENDS ${SIDE_SOURCES} ${SIDE_DEPENDS}
             ${CMAKE_CURRENT_SOURCE_DIR}/src/registry_helpers.hpp
             ${CMAKE_CURRENT_SOURCE_DIR}/src/registry.hpp
-    COMMENT "Building category side module ${m}.wasm"
+    COMMENT "Building category side module ${module}.wasm"
+    COMMAND_EXPAND_LISTS
     VERBATIM)
   list(APPEND SIDE_MODULE_OUTPUTS ${out})
+  set(SIDE_MODULE_OUTPUTS ${SIDE_MODULE_OUTPUTS} PARENT_SCOPE)
+  list(APPEND SIDE_MODULE_NAMES ${module})
+  set(SIDE_MODULE_NAMES ${SIDE_MODULE_NAMES} PARENT_SCOPE)
+endfunction()
+
+set(SIDE_MODULE_OUTPUTS "")
+set(SIDE_MODULE_NAMES "")
+foreach(m ${IN_TREE_DEFERRED_MODULES})
+  set(src ${CMAKE_CURRENT_SOURCE_DIR}/src/generated_registry_${m}.cpp)
+  set(lib ${BUILDGR}/gr-${m}/lib/libgnuradio-${m}.a)
+  add_side_module(${m} SOURCES ${src} ${lib})
 endforeach()
 
 # gr-rds is an out-of-tree module: it is NOT built by the gr/build-gr
@@ -216,25 +248,10 @@ set(RDS_SOURCES
   ${RDS_LIB}/encoder_impl.cc
   ${RDS_LIB}/parser_impl.cc
   ${RDS_LIB}/tag_to_msg_impl.cc)
-set(rds_out ${CMAKE_CURRENT_BINARY_DIR}/rds.wasm)
-add_custom_command(
-  OUTPUT ${rds_out}
-  COMMAND ${CMAKE_CXX_COMPILER}
-    -sSIDE_MODULE=1 -pthread -fPIC -Oz -std=c++17
-    -sNO_DISABLE_EXCEPTION_CATCHING
-    -sWASM_BIGINT=1
-    -I${RDS_WASM_SHIMS}
-    ${SIDE_INCLUDE_FLAGS}
-    ${RDS_SOURCES}
-    -o ${rds_out}
-  DEPENDS ${RDS_SOURCES}
-          ${RDS_WASM_SHIMS}/config.h
-          ${RDS_WASM_SHIMS}/boost/locale.hpp
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/registry_helpers.hpp
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/registry.hpp
-  COMMENT "Building category side module rds.wasm (out-of-tree gr-rds sources)"
-  VERBATIM)
-list(APPEND SIDE_MODULE_OUTPUTS ${rds_out})
+add_side_module(rds
+  SOURCES ${RDS_SOURCES}
+  INCLUDE_DIRS ${RDS_WASM_SHIMS}
+  DEPENDS ${RDS_WASM_SHIMS}/config.h ${RDS_WASM_SHIMS}/boost/locale.hpp)
 
 # gr-foo: another out-of-tree module, handled exactly like gr-rds above — its own
 # lib/*.cc are compiled straight into foo.wasm. selector/valve are Python
@@ -255,24 +272,10 @@ set(FOO_SOURCES
   ${FOO_LIB}/random_periodic_msg_source_impl.cc
   ${FOO_LIB}/rtt_measure_impl.cc
   ${FOO_LIB}/wireshark_connector_impl.cc)
-set(foo_out ${CMAKE_CURRENT_BINARY_DIR}/foo.wasm)
-add_custom_command(
-  OUTPUT ${foo_out}
-  COMMAND ${CMAKE_CXX_COMPILER}
-    -sSIDE_MODULE=1 -pthread -fPIC -Oz -std=c++17
-    -sNO_DISABLE_EXCEPTION_CATCHING
-    -sWASM_BIGINT=1
-    -I${FOO_WASM_SHIMS}
-    ${SIDE_INCLUDE_FLAGS}
-    ${FOO_SOURCES}
-    -o ${foo_out}
-  DEPENDS ${FOO_SOURCES}
-          ${FOO_WASM_SHIMS}/config.h
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/registry_helpers.hpp
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/registry.hpp
-  COMMENT "Building category side module foo.wasm (out-of-tree gr-foo sources)"
-  VERBATIM)
-list(APPEND SIDE_MODULE_OUTPUTS ${foo_out})
+add_side_module(foo
+  SOURCES ${FOO_SOURCES}
+  INCLUDE_DIRS ${FOO_WASM_SHIMS}
+  DEPENDS ${FOO_WASM_SHIMS}/config.h)
 
 # gr-dvbs2 (drmpeg): another out-of-tree module, same treatment. bbheader_source
 # is excluded — it is a UDP transport-stream source built on Boost.Asio (host
@@ -293,24 +296,10 @@ set(DVBS2_SOURCES
   ${DVBS2_LIB}/interleaver_bb_impl.cc
   ${DVBS2_LIB}/modulator_bc_impl.cc
   ${DVBS2_LIB}/physical_cc_impl.cc)
-set(dvbs2_out ${CMAKE_CURRENT_BINARY_DIR}/dvbs2.wasm)
-add_custom_command(
-  OUTPUT ${dvbs2_out}
-  COMMAND ${CMAKE_CXX_COMPILER}
-    -sSIDE_MODULE=1 -pthread -fPIC -Oz -std=c++17
-    -sNO_DISABLE_EXCEPTION_CATCHING
-    -sWASM_BIGINT=1
-    -I${DVBS2_WASM_SHIMS}
-    ${SIDE_INCLUDE_FLAGS}
-    ${DVBS2_SOURCES}
-    -o ${dvbs2_out}
-  DEPENDS ${DVBS2_SOURCES}
-          ${DVBS2_WASM_SHIMS}/config.h
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/registry_helpers.hpp
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/registry.hpp
-  COMMENT "Building category side module dvbs2.wasm (out-of-tree gr-dvbs2 sources)"
-  VERBATIM)
-list(APPEND SIDE_MODULE_OUTPUTS ${dvbs2_out})
+add_side_module(dvbs2
+  SOURCES ${DVBS2_SOURCES}
+  INCLUDE_DIRS ${DVBS2_WASM_SHIMS}
+  DEPENDS ${DVBS2_WASM_SHIMS}/config.h)
 
 # gr-dvbs2rx (drmpeg): the DVB-S2/T2 receive-side FEC decoders (bbdeheader,
 # bbdescrambler, bch_decoder, ldpc_decoder). Another OOT module, same treatment.
@@ -328,24 +317,10 @@ set(DVBS2RX_SOURCES
   ${DVBS2RX_LIB}/bbdescrambler_bb_impl.cc
   ${DVBS2RX_LIB}/bch_decoder_bb_impl.cc
   ${DVBS2RX_LIB}/ldpc_decoder_cb_impl.cc)
-set(dvbs2rx_out ${CMAKE_CURRENT_BINARY_DIR}/dvbs2rx.wasm)
-add_custom_command(
-  OUTPUT ${dvbs2rx_out}
-  COMMAND ${CMAKE_CXX_COMPILER}
-    -sSIDE_MODULE=1 -pthread -fPIC -Oz -std=c++17
-    -sNO_DISABLE_EXCEPTION_CATCHING
-    -sWASM_BIGINT=1
-    -I${DVBS2RX_WASM_SHIMS}
-    ${SIDE_INCLUDE_FLAGS}
-    ${DVBS2RX_SOURCES}
-    -o ${dvbs2rx_out}
-  DEPENDS ${DVBS2RX_SOURCES}
-          ${DVBS2RX_WASM_SHIMS}/config.h
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/registry_helpers.hpp
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/registry.hpp
-  COMMENT "Building category side module dvbs2rx.wasm (out-of-tree gr-dvbs2rx sources)"
-  VERBATIM)
-list(APPEND SIDE_MODULE_OUTPUTS ${dvbs2rx_out})
+add_side_module(dvbs2rx
+  SOURCES ${DVBS2RX_SOURCES}
+  INCLUDE_DIRS ${DVBS2RX_WASM_SHIMS}
+  DEPENDS ${DVBS2RX_WASM_SHIMS}/config.h)
 
 # gr-paint (drmpeg): the spectrum painter, which turns a stream of image luma
 # bytes into a complex signal whose spectrogram draws the picture. One C++ block
@@ -360,22 +335,7 @@ set(PAINT_LIB ${WORLD}/gr-paint/lib)
 set(PAINT_SOURCES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/generated_registry_paint.cpp
   ${PAINT_LIB}/paint_bc_impl.cc)
-set(paint_out ${CMAKE_CURRENT_BINARY_DIR}/paint.wasm)
-add_custom_command(
-  OUTPUT ${paint_out}
-  COMMAND ${CMAKE_CXX_COMPILER}
-    -sSIDE_MODULE=1 -pthread -fPIC -Oz -std=c++17
-    -sNO_DISABLE_EXCEPTION_CATCHING
-    -sWASM_BIGINT=1
-    ${SIDE_INCLUDE_FLAGS}
-    ${PAINT_SOURCES}
-    -o ${paint_out}
-  DEPENDS ${PAINT_SOURCES}
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/registry_helpers.hpp
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/registry.hpp
-  COMMENT "Building category side module paint.wasm (out-of-tree gr-paint sources)"
-  VERBATIM)
-list(APPEND SIDE_MODULE_OUTPUTS ${paint_out})
+add_side_module(paint SOURCES ${PAINT_SOURCES})
 
 # gr-satellites: telemetry framing, coding, FEC, and utility blocks. Like the
 # other OOT modules, compile its implementation and bundled C/C++ codec sources
@@ -474,6 +434,19 @@ add_custom_command(
   COMMAND_EXPAND_LISTS
   VERBATIM)
 list(APPEND SIDE_MODULE_OUTPUTS ${satellites_out})
+list(APPEND SIDE_MODULE_NAMES satellites)
+
+# Fail at configure time if modules.json names a deferred category that has no
+# build rule here, or if a build rule was added without registering its topology.
+set(expected_side_modules ${ALL_DEFERRED_MODULES})
+set(actual_side_modules ${SIDE_MODULE_NAMES})
+list(SORT expected_side_modules)
+list(SORT actual_side_modules)
+if(NOT "${actual_side_modules}" STREQUAL "${expected_side_modules}")
+  message(FATAL_ERROR
+    "Deferred module mismatch: modules.json=[${expected_side_modules}], "
+    "CMake=[${actual_side_modules}]")
+endif()
 
 add_custom_target(side_modules ALL DEPENDS ${SIDE_MODULE_OUTPUTS})
 add_dependencies(runner side_modules)

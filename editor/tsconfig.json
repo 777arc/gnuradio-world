@@ -1,5 +1,6 @@
 { "compilerOptions": { "target": "ES2020", "module": "ESNext", "moduleResolution": "bundler",
-  "strict": true, "skipLibCheck": true, "lib": ["ES2020","DOM","DOM.Iterable"], "types": [] },
+  "strict": true, "noUnusedLocals": true, "noUnusedParameters": true,
+  "skipLibCheck": true, "lib": ["ES2020","DOM","DOM.Iterable"], "types": ["vite/client"] },
   "include": ["src"],
   "//": "src/recording is vendored IQEngine code with its own, far looser tsconfig; strict here is for the editor's own sources.",
   "exclude": ["src/recording"] }

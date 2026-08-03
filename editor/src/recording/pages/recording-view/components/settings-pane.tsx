@@ -50,8 +50,14 @@ const SettingsPane = ({ currentFFT, currentTab, setCurrentTab }: SettingsPanePro
     let metaClone = JSON.parse(JSON.stringify(context.meta));
     delete metaClone['dataClient'];
     const a = document.createElement('a');
+    const sampleBytes = new Uint8Array(cursorContext.cursorData.byteLength);
+    sampleBytes.set(new Uint8Array(
+      cursorContext.cursorData.buffer,
+      cursorContext.cursorData.byteOffset,
+      cursorContext.cursorData.byteLength,
+    ));
     const blobUrl = window.URL.createObjectURL(
-      new Blob([cursorContext.cursorData], { type: 'application/octet-stream' })
+      new Blob([sampleBytes], { type: 'application/octet-stream' })
     );
     a.href = blobUrl;
     a.download = 'trimmedSamples.sigmf-data';

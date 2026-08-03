@@ -12,409 +12,51 @@ import { wrapNoteText, NOTE_FONT_SIZE } from './note';
 import { EXAMPLES_REPO, examplePath, newExampleFileUrl, sanitizeExampleName } from './contribute';
 import aboutHtml from './about.html?raw';
 
-type ParamType = 'number' | 'string' | 'enum';
-// `raw` marks a GRC dtype: raw parameter — free-form Python (vectors, matrices).
-// Like numeric params these are evaluated before the flowgraph goes to the runner.
-// `dtype` keeps the original GRC dtype (only the generated blocks carry one); the
-// block face uses it to pick a truncation style for long values.
-interface ParamDef {
-  id: string; label: string; type: ParamType; def: any; options?: string[];
-  optionLabels?: string[];
-  category?: string; hide?: string; hideIfEmpty?: boolean; raw?: boolean; dtype?: string;
-  optionAttributes?: Record<string, string[]>;
-  showWhen?: (params: Record<string, any>) => boolean;
-  // Free-form prose (the Note block's text): edited in a textarea so it can hold
-  // line breaks, which .grc round-trips as a double-quoted `\n` scalar.
-  multiline?: boolean;
-}
-interface PortTemplate {
-  dtype: string;
-  vlen: string;
-  domain: string;
-  id: string;
-  label: string;
-  multiplicity: string;
-  optional: boolean;
-  hide: string | boolean;
-}
-interface ResolvedPort {
-  dtype: string;
-  vlen: number | string;
-  domain: string;
-  id: string;
-  name: string;
-  streamIndex: number;
-  optional: boolean;
-  hidden: boolean;
-}
-// inTypes/outTypes give per-port dtypes (for converters); otherwise ports follow the
-// block's `type` param (complex/float) if it has one, else `dtype` (default complex).
-interface RunnableDef {
-  label: string; inputs: number; outputs: number; params: ParamDef[];
-  documentation?: string; apiDocumentation?: string; wikiUrl?: string;
-  dtype?: string; inTypes?: string[]; outTypes?: string[];
-  inDomains?: string[]; outDomains?: string[]; inIds?: string[]; outIds?: string[];
-  inLabels?: string[]; outLabels?: string[];
-  inLabelBase?: string; outLabelBase?: string;
-  inStreamIndices?: number[]; outStreamIndices?: number[];
-  inputTemplates?: PortTemplate[]; outputTemplates?: PortTemplate[];
-}
-
-// Generated block-library metadata. The editor is served from the site root,
-// so blocks.json (Vite `public/`) sits next to index.html.
-const BLOCKS_URL = '/blocks.json';
-
-// GRC dtype -> port colour (from grc/core/Constants.py).
-const DTYPE_COLOR: Record<string, string> = {
-  complex: '#2196F3', float: '#F57C00', int: '#009688',
-  short: '#FFEB3B', byte: '#D500F9', message: '#BDBDBD', '': '#ffffff',
-};
-
-// A "type" selector shared by the type-parameterized blocks (like GRC's io-type param).
-const TYPE_PARAM: ParamDef = { id: 'type', label: 'Type', type: 'enum', def: 'complex', options: ['complex', 'float'], hide: 'part' };
-const INTEGER_TYPE_PARAM: ParamDef = { id: 'type', label: 'Type', type: 'enum', def: 'byte', options: ['byte', 'short', 'int'], hide: 'part' };
-const STREAM_TYPE_PARAM: ParamDef = { id: 'type', label: 'Type', type: 'enum', def: 'complex', options: ['complex', 'float', 'int', 'short', 'byte'], hide: 'part' };
-// GRC-native enum vocabularies (values stored/serialized verbatim, matching
-// grc block YAML so saved .grc is byte-compatible with desktop GRC).
-const BOOL_OPTIONS = ['True', 'False'];
-const TRIGGER_MODES = ['qtgui.TRIG_MODE_FREE', 'qtgui.TRIG_MODE_AUTO', 'qtgui.TRIG_MODE_NORM', 'qtgui.TRIG_MODE_TAG'];
-const TRIGGER_SLOPES = ['qtgui.TRIG_SLOPE_POS', 'qtgui.TRIG_SLOPE_NEG'];
-const LINE_COLORS = ['blue', 'red', 'green', 'black', 'cyan', 'magenta', 'yellow', 'dark red', 'dark green', 'dark blue'];
-// The frequency/constellation sinks store colours as quoted strings in GRC.
-const LINE_COLORS_Q = LINE_COLORS.map(c => `"${c}"`);
-const LINE_STYLES = ['1', '2', '3', '4', '5', '0'];
-// GRC's frequency-sink Average options (None / Low / Medium / High smoothing).
-const FFT_AVERAGES = ['1.0', '0.2', '0.1', '0.05'];
-const LINE_MARKERS = ['0', '1', '2', '3', '4', '6', '7', '8', '9', '-1'];
-// Waterfall intensity color-map ids (match WaterfallDisplayPlot / GRC):
-// 0 Multi Color, 1 White Hot, 2 Black Hot, 3 Incandescent, 5 Sunset, 6 Cool.
-const WATERFALL_COLORS = ['0', '1', '2', '3', '5', '6'];
-
-// Curated schemas for blocks the WASM runner registry supports. Param names (and the
-// `type` values complex/float) match the runner's factories exactly.
-const RUNNABLE: Record<string, RunnableDef> = {
-  // ---- flowgraph options ----
-  // GRC's per-flowgraph Options block: identification metadata for the graph.
-  // Exactly one is auto-inserted per flowgraph (see ensureOptionsBlock). It has
-  // no ports and becomes the top-level `options:` block in the saved .grc.
-  // Title, Author, and Description are an intentional exception to blank-value
-  // hiding: their labels remain visible on the Options block even when empty.
-  options: {
-    label: 'Options', inputs: 0, outputs: 0, params: [
-      { id: 'title', label: 'Title', type: 'string', def: '' },
-      { id: 'author', label: 'Author', type: 'string', def: '' },
-      { id: 'copyright', label: 'Copyright', type: 'string', def: '', hideIfEmpty: true },
-      { id: 'description', label: 'Description', type: 'string', def: '' },
-    ],
-  },
-  // GRC's canvas annotation. It has no GNU Radio block behind it — the runner
-  // drops it while lowering, the same way it drops `options` and `variable` —
-  // so a hand-written schema here is all the support it needs. Its text is the
-  // block's whole body, rendered wrapped (see noteGeom).
-  note: {
-    label: 'Note', inputs: 0, outputs: 0, params: [
-      { id: 'note', label: 'Note', type: 'string', def: '', multiline: true },
-    ],
-  },
-  // ---- sources ----
-  analog_sig_source_x: {
-    label: 'Signal Source', inputs: 0, outputs: 1, params: [
-      TYPE_PARAM,
-      { id: 'samp_rate', label: 'Sample Rate', type: 'number', def: 32000 },
-      { id: 'waveform', label: 'Waveform', type: 'enum', def: 'analog.GR_COS_WAVE',
-        options: ['analog.GR_CONST_WAVE', 'analog.GR_SIN_WAVE', 'analog.GR_COS_WAVE', 'analog.GR_SQR_WAVE', 'analog.GR_TRI_WAVE', 'analog.GR_SAW_WAVE'] },
-      { id: 'frequency', label: 'Frequency', type: 'number', def: 2000 },
-      { id: 'amplitude', label: 'Amplitude', type: 'number', def: 1.0 },
-    ],
-  },
-  analog_noise_source_x: {
-    label: 'Noise Source', inputs: 0, outputs: 1, params: [
-      TYPE_PARAM,
-      { id: 'amplitude', label: 'Amplitude', type: 'number', def: 1.0 },
-      { id: 'seed', label: 'Seed', type: 'number', def: 0 }] },
-  analog_random_source_x: {
-    label: 'Random Source', inputs: 0, outputs: 1, params: [
-      INTEGER_TYPE_PARAM,
-      { id: 'min', label: 'Minimum', type: 'number', def: 0 },
-      { id: 'max', label: 'Maximum', type: 'number', def: 2 },
-      { id: 'num_samps', label: 'Num Samples', type: 'number', def: 1000 },
-      { id: 'repeat', label: 'Repeat', type: 'enum', def: 'True', options: BOOL_OPTIONS },
-    ],
-  },
-  analog_random_uniform_source_x: {
-    label: 'Random Uniform Source', inputs: 0, outputs: 1, params: [
-      INTEGER_TYPE_PARAM,
-      { id: 'minimum', label: 'Minimum', type: 'number', def: 0 },
-      { id: 'maximum', label: 'Maximum', type: 'number', def: 2 },
-      { id: 'seed', label: 'Seed', type: 'number', def: 0 },
-    ],
-  },
-  analog_const_source_x: {
-    label: 'Constant Source', inputs: 0, outputs: 1, params: [
-      { id: 'type', label: 'Type', type: 'enum', def: 'complex', options: ['complex', 'float', 'int', 'short', 'byte'] },
-      { id: 'const', label: 'Constant', type: 'string', def: '0' },
-    ],
-  },
-  blocks_null_source: { label: 'Null Source', inputs: 0, outputs: 1, params: [STREAM_TYPE_PARAM] },
-  blocks_swapiq: {
-    label: 'Swap IQ', inputs: 1, outputs: 1, params: [
-      { id: 'datatype', label: 'Input Type', type: 'enum', def: 'complex',
-        options: ['complex', 'short', 'byte'] },
-    ],
-    inTypes: ['$datatype'], outTypes: ['$datatype'],
-  },
-  ival_decimator: {
-    label: 'Interleaved Stream Decimator', inputs: 1, outputs: 1, params: [
-      { id: 'datatype', label: 'Input Type', type: 'enum', def: 'byte',
-        options: ['byte', 'short'] },
-      { id: 'decimation', label: 'Decimation', type: 'number', def: 1 },
-    ],
-    inTypes: ['$datatype'], outTypes: ['$datatype'],
-  },
-  digital_psk_mod: {
-    label: 'PSK Mod', inputs: 1, outputs: 1, params: [
-      { id: 'constellation_points', label: 'Constellation Points', type: 'number', def: 8 },
-      { id: 'mod_code', label: 'Gray Code', type: 'enum', def: '"gray"', options: ['"gray"', '"none"'] },
-      { id: 'differential', label: 'Differential', type: 'enum', def: 'True', options: BOOL_OPTIONS },
-      { id: 'samples_per_symbol', label: 'Samples/Symbol', type: 'number', def: 2 },
-      { id: 'excess_bw', label: 'Excess BW', type: 'number', def: 0.35 },
-    ],
-    inTypes: ['byte'], outTypes: ['complex'],
-  },
-  // ---- flow control ----
-  // Throttle (blocks_throttle2) has no hand-written entry: the generated schema
-  // already matches upstream, and the deprecated blocks_throttle it replaced is
-  // kept loadable through LEGACY_PARAM_IDS below.
-  blocks_head: {
-    label: 'Head', inputs: 1, outputs: 1, params: [
-      STREAM_TYPE_PARAM,
-      { id: 'num_items', label: 'Num Items', type: 'number', def: 10000000 }] },
-  blocks_delay: {
-    label: 'Delay', inputs: 1, outputs: 1, params: [
-      STREAM_TYPE_PARAM,
-      { id: 'delay', label: 'Delay (items)', type: 'number', def: 0 }] },
-  // ---- math (type-parameterized: complex or float) ----
-  blocks_add_xx: { label: 'Add', inputs: 2, outputs: 1, params: [TYPE_PARAM] },
-  blocks_sub_xx: { label: 'Subtract', inputs: 2, outputs: 1, params: [TYPE_PARAM] },
-  blocks_multiply_xx: { label: 'Multiply', inputs: 2, outputs: 1, params: [TYPE_PARAM] },
-  blocks_divide_xx: { label: 'Divide', inputs: 2, outputs: 1, params: [TYPE_PARAM] },
-  blocks_multiply_const_xx: {
-    label: 'Multiply Const', inputs: 1, outputs: 1, params: [
-      TYPE_PARAM,
-      { id: 'constant', label: 'Constant', type: 'number', def: 1.0 }] },
-  blocks_conjugate_cc: { label: 'Conjugate', inputs: 1, outputs: 1, params: [], dtype: 'complex' },
-  // ---- type converters (per-port dtypes) ----
-  blocks_complex_to_mag: { label: 'Complex to Mag', inputs: 1, outputs: 1, params: [],
-    inTypes: ['complex'], outTypes: ['float'] },
-  blocks_complex_to_mag_squared: { label: 'Complex to Mag^2', inputs: 1, outputs: 1, params: [],
-    inTypes: ['complex'], outTypes: ['float'] },
-  blocks_complex_to_float: { label: 'Complex to Float', inputs: 1, outputs: 2, params: [],
-    inTypes: ['complex'], outTypes: ['float', 'float'] },
-  blocks_float_to_complex: { label: 'Float to Complex', inputs: 2, outputs: 1, params: [],
-    inTypes: ['float', 'float'], outTypes: ['complex'] },
-  // ---- variables / controls ----
-  variable: {
-    label: 'Variable', inputs: 0, outputs: 0, params: [
-      { id: 'value', label: 'Value', type: 'number', def: '0' },
-    ],
-  },
-  variable_qtgui_range: {
-    label: 'QT GUI Range', inputs: 0, outputs: 0, params: [
-      { id: 'label', label: 'Label', type: 'string', def: '' },
-      { id: 'rangeType', label: 'Type', type: 'enum', def: 'float', options: ['float', 'int'] },
-      { id: 'value', label: 'Default Value', type: 'number', def: 50 },
-      { id: 'start', label: 'Start', type: 'number', def: 0 },
-      { id: 'stop', label: 'Stop', type: 'number', def: 100 },
-      { id: 'step', label: 'Step', type: 'number', def: 1 },
-      { id: 'widget', label: 'Widget', type: 'enum', def: 'counter_slider',
-        options: ['counter_slider', 'counter', 'slider', 'dial', 'eng_slider', 'eng'] },
-      { id: 'orient', label: 'Orientation', type: 'enum', def: 'QtCore.Qt.Horizontal',
-        options: ['QtCore.Qt.Horizontal', 'QtCore.Qt.Vertical'] },
-      { id: 'min_len', label: 'Minimum Length', type: 'number', def: 200 },
-    ],
-  },
-  variable_qtgui_chooser: {
-    label: 'QT GUI Chooser', inputs: 0, outputs: 0, params: [
-      { id: 'label', label: 'Label', type: 'string', def: '' },
-      { id: 'options', label: 'Options', type: 'string', def: '0, 1, 2' },
-      { id: 'labels', label: 'Labels', type: 'string', def: '' },
-      { id: 'value', label: 'Default option', type: 'number', def: 0 },
-      { id: 'widget', label: 'Widget', type: 'enum', def: 'combo_box',
-        options: ['combo_box', 'radio_buttons'] },
-      { id: 'orient', label: 'Orientation', type: 'enum', def: 'Qt.QVBoxLayout',
-        options: ['Qt.QHBoxLayout', 'Qt.QVBoxLayout'] },
-    ],
-  },
-  variable_qtgui_push_button: {
-    label: 'QT GUI Push Button', inputs: 0, outputs: 0, params: [
-      { id: 'label', label: 'Label', type: 'string', def: '' },
-      { id: 'value', label: 'Default Value', type: 'number', def: 0 },
-      { id: 'pressed', label: 'Pressed', type: 'number', def: 1 },
-      { id: 'released', label: 'Released', type: 'number', def: 0 },
-    ],
-  },
-  variable_qtgui_check_box: {
-    label: 'QT GUI Check Box', inputs: 0, outputs: 0, params: [
-      { id: 'label', label: 'Label', type: 'string', def: '' },
-      { id: 'type', label: 'Type', type: 'enum', def: 'int',
-        options: ['real', 'int', 'bool'] },
-      { id: 'value', label: 'Default Value', type: 'number', def: 1 },
-      { id: 'true', label: 'True', type: 'number', def: 1 },
-      { id: 'false', label: 'False', type: 'number', def: 0 },
-    ],
-  },
-  variable_qtgui_entry: {
-    label: 'QT GUI Entry', inputs: 0, outputs: 0, params: [
-      { id: 'label', label: 'Label', type: 'string', def: '' },
-      { id: 'type', label: 'Type', type: 'enum', def: 'int',
-        options: ['real', 'int', 'bool'] },
-      { id: 'value', label: 'Default Value', type: 'number', def: 0 },
-      { id: 'entry_signal', label: 'Update Trigger', type: 'enum',
-        def: 'editingFinished', options: ['returnPressed', 'editingFinished'] },
-    ],
-  },
-  // ---- sinks ----
-  blocks_null_sink: { label: 'Null Sink', inputs: 1, outputs: 0, params: [STREAM_TYPE_PARAM] },
-  qtgui_time_sink_x: {
-    label: 'QT GUI Time Sink', inputs: 1, outputs: 0, params: [
-      TYPE_PARAM,
-      { id: 'name', label: 'Title', type: 'string', def: 'Scope' },
-      { id: 'size', label: 'Num Points', type: 'number', def: 1024 },
-      { id: 'samp_rate', label: 'Sample Rate', type: 'number', def: 32000 },
-      { id: 'ylabel', label: 'Y Axis Label', type: 'string', def: 'Amplitude', category: 'General' },
-      { id: 'yunit', label: 'Y Axis Unit', type: 'string', def: '', category: 'General' },
-      { id: 'grid', label: 'Grid', type: 'enum', def: 'False', options: BOOL_OPTIONS, category: 'General' },
-      { id: 'autoscale', label: 'Autoscale', type: 'enum', def: 'False', options: BOOL_OPTIONS, category: 'General' },
-      { id: 'ymin', label: 'Y min', type: 'number', def: -1, category: 'General' },
-      { id: 'ymax', label: 'Y max', type: 'number', def: 1, category: 'General' },
-      { id: 'update_time', label: 'Update Period', type: 'number', def: 0.1, category: 'General' },
-      { id: 'tr_mode', label: 'Trigger Mode', type: 'enum', def: 'qtgui.TRIG_MODE_FREE', options: TRIGGER_MODES, category: 'Trigger' },
-      { id: 'tr_slope', label: 'Trigger Slope', type: 'enum', def: 'qtgui.TRIG_SLOPE_POS', options: TRIGGER_SLOPES, category: 'Trigger' },
-      { id: 'tr_level', label: 'Trigger Level', type: 'number', def: 0, category: 'Trigger' },
-      { id: 'tr_delay', label: 'Trigger Delay', type: 'number', def: 0, category: 'Trigger' },
-      { id: 'tr_chan', label: 'Trigger Channel', type: 'number', def: 0, category: 'Trigger' },
-      { id: 'tr_tag', label: 'Trigger Tag Key', type: 'string', def: '', category: 'Trigger' },
-      { id: 'ctrlpanel', label: 'Control Panel', type: 'enum', def: 'False', options: BOOL_OPTIONS, category: 'Config' },
-      { id: 'legend', label: 'Legend', type: 'enum', def: 'True', options: BOOL_OPTIONS, category: 'Config' },
-      { id: 'axislabels', label: 'Axis Labels', type: 'enum', def: 'True', options: BOOL_OPTIONS, category: 'Config' },
-      { id: 'stemplot', label: 'Stem Plot', type: 'enum', def: 'False', options: BOOL_OPTIONS, category: 'Config' },
-      { id: 'label1', label: 'Line 1 Label', type: 'string', def: 'Signal 1', category: 'Config' },
-      { id: 'width1', label: 'Line 1 Width', type: 'number', def: 1, category: 'Config' },
-      { id: 'color1', label: 'Line 1 Color', type: 'enum', def: 'blue', options: LINE_COLORS, category: 'Config' },
-      { id: 'style1', label: 'Line 1 Style', type: 'enum', def: '1', options: LINE_STYLES, category: 'Config' },
-      { id: 'marker1', label: 'Line 1 Marker', type: 'enum', def: '0', options: LINE_MARKERS, category: 'Config' },
-      { id: 'alpha1', label: 'Line 1 Alpha', type: 'number', def: 1, category: 'Config' },
-      { id: 'label2', label: 'Line 2 Label', type: 'string', def: 'Signal 2', category: 'Config',
-        showWhen: p => p.type === 'complex' },
-      { id: 'width2', label: 'Line 2 Width', type: 'number', def: 1, category: 'Config',
-        showWhen: p => p.type === 'complex' },
-      { id: 'color2', label: 'Line 2 Color', type: 'enum', def: 'red', options: LINE_COLORS, category: 'Config',
-        showWhen: p => p.type === 'complex' },
-      { id: 'style2', label: 'Line 2 Style', type: 'enum', def: '1', options: LINE_STYLES, category: 'Config',
-        showWhen: p => p.type === 'complex' },
-      { id: 'marker2', label: 'Line 2 Marker', type: 'enum', def: '0', options: LINE_MARKERS, category: 'Config',
-        showWhen: p => p.type === 'complex' },
-      { id: 'alpha2', label: 'Line 2 Alpha', type: 'number', def: 1, category: 'Config',
-        showWhen: p => p.type === 'complex' },
-    ] },
-  qtgui_freq_sink_x: {
-    label: 'QT GUI Frequency Sink', inputs: 1, outputs: 0, params: [
-      { id: 'name', label: 'Title', type: 'string', def: 'Spectrum' },
-      { id: 'fftsize', label: 'FFT Size', type: 'number', def: 1024 },
-      { id: 'samp_rate', label: 'Sample Rate', type: 'number', def: 32000 },
-      { id: 'fc', label: 'Center Frequency', type: 'number', def: 0 },
-      { id: 'grid', label: 'Grid', type: 'enum', def: 'False', options: BOOL_OPTIONS, category: 'General' },
-      { id: 'autoscale', label: 'Autoscale', type: 'enum', def: 'False', options: BOOL_OPTIONS, category: 'General' },
-      // FFT smoothing alpha, as in GRC: 1 = off, 0.2/0.1/0.05 = low/medium/high.
-      { id: 'average', label: 'Average (1 = off)', type: 'enum', def: '1.0', options: FFT_AVERAGES, category: 'General' },
-      { id: 'ymin', label: 'Y min', type: 'number', def: -140, category: 'General' },
-      { id: 'ymax', label: 'Y max', type: 'number', def: 10, category: 'General' },
-      { id: 'update_time', label: 'Update Period', type: 'number', def: 0.1, category: 'General' },
-      { id: 'tr_mode', label: 'Trigger Mode', type: 'enum', def: 'qtgui.TRIG_MODE_FREE', options: TRIGGER_MODES, category: 'Trigger' },
-      { id: 'tr_level', label: 'Trigger Level', type: 'number', def: 0, category: 'Trigger' },
-      { id: 'tr_chan', label: 'Trigger Channel', type: 'number', def: 0, category: 'Trigger' },
-      { id: 'tr_tag', label: 'Trigger Tag Key', type: 'string', def: '', category: 'Trigger' },
-      { id: 'ctrlpanel', label: 'Control Panel', type: 'enum', def: 'False', options: BOOL_OPTIONS, category: 'Config' },
-      { id: 'legend', label: 'Legend', type: 'enum', def: 'True', options: BOOL_OPTIONS, category: 'Config' },
-      { id: 'axislabels', label: 'Axis Labels', type: 'enum', def: 'True', options: BOOL_OPTIONS, category: 'Config' },
-      { id: 'label1', label: 'Line 1 Label', type: 'string', def: '', category: 'Config' },
-      { id: 'width1', label: 'Line 1 Width', type: 'number', def: 1, category: 'Config' },
-      { id: 'color1', label: 'Line 1 Color', type: 'enum', def: '"blue"', options: LINE_COLORS_Q, category: 'Config' },
-      { id: 'style1', label: 'Line 1 Style', type: 'enum', def: '1', options: LINE_STYLES, category: 'Config' },
-      { id: 'marker1', label: 'Line 1 Marker', type: 'enum', def: '-1', options: LINE_MARKERS, category: 'Config' },
-      { id: 'alpha1', label: 'Line 1 Alpha', type: 'number', def: 1, category: 'Config' },
-    ], dtype: 'complex' },
-  qtgui_const_sink_x: {
-    label: 'QT GUI Constellation Sink', inputs: 1, outputs: 0, params: [
-      { id: 'name', label: 'Title', type: 'string', def: 'Constellation' },
-      { id: 'size', label: 'Num Points', type: 'number', def: 1024 },
-      { id: 'update_time', label: 'Update Period', type: 'number', def: 0.1 },
-      { id: 'autoscale', label: 'Autoscale', type: 'enum', def: 'False', options: BOOL_OPTIONS },
-      { id: 'grid', label: 'Grid', type: 'enum', def: 'False', options: BOOL_OPTIONS },
-      { id: 'xmin', label: 'X min', type: 'number', def: -2 },
-      { id: 'xmax', label: 'X max', type: 'number', def: 2 },
-      { id: 'ymin', label: 'Y min', type: 'number', def: -2 },
-      { id: 'ymax', label: 'Y max', type: 'number', def: 2 },
-      { id: 'tr_mode', label: 'Trigger Mode', type: 'enum', def: 'qtgui.TRIG_MODE_FREE', options: TRIGGER_MODES, category: 'Trigger' },
-      { id: 'tr_slope', label: 'Trigger Slope', type: 'enum', def: 'qtgui.TRIG_SLOPE_POS', options: TRIGGER_SLOPES, category: 'Trigger' },
-      { id: 'tr_level', label: 'Trigger Level', type: 'number', def: 0, category: 'Trigger' },
-      { id: 'tr_chan', label: 'Trigger Channel', type: 'number', def: 0, category: 'Trigger' },
-      { id: 'tr_tag', label: 'Trigger Tag Key', type: 'string', def: '', category: 'Trigger' },
-      { id: 'legend', label: 'Legend', type: 'enum', def: 'True', options: BOOL_OPTIONS, category: 'Config' },
-      { id: 'axislabels', label: 'Axis Labels', type: 'enum', def: 'True', options: BOOL_OPTIONS, category: 'Config' },
-      { id: 'label1', label: 'Line 1 Label', type: 'string', def: '', category: 'Config' },
-      { id: 'width1', label: 'Line 1 Width', type: 'number', def: 1, category: 'Config' },
-      { id: 'color1', label: 'Line 1 Color', type: 'enum', def: '"blue"', options: LINE_COLORS_Q, category: 'Config' },
-      { id: 'style1', label: 'Line 1 Style', type: 'enum', def: '1', options: LINE_STYLES, category: 'Config' },
-      { id: 'marker1', label: 'Line 1 Marker', type: 'enum', def: '0', options: LINE_MARKERS, category: 'Config' },
-      { id: 'alpha1', label: 'Line 1 Alpha', type: 'number', def: 1, category: 'Config' },
-    ], dtype: 'complex' },
-  qtgui_waterfall_sink_x: {
-    label: 'QT GUI Waterfall Sink', inputs: 1, outputs: 0, params: [
-      { id: 'name', label: 'Title', type: 'string', def: 'Waterfall' },
-      { id: 'fftsize', label: 'FFT Size', type: 'number', def: 1024 },
-      { id: 'samp_rate', label: 'Sample Rate', type: 'number', def: 32000 },
-      { id: 'fc', label: 'Center Frequency', type: 'number', def: 0 },
-      { id: 'int_min', label: 'Intensity Min', type: 'number', def: -140, category: 'General' },
-      { id: 'int_max', label: 'Intensity Max', type: 'number', def: 10, category: 'General' },
-      { id: 'grid', label: 'Grid', type: 'enum', def: 'False', options: BOOL_OPTIONS, category: 'General' },
-      { id: 'update_time', label: 'Update Period', type: 'number', def: 0.1, category: 'General' },
-      { id: 'legend', label: 'Legend', type: 'enum', def: 'True', options: BOOL_OPTIONS, category: 'Config' },
-      { id: 'axislabels', label: 'Axis Labels', type: 'enum', def: 'True', options: BOOL_OPTIONS, category: 'Config' },
-      { id: 'label1', label: 'Line 1 Label', type: 'string', def: '', category: 'Config' },
-      { id: 'color1', label: 'Line 1 Color', type: 'enum', def: '0', options: WATERFALL_COLORS, category: 'Config' },
-      { id: 'alpha1', label: 'Line 1 Alpha', type: 'number', def: 1, category: 'Config' },
-    ], dtype: 'complex' },
-};
-
-interface Inst {
-  uid: string;
-  id: string;
-  name: string;
-  x: number;
-  y: number;
-  params: Record<string, any>;
-  enabled: boolean;
-  rotation: number;
-  bypassed: boolean;
-  // Browser File objects cannot be serialized into .grc. History snapshots
-  // retain this opaque token while the actual File stays in a session map.
-  localFileToken?: string;
-}
-interface Conn { from: string; fp: number; to: string; tp: number }
-interface ValidationIssue {
-  uid: string;
-  field: string;
-  message: string;
-  blocking: boolean;
-  connection?: Conn;
-}
+import {
+  BLOCKS_URL,
+  DTYPE_COLOR,
+  RUNNABLE,
+  type ParamDef,
+  type ResolvedPort,
+  type RunnableDef,
+} from './block-defs';
+import type { Conn, GraphSnapshot, Inst, ValidationIssue } from './graph-model';
+import {
+  NAME_FIELD,
+  VARIABLE_IDS,
+  validateFlowgraph,
+} from './validation';
+import {
+  buildRecordingTree,
+  displayBytes,
+  displayRecordingValue,
+  displaySi,
+  isCi16Datatype,
+  recordingFromR2Index,
+  recordingTreeCount,
+  recordingViewUrl,
+  recordingsBucketUrl,
+  sigmfFileSourceFormat,
+  type ExampleRecording,
+  type FileSourceFormat,
+  type R2RecordingIndexEntry,
+  type RecordingDirectory,
+} from './recording-catalog';
+import {
+  buildExampleTree,
+  encodeExamplePath,
+  exampleFileName,
+  exampleTreeCount,
+  exampleUrl,
+  normalizeExamplePath,
+  type ExampleDirectory,
+} from './example-catalog';
+import { installGeneratedBlocks, numericOrExpression } from './block-library';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const el = (id: string) => document.getElementById(id)!;
 const nodesG = el('nodes'), wiresG = el('wires'), selectionG = el('selectionOverlay');
 const svg = el('svg') as unknown as SVGSVGElement;
-const canvasScroll = el('canvasScroll');
 
 let insts: Inst[] = [];
 let conns: Conn[] = [];
@@ -463,7 +105,6 @@ function newLocalFileToken(): string {
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-interface GraphSnapshot { insts: Inst[]; conns: Conn[]; counter: number }
 const graphHistory: GraphSnapshot[] = [];
 let historyIndex = -1;
 let historyReady = false;
@@ -786,200 +427,8 @@ function wrapValidationMessage(message: string, maxCharacters: number): string[]
   return lines;
 }
 
-// Numeric GRC fields may also contain a variable ID (for example a signal
-// source's frequency can be `freq`, the ID of a QT GUI Range).
-function numericOrExpression(value: string): number | string {
-  const text = value.trim();
-  if (!text) return '';
-  const number = Number(text);
-  return Number.isFinite(number) ? number : text;
-}
-
-const NAME_FIELD = '__name';
-const BLOCK_FIELD = '__block';
-
-// Variable controls have no stream ports; they publish a numeric value that
-// other blocks' numeric fields may reference by the control's block ID. The
-// three qtgui controls run as live blocks in the runner; the plain `variable`
-// block is inlined away by the runner's lowering step, so its value may itself
-// reference another variable.
-const VARIABLE_CONTROL_IDS = new Set([
-  'variable_qtgui_range', 'variable_qtgui_chooser', 'variable_qtgui_push_button',
-  'variable_qtgui_check_box', 'variable_qtgui_entry',
-]);
-// Every block ID that can be the target of a numeric variable reference.
-const VARIABLE_IDS = new Set([...VARIABLE_CONTROL_IDS, 'variable']);
-
 function validateGraph(blocks: Inst[] = insts, connections: Conn[] = conns): ValidationIssue[] {
-  const issues: ValidationIssue[] = [];
-  const active = (block: Inst) => block.enabled && !block.bypassed;
-  const activeNames = new Map<string, number>();
-  for (const block of blocks.filter(active)) {
-    const name = String(block.name || '').trim();
-    activeNames.set(name, (activeNames.get(name) || 0) + 1);
-  }
-  const activeVariables = new Set(blocks
-    .filter(block => active(block) && VARIABLE_IDS.has(block.id) &&
-      activeNames.get(String(block.name || '').trim()) === 1)
-    .map(block => String(block.name || '').trim()));
-
-  const add = (block: Inst, field: string, message: string, connection?: Conn) => {
-    if (!issues.some(issue => issue.uid === block.uid && issue.field === field &&
-      issue.message === message && issue.connection === connection))
-      issues.push({ uid: block.uid, field, message, blocking: active(block), connection });
-  };
-  const finiteNumber = (value: any) => {
-    if (typeof value === 'number') return Number.isFinite(value);
-    if (typeof value !== 'string' || !value.trim()) return false;
-    return Number.isFinite(Number(value.trim()));
-  };
-
-  // A numeric parameter may also hold a Python-subset expression (`samp_rate/2`,
-  // `2*pi*fc`, `firdes.low_pass(...)`), so it is valid when it evaluates against
-  // the flowgraph's variables. `staticScope` holds the plain `variable` blocks
-  // only — the values the Run path can bake in — while `fullScope` adds the live
-  // controls, and is used solely to explain the "expression around a live
-  // control" case below.
-  const activeBlocks = blocks.filter(active);
-  const staticScope = buildScope(activeBlocks.filter(block => block.id === 'variable'));
-  const fullScope = buildScope(activeBlocks);
-  const evaluates = (value: any, scope: Scope) =>
-    typeof value === 'string' && !!value.trim() && evalExpr(value.trim(), scope).ok;
-  // The concrete number an expression resolves to, or null when it isn't one.
-  const resolvedNumber = (value: any, scope: Scope): number | null => {
-    if (typeof value === 'number') return Number.isFinite(value) ? value : null;
-    if (typeof value !== 'string' || !value.trim()) return null;
-    const result = evalExpr(value.trim(), scope);
-    return result.ok && typeof result.value === 'number' && Number.isFinite(result.value)
-      ? result.value : null;
-  };
-
-  for (const block of blocks) {
-    const def = RUNNABLE[block.id];
-    if (!def) { add(block, BLOCK_FIELD, `Unknown block type "${block.id}".`); continue; }
-    const name = String(block.name || '').trim();
-    if (!name) add(block, NAME_FIELD, 'Block ID is required.');
-    else if (active(block) && (activeNames.get(name) || 0) > 1)
-      add(block, NAME_FIELD, `Block ID "${name}" is used more than once.`);
-
-    for (const param of def.params) {
-      const value = block.params?.[param.id];
-      if (param.type === 'number') {
-        const variableReference = !VARIABLE_CONTROL_IDS.has(block.id) && typeof value === 'string' &&
-          activeVariables.has(value.trim());
-        if (!finiteNumber(value) && !variableReference && !evaluates(value, staticScope)) {
-          // An expression the live controls *could* satisfy is still rejected:
-          // the runner wires a control into a parameter only when the parameter
-          // is exactly the control's ID, so `freq/2` would never track the
-          // slider. Say so rather than reporting a generic bad expression.
-          const liveOnly = !VARIABLE_CONTROL_IDS.has(block.id) && evaluates(value, fullScope);
-          add(block, param.id, liveOnly
-            ? `${param.label} may reference a live control only on its own, not inside an expression.`
-            : `${param.label} must be a number, a variable ID, or an expression of them.`);
-        }
-      } else if (param.type === 'enum' && param.options?.length && !param.options.includes(String(value))) {
-        add(block, param.id, `${param.label} has unsupported value "${String(value)}".`);
-      }
-    }
-
-    // Mirror the constraints enforced by the C++ Range widget constructor.
-    if (block.id === 'variable_qtgui_range') {
-      const start = resolvedNumber(block.params.start, staticScope);
-      const stop = resolvedNumber(block.params.stop, staticScope);
-      const step = resolvedNumber(block.params.step, staticScope);
-      const minLength = resolvedNumber(block.params.min_len, staticScope);
-      if (start !== null && stop !== null && start > stop)
-        add(block, 'stop', 'Range Stop must be greater than or equal to Start.');
-      if (step !== null && step <= 0) add(block, 'step', 'Range Step must be greater than zero.');
-      if (minLength !== null && minLength < 1)
-        add(block, 'min_len', 'Minimum Length must be at least 1.');
-    }
-    if (block.id === 'blocks_selector') {
-      const numInputs = resolvedNumber(block.params.num_inputs, staticScope);
-      const numOutputs = resolvedNumber(block.params.num_outputs, staticScope);
-      const inputIndex = resolvedNumber(block.params.input_index, staticScope);
-      const outputIndex = resolvedNumber(block.params.output_index, staticScope);
-      const vlen = resolvedNumber(block.params.vlen, staticScope);
-      const positiveInteger = (value: number | null) =>
-        value !== null && Number.isInteger(value) && value >= 1;
-      if (numInputs !== null && !positiveInteger(numInputs))
-        add(block, 'num_inputs', 'Number of Inputs must be a positive integer.');
-      if (numOutputs !== null && !positiveInteger(numOutputs))
-        add(block, 'num_outputs', 'Number of Outputs must be a positive integer.');
-      if (vlen !== null && !positiveInteger(vlen))
-        add(block, 'vlen', 'Vector Length must be a positive integer.');
-      if (inputIndex !== null && numInputs !== null &&
-          (!Number.isInteger(inputIndex) || inputIndex < 0 || inputIndex >= numInputs))
-        add(block, 'input_index', 'Input Index must select an available input port.');
-      if (outputIndex !== null && numOutputs !== null &&
-          (!Number.isInteger(outputIndex) || outputIndex < 0 || outputIndex >= numOutputs))
-        add(block, 'output_index', 'Output Index must select an available output port.');
-    }
-  }
-
-  const byUid = new Map(blocks.map(block => [block.uid, block]));
-  const occupiedInputs = new Map<string, Conn>();
-  for (const connection of connections) {
-    const source = byUid.get(connection.from), sink = byUid.get(connection.to);
-    if (!source && !sink) continue;
-    if (!source) { add(sink!, BLOCK_FIELD, 'Connection refers to a missing source block.', connection); continue; }
-    if (!sink) { add(source, BLOCK_FIELD, 'Connection refers to a missing destination block.', connection); continue; }
-    if (!active(source) || !active(sink)) continue;
-    const sourceDef = RUNNABLE[source.id], sinkDef = RUNNABLE[sink.id];
-    if (!sourceDef || !sinkDef) continue;
-    if (!Number.isInteger(connection.fp) || connection.fp < 0 || connection.fp >= portCount(source, 'out')) {
-      add(source, BLOCK_FIELD, `Connection uses invalid output port ${connection.fp}.`, connection); continue;
-    }
-    if (!Number.isInteger(connection.tp) || connection.tp < 0 || connection.tp >= portCount(sink, 'in')) {
-      add(sink, BLOCK_FIELD, `Connection uses invalid input port ${connection.tp}.`, connection); continue;
-    }
-    const inputKey = `${sink.uid}:${connection.tp}`;
-    if (occupiedInputs.has(inputKey))
-      add(sink, BLOCK_FIELD, `Input port ${connection.tp} has more than one connection.`, connection);
-    else occupiedInputs.set(inputKey, connection);
-
-    const sourcePort = portMeta(source, 'out', connection.fp);
-    const sinkPort = portMeta(sink, 'in', connection.tp);
-    const sourceDomain = sourcePort.domain;
-    const sinkDomain = sinkPort.domain;
-    if (sourceDomain !== sinkDomain) {
-      add(sink, BLOCK_FIELD, `Cannot connect ${sourceDomain} output to ${sinkDomain} input.`, connection);
-      continue;
-    }
-    if (sourceDomain === 'stream') {
-      const sourceType = portType(source, 'out', connection.fp);
-      const sinkType = portType(sink, 'in', connection.tp);
-      if (sourceType && sinkType && sourceType !== sinkType)
-        add(sink, BLOCK_FIELD, `Connection type mismatch: ${sourceType} output to ${sinkType} input.`, connection);
-      else {
-        const sourceVlen = Number(sourcePort.vlen);
-        const sinkVlen = Number(sinkPort.vlen);
-        if (Number.isFinite(sourceVlen) && Number.isFinite(sinkVlen) && sourceVlen !== sinkVlen)
-          add(sink, BLOCK_FIELD,
-            `Connection vector-length mismatch: ${sourceVlen} output to ${sinkVlen} input.`,
-            connection);
-      }
-    }
-  }
-  // Selector's configured stream multiplicity is part of its topology, not
-  // merely a drawing hint. Native GRC requires every non-optional clone to be
-  // connected; otherwise the runtime would infer fewer ports than the selected
-  // indices and configured counts describe.
-  for (const block of blocks.filter(block => active(block) && block.id === 'blocks_selector')) {
-    for (const kind of ['in', 'out'] as const) {
-      const ports = resolvedPorts(block, kind) || [];
-      ports.forEach((port, index) => {
-        if (port.domain !== 'stream' || port.optional) return;
-        const connected = connections.some(connection => kind === 'in'
-          ? connection.to === block.uid && connection.tp === index
-          : connection.from === block.uid && connection.fp === index);
-        if (!connected)
-          add(block, BLOCK_FIELD,
-            `${kind === 'in' ? 'Input' : 'Output'} port ${port.streamIndex} is not connected.`);
-      });
-    }
-  }
-  return issues;
+  return validateFlowgraph(blocks, connections, { portCount, portMeta, portType, resolvedPorts });
 }
 
 function fieldIssue(issues: ValidationIssue[], uid: string, field: string): string {
@@ -994,139 +443,6 @@ function setFieldError(node: HTMLElement, errorNode: HTMLElement, message: strin
   errorNode.hidden = !message;
 }
 
-function generatedDefault(p: any): any {
-  const value = (p.dtype === 'enum' && (p.default === undefined || p.default === ''))
-    ? (p.options?.[0] ?? '') : (p.default ?? '');
-  if (p.dtype === 'bool') {
-    if (typeof value === 'boolean') return value ? 'True' : 'False';
-    return String(value).trim().toLowerCase() === 'true' ? 'True' : 'False';
-  }
-  if (['int', 'real', 'float', 'hex'].includes(String(p.dtype)))
-    return numericOrExpression(String(value));
-  return String(value);
-}
-
-function multiplicity(value: any, defaults: Record<string, any>): number {
-  const text = String(value ?? '1').trim();
-  const direct = Number(text);
-  if (Number.isFinite(direct)) return direct >= 1 ? Math.trunc(direct) : 1;
-  const match = text.match(/^\$\{\s*([A-Za-z_]\w*)\s*\}$/);
-  if (!match) return 1;
-  const number = Number(defaults[match[1]]);
-  return Number.isFinite(number) && number >= 1 ? Math.trunc(number) : 1;
-}
-
-function installGeneratedBlocks(blocks: any[]) {
-  for (const block of blocks) {
-    if (!block.runnable) continue;
-    const documentation = String(block.documentation || '').trim();
-    const apiDocumentation = String(block.api_documentation || '').trim();
-    const wikiUrl = String(block.wiki_url || '').trim();
-    const params: ParamDef[] = (block.params || []).map((p: any) => ({
-      id: String(p.id), label: String(p.label || p.id),
-      type: p.dtype === 'enum' || p.dtype === 'bool' ? 'enum' :
-        ['int', 'real', 'float', 'hex'].includes(String(p.dtype)) ? 'number' : 'string',
-      raw: String(p.dtype) === 'raw',
-      dtype: p.dtype ? String(p.dtype) : undefined,
-      hide: p.hide ? String(p.hide) : 'none',
-      def: generatedDefault(p),
-      options: p.options ? p.options.map(String) :
-        p.dtype === 'bool' ? ['True', 'False'] : undefined,
-      optionLabels: p.option_labels ? p.option_labels.map(String) : undefined,
-      optionAttributes: p.option_attributes
-        ? Object.fromEntries(Object.entries(p.option_attributes)
-            .map(([name, values]) => [name, (values as any[]).map(String)]))
-        : undefined,
-      // "General" is the default tab; those params belong on the block face
-      // (like GRC's default category), so only carry a real, non-General
-      // category so geom()/the face renderer doesn't hide every param.
-      category: p.category && p.category !== 'General' ? p.category : undefined,
-    }));
-    const defaults: Record<string, any> = {};
-    params.forEach(p => defaults[p.id] = p.def);
-    const portBaseName = (port: any, kind: 'in' | 'out', streamIndex: number) => {
-      const domain = String(port.domain || 'stream');
-      const id = String(port.id || (domain === 'stream' ? streamIndex : ''));
-      return String(port.label || (/^\d+$/.test(id) ? kind : id) || kind);
-    };
-    const expandPorts = (ports: any[], kind: 'in' | 'out') => {
-      const result: { dtype: string; domain: string; id: string; name: string; streamIndex: number }[] = [];
-      let streamIndex = 0;
-      for (const port of ports || []) {
-        const count = multiplicity(port.multiplicity, defaults);
-        const baseName = portBaseName(port, kind, streamIndex);
-        for (let i = 0; i < count; ++i) {
-          const domain = String(port.domain || 'stream');
-          const id = String(port.id || (domain === 'stream' ? streamIndex : port.label || i));
-          result.push({
-            dtype: String(port.dtype || '').replace(
-              /^\$\{\s*([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)?)\s*\}$/, '$$$1'),
-            domain, id, name: count > 1 ? `${baseName}${i}` : baseName,
-            streamIndex: domain === 'stream' ? streamIndex : -1,
-          });
-          if (domain === 'stream') ++streamIndex;
-        }
-      }
-      return result;
-    };
-    const portTemplates = (ports: any[]): PortTemplate[] => (ports || []).map((port: any) => ({
-      dtype: String(port.dtype || ''),
-      vlen: String(port.vlen || '1'),
-      domain: String(port.domain || 'stream'),
-      id: String(port.id || ''),
-      label: String(port.label || ''),
-      multiplicity: String(port.multiplicity || '1'),
-      optional: !!port.optional,
-      hide: port.hide ?? false,
-    }));
-    const inputs = expandPorts(block.inputs, 'in'), outputs = expandPorts(block.outputs, 'out');
-    const existing = RUNNABLE[block.id];
-    if (existing) {
-      // Hand-written definitions carry richer parameter/run-time support. Add
-      // the native face-visibility metadata, documentation and port names from
-      // blocks.json without replacing that schema. Clone each parameter because
-      // several hand-written definitions share TYPE_PARAM.
-      const generatedParams = new Map(params.map(p => [p.id, p]));
-      existing.params = existing.params.map(p => ({
-        ...p,
-        hide: generatedParams.get(p.id)?.hide ?? p.hide,
-        optionLabels: generatedParams.get(p.id)?.optionLabels ?? p.optionLabels,
-      }));
-      // These definitions currently expose stream ports only, so omit optional
-      // message-control ports that their WASM factories do not support.
-      existing.documentation = documentation;
-      existing.apiDocumentation = apiDocumentation;
-      existing.wikiUrl = wikiUrl;
-      const streamInputs = inputs.filter(p => p.domain === 'stream');
-      const streamOutputs = outputs.filter(p => p.domain === 'stream');
-      existing.inLabels = streamInputs.slice(0, existing.inputs).map(p => p.name);
-      existing.outLabels = streamOutputs.slice(0, existing.outputs).map(p => p.name);
-      const inputDefs = (block.inputs || []).filter((p: any) => String(p.domain || 'stream') === 'stream');
-      const outputDefs = (block.outputs || []).filter((p: any) => String(p.domain || 'stream') === 'stream');
-      if (inputDefs.length === 1)
-        existing.inLabelBase = portBaseName(inputDefs[0], 'in', 0);
-      if (outputDefs.length === 1)
-        existing.outLabelBase = portBaseName(outputDefs[0], 'out', 0);
-      continue;
-    }
-    RUNNABLE[block.id] = {
-      label: String(block.label || block.id), params, documentation, apiDocumentation, wikiUrl,
-      inputs: inputs.length, outputs: outputs.length,
-      inTypes: inputs.map(p => p.dtype), outTypes: outputs.map(p => p.dtype),
-      inDomains: inputs.map(p => p.domain), outDomains: outputs.map(p => p.domain),
-      inIds: inputs.map(p => p.id), outIds: outputs.map(p => p.id),
-      inLabels: inputs.map(p => p.name), outLabels: outputs.map(p => p.name),
-      inLabelBase: (block.inputs || []).length === 1
-        ? portBaseName(block.inputs[0], 'in', 0) : undefined,
-      outLabelBase: (block.outputs || []).length === 1
-        ? portBaseName(block.outputs[0], 'out', 0) : undefined,
-      inStreamIndices: inputs.map(p => p.streamIndex),
-      outStreamIndices: outputs.map(p => p.streamIndex),
-      inputTemplates: portTemplates(block.inputs),
-      outputTemplates: portTemplates(block.outputs),
-    };
-  }
-}
 // Real glyph metrics: the old per-character estimate under-measured wide text
 // (caps, digits, bold titles) and let it spill past the block's right edge.
 const BLOCK_FONT = `'DejaVu Sans',Verdana,sans-serif`;
@@ -3486,11 +2802,6 @@ async function buildPalette() {
 // author and description out of the .grc, lowercased. It starts as the file name
 // alone, because that is all that is known before the .grc arrives.
 interface ExampleEntry { file: string; item: HTMLElement; blockIds: Set<string> | null; text: string }
-interface ExampleDirectory {
-  name: string;
-  directories: Map<string, ExampleDirectory>;
-  files: string[];
-}
 const exampleEntries: ExampleEntry[] = [];
 let exampleFilter: { id: string; label: string } | null = null;
 let applyExampleFilter: (() => void) | null = null;
@@ -3508,24 +2819,6 @@ function showExamplesFor(id: string, label: string) {
 // relative path: the link stays short and always opens the current version of
 // that example. The fragment is left in the address bar on load so the link can
 // be bookmarked and reloaded.
-function normalizeExamplePath(name: string): string {
-  let path = String(name).replace(/\\/g, '/');
-  if (!path.endsWith('.grc')) path += '.grc';
-  const parts = path.split('/');
-  if (parts.some(part => !part || part === '.' || part === '..'))
-    throw new Error('invalid example flowgraph path');
-  return parts.join('/');
-}
-function exampleFileName(name: string): string {
-  return normalizeExamplePath(name).split('/').pop()!;
-}
-function encodeExamplePath(path: string): string {
-  return path.split('/').map(encodeURIComponent).join('/');
-}
-function exampleUrl(file: string): string {
-  const base = location.href.split('#')[0].split('?')[0];
-  return `${base}#example=${encodeURIComponent(file.replace(/\.grc$/, ''))}`;
-}
 // Loading an example points the address bar at it, so the link can be copied
 // straight out of the URL bar and a reload brings the same example back. Every
 // other way of replacing the canvas (New, Close, opening a .grc) clears it again
@@ -3554,31 +2847,6 @@ async function loadExampleByName(name: string) {
   setCurrentFileName(file);           // Save writes the example back under its own name
   log(`loaded example "${title}" from link`);
   void bindFlowgraphRecordings(fg, title);
-}
-
-function buildExampleTree(files: string[]): ExampleDirectory {
-  const root: ExampleDirectory = { name: '', directories: new Map(), files: [] };
-  for (const file of files) {
-    const parts = file.split('/');
-    const basename = parts.pop()!;
-    let directory = root;
-    for (const name of parts) {
-      let child = directory.directories.get(name);
-      if (!child) {
-        child = { name, directories: new Map(), files: [] };
-        directory.directories.set(name, child);
-      }
-      directory = child;
-    }
-    directory.files.push([...parts, basename].join('/'));
-  }
-  return root;
-}
-
-function exampleTreeCount(directory: ExampleDirectory): number {
-  let count = directory.files.length;
-  for (const child of directory.directories.values()) count += exampleTreeCount(child);
-  return count;
 }
 
 async function buildExamples(panel: HTMLElement) {
@@ -3748,96 +3016,6 @@ async function buildExamples(panel: HTMLElement) {
 // The R2 bucket's scheduled Worker owns index.json. The editor reads that
 // index and both SigMF objects directly from R2, so publishing a recording does
 // not require a repository or Pages rebuild.
-interface ExampleRecording {
-  name: string;
-  dataFile: string;
-  metaFile: string;
-  datatype: string | null;
-  sampleRate: number | null;
-  author: string | null;
-  sampleCount: number | null;
-  byteLength: number;
-  downloadUrl: string;
-  metadataUrl: string;
-}
-
-interface R2RecordingIndexEntry {
-  base_filename?: unknown;
-  datatype?: unknown;
-  sample_rate?: unknown;
-  author?: unknown;
-  byte_length?: unknown;
-  number_of_samples?: unknown;
-}
-
-interface RecordingDirectory {
-  name: string;
-  directories: Map<string, RecordingDirectory>;
-  recordings: ExampleRecording[];
-}
-
-interface FileSourceFormat {
-  type: 'complex' | 'float' | 'int' | 'short' | 'byte';
-  vlen: number;
-}
-
-// A recording key may contain collection prefixes (estevez/). Encode it one
-// segment at a time: encodeURIComponent on the whole key would turn its path
-// separators into %2F.
-const encodeRecordingPath = (path: string): string =>
-  path.split('/').map(encodeURIComponent).join('/');
-
-const RECORDINGS_R2_BASE = String(
-  import.meta.env.VITE_RECORDINGS_R2_BASE || 'https://recordings.gnuradioworld.com',
-)
-  .replace(/\/+$/, '');
-
-function recordingsBucketUrl(key: string): string {
-  if (!RECORDINGS_R2_BASE)
-    throw new Error('VITE_RECORDINGS_R2_BASE was not set when the editor was built');
-  return RECORDINGS_R2_BASE + '/' + encodeRecordingPath(key);
-}
-
-function finiteNumber(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
-}
-
-function indexBytesPerSample(datatype: string | null): number | null {
-  const match = datatype?.match(/^([rc])[fiu](\d+)(?:_(?:le|be))?$/i);
-  if (!match) return null;
-  const bytes = (match[1].toLowerCase() === 'c' ? 2 : 1) * Number(match[2]) / 8;
-  return Number.isInteger(bytes) && bytes > 0 ? bytes : null;
-}
-
-function recordingFromR2Index(raw: R2RecordingIndexEntry): ExampleRecording | null {
-  if (typeof raw?.base_filename !== 'string') return null;
-  const name = raw.base_filename;
-  const segments = name.split('/');
-  if (!name || segments.some(segment => !segment || segment === '.' || segment === '..')) return null;
-
-  const datatype = typeof raw.datatype === 'string' ? raw.datatype : null;
-  const sampleCount = finiteNumber(raw.number_of_samples);
-  const indexedBytes = finiteNumber(raw.byte_length);
-  const bytesPerSample = indexBytesPerSample(datatype);
-  const byteLength = indexedBytes ??
-    (sampleCount !== null && bytesPerSample !== null ? sampleCount * bytesPerSample : null);
-  if (byteLength === null || !Number.isSafeInteger(byteLength) || byteLength < 0) return null;
-
-  const dataFile = name + '.sigmf-data';
-  const metaFile = name + '.sigmf-meta';
-  return {
-    name,
-    dataFile,
-    metaFile,
-    datatype,
-    sampleRate: finiteNumber(raw.sample_rate),
-    author: typeof raw.author === 'string' ? raw.author : null,
-    sampleCount,
-    byteLength,
-    downloadUrl: recordingsBucketUrl(dataFile),
-    metadataUrl: recordingsBucketUrl(metaFile),
-  };
-}
 
 const remoteRecordingsByPath = new Map<string, ExampleRecording>();
 let exampleRecordingsPromise: Promise<ExampleRecording[]> | null = null;
@@ -3921,74 +3099,6 @@ async function bindFlowgraphRecordings(doc: any, exampleName: string) {
 //
 // The URLs are absolute R2 URLs so the route keeps working wherever the viewer
 // is served from. Both the metadata and data objects come from the bucket.
-const RECORDING_VIEW_BASE = '/recording/#';
-
-const base64Url = (text: string): string => {
-  const bytes = new TextEncoder().encode(text);
-  let binary = '';
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-};
-
-// Used by the recording tabs, which embed this route in an iframe and pass
-// blob: URLs for a locally picked file.
-function recordingViewUrl(metaUrl: string, dataUrl: string, name: string): string {
-  return `${RECORDING_VIEW_BASE}/view/url/${base64Url(metaUrl)}/${base64Url(dataUrl)}/` +
-    encodeURIComponent(name);
-}
-
-const displayRecordingValue = (value: string | number | null): string => {
-  if (value === null || value === '') return '—';
-  return typeof value === 'number' ? value.toLocaleString() : value;
-};
-
-// Scale to a k/M/G prefix so recording counts and rates stay readable. Keeps up
-// to three significant digits and drops trailing zeros (1500000 -> "1.5 M").
-const displaySi = (value: number | null, unit: string): string => {
-  if (value === null || !Number.isFinite(value)) return '—';
-  const sign = value < 0 ? '-' : '';
-  let scaled = Math.abs(value), prefix = '';
-  for (const next of ['k', 'M', 'G']) {
-    if (scaled < 1000) break;
-    scaled /= 1000; prefix = next;
-  }
-  const digits = scaled >= 100 ? 0 : scaled >= 10 ? 1 : 2;
-  const text = Number(scaled.toFixed(digits)).toString();
-  return `${sign}${text} ${prefix}${unit}`.trimEnd();
-};
-
-const displayBytes = (bytes: number): string => {
-  if (!Number.isFinite(bytes) || bytes < 0) return '—';
-  const units = ['B', 'KiB', 'MiB', 'GiB'];
-  let value = bytes, unit = 0;
-  while (value >= 1024 && unit < units.length - 1) { value /= 1024; unit++; }
-  return `${value.toFixed(unit ? 1 : 0)} ${units[unit]}`;
-};
-
-// File Source exposes integer recordings as scalar component streams, matching
-// GNU Radio's normal interleaved-I/Q convention. For example, ci16_le becomes
-// short with vlen=1 and can feed IShort To Complex with Vector Input disabled.
-// Floating-point complex samples have a native GNU Radio complex item type.
-function sigmfFileSourceFormat(datatype: string | null): FileSourceFormat | null {
-  const match = datatype?.toLowerCase().match(/^([rc])([fiu])(\d+)(?:_(le|be))?$/);
-  if (!match) return null;
-  const [, shape, kind, width, endian] = match;
-  if (endian === 'be') return null; // WASM and the native File Source are little-endian.
-  const complex = shape === 'c';
-  if (kind === 'f' && width === '32')
-    return complex ? { type: 'complex', vlen: 1 } : { type: 'float', vlen: 1 };
-  if ((kind === 'i' || kind === 'u') && width === '8')
-    return { type: 'byte', vlen: 1 };
-  if (kind === 'i' && width === '16')
-    return { type: 'short', vlen: 1 };
-  if (kind === 'i' && width === '32')
-    return { type: 'int', vlen: 1 };
-  return null;
-}
-
-function isCi16Datatype(datatype: string | null): boolean {
-  return /^ci16(?:_le)?$/i.test(datatype?.trim() || '');
-}
 
 async function addRecordingFileSource(recording: ExampleRecording, format: FileSourceFormat) {
   await paletteReady;
@@ -4098,30 +3208,6 @@ function makeRecordingItem(recording: ExampleRecording): HTMLElement {
   return item;
 }
 
-function buildRecordingTree(recordings: ExampleRecording[]): RecordingDirectory {
-  const root: RecordingDirectory = { name: '', directories: new Map(), recordings: [] };
-  for (const recording of recordings) {
-    const parts = recording.name.split('/').filter(Boolean);
-    parts.pop(); // the recording basename is rendered as the card
-    let directory = root;
-    for (const name of parts) {
-      let child = directory.directories.get(name);
-      if (!child) {
-        child = { name, directories: new Map(), recordings: [] };
-        directory.directories.set(name, child);
-      }
-      directory = child;
-    }
-    directory.recordings.push(recording);
-  }
-  return root;
-}
-
-function recordingTreeCount(directory: RecordingDirectory): number {
-  let count = directory.recordings.length;
-  for (const child of directory.directories.values()) count += recordingTreeCount(child);
-  return count;
-}
 
 function renderRecordingTree(directory: RecordingDirectory, container: HTMLElement) {
   const byName = (a: string, b: string) => a.localeCompare(b, undefined, { numeric: true });
@@ -4734,8 +3820,8 @@ async function loadFlowgraphFromUrl(): Promise<boolean> {
 
 paletteReady.then(async () => {
   if (!await loadFlowgraphFromUrl()) {
-    try { await loadExampleByName('PSK_constellation.grc'); }
-    catch (error) { log(`could not load default example "PSK_constellation.grc": ${error}`); }
+    try { await loadExampleByName('digital/psk_constellation.grc'); }
+    catch (error) { log(`could not load default example "digital/psk_constellation.grc": ${error}`); }
   }
   historyReady = true; resetHistory();
 });

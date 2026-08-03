@@ -1,18 +1,14 @@
 // Multi-scenario verification of on-demand category loading.
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { extname, join, normalize } from 'node:path';
-import { existsSync, readdirSync } from 'node:fs';
-import puppeteer from 'puppeteer-core';
+import { join, normalize } from 'node:path';
+import { contentType, launchBrowser, setIsolationHeaders } from '../scripts/browser-test-support.mjs';
 
 const ROOT = normalize(new URL('..', import.meta.url).pathname);
 const PORT = 8096;
-const MIME = { '.html':'text/html','.js':'text/javascript','.wasm':'application/wasm','.json':'application/json','.svg':'image/svg+xml' };
 let fetched = [];
 const server = http.createServer(async (req, res) => {
-  res.setHeader('Cross-Origin-Opener-Policy','same-origin');
-  res.setHeader('Cross-Origin-Embedder-Policy','require-corp');
-  res.setHeader('Cross-Origin-Resource-Policy','same-origin');
+  setIsolationHeaders(res);
   try {
     let p = decodeURIComponent(new URL(req.url,'http://x').pathname);
     if (p.endsWith('.wasm')) fetched.push(p.split('/').pop());
@@ -20,14 +16,12 @@ const server = http.createServer(async (req, res) => {
     const fp = normalize(join(ROOT,p));
     if (!fp.startsWith(ROOT)) { res.writeHead(403); return res.end(); }
     const b = await readFile(fp);
-    res.setHeader('Content-Type', MIME[extname(fp)]||'application/octet-stream');
+    res.setHeader('Content-Type', contentType(fp));
     res.writeHead(200); res.end(b);
   } catch { res.writeHead(404); res.end('nf'); }
 });
 await new Promise(r => server.listen(PORT, r));
 
-const base = join(ROOT,'chrome-headless-shell');
-const exe = readdirSync(base).map(d => `${base}/${d}/chrome-headless-shell-linux64/chrome-headless-shell`).find(existsSync);
 const satellitesTestPacket = [
   1, 2, 3, 10,
   ...Array.from({ length: 219 }, (_, index) => (index + 5) & 0xff),
@@ -156,8 +150,7 @@ function toGrc(fg) {
   return out;
 }
 
-const browser = await puppeteer.launch({ executablePath: exe, headless: true,
-  args: ['--no-sandbox','--disable-gpu','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader'] });
+const browser = await launchBrowser(ROOT);
 let allOk = true;
 for (const sc of scenarios) {
   fetched = [];

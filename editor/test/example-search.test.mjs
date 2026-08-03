@@ -3,9 +3,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { exampleFiles as files, exampleFilePath } from './example-files.mjs';
-
-const source = await readFile(new URL('../src/main.ts', import.meta.url), 'utf8');
-const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+import { editorSource as source, markupSource as html } from './editor-contract-source.mjs';
 
 // The box itself, at the top of the panel — before the filter banner and list.
 assert.match(source, /search\.className = 'palsearch ex-search';\s*search\.placeholder = 'Search examples…';/,

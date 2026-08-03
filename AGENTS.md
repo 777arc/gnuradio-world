@@ -93,8 +93,8 @@ node server.mjs 8090 "$PWD"
 | `deps/` | `env.sh` (pinned emsdk + sysroot), `fetch-deps.sh` (pinned dep sources) and `build-deps.sh` (cross-build VOLK, Boost, spdlog, GMP, FFTW, Qwt → `sysroot/`) |
 | `gr/` | out-of-tree build of the GNU Radio C++ modules (generated; git-ignored) |
 | `qtgui/` | Qt6 build of the gr-qtgui sink chain |
-| `runner/` | the JSON-driven WASM flowgraph runner, generated C++ registry, and support manifest |
-| `editor/` | the TypeScript flowgraph editor |
+| `runner/` | the JSON-driven WASM flowgraph runner, generated C++ registry, support manifest, and shared side-module topology in `modules.json`; vendored headers live under `third_party/` |
+| `editor/` | the TypeScript flowgraph editor; `main.ts` owns browser orchestration while block schemas, validation, generated-library installation, and example/recording catalogs live in focused modules beside it |
 | `tools/` | `block_overrides.py` (the browser-only block-metadata overlay loader/merger shared by `gen_registry.py` and `gen_blocklib.py`) and `generate_cpp.py` (host-side GRC → C++ generation, optional) |
 | `blocks/` | everything a human wrote about blocks, as opposed to `runner/`, which is the app plus everything generated. See "Where a block's source lives" below |
 | `blocks/grc/` | `.block.yml` for runner-only blocks with no upstream GNU Radio equivalent (`wasm_packet_rate_sink`); read by *both* `gen_registry.py` and `gen_blocklib.py` alongside GNU Radio's own yaml |
@@ -351,20 +351,13 @@ specific console output, e.g. the hex of a frame you expect to decode.
 (every example parses, and every arithmetic parameter is one `expr.ts` can
 evaluate), but it does not run a browser, so it cannot see either failure above.
 
-Two more suites exist and are *not* run by CI — run them by hand when you touch
-the code they cover:
+The editor suite and type checks run in deploy CI. Run the editor check locally
+after changes under `editor/`; run the fast host parser test after changes to
+the runner's GRC parsing or lowering headers:
 
 ```bash
-(cd editor && npm test)                       # 24 node tests: shortcuts, selection, grid,
-                                              # canvas scroll, workspace/recording tabs,
-                                              # validation, time sink, expr,
-                                              # .grc round-trip, recordings, real-valued
-                                              # recordings, polyphase channelizer,
-                                              # contribute,
-                                              # block categories, note block, example
-                                              # filter/search.
-                                              # No browser, no WASM build.
-(cd runner/test && g++ -std=c++17 -I../src grc_test.cpp -o grc_test && ./grc_test)
+(cd editor && npm run check)                  # type checks, 25 Node test files, Vite build
+(cd runner/test && g++ -std=c++17 -I../src -I../third_party grc_test.cpp -o grc_test && ./grc_test)
 ```
 
 `editor/test` covers editor logic (`expr.ts`, `grc.ts`, selection/grid geometry)
@@ -376,10 +369,9 @@ new area of behavior — a new view, a new subsystem, a new file format concern.
 Anything smaller belongs in the existing suite that already covers the code it
 touches (a Save-path tweak goes in `example-link.test.mjs`, a schema tweak in
 `grc.test.mjs`, and so on), and plenty of small changes need no new assertion at
-all — running the existing suites is enough. Every new file also has to be added
-to the `test` script in `editor/package.json` and to the list above, so a suite
-per change turns into a long tail of near-empty files nobody reads. Same rule for
-`test/` at the repository root and `runner/test/`.
+all — running the existing suites is enough. `editor/test/run.mjs` discovers
+`*.test.mjs` files automatically. The same restraint applies to `test/` at the
+repository root and `runner/test/`.
 
 `runner/test/grc_test.cpp` is a host-compiled
 regression test for the runner's `.grc` parser and lowering (`grc_yaml.hpp`,
