@@ -134,11 +134,13 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
       // gr-paint's Image File Source, decoded by the browser.
       //
       // Upstream is a Python block that opens a local file with PIL. There is
-      // no PIL and no filesystem here, so the block names its image with a URL
-      // and this decodes it with the platform's own image support, applying the
-      // same pipeline the Python does: grayscale, optional autocontrast,
-      // optional inversion, optional flip, downscale to the Spectrum Painter's
-      // 4096px limit, and the ITU-R BT.709 level mapping.
+      // no PIL and no filesystem here, so the block names its image either with
+      // a URL or with the /local-files/... path the editor binds a
+      // browser-picked File to, and this decodes it with the platform's own
+      // image support, applying the same pipeline the Python does: grayscale,
+      // optional autocontrast, optional inversion, optional flip, downscale to
+      // the Spectrum Painter's 4096px limit, and the ITU-R BT.709 level
+      // mapping.
       //
       // ImageSourceWasm (blocks/overlays/gr-paint/paint_image_source.cpp) drives
       // this in two steps, because a decode is asynchronous and a GNU Radio
@@ -149,6 +151,71 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
       const IMAGE_SOURCE_STATE = { loading: 0, ready: 1, failed: 2 };
       const imageSourceJobs = new Map();
       let nextImageSourceId = 1;
+
+      // The bytes behind the block's Image File parameter. A local image picked
+      // with Properties > Browse arrives as the same session-only File binding
+      // File Source uses, so it is read straight out of the page and never
+      // touches the network; anything else is a URL to fetch.
+      const imageSourceBlob = async name => {
+        const bound = window.__grInputSources && window.__grInputSources[name];
+        if (bound) {
+          if (bound.kind !== 'local' || !bound.file)
+            throw new Error(`${name} is not bound to a local image in this session`);
+          return bound.file;
+        }
+        // Cross-origin isolation means an image from another origin has to be
+        // served with permissive CORS headers; without them the fetch fails
+        // here rather than tainting a canvas later, which is the clearer
+        // failure of the two.
+        const response = await fetch(name, { mode: 'cors', credentials: 'omit' });
+        if (!response.ok)
+          throw new Error(`HTTP ${response.status} ${response.statusText} for ${name}`);
+        return await response.blob();
+      };
+
+      // PNG, JPEG, GIF, WebP and BMP all decode through createImageBitmap.
+      // SVG does not — Chrome refuses an SVG blob there — and an <img> element
+      // is the one decoder in a page that rasterizes one, so that is the
+      // fallback. It rasterizes at the SVG's intrinsic size (the browser's
+      // 300x150 default when the file declares neither width nor height), so
+      // an SVG paints at whatever resolution it was authored for rather than
+      // at some size chosen here. The blob is same-origin either way — a
+      // remote image was already fetched with CORS above — so the canvas it is
+      // drawn on stays readable by getImageData.
+      const decodeImageSourceBlob = async (blob, name) => {
+        try {
+          const bitmap = await createImageBitmap(blob);
+          if (bitmap.width && bitmap.height)
+            return {
+              image: bitmap,
+              width: bitmap.width,
+              height: bitmap.height,
+              release: () => bitmap.close(),
+            };
+          bitmap.close();
+        } catch (error) {
+          // Not a format createImageBitmap handles; try the <img> path below.
+        }
+        const objectUrl = URL.createObjectURL(blob);
+        const image = new Image();
+        try {
+          await new Promise((resolve, reject) => {
+            image.onload = resolve;
+            image.onerror = () =>
+              reject(new Error(`the browser could not decode ${name} as an image`));
+            image.src = objectUrl;
+          });
+        } catch (error) {
+          URL.revokeObjectURL(objectUrl);
+          throw error;
+        }
+        return {
+          image,
+          width: image.naturalWidth || image.width,
+          height: image.naturalHeight || image.height,
+          release: () => URL.revokeObjectURL(objectUrl),
+        };
+      };
 
       window.__grLoadImageSource = (
         url, memory, controlPointer, errorPointer, errorCapacity,
@@ -176,25 +243,21 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
         };
 
         (async () => {
-          // Cross-origin isolation means an image from another origin has to be
-          // served with permissive CORS headers; without them the fetch fails
-          // here rather than tainting a canvas later, which is the clearer
-          // failure of the two.
-          const response = await fetch(url, { mode: 'cors', credentials: 'omit' });
-          if (!response.ok)
-            throw new Error(`HTTP ${response.status} ${response.statusText} for ${url}`);
-          const bitmap = await createImageBitmap(await response.blob());
+          const decoded = await decodeImageSourceBlob(await imageSourceBlob(url), url);
 
-          let width = bitmap.width;
-          let height = bitmap.height;
-          if (!width || !height) throw new Error('the image has no pixels');
+          let width = decoded.width;
+          let height = decoded.height;
+          if (!width || !height) {
+            decoded.release();
+            throw new Error('the image has no pixels');
+          }
           if (width > maxWidth) {
             const scale = maxWidth / width;
             width = Math.floor(width * scale);
             height = Math.max(1, Math.floor(height * scale));
           }
           if (width * height > maxPixels) {
-            bitmap.close();
+            decoded.release();
             throw new Error(
               `image is too large: ${width}x${height} px exceeds the ` +
               `${maxPixels} px limit`);
@@ -206,8 +269,8 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
           // For waterfalls that scroll from the top. Flipping while drawing
           // costs nothing, where PIL needs a second pass over the pixels.
           if (flip) { context.translate(0, height); context.scale(1, -1); }
-          context.drawImage(bitmap, 0, 0, width, height);
-          bitmap.close();
+          context.drawImage(decoded.image, 0, 0, width, height);
+          decoded.release();
 
           const rgba = context.getImageData(0, 0, width, height).data;
           const luma = new Uint8Array(width * height);

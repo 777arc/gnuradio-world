@@ -17,7 +17,7 @@
 // Serves the repository root (COOP/COEP, as SharedArrayBuffer requires) so there is no
 // background server to manage. Exits non-zero if any case fails.
 import http from 'node:http';
-import { mkdtemp, open, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, open, readFile, rm, writeFile } from 'node:fs/promises';
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { extname, join, normalize } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -412,6 +412,99 @@ for (const test of CASES) {
   console.log(`   ${verdict.trim()}`);
   console.log(`   selected size: ${selectedSize}  observed: ${probe?.value ?? '(no probe)'}  ` +
               `stats: ${JSON.stringify(fileStats)}`);
+  if (!ok && logs.length) console.log('   logs: ' + logs.slice(-8).join('\n         '));
+}
+
+// Pick a picture from "this computer" for gr-paint's Image File Source, through
+// the same editor Properties > Browse control the File Source case uses. The
+// image is an SVG, which is the one format createImageBitmap refuses, so this
+// also covers the <img> fallback in runner.html: a decode that silently lost
+// either the local binding or that fallback shows up here as a flowgraph that
+// never starts.
+{
+  const test = {
+    name: 'Editor Image File Source decodes a local SVG',
+    grc: 'test/fixtures/local_image_source.grc',
+  };
+  const width = 64, height = 32;
+  const tempDir = await mkdtemp(join(tmpdir(), 'gnuradio-world-image-source-'));
+  const imagePath = join(tempDir, 'white-block.svg');
+  // Solid white, so every luma byte is 255 with the BT.709 mapping off.
+  await writeFile(imagePath,
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">` +
+    `<rect width="${width}" height="${height}" fill="#ffffff"/></svg>\n`);
+
+  const page = await browser.newPage();
+  const logs = [];
+  page.on('console', m => logs.push(m.text()));
+  page.on('pageerror', e => logs.push('PAGEERROR ' + e.message));
+  let verdict = '(no #result)', probe = null, announced = '', selectedName = null;
+  try {
+    await page.goto(`http://localhost:${PORT}/`, { waitUntil: 'networkidle0', timeout: 60000 });
+    const openInput = await page.$('#fileOpen');
+    await openInput.uploadFile(join(ROOT, test.grc));
+    await page.waitForFunction(() =>
+      [...document.querySelectorAll('#nodes .title')]
+        .some(node => node.textContent === 'Image File Source'), { timeout: 10000 });
+
+    await page.evaluate(() => {
+      const title = [...document.querySelectorAll('#nodes .title')]
+        .find(node => node.textContent === 'Image File Source');
+      title?.closest('.blk')?.dispatchEvent(new MouseEvent('contextmenu', {
+        bubbles: true, cancelable: true, clientX: 200, clientY: 200,
+      }));
+    });
+    await page.evaluate(() => {
+      const properties = [...document.querySelectorAll('.ctxitem')]
+        .find(item => item.textContent === 'Properties');
+      properties?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await page.waitForSelector('.file-picker-native');
+    await (await page.$('.file-picker-native')).uploadFile(imagePath);
+    selectedName = await page.$eval(
+      '.file-picker-native', input => input.files?.[0]?.name ?? null);
+    await page.evaluate(() => {
+      const ok = [...document.querySelectorAll('.dlgfoot button')]
+        .find(button => button.textContent === 'OK');
+      ok?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await page.click('button[aria-label="Execute"]');
+    await page.waitForFunction(() => {
+      const frame = document.getElementById('runFrame');
+      const result = frame?.contentDocument?.getElementById('result');
+      return result && result.dataset.status !== 'pending';
+    }, { timeout: 60000, polling: 200 });
+    verdict = await page.evaluate(() =>
+      document.getElementById('runFrame').contentDocument.getElementById('result').textContent);
+    await page.waitForFunction(() => {
+      const runner = document.getElementById('runFrame')?.contentWindow;
+      if (!runner?.__grstats) return false;
+      return JSON.parse(runner.__grstats).blocks.find(item => item.name === 'probe')?.items > 0;
+    }, { timeout: 10000, polling: 100 });
+    probe = await page.evaluate(() => JSON.parse(
+      document.getElementById('runFrame').contentWindow.__grstats)
+      .blocks.find(item => item.name === 'probe'));
+    // The block prints the decoded size to the editor's console pane; it is
+    // what tells the reader the Spectrum Painter's Image Width to use.
+    announced = await page.evaluate(() => {
+      const line = [...document.getElementById('log').textContent.split('\n')]
+        .find(text => text.includes('paint.image_source:'));
+      return line || '';
+    });
+  } catch (error) {
+    logs.push('TESTERROR ' + error.message);
+  } finally {
+    await page.close();
+    await rm(tempDir, { recursive: true, force: true });
+  }
+
+  const ok = verdict.includes('RUNNER_PASS') && probe?.value === 255 &&
+    announced.includes(`${width * height} bytes, ${width}px width`);
+  allOk = allOk && ok;
+  console.log(`\n[${ok ? 'OK' : 'FAIL'}] ${test.name}  (${test.grc})`);
+  console.log(`   ${verdict.trim()}`);
+  console.log(`   selected: ${selectedName}  luma: ${probe?.value ?? '(no probe)'}  ` +
+              `announced: ${announced.trim() || '(nothing)'}`);
   if (!ok && logs.length) console.log('   logs: ' + logs.slice(-8).join('\n         '));
 }
 

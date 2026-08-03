@@ -2,12 +2,12 @@ options:
     parameters:
         author: gr-paint (Ron Economos, W6RZ)
         copyright: ''
-        description: Paint a PNG into a waterfall display. The image is fetched from
-            this site; open the Image File Source properties and press Browse to paint
-            a picture from your own computer instead.
+        description: Paint a JPEG into a waterfall display. Same flowgraph as the PNG
+            example, on a lossily compressed image; open the Image File Source properties
+            and press Browse to paint a picture from your own computer instead.
         generate_options: qt_gui
-        id: paint_image_waterfall
-        title: Paint a PNG Into a Waterfall
+        id: paint_image_waterfall_jpeg
+        title: Paint a JPEG Into a Waterfall
     states:
         coordinate: [10, 10]
         rotation: 0
@@ -26,7 +26,7 @@ blocks:
     parameters:
         autocontrast: '0'
         bt709_map: '1'
-        image_file: /example_images/gnuradio_logo.png
+        image_file: /example_images/gnuradio_logo.jpg
         image_flip: '0'
         image_invert: '0'
         repeatmode: '1'

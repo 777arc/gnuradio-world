@@ -611,8 +611,8 @@ all landing in the module's own `blocks/overlays/gr-<m>/`:
   keep a step 3 entry, whose `make` calls into `satellites_*.cpp` beside their
   `metadata.yml`;
 - a block resting on a **host facility the browser also has** becomes a browser
-  one: gr-paint's PIL-based `paint_image_source` decodes with `fetch` +
-  `createImageBitmap` instead, again via `CUSTOM_IDS`.
+  one: gr-paint's PIL-based `paint_image_source` decodes a locally picked `File`
+  or a fetched URL with `createImageBitmap` instead, again via `CUSTOM_IDS`.
 
 **Host-only deps** not in the WASM sysroot (UHD, Boost.Asio networking,
 Boost.Locale, libsndfile, …) must be dealt with in step 4.
@@ -771,7 +771,8 @@ chain.
   Source") is a Python `gr.sync_block` that decodes an image with PIL and emits
   one luma line per `work()`; there is neither PIL nor a filesystem here, so
   [`blocks/overlays/gr-paint/paint_image_source.cpp`](blocks/overlays/gr-paint/paint_image_source.cpp) names
-  the image with a **URL** and lets the platform decode it — `fetch` →
+  the image with a **picture on the reader's computer or a URL** and lets the
+  platform decode it — the browser-picked `File` (or `fetch`) →
   `createImageBitmap` → `OffscreenCanvas`, then grayscale / autocontrast /
   invert / BT.709 in JS (`__grLoadImageSource` in `runner.html`). Two things
   generalize from it:
@@ -787,10 +788,27 @@ chain.
     `image_width`/`line_num` at each line start, which is equivalent here
     because Spectrum Painter reads its width from its own parameter.
 
-  Cross-origin isolation applies: an image on another origin must be served with
-  permissive CORS headers or the fetch fails (with the reason in the editor's
-  console pane). `example_flowgraphs/paint/paint_image_waterfall.grc` therefore
-  paints a same-origin asset, `editor/public/example_images/gnuradio_logo.png`.
+  A **local picture** rides the same session-only binding a local recording
+  does: `LOCAL_FILE_PARAMS` in `main.ts` names the parameter each such block
+  keeps its file in, which is what puts a Browse control in its Properties
+  dialog and rewrites that parameter to a `/local-files/...` path on the Run
+  path; `__grLoadImageSource` resolves it through `window.__grInputSources`
+  rather than fetching. A `.grc` still stores only the file name.
+
+  **Formats:** PNG/JPEG/GIF/WebP/BMP go through `createImageBitmap`. SVG is the
+  one exception — Chrome refuses an SVG blob there — so the decoder falls back
+  to an `<img>`, which rasterizes at the SVG's intrinsic size (the browser's
+  300×150 default when the file declares none). A local blob and a CORS-fetched
+  one are both same-origin, so the canvas stays readable by `getImageData`
+  either way.
+
+  Cross-origin isolation applies to the URL case: an image on another origin
+  must be served with permissive CORS headers or the fetch fails (with the
+  reason in the editor's console pane). The three `example_flowgraphs/paint/`
+  examples — one per format, `paint_image_waterfall{,_jpeg,_svg}.grc` — therefore
+  paint same-origin assets from `editor/public/example_images/`. All three are
+  288 px wide so they share one Spectrum Painter width, which is also why the
+  SVG declares a size.
 - If a **core** hand-written factory references a **deferred** module's symbols
   (as `digital_psk_mod` uses a few `gr-digital` blocks), link that module's `.a`
   *normally* (not whole-archive) into the main module too, so just those objects

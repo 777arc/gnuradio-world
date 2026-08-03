@@ -12,10 +12,11 @@
 // Upstream is a Python gr.sync_block that decodes an image with PIL and emits
 // one monochrome line per work() call for the Spectrum Painter to paint into a
 // waterfall. There is no PIL here and no filesystem either, so this block names
-// its image with a URL and lets the browser decode it: fetch + createImageBitmap
-// + an OffscreenCanvas, then the same grayscale / autocontrast / invert /
-// BT.709 pipeline the Python does, in JS (see __grLoadImageSource in
-// runner.html).
+// its image with a URL, or with the "/local-files/..." path the editor binds a
+// browser-picked File to, and lets the browser decode it: fetch (or that File)
+// + createImageBitmap, an <img> for SVG, + an OffscreenCanvas, then the same
+// grayscale / autocontrast / invert / BT.709 pipeline the Python does, in JS
+// (see __grLoadImageSource in runner.html).
 //
 // The decode is asynchronous and block construction runs on the browser main
 // thread, so the constructor only *starts* it; the wait happens in work(), on

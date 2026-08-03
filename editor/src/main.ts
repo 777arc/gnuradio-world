@@ -440,6 +440,22 @@ let hideDisabled = false;
 let snapToGrid = true;
 let paletteSearch: HTMLInputElement | null = null;
 
+// Blocks that name a file the browser has to open for itself, and the parameter
+// holding that name. Each gets a Browse control in its Properties dialog, and
+// the File it picks is bound for this session under the block's
+// `localFileToken` (a .grc keeps the human-readable name, never a File handle).
+// The Run path rewrites the parameter of exactly these blocks to the
+// /local-files/... path the runner resolves that binding through.
+const LOCAL_FILE_PARAMS: Record<string, string> = {
+  blocks_file_source: 'file',
+  paint_image_source: 'image_file',   // gr-paint's Image File Source
+};
+// What the native file input offers, per block: an Image File Source only ever
+// wants a picture, where a File Source takes any recording.
+const LOCAL_FILE_ACCEPT: Record<string, string> = {
+  paint_image_source: 'image/*',
+};
+
 const localFilesByToken = new Map<string, File>();
 function newLocalFileToken(): string {
   return typeof crypto.randomUUID === 'function'
@@ -1631,7 +1647,8 @@ function grcTextForRun(fileOverrides: Map<string, string> = new Map()): string {
   const doc = buildGrcDoc(true);
   for (const block of doc.blocks) {
     const path = fileOverrides.get(block.name);
-    if (path !== undefined) block.parameters.file = path;
+    const param = LOCAL_FILE_PARAMS[block.id];
+    if (path !== undefined && param) block.parameters[param] = path;
   }
   return dumpGrc(doc);
 }
@@ -2189,14 +2206,15 @@ function showPropsDialog(inst: Inst) {
       s.onchange = () => { tmp.params[p.id] = s.value; refreshVisibility(); refreshValidation(); };
       addField(p.category || 'General', `${p.label}  (${p.id})`, s, p.id);
       if (p.showWhen) conditionalRows.push({ param: p, row: s.closest('.dlgrow') as HTMLElement });
-    } else if (inst.id === 'blocks_file_source' && p.id === 'file' &&
-               p.dtype === 'file_open') {
+    } else if (LOCAL_FILE_PARAMS[inst.id] === p.id && p.dtype === 'file_open') {
       const picker = document.createElement('div'); picker.className = 'file-picker';
       const inp = document.createElement('input'); inp.value = String(tmp.params[p.id]);
       const choose = document.createElement('button'); choose.type = 'button';
       choose.textContent = 'Browse…';
       const native = document.createElement('input'); native.type = 'file';
       native.className = 'file-picker-native'; native.tabIndex = -1;
+      const accept = LOCAL_FILE_ACCEPT[inst.id];
+      if (accept) native.accept = accept;
       const detail = document.createElement('small'); detail.className = 'file-picker-detail';
       const refreshDetail = () => {
         const file = tmp.localFileToken
@@ -3149,8 +3167,10 @@ async function run() {
   const fileOverrides = new Map<string, string>();
   const addedPaths = new Set<string>();
   for (const block of insts) {
-    if (!block.enabled || block.bypassed || block.id !== 'blocks_file_source') continue;
-    const savedPath = String(block.params.file || '');
+    if (!block.enabled || block.bypassed) continue;
+    const fileParam = LOCAL_FILE_PARAMS[block.id];
+    if (!fileParam) continue;
+    const savedPath = String(block.params[fileParam] || '');
     if (block.localFileToken) {
       const file = localFilesByToken.get(block.localFileToken);
       if (!file) {
@@ -3163,6 +3183,17 @@ async function run() {
       if (!addedPaths.has(path)) {
         recordingFiles.push({ kind: 'local', path, file });
         addedPaths.add(path);
+      }
+      continue;
+    }
+
+    // An Image File Source with no local picture names a URL the runner fetches
+    // for itself, so there is nothing to bind — only an empty field to catch.
+    if (block.id === 'paint_image_source') {
+      if (!savedPath) {
+        log(`cannot run: choose an image for "${block.name}" with Browse, or type a URL`);
+        select(block.uid);
+        return;
       }
       continue;
     }

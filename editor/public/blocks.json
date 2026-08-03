@@ -51134,14 +51134,14 @@
    "runnable": true,
    "unavailable_reason": null,
    "module": "core",
-   "documentation": "Produces monochrome image lines for the Spectrum Painter, which paints\nthem into a receiver's waterfall.\n\nThis build decodes the image with the browser rather than with\nPython-Imaging, so Image URL names a URL, not a local path. Any format\nthe browser can display works (PNG, JPEG, GIF, WebP, ...). A relative\nURL resolves against this site, so /example_images/gnuradio_logo.png is\nthe logo shipped with the \"Paint an Image Into a Waterfall\" example.\n\nCORS: this page is cross-origin isolated, so an image on another origin\nhas to be served with permissive CORS headers\n(Access-Control-Allow-Origin). Wikimedia and most public CDNs are; an\narbitrary web server, and most image links copied out of a browser's\naddress bar, are not. There is no way around it from this side -- the\nbrowser refuses to read pixels it did not get permission for. A URL\nthat is refused reports the reason in the console pane under the\nflowgraph, and anything served from this site always works.\n\nAn image wider than 4096 pixels is scaled down to 4096, the Spectrum\nPainter's limit. The decoded width is printed to the console when the\nflowgraph starts: type it into the Spectrum Painter's Image Width.",
+   "documentation": "Produces monochrome image lines for the Spectrum Painter, which paints\nthem into a receiver's waterfall.\n\nThis build decodes the image with the browser rather than with\nPython-Imaging, and the image comes from either of two places:\n\n- a picture on this computer, chosen with Browse. The browser reads it\n  directly, so nothing is uploaded anywhere; the binding lasts for this\n  browser session only, and a saved .grc keeps just the file name, so\n  re-opening it means choosing the picture again.\n- a URL, typed into the field. A relative URL resolves against this\n  site, so /example_images/gnuradio_logo.png is the logo shipped with\n  the \"Paint a PNG Into a Waterfall\" example.\n\nFormats: PNG, JPEG, GIF, WebP and BMP all work, from either source. SVG\nworks too, rasterized at the size the file declares -- 300x150 pixels\nwhen it declares none, which is the browser's default for a sizeless\nSVG rather than anything chosen here. The Paint examples paint one\nimage of each of the three formats worth demonstrating.\n\nCORS applies to the URL case only: this page is cross-origin isolated,\nso an image on another origin has to be served with permissive CORS\nheaders (Access-Control-Allow-Origin). Wikimedia and most public CDNs\nare; an arbitrary web server, and most image links copied out of a\nbrowser's address bar, are not. There is no way around it from this\nside -- the browser refuses to read pixels it did not get permission\nfor. A URL that is refused reports the reason in the console pane under\nthe flowgraph. Anything served from this site, and every locally chosen\npicture, always works.\n\nAn image wider than 4096 pixels is scaled down to 4096, the Spectrum\nPainter's limit. The decoded width is printed to the console when the\nflowgraph starts: type it into the Spectrum Painter's Image Width.",
    "api_documentation": "Given an image file readable by Python-Imaging, this block produces\nmonochrome lines suitable for input to spectrum_paint",
    "wiki_url": "",
    "params": [
     {
      "id": "image_file",
-     "label": "Image URL",
-     "dtype": "string",
+     "label": "Image File or URL",
+     "dtype": "file_open",
      "default": "",
      "category": "General",
      "options": null,

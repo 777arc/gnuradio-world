@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+An SVG for the "Paint an SVG Into a Waterfall" example flowgraph.
+
+Deliberately 288 pixels wide, matching the PNG and JPEG the sibling examples
+paint, so all three run with the same Spectrum Painter width. It declares both
+width and height: a sizeless SVG rasterizes at the browser's 300x150 default
+instead, which is rarely the size anyone wanted.
+
+Shapes and text only — an <img> renders an SVG with external resources blocked,
+so nothing here may reference another file. The palette of white on black is
+what a spectrum painter wants: brightness becomes signal power.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="288" height="71" viewBox="0 0 288 71">
+  <rect width="288" height="71" fill="#000000"/>
+  <rect x="2.5" y="2.5" width="283" height="66" fill="none" stroke="#ffffff" stroke-width="3"/>
+  <path d="M 16 20 q 10 -11 20 0 t 20 0 t 20 0 t 20 0 t 20 0 t 20 0 t 20 0 t 20 0 t 20 0 t 20 0 t 20 0 t 20 0 t 16 0"
+        fill="none" stroke="#ffffff" stroke-width="2.5"/>
+  <text x="144" y="47" fill="#ffffff" font-family="sans-serif" font-size="21"
+        font-weight="bold" text-anchor="middle">GNU Radio</text>
+  <text x="144" y="61" fill="#c8c8c8" font-family="sans-serif" font-size="8"
+        letter-spacing="2.5" text-anchor="middle">SCALABLE VECTOR GRAPHICS</text>
+</svg>

@@ -67,4 +67,31 @@ assert.match(source, /const RECORDING_VIEW_BASE = '\/recording\/#'/,
 assert.doesNotMatch(source, /open in IQEngine/,
   'the recordings palette must not link out to a separate viewer in a new tab');
 
+// A file picked from this computer is not only for recordings: gr-paint's Image
+// File Source binds a picture through the same session-only token, so one table
+// drives the Browse control, the Run-path rewrite and the runner handoff for
+// both blocks.
+assert.match(source,
+  /const LOCAL_FILE_PARAMS[\s\S]*?blocks_file_source: 'file'[\s\S]*?paint_image_source: 'image_file'/,
+  'blocks that name a browser-opened file must share one parameter table');
+assert.match(source, /LOCAL_FILE_PARAMS\[inst\.id\] === p\.id && p\.dtype === 'file_open'/,
+  'every block in that table must get the Browse control');
+assert.match(source,
+  /const param = LOCAL_FILE_PARAMS\[block\.id\];\s*\n\s*if \(path !== undefined && param\)\s*block\.parameters\[param\] = path;/,
+  'the run document must be rewritten through each block\'s own file parameter');
+// A retyped image_file (it was `string` while the block only accepted a URL)
+// silently removes that Browse control, which is exactly the regression to
+// catch here rather than in a browser.
+const library = JSON.parse(await readFile(
+  new URL('../public/blocks.json', import.meta.url), 'utf8'));
+const imageFile = (library.blocks || []).find(block => block.id === 'paint_image_source')
+  ?.params.find(param => param.id === 'image_file');
+assert.equal(imageFile?.dtype, 'file_open',
+  'Image File Source must keep the file_open dtype the picker keys on');
+assert.match(runnerHtml, /const imageSourceBlob = async name => \{[\s\S]*?__grInputSources/,
+  'a locally bound image must be read from the page instead of fetched');
+assert.match(runnerHtml,
+  /const decodeImageSourceBlob[\s\S]*?createImageBitmap\(blob\)[\s\S]*?new Image\(\)/,
+  'an SVG createImageBitmap refuses must fall back to an <img> decode');
+
 console.log('checked ci16 recording block-chain insertion');

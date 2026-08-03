@@ -1,0 +1,34 @@
+options:
+    parameters:
+        id: local_image_source
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: image
+    id: paint_image_source
+    parameters:
+        image_file: select-in-browser.svg
+        image_flip: '0'
+        bt709_map: '0'
+        image_invert: '0'
+        autocontrast: '0'
+        repeatmode: '1'
+    states:
+        coordinate: [80, 80]
+        rotation: 0
+        state: enabled
+-   name: probe
+    id: blocks_probe_signal_x
+    parameters:
+        type: byte
+    states:
+        coordinate: [330, 80]
+        rotation: 0
+        state: enabled
+connections:
+- [image, '0', probe, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0

@@ -50,8 +50,8 @@ ImageSourceWasm::ImageSourceWasm(std::string url,
 {
     if (d_url.empty())
         throw std::runtime_error(
-            "Image File Source needs an image URL (for example "
-            "https://example.org/picture.png)");
+            "Image File Source needs an image: choose one with Properties > "
+            "Browse, or type a URL (for example /example_images/gnuradio_logo.png)");
     if (d_repeat_mode < ONCE || d_repeat_mode > REPEAT_RELOAD)
         throw std::runtime_error("Image File Source repeat mode must be 0, 1 or 2");
 
