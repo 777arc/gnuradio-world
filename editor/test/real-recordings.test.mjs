@@ -25,9 +25,8 @@ await build({
   logLevel: 'silent',
   alias: { '@': resolve(new URL('../src/recording', import.meta.url).pathname) },
 });
-const { calcFfts, convertToFloat32, dataTypeIsComplex, dataTypeToBytesPerIQSample } = await import(
-  pathToFileURL(out)
-);
+const { calcFfts, convertToFloat32, dataTypeIsComplex, dataTypeToBytesPerIQSample, windowCoefficient } =
+  await import(pathToFileURL(out));
 
 // --- datatype shape -------------------------------------------------------
 
@@ -127,4 +126,55 @@ assert.ok(bin(complexRow, MIRROR) - bin(complexRow, -MIRROR) > 12,
 assert.ok(Math.max(...Array.from(complexRow.slice(0, FFT_SIZE / 2))) < bin(complexRow, MIRROR) - 12,
   'a complex tone must leave the whole negative half well below its peak');
 
-console.log('checked real-valued recording datatypes, sample widening and the mirrored spectrum');
+// --- windowing ------------------------------------------------------------
+
+// The settings pane's dropdown values are the strings windowCoefficient()
+// switches on, and a name that misses simply falls through to a flat window --
+// silently, since nothing else in the chain can tell "no window" from "a window
+// that happens to be 1". This asserts the two lists still agree.
+const settingsPane = await readFile(
+  new URL('../src/recording/pages/recording-view/components/settings-pane.tsx', import.meta.url), 'utf8');
+const offered = /const windowFunctions = \[([^\]]*)\]/.exec(settingsPane)?.[1]
+  ?.split(',').map(name => name.trim().replace(/^'|'$/g, '')).filter(Boolean);
+assert.ok(offered?.length, 'settings pane must declare its window functions as a literal list');
+assert.ok(offered.includes('rectangle'), 'rectangle must stay on offer as the no-window choice');
+for (const name of offered) {
+  const taper = Array.from({ length: 32 }, (_, n) => windowCoefficient(name, n, 32));
+  if (name === 'rectangle') {
+    assert.ok(taper.every(w => w === 1), 'rectangle must be a flat window');
+  } else {
+    assert.ok(taper.some(w => Math.abs(w - 1) > 1e-6),
+      `"${name}" is offered in the settings pane but no window by that name is applied`);
+    assert.ok(taper.every(w => w >= -1e-9 && w <= 1 + 1e-9),
+      `"${name}" must be a taper in [0, 1] (got ${Math.min(...taper)}..${Math.max(...taper)})`);
+  }
+}
+assert.ok(Math.abs(windowCoefficient('bartlett', 16, 33) - 1) < 1e-9,
+  'bartlett must peak at 1 in the middle of the frame');
+
+// A window scales a complex *sample*, not an array position: I and Q share one
+// coefficient and the taper spans the whole frame. Indexing the interleaved
+// array directly tapers the first half of the samples only, and splits each of
+// those across two neighbouring coefficients -- which leaves the frame with the
+// hard edge a window exists to remove. The half-bin tone above is the test for
+// it: windowing has to buy real sidelobe suppression over no window at all,
+// and the mis-indexed version buys almost none (~11 dB against rectangular's
+// 10 dB, where a correctly applied window is ~20 dB and up).
+const farSidelobe = (row) => {
+  let worst = -Infinity;
+  for (let m = -FFT_SIZE / 2; m < FFT_SIZE / 2; m++) {
+    if (Math.abs(m - MIRROR) >= 6) worst = Math.max(worst, bin(row, m));
+  }
+  return worst;
+};
+const iq = convertToFloat32(complex.buffer, 'ci16_le');
+const flat = calcFfts(iq, FFT_SIZE, 'rectangle', 1);
+const flatMargin = bin(flat, MIRROR) - farSidelobe(flat);
+for (const name of offered.filter(name => name !== 'rectangle')) {
+  const row = calcFfts(iq, FFT_SIZE, name, 1);
+  const margin = bin(row, MIRROR) - farSidelobe(row);
+  assert.ok(margin > 16,
+    `"${name}" must suppress far sidelobes (${margin.toFixed(1)} dB vs ${flatMargin.toFixed(1)} unwindowed)`);
+}
+
+console.log('checked real-valued recording datatypes, sample widening, the mirrored spectrum and windowing');

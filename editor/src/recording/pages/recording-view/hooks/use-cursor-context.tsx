@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { useSpectrogramContext } from './use-spectrogram-context';
 import { useGetIQData } from '@/api/iqdata/Queries';
 import { useDebounce } from 'usehooks-ts';
@@ -51,7 +51,7 @@ export function CursorContextProvider({ children }) {
   const [cursorTimeEnabled, setCursorTimeEnabled] = useState<boolean>(false);
 
   const { type, account, container, filePath, fftSize } = useSpectrogramContext();
-  const { currentData, setFFTsRequired, fftsRequired } = useGetIQData(type, account, container, filePath, fftSize);
+  const { currentData, setFFTsRequired } = useGetIQData(type, account, container, filePath, fftSize);
 
   const [cursorData, setCursorData] = useState<Float32Array>(new Float32Array(0));
   const debounceCursorTime = useDebounce(cursorTime, 500);

@@ -2,7 +2,7 @@
 // Copyright (c) 2023 Marc Lichtman
 // Licensed under the MIT License
 
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Layer, Rect, Image } from 'react-konva';
 import {
   MINIMUM_SCROLL_HANDLE_HEIGHT_PIXELS,
@@ -56,9 +56,10 @@ const ScrollBar = ({ currentFFT, setCurrentFFT }: ScrollBarProps) => {
       iqData.set(minimapData[i], i * minimapData[i].length);
     }
     if (minimapData[0].length != 2 * MINIMAP_FFT_SIZE) {
-      console.log('minimapData.length:', minimapData.length);
-      console.log('minimapData[0].length:', minimapData[0].length, 'MINIMAP_FFT_SIZE:', MINIMAP_FFT_SIZE);
-      throw new Error('Minimap data does not have the correct length');
+      throw new Error(
+        `Minimap rows must be ${2 * MINIMAP_FFT_SIZE} floats (${MINIMAP_FFT_SIZE} IQ samples), ` +
+          `got ${minimapData[0].length} across ${minimapData.length} rows`
+      );
     }
     // Always an FFT, whatever the spectrogram's own method is: each minimap row
     // is its own ranged read from a different point in the recording, so

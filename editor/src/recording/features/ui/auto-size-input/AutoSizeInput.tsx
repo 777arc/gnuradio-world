@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { ExclamationCircleIcon } from '@heroicons/react/24/outline';
 
 export const AutoSizeInput = ({

@@ -13,19 +13,22 @@
 // a site can serve the small .sigmf-meta itself while the large .sigmf-data
 // lives in object storage. base64url keeps them free of '/' and '%', which
 // would otherwise have to survive path-segment normalisation on the way to the
-// SPA. Relative URLs ("/example_recordings/x.sigmf-data") are allowed and
-// resolve against the page, so a site hosting IQEngine alongside its own
-// recordings does not need to know its own origin.
+// SPA. Relative URLs ("/recordings/x.sigmf-data") are allowed and resolve
+// against the page, so a site hosting this viewer alongside its own recordings
+// does not need to know its own origin.
+//
+// Only the editor ever builds one of these routes -- see base64Url() in
+// editor/src/recording-catalog.ts -- so this side decodes and never encodes.
 
 export const CLIENT_TYPE_URL = 'url';
 
-export function encodeUrlParam(url: string): string {
-  const bytes = new TextEncoder().encode(url);
-  let binary = '';
-  for (const byte of bytes) {
-    binary += String.fromCharCode(byte);
-  }
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+// A recording reaches this viewer as a pair of URLs and nothing else, so 'url'
+// is the only client type the route can carry. Upstream IQEngine also had api /
+// local / azure_blob clients, each needing a backend, a picked directory or an
+// Azure account respectively; none of those are part of this port. Checking
+// here keeps a hand-edited route from quietly reading the wrong thing.
+export function assertUrlRecordingType(type: string): void {
+  if (type !== CLIENT_TYPE_URL) throw new Error(`Unknown data source type: ${type}`);
 }
 
 export function decodeUrlParam(param: string): string {

@@ -95,14 +95,13 @@ node server.mjs 8090 "$PWD"
 | `qtgui/` | Qt6 build of the gr-qtgui sink chain |
 | `runner/` | the JSON-driven WASM flowgraph runner, generated C++ registry, support manifest, and shared side-module topology in `modules.json`; vendored headers live under `third_party/` |
 | `editor/` | the TypeScript flowgraph editor; `main.ts` owns browser orchestration while block schemas, validation, generated-library installation, and example/recording catalogs live in focused modules beside it |
-| `tools/` | `block_overrides.py` (the browser-only block-metadata overlay loader/merger shared by `gen_registry.py` and `gen_blocklib.py`) and `generate_cpp.py` (host-side GRC → C++ generation, optional) |
+| `tools/` | `block_overrides.py`, the browser-only block-metadata overlay loader/merger shared by `gen_registry.py` and `gen_blocklib.py` |
 | `blocks/` | everything a human wrote about blocks, as opposed to `runner/`, which is the app plus everything generated. See "Where a block's source lives" below |
 | `blocks/grc/` | `.block.yml` for runner-only blocks with no upstream GNU Radio equivalent (`wasm_packet_rate_sink`); read by *both* `gen_registry.py` and `gen_blocklib.py` alongside GNU Radio's own yaml |
 | `blocks/src/` | hand-written block implementations not owned by any one vendored module — `browser_file_source.cpp` and the like |
 | `blocks/overlays/<module>/` | one directory per module, holding `metadata.yml` (every browser-only addition to that module's blocks: `cpp_templates`, retyped/re-defaulted/relabelled params, pruned enum options, replaced `documentation`) plus, for an out-of-tree module, its `shims/` and any C++ rebuilt from a Python-only block. This is why the submodules need no fork. `blocks/overlays/gnuradio/` is the in-tree equivalent, metadata only |
 | `docs/` | `double-mapped-buffer.md` (the emulated vmcircbuf) and `diagnostics.md` (the runner's `__grstats` snapshot and debug panel, which the smoke test asserts against) |
 | `example_flowgraphs/` | the `.grc` files the editor's "Example Flowgraphs" palette tab lists recursively (files may be organized in nested directories, which appear as collapsible folders); several are also smoke-test cases. Each is directly linkable as `#example=<relative path without .grc>` (the 🔗 on its palette entry copies that link). Test changes here with `scripts/run_example.mjs`, which drives the real editor — see "Run and test" |
-| `example_recordings/` | Historical/local recording copies used by a few tests and the one-time R2 metadata migration utility. Do not add production recordings here. The application and site assembly do not discover, copy, or serve this directory. Production discovery comes exclusively from R2's generated `index.json`. |
 | `workers/sigmf-indexer/` | Scheduled Cloudflare Worker bound to the recordings R2 bucket. Daily at 09:00 UTC (4:00 AM EST) it pairs `.sigmf-data`/`.sigmf-meta` keys, derives the searchable metadata and byte/sample counts, and atomically replaces the bucket's `index.json`. It also has a bearer-protected manual rebuild endpoint. |
 | `server.mjs` | COOP/COEP static dev server (needed for SharedArrayBuffer / pthreads); serves the repo root, falls back to `editor/dist/` for `/`, and synthesizes the `/example_flowgraphs` listing. Recording discovery and objects always come directly from R2. |
 | `test/` | `test_smoke.mjs` (runs example flowgraphs headlessly and asserts samples actually move) and `test_lazy_scenarios.mjs` (verifies on-demand category side modules are fetched and `dlopen`'d), plus the `fixtures/` `.grc` they load; CI gates the deploy on both. `editor/test/` and `runner/test/` hold their own suites — see "Run and test" |
@@ -493,7 +492,7 @@ In handwritten `.grc` test fixtures:
   `editor/src/main.ts` evaluates every numeric/`raw` parameter through
   [`editor/src/expr.ts`](editor/src/expr.ts) — a Python-subset evaluator covering
   arithmetic, `math`/`numpy`/`firdes`, list literals and repetition — and hands
-  the runner a *resolved* .grc. `example_flowgraphs/rds_receiver.grc` relies on
+  the runner a *resolved* .grc. `example_flowgraphs/rds/rds_receiver.grc` relies on
   this (`2*math.pi/100`, `samp_rate/(2*math.pi*75e3)`).
   A .grc loaded **straight into `runner.html#<grc>`** gets no such pass: the C++
   side only inlines plain `variable` blocks and coerces numeric strings, so
@@ -757,7 +756,7 @@ chain.
   receiver ever shows its decoded ASCII, so `registry.cpp` rebuilds it as a
   message-sink block whose handler records the parser's `(type, text)` tuples and
   whose QTimer paints them (message handlers run on GR threads; widgets are
-  main-thread only). See `example_flowgraphs/rds_receiver.grc`.
+  main-thread only). See `example_flowgraphs/rds/rds_receiver.grc`.
 - **Python blocks whose dependency is a browser capability** get rebuilt around
   the browser's version of it. gr-paint's `paint_image_source` ("Image File
   Source") is a Python `gr.sync_block` that decodes an image with PIL and emits
@@ -982,7 +981,7 @@ the SigMF metadata, derives byte and sample counts, and replaces the bucket's
 on demand. The editor fetches that live index with `cache: no-store`, then
 constructs both object URLs from each base key. `server.mjs`,
 `scripts/assemble-site.mjs`, and Cloudflare Pages never build or serve a
-recording manifest and never inspect `example_recordings/`.
+recording manifest, and no recording is ever checked into this repository.
 
 To publish a recording, upload both matching objects directly to R2 using the
 dashboard, the S3-compatible API, rclone, or another R2 client, then wait for

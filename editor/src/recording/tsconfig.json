@@ -2,7 +2,10 @@
   "//": [
     "The recording view began as IQEngine code and retains its non-strict React",
     "settings and '@/...' self-references so it stays easy to compare upstream.",
-    "It is nevertheless type-checked by npm run typecheck; Vite alone only transpiles."
+    "It is nevertheless type-checked by npm run typecheck; Vite alone only transpiles.",
+    "noUnusedLocals is on even though strict is off: trimming this port left dead",
+    "imports behind that nothing else could see, one of which pulled a whole",
+    "CodeMirror package into the bundle for a symbol it never called."
   ],
   "compilerOptions": {
     "target": "ES2020",
@@ -10,6 +13,7 @@
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
     "strict": false,
+    "noUnusedLocals": true,
     "skipLibCheck": true,
     "allowJs": true,
     "resolveJsonModule": true,

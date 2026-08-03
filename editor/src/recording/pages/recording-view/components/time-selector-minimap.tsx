@@ -2,7 +2,6 @@
 // Copyright (c) 2023 Marc Lichtman
 // Licensed under the MIT License
 
-import React from 'react';
 import { Layer, Rect } from 'react-konva';
 import { MINIMAP_FFT_SIZE } from '@/utils/constants';
 import { useSpectrogramContext } from '../hooks/use-spectrogram-context';

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 const DualRangeSlider = ({ min, minValue, max, maxValue, setMin, setMax, unit }) => {
   const range = useRef(null);

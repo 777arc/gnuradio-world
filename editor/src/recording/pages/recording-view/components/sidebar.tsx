@@ -2,7 +2,6 @@
 // Copyright (c) 2023 Marc Lichtman
 // Licensed under the MIT License
 
-import React from 'react';
 import SettingsPane from './settings-pane';
 import { Tab } from '../tabs';
 

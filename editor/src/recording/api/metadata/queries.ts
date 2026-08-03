@@ -1,9 +1,11 @@
 import { SigMFMetadata } from '@/utils/sigmfMetadata';
-import { MetadataClientFactory } from './metadata-client-factory';
+import { UrlClient } from './url-client';
+import { assertUrlRecordingType } from '@/utils/url-datasource';
 import { useQuery } from '@tanstack/react-query';
 
 export const useMeta = (type: string, account: string, container: string, filePath: string) => {
-  const metadataClient = MetadataClientFactory(type);
+  assertUrlRecordingType(type);
+  const metadataClient = new UrlClient();
   return useQuery<SigMFMetadata>({
     queryKey: ['datasource', type, account, container, filePath, 'meta'],
     queryFn: () => {

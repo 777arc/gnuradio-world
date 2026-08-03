@@ -9,6 +9,7 @@ export const [
   validationSource,
   recordingCatalogSource,
   exampleCatalogSource,
+  debugPanelSource,
   htmlSource,
   cssSource,
 ] = await Promise.all([
@@ -18,6 +19,7 @@ export const [
   read('../src/validation.ts'),
   read('../src/recording-catalog.ts'),
   read('../src/example-catalog.ts'),
+  read('../src/debug-panel.ts'),
   read('../index.html'),
   read('../src/editor.css'),
 ]);
@@ -31,6 +33,7 @@ export const editorSource = [
   validationSource,
   recordingCatalogSource,
   exampleCatalogSource,
+  debugPanelSource,
 ].join('\n');
 
 export const markupSource = `${htmlSource}\n${cssSource}`;

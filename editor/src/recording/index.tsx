@@ -7,13 +7,16 @@
 // router covering the browser/admin/docs/converter/siggen pages. None of those
 // come along: there is no backend and no account here, and the only route that
 // exists is the recording view itself, reached through the 'url' data source.
-import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { createHashRouter, RouterProvider } from 'react-router-dom';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
-import ThemeSelector from '@/features/ui/styles/ThemeSelector';
 import { RecordingViewPage } from '@/pages/recording-view/recording-view';
+// Upstream loads a per-theme stylesheet lazily behind a <ThemeSelector>; this
+// port has exactly one theme (the editor's, see tailwind.config.cjs), so the
+// two are plain imports.
+import '@/features/ui/styles/tailwind_index.css';
+import '@/features/ui/styles/index.css';
 
 const container = document.getElementById('root');
 if (!container) throw new Error('No root element found');
@@ -47,9 +50,7 @@ const router = createHashRouter([
 
 root.render(
   <QueryClientProvider client={queryClient}>
-    <ThemeSelector>
-      <Toaster />
-      <RouterProvider router={router} />
-    </ThemeSelector>
+    <Toaster />
+    <RouterProvider router={router} />
   </QueryClientProvider>
 );

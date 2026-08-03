@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { IQDataClientFactory } from './IQDataClientFactory';
+import { UrlClient } from './UrlClient';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useMeta } from '@/api/metadata/queries';
 import { applyProcessing } from '@/utils/fetch-more-data-source';
@@ -12,24 +12,6 @@ import { groupContiguousIndexes } from '@/utils/group';
 // source to construct.
 
 const MAXIMUM_SAMPLES_PER_REQUEST = 1024 * 256;
-
-export function useDataCacheFunctions(
-  type: string,
-  account: string,
-  container: string,
-  filePath: string,
-  fftSize: number
-) {
-  const queryClient = useQueryClient();
-  function clearIQData() {
-    queryClient.removeQueries(['iqData', type, account, container, filePath, fftSize]);
-    queryClient.removeQueries(['rawiqdata', type, account, container, filePath, fftSize]);
-    queryClient.removeQueries(['processedIQData', type, account, container, filePath, fftSize]);
-  }
-  return {
-    clearIQData,
-  };
-}
 
 export function useGetIQData(
   type: string,
@@ -56,7 +38,7 @@ export function useGetIQData(
 
   const { data: meta } = useMeta(type, account, container, filePath);
 
-  const iqDataClient = IQDataClientFactory(type);
+  const iqDataClient = new UrlClient();
 
   // fetches iqData, this happens first, and the iqData is in one big continuous chunk
   const { data: iqData } = useQuery({
@@ -180,7 +162,7 @@ export function useRawIQData(type, account, container, filePath, fftSize) {
 
 export function useGetMinimapIQ(type: string, account: string, container: string, filePath: string, enabled = true) {
   const { data: meta } = useMeta(type, account, container, filePath);
-  const iqDataClient = IQDataClientFactory(type);
+  const iqDataClient = new UrlClient();
   const minimapQuery = useQuery<Float32Array[]>({
     queryKey: ['minimapiq', type, account, container, filePath],
     queryFn: async ({ signal }) => {

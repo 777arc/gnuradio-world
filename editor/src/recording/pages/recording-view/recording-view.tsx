@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useSpectrogram } from './hooks/use-spectrogram';
 import { Layer, Stage, Image } from 'react-konva';
@@ -49,8 +49,7 @@ export function DisplaySpectrogram({ currentFFT, setCurrentFFT, currentTab }) {
   const { width, height } = useWindowSize();
 
   useEffect(() => {
-    const spectrogramHeight = height - 450; // hand-tuned for now
-    //console.log('spectrogramHeight: ', spectrogramHeight);
+    const spectrogramHeight = height - 450; // hand-tuned against the surrounding chrome
     setSpectrogramHeight(Math.max(MIN_SPECTROGRAM_HEIGHT, spectrogramHeight));
     const newSpectrogramWidth = width - 430; // hand-tuned for now
     setSpectrogramWidth(newSpectrogramWidth);

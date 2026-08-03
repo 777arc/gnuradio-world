@@ -15,8 +15,3 @@
 /Qt/
 __pycache__/
 
-# Production IQ recordings and metadata are hosted on Cloudflare R2. The editor
-# reads the Worker's live bucket index and never discovers recordings here.
-# Local data copies remain ignored because a few browser tests use them; the
-# historical tracked metadata sidecars are no longer deployment inputs.
-/example_recordings/**/*.sigmf-data

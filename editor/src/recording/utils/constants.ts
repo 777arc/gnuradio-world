@@ -40,28 +40,3 @@ export const MINIMAP_NUM_FFTS = 200;
 export const MINIMAP_MAX_CONCURRENT_FETCHES = 16;
 export const FETCH_PADDING = 50; // how many extra ffts we fetch, in order to smooth scrolling
 export const MIN_SPECTROGRAM_HEIGHT = 650;
-export const INITIAL_METADATA_SNIPPET = `{
-    "global": {
-        "core:datatype": "cf32_le",
-        "core:sample_rate": 1000000,
-        "core:hw": "PlutoSDR with 915 MHz whip antenna",
-        "core:author": "Art Vandelay",
-        "core:version": "1.0.0"
-    },
-    "captures": [
-        {
-            "core:sample_start": 0,
-            "core:frequency": 915000000
-        }
-    ],
-    "annotations": []
-}`;
-export const INITIAL_ANNOTATIONS_SNIPPET = `{
-    "annotations": [{
-        "core:sample_start": 100000,
-        "core:sample_count": 200000,
-        "core:freq_lower_edge": 883275000,
-        "core:freq_upper_edge": 884625000,
-        "core:label": "LTE"
-    }]
-}`;

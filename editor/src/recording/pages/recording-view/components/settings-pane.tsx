@@ -1,12 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowRight } from '@fortawesome/free-solid-svg-icons';
-import ArrowRightIcon from '@mui/icons-material/ArrowRight';
+import { useState, useEffect } from 'react';
+import { ArrowRightIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 import DualRangeSlider from '@/features/ui/dual-range-slider/DualRangeSlider';
 import { colMaps } from '@/utils/colormap';
 import { useSpectrogramContext } from '../hooks/use-spectrogram-context';
 import { useCursorContext } from '../hooks/use-cursor-context';
-import { IconProp } from '@fortawesome/fontawesome-svg-core';
 import { unitPrefixHz } from '@/utils/rf-functions';
 import { CHANNELIZER_OVERSAMPLING_CHOICES, CHANNELIZER_TAPS_CHOICES } from '@/utils/channelizer';
 import { Tab, TAB_NAMES } from '../tabs';
@@ -27,7 +24,9 @@ interface SettingsPaneProps {
 const SettingsPane = ({ currentFFT, currentTab, setCurrentTab }: SettingsPaneProps) => {
   const fftSizes = [64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536];
   const zoomLevels = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
-  const windowFunctions = ['hamming', 'rectangle', 'hanning', 'barlett', 'blackman'];
+  // These strings are the ones windowCoefficient() in utils/selector.ts matches
+  // on; a name that does not match there silently applies no window at all.
+  const windowFunctions = ['hamming', 'rectangle', 'hanning', 'bartlett', 'blackman'];
   const context = useSpectrogramContext();
   const sampleRate = context.meta?.getSampleRate() || 0;
   const coreFrequency = context.meta?.getCenterFrequency();
@@ -178,7 +177,7 @@ const SettingsPane = ({ currentFFT, currentTab, setCurrentTab }: SettingsPanePro
       <div className="mt-4">
         <div className="dropdown dropdown-hover dropdown-right w-full">
           <label tabIndex={0} className={DROPDOWN_BUTTON}>
-            Colormap <ArrowRightIcon />
+            Colormap <ChevronRightIcon className="inline-block h-4 w-4" />
           </label>
           <ul className={`${DROPDOWN_MENU} w-52`}>
             {Object.entries(colMaps).map(([value]) => (
@@ -202,7 +201,7 @@ const SettingsPane = ({ currentFFT, currentTab, setCurrentTab }: SettingsPanePro
             {/* The same number under either method -- it is the DFT length for
                 the FFT and the branch count for the channelizer -- but nobody
                 calls a filter bank's channel count an FFT size. */}
-            {isChannelizer ? 'Channels' : 'FFT Size'} <ArrowRightIcon />
+            {isChannelizer ? 'Channels' : 'FFT Size'} <ChevronRightIcon className="inline-block h-4 w-4" />
           </label>
           <ul className={`${DROPDOWN_MENU} w-52`}>
             {fftSizes.map((x, index) => (
@@ -249,7 +248,7 @@ const SettingsPane = ({ currentFFT, currentTab, setCurrentTab }: SettingsPanePro
               in how many rows a transient smears across. */}
           <div className="dropdown dropdown-hover dropdown-right w-full">
             <label tabIndex={0} className={DROPDOWN_BUTTON}>
-              Taps per Branch <ArrowRightIcon />
+              Taps per Branch <ChevronRightIcon className="inline-block h-4 w-4" />
             </label>
             <ul className={`${DROPDOWN_MENU} w-52`}>
               {CHANNELIZER_TAPS_CHOICES.map((value) => (
@@ -277,7 +276,7 @@ const SettingsPane = ({ currentFFT, currentTab, setCurrentTab }: SettingsPanePro
               without moving the time axis. */}
           <div className="dropdown dropdown-hover dropdown-right w-full mt-2">
             <label tabIndex={0} className={DROPDOWN_BUTTON}>
-              Oversampling <ArrowRightIcon />
+              Oversampling <ChevronRightIcon className="inline-block h-4 w-4" />
             </label>
             <ul className={`${DROPDOWN_MENU} w-52`}>
               {CHANNELIZER_OVERSAMPLING_CHOICES.map((value) => (
@@ -302,7 +301,7 @@ const SettingsPane = ({ currentFFT, currentTab, setCurrentTab }: SettingsPanePro
         <div className="mt-2 mb-2">
           <div className="dropdown dropdown-hover dropdown-right w-full">
             <label tabIndex={0} className={DROPDOWN_BUTTON}>
-              Window <ArrowRightIcon />
+              Window <ChevronRightIcon className="inline-block h-4 w-4" />
             </label>
             <ul className={`${DROPDOWN_MENU} w-70`}>
               {windowFunctions.map((value) => (
@@ -381,7 +380,7 @@ const SettingsPane = ({ currentFFT, currentTab, setCurrentTab }: SettingsPanePro
                     cursorContext.setCursorFreqShift(parseFloat(localFreqShift));
                   }}
                 >
-                  <FontAwesomeIcon icon={faArrowRight as IconProp} />
+                  <ArrowRightIcon className="h-4 w-4" />
                 </button>
               </div>
             </div>

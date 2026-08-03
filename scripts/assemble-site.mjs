@@ -8,7 +8,6 @@
 // Excluded on purpose:
 //   - sysroot, gr  -> compile/link inputs, never served
 //   - runner/build CMake/ninja/autogen/.a/.rsp scratch
-//   - example_recordings (the editor reads index, metadata, and data from R2)
 //
 // Usage:  node scripts/assemble-site.mjs [outDir]   (default ./site)
 import { readdir, readFile, stat, rm, mkdir, cp } from 'node:fs/promises';

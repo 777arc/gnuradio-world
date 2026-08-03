@@ -1,4 +1,3 @@
-import React from 'react';
 import { SigMFMetadata } from '@/utils/sigmfMetadata';
 import { unitPrefixHz } from '@/utils/rf-functions';
 

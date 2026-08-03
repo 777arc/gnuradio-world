@@ -1,6 +1,6 @@
 import { useMeta } from '@/api/metadata/queries';
 import { SigMFMetadata } from '@/utils/sigmfMetadata';
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { COLORMAP_DEFAULT, SPECTROGRAM_METHOD_DEFAULT, SpectrogramMethod } from '@/utils/constants';
 import { CHANNELIZER_OVERSAMPLING, CHANNELIZER_TAPS_PER_CHANNEL } from '@/utils/channelizer';
 

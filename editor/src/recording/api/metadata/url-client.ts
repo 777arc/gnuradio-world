@@ -1,8 +1,8 @@
 import { Annotation, CaptureSegment, SigMFMetadata } from '@/utils/sigmfMetadata';
-import { MetadataClient } from './metadata-client';
 import { CLIENT_TYPE_URL, fetchDataFileByteLength, urlRecordingLocation } from '@/utils/url-datasource';
 
-export class UrlClient implements MetadataClient {
+// The only metadata client the port has; see UrlClient in ../iqdata for why.
+export class UrlClient {
   async getMeta(account: string, container: string, filePath: string): Promise<SigMFMetadata> {
     const { metaUrl, dataUrl } = urlRecordingLocation(account, container);
     const response = await fetch(metaUrl);

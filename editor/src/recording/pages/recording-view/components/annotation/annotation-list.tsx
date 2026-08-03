@@ -1,5 +1,5 @@
 import DataTable from '@/features/ui/data-table/DataTable';
-import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   calculateDate,
   calculateSampleCount,

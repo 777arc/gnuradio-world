@@ -7,10 +7,8 @@
 
 #include "hier_support.hpp"
 #include <gnuradio/analog/frequency_modulator_fc.h>
-#include <gnuradio/blocks/add_blk.h>
 #include <gnuradio/blocks/multiply.h>
 #include <gnuradio/blocks/sub.h>
-#include <gnuradio/filter/fir_filter_blk.h>
 #include <gnuradio/filter/interp_fir_filter.h>
 #include <gnuradio/analog/pll_refout_cc.h>
 #include <gnuradio/analog/quadrature_demod_cf.h>
@@ -28,6 +26,8 @@
 #include <gnuradio/filter/single_pole_iir_filter_ff.h>
 #include <gnuradio/hier_block2.h>
 #include <gnuradio/io_signature.h>
+#include <gnuradio/filter/fir_filter_blk.h>
+#include <gnuradio/blocks/add_blk.h>
 #include <vector>
 
 inline std::vector<float> optfir_low_pass(double gain,

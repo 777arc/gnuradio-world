@@ -1,7 +1,5 @@
-import { IQDataClient } from './IQDataClient';
 import { convertToFloat32 } from '@/utils/fetch-more-data-source';
 import { SigMFMetadata } from '@/utils/sigmfMetadata';
-import { IQDataSlice } from '@/api/Models';
 import { groupContiguousIndexes } from '@/utils/group';
 import { MINIMAP_FFT_SIZE, MINIMAP_NUM_FFTS, MINIMAP_MAX_CONCURRENT_FETCHES } from '@/utils/constants';
 import { fetchIQRange, urlRecordingLocation } from '@/utils/url-datasource';
@@ -31,10 +29,17 @@ async function forEachWithConcurrency(count: number, limit: number, task: (index
   await Promise.all(Array.from({ length: Math.min(limit, count) }, worker));
 }
 
-// Reads IQ out of a .sigmf-data served over plain HTTP, using range requests
-// for the same reason the blob client uses ranged downloads: only the visible
-// part of a recording is ever fetched.
-export class UrlClient implements IQDataClient {
+export interface IQDataSlice {
+  index: number;
+  iqArray: Float32Array;
+}
+
+// Reads IQ out of a .sigmf-data served over plain HTTP, using range requests so
+// that only the visible part of a recording is ever fetched. A local file
+// picked in the editor arrives as a blob: URL, which Chrome answers with
+// 206/Content-Range just like a remote one, so it reads through here too --
+// which is why this is the only IQ client the port has.
+export class UrlClient {
   private dataUrl(meta: SigMFMetadata): string {
     const { account, container } = meta.getOrigin();
     return urlRecordingLocation(account, container).dataUrl;

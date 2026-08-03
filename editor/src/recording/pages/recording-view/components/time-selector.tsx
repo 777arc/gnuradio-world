@@ -2,7 +2,7 @@
 // Copyright (c) 2023 Marc Lichtman
 // Licensed under the MIT License
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Layer, Rect, Text } from 'react-konva';
 import { APP_FONT_FAMILY, APP_FONT_SIZE } from '@/utils/constants';
 import { unitPrefixSamples, unitPrefixSeconds } from '@/utils/rf-functions';
@@ -16,7 +16,7 @@ interface TimeSelectorProps {
 const TimeSelector = ({ currentFFT }: TimeSelectorProps) => {
   const [diffSamples, setDiffSamples] = useState('');
   const [diffSeconds, setDiffSeconds] = useState('');
-  const { spectrogramWidth, spectrogramHeight, meta, fftSize } = useSpectrogramContext();
+  const { spectrogramWidth, meta, fftSize } = useSpectrogramContext();
   const { cursorTime, cursorTimeEnabled, cursorTimeOpenEnded, setCursorTime } = useCursorContext();
 
   const cursorStartFFT = Math.floor(cursorTime.start / fftSize);

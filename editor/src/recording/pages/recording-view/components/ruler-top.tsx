@@ -2,7 +2,7 @@
 // Copyright (c) 2023 Marc Lichtman
 // Licensed under the MIT License
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Layer, Rect, Text } from 'react-konva';
 import { APP_FONT_FAMILY, APP_FONT_SIZE, APP_TEXT_COLOR, APP_TICK_COLOR } from '@/utils/constants';
 import { useSpectrogramContext } from '../hooks/use-spectrogram-context';

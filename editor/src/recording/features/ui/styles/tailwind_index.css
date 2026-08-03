@@ -12,8 +12,9 @@
      - it sits outside @layer, because daisyUI hard-codes a font-size on .input,
        .label-text, .btn, .tab, .menu and .table from the components layer,
        which any @layer base rule loses to.
-   Only text-bearing elements are named: MUI and FontAwesome size their SVG
-   icons off font-size, so a blanket rule would shrink the icons too. */
+   Only text-bearing elements are named, so the rule stays confined to text:
+   the heroicons SVGs carry their own h- and w- sizing utilities instead of
+   scaling off font-size, so they are unaffected. */
 body,
 button,
 input,

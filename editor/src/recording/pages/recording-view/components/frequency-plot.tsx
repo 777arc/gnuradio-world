@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { fftshift } from 'fftshift';
 import { CanvasPlot } from '@/features/ui/canvas-plot/CanvasPlot';
 import { FFT } from '@/utils/fft';

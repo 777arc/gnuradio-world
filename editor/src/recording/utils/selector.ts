@@ -13,64 +13,43 @@ stage4 - uint8 values after having the min/max and colormap applied
 // @ts-ignore
 import { fftshift } from 'fftshift';
 import { FFT } from '@/utils/fft';
-//import webfft from 'webfft';
+
+// Window taper for sample n of an fftSize-point frame. 'rectangle' (and
+// anything unrecognised) is a flat 1, which is the same as not windowing.
+export function windowCoefficient(windowFunction: string, n: number, fftSize: number): number {
+  const half = (fftSize - 1) / 2;
+  switch (windowFunction) {
+    case 'hamming':
+      return 0.54 - 0.46 * Math.cos((2 * Math.PI * n) / (fftSize - 1));
+    case 'hanning':
+      return 0.5 - 0.5 * Math.cos((2 * Math.PI * n) / (fftSize - 1));
+    case 'bartlett':
+      return (half - Math.abs(n - half)) / half;
+    case 'blackman':
+      return 0.42 - 0.5 * Math.cos((2 * Math.PI * n) / fftSize) + 0.08 * Math.cos((4 * Math.PI * n) / fftSize);
+    default:
+      return 1;
+  }
+}
 
 export function calcFfts(samples: Float32Array, fftSize: number, windowFunction: string, numberOfFfts: number) {
-  //let startTime = performance.now();
-
-  /*
-  if (typeof window.webfft === 'undefined') {
-    window.webfft = new webfft(fftSize);
-    window.webfft.profile(0.5, true, true); // causes webfft to switch to using the fastest sublibrary
-  } else {
-    if (window.webfft.size !== fftSize) {
-      console.log('Changing to FFT Size:', window.webfft.size);
-      window.webfft = new webfft(fftSize);
-      window.webfft.profile(0.5, true, true); // causes webfft to switch to using the fastest sublibrary
-    }
-  }
-  */
-
   let fftsConcatenated = new Float32Array(numberOfFfts * fftSize);
 
   // loop through each row
   for (let i = 0; i < numberOfFfts; i++) {
     let samples_slice = samples.slice(i * fftSize * 2, (i + 1) * fftSize * 2); // mult by 2 because this is int/floats not IQ samples
 
-    // Apply a hamming window and hanning window
-    if (windowFunction === 'hamming') {
-      for (let window_i = 0; window_i < fftSize; window_i++) {
-        samples_slice[window_i] =
-          samples_slice[window_i] * (0.54 - 0.46 * Math.cos((2 * Math.PI * window_i) / (fftSize - 1)));
-      }
-    } else if (windowFunction === 'hanning') {
-      for (let window_i = 0; window_i < fftSize; window_i++) {
-        samples_slice[window_i] =
-          samples_slice[window_i] * (0.5 - 0.5 * Math.cos((2 * Math.PI * window_i) / (fftSize - 1)));
-      }
-    } else if (windowFunction === 'bartlett') {
-      for (let window_i = 0; window_i < fftSize; window_i++) {
-        samples_slice[window_i] =
-          samples_slice[window_i] *
-          ((2 / (fftSize - 1)) * ((fftSize - 1) / 2) - Math.abs(window_i - (fftSize - 1) / 2));
-      }
-    } else if (windowFunction === 'blackman') {
-      for (let window_i = 0; window_i < fftSize; window_i++) {
-        samples_slice[window_i] =
-          samples_slice[window_i] *
-          (0.42 -
-            0.5 * Math.cos((2 * Math.PI * window_i) / fftSize) +
-            0.08 * Math.cos((4 * Math.PI * window_i) / fftSize));
+    // samples_slice is interleaved IQIQIQ..., so one coefficient scales the two
+    // components of each complex sample -- indexing it by array position would
+    // taper only the first half of the frame, and split each sample's I and Q
+    // across two different coefficients.
+    if (windowFunction !== 'rectangle') {
+      for (let n = 0; n < fftSize; n++) {
+        const w = windowCoefficient(windowFunction, n, fftSize);
+        samples_slice[2 * n] *= w;
+        samples_slice[2 * n + 1] *= w;
       }
     }
-
-    /*
-    if (samples_slice.length !== fftSize * 2) {
-      console.error('samples_slice.length is', samples_slice.length, 'but should be fftSize * 2 which is', fftSize * 2);
-      continue;
-    }
-    let out = window.webfft.fft(samples_slice); // assumes input is in form IQIQIQIQ and twice the length of fftsize
-    */
 
     const f = new FFT(fftSize);
     let out = f.createComplexArray(); // creates an empty array the length of fft.size*2
@@ -90,8 +69,6 @@ export function calcFfts(samples: Float32Array, fftSize: number, windowFunction:
 
     fftsConcatenated.set(magnitudes, i * fftSize);
   }
-  //let endTime = performance.now();
-  //console.debug('Calculating FFTs took', endTime - startTime, 'milliseconds'); // first cut of our code processed+rendered 0.5M samples in 760ms on marcs computer
   return fftsConcatenated;
 }
 
@@ -168,7 +145,7 @@ export function dataTypeIsComplex(dataType: string): boolean {
 // difference in file layout matters -- real samples are widened to interleaved
 // I/Q with Q = 0 as they are read (see convertToFloat32), so everything past
 // that point works on one layout.
-export function dataTypeToComponentsPerSample(dataType: string): number {
+function dataTypeToComponentsPerSample(dataType: string): number {
   return dataTypeIsComplex(dataType) ? 2 : 1;
 }
 

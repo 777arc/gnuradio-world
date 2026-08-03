@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CanvasPlot } from '@/features/ui/canvas-plot/CanvasPlot';
 import { useSpectrogramContext } from '../hooks/use-spectrogram-context';
 import { useCursorContext } from '../hooks/use-cursor-context';
@@ -9,7 +9,7 @@ interface IQPlotProps {
 }
 
 export const IQPlot = ({ displayedIQ, fftStepSize }: IQPlotProps) => {
-  const { spectrogramWidth, spectrogramHeight, freqShift, meta } = useSpectrogramContext();
+  const { spectrogramHeight, freqShift, meta } = useSpectrogramContext();
   const { cursorFreqShift } = useCursorContext(); // cursorFreqShift is in normalized freq (-0.5 to +0.5) regardless of if display RF is on
   const [I, setI] = useState<Float32Array>();
   const [Q, setQ] = useState<Float32Array>();

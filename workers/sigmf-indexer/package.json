@@ -10,8 +10,7 @@
     "deploy": "wrangler deploy",
     "dev": "wrangler dev --test-scheduled",
     "tail": "wrangler tail",
-    "test": "node --test",
-    "upload-meta": "node scripts/upload-meta.mjs"
+    "test": "node --test"
   },
   "devDependencies": {
     "wrangler": "4.86.0"

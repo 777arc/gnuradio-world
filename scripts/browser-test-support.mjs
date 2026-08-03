@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import puppeteer from 'puppeteer-core';
 export { contentType, setIsolationHeaders } from './http-support.mjs';
 
-export const CHROME_ARGS = [
+const CHROME_ARGS = [
   '--no-sandbox',
   '--disable-gpu',
   '--use-gl=angle',
@@ -11,7 +11,7 @@ export const CHROME_ARGS = [
   '--enable-unsafe-swiftshader',
 ];
 
-export function findChrome(root, { allowWindows = true } = {}) {
+function findChrome(root, { allowWindows = true } = {}) {
   const base = join(root, 'chrome-headless-shell');
   const local = existsSync(base)
     ? readdirSync(base).map(version =>

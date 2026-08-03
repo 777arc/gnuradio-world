@@ -2,13 +2,12 @@
 // Copyright (c) 2023 Marc Lichtman
 // Licensed under the MIT License
 
-import React, { Fragment, useCallback, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useMemo, useState } from 'react';
 import { Layer, Rect, Text } from 'react-konva';
 import { APP_FONT_FAMILY, APP_FONT_SIZE } from '@/utils/constants';
 import { Annotation, SigMFMetadata } from '@/utils/sigmfMetadata';
 import { useSpectrogramContext } from '../../hooks/use-spectrogram-context';
 import { Html } from 'react-konva-utils';
-import { color } from '@uiw/react-codemirror';
 
 interface AnnotationViewerProps {
   currentFFT: number;
@@ -159,7 +158,6 @@ const AnnotationViewer = ({ currentFFT }: AnnotationViewerProps) => {
       })
     );
     let new_meta = Object.assign(new SigMFMetadata(), meta);
-    console.log('new_meta', new_meta);
     setMeta(new_meta);
     // setSelectedAnnotation(annot_indx);
   }, [annotations, meta, currentFFT, fftSize, fftStepSize, setMeta]);

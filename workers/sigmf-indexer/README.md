@@ -87,10 +87,6 @@ editor reads the resulting `index.json`, metadata, and sample data directly
 from `https://recordings.gnuradioworld.com`. Do not add the recording or an
 index to this repository, and do not rebuild or redeploy the website.
 
-`npm run upload-meta` remains only as a repeatable copy of the completed legacy
-metadata migration from `example_recordings/`; it is not the publishing path
-for new recordings.
-
 For a local scheduled-trigger check, run:
 
 ```bash

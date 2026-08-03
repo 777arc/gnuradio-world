@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Layer, Rect, Text } from 'react-konva';
 import { APP_FONT_FAMILY, APP_FONT_SIZE } from '@/utils/constants';
 import { unitPrefixHz } from '@/utils/rf-functions';

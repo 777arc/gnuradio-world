@@ -6,6 +6,7 @@
 #include "satellites_hier.hpp"
 
 #include <gnuradio/blocks/add_const_ff.h>
+#include <gnuradio/filter/fir_filter_blk.h>
 #include <gnuradio/blocks/divide.h>
 #include <gnuradio/blocks/float_to_complex.h>
 #include <gnuradio/blocks/multiply_const.h>
@@ -20,7 +21,6 @@
 #include <gnuradio/digital/correlate_access_code_tag_ff.h>
 #include <gnuradio/fec/cc_decoder.h>
 #include <gnuradio/fec/decoder.h>
-#include <gnuradio/fec/generic_decoder.h>
 #include <gnuradio/hier_block2.h>
 #include <gnuradio/io_signature.h>
 #include <gnuradio/pdu/pdu_to_tagged_stream.h>
@@ -37,7 +37,6 @@
 #include <gnuradio/digital/symbol_sync_cc.h>
 #include <gnuradio/digital/symbol_sync_ff.h>
 #include <gnuradio/filter/dc_blocker_ff.h>
-#include <gnuradio/filter/fir_filter_blk.h>
 #include <gnuradio/filter/firdes.h>
 #include <gnuradio/filter/freq_xlating_fir_filter.h>
 #include <satellites/manchester_sync.h>

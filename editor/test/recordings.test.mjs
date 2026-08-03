@@ -56,7 +56,6 @@ assert.match(main, /bindFlowgraphRecordings\(fg,/);
 assert.match(main, /type RunnerInputFile[\s\S]*?kind: 'local'[\s\S]*?kind: 'http'/);
 assert.doesNotMatch(main, /new Blob\(chunks/);
 assert.match(main, /fetch\(recordingsBucketUrl\('index\.json'\), \{ cache: 'no-store' \}\)/);
-assert.doesNotMatch(main, /['"]\/example_recordings/);
 assert.match(main, /const LOCAL_FILE_PARAMS[\s\S]*?paint_image_source: 'image_file'/);
 assert.doesNotMatch(runnerHtml, /\.arrayBuffer\(\)/);
 assert.match(readerWorker, /MAX_CHUNK_BYTES = 2 \* 1024 \* 1024/);
