@@ -171,6 +171,25 @@ INVALID_CPP_TEMPLATES = {
     "vocoder_gsm_fr_encode_sp",
 }
 
+# Blocks whose C++ builds and links perfectly well, but which are deliberately
+# not offered in the browser. Unlike INVALID_CPP_TEMPLATES above -- a build
+# constraint -- this is a judgement about the runtime, so each entry carries the
+# reason the palette shows on hover. They stay visible and greyed out, exactly
+# like a Python-only block.
+EXCLUDED_BLOCKS: dict[str, str] = {
+    # Fed anything noise-like it false-triggers on its syncword constantly and
+    # runs a full frame decode on each hit, which saturates the browser's main
+    # thread: the tab stops responding entirely at 200 kS/s, while the same
+    # graph at 2 kS/s finishes in under a second. Dropping syncword_threshold
+    # from 4 to 0 also clears it, which is what identifies the search as the
+    # hot path rather than the Reed-Solomon decode several other deframers
+    # share. The C++ rebuild in blocks/overlays/gr-satellites/ is kept, so this
+    # is one line to undo if the cost is ever tracked down.
+    "satellites_sat_3cat_1_deframer":
+        "too computationally intensive for the browser runtime: it saturates "
+        "the main thread and stops the page responding",
+}
+
 
 def validate_configuration() -> None:
     """Keep the cross-language module and custom-factory manifests honest."""
@@ -617,13 +636,18 @@ def load_blocks() -> list[dict[str, Any]]:
                 continue
             if str(block["id"]).startswith("variable_") or block["id"] in CUSTOM_IDS:
                 continue
-            if block["id"] in INVALID_CPP_TEMPLATES:
+            if block["id"] in INVALID_CPP_TEMPLATES or block["id"] in EXCLUDED_BLOCKS:
                 continue
             base = WORLD if path.is_relative_to(WORLD) and not path.is_relative_to(GR) else GR
             block["__path"] = str(path.relative_to(base))
             block["__module"] = short
             blocks.append(block)
     block_overrides.validate(BLOCK_OVERRIDES, seen)
+    # Same typo trap block_overrides.validate() guards: an id that matches no
+    # block would silently exclude nothing at all.
+    unknown = sorted(set(EXCLUDED_BLOCKS) - set(seen))
+    if unknown:
+        raise SystemExit("EXCLUDED_BLOCKS names unknown blocks: " + ", ".join(unknown))
     return blocks
 
 
@@ -731,7 +755,7 @@ def generate(output_dir: Path, manifest: Path) -> None:
     factories: dict[str, list[str]] = defaultdict(list)
     includes: dict[str, set[str]] = defaultdict(set)
     supported = sorted(CUSTOM_IDS)
-    skipped: dict[str, str] = {}
+    skipped: dict[str, str] = dict(EXCLUDED_BLOCKS)
     block_module: dict[str, str] = {}  # deferred blocks only
     counts: dict[str, int] = defaultdict(int)
 

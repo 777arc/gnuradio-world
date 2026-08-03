@@ -72788,11 +72788,11 @@
     "python",
     "cpp"
    ],
-   "runnable": true,
-   "unavailable_reason": null,
-   "module": "satellites",
+   "runnable": false,
+   "unavailable_reason": "too computationally intensive for the browser runtime: it saturates the main thread and stops the page responding",
+   "module": "core",
    "documentation": "Deframes 3CAT-1 packets\n\nThe frames are transmitted by a CC1101 chip with PN9 scrambler and use a (255,223) Reed-Solomon code for the payload\n\nInput:\n    A stream of soft symbols containing 3CAT-1 packets\n\nOutput:\n    PDUs with the deframed 3CAT-1 packets\n\nParameters:\n    Syncword threshold: number of bit errors to allow in syncword detection\n    Command line options: options to pass down to the block, following the syntax of the gr_satellites command line tool",
-   "api_documentation": "Hierarchical block to deframe the 3CAT-1 custom framing\n\nThis framing is based in a Texas Intruments CC1101 transceiver\nwith a PN9 scrambler, and a (255,223) Reed-Solomon code\n\nThe input is a float stream of soft symbols. The output are PDUs\nwith frames.\n\nArgs:\n    syncword_threshold: number of bit errors allowed in syncword (int)\n    options: Options from argparse",
+   "api_documentation": "",
    "wiki_url": "",
    "params": [
     {

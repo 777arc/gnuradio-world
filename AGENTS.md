@@ -472,6 +472,11 @@ of `BuiltBlock`.
   avoid duplicate generated factories.
 - Put block metadata that cannot be rendered in `INVALID_CPP_TEMPLATES`, with a
   reason.
+- A block that *builds* fine but should not be offered in the browser goes in
+  `EXCLUDED_BLOCKS` instead, mapping its id to the reason the palette shows on
+  hover. It stays visible and greyed out like a Python-only block, and its C++
+  is left in place so re-enabling it is one line. `satellites_sat_3cat_1_deframer`
+  is the worked example: see "Runtime gotchas".
 - Python-only `gr.hier_block2` definitions are unavailable unless explicitly
   rebuilt as C++ hierarchies in `blocks/src/<module>_hier.hpp` (or, for
   gr-satellites, `blocks/overlays/gr-satellites/satellites_{hier,deframers}.cpp`).
@@ -743,7 +748,18 @@ chain.
   [`runner/src/registry.cpp`](runner/src/registry.cpp), over classes in `blocks/`; list their ids in
   `CUSTOM_IDS` in `gen_registry.py` so no duplicate generated factory is emitted.
   A block whose `cpp_templates` can't be rendered goes in `INVALID_CPP_TEMPLATES`
-  with a reason.
+  with a reason; one that builds but is too expensive to run here goes in
+  `EXCLUDED_BLOCKS` with the reason the palette shows on hover.
+- **A correlator with a loose threshold can starve the main thread.**
+  `satellites_sat_3cat_1_deframer` is in `EXCLUDED_BLOCKS` for this. Its
+  syncword search accepts a 32-bit pattern with up to 4 bit errors, so on
+  noise-like input it reports a frame constantly and runs a full decode on each
+  one. At 200 kS/s the page stops responding altogether -- not a crash and not a
+  deadlock: the same flowgraph at 2 kS/s finishes in under a second, and
+  `syncword_threshold: 0` clears it at full rate, which is what points at the
+  search rather than the Reed-Solomon decode that several other deframers also
+  use. Worth remembering when judging another block: measure at two rates and
+  two thresholds before blaming the arithmetic.
 - **Python hier blocks** (`gr.hier_block2` compositions such as PSK Mod or the
   OFDM Transmitter) have no C++ path at all, so the browser gets the same block
   id backed by the same chain rebuilt as a C++ `hier_block2` in

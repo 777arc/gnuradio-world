@@ -146,10 +146,6 @@ struct Registrar_satellites {
         auto block = wasm_satellites::make_reaktor_hello_world_deframer(wasm_registry::number<int>(p, "threshold", 0), "00110101001011100011010100101110");
         return { block, nullptr };
     });
-    wasm_registry_add("satellites_sat_3cat_1_deframer", +[](const nlohmann::json& p) -> BuiltBlock {
-        auto block = wasm_satellites::make_sat_3cat_1_deframer(wasm_registry::number<int>(p, "threshold", 0));
-        return { block, nullptr };
-    });
     wasm_registry_add("satellites_smogp_signalling_deframer", +[](const nlohmann::json& p) -> BuiltBlock {
         auto block = wasm_satellites::make_smogp_signalling_deframer(wasm_registry::choice(p, "protocol", {{"False", false}, {"True", true}}, false), wasm_registry::number<int>(p, "threshold", 0));
         return { block, nullptr };

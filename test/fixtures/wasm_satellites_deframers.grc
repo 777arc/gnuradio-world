@@ -691,34 +691,6 @@ blocks:
         coordinate: [0, 0]
         rotation: 0
         state: enabled
--   name: sat3cat1
-    id: satellites_sat_3cat_1_deframer
-    parameters:
-        threshold: '4'
-        options: '""'
-    states:
-        coordinate: [0, 0]
-        rotation: 0
-        state: enabled
--   name: sat3cat1_stream
-    id: pdu_pdu_to_stream_x
-    parameters:
-        type: byte
-        early_behavior: pdu.EARLY_BURST_APPEND
-        depth: '64'
-    states:
-        coordinate: [0, 0]
-        rotation: 0
-        state: enabled
--   name: sat3cat1_sink
-    id: blocks_null_sink
-    parameters:
-        type: byte
-        vlen: '1'
-    states:
-        coordinate: [0, 0]
-        rotation: 0
-        state: enabled
 -   name: tt64
     id: satellites_tt64_deframer
     parameters:
@@ -829,7 +801,6 @@ blocks:
     states:
         coordinate: [0, 0]
         rotation: 0
-        state: enabled
 connections:
 - [noise, '0', throttle, '0']
 - [throttle, '0', ax25, '0']
@@ -878,8 +849,6 @@ connections:
 - [ngham_stream, '0', ngham_sink, '0']
 - [throttle, '0', qubik, '0']
 - [qubik_stream, '0', qubik_sink, '0']
-- [throttle, '0', sat3cat1, '0']
-- [sat3cat1_stream, '0', sat3cat1_sink, '0']
 - [throttle, '0', tt64, '0']
 - [tt64_stream, '0', tt64_sink, '0']
 - [throttle, '0', swiatowid, '0']
@@ -979,10 +948,6 @@ connections:
 -   src_blk_id: qubik
     src_port_id: out
     snk_blk_id: qubik_stream
-    snk_port_id: pdus
--   src_blk_id: sat3cat1
-    src_port_id: out
-    snk_blk_id: sat3cat1_stream
     snk_port_id: pdus
 -   src_blk_id: tt64
     src_port_id: out

@@ -207,7 +207,6 @@ const std::map<std::string, std::string>& block_module_map()
         {"satellites_reaktor_hello_world_deframer", "satellites"},
         {"satellites_reflect_bytes", "satellites"},
         {"satellites_rms_agc", "satellites"},
-        {"satellites_sat_3cat_1_deframer", "satellites"},
         {"satellites_selector", "satellites"},
         {"satellites_si4463_scrambler", "satellites"},
         {"satellites_smogp_signalling_deframer", "satellites"},

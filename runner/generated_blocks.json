@@ -400,7 +400,6 @@
     "satellites_reaktor_hello_world_deframer",
     "satellites_reflect_bytes",
     "satellites_rms_agc",
-    "satellites_sat_3cat_1_deframer",
     "satellites_selector",
     "satellites_si4463_scrambler",
     "satellites_smogp_signalling_deframer",
@@ -447,6 +446,7 @@
     "wasm_packet_rate_sink"
   ],
   "skipped": {
+    "satellites_sat_3cat_1_deframer": "too computationally intensive for the browser runtime: it saturates the main thread and stops the page responding",
     "digital_framer_sink_1": "requires typed object parameter target_queue",
     "digital_ofdm_carrier_allocator_cvc": "requires typed object parameter occupied_carriers",
     "digital_ofdm_frame_equalizer_vcvc": "requires typed object parameter equalizer",
@@ -637,7 +637,6 @@
     "satellites_ops_sat_deframer": "satellites",
     "satellites_qubik_deframer": "satellites",
     "satellites_reaktor_hello_world_deframer": "satellites",
-    "satellites_sat_3cat_1_deframer": "satellites",
     "satellites_smogp_signalling_deframer": "satellites",
     "satellites_swiatowid_deframer": "satellites",
     "satellites_tt64_deframer": "satellites",
