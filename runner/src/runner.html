@@ -37,8 +37,9 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
       // way, in which case PTHREAD_POOL_SIZE_STRICT=0 permits extra workers.
       function poolTierForBlockCount(blockCount) {
         const requiredWorkers = Math.max(0, Number(blockCount) || 0) + 1;
+        if (requiredWorkers <= 8) return 8;
         if (requiredWorkers <= 16) return 16;
-        if (requiredWorkers <= 64) return 64;
+        if (requiredWorkers <= 32) return 32;
         return 256;
       }
 

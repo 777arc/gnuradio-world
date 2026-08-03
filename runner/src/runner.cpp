@@ -184,8 +184,9 @@ static void report(bool ok, const std::string& msg) {
 }
 
 static int worker_tier_for(int required_workers) {
+    if (required_workers <= 8) return 8;
     if (required_workers <= 16) return 16;
-    if (required_workers <= 64) return 64;
+    if (required_workers <= 32) return 32;
     return 256;
 }
 

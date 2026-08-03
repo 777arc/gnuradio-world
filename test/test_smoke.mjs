@@ -41,8 +41,9 @@ function expectedPoolTier(grc) {
   const end = afterStart.search(/^(?:connections|metadata):\s*$/m);
   const blockSection = end < 0 ? afterStart : afterStart.slice(0, end);
   const blockCount = (blockSection.match(/^-\s+name\s*:/gm) || []).length;
+  if (blockCount + 1 <= 8) return 8;
   if (blockCount + 1 <= 16) return 16;
-  if (blockCount + 1 <= 64) return 64;
+  if (blockCount + 1 <= 32) return 32;
   return 256;
 }
 
@@ -72,7 +73,7 @@ const CASES = [
     grc: 'test/fixtures/wasm_satellites_ax25_loopback.grc' },
   { name: 'gr-satellites demodulator components',
     grc: 'test/fixtures/wasm_satellites_demodulators.grc', exactWorkers: 41,
-    preloadedWorkers: 48, expectedPool: 64 },
+    preloadedWorkers: 240, expectedPool: 256 },
 ];
 
 const server = http.createServer(async (req, res) => {
@@ -148,7 +149,7 @@ for (const test of CASES) {
     tier: document.getElementById('d-tier')?.textContent?.trim() || '',
     workers: document.getElementById('d-workers')?.textContent?.trim() || '',
     threads: document.getElementById('d-thr')?.textContent?.trim() || '',
-    tierBoundaries: [0, 15, 16, 63, 64].map(window.__grPoolTierForBlockCount),
+    tierBoundaries: [0, 7, 8, 15, 16, 31, 32].map(window.__grPoolTierForBlockCount),
     workerStats: window.__grWorkerStats ? { ...window.__grWorkerStats } : null,
   }));
   const workerLogOk = logs.some(line =>
@@ -158,13 +159,13 @@ for (const test of CASES) {
   const preloadLogOk = test.preloadedWorkers === undefined || logs.some(line =>
     line.includes(`workers: preloading ${test.preloadedWorkers} missing workers`));
   const correctedPoolOk = test.preloadedWorkers === undefined ||
-    (pool === 64 && monitor.workerStats?.allocated === 64 &&
+    (pool === test.expectedPool && monitor.workerStats?.allocated === test.expectedPool &&
      monitor.workerStats?.additionalCreated === 0);
   const poolOk = test.expectedPool === undefined
-    ? [16, 64, 256].includes(pool) && pool >= initialExpectedPool
+    ? [8, 16, 32, 256].includes(pool) && pool >= initialExpectedPool
     : pool === test.expectedPool;
   const monitorOk = poolOk &&
-    JSON.stringify(monitor.tierBoundaries) === JSON.stringify([16, 16, 64, 64, 256]) &&
+    JSON.stringify(monitor.tierBoundaries) === JSON.stringify([8, 8, 16, 16, 32, 32, 256]) &&
     new RegExp(`^tier ${pool} \\+\\d+ extra$`).test(monitor.tier) &&
     /^active workers \d+$/.test(monitor.workers) &&
     monitor.threads === `dsp threads ${dspThreads}` &&

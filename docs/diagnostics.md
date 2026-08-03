@@ -65,7 +65,7 @@ so the bottleneck lights up without reading numbers.
 
 ```
 ┌─ diagnostics ──────────────────────────────────────────── [▲ expand] ─┐
-│ ● realtime 1.00×  cpu 38%  tier 64 +2 extra  active workers 65         │  ← always visible
+│ ● realtime 1.00×  cpu 38%  tier 32 +0 extra  active workers 25         │  ← always visible
 │   bottleneck: qtgui_time_sink ▓                                        │
 ├───────────────────────────────────────────────────────────────────────┤
 │ block            work µs  CPU%  in▓full out▓full  items/s   ▁▂▃▅▇  ▐   │  ← expanded
@@ -89,12 +89,12 @@ so the bottleneck lights up without reading numbers.
 - Linear memory current (`HEAP8.byteLength`), **peak**, and growth-event count
   (memory growth is expensive — worth surfacing)
 - Optional `mallinfo` in-use vs. arena
-- **Active pool tier and DSP thread count** (e.g. `tier 64 +2 extra`, `dsp
-  threads 3`) —
+- **Active pool tier and DSP thread count** (e.g. `tier 32 +0 extra`, `dsp
+  threads 24`) —
   the tier makes the runner's prewarmed capacity explicit, while a DSP count
   approaching it warns of worker starvation
-- **Dynamically-created and active workers** (e.g. `tier 64 +2 extra`, `active
-  workers 65`) — the extra count is cumulative for the life of the runner,
+- **Dynamically-created and active workers** (e.g. `tier 256 +2 extra`, `active
+  workers 257`) — the extra count is cumulative for the life of the runner,
   while active is the number of Emscripten pthread workers currently assigned
 - Flowgraph uptime
 
@@ -146,7 +146,7 @@ so the bottleneck lights up without reading numbers.
    `additionalCreated` remains cumulative even after an extra worker returns to
    the unused pool. The toolchain is pinned, and the smoke test guards this
    internal integration.
-6. `runner.html` selects the smallest prewarmed tier in **16 / 64 / 256** that
+6. `runner.html` selects the smallest prewarmed tier in **8 / 16 / 32 / 256** that
    fits the top-level flowgraph block count plus one scheduler-launch worker.
    The choice happens before the modularized Emscripten runtime starts, because
    `PTHREAD_POOL_SIZE` is evaluated during module initialization. Top-level
