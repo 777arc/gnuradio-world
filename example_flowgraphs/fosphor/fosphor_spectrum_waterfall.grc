@@ -2,12 +2,9 @@ options:
     parameters:
         author: Marc
         copyright: ''
-        description: Interactive real-time spectrum and waterfall display using
-            gr-fosphor. The browser uses WebGPU when available and
-            automatically falls back to Qt 6 CPU plots; the editor console
-            reports which renderer was selected.
+        description: Interactive real-time spectrum and waterfall display using gr-fosphor. A complex tone mixed with noise demonstrates fosphor's persistent color-density spectrum, live trace, and max hold. The browser uses WebGPU when available and automatically falls back to Qt 6 CPU plots; the editor console reports which renderer was selected.
         generate_options: qt_gui
-        id: fosphor_spectrum_waterfall
+        id: Fosphor_Spectrum_and_Waterfall
         title: Fosphor Spectrum and Waterfall
     states:
         coordinate: [10, 10]
@@ -17,44 +14,44 @@ blocks:
 -   name: samp_rate
     id: variable
     parameters:
-        value: '48000'
+        value: int(1e6)
     states:
-        coordinate: [190, 10]
+        coordinate: [220, 10]
         rotation: 0
         state: enabled
--   name: signal
-    id: analog_sig_source_x
+-   name: complex10
+    id: blocks_interleaved_short_to_complex
     parameters:
-        amplitude: '1'
-        frequency: '6000'
+        scale_factor: '32767'
+        swap: 'False'
+        vector_input: 'False'
+    states:
+        coordinate: [300, 170]
+        rotation: 0
+        state: enabled
+-   name: fosphor
+    id: fosphor_qt_sink_c
+    parameters:
+        freq_center: '0'
+        freq_span: samp_rate
+        gui_hint: ''
+        wintype: window.WIN_BLACKMAN_hARRIS
+    states:
+        coordinate: [780, 170]
+        rotation: 0
+        state: enabled
+-   name: source9
+    id: blocks_file_source
+    parameters:
+        begin_tag: pmt.PMT_NIL
+        file: /recordings/cellular_downlink_880MHz.sigmf-data
+        length: '0'
         offset: '0'
-        phase: '0'
-        samp_rate: samp_rate
-        type: complex
-        waveform: analog.GR_COS_WAVE
-    states:
-        coordinate: [20, 120]
-        rotation: 0
-        state: enabled
--   name: noise
-    id: analog_noise_source_x
-    parameters:
-        amplitude: '0.08'
-        noise_type: analog.GR_GAUSSIAN
-        seed: '0'
-        type: complex
-    states:
-        coordinate: [20, 250]
-        rotation: 0
-        state: enabled
--   name: add
-    id: blocks_add_xx
-    parameters:
-        num_inputs: '2'
-        type: complex
+        repeat: 'False'
+        type: short
         vlen: '1'
     states:
-        coordinate: [280, 180]
+        coordinate: [30, 140]
         rotation: 0
         state: enabled
 -   name: throttle
@@ -67,24 +64,12 @@ blocks:
         type: complex
         vlen: '1'
     states:
-        coordinate: [470, 180]
-        rotation: 0
-        state: enabled
--   name: fosphor
-    id: fosphor_qt_sink_c
-    parameters:
-        freq_center: '0'
-        freq_span: samp_rate
-        gui_hint: ''
-        wintype: window.WIN_BLACKMAN_hARRIS
-    states:
-        coordinate: [690, 180]
+        coordinate: [530, 150]
         rotation: 0
         state: enabled
 connections:
-- [signal, '0', add, '0']
-- [noise, '0', add, '1']
-- [add, '0', throttle, '0']
+- [complex10, '0', throttle, '0']
+- [source9, '0', complex10, '0']
 - [throttle, '0', fosphor, '0']
 metadata:
     file_format: 1

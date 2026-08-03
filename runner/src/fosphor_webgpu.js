@@ -10,6 +10,7 @@
   const FFT_SIZE = 1024;
   const FFT_STAGES = 10;
   const HISTORY_ROWS = 512;
+  const HISTOGRAM_BINS = 128;
   const FRAME_FLOATS = FFT_SIZE * 2;
   const TIMING_QUERY_COUNT = 6;
   const TIMING_SAMPLE_MS = 250;
@@ -103,12 +104,27 @@
       return 10.0 * log2(power) / log2(10.0);
     }
 
+    // Match gr-fosphor's gl_cmap_gen.c, including its five-sector hue scale.
+    fn hsv_to_rgb(h: f32, s: f32, v: f32) -> vec3<f32> {
+      if (s <= 0.0) { return vec3<f32>(v); }
+      let hs = h * 5.0;
+      let sector = u32(floor(hs)) % 6u;
+      let f = fract(hs);
+      let p = v * (1.0 - s);
+      let q = v * (1.0 - s * f);
+      let t = v * (1.0 - s * (1.0 - f));
+      if (sector == 0u) { return vec3<f32>(v, t, p); }
+      if (sector == 1u) { return vec3<f32>(q, v, p); }
+      if (sector == 2u) { return vec3<f32>(p, v, t); }
+      if (sector == 3u) { return vec3<f32>(p, q, v); }
+      if (sector == 4u) { return vec3<f32>(t, p, v); }
+      return vec3<f32>(v, p, q);
+    }
+
     fn color_map(level: f32) -> vec4<f32> {
       let value = clamp(level, 0.0, 1.0);
-      let red = clamp(1.5 - abs(4.0 * value - 3.0), 0.0, 1.0);
-      let green = clamp(1.5 - abs(4.0 * value - 2.0), 0.0, 1.0);
-      let blue = clamp(1.5 - abs(4.0 * value - 1.0), 0.0, 1.0);
-      return vec4<f32>(red, green, blue, 1.0);
+      return vec4<f32>(hsv_to_rgb(
+        0.75 - 0.75 * value, 1.0, 0.05 + 0.95 * value), 1.0);
     }
 
     @compute @workgroup_size(64)
@@ -123,6 +139,57 @@
     }
   `;
 
+  const HISTOGRAM_SHADER = /* wgsl */`
+    struct HistogramParams {
+      row: u32,
+      db_reference: f32,
+      db_per_division: f32,
+      _pad0: u32,
+    };
+    @group(0) @binding(0) var<storage, read> fft_values: array<vec2<f32>>;
+    @group(0) @binding(1) var<storage, read_write> histogram: array<f32>;
+    // x is the smoothed live spectrum, y is the decaying max hold, both in dB.
+    @group(0) @binding(2) var<storage, read_write> spectrum: array<vec2<f32>>;
+    @group(0) @binding(3) var<uniform> params: HistogramParams;
+
+    fn power_db(value: vec2<f32>) -> f32 {
+      let power = max(dot(value, value) / (1024.0 * 1024.0), 1e-20);
+      return 10.0 * log2(power) / log2(10.0);
+    }
+
+    @compute @workgroup_size(64)
+    fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+      let x = gid.x;
+      if (x >= 1024u) { return; }
+
+      let shifted = (x + 512u) % 1024u;
+      let db = power_db(fft_values[shifted]);
+      let minimum = params.db_reference - 10.0 * params.db_per_division;
+      let level = clamp((db - minimum) /
+                        max(1.0, params.db_reference - minimum), 0.0, 1.0);
+      let hit_bin = u32(round(level * 127.0));
+
+      // Port of display.cl's t0r=16 / t0d=1024 density rise and decay. Each
+      // invocation owns one frequency column, so no atomics are required.
+      for (var bin = 0u; bin < 128u; bin++) {
+        let offset = x * 128u + bin;
+        let hits = select(0.0, 1.0, bin == hit_bin);
+        let b = hits / 16.0;
+        let c = b + 1.0 / 1024.0;
+        let equilibrium = select(0.0, b / c, hits > 0.0);
+        histogram[offset] = clamp(
+          (histogram[offset] - equilibrium) * (1.0 - c) + equilibrium, 0.0, 1.0);
+      }
+
+      let previous = spectrum[x];
+      let live = select(db, previous.x * 0.998 + db * 0.002,
+                        previous.x > -199.0);
+      let decayed_max = select(db, previous.y * 0.999 + live * 0.001,
+                               previous.y > -199.0);
+      spectrum[x] = vec2<f32>(live, max(db, decayed_max));
+    }
+  `;
+
   const RENDER_SHADER = /* wgsl */`
     struct DisplayParams {
       size: vec2<f32>,
@@ -134,9 +201,10 @@
       row: u32,
       frozen: u32,
     };
-    @group(0) @binding(0) var<storage, read> fft_values: array<vec2<f32>>;
-    @group(0) @binding(1) var history: texture_2d<f32>;
-    @group(0) @binding(2) var<uniform> params: DisplayParams;
+    @group(0) @binding(0) var history: texture_2d<f32>;
+    @group(0) @binding(1) var<uniform> params: DisplayParams;
+    @group(0) @binding(2) var<storage, read> histogram: array<f32>;
+    @group(0) @binding(3) var<storage, read> spectrum: array<vec2<f32>>;
 
     @vertex
     fn vertex_main(@builtin(vertex_index) vertex: u32) -> @builtin(position) vec4<f32> {
@@ -145,16 +213,60 @@
       return vec4<f32>(positions[vertex], 0.0, 1.0);
     }
 
-    fn power_db(value: vec2<f32>) -> f32 {
-      let power = max(dot(value, value) / (1024.0 * 1024.0), 1e-20);
-      return 10.0 * log2(power) / log2(10.0);
+    // Match gr-fosphor's gl_cmap_gen.c, including its five-sector hue scale.
+    fn hsv_to_rgb(h: f32, s: f32, v: f32) -> vec3<f32> {
+      if (s <= 0.0) { return vec3<f32>(v); }
+      let hs = h * 5.0;
+      let sector = u32(floor(hs)) % 6u;
+      let f = fract(hs);
+      let p = v * (1.0 - s);
+      let q = v * (1.0 - s * f);
+      let t = v * (1.0 - s * (1.0 - f));
+      if (sector == 0u) { return vec3<f32>(v, t, p); }
+      if (sector == 1u) { return vec3<f32>(q, v, p); }
+      if (sector == 2u) { return vec3<f32>(p, v, t); }
+      if (sector == 3u) { return vec3<f32>(p, q, v); }
+      if (sector == 4u) { return vec3<f32>(t, p, v); }
+      return vec3<f32>(v, p, q);
     }
 
-    fn fft_index(x: f32) -> u32 {
-      let source = clamp(params.zoom_center - 0.5 * params.zoom_width +
-                         x * params.zoom_width, 0.0, 0.999999);
-      let display_bin = u32(source * 1024.0);
-      return (display_bin + 512u) % 1024u;
+    fn histogram_color(value: f32) -> vec3<f32> {
+      let p = clamp(value * 1.1, 0.0, 1.0);
+      if (p < 0.0625) {
+        return hsv_to_rgb(0.90, 0.50, 0.15 + 4.0 * p);
+      }
+      return hsv_to_rgb(
+        0.80 - p * 0.80,
+        1.0 - select(0.0, (p - 0.85) * 3.0, p >= 0.85),
+        0.60 + min(p, 0.40));
+    }
+
+    fn source_position(x: f32) -> f32 {
+      return clamp(params.zoom_center - 0.5 * params.zoom_width +
+                   x * params.zoom_width, 0.0, 1.0);
+    }
+
+    fn histogram_sample(source: f32, power: f32) -> f32 {
+      let px = clamp(source * 1023.0, 0.0, 1023.0);
+      let py = clamp(power * 127.0, 0.0, 127.0);
+      let x0 = u32(floor(px));
+      let x1 = min(x0 + 1u, 1023u);
+      let y0 = u32(floor(py));
+      let y1 = min(y0 + 1u, 127u);
+      let tx = fract(px);
+      let ty = fract(py);
+      let low = mix(histogram[x0 * 128u + y0],
+                    histogram[x1 * 128u + y0], tx);
+      let high = mix(histogram[x0 * 128u + y1],
+                     histogram[x1 * 128u + y1], tx);
+      return mix(low, high, ty);
+    }
+
+    fn spectrum_sample(source: f32) -> vec2<f32> {
+      let px = clamp(source * 1023.0, 0.0, 1023.0);
+      let x0 = u32(floor(px));
+      let x1 = min(x0 + 1u, 1023u);
+      return mix(spectrum[x0], spectrum[x1], fract(px));
     }
 
     @fragment
@@ -173,21 +285,35 @@
 
       let local_y = (uv.y - waterfall_end) / max(params.spectrum_ratio, 0.001);
       let minimum = params.db_reference - 10.0 * params.db_per_division;
-      let level = clamp((power_db(fft_values[fft_index(uv.x)]) - minimum) /
-                        max(1.0, params.db_reference - minimum), 0.0, 1.0);
-      let spectrum_y = 1.0 - level;
-      let line_width = 2.0 / max(params.size.y * params.spectrum_ratio, 1.0);
+      let range = max(1.0, params.db_reference - minimum);
+      let source = source_position(uv.x);
+      let density = histogram_sample(source, 1.0 - local_y);
+      var color = histogram_color(density);
+
+      let traces = spectrum_sample(source);
+      let live_y = 1.0 - clamp((traces.x - minimum) / range, 0.0, 1.0);
+      let max_y = 1.0 - clamp((traces.y - minimum) / range, 0.0, 1.0);
+      let line_width = 1.25 / max(params.size.y * params.spectrum_ratio, 1.0);
+      if (abs(local_y - live_y) <= line_width) {
+        color = mix(color, vec3<f32>(1.0), 0.75);
+      }
+      if (abs(local_y - max_y) <= line_width) {
+        color = mix(color, vec3<f32>(1.0, 0.0, 0.0), 0.75);
+      }
 
       let major_x = abs(fract(uv.x * 10.0) - 0.5);
       let major_y = abs(fract(local_y * 10.0) - 0.5);
-      var background = vec3<f32>(0.012, 0.018, 0.028);
       if (major_x > 0.492 || major_y > 0.492) {
-        background = vec3<f32>(0.09, 0.12, 0.15);
+        color = mix(color, vec3<f32>(0.0), 0.5);
       }
-      if (abs(local_y - spectrum_y) <= line_width) {
-        return vec4<f32>(0.35, 1.0, 0.28, 1.0);
+
+      // Native fosphor reserves a narrow strip on the right for the histogram
+      // intensity palette. Keep it inside the plot because the browser canvas
+      // has no separate OpenGL label margin.
+      if (position.x >= params.size.x - 10.0) {
+        color = histogram_color(1.0 - local_y);
       }
-      return vec4<f32>(background, 1.0);
+      return vec4<f32>(color, 1.0);
     }
   `;
 
@@ -298,6 +424,21 @@
         label: 'fosphor display params', size: 48,
         usage: usage.UNIFORM | usage.COPY_DST,
       });
+      this.histogramBuffer = this.device.createBuffer({
+        label: 'fosphor spectrum density histogram',
+        size: FFT_SIZE * HISTOGRAM_BINS * 4,
+        // COPY_SRC is only used by the browser regression test to verify that
+        // density accumulates; the application never reads histogram data back.
+        usage: usage.STORAGE | usage.COPY_SRC,
+      });
+      this.spectrumBuffer = this.device.createBuffer({
+        label: 'fosphor live and max-hold spectrum',
+        size: FFT_SIZE * 2 * 4,
+        usage: usage.STORAGE | usage.COPY_DST,
+      });
+      const initialSpectrum = new Float32Array(FFT_SIZE * 2);
+      initialSpectrum.fill(-200);
+      this.device.queue.writeBuffer(this.spectrumBuffer, 0, initialSpectrum);
       this.history = this.device.createTexture({
         label: 'fosphor waterfall history',
         size: [FFT_SIZE, HISTORY_ROWS],
@@ -334,12 +475,22 @@
           { binding: 2, resource: { buffer: this.waterfallParams } },
         ],
       });
+      this.histogramBindGroup = this.device.createBindGroup({
+        layout: this.manager.histogramPipeline.getBindGroupLayout(0),
+        entries: [
+          { binding: 0, resource: { buffer: this.fftA } },
+          { binding: 1, resource: { buffer: this.histogramBuffer } },
+          { binding: 2, resource: { buffer: this.spectrumBuffer } },
+          { binding: 3, resource: { buffer: this.waterfallParams } },
+        ],
+      });
       this.renderBindGroup = this.device.createBindGroup({
         layout: this.manager.renderPipeline.getBindGroupLayout(0),
         entries: [
-          { binding: 0, resource: { buffer: this.fftA } },
-          { binding: 1, resource: this.historyView },
-          { binding: 2, resource: { buffer: this.displayParams } },
+          { binding: 0, resource: this.historyView },
+          { binding: 1, resource: { buffer: this.displayParams } },
+          { binding: 2, resource: { buffer: this.histogramBuffer } },
+          { binding: 3, resource: { buffer: this.spectrumBuffer } },
         ],
       });
       this.setWindow(this.windowType);
@@ -570,11 +721,14 @@
         }
         pass.end();
         pass = encoder.beginComputePass({
-          label: 'fosphor waterfall',
+          label: 'fosphor waterfall and density histogram',
           timestampWrites: this.timestampWrites(2, 3, measureTiming),
         });
         pass.setPipeline(this.manager.waterfallPipeline);
         pass.setBindGroup(0, this.waterfallBindGroup);
+        pass.dispatchWorkgroups(FFT_SIZE / 64);
+        pass.setPipeline(this.manager.histogramPipeline);
+        pass.setBindGroup(0, this.histogramBindGroup);
         pass.dispatchWorkgroups(FFT_SIZE / 64);
         pass.end();
       }
@@ -617,7 +771,8 @@
       this.statsBadge.remove();
       for (const buffer of [this.inputBuffer, this.fftA, this.fftB,
         this.windowParams, this.waterfallParams, this.displayParams,
-        ...this.stageParams]) buffer.destroy();
+        this.histogramBuffer, this.spectrumBuffer, ...this.stageParams])
+        buffer.destroy();
       this.timingResolveBuffer?.destroy();
       this.timingReadBuffer?.destroy();
       this.timingQuerySet?.destroy();
@@ -687,7 +842,8 @@
 
     async createPipelines() {
       const module = code => this.device.createShaderModule({ code });
-      const [windowPipeline, fftPipeline, waterfallPipeline, renderPipeline] =
+      const [windowPipeline, fftPipeline, waterfallPipeline, histogramPipeline,
+        renderPipeline] =
         await Promise.all([
           this.device.createComputePipelineAsync({
             label: 'fosphor window/bit reversal', layout: 'auto',
@@ -700,6 +856,10 @@
           this.device.createComputePipelineAsync({
             label: 'fosphor waterfall update', layout: 'auto',
             compute: { module: module(WATERFALL_SHADER), entryPoint: 'main' },
+          }),
+          this.device.createComputePipelineAsync({
+            label: 'fosphor density histogram', layout: 'auto',
+            compute: { module: module(HISTOGRAM_SHADER), entryPoint: 'main' },
           }),
           this.device.createRenderPipelineAsync({
             label: 'fosphor display', layout: 'auto',
@@ -714,6 +874,7 @@
       this.windowPipeline = windowPipeline;
       this.fftPipeline = fftPipeline;
       this.waterfallPipeline = waterfallPipeline;
+      this.histogramPipeline = histogramPipeline;
       this.renderPipeline = renderPipeline;
     }
 

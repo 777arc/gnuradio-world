@@ -93,12 +93,14 @@ browser for a WebGPU adapter and compiles the pipelines in
 `runner/src/fosphor_webgpu.js`. A small C++ sink in
 `blocks/overlays/gr-fosphor/` publishes complete IQ frames through a lock-free
 double buffer in shared WASM memory; WGSL performs the window, 1024-point FFT,
-waterfall update, color mapping, and render without reading signal data back.
-An overlay badge reports FPS and skipped frames; when the optional
-`timestamp-query` feature is available, six timestamp values are read back a few
-times per second to estimate GPU milliseconds per frame and fosphor's GPU duty
-cycle. If adapter, device, pipeline, or canvas setup fails, the registry
-constructs the Qt6 CPU spectrum/waterfall hierarchy instead.
+waterfall update, and render without reading signal data back. Its spectrum is
+the native fosphor visual model: a persistent 1024x128 density histogram using
+the upstream rise/decay constants and palette, with smoothed white live and red
+decaying max-hold traces. An overlay badge reports FPS and skipped frames; when
+the optional `timestamp-query` feature is available, six timestamp values are
+read back a few times per second to estimate GPU milliseconds per frame and
+fosphor's GPU duty cycle. If adapter, device, pipeline, or canvas setup fails,
+the registry constructs the Qt6 CPU spectrum/waterfall hierarchy instead.
 
 ### Layout
 

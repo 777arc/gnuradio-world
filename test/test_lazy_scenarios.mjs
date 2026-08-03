@@ -242,6 +242,8 @@ const gpuResult = await gpuPage.evaluate(async () => {
   const canvas = document.querySelector('.gr-fosphor-webgpu');
   const statsBadge = document.querySelector('.gr-fosphor-webgpu-stats');
   let peakBin = -1;
+  let histogramCells = 0;
+  let maxDensity = 0;
   if (renderer) {
     const readback = renderer.device.createBuffer({
       size: 1024 * 2 * 4,
@@ -259,6 +261,24 @@ const gpuResult = await gpuPage.evaluate(async () => {
     }
     readback.unmap();
     readback.destroy();
+
+    const histogramBytes = 1024 * 128 * 4;
+    const histogramReadback = renderer.device.createBuffer({
+      size: histogramBytes,
+      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+    });
+    const histogramEncoder = renderer.device.createCommandEncoder();
+    histogramEncoder.copyBufferToBuffer(
+      renderer.histogramBuffer, 0, histogramReadback, 0, histogramBytes);
+    renderer.device.queue.submit([histogramEncoder.finish()]);
+    await histogramReadback.mapAsync(GPUMapMode.READ);
+    const density = new Float32Array(histogramReadback.getMappedRange());
+    for (const value of density) {
+      if (value > 1e-5) histogramCells++;
+      if (value > maxDensity) maxDensity = value;
+    }
+    histogramReadback.unmap();
+    histogramReadback.destroy();
   }
   return {
     pass: Boolean(result?.textContent?.includes('RUNNER_PASS')),
@@ -266,6 +286,8 @@ const gpuResult = await gpuPage.evaluate(async () => {
     samples: renderer?.lastSequence || 0,
     canvasWidth: canvas?.width || 0,
     peakBin,
+    histogramCells,
+    maxDensity,
     stats: renderer?.stats || null,
     statsText: statsBadge?.textContent || '',
     controls: renderer ? {
@@ -283,6 +305,7 @@ const controlsOk = gpuResult.controls?.zoomEnabled === true &&
   Math.abs(gpuResult.controls.spectrumRatio - 0.4) < 1e-6 &&
   gpuResult.controls.frozen === true;
 const fftOk = gpuResult.peakBin === 32 || gpuResult.peakBin === 992;
+const histogramOk = gpuResult.histogramCells >= 900 && gpuResult.maxDensity > 0.1;
 const backendMessageOk = gpuLogs.some(line =>
   line.includes('gr-fosphor: using WebGPU renderer'));
 const statsOk = gpuResult.stats?.fps > 0 && gpuResult.stats.skippedFrames >= 0 &&
@@ -293,10 +316,11 @@ const statsOk = gpuResult.stats?.fps > 0 && gpuResult.stats.skippedFrames >= 0 &
     : gpuResult.statsText.includes('GPU timing unavailable'));
 const gpuOk = gpuResult.pass && gpuResult.backend === 'webgpu' &&
   gpuResult.samples > 0 && gpuResult.canvasWidth > 100 && controlsOk && fftOk &&
+  histogramOk &&
   validationErrors.length === 0 && backendMessageOk && statsOk;
 allOk = allOk && gpuOk;
 console.log(`\n[${gpuOk ? 'OK' : 'FAIL'}] gr-fosphor WebGPU compute/render path`);
-console.log(`   backend=${gpuResult.backend} samples=${gpuResult.samples} canvasWidth=${gpuResult.canvasWidth} peakBin=${gpuResult.peakBin} fft=${fftOk} controls=${controlsOk} stats=${statsOk} validationErrors=${validationErrors.length} backendMessage=${backendMessageOk}`);
+console.log(`   backend=${gpuResult.backend} samples=${gpuResult.samples} canvasWidth=${gpuResult.canvasWidth} peakBin=${gpuResult.peakBin} fft=${fftOk} histogram=${histogramOk} cells=${gpuResult.histogramCells} density=${gpuResult.maxDensity.toFixed(3)} controls=${controlsOk} stats=${statsOk} validationErrors=${validationErrors.length} backendMessage=${backendMessageOk}`);
 console.log(`   ${gpuResult.statsText}`);
 if (!gpuOk) console.log('  ', gpuLogs.slice(-12).join('\n   '));
 await gpuPage.close();

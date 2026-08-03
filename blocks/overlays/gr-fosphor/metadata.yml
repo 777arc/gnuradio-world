@@ -16,6 +16,7 @@ overlap_cc:
         link: [gnuradio-fosphor]
 
 fosphor_qt_sink_c:
+    label: Fosphor Sink
     flags: [python, cpp]
     documentation: |-
         Displays a real-time spectrum and waterfall for a complex stream.
@@ -24,16 +25,18 @@ fosphor_qt_sink_c:
         desktop OpenGL. This browser build preserves the block ID, parameters,
         stream input, and optional frequency message output with a WebGPU
         compute/render pipeline. It performs windowing, a 1024-point FFT,
-        waterfall history, color mapping, and spectrum rendering on the GPU,
-        with no signal or FFT readback. An on-display badge reports rendered
-        frames per second and skipped input frames. When the optional WebGPU
-        timestamp-query feature is available, it also reports GPU milliseconds
-        per frame and the fosphor workload's estimated GPU duty cycle. If WebGPU
-        adapter, device, shader, or canvas setup is unavailable, it automatically
-        uses the Qt 6 CPU spectrum and waterfall engines instead. The editor
-        console reports which renderer was selected, including the reason for a
-        CPU fallback. Double-click the display to publish the selected frequency
-        on the freq message port.
+        waterfall history, and a persistent 1024-by-128 power-density histogram
+        on the GPU, with no signal or FFT readback. The histogram uses upstream
+        fosphor's rise/decay constants and color palette, overlaid with its white
+        smoothed live trace and red decaying max-hold trace. An on-display badge
+        reports rendered frames per second and skipped input frames. When the
+        optional WebGPU timestamp-query feature is available, it also reports
+        GPU milliseconds per frame and the fosphor workload's estimated GPU duty
+        cycle. If WebGPU adapter, device, shader, or canvas setup is unavailable,
+        it automatically uses the Qt 6 CPU spectrum and waterfall engines
+        instead. The editor console reports which renderer was selected,
+        including the reason for a CPU fallback. Double-click the display to
+        publish the selected frequency on the freq message port.
 
         The embedded plots expose their normal Qt context menus. The upstream
         keyboard shortcuts work while the display has focus: arrows adjust the

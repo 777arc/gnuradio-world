@@ -19,6 +19,8 @@ assert.equal(byId.has('fosphor_glfw_sink_c'), false,
   'the standalone GLFW sink has no browser equivalent and must stay hidden');
 assert.equal(byId.get('fosphor_qt_sink_c')?.runnable, true,
   'the embedded Qt fosphor sink must stay runnable');
+assert.equal(byId.get('fosphor_qt_sink_c')?.label, 'Fosphor Sink',
+  'the browser exposes the remaining fosphor implementation as Fosphor Sink');
 
 const addedWasmBlocks = [
   'blocks_correctiq',

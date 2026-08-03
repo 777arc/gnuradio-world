@@ -35,6 +35,9 @@ Supported keys, all optional except where an entry would otherwise do nothing:
 ``category``
     Replaces the palette category, for a module whose upstream category collides
     with an in-tree one.
+``label``
+    Replaces the block's user-facing palette and canvas label while preserving
+    its upstream id and metadata source.
 ``documentation``
     Replaces the prose the Properties dialog shows under "Block description".
     For a block the browser build implements differently enough that upstream's
@@ -74,7 +77,7 @@ METADATA = "metadata.yml"
 # gnuradio/, so validate() cannot pin them to one module the way it does for OOT.
 IN_TREE_MODULE = "gnuradio"
 
-KEYS = {"flags", "category", "cpp_templates", "documentation",
+KEYS = {"flags", "category", "label", "cpp_templates", "documentation",
         "parameter_dtypes", "parameter_defaults", "parameter_labels",
         "prune_options", "hidden"}
 
@@ -136,6 +139,8 @@ def apply(block: dict[str, Any], override: dict[str, Any]) -> None:
     block["flags"] = override.get("flags", block.get("flags") or [])
     if "category" in override:
         block["category"] = override["category"]
+    if "label" in override:
+        block["label"] = override["label"]
     if "documentation" in override:
         block["documentation"] = override["documentation"]
     block["cpp_templates"] = override.get(

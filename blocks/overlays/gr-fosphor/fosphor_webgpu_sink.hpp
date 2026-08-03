@@ -3,7 +3,8 @@
 // WebGPU-backed browser implementation of gr-fosphor's complex sink. The GNU
 // Radio scheduler publishes complete IQ frames into a double buffer in shared
 // WASM memory; runner/src/fosphor_webgpu.js consumes only the newest stable
-// frame and performs the window, FFT, waterfall update, and drawing on the GPU.
+// frame and performs the window, FFT, waterfall update, persistent density
+// histogram, and drawing on the GPU.
 
 #include <gnuradio/fft/window.h>
 #include <gnuradio/sync_block.h>
