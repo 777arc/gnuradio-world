@@ -78,6 +78,10 @@ CUSTOM_IDS = {
     # (blocks/overlays/gr-paint/paint_image_source.cpp), so its image is named by
     # URL rather than by path.
     "paint_image_source",
+    # Upstream fosphor's Qt sink requires OpenCL and desktop OpenGL. The browser
+    # keeps its embedded-widget contract with WebGPU plus a Qt6 CPU fallback in
+    # blocks/overlays/gr-fosphor.
+    "fosphor_qt_sink_c",
     "variable_qtgui_range",
     "variable_qtgui_chooser",
     "variable_qtgui_push_button",
@@ -632,6 +636,8 @@ def load_blocks() -> list[dict[str, Any]]:
             override = BLOCK_OVERRIDES.get(str(block["id"]))
             if override:
                 block_overrides.apply(block, override)
+                if override.get("hidden"):
+                    continue
             if "cpp" not in (block.get("flags") or []) or not block.get("cpp_templates"):
                 continue
             if str(block["id"]).startswith("variable_") or block["id"] in CUSTOM_IDS:

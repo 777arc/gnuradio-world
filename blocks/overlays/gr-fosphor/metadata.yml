@@ -1,0 +1,47 @@
+# Browser-only block metadata for the vendored out-of-tree module gr-fosphor.
+#
+# Upstream's overlap_cc is portable GNU Radio C++ and is compiled unchanged into
+# fosphor.wasm. The browser rebuilds its embedded Qt sink with a WebGPU renderer
+# and automatically falls back to the runner's Qt6 CPU spectrum/waterfall
+# implementation. The standalone GLFW window has no browser equivalent and is
+# deliberately hidden. See the sink sources beside this file. The submodule
+# itself stays pristine.
+
+overlap_cc:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <gnuradio/fosphor/overlap_cc.h>']
+        declarations: gr::fosphor::overlap_cc::sptr ${id};
+        make: this->${id} = gr::fosphor::overlap_cc::make(${wlen}, ${overlap});
+        link: [gnuradio-fosphor]
+
+fosphor_qt_sink_c:
+    flags: [python, cpp]
+    documentation: |-
+        Displays a real-time spectrum and waterfall for a complex stream.
+
+        Upstream gr-fosphor accelerates its FFT and rendering with OpenCL and
+        desktop OpenGL. This browser build preserves the block ID, parameters,
+        stream input, and optional frequency message output with a WebGPU
+        compute/render pipeline. It performs windowing, a 1024-point FFT,
+        waterfall history, color mapping, and spectrum rendering on the GPU,
+        with no signal or FFT readback. An on-display badge reports rendered
+        frames per second and skipped input frames. When the optional WebGPU
+        timestamp-query feature is available, it also reports GPU milliseconds
+        per frame and the fosphor workload's estimated GPU duty cycle. If WebGPU
+        adapter, device, shader, or canvas setup is unavailable, it automatically
+        uses the Qt 6 CPU spectrum and waterfall engines instead. The editor
+        console reports which renderer was selected, including the reason for a
+        CPU fallback. Double-click the display to publish the selected frequency
+        on the freq message port.
+
+        The embedded plots expose their normal Qt context menus. The upstream
+        keyboard shortcuts work while the display has focus: arrows adjust the
+        power scale, Z toggles zoom, A/D and S/W move/resize it, Q/E changes the
+        plot split, and Space freezes the display. Zoom is implemented by
+        changing the visible frequency range rather than by drawing fosphor's
+        secondary OpenGL viewport. Both backends put the waterfall above the
+        spectrum.
+
+fosphor_glfw_sink_c:
+    hidden: true

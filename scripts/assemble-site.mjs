@@ -75,8 +75,8 @@ async function stampRunnerBuild(destDir, srcFiles) {
     scripts++;
     return `${pre}${src}?v=${stamp}${post}`;
   });
-  if (scripts !== 2)
-    throw new Error(`runner.html: expected 2 external scripts to stamp, found ${scripts}`);
+  if (scripts !== 3)
+    throw new Error(`runner.html: expected 3 external scripts to stamp, found ${scripts}`);
   if (!out.includes('</head>'))
     throw new Error('runner.html: no </head> to insert the build stamp before');
   out = out.replace('</head>',
@@ -164,6 +164,9 @@ async function main() {
   Cache-Control: public, max-age=86400
 
 /runner/build/browser_file_reader.js
+  Cache-Control: public, max-age=86400
+
+/runner/build/fosphor_webgpu.js
   Cache-Control: public, max-age=86400
 
 /runner/build/*.wasm

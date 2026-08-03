@@ -79,12 +79,26 @@ node server.mjs 8090 "$PWD"
   `src/registry.cpp` add browser widgets, live setters, and a few composed
   blocks. The generated and custom registries currently expose hundreds of blocks from
   gr-blocks, gr-analog, gr-fft, gr-filter, gr-digital, gr-dtv, gr-network,
-  gr-pdu, gr-vocoder and gr-qtgui, plus the vendored out-of-tree modules (including but not limited to gr-rds, gr-foo, gr-dvbs2, gr-dvbs2rx, gr-satellites, gr-paint). Stream and message-port connections are both
+  gr-pdu, gr-vocoder and gr-qtgui, plus the vendored out-of-tree modules (including but not limited to gr-rds, gr-foo, gr-dvbs2, gr-dvbs2rx, gr-satellites, gr-paint, gr-fosphor). Stream and message-port connections are both
   serialized by the editor. QT GUI Range controls can be referenced by ID from
   numeric block parameters and update those parameters while the graph is
   running.
 - **qtgui** (`qtgui/`): builds the gr-qtgui time/frequency/constellation/waterfall sinks
   (Qt5 upstream) against Qt 6 for WebAssembly, as a static lib the runner links.
+
+The gr-fosphor Qt sink is a special dual-backend GUI path; its standalone GLFW
+counterpart is hidden because a separate desktop window has no browser meaning.
+Before starting a flowgraph containing the Qt sink, `runner.html` asks the
+browser for a WebGPU adapter and compiles the pipelines in
+`runner/src/fosphor_webgpu.js`. A small C++ sink in
+`blocks/overlays/gr-fosphor/` publishes complete IQ frames through a lock-free
+double buffer in shared WASM memory; WGSL performs the window, 1024-point FFT,
+waterfall update, color mapping, and render without reading signal data back.
+An overlay badge reports FPS and skipped frames; when the optional
+`timestamp-query` feature is available, six timestamp values are read back a few
+times per second to estimate GPU milliseconds per frame and fosphor's GPU duty
+cycle. If adapter, device, pipeline, or canvas setup fails, the registry
+constructs the Qt6 CPU spectrum/waterfall hierarchy instead.
 
 ### Layout
 
@@ -567,7 +581,7 @@ part of the always-loaded core or an on-demand side module. To add one (say
 The recipe above assumes an in-tree `gr-<m>` built by `gr/build-gr`. A
 third-party OOT module (already done for [`gr-rds/`](gr-rds), [`gr-foo/`](gr-foo),
 [`gr-dvbs2/`](gr-dvbs2), [`gr-dvbs2rx/`](gr-dvbs2rx), [`gr-satellites/`](gr-satellites),
-and [`gr-paint/`](gr-paint)) is **not** part of that
+[`gr-paint/`](gr-paint), and [`gr-fosphor/`](gr-fosphor)) is **not** part of that
 umbrella build, so there is no `libgnuradio-<m>.a`; instead its own `lib/*.cc` are
 compiled straight into an on-demand `<m>.wasm` side module. This is a
 **self-contained checklist** — following it needs no investigation beyond the
@@ -688,9 +702,9 @@ module's own CMake. Put it in `blocks/overlays/gr-<m>/shims/`, the same place as
 step 4, and point the module's `-I${<M>_WASM_SHIMS}` at it *ahead of*
 `${SIDE_INCLUDE_FLAGS}` in its side-module rule. The impls include it as `"config.h"`, so
 with no copy beside the sources it resolves from there; nothing else on the
-include path defines one. All but one vendored modules do this — no submodule
-holds a `config.h` of its own; gr-paint is the exception, guarding its include
-behind `#ifdef HAVE_CONFIG_H`, which nothing defines, so it needs no shim — and [`blocks/overlays/gr-rds/shims/`](blocks/overlays/gr-rds/shims/)
+include path defines one. Most vendored modules do this — no submodule holds a
+`config.h` of its own; gr-paint and gr-fosphor guard their includes behind
+`#ifdef HAVE_CONFIG_H`, which nothing defines, so they need no shim — and [`blocks/overlays/gr-rds/shims/`](blocks/overlays/gr-rds/shims/)
 additionally holds gr-rds's `boost/locale.hpp` replacement. Together with step 3
 this is what lets the submodules stay pinned to pristine upstream. (Any real
 per-module constants header that ships in the repo, e.g. `dvbs2_config.h`, is used

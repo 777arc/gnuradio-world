@@ -48398,6 +48398,169 @@
    ]
   },
   {
+   "id": "fosphor_qt_sink_c",
+   "label": "fosphor sink (Qt)",
+   "category": [
+    "Core",
+    "Instrumentation",
+    "QT"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "core",
+   "documentation": "Displays a real-time spectrum and waterfall for a complex stream.\n\nUpstream gr-fosphor accelerates its FFT and rendering with OpenCL and\ndesktop OpenGL. This browser build preserves the block ID, parameters,\nstream input, and optional frequency message output with a WebGPU\ncompute/render pipeline. It performs windowing, a 1024-point FFT,\nwaterfall history, color mapping, and spectrum rendering on the GPU,\nwith no signal or FFT readback. An on-display badge reports rendered\nframes per second and skipped input frames. When the optional WebGPU\ntimestamp-query feature is available, it also reports GPU milliseconds\nper frame and the fosphor workload's estimated GPU duty cycle. If WebGPU\nadapter, device, shader, or canvas setup is unavailable, it automatically\nuses the Qt 6 CPU spectrum and waterfall engines instead. The editor\nconsole reports which renderer was selected, including the reason for a\nCPU fallback. Double-click the display to publish the selected frequency\non the freq message port.\n\nThe embedded plots expose their normal Qt context menus. The upstream\nkeyboard shortcuts work while the display has focus: arrows adjust the\npower scale, Z toggles zoom, A/D and S/W move/resize it, Q/E changes the\nplot split, and Space freezes the display. Zoom is implemented by\nchanging the visible frequency range rather than by drawing fosphor's\nsecondary OpenGL viewport. Both backends put the waterfall above the\nspectrum.",
+   "api_documentation": "",
+   "wiki_url": "https://wiki.gnuradio.org/index.php/fosphor_sink_(Qt)",
+   "params": [
+    {
+     "id": "wintype",
+     "label": "Window Type",
+     "dtype": "enum",
+     "default": "window.WIN_BLACKMAN_hARRIS",
+     "category": "General",
+     "options": [
+      "window.WIN_BLACKMAN_hARRIS",
+      "window.WIN_HAMMING",
+      "window.WIN_HANN",
+      "window.WIN_BLACKMAN",
+      "window.WIN_RECTANGULAR",
+      "window.WIN_KAISER",
+      "window.WIN_FLATTOP"
+     ],
+     "option_labels": [
+      "Blackman-harris",
+      "Hamming",
+      "Hann",
+      "Blackman",
+      "Rectangular",
+      "Kaiser",
+      "Flat-top"
+     ],
+     "option_attributes": null,
+     "hide": "part"
+    },
+    {
+     "id": "freq_center",
+     "label": "Center Frequency (Hz)",
+     "dtype": "real",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "freq_span",
+     "label": "span (Hz)",
+     "dtype": "real",
+     "default": "samp_rate",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "gui_hint",
+     "label": "GUI Hint",
+     "dtype": "gui_hint",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "complex",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "freq",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true
+    }
+   ]
+  },
+  {
+   "id": "overlap_cc",
+   "label": "FFT Overlap",
+   "category": [
+    "Core",
+    "Stream Operators"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "fosphor",
+   "documentation": "",
+   "api_documentation": "Block preparing an overlapped version of the stream",
+   "wiki_url": "https://wiki.gnuradio.org/index.php/FFT_Overlap",
+   "params": [
+    {
+     "id": "wlen",
+     "label": "Window length",
+     "dtype": "int",
+     "default": "1024",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "overlap",
+     "label": "Overlap ratio",
+     "dtype": "int",
+     "default": "1",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "complex",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "complex",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
    "id": "iio_attr_sink",
    "label": "IIO Attribute Sink",
    "category": [

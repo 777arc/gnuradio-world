@@ -11,6 +11,17 @@ const CHROME_ARGS = [
   '--enable-unsafe-swiftshader',
 ];
 
+// Chrome's documented Linux/headless configuration for exercising WebGPU.
+// The bundled headless shell supplies SwiftShader when no hardware Vulkan
+// adapter is present, so this remains deterministic on CI hosts.
+const WEBGPU_CHROME_ARGS = [
+  '--no-sandbox',
+  '--use-angle=vulkan',
+  '--enable-features=Vulkan',
+  '--disable-vulkan-surface',
+  '--enable-unsafe-webgpu',
+];
+
 function findChrome(root, { allowWindows = true } = {}) {
   const base = join(root, 'chrome-headless-shell');
   const local = existsSync(base)
@@ -31,5 +42,9 @@ export async function launchBrowser(root, options = {}) {
       'npx @puppeteer/browsers install chrome-headless-shell@stable --path .',
     );
   }
-  return puppeteer.launch({ executablePath, headless: true, args: CHROME_ARGS });
+  return puppeteer.launch({
+    executablePath,
+    headless: true,
+    args: options.webgpu ? WEBGPU_CHROME_ARGS : CHROME_ARGS,
+  });
 }

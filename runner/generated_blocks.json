@@ -286,6 +286,7 @@
     "foo_random_periodic_msg_source",
     "foo_rtt_measure",
     "foo_wireshark_connector",
+    "fosphor_qt_sink_c",
     "freq_xlating_fft_filter_ccc",
     "freq_xlating_fir_filter_xxx",
     "goertzel_fc",
@@ -298,6 +299,7 @@
     "mmse_resampler_xx",
     "network_socket_pdu",
     "network_tuntap_pdu",
+    "overlap_cc",
     "paint_image_source",
     "paint_paint_bc",
     "pdu_pdu_to_stream_x",
@@ -474,7 +476,8 @@
     "dvbs2",
     "dvbs2rx",
     "satellites",
-    "paint"
+    "paint",
+    "fosphor"
   ],
   "module_deps": {
     "satellites": [
@@ -715,6 +718,7 @@
     "satellites_varlen_packet_framer": "satellites",
     "satellites_varlen_packet_tagger": "satellites",
     "satellites_viterbi_decoder": "satellites",
-    "paint_paint_bc": "paint"
+    "paint_paint_bc": "paint",
+    "overlap_cc": "fosphor"
   }
 }

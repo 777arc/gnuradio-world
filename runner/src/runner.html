@@ -59,6 +59,16 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
         }
       }
 
+      function flowgraphUsesFosphorSink() {
+        if (!location.hash || location.hash.length <= 1) return false;
+        try {
+          const grc = decodeURIComponent(location.hash.substring(1));
+          return /^\s*id:\s*fosphor_qt_sink_c\s*$/m.test(grc);
+        } catch (error) {
+          return false;
+        }
+      }
+
       window.__grPoolTierForBlockCount = poolTierForBlockCount;
       window.__grFlowgraphBlockCount = flowgraphBlockCount();
       window.__grPoolTier = poolTierForBlockCount(window.__grFlowgraphBlockCount);
@@ -406,6 +416,10 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
           showUi(spinner);
           status.textContent = 'Loading…';
           const inputSources = inputSourcesForRun();
+          if (flowgraphUsesFosphorSink()) {
+            status.textContent = 'Initializing WebGPU…';
+            await window.__grFosphorWebGpu.prepare();
+          }
           status.textContent = 'Loading GNU Radio…';
           window.__grInputSources = Object.create(null);
           for (const source of inputSources)
@@ -459,6 +473,7 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
         }
       }
     </script>
+    <script src="fosphor_webgpu.js"></script>
     <script src="runner.js"></script>
     <script type="text/javascript" src="qtloader.js"></script>
   </body>

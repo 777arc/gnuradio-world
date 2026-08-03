@@ -54,6 +54,10 @@ Supported keys, all optional except where an entry would otherwise do nothing:
     removes each one's entry from ``options``, ``option_labels`` and every list
     under ``option_attributes``, which pair positionally.  Doing it here rather
     than by hand in the yaml is what keeps those three lists aligned.
+``hidden``
+    Removes an upstream block from both the browser palette and runtime support
+    manifest. Use this only when the block has no meaningful browser concept;
+    unavailable-but-relevant blocks should remain visible and greyed out.
 """
 
 from __future__ import annotations
@@ -72,7 +76,7 @@ IN_TREE_MODULE = "gnuradio"
 
 KEYS = {"flags", "category", "cpp_templates", "documentation",
         "parameter_dtypes", "parameter_defaults", "parameter_labels",
-        "prune_options"}
+        "prune_options", "hidden"}
 
 
 def _read(path: str) -> dict[str, Any]:
@@ -196,6 +200,8 @@ def validate(overrides: dict[str, Any], seen: dict[str, str]) -> None:
     for block_id, entry in sorted(overrides.items()):
         source = entry.get("__source", "?")
         module = entry.get("__module")
+        if "hidden" in entry and not isinstance(entry["hidden"], bool):
+            problems.append(f"{source}: '{block_id}'.hidden must be a boolean")
         if block_id not in seen:
             problems.append(f"{source}: '{block_id}' matches no known block")
         elif module and seen[block_id] != module:

@@ -329,6 +329,8 @@ def main(out_path):
             override = BLOCK_OVERRIDES.get(block_id)
             if override:
                 block_overrides.apply(d, override)
+                if override.get("hidden"):
+                    continue
             block_category = normalize_category(categories.get(block_id, d.get("category")))
             # Keep the native category whenever one exists. A few upstream
             # definitions are accidentally uncategorized; retain them under a

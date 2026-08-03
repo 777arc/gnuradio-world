@@ -15,6 +15,10 @@ assert.deepEqual(byId.get('iio_fmcomms2_source')?.category,
   ['Core', 'Industrial I/O', 'FMComms']);
 assert.deepEqual(byId.get('iio_pluto_source')?.category,
   ['Core', 'Industrial I/O', 'PlutoSDR']);
+assert.equal(byId.has('fosphor_glfw_sink_c'), false,
+  'the standalone GLFW sink has no browser equivalent and must stay hidden');
+assert.equal(byId.get('fosphor_qt_sink_c')?.runnable, true,
+  'the embedded Qt fosphor sink must stay runnable');
 
 const addedWasmBlocks = [
   'blocks_correctiq',

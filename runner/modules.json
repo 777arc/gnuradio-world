@@ -3,7 +3,7 @@
   "in_tree_deferred": ["digital", "dtv", "network", "pdu", "vocoder"],
   "deferred": [
     "digital", "dtv", "network", "pdu", "vocoder",
-    "rds", "foo", "dvbs2", "dvbs2rx", "satellites", "paint"
+    "rds", "foo", "dvbs2", "dvbs2rx", "satellites", "paint", "fosphor"
   ],
   "module_deps": {
     "satellites": ["pdu"]

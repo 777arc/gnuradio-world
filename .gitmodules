@@ -26,3 +26,7 @@
 	path = gr-paint
 	url = https://github.com/drmpeg/gr-paint.git
 	branch = master
+[submodule "gr-fosphor"]
+	path = gr-fosphor
+	url = https://github.com/osmocom/gr-fosphor.git
+	branch = master

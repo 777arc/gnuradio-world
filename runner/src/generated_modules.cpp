@@ -119,6 +119,7 @@ const std::map<std::string, std::string>& block_module_map()
         {"foo_wireshark_connector", "foo"},
         {"network_socket_pdu", "network"},
         {"network_tuntap_pdu", "network"},
+        {"overlap_cc", "fosphor"},
         {"paint_paint_bc", "paint"},
         {"pdu_pdu_to_stream_x", "pdu"},
         {"pdu_pdu_to_tagged_stream", "pdu"},

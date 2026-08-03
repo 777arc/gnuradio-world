@@ -72,6 +72,7 @@ set(GR_INCLUDE_DIRS
   ${WORLD}/gr-dvbs2rx/include
   ${WORLD}/gr-satellites/include
   ${WORLD}/gr-paint/include
+  ${WORLD}/gr-fosphor/include
   ${BUILDGR}/gnuradio-runtime/include ${SYSROOT}/include)
 
 # ---------------------------------------------------------------------------
@@ -93,6 +94,7 @@ qt_add_executable(runner
   src/registry.cpp
   ${BLOCKS}/src/browser_file_source.cpp
   ${BLOCKS}/overlays/gr-paint/paint_image_source.cpp
+  ${BLOCKS}/overlays/gr-fosphor/fosphor_webgpu_sink.cpp
   src/generated_registry.cpp
   src/generated_modules.cpp)
 # Qt's WASM finalizer appends its own pool setting after ordinary link options.
@@ -144,7 +146,7 @@ target_link_options(runner PRIVATE
   # EXPORT_ALL covers functions but not Emscripten's special exception-handling
   # data globals, which category side modules import as GOT.mem entries. Export
   # them (and the registry shim) explicitly so side-module relocation resolves.
-  -sEXPORTED_FUNCTIONS=_main,_gr_run_json,_gr_finish_worker_preload,_free,_malloc,_wasm_registry_add
+  -sEXPORTED_FUNCTIONS=_main,_gr_run_json,_gr_finish_worker_preload,_gr_fosphor_webgpu_frequency,_free,_malloc,_wasm_registry_add
   # The remaining symbols side modules import from main (libc++abi/compiler-rt:
   # __cxa_pure_virtual, std type-info vtables, the thread_local exception globals,
   # …) are exported via the generated response file appended at the end of this
@@ -183,10 +185,14 @@ add_custom_command(TARGET runner POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
           ${CMAKE_CURRENT_SOURCE_DIR}/src/browser_file_reader.js
           ${CMAKE_CURRENT_BINARY_DIR}/browser_file_reader.js
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/fosphor_webgpu.js
+          ${CMAKE_CURRENT_BINARY_DIR}/fosphor_webgpu.js
   COMMENT "Patching runner.js addFunction signature default")
 set_property(TARGET runner APPEND PROPERTY LINK_DEPENDS
   ${CMAKE_CURRENT_SOURCE_DIR}/src/runner.html
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/browser_file_reader.js)
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/browser_file_reader.js
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/fosphor_webgpu.js)
 
 # ---------------------------------------------------------------------------
 # Category side modules: one WebAssembly SIDE_MODULE per deferred category. Each
@@ -346,6 +352,18 @@ set(PAINT_SOURCES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/generated_registry_paint.cpp
   ${PAINT_LIB}/paint_bc_impl.cc)
 add_side_module(paint SOURCES ${PAINT_SOURCES})
+
+# gr-fosphor: upstream's overlap_cc stream operator is ordinary GNU Radio C++
+# and builds directly into an on-demand side module. The embedded visualization
+# sink depends on desktop OpenCL/OpenGL plus Qt5's QGLWidget, which does not fit
+# the Qt6/WebGL browser runner. Its custom main-module factory prefers a browser
+# WebGPU compute/render pipeline and automatically falls back to the Qt6
+# spectrum/waterfall composition. The standalone GLFW sink is hidden.
+set(FOSPHOR_LIB ${WORLD}/gr-fosphor/lib)
+set(FOSPHOR_SOURCES
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/generated_registry_fosphor.cpp
+  ${FOSPHOR_LIB}/overlap_cc_impl.cc)
+add_side_module(fosphor SOURCES ${FOSPHOR_SOURCES})
 
 # gr-satellites: telemetry framing, coding, FEC, and utility blocks. Like the
 # other OOT modules, compile its implementation and bundled C/C++ codec sources

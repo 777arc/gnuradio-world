@@ -313,6 +313,7 @@ static void run_now(const std::string& json_source) {
             nlohmann::json source_params =
                 blk.value("params", nlohmann::json::object());
             nlohmann::json params = resolve_variables(source_params, variables);
+            params["__name"] = name;
             BuiltBlock bb;
             if (is_variable_control(id)) {
                 bb = variables.at(name).built;

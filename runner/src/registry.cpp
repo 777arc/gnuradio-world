@@ -1,7 +1,10 @@
 #include "registry.hpp"
+#include "registry_helpers.hpp"
 #include "browser_file_source.hpp"
 #include "paint_image_source.hpp"
 #include "rds_panel.hpp"
+#include "fosphor_sink.hpp"
+#include "fosphor_webgpu_sink.hpp"
 #include "analog_hier.hpp"
 #include "digital_hier.hpp"
 #include "fec_hier.hpp"
@@ -1222,6 +1225,74 @@ BuiltBlock make_entry(const json& p)
     return result;
 }
 
+BuiltBlock make_fosphor_sink(const json& p, const std::string& block_name)
+{
+    const auto window = wasm_registry::choice<gr::fft::window::win_type>(
+        p,
+        "wintype",
+        {
+            { "window.WIN_BLACKMAN_hARRIS",
+              gr::fft::window::WIN_BLACKMAN_hARRIS },
+            { "window.WIN_HAMMING", gr::fft::window::WIN_HAMMING },
+            { "window.WIN_HANN", gr::fft::window::WIN_HANN },
+            { "window.WIN_BLACKMAN", gr::fft::window::WIN_BLACKMAN },
+            { "window.WIN_RECTANGULAR", gr::fft::window::WIN_RECTANGULAR },
+            { "window.WIN_KAISER", gr::fft::window::WIN_KAISER },
+            { "window.WIN_FLATTOP", gr::fft::window::WIN_FLATTOP },
+        },
+        gr::fft::window::WIN_BLACKMAN_hARRIS);
+    const double initial_center = number_from(p, "freq_center", 0.0);
+    const double initial_span = number_from(p, "freq_span", 1.0);
+    const std::string instance_name = p.value("__name", block_name);
+
+    if (MAIN_THREAD_EM_ASM_INT({
+            const manager = globalThis.__grFosphorWebGpu;
+            return manager && manager.ready ? 1 : 0;
+        })) {
+        try {
+            auto block = FosphorWebGpuSinkWasm::make(
+                instance_name, window, initial_center, initial_span);
+            auto range = std::make_shared<std::pair<double, double>>(
+                initial_center, initial_span);
+            BuiltBlock result{ block, block->qwidget() };
+            result.numeric_setters["freq_center"] =
+                [block, range](double value) {
+                    range->first = value;
+                    block->set_frequency_range(range->first, range->second);
+                };
+            result.numeric_setters["freq_span"] =
+                [block, range](double value) {
+                    range->second = value;
+                    block->set_frequency_range(range->first, range->second);
+                };
+            return result;
+        } catch (const std::exception& error) {
+            MAIN_THREAD_EM_ASM(
+                {
+                    const manager = globalThis.__grFosphorWebGpu;
+                    if (manager && globalThis.__grFosphorBackend !== 'cpu')
+                        manager.markCpu(UTF8ToString($0));
+                },
+                error.what());
+        }
+    }
+
+    auto block =
+        FosphorSinkWasm::make(instance_name, window, initial_center, initial_span);
+    auto range = std::make_shared<std::pair<double, double>>(initial_center,
+                                                             initial_span);
+    BuiltBlock result{ block, block->qwidget() };
+    result.numeric_setters["freq_center"] = [block, range](double value) {
+        range->first = value;
+        block->set_frequency_range(range->first, range->second);
+    };
+    result.numeric_setters["freq_span"] = [block, range](double value) {
+        range->second = value;
+        block->set_frequency_range(range->first, range->second);
+    };
+    return result;
+}
+
 } // namespace
 
 static std::map<std::string, Factory>& registry_storage() {
@@ -2037,6 +2108,9 @@ static std::map<std::string, Factory>& registry_storage() {
              result.numeric_setters["freq"] =
                  [block](double value) { block->set_frequency(value); };
              return result;
+         }},
+        {"fosphor_qt_sink_c", [](const json& p) -> BuiltBlock {
+             return make_fosphor_sink(p, "fosphor_qt_sink_c");
          }},
         {"qtgui_time_sink_x", [](const json& p) -> BuiltBlock {
              int n = p.value("size", 1024); double sr = p.value("samp_rate", 32000.0);

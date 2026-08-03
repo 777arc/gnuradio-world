@@ -42,6 +42,20 @@ const scenarios = [
       { name:'snk', id:'blocks_null_sink', params:{ type:'byte' } } ],
       connections:[['src',0,'enc',0],['enc',0,'snk',0]] },
     expectFetch: ['vocoder.wasm'] },
+  { name: 'gr-fosphor overlap (OOT deferred)',
+    fg: { blocks:[
+      { name:'src', id:'blocks_null_source', params:{ type:'complex' } },
+      { name:'overlap', id:'overlap_cc', params:{ wlen:1024, overlap:4 } },
+      { name:'snk', id:'blocks_null_sink', params:{ type:'complex' } } ],
+      connections:[['src',0,'overlap',0],['overlap',0,'snk',0]] },
+    expectFetch: ['fosphor.wasm'] },
+  { name: 'gr-fosphor Qt sink (browser backend)',
+    fg: { blocks:[
+      { name:'src', id:'analog_sig_source_x', params:{ type:'complex', samp_rate:32000, waveform:'cos', frequency:1000, amplitude:1.0 } },
+      { name:'thr', id:'blocks_throttle2', params:{ type:'complex', samples_per_second:32000, vlen:1, ignoretag:'True', limit:'auto', maximum:0.1 } },
+      { name:'snk', id:'fosphor_qt_sink_c', params:{ wintype:'window.WIN_HANN', freq_center:0, freq_span:32000, gui_hint:'' } } ],
+      connections:[['src',0,'thr',0],['thr',0,'snk',0]] },
+    expectFetch: [], expectBackend: 'cpu' },
   { name: 'gr-satellites (OOT deferred)',
     fg: { blocks:[
       { name:'src', id:'blocks_null_source', params:{ type:'byte' } },
@@ -167,17 +181,126 @@ for (const sc of scenarios) {
       await new Promise(resolve => setTimeout(resolve, 100));
   }
   const { status, text } = await page.evaluate(() => { const d=document.getElementById('result'); return { status:d?d.dataset.status:'missing', text:d?d.textContent:'' }; });
+  const backend = await page.evaluate(() => globalThis.__grFosphorBackend || 'unset');
   const sideFetched = [...new Set(fetched)].filter(f => f !== 'runner.wasm');
   const pass = text.includes('RUNNER_PASS');
   const fetchOk = JSON.stringify(sideFetched.sort()) === JSON.stringify([...sc.expectFetch].sort());
   const logOk = !sc.expectLog || logs.some(line => line.includes(sc.expectLog));
-  const ok = pass && fetchOk && logOk;
+  const backendOk = !sc.expectBackend || backend === sc.expectBackend;
+  const backendMessageOk = !sc.expectBackend || logs.some(line => line.includes(
+    sc.expectBackend === 'webgpu'
+      ? 'gr-fosphor: using WebGPU renderer'
+      : 'gr-fosphor: using CPU renderer',
+  ));
+  const ok = pass && fetchOk && logOk && backendOk && backendMessageOk;
   allOk = allOk && ok;
   console.log(`\n[${ok?'OK':'FAIL'}] ${sc.name}`);
-  console.log(`   status=${status} run=${pass} sideFetched=${JSON.stringify(sideFetched)} expected=${JSON.stringify(sc.expectFetch)} log=${logOk}`);
+  console.log(`   status=${status} run=${pass} sideFetched=${JSON.stringify(sideFetched)} expected=${JSON.stringify(sc.expectFetch)} log=${logOk} backend=${backend} backendOk=${backendOk} backendMessage=${backendMessageOk}`);
   if (!ok) console.log('   text:', text, '\n  ', logs.slice(-8).join('\n   '));
   await page.close();
 }
 await browser.close();
+
+// Exercise the real GPU pipeline separately. The ordinary suite deliberately
+// launches Chrome with --disable-gpu, which is the CPU fallback assertion above;
+// this launch uses Chromium's Vulkan/WebGPU headless flags (and SwiftShader on
+// hosts without a hardware Vulkan adapter).
+const gpuScenario = scenarios.find(sc => sc.name.startsWith('gr-fosphor Qt'));
+const gpuBrowser = await launchBrowser(ROOT, { webgpu: true });
+const gpuPage = await gpuBrowser.newPage();
+const gpuLogs = [];
+gpuPage.on('console', message => gpuLogs.push(message.text()));
+gpuPage.on('pageerror', error => gpuLogs.push(`PAGEERROR ${error.message}`));
+await gpuPage.goto(
+  `http://localhost:${PORT}/runner/build/runner.html#` +
+    encodeURIComponent(toGrc(gpuScenario.fg)),
+  { waitUntil: 'load', timeout: 30000 },
+);
+try {
+  await gpuPage.waitForFunction(() => {
+    const result = document.getElementById('result');
+    const renderer = globalThis.__grFosphorWebGpu?.instances?.values().next().value;
+    return Boolean(result && result.dataset.status !== 'pending') &&
+      globalThis.__grFosphorBackend === 'webgpu' &&
+      renderer?.lastSequence > 0 &&
+      renderer?.stats?.fps > 0 &&
+      document.querySelector('.gr-fosphor-webgpu')?.width > 100 &&
+      document.querySelector('.gr-fosphor-webgpu-stats')?.textContent?.includes('fps');
+  }, { timeout: 40000, polling: 100 });
+} catch {}
+const gpuCanvas = await gpuPage.$('.gr-fosphor-webgpu');
+if (gpuCanvas) {
+  await gpuCanvas.click();
+  await gpuPage.keyboard.press('KeyZ');
+  await gpuPage.keyboard.press('KeyS');
+  await gpuPage.keyboard.press('KeyQ');
+  await gpuPage.keyboard.press('Space');
+}
+const gpuResult = await gpuPage.evaluate(async () => {
+  const renderer = globalThis.__grFosphorWebGpu?.instances?.values().next().value;
+  const result = document.getElementById('result');
+  const canvas = document.querySelector('.gr-fosphor-webgpu');
+  const statsBadge = document.querySelector('.gr-fosphor-webgpu-stats');
+  let peakBin = -1;
+  if (renderer) {
+    const readback = renderer.device.createBuffer({
+      size: 1024 * 2 * 4,
+      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+    });
+    const encoder = renderer.device.createCommandEncoder();
+    encoder.copyBufferToBuffer(renderer.fftA, 0, readback, 0, 1024 * 2 * 4);
+    renderer.device.queue.submit([encoder.finish()]);
+    await readback.mapAsync(GPUMapMode.READ);
+    const values = new Float32Array(readback.getMappedRange());
+    let maximum = -1;
+    for (let index = 0; index < 1024; index++) {
+      const power = values[2 * index] ** 2 + values[2 * index + 1] ** 2;
+      if (power > maximum) { maximum = power; peakBin = index; }
+    }
+    readback.unmap();
+    readback.destroy();
+  }
+  return {
+    pass: Boolean(result?.textContent?.includes('RUNNER_PASS')),
+    backend: globalThis.__grFosphorBackend,
+    samples: renderer?.lastSequence || 0,
+    canvasWidth: canvas?.width || 0,
+    peakBin,
+    stats: renderer?.stats || null,
+    statsText: statsBadge?.textContent || '',
+    controls: renderer ? {
+      zoomEnabled: renderer.zoomEnabled,
+      zoomWidth: renderer.zoomWidth,
+      spectrumRatio: renderer.spectrumRatio,
+      frozen: renderer.frozen,
+    } : null,
+  };
+});
+const validationErrors = gpuLogs.filter(line =>
+  /(?:PAGEERROR|WebGPU validation error|initialization failed)/i.test(line));
+const controlsOk = gpuResult.controls?.zoomEnabled === true &&
+  Math.abs(gpuResult.controls.zoomWidth - 0.1) < 1e-6 &&
+  Math.abs(gpuResult.controls.spectrumRatio - 0.4) < 1e-6 &&
+  gpuResult.controls.frozen === true;
+const fftOk = gpuResult.peakBin === 32 || gpuResult.peakBin === 992;
+const backendMessageOk = gpuLogs.some(line =>
+  line.includes('gr-fosphor: using WebGPU renderer'));
+const statsOk = gpuResult.stats?.fps > 0 && gpuResult.stats.skippedFrames >= 0 &&
+  gpuResult.statsText.includes('WebGPU') &&
+  (gpuResult.stats.timingSupported
+    ? gpuResult.stats.gpuFrameMs > 0 && gpuResult.stats.gpuDutyPercent > 0 &&
+      gpuResult.statsText.includes('ms/frame') && gpuResult.statsText.includes('% duty')
+    : gpuResult.statsText.includes('GPU timing unavailable'));
+const gpuOk = gpuResult.pass && gpuResult.backend === 'webgpu' &&
+  gpuResult.samples > 0 && gpuResult.canvasWidth > 100 && controlsOk && fftOk &&
+  validationErrors.length === 0 && backendMessageOk && statsOk;
+allOk = allOk && gpuOk;
+console.log(`\n[${gpuOk ? 'OK' : 'FAIL'}] gr-fosphor WebGPU compute/render path`);
+console.log(`   backend=${gpuResult.backend} samples=${gpuResult.samples} canvasWidth=${gpuResult.canvasWidth} peakBin=${gpuResult.peakBin} fft=${fftOk} controls=${controlsOk} stats=${statsOk} validationErrors=${validationErrors.length} backendMessage=${backendMessageOk}`);
+console.log(`   ${gpuResult.statsText}`);
+if (!gpuOk) console.log('  ', gpuLogs.slice(-12).join('\n   '));
+await gpuPage.close();
+await gpuBrowser.close();
+
 console.log(`\n=== ${allOk ? 'ALL SCENARIOS PASS' : 'SOME FAILED'} ===`);
 process.exit(allOk ? 0 : 1);
