@@ -1,8 +1,11 @@
 # SigMF R2 indexer
 
-This scheduled Cloudflare Worker scans an R2 bucket daily at 4:00 AM EST and replaces
-`index.json` with a deterministic JSON array of complete SigMF recordings. A
-recording is included only when the bucket contains both `<base>.sigmf-data` and
+This Cloudflare Worker scans an R2 bucket after recording uploads and replaces
+`index.json` with a deterministic JSON array of complete SigMF recordings. R2
+event notifications enter a Cloudflare Queue, which collects up to 100 changes
+for up to 60 seconds before invoking one index rebuild. A daily 4:00 AM EST cron
+and an authenticated manual endpoint provide fallback rebuild paths. A recording
+is included only when the bucket contains both `<base>.sigmf-data` and
 `<base>.sigmf-meta`.
 
 `base_filename` is the full object key without the SigMF suffix, including any
@@ -35,12 +38,39 @@ index; this commonly means the `.sigmf-meta` sidecars were not uploaded to R2.
    npx wrangler login
    ```
 
-3. Run the tests and deploy:
+3. Create the event queue once. A subsequent invocation reporting that the queue
+   already exists is harmless; do not delete and recreate a production queue:
+
+   ```bash
+   npx wrangler queues create gnuradio-world-sigmf-events
+   ```
+
+4. Run the tests and deploy the Queue consumer:
 
    ```bash
    npm test
    npm run deploy
    ```
+
+5. Create the two non-overlapping R2 event-notification rules once:
+
+   ```bash
+   npx wrangler r2 bucket notification create gnuradio-wasm-recordings \
+     --event-type object-create \
+     --queue gnuradio-world-sigmf-events \
+     --suffix ".sigmf-data"
+
+   npx wrangler r2 bucket notification create gnuradio-wasm-recordings \
+     --event-type object-create \
+     --queue gnuradio-world-sigmf-events \
+     --suffix ".sigmf-meta"
+   ```
+
+The suffix filters ensure the Worker's own `index.json` write cannot enqueue
+another rebuild. `max_batch_timeout` starts a window when the first notification
+arrives; the consumer runs once after at most 60 seconds. It can run sooner if a
+batch reaches 100 notifications. `max_concurrency: 1` prevents two batches from
+rebuilding the index simultaneously.
 
 The default cron is `0 9 * * *` (09:00 UTC, which is 4:00 AM EST). This is a
 fixed EST schedule, so it runs at 5:00 AM when Eastern Daylight Time is active.
@@ -82,10 +112,11 @@ estevez/ao73.sigmf-data
 estevez/ao73.sigmf-meta
 ```
 
-Then wait for the daily index run or use the authenticated manual rebuild. The
-editor reads the resulting `index.json`, metadata, and sample data directly
-from `https://recordings.gnuradioworld.com`. Do not add the recording or an
-index to this repository, and do not rebuild or redeploy the website.
+The event queue normally refreshes the index within about one minute of the first
+upload notification. The daily run and authenticated manual rebuild remain as
+fallbacks. The editor reads the resulting `index.json`, metadata, and sample data
+directly from `https://recordings.gnuradioworld.com`. Do not add the recording or
+an index to this repository, and do not rebuild or redeploy the website.
 
 For a local scheduled-trigger check, run:
 

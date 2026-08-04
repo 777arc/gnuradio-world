@@ -177,6 +177,27 @@ test('logs unmatched SigMF keys and retains the old index when no pair exists', 
   );
 });
 
+test('rebuilds the index once for an entire R2 notification batch', async () => {
+  const bucket = new MockBucket(
+    [[object('queued.sigmf-meta', 20), object('queued.sigmf-data', 8)]],
+    new Map([['queued.sigmf-meta', JSON.stringify({
+      global: { 'core:datatype': 'cf32_le' },
+      captures: [],
+      annotations: [],
+    })]]),
+  );
+
+  await worker.queue({
+    messages: [
+      { body: { object: { key: 'queued.sigmf-data' } } },
+      { body: { object: { key: 'queued.sigmf-meta' } } },
+    ],
+  }, { RECORDINGS: bucket });
+
+  assert.equal(bucket.puts.length, 1);
+  assert.equal(bucket.puts[0].key, INDEX_KEY);
+});
+
 test('manual rebuild endpoint requires POST and the configured bearer token', async () => {
   const env = { REBUILD_TOKEN: 'test-secret', RECORDINGS: new MockBucket([[]], new Map()) };
 

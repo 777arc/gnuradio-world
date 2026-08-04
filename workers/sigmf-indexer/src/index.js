@@ -213,6 +213,14 @@ export async function rebuildIndex(bucket, { logger = console } = {}) {
 }
 
 export default {
+  async queue(batch, env) {
+    console.log('R2 event notification batch received', {
+      messages: batch.messages.length,
+      object_keys: batch.messages.map(message => message.body?.object?.key ?? null),
+    });
+    await rebuildIndex(env.RECORDINGS);
+  },
+
   async scheduled(controller, env) {
     console.log('Cron trigger received', {
       cron: controller.cron,

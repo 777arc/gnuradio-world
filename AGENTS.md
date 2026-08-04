@@ -118,7 +118,7 @@ the registry constructs the Qt6 CPU spectrum/waterfall hierarchy instead.
 | `blocks/overlays/<module>/` | one directory per module, holding `metadata.yml` (every browser-only addition to that module's blocks: `cpp_templates`, retyped/re-defaulted/relabelled params, pruned enum options, replaced `documentation`) plus, for an out-of-tree module, its `shims/` and any C++ rebuilt from a Python-only block. This is why the submodules need no fork. `blocks/overlays/gnuradio/` is the in-tree equivalent, metadata only |
 | `docs/` | `double-mapped-buffer.md` (the emulated vmcircbuf) and `diagnostics.md` (the runner's `__grstats` snapshot and debug panel, which the smoke test asserts against) |
 | `example_flowgraphs/` | the `.grc` files the editor's "Example Flowgraphs" palette tab lists recursively (files may be organized in nested directories, which appear as collapsible folders); several are also smoke-test cases. Each is directly linkable as `#example=<relative path without .grc>` (the 🔗 on its palette entry copies that link). Test changes here with `scripts/run_example.mjs`, which drives the real editor — see "Run and test" |
-| `workers/sigmf-indexer/` | Scheduled Cloudflare Worker bound to the recordings R2 bucket. Daily at 09:00 UTC (4:00 AM EST) it pairs `.sigmf-data`/`.sigmf-meta` keys, derives the searchable metadata and byte/sample counts, and atomically replaces the bucket's `index.json`. It also has a bearer-protected manual rebuild endpoint. |
+| `workers/sigmf-indexer/` | Cloudflare Queue consumer bound to the recordings R2 bucket. R2 create/overwrite notifications for `.sigmf-data` and `.sigmf-meta` objects are batched for up to 60 seconds before it pairs keys, derives searchable metadata and byte/sample counts, and atomically replaces the bucket's `index.json`. A daily 09:00 UTC cron and bearer-protected endpoint provide fallback rebuilds. |
 | `server.mjs` | COOP/COEP static dev server (needed for SharedArrayBuffer / pthreads); serves the repo root, falls back to `editor/dist/` for `/`, and synthesizes the `/example_flowgraphs` listing. Recording discovery and objects always come directly from R2. |
 | `test/` | `test_smoke.mjs` (runs example flowgraphs headlessly and asserts samples actually move) and `test_lazy_scenarios.mjs` (verifies on-demand category side modules are fetched and `dlopen`'d), plus the `fixtures/` `.grc` they load; CI gates the deploy on both. `editor/test/` and `runner/test/` hold their own suites — see "Run and test" |
 | `scripts/` | `assemble-site.mjs` (assembles the static site CI deploys to Pages), `serve_site.mjs` (serves an assembled site the way Cloudflare Pages does), `run.mjs` (headless-Chromium test harness, waits on a page `#result`), `run_example.mjs` (opens an example in the real editor and presses Run), `r2-cors.json` (CORS policy for the recordings bucket) |
@@ -1016,19 +1016,23 @@ by its bucket name; it uses that HTTPS domain. The editor defaults to this base,
 with `VITE_RECORDINGS_R2_BASE` available as a build-time override.
 
 [`workers/sigmf-indexer/`](workers/sigmf-indexer/) is bound to the bucket as
-`RECORDINGS`. At 09:00 UTC daily (4:00 AM fixed EST) it lists every object,
-pairs keys with the same base and `.sigmf-data`/`.sigmf-meta` suffixes, reads
-the SigMF metadata, derives byte and sample counts, and replaces the bucket's
-`index.json`. Its authenticated `POST /rebuild` endpoint performs the same job
-on demand. The editor fetches that live index with `cache: no-store`, then
-constructs both object URLs from each base key. `server.mjs`,
+`RECORDINGS`. R2 object-create notifications for `.sigmf-data` and
+`.sigmf-meta` enter `gnuradio-world-sigmf-events`; its consumer batches up to
+100 notifications for up to 60 seconds and performs one rebuild per batch. The
+rebuild lists every object, pairs keys with the same base and SigMF suffixes,
+reads the metadata, derives byte and sample counts, and replaces the bucket's
+`index.json`. A 09:00 UTC daily cron (4:00 AM fixed EST) provides a fallback,
+and its authenticated `POST /rebuild` endpoint performs the same job on demand.
+The editor fetches that live index with `cache: no-store`, then constructs both
+object URLs from each base key. `server.mjs`,
 `scripts/assemble-site.mjs`, and Cloudflare Pages never build or serve a
 recording manifest, and no recording is ever checked into this repository.
 
 To publish a recording, upload both matching objects directly to R2 using the
-dashboard, the S3-compatible API, rclone, or another R2 client, then wait for
-the daily run or invoke the manual rebuild. Collection prefixes are part of the
-base key: `estevez/ao73.sigmf-data` pairs with
+dashboard, the S3-compatible API, rclone, or another R2 client. The event batch
+normally refreshes the index within about one minute; the daily and manual paths
+remain fallbacks. Collection prefixes are part of the base key:
+`estevez/ao73.sigmf-data` pairs with
 `estevez/ao73.sigmf-meta`. No checkout, commit, editor rebuild, or Pages deploy
 is part of this workflow.
 

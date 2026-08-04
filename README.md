@@ -68,8 +68,7 @@ a block can fail to generate, is in [AGENTS.md](AGENTS.md).
 Example recordings are discovered and streamed directly from the Cloudflare R2
 bucket `gnuradio-wasm-recordings`, publicly served at
 `https://recordings.gnuradioworld.com`. Adding a matching
-`.sigmf-data`/`.sigmf-meta` pair makes it available after the bucket indexer's
-next daily or manual run; no repository change or site deployment is needed.
+`.sigmf-data`/`.sigmf-meta` pair makes it available after one-minute, thanks to the sigmf-indexer worker, no repository change or site deployment is needed.
 
 ## License
 

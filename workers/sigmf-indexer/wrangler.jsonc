@@ -12,6 +12,16 @@
       "bucket_name": "gnuradio-wasm-recordings"
     }
   ],
+  "queues": {
+    "consumers": [
+      {
+        "queue": "gnuradio-world-sigmf-events",
+        "max_batch_size": 100,
+        "max_batch_timeout": 60,
+        "max_concurrency": 1
+      }
+    ]
+  },
   "observability": {
     "enabled": true
   }
