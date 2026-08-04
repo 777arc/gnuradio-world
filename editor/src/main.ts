@@ -270,6 +270,7 @@ function portMeta(inst: Inst, kind: 'in' | 'out', i: number): ResolvedPort {
   const ids = kind === 'in' ? d.inIds : d.outIds;
   const labels = kind === 'in' ? d.inLabels : d.outLabels;
   const indices = kind === 'in' ? d.inStreamIndices : d.outStreamIndices;
+  const optional = kind === 'in' ? d.inOptional : d.outOptional;
   const domain = domains?.[i] || 'stream';
   return {
     dtype: types?.[i] || '',
@@ -278,7 +279,7 @@ function portMeta(inst: Inst, kind: 'in' | 'out', i: number): ResolvedPort {
     id: ids?.[i] ?? (domain === 'stream' ? String(indices?.[i] ?? i) : String(i)),
     name: labels?.[i] || `${kind}${legacyPortCount(inst, kind) > 1 ? i : ''}`,
     streamIndex: domain === 'stream' ? (indices?.[i] ?? i) : -1,
-    optional: false,
+    optional: optional?.[i] ?? false,
     hidden: false,
   };
 }
@@ -429,7 +430,7 @@ function wrapValidationMessage(message: string, maxCharacters: number): string[]
 }
 
 function validateGraph(blocks: Inst[] = insts, connections: Conn[] = conns): ValidationIssue[] {
-  return validateFlowgraph(blocks, connections, { portCount, portMeta, portType, resolvedPorts });
+  return validateFlowgraph(blocks, connections, { portCount, portMeta, portType });
 }
 
 function fieldIssue(issues: ValidationIssue[], uid: string, field: string): string {

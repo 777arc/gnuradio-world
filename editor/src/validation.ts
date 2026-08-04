@@ -6,7 +6,6 @@ export interface GraphPortAccess {
   portCount(block: Inst, kind: 'in' | 'out'): number;
   portMeta(block: Inst, kind: 'in' | 'out', index: number): ResolvedPort;
   portType(block: Inst, kind: 'in' | 'out', index: number): string;
-  resolvedPorts(block: Inst, kind: 'in' | 'out'): ResolvedPort[] | null;
 }
 
 export const NAME_FIELD = '__name';
@@ -179,22 +178,30 @@ export function validateFlowgraph(
       }
     }
   }
-  // Selector's configured stream multiplicity is part of its topology, not
-  // merely a drawing hint. Native GRC requires every non-optional clone to be
-  // connected; otherwise the runtime would infer fewer ports than the selected
-  // indices and configured counts describe.
-  for (const block of blocks.filter(block => active(block) && block.id === 'blocks_selector')) {
+  // Every port that is neither optional nor hidden needs a connection, exactly
+  // as native GRC requires (grc/core/ports/port.py: "Port is not connected.").
+  // A port's clones count individually, which is what makes a Selector's
+  // configured multiplicity part of its topology rather than a drawing hint.
+  // Only *disabled* blocks break a connection — a bypassed one is still wired
+  // through, so it keeps both of its neighbours' ports satisfied — and a
+  // bypassed block's own ports are not checked, matching GRC's `is_valid()`.
+  for (const block of blocks.filter(active)) {
+    if (!RUNNABLE[block.id]) continue;
     for (const kind of ['in', 'out'] as const) {
-      const resolved = ports.resolvedPorts(block, kind) || [];
-      resolved.forEach((port, index) => {
-        if (port.domain !== 'stream' || port.optional) return;
-        const connected = connections.some(connection => kind === 'in'
-          ? connection.to === block.uid && connection.tp === index
-          : connection.from === block.uid && connection.fp === index);
+      const count = ports.portCount(block, kind);
+      for (let index = 0; index < count; ++index) {
+        const port = ports.portMeta(block, kind, index);
+        if (port.optional || port.hidden) continue;
+        const connected = connections.some(connection => {
+          const near = kind === 'in' ? connection.tp : connection.fp;
+          const attached = kind === 'in' ? connection.to : connection.from;
+          const other = byUid.get(kind === 'in' ? connection.from : connection.to);
+          return attached === block.uid && near === index && !!other?.enabled;
+        });
         if (!connected)
           add(block, BLOCK_FIELD,
-            `${kind === 'in' ? 'Input' : 'Output'} port ${port.streamIndex} is not connected.`);
-      });
+            `${kind === 'in' ? 'Input' : 'Output'} port "${port.name}" is not connected.`);
+      }
     }
   }
   return issues;

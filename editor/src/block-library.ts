@@ -64,7 +64,8 @@ export function installGeneratedBlocks(blocks: any[]) {
       return String(port.label || (/^\d+$/.test(id) ? kind : id) || kind);
     };
     const expandPorts = (ports: any[], kind: 'in' | 'out') => {
-      const result: { dtype: string; domain: string; id: string; name: string; streamIndex: number }[] = [];
+      const result: { dtype: string; domain: string; id: string; name: string;
+        streamIndex: number; optional: boolean }[] = [];
       let streamIndex = 0;
       for (const port of ports || []) {
         const count = multiplicity(port.multiplicity, defaults);
@@ -77,6 +78,7 @@ export function installGeneratedBlocks(blocks: any[]) {
               /^\$\{\s*([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)?)\s*\}$/, '$$$1'),
             domain, id, name: count > 1 ? `${baseName}${i}` : baseName,
             streamIndex: domain === 'stream' ? streamIndex : -1,
+            optional: !!port.optional,
           });
           if (domain === 'stream') ++streamIndex;
         }
@@ -115,6 +117,8 @@ export function installGeneratedBlocks(blocks: any[]) {
       const streamOutputs = outputs.filter(p => p.domain === 'stream');
       existing.inLabels = streamInputs.slice(0, existing.inputs).map(p => p.name);
       existing.outLabels = streamOutputs.slice(0, existing.outputs).map(p => p.name);
+      existing.inOptional = streamInputs.slice(0, existing.inputs).map(p => p.optional);
+      existing.outOptional = streamOutputs.slice(0, existing.outputs).map(p => p.optional);
       const inputDefs = (block.inputs || []).filter((p: any) => String(p.domain || 'stream') === 'stream');
       const outputDefs = (block.outputs || []).filter((p: any) => String(p.domain || 'stream') === 'stream');
       if (inputDefs.length === 1)

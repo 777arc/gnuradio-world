@@ -344,9 +344,15 @@ performs on the way. Two classes of bug live in that gap, and both are silent:
   editor — it still runs, every block still moves samples, it just quietly
   computes something else. Take parameter ids from the hand-written schema for
   any block that has one.
-- **Editor-side validation.** Connection type checks, required-parameter checks
-  and expression resolution all happen in the editor. A flowgraph the runner
-  would execute happily can still be refused before it ever gets there.
+- **Editor-side validation.** Connection type checks, required-parameter checks,
+  port connectivity and expression resolution all happen in the editor. A
+  flowgraph the runner would execute happily can still be refused before it ever
+  gets there. Connectivity is the one that most often catches a hand-written
+  file: as in native GRC, every port that is neither `optional` nor hidden needs
+  a connection, so a dangling message output — gr-satellites' Message Counter
+  emits both `out` and `count`, and upstream marks neither optional — turns its
+  block title red and blocks the Run button. Terminate it (Message Debug's
+  `store` port swallows a stream of PDUs silently) rather than leaving it open.
 
 One command does it:
 

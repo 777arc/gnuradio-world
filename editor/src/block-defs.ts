@@ -42,6 +42,10 @@ export interface RunnableDef {
   inDomains?: string[]; outDomains?: string[]; inIds?: string[]; outIds?: string[];
   inLabels?: string[]; outLabels?: string[];
   inLabelBase?: string; outLabelBase?: string;
+  // Per-port `optional` for definitions with no port templates (the
+  // hand-written schemas), filled in from blocks.json. An optional port needs
+  // no connection, so the connectivity check has to know about it.
+  inOptional?: boolean[]; outOptional?: boolean[];
   inStreamIndices?: number[]; outStreamIndices?: number[];
   inputTemplates?: PortTemplate[]; outputTemplates?: PortTemplate[];
 }

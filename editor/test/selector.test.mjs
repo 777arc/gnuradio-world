@@ -38,7 +38,7 @@ assert.match(source, /Input Index must select an available input port/,
   'Selector input index must be checked against its configured topology');
 assert.match(source, /Output Index must select an available output port/,
   'Selector output index must be checked against its configured topology');
-assert.match(source, /Selector's configured stream multiplicity is part of its topology/,
+assert.match(source, /configured multiplicity part of its topology rather than a drawing hint/,
   'all configured Selector stream ports must be required like native GRC');
 assert.match(source, /Connection vector-length mismatch/,
   'Selector vector lengths must participate in stream compatibility checks');

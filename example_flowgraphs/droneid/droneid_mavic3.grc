@@ -191,6 +191,10 @@ connections:
     src_port_id: count
     snk_blk_id: print_count
     snk_port_id: print
+-   src_blk_id: detection_count
+    src_port_id: out
+    snk_blk_id: print_count
+    snk_port_id: store
 - [preamble_correlator, '0', correlation_power, '0']
 - [resampler, '0', align_frame_start, '0']
 - [resampler, '0', preamble_correlator, '0']
