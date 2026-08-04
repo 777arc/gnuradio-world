@@ -295,6 +295,9 @@
     "freq_xlating_fft_filter_ccc",
     "freq_xlating_fir_filter_xxx",
     "goertzel_fc",
+    "ham_chu_decode",
+    "ham_varicode_rx",
+    "ham_varicode_tx",
     "high_pass_filter",
     "hilbert_fc",
     "iir_filter_xxx",
@@ -450,7 +453,8 @@
     "vocoder_g723_40_encode_sb",
     "vocoder_ulaw_decode_bs",
     "vocoder_ulaw_encode_sb",
-    "wasm_packet_rate_sink"
+    "wasm_packet_rate_sink",
+    "wasm_text_sink"
   ],
   "skipped": {
     "satellites_sat_3cat_1_deframer": "too computationally intensive for the browser runtime: it saturates the main thread and stops the page responding",
@@ -483,7 +487,8 @@
     "satellites",
     "paint",
     "fosphor",
-    "droneid"
+    "droneid",
+    "ham"
   ],
   "module_deps": {
     "satellites": [
@@ -730,6 +735,9 @@
     "droneid_demodulation": "droneid",
     "droneid_extractor": "droneid",
     "droneid_normalized_xcorr_estimate": "droneid",
-    "droneid_time_sync": "droneid"
+    "droneid_time_sync": "droneid",
+    "ham_chu_decode": "ham",
+    "ham_varicode_rx": "ham",
+    "ham_varicode_tx": "ham"
   }
 }

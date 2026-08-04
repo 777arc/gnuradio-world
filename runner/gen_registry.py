@@ -73,8 +73,9 @@ OBJECT_PARAMETERS = {
 # Custom WASM factories provide widgets, live callbacks, or a browser-safe
 # implementation.  Do not emit duplicate generated code for them.
 CUSTOM_IDS = {
-    # Runner-only sink, defined in blocks/grc (no upstream GNU Radio block).
+    # Runner-only sinks, defined in blocks/grc (no upstream GNU Radio block).
     "wasm_packet_rate_sink",
+    "wasm_text_sink",
     # gr-rds's display panel is a Python QWidget, rebuilt in C++ at
     # blocks/overlays/gr-rds/rds_panel.hpp.
     "rds_panel",

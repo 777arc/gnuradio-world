@@ -371,6 +371,20 @@ set(FOSPHOR_SOURCES
   ${FOSPHOR_LIB}/overlap_cc_impl.cc)
 add_side_module(fosphor SOURCES ${FOSPHOR_SOURCES})
 
+# gr-ham (argilo): the only vendored OOT module with no C++ at all -- its lib/
+# holds a CMakeLists.txt and nothing else, and all four blocks are Python
+# gr.block subclasses. So this module has no vendored source to compile: the
+# side module is the generated factory table over the browser rebuilds in
+# blocks/overlays/gr-ham/ham_blocks.cpp, whose only dependency is the GNU Radio
+# runtime already in the main module. ham_dstar_rx is not rebuilt and stays
+# Python-only; see the note in that directory's metadata.yml.
+set(HAM_SOURCES
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/generated_registry_ham.cpp
+  ${BLOCKS}/overlays/gr-ham/ham_blocks.cpp)
+add_side_module(ham
+  SOURCES ${HAM_SOURCES}
+  DEPENDS ${BLOCKS}/overlays/gr-ham/ham_blocks.hpp)
+
 # gr-droneid: proto17/dji_droneid keeps its GNU Radio OOT below
 # gnuradio/gr-droneid in the repository. All five blocks have native C++
 # implementations. The decoder also uses ttSou's small C turbofec library and

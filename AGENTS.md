@@ -79,7 +79,7 @@ node server.mjs 8090 "$PWD"
   `src/registry.cpp` add browser widgets, live setters, and a few composed
   blocks. The generated and custom registries currently expose hundreds of blocks from
   gr-blocks, gr-analog, gr-fft, gr-filter, gr-digital, gr-dtv, gr-network,
-  gr-pdu, gr-vocoder and gr-qtgui, plus the vendored out-of-tree modules (including but not limited to gr-rds, gr-foo, gr-dvbs2, gr-dvbs2rx, gr-satellites, gr-paint, gr-fosphor, gr-droneid). Stream and message-port connections are both
+  gr-pdu, gr-vocoder and gr-qtgui, plus the vendored out-of-tree modules (including but not limited to gr-rds, gr-foo, gr-dvbs2, gr-dvbs2rx, gr-satellites, gr-paint, gr-fosphor, gr-droneid, gr-ham). Stream and message-port connections are both
   serialized by the editor. QT GUI Range controls can be referenced by ID from
   numeric block parameters and update those parameters while the graph is
   running.
@@ -113,7 +113,7 @@ the registry constructs the Qt6 CPU spectrum/waterfall hierarchy instead.
 | `editor/` | the TypeScript flowgraph editor; `main.ts` owns browser orchestration while block schemas, validation, generated-library installation, and example/recording catalogs live in focused modules beside it |
 | `tools/` | `block_overrides.py`, the browser-only block-metadata overlay loader/merger shared by `gen_registry.py` and `gen_blocklib.py` |
 | `blocks/` | everything a human wrote about blocks, as opposed to `runner/`, which is the app plus everything generated. See "Where a block's source lives" below |
-| `blocks/grc/` | `.block.yml` for runner-only blocks with no upstream GNU Radio equivalent (`wasm_packet_rate_sink`); read by *both* `gen_registry.py` and `gen_blocklib.py` alongside GNU Radio's own yaml |
+| `blocks/grc/` | `.block.yml` for runner-only blocks with no upstream GNU Radio equivalent (`wasm_packet_rate_sink`, `wasm_text_sink`); read by *both* `gen_registry.py` and `gen_blocklib.py` alongside GNU Radio's own yaml |
 | `blocks/src/` | hand-written block implementations not owned by any one vendored module — `browser_file_source.cpp` and the like |
 | `blocks/overlays/<module>/` | one directory per module, holding `metadata.yml` (every browser-only addition to that module's blocks: `cpp_templates`, retyped/re-defaulted/relabelled params, pruned enum options, replaced `documentation`) plus, for an out-of-tree module, its `shims/` and any C++ rebuilt from a Python-only block. This is why the submodules need no fork. `blocks/overlays/gnuradio/` is the in-tree equivalent, metadata only |
 | `docs/` | `double-mapped-buffer.md` (the emulated vmcircbuf) and `diagnostics.md` (the runner's `__grstats` snapshot and debug panel, which the smoke test asserts against) |
@@ -585,8 +585,8 @@ part of the always-loaded core or an on-demand side module. To add one (say
 The recipe above assumes an in-tree `gr-<m>` built by `gr/build-gr`. A
 third-party OOT module (already done for [`gr-rds/`](gr-rds), [`gr-foo/`](gr-foo),
 [`gr-dvbs2/`](gr-dvbs2), [`gr-dvbs2rx/`](gr-dvbs2rx), [`gr-satellites/`](gr-satellites),
-[`gr-paint/`](gr-paint), [`gr-fosphor/`](gr-fosphor), and
-[`gr-droneid/`](gr-droneid)) is **not** part of that
+[`gr-paint/`](gr-paint), [`gr-fosphor/`](gr-fosphor),
+[`gr-droneid/`](gr-droneid), and [`gr-ham/`](gr-ham)) is **not** part of that
 umbrella build, so there is no `libgnuradio-<m>.a`; instead its own `lib/*.cc` are
 compiled straight into an on-demand `<m>.wasm` side module. This is a
 **self-contained checklist** — following it needs no investigation beyond the
@@ -635,6 +635,18 @@ all landing in the module's own `blocks/overlays/gr-<m>/`:
 - a block resting on a **host facility the browser also has** becomes a browser
   one: gr-paint's PIL-based `paint_image_source` decodes a locally picked `File`
   or a fetched URL with `createImageBitmap` instead, again via `CUSTOM_IDS`.
+
+A module can be **entirely** Python: gr-ham's `lib/` holds a CMakeLists.txt and
+nothing else, so it has no vendored source to compile and its side module is the
+generated factory table over
+[`blocks/overlays/gr-ham/ham_blocks.cpp`](blocks/overlays/gr-ham/ham_blocks.cpp)
+alone. Nothing about steps 3, 6 and 7 changes — only step 6's source list is
+shorter. Blocks worth rebuilding are the ones whose output can be *checked*:
+gr-ham's varicode codec round-trips byte for byte and its CHU decoder prints a
+time that has to match the recording's own timestamp, while its `dstar_rx` has
+`# TODO` stubs where its Viterbi and Golay decoders should be and writes its real
+output to a host file for a separate AMBE decoder — no browser equivalent, and
+nothing to check a rebuild against, so it has no entry and stays greyed out.
 
 **Host-only deps** not in the WASM sysroot (UHD, Boost.Asio networking,
 Boost.Locale, libsndfile, …) must be dealt with in step 4.
@@ -776,6 +788,20 @@ chain.
   A block whose `cpp_templates` can't be rendered goes in `INVALID_CPP_TEMPLATES`
   with a reason; one that builds but is too expensive to run here goes in
   `EXCLUDED_BLOCKS` with the reason the palette shows on hover.
+- **A header `registry.cpp` includes is compiled with Qt's macros in scope**,
+  and `emit` is one of them — it expands to nothing, so a member function called
+  `emit()` compiles to `();` and the error points at the call site with
+  "expected expression" rather than at the name. `signals` and `slots` are the
+  other two. `blocks/src/text_sink.hpp` calls its line flusher `flush_line()`
+  for exactly this reason. A block header pulled in only by a *side* module is
+  unaffected: no Qt there.
+- **A block that prints text has somewhere to print it.** A byte stream of
+  characters -- gr-ham's Varicode Decoder, say -- goes to `wasm_text_sink`
+  ("Text Sink"), which writes lines to the console pane; upstream flowgraphs end
+  such a chain in a File Sink and open the file afterwards, which cannot work
+  against Emscripten's in-memory filesystem. It is line-oriented because
+  Emscripten's print hook only calls out to JS on a newline, so a Max Line Length
+  break is what makes a decode that never sends one visible at all.
 - **A correlator with a loose threshold can starve the main thread.**
   `satellites_sat_3cat_1_deframer` is in `EXCLUDED_BLOCKS` for this. Its
   syncword search accepts a 32-bit pattern with up to 4 bit errors, so on

@@ -1,0 +1,196 @@
+options:
+    parameters:
+        author: Marc
+        copyright: ''
+        description: Decodes the CHU shortwave time code from a 14670 kHz recording.
+        generate_options: qt_gui
+        id: CHU_Time_Signal_Decoder
+        title: CHU Time Signal Decoder
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: channel_rate
+    id: variable
+    parameters:
+        value: '4800'
+    states:
+        coordinate: [230, 10]
+        rotation: 0
+        state: enabled
+-   name: mark_tone
+    id: variable
+    parameters:
+        value: '2225'
+    states:
+        coordinate: [370, 10]
+        rotation: 0
+        state: enabled
+-   name: samp_rate
+    id: variable
+    parameters:
+        value: '48000'
+    states:
+        coordinate: [510, 10]
+        rotation: 0
+        state: enabled
+-   name: space_tone
+    id: variable
+    parameters:
+        value: '2025'
+    states:
+        coordinate: [650, 10]
+        rotation: 0
+        state: enabled
+-   name: chu_decoder
+    id: ham_chu_decode
+    parameters:
+    states:
+        coordinate: [1560, 150]
+        rotation: 0
+        state: enabled
+-   name: complex17
+    id: blocks_interleaved_short_to_complex
+    parameters:
+        scale_factor: '32767'
+        swap: 'False'
+        vector_input: 'False'
+    states:
+        coordinate: [280, 140]
+        rotation: 0
+        state: enabled
+-   name: discriminator
+    id: analog_quadrature_demod_cf
+    parameters:
+        gain: channel_rate/(math.pi*(mark_tone - space_tone))
+    states:
+        coordinate: [1060, 150]
+        rotation: 0
+        state: enabled
+-   name: intro
+    id: note
+    parameters:
+        note: 300 baud AFSK on the Bell 103 tones; burst arrives 21 s in
+    states:
+        coordinate: [790, 10]
+        rotation: 0
+        state: enabled
+-   name: slicer
+    id: digital_binary_slicer_fb
+    parameters:
+    states:
+        coordinate: [1330, 150]
+        rotation: 0
+        state: enabled
+-   name: source16
+    id: blocks_file_source
+    parameters:
+        begin_tag: pmt.PMT_NIL
+        file: /recordings/ham_chu_14670kHz.sigmf-data
+        length: '0'
+        offset: '0'
+        repeat: 'True'
+        type: short
+        vlen: '1'
+    states:
+        coordinate: [10, 110]
+        rotation: 0
+        state: enabled
+-   name: symbols
+    id: qtgui_time_sink_x
+    parameters:
+        alpha1: '1'
+        alpha2: '1'
+        autoscale: 'False'
+        axislabels: 'True'
+        color1: blue
+        color2: red
+        ctrlpanel: 'False'
+        grid: 'True'
+        label1: Discriminator
+        label2: Signal 2
+        legend: 'True'
+        marker1: '-1'
+        marker2: '0'
+        name: FSK discriminator
+        samp_rate: channel_rate
+        size: '4800'
+        stemplot: 'False'
+        style1: '1'
+        style2: '1'
+        tr_chan: '0'
+        tr_delay: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_slope: qtgui.TRIG_SLOPE_POS
+        tr_tag: ''
+        type: float
+        update_time: '0.1'
+        width1: '1'
+        width2: '1'
+        ylabel: Amplitude
+        ymax: '2'
+        ymin: '-2'
+        yunit: ''
+    states:
+        coordinate: [1330, 230]
+        rotation: 0
+        state: enabled
+-   name: throttle
+    id: blocks_throttle2
+    parameters:
+        ignoretag: 'True'
+        limit: auto
+        maximum: '0.1'
+        samples_per_second: samp_rate*10
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [510, 120]
+        rotation: 0
+        state: enabled
+-   name: tone_channel
+    id: freq_xlating_fir_filter_xxx
+    parameters:
+        center_freq: (mark_tone + space_tone)/2
+        decim: '10'
+        samp_rate: samp_rate
+        taps: firdes.low_pass(1, samp_rate, 250, 500)
+        type: ccf
+    states:
+        coordinate: [760, 130]
+        rotation: 0
+        state: enabled
+-   name: waterfall
+    id: qtgui_waterfall_sink_x
+    parameters:
+        alpha1: '1'
+        axislabels: 'True'
+        color1: '0'
+        fc: 14670000 + (mark_tone + space_tone)/2
+        fftsize: '1024'
+        grid: 'False'
+        int_max: '10'
+        int_min: '-110'
+        label1: ''
+        legend: 'True'
+        name: CHU tone channel
+        samp_rate: channel_rate
+        update_time: '0.1'
+    states:
+        coordinate: [1060, 230]
+        rotation: 0
+        state: enabled
+connections:
+- [complex17, '0', throttle, '0']
+- [discriminator, '0', slicer, '0']
+- [discriminator, '0', symbols, '0']
+- [slicer, '0', chu_decoder, '0']
+- [source16, '0', complex17, '0']
+- [throttle, '0', tone_channel, '0']
+- [tone_channel, '0', discriminator, '0']
+- [tone_channel, '0', waterfall, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0

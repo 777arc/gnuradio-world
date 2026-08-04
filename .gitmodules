@@ -34,3 +34,7 @@
 	path = gr-droneid
 	url = https://github.com/proto17/dji_droneid
 	branch = gr-droneid-update-3.10
+[submodule "gr-ham"]
+	path = gr-ham
+	url = https://github.com/argilo/gr-ham.git
+	branch = master

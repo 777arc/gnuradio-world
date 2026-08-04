@@ -48856,6 +48856,137 @@
    ]
   },
   {
+   "id": "ham_chu_decode",
+   "label": "CHU Decoder",
+   "category": [
+    "Ham"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "ham",
+   "documentation": "Decodes the time code broadcast by CHU, Canada's shortwave time signal\nstation, on 3330, 7850 and 14670 kHz.\n\nCHU sends a 300 baud AFSK burst twice a minute, between seconds 31 and\n39, using the Bell 103 tones (2225 Hz mark, 2025 Hz space). Feed this\nblock the sliced bits at 4800 samples per second -- 16 samples per bit,\nwhich is the rate its bit timing assumes and the only rate it works at.\n\nEach burst carries the day of year and the current time (an \"A frame\"),\nor the year, the leap-second warning, UTC-UT1, TAI-UTC and the\ndaylight-saving pattern (a \"B frame\"). Decoded frames are printed to the\nconsole below the flowgraph.",
+   "api_documentation": "docstring for block chu_decode",
+   "wiki_url": "",
+   "params": [],
+   "inputs": [
+    {
+     "id": "",
+     "label": "in",
+     "domain": "stream",
+     "dtype": "byte",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": []
+  },
+  {
+   "id": "ham_dstar_rx",
+   "label": "D-STAR Decoder",
+   "category": [
+    "Ham"
+   ],
+   "flags": [],
+   "runnable": false,
+   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "module": "core",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [],
+   "inputs": [
+    {
+     "id": "",
+     "label": "in",
+     "domain": "stream",
+     "dtype": "byte",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": []
+  },
+  {
+   "id": "ham_varicode_rx",
+   "label": "Varicode Decoder",
+   "category": [
+    "Ham"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "ham",
+   "documentation": "Decodes PSK31 varicode: one sliced bit per input byte in, one ASCII\ncharacter per output byte out.\n\nVaricode gives the commonest letters the shortest codes, and no code\ncontains \"00\", so a pair of zeroes separates characters. Feed this block\nthe output of a Binary Slicer at one sample per symbol; connect its\noutput to a Text Sink to read the decoded text.",
+   "api_documentation": "docstring for block varicode_rx",
+   "wiki_url": "",
+   "params": [],
+   "inputs": [
+    {
+     "id": "",
+     "label": "in",
+     "domain": "stream",
+     "dtype": "byte",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "out",
+     "domain": "stream",
+     "dtype": "byte",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "ham_varicode_tx",
+   "label": "Varicode Encoder",
+   "category": [
+    "Ham"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "ham",
+   "documentation": "Encodes PSK31 varicode: one ASCII character per input byte in, one bit\nper output byte out, with the \"00\" inter-character gap appended to each.\n\nBytes above 0x7F have no varicode and are dropped.",
+   "api_documentation": "docstring for block varicode_tx",
+   "wiki_url": "",
+   "params": [],
+   "inputs": [
+    {
+     "id": "",
+     "label": "in",
+     "domain": "stream",
+     "dtype": "byte",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "out",
+     "domain": "stream",
+     "dtype": "byte",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
    "id": "iio_attr_sink",
    "label": "IIO Attribute Sink",
    "category": [
@@ -93093,6 +93224,58 @@
      "label": "",
      "domain": "stream",
      "dtype": "${ type }",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": []
+  },
+  {
+   "id": "wasm_text_sink",
+   "label": "Text Sink",
+   "category": [
+    "Core",
+    "Debug Tools"
+   ],
+   "flags": [
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "core",
+   "documentation": "Prints its input byte stream as text in the console pane below the\nflowgraph.\n\nThis is where a decoder that produces characters -- gr-ham's Varicode\nDecoder, for instance -- puts them. Upstream flowgraphs end such a chain in a\nFile Sink and open the file afterwards; in the browser the filesystem is\nEmscripten's in-memory one and nothing can read it back, so the console pane\ntakes its place.\n\nBytes are printed a line at a time. CR, LF and CRLF each end a line, and a\nline that reaches Max Line Length is broken there -- without that a decode\nthat never sends a newline would never appear. Tabs are kept; every other\nunprintable byte is shown as '.', so a garbled character stays visible as one\ncharacter rather than vanishing.\n\nThis block exists only in the WebAssembly runner -- it has no Python\nimplementation, so a flowgraph using it will not run in desktop GNU Radio.",
+   "api_documentation": "",
+   "wiki_url": "https://wiki.gnuradio.org/index.php/Text_Sink",
+   "params": [
+    {
+     "id": "prefix",
+     "label": "Line Prefix",
+     "dtype": "string",
+     "default": "\"\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "max_line",
+     "label": "Max Line Length",
+     "dtype": "int",
+     "default": "72",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "byte",
      "multiplicity": "1",
      "optional": false
     }

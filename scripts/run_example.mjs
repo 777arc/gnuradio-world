@@ -50,7 +50,7 @@ if (!target) {
 // which leaves every block happily moving samples and decoding nothing.
 const PRINTING_BLOCKS = [
   'blocks_message_debug', 'satellites_print_header', 'satellites_print_timestamp',
-  'satellites_hexdump_sink',
+  'satellites_hexdump_sink', 'ham_chu_decode', 'wasm_text_sink',
 ];
 let expectsOutput = false;
 // Accept a filename and look up the title the editor lists it under, so either

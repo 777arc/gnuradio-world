@@ -1,0 +1,222 @@
+options:
+    parameters:
+        author: Marc
+        copyright: ''
+        description: Decodes a PSK31 QSO from a 40 m recording of 7071 kHz.
+        generate_options: qt_gui
+        id: PSK31_Receiver
+        title: PSK31 Receiver
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: psk_offset
+    id: variable
+    parameters:
+        value: '132'
+    states:
+        coordinate: [230, 10]
+        rotation: 0
+        state: enabled
+-   name: samp_rate
+    id: variable
+    parameters:
+        value: '8000'
+    states:
+        coordinate: [370, 10]
+        rotation: 0
+        state: enabled
+-   name: symbol_rate
+    id: variable
+    parameters:
+        value: '500'
+    states:
+        coordinate: [510, 10]
+        rotation: 0
+        state: enabled
+-   name: agc
+    id: analog_agc_xx
+    parameters:
+        gain: '1'
+        max_gain: '65536'
+        rate: '0.001'
+        reference: '0.1'
+        type: complex
+    states:
+        coordinate: [830, 140]
+        rotation: 0
+        state: enabled
+-   name: band_waterfall
+    id: qtgui_waterfall_sink_x
+    parameters:
+        alpha1: '1'
+        axislabels: 'True'
+        color1: '0'
+        fc: '7071000'
+        fftsize: '2048'
+        grid: 'False'
+        int_max: '0'
+        int_min: '-120'
+        label1: ''
+        legend: 'True'
+        name: 7071 kHz PSK31 watering hole
+        samp_rate: samp_rate
+        update_time: '0.1'
+    states:
+        coordinate: [530, 260]
+        rotation: 0
+        state: enabled
+-   name: carrier
+    id: digital_costas_loop_cc
+    parameters:
+        order: '2'
+        use_snr: 'False'
+        w: 5*math.pi/100
+    states:
+        coordinate: [1050, 140]
+        rotation: 0
+        state: enabled
+-   name: constellation
+    id: qtgui_const_sink_x
+    parameters:
+        alpha1: '1'
+        autoscale: 'False'
+        axislabels: 'True'
+        color1: '"blue"'
+        grid: 'True'
+        label1: ''
+        legend: 'True'
+        marker1: '0'
+        name: Recovered symbols
+        size: '512'
+        style1: '0'
+        tr_chan: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_slope: qtgui.TRIG_SLOPE_POS
+        tr_tag: ''
+        update_time: '0.1'
+        width1: '1'
+        xmax: '2'
+        xmin: '-2'
+        ymax: '2'
+        ymin: '-2'
+    states:
+        coordinate: [1680, 130]
+        rotation: 0
+        state: enabled
+-   name: differential
+    id: digital_diff_phasor_cc
+    parameters:
+    states:
+        coordinate: [70, 400]
+        rotation: 0
+        state: enabled
+-   name: intro
+    id: note
+    parameters:
+        note: KC3FL (Florida) working XE2BVM (Mexico), 31.25 baud BPSK
+    states:
+        coordinate: [650, 10]
+        rotation: 0
+        state: enabled
+-   name: real_part
+    id: blocks_complex_to_real
+    parameters:
+        vlen: '1'
+    states:
+        coordinate: [360, 400]
+        rotation: 0
+        state: enabled
+-   name: slicer
+    id: digital_binary_slicer_fb
+    parameters:
+    states:
+        coordinate: [570, 400]
+        rotation: 0
+        state: enabled
+-   name: source19
+    id: blocks_file_source
+    parameters:
+        begin_tag: pmt.PMT_NIL
+        file: /recordings/ham_psk31_7071kHz.sigmf-data
+        length: '0'
+        offset: '0'
+        repeat: 'False'
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [10, 120]
+        rotation: 0
+        state: enabled
+-   name: text
+    id: wasm_text_sink
+    parameters:
+        max_line: '72'
+        prefix: '"PSK31: "'
+    states:
+        coordinate: [990, 400]
+        rotation: 0
+        state: enabled
+-   name: throttle
+    id: blocks_throttle2
+    parameters:
+        ignoretag: 'True'
+        limit: auto
+        maximum: '0.1'
+        samples_per_second: samp_rate*10
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [280, 130]
+        rotation: 0
+        state: enabled
+-   name: timing
+    id: digital_clock_recovery_mm_xx
+    parameters:
+        gain_mu: '0.175'
+        gain_omega: 0.25*0.175*0.175
+        mu: '0.5'
+        omega: symbol_rate/31.25
+        omega_relative_limit: '0.005'
+        type: complex
+    states:
+        coordinate: [1360, 110]
+        rotation: 0
+        state: enabled
+-   name: tune
+    id: freq_xlating_fir_filter_xxx
+    parameters:
+        center_freq: psk_offset
+        decim: '16'
+        samp_rate: samp_rate
+        taps: firdes.low_pass(1, samp_rate, 100, 100)
+        type: ccf
+    states:
+        coordinate: [530, 140]
+        rotation: 0
+        state: enabled
+-   name: varicode
+    id: ham_varicode_rx
+    parameters:
+    states:
+        coordinate: [760, 400]
+        rotation: 0
+        state: enabled
+connections:
+- [agc, '0', carrier, '0']
+- [carrier, '0', timing, '0']
+- [differential, '0', real_part, '0']
+- [real_part, '0', slicer, '0']
+- [slicer, '0', varicode, '0']
+- [source19, '0', throttle, '0']
+- [throttle, '0', band_waterfall, '0']
+- [throttle, '0', tune, '0']
+- [timing, '0', constellation, '0']
+- [timing, '0', differential, '0']
+- [tune, '0', agc, '0']
+- [varicode, '0', text, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0

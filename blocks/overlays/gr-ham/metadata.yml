@@ -1,0 +1,65 @@
+# Browser-only block metadata for the vendored out-of-tree module gr-ham.
+#
+# Keeping these overlays here instead of in the submodule's own .block.yml is what
+# lets that submodule stay pinned to a pristine upstream commit: nothing in the
+# checkout has to be edited, rebased, or pushed to a fork to add a block. See
+# tools/block_overrides.py for the supported keys, and AGENTS.md for the
+# out-of-tree checklist this file is step 3 of.
+#
+# gr-ham is unusual among the vendored modules in having no C++ whatsoever: its
+# lib/ holds a CMakeLists.txt and nothing else, and all four blocks are Python
+# gr.block subclasses. So none of the entries below point at a vendored block --
+# they point at the rebuilds in ham_blocks.cpp beside this file, each of which
+# mirrors the Python file named in its comment there.
+#
+# ham_dstar_rx has no entry and stays greyed out in the palette. Upstream calls
+# it a partial decoder and means it: its Viterbi and Golay decoders are `# TODO`
+# stubs that pass the data straight through, and the block's real output is not
+# what it prints but a `dstar-audio.dst` file of AMBE voice frames written for a
+# separate hardware decoder to pick up -- a host filesystem side effect with no
+# browser equivalent and nothing here that could consume it. Rebuilding what is
+# left would be a block whose output cannot be checked against anything.
+
+ham_chu_decode:
+    flags: [python, cpp]
+    documentation: |-
+        Decodes the time code broadcast by CHU, Canada's shortwave time signal
+        station, on 3330, 7850 and 14670 kHz.
+
+        CHU sends a 300 baud AFSK burst twice a minute, between seconds 31 and
+        39, using the Bell 103 tones (2225 Hz mark, 2025 Hz space). Feed this
+        block the sliced bits at 4800 samples per second -- 16 samples per bit,
+        which is the rate its bit timing assumes and the only rate it works at.
+
+        Each burst carries the day of year and the current time (an "A frame"),
+        or the year, the leap-second warning, UTC-UT1, TAI-UTC and the
+        daylight-saving pattern (a "B frame"). Decoded frames are printed to the
+        console below the flowgraph.
+    cpp_templates:
+        includes: ['#include "ham_blocks.hpp"']
+        make: 'this->${id} = wasm_ham::make_chu_decode();'
+
+ham_varicode_rx:
+    flags: [python, cpp]
+    documentation: |-
+        Decodes PSK31 varicode: one sliced bit per input byte in, one ASCII
+        character per output byte out.
+
+        Varicode gives the commonest letters the shortest codes, and no code
+        contains "00", so a pair of zeroes separates characters. Feed this block
+        the output of a Binary Slicer at one sample per symbol; connect its
+        output to a Text Sink to read the decoded text.
+    cpp_templates:
+        includes: ['#include "ham_blocks.hpp"']
+        make: 'this->${id} = wasm_ham::make_varicode_rx();'
+
+ham_varicode_tx:
+    flags: [python, cpp]
+    documentation: |-
+        Encodes PSK31 varicode: one ASCII character per input byte in, one bit
+        per output byte out, with the "00" inter-character gap appended to each.
+
+        Bytes above 0x7F have no varicode and are dropped.
+    cpp_templates:
+        includes: ['#include "ham_blocks.hpp"']
+        make: 'this->${id} = wasm_ham::make_varicode_tx();'

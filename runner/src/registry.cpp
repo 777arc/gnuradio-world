@@ -10,6 +10,7 @@
 #include "fec_hier.hpp"
 #include "filter_hier.hpp"
 #include "qtgui_sinks.hpp"
+#include "text_sink.hpp"
 #include <emscripten.h>
 #include <gnuradio/analog/sig_source.h>
 #include <gnuradio/analog/noise_source.h>
@@ -2088,6 +2089,15 @@ static std::map<std::string, Factory>& registry_storage() {
                  label,
                  unquoted(p.value("unit", std::string())));
              return { block, block->qwidget() };
+         }},
+        // Runner-only: a byte stream printed as text in the console pane. The
+        // browser's stand-in for the File Sink an upstream flowgraph ends a
+        // text decode with; see blocks/src/text_sink.hpp.
+        {"wasm_text_sink", [](const json& p) -> BuiltBlock {
+             auto block = TextSinkWasm::make(
+                 unquoted(p.value("prefix", std::string())),
+                 static_cast<int>(number_from(p, "max_line", 72.0)));
+             return { block, nullptr };
          }},
         // gr-paint's Image File Source is a Python block that decodes with PIL.
         // Here the browser decodes, so the image is named by URL rather than by

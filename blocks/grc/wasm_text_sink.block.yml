@@ -1,0 +1,39 @@
+id: wasm_text_sink
+label: Text Sink
+category: '[Core]/Debug Tools'
+flags: [cpp]
+
+documentation: |-
+    Prints its input byte stream as text in the console pane below the
+    flowgraph.
+
+    This is where a decoder that produces characters -- gr-ham's Varicode
+    Decoder, for instance -- puts them. Upstream flowgraphs end such a chain in a
+    File Sink and open the file afterwards; in the browser the filesystem is
+    Emscripten's in-memory one and nothing can read it back, so the console pane
+    takes its place.
+
+    Bytes are printed a line at a time. CR, LF and CRLF each end a line, and a
+    line that reaches Max Line Length is broken there -- without that a decode
+    that never sends a newline would never appear. Tabs are kept; every other
+    unprintable byte is shown as '.', so a garbled character stays visible as one
+    character rather than vanishing.
+
+    This block exists only in the WebAssembly runner -- it has no Python
+    implementation, so a flowgraph using it will not run in desktop GNU Radio.
+
+parameters:
+-   id: prefix
+    label: Line Prefix
+    dtype: string
+    default: '""'
+-   id: max_line
+    label: Max Line Length
+    dtype: int
+    default: '72'
+
+inputs:
+-   domain: stream
+    dtype: byte
+
+file_format: 1

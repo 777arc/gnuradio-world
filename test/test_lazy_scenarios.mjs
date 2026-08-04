@@ -157,6 +157,24 @@ const scenarios = [
       ] },
     expectFetch: ['pdu.wasm', 'satellites.wasm'],
     expectLog: '01 02 03 0a 05 06 07 08' },
+  // gr-ham (OOT deferred), and the only check anywhere that its varicode codec
+  // is right: encode a message, decode it straight back, and require the exact
+  // text out of the Text Sink. Max Line Length matches the message so each
+  // flushed line is one whole repetition.
+  { name: 'gr-ham varicode round trip (OOT deferred)',
+    fg: { blocks:[
+      { name:'msg', id:'blocks_vector_source_x',
+        params:{ type:'byte', repeat:'True', vlen:1,
+                 vector:'[67,81,32,84,69,83,84,32,68,69,32,86,69,51,88,89,90]' } },
+      { name:'encode', id:'ham_varicode_tx', params:{} },
+      { name:'decode', id:'ham_varicode_rx', params:{} },
+      { name:'text', id:'wasm_text_sink', params:{ prefix:'', max_line:17 } },
+      // Constructed but left unfed: the CHU decoder needs a real 4800 sample/s
+      // burst, so this only checks its factory and side-module imports.
+      { name:'chu', id:'ham_chu_decode', params:{} } ],
+      connections:[['msg',0,'encode',0],['encode',0,'decode',0],['decode',0,'text',0]] },
+    expectFetch: ['ham.wasm'],
+    expectLog: 'CQ TEST DE VE3XYZ' },
 ];
 
 // The runner consumes native .grc; wrap these {blocks,connections} fixtures in
