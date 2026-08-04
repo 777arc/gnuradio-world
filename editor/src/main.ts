@@ -1671,10 +1671,14 @@ function render() {
     const [ex, ey] = ctrl(pb.edge, x2, y2, 15);
     const d = `M${x1},${y1} L${sx},${sy} C${c1x},${c1y} ${c2x},${c2y} ${ex},${ey} L${x2},${y2}`;
     const isSelected = c === selectedConnection || (insts.length > 0 && selectedBlocks.size === insts.length);
+    const isInvalid = invalidConnections.has(c);
     const wire = svgEl('g', { class: 'wire-group' });
+    // The invalid stroke colour wins over the selected one (its CSS rule is later),
+    // so the arrowhead follows it too.
     wire.appendChild(svgEl('path', { class: 'wire' + (isSelected ? ' sel' : '') +
-      (invalidConnections.has(c) ? ' invalid' : ''), d,
-      'marker-end': isSelected ? 'url(#arrow-selected)' : 'url(#arrow)' }));
+      (isInvalid ? ' invalid' : ''), d,
+      'marker-end': isInvalid ? 'url(#arrow-invalid)'
+        : isSelected ? 'url(#arrow-selected)' : 'url(#arrow)' }));
     // Match the desktop GUI's forgiving line hit test without drawing a thick wire.
     wire.appendChild(svgEl('path', { class: 'wire-hit', d }));
     wire.addEventListener('mousedown', e => {
