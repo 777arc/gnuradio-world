@@ -3386,8 +3386,6 @@ function makeRecordingItem(recording: ExampleRecording): HTMLElement {
   // The containing directory rows already show the relative path. Keep the
   // card itself to the recording's basename instead of repeating that path.
   title.textContent = recording.name.split('/').filter(Boolean).pop() || recording.name;
-  const badge = document.createElement('span'); badge.className = 'rec-badge';
-  badge.textContent = 'Stream';
   // View and the copy-link button open the recording view without touching the
   // canvas, so they are offered even for a datatype File Source cannot
   // represent — that recording is otherwise not viewable here at all. Both stop
@@ -3397,12 +3395,14 @@ function makeRecordingItem(recording: ExampleRecording): HTMLElement {
   view.title = `Open the recording view of "${recording.name}" without adding it to the flowgraph`;
   view.setAttribute('aria-label', `View recording ${recording.name}`);
   view.onclick = event => { event.stopPropagation(); openRecordingPreview(recording); };
+  // A word rather than the examples tab's 🔗: a color emoji ignores `color`, and
+  // these two read as a pair only if they are the same blue.
   const link = document.createElement('button'); link.className = 'rec-link';
-  link.type = 'button'; link.textContent = '🔗';
+  link.type = 'button'; link.textContent = 'Link';
   link.title = `Copy a link to this recording (${recordingUrl(recording.name)})`;
   link.setAttribute('aria-label', `Copy a link to recording ${recording.name}`);
   link.onclick = event => { event.stopPropagation(); void copyRecordingUrl(recording.name); };
-  head.append(title, view, link, badge);
+  head.append(title, view, link);
   const props = document.createElement('dl'); props.className = 'rec-props';
   const addProperty = (label: string, value: string | number | null) => {
     const key = document.createElement('dt'); key.textContent = label;
@@ -3436,7 +3436,11 @@ function makeRecordingItem(recording: ExampleRecording): HTMLElement {
 
   const format = sigmfFileSourceFormat(recording.datatype);
   if (!format) {
+    // The only badge left: what the card cannot do. That clicking it adds the
+    // recording to the flowgraph needs no label.
+    const badge = document.createElement('span'); badge.className = 'rec-badge';
     badge.textContent = 'Unsupported';
+    head.append(badge);
     item.setAttribute('aria-disabled', 'true');
     item.title = `File Source cannot directly represent ${recording.datatype || 'this datatype'}`;
     return item;

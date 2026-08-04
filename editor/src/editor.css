@@ -216,28 +216,20 @@ button:hover { filter:brightness(1.15); }
 .rec-item:hover, .rec-item:focus-visible { background:#2c3448; border-color:#46507a; }
 /* filtered out by the recordings search */
 .rec-item[hidden], .rec-directory[hidden] { display:none; }
-.rec-item.downloading { cursor:wait; }
-.rec-item.downloaded { border-color:#35734a; }
-.rec-item.error { border-color:#8b3f48; }
 .rec-head { display:flex; align-items:flex-start; gap:8px; margin-bottom:7px; }
-/* Open the recording view without adding the recording to the flowgraph, and
-   copy a #recording= link to it. */
-.rec-view { flex:none; font-size:10px; padding:2px 7px; border-radius:999px;
-    color:#8fb6ff; background:#242a3b; border:1px solid #46507a; cursor:pointer; }
-.rec-view:hover { color:#dbe7ff; border-color:#8fb6ff; background:#2c3448; filter:none; }
-/* Faint until the card is hovered, but never invisible, matching .ex-link — it
-   is the only place the per-recording link is offered. */
-.rec-link { flex:none; font-size:11px; line-height:1; padding:2px 4px; border-radius:4px;
-    background:transparent; border:1px solid transparent; cursor:pointer;
-    opacity:.35; transition:opacity .12s; }
-.rec-item:hover .rec-link, .rec-link:focus-visible { opacity:.85; }
-.rec-link:hover { opacity:1; border-color:#46507a; background:#39415a; filter:none; }
+/* The two card actions that do not touch the flowgraph: open the recording view,
+   and copy a #recording= link to it. One pill treatment, so they read as a pair
+   against the card body, which is what adds the recording to the canvas. */
+.rec-view, .rec-link { flex:none; font-size:10px; line-height:1.5; padding:2px 7px;
+    border-radius:999px; color:#8fb6ff; background:#242a3b; border:1px solid #46507a;
+    cursor:pointer; }
+.rec-view:hover, .rec-link:hover, .rec-view:focus-visible, .rec-link:focus-visible {
+    color:#dbe7ff; border-color:#8fb6ff; background:#2c3448; filter:none; }
 .rec-title { flex:1; min-width:0; font-size:13px; font-weight:600; color:#e6e9f0;
     overflow-wrap:anywhere; }
+/* Says one thing only: that File Source cannot represent this datatype. */
 .rec-badge { flex:none; font-size:10px; color:#8b96b5; border:1px solid #46507a;
     border-radius:999px; padding:2px 6px; white-space:nowrap; }
-.rec-item.downloaded .rec-badge { color:#72d792; border-color:#35734a; }
-.rec-item.error .rec-badge { color:#ff9b95; border-color:#8b3f48; }
 .rec-props { display:grid; grid-template-columns:max-content minmax(0,1fr); gap:4px 10px;
     margin:0; font-size:11px; line-height:1.35; }
 .rec-props dt { color:#7f8bab; }
