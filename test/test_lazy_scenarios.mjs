@@ -42,6 +42,28 @@ const scenarios = [
       { name:'snk', id:'blocks_null_sink', params:{ type:'byte' } } ],
       connections:[['src',0,'enc',0],['enc',0,'snk',0]] },
     expectFetch: ['vocoder.wasm'] },
+  { name: 'gr-droneid (OOT deferred)',
+    fg: { blocks:[
+      { name:'src', id:'analog_sig_source_x',
+        params:{ type:'complex', samp_rate:32000, waveform:'cos',
+                 frequency:1000, amplitude:1.0 } },
+      { name:'thr', id:'blocks_throttle2',
+        params:{ type:'complex', samples_per_second:32000, vlen:1,
+                 ignoretag:'True', limit:'auto', maximum:0.1 } },
+      { name:'xcorr', id:'droneid_normalized_xcorr_estimate',
+        params:{ taps:'[[1,0],[-1,0]]' } },
+      { name:'snk', id:'blocks_null_sink', params:{ type:'complex' } },
+      // Construct the remaining native factories too. Their message handlers
+      // need a complete DroneID burst, so the lazy-load check leaves them idle.
+      { name:'extract', id:'droneid_extractor',
+        params:{ sample_rate:30720000, threshold:2.0 } },
+      { name:'sync', id:'droneid_time_sync',
+        params:{ sample_rate:30720000, debug_path:'' } },
+      { name:'demod', id:'droneid_demodulation',
+        params:{ sample_rate:30720000, debug_path:'' } },
+      { name:'decode', id:'droneid_decode', params:{ debug_path:'' } } ],
+      connections:[['src',0,'thr',0],['thr',0,'xcorr',0],['xcorr',0,'snk',0]] },
+    expectFetch: ['droneid.wasm'] },
   { name: 'gr-fosphor overlap (OOT deferred)',
     fg: { blocks:[
       { name:'src', id:'blocks_null_source', params:{ type:'complex' } },

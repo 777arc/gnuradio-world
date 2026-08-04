@@ -142,6 +142,15 @@ ser('[0, 0, 1]*2', '[0, 0, 1, 0, 0, 1]');
 ser('1+2j', '1+2j');
 ser('numpy.arange(0, 3, 1)', '[0, 1, 2]');
 
+// Complex-vector factories consume JSON pairs even though native GRC stores
+// their expressions using Python's a+bj notation.
+{
+  const r = evaluate('[1+2j, 3-4j]');
+  assert.ok(r.ok);
+  assert.equal(serializeForRunner(r.value, true), '[[1, 2], [3, -4]]');
+  passed++;
+}
+
 // A resolved firdes call serializes to a concrete taps literal the runner can parse.
 {
   const r = evaluate('firdes.low_pass(1, samp_rate, samp_rate/2, samp_rate/8)', scope);

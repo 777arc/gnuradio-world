@@ -13,7 +13,7 @@ import {
 import { useGetMinimapIQ, useRawIQData } from '@/api/iqdata/Queries';
 import { useSpectrogramContext } from '../hooks/use-spectrogram-context';
 import { colMaps } from '@/utils/colormap';
-import { calcFfts, fftToRGB } from '@/utils/selector';
+import { calcFfts, fftMagnitudeRange, fftToRGB } from '@/utils/selector';
 
 interface ScrollBarProps {
   currentFFT: number;
@@ -32,9 +32,8 @@ const ScrollBar = ({ currentFFT, setCurrentFFT }: ScrollBarProps) => {
     fftStepSize,
     colmap,
     magnitudeMin,
-    setMagnitudeMin,
     magnitudeMax,
-    setMagnitudeMax,
+    autoScaleMagnitude,
     windowFunction,
   } = useSpectrogramContext();
 
@@ -67,10 +66,8 @@ const ScrollBar = ({ currentFFT, setCurrentFFT }: ScrollBarProps) => {
     // reaches into its neighbours, which would mean filtering across those
     // seams. It is a 64-bin thumbnail either way.
     const ffts_calc = calcFfts(iqData, MINIMAP_FFT_SIZE, windowFunction, minimapData.length);
-    const min = Math.min(...ffts_calc);
-    const max = Math.max(...ffts_calc);
-    setMagnitudeMin(min);
-    setMagnitudeMax(max);
+    const range = fftMagnitudeRange(ffts_calc, MINIMAP_FFT_SIZE);
+    if (range) autoScaleMagnitude(range.min, range.max, true);
     return ffts_calc;
   }, [minimapData]);
 

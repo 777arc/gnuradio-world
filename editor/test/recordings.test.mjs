@@ -54,12 +54,16 @@ assert.match(main, /converterId = 'blocks_interleaved_short_to_complex'/);
 assert.match(main, /scale_factor: 32767\.0/);
 assert.match(main, /bindFlowgraphRecordings\(fg,/);
 assert.match(main, /type RunnerInputFile[\s\S]*?kind: 'local'[\s\S]*?kind: 'http'/);
+assert.match(main, /async function publicHttpFileSize[\s\S]*?method: 'HEAD'[\s\S]*?Range: 'bytes=0-0'/);
+assert.match(main, /publicUrlSize = await publicHttpFileSize\(savedPath\)/);
+assert.match(main, /`\/recordings\/external\/\$\{encodeURIComponent\(savedPath\)\}`/);
 assert.doesNotMatch(main, /new Blob\(chunks/);
 assert.match(main, /fetch\(recordingsBucketUrl\('index\.json'\), \{ cache: 'no-store' \}\)/);
 assert.match(main, /const LOCAL_FILE_PARAMS[\s\S]*?paint_image_source: 'image_file'/);
 assert.doesNotMatch(runnerHtml, /\.arrayBuffer\(\)/);
 assert.match(readerWorker, /MAX_CHUNK_BYTES = 2 \* 1024 \* 1024/);
 assert.match(readerWorker, /Range: `bytes=\$\{start\}-\$\{end - 1\}`/);
+assert.match(readerWorker, /if \(contentRange &&[\s\S]*?data\.byteLength !== end - start/);
 
 const library = JSON.parse(await readFile(
   new URL('../public/blocks.json', import.meta.url), 'utf8'));

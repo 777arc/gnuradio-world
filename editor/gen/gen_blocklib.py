@@ -10,6 +10,11 @@ from urllib.parse import urljoin
 # The world repo owns the app and OOT modules; GNU Radio is a source submodule.
 WORLD = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 GR = os.path.abspath(os.environ.get("GR", os.path.join(WORLD, "gnuradio")))
+MODULE_CONFIG = json.load(open(os.path.join(WORLD, "runner", "modules.json")))
+MODULE_SOURCE_ROOTS = {
+    module: os.path.join(WORLD, relative)
+    for module, relative in MODULE_CONFIG.get("source_roots", {}).items()
+}
 
 # Mirror native GRC's block search. A direct world-repo OOT module overrides a
 # same-named gitlink in an older GNU Radio revision during the migration.
@@ -22,6 +27,8 @@ for path in sorted(glob.glob(os.path.join(WORLD, "gr-*", "grc"))):
     module = os.path.basename(os.path.dirname(path))
     if module != "gr-heir":
         module_dirs[module] = path
+for module, root in sorted(MODULE_SOURCE_ROOTS.items()):
+    module_dirs[module] = os.path.join(root, "grc")
 MODULES = [module_dirs["grc"]] + [
     module_dirs[module] for module in sorted(module_dirs) if module != "grc"
 ] + [
@@ -49,6 +56,8 @@ HEADER_ROOTS = [
     for path in sorted(glob.glob(os.path.join(GR, "gr-*")) +
                        glob.glob(os.path.join(WORLD, "gr-*")))
     if os.path.isdir(os.path.join(path, "include"))
+] + [
+    os.path.join(root, "include") for root in MODULE_SOURCE_ROOTS.values()
 ] + [os.path.join(WORLD, "qtgui", "include")]
 
 
@@ -204,6 +213,9 @@ def python_docs(module):
         os.path.join(GR, "gr-" + module, "python"),
         os.path.join(WORLD, "gr-" + module, "python"),
     ]
+    configured_root = MODULE_SOURCE_ROOTS.get("gr-" + module)
+    if configured_root:
+        roots.append(os.path.join(configured_root, "python"))
     for root in roots:
         for path in sorted(glob.glob(os.path.join(root, "**", "*.py"), recursive=True)):
             try:

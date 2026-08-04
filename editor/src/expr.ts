@@ -611,16 +611,18 @@ function formatNumber(n: number): string {
 // (full precision, unlike the compact formatValue used on block faces). The
 // result is re-parseable by the runner's numeric/vector coercion — e.g. a
 // resolved firdes call becomes a concrete `[t0, t1, …]` taps literal.
-export function serializeForRunner(v: Value): string {
+export function serializeForRunner(v: Value, complexAsPair = false): string {
   if (typeof v === 'number') return Number.isFinite(v) ? String(v) : v > 0 ? 'inf' : '-inf';
   if (typeof v === 'boolean') return v ? 'True' : 'False';
   if (v === null) return 'None';
   if (typeof v === 'string') return v;
   if (v instanceof Complex) {
+    if (complexAsPair) return `[${String(v.re)}, ${String(v.im)}]`;
     const sign = v.im < 0 ? '-' : '+';
     return `${String(v.re)}${sign}${String(Math.abs(v.im))}j`;
   }
-  if (Array.isArray(v)) return `[${v.map(serializeForRunner).join(', ')}]`;
+  if (Array.isArray(v))
+    return `[${v.map(item => serializeForRunner(item, complexAsPair)).join(', ')}]`;
   return String(v);
 }
 

@@ -54,7 +54,13 @@ async function readHttp(source, start, end) {
       }
       const contentRange = response.headers.get('Content-Range') || '';
       const match = /^bytes\s+(\d+)-(\d+)\/(\d+|\*)$/i.exec(contentRange);
-      if (!match || Number(match[1]) !== start || Number(match[2]) !== end - 1) {
+      // Content-Range is not CORS-safelisted. Some otherwise valid public
+      // range servers (notably raw.githubusercontent.com) return it on the
+      // wire without exposing it to browser JavaScript. Validate it whenever
+      // it is visible; HTTP 206 plus the exact body length below still guards
+      // the request when CORS hides it.
+      if (contentRange &&
+          (!match || Number(match[1]) !== start || Number(match[2]) !== end - 1)) {
         await response.body?.cancel();
         throw new Error(`invalid Content-Range "${contentRange}"`);
       }

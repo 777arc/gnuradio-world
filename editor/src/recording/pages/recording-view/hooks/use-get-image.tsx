@@ -1,7 +1,7 @@
 import { fftToRGB } from '@/utils/selector';
 import { colMaps } from '@/utils/colormap';
-import { useEffect, useMemo, useState } from 'react';
-import { calcFfts } from '@/utils/selector';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { calcFfts, fftMagnitudeRange } from '@/utils/selector';
 import { calcChannelizerFfts } from '@/utils/channelizer';
 import { SpectrogramMethod } from '@/utils/constants';
 
@@ -14,7 +14,8 @@ export const useGetImage = (
   windowFunction: string,
   spectrogramMethod: SpectrogramMethod,
   channelizerTaps: number,
-  channelizerOversampling: number
+  channelizerOversampling: number,
+  autoScaleMagnitude: (min: number, max: number, fromMinimap?: boolean) => void
 ) => {
   const [image, setImage] = useState<ImageBitmap>(null);
   const [iqData, setIQData] = useState<Float32Array>(null);
@@ -43,6 +44,19 @@ export const useGetImage = (
     channelizerTaps,
     channelizerOversampling,
   ]);
+
+  // Scale the colormap off the first batch of samples that arrives, so the
+  // spectrogram is readable before the minimap finishes; the minimap replaces
+  // this estimate with its whole-recording one when it lands (see
+  // autoScaleMagnitude), and this only ever fires once.
+  const autoScaled = useRef(false);
+  useEffect(() => {
+    if (!ffts || !fftSize || autoScaled.current) return;
+    const range = fftMagnitudeRange(ffts, fftSize);
+    if (!range) return;
+    autoScaled.current = true;
+    autoScaleMagnitude(range.min, range.max);
+  }, [ffts, fftSize]);
 
   // Whenever the ffts themselves change, or magnitude scaling, or the colormap, regenerate the image bitmap
   useEffect(() => {

@@ -30,3 +30,7 @@
 	path = gr-fosphor
 	url = https://github.com/osmocom/gr-fosphor.git
 	branch = master
+[submodule "gr-droneid"]
+	path = gr-droneid
+	url = https://github.com/proto17/dji_droneid
+	branch = gr-droneid-update-3.10

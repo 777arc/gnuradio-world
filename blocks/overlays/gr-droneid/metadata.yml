@@ -1,0 +1,55 @@
+# Browser-only C++ factory metadata for proto17/dji_droneid's gr-droneid OOT.
+# The requested branch keeps the actual GNU Radio module under
+# gnuradio/gr-droneid; runner/modules.json maps that nested source root while
+# this overlay leaves the upstream checkout pristine.
+
+droneid_decode:
+    flags: [python, cpp]
+    parameter_defaults:
+        debug_path: ''
+    cpp_templates:
+        includes: ['#include <gnuradio/droneid/decode.h>']
+        declarations: 'gr::droneid::decode::sptr ${id};'
+        make: 'this->${id} = gr::droneid::decode::make(${debug_path});'
+        link: [gnuradio-droneid]
+
+droneid_demodulation:
+    flags: [python, cpp]
+    parameter_defaults:
+        sample_rate: 30.72e6
+        debug_path: ''
+    cpp_templates:
+        includes: ['#include <gnuradio/droneid/demodulation.h>']
+        declarations: 'gr::droneid::demodulation::sptr ${id};'
+        make: 'this->${id} = gr::droneid::demodulation::make(${sample_rate}, ${debug_path});'
+        link: [gnuradio-droneid]
+
+droneid_extractor:
+    flags: [python, cpp]
+    parameter_defaults:
+        sample_rate: 30.72e6
+        threshold: 0.5
+    cpp_templates:
+        includes: ['#include <gnuradio/droneid/extractor.h>']
+        declarations: 'gr::droneid::extractor::sptr ${id};'
+        make: 'this->${id} = gr::droneid::extractor::make(${sample_rate}, ${threshold});'
+        link: [gnuradio-droneid]
+
+droneid_normalized_xcorr_estimate:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <gnuradio/droneid/normalized_xcorr_estimate.h>']
+        declarations: 'gr::droneid::normalized_xcorr_estimate::sptr ${id};'
+        make: 'this->${id} = gr::droneid::normalized_xcorr_estimate::make(${taps});'
+        link: [gnuradio-droneid]
+
+droneid_time_sync:
+    flags: [python, cpp]
+    parameter_defaults:
+        sample_rate: 30.72e6
+        debug_path: ''
+    cpp_templates:
+        includes: ['#include <gnuradio/droneid/time_sync.h>']
+        declarations: 'gr::droneid::time_sync::sptr ${id};'
+        make: 'this->${id} = gr::droneid::time_sync::make(${sample_rate}, ${debug_path});'
+        link: [gnuradio-droneid]

@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Cross-build GNU Radio's C++ dependencies to WASM into $SYSROOT.
 #
-# Produces everything the runner links that is not GNU Radio itself:
+# Installs the shared third-party libraries the runner links:
 #   spdlog, VOLK, Boost, FFTW (double + float), GMP, Qwt
+# OOT-local source dependencies such as turbofec and header-only CRCpp are
+# fetched beside these but compiled directly by their runner side module.
 #
 # Sources must already be under deps/src -- run deps/fetch-deps.sh first.
 # Qwt is cross-built with the host qmake pointed at the wasm Qt, so QT_HOST and

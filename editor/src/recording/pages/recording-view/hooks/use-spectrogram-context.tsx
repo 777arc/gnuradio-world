@@ -1,6 +1,6 @@
 import { useMeta } from '@/api/metadata/queries';
 import { SigMFMetadata } from '@/utils/sigmfMetadata';
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { COLORMAP_DEFAULT, SPECTROGRAM_METHOD_DEFAULT, SpectrogramMethod } from '@/utils/constants';
 import { CHANNELIZER_OVERSAMPLING, CHANNELIZER_TAPS_PER_CHANNEL } from '@/utils/channelizer';
 
@@ -13,6 +13,7 @@ interface SpectrogramContextProperties {
   setMagnitudeMin: (magnitudeMin: number) => void;
   magnitudeMax: number;
   setMagnitudeMax: (magnitudeMax: number) => void;
+  autoScaleMagnitude: (min: number, max: number, fromMinimap?: boolean) => void;
   colmap: string;
   setColmap: (colmap: string) => void;
   windowFunction: string;
@@ -93,6 +94,19 @@ export function SpectrogramContextProvider({
   const [canDownload, setCanDownload] = useState<boolean>(false);
   const [selectedAnnotation, setSelectedAnnotation] = useState<number>();
 
+  // The colormap range is estimated twice: once off the first batch of samples
+  // the spectrogram gets, so the display is usable right away, and again off the
+  // minimap once it finishes a few seconds later, which samples the whole
+  // recording and is the better estimate. The minimap's wins whichever order the
+  // two land in, and nothing overrides it afterwards.
+  const minimapScaled = useRef(false);
+  const autoScaleMagnitude = useCallback((min: number, max: number, fromMinimap = false) => {
+    if (minimapScaled.current && !fromMinimap) return;
+    if (fromMinimap) minimapScaled.current = true;
+    setMagnitudeMin(min);
+    setMagnitudeMax(max);
+  }, []);
+
   useEffect(() => {
     setMeta(originMeta);
 
@@ -113,6 +127,7 @@ export function SpectrogramContextProvider({
         setMagnitudeMin,
         magnitudeMax,
         setMagnitudeMax,
+        autoScaleMagnitude,
         colmap,
         setColmap,
         windowFunction,

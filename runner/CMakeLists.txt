@@ -24,6 +24,11 @@ endif()
 set(WASM_ROOT "${WORLD}")
 set(BUILDGR ${WASM_ROOT}/gr/build-gr)
 set(SYSROOT ${WASM_ROOT}/sysroot)
+if(DEFINED ENV{DEPS_SRC})
+  set(DEPS_SRC $ENV{DEPS_SRC})
+else()
+  set(DEPS_SRC ${WASM_ROOT}/deps/src)
+endif()
 set(QTGUI_TS ${WASM_ROOT}/qtgui/build/libgr_qtgui_ts.a)
 
 # Module topology is shared with gen_registry.py. CMake still owns the concrete
@@ -73,6 +78,7 @@ set(GR_INCLUDE_DIRS
   ${WORLD}/gr-satellites/include
   ${WORLD}/gr-paint/include
   ${WORLD}/gr-fosphor/include
+  ${WORLD}/gr-droneid/gnuradio/gr-droneid/include
   ${BUILDGR}/gnuradio-runtime/include ${SYSROOT}/include)
 
 # ---------------------------------------------------------------------------
@@ -364,6 +370,66 @@ set(FOSPHOR_SOURCES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/generated_registry_fosphor.cpp
   ${FOSPHOR_LIB}/overlap_cc_impl.cc)
 add_side_module(fosphor SOURCES ${FOSPHOR_SOURCES})
+
+# gr-droneid: proto17/dji_droneid keeps its GNU Radio OOT below
+# gnuradio/gr-droneid in the repository. All five blocks have native C++
+# implementations. The decoder also uses ttSou's small C turbofec library and
+# header-only CRCpp; both are pinned by deps/fetch-deps.sh and compiled directly
+# into this side module, so no host library or Python runtime is involved.
+# Optional debug captures use a narrow Boost.Filesystem shim backed by
+# Emscripten's virtual filesystem.
+set(DRONEID_ROOT ${WORLD}/gr-droneid/gnuradio/gr-droneid)
+set(DRONEID_LIB ${DRONEID_ROOT}/lib)
+set(DRONEID_WASM_SHIMS ${BLOCKS}/overlays/gr-droneid/shims)
+set(TURBOFEC_ROOT ${DEPS_SRC}/turbofec)
+set(CRCPP_ROOT ${DEPS_SRC}/CRCpp)
+set(DRONEID_SOURCES
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/generated_registry_droneid.cpp
+  ${DRONEID_LIB}/misc_utils.cc
+  ${BLOCKS}/overlays/gr-droneid/decode_impl.cc
+  ${DRONEID_LIB}/demodulation_impl.cc
+  ${DRONEID_LIB}/lte_decode.cc
+  ${DRONEID_LIB}/extractor_impl.cc
+  ${BLOCKS}/overlays/gr-droneid/normalized_xcorr_estimate_impl.cc
+  ${DRONEID_LIB}/time_sync_impl.cc
+  ${TURBOFEC_ROOT}/src/turbo_dec.c
+  ${TURBOFEC_ROOT}/src/turbo_enc.c
+  ${TURBOFEC_ROOT}/src/turbo_rate_match.c)
+add_library(droneid_side_objects OBJECT EXCLUDE_FROM_ALL ${DRONEID_SOURCES})
+set_target_properties(droneid_side_objects PROPERTIES
+  C_STANDARD 11
+  C_STANDARD_REQUIRED ON)
+target_include_directories(droneid_side_objects PRIVATE
+  ${DRONEID_WASM_SHIMS}
+  ${DRONEID_LIB}
+  ${TURBOFEC_ROOT}/include
+  ${TURBOFEC_ROOT}/src
+  ${CRCPP_ROOT}/inc
+  ${GR_INCLUDE_DIRS})
+target_compile_options(droneid_side_objects PRIVATE
+  -pthread -fPIC -Oz
+  $<$<COMPILE_LANGUAGE:CXX>:-fexceptions>)
+target_compile_definitions(droneid_side_objects PRIVATE
+  M_PIf64=3.141592653589793238462643383279502884)
+set(droneid_out ${CMAKE_CURRENT_BINARY_DIR}/droneid.wasm)
+add_custom_command(
+  OUTPUT ${droneid_out}
+  COMMAND ${CMAKE_CXX_COMPILER}
+    -sSIDE_MODULE=1 -pthread -fPIC -Oz -std=c++17
+    -sNO_DISABLE_EXCEPTION_CATCHING
+    -sWASM_BIGINT=1
+    $<TARGET_OBJECTS:droneid_side_objects>
+    -o ${droneid_out}
+  DEPENDS droneid_side_objects
+          ${DRONEID_SOURCES}
+          ${DRONEID_WASM_SHIMS}/boost/filesystem.hpp
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/registry_helpers.hpp
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/registry.hpp
+  COMMENT "Building category side module droneid.wasm (out-of-tree gr-droneid sources)"
+  COMMAND_EXPAND_LISTS
+  VERBATIM)
+list(APPEND SIDE_MODULE_OUTPUTS ${droneid_out})
+list(APPEND SIDE_MODULE_NAMES droneid)
 
 # gr-satellites: telemetry framing, coding, FEC, and utility blocks. Like the
 # other OOT modules, compile its implementation and bundled C/C++ codec sources

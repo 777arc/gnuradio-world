@@ -30,6 +30,10 @@ import block_overrides  # noqa: E402  (needs WORLD on the path first)
 
 GR = Path(os.environ.get("GR", WORLD / "gnuradio")).resolve()
 MODULE_CONFIG = json.loads((Path(__file__).with_name("modules.json")).read_text())
+MODULE_SOURCE_ROOTS = {
+    module: WORLD / relative
+    for module, relative in MODULE_CONFIG.get("source_roots", {}).items()
+}
 
 # Block categories whose C++ is statically linked into the main runner module and
 # always available. Everything else is compiled into a per-module WebAssembly side
@@ -205,6 +209,10 @@ def validate_configuration() -> None:
     if overlap:
         raise SystemExit(f"runner/modules.json marks modules core and deferred: {overlap}")
     known_deferred = set(deferred)
+    unknown_roots = sorted(set(MODULE_SOURCE_ROOTS) - set(MODULES))
+    if unknown_roots:
+        raise SystemExit(
+            f"runner/modules.json has source roots for unknown modules: {unknown_roots}")
     for module, dependencies in MODULE_DEPS.items():
         unknown = sorted(({module, *dependencies}) - known_deferred)
         if unknown:
@@ -619,12 +627,12 @@ def load_blocks() -> list[dict[str, Any]]:
         short = module[len("gr-"):] if module.startswith("gr-") else module
         # Direct world-repo modules override same-named gitlinks that may exist
         # in older GNU Radio revisions during the repository migration.
-        module_root = WORLD / module
+        module_root = MODULE_SOURCE_ROOTS.get(module, WORLD / module)
         if not module_root.is_dir():
             module_root = GR / module
-        # Recursive: gr-satellites is the only module that groups its block
-        # metadata into grc/ subdirectories (components/deframers, hier, ccsds,
-        # ...). Every other module keeps grc/ flat, so rglob costs nothing there.
+        # Recursive: some OOTs group metadata below grc/. For example,
+        # gr-satellites has component subdirectories, while gr-droneid itself is
+        # nested below the dji_droneid repository root via source_roots above.
         for path in sorted((module_root / "grc").rglob("*.block.yml")):
             try:
                 block = yaml.safe_load(path.read_text())

@@ -47,8 +47,33 @@ clone() {
     git clone --branch "$tag" --depth 1 "$@" "$url" "$dir"
 }
 
+# clone_commit <dir> <commit> <url>
+# Used for small dependencies that publish no stable tag. Fetch the one pinned
+# commit rather than allowing their default branch to move underneath CI.
+clone_commit() {
+    local dir="$1" commit="$2" url="$3"
+    if [ -d "$dir" ]; then
+        echo "[fetch] $dir (already present)"
+        return
+    fi
+    echo "[fetch] $dir <- $url @ $commit"
+    local tmp
+    tmp="$(mktemp -d "./.${dir}.XXXXXX")"
+    if ! git -C "$tmp" init -q ||
+       ! git -C "$tmp" remote add origin "$url" ||
+       ! git -C "$tmp" fetch -q --depth 1 origin "$commit" ||
+       ! git -C "$tmp" checkout -q --detach FETCH_HEAD; then
+        rm -rf "$tmp"
+        return 1
+    fi
+    mv "$tmp" "$dir"
+}
+
 clone spdlog v1.12.0 https://github.com/gabime/spdlog.git
 clone volk   v3.1.2  https://github.com/gnuradio/volk.git --recursive
+clone CRCpp release-1.2.2.0 https://github.com/d-bahr/CRCpp.git
+clone_commit turbofec 6de1f4604933d6c21a0ff0c75401cffa7debf3cd \
+    https://github.com/ttsou/turbofec.git
 
 fetch_tar boost_1_83_0 https://archives.boost.io/release/1.83.0/source/boost_1_83_0.tar.bz2 xj
 fetch_tar fftw-3.3.10  https://www.fftw.org/fftw-3.3.10.tar.gz                              xz

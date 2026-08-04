@@ -79,7 +79,7 @@ node server.mjs 8090 "$PWD"
   `src/registry.cpp` add browser widgets, live setters, and a few composed
   blocks. The generated and custom registries currently expose hundreds of blocks from
   gr-blocks, gr-analog, gr-fft, gr-filter, gr-digital, gr-dtv, gr-network,
-  gr-pdu, gr-vocoder and gr-qtgui, plus the vendored out-of-tree modules (including but not limited to gr-rds, gr-foo, gr-dvbs2, gr-dvbs2rx, gr-satellites, gr-paint, gr-fosphor). Stream and message-port connections are both
+  gr-pdu, gr-vocoder and gr-qtgui, plus the vendored out-of-tree modules (including but not limited to gr-rds, gr-foo, gr-dvbs2, gr-dvbs2rx, gr-satellites, gr-paint, gr-fosphor, gr-droneid). Stream and message-port connections are both
   serialized by the editor. QT GUI Range controls can be referenced by ID from
   numeric block parameters and update those parameters while the graph is
   running.
@@ -157,8 +157,9 @@ Userspace (no sudo) requirements:
   `aqt install-qt all_os wasm 6.9.1 wasm_multithread` (into `~/Qt`).
 - **Node ≥ 20** (for the editor build and the dev server; Ubuntu 24 ships 18).
 - Dependency sources fetched under `deps/src/` (VOLK 3.1.2, Boost 1.83, spdlog
-  1.12, GMP 6.3, FFTW 3.3.10, Qwt 6.2). `deps/env.sh` derives paths from the
-  checkout root; its environment variables remain overridable.
+  1.12, GMP 6.3, FFTW 3.3.10, Qwt 6.2, CRCpp 1.2.2, and pinned turbofec).
+  `deps/env.sh` derives paths from the checkout root; its environment variables
+  remain overridable.
 
 System packages and toolchains on a fresh machine:
 
@@ -200,9 +201,10 @@ export VITE_RECORDINGS_R2_BASE=https://recordings.gnuradioworld.com
 ### 1. Fetch and cross-build the C++ dependencies → `sysroot/`
 
 Two scripts; versions are pinned in `fetch-deps.sh` and nowhere else. Both are
-idempotent, so re-running after a failure is cheap. `build-deps.sh` produces
-everything the runner links that is not GNU Radio itself (spdlog, VOLK, Boost,
-FFTW in both precisions, GMP, Qwt).
+idempotent, so re-running after a failure is cheap. `build-deps.sh` installs the
+shared runner dependencies (spdlog, VOLK, Boost, FFTW in both precisions, GMP,
+Qwt). The DroneID side module compiles the fetched turbofec C sources and
+header-only CRCpp directly, so those two need no separate install step.
 
 ```bash
 bash deps/fetch-deps.sh         # -> deps/src/   (skips what is present)
@@ -583,12 +585,20 @@ part of the always-loaded core or an on-demand side module. To add one (say
 The recipe above assumes an in-tree `gr-<m>` built by `gr/build-gr`. A
 third-party OOT module (already done for [`gr-rds/`](gr-rds), [`gr-foo/`](gr-foo),
 [`gr-dvbs2/`](gr-dvbs2), [`gr-dvbs2rx/`](gr-dvbs2rx), [`gr-satellites/`](gr-satellites),
-[`gr-paint/`](gr-paint), and [`gr-fosphor/`](gr-fosphor)) is **not** part of that
+[`gr-paint/`](gr-paint), [`gr-fosphor/`](gr-fosphor), and
+[`gr-droneid/`](gr-droneid)) is **not** part of that
 umbrella build, so there is no `libgnuradio-<m>.a`; instead its own `lib/*.cc` are
 compiled straight into an on-demand `<m>.wasm` side module. This is a
 **self-contained checklist** — following it needs no investigation beyond the
 module itself. Copy an existing OOT module (gr-foo is the simplest, gr-dvbs2 the
 most complex) as a working reference for every step.
+
+An upstream repository may wrap the actual OOT instead of placing `grc/`,
+`include/`, and `lib/` at its root. `proto17/dji_droneid` is the worked example:
+the submodule remains at `gr-droneid/`, while `runner/modules.json` maps its
+module root to `gr-droneid/gnuradio/gr-droneid` through `source_roots`. Both
+generators consume that shared mapping; do not add symlinks or edit the nested
+upstream checkout to flatten it.
 
 **1. Add it as a submodule** at the world-repo top level, beside the `gnuradio/`
 submodule. Pin **upstream's own** GNU Radio-compatible default or maintenance

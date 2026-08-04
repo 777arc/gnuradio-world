@@ -900,13 +900,13 @@ function resolveParamsForRun(inst: Inst, scope: Scope): Record<string, any> {
   const out: Record<string, any> = { ...inst.params };
   if (!def) return out;
   for (const p of def.params) {
+    const dtype = effectiveDtype(inst, def, p);
     // Numeric, vector and `raw` params are evaluated; enum/string params pass
     // through. `raw` covers things like an OFDM carrier allocation written as
     // `list(range(-26, -21)) + ...`; the vector dtypes cover the commonest GRC
     // idiom of all, filter taps written as `firdes.low_pass(...)` or
     // `[1/sps] * sps`. Neither is something the runner can evaluate itself.
-    if (p.type !== 'number' && !p.raw &&
-        !EVALUATED_DTYPES.has(effectiveDtype(inst, def, p))) continue;
+    if (p.type !== 'number' && !p.raw && !EVALUATED_DTYPES.has(dtype)) continue;
     const raw = out[p.id];
     if (typeof raw !== 'string') continue;          // already a numeric/bool literal
     const s = raw.trim();
@@ -914,7 +914,8 @@ function resolveParamsForRun(inst: Inst, scope: Scope): Record<string, any> {
     const r = evalExpr(s, scope);
     // Only substitute a concrete (non-string) result; symbolic values (enum
     // constants) and anything referencing a live control are left as raw text.
-    if (r.ok && typeof r.value !== 'string') out[p.id] = serializeForRunner(r.value);
+    if (r.ok && typeof r.value !== 'string')
+      out[p.id] = serializeForRunner(r.value, dtype === 'complex_vector');
   }
   return out;
 }
@@ -1970,6 +1971,30 @@ type RunnerInputFile =
 const pendingRunnerRecordings = new Map<string, RunnerInputFile[]>();
 let pendingRunnerToken: string | null = null;
 
+async function publicHttpFileSize(url: string): Promise<number | null> {
+  let parsed: URL;
+  try { parsed = new URL(url); } catch { return null; }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+
+  try {
+    const response = await fetch(parsed.href, {
+      method: 'HEAD', cache: 'no-store', mode: 'cors',
+    });
+    const size = Number(response.headers.get('Content-Length'));
+    if (response.ok && Number.isSafeInteger(size) && size > 0) return size;
+  } catch { /* Some range-capable hosts do not implement HEAD. */ }
+
+  try {
+    const response = await fetch(parsed.href, {
+      headers: { Range: 'bytes=0-0' }, cache: 'no-store', mode: 'cors',
+    });
+    const match = /^bytes\s+0-0\/(\d+)$/i.exec(response.headers.get('Content-Range') || '');
+    await response.body?.cancel();
+    const size = Number(match?.[1]);
+    return response.status === 206 && Number.isSafeInteger(size) && size > 0 ? size : null;
+  } catch { return null; }
+}
+
 // Editor and QT GUI are the two fixed tabs; recording tabs ('rec:<key>') are
 // added and removed by syncRecordingTabs() as File Sources come and go, so the
 // bar is a registry rather than the pair of buttons it used to be.
@@ -2534,10 +2559,23 @@ async function run() {
       continue;
     }
 
+    const publicUrlSize = await publicHttpFileSize(savedPath);
+    if (publicUrlSize !== null) {
+      const path = `/recordings/external/${encodeURIComponent(savedPath)}`;
+      fileOverrides.set(block.name, path);
+      if (!addedPaths.has(path)) {
+        recordingFiles.push({
+          kind: 'http', path, url: savedPath, size: publicUrlSize,
+        });
+        addedPaths.add(path);
+      }
+      continue;
+    }
+
     if (!savedPath) {
       log(`cannot run: choose a file for "${block.name}"`);
     } else {
-      log(`cannot run: "${savedPath}" is not accessible to the browser; ` +
+      log(`cannot run: "${savedPath}" is not an accessible public HTTP(S) file; ` +
           `open "${block.name}" properties and choose it with Browse`);
     }
     select(block.uid);

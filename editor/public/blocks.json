@@ -25010,6 +25010,301 @@
    "outputs": []
   },
   {
+   "id": "droneid_decode",
+   "label": "decode",
+   "category": [
+    "droneid"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "droneid",
+   "documentation": "",
+   "api_documentation": "<+description of block+>\n\nReturn a shared_ptr to a new instance of droneid::decode.\n\nTo avoid accidental use of raw pointers, droneid::decode's\nconstructor is in a private implementation\nclass. droneid::decode::make is the public interface for\ncreating new instances.",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "debug_path",
+     "label": "Debug Path",
+     "dtype": "string",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "pdus",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": 0
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "pdus",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": 1
+    }
+   ]
+  },
+  {
+   "id": "droneid_demodulation",
+   "label": "demodulation",
+   "category": [
+    "droneid"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "droneid",
+   "documentation": "",
+   "api_documentation": "<+description of block+>\n\nReturn a shared_ptr to a new instance of droneid::demodulation.\n\nTo avoid accidental use of raw pointers, droneid::demodulation's\nconstructor is in a private implementation\nclass. droneid::demodulation::make is the public interface for\ncreating new instances.",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "sample_rate",
+     "label": "Sample Rate",
+     "dtype": "float",
+     "default": "30.72e6",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "debug_path",
+     "label": "Debug path",
+     "dtype": "string",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "pdus",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": 0
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "pdus",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": 1
+    }
+   ]
+  },
+  {
+   "id": "droneid_extractor",
+   "label": "extractor",
+   "category": [
+    "droneid"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "droneid",
+   "documentation": "",
+   "api_documentation": "<+description of block+>\n\nReturn a shared_ptr to a new instance of droneid::extractor.\n\nTo avoid accidental use of raw pointers, droneid::extractor's\nconstructor is in a private implementation\nclass. droneid::extractor::make is the public interface for\ncreating new instances.",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "sample_rate",
+     "label": "Sample Rate",
+     "dtype": "float",
+     "default": "30.72e6",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "threshold",
+     "label": "Correlator threshold",
+     "dtype": "float",
+     "default": 0.5,
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "samples",
+     "domain": "stream",
+     "dtype": "complex",
+     "multiplicity": "1",
+     "optional": 0,
+     "vlen": "1"
+    },
+    {
+     "id": "",
+     "label": "corr",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": 0,
+     "vlen": "1"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "pdus",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true
+    }
+   ]
+  },
+  {
+   "id": "droneid_normalized_xcorr_estimate",
+   "label": "normalized_xcorr_estimate",
+   "category": [
+    "droneid"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "droneid",
+   "documentation": "",
+   "api_documentation": "<+description of block+>\n\nReturn a shared_ptr to a new instance of droneid::normalized_xcorr_estimate.\n\nTo avoid accidental use of raw pointers, droneid::normalized_xcorr_estimate's\nconstructor is in a private implementation\nclass. droneid::normalized_xcorr_estimate::make is the public interface for\ncreating new instances.",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "taps",
+     "label": "Filter Taps",
+     "dtype": "complex_vector",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "in",
+     "domain": "stream",
+     "dtype": "complex",
+     "multiplicity": "1",
+     "optional": 0,
+     "vlen": "1"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "out",
+     "domain": "stream",
+     "dtype": "complex",
+     "multiplicity": "1",
+     "optional": 0,
+     "vlen": "1"
+    }
+   ]
+  },
+  {
+   "id": "droneid_time_sync",
+   "label": "time_sync",
+   "category": [
+    "droneid"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "droneid",
+   "documentation": "",
+   "api_documentation": "<+description of block+>\n\nReturn a shared_ptr to a new instance of droneid::time_sync.\n\nTo avoid accidental use of raw pointers, droneid::time_sync's\nconstructor is in a private implementation\nclass. droneid::time_sync::make is the public interface for\ncreating new instances.",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "sample_rate",
+     "label": "Sample Rate",
+     "dtype": "float",
+     "default": "30.72e6",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "debug_path",
+     "label": "Debug Path",
+     "dtype": "string",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "pdus",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": 0
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "pdus",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": 1
+    }
+   ]
+  },
+  {
    "id": "dtv_atsc_deinterleaver",
    "label": "ATSC Deinterleaver",
    "category": [

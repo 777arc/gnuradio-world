@@ -72,6 +72,55 @@ export function calcFfts(samples: Float32Array, fftSize: number, windowFunction:
   return fftsConcatenated;
 }
 
+// Percentiles the auto-scaled colormap runs between, rather than the absolute
+// extremes. Both ends of a magnitude distribution have a tail that is an
+// artifact of the FFT rather than anything a reader wants a colormap stop
+// spent on -- most of all the low one, where the log of a near-zero bin runs
+// off to arbitrarily negative dB. An extreme is also a function of *how many*
+// bins were looked at: the deepest null in 800 rows of 1024-bin FFTs sits
+// ~20 dB below the deepest null in the 64-bin minimap of the same recording,
+// which made the two auto-scale estimates of one recording disagree wildly.
+// A percentile does not have that dependence, and it fixes the fraction of the
+// picture that clips: 1% floors to the bottom colormap stop, 0.1% saturates at
+// the top, whatever the recording holds. The two are not symmetric because the
+// tails are not: the top one is signal, and clipping much of it flattens
+// exactly what the reader is looking at.
+const AUTO_SCALE_LOW_PERCENTILE = 1;
+const AUTO_SCALE_HIGH_PERCENTILE = 99.9;
+
+// Magnitude range of a concatenated FFT array, used to auto-scale the colormap.
+// Rows the fetcher has not filled in yet arrive as -Infinity IQ and come out of
+// calcFfts as a row of exactly 0 dB, so they are left out: otherwise a
+// half-downloaded screen would scale against the placeholder, not the signal.
+// Returns null when nothing usable was found (every row still a placeholder, or
+// an all-zero recording), which the caller takes as "leave the range alone".
+export function fftMagnitudeRange(
+  fftsConcatenated: Float32Array,
+  fftSize: number
+): { min: number; max: number } | null {
+  const values = new Float32Array(fftsConcatenated.length);
+  let count = 0;
+  for (let i = 0; i + fftSize <= fftsConcatenated.length; i += fftSize) {
+    let placeholder = true;
+    for (let j = i; j < i + fftSize; j++) {
+      if (fftsConcatenated[j] !== 0) {
+        placeholder = false;
+        break;
+      }
+    }
+    if (placeholder) continue;
+    values.set(fftsConcatenated.subarray(i, i + fftSize), count);
+    count += fftSize;
+  }
+  if (count === 0) return null;
+
+  const sorted = values.subarray(0, count).sort(); // numeric ascending; calcFfts leaves no NaNs
+  const at = (percentile: number) => sorted[Math.min(count - 1, Math.floor((percentile / 100) * count))];
+  const min = at(AUTO_SCALE_LOW_PERCENTILE);
+  const max = at(AUTO_SCALE_HIGH_PERCENTILE);
+  return min < max ? { min, max } : null;
+}
+
 export function fftToRGB(
   fftsConcatenated: Float32Array,
   fftSize: number,

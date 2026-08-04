@@ -202,6 +202,11 @@
     "digital_psk_mod",
     "digital_scrambler_bb",
     "digital_symbol_sync_xx",
+    "droneid_decode",
+    "droneid_demodulation",
+    "droneid_extractor",
+    "droneid_normalized_xcorr_estimate",
+    "droneid_time_sync",
     "dtv_atsc_deinterleaver",
     "dtv_atsc_depad",
     "dtv_atsc_derandomizer",
@@ -477,7 +482,8 @@
     "dvbs2rx",
     "satellites",
     "paint",
-    "fosphor"
+    "fosphor",
+    "droneid"
   ],
   "module_deps": {
     "satellites": [
@@ -719,6 +725,11 @@
     "satellites_varlen_packet_tagger": "satellites",
     "satellites_viterbi_decoder": "satellites",
     "paint_paint_bc": "paint",
-    "overlap_cc": "fosphor"
+    "overlap_cc": "fosphor",
+    "droneid_decode": "droneid",
+    "droneid_demodulation": "droneid",
+    "droneid_extractor": "droneid",
+    "droneid_normalized_xcorr_estimate": "droneid",
+    "droneid_time_sync": "droneid"
   }
 }
