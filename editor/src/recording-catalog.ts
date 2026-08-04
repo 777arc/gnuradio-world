@@ -89,6 +89,23 @@ export function recordingFromR2Index(raw: R2RecordingIndexEntry): ExampleRecordi
   };
 }
 
+// A recording is linkable by its base key — the index's own `base_filename`,
+// without either SigMF suffix — so #recording=estevez/ao73 stays readable. The
+// separators are left literal for the same reason: they are legal in a fragment
+// and URLSearchParams splits only on '&' and '='.
+export function normalizeRecordingKey(name: string): string {
+  const key = String(name).replace(/\\/g, '/').replace(/\.sigmf-(?:data|meta)$/, '');
+  const segments = key.split('/');
+  if (!key || segments.some(segment => !segment || segment === '.' || segment === '..'))
+    throw new Error('invalid recording key');
+  return segments.join('/');
+}
+
+export function recordingUrl(name: string, href = location.href): string {
+  const base = href.split('#')[0].split('?')[0];
+  return `${base}#recording=${encodeRecordingPath(normalizeRecordingKey(name))}`;
+}
+
 export const RECORDING_VIEW_BASE = '/recording/#';
 
 export const base64Url = (text: string): string => {

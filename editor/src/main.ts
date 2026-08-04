@@ -31,9 +31,12 @@ import {
   displayBytes,
   displayRecordingValue,
   displaySi,
+  encodeRecordingPath,
   isCi16Datatype,
+  normalizeRecordingKey,
   recordingFromR2Index,
   recordingTreeCount,
+  recordingUrl,
   recordingViewUrl,
   recordingsBucketUrl,
   sigmfFileSourceFormat,
@@ -2056,8 +2059,13 @@ async function publicHttpFileSize(url: string): Promise<number | null> {
 // Editor and QT GUI are the two fixed tabs; recording tabs ('rec:<key>') are
 // added and removed by syncRecordingTabs() as File Sources come and go, so the
 // bar is a registry rather than the pair of buttons it used to be.
+// `container` is what the bar orders and holds: a recording tab is a group of
+// the tab button plus its close button, because a button cannot contain one.
 type WorkspaceTab = 'editor' | 'qtgui' | string;
-interface WorkspaceTabEntry { id: WorkspaceTab; button: HTMLButtonElement; panel: HTMLElement }
+interface WorkspaceTabEntry {
+  id: WorkspaceTab; button: HTMLButtonElement; panel: HTMLElement; container?: HTMLElement;
+}
+const tabContainer = (entry: WorkspaceTabEntry): HTMLElement => entry.container || entry.button;
 const workspaceTabs: WorkspaceTabEntry[] = [
   { id: 'editor', button: el('tabEditor') as HTMLButtonElement, panel: el('editorPane') },
   { id: 'qtgui', button: el('tabQtGui') as HTMLButtonElement, panel: el('runPane') },
@@ -2087,6 +2095,17 @@ function wireWorkspaceTab(entry: WorkspaceTabEntry) {
   entry.button.addEventListener('keydown', event => {
     const index = workspaceTabs.indexOf(entry);
     if (index < 0) return;
+    // The close button stays out of the tab order — a tablist is one stop, moved
+    // through with the arrow keys — so Delete on the focused tab is what closes a
+    // recording nothing on the canvas owns.
+    if (event.key === 'Delete' || event.key === 'Backspace') {
+      const tab = isRecordingTabId(entry.id)
+        ? recordingTabs.get(recordingTabKey(entry.id)) : undefined;
+      if (!tab || tab.close.hidden) return;
+      closeRecordingTab(tab);
+      event.preventDefault();
+      return;
+    }
     let next = index;
     if (event.key === 'ArrowLeft') next = (index + workspaceTabs.length - 1) % workspaceTabs.length;
     else if (event.key === 'ArrowRight') next = (index + 1) % workspaceTabs.length;
@@ -2131,7 +2150,12 @@ function setRunnerRunning(running: boolean, status?: string) {
 // recording's samples are requested only for tabs actually opened.
 //
 // The tab set is derived state — it never reaches the .grc — so it is rebuilt
-// from `insts` on every render() rather than tracked through each mutation.
+// from `insts` on every render() rather than tracked through each mutation. The
+// one exception is a *pinned* tab: the Recordings palette and the #recording=
+// deep link both open a recording no block owns, so those tabs survive the sync
+// and carry a close button instead. Both origins key a tab by the same
+// '/recordings/...' path a File Source would produce, so adding the block for a
+// previewed recording adopts its tab rather than opening a second one.
 interface RecordingSource {
   key: string;            // '/recordings/<path>' or 'local:<token>'
   label: string;          // tab text
@@ -2150,10 +2174,12 @@ interface RecordingTab {
   source: RecordingSource;
   entry: WorkspaceTabEntry;
   label: HTMLElement;
+  close: HTMLButtonElement;
   status: HTMLElement;
   frame: HTMLIFrameElement | null;
   opening: boolean;
   ready: boolean;
+  pinned: boolean;        // opened without a File Source behind it; survives sync
   viewerOffset: number | null;
   viewerLength: number | null;
   blobUrls: string[];
@@ -2243,12 +2269,20 @@ function recordingSources(): RecordingSource[] {
 
 function createRecordingTab(source: RecordingSource): RecordingTab {
   const id = ++recordingTabCounter;
+  // The button and its close control are siblings inside a group styled as one
+  // tab: nesting a button inside a button is invalid, and the close control has
+  // to be separately clickable and focusable.
+  const group = document.createElement('div'); group.className = 'workspace-tab-group';
   const button = document.createElement('button');
   button.type = 'button'; button.className = 'workspace-tab'; button.id = `tabRecording${id}`;
   button.setAttribute('role', 'tab'); button.setAttribute('aria-selected', 'false');
   button.tabIndex = -1;
   const label = document.createElement('span'); label.className = 'workspace-tab-label';
   button.appendChild(label);
+  const close = document.createElement('button');
+  close.type = 'button'; close.className = 'workspace-tab-close'; close.textContent = '×';
+  close.tabIndex = -1; close.hidden = true;
+  group.append(button, close);
 
   const panel = document.createElement('section');
   panel.className = 'workspace-panel recording-pane'; panel.id = `recordingPane${id}`;
@@ -2259,23 +2293,56 @@ function createRecordingTab(source: RecordingSource): RecordingTab {
   panel.appendChild(status);
   el('workspaceContent').appendChild(panel);
 
-  const entry: WorkspaceTabEntry = { id: 'rec:' + source.key, button, panel };
+  const entry: WorkspaceTabEntry = { id: 'rec:' + source.key, button, panel, container: group };
   wireWorkspaceTab(entry);
   workspaceTabs.push(entry);
-  el('workspaceTabs').appendChild(button);
-  return {
-    source, entry, label, status, frame: null, opening: false, ready: false,
-    viewerOffset: null, viewerLength: null, blobUrls: [],
+  el('workspaceTabs').appendChild(group);
+  const tab: RecordingTab = {
+    source, entry, label, close, status, frame: null, opening: false, ready: false,
+    pinned: false, viewerOffset: null, viewerLength: null, blobUrls: [],
   };
+  close.onclick = event => { event.stopPropagation(); closeRecordingTab(tab); };
+  return tab;
 }
 
 function destroyRecordingTab(tab: RecordingTab) {
   for (const url of tab.blobUrls) URL.revokeObjectURL(url);
-  tab.entry.button.remove();
+  tabContainer(tab.entry).remove();
   tab.entry.panel.remove();   // drops the iframe, and with it the viewer's fetches
   const index = workspaceTabs.indexOf(tab.entry);
   if (index >= 0) workspaceTabs.splice(index, 1);
   recordingTabs.delete(tab.source.key);
+  // As with #example=, the URL must not go on claiming what is no longer open.
+  if (recordingHashKey() === recordingKeyOf(tab)) setUrlFragment({ recording: null });
+  if (activeWorkspaceTab === tab.entry.id) activateWorkspaceTab('editor');
+}
+
+// The linkable form of what a tab shows: the recording's base key. A locally
+// picked file has none — it exists only for this session — so it is not linkable.
+function recordingKeyOf(tab: RecordingTab): string | null {
+  return tab.source.kind === 'remote' ? tab.source.name : null;
+}
+const recordingHashKey = (): string | null =>
+  new URLSearchParams(location.hash.slice(1)).get('recording');
+
+// Only a pinned tab has a close button, so a File Source still owning this
+// recording cannot be closed out from under the canvas.
+function closeRecordingTab(tab: RecordingTab) {
+  tab.pinned = false;
+  if (recordingSources().some(source => source.key === tab.source.key)) {
+    syncRecordingTabs();   // the canvas owns it after all: keep it, drop the ×
+    return;
+  }
+  destroyRecordingTab(tab);
+}
+
+function describeRecordingTab(tab: RecordingTab, source: RecordingSource) {
+  tab.source = source;
+  tab.label.textContent = source.label;
+  tab.entry.button.title = source.title;
+  tab.entry.button.setAttribute('aria-label', `Recording ${source.title}`);
+  tab.close.title = `Close the recording view of ${source.title} (Delete)`;
+  tab.close.setAttribute('aria-label', `Close the recording view of ${source.title}`);
 }
 
 // Called from render(), so it must stay synchronous and free of network calls.
@@ -2283,31 +2350,61 @@ function syncRecordingTabs() {
   const sources = recordingSources();
   const wanted = new Set(sources.map(source => source.key));
   for (const tab of [...recordingTabs.values()])
-    if (!wanted.has(tab.source.key)) destroyRecordingTab(tab);
+    if (!wanted.has(tab.source.key) && !tab.pinned) destroyRecordingTab(tab);
 
   for (const source of sources) {
     let tab = recordingTabs.get(source.key);
     if (!tab) { tab = createRecordingTab(source); recordingTabs.set(source.key, tab); }
-    tab.source = source;
-    tab.label.textContent = source.label;
-    tab.entry.button.title = source.title;
-    tab.entry.button.setAttribute('aria-label', `Recording ${source.title}`);
+    describeRecordingTab(tab, source);
     if (tab.ready &&
         (tab.viewerOffset !== source.offset || tab.viewerLength !== source.length))
       postFileSourceSelection(tab);
   }
 
-  // Keep the bar in canvas order. Only the buttons are reordered: re-inserting a
-  // panel would re-insert its iframe, which reloads the document inside it.
+  // A pinned tab is closable exactly while no File Source owns its recording;
+  // once one does, the canvas is what decides whether the tab exists.
+  for (const tab of recordingTabs.values())
+    tab.close.hidden = !tab.pinned || wanted.has(tab.source.key);
+
+  // Keep the bar in canvas order, with tabs the canvas does not own after them.
+  // Only the tab buttons are reordered: re-inserting a panel would re-insert its
+  // iframe, which reloads the document inside it.
   const order = [workspaceTabs[0], workspaceTabs[1],
-    ...sources.map(source => recordingTabs.get(source.key)!.entry)];
+    ...sources.map(source => recordingTabs.get(source.key)!.entry),
+    ...[...recordingTabs.values()]
+      .filter(tab => !wanted.has(tab.source.key)).map(tab => tab.entry)];
   workspaceTabs.length = 0; workspaceTabs.push(...order);
   const bar = el('workspaceTabs');
-  if (order.some((entry, index) => bar.children[index] !== entry.button))
-    for (const entry of order) bar.appendChild(entry.button);
+  if (order.some((entry, index) => bar.children[index] !== tabContainer(entry)))
+    for (const entry of order) bar.appendChild(tabContainer(entry));
 
   if (!workspaceTabs.some(entry => entry.id === activeWorkspaceTab))
     activateWorkspaceTab('editor');
+}
+
+// Opens the recording view for a recording nothing on the canvas refers to —
+// the Recordings palette's View control and the #recording= link. The tab is
+// keyed by the same '/recordings/...' path a File Source would produce, so a
+// recording already showing (either way) is revealed rather than duplicated.
+function openRecordingPreview(recording: ExampleRecording) {
+  const path = bindRemoteRecording(recording);
+  const name = recording.name;
+  let tab = recordingTabs.get(path);
+  if (!tab) {
+    const source: RecordingSource = {
+      key: path, label: name.split('/').pop() || name, title: name, name,
+      kind: 'remote', path, offset: 0, length: 0,
+    };
+    tab = createRecordingTab(source);
+    recordingTabs.set(path, tab);
+    describeRecordingTab(tab, source);
+  }
+  tab.pinned = true;
+  syncRecordingTabs();          // places the tab in the bar and shows its ×
+  activateWorkspaceTab(tab.entry.id);   // builds the iframe on first activation
+  // Point the address bar at what is on screen, exactly as loading an example
+  // does, so the link can be copied straight out of it and reloaded.
+  setUrlFragment({ recording: normalizeRecordingKey(name) });
 }
 
 // A local file is a bare stream of samples: no sample rate, no datatype, nothing
@@ -2941,13 +3038,38 @@ function showExamplesFor(id: string, label: string) {
 // with setExampleHash(null), so the URL never claims an example that is no longer
 // on the canvas. replaceState rather than assigning location.hash: no history
 // entry, hence no Back button that looks like it should undo the load but cannot.
-function setExampleHash(file: string | null) {
-  const url = file ? exampleUrl(file) : location.href.split('#')[0];
+//
+// Two things can be named at once — #example= the flowgraph on the canvas and
+// #recording= a recording view open beside it — so the fragment is rewritten one
+// key at a time and each survives the other changing. The startup-only keys
+// (#fg=, #duplicate=) are consumed and cleared before anything here runs, hence
+// the whitelist. Values are written the way exampleUrl()/recordingUrl() write
+// them rather than through URLSearchParams.toString(), which would percent-encode
+// the separators in a recording key and make a copied link unreadable.
+const FRAGMENT_KEYS = ['example', 'recording'] as const;
+function setUrlFragment(patch: Partial<Record<(typeof FRAGMENT_KEYS)[number], string | null>>) {
+  const current = new URLSearchParams(location.hash.slice(1));
+  const parts: string[] = [];
+  for (const key of FRAGMENT_KEYS) {
+    const value = key in patch ? patch[key] : current.get(key);
+    if (value === null || value === undefined) continue;
+    parts.push(`${key}=` + (key === 'recording'
+      ? encodeRecordingPath(value) : encodeURIComponent(value)));
+  }
+  const url = location.href.split('#')[0] + (parts.length ? '#' + parts.join('&') : '');
   if (url !== location.href) history.replaceState(null, '', url);
+}
+function setExampleHash(file: string | null) {
+  setUrlFragment({ example: file && file.replace(/\.grc$/, '') });
 }
 async function copyExampleUrl(file: string) {
   const url = exampleUrl(file);
   log(await copyText(url) ? `copied a link to "${file}": ${url}`
+        : 'could not copy automatically — link logged below:\n' + url);
+}
+async function copyRecordingUrl(name: string) {
+  const url = recordingUrl(name);
+  log(await copyText(url) ? `copied a link to recording "${name}": ${url}`
         : 'could not copy automatically — link logged below:\n' + url);
 }
 // Used by the #example= hash on startup; the palette's own click handler loads
@@ -3266,7 +3388,21 @@ function makeRecordingItem(recording: ExampleRecording): HTMLElement {
   title.textContent = recording.name.split('/').filter(Boolean).pop() || recording.name;
   const badge = document.createElement('span'); badge.className = 'rec-badge';
   badge.textContent = 'Stream';
-  head.append(title, badge);
+  // View and the copy-link button open the recording view without touching the
+  // canvas, so they are offered even for a datatype File Source cannot
+  // represent — that recording is otherwise not viewable here at all. Both stop
+  // propagation: clicking one must not also drop a File Source on the canvas.
+  const view = document.createElement('button'); view.className = 'rec-view';
+  view.type = 'button'; view.textContent = 'View';
+  view.title = `Open the recording view of "${recording.name}" without adding it to the flowgraph`;
+  view.setAttribute('aria-label', `View recording ${recording.name}`);
+  view.onclick = event => { event.stopPropagation(); openRecordingPreview(recording); };
+  const link = document.createElement('button'); link.className = 'rec-link';
+  link.type = 'button'; link.textContent = '🔗';
+  link.title = `Copy a link to this recording (${recordingUrl(recording.name)})`;
+  link.setAttribute('aria-label', `Copy a link to recording ${recording.name}`);
+  link.onclick = event => { event.stopPropagation(); void copyRecordingUrl(recording.name); };
+  head.append(title, view, link, badge);
   const props = document.createElement('dl'); props.className = 'rec-props';
   const addProperty = (label: string, value: string | number | null) => {
     const key = document.createElement('dt'); key.textContent = label;
@@ -3316,7 +3452,8 @@ function makeRecordingItem(recording: ExampleRecording): HTMLElement {
   item.onclick = () => { void useRecording(); };
   item.onkeydown = event => {
     if (event.key !== 'Enter' && event.key !== ' ') return;
-    if ((event.target as HTMLElement)?.closest('a')) return;
+    // The download links and the View / copy-link buttons act for themselves.
+    if ((event.target as HTMLElement)?.closest('a,button')) return;
     event.preventDefault(); void useRecording();
   };
   return item;
@@ -3847,7 +3984,9 @@ log('Editor ready. Click ▶ Run to execute the flowgraph in WebAssembly.');
 // Returns whether the fragment claimed the canvas.
 async function loadFlowgraphFromUrl(): Promise<boolean> {
   const hash = new URLSearchParams(location.hash.slice(1));
-  const cleanUrl = () => history.replaceState(null, '', location.href.split('#')[0]);
+  // Drops the one-shot keys (#fg=, #duplicate=) while leaving #recording= alone:
+  // a recording opened beside the flowgraph outlives whatever loaded the canvas.
+  const cleanUrl = () => setUrlFragment({});
   const token = hash.get('duplicate');
   if (token) {
     try {
@@ -3878,8 +4017,34 @@ async function loadFlowgraphFromUrl(): Promise<boolean> {
   return false;
 }
 
+// #recording=<base key> opens the recording view for a bucket recording without
+// putting anything on the canvas, so it composes with the flowgraph fragment:
+// #example=x&recording=y opens both. Returns whether it opened one, which is
+// what keeps the default example off a canvas the reader did not ask for.
+async function openRecordingFromUrl(): Promise<boolean> {
+  const key = recordingHashKey();
+  if (!key) return false;
+  try {
+    const name = normalizeRecordingKey(key);
+    const recording = (await loadExampleRecordings()).find(entry => entry.name === name);
+    if (!recording) throw new Error('no recording with that name is in the bucket index');
+    openRecordingPreview(recording);
+    log(`opened the recording view of "${name}" from link`);
+    return true;
+  } catch (error) {
+    log(`could not open recording "${key}" from link: ${error}`);
+    setUrlFragment({ recording: null });
+    return false;
+  }
+}
+
 paletteReady.then(async () => {
-  if (!await loadFlowgraphFromUrl()) {
+  // In this order so a link naming both lands on the recording, and so the
+  // canvas is left empty for a link that names only one — the reader asked to
+  // see that recording, not the default example.
+  const loaded = await loadFlowgraphFromUrl();
+  const opened = await openRecordingFromUrl();
+  if (!loaded && !opened) {
     try { await loadExampleByName('digital/psk_constellation.grc'); }
     catch (error) { log(`could not load default example "digital/psk_constellation.grc": ${error}`); }
   }

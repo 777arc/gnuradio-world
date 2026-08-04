@@ -123,6 +123,15 @@ button:hover { filter:brightness(1.15); }
 .workspace-tab:hover { background:#242a3b; color:#dce3f5; filter:none; }
 .workspace-tab.active { background:#20232f; color:#e6e9f0; font-weight:600;
     box-shadow:inset 0 -2px 0 #58a6ff; }
+/* A recording tab and its close button are siblings styled as one tab: a button
+   cannot contain another button, and the × has to be clickable on its own. */
+.workspace-tab-group { display:flex; flex:none; border-right:1px solid #333a4d; }
+.workspace-tab-group .workspace-tab { border-right:0; }
+.workspace-tab-group:has(.workspace-tab.active) { background:#20232f; }
+.workspace-tab-close { flex:none; padding:0 8px 0 0; font-size:14px; line-height:1;
+    color:#7f8bab; background:transparent; border:0; border-radius:0; cursor:pointer; }
+.workspace-tab-close:hover { color:#ff9b95; background:transparent; filter:none; }
+.workspace-tab-close[hidden] { display:none; }
 #runIndicator { width:8px; height:8px; border-radius:50%; background:#3fae63;
     box-shadow:0 0 0 2px #3fae6333; opacity:0; transform:scale(.7); transition:.15s; }
 #workspace.running #runIndicator { opacity:1; transform:scale(1); animation:run-pulse 1.7s ease-in-out infinite; }
@@ -211,6 +220,18 @@ button:hover { filter:brightness(1.15); }
 .rec-item.downloaded { border-color:#35734a; }
 .rec-item.error { border-color:#8b3f48; }
 .rec-head { display:flex; align-items:flex-start; gap:8px; margin-bottom:7px; }
+/* Open the recording view without adding the recording to the flowgraph, and
+   copy a #recording= link to it. */
+.rec-view { flex:none; font-size:10px; padding:2px 7px; border-radius:999px;
+    color:#8fb6ff; background:#242a3b; border:1px solid #46507a; cursor:pointer; }
+.rec-view:hover { color:#dbe7ff; border-color:#8fb6ff; background:#2c3448; filter:none; }
+/* Faint until the card is hovered, but never invisible, matching .ex-link — it
+   is the only place the per-recording link is offered. */
+.rec-link { flex:none; font-size:11px; line-height:1; padding:2px 4px; border-radius:4px;
+    background:transparent; border:1px solid transparent; cursor:pointer;
+    opacity:.35; transition:opacity .12s; }
+.rec-item:hover .rec-link, .rec-link:focus-visible { opacity:.85; }
+.rec-link:hover { opacity:1; border-color:#46507a; background:#39415a; filter:none; }
 .rec-title { flex:1; min-width:0; font-size:13px; font-weight:600; color:#e6e9f0;
     overflow-wrap:anywhere; }
 .rec-badge { flex:none; font-size:10px; color:#8b96b5; border:1px solid #46507a;

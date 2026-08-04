@@ -34,7 +34,7 @@ assert.match(source, /function importParams\([^)]*blockId\?: string\)/,
 // ---- the default example waits for the palette ----
 // Loading a flowgraph needs the generated block schemas installed first.
 assert.match(source,
-  /paletteReady\.then\(async \(\) => \{[\s\S]{0,300}loadExampleByName\('digital\/psk_constellation\.grc'\)/,
+  /paletteReady\.then\(async \(\) => \{[\s\S]{0,600}loadExampleByName\('digital\/psk_constellation\.grc'\)/,
   'digital/psk_constellation.grc must be loaded as the default only after the block library is ready');
 
 // ---- nothing shipped in the repo uses the deprecated block ----

@@ -32,8 +32,9 @@ WebAssembly.
 - `deps/`: dependency fetch/build scripts, and any patches needed. Built
   dependencies are installed into the generated, git-ignored `sysroot/`.
 - `editor/recording/` + `editor/src/recording/`: the focused recording viewer
-  adapted from IQEngine, which gives every File Source a recording tab showing
-  the signal in a spectrogram-based interface. It is a second entry of the
+  adapted from IQEngine, which gives every File Source — and every recording
+  opened with the palette's View control or a `#recording=` link — a recording
+  tab showing the signal in a spectrogram-based interface. It is a second entry of the
   editor's own Vite build and includes only the SigMF URL/blob reader,
   spectrogram, Time/Frequency/IQ plots, settings, annotations and the metadata
   summary used here — no backend, plugins, Cyclostationary UI, Pyodide, or
@@ -69,8 +70,8 @@ node server.mjs 8090 "$PWD"
   place/connect/configure, right-click actions (cut/copy/paste, rotate,
   enable/disable, bypass), a Properties dialog, Edit ▸ Auto-Arrange Blocks (see
   below), and a Run button that hands the flowgraph `.grc` to the runner. The editor canvas and embedded Qt GUI runner
-  share tabs in the workspace, joined by one *recording tab* per File Source
-  (see below). The recording viewer is part of this same Vite build, with the
+  share tabs in the workspace, joined by one *recording tab* per File Source and
+  per recording opened on its own (see below). The recording viewer is part of this same Vite build, with the
   console remaining visible below any tab.
 - **Runner** (`runner/`): a generic C++/WASM "player" — parses the flowgraph
   `.grc`, builds blocks via a `block-id → factory` registry, runs the GNU Radio
@@ -1096,7 +1097,13 @@ reads the metadata, derives byte and sample counts, and replaces the bucket's
 `index.json`. A 09:00 UTC daily cron (4:00 AM fixed EST) provides a fallback,
 and its authenticated `POST /rebuild` endpoint performs the same job on demand.
 The editor fetches that live index with `cache: no-store`, then constructs both
-object URLs from each base key. `server.mjs`,
+object URLs from each base key. Each card in the palette offers three things: the
+card itself drops a File Source (plus an IShort To Complex for `ci16`) on the
+canvas, **View** opens the recording view alone, and 🔗 copies
+`#recording=<base key>` — the same base key the index calls `base_filename`, so a
+link is readable and survives a re-index. View and 🔗 are offered even when the
+datatype has no File Source representation, since that recording is otherwise not
+viewable here at all. `server.mjs`,
 `scripts/assemble-site.mjs`, and Cloudflare Pages never build or serve a
 recording manifest, and no recording is ever checked into this repository.
 
@@ -1118,7 +1125,9 @@ use `http://localhost:8090/`, matching that exact allowed origin.
 Every File Source with something to show gets its own workspace tab holding the
 built-in recording view for it — added when a recording is clicked in the
 palette, when an example that references one is opened, or when a file is picked
-with Properties → Browse. Each tab is an `<iframe>` on the focused viewer emitted
+with Properties → Browse. A recording can also be viewed *without* being put on
+the canvas at all, which is the one kind of tab no block owns (see "Pinned tabs"
+below). Each tab is an `<iframe>` on the focused viewer emitted
 by the editor build at `/recording/`, driven through its base64url URL route
 (`recordingViewUrl()` in `editor/src/main.ts` builds it). The rules that keep it
 working:
@@ -1128,6 +1137,25 @@ working:
   update it, and nothing about a tab reaches the `.grc`. It must stay synchronous
   and network-free: a remote tab's label comes from the `/recordings/...` path,
   not from the R2 recording index.
+- **A pinned tab is the exception**, and the only one. The Recordings palette's
+  **View** control and the `#recording=<base key>` link both open a recording
+  view for a recording nothing on the canvas refers to, so `openRecordingPreview()`
+  sets `pinned` and the sync destroys only unpinned tabs it no longer wants. Such
+  a tab carries a `×`, shown exactly while no File Source owns its recording —
+  the tab bar is `.workspace-tab-group`, a tab button plus that sibling button,
+  because a `<button>` cannot contain one. Both origins key the tab by the same
+  `/recordings/...` path `recordingSourceFor()` derives from a File Source, so
+  adding the block for a previewed recording *adopts* its tab (the `×` disappears)
+  rather than opening a second one, and deleting the block hands it back.
+- **`#recording=` composes with `#example=` rather than replacing it.** The
+  fragment names two independent things — the flowgraph on the canvas and a
+  recording open beside it — so `setUrlFragment()` rewrites one key at a time over
+  a whitelist (the one-shot `#fg=`/`#duplicate=` keys are consumed and dropped
+  before it runs), and `openRecordingFromUrl()` runs after `loadFlowgraphFromUrl()`
+  and reports separately whether it opened anything. A link naming only a
+  recording therefore leaves the canvas empty instead of loading the default
+  example. Recording keys keep their `/` literal (`encodeRecordingPath`, not
+  `URLSearchParams.toString()`) so a copied link stays readable.
 - **The iframe is created on first activation, never at sync time.** That defers
   both the viewer bundle (later tabs hit the HTTP cache) and the recording's
   samples. Once created it is kept, so revisiting a tab refetches nothing.

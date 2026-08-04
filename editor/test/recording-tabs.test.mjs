@@ -39,10 +39,54 @@ assert.match(sourceFor, /if \(!savedPath\.startsWith\('\/recordings\/'\)\) retur
 assert.match(sourceFor, /replace\(\/\\\.sigmf-data\$\/, ''\)/,
   "a remote tab is labelled from its path, so drawing it needs no manifest fetch");
 
+// ---- ...except a pinned tab, which no block on the canvas owns --------------
+// The Recordings palette's View control and the #recording= link both open a
+// recording view with nothing on the canvas behind it. Such a tab has to survive
+// the sync that rebuilds every other one, and be closable by hand instead.
+assert.match(source, /if \(!wanted\.has\(tab\.source\.key\) && !tab\.pinned\) destroyRecordingTab\(tab\)/,
+  'only a tab the canvas owns is destroyed when its File Source goes away');
+assert.match(source, /tab\.close\.hidden = !tab\.pinned \|\| wanted\.has\(tab\.source\.key\)/,
+  'a tab is closable exactly while no File Source owns its recording');
+
+const preview = between('function openRecordingPreview', '\n// A local file is a bare stream');
+assert.match(preview, /const path = bindRemoteRecording\(recording\);[\s\S]*?recordingTabs\.get\(path\)/,
+  'a preview keys its tab by the same /recordings/ path a File Source would, so it is never duplicated');
+assert.match(preview, /tab\.pinned = true;/, 'a previewed recording survives syncRecordingTabs()');
+assert.match(preview, /setUrlFragment\(\{ recording: normalizeRecordingKey\(name\) \}\)/,
+  'viewing a recording points the address bar at it, as loading an example does');
+
+const close = between('function closeRecordingTab', '\n// Called from render()');
+assert.match(close, /recordingSources\(\)\.some\(source => source\.key === tab\.source\.key\)/,
+  'closing a tab a File Source has meanwhile claimed unpins it rather than destroying it');
+assert.match(source, /function recordingKeyOf[\s\S]*?tab\.source\.kind === 'remote' \? tab\.source\.name : null/,
+  'a locally picked file exists only for this session, so it is not linkable');
+
+// A tab button cannot contain the close button: nesting one button inside
+// another is invalid, and the × has to be clickable and hidable on its own.
+assert.match(source, /class="workspace-tab-group"|className = 'workspace-tab-group'/,
+  'a recording tab is a group of its button and a sibling close button');
+assert.match(source, /const tabContainer = \(entry: WorkspaceTabEntry\): HTMLElement =>/,
+  'the tab bar orders and removes containers, so a grouped tab moves with its close button');
+assert.match(source, /if \(event\.key === 'Delete' \|\| event\.key === 'Backspace'\)[\s\S]*?closeRecordingTab\(tab\)/,
+  'the close button is out of the tab order, so Delete on the focused tab closes it');
+
+// ---- deep link: #recording=<base key>, alongside #example= ------------------
+assert.match(source, /const FRAGMENT_KEYS = \['example', 'recording'\] as const/,
+  'the fragment names the flowgraph and the open recording independently');
+const fragment = between('function setUrlFragment', '\nfunction setExampleHash');
+assert.match(fragment, /const value = key in patch \? patch\[key\] : current\.get\(key\)/,
+  'setting one fragment key preserves the other');
+assert.match(fragment, /encodeRecordingPath\(value\) : encodeURIComponent\(value\)/,
+  'a recording key keeps its readable separators, so a copied link stays legible');
+assert.match(source, /async function openRecordingFromUrl[\s\S]*?loadExampleRecordings\(\)\)\.find\(entry => entry\.name === name\)/,
+  '#recording= resolves against the live bucket index');
+assert.match(source, /const loaded = await loadFlowgraphFromUrl\(\);\s*\n\s*const opened = await openRecordingFromUrl\(\);\s*\n\s*if \(!loaded && !opened\)/,
+  'a link naming only a recording leaves the canvas empty instead of loading the default example');
+
 // ---- nothing is fetched until a recording tab is opened ---------------------
 // Comments explain the rule; the code has to follow it.
 const code = text => text.replace(/^\s*\/\/.*$/gm, '');
-const sync = between('function syncRecordingTabs()', '\n// A local file is a bare stream');
+const sync = between('function syncRecordingTabs()', '\n// Opens the recording view');
 for (const forbidden of ['fetch(', 'iframe', 'createObjectURL', 'await']) {
   assert.ok(!code(sync).includes(forbidden),
     `syncRecordingTabs() must stay synchronous and offline (found "${forbidden}")`);
@@ -120,14 +164,18 @@ assert.match(datatypes, /blocks_interleaved_short_to_complex: \{ from: 'short', 
   'a short source feeding IShort To Complex is interleaved complex, as the recordings tab builds it');
 
 // ---- teardown ---------------------------------------------------------------
-const destroy = between('function destroyRecordingTab', '\n// Called from render()');
+const destroy = between('function destroyRecordingTab', '\n// The linkable form');
 assert.match(destroy, /for \(const url of tab\.blobUrls\) URL\.revokeObjectURL\(url\)/,
   'a removed tab releases the blob URLs holding its local file');
 assert.match(destroy, /tab\.entry\.panel\.remove\(\)/,
   'removing the panel drops the iframe, and with it the viewer and its fetches');
+assert.match(destroy, /recordingHashKey\(\) === recordingKeyOf\(tab\)[\s\S]*?setUrlFragment\(\{ recording: null \}\)/,
+  'the URL must stop naming a recording whose tab is gone');
+assert.match(destroy, /if \(activeWorkspaceTab === tab\.entry\.id\) activateWorkspaceTab\('editor'\)/,
+  'closing the tab in view falls back to the Editor');
 assert.match(sync, /if \(!workspaceTabs\.some\(entry => entry\.id === activeWorkspaceTab\)\)\s*\n?\s*activateWorkspaceTab\('editor'\)/,
   'deleting the File Source of the tab in view falls back to the Editor');
-assert.match(sync, /Only the buttons are reordered/,
+assert.match(sync, /Only the tab buttons are reordered/,
   'panels are never re-inserted: moving an iframe in the DOM reloads the document inside it');
 
 // ---- presentation -----------------------------------------------------------
