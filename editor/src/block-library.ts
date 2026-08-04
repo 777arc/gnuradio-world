@@ -30,6 +30,34 @@ export function multiplicity(value: any, defaults: Record<string, any>): number 
   return Number.isFinite(number) && number >= 1 ? Math.trunc(number) : 1;
 }
 
+// A port's `optional` flag, as native GRC evaluates it: `EvaluatedFlag`
+// (grc/core/utils/descriptors/evaluated.py) is a Python expression evaluated
+// against the block's parameters whose default — used when it is absent, when
+// it fails to evaluate, or when it evaluates to something that is not a bool or
+// int — is **False**, i.e. the port needs a connection. Taking the raw `${ ... }`
+// text as truthy instead exempts every port whose flag is written as a template,
+// which is how an unconnected QT GUI sink (`optional: ${ (True if
+// type.startswith('msg') else False) }`) used to raise nothing here while native
+// reports "Port is not connected."
+export function portOptional(value: any, params: Record<string, any>): boolean {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value !== 0;
+  const text = String(value ?? '').trim();
+  if (!text.startsWith('${')) return pythonTruth(text);
+  const negated = text.match(/^\$\{\s*not\s+([A-Za-z_]\w*)\s*\}$/);
+  if (negated) return !pythonTruth(params[negated[1]]);
+  const direct = text.match(/^\$\{\s*([A-Za-z_]\w*)\s*\}$/);
+  if (direct) return pythonTruth(params[direct[1]]);
+  return false;                                  // native's default for an unevaluable flag
+}
+
+function pythonTruth(value: any): boolean {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value !== 0;
+  const text = String(value ?? '').trim();
+  return text !== '' && text !== 'False' && text !== 'false' && text !== '0';
+}
+
 // An option label belongs to an option *value*, not to a list position. A
 // hand-written schema is free to order or trim its options differently from the
 // block's own yaml — GRC's sinks do not even agree with each other, listing the
@@ -106,7 +134,7 @@ export function installGeneratedBlocks(blocks: any[]) {
               /^\$\{\s*([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)?)\s*\}$/, '$$$1'),
             domain, id, name: count > 1 ? `${baseName}${i}` : baseName,
             streamIndex: domain === 'stream' ? streamIndex : -1,
-            optional: !!port.optional,
+            optional: portOptional(port.optional, defaults),
           });
           if (domain === 'stream') ++streamIndex;
         }
@@ -120,7 +148,9 @@ export function installGeneratedBlocks(blocks: any[]) {
       id: String(port.id || ''),
       label: String(port.label || ''),
       multiplicity: String(port.multiplicity || '1'),
-      optional: !!port.optional,
+      // Kept raw: unlike the counts above, this one is resolved per *instance*,
+      // against that block's own parameters, when its ports are laid out.
+      optional: typeof port.optional === 'string' ? port.optional : !!port.optional,
       hide: port.hide ?? false,
     }));
     const inputs = expandPorts(block.inputs, 'in'), outputs = expandPorts(block.outputs, 'out');

@@ -20,7 +20,9 @@ export interface PortTemplate {
   id: string;
   label: string;
   multiplicity: string;
-  optional: boolean;
+  // Native's EvaluatedFlag, so a `${ ... }` expression over the block's own
+  // parameters is legal here and is resolved per instance (see portOptional).
+  optional: string | boolean;
   hide: string | boolean;
 }
 export interface ResolvedPort {

@@ -128,7 +128,8 @@ assert.deepEqual(validateFlowgraph([source, passthrough({ bypassed: true }), dra
 // matters: native GRC marks its `im` output optional, and without this the
 // editor would demand a connection the desktop never asks for.
 {
-  const { installGeneratedBlocks, RUNNABLE } = await bundleModule('./_library-entry.ts');
+  const { installGeneratedBlocks, RUNNABLE, portOptional } =
+    await bundleModule('./_library-entry.ts');
   const library = JSON.parse(await readFile(
     new URL('../public/blocks.json', import.meta.url), 'utf8'));
   installGeneratedBlocks(library.blocks || []);
@@ -137,6 +138,24 @@ assert.deepEqual(validateFlowgraph([source, passthrough({ bypassed: true }), dra
   assert.deepEqual(RUNNABLE.blocks_complex_to_float.inOptional, [false]);
   assert.deepEqual(RUNNABLE.analog_sig_source_x.outOptional, [false],
     'a plain source output stays required');
+
+  // The flag is native's EvaluatedFlag, not a string: a `${ ... }` expression is
+  // evaluated against the block's parameters and defaults to False — required —
+  // when it cannot be. Reading the template text as truthy is what used to
+  // exempt every QT GUI sink input from the connectivity rule above.
+  assert.equal(portOptional(undefined, {}), false);
+  assert.equal(portOptional(true, {}), true);
+  assert.equal(portOptional(0, {}), false, 'the yaml `optional: 0` spelling is False');
+  assert.equal(portOptional(1, {}), true);
+  assert.equal(portOptional('${ opt }', { opt: 'True' }), true);
+  assert.equal(portOptional('${ opt }', { opt: 'False' }), false);
+  assert.equal(portOptional('${ not showports }', { showports: 'True' }), false);
+  assert.equal(portOptional("${ (True if type.startswith('msg') else False) }", { type: 'complex' }),
+    false, 'an expression this evaluator cannot read leaves the port required, as native does');
+  for (const id of ['qtgui_time_sink_x', 'qtgui_freq_sink_x',
+                    'qtgui_const_sink_x', 'qtgui_waterfall_sink_x'])
+    assert.deepEqual(RUNNABLE[id].inOptional, [false],
+      `${id} must require its stream input, like native GRC`);
 }
 
 // Keep a small integration contract for presentation and run wiring. Business

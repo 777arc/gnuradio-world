@@ -54,7 +54,7 @@ import {
   normalizeExamplePath,
   type ExampleDirectory,
 } from './example-catalog';
-import { installGeneratedBlocks, numericOrExpression } from './block-library';
+import { installGeneratedBlocks, numericOrExpression, portOptional } from './block-library';
 import { showDebugInfo } from './debug-panel';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
@@ -257,7 +257,7 @@ function resolvedPorts(inst: Inst, kind: 'in' | 'out'): ResolvedPort[] | null {
         id: domain === 'stream' ? String(currentStreamIndex) : String(port.id || baseName),
         name: count > 1 ? `${baseName}${i}` : baseName,
         streamIndex: currentStreamIndex,
-        optional: port.optional,
+        optional: portOptional(port.optional, inst.params),
         hidden,
       });
       if (domain === 'stream') ++streamIndex;
