@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
+import { readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { exampleFiles } from './example-files.mjs';
+import { mainSource as main } from './editor-contract-source.mjs';
 
 // grc.ts is TypeScript and pulls in js-yaml, so bundle it to an importable mjs.
 const out = join(tmpdir(), `grc-test-${process.pid}.mjs`);
@@ -76,4 +79,35 @@ assert.deepEqual(back.blocks[0].states.coordinate, [50, 70], 'coordinate round-t
 assert.deepEqual(back.connections[0], ['b1', '0', 'b2', '0'], 'connections round-trip');
 assert.equal(dumpGrc(back), text, 'dump -> parse -> dump is a fixed point');
 
-console.log('checked .grc round-trip and byte-exact formatting');
+// ---- the flowgraph id is derived from the Options Title ----
+// The Options block has no ID of its own, so nothing carries a loaded one into
+// the model; `id` is regenerated from the Title on the way out. It ends up as a
+// class and file name in native's generated Python, so whatever the Title is, it
+// has to come out matching the rule native validates ids against.
+assert.match(main, /id: OPTIONS_ID, name: OPTIONS_ID/,
+  'the Options block must not hold a flowgraph id of its own');
+assert.match(main, /const optionParams: Record<string, GrcScalar> = \{ generate_options: 'qt_gui', id: flowgraphId\(\) \}/,
+  'the saved .grc must carry the derived flowgraph id');
+const derivedId = title => {
+  const id = String(title || '').trim().replace(/[^A-Za-z0-9_]/g, '_');
+  if (!id) return 'default';
+  return /^[A-Za-z]/.test(id) ? id : `fg_${id}`;
+};
+assert.match(main,
+  /const id = String\(opt\?\.params\.title \|\| ''\)\.trim\(\)\.replace\(\/\[\^A-Za-z0-9_\]\/g, '_'\);\s*if \(!id\) return DEFAULT_FLOWGRAPH_ID;\s*return \/\^\[A-Za-z\]\/\.test\(id\) \? id : `fg_\$\{id\}`;/,
+  'this test re-implements flowgraphId(); keep the two in step');
+assert.equal(derivedId('RDS Receiver'), 'RDS_Receiver', 'spaces become underscores');
+assert.equal(derivedId('AX.25 deframer (US01)'), 'AX_25_deframer__US01_');
+assert.equal(derivedId('DroneID — Mavic 3'), 'DroneID___Mavic_3', 'non-ASCII becomes underscores too');
+assert.equal(derivedId(''), 'default', 'an untitled flowgraph gets the native default id');
+assert.equal(derivedId('   '), 'default');
+assert.equal(derivedId('8PSK Demo'), 'fg_8PSK_Demo', 'a leading digit is not a legal id');
+assert.equal(derivedId('_private'), 'fg__private', 'nor is a leading underscore');
+// Whatever a title throws at it, the result has to be a usable identifier.
+for (const file of exampleFiles) {
+  const title = parseGrc(await readFile(
+    new URL(`../../example_flowgraphs/${file}`, import.meta.url), 'utf8')).options?.parameters?.title;
+  assert.match(derivedId(title), /^[A-Za-z]\w*$/, `${file} title yields an unusable flowgraph id`);
+}
+
+console.log(`checked .grc round-trip, byte-exact formatting, and ${exampleFiles.length} derived flowgraph ids`);

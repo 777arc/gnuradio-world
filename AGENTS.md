@@ -125,6 +125,46 @@ the registry constructs the Qt6 CPU spectrum/waterfall hierarchy instead.
 | `editor/recording/` | HTML shell for the built-in recording view, emitted at `/recording/` by the normal editor build |
 | `editor/src/recording/` | Focused IQEngine-derived SigMF URL/blob reader, bounded range loader, FFT/spectrogram DSP, plots and recording-view UI. Its `features/ui/canvas-plot/` is repo-owned, not IQEngine's |
 
+### Block IDs
+
+A block's instance name is its GRC `id`, and both halves of how it behaves come
+from native GRC:
+
+- **Generated, not authored.** `uniqueBlockName()` in `main.ts` is native's
+  `_get_unique_id` (`grc/gui_qt/components/canvas/flowgraph.py`): the first free
+  `<base>_<n>` counting from 0, where the base is the block key when placing a
+  block (`analog_sig_source_x_0`) and the name being copied on paste or duplicate
+  (`analog_sig_source_x_0_0`). Deriving it from the names in use rather than from
+  a running counter is the point — undo, paste and a loaded flowgraph all feed
+  the same set, so a collision cannot arise.
+- **Hidden for most blocks.** Native builds the implicit `id` parameter as
+  `hide: none` when the block's yaml carries the `show_id` flag and `hide: all`
+  otherwise (`grc/core/blocks/_build.py` `build_params`), so only Variable, the
+  QT GUI controls, Probe Signal and the ~60 other flagged blocks — the ones whose
+  ID is what another block references — put an ID row on the block face and an ID
+  field in the Properties dialog. `blockFlags()` in `block-library.ts` carries the
+  flag out of `blocks.json` into `RunnableDef.showId`; the hand-written `variable`
+  schema sets it directly, because the runner inlines variables and so
+  `blocks.json` marks that block unsupported and the merge skips it. View ▸ Show
+  All Block IDs is native's `grc/show_block_ids` override and forces both on for
+  every block.
+- **Validated as an identifier.** `^[A-Za-z]\w*$` plus uniqueness among enabled
+  blocks, as in native's `validate_block_id` (`grc/core/params/dtypes.py`) —
+  every ID becomes a Python identifier in generated code.
+
+The **Options** block is the one deliberate divergence from native. Upstream it
+holds the *flowgraph* id — always visible, serialized under `parameters:` rather
+than as the block's `name:` — because native generates a top block class and
+`.py` file from it. Nothing here does: the runner drops the options block while
+lowering, and the only reader of that id in this repo is the Example Flowgraphs
+palette, as a label fallback for a flowgraph with no title. So the block exposes
+no ID at all (`blockIdVisible()` returns false for it, override included), and
+`flowgraphId()` derives one from the Title on the way out — non-identifier
+characters to underscores, an `fg_` prefix when the result would not start with a
+letter, `default` when the Title is empty. That keeps the `.grc` valid for desktop
+GRC without an extra field to maintain. `editor/test/grc.test.mjs` re-implements
+the derivation and asserts every example's title still yields a legal id.
+
 ### Auto-arrange (Edit ▸ Auto-Arrange Blocks)
 
 Rewrites every block coordinate so the flowgraph reads as a left-to-right

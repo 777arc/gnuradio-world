@@ -30,9 +30,19 @@ export function multiplicity(value: any, defaults: Record<string, any>): number 
   return Number.isFinite(number) && number >= 1 ? Math.trunc(number) : 1;
 }
 
+// GRC yaml writes `flags` as either a list or a comma/space separated string
+// (grc/core/blocks/_flags.py accepts both).
+export function blockFlags(flags: any): string[] {
+  if (Array.isArray(flags)) return flags.map(f => String(f).trim());
+  return String(flags ?? '').replace(/,/g, ' ').split(/\s+/).filter(Boolean);
+}
+
 export function installGeneratedBlocks(blocks: any[]) {
   for (const block of blocks) {
     if (!block.runnable) continue;
+    // `show_id` is what makes native GRC expose a block's instance ID as a
+    // parameter; every other block hides it (`hide: all`).
+    const showId = blockFlags(block.flags).includes('show_id');
     const documentation = String(block.documentation || '').trim();
     const apiDocumentation = String(block.api_documentation || '').trim();
     const wikiUrl = String(block.wiki_url || '').trim();
@@ -113,6 +123,7 @@ export function installGeneratedBlocks(blocks: any[]) {
       existing.documentation = documentation;
       existing.apiDocumentation = apiDocumentation;
       existing.wikiUrl = wikiUrl;
+      existing.showId = existing.showId || showId;
       const streamInputs = inputs.filter(p => p.domain === 'stream');
       const streamOutputs = outputs.filter(p => p.domain === 'stream');
       existing.inLabels = streamInputs.slice(0, existing.inputs).map(p => p.name);
@@ -129,6 +140,7 @@ export function installGeneratedBlocks(blocks: any[]) {
     }
     RUNNABLE[block.id] = {
       label: String(block.label || block.id), params, documentation, apiDocumentation, wikiUrl,
+      showId,
       inputs: inputs.length, outputs: outputs.length,
       inTypes: inputs.map(p => p.dtype), outTypes: outputs.map(p => p.dtype),
       inDomains: inputs.map(p => p.domain), outDomains: outputs.map(p => p.domain),

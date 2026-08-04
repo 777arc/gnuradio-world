@@ -38,6 +38,11 @@ export interface ResolvedPort {
 export interface RunnableDef {
   label: string; inputs: number; outputs: number; params: ParamDef[];
   documentation?: string; apiDocumentation?: string; wikiUrl?: string;
+  // Native GRC's implicit `id` parameter is `hide: all` unless the block's yaml
+  // carries the `show_id` flag (Variable, QT GUI Range, Probe Signal, …), in
+  // which case it is `hide: none` and appears both on the block face and in the
+  // Properties dialog. See grc/core/blocks/_build.py `build_params`.
+  showId?: boolean;
   dtype?: string; inTypes?: string[]; outTypes?: string[];
   inDomains?: string[]; outDomains?: string[]; inIds?: string[]; outIds?: string[];
   inLabels?: string[]; outLabels?: string[];
@@ -89,6 +94,9 @@ export const RUNNABLE: Record<string, RunnableDef> = {
   // no ports and becomes the top-level `options:` block in the saved .grc.
   // Title, Author, and Description are an intentional exception to blank-value
   // hiding: their labels remain visible on the Options block even when empty.
+  // The Options block has no ID of its own here: the flowgraph id it writes to
+  // the .grc is derived from the Title (see flowgraphId()), so there is nothing
+  // to show or edit and `showId` stays off.
   options: {
     label: 'Options', inputs: 0, outputs: 0, params: [
       { id: 'title', label: 'Title', type: 'string', def: '' },
@@ -203,8 +211,11 @@ export const RUNNABLE: Record<string, RunnableDef> = {
   blocks_float_to_complex: { label: 'Float to Complex', inputs: 2, outputs: 1, params: [],
     inTypes: ['float', 'float'], outTypes: ['complex'] },
   // ---- variables / controls ----
+  // `variable` carries GRC's `show_id` flag, but it is not in the runner's
+  // support manifest (the runner inlines variables rather than constructing
+  // them), so installGeneratedBlocks skips it and the flag is set here instead.
   variable: {
-    label: 'Variable', inputs: 0, outputs: 0, params: [
+    label: 'Variable', inputs: 0, outputs: 0, showId: true, params: [
       { id: 'value', label: 'Value', type: 'number', def: '0' },
     ],
   },

@@ -81,7 +81,21 @@ let hideDisabled = false;
 // Unlike desktop GRC's historical preference default, the WASM editor starts
 // with snapping enabled so newly opened sessions get aligned movement.
 let snapToGrid = true;
+// GRC's View ▸ Show All Block IDs (`grc/show_block_ids`): off by default, and
+// when on it forces the otherwise hidden `id` parameter onto every block face
+// and into every Properties dialog.
+let showAllBlockIds = false;
 let paletteSearch: HTMLInputElement | null = null;
+
+// Whether this block exposes its instance ID, as native GRC decides it: the
+// block's `show_id` flag, or the global override. The Options block is the one
+// exception to native, which shows the flowgraph id there: this editor derives
+// that id from the Title instead, so the block has no ID to show or edit and
+// the override must not conjure one.
+function blockIdVisible(inst: Inst): boolean {
+  if (inst.id === OPTIONS_ID) return false;
+  return showAllBlockIds || !!RUNNABLE[inst.id]?.showId;
+}
 
 // Blocks that name a file the browser has to open for itself, and the parameter
 // holding that name. Each gets a Browse control in its Properties dialog, and
@@ -510,9 +524,11 @@ function geom(inst: Inst) {
         !(p.hideIfEmpty && !String(inst.params[p.id] ?? '').trim());
     })
     .map(p => ({ id: p.id, l: p.label + ': ', v: paramDisplay(p, inst.params[p.id]) }));
-  // A Variable's identifier is its block instance name rather than a regular
-  // parameter, but it is part of the block's meaning and must stay visible.
-  if (inst.id === 'variable')
+  // A block's identifier is its instance name rather than a regular parameter.
+  // Native GRC only draws it for the `show_id` blocks — Variable, QT GUI Range
+  // and friends, whose ID *is* the name other blocks reference — or when the
+  // View ▸ Show All Block IDs toggle is on.
+  if (blockIdVisible(inst))
     rows.unshift({ id: 'id', l: 'ID: ', v: truncateValue('ID', inst.name) });
   if (rows.length > MAX_FACE_ROWS) {
     const hidden = rows.length - (MAX_FACE_ROWS - 1);
@@ -600,6 +616,19 @@ function wireShape(ea: Edge, eb: Edge, x1: number, y1: number, x2: number, y2: n
   return { k: Math.max(CTRL_FLAT, Math.min(CTRL_MAX, Math.abs(span) * CTRL_FRAC)), bowA: bow, bowB: -bow };
 }
 
+// Block instance names follow native GRC's `_get_unique_id`
+// (grc/gui_qt/components/canvas/flowgraph.py): the first free `<base>_<n>`
+// counting from 0, where the base is the block key for a newly placed block and
+// the name being copied for a paste or duplicate. Deriving it from the names in
+// use rather than from a running counter is what makes a collision impossible —
+// undo, paste and a loaded flowgraph all feed the same set.
+function uniqueBlockName(base: string, taken: Set<string> = new Set(insts.map(i => i.name))): string {
+  for (let n = 0; ; ++n) {
+    const candidate = `${base}_${n}`;
+    if (!taken.has(candidate)) return candidate;
+  }
+}
+
 function addBlock(id: string, x = 60 + (counter % 5) * 30, y = 60 + (counter % 7) * 24,
                   paramOverrides: Record<string, any> = {}, record = true): Inst | null {
   const d = RUNNABLE[id]; if (!d) { log('block "' + id + '" is not runnable yet'); return null; }
@@ -613,7 +642,7 @@ function addBlock(id: string, x = 60 + (counter % 5) * 30, y = 60 + (counter % 7
   Object.assign(params, paramOverrides);
   const position = constrainBlockPosition(x, y, snapToGrid);
   const inst: Inst = {
-    uid, id, name: id.replace(/^.*_/, '') + counter,
+    uid, id, name: uniqueBlockName(id),
     x: position.x, y: position.y, params,
     enabled: true, rotation: 0, bypassed: false,
   };
@@ -642,7 +671,7 @@ function duplicateBlock(uid: string) {
   if (s.id === OPTIONS_ID) { log('only one Options block is allowed per flowgraph'); return; }
   const nu = 'b' + (++counter);
   const position = constrainBlockPosition(s.x + 24, s.y + 24, snapToGrid);
-  insts.push({ uid: nu, id: s.id, name: s.id.replace(/^.*_/, '') + counter,
+  insts.push({ uid: nu, id: s.id, name: uniqueBlockName(s.name),
     x: position.x, y: position.y, params: { ...s.params }, enabled: s.enabled,
     rotation: s.rotation, bypassed: s.bypassed });
   select(nu); recordHistory();
@@ -665,12 +694,17 @@ function pasteBlock(x = 80, y = 80) {
   const minX = Math.min(...clipboard.blocks.map(b => b.x));
   const minY = Math.min(...clipboard.blocks.map(b => b.y));
   const remap = new Map<string, string>();
+  // As in native GRC, a pasted block keeps its own ID when nothing else holds it
+  // and is renamed off that ID otherwise, so `x_0` pasted beside itself becomes
+  // `x_0_0`. The set grows as blocks land so one paste cannot collide with itself.
+  const taken = new Set(insts.map(i => i.name));
   const added: Inst[] = clipboard.blocks.map(source => {
     const uid = 'b' + (++counter); remap.set(source.uid, uid);
     const position = constrainBlockPosition(
       x + source.x - minX, y + source.y - minY, snapToGrid);
-    return { ...clone(source), uid, name: source.id.replace(/^.*_/, '') + counter,
-      x: position.x, y: position.y };
+    const name = taken.has(source.name) ? uniqueBlockName(source.name, taken) : source.name;
+    taken.add(name);
+    return { ...clone(source), uid, name, x: position.x, y: position.y };
   });
   insts.push(...added);
   conns.push(...clipboard.connections.map(c => ({ ...c, from: remap.get(c.from)!, to: remap.get(c.to)! })));
@@ -781,10 +815,14 @@ function setZoom(next: number) {
 // ---- Options block: the singleton flowgraph-metadata block (GRC-style) ----
 // Every flowgraph has exactly one, holding title/author/copyright/description.
 const OPTIONS_ID = 'options';
+// The id a flowgraph with no Title gets, matching native's default_flow_graph.grc.
+const DEFAULT_FLOWGRAPH_ID = 'default';
 function makeOptionsInst(): Inst {
   const params: Record<string, any> = {};
   RUNNABLE[OPTIONS_ID].params.forEach(p => params[p.id] = p.def);
-  return { uid: 'b' + (++counter), id: OPTIONS_ID, name: 'options',
+  // Its instance name is internal — the .grc gets the derived flowgraph id, and
+  // nothing displays this — but it still has to be a legal, unique block ID.
+  return { uid: 'b' + (++counter), id: OPTIONS_ID, name: OPTIONS_ID,
     x: 10, y: 10, params, enabled: true, rotation: 0, bypassed: false };
 }
 // Guarantee the current flowgraph has an Options block (loaded/legacy files may lack one).
@@ -848,12 +886,17 @@ function grcParams(params: Record<string, any>): Record<string, GrcScalar> {
 function grcStates(inst: Inst): Record<string, any> {
   return { coordinate: [Math.round(inst.x), Math.round(inst.y)], rotation: inst.rotation, state: grcState(inst) };
 }
-// Derive a valid Python-identifier flowgraph id from the Options title.
+// Derive the flowgraph id from the Options Title. Native generates a top block
+// class and .py file from this id, so it has to satisfy the same rule native
+// validates ids against (`^[A-Za-z]\w*$`, grc/core/params/dtypes.py): every
+// character that is not a letter, digit or underscore — spaces above all —
+// becomes an underscore, and a title that does not begin with a letter gets a
+// prefix, since a leading digit or underscore is not a legal id there.
 function flowgraphId(): string {
   const opt = insts.find(i => i.id === OPTIONS_ID);
-  const raw = String(opt?.params.title || '').trim();
-  const id = raw.replace(/[^A-Za-z0-9_]/g, '_').replace(/^(?=[0-9])/, '_');
-  return id || 'default';
+  const id = String(opt?.params.title || '').trim().replace(/[^A-Za-z0-9_]/g, '_');
+  if (!id) return DEFAULT_FLOWGRAPH_ID;
+  return /^[A-Za-z]/.test(id) ? id : `fg_${id}`;
 }
 function grcConnectionKey(c: GrcScalar[] | Record<string, GrcScalar>): string {
   const parts = Array.isArray(c)
@@ -1045,7 +1088,9 @@ function loadFlowgraph(doc: any) {
   const optRaw = doc.options || {};
   const optFlags = stateToFlags(optRaw.states?.state);
   const optCoord = Array.isArray(optRaw.states?.coordinate) ? optRaw.states.coordinate : [10, 10];
-  insts.push({ uid: 'b' + (++counter), id: OPTIONS_ID, name: 'options',
+  // The file's `id` is not carried into the model: it is derived from the Title
+  // again on save, so there is nowhere for a loaded one to live.
+  insts.push({ uid: 'b' + (++counter), id: OPTIONS_ID, name: OPTIONS_ID,
     x: Number(optCoord[0]) || 10, y: Number(optCoord[1]) || 10,
     params: importParams(RUNNABLE[OPTIONS_ID], optRaw.parameters || {}),
     enabled: optFlags.enabled, rotation: Number(optRaw.states?.rotation) || 0, bypassed: optFlags.bypassed });
@@ -1509,9 +1554,14 @@ function showPropsDialog(inst: Inst) {
     controls.set(field, { node: validationNode, error });
     return node;
   };
-  const nameI = addField('General', 'ID', document.createElement('input'), NAME_FIELD) as HTMLInputElement;
-  nameI.value = tmp.name;
-  nameI.oninput = () => { tmp.name = nameI.value.replace(/\s+/g, '_'); refreshValidation(); };
+  // Native GRC builds the `id` parameter as `hide: all` for every block without
+  // the `show_id` flag, so the dialog has no ID field for them; the block ID is
+  // generated and left alone unless View ▸ Show All Block IDs is on.
+  if (blockIdVisible(inst)) {
+    const nameI = addField('General', 'ID', document.createElement('input'), NAME_FIELD) as HTMLInputElement;
+    nameI.value = tmp.name;
+    nameI.oninput = () => { tmp.name = nameI.value.replace(/\s+/g, '_'); refreshValidation(); };
+  }
   for (const p of d.params) {
     if (p.type === 'enum') {
       const s = document.createElement('select');
@@ -1611,7 +1661,10 @@ function showPropsDialog(inst: Inst) {
   // Unlike the informational dialogs, this one holds unsaved edits: a stray click
   // on the backdrop must not discard them. Only OK/Cancel/× close it.
   refreshValidation();
-  nameI.focus(); nameI.select();
+  // The ID field when the block has one, otherwise its first real parameter.
+  const first = panels.get('General')!.querySelector('input, select, textarea') as HTMLElement | null;
+  first?.focus();
+  if (first instanceof HTMLInputElement) first.select();
 }
 
 function select(uid: string | null, additive = false) {
@@ -3346,6 +3399,10 @@ function toggleConsole() { el('workspace').classList.toggle('console-hidden'); }
 function toggleScrollLock() { autoScrollLog = !autoScrollLog; log(`console autoscroll ${autoScrollLog ? 'on' : 'off'}`); }
 function clearConsole() { el('log').textContent = ''; }
 function toggleHideDisabled() { hideDisabled = !hideDisabled; render(); }
+function toggleShowAllBlockIds() {
+  showAllBlockIds = !showAllBlockIds;
+  render();
+}
 function toggleSnapToGrid() {
   snapToGrid = !snapToGrid;
   log(`snap to grid ${snapToGrid ? 'on' : 'off'}`);
@@ -3570,7 +3627,7 @@ const MENUS: TopMenu[] = [
     { label: 'Auto-Hide Port Labels', reason: R_TODO },
     { label: 'Snap to Grid', run: toggleSnapToGrid, check: () => snapToGrid },
     { label: 'Show Block Comments', reason: R_TODO },
-    { label: 'Show All Block IDs', reason: R_TODO },
+    { label: 'Show All Block IDs', run: toggleShowAllBlockIds, check: () => showAllBlockIds },
     { label: 'Show Properties Field Colors', reason: R_TODO },
     'sep',
     { label: 'Zoom In', key: 'Ctrl++', run: () => setZoom(zoom * 1.15) },

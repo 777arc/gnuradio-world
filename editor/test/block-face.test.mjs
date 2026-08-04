@@ -13,8 +13,26 @@ assert.match(source, /hide: p\.hide \? String\(p\.hide\) : 'none'/,
 assert.match(source, /const hide = parameterHideValue\(p\.hide, inst\.params\);[\s\S]*?hide !== 'part' && hide !== 'all'/,
   'literal and dynamically evaluated part/all parameters must stay off the block face');
 assert.match(source,
-  /if \(inst\.id === 'variable'\)\s*rows\.unshift\({ id: 'id', l: 'ID: ', v: truncateValue\('ID', inst\.name\) }\)/,
-  'Variable blocks must show their instance ID on the block face');
+  /if \(blockIdVisible\(inst\)\)\s*rows\.unshift\({ id: 'id', l: 'ID: ', v: truncateValue\('ID', inst\.name\) }\)/,
+  'blocks that expose their ID must show it on the block face');
+assert.match(source,
+  /function blockIdVisible\(inst: Inst\): boolean {\s*if \(inst\.id === OPTIONS_ID\) return false;\s*return showAllBlockIds \|\| !!RUNNABLE\[inst\.id\]\?\.showId;/,
+  "ID visibility must follow native GRC's show_id flag, with the View toggle as the override, " +
+  'and the Options block — whose flowgraph id is derived from its Title — must expose none');
+// Native GRC builds the id param `hide: none` for show_id blocks and `hide: all`
+// for every other one (grc/core/blocks/_build.py). Variable is the block the
+// editor hand-writes, so it carries the flag itself; the rest come from the yaml.
+assert.match(source, /label: 'Variable', inputs: 0, outputs: 0, showId: true/,
+  "the hand-written Variable schema must keep native GRC's show_id flag");
+assert.match(source, /const showId = blockFlags\(block\.flags\)\.includes\('show_id'\)/,
+  'generated blocks must take ID visibility from their native flags');
+{
+  const flagged = (library.blocks || [])
+    .filter(block => block.runnable && (block.flags || []).includes('show_id'))
+    .map(block => block.id);
+  assert.ok(flagged.includes('variable_qtgui_range') && flagged.includes('blocks_probe_signal_x'),
+    'the show_id flag must survive into blocks.json for the blocks whose ID is referenced elsewhere');
+}
 assert.match(source,
   /const visible = visiblePortIndices\(inst, kind\);[\s\S]*?const slot = Math\.max\(0, visible\.indexOf\(i\)\);[\s\S]*?const vSlot = centeredPortSlot\(h, count, slot\)/,
   'each input/output port group must be centered vertically on the block');

@@ -76,6 +76,12 @@ export function validateFlowgraph(
     if (!def) { add(block, BLOCK_FIELD, `Unknown block type "${block.id}".`); continue; }
     const name = String(block.name || '').trim();
     if (!name) add(block, NAME_FIELD, 'Block ID is required.');
+    // Native's `validate_block_id` (grc/core/params/dtypes.py): an ID becomes a
+    // Python identifier in generated code — and for the Options block, the whole
+    // flowgraph's class and file name — so it has to look like one.
+    else if (!/^[A-Za-z]\w*$/.test(name))
+      add(block, NAME_FIELD,
+        'Block ID must begin with a letter and may contain letters, numbers, and underscores.');
     else if (active(block) && (activeNames.get(name) || 0) > 1)
       add(block, NAME_FIELD, `Block ID "${name}" is used more than once.`);
 
