@@ -30,6 +30,24 @@ export function multiplicity(value: any, defaults: Record<string, any>): number 
   return Number.isFinite(number) && number >= 1 ? Math.trunc(number) : 1;
 }
 
+// An option label belongs to an option *value*, not to a list position. A
+// hand-written schema is free to order or trim its options differently from the
+// block's own yaml — GRC's sinks do not even agree with each other, listing the
+// marker "None" first on the Time Sink and last on the Constellation Sink — so
+// pairing the two lists by index puts every label on the wrong value. Map the
+// generated (value, label) pairs onto the hand-written values instead, falling
+// back to the value itself as native does when the labels run out
+// (`_init_options` in grc/core/params/param.py). A hand-written schema that
+// spells out its own labels keeps them.
+function mergedOptionLabels(hand: ParamDef, generated?: ParamDef): string[] | undefined {
+  if (hand.optionLabels) return hand.optionLabels;
+  if (!generated?.optionLabels) return undefined;
+  if (!hand.options || !generated.options) return generated.optionLabels;
+  const labelOf = new Map(generated.options.map(
+    (value, i) => [value, generated.optionLabels![i] ?? value]));
+  return hand.options.map(value => labelOf.get(value) ?? value);
+}
+
 // GRC yaml writes `flags` as either a list or a comma/space separated string
 // (grc/core/blocks/_flags.py accepts both).
 export function blockFlags(flags: any): string[] {
@@ -116,7 +134,7 @@ export function installGeneratedBlocks(blocks: any[]) {
       existing.params = existing.params.map(p => ({
         ...p,
         hide: generatedParams.get(p.id)?.hide ?? p.hide,
-        optionLabels: generatedParams.get(p.id)?.optionLabels ?? p.optionLabels,
+        optionLabels: mergedOptionLabels(p, generatedParams.get(p.id)),
       }));
       // These definitions currently expose stream ports only, so omit optional
       // message-control ports that their WASM factories do not support.

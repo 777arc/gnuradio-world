@@ -77,10 +77,20 @@ const TRIGGER_SLOPES = ['qtgui.TRIG_SLOPE_POS', 'qtgui.TRIG_SLOPE_NEG'];
 const LINE_COLORS = ['blue', 'red', 'green', 'black', 'cyan', 'magenta', 'yellow', 'dark red', 'dark green', 'dark blue'];
 // The frequency/constellation sinks store colours as quoted strings in GRC.
 const LINE_COLORS_Q = LINE_COLORS.map(c => `"${c}"`);
+// Line style ids are Qt::PenStyle (0 = NoPen, 1 = SolidLine … 5 = DashDotDotLine)
+// and marker ids are QwtSymbol::Style (-1 = NoSymbol, 0 = Ellipse … 9 = XCross).
+// Both carry their labels here rather than inheriting them from the block yaml:
+// GRC's sinks order these lists differently from one another (the marker "None"
+// is first on the Time Sink and last on the Constellation Sink) and its Time
+// Sink leaves style 0 and marker 5 unlabelled, so one correct pairing shared by
+// every sink beats ten yaml lists that disagree.
 const LINE_STYLES = ['1', '2', '3', '4', '5', '0'];
+const LINE_STYLE_LABELS = ['Solid', 'Dash', 'Dots', 'Dash-Dot', 'Dash-Dot-Dot', 'None'];
 // GRC's frequency-sink Average options (None / Low / Medium / High smoothing).
 const FFT_AVERAGES = ['1.0', '0.2', '0.1', '0.05'];
-const LINE_MARKERS = ['0', '1', '2', '3', '4', '6', '7', '8', '9', '-1'];
+const LINE_MARKERS = ['-1', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+const LINE_MARKER_LABELS = ['None', 'Circle', 'Rectangle', 'Diamond', 'Triangle',
+  'Down Triangle', 'Up Triangle', 'Left Triangle', 'Right Triangle', 'Cross', 'X-Cross'];
 // Waterfall intensity color-map ids (match WaterfallDisplayPlot / GRC):
 // 0 Multi Color, 1 White Hot, 2 Black Hot, 3 Incandescent, 5 Sunset, 6 Cool.
 const WATERFALL_COLORS = ['0', '1', '2', '3', '5', '6'];
@@ -302,8 +312,8 @@ export const RUNNABLE: Record<string, RunnableDef> = {
       { id: 'label1', label: 'Line 1 Label', type: 'string', def: 'Signal 1', category: 'Config' },
       { id: 'width1', label: 'Line 1 Width', type: 'number', def: 1, category: 'Config' },
       { id: 'color1', label: 'Line 1 Color', type: 'enum', def: 'blue', options: LINE_COLORS, category: 'Config' },
-      { id: 'style1', label: 'Line 1 Style', type: 'enum', def: '1', options: LINE_STYLES, category: 'Config' },
-      { id: 'marker1', label: 'Line 1 Marker', type: 'enum', def: '0', options: LINE_MARKERS, category: 'Config' },
+      { id: 'style1', label: 'Line 1 Style', type: 'enum', def: '1', options: LINE_STYLES, optionLabels: LINE_STYLE_LABELS, category: 'Config' },
+      { id: 'marker1', label: 'Line 1 Marker', type: 'enum', def: '-1', options: LINE_MARKERS, optionLabels: LINE_MARKER_LABELS, category: 'Config' },
       { id: 'alpha1', label: 'Line 1 Alpha', type: 'number', def: 1, category: 'Config' },
       { id: 'label2', label: 'Line 2 Label', type: 'string', def: 'Signal 2', category: 'Config',
         showWhen: p => p.type === 'complex' },
@@ -311,9 +321,9 @@ export const RUNNABLE: Record<string, RunnableDef> = {
         showWhen: p => p.type === 'complex' },
       { id: 'color2', label: 'Line 2 Color', type: 'enum', def: 'red', options: LINE_COLORS, category: 'Config',
         showWhen: p => p.type === 'complex' },
-      { id: 'style2', label: 'Line 2 Style', type: 'enum', def: '1', options: LINE_STYLES, category: 'Config',
+      { id: 'style2', label: 'Line 2 Style', type: 'enum', def: '1', options: LINE_STYLES, optionLabels: LINE_STYLE_LABELS, category: 'Config',
         showWhen: p => p.type === 'complex' },
-      { id: 'marker2', label: 'Line 2 Marker', type: 'enum', def: '0', options: LINE_MARKERS, category: 'Config',
+      { id: 'marker2', label: 'Line 2 Marker', type: 'enum', def: '-1', options: LINE_MARKERS, optionLabels: LINE_MARKER_LABELS, category: 'Config',
         showWhen: p => p.type === 'complex' },
       { id: 'alpha2', label: 'Line 2 Alpha', type: 'number', def: 1, category: 'Config',
         showWhen: p => p.type === 'complex' },
@@ -341,8 +351,8 @@ export const RUNNABLE: Record<string, RunnableDef> = {
       { id: 'label1', label: 'Line 1 Label', type: 'string', def: '', category: 'Config' },
       { id: 'width1', label: 'Line 1 Width', type: 'number', def: 1, category: 'Config' },
       { id: 'color1', label: 'Line 1 Color', type: 'enum', def: '"blue"', options: LINE_COLORS_Q, category: 'Config' },
-      { id: 'style1', label: 'Line 1 Style', type: 'enum', def: '1', options: LINE_STYLES, category: 'Config' },
-      { id: 'marker1', label: 'Line 1 Marker', type: 'enum', def: '-1', options: LINE_MARKERS, category: 'Config' },
+      { id: 'style1', label: 'Line 1 Style', type: 'enum', def: '1', options: LINE_STYLES, optionLabels: LINE_STYLE_LABELS, category: 'Config' },
+      { id: 'marker1', label: 'Line 1 Marker', type: 'enum', def: '-1', options: LINE_MARKERS, optionLabels: LINE_MARKER_LABELS, category: 'Config' },
       { id: 'alpha1', label: 'Line 1 Alpha', type: 'number', def: 1, category: 'Config' },
     ], dtype: 'complex' },
   qtgui_const_sink_x: {
@@ -366,8 +376,11 @@ export const RUNNABLE: Record<string, RunnableDef> = {
       { id: 'label1', label: 'Line 1 Label', type: 'string', def: '', category: 'Config' },
       { id: 'width1', label: 'Line 1 Width', type: 'number', def: 1, category: 'Config' },
       { id: 'color1', label: 'Line 1 Color', type: 'enum', def: '"blue"', options: LINE_COLORS_Q, category: 'Config' },
-      { id: 'style1', label: 'Line 1 Style', type: 'enum', def: '1', options: LINE_STYLES, category: 'Config' },
-      { id: 'marker1', label: 'Line 1 Marker', type: 'enum', def: '0', options: LINE_MARKERS, category: 'Config' },
+      // A constellation is drawn as unconnected points: GRC's own defaults for
+      // this sink are no line (Qt::NoPen) and a circle marker, unlike the Time
+      // and Frequency Sinks, which draw a solid line and no marker.
+      { id: 'style1', label: 'Line 1 Style', type: 'enum', def: '0', options: LINE_STYLES, optionLabels: LINE_STYLE_LABELS, category: 'Config' },
+      { id: 'marker1', label: 'Line 1 Marker', type: 'enum', def: '0', options: LINE_MARKERS, optionLabels: LINE_MARKER_LABELS, category: 'Config' },
       { id: 'alpha1', label: 'Line 1 Alpha', type: 'number', def: 1, category: 'Config' },
     ], dtype: 'complex' },
   qtgui_waterfall_sink_x: {

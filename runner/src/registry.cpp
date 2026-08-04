@@ -224,10 +224,14 @@ static void configure_line(const std::shared_ptr<Sink>& sink,
         line, unquoted(p.value("color" + suffix, default_color)));
     sink->set_line_width(
         line, static_cast<int>(number_from(p, "width" + suffix, 1)));
+    // The fallbacks are the defaults GRC's own Time/Frequency Sink yaml
+    // declares: a solid line (Qt::SolidLine) and no marker (QwtSymbol::NoSymbol,
+    // which is -1, not 0 — 0 is a circle). A .grc that leaves these out is
+    // asking for GRC's default, so 0 here would put a marker on every sample.
     sink->set_line_style(
         line, static_cast<int>(number_from(p, "style" + suffix, 1)));
     sink->set_line_marker(
-        line, static_cast<int>(number_from(p, "marker" + suffix, 0)));
+        line, static_cast<int>(number_from(p, "marker" + suffix, -1)));
     sink->set_line_alpha(line, number_from(p, "alpha" + suffix, 1.0));
 }
 
@@ -2208,8 +2212,11 @@ static std::map<std::string, Factory>& registry_storage() {
                                           default_colors.size()]);
                  block->set_line_width(
                      i, static_cast<int>(number_from(p, "width" + suffix, 1)));
+                 // Unlike the Time/Frequency Sinks above, GRC's Constellation
+                 // Sink yaml defaults to no line and a circle marker, so that a
+                 // constellation reads as unconnected points.
                  block->set_line_style(
-                     i, static_cast<int>(number_from(p, "style" + suffix, 1)));
+                     i, static_cast<int>(number_from(p, "style" + suffix, 0)));
                  block->set_line_marker(
                      i, static_cast<int>(number_from(p, "marker" + suffix, 0)));
                  block->set_line_alpha(
