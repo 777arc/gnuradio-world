@@ -104,6 +104,12 @@ jobs:
           path: sysroot
           key: wasm-sysroot-emsdk${{ env.EMSDK_VERSION }}-qt${{ env.QT_VERSION }}-${{ hashFiles('deps/env.sh', 'deps/fetch-deps.sh', 'deps/build-deps.sh') }}
 
+      # turbofec and CRCpp are source dependencies compiled directly into the
+      # DroneID side module. They are intentionally not installed in sysroot,
+      # so a sysroot cache hit must not skip fetching them.
+      - name: Fetch runner source dependencies
+        run: bash deps/fetch-deps.sh --runner-only
+
       - name: Build dependency sysroot
         if: steps.cache-sysroot.outputs.cache-hit != 'true'
         run: |
