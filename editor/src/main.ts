@@ -2841,6 +2841,22 @@ function renderTree(node: Cat, container: HTMLElement, depth: number, q: string)
 
 let LIB: any = { blocks: [] };
 let activatePaletteTab: ((which: 'blocks' | 'examples' | 'recordings') => void) | null = null;
+
+// Every palette tab's search box: the input plus the sticky bar that keeps it
+// pinned to the top of the panel while the list under it scrolls. The bar is a
+// separate element rather than a sticky input because it has to carry the panel
+// background — an input's own margin is transparent, so rows would scroll
+// through the gap around it. `.paltab-panel` is the scroll container, so
+// `top:0` is measured against the tab's own viewport.
+function makePaletteSearch(placeholder: string, ariaLabel: string):
+    { bar: HTMLElement; input: HTMLInputElement } {
+  const bar = document.createElement('div'); bar.className = 'palsearch-bar';
+  const input = document.createElement('input');
+  input.className = 'palsearch'; input.placeholder = placeholder;
+  input.setAttribute('aria-label', ariaLabel);
+  bar.append(input);
+  return { bar, input };
+}
 async function buildPalette() {
   const pal = el('palette');
   // ---- tab bar: Blocks | Example Flowgraphs | SigMF Recordings ----
@@ -2871,11 +2887,10 @@ async function buildPalette() {
   tabs.append(tabBlocks, tabExamples, tabRecordings);
 
   // ---- Blocks tab: search box + category tree (existing palette) ----
-  const search = document.createElement('input');
-  search.className = 'palsearch'; search.placeholder = 'Search blocks…';
+  const { bar: searchBar, input: search } = makePaletteSearch('Search blocks…', 'Search blocks');
   paletteSearch = search;
   const tree = document.createElement('div'); tree.className = 'tree';
-  blocksPanel.append(search, tree);
+  blocksPanel.append(searchBar, tree);
   pal.append(tabs, blocksPanel, examplesPanel, recordingsPanel);
   try {
     LIB = await (await fetch(BLOCKS_URL).then(r => r.ok ? r : fetch('/editor/public/blocks.json'))).json();
@@ -2966,10 +2981,8 @@ async function buildExamples(panel: HTMLElement) {
   // Search box: matches every whitespace-separated term against the entry's
   // title/author/description/file name, so "estevez afsk" narrows by both. It is
   // independent of the block filter below — both apply at once.
-  const search = document.createElement('input');
-  search.className = 'palsearch ex-search';
-  search.placeholder = 'Search examples…';
-  search.setAttribute('aria-label', 'Search example flowgraphs');
+  const { bar: searchBar, input: search } =
+    makePaletteSearch('Search examples…', 'Search example flowgraphs');
   let terms: string[] = [];
   const onQuery = () => {
     terms = search.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
@@ -3027,7 +3040,7 @@ async function buildExamples(panel: HTMLElement) {
   };
   applyExampleFilter = refresh;
 
-  status.remove(); panel.append(search, bar, list, noMatch);
+  status.remove(); panel.append(searchBar, bar, list, noMatch);
   exampleEntries.length = 0;
   const addExample = (file: string, container: HTMLElement) => {
     // A row, not just the button, because the copy-link button sits on top of it
@@ -3310,7 +3323,20 @@ function makeRecordingItem(recording: ExampleRecording): HTMLElement {
 }
 
 
-function renderRecordingTree(directory: RecordingDirectory, container: HTMLElement) {
+// One searchable row of the recordings tab. `text` is everything the search box
+// matches against, lowercased: the full key (so a collection prefix such as
+// "estevez/" narrows by itself), plus the author and datatype shown on the card.
+// Unlike an example, all of it is known from the index up front — nothing here
+// has to wait on a fetch.
+interface RecordingEntry { item: HTMLElement; text: string }
+
+function recordingSearchText(recording: ExampleRecording): string {
+  return [recording.name, recording.author, recording.datatype]
+    .filter(Boolean).join(' ').toLowerCase();
+}
+
+function renderRecordingTree(directory: RecordingDirectory, container: HTMLElement,
+                             entries: RecordingEntry[]) {
   const byName = (a: string, b: string) => a.localeCompare(b, undefined, { numeric: true });
   for (const child of [...directory.directories.values()].sort((a, b) => byName(a.name, b.name))) {
     const details = document.createElement('details'); details.className = 'rec-directory';
@@ -3324,12 +3350,15 @@ function renderRecordingTree(directory: RecordingDirectory, container: HTMLEleme
     count.textContent = `${total} recording${total === 1 ? '' : 's'}`;
     summary.append(name, count);
     const contents = document.createElement('div'); contents.className = 'rec-directory-contents';
-    renderRecordingTree(child, contents);
+    renderRecordingTree(child, contents, entries);
     details.append(summary, contents);
     container.append(details);
   }
-  for (const recording of [...directory.recordings].sort((a, b) => byName(a.name, b.name)))
-    container.append(makeRecordingItem(recording));
+  for (const recording of [...directory.recordings].sort((a, b) => byName(a.name, b.name))) {
+    const item = makeRecordingItem(recording);
+    container.append(item);
+    entries.push({ item, text: recordingSearchText(recording) });
+  }
 }
 
 async function buildRecordings(panel: HTMLElement) {
@@ -3344,8 +3373,50 @@ async function buildRecordings(panel: HTMLElement) {
     log('recordings not loaded: ' + e); return;
   }
   if (!recordings.length) { status.textContent = 'No SigMF recordings found.'; return; }
-  status.remove(); panel.append(list);
-  renderRecordingTree(buildRecordingTree(recordings), list);
+
+  // Search box, matching the Blocks and Example Flowgraphs tabs: every
+  // whitespace-separated term has to be found, so "estevez ci16" narrows by
+  // collection and datatype at once.
+  const { bar: searchBar, input: search } =
+    makePaletteSearch('Search recordings…', 'Search SigMF recordings');
+  const noMatch = document.createElement('div'); noMatch.className = 'ex-empty'; noMatch.hidden = true;
+  const entries: RecordingEntry[] = [];
+  let terms: string[] = [];
+
+  const refresh = () => {
+    const q = terms.join(' ');
+    let shown = 0;
+    for (const entry of entries) {
+      const hit = terms.every(t => entry.text.includes(t));
+      entry.item.hidden = !hit;
+      if (hit) shown++;
+    }
+    // A directory stays visible when any descendant is visible, and a search
+    // opens the matching paths so a hit is never buried in a collapsed one.
+    // Innermost first, so an outer directory sees its children's final state.
+    const directories = [...list.querySelectorAll<HTMLDetailsElement>('.rec-directory')].reverse();
+    for (const details of directories) {
+      const contents = details.querySelector<HTMLElement>(':scope > .rec-directory-contents');
+      const hasVisibleChild = !!contents && [...contents.children]
+        .some(child => !(child as HTMLElement).hidden);
+      details.hidden = !hasVisibleChild;
+      if (q && hasVisibleChild) details.open = true;
+    }
+    if (q) noMatch.textContent = `No SigMF recording matches “${q}”.`;
+    noMatch.hidden = !q || shown > 0;
+  };
+  const onQuery = () => {
+    terms = search.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    refresh();
+  };
+  search.oninput = onQuery;
+  search.onkeydown = e => {
+    if (e.key === 'Escape' && search.value) { e.stopPropagation(); search.value = ''; onQuery(); }
+  };
+
+  status.remove(); panel.append(searchBar, list, noMatch);
+  renderRecordingTree(buildRecordingTree(recordings), list, entries);
+  refresh();
 }
 
 // ---- GRC-style menu bar + toolbar ----------------------------------------

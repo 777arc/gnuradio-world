@@ -157,7 +157,6 @@ button:hover { filter:brightness(1.15); }
 .paltab-panel { min-height:0; flex:1; display:flex; flex-direction:column; overflow:auto; }
 .paltab-panel[hidden] { display:none; }
 /* Example flowgraph list */
-.ex-search { flex:none; }
 .ex-list { padding:8px; display:flex; flex-direction:column; gap:8px; }
 /* the copy-link button overlays the example button, so they are siblings */
 .ex-row { position:relative; }
@@ -206,6 +205,8 @@ button:hover { filter:brightness(1.15); }
 .rec-item { background:#242a3b; border:1px solid #333a4d; border-radius:6px;
     padding:10px 11px; color:#dce3f5; cursor:pointer; outline:none; }
 .rec-item:hover, .rec-item:focus-visible { background:#2c3448; border-color:#46507a; }
+/* filtered out by the recordings search */
+.rec-item[hidden], .rec-directory[hidden] { display:none; }
 .rec-item.downloading { cursor:wait; }
 .rec-item.downloaded { border-color:#35734a; }
 .rec-item.error { border-color:#8b3f48; }
@@ -225,10 +226,17 @@ button:hover { filter:brightness(1.15); }
 .rec-dl:hover { color:#b9d1ff; border-bottom-color:#b9d1ff; }
 .rec-progress { margin-top:8px; color:#8b96b5; font-size:10px; line-height:1.4; }
 .rec-progress[hidden] { display:none; }
-/* GRC-style block tree */
-.palsearch { width:calc(100% - 16px); margin:8px; padding:6px 8px; background:#171a24; color:#e6e9f0;
+/* Search box, shared by all three palette tabs. It sticks to the top of
+   .paltab-panel (the scroll container) so the query stays reachable however far
+   down the list you are: hence flex:none, and hence the opaque bar around the
+   input — a bare sticky input would let rows scroll through the gap its margin
+   used to be. */
+.palsearch-bar { position:sticky; top:0; left:0; z-index:3; flex:none; padding:8px;
+    background:#20232f; border-bottom:1px solid #2a2f42; }
+.palsearch { display:block; width:100%; padding:6px 8px; background:#171a24; color:#e6e9f0;
     border:1px solid #3a4366; border-radius:5px; font-size:13px; outline:none; }
 .palsearch::placeholder { color:#6b768f; }
+/* GRC-style block tree */
 .tree { padding-bottom:14px; }
 .cat-row { display:flex; align-items:center; gap:3px; padding:3px 8px 3px 0; cursor:pointer;
     font-size:13px; color:#c3cbe0; user-select:none; white-space:nowrap; }
