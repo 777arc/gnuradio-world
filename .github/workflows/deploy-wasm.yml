@@ -1,25 +1,17 @@
 name: Deploy WASM
 
-# Build runner.wasm + the editor in CI and deploy the WASM app to Cloudflare
-# Pages on every merge to main.
+# Production deploy: build the whole stack from source and publish it to the
+# Cloudflare Pages project `gnuradio-wasm` on every merge to main.
 #
-# Everything is built from source and cached; there is no prebuilt-deps release
-# artifact any more. Two caches carry the cost:
+# The build itself lives in the reusable build.yml, which pr-preview-build.yml
+# also calls, so a preview and production are compiled by the same steps. Read
+# that file for the caching notes (sysroot as an output cache, ccache for GR /
+# qtgui / runner) and for why the smoke tests gate the deploy.
 #
-#   sysroot  Boost/FFTW/GMP/Qwt/VOLK/spdlog, cached as an OUTPUT keyed on the dep
-#            scripts (versions are pinned in fetch-deps.sh) plus the toolchain
-#            versions its objects must stay ABI-compatible with. Rebuilt only
-#            when one of those changes (~25 min); a hit on every other run.
-#   ccache   GNU Radio, qtgui and the runner are compiled from source EVERY run,
-#            with ccache absorbing the cost. Caching the gr build directory
-#            instead does not work: actions/checkout gives every source file a
-#            fresh mtime, so ninja would rebuild all ~520 objects anyway. ccache
-#            keys on preprocessed content, so a one-file GR change recompiles one
-#            file -- and nothing can go stale, because nothing is prebuilt.
-#
-# See AGENTS.md "Continuous integration". The weekly schedule exists only to
-# keep the caches alive: GitHub evicts anything unused for 7 days, and a cold run
-# costs about an hour.
+# This workflow is only ever triggered by events that run in this repository's
+# own context -- push to main, workflow_dispatch, schedule -- which is what makes
+# `secrets: inherit` safe here. A fork's code never reaches this path; it goes
+# through pr-preview-build.yml, which passes no secrets at all.
 on:
   push:
     branches: [main]
@@ -36,212 +28,27 @@ on:
         type: boolean
         default: false
 
+# Keyed on the ref, not a fixed string: a global group would let any other run
+# of this workflow cancel an in-flight production deploy.
 concurrency:
-  group: deploy-wasm
+  group: deploy-wasm-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  EMSDK_VERSION: "3.1.70"
-  QT_VERSION: "6.9.1"
-
 jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    # A cold run builds Boost/FFTW/GMP/Qwt/VOLK plus all of GNU Radio on 4 cores.
-    timeout-minutes: 180
-    steps:
-      # GNU Radio and the OOT modules are all pinned submodules of this
-      # application repository.
-      - uses: actions/checkout@v4
-        with:
-          submodules: true
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install build tools
-        run: |
-          # m4 is required by GMP's configure; ccache backs the from-source builds.
-          sudo apt-get update && sudo apt-get install -y ninja-build ccache m4
-          pip install mako pyyaml packaging aqtinstall
-
-      # --- Emscripten toolchain (pinned, cached) ---
-      - name: Cache emsdk
-        uses: actions/cache@v4
-        with:
-          path: ~/emsdk
-          key: emsdk-${{ env.EMSDK_VERSION }}
-      - name: Install emsdk
-        run: |
-          if [ ! -d ~/emsdk ]; then git clone https://github.com/emscripten-core/emsdk ~/emsdk; fi
-          ~/emsdk/emsdk install ${EMSDK_VERSION}
-          ~/emsdk/emsdk activate ${EMSDK_VERSION}
-
-      # --- Qt 6 for wasm + host tools (cached) ---
-      - name: Cache Qt
-        id: cache-qt
-        uses: actions/cache@v4
-        with:
-          path: ${{ github.workspace }}/Qt
-          key: qt-${{ env.QT_VERSION }}
-      - name: Install Qt (host + wasm)
-        if: steps.cache-qt.outputs.cache-hit != 'true'
-        run: |
-          aqt install-qt linux desktop ${QT_VERSION} linux_gcc_64 -O "$GITHUB_WORKSPACE/Qt"
-          aqt install-qt all_os wasm ${QT_VERSION} wasm_multithread -O "$GITHUB_WORKSPACE/Qt"
-
-      # --- sysroot: Boost/FFTW/GMP/Qwt/VOLK/spdlog, cached as an output --------
-      - name: Restore sysroot cache
-        id: cache-sysroot
-        if: ${{ !inputs.rebuild_sysroot }}
-        uses: actions/cache/restore@v4
-        with:
-          path: sysroot
-          key: wasm-sysroot-emsdk${{ env.EMSDK_VERSION }}-qt${{ env.QT_VERSION }}-${{ hashFiles('deps/env.sh', 'deps/fetch-deps.sh', 'deps/build-deps.sh') }}
-
-      # turbofec and CRCpp are source dependencies compiled directly into the
-      # DroneID side module. They are intentionally not installed in sysroot,
-      # so a sysroot cache hit must not skip fetching them.
-      - name: Fetch runner source dependencies
-        run: bash deps/fetch-deps.sh --runner-only
-
-      - name: Build dependency sysroot
-        if: steps.cache-sysroot.outputs.cache-hit != 'true'
-        run: |
-          source ~/emsdk/emsdk_env.sh
-          export QT_HOST="$GITHUB_WORKSPACE/Qt/${QT_VERSION}/gcc_64"
-          export QT_WASM="$GITHUB_WORKSPACE/Qt/${QT_VERSION}/wasm_multithread"
-          bash deps/fetch-deps.sh
-          bash deps/build-deps.sh
-
-      - name: Save sysroot cache
-        if: steps.cache-sysroot.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: sysroot
-          key: wasm-sysroot-emsdk${{ env.EMSDK_VERSION }}-qt${{ env.QT_VERSION }}-${{ hashFiles('deps/env.sh', 'deps/fetch-deps.sh', 'deps/build-deps.sh') }}
-
-      # --- ccache: restored loosely so any recent run seeds the new one --------
-      - name: Restore ccache
-        uses: actions/cache/restore@v4
-        with:
-          path: ~/.cache/ccache
-          key: wasm-ccache-${{ github.sha }}
-          restore-keys: |
-            wasm-ccache-
-
-      - name: Configure ccache
-        run: |
-          ccache --max-size=2G
-          ccache --zero-stats
-
-      # --- GNU Radio C++ from source (what the deps release used to hide) ------
-      - name: Build GNU Radio
-        run: |
-          source ~/emsdk/emsdk_env.sh
-          export SYSROOT="$GITHUB_WORKSPACE/sysroot"
-          # -fexceptions keeps GR's own try/catch alive under Emscripten: without
-          # it the landing pads are dropped and an exception thrown from a block's
-          # work() kills the worker instead of being caught and logged.
-          # ENABLE_DEFAULT=OFF also disables gnuradio-runtime, hence enabling it
-          # back explicitly -- otherwise every component fails its dependency
-          # check with "user force-enabled gr-blocks but configuration checked
-          # failed".
-          emcmake cmake -S "$GITHUB_WORKSPACE/gnuradio" -B gr/build-gr -GNinja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_CXX_FLAGS="-pthread -fPIC -fexceptions" -DCMAKE_C_FLAGS="-pthread -fPIC" \
-            -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
-            -DPYTHON_EXECUTABLE="$(command -v python3)" \
-            -DCMAKE_INSTALL_PREFIX="$SYSROOT" -DCMAKE_PREFIX_PATH="$SYSROOT" \
-            -DCMAKE_FIND_ROOT_PATH="$SYSROOT" \
-            -DENABLE_DEFAULT=OFF -DENABLE_PYTHON=OFF -DENABLE_GR_QTGUI=OFF -DENABLE_GR_AUDIO=OFF \
-            -DENABLE_GNURADIO_RUNTIME=ON \
-            -DENABLE_GR_ANALOG=ON -DENABLE_GR_BLOCKS=ON -DENABLE_GR_DIGITAL=ON \
-            -DENABLE_GR_FFT=ON -DENABLE_GR_FILTER=ON -DENABLE_GR_FEC=ON -DENABLE_GR_DTV=ON \
-            -DENABLE_GR_NETWORK=ON -DENABLE_GR_PDU=ON -DENABLE_GR_VOCODER=ON \
-            -DCMAKE_DISABLE_FIND_PACKAGE_libunwind=ON
-          cmake --build gr/build-gr
-
-      # --- qtgui, runner and editor (every run) -------------------------------
-      - name: Build qtgui + runner + editor
-        env:
-          # The editor reads the live recording index and both SigMF objects
-          # directly from this public R2 base URL.
-          VITE_RECORDINGS_R2_BASE: ${{ vars.RECORDINGS_R2_BASE }}
-        run: |
-          source ~/emsdk/emsdk_env.sh
-          export GR="$GITHUB_WORKSPACE/gnuradio"
-          export QT_HOST="$GITHUB_WORKSPACE/Qt/${QT_VERSION}/gcc_64"
-          export QT_WASM="$GITHUB_WORKSPACE/Qt/${QT_VERSION}/wasm_multithread"
-
-          python3 runner/gen_registry.py
-          python3 editor/gen/gen_blocklib.py editor/public/blocks.json
-
-          (cd qtgui && "$QT_WASM/bin/qt-cmake" -S . -B build -GNinja \
-             -DQT_HOST_PATH="$QT_HOST" -DCMAKE_CXX_FLAGS="-pthread -fPIC" \
-             -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
-             && cmake --build build)
-
-          (cd runner && "$QT_WASM/bin/qt-cmake" -S . -B build -GNinja \
-             -DQT_HOST_PATH="$QT_HOST" -DCMAKE_BUILD_TYPE=Release \
-             -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
-             && cmake --build build)
-
-          # Two entries: the editor at / and the recording view at /recording/,
-          # which the editor's recording tabs frame same-origin.
-          (cd editor && npm ci && npm run typecheck && npm test && npm run build)
-
-      - name: ccache stats
-        run: ccache --show-stats
-
-      # --- Prove the build RUNS, not just that it linked ----------------------
-      # A cleanly linked runner can still be dead on arrival: an unpatched VOLK
-      # once made volk_malloc() return NULL under Emscripten, so every flowgraph
-      # threw std::bad_alloc while CI stayed green and the deployed app could not
-      # run anything. These run real flowgraphs in headless Chromium and check
-      # that samples actually move, so that class of failure blocks the deploy.
-      - name: Smoke-test the runner
-        run: |
-          # --path gets a "chrome-headless-shell/<platform-version>/..." tree
-          # appended to it, so point it at the repository root to land on the
-          # layout the test harnesses expect: chrome-headless-shell/<ver>/.../binary
-          npx --yes @puppeteer/browsers install chrome-headless-shell@stable \
-            --path "$GITHUB_WORKSPACE"
-          npm ci
-          node test/test_smoke.mjs           # flowgraphs run and produce samples
-          node test/test_lazy_scenarios.mjs  # on-demand side modules still load
-
-      - name: Save ccache
-        uses: actions/cache/save@v4
-        with:
-          path: ~/.cache/ccache
-          key: wasm-ccache-${{ github.sha }}
-
-      # --- Assemble the static site and deploy --------------------------------
-      - name: Assemble site
-        run: node scripts/assemble-site.mjs ./site
-
-      # Manual and scheduled runs keep the site as an artifact to inspect; pushes
-      # deploy it, so uploading there would only burn storage.
-      - name: Upload site artifact
-        if: ${{ github.event_name != 'push' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: wasm-site
-          path: site
-          retention-days: 7
-
+  build-and-deploy:
+    uses: ./.github/workflows/build.yml
+    permissions:
+      contents: read
+    with:
+      rebuild_sysroot: ${{ inputs.rebuild_sysroot || false }}
+      save_ccache: true
+      # Pushes deploy, so keeping a copy would only burn storage. Manual and
+      # scheduled runs keep the site as an artifact to inspect instead.
+      upload_site: ${{ github.event_name != 'push' }}
+      artifact_name: wasm-site
       # Pushes to main always deploy. Manual runs deploy only when asked, and the
       # weekly cache-keepalive run never does.
-      - name: Deploy to Cloudflare Pages
-        if: ${{ github.event_name == 'push' || inputs.deploy }}
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy ./site --project-name=gnuradio-wasm --branch=main
+      deploy: ${{ github.event_name == 'push' || inputs.deploy || false }}
+      deploy_project: gnuradio-wasm
+      deploy_branch: main
+    secrets: inherit

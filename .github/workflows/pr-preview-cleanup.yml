@@ -1,0 +1,95 @@
+name: PR Preview Cleanup
+
+# Tear down a PR's preview when it closes. Cloudflare keeps preview deployments
+# indefinitely otherwise, so without this every PR leaves a permanently reachable
+# copy of whatever it happened to build.
+#
+# `pull_request_target` is used deliberately and is safe *here* because of what
+# this workflow does not do: it never checks out the PR, never installs its
+# dependencies, and never runs a line of its code. It runs this repository's copy
+# of this file against nothing but the event payload and two APIs. `pull_request`
+# would not work -- a fork PR gets no secrets, and deleting a deployment needs
+# the Cloudflare token. If you ever add a checkout step here, this becomes a
+# credential-theft primitive; move the work to a workflow_run job instead.
+on:
+  pull_request_target:
+    types: [closed]
+
+concurrency:
+  group: pr-preview-cleanup-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  PAGES_PROJECT: gnuradio-world-previews
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      # wrangler has no `pages deployment delete`, so this goes straight at the
+      # REST API. force=true is required for the deployment currently serving the
+      # branch alias, which is exactly the one worth removing.
+      - name: Delete the preview deployments
+        env:
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          BRANCH: pr-${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CF_API_TOKEN:-}" ] || [ -z "${CF_ACCOUNT_ID:-}" ]; then
+            echo "Cloudflare credentials are not configured — nothing to clean up."
+            exit 0
+          fi
+          api="https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/pages/projects/$PAGES_PROJECT/deployments"
+
+          ids=""
+          for page in $(seq 1 20); do
+            resp=$(curl -sS -H "Authorization: Bearer $CF_API_TOKEN" \
+                     "$api?env=preview&per_page=25&page=$page")
+            if [ "$(printf '%s' "$resp" | jq -r '.success')" != "true" ]; then
+              echo "::warning::Cloudflare API error listing deployments:"
+              printf '%s\n' "$resp" | jq -r '.errors // .' >&2
+              exit 0
+            fi
+            count=$(printf '%s' "$resp" | jq -r '.result | length')
+            [ "$count" -eq 0 ] && break
+            ids="$ids $(printf '%s' "$resp" | jq -r --arg b "$BRANCH" \
+              '.result[] | select(.deployment_trigger.metadata.branch == $b) | .id')"
+          done
+
+          n=0
+          for id in $ids; do
+            code=$(curl -sS -o /dev/null -w '%{http_code}' -X DELETE \
+                     -H "Authorization: Bearer $CF_API_TOKEN" "$api/$id?force=true")
+            echo "delete $id -> HTTP $code"
+            n=$((n + 1))
+          done
+          echo "Removed $n deployment(s) for branch $BRANCH."
+
+      # Leave the PR's own record straight rather than a dead link in the
+      # timeline. Only edits a comment this repo wrote; if there is none, done.
+      - name: Retire the preview comment
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          marker='<!-- gnuradio-world-preview -->'
+          id=$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
+                 --jq "[.[] | select(.body | contains(\"$marker\")) | .id] | first // empty")
+          [ -n "$id" ] || exit 0
+          body=$(cat <<EOF
+          $marker
+          ### ▶ Preview build
+
+          The preview deployment for this pull request has been deleted now that
+          it is closed.
+          EOF
+          )
+          gh api -X PATCH "repos/$REPO/issues/comments/$id" -f body="$body" --silent

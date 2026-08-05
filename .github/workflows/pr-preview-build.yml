@@ -1,0 +1,66 @@
+name: PR Preview Build
+
+# Stage 1 of the fork-PR preview. Builds the site exactly as production does and
+# leaves it as an artifact; publishing it is pr-preview-deploy.yml's job.
+#
+# The split is the whole point. A workflow triggered by `pull_request` from a
+# fork gets a read-only GITHUB_TOKEN and NOTHING else -- no repository secrets,
+# no environment secrets, no way to opt back in (an environment with required
+# reviewers does not change this; that is a mitigation for pull_request_target).
+# So this workflow, which compiles and runs a contributor's code and their
+# submodule pointers, has no credential to leak, and the workflow that does hold
+# the Cloudflare token never executes their code.
+#
+# Note also that on a `pull_request` event the workflow FILES come from the PR's
+# branch, so everything here -- including this comment -- is editable by the
+# contributor. Nothing downstream may trust its output; see the validation in
+# pr-preview-deploy.yml.
+#
+# GitHub separately requires a maintainer to click "Approve and run" before a
+# first-time contributor's workflows run at all, which is a free extra gate.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+# Per-PR, so a new push supersedes its own in-flight build and nothing else.
+concurrency:
+  group: pr-preview-build-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    uses: ./.github/workflows/build.yml
+    permissions:
+      contents: read
+    with:
+      # A fork PR's cache writes are scoped to the PR and evicted when it closes,
+      # so they help nobody; reads still hit main's caches, which is what makes
+      # this affordable.
+      save_ccache: false
+      upload_site: true
+      artifact_name: preview-site
+      artifact_retention_days: 3
+      deploy: false
+    # Deliberately no `secrets:` -- see the note above.
+
+  # Which PR this run belongs to. github.event.workflow_run.pull_requests is
+  # empty for runs from forks, so the number has to be carried across. It is
+  # untrusted input by construction; pr-preview-deploy.yml re-derives everything
+  # from the GitHub API and only uses this as a lookup key.
+  meta:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Record the PR number
+        run: |
+          mkdir -p meta
+          echo "${{ github.event.pull_request.number }}" > meta/pr.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: preview-meta
+          path: meta
+          retention-days: 3

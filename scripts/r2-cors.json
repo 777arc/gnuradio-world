@@ -6,6 +6,7 @@
           "https://gnuradioworld.com",
           "https://www.gnuradioworld.com",
           "https://gnuradio-wasm.pages.dev",
+          "https://*.gnuradio-world-previews.pages.dev",
           "http://localhost:8090",
           "http://127.0.0.1:8090"
         ],

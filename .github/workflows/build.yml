@@ -1,0 +1,293 @@
+name: Build WASM site
+
+# The whole build, factored out so the production deploy and the fork-PR preview
+# run byte-identical steps. Callers:
+#
+#   deploy-wasm.yml       push to main / dispatch / weekly cache keepalive
+#   pr-preview-build.yml  pull_request, including from forks
+#
+# SECURITY: this workflow compiles and runs code from whichever ref the caller
+# checked out -- including a contributor's fork, and including whatever commits
+# their submodule pointers name. That is fine only because the caller decides
+# whether any secret is in scope: pr-preview-build.yml passes NO `secrets:` at
+# all, so `deploy` is false there and the Cloudflare token is simply absent from
+# the job. Do not add a step here that needs a secret on the PR path, and do not
+# make deploy-wasm.yml's `secrets: inherit` reachable from a pull_request event.
+# Publishing a preview is pr-preview-deploy.yml's job, which runs from main.
+on:
+  workflow_call:
+    inputs:
+      rebuild_sysroot:
+        description: "Ignore the sysroot cache and rebuild the deps from source (tests the cold path)"
+        type: boolean
+        default: false
+      save_ccache:
+        description: >-
+          Write the ccache back. Off for PR builds: a fork PR's cache writes land
+          in a PR-scoped scope that is isolated from main's and evicted when the
+          PR closes, so saving only adds noise. Reads still hit main's cache.
+        type: boolean
+        default: true
+      upload_site:
+        description: "Upload the assembled ./site as a workflow artifact"
+        type: boolean
+        default: false
+      artifact_name:
+        description: "Name for the uploaded site artifact"
+        type: string
+        default: wasm-site
+      artifact_retention_days:
+        description: "Retention for the uploaded site artifact"
+        type: number
+        default: 7
+      deploy:
+        description: "Deploy ./site to Cloudflare Pages (requires the secrets below)"
+        type: boolean
+        default: false
+      deploy_project:
+        description: "Cloudflare Pages project to deploy to"
+        type: string
+        default: gnuradio-wasm
+      deploy_branch:
+        description: "Pages branch name — 'main' is the production deployment, anything else a preview"
+        type: string
+        default: main
+    secrets:
+      CLOUDFLARE_API_TOKEN:
+        required: false
+      CLOUDFLARE_ACCOUNT_ID:
+        required: false
+
+env:
+  EMSDK_VERSION: "3.1.70"
+  QT_VERSION: "6.9.1"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    # A cold run builds Boost/FFTW/GMP/Qwt/VOLK plus all of GNU Radio on 4 cores.
+    timeout-minutes: 180
+    steps:
+      # GNU Radio and the OOT modules are all pinned submodules of this
+      # application repository.
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build tools
+        run: |
+          # m4 is required by GMP's configure; ccache backs the from-source builds.
+          sudo apt-get update && sudo apt-get install -y ninja-build ccache m4
+          pip install mako pyyaml packaging aqtinstall
+
+      # --- Emscripten toolchain (pinned, cached) ---
+      - name: Cache emsdk
+        uses: actions/cache@v4
+        with:
+          path: ~/emsdk
+          key: emsdk-${{ env.EMSDK_VERSION }}
+      - name: Install emsdk
+        run: |
+          if [ ! -d ~/emsdk ]; then git clone https://github.com/emscripten-core/emsdk ~/emsdk; fi
+          ~/emsdk/emsdk install ${EMSDK_VERSION}
+          ~/emsdk/emsdk activate ${EMSDK_VERSION}
+
+      # --- Qt 6 for wasm + host tools (cached) ---
+      - name: Cache Qt
+        id: cache-qt
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/Qt
+          key: qt-${{ env.QT_VERSION }}
+      - name: Install Qt (host + wasm)
+        if: steps.cache-qt.outputs.cache-hit != 'true'
+        run: |
+          aqt install-qt linux desktop ${QT_VERSION} linux_gcc_64 -O "$GITHUB_WORKSPACE/Qt"
+          aqt install-qt all_os wasm ${QT_VERSION} wasm_multithread -O "$GITHUB_WORKSPACE/Qt"
+
+      # --- sysroot: Boost/FFTW/GMP/Qwt/VOLK/spdlog, cached as an output --------
+      - name: Restore sysroot cache
+        id: cache-sysroot
+        if: ${{ !inputs.rebuild_sysroot }}
+        uses: actions/cache/restore@v4
+        with:
+          path: sysroot
+          key: wasm-sysroot-emsdk${{ env.EMSDK_VERSION }}-qt${{ env.QT_VERSION }}-${{ hashFiles('deps/env.sh', 'deps/fetch-deps.sh', 'deps/build-deps.sh') }}
+
+      # turbofec and CRCpp are source dependencies compiled directly into the
+      # DroneID side module. They are intentionally not installed in sysroot,
+      # so a sysroot cache hit must not skip fetching them.
+      - name: Fetch runner source dependencies
+        run: bash deps/fetch-deps.sh --runner-only
+
+      - name: Build dependency sysroot
+        if: steps.cache-sysroot.outputs.cache-hit != 'true'
+        run: |
+          source ~/emsdk/emsdk_env.sh
+          export QT_HOST="$GITHUB_WORKSPACE/Qt/${QT_VERSION}/gcc_64"
+          export QT_WASM="$GITHUB_WORKSPACE/Qt/${QT_VERSION}/wasm_multithread"
+          bash deps/fetch-deps.sh
+          bash deps/build-deps.sh
+
+      # Only the trusted callers write the shared sysroot cache. A fork PR's
+      # write would be scoped to that PR anyway, so it would cost 25 min of
+      # upload for a cache entry nothing else can read.
+      - name: Save sysroot cache
+        if: ${{ steps.cache-sysroot.outputs.cache-hit != 'true' && inputs.save_ccache }}
+        uses: actions/cache/save@v4
+        with:
+          path: sysroot
+          key: wasm-sysroot-emsdk${{ env.EMSDK_VERSION }}-qt${{ env.QT_VERSION }}-${{ hashFiles('deps/env.sh', 'deps/fetch-deps.sh', 'deps/build-deps.sh') }}
+
+      # --- ccache: restored loosely so any recent run seeds the new one --------
+      # A fork PR can READ the base branch's caches, so a preview build starts
+      # warm even though it may not write one back.
+      - name: Restore ccache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.cache/ccache
+          key: wasm-ccache-${{ github.sha }}
+          restore-keys: |
+            wasm-ccache-
+
+      - name: Configure ccache
+        run: |
+          ccache --max-size=2G
+          ccache --zero-stats
+
+      # --- GNU Radio C++ from source (what the deps release used to hide) ------
+      - name: Build GNU Radio
+        run: |
+          source ~/emsdk/emsdk_env.sh
+          export SYSROOT="$GITHUB_WORKSPACE/sysroot"
+          # -fexceptions keeps GR's own try/catch alive under Emscripten: without
+          # it the landing pads are dropped and an exception thrown from a block's
+          # work() kills the worker instead of being caught and logged.
+          # ENABLE_DEFAULT=OFF also disables gnuradio-runtime, hence enabling it
+          # back explicitly -- otherwise every component fails its dependency
+          # check with "user force-enabled gr-blocks but configuration checked
+          # failed".
+          emcmake cmake -S "$GITHUB_WORKSPACE/gnuradio" -B gr/build-gr -GNinja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_CXX_FLAGS="-pthread -fPIC -fexceptions" -DCMAKE_C_FLAGS="-pthread -fPIC" \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DPYTHON_EXECUTABLE="$(command -v python3)" \
+            -DCMAKE_INSTALL_PREFIX="$SYSROOT" -DCMAKE_PREFIX_PATH="$SYSROOT" \
+            -DCMAKE_FIND_ROOT_PATH="$SYSROOT" \
+            -DENABLE_DEFAULT=OFF -DENABLE_PYTHON=OFF -DENABLE_GR_QTGUI=OFF -DENABLE_GR_AUDIO=OFF \
+            -DENABLE_GNURADIO_RUNTIME=ON \
+            -DENABLE_GR_ANALOG=ON -DENABLE_GR_BLOCKS=ON -DENABLE_GR_DIGITAL=ON \
+            -DENABLE_GR_FFT=ON -DENABLE_GR_FILTER=ON -DENABLE_GR_FEC=ON -DENABLE_GR_DTV=ON \
+            -DENABLE_GR_NETWORK=ON -DENABLE_GR_PDU=ON -DENABLE_GR_VOCODER=ON \
+            -DCMAKE_DISABLE_FIND_PACKAGE_libunwind=ON
+          cmake --build gr/build-gr
+
+      # --- qtgui, runner and editor (every run) -------------------------------
+      - name: Build qtgui + runner + editor
+        env:
+          # The editor reads the live recording index and both SigMF objects
+          # directly from this public R2 base URL. `vars` may be empty on a fork
+          # PR; editor/src/recording-catalog.ts falls back to the production
+          # base, which is what a preview wants anyway, so nothing to guard here.
+          VITE_RECORDINGS_R2_BASE: ${{ vars.RECORDINGS_R2_BASE }}
+        run: |
+          source ~/emsdk/emsdk_env.sh
+          export GR="$GITHUB_WORKSPACE/gnuradio"
+          export QT_HOST="$GITHUB_WORKSPACE/Qt/${QT_VERSION}/gcc_64"
+          export QT_WASM="$GITHUB_WORKSPACE/Qt/${QT_VERSION}/wasm_multithread"
+
+          python3 runner/gen_registry.py
+          python3 editor/gen/gen_blocklib.py editor/public/blocks.json
+
+          (cd qtgui && "$QT_WASM/bin/qt-cmake" -S . -B build -GNinja \
+             -DQT_HOST_PATH="$QT_HOST" -DCMAKE_CXX_FLAGS="-pthread -fPIC" \
+             -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+             && cmake --build build)
+
+          (cd runner && "$QT_WASM/bin/qt-cmake" -S . -B build -GNinja \
+             -DQT_HOST_PATH="$QT_HOST" -DCMAKE_BUILD_TYPE=Release \
+             -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+             && cmake --build build)
+
+          # Two entries: the editor at / and the recording view at /recording/,
+          # which the editor's recording tabs frame same-origin.
+          (cd editor && npm ci && npm run typecheck && npm test && npm run build)
+
+      - name: ccache stats
+        run: ccache --show-stats
+
+      # --- Prove the build RUNS, not just that it linked ----------------------
+      # A cleanly linked runner can still be dead on arrival: an unpatched VOLK
+      # once made volk_malloc() return NULL under Emscripten, so every flowgraph
+      # threw std::bad_alloc while CI stayed green and the deployed app could not
+      # run anything. These run real flowgraphs in headless Chromium and check
+      # that samples actually move, so that class of failure blocks the deploy --
+      # and, just as importantly, blocks a preview URL, so a reviewer is never
+      # sent to look at a runner that starts and stalls.
+      - name: Smoke-test the runner
+        run: |
+          # --path gets a "chrome-headless-shell/<platform-version>/..." tree
+          # appended to it, so point it at the repository root to land on the
+          # layout the test harnesses expect: chrome-headless-shell/<ver>/.../binary
+          npx --yes @puppeteer/browsers install chrome-headless-shell@stable \
+            --path "$GITHUB_WORKSPACE"
+          npm ci
+          node test/test_smoke.mjs           # flowgraphs run and produce samples
+          node test/test_lazy_scenarios.mjs  # on-demand side modules still load
+
+      - name: Save ccache
+        if: ${{ inputs.save_ccache }}
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.cache/ccache
+          key: wasm-ccache-${{ github.sha }}
+
+      # --- Assemble the static site and deploy --------------------------------
+      - name: Assemble site
+        run: node scripts/assemble-site.mjs ./site
+
+      # Cloudflare Pages rejects any single file over 25 MiB and any deployment
+      # over 20,000 files. runner.wasm is ~20 MB and grows with every module
+      # added, so fail here -- with the offending file named -- rather than at
+      # the wrangler step, where the error arrives after the whole build.
+      - name: Check Pages upload limits
+        run: |
+          limit=$((25 * 1024 * 1024))
+          over=$(find site -type f -size +${limit}c -printf '%s\t%p\n' | sort -rn)
+          if [ -n "$over" ]; then
+            echo "::error::file(s) exceed Cloudflare Pages' 25 MiB per-file limit:"
+            echo "$over"
+            exit 1
+          fi
+          files=$(find site -type f | wc -l)
+          echo "site: $files files, largest $(find site -type f -printf '%s\t%p\n' | sort -rn | head -1)"
+          if [ "$files" -gt 20000 ]; then
+            echo "::error::$files files exceeds Cloudflare Pages' 20,000 file limit"
+            exit 1
+          fi
+
+      - name: Upload site artifact
+        if: ${{ inputs.upload_site }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: site
+          retention-days: ${{ inputs.artifact_retention_days }}
+
+      - name: Deploy to Cloudflare Pages
+        if: ${{ inputs.deploy }}
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy ./site --project-name=${{ inputs.deploy_project }} --branch=${{ inputs.deploy_branch }}

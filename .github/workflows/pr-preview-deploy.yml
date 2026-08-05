@@ -1,0 +1,167 @@
+name: PR Preview Deploy
+
+# Stage 2 of the fork-PR preview: take the site pr-preview-build.yml produced and
+# publish it, then link it from the PR.
+#
+# `workflow_run` runs THIS repository's copy of this file, from the default
+# branch, in this repository's context -- so it has the Cloudflare token, and it
+# never checks out or executes a line of the contributor's code. That asymmetry
+# is the entire security model. Two rules follow from it and must be kept:
+#
+#   1. Never `actions/checkout` the PR's ref here, and never run anything out of
+#      the downloaded artifact. The artifact is *served*, not executed by CI.
+#   2. Treat every value that came from the build run as hostile. The PR number
+#      arrives in an artifact the contributor's own workflow wrote; it is
+#      validated against the API below before anything is posted anywhere.
+#
+# The site itself is still attacker-controlled HTML/JS, which is inherent to
+# previews. It is contained by deploying to a SEPARATE Pages project with no
+# custom domain, so a preview shares no origin, cookie scope, or deployment
+# history with production and can never be promoted to gnuradioworld.com.
+on:
+  workflow_run:
+    workflows: ["PR Preview Build"]
+    types: [completed]
+
+# The PR number is not known until the artifact is read, so key on what the
+# event does carry: one open PR exists per (head repo, head branch) pair.
+concurrency:
+  group: pr-preview-deploy-${{ github.event.workflow_run.head_repository.full_name }}-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: true
+
+env:
+  PAGES_PROJECT: gnuradio-world-previews
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: >-
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success'
+    permissions:
+      contents: read
+      actions: read           # download artifacts from the build run
+      pull-requests: write    # post the preview link
+    steps:
+      - name: Download build metadata
+        uses: actions/download-artifact@v4
+        with:
+          name: preview-meta
+          path: meta
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+
+      # The number came from a workflow file the contributor controls, so it is
+      # checked rather than believed: it must be digits, name an open PR, and
+      # that PR's head must be the very repo and branch this build ran from.
+      # Matching on head repo + branch rather than head SHA keeps this correct
+      # when the PR has already been pushed to again since the build started.
+      - name: Resolve and verify the pull request
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EXPECT_REPO: ${{ github.event.workflow_run.head_repository.full_name }}
+          EXPECT_BRANCH: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          set -euo pipefail
+          pr=$(tr -cd '0-9' < meta/pr.txt)
+          if [ -z "$pr" ]; then
+            echo "::error::preview-meta carried no PR number"; exit 1
+          fi
+
+          # One field per line, not a TSV read into three variables: the fork
+          # repo is null once the fork has been deleted, and `read` collapses
+          # runs of IFS *whitespace* -- which a tab is -- so the empty field
+          # would vanish and shift head_ref into head_repo. A git ref cannot
+          # contain a newline, so lines are unambiguous.
+          mapfile -t f < <(
+            gh api "repos/$REPO/pulls/$pr" \
+              --jq '.state, (.head.repo.full_name // ""), .head.ref'
+          )
+          if [ "${#f[@]}" -ne 3 ]; then
+            echo "::error::unexpected API response for PR #$pr"; exit 1
+          fi
+          state=${f[0]} head_repo=${f[1]} head_ref=${f[2]}
+
+          if [ "$state" != "open" ]; then
+            echo "PR #$pr is $state — nothing to preview."; exit 1
+          fi
+          if [ "$head_repo" != "$EXPECT_REPO" ] || [ "$head_ref" != "$EXPECT_BRANCH" ]; then
+            echo "::error::PR #$pr head is $head_repo:$head_ref but the build ran from $EXPECT_REPO:$EXPECT_BRANCH"
+            exit 1
+          fi
+
+          echo "number=$pr"          >> "$GITHUB_OUTPUT"
+          echo "branch=pr-$pr"       >> "$GITHUB_OUTPUT"
+          echo "Verified PR #$pr ($head_repo:$head_ref)"
+
+      - name: Download site
+        uses: actions/download-artifact@v4
+        with:
+          name: preview-site
+          path: site
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+
+      # Cheap proof the artifact is an assembled site and not something else.
+      # _headers is the load-bearing one: without COOP/COEP there is no
+      # SharedArrayBuffer, so the editor would load and the runner would die the
+      # moment someone pressed Run.
+      - name: Sanity-check the artifact
+        run: |
+          set -euo pipefail
+          for f in index.html _headers _redirects runner/build/runner.html; do
+            [ -f "site/$f" ] || { echo "::error::artifact is missing $f"; exit 1; }
+          done
+          grep -q 'Cross-Origin-Embedder-Policy: require-corp' site/_headers \
+            || { echo "::error::_headers lost the cross-origin isolation rules"; exit 1; }
+
+      - name: Deploy preview to Cloudflare Pages
+        id: cf
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy site --project-name=${{ env.PAGES_PROJECT }} --branch=${{ steps.pr.outputs.branch }}
+
+      - name: Comment the preview link
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ steps.pr.outputs.number }}
+          # Pages gives every branch a stable alias; the action also reports the
+          # per-deployment URL, which is the more precise link when available.
+          ALIAS: https://${{ steps.pr.outputs.branch }}.${{ env.PAGES_PROJECT }}.pages.dev
+          DEPLOY_URL: ${{ steps.cf.outputs.deployment-url }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          marker='<!-- gnuradio-world-preview -->'
+          body=$(cat <<EOF
+          $marker
+          ### ▶ Preview build
+
+          | | |
+          |---|---|
+          | **Preview** | $ALIAS |
+          | **This build** | ${DEPLOY_URL:-$ALIAS} |
+          | **Commit** | \`${HEAD_SHA:0:7}\` |
+          | **Build log** | $RUN_URL |
+
+          Built from your branch and smoke-tested before publishing. The preview
+          is a throwaway deployment on its own Pages project, updated on every
+          push and deleted when this PR closes.
+          EOF
+          )
+
+          id=$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
+                 --jq "[.[] | select(.body | contains(\"$marker\")) | .id] | first // empty")
+          if [ -n "$id" ]; then
+            gh api -X PATCH "repos/$REPO/issues/comments/$id" -f body="$body" --silent
+            echo "Updated comment $id on PR #$PR"
+          else
+            gh api -X POST "repos/$REPO/issues/$PR/comments" -f body="$body" --silent
+            echo "Commented on PR #$PR"
+          fi
