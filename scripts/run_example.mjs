@@ -53,6 +53,17 @@ const PRINTING_BLOCKS = [
   'satellites_hexdump_sink', 'ham_chu_decode', 'wasm_text_sink',
 ];
 let expectsOutput = false;
+// GRC writes the flowgraph title as a YAML scalar and quotes it when it must,
+// escaping anything non-ASCII in the double-quoted form: droneid_mavic3.grc's
+// em dash is stored as a literal backslash-u2014. The editor lists the decoded text, so an
+// undecoded title matches no palette entry at all.
+function unquoteYamlScalar(scalar) {
+  if (scalar.startsWith('"')) {
+    try { return JSON.parse(scalar); } catch { /* not JSON-compatible; use as-is */ }
+  }
+  if (scalar.startsWith("'")) return scalar.slice(1, -1).replace(/''/g, "'");
+  return scalar;
+}
 // Accept a filename and look up the title the editor lists it under, so either
 // form works on the command line.
 let title = target;
@@ -66,7 +77,7 @@ if (target.endsWith('.grc')) {
   if (!existsSync(path)) { console.error(`no such example: ${path}`); process.exit(2); }
   const text = readFileSync(path, 'utf8');
   const match = text.match(/^\s+title:\s*(.+?)\s*$/m);
-  title = match ? match[1].replace(/^['"]|['"]$/g, '') : basename(target, '.grc');
+  title = match ? unquoteYamlScalar(match[1]) : basename(target, '.grc');
   expectsOutput = PRINTING_BLOCKS.some(
     id => new RegExp(`^\\s+id:\\s*${id}\\s*$`, 'm').test(text));
 }

@@ -1,8 +1,8 @@
 // WASM-portable build of gr-droneid's normalized_xcorr_estimate_impl.cc.
-// Keep this source aligned with the requested upstream branch. The only
-// behavioral change is the explicit size_t cast in num_steps: wasm32 defines
-// uint64_t and size_t as different unsigned types, so upstream's std::min call
-// does not instantiate there.
+// Keep this source aligned with the requested upstream branch. Two behavioral
+// changes: the explicit size_t cast in num_steps (wasm32 defines uint64_t and
+// size_t as different unsigned types, so upstream's std::min call does not
+// instantiate there) and the num_steps == 0 early return (see general_work).
 
 #include "normalized_xcorr_estimate_impl.h"
 #include <gnuradio/io_signature.h>
@@ -57,6 +57,20 @@ int normalized_xcorr_estimate_impl::general_work(
 
     const auto num_steps =
         std::min(static_cast<std::size_t>(noutput_items), buffer_.size() - window_size_);
+
+    // A call that leaves the history exactly one window long has no correlation
+    // step to take, and the code below is not written for that case: the scratch
+    // vectors are only ever grown (`sums_.size() < num_steps` is false at zero),
+    // yet the magnitude pass still writes num_steps + window_size_ floats and
+    // vars_[0] is still assigned. On the first such call those vectors have no
+    // storage at all, so both write through a null data pointer and corrupt low
+    // memory; the flowgraph then dies some milliseconds later as an opaque
+    // Emscripten `Aborted()` or a renderer segfault at a wild address.
+    // window_size_ is the 1024-tap Zadoff-Chu preamble at every DroneID rate and
+    // the scheduler's first chunk is routinely exactly 1024 items, which is why
+    // the droneid examples hit this on most runs rather than rarely.
+    if (num_steps == 0)
+        return 0;
 
     if (sums_.size() < num_steps) {
         sums_.resize(num_steps);
