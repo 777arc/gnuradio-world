@@ -182,6 +182,58 @@ judgement for the eye, so check a change here by arranging a few of the busier
 examples (`rds/rds_receiver.grc`, `ofdm/ofdm.grc`,
 `gr-satellites/satellites_ax25_afsk.grc`) in the editor and looking at them.
 
+### Narrow screens and touch
+
+The editor is one responsive layout, not a separate mobile build. Four things
+carry it, and each has a reason it is where it is:
+
+- **One breakpoint, written twice.** `@media (max-width:820px), (max-width:1000px)
+  and (max-height:500px)` in `editor.css` and the identical `NARROW_LAYOUT`
+  `matchMedia` in `main.ts` — the CSS lays the palette out as a drawer, and the
+  JS has to know the same thing to decide whether closing it after a tap makes
+  sense. The second half of the query is a phone held sideways, which clears the
+  width bound but has no room for a 460px palette either. Nothing else in the
+  editor may add a breakpoint of its own; the recording viewer has one more, at
+  tailwind's `md` (768px), for the same reason (see below).
+- **The drawer is the existing `hide-palette` state.** It is not a second mode:
+  `setPaletteOpen()` toggles the same class View ▸ Show Block Tree Panel and
+  Ctrl+B always toggled, so all three paths and the ☰ button stay in step. The
+  palette becomes an absolutely positioned grid item pinned to its own grid area
+  (row 2 / column 1), which is what leaves the header above it tappable without
+  anyone measuring the header's height. Anything that puts something on the
+  canvas — a block, an example, a recording — calls `closePaletteDrawer()`,
+  because otherwise the drawer is covering the thing it just added.
+- **Canvas gestures are pointer events**, so one set of handlers serves a mouse
+  and a finger. Two consequences worth knowing before touching them: a drag is
+  captured on the `<svg>` root, because `render()` replaces a dragged block's own
+  node on every frame and events aimed at a detached node reach no window
+  listener; and a press on empty canvas arms a rubber band only for a mouse,
+  since that same drag is how a finger pans the canvas.
+- **A block cancels `touchmove`, and that is what makes dragging work at all.**
+  `touch-action:none` is the declarative form and does nothing here — Blink
+  applies the property to CSS boxes, and an SVG child element is not one, so the
+  browser takes the gesture for a scroll and the block stops two frames in with a
+  `pointercancel`. Cancelling the move rather than the touch start is deliberate:
+  it leaves a long-press free to raise the block's context menu. It is bound per
+  block rather than once on the canvas because touch events keep targeting the
+  node the gesture began on even after `render()` has replaced it.
+- **The console gets a collapse bar in place of its splitter.** The 7px
+  `#consoleSplitter` is a drag target no finger can hit, so the narrow layout
+  hides it and shows `#consoleToggle` — a full-width bar above the pane — which
+  toggles the same `console-hidden` class View ▸ Show Console Panel and Ctrl+R
+  always toggled (hence `toggleConsole()` rather than a class flip inline in the
+  key handler, exactly as with the palette drawer). The bar is deliberately *not*
+  hidden by that class: collapsed, it is the only thing left on screen that can
+  bring the pane back, so it also takes over the console's safe-area inset. A
+  console that is closed is a console whose runner errors go unseen, so
+  `logLines()` marks the workspace `console-unread` while it is collapsed and the
+  bar carries a dot until it is opened again.
+
+`editor/test/selection.test.mjs` pins the pointer-event wiring. Everything else
+about the layout is a judgement for the eye, like auto-arrange: check a change by
+loading the editor at a phone viewport, opening the drawer, the Properties dialog
+and a recording tab, and dragging a block with touch emulation on.
+
 ## Toolchain and prerequisites
 
 Supported baseline: Ubuntu 24.04. The repo can live anywhere — `deps/env.sh`, the
@@ -1213,6 +1265,17 @@ working:
   are its Global Properties and Raw Metadata editors — nothing here writes a
   `.sigmf-meta` back. The settings pane is a plain always-open panel, not a
   `<details>`; Annotations is the only collapsible section left.
+- **Under 768px the settings stack below the plot instead of beside it.** That
+  is tailwind's `md`, and it is written in two places that have to agree: the
+  `md:` flex-direction variants in `recording-view.tsx` and `sidebar.tsx`, and
+  `NARROW_LAYOUT_WIDTH` in `utils/constants.ts`, which the spectrogram sizing
+  reads because it is computed in JS where a media query is out of reach.
+  Stacked, the plot is no longer sharing width with a 256px settings column —
+  subtracting the wide layout's 430px would leave it a *negative* width on a
+  390px screen — and its 650px minimum height would push every control below the
+  fold, so `MIN_STACKED_SPECTROGRAM_HEIGHT` applies instead. The order is
+  `flex-col-reverse`: source order stays settings-first, so the plot chooser at
+  the top of the settings pane still sits directly under the plot it chooses.
 - **The viewer has exactly one text size**: the editor's own chrome font,
   system-ui at 13px. The rules are the un-layered block at the top of
   [`editor/src/recording/features/ui/styles/tailwind_index.css`](editor/src/recording/features/ui/styles/tailwind_index.css)

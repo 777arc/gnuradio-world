@@ -8,7 +8,9 @@ export interface MetaViewerProps {
 export const MetaViewer = ({ meta }: MetaViewerProps) => {
   if (!meta) return <></>;
   return (
-    <div className="flex justify-evenly rounded-md border border-base-300 bg-base-200 p-2">
+    /* Wraps rather than overflowing: four label/value pairs do not fit one line
+       on a phone, and the summary is the widest thing under the plot. */
+    <div className="flex flex-wrap justify-evenly gap-x-4 rounded-md border border-base-300 bg-base-200 p-2">
       <div className="flex">
         <div className="text-muted mr-2">data type:</div>
         <div className="text-base-content">{meta.getDataType()}</div>

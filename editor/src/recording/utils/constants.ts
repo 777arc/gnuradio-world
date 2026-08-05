@@ -40,3 +40,11 @@ export const MINIMAP_NUM_FFTS = 200;
 export const MINIMAP_MAX_CONCURRENT_FETCHES = 16;
 export const FETCH_PADDING = 50; // how many extra ffts we fetch, in order to smooth scrolling
 export const MIN_SPECTROGRAM_HEIGHT = 650;
+// Below this the settings stack under the plot instead of sitting beside it.
+// Keep it equal to tailwind's `md` breakpoint: the flex direction in
+// recording-view.tsx is a `md:` variant, and the spectrogram sizing that has to
+// agree with it is computed in JS, where a media query is not in reach.
+export const NARROW_LAYOUT_WIDTH = 768;
+// A phone is stacking the settings under the spectrogram, so 650px of plot
+// would push every control below the fold.
+export const MIN_STACKED_SPECTROGRAM_HEIGHT = 300;

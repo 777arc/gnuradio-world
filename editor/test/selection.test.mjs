@@ -24,9 +24,14 @@ assert.equal(boundsIntersect(
   { x: 20, y: 20, width: 39, height: 39 },
   { x: 60, y: 60, width: 30, height: 30 }), false, 'separate blocks are not selected');
 
-assert.match(source, /svg\.addEventListener\('mousedown'[\s\S]*marquee = /,
+// Pointer events, not mouse events: the same handlers have to serve a finger,
+// which is also why the canvas press bails out before arming a marquee when the
+// pointer is a touch (that gesture pans the canvas instead).
+assert.match(source, /svg\.addEventListener\('pointerdown'[\s\S]*marquee = /,
   'canvas presses must begin marquee selection');
-assert.match(source, /window\.addEventListener\('mousemove'[\s\S]*updateMarquee/,
+assert.match(source, /pointerType === 'touch'/,
+  'a touch on empty canvas must pan rather than rubber-band');
+assert.match(source, /window\.addEventListener\('pointermove'[\s\S]*updateMarquee/,
   'pointer movement must update marquee selection');
 assert.match(source, /e\.shiftKey \|\| e\.ctrlKey \|\| e\.metaKey/,
   'modifier-drag must preserve the existing selection');
