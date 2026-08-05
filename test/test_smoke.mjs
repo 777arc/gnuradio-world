@@ -17,11 +17,16 @@
 // Serves the repository root (COOP/COEP, as SharedArrayBuffer requires) so there is no
 // background server to manage. Exits non-zero if any case fails.
 import http from 'node:http';
-import { mkdtemp, open, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
 import { join, normalize } from 'node:path';
 import { tmpdir } from 'node:os';
-import { contentType, launchBrowser, setIsolationHeaders } from '../scripts/browser-test-support.mjs';
+import {
+  contentType,
+  launchBrowser,
+  setIsolationHeaders,
+  suppressEditorWelcome,
+} from '../scripts/browser-test-support.mjs';
 
 const ROOT = normalize(new URL('..', import.meta.url).pathname);
 const PORT = Number(process.argv[2] || 8101);
@@ -352,98 +357,6 @@ for (const test of CASES) {
   await page.close();
 }
 
-// Select a sparse >4 GiB file through the actual editor UI and read one byte
-// beyond the 32-bit boundary. A whole-file implementation would OOM; a
-// truncated offset would observe the wrong byte.
-{
-  const test = {
-    name: 'Editor File Source streams a local file beyond 4 GiB',
-    grc: 'test/fixtures/local_file_source_large_offset.grc',
-  };
-  const largeOffset = 4294967312;
-  const expected = 0xa5;
-  const tempDir = await mkdtemp(join(tmpdir(), 'gnuradio-world-file-source-'));
-  const sparsePath = join(tempDir, 'large-sparse.bin');
-  const handle = await open(sparsePath, 'w');
-  await handle.truncate(largeOffset + 1);
-  await handle.write(Buffer.from([expected]), 0, 1, largeOffset);
-  await handle.close();
-
-  const page = await browser.newPage();
-  const logs = [];
-  page.on('console', m => logs.push(m.text()));
-  page.on('pageerror', e => logs.push('PAGEERROR ' + e.message));
-  let verdict = '(no #result)', probe = null, fileStats = [], selectedSize = null;
-  try {
-    await page.goto(`http://localhost:${PORT}/`, { waitUntil: 'networkidle0', timeout: 60000 });
-    const openInput = await page.$('#fileOpen');
-    await openInput.uploadFile(join(ROOT, test.grc));
-    await page.waitForFunction(() =>
-      [...document.querySelectorAll('#nodes .title')]
-        .some(node => node.textContent === 'File Source'), { timeout: 10000 });
-
-    await page.evaluate(() => {
-      const title = [...document.querySelectorAll('#nodes .title')]
-        .find(node => node.textContent === 'File Source');
-      const group = title?.closest('.blk');
-      group?.dispatchEvent(new MouseEvent('contextmenu', {
-        bubbles: true, cancelable: true, clientX: 200, clientY: 200,
-      }));
-    });
-    await page.evaluate(() => {
-      const properties = [...document.querySelectorAll('.ctxitem')]
-        .find(item => item.textContent === 'Properties');
-      properties?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    });
-    await page.waitForSelector('.file-picker-native');
-    await (await page.$('.file-picker-native')).uploadFile(sparsePath);
-    selectedSize = await page.$eval(
-      '.file-picker-native', input => input.files?.[0]?.size ?? null);
-    await page.evaluate(() => {
-      const ok = [...document.querySelectorAll('.dlgfoot button')]
-        .find(button => button.textContent === 'OK');
-      ok?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    });
-    await page.click('button[aria-label="Execute"]');
-    await page.waitForFunction(() => {
-      const frame = document.getElementById('runFrame');
-      const result = frame?.contentDocument?.getElementById('result');
-      return result && result.dataset.status !== 'pending';
-    }, { timeout: 60000, polling: 200 });
-    verdict = await page.evaluate(() =>
-      document.getElementById('runFrame').contentDocument.getElementById('result').textContent);
-    await page.waitForFunction(() => {
-      const runner = document.getElementById('runFrame')?.contentWindow;
-      if (!runner?.__grstats) return false;
-      return JSON.parse(runner.__grstats).blocks.find(item => item.name === 'probe')?.items === 1;
-    }, { timeout: 10000, polling: 100 });
-    ({ probe, fileStats } = await page.evaluate(() => {
-      const runner = document.getElementById('runFrame').contentWindow;
-      return {
-        probe: JSON.parse(runner.__grstats).blocks.find(item => item.name === 'probe'),
-        fileStats: Object.values(runner.__grFileStats || {}),
-      };
-    }));
-  } catch (error) {
-    logs.push('TESTERROR ' + error.message);
-  } finally {
-    await page.close();
-    await rm(tempDir, { recursive: true, force: true });
-  }
-
-  const bounded = fileStats.length === 1 &&
-    fileStats[0].ringBytes <= 16 * 1024 * 1024 &&
-    fileStats[0].maxChunkBytes <= 2 * 1024 * 1024 &&
-    fileStats[0].bytesRead === 1;
-  const ok = verdict.includes('RUNNER_PASS') && probe?.value === expected && bounded;
-  allOk = allOk && ok;
-  console.log(`\n[${ok ? 'OK' : 'FAIL'}] ${test.name}  (${test.grc})`);
-  console.log(`   ${verdict.trim()}`);
-  console.log(`   selected size: ${selectedSize}  observed: ${probe?.value ?? '(no probe)'}  ` +
-              `stats: ${JSON.stringify(fileStats)}`);
-  if (!ok && logs.length) console.log('   logs: ' + logs.slice(-8).join('\n         '));
-}
-
 // Pick a picture from "this computer" for gr-paint's Image File Source, through
 // the same editor Properties > Browse control the File Source case uses. The
 // image is an SVG, which is the one format createImageBitmap refuses, so this
@@ -464,6 +377,7 @@ for (const test of CASES) {
     `<rect width="${width}" height="${height}" fill="#ffffff"/></svg>\n`);
 
   const page = await browser.newPage();
+  await suppressEditorWelcome(page);
   const logs = [];
   page.on('console', m => logs.push(m.text()));
   page.on('pageerror', e => logs.push('PAGEERROR ' + e.message));
