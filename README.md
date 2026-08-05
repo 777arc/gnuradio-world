@@ -18,17 +18,128 @@ GNU Radio, entirely in your browser — explore the open-source SDR ecosystem wi
 
 ## Limitations
 
-- Browser sandboxing means native SDR hardware and host-only network/audio devices are unavailable.
-- There is no Python runtime in the browser. Python-only blocks and hierarchies need a C++ implementation.
-- Parameter expressions support a practical Python subset—arithmetic, lists,
-  `math`/`numpy`, and common `firdes` filter designers—but not arbitrary Python.
+- No Python runtime in the browser at the moment, Python-only blocks and hier blocks need a C++ implementation
+- Parameter expressions support a Python subset (arithmetic, lists, `math`/`numpy`, and common `firdes` filter designers) but not any arbitrary Python
 
 ## Coming Soon
 
-- A beginner tutorial with an animated cursor that demonstrates adding blocks
-  and running a flowgraph.
-- An embeddable flowgraph and GUI view for interactive DSP examples, with a link
-  to open the full editor in a new tab.
+- Support for some hardware/SDRs
+- A beginner tutorial with an animated cursor that demonstrates adding blocks and running a flowgraph
+- An embeddable flowgraph and GUI view for interactive DSP examples, with a link to open the full editor in a new tab
+
+## How to add a feature or fix a bug entirely from the browser
+
+Create a [new Issue](https://github.com/777arc/gnuradio-world/issues/new) in GitHub, describe what you want to change or fix, if it's a bug then point out how to reproduce it, or which example flowgraph can be used to reproduce it.  Then click "Assign to Agent", and once it's done the agent will create a PR, and it will automatically build a live version of the site under a different URL, which will be provided as a comment in the PR once it's live (~8m).  You can then test out the change and make a note in the PR that it looks good.
+
+## Developer Quickstart
+
+Everything below is the minimum needed on a fresh Ubuntu 24.04 or 26.04 install
+to build the whole stack from source and open it in a browser. Nothing is
+prebuilt and nothing is downloaded at run time, so the first build takes up to
+an hour (the dependency sysroot and GNU Radio dominate); rebuilds
+after an edit are almost instant in most casesa. Expect ~10 GB of disk usage.
+
+**1. System packages** (the only step needing `sudo`):
+
+```bash
+sudo apt-get update
+sudo apt-get install -y build-essential cmake ninja-build git curl \
+  python3 python3-venv python3-mako python3-yaml python3-packaging \
+  pipx autoconf m4 bzip2 xz-utils
+
+# Node >= 20 is required. Ubuntu 24.04 ships 18, so install 20 from NodeSource;
+# on 26.04 `apt-get install -y nodejs npm` is enough. Check with `node --version`.
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt-get install -y nodejs
+```
+
+**2. Toolchains** — Emscripten 3.1.70 and Qt 6.9.1 (host tools + threaded
+WebAssembly). The versions are pinned together: Qt 6.9 for WebAssembly is built
+with emsdk 3.1.70, and mixing versions breaks the ABI.
+
+```bash
+git clone https://github.com/emscripten-core/emsdk.git ~/emsdk
+~/emsdk/emsdk install 3.1.70 && ~/emsdk/emsdk activate 3.1.70
+
+# ~/.local/bin/aqt spelled out so this works without reopening the shell
+pipx install aqtinstall
+~/.local/bin/aqt install-qt linux desktop 6.9.1 linux_gcc_64      -O ~/Qt
+~/.local/bin/aqt install-qt all_os wasm    6.9.1 wasm_multithread -O ~/Qt
+```
+
+**3. Clone the repository**, with the GNU Radio and OOT submodules:
+
+```bash
+git clone --recurse-submodules https://github.com/777arc/gnuradio-world.git
+cd gnuradio-world
+```
+
+**4. Set up the environment.** Re-run this in every new shell you build from:
+
+```bash
+source deps/env.sh                     # activates emsdk, exports $SYSROOT
+export GR="$PWD/gnuradio"
+export QT_HOST=~/Qt/6.9.1/gcc_64
+export QT_WASM=~/Qt/6.9.1/wasm_multithread
+```
+
+**5. Build everything.** Each command is idempotent, so re-running after a
+failure is cheap:
+
+```bash
+# Cross-build the C++ dependencies (VOLK, Boost, spdlog, GMP, FFTW, Qwt) -> sysroot/
+bash deps/fetch-deps.sh
+bash deps/build-deps.sh
+
+# GNU Radio's C++ modules: no Python, static, exceptions on, everything -fPIC
+emcmake cmake -S "$GR" -B gr/build-gr -GNinja \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_CXX_FLAGS="-pthread -fPIC -fexceptions" -DCMAKE_C_FLAGS="-pthread -fPIC" \
+  -DCMAKE_INSTALL_PREFIX="$SYSROOT" -DCMAKE_PREFIX_PATH="$SYSROOT" \
+  -DCMAKE_FIND_ROOT_PATH="$SYSROOT" \
+  -DENABLE_DEFAULT=OFF -DENABLE_PYTHON=OFF -DENABLE_GR_QTGUI=OFF -DENABLE_GR_AUDIO=OFF \
+  -DENABLE_GNURADIO_RUNTIME=ON \
+  -DENABLE_GR_ANALOG=ON -DENABLE_GR_BLOCKS=ON -DENABLE_GR_DIGITAL=ON \
+  -DENABLE_GR_FFT=ON -DENABLE_GR_FILTER=ON -DENABLE_GR_FEC=ON -DENABLE_GR_DTV=ON \
+  -DENABLE_GR_NETWORK=ON -DENABLE_GR_PDU=ON -DENABLE_GR_VOCODER=ON \
+  -DCMAKE_DISABLE_FIND_PACKAGE_libunwind=ON
+cmake --build gr/build-gr
+
+# Generate the runtime block factories and the matching editor palette
+python3 runner/gen_registry.py
+python3 editor/gen/gen_blocklib.py editor/public/blocks.json
+
+# The gr-qtgui sinks against Qt 6, the WASM runner, then the editor
+(cd qtgui  && "$QT_WASM/bin/qt-cmake" -S . -B build -GNinja -DQT_HOST_PATH="$QT_HOST" -DCMAKE_CXX_FLAGS="-pthread -fPIC" && cmake --build build)
+(cd runner && "$QT_WASM/bin/qt-cmake" -S . -B build -GNinja -DQT_HOST_PATH="$QT_HOST" -DCMAKE_BUILD_TYPE=Release && cmake --build build)
+(cd editor && npm install && npm run build)
+```
+
+**6. Run it.** The app needs `SharedArrayBuffer` for GNU Radio's thread-per-block
+scheduler, which requires the COOP/COEP headers the repository's dev server
+sets — opening `editor/dist/index.html` as a `file://` URL will not work:
+
+```bash
+node server.mjs 8090 "$PWD"
+```
+
+Then open **<http://localhost:8090/>** in Chrome or Firefox, pick an example from
+the *Example Flowgraphs* tab (or drag blocks onto the canvas), and press ▶ Run.
+Use port 8090 specifically: it is the origin allowed by the recordings bucket's
+CORS policy, so the Recordings palette and File Source range reads only work
+there.
+
+To confirm the build is actually healthy rather than merely linked:
+
+```bash
+npm install                          # headless-Chromium test harness deps
+npx @puppeteer/browsers install chrome-headless-shell@stable --path "$PWD"
+npm test                             # runs flowgraphs and asserts samples move
+```
+
+Troubleshooting: if the Qt host tools fail to start, install their one shared
+library (`sudo apt-get install -y libglib2.0-0t64`, or `libglib2.0-0` on older
+releases) — a minimal install may not have it.
 
 ## Software stack and developers info
 
