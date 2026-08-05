@@ -2,6 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
+<!-- Without this a phone lays the page out at 980px and scales it down, which is
+     what made every control unreadably small. viewport-fit=cover pairs with the
+     safe-area insets the mobile rules in editor.css apply. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#181b26" />
 <title>GNU Radio World</title>
 <link rel="stylesheet" href="/src/editor.css" />
 </head>
@@ -9,6 +14,10 @@
 <div id="app">
   <header>
     <div id="menubar">
+      <!-- Opens the palette drawer; only the narrow layout shows it, where the
+           palette overlays the canvas instead of sitting beside it. -->
+      <button id="paletteToggle" type="button" aria-controls="palette" aria-expanded="false"
+              aria-label="Show block palette" title="Show block palette">☰</button>
       <span class="brand"><img src="/gnuradio_world_logo.svg" alt="GNU Radio World" /></span>
       <nav id="menus" role="menubar" aria-label="Main menu"></nav>
       <a class="github-link" href="https://github.com/777arc/gnuradio-world"
@@ -22,6 +31,9 @@
     <div id="toolbar" role="toolbar" aria-label="Editor toolbar"></div>
   </header>
   <div id="palette"></div>
+  <!-- Dismisses the palette drawer by tapping the canvas behind it. Inert (and
+       invisible) in the side-by-side layout, where the palette is not an overlay. -->
+  <div id="paletteScrim" hidden></div>
   <div id="paletteSplitter" role="separator" aria-label="Resize block palette"
        aria-orientation="vertical" aria-valuemin="180" aria-valuemax="900"
        aria-valuenow="460" tabindex="0"></div>

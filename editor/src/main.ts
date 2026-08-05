@@ -815,6 +815,24 @@ function setZoom(next: number) {
   el('canvasWrap').style.setProperty('--grid-size', `${SNAP_GRID_SIZE * zoom}px`); render();
   log(`zoom ${Math.round(zoom * 100)}%`);
 }
+// Scale the canvas down until the whole flowgraph fits the visible pane — the
+// quickest way to get your bearings on a screen narrower than the graph. It
+// never scales *up* past 100%: a two-block flowgraph blown up to fill the pane
+// reads as a mistake, and setZoom's own floor keeps a huge one legible rather
+// than fitting it at any cost.
+function zoomToFit() {
+  let right = 0, bottom = 0;
+  for (const inst of insts) {
+    if (hideDisabled && !inst.enabled) continue;
+    const { w, h } = geom(inst);
+    right = Math.max(right, inst.x + w); bottom = Math.max(bottom, inst.y + h);
+  }
+  if (!right || !bottom) { log('nothing to fit'); return; }
+  const pane = el('canvasWrap').getBoundingClientRect();
+  const margin = 16;
+  setZoom(Math.min(1, (pane.width - margin) / right, (pane.height - margin) / bottom));
+  el('canvasScroll').scrollTo(0, 0);
+}
 // ---- Options block: the singleton flowgraph-metadata block (GRC-style) ----
 // Every flowgraph has exactly one, holding title/author/copyright/description.
 const OPTIONS_ID = 'options';
@@ -1318,7 +1336,7 @@ function showVariableEditor() {
   const foot = document.createElement('div'); foot.className = 'dlgfoot';
   const close = document.createElement('button'); close.textContent = 'Close'; close.onclick = () => overlay.remove(); foot.appendChild(close);
   dlg.append(head, body, foot); overlay.appendChild(dlg); document.body.appendChild(overlay);
-  overlay.addEventListener('mousedown', e => { if (e.target === overlay) overlay.remove(); });
+  overlay.addEventListener('pointerdown', e => { if (e.target === overlay) overlay.remove(); });
   refreshValidation(); close.focus();
 }
 
@@ -1357,7 +1375,9 @@ function showMenu(x: number, y: number, inst: Inst) {
   m.style.top = Math.min(y, window.innerHeight - m.offsetHeight - 6) + 'px';
   menuEl = m;
 }
-document.addEventListener('mousedown', e => { if (menuEl && !menuEl.contains(e.target as Node)) closeMenu(); });
+// pointerdown, not mousedown: the canvas handlers below call preventDefault(),
+// which stops a tap from ever synthesising the compatibility mouse event.
+document.addEventListener('pointerdown', e => { if (menuEl && !menuEl.contains(e.target as Node)) closeMenu(); });
 const SHORTCUTS: [string, string][] = [
   ['Ctrl+N / O', 'New / open flowgraph'], ['Ctrl+S', 'Save flowgraph'],
   ['Ctrl+Shift+D', 'Duplicate flowgraph'], ['Ctrl+W / Ctrl+Q', 'Close flowgraph / app'],
@@ -1368,7 +1388,8 @@ const SHORTCUTS: [string, string][] = [
   ['C', 'Create hierarchy (not available in WASM)'],
   ['Shift+T / M / B', 'Align top / middle / bottom'], ['Shift+L / C / R', 'Align left / center / right'],
   ['Up / Down', 'Previous / next block type'], ['+ / −', 'Increase / decrease dynamic ports'],
-  ['Ctrl++ / Ctrl+− / Ctrl+0', 'Zoom in / out / reset'], ['Ctrl+D', 'Hide disabled blocks'],
+  ['Ctrl++ / Ctrl+− / Ctrl+0', 'Zoom in / out / reset'], ['Ctrl+9', 'Zoom to fit the flowgraph'],
+  ['Ctrl+D', 'Hide disabled blocks'],
   ['Ctrl+E / R / B', 'Variable editor / console / block tree'], ['Scroll Lock', 'Toggle console autoscroll'],
   ['G', 'Toggle grid'], ['Ctrl+K or F1', 'Show these shortcuts'],
   ['F6 / F7', 'Execute / stop'], ['Escape', 'Close dialog or menu'],
@@ -1391,7 +1412,7 @@ function showShortcutHelp() {
   const foot = document.createElement('div'); foot.className = 'dlgfoot';
   const close = document.createElement('button'); close.textContent = 'Close'; close.onclick = () => overlay.remove(); foot.appendChild(close);
   dlg.append(head, body, foot); overlay.appendChild(dlg); document.body.appendChild(overlay); close.focus();
-  overlay.addEventListener('mousedown', e => { if (e.target === overlay) overlay.remove(); });
+  overlay.addEventListener('pointerdown', e => { if (e.target === overlay) overlay.remove(); });
 }
 function consume(e: KeyboardEvent) { e.preventDefault(); e.stopPropagation(); }
 document.addEventListener('keydown', e => {
@@ -1418,11 +1439,12 @@ document.addEventListener('keydown', e => {
   if (e.key === 'ScrollLock') { consume(e); autoScrollLog = !autoScrollLog; log(`console autoscroll ${autoScrollLog ? 'on' : 'off'}`); return; }
   if (ctrl && (e.key === '+' || e.key === '=' || e.code === 'NumpadAdd')) { consume(e); setZoom(zoom * 1.15); return; }
   if (ctrl && (e.key === '-' || e.key === '_' || e.code === 'NumpadSubtract')) { consume(e); setZoom(zoom / 1.15); return; }
+  if (ctrl && key === '9') { consume(e); zoomToFit(); return; }
   if (ctrl && key === '0') { consume(e); setZoom(1); return; }
   if (ctrl && key === 'd') { consume(e); hideDisabled = !hideDisabled; render(); return; }
   if (ctrl && key === 'e') { consume(e); showVariableEditor(); return; }
   if (ctrl && key === 'r') { consume(e); el('workspace').classList.toggle('console-hidden'); return; }
-  if (ctrl && key === 'b') { consume(e); el('app').classList.toggle('hide-palette'); return; }
+  if (ctrl && key === 'b') { consume(e); togglePalette(); return; }
   const active = document.activeElement;
   if (active && ['INPUT', 'SELECT', 'TEXTAREA'].includes(active.tagName)) return;
 
@@ -1737,7 +1759,7 @@ function render() {
         : isSelected ? 'url(#arrow-selected)' : 'url(#arrow)' }));
     // Match the desktop GUI's forgiving line hit test without drawing a thick wire.
     wire.appendChild(svgEl('path', { class: 'wire-hit', d }));
-    wire.addEventListener('mousedown', e => {
+    wire.addEventListener('pointerdown', e => {
       if (e.button !== 0) return;
       e.preventDefault(); e.stopPropagation();
       cancelConnect();
@@ -1785,7 +1807,19 @@ function render() {
       more.textContent = `+${wrapped.length - 5} more lines`; g.appendChild(more);
     }
     // Drag from anywhere on the block; ports stopPropagation so they still connect.
-    g.addEventListener('mousedown', e => startDrag(e, inst));
+    g.addEventListener('pointerdown', e => startDrag(e, inst));
+    // Hold a touch that grabbed this block (or one of its ports, which are its
+    // children) so it drags or wires instead of panning the canvas out from
+    // under itself: without this the browser claims the gesture, the pointer
+    // stream ends in `pointercancel`, and the block stops two frames in.
+    // `touch-action:none` is the declarative form and cannot do the job — Blink
+    // applies the property to CSS boxes, and an SVG child element is not one.
+    // Cancelling the *move* rather than the touch start is what leaves a
+    // long-press free to raise the block's context menu.
+    // It has to be bound here, per block, rather than once on the canvas: touch
+    // events keep targeting the node the gesture began on even after render()
+    // has replaced it, and a detached node's events reach no ancestor.
+    g.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
     g.addEventListener('contextmenu', e => { e.preventDefault(); e.stopPropagation(); if (!selectedBlocks.has(inst.uid)) select(inst.uid); showMenu(e.clientX, e.clientY, inst); });
     for (const i of visiblePortIndices(inst, 'in'))
       addPort(g, inst, 'in', i, portColor(inst, 'in', i));
@@ -1838,9 +1872,14 @@ function addPort(g: SVGGElement, inst: Inst, kind: 'in' | 'out', idx: number, co
   // Two ways to wire ports (GRC-style): left-drag from a port and release on a
   // compatible one, or click a port then click the other. Works from either an
   // output or an input.
-  r.addEventListener('mousedown', e => {
+  r.addEventListener('pointerdown', e => {
     if (e.button !== 0) return;
     e.stopPropagation(); e.preventDefault();
+    // A touch is implicitly captured by the element it went down on, which would
+    // send the release to the source port however far the finger travelled;
+    // dropping the capture lets the port under the fingertip receive it, so a
+    // drag connects on a touch screen exactly as it does with a mouse.
+    if (r.hasPointerCapture(e.pointerId)) r.releasePointerCapture(e.pointerId);
     // A source is already armed from a prior click and this is a different
     // port: treat the press as the second click and complete the connection.
     if (connecting && !(connecting.uid === inst.uid && connecting.port === idx && connecting.kind === kind)) {
@@ -1852,7 +1891,7 @@ function addPort(g: SVGGElement, inst: Inst, kind: 'in' | 'out', idx: number, co
     log('connect from ' + inst.name + ':' + idx + ' …');
     updateConnectPreview(svgPoint(e));
   });
-  r.addEventListener('mouseup', e => {
+  r.addEventListener('pointerup', e => {
     if (!connecting) return;
     e.stopPropagation();   // keep the window handler from cancelling the wire
     // Released on the source port itself: if the pointer barely moved this was a
@@ -1955,10 +1994,15 @@ function updateMarquee(point: Point) {
 }
 
 // Manual double-click detection: select()/drag rebuild the block's DOM node on
-// every mousedown, so the browser never sees two clicks on the same element and
-// its native 'dblclick' never fires. Track the last mousedown ourselves instead.
+// every press, so the browser never sees two clicks on the same element and
+// its native 'dblclick' never fires. Track the last press ourselves instead.
 let lastMouseDown: { uid: string; t: number } | null = null;
-function startDrag(e: MouseEvent, inst: Inst) {
+// Route the rest of a canvas gesture through the <svg> root. A touch is captured
+// by whatever element it went down on, and render() replaces that element on
+// every move — a dragged block's own <g> does not survive its first frame, and
+// events aimed at a detached node reach no window listener. The root is stable.
+function captureCanvasPointer(e: PointerEvent) { svg.setPointerCapture(e.pointerId); }
+function startDrag(e: PointerEvent, inst: Inst) {
   e.stopPropagation();
   if (e.button !== 0) return;   // right/middle click: let the context menu handle it
   e.preventDefault();           // stop the browser from starting a text selection
@@ -1971,11 +2015,12 @@ function startDrag(e: MouseEvent, inst: Inst) {
   lastMouseDown = { uid: inst.uid, t: now };
   select(inst.uid, e.shiftKey);
   if (!selectedBlocks.has(inst.uid)) return;
+  captureCanvasPointer(e);
   const p = svgPoint(e);
   drag = { inst, ox: p.x - inst.x, oy: p.y - inst.y,
     starts: new Map(insts.filter(i => selectedBlocks.has(i.uid)).map(i => [i.uid, { x: i.x, y: i.y }])), moved: false };
 }
-window.addEventListener('mousemove', e => {
+window.addEventListener('pointermove', e => {
   if (connecting) { updateConnectPreview(svgPoint(e)); return; }
   if (marquee) { updateMarquee(svgPoint(e)); return; }
   if (!drag) return; const p = svgPoint(e);
@@ -1991,12 +2036,18 @@ window.addEventListener('mousemove', e => {
   }
   drag.moved ||= moved; render();
 });
-window.addEventListener('mouseup', () => {
+const endPointerGesture = (e: PointerEvent) => {
+  if (svg.hasPointerCapture(e.pointerId)) svg.releasePointerCapture(e.pointerId);
   if (connecting) cancelConnect();   // released away from a port: abandon the wire
   if (drag?.moved) recordHistory(); drag = null;
   if (marquee) { marquee.rect.remove(); marquee = null; }
-});
-svg.addEventListener('mousedown', e => {
+};
+window.addEventListener('pointerup', endPointerGesture);
+// The browser takes the gesture over when it decides a touch is a scroll (or the
+// system does, mid-gesture). Without this the rubber band would be left painted
+// on the canvas and a half-finished wire armed.
+window.addEventListener('pointercancel', endPointerGesture);
+svg.addEventListener('pointerdown', e => {
   if (e.button !== 0) return;
   e.preventDefault();
   cancelConnect();
@@ -2009,6 +2060,11 @@ svg.addEventListener('mousedown', e => {
   }
   selectedConnection = null;
   render();
+  // A finger on empty canvas pans it — that is the scroll container's gesture,
+  // and a rubber band would fight it for the same drag. Deselecting, above,
+  // still happens either way.
+  if (e.pointerType === 'touch') return;
+  captureCanvasPointer(e);
   const rect = svgEl('rect', { class: 'selection-box', visibility: 'hidden' });
   selectionG.appendChild(rect);
   marquee = { start: svgPoint(e), initial, initialPrimary, rect, moved: false };
@@ -2402,6 +2458,7 @@ function openRecordingPreview(recording: ExampleRecording) {
   tab.pinned = true;
   syncRecordingTabs();          // places the tab in the bar and shows its ×
   activateWorkspaceTab(tab.entry.id);   // builds the iframe on first activation
+  closePaletteDrawer();         // the drawer would be covering the tab it opened
   // Point the address bar at what is on screen, exactly as loading an example
   // does, so the link can be copied straight out of it and reloaded.
   setUrlFragment({ recording: normalizeRecordingKey(name) });
@@ -2529,6 +2586,36 @@ async function openRecordingPane(key: string) {
     tab.opening = false;
   }
 }
+
+// ---- Narrow-layout palette drawer ----
+// When this matches, editor.css lays the palette over the canvas as a drawer
+// instead of beside it — narrow screens, plus the short-and-wide one a phone
+// makes when it is turned sideways. It repeats that file's query verbatim and is
+// the only other copy of it. The state is the same `hide-palette` class the wide
+// layout uses, so View ▸ Show Block Tree Panel and Ctrl+B keep working unchanged.
+const NARROW_LAYOUT =
+  window.matchMedia('(max-width:820px), (max-width:1000px) and (max-height:500px)');
+const paletteToggle = el('paletteToggle');
+
+function setPaletteOpen(open: boolean) {
+  el('app').classList.toggle('hide-palette', !open);
+  paletteToggle.setAttribute('aria-expanded', String(open));
+  const label = open ? 'Hide block palette' : 'Show block palette';
+  paletteToggle.setAttribute('aria-label', label);
+  paletteToggle.title = label;
+}
+function togglePalette() { setPaletteOpen(el('app').classList.contains('hide-palette')); }
+// A drawer covers the canvas, so anything that puts something *on* the canvas
+// gets out of its own way. No-op in the wide layout, where the palette is not
+// covering anything.
+function closePaletteDrawer() { if (NARROW_LAYOUT.matches) setPaletteOpen(false); }
+
+paletteToggle.addEventListener('click', togglePalette);
+el('paletteScrim').addEventListener('click', () => setPaletteOpen(false));
+// Open beside the canvas on a desktop, closed over it on a phone — where the
+// flowgraph the reader followed a link to see is the thing worth showing first.
+setPaletteOpen(!NARROW_LAYOUT.matches);
+NARROW_LAYOUT.addEventListener('change', event => setPaletteOpen(!event.matches));
 
 // ---- Vertical splitter between the block palette and the workspace ----
 const PALETTE_SPLITTER_WIDTH = 7;
@@ -2886,8 +2973,10 @@ function makeBlockItem(b: LibraryBlock, indent: number): HTMLElement {
   item.title = !run ? `${b.id} — ${b.unavailableReason || 'not available in WebAssembly'}`
     : b.id;
   item.setAttribute('aria-disabled', String(!run));
-  item.onclick = () => run ? addBlock(b.id) :
-    log(`"${b.id}" is unavailable: ${b.unavailableReason || 'not implemented in WebAssembly'}`);
+  item.onclick = () => {
+    if (!run) { log(`"${b.id}" is unavailable: ${b.unavailableReason || 'not implemented in WebAssembly'}`); return; }
+    addBlock(b.id); closePaletteDrawer();
+  };
   // Right-click works on unavailable blocks too: an example that uses one is
   // still worth reading even when the runner cannot execute it.
   item.oncontextmenu = e => {
@@ -3209,6 +3298,7 @@ async function buildExamples(panel: HTMLElement) {
       item.append(meta);
       item.onclick = () => {
         try {
+          closePaletteDrawer();
           loadFlowgraphAnimated(fg);
           setExampleHash(file);
           setCurrentFileName(file);
@@ -3448,6 +3538,7 @@ function makeRecordingItem(recording: ExampleRecording): HTMLElement {
 
   const useRecording = async () => {
     try {
+      closePaletteDrawer();
       await addRecordingFileSource(recording, format);
     } catch (error) {
       log(`recording "${recording.name}" could not be added: ${error}`);
@@ -3606,7 +3697,6 @@ function selectAll() {
   selectedConnection = null; render();
 }
 function openPropsForSelected() { if (selected) showPropsDialog(G0(selected)); }
-function togglePalette() { el('app').classList.toggle('hide-palette'); }
 function toggleConsole() { el('workspace').classList.toggle('console-hidden'); }
 function toggleScrollLock() { autoScrollLog = !autoScrollLog; log(`console autoscroll ${autoScrollLog ? 'on' : 'off'}`); }
 function clearConsole() { el('log').textContent = ''; }
@@ -3641,7 +3731,7 @@ function openDialog(title: string, build: (body: HTMLElement) => void, wide = fa
   const close = document.createElement('button'); close.textContent = 'Close'; close.onclick = () => overlay.remove();
   foot.appendChild(close);
   dlg.append(head, body, foot); overlay.appendChild(dlg); document.body.appendChild(overlay);
-  overlay.addEventListener('mousedown', e => { if (e.target === overlay) overlay.remove(); });
+  overlay.addEventListener('pointerdown', e => { if (e.target === overlay) overlay.remove(); });
   close.focus();
   return overlay;
 }
@@ -3844,6 +3934,7 @@ const MENUS: TopMenu[] = [
     'sep',
     { label: 'Zoom In', key: 'Ctrl++', run: () => setZoom(zoom * 1.15) },
     { label: 'Zoom Out', key: 'Ctrl+-', run: () => setZoom(zoom / 1.15) },
+    { label: 'Zoom to Fit', key: 'Ctrl+9', run: zoomToFit, enabled: hasBlocks },
     { label: 'Reset Zoom', key: 'Ctrl+0', run: () => setZoom(1) },
     'sep',
     { label: 'Flowgraph Errors', run: showErrorsDialog },
@@ -3883,6 +3974,10 @@ function buildMenuDrop(items: (MenuItem | 'sep')[], submenu = false): HTMLElemen
       const arrow = document.createElement('span'); arrow.className = 'mi-arrow'; arrow.textContent = '▸';
       row.appendChild(arrow);
       row.appendChild(buildMenuDrop(it.sub, true));
+      // CSS flies the submenu out on hover, which a touch screen never does; a
+      // tap on the row opens it instead. Leaf rows stop their own clicks, so
+      // choosing something inside the submenu does not reach this handler.
+      row.addEventListener('click', e => { e.stopPropagation(); row.classList.toggle('open'); });
     } else {
       const key = document.createElement('span'); key.className = 'mi-key'; key.textContent = it.key || '';
       row.appendChild(key);
@@ -3921,7 +4016,7 @@ function buildMenuBar() {
     menus.appendChild(top);
   }
 }
-document.addEventListener('mousedown', e => {
+document.addEventListener('pointerdown', e => {
   if (!(e.target as HTMLElement).closest('#menus')) closeMenus();
 });
 
@@ -3964,6 +4059,9 @@ function buildToolbar() {
     if (t === 'sep') { bar.appendChild(Object.assign(document.createElement('div'), { className: 'tsep' })); continue; }
     const b = document.createElement('button'); b.className = 'tbtn'; b.textContent = t.icon;
     b.setAttribute('aria-label', t.label);
+    // What the narrow layout orders the bar by: too many tools to fit a phone,
+    // so editor.css pulls Execute and Kill to the front of the scroll.
+    b.dataset.tool = t.label;
     if (t.reason) { b.classList.add('disabled'); b.setAttribute('aria-disabled', 'true'); attachTip(b, t.reason); }
     else { b.title = t.label + (t.key ? ` (${t.key})` : ''); b.onclick = () => t.run && t.run(); }
     bar.appendChild(b);

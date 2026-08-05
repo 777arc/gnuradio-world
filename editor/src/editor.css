@@ -1,8 +1,15 @@
 * { box-sizing:border-box; }
-html,body { margin:0; height:100%; font-family:system-ui,Arial,sans-serif; color:#e6e9f0; background:#1e2230; }
+html,body { margin:0; height:100%; font-family:system-ui,Arial,sans-serif; color:#e6e9f0; background:#1e2230;
+    /* A phone must not reflow the app's own type, and the shell never scrolls as
+       a page, so a rubber-band drag over it (pull-to-refresh included) is noise. */
+    -webkit-text-size-adjust:100%; overscroll-behavior:none; }
+/* dvh, not vh: a phone's vh is the *largest* viewport, so the console pane would
+   sit under the browser's own toolbar until the reader scrolled it away. */
 #app { --palette-width:460px; --palette-splitter-width:7px; display:grid;
     grid-template-columns:var(--palette-width) var(--palette-splitter-width) 1fr;
-    grid-template-rows:auto 1fr; height:100vh; }
+    grid-template-rows:auto 1fr; height:100vh; height:100dvh; position:relative; }
+/* The narrow layout's drawer affordances; inert in the side-by-side layout. */
+#paletteToggle, #paletteScrim { display:none; }
 /* !important so hiding still wins over the inline width set by the splitter drag */
 #app.hide-palette { --palette-width:0px !important; --palette-splitter-width:0px !important; }
 #app.hide-palette #palette { visibility:hidden; overflow:hidden; }
@@ -41,7 +48,10 @@ button:hover { filter:brightness(1.15); }
 .menu-sep { height:1px; background:#3a4160; margin:4px 0; }
 .menuitem.has-sub { position:relative; }
 .menu-drop.submenu { display:none; top:-5px; left:100%; }
-.menuitem.has-sub:hover > .menu-drop.submenu { display:block; }
+/* Hover opens it with a mouse; `.open` is how a tap does, since a touch screen
+   never hovers (buildMenuDrop toggles the class on a has-sub row's click). */
+.menuitem.has-sub:hover > .menu-drop.submenu,
+.menuitem.has-sub.open > .menu-drop.submenu { display:block; }
 /* ---- GRC-style icon toolbar (mirrors TOOLBAR_LIST) ---- */
 #toolbar { display:flex; align-items:center; gap:2px; padding:3px 8px; height:38px;
     border-top:1px solid #262b3b; overflow-x:auto; }
@@ -329,7 +339,7 @@ svg text { user-select:none; -webkit-user-select:none; -moz-user-select:none; }
 .ctxsep { height:1px; background:#46507a; margin:4px 0; }
 /* block Properties dialog (GRC-style modal) */
 .modal { position:fixed; inset:0; background:#0009; display:flex; align-items:center; justify-content:center; z-index:150; }
-.dlg { width:440px; max-height:82vh; background:#20232f; border:1px solid #46507a; border-radius:8px;
+.dlg { width:min(440px,94vw); max-height:82vh; background:#20232f; border:1px solid #46507a; border-radius:8px;
     display:flex; flex-direction:column; overflow:hidden; box-shadow:0 12px 44px #000b; }
 .modal.props .dlg { width:min(700px,92vw); }
 .dlghead { padding:12px 16px; font-size:14px; font-weight:600; color:#dce3f5; border-bottom:1px solid #333a4d; }
@@ -391,3 +401,167 @@ svg text { user-select:none; -webkit-user-select:none; -moz-user-select:none; }
 #runFrame { min-height:0; flex:1; display:block; width:100%; border:0; background:#fff; }
 #runFrame[hidden] { display:none; }
 #editorPane[hidden], #runPane[hidden] { display:none; }
+
+/* ================= Narrow viewports (phones, small tablets) =================
+   The desktop shell is three columns — palette | splitter | workspace — and the
+   palette alone (460px) is wider than a phone. Below 820px the palette becomes
+   an overlay drawer over a full-width workspace, driven by the *same*
+   `hide-palette` class the View menu and Ctrl+B already toggle, so there is one
+   piece of state rather than a second mobile-only one.
+
+   The drawer is an absolutely positioned grid item pinned to row 2 / column 1 —
+   its grid *area*, which is how an abspos child of a grid container resolves its
+   containing block. That keeps the header above it tappable (so ☰ can close what
+   it opened) without measuring the header's height anywhere.
+
+   The second half of the query is the phone held sideways: 844x390 and its
+   neighbours clear the width bound, but a 460px palette on a 844px screen leaves
+   the canvas a third of the display. `NARROW_LAYOUT` in main.ts repeats this
+   query verbatim and is the only other copy of it. */
+@media (max-width:820px), (max-width:1000px) and (max-height:500px) {
+  #app { grid-template-columns:minmax(0,1fr); }
+  header { grid-column:1;
+      padding-left:env(safe-area-inset-left); padding-right:env(safe-area-inset-right); }
+  #palette { position:absolute; grid-row:2; grid-column:1; top:0; bottom:0; left:0;
+      width:min(88vw,420px); z-index:130; border-right:1px solid #46507a;
+      box-shadow:8px 0 34px #000a; transform:translateX(0);
+      /* visibility transitions discretely and only at the far end, so the pane
+         stays painted for the whole slide-out and is properly hidden after it. */
+      transition:transform .18s ease, visibility .18s; }
+  /* -101% so the drawer's own border clears the edge too. */
+  #app.hide-palette #palette { visibility:hidden; transform:translateX(-101%); }
+  #paletteScrim { position:absolute; grid-row:2; grid-column:1; inset:0; z-index:120;
+      background:#0b0d14a6; }
+  #app.hide-palette #paletteScrim { display:none; }
+  #app:not(.hide-palette) #paletteScrim { display:block; }
+  /* Column resizing needs a pointer that can hover a 7px target; a drawer that
+     covers the canvas has no width worth tuning by hand anyway. */
+  #paletteSplitter { display:none; }
+
+  /* ---- header: one scrollable row of menus, one of tools ---- */
+  #menubar { gap:0; padding:0 6px; height:44px; position:relative; }
+  #menubar .brand { margin-right:6px; }
+  #menubar .brand img { height:15px; }
+  #menus { flex:1; min-width:0; overflow-x:auto; scrollbar-width:none; }
+  #menus::-webkit-scrollbar { display:none; }
+  #paletteToggle { display:inline-flex; align-items:center; justify-content:center;
+      flex:none; width:36px; height:36px; margin-right:2px; padding:0; font-size:17px;
+      line-height:1; background:transparent; border:1px solid transparent; color:#c3cbe0; }
+  #paletteToggle:hover, #paletteToggle:focus-visible { background:#2a2f42; color:#fff; filter:none; }
+  #app:not(.hide-palette) #paletteToggle { background:#2a2f42; color:#fff; border-color:#3a4366; }
+  .menu-top { padding:11px 9px; }
+  .github-link { width:34px; height:34px; }
+  #toolbar { height:46px; padding:4px 6px; scrollbar-width:none;
+      -webkit-overflow-scrolling:touch; }
+  #toolbar::-webkit-scrollbar { display:none; }
+  .tbtn { min-width:38px; height:38px; padding:0 8px; font-size:17px; }
+  .tsep { height:24px; margin:0 5px; }
+  /* Run and Kill are what a reader reaches for most and sit two thirds of the way
+     along a bar that no longer fits, so pull the pair to the front. */
+  .tbtn[data-tool="Execute"] { order:-2; }
+  .tbtn[data-tool="Kill"] { order:-1; margin-right:5px; }
+
+  /* A top-level menu anchored to its own label runs off the right edge on a
+     phone (Help sits ~90% across). Anchoring to the menubar instead gives every
+     drop the same full-width sheet — hence `position:static` on .menu-top and
+     `relative` on #menubar above. The submenu keeps its own anchor, since
+     .menuitem.has-sub stays relative. */
+  .menu-top { position:static; }
+  .menu-drop:not(.submenu) { left:6px; right:6px; top:100%; min-width:0;
+      max-height:min(68dvh,460px); overflow-y:auto; overscroll-behavior:contain; }
+  /* No hover to fly a submenu out sideways, and no room to fly to: a tap expands
+     it in place instead, indented under its row. */
+  .menu-drop.submenu { position:static; margin:4px 0 2px 18px; box-shadow:none;
+      background:#212636; max-height:none; }
+  .menuitem { padding:11px 14px 11px 8px; }
+  .menuitem .mi-key { padding-left:12px; }
+  .ctxitem { padding:11px 18px; }
+  .ctxmenu { min-width:180px; max-width:calc(100vw - 20px); }
+
+  /* ---- palette and workspace tabs: thumb-sized rows ---- */
+  .paltab, .workspace-tab { padding:12px 10px; font-size:12.5px; }
+  .workspace-tab-close { padding:0 12px 0 2px; font-size:16px; }
+  .workspace-tab-label { max-width:130px; }
+  /* JS sets padding-left inline for the tree indent, so only pad the other sides. */
+  .cat-row, .pal-item { padding-top:9px; padding-bottom:9px; padding-right:10px; }
+  .tri { width:20px; min-width:20px; }
+  .ex-item { padding:12px 34px 12px 12px; }
+  .rec-item { padding:12px; }
+  .rec-view, .rec-link, .ex-link { font-size:12px; padding:5px 10px; }
+  .ex-link { top:4px; right:4px; }
+
+  /* 16px is the threshold under which iOS Safari zooms the page in on focus,
+     which then leaves the layout scrolled sideways. */
+  .palsearch, .dlgrow input, .dlgrow select, .dlgrow textarea, .contrib-name input {
+      font-size:16px; padding:9px 10px; }
+
+  /* ---- dialogs become bottom sheets ---- */
+  .modal { align-items:flex-end; }
+  .dlg, .modal.props .dlg, .shortcut-dlg { width:100%; max-width:none;
+      max-height:88dvh; border-radius:12px 12px 0 0; border-bottom:0; }
+  .dlghead { padding:14px 16px; }
+  .dlgclose { width:34px; height:34px; font-size:22px; }
+  .dlgtab { padding:10px 13px; }
+  /* Label above field: a 1fr/1.25fr split leaves both halves too narrow to read
+     at this width, and right-aligned labels lose their pairing once wrapped. */
+  .dlgrow { grid-template-columns:minmax(0,1fr); gap:5px; margin:13px 0; }
+  .dlgrow label { text-align:left; }
+  .dlgrow:has(textarea) label { padding-top:0; }
+  .file-picker { grid-template-columns:minmax(0,1fr); }
+  .file-picker button { padding:10px; }
+  .shortcut-grid { grid-template-columns:minmax(0,1fr); }
+  .shortcut-row { grid-template-columns:minmax(0,42%) 1fr; }
+  .dlgfoot { padding:12px 16px calc(12px + env(safe-area-inset-bottom)); }
+  .dlgfoot button { flex:1; padding:11px 12px; font-size:14px; }
+  /* Value under its label, with the gap moved between *pairs* — side by side,
+     the 200px label column would leave the values a few characters wide. */
+  .debug-kv { flex-wrap:wrap; margin-bottom:9px; }
+  .debug-k { flex-basis:100%; }
+  /* The module table has five columns and no room to spare; trimming the cell
+     padding and the sheet's own is what keeps "on demand" inside the screen.
+     Anything still too wide scrolls within the sheet rather than widening it. */
+  .dlgbody { padding-left:10px; padding-right:10px; overflow-x:auto; }
+  .debug-table { font-size:11.5px; }
+  .debug-table th, .debug-table td { padding:4px 5px; }
+
+  /* ---- panes ---- */
+  #log { max-height:22dvh; padding-bottom:calc(6px + env(safe-area-inset-bottom)); }
+  #runBar { min-height:46px; }
+  #runBar button { padding:9px 14px; }
+  /* Nothing here can drag a 7px handle; the console keeps its auto height. */
+  #consoleSplitter { display:none; }
+}
+
+/* Phone widths: the five menus need ~226px and the wordmark alone is ~144px, so
+   one of them has to give. Crop the logo to its antenna mark (it leads the
+   artwork, hence object-position:left) and every menu fits without scrolling. */
+@media (max-width:560px) {
+  #menubar .brand img { height:18px; width:15px; object-fit:cover; object-position:left center; }
+  /* Likewise the palette's own three tabs, so "SigMF Recordings" is not left
+     half-scrolled off the drawer. */
+  .paltab { padding:12px 8px; font-size:12px; }
+}
+
+/* Landscape phone: ~390px of height, two thirds of which the header, tabs and
+   console would eat. Give the canvas the room back. */
+@media (max-width:1000px) and (max-height:500px) {
+  #menubar { height:38px; }
+  #toolbar { height:40px; }
+  .tbtn { height:32px; }
+  .paltab, .workspace-tab { padding:8px 12px; }
+  #log { max-height:26dvh; }
+  .dlg, .modal.props .dlg, .shortcut-dlg { max-height:94dvh; }
+}
+
+/* Touch-first pointers, at any width: hover-only affordances are unreachable
+   there, so anything that only appears on hover has to stand on its own. */
+@media (pointer:coarse) {
+  /* The per-example copy-link button is faint until its row is hovered, and a
+     touch screen never hovers — it would stay near-invisible forever. */
+  .ex-link { opacity:.75; }
+}
+/* There is deliberately no `touch-action` rule for the canvas here: what keeps a
+   finger on a block from panning instead of dragging it is the touchmove
+   preventDefault() in main.ts. Blink applies touch-action to CSS boxes, and an
+   SVG child element is not one, so `touch-action:none` on .blk would be ignored
+   there — and on the <svg> itself it would disable panning altogether. */

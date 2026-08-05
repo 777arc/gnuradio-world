@@ -19,7 +19,9 @@ import { Sidebar } from './components/sidebar';
 import MetaViewer from './components/meta-viewer';
 import AnnotationList from './components/annotation/annotation-list';
 import ScrollBar from './components/scroll-bar';
-import { MINIMAP_FFT_SIZE, MIN_SPECTROGRAM_HEIGHT } from '@/utils/constants';
+import {
+  MINIMAP_FFT_SIZE, MIN_SPECTROGRAM_HEIGHT, MIN_STACKED_SPECTROGRAM_HEIGHT, NARROW_LAYOUT_WIDTH,
+} from '@/utils/constants';
 import FreqSelector from './components/freq-selector';
 import FreqShiftSelector from './components/freqshift-selector';
 import TimeSelector from './components/time-selector';
@@ -50,10 +52,18 @@ export function DisplaySpectrogram({ currentFFT, setCurrentFFT, currentTab }) {
   const { width, height } = useWindowSize();
 
   useEffect(() => {
-    const spectrogramHeight = height - 450; // hand-tuned against the surrounding chrome
-    setSpectrogramHeight(Math.max(MIN_SPECTROGRAM_HEIGHT, spectrogramHeight));
-    const newSpectrogramWidth = width - 430; // hand-tuned for now
-    setSpectrogramWidth(newSpectrogramWidth);
+    // Two layouts, matching the `md:` breakpoint the page's flex direction uses:
+    // settings beside the plot, or stacked under it on a phone. Stacked, the
+    // 256px settings column is no longer taking width from the plot, and only
+    // the side ruler (50) and minimap (69) still are — subtracting the wide
+    // layout's 430 there would leave a *negative* width on a 390px screen.
+    const stacked = width < NARROW_LAYOUT_WIDTH;
+    setSpectrogramWidth(width - (stacked ? 133 : 430));   // hand-tuned for now
+    // Likewise the height: 650px of spectrogram plus the settings under it is a
+    // long scroll on a phone, and the chrome above it is shorter there too.
+    setSpectrogramHeight(stacked
+      ? Math.max(MIN_STACKED_SPECTROGRAM_HEIGHT, height - 230)
+      : Math.max(MIN_SPECTROGRAM_HEIGHT, height - 450));  // hand-tuned against the surrounding chrome
   }, [width, height]);
 
   const { image, setIQData } = useGetImage(
@@ -179,9 +189,14 @@ export function RecordingViewPage() {
       <CursorContextProvider>
         <FileSourceSelectionSync setCurrentFFT={setCurrentFFT} />
         <div className="mb-0 ml-0 mr-0 p-0 pt-3">
-          <div className="flex flex-row w-full">
+          {/* Narrow: the plot comes first and the settings stack under it —
+              col-reverse, so the source order (settings first) is unchanged and
+              the plot chooser at the top of the settings pane still reads as
+              belonging to the plot above it. The width the spectrogram is drawn
+              at follows the same breakpoint, in JS. */}
+          <div className="flex flex-col-reverse md:flex-row w-full">
             <Sidebar currentFFT={currentFFT} currentTab={currentTab} setCurrentTab={setCurrentTab} />
-            <div className="flex flex-col pl-3">
+            <div className="flex flex-col min-w-0 md:pl-3">
               {/* The plot chooser lives at the top of the settings pane; this displays whichever it selected */}
               <DisplaySpectrogram currentFFT={currentFFT} setCurrentFFT={setCurrentFFT} currentTab={currentTab} />
               <DisplayMetaSummary />
