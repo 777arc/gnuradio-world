@@ -2963,7 +2963,7 @@ async function buildPalette() {
   const recordingsPanel = document.createElement('div'); recordingsPanel.className = 'paltab-panel'; recordingsPanel.hidden = true;
   const tabBlocks = document.createElement('button'); tabBlocks.className = 'paltab active'; tabBlocks.textContent = 'Blocks';
   const tabExamples = document.createElement('button'); tabExamples.className = 'paltab'; tabExamples.textContent = 'Example Flowgraphs';
-  const tabRecordings = document.createElement('button'); tabRecordings.className = 'paltab'; tabRecordings.textContent = 'SigMF Recordings';
+  const tabRecordings = document.createElement('button'); tabRecordings.className = 'paltab'; tabRecordings.textContent = 'Recordings';
   let examplesLoaded = false;
   let recordingsLoaded = false;
   const activate = (which: 'blocks' | 'examples' | 'recordings') => {
