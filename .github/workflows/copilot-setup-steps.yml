@@ -1,0 +1,78 @@
+name: Copilot setup steps
+
+# Provisions the environment GitHub's Copilot coding agent works in, so that it
+# can run this repository's fast checks *before* it proposes a change. Copilot
+# looks for a job named exactly `copilot-setup-steps`, in exactly this file, on
+# the default branch. Any other name is ignored silently.
+#
+# What this deliberately does NOT do is build the WASM stack. `test/test_smoke.mjs`
+# needs `runner/build/runner.wasm` — emsdk, Qt for WebAssembly and a full GNU
+# Radio cross-build, which build.yml gives 180 minutes and which this job is
+# capped at 59 for. So the smoke tests stay where they already run: the PR build
+# (build.yml, called by pr-preview-build.yml). What the agent gets here is
+# everything that runs in minutes without a cross-compiler — the editor suite,
+# both generators, and the host-compiled .grc parser test.
+# `.github/copilot-instructions.md` is what tells it to run them.
+#
+# A failed step here does not stop the agent; it skips the rest and works with
+# whatever state it has. So keep every step cheap and independent of the others.
+#
+# Pushing a change to this file runs it as an ordinary workflow, which is how to
+# check it still works.
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+  pull_request:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+
+jobs:
+  copilot-setup-steps:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    # The cap is 59; nothing here should come close. `actions/checkout` overrides
+    # any fetch-depth on this path, so don't bother setting one.
+    timeout-minutes: 20
+    steps:
+      # Both generators read block metadata out of the submodules — gen_registry.py
+      # walks gnuradio/ plus every gr-*/ — so an agent without them cannot
+      # regenerate, and cannot notice that it needed to.
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20" # the editor build needs >= 20
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            editor/package-lock.json
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # mako renders the generated registrars, pyyaml reads every .block.yml.
+      # aqtinstall/packaging are build.yml's, for Qt, and have no use here.
+      - name: Python deps for the generators
+        run: pip install mako pyyaml
+
+      - name: Node deps
+        run: |
+          npm ci                 # puppeteer-core; the root harnesses need a built runner
+          (cd editor && npm ci)  # the suite and type checks the agent can actually run
+
+      # Prove the environment can run each gate the instructions ask for, rather
+      # than leaving the agent to discover a missing dependency mid-task. Cheap
+      # enough (seconds each, bar the editor build) to be worth the certainty.
+      - name: Verify the fast checks run here
+        run: |
+          python3 runner/gen_registry.py
+          python3 editor/gen/gen_blocklib.py editor/public/blocks.json
+          git diff --exit-code   # a clean checkout must regenerate to itself
+          (cd runner/test && g++ -std=c++17 -I../src -I../third_party grc_test.cpp -o grc_test && ./grc_test)
+          (cd editor && npm run check)
