@@ -48,3 +48,10 @@ export async function launchBrowser(root, options = {}) {
     args: options.webgpu ? WEBGPU_CHROME_ARGS : CHROME_ARGS,
   });
 }
+
+export async function suppressEditorWelcome(page) {
+  await page.evaluateOnNewDocument(() => {
+    try { localStorage.setItem('gnuradio_world_welcome_seen', '1'); }
+    catch { /* localStorage is unavailable for opaque documents */ }
+  });
+}
