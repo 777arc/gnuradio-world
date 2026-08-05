@@ -130,14 +130,32 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           PR: ${{ steps.pr.outputs.number }}
-          # Pages gives every branch a stable alias; the action also reports the
-          # per-deployment URL, which is the more precise link when available.
+          # Two different things, despite both resolving to this deployment right
+          # now. ALIAS is the branch alias: stable across pushes, always serving
+          # the newest build, and so the link worth keeping in a comment that is
+          # rewritten in place. DEPLOY_URL is the per-deployment URL: immutable,
+          # pinned to this commit, so a reviewer's tab does not silently become a
+          # different build when the author pushes again. It is only worth a row
+          # when it exists and actually differs -- wrangler-action does not always
+          # report it, and two rows holding the same URL just read as a bug.
           ALIAS: https://${{ steps.pr.outputs.branch }}.${{ env.PAGES_PROJECT }}.pages.dev
           DEPLOY_URL: ${{ steps.cf.outputs.deployment-url }}
           RUN_URL: ${{ github.event.workflow_run.html_url }}
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
+          short=${HEAD_SHA:0:7}
+
+          # No target="_blank" anywhere below: GitHub's comment sanitizer strips
+          # the attribute, from raw <a> tags as much as from markdown, so a link
+          # cannot be made to open in a new tab from this side.
+          rows="| **Preview your change here** | $ALIAS |"
+          if [ -n "${DEPLOY_URL:-}" ] && [ "$DEPLOY_URL" != "$ALIAS" ]; then
+            rows="$rows"$'\n'"| **This build only** | $DEPLOY_URL |"
+          fi
+          rows="$rows"$'\n'"| **Commit** | \`$short\` |"
+          rows="$rows"$'\n'"| **Build log** | $RUN_URL |"
+
           marker='<!-- gnuradio-world-preview -->'
           body=$(cat <<EOF
           $marker
@@ -145,14 +163,12 @@ jobs:
 
           | | |
           |---|---|
-          | **Preview** | $ALIAS |
-          | **This build** | ${DEPLOY_URL:-$ALIAS} |
-          | **Commit** | \`${HEAD_SHA:0:7}\` |
-          | **Build log** | $RUN_URL |
+          $rows
 
           Built from your branch and smoke-tested before publishing. The preview
-          is a throwaway deployment on its own Pages project, updated on every
-          push and deleted when this PR closes.
+          link follows this pull request and updates on every push; any **this
+          build only** link stays pinned to \`$short\`. It is a throwaway
+          deployment on its own Pages project, deleted when this PR closes.
           EOF
           )
 
