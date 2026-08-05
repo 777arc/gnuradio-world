@@ -2961,7 +2961,7 @@ async function buildPalette() {
   const blocksPanel = document.createElement('div'); blocksPanel.className = 'paltab-panel';
   const examplesPanel = document.createElement('div'); examplesPanel.className = 'paltab-panel'; examplesPanel.hidden = true;
   const recordingsPanel = document.createElement('div'); recordingsPanel.className = 'paltab-panel'; recordingsPanel.hidden = true;
-  const tabBlocks = document.createElement('button'); tabBlocks.className = 'paltab active'; tabBlocks.textContent = 'Blocks';
+  const tabBlocks = document.createElement('button'); tabBlocks.className = 'paltab active'; tabBlocks.textContent = 'Blocks asdasd';
   const tabExamples = document.createElement('button'); tabExamples.className = 'paltab'; tabExamples.textContent = 'Example Flowgraphs';
   const tabRecordings = document.createElement('button'); tabRecordings.className = 'paltab'; tabRecordings.textContent = 'Recordings';
   let examplesLoaded = false;
