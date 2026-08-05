@@ -3784,7 +3784,7 @@ const MENUS: TopMenu[] = [
     'sep',
     { label: 'Save', key: 'Ctrl+S', run: () => saveFlowgraph() },
     { label: 'Copy URL', run: copyFlowgraphUrl, enabled: hasBlocks },
-    { label: 'Contribute as Example…', run: contributeExample, enabled: hasBlocks },
+    { label: 'Contribute Example…', run: contributeExample, enabled: hasBlocks },
     'sep',
     { label: 'Screen Capture…', key: 'Ctrl+P', run: saveScreenshot },
     'sep',
@@ -4042,6 +4042,44 @@ async function openRecordingFromUrl(): Promise<boolean> {
   }
 }
 
+function showWelcomePopup() {
+  const WELCOME_KEY = 'gnuradio_world_welcome_seen';
+  try { if (localStorage.getItem(WELCOME_KEY)) return; } catch { return; }
+  const overlay = document.createElement('div'); overlay.className = 'modal';
+  const dlg = document.createElement('div'); dlg.className = 'dlg';
+  const head = document.createElement('div'); head.className = 'dlghead'; head.textContent = 'Welcome to GNU Radio World';
+  const body = document.createElement('div'); body.className = 'dlgbody';
+  type Item = { text: string } | { parts: (string | HTMLElement)[] };
+  const emailLink = document.createElement('a');
+  emailLink.href = 'mailto:info@iqengine.org'; emailLink.textContent = 'info@iqengine.org';
+  emailLink.style.color = 'var(--accent, #58a6ff)';
+  const items: Item[] = [
+    { text: 'GNU Radio World is very new and a work in progress \u2014 expect rough edges!' },
+    { text: 'Example flowgraphs can be submitted via File \u203a Contribute Example.' },
+    { parts: ['Example recordings can be submitted by emailing ', emailLink, ' with a way to download them.'] },
+    { text: 'Features or bug fixes can be done very easily: open a new GitHub Issue, then click \u201cAssign to Agent\u201d to have AI do the work and make a PR. The PR will automatically build and after ~8 minutes give you a link to a live preview so you can verify the change.' },
+  ];
+  const ul = document.createElement('ul'); ul.style.cssText = 'margin:0;padding-left:1.4em;line-height:1.7';
+  for (const item of items) {
+    const li = document.createElement('li');
+    if ('text' in item) { li.textContent = item.text; }
+    else { for (const part of item.parts) li.append(part); }
+    ul.appendChild(li);
+  }
+  body.appendChild(ul);
+  const foot = document.createElement('div'); foot.className = 'dlgfoot';
+  const close = document.createElement('button'); close.textContent = 'Got it';
+  const dismiss = () => {
+    try { localStorage.setItem(WELCOME_KEY, '1'); } catch { /* ignore */ }
+    overlay.remove();
+  };
+  close.onclick = dismiss;
+  foot.appendChild(close);
+  dlg.append(head, body, foot); overlay.appendChild(dlg); document.body.appendChild(overlay);
+  overlay.addEventListener('mousedown', e => { if (e.target === overlay) dismiss(); });
+  close.focus();
+}
+
 paletteReady.then(async () => {
   // In this order so a link naming both lands on the recording, and so the
   // canvas is left empty for a link that names only one — the reader asked to
@@ -4053,4 +4091,5 @@ paletteReady.then(async () => {
     catch (error) { log(`could not load default example "digital/psk_constellation.grc": ${error}`); }
   }
   historyReady = true; resetHistory();
+  showWelcomePopup();
 });
