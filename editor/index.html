@@ -85,6 +85,12 @@
     </div>
     <div id="consoleSplitter" role="separator" aria-label="Resize console"
          aria-orientation="horizontal" aria-valuemin="29" tabindex="0"></div>
+    <!-- Collapses the console. Only the narrow layout shows it, where the 7px
+         splitter above is too small to drag and the console is a third of the
+         screen; it stays put while collapsed, so it can open the pane again. -->
+    <button id="consoleToggle" type="button" aria-controls="log" aria-expanded="true">
+      Console <span id="consoleToggleCaret" aria-hidden="true">▾</span>
+    </button>
     <div id="log"></div>
   </div>
 </div>

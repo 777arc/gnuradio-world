@@ -217,6 +217,17 @@ carry it, and each has a reason it is where it is:
   it leaves a long-press free to raise the block's context menu. It is bound per
   block rather than once on the canvas because touch events keep targeting the
   node the gesture began on even after `render()` has replaced it.
+- **The console gets a collapse bar in place of its splitter.** The 7px
+  `#consoleSplitter` is a drag target no finger can hit, so the narrow layout
+  hides it and shows `#consoleToggle` — a full-width bar above the pane — which
+  toggles the same `console-hidden` class View ▸ Show Console Panel and Ctrl+R
+  always toggled (hence `toggleConsole()` rather than a class flip inline in the
+  key handler, exactly as with the palette drawer). The bar is deliberately *not*
+  hidden by that class: collapsed, it is the only thing left on screen that can
+  bring the pane back, so it also takes over the console's safe-area inset. A
+  console that is closed is a console whose runner errors go unseen, so
+  `logLines()` marks the workspace `console-unread` while it is collapsed and the
+  bar carries a dot until it is opened again.
 
 `editor/test/selection.test.mjs` pins the pointer-event wiring. Everything else
 about the layout is a judgement for the eye, like auto-arrange: check a change by

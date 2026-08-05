@@ -112,8 +112,11 @@ button:hover { filter:brightness(1.15); }
     background:#7783a4; top:50%; left:2px; transform:translateY(-50%); }
 #paletteSplitter:hover, #paletteSplitter:focus-visible { background:#343b52; }
 #paletteSplitter:hover::after, #paletteSplitter:focus-visible::after { background:#b9c5e3; }
+/* tabs | panels | splitter | console collapse bar | console. The bar is
+   display:none outside the narrow layout, so its track collapses to zero. */
 #workspace { min-width:0; min-height:0; display:grid;
-    grid-template-rows:auto minmax(0,1fr) auto auto; overflow:hidden; }
+    grid-template-rows:auto minmax(0,1fr) auto auto auto; overflow:hidden; }
+#consoleToggle { display:none; }
 /* Horizontal splitter between the workspace panels and the console pane */
 #consoleSplitter { height:7px; position:relative; z-index:20; cursor:row-resize;
     touch-action:none; background:#262b3b; border-top:1px solid #333a4d;
@@ -525,11 +528,29 @@ svg text { user-select:none; -webkit-user-select:none; -moz-user-select:none; }
   .debug-table th, .debug-table td { padding:4px 5px; }
 
   /* ---- panes ---- */
-  #log { max-height:22dvh; padding-bottom:calc(6px + env(safe-area-inset-bottom)); }
+  #log { max-height:22dvh; padding-bottom:calc(6px + env(safe-area-inset-bottom));
+      border-top:0; }
   #runBar { min-height:46px; }
   #runBar button { padding:9px 14px; }
   /* Nothing here can drag a 7px handle; the console keeps its auto height. */
   #consoleSplitter { display:none; }
+  /* ...so the collapse bar takes its place. It toggles the same `console-hidden`
+     class View ▸ Show Console Panel and Ctrl+R already toggle, and — unlike the
+     console and the splitter — is *not* hidden by it, since it is the only thing
+     left on the screen that can bring the pane back. */
+  #consoleToggle { display:flex; align-items:center; gap:8px; width:100%;
+      padding:9px 12px; font-size:12px; color:#9aa7c6; background:#1b1e29;
+      border:0; border-top:1px solid #333a4d; border-radius:0; text-align:left; }
+  #consoleToggle:hover, #consoleToggle:focus-visible { background:#242a3b; color:#dce3f5; filter:none; }
+  #consoleToggleCaret { margin-left:auto; font-size:10px; }
+  /* Collapsed, the bar is the bottom-most thing on the page and inherits the
+     inset the console pane carries above. */
+  #workspace.console-hidden #consoleToggle { padding-bottom:calc(9px + env(safe-area-inset-bottom)); }
+  /* Output that arrived while the pane was collapsed — a runner error is the one
+     worth noticing — until it is opened again. */
+  #workspace.console-unread #consoleToggle { color:#dce3f5; }
+  #workspace.console-unread #consoleToggle::before { content:''; flex:none;
+      width:7px; height:7px; border-radius:50%; background:#58a6ff; }
 }
 
 /* Phone widths: the five menus need ~226px and the wordmark alone is ~144px, so

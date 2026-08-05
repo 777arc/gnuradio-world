@@ -167,6 +167,10 @@ function logLines(lines: string[]) {
   const kept = all.length > LOG_MAX_LINES ? all.slice(all.length - LOG_MAX_LINES) : all;
   l.textContent = kept.join('\n') + '\n';
   if (autoScrollLog) l.scrollTop = l.scrollHeight;
+  // Collapsed, the pane is where a runner error would have gone unseen, so the
+  // collapse bar carries a dot until it is opened again.
+  const workspace = el('workspace');
+  if (workspace.classList.contains('console-hidden')) workspace.classList.add('console-unread');
 }
 
 function log(s: string) { logLines([s]); }
@@ -1443,7 +1447,7 @@ document.addEventListener('keydown', e => {
   if (ctrl && key === '0') { consume(e); setZoom(1); return; }
   if (ctrl && key === 'd') { consume(e); hideDisabled = !hideDisabled; render(); return; }
   if (ctrl && key === 'e') { consume(e); showVariableEditor(); return; }
-  if (ctrl && key === 'r') { consume(e); el('workspace').classList.toggle('console-hidden'); return; }
+  if (ctrl && key === 'r') { consume(e); toggleConsole(); return; }
   if (ctrl && key === 'b') { consume(e); togglePalette(); return; }
   const active = document.activeElement;
   if (active && ['INPUT', 'SELECT', 'TEXTAREA'].includes(active.tagName)) return;
@@ -2721,6 +2725,8 @@ const finishConsoleResize = (event: PointerEvent) => {
 consoleSplitter.addEventListener('pointerup', finishConsoleResize);
 consoleSplitter.addEventListener('pointercancel', finishConsoleResize);
 consoleSplitter.addEventListener('dblclick', () => applyConsoleHeight(null));
+el('consoleToggle').addEventListener('click', toggleConsole);
+syncConsoleToggle();
 consoleSplitter.addEventListener('keydown', event => {
   // Arrows nudge from wherever the pane currently sits, auto-sized or not.
   const current = consoleHeight || el('log').getBoundingClientRect().height;
@@ -3697,7 +3703,21 @@ function selectAll() {
   selectedConnection = null; render();
 }
 function openPropsForSelected() { if (selected) showPropsDialog(G0(selected)); }
-function toggleConsole() { el('workspace').classList.toggle('console-hidden'); }
+function toggleConsole() {
+  el('workspace').classList.toggle('console-hidden');
+  syncConsoleToggle();
+}
+// The collapse bar is the narrow layout's stand-in for the splitter, so it has
+// to follow the class however it was flipped — bar, View menu or Ctrl+R.
+function syncConsoleToggle() {
+  const workspace = el('workspace');
+  const hidden = workspace.classList.contains('console-hidden');
+  if (!hidden) workspace.classList.remove('console-unread');
+  const button = el('consoleToggle');
+  button.setAttribute('aria-expanded', String(!hidden));
+  button.title = hidden ? 'Show console' : 'Hide console';
+  el('consoleToggleCaret').textContent = hidden ? '▴' : '▾';
+}
 function toggleScrollLock() { autoScrollLog = !autoScrollLog; log(`console autoscroll ${autoScrollLog ? 'on' : 'off'}`); }
 function clearConsole() { el('log').textContent = ''; }
 function toggleHideDisabled() { hideDisabled = !hideDisabled; render(); }

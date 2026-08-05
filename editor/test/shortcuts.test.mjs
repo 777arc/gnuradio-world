@@ -12,10 +12,10 @@ const bindings = {
   'enable/disable/bypass': /key === 'e'.*setSelectedEnabled\(true\)[\s\S]*key === 'd'.*setSelectedEnabled\(false\)[\s\S]*key === 'b'.*bypassSelected/,
   'alignment': /alignSelected\('top'\)[\s\S]*alignSelected\('middle'\)[\s\S]*alignSelected\('bottom'\)[\s\S]*alignSelected\('left'\)[\s\S]*alignSelected\('center'\)[\s\S]*alignSelected\('right'\)/,
   'zoom': /NumpadAdd.*setZoom[\s\S]*NumpadSubtract.*setZoom[\s\S]*key === '0'.*setZoom\(1\)/,
-  // Ctrl+B goes through togglePalette() rather than toggling the class inline,
-  // because the narrow layout's drawer keeps a button's label and state in step
-  // with it.
-  'panels/grid': /key === 'e'[\s\S]*showVariableEditor[\s\S]*key === 'r'[\s\S]*console-hidden[\s\S]*key === 'b'[\s\S]*togglePalette\(\)[\s\S]*key === 'g'[\s\S]*grid-hidden/,
+  // Ctrl+B and Ctrl+R go through togglePalette()/toggleConsole() rather than
+  // toggling the class inline, because the narrow layout's palette drawer and
+  // console collapse bar keep a button's label and state in step with them.
+  'panels/grid': /key === 'e'[\s\S]*showVariableEditor[\s\S]*key === 'r'[\s\S]*toggleConsole\(\)[\s\S]*key === 'b'[\s\S]*togglePalette\(\)[\s\S]*key === 'g'[\s\S]*grid-hidden/,
   'run/stop': /e\.key === 'F6'.*run[\s\S]*e\.key === 'F7'.*stop/,
   'capture/console': /key === 'p'.*saveConsole[\s\S]*key === 'p'.*saveScreenshot[\s\S]*key === 'l'.*textContent = ''/,
 };
