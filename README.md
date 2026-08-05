@@ -172,7 +172,8 @@ so a block's runtime behaviour and the palette entry describing it cannot drift
 apart. A typo'd or misfiled block id is rejected rather than silently ignored.
 
 The step-by-step checklist, including the standard fixes for the handful of ways
-a block can fail to generate, is in [AGENTS.md](AGENTS.md).
+a block can fail to generate, is in
+[docs/adding-modules.md](docs/adding-modules.md).
 
 ## Example Recordings Management
 

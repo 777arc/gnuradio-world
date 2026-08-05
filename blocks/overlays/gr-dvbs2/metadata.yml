@@ -3,8 +3,8 @@
 # Keeping these overlays here instead of in the submodule's own .block.yml is what
 # lets that submodule stay pinned to a pristine upstream commit: nothing in the
 # checkout has to be edited, rebased, or pushed to a fork to add a block. See
-# tools/block_overrides.py for the supported keys, and AGENTS.md for the
-# out-of-tree checklist this file is step 3 of.
+# tools/block_overrides.py for the supported keys, and docs/adding-modules.md
+# for the out-of-tree checklist this file is step 3 of.
 #
 # bbheader_source is absent: it is a UDP transport-stream source built on
 # Boost.Asio host networking, which has no meaning in the browser sandbox, so it
