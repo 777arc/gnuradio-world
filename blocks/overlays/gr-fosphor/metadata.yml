@@ -6,8 +6,14 @@
 # implementation. The standalone GLFW window has no browser equivalent and is
 # deliberately hidden. See the sink sources beside this file. The submodule
 # itself stays pristine.
+#
+# Upstream's fosphor.tree.yml files both blocks inside the in-tree '[Core]' tree
+# (Instrumentation/QT and Stream Operators), which leaves them indistinguishable
+# from built-in blocks in the palette. Every other vendored module gets a root
+# category of its own, so these categories put gr-fosphor under one too.
 
 overlap_cc:
+    category: '[Fosphor]'
     flags: [python, cpp]
     cpp_templates:
         includes: ['#include <gnuradio/fosphor/overlap_cc.h>']
@@ -16,6 +22,7 @@ overlap_cc:
         link: [gnuradio-fosphor]
 
 fosphor_qt_sink_c:
+    category: '[Fosphor]'
     label: Fosphor Sink
     flags: [python, cpp]
     documentation: |-

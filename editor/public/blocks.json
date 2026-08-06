@@ -48696,9 +48696,7 @@
    "id": "fosphor_qt_sink_c",
    "label": "Fosphor Sink",
    "category": [
-    "Core",
-    "Instrumentation",
-    "QT"
+    "Fosphor"
    ],
    "flags": [
     "python",
@@ -48709,7 +48707,7 @@
    "module": "core",
    "documentation": "Displays a real-time spectrum and waterfall for a complex stream.\n\nUpstream gr-fosphor accelerates its FFT and rendering with OpenCL and\ndesktop OpenGL. This browser build preserves the block ID, parameters,\nstream input, and optional frequency message output with a WebGPU\ncompute/render pipeline. It performs windowing, a 1024-point FFT,\nwaterfall history, and a persistent 1024-by-128 power-density histogram\non the GPU, with no signal or FFT readback. The histogram uses upstream\nfosphor's rise/decay constants and color palette, overlaid with its white\nsmoothed live trace and red decaying max-hold trace. An on-display badge\nreports rendered frames per second and skipped input frames. When the\noptional WebGPU timestamp-query feature is available, it also reports\nGPU milliseconds per frame and the fosphor workload's estimated GPU duty\ncycle. If WebGPU adapter, device, shader, or canvas setup is unavailable,\nit automatically uses the Qt 6 CPU spectrum and waterfall engines\ninstead. The editor console reports which renderer was selected,\nincluding the reason for a CPU fallback. Double-click the display to\npublish the selected frequency on the freq message port.\n\nThe embedded plots expose their normal Qt context menus. The upstream\nkeyboard shortcuts work while the display has focus: arrows adjust the\npower scale, Z toggles zoom, A/D and S/W move/resize it, Q/E changes the\nplot split, and Space freezes the display. Zoom is implemented by\nchanging the visible frequency range rather than by drawing fosphor's\nsecondary OpenGL viewport. Both backends put the waterfall above the\nspectrum.",
    "api_documentation": "",
-   "wiki_url": "https://wiki.gnuradio.org/index.php/Fosphor_Sink",
+   "wiki_url": "",
    "params": [
     {
      "id": "wintype",
@@ -48797,8 +48795,7 @@
    "id": "overlap_cc",
    "label": "FFT Overlap",
    "category": [
-    "Core",
-    "Stream Operators"
+    "Fosphor"
    ],
    "flags": [
     "python",
@@ -48809,7 +48806,7 @@
    "module": "fosphor",
    "documentation": "",
    "api_documentation": "Block preparing an overlapped version of the stream",
-   "wiki_url": "https://wiki.gnuradio.org/index.php/FFT_Overlap",
+   "wiki_url": "",
    "params": [
     {
      "id": "wlen",
@@ -93127,7 +93124,7 @@
    "id": "wasm_packet_rate_sink",
    "label": "WASM Packet Rate Sink",
    "category": [
-    "QT"
+    "Wasm"
    ],
    "flags": [
     "cpp"

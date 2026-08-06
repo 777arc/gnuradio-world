@@ -1,6 +1,6 @@
 id: wasm_packet_rate_sink
 label: WASM Packet Rate Sink
-category: '[QT]'
+category: '[Wasm]'
 flags: [cpp]
 
 documentation: |-

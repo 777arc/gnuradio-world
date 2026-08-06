@@ -343,7 +343,16 @@ def main(out_path):
                 block_overrides.apply(d, override)
                 if override.get("hidden"):
                     continue
-            block_category = normalize_category(categories.get(block_id, d.get("category")))
+            # A module's .tree.yml normally decides the category, as in native
+            # GRC. An overlay `category` is the exception: it is a deliberate
+            # browser-only recategorization, so it outranks the tree as well as
+            # the block's own yaml (gr-fosphor's tree files its blocks under the
+            # in-tree Core categories).
+            if override and "category" in override:
+                block_category = normalize_category(d.get("category"))
+            else:
+                block_category = normalize_category(
+                    categories.get(block_id, d.get("category")))
             # Keep the native category whenever one exists. A few upstream
             # definitions are accidentally uncategorized; retain them under a
             # small fallback so runnable blocks never disappear from the web UI.
