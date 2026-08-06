@@ -44,5 +44,5 @@
 	branch = maint-3.10
 [submodule "gr-hrpt"]
 	path = gr-hrpt
-	url = https://github.com/altillimity/gr-hrpt.git
-	branch = master
+	url = https://github.com/777arc/gr-hrpt.git
+	branch = wasm-support
