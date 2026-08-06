@@ -1,0 +1,216 @@
+options:
+    parameters:
+        author: Marc
+        copyright: ''
+        description: 8PSK with added noise, adjustable via range widget
+        generate_options: qt_gui
+        id: PSK_Tx_with_Constellation
+        title: PSK Tx with Constellation
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: freq
+    id: variable_qtgui_range
+    parameters:
+        label: Frequency of Tone
+        min_len: '200'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '-90000'
+        step: '5000'
+        stop: '90000'
+        value: '0'
+        widget: counter_slider
+    states:
+        coordinate: [110, 460]
+        rotation: 0
+        state: enabled
+-   name: noise
+    id: variable_qtgui_range
+    parameters:
+        label: Mag of Noise
+        min_len: '200'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '0'
+        step: '0.01'
+        stop: '1'
+        value: '0.01'
+        widget: counter_slider
+    states:
+        coordinate: [130, 130]
+        rotation: 0
+        state: enabled
+-   name: samp_rate
+    id: variable
+    parameters:
+        value: '200000'
+    states:
+        coordinate: [230, 20]
+        rotation: 0
+        state: enabled
+-   name: tone_mag
+    id: variable_qtgui_range
+    parameters:
+        label: Mag of Tone
+        min_len: '200'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '0'
+        step: '0.1'
+        stop: '2'
+        value: '0'
+        widget: counter_slider
+    states:
+        coordinate: [280, 570]
+        rotation: 0
+        state: enabled
+-   name: analog_sig_source_x_0
+    id: analog_sig_source_x
+    parameters:
+        amplitude: tone_mag
+        frequency: freq
+        samp_rate: samp_rate
+        type: complex
+        waveform: analog.GR_COS_WAVE
+    states:
+        coordinate: [290, 460]
+        rotation: 0
+        state: enabled
+-   name: mod7
+    id: digital_psk_mod
+    parameters:
+        constellation_points: '8'
+        differential: 'True'
+        excess_bw: '0.35'
+        mod_code: '"gray"'
+        samples_per_symbol: '2'
+    states:
+        coordinate: [250, 310]
+        rotation: 0
+        state: enabled
+-   name: note_0
+    id: note
+    parameters:
+        note: Welcome to GNU Radio World!
+    states:
+        coordinate: [620, 120]
+        rotation: 0
+        state: enabled
+-   name: qtgui_freq_sink_x_1
+    id: qtgui_freq_sink_x
+    parameters:
+        alpha1: '1'
+        autoscale: 'False'
+        average: '0.2'
+        axislabels: 'True'
+        color1: '"blue"'
+        ctrlpanel: 'False'
+        fc: '0'
+        fftsize: '1024'
+        grid: 'True'
+        label1: ''
+        legend: 'True'
+        marker1: '-1'
+        name: Spectrum
+        samp_rate: samp_rate
+        style1: '1'
+        tr_chan: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_tag: ''
+        update_time: '0.1'
+        width1: '1'
+        ymax: '0'
+        ymin: '-90'
+    states:
+        coordinate: [960, 250]
+        rotation: 0
+        state: enabled
+-   name: throttle4
+    id: blocks_throttle2
+    parameters:
+        ignoretag: 'True'
+        limit: auto
+        maximum: '0.1'
+        samples_per_second: samp_rate
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [700, 320]
+        rotation: 0
+        state: enabled
+-   name: x2
+    id: analog_noise_source_x
+    parameters:
+        amplitude: noise
+        seed: '0'
+        type: complex
+    states:
+        coordinate: [300, 200]
+        rotation: 0
+        state: enabled
+-   name: x8
+    id: analog_random_source_x
+    parameters:
+        max: '2'
+        min: '0'
+        num_samps: '1000'
+        repeat: 'True'
+        type: byte
+    states:
+        coordinate: [30, 320]
+        rotation: 0
+        state: enabled
+-   name: x9
+    id: qtgui_const_sink_x
+    parameters:
+        alpha1: '1'
+        autoscale: 'False'
+        axislabels: 'True'
+        color1: '"blue"'
+        grid: 'False'
+        label1: ''
+        legend: 'True'
+        marker1: '0'
+        name: Constellation
+        size: '1024'
+        style1: '0'
+        tr_chan: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_slope: qtgui.TRIG_SLOPE_POS
+        tr_tag: ''
+        update_time: '0.1'
+        width1: '0'
+        xmax: '2'
+        xmin: '-2'
+        ymax: '2'
+        ymin: '-2'
+    states:
+        coordinate: [970, 390]
+        rotation: 0
+        state: enabled
+-   name: xx3
+    id: blocks_add_xx
+    parameters:
+        num_inputs: '3'
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [510, 320]
+        rotation: 0
+        state: enabled
+connections:
+- [analog_sig_source_x_0, '0', xx3, '2']
+- [mod7, '0', xx3, '1']
+- [throttle4, '0', qtgui_freq_sink_x_1, '0']
+- [throttle4, '0', x9, '0']
+- [x2, '0', xx3, '0']
+- [x8, '0', mod7, '0']
+- [xx3, '0', throttle4, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0

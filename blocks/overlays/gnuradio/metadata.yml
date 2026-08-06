@@ -31,6 +31,25 @@ pdu_pdu_to_stream_x:
       pdu\.: 'pdu::'
     callbacks: ['set_max_queue_size(${depth});']
 
+# These blocks have a samp_rate parameter but upstream gives it no default (or a
+# hardcoded one), unlike every other samp_rate param in the tree, which defaults
+# to referencing the samp_rate variable block the editor places by default.
+analog_fm_preemph:
+  parameter_defaults:
+    samp_rate: samp_rate
+
+analog_fm_deemph:
+  parameter_defaults:
+    samp_rate: samp_rate
+
+blocks_vco_f:
+  parameter_defaults:
+    samp_rate: samp_rate
+
+blocks_vco_c:
+  parameter_defaults:
+    samp_rate: samp_rate
+
 # gr-filter's Frequency Xlating FIR Filter has no cpp_templates upstream, only
 # Python generation. Mirrors filter_fir_filter_xxx's shape. gr-satellites' AFSK
 # and BPSK demodulators both use it.

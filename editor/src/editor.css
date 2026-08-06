@@ -24,6 +24,7 @@ button:hover { filter:brightness(1.15); }
 /* ---- GRC-style menu bar (mirrors grc/gui/Bars.py MENU_BAR_LIST) ---- */
 #menubar { display:flex; align-items:center; gap:2px; padding:0 10px; height:34px; }
 #menubar .brand { display:flex; align-items:center; margin-right:12px; }
+#menubar .brand a { display:flex; align-items:center; }
 #menubar .brand img { height:20px; width:auto; display:block; }
 #menus { display:flex; gap:1px; }
 .menu-top { position:relative; padding:5px 10px; font-size:13px; color:#c3cbe0; border-radius:5px; cursor:pointer; user-select:none; }

@@ -4205,8 +4205,8 @@ paletteReady.then(async () => {
   const loaded = await loadFlowgraphFromUrl();
   const opened = await openRecordingFromUrl();
   if (!loaded && !opened) {
-    try { await loadExampleByName('digital/psk_constellation.grc'); }
-    catch (error) { log(`could not load default example "digital/psk_constellation.grc": ${error}`); }
+    try { await loadExampleByName('digital/welcome_example.grc'); }
+    catch (error) { log(`could not load default example "digital/welcome_example.grc": ${error}`); }
   }
   historyReady = true; resetHistory();
   showWelcomePopup();
