@@ -3169,14 +3169,14 @@ async function copyRecordingUrl(name: string) {
 }
 // Used by the #example= hash on startup; the palette's own click handler loads
 // the .grc it already fetched instead of going through here.
-async function loadExampleByName(name: string) {
+async function loadExampleByName(name: string, updateHash = true) {
   const file = normalizeExamplePath(name);
   const res = await fetch('/example_flowgraphs/' + encodeExamplePath(file));
   if (!res.ok) throw new Error(`${file}: HTTP ${res.status}`);
   const fg = parseGrc(await res.text());
   const title = String(fg.options?.parameters?.title || file);
   loadFlowgraphAnimated(fg);          // resets history itself
-  setExampleHash(file);               // normalizes e.g. a link written with .grc
+  if (updateHash) setExampleHash(file); // normalizes e.g. a link written with .grc
   setCurrentFileName(file);           // Save writes the example back under its own name
   log(`loaded example "${title}" from link`);
   void bindFlowgraphRecordings(fg, title);
@@ -4205,7 +4205,7 @@ paletteReady.then(async () => {
   const loaded = await loadFlowgraphFromUrl();
   const opened = await openRecordingFromUrl();
   if (!loaded && !opened) {
-    try { await loadExampleByName('digital/welcome_example.grc'); }
+    try { await loadExampleByName('digital/welcome_example.grc', /* updateHash */ false); }
     catch (error) { log(`could not load default example "digital/welcome_example.grc": ${error}`); }
   }
   historyReady = true; resetHistory();
