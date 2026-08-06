@@ -2012,18 +2012,25 @@ static std::map<std::string, Factory>& registry_storage() {
              return result;
          }},
         // ---- math (type-parameterized) ----
+        // num_inputs is not passed to the constructor: these blocks' C++ io_signature
+        // already accepts any number of inputs (1, -1); num_inputs is purely GRC's
+        // hint for how many ports the editor draws, matching how many are connected.
         {"blocks_add_xx", [](const json& p) -> BuiltBlock {
-             return { is_float(p) ? (gr::basic_block_sptr)gr::blocks::add_ff::make(1)
-                                  : (gr::basic_block_sptr)gr::blocks::add_cc::make(1), nullptr }; }},
+             size_t vlen = p.value("vlen", 1);
+             return { is_float(p) ? (gr::basic_block_sptr)gr::blocks::add_ff::make(vlen)
+                                  : (gr::basic_block_sptr)gr::blocks::add_cc::make(vlen), nullptr }; }},
         {"blocks_sub_xx", [](const json& p) -> BuiltBlock {
-             return { is_float(p) ? (gr::basic_block_sptr)gr::blocks::sub_ff::make(1)
-                                  : (gr::basic_block_sptr)gr::blocks::sub_cc::make(1), nullptr }; }},
+             size_t vlen = p.value("vlen", 1);
+             return { is_float(p) ? (gr::basic_block_sptr)gr::blocks::sub_ff::make(vlen)
+                                  : (gr::basic_block_sptr)gr::blocks::sub_cc::make(vlen), nullptr }; }},
         {"blocks_multiply_xx", [](const json& p) -> BuiltBlock {
-             return { is_float(p) ? (gr::basic_block_sptr)gr::blocks::multiply_ff::make(1)
-                                  : (gr::basic_block_sptr)gr::blocks::multiply_cc::make(1), nullptr }; }},
+             size_t vlen = p.value("vlen", 1);
+             return { is_float(p) ? (gr::basic_block_sptr)gr::blocks::multiply_ff::make(vlen)
+                                  : (gr::basic_block_sptr)gr::blocks::multiply_cc::make(vlen), nullptr }; }},
         {"blocks_divide_xx", [](const json& p) -> BuiltBlock {
-             return { is_float(p) ? (gr::basic_block_sptr)gr::blocks::divide_ff::make(1)
-                                  : (gr::basic_block_sptr)gr::blocks::divide_cc::make(1), nullptr }; }},
+             size_t vlen = p.value("vlen", 1);
+             return { is_float(p) ? (gr::basic_block_sptr)gr::blocks::divide_ff::make(vlen)
+                                  : (gr::basic_block_sptr)gr::blocks::divide_cc::make(vlen), nullptr }; }},
         {"blocks_multiply_const_xx", [](const json& p) -> BuiltBlock {
              double k = p.value("constant", 1.0);
              if (is_float(p)) {

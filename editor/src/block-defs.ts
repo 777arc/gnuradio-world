@@ -204,10 +204,30 @@ export const RUNNABLE: Record<string, RunnableDef> = {
       STREAM_TYPE_PARAM,
       { id: 'delay', label: 'Delay (items)', type: 'number', def: 0 }] },
   // ---- math (type-parameterized: complex or float) ----
-  blocks_add_xx: { label: 'Add', inputs: 2, outputs: 1, params: [TYPE_PARAM] },
-  blocks_sub_xx: { label: 'Subtract', inputs: 2, outputs: 1, params: [TYPE_PARAM] },
-  blocks_multiply_xx: { label: 'Multiply', inputs: 2, outputs: 1, params: [TYPE_PARAM] },
-  blocks_divide_xx: { label: 'Divide', inputs: 2, outputs: 1, params: [TYPE_PARAM] },
+  blocks_add_xx: {
+    label: 'Add', inputs: 2, outputs: 1, params: [
+      TYPE_PARAM,
+      { id: 'num_inputs', label: 'Num Inputs', type: 'number', def: 2 },
+      { id: 'vlen', label: 'Vector Length', type: 'number', def: 1 },
+    ] },
+  blocks_sub_xx: {
+    label: 'Subtract', inputs: 2, outputs: 1, params: [
+      TYPE_PARAM,
+      { id: 'num_inputs', label: 'Num Inputs', type: 'number', def: 2 },
+      { id: 'vlen', label: 'Vector Length', type: 'number', def: 1 },
+    ] },
+  blocks_multiply_xx: {
+    label: 'Multiply', inputs: 2, outputs: 1, params: [
+      TYPE_PARAM,
+      { id: 'num_inputs', label: 'Num Inputs', type: 'number', def: 2 },
+      { id: 'vlen', label: 'Vector Length', type: 'number', def: 1 },
+    ] },
+  blocks_divide_xx: {
+    label: 'Divide', inputs: 2, outputs: 1, params: [
+      TYPE_PARAM,
+      { id: 'num_inputs', label: 'Num Inputs', type: 'number', def: 2 },
+      { id: 'vlen', label: 'Vector Length', type: 'number', def: 1 },
+    ] },
   blocks_multiply_const_xx: {
     label: 'Multiply Const', inputs: 1, outputs: 1, params: [
       TYPE_PARAM,
