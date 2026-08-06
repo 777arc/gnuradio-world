@@ -276,6 +276,43 @@ const scenarios = [
         ['bytes',0,'chunks',0], ['chunks',0,'chunk_sink',0],
       ] },
     expectFetch: ['digital.wasm', 'ieee802_11.wasm'] },
+  { name: 'gr-hrpt NOAA chain + image sink (OOT deferred)',
+    fg: { blocks:[
+      { name:'src', id:'analog_noise_source_x',
+        params:{ type:'complex', noise_type:'analog.GR_GAUSSIAN', amp:1, seed:42 } },
+      { name:'thr', id:'blocks_throttle2',
+        params:{ type:'complex', samples_per_second:665400, vlen:1,
+                 ignoretag:'True', limit:'time', maximum:0.1 } },
+      { name:'pll', id:'noaa_hrpt_pll_cf',
+        params:{ alpha:0.01, beta:0.0001, max_offset:0.03 } },
+      { name:'slice', id:'digital_binary_slicer_fb', params:{} },
+      { name:'deframe', id:'noaa_hrpt_deframer', params:{} },
+      { name:'decode', id:'noaa_hrpt_decoder', params:{ verbose:'False', output:'False' } },
+      { name:'image', id:'hrpt_image_sink',
+        params:{ name:'HRPT Image', channel:2, image_width:2048,
+                 words_per_line:11090, video_start:751, invert:'False',
+                 max_lines:200 } },
+      // Construct the MetOp/FengYun-3 factories too -- unconnected, since they
+      // expect a Viterbi-coded QPSK chain this fixture does not build, but this
+      // still covers their factories and confirms they share hrpt.wasm.
+      { name:'metop_viterbi', id:'viterbi_metop_decoder',
+        params:{ sync_check:'True', ber_threshold:0.1, insync_after:5,
+                 outsync_after:20, reset_after:50 } },
+      { name:'metop_deframe', id:'metop_cadu_deframer',
+        params:{ sync_check:'True', frame_length:1024, insync_after:5,
+                 outsync_after:20 } },
+      { name:'fengyun_viterbi', id:'viterbi_fengyun_decoder',
+        params:{ sync_check:'True', ber_threshold:0.1, insync_after:5,
+                 outsync_after:20, reset_after:50 } },
+      { name:'fengyun_diff', id:'hrpt_fengyun_diff_decoder', params:{} } ],
+      connections:[
+        ['src',0,'thr',0],
+        ['thr',0,'pll',0],
+        ['pll',0,'slice',0],
+        ['slice',0,'deframe',0],
+        ['deframe',0,'decode',0], ['deframe',0,'image',0],
+      ] },
+    expectFetch: ['digital.wasm', 'hrpt.wasm'] },
 ];
 
 // The runner consumes native .grc; wrap these {blocks,connections} fixtures in

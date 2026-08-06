@@ -48984,6 +48984,527 @@
    ]
   },
   {
+   "id": "hrpt_fengyun_diff_decoder",
+   "label": "Fengyun Differential Decoder",
+   "category": [
+    "HRPT",
+    "FengYun"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "hrpt",
+   "documentation": "",
+   "api_documentation": "<+description of block+>\n\nReturn a shared_ptr to a new instance of hrpt::fengyun_diff_decoder.\n\nTo avoid accidental use of raw pointers, hrpt::fengyun_diff_decoder's\nconstructor is in a private implementation\nclass. hrpt::fengyun_diff_decoder::make is the public interface for\ncreating new instances.",
+   "wiki_url": "",
+   "params": [],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "byte",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "byte",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "metop_cadu_deframer",
+   "label": "MetOp CADU Deframer",
+   "category": [
+    "HRPT",
+    "MetOp"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "hrpt",
+   "documentation": "MetOp AHRPT soft input convolutional decoder using VITERBI algorithm, rate 3/4, k=7, punctured code.\nIt work as continuous decoder without reseting if synced.\n\nInput's are complex symbols from QPSK demodulator (clock recovered symbols!).\n\n\nSync check : \nTrue >> check decoded data BER during decoding\nFalse >> don't check\n\nBER threshold : \nThreshold BER value\n\nIn sync after :\nSync decoder status is set after this number of valid BER's on processing data\n\nOut of sync after :\nOut of sync decoder status is set after this number of invalid BER's on processing data",
+   "api_documentation": "<+description of block+>\n\nReturn a shared_ptr to a new instance of hrpt::metop_cadu_deframer.\n\nTo avoid accidental use of raw pointers, hrpt::metop_cadu_deframer's\nconstructor is in a private implementation\nclass. hrpt::metop_cadu_deframer::make is the public interface for\ncreating new instances.",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "sync_check",
+     "label": "Sync check",
+     "dtype": "bool",
+     "default": true,
+     "category": "General",
+     "options": [
+      true,
+      false
+     ],
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "frame_length",
+     "label": "Length of frame",
+     "dtype": "int",
+     "default": "1024",
+     "category": "General",
+     "options": [
+      "1024"
+     ],
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "insync_after",
+     "label": "In sync after",
+     "dtype": "int",
+     "default": "5",
+     "category": "General",
+     "options": [
+      "5",
+      "10"
+     ],
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "outsync_after",
+     "label": "Out of sync after",
+     "dtype": "int",
+     "default": "",
+     "category": "General",
+     "options": [
+      "20",
+      "40"
+     ],
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "byte",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "byte",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "noaa_hrpt_decoder",
+   "label": "NOAA HRPT Decoder",
+   "category": [
+    "HRPT",
+    "NOAA"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "hrpt",
+   "documentation": "",
+   "api_documentation": "NOAA HRPT Decoder\n\nMake NOAA HRPT Decoder",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "verbose",
+     "label": "Verbose",
+     "dtype": "bool",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "output",
+     "label": "Output Files",
+     "dtype": "bool",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "short",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": []
+  },
+  {
+   "id": "noaa_hrpt_deframer",
+   "label": "NOAA HRPT Deframer",
+   "category": [
+    "HRPT",
+    "NOAA"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "hrpt",
+   "documentation": "",
+   "api_documentation": "NOAA HRPT Deframer\n\nMake NOAA HRPT Deframer",
+   "wiki_url": "",
+   "params": [],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "byte",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "short",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "noaa_hrpt_pll_cf",
+   "label": "NOAA HRPT PLL",
+   "category": [
+    "HRPT",
+    "NOAA"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "hrpt",
+   "documentation": "",
+   "api_documentation": "NOAA HRPT PLL",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "alpha",
+     "label": "Alpha",
+     "dtype": "real",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "beta",
+     "label": "Beta",
+     "dtype": "real",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "max_offset",
+     "label": "Max Offset",
+     "dtype": "real",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "complex",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "viterbi_fengyun_decoder",
+   "label": "FengYun Viterbi decoder",
+   "category": [
+    "HRPT",
+    "FengYun"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "hrpt",
+   "documentation": "FENGYUN3 AHRPT soft input convolutional decoder using VITERBI algorithm, rate 3/4, k=7, punctured code.\nIt work as continuous decoder without reseting if synced.\n\nInput's are complex symbols from QPSK demodulator (clock recovered symbols!).\n\n\nSync check : \nTrue >> check decoded data BER during decoding\nFalse >> don't check\n\nBER threshold : \nThreshold BER value\n\nIn sync after :\nSync decoder status is set after this number of valid BER's on processing data\n\nOut of sync after :\nOut of sync decoder status is set after this number of invalid BER's on processing data",
+   "api_documentation": "<+description of block+>\n\nReturn a shared_ptr to a new instance of hrpt::viterbi_fengyun_decoder.\n\nTo avoid accidental use of raw pointers, hrpt::viterbi_fengyun_decoder's\nconstructor is in a private implementation\nclass. hrpt::viterbi_fengyun_decoder::make is the public interface for\ncreating new instances.",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "sync_check",
+     "label": "Sync check",
+     "dtype": "bool",
+     "default": true,
+     "category": "General",
+     "options": [
+      true,
+      false
+     ],
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "ber_threshold",
+     "label": "BER threshold",
+     "dtype": "real",
+     "default": "0.100",
+     "category": "General",
+     "options": [
+      "0.100",
+      "0.150",
+      "0.220"
+     ],
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "insync_after",
+     "label": "In sync after",
+     "dtype": "int",
+     "default": "5",
+     "category": "General",
+     "options": [
+      "5",
+      "10"
+     ],
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "outsync_after",
+     "label": "Out of sync after",
+     "dtype": "int",
+     "default": "",
+     "category": "General",
+     "options": [
+      "20",
+      "40"
+     ],
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "reset_after",
+     "label": "Reset decoder after",
+     "dtype": "int",
+     "default": "50",
+     "category": "General",
+     "options": [
+      "50",
+      "100"
+     ],
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "complex",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "byte",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "viterbi_metop_decoder",
+   "label": "MetOp Viterbi decoder",
+   "category": [
+    "HRPT",
+    "MetOp"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "hrpt",
+   "documentation": "MetOp AHRPT soft input convolutional decoder using VITERBI algorithm, rate 3/4, k=7, punctured code.\nIt work as continuous decoder without reseting if synced.\n\nInput's are complex symbols from QPSK demodulator (clock recovered symbols!).\n\n\nSync check : \nTrue >> check decoded data BER during decoding\nFalse >> don't check\n\nBER threshold : \nThreshold BER value\n\nIn sync after :\nSync decoder status is set after this number of valid BER's on processing data\n\nOut of sync after :\nOut of sync decoder status is set after this number of invalid BER's on processing data",
+   "api_documentation": "<+description of block+>\n\nReturn a shared_ptr to a new instance of hrpt::viterbi_metop_decoder.\n\nTo avoid accidental use of raw pointers, hrpt::viterbi_metop_decoder's\nconstructor is in a private implementation\nclass. hrpt::viterbi_metop_decoder::make is the public interface for\ncreating new instances.",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "sync_check",
+     "label": "Sync check",
+     "dtype": "bool",
+     "default": true,
+     "category": "General",
+     "options": [
+      true,
+      false
+     ],
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "ber_threshold",
+     "label": "BER threshold",
+     "dtype": "real",
+     "default": "0.100",
+     "category": "General",
+     "options": [
+      "0.100",
+      "0.150",
+      "0.220"
+     ],
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "insync_after",
+     "label": "In sync after",
+     "dtype": "int",
+     "default": "5",
+     "category": "General",
+     "options": [
+      "5",
+      "10"
+     ],
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "outsync_after",
+     "label": "Out of sync after",
+     "dtype": "int",
+     "default": "",
+     "category": "General",
+     "options": [
+      "20",
+      "40"
+     ],
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "reset_after",
+     "label": "Reset decoder after",
+     "dtype": "int",
+     "default": "50",
+     "category": "General",
+     "options": [
+      "50",
+      "100"
+     ],
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "complex",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "byte",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
    "id": "ieee802_11_append_crc32",
    "label": "Append CRC32",
    "category": [
@@ -93945,6 +94466,122 @@
      "vlen": "${ vlen }"
     }
    ]
+  },
+  {
+   "id": "hrpt_image_sink",
+   "label": "HRPT Image Sink",
+   "category": [
+    "HRPT",
+    "Image"
+   ],
+   "flags": [
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "core",
+   "documentation": "Decodes one AVHRR video channel out of a synced NOAA HRPT minor-frame word\nstream (as produced by NOAA HRPT Deframer) and displays it as a scrolling\ngrayscale image, one scan line per minor frame.\n\nEach 11090-word minor frame starts with 6 sync words and an ID word; AVHRR\nvideo data begins at word 751 (1-indexed) as 2048 groups of 5 words, one\nper channel, interleaved. This sink reads word (Video Start Word - 1) +\n5*i + (Channel - 1) for i in [0, Image Width) out of every frame, scales\nthe 10-bit sample to 8-bit grayscale, and appends it as the next line of\nthe image.\n\nChannel 1 and 2 are AVHRR's visible/near-IR channels (day only); 3-5 are\nthermal IR channels, usable day or night. Values pass straight through\nfrom the raw word (0-1023); if the picture comes out inverted (thermal IR\nchannels read hot targets as low counts), enable Invert.\n\nThis block exists only in the WebAssembly runner -- it has no Python\nimplementation, so a flowgraph using it will not run in desktop GNU Radio.\nThere is no upstream equivalent: gr-hrpt's own noaa_hrpt_decoder only parses\nminor-frame timestamps and telemetry, it does not extract AVHRR imagery, so\nexternal tools (MetFy3x, HRPT Reader, weathersat) are normally used instead.",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "name",
+     "label": "Name",
+     "dtype": "string",
+     "default": "\"HRPT Image\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "channel",
+     "label": "Channel",
+     "dtype": "int",
+     "default": "2",
+     "category": "General",
+     "options": [
+      "1",
+      "2",
+      "3",
+      "4",
+      "5"
+     ],
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "image_width",
+     "label": "Image Width",
+     "dtype": "int",
+     "default": "2048",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "words_per_line",
+     "label": "Words per Minor Frame",
+     "dtype": "int",
+     "default": "11090",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "video_start",
+     "label": "Video Start Word",
+     "dtype": "int",
+     "default": "751",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "invert",
+     "label": "Invert",
+     "dtype": "bool",
+     "default": "False",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "max_lines",
+     "label": "Scrollback Lines",
+     "dtype": "int",
+     "default": "2000",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "short",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": []
   },
   {
    "id": "wasm_packet_rate_sink",

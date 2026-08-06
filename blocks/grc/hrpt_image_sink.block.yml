@@ -1,0 +1,65 @@
+id: hrpt_image_sink
+label: HRPT Image Sink
+category: '[HRPT]/Image'
+flags: [cpp]
+
+documentation: |-
+    Decodes one AVHRR video channel out of a synced NOAA HRPT minor-frame word
+    stream (as produced by NOAA HRPT Deframer) and displays it as a scrolling
+    grayscale image, one scan line per minor frame.
+
+    Each 11090-word minor frame starts with 6 sync words and an ID word; AVHRR
+    video data begins at word 751 (1-indexed) as 2048 groups of 5 words, one
+    per channel, interleaved. This sink reads word (Video Start Word - 1) +
+    5*i + (Channel - 1) for i in [0, Image Width) out of every frame, scales
+    the 10-bit sample to 8-bit grayscale, and appends it as the next line of
+    the image.
+
+    Channel 1 and 2 are AVHRR's visible/near-IR channels (day only); 3-5 are
+    thermal IR channels, usable day or night. Values pass straight through
+    from the raw word (0-1023); if the picture comes out inverted (thermal IR
+    channels read hot targets as low counts), enable Invert.
+
+    This block exists only in the WebAssembly runner -- it has no Python
+    implementation, so a flowgraph using it will not run in desktop GNU Radio.
+    There is no upstream equivalent: gr-hrpt's own noaa_hrpt_decoder only parses
+    minor-frame timestamps and telemetry, it does not extract AVHRR imagery, so
+    external tools (MetFy3x, HRPT Reader, weathersat) are normally used instead.
+
+parameters:
+-   id: name
+    label: Name
+    dtype: string
+    default: '"HRPT Image"'
+-   id: channel
+    label: Channel
+    dtype: int
+    default: '2'
+    options: ['1', '2', '3', '4', '5']
+-   id: image_width
+    label: Image Width
+    dtype: int
+    default: '2048'
+-   id: words_per_line
+    label: Words per Minor Frame
+    dtype: int
+    default: '11090'
+-   id: video_start
+    label: Video Start Word
+    dtype: int
+    default: '751'
+-   id: invert
+    label: Invert
+    dtype: bool
+    default: 'False'
+    options: ['True', 'False']
+-   id: max_lines
+    label: Scrollback Lines
+    dtype: int
+    default: '2000'
+
+inputs:
+-   domain: stream
+    dtype: short
+
+file_format: 1

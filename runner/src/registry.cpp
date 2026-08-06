@@ -11,6 +11,7 @@
 #include "filter_hier.hpp"
 #include "qtgui_sinks.hpp"
 #include "text_sink.hpp"
+#include "hrpt_image_sink.hpp"
 #include <emscripten.h>
 #include <gnuradio/analog/sig_source.h>
 #include <gnuradio/analog/noise_source.h>
@@ -2102,6 +2103,21 @@ static std::map<std::string, Factory>& registry_storage() {
                  unquoted(p.value("prefix", std::string())),
                  static_cast<int>(number_from(p, "max_line", 72.0)));
              return { block, nullptr };
+         }},
+        // No upstream equivalent -- gr-hrpt's own noaa_hrpt_decoder only parses
+        // minor-frame telemetry, it never extracts AVHRR imagery; see
+        // blocks/src/hrpt_image_sink.hpp for the channel de-interleave this
+        // does instead and where its word-offset constants come from.
+        {"hrpt_image_sink", [](const json& p) -> BuiltBlock {
+             auto block = HrptImageSinkWasm::make(
+                 unquoted(p.value("name", std::string("HRPT Image"))),
+                 static_cast<int>(number_from(p, "channel", 2.0)),
+                 static_cast<int>(number_from(p, "image_width", 2048.0)),
+                 static_cast<int>(number_from(p, "words_per_line", 11090.0)),
+                 static_cast<int>(number_from(p, "video_start", 751.0)),
+                 bool_from(p, "invert", false),
+                 static_cast<int>(number_from(p, "max_lines", 2000.0)));
+             return { block, block->qwidget() };
          }},
         // gr-paint's Image File Source is a Python block that decodes with PIL.
         // Here the browser decodes, so the image is named by URL rather than by

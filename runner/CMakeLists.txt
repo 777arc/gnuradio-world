@@ -80,6 +80,7 @@ set(GR_INCLUDE_DIRS
   ${WORLD}/gr-fosphor/include
   ${WORLD}/gr-droneid/gnuradio/gr-droneid/include
   ${WORLD}/gr-ieee802_11/include
+  ${WORLD}/gr-hrpt/include
   ${BUILDGR}/gnuradio-runtime/include ${SYSROOT}/include)
 
 # ---------------------------------------------------------------------------
@@ -587,6 +588,66 @@ add_custom_command(
   VERBATIM)
 list(APPEND SIDE_MODULE_OUTPUTS ${satellites_out})
 list(APPEND SIDE_MODULE_NAMES satellites)
+
+# gr-hrpt (altillimity): NOAA/MetOp/FengYun-3 HRPT downlink blocks (PLL, bit
+# deframers, and the MetOp/FengYun rate-3/4 Viterbi decoders). Every block in
+# its grc/ has a plain C++ impl, so this would ordinarily be the plain OOT
+# case, except its Phil Karn-derived viterbi_lib/ is bundled C -- and
+# add_side_module's custom command invokes em++ directly on every source
+# regardless of extension, which silently compiles a .c file as C++
+# ("treating 'c' input as 'c++' when in C++ mode"). That mangles viterbi_lib's
+# C-linkage symbols against the extern "C" declarations the .cc impls call
+# them through, so the dynamic link fails at dlopen with "bad export type for
+# 'gen_met': undefined" instead of at compile time. Same reasoning as
+# gr-droneid/gr-satellites' turbofec/libfec C sources: build via an OBJECT
+# library so CMake picks emcc for .c files and em++ for .cc, then link the
+# compiled objects into the side module. Its own CMake generates an empty
+# config.h that every impl includes unconditionally (not behind
+# HAVE_CONFIG_H), so it needs the same runner-owned shim as gr-rds/gr-dvbs2.
+set(HRPT_LIB ${WORLD}/gr-hrpt/lib)
+set(HRPT_WASM_SHIMS ${BLOCKS}/overlays/gr-hrpt/shims)
+set(HRPT_SOURCES
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/generated_registry_hrpt.cpp
+  ${HRPT_LIB}/noaa_hrpt_pll_cf_impl.cc
+  ${HRPT_LIB}/noaa_hrpt_deframer_impl.cc
+  ${HRPT_LIB}/noaa_hrpt_decoder_impl.cc
+  ${HRPT_LIB}/viterbi_lib/metrics.c
+  ${HRPT_LIB}/viterbi_lib/tab.c
+  ${HRPT_LIB}/viterbi_lib/viterbi.c
+  ${HRPT_LIB}/viterbi_metop_decoder_impl.cc
+  ${HRPT_LIB}/viterbi_fengyun_decoder_impl.cc
+  ${HRPT_LIB}/metop_cadu_deframer_impl.cc
+  ${HRPT_LIB}/fengyun_diff_decoder_impl.cc)
+add_library(hrpt_side_objects OBJECT EXCLUDE_FROM_ALL ${HRPT_SOURCES})
+set_target_properties(hrpt_side_objects PROPERTIES
+  C_STANDARD 11
+  C_STANDARD_REQUIRED ON)
+target_include_directories(hrpt_side_objects PRIVATE
+  ${HRPT_WASM_SHIMS}
+  ${HRPT_LIB}
+  ${GR_INCLUDE_DIRS})
+target_compile_options(hrpt_side_objects PRIVATE
+  -pthread -fPIC -Oz
+  $<$<COMPILE_LANGUAGE:CXX>:-fexceptions>)
+set(hrpt_out ${CMAKE_CURRENT_BINARY_DIR}/hrpt.wasm)
+add_custom_command(
+  OUTPUT ${hrpt_out}
+  COMMAND ${CMAKE_CXX_COMPILER}
+    -sSIDE_MODULE=1 -pthread -fPIC -Oz -std=c++17
+    -sNO_DISABLE_EXCEPTION_CATCHING
+    -sWASM_BIGINT=1
+    $<TARGET_OBJECTS:hrpt_side_objects>
+    -o ${hrpt_out}
+  DEPENDS hrpt_side_objects
+          ${HRPT_SOURCES}
+          ${HRPT_WASM_SHIMS}/config.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/registry_helpers.hpp
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/registry.hpp
+  COMMENT "Building category side module hrpt.wasm (out-of-tree gr-hrpt sources)"
+  COMMAND_EXPAND_LISTS
+  VERBATIM)
+list(APPEND SIDE_MODULE_OUTPUTS ${hrpt_out})
+list(APPEND SIDE_MODULE_NAMES hrpt)
 
 # Fail at configure time if modules.json names a deferred category that has no
 # build rule here, or if a build rule was added without registering its topology.

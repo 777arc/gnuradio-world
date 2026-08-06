@@ -1,0 +1,69 @@
+# Browser-only block metadata for the vendored out-of-tree module gr-hrpt
+# (altillimity). Keeping these overlays here instead of in the submodule's own
+# grc/*.block.yml is what lets that submodule stay pinned to a fork instead of
+# a repo edited in place every time a block is added -- see
+# tools/block_overrides.py for the supported keys and docs/adding-modules.md
+# for the out-of-tree checklist this file is step 3 of.
+#
+# Every block in gr-hrpt's grc/ has a plain C++ impl (lib/*_impl.cc), so this
+# is the ordinary case: one cpp_templates entry per block, arg order mirroring
+# each block's own templates: make: line, resolved against the make() signature
+# in gr-hrpt/include/hrpt/*.h. (gr-hrpt's own sptr typedefs were boost::shared_ptr
+# -- last updated for GR 3.8, before GR's own blocks moved to std::shared_ptr --
+# which does not convert to this build's std::shared_ptr-based
+# gr::basic_block_sptr at all, not just under Emscripten. That is a real
+# compatibility fix, not a WASM one, so it is applied directly to the 7 headers
+# in the submodule rather than worked around here; see the fork noted in
+# docs/adding-modules.md.)
+
+hrpt_fengyun_diff_decoder:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <hrpt/fengyun_diff_decoder.h>']
+        make: auto block = hrpt::fengyun_diff_decoder::make();
+
+metop_cadu_deframer:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <hrpt/metop_cadu_deframer.h>']
+        make: |-
+            auto block = hrpt::metop_cadu_deframer::make(${sync_check},
+                ${frame_length}, ${insync_after}, ${outsync_after});
+
+noaa_hrpt_decoder:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <hrpt/noaa_hrpt_decoder.h>']
+        make: auto block = hrpt::noaa_hrpt_decoder::make(${verbose}, ${output});
+
+noaa_hrpt_deframer:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <hrpt/noaa_hrpt_deframer.h>']
+        make: auto block = hrpt::noaa_hrpt_deframer::make();
+
+noaa_hrpt_pll_cf:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <hrpt/noaa_hrpt_pll_cf.h>']
+        make: |-
+            auto block = hrpt::noaa_hrpt_pll_cf::make(${alpha}, ${beta},
+                ${max_offset});
+
+viterbi_fengyun_decoder:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <hrpt/viterbi_fengyun_decoder.h>']
+        make: |-
+            auto block = hrpt::viterbi_fengyun_decoder::make(${sync_check},
+                ${ber_threshold}, ${insync_after}, ${outsync_after},
+                ${reset_after});
+
+viterbi_metop_decoder:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <hrpt/viterbi_metop_decoder.h>']
+        make: |-
+            auto block = hrpt::viterbi_metop_decoder::make(${sync_check},
+                ${ber_threshold}, ${insync_after}, ${outsync_after},
+                ${reset_after});

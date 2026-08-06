@@ -300,6 +300,8 @@
     "ham_varicode_tx",
     "high_pass_filter",
     "hilbert_fc",
+    "hrpt_fengyun_diff_decoder",
+    "hrpt_image_sink",
     "ieee802_11_append_crc32",
     "ieee802_11_chunks_to_symbols_xx",
     "ieee802_11_decode_mac",
@@ -315,9 +317,13 @@
     "interp_fir_filter_xxx",
     "ival_decimator",
     "low_pass_filter",
+    "metop_cadu_deframer",
     "mmse_resampler_xx",
     "network_socket_pdu",
     "network_tuntap_pdu",
+    "noaa_hrpt_decoder",
+    "noaa_hrpt_deframer",
+    "noaa_hrpt_pll_cf",
     "overlap_cc",
     "paint_image_source",
     "paint_paint_bc",
@@ -452,6 +458,8 @@
     "variable_qtgui_entry",
     "variable_qtgui_push_button",
     "variable_qtgui_range",
+    "viterbi_fengyun_decoder",
+    "viterbi_metop_decoder",
     "vocoder_alaw_decode_bs",
     "vocoder_alaw_encode_sb",
     "vocoder_cvsd_decode_bs",
@@ -500,7 +508,8 @@
     "fosphor",
     "droneid",
     "ham",
-    "ieee802_11"
+    "ieee802_11",
+    "hrpt"
   ],
   "module_deps": {
     "satellites": [
@@ -764,6 +773,13 @@
     "ieee802_11_mapper": "ieee802_11",
     "ieee802_11_parse_mac": "ieee802_11",
     "ieee802_11_sync_long": "ieee802_11",
-    "ieee802_11_sync_short": "ieee802_11"
+    "ieee802_11_sync_short": "ieee802_11",
+    "hrpt_fengyun_diff_decoder": "hrpt",
+    "metop_cadu_deframer": "hrpt",
+    "noaa_hrpt_decoder": "hrpt",
+    "noaa_hrpt_deframer": "hrpt",
+    "noaa_hrpt_pll_cf": "hrpt",
+    "viterbi_fengyun_decoder": "hrpt",
+    "viterbi_metop_decoder": "hrpt"
   }
 }

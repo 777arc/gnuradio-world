@@ -76,6 +76,10 @@ CUSTOM_IDS = {
     # Runner-only sinks, defined in blocks/grc (no upstream GNU Radio block).
     "wasm_packet_rate_sink",
     "wasm_text_sink",
+    # Runner-only HRPT AVHRR image display; no upstream equivalent (gr-hrpt's
+    # own noaa_hrpt_decoder never extracts imagery). See
+    # blocks/src/hrpt_image_sink.hpp.
+    "hrpt_image_sink",
     # gr-rds's display panel is a Python QWidget, rebuilt in C++ at
     # blocks/overlays/gr-rds/rds_panel.hpp.
     "rds_panel",

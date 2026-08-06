@@ -42,3 +42,7 @@
 	path = gr-ieee802_11
 	url = https://github.com/bastibl/gr-ieee802-11.git
 	branch = maint-3.10
+[submodule "gr-hrpt"]
+	path = gr-hrpt
+	url = https://github.com/altillimity/gr-hrpt.git
+	branch = master
