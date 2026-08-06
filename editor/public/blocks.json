@@ -48984,6 +48984,832 @@
    ]
   },
   {
+   "id": "ieee802_11_append_crc32",
+   "label": "Append CRC32",
+   "category": [
+    "IEEE802.11"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "ieee802_11",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "append",
+     "label": "Append",
+     "dtype": "bool",
+     "default": "True",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": [
+      "Enable",
+      "Disable"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true
+    }
+   ]
+  },
+  {
+   "id": "ieee802_11_chunks_to_symbols_xx",
+   "label": "Chunks to Symbols",
+   "category": [
+    "IEEE802.11"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "ieee802_11",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "byte",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "complex",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "ieee802_11_decode_mac",
+   "label": "WiFi Decode MAC",
+   "category": [
+    "IEEE802.11"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "ieee802_11",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "log",
+     "label": "Log",
+     "dtype": "bool",
+     "default": "False",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": [
+      "Enable",
+      "Disable"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "debug",
+     "label": "Debug",
+     "dtype": "bool",
+     "default": "False",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": [
+      "Enable",
+      "Disable"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "byte",
+     "multiplicity": "1",
+     "optional": false,
+     "vlen": "48"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true
+    }
+   ]
+  },
+  {
+   "id": "ieee802_11_ether_encap",
+   "label": "Ethernet Encapsulation",
+   "category": [
+    "IEEE802.11"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "ieee802_11",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "debug",
+     "label": "Debug",
+     "dtype": "bool",
+     "default": "False",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": [
+      "Enable",
+      "Disable"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "from tap",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true
+    },
+    {
+     "id": "from wifi",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true
+    }
+   ],
+   "outputs": [
+    {
+     "id": "to tap",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true
+    },
+    {
+     "id": "to wifi",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true
+    }
+   ]
+  },
+  {
+   "id": "ieee802_11_extract_csi",
+   "label": "WiFi Extract CSI",
+   "category": [
+    "IEEE802.11"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "ieee802_11",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [],
+   "inputs": [
+    {
+     "id": "",
+     "label": "pdu in",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "csi out",
+     "domain": "stream",
+     "dtype": "complex",
+     "multiplicity": "1",
+     "optional": false,
+     "vlen": "52"
+    }
+   ]
+  },
+  {
+   "id": "ieee802_11_frame_equalizer",
+   "label": "WiFi Frame Equalizer",
+   "category": [
+    "IEEE802.11"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "ieee802_11",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "algo",
+     "label": "Algorithm",
+     "dtype": "string",
+     "default": "ieee802_11.LS",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "freq",
+     "label": "Frequency",
+     "dtype": "real",
+     "default": "5.89e9",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "bw",
+     "label": "Bandwidth",
+     "dtype": "real",
+     "default": "10e6",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "log",
+     "label": "Log",
+     "dtype": "bool",
+     "default": "False",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": [
+      "Enable",
+      "Disable"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "debug",
+     "label": "Debug",
+     "dtype": "bool",
+     "default": "False",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": [
+      "Enable",
+      "Disable"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "complex",
+     "multiplicity": "1",
+     "optional": false,
+     "vlen": "64"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "byte",
+     "multiplicity": "1",
+     "optional": false,
+     "vlen": "48"
+    },
+    {
+     "id": "symbols",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true
+    }
+   ]
+  },
+  {
+   "id": "ieee802_11_mac",
+   "label": "WiFi MAC",
+   "category": [
+    "IEEE802.11"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "ieee802_11",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "src_mac",
+     "label": "SRC MAC",
+     "dtype": "int_vector",
+     "default": "[0x23, 0x23, 0x23, 0x23, 0x23, 0x23]",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "dst_mac",
+     "label": "DST MAC",
+     "dtype": "int_vector",
+     "default": "[0x42, 0x42, 0x42, 0x42, 0x42, 0x42]",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "bss_mac",
+     "label": "BSS MAC",
+     "dtype": "int_vector",
+     "default": "[0xff, 0xff, 0xff, 0xff, 0xff, 0xff]",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "app in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true
+    },
+    {
+     "id": "phy in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true
+    }
+   ],
+   "outputs": [
+    {
+     "id": "app out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true
+    },
+    {
+     "id": "phy out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true
+    }
+   ]
+  },
+  {
+   "id": "ieee802_11_mapper",
+   "label": "WiFi Mapper",
+   "category": [
+    "IEEE802.11"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "ieee802_11",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "encoding",
+     "label": "Encoding",
+     "dtype": "string",
+     "default": "ieee802_11.BPSK_1_2",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "debug",
+     "label": "Debug",
+     "dtype": "bool",
+     "default": "False",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": [
+      "Enable",
+      "Disable"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "byte",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "ieee802_11_parse_mac",
+   "label": "WiFi Parse MAC",
+   "category": [
+    "IEEE802.11"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "ieee802_11",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "log",
+     "label": "Log",
+     "dtype": "bool",
+     "default": "False",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": [
+      "Enable",
+      "Disable"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "debug",
+     "label": "Debug",
+     "dtype": "bool",
+     "default": "False",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": [
+      "Enable",
+      "Disable"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "in",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "out",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true
+    }
+   ]
+  },
+  {
+   "id": "ieee802_11_sync_long",
+   "label": "WiFi Sync Long",
+   "category": [
+    "IEEE802.11"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "ieee802_11",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "log",
+     "label": "Log",
+     "dtype": "bool",
+     "default": "False",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": [
+      "Enable",
+      "Disable"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "debug",
+     "label": "Debug",
+     "dtype": "bool",
+     "default": "False",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": [
+      "Enable",
+      "Disable"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "sync_length",
+     "label": "Sync Length",
+     "dtype": "int",
+     "default": "240",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "complex",
+     "multiplicity": "1",
+     "optional": false
+    },
+    {
+     "id": "",
+     "label": "in delayed",
+     "domain": "stream",
+     "dtype": "complex",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "complex",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "ieee802_11_sync_short",
+   "label": "WiFi Sync Short",
+   "category": [
+    "IEEE802.11"
+   ],
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "module": "ieee802_11",
+   "documentation": "",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "log",
+     "label": "Log",
+     "dtype": "bool",
+     "default": "False",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": [
+      "Enable",
+      "Disable"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "debug",
+     "label": "Debug",
+     "dtype": "bool",
+     "default": "False",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": [
+      "Enable",
+      "Disable"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "threshold",
+     "label": "Threshold",
+     "dtype": "real",
+     "default": "0.8",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "min_plateau",
+     "label": "Min Plateau",
+     "dtype": "int",
+     "default": "2",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "complex",
+     "multiplicity": "1",
+     "optional": false
+    },
+    {
+     "id": "",
+     "label": "abs",
+     "domain": "stream",
+     "dtype": "complex",
+     "multiplicity": "1",
+     "optional": false
+    },
+    {
+     "id": "",
+     "label": "cor",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "complex",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
    "id": "iio_attr_sink",
    "label": "IIO Attribute Sink",
    "category": [

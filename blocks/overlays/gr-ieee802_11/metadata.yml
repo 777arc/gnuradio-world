@@ -1,0 +1,120 @@
+# Browser-only block metadata for the vendored out-of-tree module gr-ieee802-11.
+#
+# Keeping these overlays here instead of in the submodule's own .block.yml is what
+# lets that submodule stay pinned to a pristine upstream commit: nothing in the
+# checkout has to be edited, rebased, or pushed to a fork to add a block. See
+# tools/block_overrides.py for the supported keys, and docs/adding-modules.md
+# for the out-of-tree checklist this file is step 3 of.
+#
+# Every block in the module's grc/ has a C++ impl in lib/, so all eleven are here
+# and none stays Python-only. Three parameters need retyping first -- the two
+# enum constants and the MAC addresses -- and ieee802_11_params.hpp beside this
+# file documents why and does the mapping.
+#
+# ether_encap ("Ethernet Encapsulation") is registered but only half useful in a
+# browser: its `to tap`/`from tap` ports exist to reach a host TUN/TAP interface
+# through gr-network's Tun/Tap PDU block, which has no browser equivalent. Its
+# `to wifi`/`from wifi` side works normally, and both port pairs are optional
+# upstream, so the block is left visible rather than excluded.
+
+ieee802_11_append_crc32:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <ieee802_11/append_crc32.h>']
+        declarations: ieee802_11::append_crc32::sptr ${id};
+        make: this->${id} = ieee802_11::append_crc32::make(${append});
+        link: [gnuradio-ieee802_11]
+
+# The block id carries GRC's `_xx` type suffix even though the C++ class does not.
+ieee802_11_chunks_to_symbols_xx:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <ieee802_11/chunks_to_symbols.h>']
+        declarations: ieee802_11::chunks_to_symbols::sptr ${id};
+        make: this->${id} = ieee802_11::chunks_to_symbols::make();
+        link: [gnuradio-ieee802_11]
+
+ieee802_11_decode_mac:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <ieee802_11/decode_mac.h>']
+        declarations: ieee802_11::decode_mac::sptr ${id};
+        make: this->${id} = ieee802_11::decode_mac::make(${log}, ${debug});
+        link: [gnuradio-ieee802_11]
+
+ieee802_11_ether_encap:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <ieee802_11/ether_encap.h>']
+        declarations: ieee802_11::ether_encap::sptr ${id};
+        make: this->${id} = ieee802_11::ether_encap::make(${debug});
+        link: [gnuradio-ieee802_11]
+
+ieee802_11_extract_csi:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <ieee802_11/extract_csi.h>']
+        declarations: ieee802_11::extract_csi::sptr ${id};
+        make: this->${id} = ieee802_11::extract_csi::make();
+        link: [gnuradio-ieee802_11]
+
+# `algo` is a `raw` holding `ieee802_11.LS`; retyped to string and mapped to the
+# Equalizer enumerator by ieee802_11_params.hpp, which keeps the .grc spelling
+# identical to upstream's own examples.
+ieee802_11_frame_equalizer:
+    flags: [python, cpp]
+    parameter_dtypes:
+        algo: string
+    cpp_templates:
+        includes: ['#include <ieee802_11/frame_equalizer.h>', '#include "ieee802_11_params.hpp"']
+        declarations: ieee802_11::frame_equalizer::sptr ${id};
+        make: this->${id} = ieee802_11::frame_equalizer::make(wasm_ieee802_11::equalizer(${algo}),
+            ${freq}, ${bw}, ${log}, ${debug});
+        link: [gnuradio-ieee802_11]
+
+# The address parameters stay `int_vector` so the editor evaluates GRC's own
+# `[0x23, 0x23, ...]` spelling before the runner sees it; mac_address() narrows
+# each octet to the std::vector<uint8_t> make() wants.
+ieee802_11_mac:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <ieee802_11/mac.h>', '#include "ieee802_11_params.hpp"']
+        declarations: ieee802_11::mac::sptr ${id};
+        make: this->${id} = ieee802_11::mac::make(wasm_ieee802_11::mac_address(${src_mac}),
+            wasm_ieee802_11::mac_address(${dst_mac}), wasm_ieee802_11::mac_address(${bss_mac}));
+        link: [gnuradio-ieee802_11]
+
+# `encoding` is the same raw-enum case as frame_equalizer's `algo` above.
+ieee802_11_mapper:
+    flags: [python, cpp]
+    parameter_dtypes:
+        encoding: string
+    cpp_templates:
+        includes: ['#include <ieee802_11/mapper.h>', '#include "ieee802_11_params.hpp"']
+        declarations: ieee802_11::mapper::sptr ${id};
+        make: this->${id} = ieee802_11::mapper::make(wasm_ieee802_11::encoding(${encoding}), ${debug});
+        link: [gnuradio-ieee802_11]
+
+ieee802_11_parse_mac:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <ieee802_11/parse_mac.h>']
+        declarations: ieee802_11::parse_mac::sptr ${id};
+        make: this->${id} = ieee802_11::parse_mac::make(${log}, ${debug});
+        link: [gnuradio-ieee802_11]
+
+ieee802_11_sync_long:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <ieee802_11/sync_long.h>']
+        declarations: ieee802_11::sync_long::sptr ${id};
+        make: this->${id} = ieee802_11::sync_long::make(${sync_length}, ${log}, ${debug});
+        link: [gnuradio-ieee802_11]
+
+ieee802_11_sync_short:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <ieee802_11/sync_short.h>']
+        declarations: ieee802_11::sync_short::sptr ${id};
+        make: this->${id} = ieee802_11::sync_short::make(${threshold}, ${min_plateau}, ${log}, ${debug});
+        link: [gnuradio-ieee802_11]

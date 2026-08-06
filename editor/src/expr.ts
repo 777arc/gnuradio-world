@@ -33,6 +33,8 @@ type Tok =
   | { t: 'op'; v: string }
   | { t: 'eof' };
 
+const RADIX_PREFIXES: Record<string, number> = { x: 16, o: 8, b: 2 };
+
 const OPS2 = ['**', '//', '==', '!=', '<=', '>=', '<<', '>>'];
 const OPS1 = '+-*/%()[]{},:.<>|&^~';
 
@@ -46,6 +48,21 @@ function lex(src: string): Tok[] {
   while (i < n) {
     const c = src[i];
     if (c === ' ' || c === '\t' || c === '\n' || c === '\r') { i++; continue; }
+    // Python's non-decimal integer literals: 0x1f, 0o17, 0b1011. GRC reaches for
+    // hex whenever a parameter is address- or mask-shaped -- gr-ieee802-11 writes
+    // its MAC addresses as `[0x23, 0x23, ...]` -- so without these a block's own
+    // default expression would not evaluate. A prefix with no digits after it
+    // falls through to the decimal path and fails there, as it does in Python.
+    if (c === '0' && RADIX_PREFIXES[src[i + 1]?.toLowerCase()]) {
+      const radix = RADIX_PREFIXES[src[i + 1].toLowerCase()];
+      let j = i + 2;
+      while (j < n && parseInt(src[j], radix) >= 0) j++;
+      if (j > i + 2) {
+        toks.push({ t: 'num', v: parseInt(src.slice(i + 2, j), radix) });
+        i = j;
+        continue;
+      }
+    }
     // number (int/float/scientific), optional trailing j for imaginary
     if (isDigit(c) || (c === '.' && isDigit(src[i + 1]))) {
       let j = i;

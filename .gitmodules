@@ -38,3 +38,7 @@
 	path = gr-ham
 	url = https://github.com/argilo/gr-ham.git
 	branch = master
+[submodule "gr-ieee802_11"]
+	path = gr-ieee802_11
+	url = https://github.com/bastibl/gr-ieee802-11.git
+	branch = maint-3.10

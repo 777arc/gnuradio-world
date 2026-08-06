@@ -175,6 +175,107 @@ const scenarios = [
       connections:[['msg',0,'encode',0],['encode',0,'decode',0],['decode',0,'text',0]] },
     expectFetch: ['ham.wasm'],
     expectLog: 'CQ TEST DE VE3XYZ' },
+  // gr-ieee802-11 (OOT deferred). Its receive chain is upstream wifi_phy_hier's,
+  // expanded inline because that is a GRC hier block and the browser has no
+  // Python to build one: Schmidl-Cox autocorrelation into Sync Short, Sync Long,
+  // a 64-point inverse FFT, the frame equalizer, and the MAC decode/parse pair.
+  // Noise in decodes nothing, which is the point -- the check here is that the
+  // side module loads and the whole chain constructs and runs.
+  //
+  // It is also the one scenario that proves the deferred-to-deferred edge in
+  // modules.json works from a *block* rather than a rebuilt hierarchy: this
+  // module's constellations derive from gr-digital's, so digital.wasm has to be
+  // fetched first for those imports to resolve.
+  { name: 'gr-ieee802-11 receive chain (OOT deferred, needs digital)',
+    fg: { blocks:[
+      { name:'src', id:'analog_noise_source_x',
+        params:{ type:'complex', noise_type:'analog.GR_GAUSSIAN', amp:1, seed:42 } },
+      { name:'thr', id:'blocks_throttle2',
+        params:{ type:'complex', samples_per_second:1000000, vlen:1,
+                 ignoretag:'True', limit:'time', maximum:0.1 } },
+      // Delay-and-correlate over the short training sequence: |sum(x[n]x*[n-16])|
+      // normalised by the moving-average power, which is Sync Short's plateau.
+      { name:'delay16', id:'blocks_delay', params:{ type:'complex', delay:16, num_ports:1, vlen:1 } },
+      { name:'conj', id:'blocks_conjugate_cc', params:{} },
+      { name:'mult', id:'blocks_multiply_xx', params:{ type:'complex', num_inputs:2, vlen:1 } },
+      { name:'mavg_c', id:'blocks_moving_average_xx',
+        params:{ type:'complex', length:48, scale:1, max_iter:4000, vlen:1 } },
+      { name:'cmag', id:'blocks_complex_to_mag', params:{ vlen:1 } },
+      { name:'cmag2', id:'blocks_complex_to_mag_squared', params:{ vlen:1 } },
+      { name:'mavg_f', id:'blocks_moving_average_xx',
+        params:{ type:'float', length:64, scale:1, max_iter:4000, vlen:1 } },
+      { name:'div', id:'blocks_divide_xx', params:{ type:'float', num_inputs:2, vlen:1 } },
+      { name:'sync_short', id:'ieee802_11_sync_short',
+        params:{ threshold:0.56, min_plateau:2, log:'False', debug:'False' } },
+      { name:'delay320', id:'blocks_delay', params:{ type:'complex', delay:320, num_ports:1, vlen:1 } },
+      { name:'sync_long', id:'ieee802_11_sync_long',
+        params:{ sync_length:320, log:'False', debug:'False' } },
+      { name:'s2v', id:'blocks_stream_to_vector', params:{ type:'complex', num_items:64, vlen:1 } },
+      // The *receive* FFT: forward and unwindowed (upstream's
+      // `window.rectangular(64)`, pre-computed because a .grc handed straight to
+      // runner.html gets no expression pass). The 1/sqrt(52)-scaled inverse FFT
+      // in the same hier block is the transmitter's, and swapping the two leaves
+      // the chain looking healthy while decoding nothing.
+      { name:'fft', id:'fft_vxx',
+        params:{ type:'complex', fft_size:64, forward:'True', shift:'True', nthreads:1,
+                 window:`[${Array(64).fill('1.0').join(',')}]` } },
+      { name:'feq', id:'ieee802_11_frame_equalizer',
+        params:{ algo:'ieee802_11.LS', freq:5890000000, bw:10000000,
+                 log:'False', debug:'False' } },
+      { name:'decode', id:'ieee802_11_decode_mac', params:{ log:'False', debug:'False' } },
+      { name:'parse', id:'ieee802_11_parse_mac', params:{ log:'False', debug:'False' } },
+      { name:'csi', id:'ieee802_11_extract_csi', params:{} },
+      // Extract CSI emits one 52-carrier vector per frame; unpack it to a plain
+      // stream rather than giving the null sink a vlen, which its factory ignores.
+      { name:'csi_v2s', id:'blocks_vector_to_stream',
+        params:{ type:'complex', vlen:1, num_items:52 } },
+      { name:'csi_sink', id:'blocks_null_sink', params:{ type:'complex', vlen:1, num_inputs:1 } },
+      // The chunk mapper runs on its own: bytes in, BPSK symbols out.
+      { name:'bytes', id:'blocks_null_source', params:{ type:'byte', vlen:1, num_outputs:1 } },
+      { name:'chunks', id:'ieee802_11_chunks_to_symbols_xx', params:{} },
+      { name:'chunk_sink', id:'blocks_null_sink', params:{ type:'complex', vlen:1, num_inputs:1 } },
+      // The transmit blocks are constructed but left unconnected: each is driven
+      // by a PDU, and this runtime has no message source to hand them one. So
+      // this covers their factories and side-module imports only. The rest of the
+      // transmitter cannot be assembled here at all -- upstream feeds the mapper
+      // into digital_packet_headergenerator_bb and digital_ofdm_carrier_allocator_cvc,
+      // both of which need a typed GRC companion object and are permanently in
+      // generated_blocks.json's `skipped`.
+      // Upstream writes these as [0x23]*6; decimal here because this path gets
+      // no expression pass and 0x23 is not JSON.
+      { name:'mac', id:'ieee802_11_mac',
+        params:{ src_mac:'[35, 35, 35, 35, 35, 35]',
+                 dst_mac:'[66, 66, 66, 66, 66, 66]',
+                 bss_mac:'[255, 255, 255, 255, 255, 255]' } },
+      { name:'mapper', id:'ieee802_11_mapper',
+        params:{ encoding:'ieee802_11.QPSK_3_4', debug:'False' } },
+      { name:'crc', id:'ieee802_11_append_crc32', params:{ append:'True' } },
+      { name:'encap', id:'ieee802_11_ether_encap', params:{ debug:'False' } } ],
+      connections:[
+        ['src',0,'thr',0],
+        ['thr',0,'delay16',0], ['thr',0,'mult',0], ['thr',0,'cmag2',0],
+        ['delay16',0,'conj',0], ['delay16',0,'sync_short',0],
+        ['conj',0,'mult',1],
+        ['mult',0,'mavg_c',0],
+        ['mavg_c',0,'cmag',0], ['mavg_c',0,'sync_short',1],
+        ['cmag',0,'div',0],
+        ['cmag2',0,'mavg_f',0],
+        ['mavg_f',0,'div',1],
+        ['div',0,'sync_short',2],
+        ['sync_short',0,'delay320',0], ['sync_short',0,'sync_long',0],
+        ['delay320',0,'sync_long',1],
+        ['sync_long',0,'s2v',0],
+        ['s2v',0,'fft',0],
+        ['fft',0,'feq',0],
+        ['feq',0,'decode',0],
+        { src_blk_id:'decode', src_port_id:'out',
+          snk_blk_id:'parse', snk_port_id:'in' },
+        { src_blk_id:'parse', src_port_id:'out',
+          snk_blk_id:'csi', snk_port_id:'pdu in' },
+        ['csi',0,'csi_v2s',0], ['csi_v2s',0,'csi_sink',0],
+        ['bytes',0,'chunks',0], ['chunks',0,'chunk_sink',0],
+      ] },
+    expectFetch: ['digital.wasm', 'ieee802_11.wasm'] },
 ];
 
 // The runner consumes native .grc; wrap these {blocks,connections} fixtures in

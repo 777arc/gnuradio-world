@@ -300,6 +300,17 @@
     "ham_varicode_tx",
     "high_pass_filter",
     "hilbert_fc",
+    "ieee802_11_append_crc32",
+    "ieee802_11_chunks_to_symbols_xx",
+    "ieee802_11_decode_mac",
+    "ieee802_11_ether_encap",
+    "ieee802_11_extract_csi",
+    "ieee802_11_frame_equalizer",
+    "ieee802_11_mac",
+    "ieee802_11_mapper",
+    "ieee802_11_parse_mac",
+    "ieee802_11_sync_long",
+    "ieee802_11_sync_short",
     "iir_filter_xxx",
     "interp_fir_filter_xxx",
     "ival_decimator",
@@ -488,11 +499,15 @@
     "paint",
     "fosphor",
     "droneid",
-    "ham"
+    "ham",
+    "ieee802_11"
   ],
   "module_deps": {
     "satellites": [
       "pdu"
+    ],
+    "ieee802_11": [
+      "digital"
     ]
   },
   "block_module": {
@@ -738,6 +753,17 @@
     "droneid_time_sync": "droneid",
     "ham_chu_decode": "ham",
     "ham_varicode_rx": "ham",
-    "ham_varicode_tx": "ham"
+    "ham_varicode_tx": "ham",
+    "ieee802_11_append_crc32": "ieee802_11",
+    "ieee802_11_chunks_to_symbols_xx": "ieee802_11",
+    "ieee802_11_decode_mac": "ieee802_11",
+    "ieee802_11_ether_encap": "ieee802_11",
+    "ieee802_11_extract_csi": "ieee802_11",
+    "ieee802_11_frame_equalizer": "ieee802_11",
+    "ieee802_11_mac": "ieee802_11",
+    "ieee802_11_mapper": "ieee802_11",
+    "ieee802_11_parse_mac": "ieee802_11",
+    "ieee802_11_sync_long": "ieee802_11",
+    "ieee802_11_sync_short": "ieee802_11"
   }
 }

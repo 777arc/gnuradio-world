@@ -65,6 +65,19 @@ ok('frame_size//15', '2');
 ok('(frame_size//15)*[0, 0, 1]', '[0, 0, 1, 0, 0, 1]');   // Python list repetition!
 ok('7 % 3', '1');
 
+// ---- non-decimal integer literals ----
+// GRC writes anything address- or mask-shaped in hex, and a block's *default*
+// can be one: gr-ieee802-11's WiFi MAC ships `[0x23] * 6`, so a value the editor
+// could not evaluate would leave a freshly placed block failing its own Run.
+ok('0x23', '35');
+ok('0xFF', '255');
+ok('[0x23, 0x23, 0x23, 0x23, 0x23, 0x23]', '[35, 35, 35, 35, 35, 35]');
+ok('[0xff] * 6', '[255, 255, 255, 255, 255, 255]');
+ok('0o17', '15');
+ok('0b1011', '11');
+ok('0x10 + 1', '17');
+fails('0x');                                // a prefix with no digits, as in Python
+
 // ---- complex literals ----
 ok('0+0j', '0');                            // simplifies to real 0
 ok('1j', '0+1j');

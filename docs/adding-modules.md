@@ -64,7 +64,8 @@ The recipe above assumes an in-tree `gr-<m>` built by `gr/build-gr`. A
 third-party OOT module (already done for [`gr-rds/`](../gr-rds), [`gr-foo/`](../gr-foo),
 [`gr-dvbs2/`](../gr-dvbs2), [`gr-dvbs2rx/`](../gr-dvbs2rx), [`gr-satellites/`](../gr-satellites),
 [`gr-paint/`](../gr-paint), [`gr-fosphor/`](../gr-fosphor),
-[`gr-droneid/`](../gr-droneid), and [`gr-ham/`](../gr-ham)) is **not** part of that
+[`gr-droneid/`](../gr-droneid), [`gr-ham/`](../gr-ham), and
+[`gr-ieee802_11/`](../gr-ieee802_11)) is **not** part of that
 umbrella build, so there is no `libgnuradio-<m>.a`; instead its own `lib/*.cc` are
 compiled straight into an on-demand `<m>.wasm` side module. This is a
 **self-contained checklist** — following it needs no investigation beyond the
@@ -84,6 +85,17 @@ branch, not a fork:
 ```bash
 git submodule add -b <branch> https://github.com/<upstream>/gr-<m>.git gr-<m>
 ```
+The checkout path is yours to choose, and `<m>` is **not** free: it becomes a C
+identifier (the `Registrar_<m>` in the generated registrar, the
+`generated_registry_<m>.cpp` filename, the `<m>.wasm` side module), so it has to
+be spelled the way the module's C++ namespace is. Both generators also discover a
+module by globbing `gr-*/grc`, so the directory has to *be* `gr-<m>` rather than
+be mapped to it — `source_roots` only relocates the module root *within* a
+checkout, and pointing it at a differently named sibling would make the same
+`grc/` scanned twice under two module names. Where upstream's repository name
+disagrees, rename on checkout: `bastibl/gr-ieee802-11` is vendored at
+`gr-ieee802_11/` because its namespace, and therefore its module name, is
+`ieee802_11`.
 Steps 3 and 5 exist so this stays possible: block metadata and generated headers
 both live in this repository, so a normal OOT module needs no branch of its own
 and bumping it is a plain `fetch` + `checkout` with nothing to rebase. Of all the

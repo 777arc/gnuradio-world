@@ -79,6 +79,7 @@ set(GR_INCLUDE_DIRS
   ${WORLD}/gr-paint/include
   ${WORLD}/gr-fosphor/include
   ${WORLD}/gr-droneid/gnuradio/gr-droneid/include
+  ${WORLD}/gr-ieee802_11/include
   ${BUILDGR}/gnuradio-runtime/include ${SYSROOT}/include)
 
 # ---------------------------------------------------------------------------
@@ -384,6 +385,49 @@ set(HAM_SOURCES
 add_side_module(ham
   SOURCES ${HAM_SOURCES}
   DEPENDS ${BLOCKS}/overlays/gr-ham/ham_blocks.hpp)
+
+# gr-ieee802-11 (bastibl): the 802.11a/g/p transceiver. Every block in its grc/
+# has a C++ impl, so this is the plain OOT case -- its own lib/*.cc compiled
+# straight into the side module alongside the generated factory table. Its
+# equalizer/ and viterbi_decoder/ headers are included relative to the sources,
+# so lib/ needs no -I of its own. Two things to note:
+#   * upstream selects an SSE2 Viterbi decoder when <xmmintrin.h> is found and
+#     defines IEEE80211_MSSE2 to switch the header over. Emscripten defines
+#     neither, so the generic scalar decoder is the one compiled here -- the same
+#     situation as gr-dvbs2rx's SIMD headers, and it needs no flag.
+#   * the module's constellations and signal_field derive from gr-digital's
+#     `constellation` and `packet_header_default`, so it imports symbols from
+#     another *deferred* module. That is what the "ieee802_11": ["digital"] edge
+#     in modules.json is for; without it those imports never resolve at dlopen.
+# config.h is only included behind HAVE_CONFIG_H, which nothing defines, so
+# unlike most vendored modules this one needs no shim.
+set(IEEE802_11_LIB ${WORLD}/gr-ieee802_11/lib)
+set(IEEE802_11_SOURCES
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/generated_registry_ieee802_11.cpp
+  ${IEEE802_11_LIB}/append_crc32_impl.cc
+  ${IEEE802_11_LIB}/chunks_to_symbols_impl.cc
+  ${IEEE802_11_LIB}/constellations_impl.cc
+  ${IEEE802_11_LIB}/decode_mac.cc
+  ${IEEE802_11_LIB}/equalizer/base.cc
+  ${IEEE802_11_LIB}/equalizer/comb.cc
+  ${IEEE802_11_LIB}/equalizer/lms.cc
+  ${IEEE802_11_LIB}/equalizer/ls.cc
+  ${IEEE802_11_LIB}/equalizer/sta.cc
+  ${IEEE802_11_LIB}/ether_encap_impl.cc
+  ${IEEE802_11_LIB}/extract_csi_impl.cc
+  ${IEEE802_11_LIB}/frame_equalizer_impl.cc
+  ${IEEE802_11_LIB}/mac.cc
+  ${IEEE802_11_LIB}/mapper_impl.cc
+  ${IEEE802_11_LIB}/parse_mac.cc
+  ${IEEE802_11_LIB}/signal_field_impl.cc
+  ${IEEE802_11_LIB}/sync_long.cc
+  ${IEEE802_11_LIB}/sync_short.cc
+  ${IEEE802_11_LIB}/utils.cc
+  ${IEEE802_11_LIB}/viterbi_decoder/base.cc
+  ${IEEE802_11_LIB}/viterbi_decoder/viterbi_decoder_generic.cc)
+add_side_module(ieee802_11
+  SOURCES ${IEEE802_11_SOURCES}
+  DEPENDS ${BLOCKS}/overlays/gr-ieee802_11/ieee802_11_params.hpp)
 
 # gr-droneid: proto17/dji_droneid keeps its GNU Radio OOT below
 # gnuradio/gr-droneid in the repository. All five blocks have native C++

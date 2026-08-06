@@ -125,6 +125,17 @@ const std::map<std::string, std::string>& block_module_map()
         {"ham_chu_decode", "ham"},
         {"ham_varicode_rx", "ham"},
         {"ham_varicode_tx", "ham"},
+        {"ieee802_11_append_crc32", "ieee802_11"},
+        {"ieee802_11_chunks_to_symbols_xx", "ieee802_11"},
+        {"ieee802_11_decode_mac", "ieee802_11"},
+        {"ieee802_11_ether_encap", "ieee802_11"},
+        {"ieee802_11_extract_csi", "ieee802_11"},
+        {"ieee802_11_frame_equalizer", "ieee802_11"},
+        {"ieee802_11_mac", "ieee802_11"},
+        {"ieee802_11_mapper", "ieee802_11"},
+        {"ieee802_11_parse_mac", "ieee802_11"},
+        {"ieee802_11_sync_long", "ieee802_11"},
+        {"ieee802_11_sync_short", "ieee802_11"},
         {"network_socket_pdu", "network"},
         {"network_tuntap_pdu", "network"},
         {"overlap_cc", "fosphor"},
@@ -257,6 +268,7 @@ const std::map<std::string, std::string>& block_module_map()
 const std::map<std::string, std::vector<std::string>>& module_deps()
 {
     static const std::map<std::string, std::vector<std::string>> m = {
+        {"ieee802_11", {"digital"}},
         {"satellites", {"pdu"}},
     };
     return m;
