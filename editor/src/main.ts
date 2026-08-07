@@ -1418,6 +1418,19 @@ function showMenu(x: number, y: number, inst: Inst) {
   m.style.top = Math.min(y, window.innerHeight - m.offsetHeight - 6) + 'px';
   menuEl = m;
 }
+function showConnectionMenu(x: number, y: number, conn: Conn) {
+  closeMenu();
+  const m = document.createElement('div'); m.className = 'ctxmenu';
+  const d = document.createElement('div');
+  d.className = 'ctxitem danger';
+  d.textContent = 'Delete Connection';
+  d.onclick = () => { closeMenu(); deleteConnection(conn); };
+  m.appendChild(d);
+  document.body.appendChild(m);
+  m.style.left = Math.min(x, window.innerWidth - m.offsetWidth - 6) + 'px';
+  m.style.top = Math.min(y, window.innerHeight - m.offsetHeight - 6) + 'px';
+  menuEl = m;
+}
 // pointerdown, not mousedown: the canvas handlers below call preventDefault(),
 // which stops a tap from ever synthesising the compatibility mouse event.
 document.addEventListener('pointerdown', e => { if (menuEl && !menuEl.contains(e.target as Node)) closeMenu(); });
@@ -1802,12 +1815,14 @@ function render() {
         : isSelected ? 'url(#arrow-selected)' : 'url(#arrow)' }));
     // Match the desktop GUI's forgiving line hit test without drawing a thick wire.
     wire.appendChild(svgEl('path', { class: 'wire-hit', d }));
-    wire.addEventListener('pointerdown', e => {
-      if (e.button !== 0) return;
+    const activateConn = (e: MouseEvent) => {
       e.preventDefault(); e.stopPropagation();
       cancelConnect();
       selectConnection(c);
-    });
+      showConnectionMenu(e.clientX, e.clientY, c);
+    };
+    wire.addEventListener('pointerdown', e => { if (e.button !== 0) return; activateConn(e); });
+    wire.addEventListener('contextmenu', activateConn);
     wiresG.appendChild(wire);
   }
   // blocks
