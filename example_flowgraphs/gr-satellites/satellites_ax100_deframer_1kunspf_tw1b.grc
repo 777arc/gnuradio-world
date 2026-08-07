@@ -3,8 +3,8 @@ options:
         author: Daniel Estevez
         copyright: ''
         description: 'GOMspace AX100 deframer in both its modes: ASM+Golay on the 1KUNS-PF recording, Reed-Solomon on the TW-1B recording'
-        generate_options: no_gui
-        id: ax100_deframer_1kunspf_tw1b
+        generate_options: qt_gui
+        id: gr_satellites_AX100_deframer__1KUNS_PF__TW_1B_
         title: gr-satellites AX100 deframer (1KUNS-PF, TW-1B)
     states:
         coordinate: [10, 10]
@@ -16,7 +16,47 @@ blocks:
     parameters:
         value: '48000'
     states:
-        coordinate: [230, 10]
+        coordinate: [320, 10]
+        rotation: 0
+        state: enabled
+-   name: asm_deframer
+    id: satellites_ax100_deframer
+    parameters:
+        mode: '"ASM"'
+        options: '""'
+        scrambler: '"CCSDS"'
+        threshold: '4'
+    states:
+        coordinate: [930, 210]
+        rotation: 0
+        state: enabled
+-   name: asm_demod
+    id: satellites_fsk_demodulator
+    parameters:
+        baudrate: '1200'
+        iq: 'False'
+        options: '""'
+        samp_rate: samp_rate
+        subaudio: 'False'
+    states:
+        coordinate: [630, 210]
+        rotation: 0
+        state: enabled
+-   name: asm_frames
+    id: blocks_message_debug
+    parameters:
+        en_uvec: 'True'
+        log_level: info
+    states:
+        coordinate: [1380, 130]
+        rotation: 0
+        state: enabled
+-   name: asm_note
+    id: note
+    parameters:
+        note: ASM+Golay mode
+    states:
+        coordinate: [490, 10]
         rotation: 0
         state: enabled
 -   name: asm_recording
@@ -30,7 +70,7 @@ blocks:
         type: short
         vlen: '1'
     states:
-        coordinate: [10, 140]
+        coordinate: [10, 190]
         rotation: 0
         state: enabled
 -   name: asm_recording_to_float
@@ -39,7 +79,47 @@ blocks:
         scale: '32767'
         vlen: '1'
     states:
-        coordinate: [270, 170]
+        coordinate: [370, 220]
+        rotation: 0
+        state: enabled
+-   name: rs_deframer
+    id: satellites_ax100_deframer
+    parameters:
+        mode: '"RS"'
+        options: '""'
+        scrambler: '"CCSDS"'
+        threshold: '4'
+    states:
+        coordinate: [930, 450]
+        rotation: 0
+        state: enabled
+-   name: rs_demod
+    id: satellites_fsk_demodulator
+    parameters:
+        baudrate: '4800'
+        iq: 'False'
+        options: '""'
+        samp_rate: samp_rate
+        subaudio: 'False'
+    states:
+        coordinate: [630, 450]
+        rotation: 0
+        state: enabled
+-   name: rs_frames
+    id: blocks_message_debug
+    parameters:
+        en_uvec: 'True'
+        log_level: info
+    states:
+        coordinate: [1380, 370]
+        rotation: 0
+        state: enabled
+-   name: rs_note
+    id: note
+    parameters:
+        note: Reed-Solomon mode
+    states:
+        coordinate: [680, 10]
         rotation: 0
         state: enabled
 -   name: rs_recording
@@ -53,7 +133,7 @@ blocks:
         type: short
         vlen: '1'
     states:
-        coordinate: [10, 330]
+        coordinate: [10, 430]
         rotation: 0
         state: enabled
 -   name: rs_recording_to_float
@@ -62,104 +142,24 @@ blocks:
         scale: '32767'
         vlen: '1'
     states:
-        coordinate: [270, 360]
-        rotation: 0
-        state: enabled
--   name: asm_note
-    id: note
-    parameters:
-        note: ASM+Golay mode
-    states:
-        coordinate: [370, 10]
-        rotation: 0
-        state: enabled
--   name: rs_note
-    id: note
-    parameters:
-        note: Reed-Solomon mode
-    states:
-        coordinate: [510, 10]
-        rotation: 0
-        state: enabled
--   name: asm_demod
-    id: satellites_fsk_demodulator
-    parameters:
-        baudrate: '1200'
-        iq: 'False'
-        options: '""'
-        samp_rate: samp_rate
-        subaudio: 'False'
-    states:
-        coordinate: [470, 160]
-        rotation: 0
-        state: enabled
--   name: rs_demod
-    id: satellites_fsk_demodulator
-    parameters:
-        baudrate: '4800'
-        iq: 'False'
-        options: '""'
-        samp_rate: samp_rate
-        subaudio: 'False'
-    states:
-        coordinate: [470, 350]
-        rotation: 0
-        state: enabled
--   name: asm_deframer
-    id: satellites_ax100_deframer
-    parameters:
-        mode: '"ASM"'
-        options: '""'
-        scrambler: '"CCSDS"'
-        threshold: '4'
-    states:
-        coordinate: [700, 160]
-        rotation: 0
-        state: enabled
--   name: rs_deframer
-    id: satellites_ax100_deframer
-    parameters:
-        mode: '"RS"'
-        options: '""'
-        scrambler: '"CCSDS"'
-        threshold: '4'
-    states:
-        coordinate: [700, 350]
-        rotation: 0
-        state: enabled
--   name: asm_frames
-    id: blocks_message_debug
-    parameters:
-        en_uvec: 'True'
-        log_level: info
-    states:
-        coordinate: [1040, 110]
-        rotation: 0
-        state: enabled
--   name: rs_frames
-    id: blocks_message_debug
-    parameters:
-        en_uvec: 'True'
-        log_level: info
-    states:
-        coordinate: [1040, 300]
+        coordinate: [370, 460]
         rotation: 0
         state: enabled
 connections:
-- [asm_recording, '0', asm_recording_to_float, '0']
-- [asm_recording_to_float, '0', asm_demod, '0']
-- [asm_demod, '0', asm_deframer, '0']
 -   src_blk_id: asm_deframer
     src_port_id: out
     snk_blk_id: asm_frames
     snk_port_id: print_pdu
-- [rs_recording, '0', rs_recording_to_float, '0']
-- [rs_recording_to_float, '0', rs_demod, '0']
-- [rs_demod, '0', rs_deframer, '0']
+- [asm_demod, '0', asm_deframer, '0']
+- [asm_recording, '0', asm_recording_to_float, '0']
+- [asm_recording_to_float, '0', asm_demod, '0']
 -   src_blk_id: rs_deframer
     src_port_id: out
     snk_blk_id: rs_frames
     snk_port_id: print_pdu
+- [rs_demod, '0', rs_deframer, '0']
+- [rs_recording, '0', rs_recording_to_float, '0']
+- [rs_recording_to_float, '0', rs_demod, '0']
 metadata:
     file_format: 2
     grc_version: 3.11.0.0

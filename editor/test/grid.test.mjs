@@ -38,6 +38,26 @@ assert.deepEqual(
   [0, 1, 2].map(index => centeredPortSlot(100, 3, index)),
   [30, 50, 70],
   'an odd centered port group stays on the grid');
+// The 3-cell port pitch main.ts draws with: an even group straddles the block
+// midpoint by half a pitch, so the group has to be snapped for its ports to
+// stay on the grid — without that no wire from a one-port block to a two-port
+// one can ever be drawn straight.
+assert.deepEqual(
+  [0, 1].map(index => centeredPortSlot(100, 2, index, SNAP_GRID_SIZE * 3)),
+  [40, 70],
+  'an even group at the 3-cell pitch is snapped back onto the grid');
+assert.deepEqual(
+  [0, 1, 2].map(index => centeredPortSlot(120, 3, index, SNAP_GRID_SIZE * 3)),
+  [30, 60, 90],
+  'an odd group at the 3-cell pitch is already on the grid and stays put');
+assert.equal(centeredPortSlot(100, 1, 0, SNAP_GRID_SIZE * 3), 50,
+  'a lone port stays centered on the block');
+for (const span of [60, 80, 100, 120, 140, 160])
+  for (const count of [1, 2, 3, 4])
+    for (let index = 0; index < count; index++)
+      assert.ok(Number.isInteger(
+        centeredPortSlot(span, count, index, SNAP_GRID_SIZE * 3) / SNAP_GRID_SIZE),
+        `port ${index} of ${count} on a ${span}px block is on the grid`);
 
 assert.match(source, /let snapToGrid = true;/,
   'snap to grid is enabled by default');

@@ -2,67 +2,63 @@ options:
     parameters:
         author: gnuradio-world
         copyright: ''
-        description: 32 synthetic NOAA HRPT minor frames (32 AVHRR scan lines,
-            carrying this repo's own logo on channel 2) that exercise the real
-            noaa_hrpt_deframer and hrpt_image_sink blocks end to end. See
-            example_flowgraphs/hrpt/README.md for how the fixture was generated and
-            why the PLL/bit-slicer stage is skipped here.
+        description: 32 synthetic NOAA HRPT minor frames (32 AVHRR scan lines, carrying this repo's own logo on channel 2) that exercise the real noaa_hrpt_deframer and hrpt_image_sink blocks end to end. See example_flowgraphs/hrpt/README.md for how the fixture was generated and why the PLL/bit-slicer stage is skipped here.
         generate_options: qt_gui
-        id: hrpt_noaa_synthetic_image
+        id: HRPT_NOAA_Synthetic_Image
         title: HRPT NOAA Synthetic Image
     states:
         coordinate: [10, 10]
         rotation: 0
         state: enabled
 blocks:
--   name: src
-    id: blocks_file_source
+-   name: decode
+    id: noaa_hrpt_decoder
     parameters:
-        file: https://raw.githubusercontent.com/777arc/gnuradio-world/main/example_flowgraphs/hrpt/noaa_synthetic_symbols.bin
-        type: byte
-        repeat: 'False'
-        vlen: '1'
-        begin_tag: pmt.PMT_NIL
-        offset: '0'
-        length: '0'
+        output: 'False'
+        verbose: 'True'
     states:
-        coordinate: [10, 110]
+        coordinate: [710, 160]
         rotation: 0
         state: enabled
 -   name: deframe
     id: noaa_hrpt_deframer
-    parameters: {}
-    states:
-        coordinate: [210, 110]
-        rotation: 0
-        state: enabled
--   name: decode
-    id: noaa_hrpt_decoder
     parameters:
-        verbose: 'True'
-        output: 'False'
     states:
-        coordinate: [410, 30]
+        coordinate: [370, 160]
         rotation: 0
         state: enabled
 -   name: image
     id: hrpt_image_sink
     parameters:
-        name: '"HRPT Image (channel 2)"'
         channel: '2'
         image_width: '2048'
-        words_per_line: '11090'
-        video_start: '751'
         invert: 'False'
         max_lines: '200'
+        name: '"HRPT Image (channel 2)"'
+        video_start: '751'
+        words_per_line: '11090'
     states:
-        coordinate: [410, 150]
+        coordinate: [710, 260]
+        rotation: 0
+        state: enabled
+-   name: src
+    id: blocks_file_source
+    parameters:
+        begin_tag: pmt.PMT_NIL
+        file: https://raw.githubusercontent.com/777arc/gnuradio-world/main/example_flowgraphs/hrpt/noaa_synthetic_symbols.bin
+        length: '0'
+        offset: '0'
+        repeat: 'False'
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [10, 130]
         rotation: 0
         state: enabled
 connections:
-- [src, '0', deframe, '0']
 - [deframe, '0', decode, '0']
 - [deframe, '0', image, '0']
+- [src, '0', deframe, '0']
 metadata:
     file_format: 1
     grc_version: 3.11.0.0

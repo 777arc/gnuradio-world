@@ -50,6 +50,7 @@ export function DisplaySpectrogram({ currentFFT, setCurrentFFT, currentTab }) {
 
   const { displayedIQ, spectrogramHeight } = useSpectrogram(currentFFT);
   const { width, height } = useWindowSize();
+  const spectrogramRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // Two layouts, matching the `md:` breakpoint the page's flex direction uses:
@@ -59,12 +60,21 @@ export function DisplaySpectrogram({ currentFFT, setCurrentFFT, currentTab }) {
     // layout's 476 there would leave a *negative* width on a 390px screen.
     const stacked = width < NARROW_LAYOUT_WIDTH;
     setSpectrogramWidth(width - (stacked ? 147 : 476));   // hand-tuned for now
-    // Likewise the height: 650px of spectrogram plus the settings under it is a
-    // long scroll on a phone, and the chrome above it is shorter there too.
-    setSpectrogramHeight(stacked
-      ? Math.max(MIN_STACKED_SPECTROGRAM_HEIGHT, height - 245)
-      : Math.max(MIN_SPECTROGRAM_HEIGHT, height - 470));  // hand-tuned against the surrounding chrome
-  }, [width, height]);
+    // The height, unlike the width, is whatever the page has left over: the
+    // Konva stages need it in pixels, so it cannot simply be `flex-1`. Measuring
+    // the rendered page instead of subtracting a hand-tuned constant means the
+    // rulers, the tab bar, the metadata summary and the annotations section can
+    // all change size without this needing to be re-tuned. `slack` is what the
+    // viewport has spare once everything (including the plot at its *current*
+    // height) is laid out, so adding it to that height fills the page exactly,
+    // in one pass — negative slack shrinks the plot the same way.
+    const el = spectrogramRef.current;
+    if (!el) return;
+    const slack = window.innerHeight - document.body.getBoundingClientRect().height;
+    const filled = el.getBoundingClientRect().height + slack;
+    setSpectrogramHeight(Math.max(
+      stacked ? MIN_STACKED_SPECTROGRAM_HEIGHT : MIN_SPECTROGRAM_HEIGHT, Math.round(filled)));
+  }, [width, height, currentTab]);
 
   const { image, setIQData } = useGetImage(
     fftSize,
@@ -104,7 +114,7 @@ export function DisplaySpectrogram({ currentFFT, setCurrentFFT, currentTab }) {
           <Stage width={spectrogramWidth + 110} height={34}>
             <RulerTop />
           </Stage>
-          <div className="flex flex-row" id="spectrogram">
+          <div className="flex flex-row" id="spectrogram" ref={spectrogramRef}>
             <Stage width={spectrogramWidth} height={spectrogramHeight}>
               <Layer onWheel={handleWheel} imageSmoothingEnabled={false}>
                 <Image image={image} x={0} y={0} width={spectrogramWidth} height={spectrogramHeight} />

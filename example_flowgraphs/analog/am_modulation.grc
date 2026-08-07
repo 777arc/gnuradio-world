@@ -4,7 +4,7 @@ options:
         copyright: ''
         description: Interactive amplitude modulation demo with time- and frequency-domain views
         generate_options: qt_gui
-        id: am_modulation
+        id: AM_Modulation
         title: AM Modulation
     states:
         coordinate: [10, 10]
@@ -24,76 +24,7 @@ blocks:
         value: '0.7'
         widget: counter_slider
     states:
-        coordinate: [220, 10]
-        rotation: 0
-        state: enabled
--   name: audio_tone
-    id: analog_sig_source_x
-    parameters:
-        amplitude: modulation_depth
-        frequency: '1000'
-        samp_rate: '48000'
-        type: float
-        waveform: analog.GR_COS_WAVE
-    states:
-        coordinate: [10, 150]
-        rotation: 0
-        state: enabled
--   name: carrier
-    id: analog_sig_source_x
-    parameters:
-        amplitude: '1'
-        frequency: '10000'
-        samp_rate: '48000'
-        type: complex
-        waveform: analog.GR_COS_WAVE
-    states:
-        coordinate: [440, 280]
-        rotation: 0
-        state: enabled
--   name: carrier_level
-    id: analog_const_source_x
-    parameters:
-        const: '1'
-        type: float
-    states:
-        coordinate: [10, 270]
-        rotation: 0
-        state: enabled
--   name: envelope
-    id: blocks_add_xx
-    parameters:
-        type: float
-    states:
-        coordinate: [240, 170]
-        rotation: 0
-        state: enabled
--   name: envelope_to_complex
-    id: blocks_float_to_complex
-    parameters:
-    states:
-        coordinate: [440, 180]
-        rotation: 0
-        state: enabled
--   name: modulator
-    id: blocks_multiply_xx
-    parameters:
-        type: complex
-    states:
-        coordinate: [670, 190]
-        rotation: 0
-        state: enabled
--   name: throttle
-    id: blocks_throttle2
-    parameters:
-        ignoretag: 'True'
-        limit: auto
-        maximum: '0.1'
-        samples_per_second: '48000'
-        type: complex
-        vlen: '1'
-    states:
-        coordinate: [860, 180]
+        coordinate: [290, 10]
         rotation: 0
         state: enabled
 -   name: am_spectrum
@@ -113,6 +44,7 @@ blocks:
         marker1: '-1'
         name: AM Spectrum - Carrier and Sidebands
         samp_rate: '48000'
+        style1: '1'
         tr_chan: '0'
         tr_level: '0'
         tr_mode: qtgui.TRIG_MODE_FREE
@@ -122,7 +54,7 @@ blocks:
         ymax: '10'
         ymin: '-100'
     states:
-        coordinate: [1100, 180]
+        coordinate: [1420, 240]
         rotation: 0
         state: enabled
 -   name: am_waveform
@@ -162,7 +94,80 @@ blocks:
         ymin: '-2'
         yunit: ''
     states:
-        coordinate: [1100, 300]
+        coordinate: [1420, 380]
+        rotation: 0
+        state: enabled
+-   name: audio_tone
+    id: analog_sig_source_x
+    parameters:
+        amplitude: modulation_depth
+        frequency: '1000'
+        samp_rate: '48000'
+        type: float
+        waveform: analog.GR_COS_WAVE
+    states:
+        coordinate: [10, 210]
+        rotation: 0
+        state: enabled
+-   name: carrier
+    id: analog_sig_source_x
+    parameters:
+        amplitude: '1'
+        frequency: '10000'
+        samp_rate: '48000'
+        type: complex
+        waveform: analog.GR_COS_WAVE
+    states:
+        coordinate: [550, 360]
+        rotation: 0
+        state: enabled
+-   name: carrier_level
+    id: analog_const_source_x
+    parameters:
+        const: '1'
+        type: float
+    states:
+        coordinate: [10, 350]
+        rotation: 0
+        state: enabled
+-   name: envelope
+    id: blocks_add_xx
+    parameters:
+        num_inputs: '2'
+        type: float
+        vlen: '1'
+    states:
+        coordinate: [310, 230]
+        rotation: 0
+        state: enabled
+-   name: envelope_to_complex
+    id: blocks_float_to_complex
+    parameters:
+    states:
+        coordinate: [550, 240]
+        rotation: 0
+        state: enabled
+-   name: modulator
+    id: blocks_multiply_xx
+    parameters:
+        num_inputs: '2'
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [850, 250]
+        rotation: 0
+        state: enabled
+-   name: throttle
+    id: blocks_throttle2
+    parameters:
+        ignoretag: 'True'
+        limit: auto
+        maximum: '0.1'
+        samples_per_second: '48000'
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [1090, 240]
         rotation: 0
         state: enabled
 connections:

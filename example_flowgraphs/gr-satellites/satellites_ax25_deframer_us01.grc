@@ -3,8 +3,8 @@ options:
         author: Daniel Estevez
         copyright: ''
         description: AX.25 deframer component fed by the US01 recording
-        generate_options: no_gui
-        id: ax25_deframer_us01
+        generate_options: qt_gui
+        id: gr_satellites_AX_25_deframer__US01_
         title: gr-satellites AX.25 deframer (US01)
     states:
         coordinate: [10, 10]
@@ -16,7 +16,37 @@ blocks:
     parameters:
         value: '48000'
     states:
-        coordinate: [230, 10]
+        coordinate: [310, 10]
+        rotation: 0
+        state: enabled
+-   name: deframer
+    id: satellites_ax25_deframer
+    parameters:
+        g3ruh_scrambler: 'True'
+        options: '""'
+    states:
+        coordinate: [930, 220]
+        rotation: 0
+        state: enabled
+-   name: frames
+    id: blocks_message_debug
+    parameters:
+        en_uvec: 'True'
+        log_level: info
+    states:
+        coordinate: [1320, 130]
+        rotation: 0
+        state: enabled
+-   name: fsk_demod
+    id: satellites_fsk_demodulator
+    parameters:
+        baudrate: '9600'
+        iq: 'False'
+        options: '""'
+        samp_rate: samp_rate
+        subaudio: 'False'
+    states:
+        coordinate: [630, 210]
         rotation: 0
         state: enabled
 -   name: recording
@@ -30,7 +60,7 @@ blocks:
         type: short
         vlen: '1'
     states:
-        coordinate: [10, 140]
+        coordinate: [10, 190]
         rotation: 0
         state: enabled
 -   name: to_float
@@ -39,47 +69,17 @@ blocks:
         scale: '32767'
         vlen: '1'
     states:
-        coordinate: [270, 170]
-        rotation: 0
-        state: enabled
--   name: fsk_demod
-    id: satellites_fsk_demodulator
-    parameters:
-        baudrate: '9600'
-        iq: 'False'
-        options: '""'
-        samp_rate: samp_rate
-        subaudio: 'False'
-    states:
-        coordinate: [470, 160]
-        rotation: 0
-        state: enabled
--   name: deframer
-    id: satellites_ax25_deframer
-    parameters:
-        g3ruh_scrambler: 'True'
-        options: '""'
-    states:
-        coordinate: [700, 170]
-        rotation: 0
-        state: enabled
--   name: frames
-    id: blocks_message_debug
-    parameters:
-        en_uvec: 'True'
-        log_level: info
-    states:
-        coordinate: [980, 110]
+        coordinate: [370, 220]
         rotation: 0
         state: enabled
 connections:
-- [recording, '0', to_float, '0']
-- [to_float, '0', fsk_demod, '0']
-- [fsk_demod, '0', deframer, '0']
 -   src_blk_id: deframer
     src_port_id: out
     snk_blk_id: frames
     snk_port_id: print_pdu
+- [fsk_demod, '0', deframer, '0']
+- [recording, '0', to_float, '0']
+- [to_float, '0', fsk_demod, '0']
 metadata:
     file_format: 2
     grc_version: 3.11.0.0

@@ -2,11 +2,9 @@ options:
     parameters:
         author: gr-paint (Ron Economos, W6RZ)
         copyright: ''
-        description: Paint a JPEG into a waterfall display. Same flowgraph as the PNG
-            example, on a lossily compressed image; open the Image File Source properties
-            and press Browse to paint a picture from your own computer instead.
+        description: Paint a JPEG into a waterfall display. Same flowgraph as the PNG example, on a lossily compressed image; open the Image File Source properties and press Browse to paint a picture from your own computer instead.
         generate_options: qt_gui
-        id: paint_image_waterfall_jpeg
+        id: Paint_a_JPEG_Into_a_Waterfall
         title: Paint a JPEG Into a Waterfall
     states:
         coordinate: [10, 10]
@@ -18,7 +16,7 @@ blocks:
     parameters:
         value: '163840'
     states:
-        coordinate: [200, 10]
+        coordinate: [310, 10]
         rotation: 0
         state: enabled
 -   name: image
@@ -31,7 +29,7 @@ blocks:
         image_invert: '0'
         repeatmode: '1'
     states:
-        coordinate: [10, 110]
+        coordinate: [10, 130]
         rotation: 0
         state: enabled
 -   name: painter
@@ -42,7 +40,7 @@ blocks:
         repeats: '4'
         width: '288'
     states:
-        coordinate: [280, 110]
+        coordinate: [380, 160]
         rotation: 0
         state: enabled
 -   name: throttle
@@ -55,7 +53,7 @@ blocks:
         type: complex
         vlen: '1'
     states:
-        coordinate: [520, 110]
+        coordinate: [720, 150]
         rotation: 0
         state: enabled
 -   name: waterfall
@@ -75,7 +73,7 @@ blocks:
         samp_rate: samp_rate
         update_time: '0.025'
     states:
-        coordinate: [750, 110]
+        coordinate: [1050, 150]
         rotation: 0
         state: enabled
 connections:

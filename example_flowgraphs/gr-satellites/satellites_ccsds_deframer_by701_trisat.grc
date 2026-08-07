@@ -3,8 +3,8 @@ options:
         author: Daniel Estevez
         copyright: ''
         description: 'CCSDS concatenated deframer on two recordings: BY70-1 as upstream has it, and TRISAT, which decodes here'
-        generate_options: no_gui
-        id: ccsds_deframer_by701_trisat
+        generate_options: qt_gui
+        id: gr_satellites_CCSDS_deframer__BY70_1__TRISAT_
         title: gr-satellites CCSDS deframer (BY70-1, TRISAT)
     states:
         coordinate: [10, 10]
@@ -16,69 +16,7 @@ blocks:
     parameters:
         value: '48000'
     states:
-        coordinate: [230, 10]
-        rotation: 0
-        state: enabled
--   name: by701_recording
-    id: blocks_file_source
-    parameters:
-        begin_tag: pmt.PMT_NIL
-        file: /recordings/estevez/by701.sigmf-data
-        length: '0'
-        offset: '0'
-        repeat: 'False'
-        type: short
-        vlen: '1'
-    states:
-        coordinate: [10, 150]
-        rotation: 0
-        state: enabled
--   name: by701_recording_to_float
-    id: blocks_short_to_float
-    parameters:
-        scale: '32767'
-        vlen: '1'
-    states:
-        coordinate: [270, 180]
-        rotation: 0
-        state: enabled
--   name: trisat_recording
-    id: blocks_file_source
-    parameters:
-        begin_tag: pmt.PMT_NIL
-        file: /recordings/estevez/trisat.sigmf-data
-        length: '0'
-        offset: '0'
-        repeat: 'False'
-        type: short
-        vlen: '1'
-    states:
-        coordinate: [10, 350]
-        rotation: 0
-        state: enabled
--   name: trisat_recording_to_float
-    id: blocks_short_to_float
-    parameters:
-        scale: '32767'
-        vlen: '1'
-    states:
-        coordinate: [270, 380]
-        rotation: 0
-        state: enabled
--   name: by701_note
-    id: note
-    parameters:
-        note: 'Upstream example: BY70-1, 9k6 BPSK, differential precoding, 114-byte frames. It decodes nothing in this runtime, though every block in it is proven working elsewhere.'
-    states:
-        coordinate: [370, 10]
-        rotation: 0
-        state: enabled
--   name: trisat_note
-    id: note
-    parameters:
-        note: 'Same deframer block, TRISAT: 9766 baud FSK, NASA-DSN convolutional, dual-basis Reed-Solomon, 223-byte frames.'
-    states:
-        coordinate: [670, 10]
+        coordinate: [320, 10]
         rotation: 0
         state: enabled
 -   name: bpsk_demod
@@ -92,7 +30,7 @@ blocks:
         options: '""'
         samp_rate: samp_rate
     states:
-        coordinate: [470, 150]
+        coordinate: [630, 210]
         rotation: 0
         state: enabled
 -   name: by701_deframer
@@ -107,7 +45,7 @@ blocks:
         scrambler: '"CCSDS"'
         threshold: '4'
     states:
-        coordinate: [730, 140]
+        coordinate: [990, 190]
         rotation: 0
         state: enabled
 -   name: by701_frames
@@ -116,7 +54,38 @@ blocks:
         en_uvec: 'True'
         log_level: info
     states:
-        coordinate: [1100, 120]
+        coordinate: [1480, 150]
+        rotation: 0
+        state: enabled
+-   name: by701_note
+    id: note
+    parameters:
+        note: 'Upstream example: BY70-1, 9k6 BPSK, differential precoding, 114-byte frames. It decodes nothing in this runtime, though every block in it is proven working elsewhere.'
+    states:
+        coordinate: [490, 10]
+        rotation: 0
+        state: enabled
+-   name: by701_recording
+    id: blocks_file_source
+    parameters:
+        begin_tag: pmt.PMT_NIL
+        file: /recordings/estevez/by701.sigmf-data
+        length: '0'
+        offset: '0'
+        repeat: 'False'
+        type: short
+        vlen: '1'
+    states:
+        coordinate: [10, 210]
+        rotation: 0
+        state: enabled
+-   name: by701_recording_to_float
+    id: blocks_short_to_float
+    parameters:
+        scale: '32767'
+        vlen: '1'
+    states:
+        coordinate: [370, 240]
         rotation: 0
         state: enabled
 -   name: fsk_demod
@@ -128,7 +97,7 @@ blocks:
         samp_rate: samp_rate
         subaudio: 'False'
     states:
-        coordinate: [470, 370]
+        coordinate: [630, 490]
         rotation: 0
         state: enabled
 -   name: trisat_deframer
@@ -143,7 +112,7 @@ blocks:
         scrambler: '"CCSDS"'
         threshold: '4'
     states:
-        coordinate: [700, 340]
+        coordinate: [930, 450]
         rotation: 0
         state: enabled
 -   name: trisat_frames
@@ -152,24 +121,55 @@ blocks:
         en_uvec: 'True'
         log_level: info
     states:
-        coordinate: [1070, 320]
+        coordinate: [1420, 410]
+        rotation: 0
+        state: enabled
+-   name: trisat_note
+    id: note
+    parameters:
+        note: 'Same deframer block, TRISAT: 9766 baud FSK, NASA-DSN convolutional, dual-basis Reed-Solomon, 223-byte frames.'
+    states:
+        coordinate: [910, 10]
+        rotation: 0
+        state: enabled
+-   name: trisat_recording
+    id: blocks_file_source
+    parameters:
+        begin_tag: pmt.PMT_NIL
+        file: /recordings/estevez/trisat.sigmf-data
+        length: '0'
+        offset: '0'
+        repeat: 'False'
+        type: short
+        vlen: '1'
+    states:
+        coordinate: [10, 470]
+        rotation: 0
+        state: enabled
+-   name: trisat_recording_to_float
+    id: blocks_short_to_float
+    parameters:
+        scale: '32767'
+        vlen: '1'
+    states:
+        coordinate: [370, 500]
         rotation: 0
         state: enabled
 connections:
-- [by701_recording, '0', by701_recording_to_float, '0']
-- [by701_recording_to_float, '0', bpsk_demod, '0']
 - [bpsk_demod, '0', by701_deframer, '0']
 -   src_blk_id: by701_deframer
     src_port_id: out
     snk_blk_id: by701_frames
     snk_port_id: print_pdu
-- [trisat_recording, '0', trisat_recording_to_float, '0']
-- [trisat_recording_to_float, '0', fsk_demod, '0']
+- [by701_recording, '0', by701_recording_to_float, '0']
+- [by701_recording_to_float, '0', bpsk_demod, '0']
 - [fsk_demod, '0', trisat_deframer, '0']
 -   src_blk_id: trisat_deframer
     src_port_id: out
     snk_blk_id: trisat_frames
     snk_port_id: print_pdu
+- [trisat_recording, '0', trisat_recording_to_float, '0']
+- [trisat_recording_to_float, '0', fsk_demod, '0']
 metadata:
     file_format: 2
     grc_version: 3.11.0.0

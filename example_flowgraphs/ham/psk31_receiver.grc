@@ -16,7 +16,7 @@ blocks:
     parameters:
         value: '132'
     states:
-        coordinate: [230, 10]
+        coordinate: [310, 10]
         rotation: 0
         state: enabled
 -   name: samp_rate
@@ -24,7 +24,7 @@ blocks:
     parameters:
         value: '8000'
     states:
-        coordinate: [370, 10]
+        coordinate: [480, 10]
         rotation: 0
         state: enabled
 -   name: symbol_rate
@@ -32,7 +32,7 @@ blocks:
     parameters:
         value: '500'
     states:
-        coordinate: [510, 10]
+        coordinate: [650, 10]
         rotation: 0
         state: enabled
 -   name: agc
@@ -44,7 +44,7 @@ blocks:
         reference: '0.1'
         type: complex
     states:
-        coordinate: [830, 140]
+        coordinate: [1120, 150]
         rotation: 0
         state: enabled
 -   name: band_waterfall
@@ -64,7 +64,7 @@ blocks:
         samp_rate: samp_rate
         update_time: '0.1'
     states:
-        coordinate: [530, 260]
+        coordinate: [710, 290]
         rotation: 0
         state: enabled
 -   name: carrier
@@ -74,7 +74,7 @@ blocks:
         use_snr: 'False'
         w: 5*math.pi/100
     states:
-        coordinate: [1050, 140]
+        coordinate: [100, 480]
         rotation: 0
         state: enabled
 -   name: constellation
@@ -103,14 +103,14 @@ blocks:
         ymax: '2'
         ymin: '-2'
     states:
-        coordinate: [1680, 130]
+        coordinate: [940, 580]
         rotation: 0
         state: enabled
 -   name: differential
     id: digital_diff_phasor_cc
     parameters:
     states:
-        coordinate: [70, 400]
+        coordinate: [940, 480]
         rotation: 0
         state: enabled
 -   name: intro
@@ -118,7 +118,7 @@ blocks:
     parameters:
         note: KC3FL (Florida) working XE2BVM (Mexico), 31.25 baud BPSK
     states:
-        coordinate: [650, 10]
+        coordinate: [830, 10]
         rotation: 0
         state: enabled
 -   name: real_part
@@ -126,14 +126,14 @@ blocks:
     parameters:
         vlen: '1'
     states:
-        coordinate: [360, 400]
+        coordinate: [1320, 480]
         rotation: 0
         state: enabled
 -   name: slicer
     id: digital_binary_slicer_fb
     parameters:
     states:
-        coordinate: [570, 400]
+        coordinate: [80, 720]
         rotation: 0
         state: enabled
 -   name: source19
@@ -147,7 +147,7 @@ blocks:
         type: complex
         vlen: '1'
     states:
-        coordinate: [10, 120]
+        coordinate: [10, 130]
         rotation: 0
         state: enabled
 -   name: text
@@ -156,7 +156,7 @@ blocks:
         max_line: '72'
         prefix: '"PSK31: "'
     states:
-        coordinate: [990, 400]
+        coordinate: [630, 720]
         rotation: 0
         state: enabled
 -   name: throttle
@@ -169,7 +169,7 @@ blocks:
         type: complex
         vlen: '1'
     states:
-        coordinate: [280, 130]
+        coordinate: [370, 140]
         rotation: 0
         state: enabled
 -   name: timing
@@ -182,7 +182,7 @@ blocks:
         omega_relative_limit: '0.005'
         type: complex
     states:
-        coordinate: [1360, 110]
+        coordinate: [540, 450]
         rotation: 0
         state: enabled
 -   name: tune
@@ -194,14 +194,14 @@ blocks:
         taps: firdes.low_pass(1, samp_rate, 100, 100)
         type: ccf
     states:
-        coordinate: [530, 140]
+        coordinate: [710, 150]
         rotation: 0
         state: enabled
 -   name: varicode
     id: ham_varicode_rx
     parameters:
     states:
-        coordinate: [760, 400]
+        coordinate: [330, 720]
         rotation: 0
         state: enabled
 connections:

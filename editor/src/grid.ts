@@ -12,14 +12,20 @@ export function ceilToGrid(value: number, multiple = SNAP_GRID_SIZE): number {
   return Math.ceil(value / multiple) * multiple;
 }
 
-// Centers a group of `count` ports on `span`, `pitch` apart. Keep `span` a
-// multiple of two grid cells: that puts the group's midpoint on the grid, so
-// every slot of an odd-sized group is a grid coordinate too. An even-sized
-// group straddles the midpoint by half a pitch, which lands on the grid only
-// when the pitch is an even number of cells.
+// Centers a group of `count` ports on `span`, `pitch` apart, and puts every one
+// of them on the grid — which is what makes a wire between two blocks straight,
+// since block origins are snapped to the same grid. Centering alone does not:
+// an even-sized group straddles the midpoint by half a pitch, so at the 3-cell
+// port pitch its ports sit 5px off the grid and can never line up with the lone
+// centered port of the block feeding them. So the *group* is snapped rather than
+// its midpoint: round the first slot to the grid and step from there, which any
+// pitch that is itself a multiple of a cell keeps grid-aligned throughout. The
+// group moves by at most half a cell off true center, equally for every port in
+// it, so two blocks with the same port count still agree.
 export function centeredPortSlot(span: number, count: number, index: number,
                                  pitch = SNAP_GRID_SIZE * 2): number {
-  return span / 2 + (index - (count - 1) / 2) * pitch;
+  const first = span / 2 - ((count - 1) / 2) * pitch;
+  return Math.round(first / SNAP_GRID_SIZE) * SNAP_GRID_SIZE + index * pitch;
 }
 
 export function constrainBlockPosition(x: number, y: number, snapToGrid: boolean): Point {

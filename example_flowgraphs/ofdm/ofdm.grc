@@ -24,15 +24,17 @@ blocks:
         value: '0'
         widget: counter_slider
     states:
-        coordinate: [230, 10]
+        coordinate: [310, 10]
         rotation: 0
         state: enabled
 -   name: add_noise
     id: blocks_add_xx
     parameters:
+        num_inputs: '2'
         type: complex
+        vlen: '1'
     states:
-        coordinate: [810, 240]
+        coordinate: [1100, 320]
         rotation: 0
         state: enabled
 -   name: bit_error_display
@@ -89,7 +91,7 @@ blocks:
         unit9: ''
         update_time: '0.1'
     states:
-        coordinate: [1150, 690]
+        coordinate: [620, 1210]
         rotation: 0
         state: enabled
 -   name: byte_errors
@@ -98,7 +100,7 @@ blocks:
         num_inputs: '2'
         type: byte
     states:
-        coordinate: [360, 700]
+        coordinate: [1130, 760]
         rotation: 0
         state: enabled
 -   name: channel_noise
@@ -108,7 +110,7 @@ blocks:
         seed: '0'
         type: complex
     states:
-        coordinate: [540, 410]
+        coordinate: [730, 530]
         rotation: 0
         state: enabled
 -   name: error_bits
@@ -116,14 +118,35 @@ blocks:
     parameters:
         k: '8'
     states:
-        coordinate: [550, 710]
+        coordinate: [1370, 770]
+        rotation: 0
+        state: enabled
+-   name: error_inject
+    id: blocks_xor_xx
+    parameters:
+        num_inputs: '2'
+        type: byte
+    states:
+        coordinate: [760, 750]
+        rotation: 0
+        state: enabled
+-   name: error_pattern
+    id: blocks_vector_source_x
+    parameters:
+        repeat: 'True'
+        tags: '[]'
+        type: byte
+        vector: '[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]'
+        vlen: '1'
+    states:
+        coordinate: [370, 950]
         rotation: 0
         state: enabled
 -   name: errors_as_float
     id: blocks_uchar_to_float
     parameters:
     states:
-        coordinate: [750, 710]
+        coordinate: [80, 1240]
         rotation: 0
         state: enabled
 -   name: errors_per_packet
@@ -133,18 +156,7 @@ blocks:
         type: float
         vlen: '1'
     states:
-        coordinate: [950, 710]
-        rotation: 0
-        state: enabled
--   name: packet_tagger
-    id: blocks_stream_to_tagged_stream
-    parameters:
-        len_tag_key: length
-        packet_len: '96'
-        type: byte
-        vlen: '1'
-    states:
-        coordinate: [260, 240]
+        coordinate: [350, 1240]
         rotation: 0
         state: enabled
 -   name: packet_rate_display
@@ -157,7 +169,18 @@ blocks:
         unit: '" pkt/s"'
         update_time: '0.5'
     states:
-        coordinate: [80, 890]
+        coordinate: [760, 990]
+        rotation: 0
+        state: enabled
+-   name: packet_tagger
+    id: blocks_stream_to_tagged_stream
+    parameters:
+        len_tag_key: length
+        packet_len: '96'
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [350, 320]
         rotation: 0
         state: enabled
 -   name: payload
@@ -169,40 +192,7 @@ blocks:
         vector: '[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95]'
         vlen: '1'
     states:
-        coordinate: [10, 230]
-        rotation: 0
-        state: enabled
--   name: reference_payload
-    id: blocks_vector_source_x
-    parameters:
-        repeat: 'True'
-        tags: '[]'
-        type: byte
-        vector: '[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95]'
-        vlen: '1'
-    states:
-        coordinate: [80, 790]
-        rotation: 0
-        state: enabled
--   name: error_pattern
-    id: blocks_vector_source_x
-    parameters:
-        repeat: 'True'
-        tags: '[]'
-        type: byte
-        vector: '[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]'
-        vlen: '1'
-    states:
-        coordinate: [1460, 230]
-        rotation: 0
-        state: enabled
--   name: error_inject
-    id: blocks_xor_xx
-    parameters:
-        num_inputs: '2'
-        type: byte
-    states:
-        coordinate: [80, 690]
+        coordinate: [10, 310]
         rotation: 0
         state: enabled
 -   name: receiver
@@ -221,7 +211,19 @@ blocks:
         sync_word1: ()
         sync_word2: ()
     states:
-        coordinate: [1460, 330]
+        coordinate: [370, 650]
+        rotation: 0
+        state: enabled
+-   name: reference_payload
+    id: blocks_vector_source_x
+    parameters:
+        repeat: 'True'
+        tags: '[]'
+        type: byte
+        vector: '[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95]'
+        vlen: '1'
+    states:
+        coordinate: [760, 870]
         rotation: 0
         state: enabled
 -   name: strip_tx_tags
@@ -232,7 +234,7 @@ blocks:
         type: complex
         vlen: '1'
     states:
-        coordinate: [1240, 250]
+        coordinate: [80, 750]
         rotation: 0
         state: enabled
 -   name: throttle
@@ -245,7 +247,7 @@ blocks:
         type: complex
         vlen: '1'
     states:
-        coordinate: [1000, 230]
+        coordinate: [1340, 310]
         rotation: 0
         state: enabled
 -   name: transmitter
@@ -265,26 +267,31 @@ blocks:
         sync_word1: ()
         sync_word2: ()
     states:
-        coordinate: [540, 150]
+        coordinate: [730, 210]
         rotation: 0
         state: enabled
 -   name: x16
     id: qtgui_time_sink_x
     parameters:
         alpha1: '1'
+        alpha2: '1'
         autoscale: 'False'
         axislabels: 'True'
         color1: blue
+        color2: red
         ctrlpanel: 'False'
         grid: 'False'
         label1: Signal 1
+        label2: Signal 2
         legend: 'True'
         marker1: '0'
+        marker2: '-1'
         name: Scope
         samp_rate: '32000'
         size: '1024'
         stemplot: 'False'
         style1: '1'
+        style2: '1'
         tr_chan: '0'
         tr_delay: '0'
         tr_level: '0'
@@ -294,12 +301,13 @@ blocks:
         type: complex
         update_time: '0.1'
         width1: '1'
+        width2: '1'
         ylabel: Amplitude
         ymax: '20'
         ymin: '-20'
         yunit: ''
     states:
-        coordinate: [1460, 570]
+        coordinate: [370, 1070]
         rotation: 0
         state: enabled
 connections:
@@ -307,15 +315,15 @@ connections:
 - [byte_errors, '0', error_bits, '0']
 - [channel_noise, '0', add_noise, '1']
 - [error_bits, '0', errors_as_float, '0']
+- [error_inject, '0', byte_errors, '0']
+- [error_pattern, '0', error_inject, '1']
 - [errors_as_float, '0', errors_per_packet, '0']
 - [errors_per_packet, '0', bit_error_display, '0']
 - [packet_tagger, '0', transmitter, '0']
 - [payload, '0', packet_tagger, '0']
-- [reference_payload, '0', byte_errors, '1']
 - [receiver, '0', error_inject, '0']
 - [receiver, '0', packet_rate_display, '0']
-- [error_pattern, '0', error_inject, '1']
-- [error_inject, '0', byte_errors, '0']
+- [reference_payload, '0', byte_errors, '1']
 - [strip_tx_tags, '0', receiver, '0']
 - [strip_tx_tags, '0', x16, '0']
 - [throttle, '0', strip_tx_tags, '0']

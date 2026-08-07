@@ -4,7 +4,7 @@ options:
         copyright: ''
         description: Encodes a message to PSK31 varicode and decodes it straight back.
         generate_options: qt_gui
-        id: varicode_loopback
+        id: PSK31_Varicode_Loopback
         title: PSK31 Varicode Loopback
     states:
         coordinate: [10, 10]
@@ -16,34 +16,7 @@ blocks:
     parameters:
         value: '31.25'
     states:
-        coordinate: [230, 10]
-        rotation: 0
-        state: enabled
--   name: intro
-    id: note
-    parameters:
-        note: Varicode is self-synchronising - "00" ends every character
-    states:
-        coordinate: [10, 300]
-        rotation: 0
-        state: enabled
--   name: message
-    id: blocks_vector_source_x
-    parameters:
-        repeat: 'True'
-        tags: '[]'
-        type: byte
-        vector: '[67, 81, 32, 67, 81, 32, 67, 81, 32, 100, 101, 32, 86, 69, 51, 88, 89, 90, 32, 32]'
-        vlen: '1'
-    states:
-        coordinate: [10, 110]
-        rotation: 0
-        state: enabled
--   name: encoder
-    id: ham_varicode_tx
-    parameters:
-    states:
-        coordinate: [280, 130]
+        coordinate: [310, 10]
         rotation: 0
         state: enabled
 -   name: baud_clock
@@ -56,35 +29,31 @@ blocks:
         type: byte
         vlen: '1'
     states:
-        coordinate: [500, 130]
-        rotation: 0
-        state: enabled
--   name: to_float
-    id: blocks_char_to_float
-    parameters:
-        scale: '1'
-        vlen: '1'
-    states:
-        coordinate: [730, 40]
+        coordinate: [660, 130]
         rotation: 0
         state: enabled
 -   name: bits
     id: qtgui_time_sink_x
     parameters:
         alpha1: '1'
+        alpha2: '1'
         autoscale: 'False'
         axislabels: 'True'
         color1: blue
+        color2: red
         ctrlpanel: 'False'
         grid: 'True'
         label1: Varicode bit
+        label2: Signal 2
         legend: 'True'
         marker1: '0'
+        marker2: '-1'
         name: Varicode bit stream
         samp_rate: baud_rate
         size: '128'
         stemplot: 'True'
         style1: '0'
+        style2: '1'
         tr_chan: '0'
         tr_delay: '0'
         tr_level: '0'
@@ -94,19 +63,47 @@ blocks:
         type: float
         update_time: '0.1'
         width1: '1'
+        width2: '1'
         ylabel: Bit
         ymax: '1.2'
         ymin: '-0.2'
         yunit: ''
     states:
-        coordinate: [960, 30]
+        coordinate: [1290, 140]
         rotation: 0
         state: enabled
 -   name: decoder
     id: ham_varicode_rx
     parameters:
     states:
-        coordinate: [730, 170]
+        coordinate: [990, 250]
+        rotation: 0
+        state: enabled
+-   name: encoder
+    id: ham_varicode_tx
+    parameters:
+    states:
+        coordinate: [360, 150]
+        rotation: 0
+        state: enabled
+-   name: intro
+    id: note
+    parameters:
+        note: Varicode is self-synchronising - "00" ends every character
+    states:
+        coordinate: [480, 10]
+        rotation: 0
+        state: enabled
+-   name: message
+    id: blocks_vector_source_x
+    parameters:
+        repeat: 'True'
+        tags: '[]'
+        type: byte
+        vector: '[67, 81, 32, 67, 81, 32, 67, 81, 32, 100, 101, 32, 86, 69, 51, 88, 89, 90, 32, 32]'
+        vlen: '1'
+    states:
+        coordinate: [10, 140]
         rotation: 0
         state: enabled
 -   name: text
@@ -115,16 +112,25 @@ blocks:
         max_line: '40'
         prefix: '"loopback: "'
     states:
-        coordinate: [960, 170]
+        coordinate: [1290, 260]
+        rotation: 0
+        state: enabled
+-   name: to_float
+    id: blocks_char_to_float
+    parameters:
+        scale: '1'
+        vlen: '1'
+    states:
+        coordinate: [990, 150]
         rotation: 0
         state: enabled
 connections:
-- [message, '0', encoder, '0']
-- [encoder, '0', baud_clock, '0']
-- [baud_clock, '0', to_float, '0']
 - [baud_clock, '0', decoder, '0']
-- [to_float, '0', bits, '0']
+- [baud_clock, '0', to_float, '0']
 - [decoder, '0', text, '0']
+- [encoder, '0', baud_clock, '0']
+- [message, '0', encoder, '0']
+- [to_float, '0', bits, '0']
 metadata:
     file_format: 1
     grc_version: 3.11.0.0

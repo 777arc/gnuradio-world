@@ -4,7 +4,7 @@ options:
         copyright: ''
         description: BPSK demodulator component fed by the LilacSat-1 recording
         generate_options: qt_gui
-        id: bpsk_demodulator_lilacsat1
+        id: gr_satellites_BPSK_demodulator__LilacSat_1_
         title: gr-satellites BPSK demodulator (LilacSat-1)
     states:
         coordinate: [10, 10]
@@ -16,30 +16,7 @@ blocks:
     parameters:
         value: '48000'
     states:
-        coordinate: [230, 10]
-        rotation: 0
-        state: enabled
--   name: recording
-    id: blocks_file_source
-    parameters:
-        begin_tag: pmt.PMT_NIL
-        file: /recordings/estevez/lilacsat1.sigmf-data
-        length: '0'
-        offset: '0'
-        repeat: 'False'
-        type: short
-        vlen: '1'
-    states:
-        coordinate: [10, 110]
-        rotation: 0
-        state: enabled
--   name: to_float
-    id: blocks_short_to_float
-    parameters:
-        scale: '32767'
-        vlen: '1'
-    states:
-        coordinate: [270, 140]
+        coordinate: [310, 10]
         rotation: 0
         state: enabled
 -   name: bpsk_demod
@@ -53,7 +30,30 @@ blocks:
         options: '""'
         samp_rate: samp_rate
     states:
-        coordinate: [470, 110]
+        coordinate: [630, 130]
+        rotation: 0
+        state: enabled
+-   name: head
+    id: blocks_head
+    parameters:
+        num_items: '20000'
+        type: float
+    states:
+        coordinate: [1250, 160]
+        rotation: 0
+        state: enabled
+-   name: recording
+    id: blocks_file_source
+    parameters:
+        begin_tag: pmt.PMT_NIL
+        file: /recordings/estevez/lilacsat1.sigmf-data
+        length: '0'
+        offset: '0'
+        repeat: 'False'
+        type: short
+        vlen: '1'
+    states:
+        coordinate: [10, 130]
         rotation: 0
         state: enabled
 -   name: skiphead
@@ -63,43 +63,64 @@ blocks:
         type: float
         vlen: '1'
     states:
-        coordinate: [730, 140]
-        rotation: 0
-        state: enabled
--   name: head
-    id: blocks_head
-    parameters:
-        num_items: '20000'
-        type: float
-    states:
-        coordinate: [920, 140]
+        coordinate: [990, 160]
         rotation: 0
         state: enabled
 -   name: soft_symbols
     id: qtgui_time_sink_x
     parameters:
+        alpha1: '1'
+        alpha2: '1'
         autoscale: 'False'
+        axislabels: 'True'
+        color1: blue
+        color2: red
+        ctrlpanel: 'False'
         grid: 'False'
+        label1: Signal 1
+        label2: Signal 2
+        legend: 'True'
+        marker1: '-1'
+        marker2: '-1'
         name: BPSK soft symbols
-        nconnections: '1'
         samp_rate: '9600'
         size: '20000'
+        stemplot: 'False'
+        style1: '1'
+        style2: '1'
+        tr_chan: '0'
+        tr_delay: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_slope: qtgui.TRIG_SLOPE_POS
+        tr_tag: ''
         type: float
         update_time: '0.1'
+        width1: '1'
+        width2: '1'
         ylabel: Amplitude
         ymax: '4'
         ymin: '-4'
         yunit: ''
     states:
-        coordinate: [1110, 130]
+        coordinate: [80, 310]
+        rotation: 0
+        state: enabled
+-   name: to_float
+    id: blocks_short_to_float
+    parameters:
+        scale: '32767'
+        vlen: '1'
+    states:
+        coordinate: [370, 160]
         rotation: 0
         state: enabled
 connections:
-- [recording, '0', to_float, '0']
-- [to_float, '0', bpsk_demod, '0']
 - [bpsk_demod, '0', skiphead, '0']
-- [skiphead, '0', head, '0']
 - [head, '0', soft_symbols, '0']
+- [recording, '0', to_float, '0']
+- [skiphead, '0', head, '0']
+- [to_float, '0', bpsk_demod, '0']
 metadata:
-    file_format: 2
+    file_format: 1
     grc_version: 3.11.0.0

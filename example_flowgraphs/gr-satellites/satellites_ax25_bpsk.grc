@@ -16,7 +16,7 @@ blocks:
     parameters:
         value: samp_rate/samp_per_sym
     states:
-        coordinate: [230, 10]
+        coordinate: [310, 10]
         rotation: 0
         state: enabled
 -   name: samp_per_sym
@@ -24,7 +24,7 @@ blocks:
     parameters:
         value: '8'
     states:
-        coordinate: [370, 10]
+        coordinate: [480, 10]
         rotation: 0
         state: enabled
 -   name: samp_rate
@@ -32,7 +32,7 @@ blocks:
     parameters:
         value: '9600'
     states:
-        coordinate: [520, 10]
+        coordinate: [680, 10]
         rotation: 0
         state: enabled
 -   name: bpsk_const
@@ -48,7 +48,7 @@ blocks:
         sym_map: '[]'
         type: bpsk
     states:
-        coordinate: [660, 10]
+        coordinate: [850, 10]
         rotation: 0
         state: enabled
 -   name: bpsk_demod
@@ -62,7 +62,7 @@ blocks:
         options: '""'
         samp_rate: samp_rate
     states:
-        coordinate: [590, 340]
+        coordinate: [1390, 430]
         rotation: 0
         state: enabled
 -   name: frame_tagger
@@ -73,7 +73,7 @@ blocks:
         type: byte
         vlen: '1'
     states:
-        coordinate: [510, 210]
+        coordinate: [690, 270]
         rotation: 0
         state: enabled
 -   name: framed_bits
@@ -83,7 +83,7 @@ blocks:
         early_behavior: pdu.EARLY_BURST_APPEND
         type: byte
     states:
-        coordinate: [1310, 210]
+        coordinate: [100, 460]
         rotation: 0
         state: enabled
 -   name: frames
@@ -92,7 +92,7 @@ blocks:
         en_uvec: 'True'
         log_level: info
     states:
-        coordinate: [110, 620]
+        coordinate: [1180, 750]
         rotation: 0
         state: enabled
 -   name: hdlc_deframer
@@ -101,7 +101,7 @@ blocks:
         check_fcs: 'True'
         max_length: '10000'
     states:
-        coordinate: [1300, 370]
+        coordinate: [690, 840]
         rotation: 0
         state: enabled
 -   name: hdlc_framer
@@ -110,7 +110,7 @@ blocks:
         postamble_bytes: '7'
         preamble_bytes: '50'
     states:
-        coordinate: [1070, 210]
+        coordinate: [1450, 270]
         rotation: 0
         state: enabled
 -   name: modulator
@@ -124,21 +124,21 @@ blocks:
         truncate: 'False'
         verbose: 'False'
     states:
-        coordinate: [320, 330]
+        coordinate: [1010, 410]
         rotation: 0
         state: enabled
 -   name: nrzi_decode
     id: satellites_nrzi_decode
     parameters:
     states:
-        coordinate: [1110, 370]
+        coordinate: [440, 840]
         rotation: 0
         state: enabled
 -   name: nrzi_encode
     id: satellites_nrzi_encode
     parameters:
     states:
-        coordinate: [1550, 210]
+        coordinate: [430, 460]
         rotation: 0
         state: enabled
 -   name: pack
@@ -149,7 +149,7 @@ blocks:
         num_ports: '1'
         type: byte
     states:
-        coordinate: [70, 370]
+        coordinate: [680, 460]
         rotation: 0
         state: enabled
 -   name: payload
@@ -161,7 +161,7 @@ blocks:
         vector: '[130, 160, 144, 100, 96, 100, 96, 154, 96, 168, 144, 152, 64, 97, 3, 240, 72, 101, 108, 108, 111, 32, 102, 114, 111, 109, 32, 66, 80, 83, 75]'
         vlen: '1'
     states:
-        coordinate: [10, 200]
+        coordinate: [10, 260]
         rotation: 0
         state: enabled
 -   name: payload_throttle
@@ -174,14 +174,14 @@ blocks:
         type: byte
         vlen: '1'
     states:
-        coordinate: [270, 190]
+        coordinate: [360, 250]
         rotation: 0
         state: enabled
 -   name: slicer
     id: digital_binary_slicer_fb
     parameters:
     states:
-        coordinate: [850, 370]
+        coordinate: [80, 840]
         rotation: 0
         state: enabled
 -   name: spectrum
@@ -211,7 +211,7 @@ blocks:
         ymax: '10'
         ymin: '-100'
     states:
-        coordinate: [590, 480]
+        coordinate: [1390, 590]
         rotation: 0
         state: enabled
 -   name: symbol_scope
@@ -251,7 +251,7 @@ blocks:
         ymin: '-2'
         yunit: ''
     states:
-        coordinate: [850, 450]
+        coordinate: [80, 940]
         rotation: 0
         state: enabled
 -   name: to_pdu
@@ -260,7 +260,7 @@ blocks:
         tag: packet_len
         type: byte
     states:
-        coordinate: [790, 210]
+        coordinate: [1070, 270]
         rotation: 0
         state: enabled
 connections:

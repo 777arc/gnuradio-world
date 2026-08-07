@@ -2,8 +2,7 @@ options:
     parameters:
         author: Marc
         copyright: ''
-        description: Decodes IEEE 802.11a frames from a 20 MS/s recording and prints
-            each MAC header.
+        description: Decodes IEEE 802.11a frames from a 20 MS/s recording and prints each MAC header.
         generate_options: qt_gui
         id: WiFi_802_11a_Receiver
         title: WiFi 802.11a Receiver
@@ -15,9 +14,9 @@ blocks:
 -   name: samp_rate
     id: variable
     parameters:
-        value: 20e6
+        value: '20000000'
     states:
-        coordinate: [230, 10]
+        coordinate: [310, 10]
         rotation: 0
         state: enabled
 -   name: sync_length
@@ -25,7 +24,7 @@ blocks:
     parameters:
         value: '320'
     states:
-        coordinate: [370, 10]
+        coordinate: [480, 10]
         rotation: 0
         state: enabled
 -   name: window_size
@@ -33,19 +32,141 @@ blocks:
     parameters:
         value: '48'
     states:
-        coordinate: [510, 10]
+        coordinate: [660, 10]
+        rotation: 0
+        state: enabled
+-   name: average_corr
+    id: blocks_moving_average_xx
+    parameters:
+        length: window_size
+        max_iter: '4000'
+        scale: '1'
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [80, 530]
+        rotation: 0
+        state: enabled
+-   name: average_power
+    id: blocks_moving_average_xx
+    parameters:
+        length: window_size + 16
+        max_iter: '4000'
+        scale: '1'
+        type: float
+        vlen: '1'
+    states:
+        coordinate: [390, 650]
+        rotation: 0
+        state: enabled
+-   name: conjugate
+    id: blocks_conjugate_cc
+    parameters:
+    states:
+        coordinate: [1040, 260]
+        rotation: 0
+        state: enabled
+-   name: corr_mag
+    id: blocks_complex_to_mag
+    parameters:
+    states:
+        coordinate: [390, 550]
+        rotation: 0
+        state: enabled
+-   name: correlate
+    id: blocks_multiply_xx
+    parameters:
+        num_inputs: '2'
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [1290, 260]
+        rotation: 0
+        state: enabled
+-   name: decode_mac
+    id: ieee802_11_decode_mac
+    parameters:
+        debug: 'False'
+        log: 'False'
+    states:
+        coordinate: [1430, 830]
+        rotation: 0
+        state: enabled
+-   name: delay_ltf
+    id: blocks_delay
+    parameters:
+        delay: sync_length
+        type: complex
+    states:
+        coordinate: [1230, 550]
+        rotation: 0
+        state: enabled
+-   name: delay_stf
+    id: blocks_delay
+    parameters:
+        delay: '16'
+        type: complex
+    states:
+        coordinate: [700, 260]
+        rotation: 0
+        state: enabled
+-   name: equalizer
+    id: ieee802_11_frame_equalizer
+    parameters:
+        algo: ieee802_11.LS
+        bw: samp_rate
+        debug: 'False'
+        freq: '5320000000'
+        log: 'False'
+    states:
+        coordinate: [1060, 810]
+        rotation: 0
+        state: enabled
+-   name: fft
+    id: fft_vxx
+    parameters:
+        fft_size: '64'
+        forward: 'True'
+        nthreads: '1'
+        shift: 'True'
+        type: complex
+        window: '[1.0] * 64'
+    states:
+        coordinate: [710, 810]
         rotation: 0
         state: enabled
 -   name: intro
     id: note
     parameters:
-        note: A 20 MS/s recording of 802.11a frames at BPSK 1/2 (6 Mbit/s), about
-            15 dB SNR. Short training sequence detection, long training sequence
-            alignment, a 64-point FFT and the frame equalizer recover the OFDM
-            symbols; WiFi Decode MAC runs the Viterbi decoder and checks the CRC,
-            and WiFi Parse MAC prints each header to the console below.
+        note: A 20 MS/s recording of 802.11a frames at BPSK 1/2 (6 Mbit/s), about 15 dB SNR. Short training sequence detection, long training sequence alignment, a 64-point FFT and the frame equalizer recover the OFDM symbols; WiFi Decode MAC runs the Viterbi decoder and checks the CRC, and WiFi Parse MAC prints each header to the console below.
     states:
-        coordinate: [10, 130]
+        coordinate: [840, 10]
+        rotation: 0
+        state: enabled
+-   name: normalize
+    id: blocks_divide_xx
+    parameters:
+        num_inputs: '2'
+        type: float
+        vlen: '1'
+    states:
+        coordinate: [700, 550]
+        rotation: 0
+        state: enabled
+-   name: parse_mac
+    id: ieee802_11_parse_mac
+    parameters:
+        debug: 'True'
+        log: 'False'
+    states:
+        coordinate: [80, 990]
+        rotation: 0
+        state: enabled
+-   name: power
+    id: blocks_complex_to_mag_squared
+    parameters:
+    states:
+        coordinate: [80, 670]
         rotation: 0
         state: enabled
 -   name: recording
@@ -59,7 +180,28 @@ blocks:
         type: complex
         vlen: '1'
     states:
-        coordinate: [10, 330]
+        coordinate: [10, 230]
+        rotation: 0
+        state: enabled
+-   name: sync_long
+    id: ieee802_11_sync_long
+    parameters:
+        debug: 'False'
+        log: 'False'
+        sync_length: sync_length
+    states:
+        coordinate: [140, 830]
+        rotation: 0
+        state: enabled
+-   name: sync_short
+    id: ieee802_11_sync_short
+    parameters:
+        debug: 'False'
+        log: 'False'
+        min_plateau: '2'
+        threshold: '0.56'
+    states:
+        coordinate: [950, 520]
         rotation: 0
         state: enabled
 -   name: throttle
@@ -72,13 +214,23 @@ blocks:
         type: complex
         vlen: '1'
     states:
-        coordinate: [250, 330]
+        coordinate: [370, 240]
+        rotation: 0
+        state: enabled
+-   name: to_symbols
+    id: blocks_stream_to_vector
+    parameters:
+        num_items: '64'
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [420, 840]
         rotation: 0
         state: enabled
 -   name: waterfall
     id: qtgui_waterfall_sink_x
     parameters:
-        alpha1: '1.0'
+        alpha1: '1'
         axislabels: 'True'
         color1: '0'
         fc: '0'
@@ -90,162 +242,9 @@ blocks:
         legend: 'True'
         name: '"802.11a bursts"'
         samp_rate: samp_rate
-        update_time: '0.10'
+        update_time: '0.1'
     states:
-        coordinate: [490, 190]
-        rotation: 0
-        state: enabled
--   name: delay_stf
-    id: blocks_delay
-    parameters:
-        delay: '16'
-        type: complex
-    states:
-        coordinate: [490, 330]
-        rotation: 0
-        state: enabled
--   name: conjugate
-    id: blocks_conjugate_cc
-    parameters:
-    states:
-        coordinate: [690, 330]
-        rotation: 0
-        state: enabled
--   name: correlate
-    id: blocks_multiply_xx
-    parameters:
-        type: complex
-    states:
-        coordinate: [870, 330]
-        rotation: 0
-        state: enabled
--   name: average_corr
-    id: blocks_moving_average_xx
-    parameters:
-        length: window_size
-        max_iter: '4000'
-        scale: '1'
-        type: complex
-        vlen: '1'
-    states:
-        coordinate: [1050, 330]
-        rotation: 0
-        state: enabled
--   name: corr_mag
-    id: blocks_complex_to_mag
-    parameters:
-    states:
-        coordinate: [1250, 330]
-        rotation: 0
-        state: enabled
--   name: power
-    id: blocks_complex_to_mag_squared
-    parameters:
-    states:
-        coordinate: [490, 490]
-        rotation: 0
-        state: enabled
--   name: average_power
-    id: blocks_moving_average_xx
-    parameters:
-        length: window_size + 16
-        max_iter: '4000'
-        scale: '1'
-        type: float
-        vlen: '1'
-    states:
-        coordinate: [690, 490]
-        rotation: 0
-        state: enabled
--   name: normalize
-    id: blocks_divide_xx
-    parameters:
-        type: float
-    states:
-        coordinate: [1250, 490]
-        rotation: 0
-        state: enabled
--   name: sync_short
-    id: ieee802_11_sync_short
-    parameters:
-        debug: 'False'
-        log: 'False'
-        min_plateau: '2'
-        threshold: '0.56'
-    states:
-        coordinate: [1450, 330]
-        rotation: 0
-        state: enabled
--   name: delay_ltf
-    id: blocks_delay
-    parameters:
-        delay: sync_length
-        type: complex
-    states:
-        coordinate: [1650, 450]
-        rotation: 0
-        state: enabled
--   name: sync_long
-    id: ieee802_11_sync_long
-    parameters:
-        debug: 'False'
-        log: 'False'
-        sync_length: sync_length
-    states:
-        coordinate: [1850, 330]
-        rotation: 0
-        state: enabled
--   name: to_symbols
-    id: blocks_stream_to_vector
-    parameters:
-        num_items: '64'
-        type: complex
-        vlen: '1'
-    states:
-        coordinate: [2050, 330]
-        rotation: 0
-        state: enabled
--   name: fft
-    id: fft_vxx
-    parameters:
-        fft_size: '64'
-        forward: 'True'
-        nthreads: '1'
-        shift: 'True'
-        type: complex
-        window: '[1.0] * 64'
-    states:
-        coordinate: [2250, 330]
-        rotation: 0
-        state: enabled
--   name: equalizer
-    id: ieee802_11_frame_equalizer
-    parameters:
-        algo: ieee802_11.LS
-        bw: samp_rate
-        debug: 'False'
-        freq: 5.32e9
-        log: 'False'
-    states:
-        coordinate: [2450, 330]
-        rotation: 0
-        state: enabled
--   name: decode_mac
-    id: ieee802_11_decode_mac
-    parameters:
-        debug: 'False'
-        log: 'False'
-    states:
-        coordinate: [2650, 330]
-        rotation: 0
-        state: enabled
--   name: parse_mac
-    id: ieee802_11_parse_mac
-    parameters:
-        debug: 'True'
-        log: 'False'
-    states:
-        coordinate: [2850, 330]
+        coordinate: [700, 360]
         rotation: 0
         state: enabled
 connections:

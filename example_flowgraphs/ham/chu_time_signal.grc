@@ -16,7 +16,7 @@ blocks:
     parameters:
         value: '4800'
     states:
-        coordinate: [230, 10]
+        coordinate: [310, 10]
         rotation: 0
         state: enabled
 -   name: mark_tone
@@ -24,7 +24,7 @@ blocks:
     parameters:
         value: '2225'
     states:
-        coordinate: [370, 10]
+        coordinate: [500, 10]
         rotation: 0
         state: enabled
 -   name: samp_rate
@@ -32,7 +32,7 @@ blocks:
     parameters:
         value: '48000'
     states:
-        coordinate: [510, 10]
+        coordinate: [670, 10]
         rotation: 0
         state: enabled
 -   name: space_tone
@@ -40,14 +40,14 @@ blocks:
     parameters:
         value: '2025'
     states:
-        coordinate: [650, 10]
+        coordinate: [840, 10]
         rotation: 0
         state: enabled
 -   name: chu_decoder
     id: ham_chu_decode
     parameters:
     states:
-        coordinate: [1560, 150]
+        coordinate: [760, 310]
         rotation: 0
         state: enabled
 -   name: complex17
@@ -57,7 +57,7 @@ blocks:
         swap: 'False'
         vector_input: 'False'
     states:
-        coordinate: [280, 140]
+        coordinate: [370, 160]
         rotation: 0
         state: enabled
 -   name: discriminator
@@ -65,7 +65,7 @@ blocks:
     parameters:
         gain: channel_rate/(math.pi*(mark_tone - space_tone))
     states:
-        coordinate: [1060, 150]
+        coordinate: [80, 310]
         rotation: 0
         state: enabled
 -   name: intro
@@ -73,14 +73,14 @@ blocks:
     parameters:
         note: 300 baud AFSK on the Bell 103 tones; burst arrives 21 s in
     states:
-        coordinate: [790, 10]
+        coordinate: [1010, 10]
         rotation: 0
         state: enabled
 -   name: slicer
     id: digital_binary_slicer_fb
     parameters:
     states:
-        coordinate: [1330, 150]
+        coordinate: [450, 310]
         rotation: 0
         state: enabled
 -   name: source16
@@ -94,7 +94,7 @@ blocks:
         type: short
         vlen: '1'
     states:
-        coordinate: [10, 110]
+        coordinate: [10, 130]
         rotation: 0
         state: enabled
 -   name: symbols
@@ -134,7 +134,7 @@ blocks:
         ymin: '-2'
         yunit: ''
     states:
-        coordinate: [1330, 230]
+        coordinate: [450, 410]
         rotation: 0
         state: enabled
 -   name: throttle
@@ -147,7 +147,7 @@ blocks:
         type: complex
         vlen: '1'
     states:
-        coordinate: [510, 120]
+        coordinate: [680, 140]
         rotation: 0
         state: enabled
 -   name: tone_channel
@@ -159,7 +159,7 @@ blocks:
         taps: firdes.low_pass(1, samp_rate, 250, 500)
         type: ccf
     states:
-        coordinate: [760, 130]
+        coordinate: [1020, 150]
         rotation: 0
         state: enabled
 -   name: waterfall
@@ -179,7 +179,7 @@ blocks:
         samp_rate: channel_rate
         update_time: '0.1'
     states:
-        coordinate: [1060, 230]
+        coordinate: [80, 410]
         rotation: 0
         state: enabled
 connections:

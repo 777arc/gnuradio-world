@@ -191,12 +191,12 @@ const TITLE_H = 26, ROW_H = 20, PAD = 8, PORT_H = 17;
 const TITLE_BASELINE = 21, ROW_BASELINE = 15;
 // Ports sit three grid cells apart, which is what gives a multi-port block room
 // to breathe between its tabs. Block heights stay rounded to *two* cells, not to
-// the pitch: that keeps the group's midpoint on the grid — so an odd-sized group
-// is grid-aligned throughout — and, unlike rounding to three, leaves the same
-// slack under every block whatever its row count (see BODY_SLACK). An
-// even-sized group straddles the midpoint by half a pitch and therefore sits
-// 5px off it; at three cells that is unavoidable, and it costs nothing, since a
-// wire between two ports at equal offsets is still level.
+// the pitch: that keeps the group's midpoint on the grid and, unlike rounding to
+// three, leaves the same slack under every block whatever its row count (see
+// BODY_SLACK). An even-sized group would straddle that midpoint by half a pitch
+// and land 5px off the grid, so `centeredPortSlot` snaps the group itself —
+// otherwise a one-output block could never be lined up with either input of a
+// two-input block, whatever the grid does.
 const PORT_PITCH = SNAP_GRID_SIZE * 3;
 const BLOCK_H_STEP = SNAP_GRID_SIZE * 2;
 // Horizontal breathing room around the title/parameter text inside a block.

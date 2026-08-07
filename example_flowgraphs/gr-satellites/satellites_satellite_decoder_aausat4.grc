@@ -3,8 +3,8 @@ options:
         author: Daniel Estevez
         copyright: ''
         description: What the all-in-one Satellite Decoder expands to for AAUSAT-4, assembled from primitives because the deframer is Python-only
-        generate_options: no_gui
-        id: satellite_decoder_aausat4
+        generate_options: qt_gui
+        id: gr_satellites_AAUSAT_4_decoder__assembled_
         title: gr-satellites AAUSAT-4 decoder (assembled)
     states:
         coordinate: [10, 10]
@@ -16,7 +16,103 @@ blocks:
     parameters:
         value: '48000'
     states:
-        coordinate: [230, 10]
+        coordinate: [310, 10]
+        rotation: 0
+        state: enabled
+-   name: decoder_note
+    id: note
+    parameters:
+        note: 'Satellite Decoder and the AAUSAT-4 deframer are both Python-only, so the deframer is built here from the blocks it uses: soft syncword search, FSM removal, terminated r=1/2 K=7 Viterbi, CCSDS descrambling and Reed-Solomon. Only the long-frame branch is wired: the short one needs PDU To Tagged Stream, which this runtime does not schedule.'
+    states:
+        coordinate: [480, 10]
+        rotation: 0
+        state: enabled
+-   name: descrambler
+    id: satellites_ccsds_descrambler
+    parameters:
+    states:
+        coordinate: [410, 580]
+        rotation: 0
+        state: enabled
+-   name: frames
+    id: blocks_message_debug
+    parameters:
+        en_uvec: 'True'
+        log_level: info
+    states:
+        coordinate: [1210, 490]
+        rotation: 0
+        state: enabled
+-   name: fsk_demod
+    id: satellites_fsk_demodulator
+    parameters:
+        baudrate: '2400'
+        iq: 'False'
+        options: '""'
+        samp_rate: samp_rate
+        subaudio: 'False'
+    states:
+        coordinate: [630, 330]
+        rotation: 0
+        state: enabled
+-   name: fsm
+    id: satellites_aausat4_check_fsm
+    parameters:
+    states:
+        coordinate: [1320, 330]
+        rotation: 0
+        state: enabled
+-   name: recording
+    id: blocks_file_source
+    parameters:
+        begin_tag: pmt.PMT_NIL
+        file: /recordings/estevez/aausat_4.sigmf-data
+        length: '0'
+        offset: '0'
+        repeat: 'False'
+        type: short
+        vlen: '1'
+    states:
+        coordinate: [10, 310]
+        rotation: 0
+        state: enabled
+-   name: reed_solomon
+    id: satellites_decode_rs_ccsds
+    parameters:
+        basis: 'False'
+        interleave: '1'
+    states:
+        coordinate: [730, 580]
+        rotation: 0
+        state: enabled
+-   name: syncword
+    id: satellites_sync_to_pdu_soft
+    parameters:
+        packlen: '2004'
+        sync: '"010011110101101000110100010000110101010101000010"'
+        threshold: '8'
+    states:
+        coordinate: [930, 330]
+        rotation: 0
+        state: enabled
+-   name: to_float
+    id: blocks_short_to_float
+    parameters:
+        scale: '32767'
+        vlen: '1'
+    states:
+        coordinate: [370, 340]
+        rotation: 0
+        state: enabled
+-   name: viterbi
+    id: fec_async_decoder
+    parameters:
+        decoder: viterbi_def
+        mtu: '249'
+        packed: 'False'
+        rev_pack: 'False'
+    states:
+        coordinate: [80, 570]
         rotation: 0
         state: enabled
 -   name: viterbi_def
@@ -35,129 +131,33 @@ blocks:
         state_start: '0'
         value: '"aausat4_long"'
     states:
-        coordinate: [370, 10]
-        rotation: 0
-        state: enabled
--   name: recording
-    id: blocks_file_source
-    parameters:
-        begin_tag: pmt.PMT_NIL
-        file: /recordings/estevez/aausat_4.sigmf-data
-        length: '0'
-        offset: '0'
-        repeat: 'False'
-        type: short
-        vlen: '1'
-    states:
-        coordinate: [10, 230]
-        rotation: 0
-        state: enabled
--   name: to_float
-    id: blocks_short_to_float
-    parameters:
-        scale: '32767'
-        vlen: '1'
-    states:
-        coordinate: [270, 260]
-        rotation: 0
-        state: enabled
--   name: fsk_demod
-    id: satellites_fsk_demodulator
-    parameters:
-        baudrate: '2400'
-        iq: 'False'
-        options: '""'
-        samp_rate: samp_rate
-        subaudio: 'False'
-    states:
-        coordinate: [470, 250]
-        rotation: 0
-        state: enabled
--   name: syncword
-    id: satellites_sync_to_pdu_soft
-    parameters:
-        packlen: '2004'
-        sync: '"010011110101101000110100010000110101010101000010"'
-        threshold: '8'
-    states:
-        coordinate: [700, 250]
-        rotation: 0
-        state: enabled
--   name: fsm
-    id: satellites_aausat4_check_fsm
-    parameters:
-    states:
-        coordinate: [980, 250]
-        rotation: 0
-        state: enabled
--   name: viterbi
-    id: fec_async_decoder
-    parameters:
-        decoder: viterbi_def
-        mtu: '249'
-        packed: 'False'
-        rev_pack: 'False'
-    states:
-        coordinate: [1250, 260]
-        rotation: 0
-        state: enabled
--   name: descrambler
-    id: satellites_ccsds_descrambler
-    parameters:
-    states:
-        coordinate: [1490, 270]
-        rotation: 0
-        state: enabled
--   name: reed_solomon
-    id: satellites_decode_rs_ccsds
-    parameters:
-        basis: 'False'
-        interleave: '1'
-    states:
-        coordinate: [70, 450]
-        rotation: 0
-        state: enabled
--   name: frames
-    id: blocks_message_debug
-    parameters:
-        en_uvec: 'True'
-        log_level: info
-    states:
-        coordinate: [430, 390]
-        rotation: 0
-        state: enabled
--   name: decoder_note
-    id: note
-    parameters:
-        note: 'Satellite Decoder and the AAUSAT-4 deframer are both Python-only, so the deframer is built here from the blocks it uses: soft syncword search, FSM removal, terminated r=1/2 K=7 Viterbi, CCSDS descrambling and Reed-Solomon. Only the long-frame branch is wired: the short one needs PDU To Tagged Stream, which this runtime does not schedule.'
-    states:
-        coordinate: [610, 10]
+        coordinate: [900, 10]
         rotation: 0
         state: enabled
 connections:
-- [recording, '0', to_float, '0']
-- [to_float, '0', fsk_demod, '0']
-- [fsk_demod, '0', syncword, '0']
--   src_blk_id: syncword
-    src_port_id: out
-    snk_blk_id: fsm
-    snk_port_id: in
--   src_blk_id: fsm
-    src_port_id: long
-    snk_blk_id: viterbi
-    snk_port_id: in
--   src_blk_id: viterbi
-    src_port_id: out
-    snk_blk_id: descrambler
-    snk_port_id: in
 -   src_blk_id: descrambler
     src_port_id: out
     snk_blk_id: reed_solomon
     snk_port_id: in
+- [fsk_demod, '0', syncword, '0']
+-   src_blk_id: fsm
+    src_port_id: long
+    snk_blk_id: viterbi
+    snk_port_id: in
+- [recording, '0', to_float, '0']
 -   src_blk_id: reed_solomon
     src_port_id: out
     snk_blk_id: frames
     snk_port_id: print_pdu
+-   src_blk_id: syncword
+    src_port_id: out
+    snk_blk_id: fsm
+    snk_port_id: in
+- [to_float, '0', fsk_demod, '0']
+-   src_blk_id: viterbi
+    src_port_id: out
+    snk_blk_id: descrambler
+    snk_port_id: in
 metadata:
     file_format: 2
     grc_version: 3.11.0.0

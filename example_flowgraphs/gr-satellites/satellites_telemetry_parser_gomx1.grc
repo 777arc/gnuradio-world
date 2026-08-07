@@ -3,8 +3,8 @@ options:
         author: Daniel Estevez
         copyright: ''
         description: 'GOMX-1 telemetry: U482C frames, dissected by Print CSP Header in place of the Python telemetry parser'
-        generate_options: no_gui
-        id: telemetry_parser_gomx1
+        generate_options: qt_gui
+        id: gr_satellites_telemetry_chain__GOMX_1_
         title: gr-satellites telemetry chain (GOMX-1)
     states:
         coordinate: [10, 10]
@@ -16,7 +16,53 @@ blocks:
     parameters:
         value: '48000'
     states:
-        coordinate: [230, 10]
+        coordinate: [310, 10]
+        rotation: 0
+        state: enabled
+-   name: afsk_demod
+    id: satellites_afsk_demodulator
+    parameters:
+        af_carrier: '3600'
+        baudrate: '4800'
+        deviation: '-1200'
+        iq: 'False'
+        options: '""'
+        samp_rate: samp_rate
+    states:
+        coordinate: [630, 180]
+        rotation: 0
+        state: enabled
+-   name: csp_header
+    id: satellites_print_header
+    parameters:
+    states:
+        coordinate: [130, 350]
+        rotation: 0
+        state: enabled
+-   name: deframer
+    id: satellites_u482c_deframer
+    parameters:
+        options: '""'
+        threshold: '4'
+    states:
+        coordinate: [940, 200]
+        rotation: 0
+        state: enabled
+-   name: frames
+    id: blocks_message_debug
+    parameters:
+        en_uvec: 'True'
+        log_level: info
+    states:
+        coordinate: [130, 450]
+        rotation: 0
+        state: enabled
+-   name: parser_note
+    id: note
+    parameters:
+        note: Upstream ends in Telemetry Parser, a Python block with no C++ path. Print CSP Header dissects the same frames; Message Debug shows the payload bytes the parser would decode.
+    states:
+        coordinate: [480, 10]
         rotation: 0
         state: enabled
 -   name: recording
@@ -30,7 +76,7 @@ blocks:
         type: short
         vlen: '1'
     states:
-        coordinate: [10, 140]
+        coordinate: [10, 170]
         rotation: 0
         state: enabled
 -   name: to_float
@@ -39,58 +85,10 @@ blocks:
         scale: '32767'
         vlen: '1'
     states:
-        coordinate: [270, 170]
-        rotation: 0
-        state: enabled
--   name: afsk_demod
-    id: satellites_afsk_demodulator
-    parameters:
-        af_carrier: '3600'
-        baudrate: '4800'
-        deviation: '-1200'
-        iq: 'False'
-        options: '""'
-        samp_rate: samp_rate
-    states:
-        coordinate: [470, 150]
-        rotation: 0
-        state: enabled
--   name: deframer
-    id: satellites_u482c_deframer
-    parameters:
-        options: '""'
-        threshold: '4'
-    states:
-        coordinate: [710, 170]
-        rotation: 0
-        state: enabled
--   name: csp_header
-    id: satellites_print_header
-    parameters:
-    states:
-        coordinate: [1050, 170]
-        rotation: 0
-        state: enabled
--   name: frames
-    id: blocks_message_debug
-    parameters:
-        en_uvec: 'True'
-        log_level: info
-    states:
-        coordinate: [1050, 250]
-        rotation: 0
-        state: enabled
--   name: parser_note
-    id: note
-    parameters:
-        note: Upstream ends in Telemetry Parser, a Python block with no C++ path. Print CSP Header dissects the same frames; Message Debug shows the payload bytes the parser would decode.
-    states:
-        coordinate: [370, 10]
+        coordinate: [370, 200]
         rotation: 0
         state: enabled
 connections:
-- [recording, '0', to_float, '0']
-- [to_float, '0', afsk_demod, '0']
 - [afsk_demod, '0', deframer, '0']
 -   src_blk_id: deframer
     src_port_id: out
@@ -100,6 +98,8 @@ connections:
     src_port_id: out
     snk_blk_id: frames
     snk_port_id: print_pdu
+- [recording, '0', to_float, '0']
+- [to_float, '0', afsk_demod, '0']
 metadata:
     file_format: 2
     grc_version: 3.11.0.0
