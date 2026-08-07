@@ -24,9 +24,9 @@
 .input-autosize {
   min-width: 1px;
   padding: 0;
-  max-width: 250px;
+  max-width: 300px;
 }
 
 .input-number {
-  max-width: 60px;
+  max-width: 74px;
 }

@@ -148,11 +148,11 @@ const TimeSelector = ({ currentFFT }: TimeSelectorProps) => {
 
           <Text text={offsetSamples} fontFamily={APP_FONT_FAMILY} fontSize={APP_FONT_SIZE} x={0} y={cursorYStart + 5} fill={'white'} />
 
-          <Text text={lengthSamples} fontFamily={APP_FONT_FAMILY} fontSize={APP_FONT_SIZE} x={0} y={cursorYStart + 21} fill={'white'} />
+          <Text text={lengthSamples} fontFamily={APP_FONT_FAMILY} fontSize={APP_FONT_SIZE} x={0} y={cursorYStart + 25} fill={'white'} />
 
-          <Text text={diffSamples} fontFamily={APP_FONT_FAMILY} fontSize={APP_FONT_SIZE} x={0} y={cursorYStart + 37} fill={'white'} />
+          <Text text={diffSamples} fontFamily={APP_FONT_FAMILY} fontSize={APP_FONT_SIZE} x={0} y={cursorYStart + 45} fill={'white'} />
 
-          <Text text={diffSeconds} fontFamily={APP_FONT_FAMILY} fontSize={APP_FONT_SIZE} x={0} y={cursorYStart + 53} fill={'white'} />
+          <Text text={diffSeconds} fontFamily={APP_FONT_FAMILY} fontSize={APP_FONT_SIZE} x={0} y={cursorYStart + 65} fill={'white'} />
         </>
       </Layer>
     </>

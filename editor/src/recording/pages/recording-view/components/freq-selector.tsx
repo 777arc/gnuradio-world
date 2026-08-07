@@ -146,8 +146,8 @@ const FreqSelector = () => {
             text={diffText}
             fontFamily={APP_FONT_FAMILY}
             fontSize={APP_FONT_SIZE}
-            x={upperPosition / 2 + lowerPosition / 2 - 38}
-            y={16}
+            x={upperPosition / 2 + lowerPosition / 2 - 47}
+            y={20}
             fill={'white'}
           />
         </>

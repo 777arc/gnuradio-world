@@ -12,10 +12,13 @@ export function ceilToGrid(value: number, multiple = SNAP_GRID_SIZE): number {
   return Math.ceil(value / multiple) * multiple;
 }
 
-// Port groups use a two-cell pitch. When `span` is also a multiple of two grid
-// cells, every centered slot is a grid coordinate for both odd and even counts.
-export function centeredPortSlot(span: number, count: number, index: number): number {
-  const pitch = SNAP_GRID_SIZE * 2;
+// Centers a group of `count` ports on `span`, `pitch` apart. Keep `span` a
+// multiple of two grid cells: that puts the group's midpoint on the grid, so
+// every slot of an odd-sized group is a grid coordinate too. An even-sized
+// group straddles the midpoint by half a pitch, which lands on the grid only
+// when the pitch is an even number of cells.
+export function centeredPortSlot(span: number, count: number, index: number,
+                                 pitch = SNAP_GRID_SIZE * 2): number {
   return span / 2 + (index - (count - 1) / 2) * pitch;
 }
 

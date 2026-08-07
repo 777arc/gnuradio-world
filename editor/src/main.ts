@@ -176,18 +176,51 @@ function logLines(lines: string[]) {
 function log(s: string) { logLines([s]); }
 
 // GRC-style geometry: title bar + "Label: value" parameter rows, typed ports.
-const TITLE_H = 22, ROW_H = 15, PAD = 6, PORT_H = 15;
-// Keeping ports two grid cells apart lets centered odd and even port groups
-// share the same grid-aligned geometry.
-const PORT_PITCH = SNAP_GRID_SIZE * 2;
+// The two text sizes are the app's own: 16px for body text everywhere, one step
+// up for a block's title. They have to match `.blk text.title` and
+// `.blk text.param` in editor.css, because the measurements below are what size
+// the box the CSS then draws the text into.
+const TITLE_FONT_SIZE = 18, PARAM_FONT_SIZE = 16;
+// PAD is the block's inner padding, and it is one number on all four sides:
+// TITLE_BASELINE puts the title's cap line PAD below the top edge, TEXT_PAD_*
+// are the same PAD left and right, and the row block is positioned so the last
+// parameter's descender clears the bottom edge by PAD as well (see rowsTop).
+const TITLE_H = 26, ROW_H = 20, PAD = 8, PORT_H = 17;
+// Baselines within the title bar and within a parameter row: PAD under the top
+// edge for the title, and the row's own text sitting on the same rhythm.
+const TITLE_BASELINE = 21, ROW_BASELINE = 15;
+// Ports sit three grid cells apart, which is what gives a multi-port block room
+// to breathe between its tabs. Block heights stay rounded to *two* cells, not to
+// the pitch: that keeps the group's midpoint on the grid — so an odd-sized group
+// is grid-aligned throughout — and, unlike rounding to three, leaves the same
+// slack under every block whatever its row count (see BODY_SLACK). An
+// even-sized group straddles the midpoint by half a pitch and therefore sits
+// 5px off it; at three cells that is unavoidable, and it costs nothing, since a
+// wire between two ports at equal offsets is still level.
+const PORT_PITCH = SNAP_GRID_SIZE * 3;
+const BLOCK_H_STEP = SNAP_GRID_SIZE * 2;
 // Horizontal breathing room around the title/parameter text inside a block.
-const TEXT_PAD_L = 6, TEXT_PAD_R = 6;
-const PORT_FONT_SIZE = 10, PORT_LABEL_PAD = 4, PORT_MIN_W = 20;
+const TEXT_PAD_L = 8, TEXT_PAD_R = 8;
+// Port labels are the one piece of canvas text kept below the app's 16px: the
+// tab has to stay inside the 20px port pitch, and "in0"/"out0" is a legend for
+// the tab rather than something read as prose.
+const PORT_FONT_SIZE = 14, PORT_LABEL_PAD = 6, PORT_MIN_W = 20;
 // A face with dozens of parameters (dvbs2_bbheader_source has 37) grows into a
 // wall that dwarfs everything else on the canvas, so it is cut to this many
 // lines with the last one saying how many are missing. Properties still shows
 // the whole set; only the drawn face is capped.
 const MAX_FACE_ROWS = 14, MORE_ROW_ID = '__more';
+// Floor on a block's drawn width, so a one-word block is still a box rather than
+// a sliver. Sized against the title font, which is the widest text a block has.
+const BLOCK_MIN_W = 140;
+// Slack between the title bar plus the rows and the block's bottom edge. Half of
+// it lands above the first row (rowsTop centers the block of rows) and half
+// below the last one, where together with the row's own descender room it comes
+// to exactly PAD — so the gap under the last parameter matches the gap over the
+// title and the gap at either side. `geom` gets the same number for free: with
+// TITLE_H ≡ 6 and ROW_H ≡ 0 mod BLOCK_H_STEP, rounding the height up to that
+// step always leaves 14.
+const BODY_SLACK = 14;
 // Rows sit centered in the body: the height is rounded up to the port pitch, and
 // giving that slack to the bottom alone left the text visibly high in the block.
 const rowsTop = (h: number, rows: number) => (h + TITLE_H - rows * ROW_H) / 2;
@@ -439,6 +472,11 @@ function paramDisplay(p: ParamDef, raw: any): string {
   return cut(fmtExprVal(r.value), Array.isArray(r.value) ? 1 : 0);
 }
 
+// The red message drawn under an invalid block, at `.blk text.validation-error`
+// in editor.css: line pitch, and the average glyph width the wrap column is
+// estimated from (the text is proportional, so this only has to be close).
+const ERROR_LINE_H = 17, ERROR_CHAR_W = 8;
+
 function wrapValidationMessage(message: string, maxCharacters: number): string[] {
   const lines: string[] = [];
   for (const word of message.split(/\s+/)) {
@@ -510,12 +548,12 @@ function noteGeom(inst: Inst, d: RunnableDef) {
   // The text goes in the value tspan, not the label one: `.plabel` is bold, and a
   // note's prose is body text, not a parameter name.
   const rows = lines.map(line => ({ id: 'note', l: '', v: line }));
-  let w = textW(d.label, 13, true);
+  let w = textW(d.label, TITLE_FONT_SIZE, true);
   for (const line of lines) w = Math.max(w, textW(line, NOTE_FONT_SIZE));
   return {
     d, rows,
-    h: TITLE_H + Math.max(rows.length * ROW_H + 2 * PAD, ROW_H),
-    w: Math.max(104, Math.ceil(w) + TEXT_PAD_L + TEXT_PAD_R),
+    h: TITLE_H + Math.max(rows.length * ROW_H, ROW_H) + BODY_SLACK,
+    w: Math.max(BLOCK_MIN_W, Math.ceil(w) + TEXT_PAD_L + TEXT_PAD_R),
   };
 }
 
@@ -545,12 +583,13 @@ function geom(inst: Inst) {
   const nports = Math.max(visiblePortIndices(inst, 'in').length,
     visiblePortIndices(inst, 'out').length, 1);
   const bodyH = Math.max(rows.length * ROW_H + PAD, nports * PORT_PITCH + PAD, ROW_H);
-  // Two grid cells keep a centered port group on-grid for both odd and even
-  // port counts. Width is one-cell aligned so right-edge ports align as well.
-  const h = ceilToGrid(TITLE_H + bodyH, PORT_PITCH);
-  let w = textW(d.label, 13, true);
-  for (const r of rows) w = Math.max(w, textW(r.l, 11, true) + textW(r.v, 11));
-  w = ceilToGrid(Math.max(104, Math.ceil(w) + TEXT_PAD_L + TEXT_PAD_R));
+  // Two grid cells keep the centered port group's midpoint on the grid. Width is
+  // one-cell aligned so right-edge ports align as well.
+  const h = ceilToGrid(TITLE_H + bodyH, BLOCK_H_STEP);
+  let w = textW(d.label, TITLE_FONT_SIZE, true);
+  for (const r of rows)
+    w = Math.max(w, textW(r.l, PARAM_FONT_SIZE, true) + textW(r.v, PARAM_FONT_SIZE));
+  w = ceilToGrid(Math.max(BLOCK_MIN_W, Math.ceil(w) + TEXT_PAD_L + TEXT_PAD_R));
   return { d, rows, h, w };
 }
 type Edge = 'L' | 'R' | 'T' | 'B';
@@ -564,7 +603,7 @@ function portPos(inst: Inst, kind: 'in' | 'out', i: number): { x: number; y: num
   const visible = visiblePortIndices(inst, kind);
   const count = visible.length;
   const slot = Math.max(0, visible.indexOf(i));
-  const vSlot = centeredPortSlot(h, count, slot);
+  const vSlot = centeredPortSlot(h, count, slot, PORT_PITCH);
   const hSlot = PORT_PITCH + slot * PORT_PITCH;
   const map: Record<number, { in: Edge; out: Edge }> = {
     0: { in: 'L', out: 'R' }, 90: { in: 'T', out: 'B' },
@@ -1785,7 +1824,7 @@ function render() {
     // Native GRC has no title separator. With no face parameters, center the
     // title in the whole block instead of leaving it in an empty title row.
     const titleAttrs: Record<string, string> = {
-      class: 'title', x: String(w / 2), y: rows.length ? '15' : String(h / 2),
+      class: 'title', x: String(w / 2), y: rows.length ? String(TITLE_BASELINE) : String(h / 2),
       'text-anchor': 'middle',
     };
     if (!rows.length) titleAttrs['dominant-baseline'] = 'central';
@@ -1793,7 +1832,7 @@ function render() {
     t.textContent = d.label; g.appendChild(t);
     // parameter rows: "label: value"
     rows.forEach((r, i) => {
-      const y = rowsTop(h, rows.length) + i * ROW_H + 11;
+      const y = rowsTop(h, rows.length) + i * ROW_H + ROW_BASELINE;
       const tx = svgEl('text', { class: 'param' + (fieldIssue(blockIssues, inst.uid, r.id) ? ' invalid' : '') +
         (r.id === MORE_ROW_ID ? ' pmore' : ''), x: String(TEXT_PAD_L), y: String(y) });
       const l = document.createElementNS(SVGNS, 'tspan'); l.setAttribute('class', 'plabel'); l.textContent = r.l;
@@ -1801,13 +1840,13 @@ function render() {
       tx.appendChild(l); tx.appendChild(v); g.appendChild(tx);
     });
     const messages = [...new Set(blockIssues.map(issue => issue.message))];
-    const wrapped = messages.flatMap(message => wrapValidationMessage(message, Math.max(22, Math.floor(w / 5.7))));
+    const wrapped = messages.flatMap(message => wrapValidationMessage(message, Math.max(22, Math.floor(w / ERROR_CHAR_W))));
     wrapped.slice(0, 5).forEach((message, i) => {
-      const error = svgEl('text', { class: 'validation-error', x: '0', y: String(h + 12 + i * 12) });
+      const error = svgEl('text', { class: 'validation-error', x: '0', y: String(h + ERROR_LINE_H * (i + 1)) });
       error.textContent = message; g.appendChild(error);
     });
     if (wrapped.length > 5) {
-      const more = svgEl('text', { class: 'validation-error', x: '0', y: String(h + 72) });
+      const more = svgEl('text', { class: 'validation-error', x: '0', y: String(h + ERROR_LINE_H * 6) });
       more.textContent = `+${wrapped.length - 5} more lines`; g.appendChild(more);
     }
     // Drag from anywhere on the block; ports stopPropagation so they still connect.
@@ -3020,15 +3059,18 @@ function makeCatRow(name: string, container: HTMLElement, open: boolean, bold = 
   container.append(row, kids);
   return kids;
 }
+// One level of block-tree indent, and the extra a leaf carries so it lines up
+// past its category's `.tri` (22px wide plus the row's 4px gap).
+const TREE_INDENT = 16;
 function renderTree(node: Cat, container: HTMLElement, depth: number, q: string) {
   for (const s of [...node.subs.values()].sort((a, b) => a.name.localeCompare(b.name))) {
     if (!catMatches(s, q)) continue;
     const kids = makeCatRow(s.name, container, !!q || (depth === 0 && s.name === 'Core'),
-                            false, 6 + depth * 13);
+                            false, 6 + depth * TREE_INDENT);
     renderTree(s, kids, depth + 1, q);
   }
   for (const b of [...node.blocks].filter(b => matchesQ(b, q)).sort((a, b) => a.label.localeCompare(b.label)))
-    container.appendChild(makeBlockItem(b, 6 + depth * 13 + 16));
+    container.appendChild(makeBlockItem(b, 6 + depth * TREE_INDENT + 20));
 }
 
 let LIB: any = { blocks: [] };

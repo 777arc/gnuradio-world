@@ -34,16 +34,29 @@ assert.match(source, /const showId = blockFlags\(block\.flags\)\.includes\('show
     'the show_id flag must survive into blocks.json for the blocks whose ID is referenced elsewhere');
 }
 assert.match(source,
-  /const visible = visiblePortIndices\(inst, kind\);[\s\S]*?const slot = Math\.max\(0, visible\.indexOf\(i\)\);[\s\S]*?const vSlot = centeredPortSlot\(h, count, slot\)/,
+  /const visible = visiblePortIndices\(inst, kind\);[\s\S]*?const slot = Math\.max\(0, visible\.indexOf\(i\)\);[\s\S]*?const vSlot = centeredPortSlot\(h, count, slot, PORT_PITCH\)/,
   'each input/output port group must be centered vertically on the block');
 assert.match(source,
-  /const h = ceilToGrid\(TITLE_H \+ bodyH, PORT_PITCH\);[\s\S]*?w = ceilToGrid\(/,
-  'block height and width must keep port attachment points on the grid');
+  /const h = ceilToGrid\(TITLE_H \+ bodyH, BLOCK_H_STEP\);[\s\S]*?w = ceilToGrid\(/,
+  'block height and width must keep the port group centered on a grid coordinate');
+assert.match(source, /const PORT_PITCH = SNAP_GRID_SIZE \* 3;/,
+  'ports sit three grid cells apart');
+assert.match(source, /centeredPortSlot\(h, count, slot, PORT_PITCH\)/,
+  'the drawn port spacing must be the one the block height was sized against');
 assert.match(source,
   /function portWidth[\s\S]*?return ceilToGrid\(/,
   'port widths must keep their outer wire attachment edge on the grid');
-assert.match(source, /textW\(r\.l, 11, true\) \+ textW\(r\.v, 11\)/,
+assert.match(source,
+  /textW\(r\.l, PARAM_FONT_SIZE, true\) \+ textW\(r\.v, PARAM_FONT_SIZE\)/,
   'block width must account for bold parameter labels');
+// The measured sizes and the drawn ones are two declarations of the same thing;
+// a block face is only laid out correctly while they agree.
+assert.match(source, /const TITLE_FONT_SIZE = 18, PARAM_FONT_SIZE = 16;/,
+  'block text must be measured at the sizes editor.css draws it at');
+assert.match(html, /\.blk text\.title {[^}]*font-size:18px/,
+  'block titles are the one thing drawn larger than the app-wide 16px');
+assert.match(html, /\.blk text\.param {[^}]*font-size:16px/,
+  'block parameter rows must use the app-wide text size');
 assert.match(source, /l\.setAttribute\('class', 'plabel'\)/,
   'parameter labels and values must have distinct styles');
 assert.match(html, /\.blk \.plabel\s*{\s*font-weight:700;\s*}/,
@@ -53,12 +66,12 @@ for (const id of ['title', 'author', 'description']) {
     new RegExp(`id: '${id}', label: '[^']+', type: 'string', def: '' }`),
     `Options ${id} must remain visible on the block face when empty`);
 }
-assert.match(source, /y: rows\.length \? '15' : String\(h \/ 2\)/,
+assert.match(source, /y: rows\.length \? String\(TITLE_BASELINE\) : String\(h \/ 2\)/,
   'a block without visible parameters must center its title vertically');
 assert.match(source,
   /if \(rows\.length > MAX_FACE_ROWS\) {[\s\S]*?rows\.length = MAX_FACE_ROWS - 1;[\s\S]*?more parameters/,
   'a face with more parameters than the cap must be cut and say how many it dropped');
-assert.match(source, /const y = rowsTop\(h, rows\.length\) \+ i \* ROW_H \+ 11/,
+assert.match(source, /const y = rowsTop\(h, rows\.length\) \+ i \* ROW_H \+ ROW_BASELINE/,
   'parameter rows must be centered in the body so top and bottom padding match');
 // dvbs2_bbheader_bb has 29 face parameters; without the cap it draws ~480px tall.
 {

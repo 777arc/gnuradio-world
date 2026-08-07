@@ -84,9 +84,9 @@ interface View {
   y1: number;
 }
 
-const MARGIN = { left: 64, right: 18, top: 18 };
-const TICK_LABEL_H = 22;
-const TITLE_H = 22;
+const MARGIN = { left: 78, right: 18, top: 18 };
+const TICK_LABEL_H = 27;
+const TITLE_H = 27;
 const SLIDER_H = 44;
 const SLIDER_GAP = 6;
 const SLIDER_HANDLE_W = 8;
@@ -505,7 +505,7 @@ export const CanvasPlot = ({
         ctx.font = FONT;
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
-        const rowH = 18;
+        const rowH = 22;
         const boxW =
           28 + named.reduce((acc, trace) => Math.max(acc, ctx.measureText(trace.name!).width), 0) + 10;
         const boxH = named.length * rowH + 8;
@@ -560,7 +560,7 @@ export const CanvasPlot = ({
           ...rows.map((row) => ctx.measureText(row.text).width + 14)
         );
         const boxW = textW + 16;
-        const boxH = 8 + (rows.length + 1) * 16;
+        const boxH = 8 + (rows.length + 1) * 20;
         const boxX = Math.min(hover.px + 12, plotX + plotW - boxW - 2);
         const boxY = Math.min(Math.max(hover.py - boxH / 2, plotY + 2), plotY + plotH - boxH - 2);
         ctx.fillStyle = TOOLTIP_BG;
@@ -571,13 +571,13 @@ export const CanvasPlot = ({
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
         ctx.fillStyle = MUTED;
-        ctx.fillText(header, boxX + 8, boxY + 12);
+        ctx.fillText(header, boxX + 8, boxY + 14);
         rows.forEach((row, index) => {
-          const y = boxY + 12 + 16 * (index + 1);
+          const y = boxY + 14 + 20 * (index + 1);
           ctx.fillStyle = row.color;
-          ctx.fillRect(boxX + 8, y - 3, 6, 6);
+          ctx.fillRect(boxX + 8, y - 4, 8, 8);
           ctx.fillStyle = FONT_COLOR;
-          ctx.fillText(row.text, boxX + 20, y);
+          ctx.fillText(row.text, boxX + 22, y);
         });
       }
     }

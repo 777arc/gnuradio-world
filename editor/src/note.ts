@@ -7,11 +7,11 @@
 // under node — see editor/test/note.test.mjs.
 
 // Widest run of note text, in px, before a line wraps. Roughly 45 characters at
-// the 11px block-parameter font: wide enough for a sentence, narrow enough that
+// the 16px block-parameter font: wide enough for a sentence, narrow enough that
 // a note doesn't crowd the flowgraph it annotates.
-export const NOTE_MAX_TEXT_W = 260;
-// Matches `.blk text.param` in index.html, so the measured width is the drawn width.
-export const NOTE_FONT_SIZE = 11;
+export const NOTE_MAX_TEXT_W = 380;
+// Matches `.blk text.param` in editor.css, so the measured width is the drawn width.
+export const NOTE_FONT_SIZE = 16;
 
 // Measures a string's rendered width in px at NOTE_FONT_SIZE.
 export type Measure = (text: string) => number;

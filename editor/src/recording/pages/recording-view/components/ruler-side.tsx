@@ -36,7 +36,7 @@ const RulerSide = ({ currentRowAtTop }: RulerSideProps) => {
         temp_labels.push({
           text: yPos.toString(),
           x: 10,
-          y: i * 10 - 7,
+          y: i * 10 - 9,
         }); // in ms
       } else {
         temp_ticks.push({ x: 0, y: i * 10, width: 5, height: 0 });

@@ -14,8 +14,10 @@ interface SidebarProps {
 const Sidebar = ({ currentFFT, currentTab, setCurrentTab }: SidebarProps) => {
   return (
     /* Full width under the plot on a phone, a fixed column beside it otherwise
-       (see the flex direction in recording-view.tsx). */
-    <div className="flex flex-col w-full md:w-64 md:ml-3">
+       (see the flex direction in recording-view.tsx). The width is set by the
+       plot chooser at the top of the pane: four tabs of 16px text side by side,
+       and they must not wrap. */
+    <div className="flex flex-col w-full md:w-72 md:ml-3">
       {/* Deliberately not a <details> and deliberately unframed: the settings are
           the viewer's primary controls, so they are always open with no
           disclosure triangle, header bar or outline around them. */}

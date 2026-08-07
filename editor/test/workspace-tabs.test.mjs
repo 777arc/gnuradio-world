@@ -13,13 +13,13 @@ assert.match(html, /id="tabQtGui"[\s\S]*id="runIndicator"/,
   'the QT GUI tab includes a running-state indicator');
 assert.match(html, /#workspace\.running #runIndicator \{[^}]*opacity:1/,
   'the running-state indicator is visible while a flowgraph runs');
-assert.match(html, /\.workspace-tab \{[^}]*flex:none;[^}]*padding:8px 10px/,
+assert.match(html, /\.workspace-tab \{[^}]*flex:none;[^}]*padding:9px 12px/,
   'workspace tabs must hug their text instead of filling the tab strip');
 assert.doesNotMatch(html, /\.workspace-tab \{[^}]*min-width:/,
   'workspace tabs must not retain a fixed minimum width');
 assert.match(html, /\.paltabs \{[^}]*background:#1b1e29;[^}]*overflow-x:auto/,
   'the palette tab strip must leave a blank background after its tabs and scroll when needed');
-assert.match(html, /\.paltab \{[^}]*flex:none;[^}]*padding:8px 10px/,
+assert.match(html, /\.paltab \{[^}]*flex:none;[^}]*padding:9px 12px/,
   'palette tabs must hug their text instead of sharing the full pane width');
 
 assert.match(source,

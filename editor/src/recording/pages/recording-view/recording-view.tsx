@@ -54,16 +54,16 @@ export function DisplaySpectrogram({ currentFFT, setCurrentFFT, currentTab }) {
   useEffect(() => {
     // Two layouts, matching the `md:` breakpoint the page's flex direction uses:
     // settings beside the plot, or stacked under it on a phone. Stacked, the
-    // 256px settings column is no longer taking width from the plot, and only
-    // the side ruler (50) and minimap (69) still are — subtracting the wide
-    // layout's 430 there would leave a *negative* width on a 390px screen.
+    // 288px settings column is no longer taking width from the plot, and only
+    // the side ruler (64) and minimap (69) still are — subtracting the wide
+    // layout's 476 there would leave a *negative* width on a 390px screen.
     const stacked = width < NARROW_LAYOUT_WIDTH;
-    setSpectrogramWidth(width - (stacked ? 133 : 430));   // hand-tuned for now
+    setSpectrogramWidth(width - (stacked ? 147 : 476));   // hand-tuned for now
     // Likewise the height: 650px of spectrogram plus the settings under it is a
     // long scroll on a phone, and the chrome above it is shorter there too.
     setSpectrogramHeight(stacked
-      ? Math.max(MIN_STACKED_SPECTROGRAM_HEIGHT, height - 230)
-      : Math.max(MIN_SPECTROGRAM_HEIGHT, height - 450));  // hand-tuned against the surrounding chrome
+      ? Math.max(MIN_STACKED_SPECTROGRAM_HEIGHT, height - 245)
+      : Math.max(MIN_SPECTROGRAM_HEIGHT, height - 470));  // hand-tuned against the surrounding chrome
   }, [width, height]);
 
   const { image, setIQData } = useGetImage(
@@ -101,7 +101,7 @@ export function DisplaySpectrogram({ currentFFT, setCurrentFFT, currentTab }) {
     <>
       {currentTab === Tab.Spectrogram && (
         <>
-          <Stage width={spectrogramWidth + 110} height={30}>
+          <Stage width={spectrogramWidth + 110} height={34}>
             <RulerTop />
           </Stage>
           <div className="flex flex-row" id="spectrogram">
@@ -114,7 +114,9 @@ export function DisplaySpectrogram({ currentFFT, setCurrentFFT, currentTab }) {
               <FreqShiftSelector />
               <TimeSelector currentFFT={currentFFT} />
             </Stage>
-            <Stage width={50} height={spectrogramHeight} className="mr-1">
+            {/* Wide enough for a time tick label at 16px, which is what the
+                subtracted 476/147 below account for. */}
+            <Stage width={64} height={spectrogramHeight} className="mr-1">
               <RulerSide currentRowAtTop={currentFFT} />
             </Stage>
             <Stage width={MINIMAP_FFT_SIZE + 5} height={spectrogramHeight}>

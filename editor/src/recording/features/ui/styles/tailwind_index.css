@@ -3,8 +3,8 @@
 @tailwind utilities;
 
 /* The viewer is framed inside the editor and has to read as the same
-   application, so it takes the editor's chrome font -- system-ui at 13px, see
-   editor/index.html -- rather than tailwind's 16px ui-sans-serif default.
+   application, so it takes the editor's chrome font -- system-ui at 16px, see
+   editor/src/editor.css -- rather than tailwind's ui-sans-serif default.
    Two things about how this is written matter:
      - the size is px on the *body*, never on :root, so every rem-based spacing
        and width stays put (the sidebar's w-64, and the px offsets in
@@ -27,7 +27,7 @@ textarea,
 .menu,
 .table {
   font-family: system-ui, Arial, sans-serif;
-  font-size: 13px;
+  font-size: 16px;
 }
 
 @layer base {

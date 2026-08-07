@@ -24,7 +24,7 @@ blocks:
         value: '0'
         widget: counter_slider
     states:
-        coordinate: [110, 460]
+        coordinate: [100, 480]
         rotation: 0
         state: enabled
 -   name: noise
@@ -40,7 +40,7 @@ blocks:
         value: '0.01'
         widget: counter_slider
     states:
-        coordinate: [130, 130]
+        coordinate: [120, 120]
         rotation: 0
         state: enabled
 -   name: samp_rate
@@ -48,7 +48,7 @@ blocks:
     parameters:
         value: '200000'
     states:
-        coordinate: [230, 20]
+        coordinate: [300, 20]
         rotation: 0
         state: enabled
 -   name: tone_mag
@@ -64,7 +64,7 @@ blocks:
         value: '0'
         widget: counter_slider
     states:
-        coordinate: [280, 570]
+        coordinate: [350, 620]
         rotation: 0
         state: enabled
 -   name: analog_sig_source_x_0
@@ -76,7 +76,7 @@ blocks:
         type: complex
         waveform: analog.GR_COS_WAVE
     states:
-        coordinate: [290, 460]
+        coordinate: [350, 480]
         rotation: 0
         state: enabled
 -   name: mod7
@@ -88,7 +88,7 @@ blocks:
         mod_code: '"gray"'
         samples_per_symbol: '2'
     states:
-        coordinate: [250, 310]
+        coordinate: [320, 320]
         rotation: 0
         state: enabled
 -   name: note_0
@@ -96,7 +96,7 @@ blocks:
     parameters:
         note: Welcome to GNU Radio World!
     states:
-        coordinate: [620, 120]
+        coordinate: [630, 80]
         rotation: 0
         state: enabled
 -   name: qtgui_freq_sink_x_1
@@ -126,7 +126,7 @@ blocks:
         ymax: '0'
         ymin: '-90'
     states:
-        coordinate: [960, 250]
+        coordinate: [1240, 260]
         rotation: 0
         state: enabled
 -   name: throttle4
@@ -139,7 +139,7 @@ blocks:
         type: complex
         vlen: '1'
     states:
-        coordinate: [700, 320]
+        coordinate: [900, 330]
         rotation: 0
         state: enabled
 -   name: x2
@@ -149,7 +149,7 @@ blocks:
         seed: '0'
         type: complex
     states:
-        coordinate: [300, 200]
+        coordinate: [370, 210]
         rotation: 0
         state: enabled
 -   name: x8
@@ -161,7 +161,7 @@ blocks:
         repeat: 'True'
         type: byte
     states:
-        coordinate: [30, 320]
+        coordinate: [30, 330]
         rotation: 0
         state: enabled
 -   name: x9
@@ -190,7 +190,7 @@ blocks:
         ymax: '2'
         ymin: '-2'
     states:
-        coordinate: [970, 390]
+        coordinate: [1240, 400]
         rotation: 0
         state: enabled
 -   name: xx3
@@ -200,7 +200,7 @@ blocks:
         type: complex
         vlen: '1'
     states:
-        coordinate: [510, 320]
+        coordinate: [670, 320]
         rotation: 0
         state: enabled
 connections:

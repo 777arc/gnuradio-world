@@ -323,7 +323,7 @@ const AnnotationViewer = ({ currentFFT }: AnnotationViewerProps) => {
                             position: 'absolute',
                           }}
                         >
-                          <label style={{ width: '200px', fontSize: '13px' }}>
+                          <label style={{ width: '240px', fontSize: '16px' }}>
                             <span>Hit Enter to Finish</span>
                           </label>
                           <input
@@ -331,7 +331,7 @@ const AnnotationViewer = ({ currentFFT }: AnnotationViewerProps) => {
                             value={editAnnotationLabelText}
                             onChange={(e) => setEditAnnotationLabelText(e.target.value)}
                             onKeyDown={onAnnotationsLabelKeyDown}
-                            style={{ width: '200px', fontSize: '13px', color: 'black' }}
+                            style={{ width: '240px', fontSize: '16px', color: 'black' }}
                           />
                         </div>
                       </Html>

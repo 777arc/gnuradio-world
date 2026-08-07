@@ -6,8 +6,10 @@
 // from the base rules in features/ui/styles/tailwind_index.css. Text drawn on a
 // canvas -- konva labels on the spectrogram, the plot axes in
 // features/ui/canvas-plot -- inherits nothing from CSS, so it names them here.
+// 16px is the one text size the whole application uses; the only thing set
+// larger anywhere is a flowgraph block's title.
 export const APP_FONT_FAMILY = 'system-ui, Arial, sans-serif';
-export const APP_FONT_SIZE = 13;
+export const APP_FONT_SIZE = 16;
 
 // Same story for color: konva draws the rulers and the minimap scrollbar onto
 // the page chrome, where the editor's palette applies (see
