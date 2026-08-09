@@ -74,9 +74,9 @@ const MIN_RUN_SECONDS = 2;
 const CASE_ESTIMATE_MS = 3200;
 /**
  * Ceiling on Qt + WASM startup plus the flowgraph producing its first samples.
- * Generous because of the 256-worker tier: the 30-block chain spends ~28s
- * spawning workers on this machine before its first sample, so a slower one
- * must not trip the timeout and report a case that was merely still starting.
+ * Generous on purpose: the longest chain prewarms a 40-worker pool and takes
+ * ~3.5s to first sample here, and a slower machine must not trip the timeout
+ * and report a case that was merely still starting.
  */
 const START_TIMEOUT_MS = 90000;
 
@@ -101,13 +101,12 @@ function flowgraph(blocks: string, connections: string): string {
 }
 
 // How many Multiply Const blocks to string together. Length costs more than
-// arithmetic here, because GNU Radio runs one thread per block and the runner's
-// pool ladder (poolTierForBlockCount in runner.html, worker_tier_for in
-// runner.cpp) jumps straight from 32 workers to 256. 30 blocks plus the source
-// and sink needs 33 workers, so it lands in the 256 tier and spends ~28s
-// spawning them before its first sample; 25 would have needed 28 and booted in
-// ~4s like every other case. Rounding the ladder to multiples of 8 would fix
-// it, in both copies.
+// arithmetic here, because GNU Radio runs one thread per block: 30 blocks plus
+// the source and sink is 33 threads, which both oversubscribes a typical CPU
+// and sets the runner's prewarmed worker pool (40 workers, ~3.5s of boot). It
+// used to be far worse — the pool ladder jumped 32 -> 256 and this case spent
+// ~28s spawning workers before its first sample, which is what prompted
+// rounding both copies of the ladder to multiples of 8.
 const CHAIN_LENGTHS = [10, 20, 30];
 
 /** A chain of `count` Multiply Const blocks between the source and the sink. */

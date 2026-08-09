@@ -140,9 +140,9 @@ for (const benchmark of benchmarks) {
     const count = Number(benchmark.key.split(':')[1]);
     assert.equal(names.length, count + 2, `${benchmark.key}: ${count} blocks plus source and sink`);
     // GNU Radio runs a thread per block, so a chain's length decides the
-    // runner's pthread pool tier. Nothing here forbids crossing the 32-worker
-    // one, but a chain long enough to need the 256 tier spends ~28s spawning
-    // workers before its first sample, which has to fit the start timeout.
+    // runner's prewarmed pool: 256 workers is the ceiling, and a chain needing
+    // more would start threads on demand from a scheduler thread, which has to
+    // proxy each Worker allocation to the main thread.
     assert.ok(names.length + 1 <= 256, `${benchmark.key}: needs more workers than the runner pools`);
     for (const block of parsed.blocks.slice(1, -1)) {
       assert.equal(block.id, 'blocks_multiply_const_vxx', `${benchmark.key}: chain of Multiply Const`);

@@ -205,11 +205,14 @@ static void report(bool ok, const std::string& msg) {
     }
 }
 
+// Must round exactly as poolTierForBlockCount() in runner.html does: that one
+// sizes the prewarmed pool from a guess, this one tops it up once the flattened
+// graph gives the real thread count, so a coarser rule here would re-inflate the
+// pool and undo the finer one there. Multiples of 8 — see runner.html for why
+// the slack is worth the ~50-100 ms per prewarmed worker.
 static int worker_tier_for(int required_workers) {
-    if (required_workers <= 8) return 8;
-    if (required_workers <= 16) return 16;
-    if (required_workers <= 32) return 32;
-    return 256;
+    const int rounded = ((std::max(0, required_workers) + 7) / 8) * 8;
+    return std::min(256, std::max(8, rounded));
 }
 
 static void start_prepared_flowgraph(unsigned int generation) {

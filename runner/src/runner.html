@@ -35,12 +35,19 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
       // every top-level GRC block is intentionally conservative because some are
       // variables rather than scheduler blocks. Hierarchies can expand the other
       // way, in which case PTHREAD_POOL_SIZE_STRICT=0 permits extra workers.
+      // Round up to a multiple of 8 rather than to a coarse power of two. Each
+      // prewarmed worker costs ~50-100 ms (it loads the module, and with
+      // MAIN_MODULE any side modules too), so the old 32 -> 256 step meant a
+      // 33-worker flowgraph spent ~28 s spawning workers before its first
+      // sample. The 8 of slack is deliberate: it absorbs a miscount here — the
+      // top-level block count over-counts variables and under-counts hierarchy
+      // expansion — so a late thread request finds an unused worker instead of
+      // proxying a Worker allocation to the main thread. Keep worker_tier_for()
+      // in runner.cpp rounding identically, or its pre-start top-up re-inflates
+      // the pool to whatever ladder it uses and this buys nothing.
       function poolTierForBlockCount(blockCount) {
         const requiredWorkers = Math.max(0, Number(blockCount) || 0) + 1;
-        if (requiredWorkers <= 8) return 8;
-        if (requiredWorkers <= 16) return 16;
-        if (requiredWorkers <= 32) return 32;
-        return 256;
+        return Math.min(256, Math.max(8, Math.ceil(requiredWorkers / 8) * 8));
       }
 
       function flowgraphBlockCount() {

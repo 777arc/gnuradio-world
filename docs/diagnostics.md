@@ -146,8 +146,17 @@ so the bottleneck lights up without reading numbers.
    `additionalCreated` remains cumulative even after an extra worker returns to
    the unused pool. The toolchain is pinned, and the smoke test guards this
    internal integration.
-6. `runner.html` selects the smallest prewarmed tier in **8 / 16 / 32 / 256** that
-   fits the top-level flowgraph block count plus one scheduler-launch worker.
+6. `runner.html` prewarms the flowgraph's worker need — top-level block count
+   plus one scheduler-launch worker — **rounded up to a multiple of 8** and
+   clamped to [8, 256]. The rounding is slack, not waste: the URL-time count
+   over-counts variables and under-counts hierarchy expansion, and a spare
+   worker means a late thread request finds one in `PThread.unusedWorkers`
+   instead of proxying a Worker allocation to the main thread. It was a
+   8/16/32/256 ladder until a 33-worker flowgraph was found spending ~28 s
+   spawning a 256-worker pool before its first sample; each prewarmed worker
+   costs roughly 50-100 ms, so the step has to stay small.
+   `worker_tier_for()` in `runner.cpp` rounds identically — if it did not, its
+   pre-start top-up would re-inflate the pool to its own ladder.
    The choice happens before the modularized Emscripten runtime starts, because
    `PTHREAD_POOL_SIZE` is evaluated during module initialization. Top-level
    variables make the estimate conservative; hierarchy expansion can require
@@ -179,7 +188,7 @@ Help ▸ Benchmark Tool ([`editor/src/benchmark.ts`](../editor/src/benchmark.ts)
 reads the same `window.__grstats` snapshot, for a different question: not "is
 this flowgraph keeping up?" but "how fast is this machine?". One click fills two
 matrices: Decimating FIR and FFT Filter (complex in/out, real taps) at 101, 1001
-and 10001 taps, then chains of 10, 20 and 25 Multiply Const blocks in series.
+and 10001 taps, then chains of 10, 20 and 30 Multiply Const blocks in series.
 
 - **One case per flowgraph, run one at a time.** Each cell is its own Null
   Source → *thing under test* → Null Sink `.grc`, loaded into a private
@@ -204,15 +213,14 @@ and 10001 taps, then chains of 10, 20 and 25 Multiply Const blocks in series.
   a true ~7 MS/s — a plausible-looking number, 40x wrong, and non-monotonic
   against its neighbours, which is what gave it away. Measured trajectories:
   the chains settle at ~10.6 / 7.4 / 6.4 MS/s and 2 s gets within ~10-15%.
-- **The longest chain is 25 blocks because of the pthread pool ladder.** GNU
-  Radio runs a thread per block, and `poolTierForBlockCount()` in `runner.html`
-  (mirrored by `worker_tier_for()` in `runner.cpp`) jumps straight from a
-  32-worker pool to a 256-worker one. 30 blocks plus source and sink needs 33
-  workers, lands in the 256 tier, and spends **~28 s** spawning workers before
-  its first sample; 25 blocks needs 28 and boots in ~3.8 s like everything else.
-  Worth knowing beyond the benchmark: *any* flowgraph over 31 blocks pays that
-  28 s today. A finer ladder (round up to a multiple of 8) fixes it, but both
-  copies have to change together, and the C++ one means relinking the runner.
+- **The chains are what exposed the pthread pool ladder.** GNU Radio runs a
+  thread per block, so 30 blocks plus source and sink needs 33 workers. Under
+  the old 8/16/32/256 ladder that landed in the 256 tier and spent **~28 s**
+  spawning workers before the first sample — and it dragged the reading down
+  too, because the pool was still spawning during the 2 s measurement (that
+  case read 1.60 MS/s then, 4.34 MS/s now). Rounding both copies of the ladder
+  to multiples of 8 (note 6 above) puts it in a 40-worker pool that boots in
+  ~3.5 s, and cut a whole run from ~58 s to ~32 s.
 - **Every read is checked against the case's own document.** `frame.src` does
   not navigate synchronously, so for a moment after it is set the *previous*
   case's document is still there with its `__grstats` and its `#result` on it —
@@ -231,8 +239,8 @@ and 10001 taps, then chains of 10, 20 and 25 Multiply Const blocks in series.
   no progress to report, so each case creeps across its own ninth of the bar
   against a nominal case time and snaps forward as the case lands.
 
-A run costs about 33 s: nine cases, each a fresh Qt + WASM boot (~1 s for the
-filter cases, ~2-4 s for the chains, which prewarm a bigger worker pool) plus
+A run costs about 32 s: nine cases, each a fresh Qt + WASM boot (~1 s for the
+filter cases, ~2-3.5 s for the chains, which prewarm a bigger worker pool) plus
 the 2 s reading. The two knobs are `MIN_RUN_SECONDS` and the case list; both
 trade directly against accuracy.
 

@@ -46,10 +46,8 @@ function expectedPoolTier(grc) {
   const end = afterStart.search(/^(?:connections|metadata):\s*$/m);
   const blockSection = end < 0 ? afterStart : afterStart.slice(0, end);
   const blockCount = (blockSection.match(/^-\s+name\s*:/gm) || []).length;
-  if (blockCount + 1 <= 8) return 8;
-  if (blockCount + 1 <= 16) return 16;
-  if (blockCount + 1 <= 32) return 32;
-  return 256;
+  // Mirrors poolTierForBlockCount() in runner.html: multiples of 8, clamped.
+  return Math.min(256, Math.max(8, Math.ceil((blockCount + 1) / 8) * 8));
 }
 
 // Flowgraphs to run. Each .grc is handed straight to runner.html, which is NOT
@@ -78,7 +76,7 @@ const CASES = [
     grc: 'test/fixtures/wasm_satellites_ax25_loopback.grc' },
   { name: 'gr-satellites demodulator components',
     grc: 'test/fixtures/wasm_satellites_demodulators.grc', exactWorkers: 41,
-    preloadedWorkers: 240, expectedPool: 256 },
+    preloadedWorkers: 32, expectedPool: 48 },
 ];
 
 const server = http.createServer(async (req, res) => {
@@ -167,10 +165,10 @@ for (const test of CASES) {
     (pool === test.expectedPool && monitor.workerStats?.allocated === test.expectedPool &&
      monitor.workerStats?.additionalCreated === 0);
   const poolOk = test.expectedPool === undefined
-    ? [8, 16, 32, 256].includes(pool) && pool >= initialExpectedPool
+    ? pool % 8 === 0 && pool <= 256 && pool >= initialExpectedPool
     : pool === test.expectedPool;
   const monitorOk = poolOk &&
-    JSON.stringify(monitor.tierBoundaries) === JSON.stringify([8, 8, 16, 16, 32, 32, 256]) &&
+    JSON.stringify(monitor.tierBoundaries) === JSON.stringify([8, 8, 16, 16, 24, 32, 40]) &&
     new RegExp(`^tier ${pool} \\+\\d+ extra$`).test(monitor.tier) &&
     /^active workers \d+$/.test(monitor.workers) &&
     monitor.threads === `dsp threads ${dspThreads}` &&

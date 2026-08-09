@@ -108,8 +108,9 @@ qt_add_executable(runner
 # Qt's WASM finalizer appends its own pool setting after ordinary link options.
 # Use the supported target property so its final setting is the tier selected by
 # runner.html before the modularized Emscripten runtime starts. Emscripten emits
-# this string as a JavaScript expression, so it can prewarm 8/16/32/256 workers
-# from the flowgraph size instead of baking in one pool size for every run.
+# this string as a JavaScript expression, so it can size the prewarmed pool from
+# the flowgraph (any integer, not a fixed ladder) instead of baking in one pool
+# size for every run.
 set_property(TARGET runner PROPERTY QT_WASM_PTHREAD_POOL_SIZE "globalThis.__grPoolTier")
 target_include_directories(runner PRIVATE
   ${GR_INCLUDE_DIRS}
