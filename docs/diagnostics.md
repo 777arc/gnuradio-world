@@ -204,6 +204,20 @@ and 10001 taps, then chains of 10, 20 and 30 Multiply Const blocks in series.
   excludes waiting, and under Emscripten it is not CPU time either, because GR
   only reaches for `CLOCK_THREAD_CPUTIME_ID` on the `__linux__` branch of
   `high_res_timer.h`, which this toolchain does not define.
+- **Every run times both ways at once, and two tabs pick which to show.**
+  They differ only in which snapshots get divided, so one run yields both:
+  *with startup* is the cumulative reading above (`items / uptime_s`, one
+  snapshot), *without startup* differences two snapshots, the first taken once
+  the graph is warm at `MIN_RUN_SECONDS / 2`. Switching tabs repaints and
+  re-measures nothing, and a cell's tooltip carries both numbers.
+  Measuring both in one run is not merely cheaper — it is the only fair
+  comparison. An earlier build had a checkbox and measured one mode per run,
+  and on this laptop two runs 30 s apart differ by more than the metrics do:
+  the second pass read *lower* without start-up than with it, which is
+  backwards, purely because the CPU had just done 30 s of full-load work.
+  From identical runs the difference is ~2-4% on the three-block filter cases
+  and ~11-20% on the chains and the wider filters, always in the same
+  direction.
 - **`MIN_RUN_SECONDS` is 2 s, and that is not conservatism.** A cumulative
   average approaches the sustained rate from below, and how long it takes
   depends on the flowgraph. A three-block filter case is within ~5% after half a

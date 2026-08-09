@@ -112,6 +112,12 @@ button:hover { filter:brightness(1.15); }
 .bench-run { padding:7px 14px; font-size:16px; }
 .bench-run:disabled { opacity:.55; cursor:default; filter:none; }
 .bench-status { color:#8b93ab; }
+.bench-tabs { display:flex; gap:2px; border-bottom:1px solid #333a4d; margin-bottom:2px; }
+.bench-tab { padding:7px 14px; font-size:16px; color:#9aa7c6; background:transparent;
+    border:0; border-radius:0; cursor:pointer; }
+.bench-tab:hover { color:#dce3f5; background:#242a3b; filter:none; }
+.bench-tab.active { color:#e6e9f0; font-weight:600; background:#20232f;
+    box-shadow:inset 0 -2px 0 #58a6ff; }
 .bench-progress { height:8px; border-radius:4px; background:#171a24; border:1px solid #3a4366;
     overflow:hidden; margin:0 0 12px; }
 .bench-progress[hidden] { display:none; }

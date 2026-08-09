@@ -220,10 +220,33 @@ function readRunnerFailure(frame: HTMLIFrameElement, search: string): string | n
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-/** Run one case on its own and return its end-to-end rate in samples/second. */
+/** The two rates one run yields, in samples/second. */
+export interface CaseRates {
+  /** Samples since the flowgraph started, over seconds since it started. */
+  withStartup: number;
+  /** Samples between two warm snapshots, over the seconds between them. */
+  withoutStartup: number;
+}
+
+/**
+ * Run one case on its own and return both of its rates.
+ *
+ * A single run answers both questions, because the two differ only in which
+ * snapshots they divide:
+ *
+ *   with startup — one snapshot: `items / uptime_s`, where `uptime_s` runs
+ *     from `tb->run()`. The divisor covers thread creation and filling every
+ *     buffer in the chain. What someone waiting on a flowgraph experiences.
+ *   without startup — two snapshots differenced, the first taken once the
+ *     graph is already warm. The sustained rate of a running graph.
+ *
+ * Taking both from one run is not just cheaper, it is the only fair
+ * comparison: on a laptop, two runs 30s apart differ by more than the metrics
+ * do, enough to reverse the sign of the difference.
+ */
 async function measureCase(
   frame: HTMLIFrameElement, benchmark: BenchmarkCase, alive: () => boolean,
-): Promise<number> {
+): Promise<CaseRates> {
   // A hash-only change does not reload a document, so the query string carries
   // the case: without it every case after the first would re-measure the first.
   // It doubles as the identity every read below is checked against.
@@ -231,16 +254,27 @@ async function measureCase(
   frame.src = `/runner/build/runner.html${search}#${encodeURIComponent(benchmark.grc)}`;
 
   const deadline = Date.now() + START_TIMEOUT_MS;
-  for (;;) {
-    await sleep(POLL_MS);
-    if (!alive()) throw new Error('cancelled');
-    const failure = readRunnerFailure(frame, search);
-    if (failure) throw new Error(failure);
-    const reading = readSnapshot(frame, search);
-    if (reading && reading.items > 0 && reading.seconds >= MIN_RUN_SECONDS)
-      return reading.items / reading.seconds;
-    if (Date.now() > deadline) throw new Error('the flowgraph produced no samples');
-  }
+  /** Poll until the case's own document reports a snapshot passing `ready`. */
+  const readUntil = async (ready: (reading: Reading) => boolean): Promise<Reading> => {
+    for (;;) {
+      await sleep(POLL_MS);
+      if (!alive()) throw new Error('cancelled');
+      const failure = readRunnerFailure(frame, search);
+      if (failure) throw new Error(failure);
+      const reading = readSnapshot(frame, search);
+      if (reading && reading.items > 0 && ready(reading)) return reading;
+      if (Date.now() > deadline) throw new Error('the flowgraph produced no samples');
+    }
+  };
+
+  // Halfway is late enough to be past the fill: even the longest chain here has
+  // its last block producing within ~0.3s of uptime.
+  const first = await readUntil(r => r.seconds >= MIN_RUN_SECONDS / 2);
+  const last = await readUntil(r => r.seconds >= MIN_RUN_SECONDS && r.seconds > first.seconds);
+  return {
+    withStartup: last.items / last.seconds,
+    withoutStartup: (last.items - first.items) / (last.seconds - first.seconds),
+  };
 }
 
 function formatRate(samplesPerSecond: number): string {
@@ -248,9 +282,25 @@ function formatRate(samplesPerSecond: number): string {
 }
 
 // Results survive closing the dialog, so reopening it shows the last run rather
-// than an empty matrix. Keyed "<filter>:<taps>".
-const results = new Map<string, { rate?: number; error?: string }>();
+// than an empty matrix. Keyed by case key; one run fills both rates.
+const results = new Map<string, { rates?: CaseRates; error?: string }>();
 let lastRunLabel = '';
+
+/** Which of the two rates the matrix is currently showing. */
+type RateView = keyof CaseRates;
+// `hint` is the tab's hover title only — the matrix speaks for itself, so
+// nothing explains the difference in the dialog body.
+const VIEWS: { key: RateView; label: string; hint: string }[] = [
+  { key: 'withStartup', label: 'With startup',
+    hint: 'Samples since the flowgraph started, over seconds since it started: ' +
+      'creating a thread per block and filling every buffer counts against the rate.' },
+  { key: 'withoutStartup', label: 'Without startup',
+    hint: 'Two readings taken once the flowgraph is warm, differenced: the sustained ' +
+      'rate of a running graph.' },
+];
+// Both views come from the same run, so this only picks what is on screen —
+// switching costs nothing and re-measures nothing.
+let activeView: RateView = 'withStartup';
 
 export function showBenchmarkDialog(deps: BenchmarkDeps): void {
   const { openDialog, log, isFlowgraphRunning } = deps;
@@ -265,7 +315,7 @@ export function showBenchmarkDialog(deps: BenchmarkDeps): void {
     intro.textContent =
       'Measures how fast this machine pushes complex samples through ' +
       'blocks in WebAssembly. Rate is end-to-end: samples through the flowgraph divided by how ' +
-      'long it ran, so startup overhead is included.';
+      'long it ran. Results are shown with and without including startup overhead.';
     body.appendChild(intro);
 
     const warning = document.createElement('div');
@@ -294,6 +344,26 @@ export function showBenchmarkDialog(deps: BenchmarkDeps): void {
     fill.className = 'bench-progress-fill';
     track.appendChild(fill);
     body.appendChild(track);
+
+    // The two rates share one set of tables: a run fills both, so switching tabs
+    // only repaints. Building the matrix twice would just be two states to keep
+    // in step, including the 'measuring...' one.
+    const tabs = document.createElement('div');
+    tabs.className = 'bench-tabs';
+    tabs.setAttribute('role', 'tablist');
+    const tabButtons = new Map<RateView, HTMLButtonElement>();
+    for (const view of VIEWS) {
+      const tab = document.createElement('button');
+      tab.className = 'bench-tab';
+      tab.type = 'button';
+      tab.textContent = view.label;
+      tab.title = view.hint;
+      tab.setAttribute('role', 'tab');
+      tab.onclick = () => selectView(view.key);
+      tabButtons.set(view.key, tab);
+      tabs.appendChild(tab);
+    }
+    body.appendChild(tabs);
 
     // One table per group of cases: the filters, then the Multiply Const chains.
     // Every cell is addressable by case key, which is all the run loop needs.
@@ -339,11 +409,26 @@ export function showBenchmarkDialog(deps: BenchmarkDeps): void {
         cell.title = result.error;
         cell.classList.add('bench-error');
       } else {
-        cell.textContent = formatRate(result.rate!);
-        cell.title = `${Math.round(result.rate!).toLocaleString()} samples/second`;
+        const rates = result.rates!;
+        const rate = rates[activeView];
+        cell.textContent = formatRate(rate);
+        // The other rate is one hover away, which is where the comparison is
+        // actually worth making: same run, same machine, same instant.
+        cell.title = `${Math.round(rate).toLocaleString()} samples/second\n` +
+          VIEWS.map(view => `${view.label}: ${formatRate(rates[view.key])}`).join('\n');
       }
     };
-    for (const key of cells.keys()) paint(key);
+
+    function selectView(view: RateView) {
+      activeView = view;
+      for (const [key, tab] of tabButtons) {
+        const on = key === view;
+        tab.classList.toggle('active', on);
+        tab.setAttribute('aria-selected', String(on));
+      }
+      for (const key of cells.keys()) paint(key);
+    }
+    selectView(activeView);
 
     const alive = () => !!overlay && overlay.isConnected && running;
 
@@ -393,10 +478,10 @@ export function showBenchmarkDialog(deps: BenchmarkDeps): void {
           cell.title = '';
           cell.classList.remove('bench-error');
           cell.classList.add('bench-busy');
-          status.textContent = `Measuring ${benchmark.label} at ${benchmark.column} ` +
+          status.textContent = `Measuring... ` +
             `(${done + 1} of ${benchmarks.length})…`;
           try {
-            results.set(benchmark.key, { rate: await measureCase(frame, benchmark, alive) });
+            results.set(benchmark.key, { rates: await measureCase(frame, benchmark, alive) });
           } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             if (message === 'cancelled') return;
@@ -407,13 +492,16 @@ export function showBenchmarkDialog(deps: BenchmarkDeps): void {
           done++;
         }
         const seconds = ((Date.now() - startedAt) / 1000).toFixed(1);
-        lastRunLabel = `Last run ${new Date().toLocaleTimeString()} (${seconds}s).`;
+        lastRunLabel = `Last run took ${seconds}s.`;
         status.textContent = lastRunLabel;
-        log(`benchmark complete in ${seconds}s: ` + benchmarkTables().flatMap(spec =>
-          spec.rows.map(row => `${row.label} ` + row.cases.map(item => {
-            const result = results.get(item.key);
-            return result?.rate != null ? formatRate(result.rate) : 'failed';
-          }).join(' / '))).join('; '));
+        log(`benchmark complete in ${seconds}s`);
+        // Both rates reach the console, since only one of them is on screen.
+        for (const view of VIEWS)
+          log(`  ${view.label.toLowerCase()}: ` + benchmarkTables().flatMap(spec =>
+            spec.rows.map(row => `${row.label} ` + row.cases.map(item => {
+              const result = results.get(item.key);
+              return result?.rates ? formatRate(result.rates[view.key]) : 'failed';
+            }).join(' / '))).join('; '));
       } finally {
         running = false;
         window.clearInterval(ticker);
