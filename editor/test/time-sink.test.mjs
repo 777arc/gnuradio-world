@@ -6,12 +6,50 @@ import { editorSource as editor } from './editor-contract-source.mjs';
 const runner = await readFile(
   new URL('../../runner/src/registry.cpp', import.meta.url), 'utf8');
 
+const { installGeneratedBlocks, RUNNABLE } = await bundleModule('./_library-entry.ts');
+const library = JSON.parse(await readFile(
+  new URL('../public/blocks.json', import.meta.url), 'utf8'));
+installGeneratedBlocks(library.blocks || []);
+
+const param = (block, id) => RUNNABLE[block].params.find(p => p.id === id);
+// A line setting is "shown" when it has no showWhen guard or the guard passes.
+const shown = (block, id, params) => {
+  const p = param(block, id);
+  return !!p && (!p.showWhen || p.showWhen(params));
+};
+
+// Every QT GUI sink takes nconnections inputs, as native GRC does. The per-line
+// settings are generated for ten lines and revealed as connections are added, so
+// assert on the resolved schema rather than on how block-defs.ts spells it.
 for (const field of ['label', 'width', 'color', 'style', 'marker', 'alpha']) {
-  assert.match(editor, new RegExp(`id: '${field}2'.*Line 2`, 's'),
-    `Time Sink must expose the second trace's ${field} setting`);
+  const p = param('qtgui_time_sink_x', `${field}2`);
+  assert.ok(p, `Time Sink must expose the second trace's ${field} setting`);
+  assert.match(p.label, /Line 2/, `${field}2 must be labelled as line 2`);
 }
-assert.match(editor, /showWhen: p => p\.type === 'complex'/,
-  'second-trace settings must only be shown for complex input');
+
+// A complex input is drawn as two traces (I and Q), a float input as one — which
+// is exactly the line count the runner configures (see the assertions below).
+assert.ok(shown('qtgui_time_sink_x', 'label2', { type: 'complex', nconnections: 1 }),
+  'second-trace settings must be shown for complex input');
+assert.ok(!shown('qtgui_time_sink_x', 'label2', { type: 'float', nconnections: 1 }),
+  'second-trace settings must be hidden for a single float input');
+// ...and a second float connection brings the second trace back.
+assert.ok(shown('qtgui_time_sink_x', 'label2', { type: 'float', nconnections: 2 }),
+  'a second float input must reveal the second trace');
+assert.ok(shown('qtgui_time_sink_x', 'label4', { type: 'complex', nconnections: 2 }),
+  'two complex inputs must reveal four traces');
+assert.ok(!shown('qtgui_time_sink_x', 'label3', { type: 'complex', nconnections: 1 }),
+  'one complex input must not reveal a third trace');
+
+// The other sinks draw one line per connection.
+for (const block of ['qtgui_freq_sink_x', 'qtgui_const_sink_x', 'qtgui_waterfall_sink_x']) {
+  assert.ok(param(block, 'nconnections'), `${block} must expose nconnections`);
+  assert.ok(!shown(block, 'label2', { nconnections: 1 }),
+    `${block} must hide the second line with one input`);
+  assert.ok(shown(block, 'label2', { nconnections: 2 }),
+    `${block} must reveal the second line with two inputs`);
+}
+
 assert.match(editor, /refreshVisibility\(\); refreshValidation\(\);/,
   'changing the data type must refresh conditional properties');
 
@@ -28,11 +66,6 @@ assert.match(runner, /configure_time_sink\(b, p, 2 \* nc\)/,
 // onto another's values by position silently shifts every choice: picking
 // "None" on the Time Sink used to store 0, a circle drawn on every sample.
 {
-  const { installGeneratedBlocks, RUNNABLE } = await bundleModule('./_library-entry.ts');
-  const library = JSON.parse(await readFile(
-    new URL('../public/blocks.json', import.meta.url), 'utf8'));
-  installGeneratedBlocks(library.blocks || []);
-  const param = (block, id) => RUNNABLE[block].params.find(p => p.id === id);
   const labelled = (block, id) => Object.fromEntries(
     param(block, id).options.map((v, i) => [param(block, id).optionLabels[i], v]));
 
@@ -60,4 +93,4 @@ assert.match(runner, /configure_time_sink\(b, p, 2 \* nc\)/,
 assert.match(runner, /number_from\(p, "marker" \+ suffix, -1\)/,
   'an unspecified Time/Frequency Sink marker must default to no marker');
 
-console.log('checked complex Time Sink second-trace configuration and line markers');
+console.log('checked multi-input QT GUI sink traces and line markers');

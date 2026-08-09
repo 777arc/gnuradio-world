@@ -27,6 +27,7 @@
 #include <chrono>
 #include <cstdlib>
 #include <functional>
+#include <cstdio>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -141,14 +142,23 @@ static void post_info_to_editor(const std::string& msg) {
 // thread_body_wrapper catches when a block's work() throws — through spdlog. In
 // this build its default backend has NO sinks: gr::logging reads the sink from
 // the "log_file" pref, which is empty because there is no config file in the
-// browser, so every message is dropped. (Plain stdout is a separate path: it
-// reaches console.log, and runner.html forwards it to the editor's console
-// pane.) Forward errors to the same places a failed run goes.
+// browser, so every message is dropped.
+//
+// Both halves of the logger have to reach the user, and they are not the same
+// kind of event:
+//
+//   * error and above is a failure. It gets the in-window banner and the
+//     editor's `gr-error` channel, the same places a failed run goes.
+//   * everything below is a block reporting on itself — Message Debug's `log`
+//     port, Print Header, a filter announcing its taps. Natively that goes to
+//     the console; here it goes to *stdout*, because runner.html already hooks
+//     Emscripten's print, batches the lines and caps the volume before handing
+//     them to the editor's console pane. A Message Debug on a fast frame source
+//     emits thousands of lines a second, so reusing that batching matters —
+//     posting each record straight to the parent frame would drown it.
 class BrowserLogSink : public spdlog::sinks::base_sink<std::mutex> {
 protected:
     void sink_it_(const spdlog::details::log_msg& msg) override {
-        if (msg.level < spdlog::level::err)
-            return;
         const std::string text(msg.payload.begin(), msg.payload.end());
         // Emscripten has no thread-naming API. GNU Radio logs the unavailable
         // cosmetic operation as an error once per scheduler thread even though
@@ -156,6 +166,18 @@ protected:
         if (text.find("set_thread_name(gr_thread_t, string) not implemented") !=
             std::string::npos)
             return;
+
+        if (msg.level < spdlog::level::err) {
+            // Tagged the way GNU Radio's own console sink tags it, so a log line
+            // is distinguishable from a block's plain stdout in the same pane.
+            const auto level = spdlog::level::to_string_view(msg.level);
+            const std::string name(msg.logger_name.begin(), msg.logger_name.end());
+            std::printf("%.*s: %s%s%s\n",
+                        static_cast<int>(level.size()), level.data(),
+                        name.c_str(), name.empty() ? "" : " - ", text.c_str());
+            return;
+        }
+
         // Sinks run on GR's per-block threads; widgets and the DOM are main-thread
         // only, so hop across via the Qt event loop.
         QMetaObject::invokeMethod(

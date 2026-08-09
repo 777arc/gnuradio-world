@@ -97,6 +97,65 @@ const LINE_MARKER_LABELS = ['None', 'Circle', 'Rectangle', 'Diamond', 'Triangle'
 // 0 Multi Color, 1 White Hot, 2 Black Hot, 3 Incandescent, 5 Sunset, 6 Cool.
 const WATERFALL_COLORS = ['0', '1', '2', '3', '5', '6'];
 
+// Every QT GUI sink takes `nconnections` stream inputs, exactly as native GRC
+// does: the runner's factories already pass it to time_sink/freq_sink/const_sink/
+// waterfall_sink::make and configure that many lines, and legacyPortCount() turns
+// the parameter into that many ports on the block face.
+const NCONNECTIONS_PARAM: ParamDef = {
+  id: 'nconnections', label: 'Number of Inputs', type: 'number', def: 1,
+};
+
+// GRC gives each sink ten configurable lines and hides the ones past the active
+// line count; `configure_line` in runner/src/registry.cpp reads them back per
+// line under the same names. The colour cycle matches the runner's own default
+// list, so an unset line looks the same on both sides.
+const MAX_LINES = 10;
+
+interface LineParamOpts {
+  // How many lines the sink actually draws. The Time Sink plots a complex input
+  // as two lines (I and Q), which is why the runner passes it 2 * nconnections.
+  lineCount: (params: Record<string, any>) => number;
+  quotedColors?: boolean;          // the freq/const sinks store colours quoted
+  labelPrefix?: string;            // '' leaves the default label empty
+  style?: string;
+  marker?: string;
+  waterfall?: boolean;             // waterfall has a colour map, no style/marker
+}
+
+function lineParams(opts: LineParamOpts): ParamDef[] {
+  const params: ParamDef[] = [];
+  for (let i = 1; i <= MAX_LINES; i++) {
+    // Line 1 is always shown; the rest appear as connections are added.
+    const showWhen = i === 1 ? undefined
+      : (p: Record<string, any>) => i <= opts.lineCount(p);
+    const colors = opts.quotedColors ? LINE_COLORS_Q : LINE_COLORS;
+    const color = colors[(i - 1) % colors.length];
+    const label = `Line ${i} `;
+    params.push({ id: `label${i}`, label: label + 'Label', type: 'string',
+      def: opts.labelPrefix ? `${opts.labelPrefix} ${i}` : '', category: 'Config', showWhen });
+    if (!opts.waterfall)
+      params.push({ id: `width${i}`, label: label + 'Width', type: 'number', def: 1,
+        category: 'Config', showWhen });
+    params.push({ id: `color${i}`, label: label + 'Color', type: 'enum',
+      def: opts.waterfall ? '0' : color,
+      options: opts.waterfall ? WATERFALL_COLORS : colors, category: 'Config', showWhen });
+    if (!opts.waterfall) {
+      params.push({ id: `style${i}`, label: label + 'Style', type: 'enum', def: opts.style ?? '1',
+        options: LINE_STYLES, optionLabels: LINE_STYLE_LABELS, category: 'Config', showWhen });
+      params.push({ id: `marker${i}`, label: label + 'Marker', type: 'enum', def: opts.marker ?? '-1',
+        options: LINE_MARKERS, optionLabels: LINE_MARKER_LABELS, category: 'Config', showWhen });
+    }
+    params.push({ id: `alpha${i}`, label: label + 'Alpha', type: 'number', def: 1,
+      category: 'Config', showWhen });
+  }
+  return params;
+}
+
+// The number of lines each sink draws, given its parameters.
+const nconn = (p: Record<string, any>) => Math.max(1, Math.trunc(Number(p.nconnections) || 1));
+// A complex Time Sink input is drawn as two traces (I and Q).
+const timeSinkLines = (p: Record<string, any>) => nconn(p) * (p.type === 'complex' ? 2 : 1);
+
 // Curated schemas for blocks the WASM runner registry supports. Param names (and the
 // `type` values complex/float) match the runner's factories exactly.
 export const RUNNABLE: Record<string, RunnableDef> = {
@@ -314,6 +373,7 @@ export const RUNNABLE: Record<string, RunnableDef> = {
       { id: 'name', label: 'Title', type: 'string', def: 'Scope' },
       { id: 'size', label: 'Num Points', type: 'number', def: 1024 },
       { id: 'samp_rate', label: 'Sample Rate', type: 'number', def: 32000 },
+      NCONNECTIONS_PARAM,
       { id: 'ylabel', label: 'Y Axis Label', type: 'string', def: 'Amplitude', category: 'General' },
       { id: 'yunit', label: 'Y Axis Unit', type: 'string', def: '', category: 'General' },
       { id: 'grid', label: 'Grid', type: 'enum', def: 'False', options: BOOL_OPTIONS, category: 'General' },
@@ -331,24 +391,7 @@ export const RUNNABLE: Record<string, RunnableDef> = {
       { id: 'legend', label: 'Legend', type: 'enum', def: 'True', options: BOOL_OPTIONS, category: 'Config' },
       { id: 'axislabels', label: 'Axis Labels', type: 'enum', def: 'True', options: BOOL_OPTIONS, category: 'Config' },
       { id: 'stemplot', label: 'Stem Plot', type: 'enum', def: 'False', options: BOOL_OPTIONS, category: 'Config' },
-      { id: 'label1', label: 'Line 1 Label', type: 'string', def: 'Signal 1', category: 'Config' },
-      { id: 'width1', label: 'Line 1 Width', type: 'number', def: 1, category: 'Config' },
-      { id: 'color1', label: 'Line 1 Color', type: 'enum', def: 'blue', options: LINE_COLORS, category: 'Config' },
-      { id: 'style1', label: 'Line 1 Style', type: 'enum', def: '1', options: LINE_STYLES, optionLabels: LINE_STYLE_LABELS, category: 'Config' },
-      { id: 'marker1', label: 'Line 1 Marker', type: 'enum', def: '-1', options: LINE_MARKERS, optionLabels: LINE_MARKER_LABELS, category: 'Config' },
-      { id: 'alpha1', label: 'Line 1 Alpha', type: 'number', def: 1, category: 'Config' },
-      { id: 'label2', label: 'Line 2 Label', type: 'string', def: 'Signal 2', category: 'Config',
-        showWhen: p => p.type === 'complex' },
-      { id: 'width2', label: 'Line 2 Width', type: 'number', def: 1, category: 'Config',
-        showWhen: p => p.type === 'complex' },
-      { id: 'color2', label: 'Line 2 Color', type: 'enum', def: 'red', options: LINE_COLORS, category: 'Config',
-        showWhen: p => p.type === 'complex' },
-      { id: 'style2', label: 'Line 2 Style', type: 'enum', def: '1', options: LINE_STYLES, optionLabels: LINE_STYLE_LABELS, category: 'Config',
-        showWhen: p => p.type === 'complex' },
-      { id: 'marker2', label: 'Line 2 Marker', type: 'enum', def: '-1', options: LINE_MARKERS, optionLabels: LINE_MARKER_LABELS, category: 'Config',
-        showWhen: p => p.type === 'complex' },
-      { id: 'alpha2', label: 'Line 2 Alpha', type: 'number', def: 1, category: 'Config',
-        showWhen: p => p.type === 'complex' },
+      ...lineParams({ lineCount: timeSinkLines, labelPrefix: 'Signal' }),
     ] },
   qtgui_freq_sink_x: {
     label: 'QT GUI Frequency Sink', inputs: 1, outputs: 0, params: [
@@ -356,6 +399,7 @@ export const RUNNABLE: Record<string, RunnableDef> = {
       { id: 'fftsize', label: 'FFT Size', type: 'number', def: 1024 },
       { id: 'samp_rate', label: 'Sample Rate', type: 'number', def: 32000 },
       { id: 'fc', label: 'Center Frequency', type: 'number', def: 0 },
+      NCONNECTIONS_PARAM,
       { id: 'grid', label: 'Grid', type: 'enum', def: 'False', options: BOOL_OPTIONS, category: 'General' },
       { id: 'autoscale', label: 'Autoscale', type: 'enum', def: 'False', options: BOOL_OPTIONS, category: 'General' },
       // FFT smoothing alpha, as in GRC: 1 = off, 0.2/0.1/0.05 = low/medium/high.
@@ -370,17 +414,13 @@ export const RUNNABLE: Record<string, RunnableDef> = {
       { id: 'ctrlpanel', label: 'Control Panel', type: 'enum', def: 'False', options: BOOL_OPTIONS, category: 'Config' },
       { id: 'legend', label: 'Legend', type: 'enum', def: 'True', options: BOOL_OPTIONS, category: 'Config' },
       { id: 'axislabels', label: 'Axis Labels', type: 'enum', def: 'True', options: BOOL_OPTIONS, category: 'Config' },
-      { id: 'label1', label: 'Line 1 Label', type: 'string', def: '', category: 'Config' },
-      { id: 'width1', label: 'Line 1 Width', type: 'number', def: 1, category: 'Config' },
-      { id: 'color1', label: 'Line 1 Color', type: 'enum', def: '"blue"', options: LINE_COLORS_Q, category: 'Config' },
-      { id: 'style1', label: 'Line 1 Style', type: 'enum', def: '1', options: LINE_STYLES, optionLabels: LINE_STYLE_LABELS, category: 'Config' },
-      { id: 'marker1', label: 'Line 1 Marker', type: 'enum', def: '-1', options: LINE_MARKERS, optionLabels: LINE_MARKER_LABELS, category: 'Config' },
-      { id: 'alpha1', label: 'Line 1 Alpha', type: 'number', def: 1, category: 'Config' },
+      ...lineParams({ lineCount: nconn, quotedColors: true }),
     ], dtype: 'complex' },
   qtgui_const_sink_x: {
     label: 'QT GUI Constellation Sink', inputs: 1, outputs: 0, params: [
       { id: 'name', label: 'Title', type: 'string', def: 'Constellation' },
       { id: 'size', label: 'Num Points', type: 'number', def: 1024 },
+      NCONNECTIONS_PARAM,
       { id: 'update_time', label: 'Update Period', type: 'number', def: 0.1 },
       { id: 'autoscale', label: 'Autoscale', type: 'enum', def: 'False', options: BOOL_OPTIONS },
       { id: 'grid', label: 'Grid', type: 'enum', def: 'False', options: BOOL_OPTIONS },
@@ -395,15 +435,10 @@ export const RUNNABLE: Record<string, RunnableDef> = {
       { id: 'tr_tag', label: 'Trigger Tag Key', type: 'string', def: '', category: 'Trigger' },
       { id: 'legend', label: 'Legend', type: 'enum', def: 'True', options: BOOL_OPTIONS, category: 'Config' },
       { id: 'axislabels', label: 'Axis Labels', type: 'enum', def: 'True', options: BOOL_OPTIONS, category: 'Config' },
-      { id: 'label1', label: 'Line 1 Label', type: 'string', def: '', category: 'Config' },
-      { id: 'width1', label: 'Line 1 Width', type: 'number', def: 1, category: 'Config' },
-      { id: 'color1', label: 'Line 1 Color', type: 'enum', def: '"blue"', options: LINE_COLORS_Q, category: 'Config' },
       // A constellation is drawn as unconnected points: GRC's own defaults for
       // this sink are no line (Qt::NoPen) and a circle marker, unlike the Time
       // and Frequency Sinks, which draw a solid line and no marker.
-      { id: 'style1', label: 'Line 1 Style', type: 'enum', def: '0', options: LINE_STYLES, optionLabels: LINE_STYLE_LABELS, category: 'Config' },
-      { id: 'marker1', label: 'Line 1 Marker', type: 'enum', def: '0', options: LINE_MARKERS, optionLabels: LINE_MARKER_LABELS, category: 'Config' },
-      { id: 'alpha1', label: 'Line 1 Alpha', type: 'number', def: 1, category: 'Config' },
+      ...lineParams({ lineCount: nconn, quotedColors: true, style: '0', marker: '0' }),
     ], dtype: 'complex' },
   qtgui_waterfall_sink_x: {
     label: 'QT GUI Waterfall Sink', inputs: 1, outputs: 0, params: [
@@ -411,14 +446,13 @@ export const RUNNABLE: Record<string, RunnableDef> = {
       { id: 'fftsize', label: 'FFT Size', type: 'number', def: 1024 },
       { id: 'samp_rate', label: 'Sample Rate', type: 'number', def: 32000 },
       { id: 'fc', label: 'Center Frequency', type: 'number', def: 0 },
+      NCONNECTIONS_PARAM,
       { id: 'int_min', label: 'Intensity Min', type: 'number', def: -140, category: 'General' },
       { id: 'int_max', label: 'Intensity Max', type: 'number', def: 10, category: 'General' },
       { id: 'grid', label: 'Grid', type: 'enum', def: 'False', options: BOOL_OPTIONS, category: 'General' },
       { id: 'update_time', label: 'Update Period', type: 'number', def: 0.1, category: 'General' },
       { id: 'legend', label: 'Legend', type: 'enum', def: 'True', options: BOOL_OPTIONS, category: 'Config' },
       { id: 'axislabels', label: 'Axis Labels', type: 'enum', def: 'True', options: BOOL_OPTIONS, category: 'Config' },
-      { id: 'label1', label: 'Line 1 Label', type: 'string', def: '', category: 'Config' },
-      { id: 'color1', label: 'Line 1 Color', type: 'enum', def: '0', options: WATERFALL_COLORS, category: 'Config' },
-      { id: 'alpha1', label: 'Line 1 Alpha', type: 'number', def: 1, category: 'Config' },
+      ...lineParams({ lineCount: nconn, waterfall: true }),
     ], dtype: 'complex' },
 };

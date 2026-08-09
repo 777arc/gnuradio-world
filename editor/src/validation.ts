@@ -156,11 +156,6 @@ export function validateFlowgraph(
     if (!Number.isInteger(connection.tp) || connection.tp < 0 || connection.tp >= ports.portCount(sink, 'in')) {
       add(sink, BLOCK_FIELD, `Connection uses invalid input port ${connection.tp}.`, connection); continue;
     }
-    const inputKey = `${sink.uid}:${connection.tp}`;
-    if (occupiedInputs.has(inputKey))
-      add(sink, BLOCK_FIELD, `Input port ${connection.tp} has more than one connection.`, connection);
-    else occupiedInputs.set(inputKey, connection);
-
     const sourcePort = ports.portMeta(source, 'out', connection.fp);
     const sinkPort = ports.portMeta(sink, 'in', connection.tp);
     const sourceDomain = sourcePort.domain;
@@ -170,6 +165,14 @@ export function validateFlowgraph(
       continue;
     }
     if (sourceDomain === 'stream') {
+      // Only a *stream* input takes exactly one connection. A message input is a
+      // subscriber list, and GRC lets any number of publishers post to it — which
+      // is how several Probe Rates report into one Message Debug.
+      const inputKey = `${sink.uid}:${connection.tp}`;
+      if (occupiedInputs.has(inputKey))
+        add(sink, BLOCK_FIELD, `Input port ${connection.tp} has more than one connection.`, connection);
+      else occupiedInputs.set(inputKey, connection);
+
       const sourceType = ports.portType(source, 'out', connection.fp);
       const sinkType = ports.portType(sink, 'in', connection.tp);
       if (sourceType && sinkType && sourceType !== sinkType)

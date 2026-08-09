@@ -366,6 +366,35 @@ specific console output, e.g. the hex of a frame you expect to decode.
 (every example parses, and every arithmetic parameter is one `expr.ts` can
 evaluate), but it does not run a browser, so it cannot see either failure above.
 
+**Arrange every new example before committing it.** Open it in the editor, run
+Edit ▸ Auto-Arrange Blocks, and save. Hand-placed coordinates — and especially
+the ones an upstream GNU Radio example ships with — leave the flowgraph reading
+as whatever its author's canvas looked like; arranging makes the whole palette
+consistently left-to-right, and it is the one thing a reader sees before anything
+else. Nothing but the coordinates changes, so it can never affect what the
+flowgraph computes.
+
+Two things to know when doing this in bulk rather than by hand:
+
+- **Save is a lossy round-trip; auto-arrange is not.** The editor drops what its
+  schema does not declare, so saving a file returns it without `import` blocks,
+  without GRC's `affinity`/`alias`/`comment`/`maxoutbuf`/`minoutbuf`, without
+  `gui_hint` (which places the widget in the QT GUI), and without most of the
+  options block. That is fine for a flowgraph you authored in the editor and
+  destructive for one adapted from upstream. When arranging in bulk, take the
+  `states.coordinate`/`states.rotation` out of the saved file and merge those
+  into the original rather than adopting the saved file wholesale.
+
+**Delete `import` blocks rather than carrying them.** There is no Python in this
+build, so an `import` is pure dead weight: the editor skips it on load (one
+"skipped unsupported block" line per import, in the console pane where real
+output belongs), and it is never placed by auto-arrange. Nothing needs it, either
+— [`expr.ts`](../editor/src/expr.ts) resolves `math.*` and `numpy.*` from its own
+registry, with no import statement involved. The one thing you give up is
+round-tripping that file back into desktop GRC, whose generated Python *does*
+need the import for those same expressions; for an example that exists to be run
+in a browser, that is the right trade.
+
 ### The other suites
 
 The editor suite and type checks run in deploy CI. Run the editor check locally
