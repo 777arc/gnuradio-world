@@ -115,24 +115,48 @@ for (const file of exampleFiles) {
 // Those flowgraphs are text that module builds and hands straight to the
 // runner, never round-tripped through the editor, so nothing else would notice
 // them going malformed. Parsing them here is the guard.
-const { benchmarkFlowgraphs } = await bundleModule('../src/benchmark.ts');
-const benchmarks = benchmarkFlowgraphs();
-assert.equal(benchmarks.length, 6, 'two filters at three tap counts');
+const { benchmarkTables, benchmarkCases } = await bundleModule('../src/benchmark.ts');
+const benchmarks = benchmarkCases();
+assert.deepEqual(benchmarkTables().map(table => table.key), ['filters', 'chain'],
+  'filters are measured first, then the chains');
+assert.equal(benchmarks.length, 9, 'two filters at three tap counts, plus three chain lengths');
 assert.equal(new Set(benchmarks.map(benchmark => benchmark.key)).size, benchmarks.length,
   'case keys are unique');
 for (const benchmark of benchmarks) {
   const parsed = parseGrc(benchmark.grc);
-  // One case per flowgraph: each filter is measured with the machine to itself.
-  assert.deepEqual(parsed.blocks.map(block => block.name), ['src', 'dut', 'snk'],
-    `${benchmark.key}: source, filter, sink and nothing else`);
-  assert.deepEqual(parsed.connections, [['src', '0', 'dut', '0'], ['dut', '0', 'snk', '0']],
-    `${benchmark.key}: connected in a line`);
-  const dut = parsed.blocks[1];
-  // Complex in, complex out, real taps, and no decimation.
-  assert.equal(dut.parameters.type, 'ccf', `${benchmark.key}: complex I/O with real taps`);
-  assert.equal(dut.parameters.decim, '1', `${benchmark.key}: rate is input and output samples`);
-  assert.equal(JSON.parse(String(dut.parameters.taps)).length, benchmark.taps,
-    `${benchmark.key}: tap count`);
+  const names = parsed.blocks.map(block => block.name);
+  // One case per flowgraph: whatever is under test gets the machine to itself,
+  // and it is always the block named 'dut' that the rate is read from.
+  assert.equal(names[0], 'src', `${benchmark.key}: starts at the Null Source`);
+  assert.equal(names[names.length - 1], 'snk', `${benchmark.key}: ends at the Null Sink`);
+  assert.ok(names.includes('dut'), `${benchmark.key}: has a block to measure`);
+  // Every block is connected in one line, source through to sink.
+  assert.equal(parsed.connections.length, names.length - 1, `${benchmark.key}: a chain, not a fan`);
+  for (const [index, connection] of parsed.connections.entries())
+    assert.deepEqual(connection, [names[index], '0', names[index + 1], '0'],
+      `${benchmark.key}: hop ${index} is in series`);
+
+  if (benchmark.key.startsWith('mult:')) {
+    const count = Number(benchmark.key.split(':')[1]);
+    assert.equal(names.length, count + 2, `${benchmark.key}: ${count} blocks plus source and sink`);
+    // GNU Radio runs a thread per block, so a chain's length decides the
+    // runner's pthread pool tier. Nothing here forbids crossing the 32-worker
+    // one, but a chain long enough to need the 256 tier spends ~28s spawning
+    // workers before its first sample, which has to fit the start timeout.
+    assert.ok(names.length + 1 <= 256, `${benchmark.key}: needs more workers than the runner pools`);
+    for (const block of parsed.blocks.slice(1, -1)) {
+      assert.equal(block.id, 'blocks_multiply_const_vxx', `${benchmark.key}: chain of Multiply Const`);
+      assert.equal(block.parameters.type, 'complex', `${benchmark.key}: complex I/O`);
+    }
+  } else {
+    assert.deepEqual(names, ['src', 'dut', 'snk'], `${benchmark.key}: source, filter, sink`);
+    const dut = parsed.blocks[1];
+    // Complex in, complex out, real taps, and no decimation.
+    assert.equal(dut.parameters.type, 'ccf', `${benchmark.key}: complex I/O with real taps`);
+    assert.equal(dut.parameters.decim, '1', `${benchmark.key}: rate is input and output samples`);
+    assert.equal(JSON.parse(String(dut.parameters.taps)).length,
+      Number(benchmark.key.split(':')[1]), `${benchmark.key}: tap count`);
+  }
 }
 
 console.log(`checked .grc round-trip, byte-exact formatting, ${exampleFiles.length} derived flowgraph ids, ` +

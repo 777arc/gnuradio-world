@@ -177,35 +177,46 @@ Verified headless: a `src → multiply_const → throttle → null_sink` graph r
 
 Help ▸ Benchmark Tool ([`editor/src/benchmark.ts`](../editor/src/benchmark.ts))
 reads the same `window.__grstats` snapshot, for a different question: not "is
-this flowgraph keeping up?" but "how fast is this machine?". It fills a
-six-cell matrix — Decimating FIR and FFT Filter, complex in/out with real taps,
-at 101, 1001 and 10001 taps.
+this flowgraph keeping up?" but "how fast is this machine?". One click fills two
+matrices: Decimating FIR and FFT Filter (complex in/out, real taps) at 101, 1001
+and 10001 taps, then chains of 10, 20 and 25 Multiply Const blocks in series.
 
 - **One case per flowgraph, run one at a time.** Each cell is its own Null
-  Source → filter → Null Sink `.grc`, loaded into a private offscreen runner
-  iframe, so the filter under test has the machine to itself. Null Source keeps
+  Source → *thing under test* → Null Sink `.grc`, loaded into a private
+  offscreen runner iframe, so it has the machine to itself. Null Source keeps
   the samples at zero, the one input that can never drag a float path into
-  denormals. `grc.test.mjs` parses all six, because they are hand-written text
+  denormals. `grc.test.mjs` parses all nine, because they are hand-written text
   going straight to the runner.
-- **The rate is end-to-end**: the block's `items` divided by the snapshot's own
-  `uptime_s`, both from a single snapshot. `uptime_s` runs from the instant
-  `start_prepared_flowgraph()` launched `tb->run()`, so the divisor covers graph
-  start-up and every per-sample cost in the chain — the source and the sink as
-  much as the filter kernel. It is *not* the per-block work timer: that one
-  (`work_total_s`, what the debug panel uses) excludes waiting, and under
-  Emscripten it is not CPU time either, because GR only reaches for
-  `CLOCK_THREAD_CPUTIME_ID` on the `__linux__` branch of `high_res_timer.h`,
-  which this toolchain does not define.
-- **A reading is taken at the first snapshot past `MIN_RUN_SECONDS`** (0.25 s;
-  counters publish at ~3 Hz, so it lands in 0.25–0.6 s). Whatever its arrival
-  time, that snapshot's own uptime is the divisor, so arrival costs accuracy
-  only through how much start-up ramp is still in the average. On a warm machine
-  the first snapshot is within ~5% of where the rate settles after two seconds;
-  on a heat-soaked laptop the ramp is much longer and short runs read low.
+- **The rate is end-to-end**: the counted block's `items` divided by the
+  snapshot's own `uptime_s`, both from a single snapshot. `uptime_s` runs from
+  the instant `start_prepared_flowgraph()` launched `tb->run()`, so the divisor
+  covers graph start-up and every per-sample cost in the chain. It is *not* the
+  per-block work timer: that one (`work_total_s`, what the debug panel uses)
+  excludes waiting, and under Emscripten it is not CPU time either, because GR
+  only reaches for `CLOCK_THREAD_CPUTIME_ID` on the `__linux__` branch of
+  `high_res_timer.h`, which this toolchain does not define.
+- **`MIN_RUN_SECONDS` is 2 s, and that is not conservatism.** A cumulative
+  average approaches the sustained rate from below, and how long it takes
+  depends on the flowgraph. A three-block filter case is within ~5% after half a
+  second; a 25-block chain is nowhere near, because the counted block sits at
+  the *end* of the pipeline and only starts producing once every buffer ahead of
+  it has filled. Read at 0.25 s, the 20-block chain reported 0.146 MS/s against
+  a true ~7 MS/s — a plausible-looking number, 40x wrong, and non-monotonic
+  against its neighbours, which is what gave it away. Measured trajectories:
+  the chains settle at ~10.6 / 7.4 / 6.4 MS/s and 2 s gets within ~10-15%.
+- **The longest chain is 25 blocks because of the pthread pool ladder.** GNU
+  Radio runs a thread per block, and `poolTierForBlockCount()` in `runner.html`
+  (mirrored by `worker_tier_for()` in `runner.cpp`) jumps straight from a
+  32-worker pool to a 256-worker one. 30 blocks plus source and sink needs 33
+  workers, lands in the 256 tier, and spends **~28 s** spawning workers before
+  its first sample; 25 blocks needs 28 and boots in ~3.8 s like everything else.
+  Worth knowing beyond the benchmark: *any* flowgraph over 31 blocks pays that
+  28 s today. A finer ladder (round up to a multiple of 8) fixes it, but both
+  copies have to change together, and the C++ one means relinking the runner.
 - **Every read is checked against the case's own document.** `frame.src` does
   not navigate synchronously, so for a moment after it is set the *previous*
   case's document is still there with its `__grstats` and its `#result` on it —
-  a reading that passes every sanity check while belonging to the wrong filter.
+  a reading that passes every sanity check while belonging to the wrong case.
   Both reads compare `contentWindow.location.search` against the
   `?benchmark=<case>` this navigation used. That query also exists because a
   hash-only change does not reload a document at all.
@@ -217,17 +228,15 @@ at 101, 1001 and 10001 taps.
   parent, so `main.ts` filters them out by frame (`isBenchmarkFrameSource`) —
   otherwise a benchmark case would flip the editor's Run status.
 - The progress bar is **paced, not polled**: booting Qt and the WASM runtime has
-  no progress to report, so each case creeps across its own sixth of the bar
+  no progress to report, so each case creeps across its own ninth of the bar
   against a nominal case time and snaps forward as the case lands.
 
-A run costs about 8–10 s, and start-up dominates it: ~1.1 s of Qt + WASM boot
-per case against ~0.3–0.6 s of measurement. Six isolated runs cannot be much
-faster without giving up the isolation — batching a whole row into one flowgraph
-does fit in ~3 s, but the chains then share the machine, which read the FIR row
-~20% low on a 2 P-core + 8 E-core laptop and all six together ~40% low.
+A run costs about 33 s: nine cases, each a fresh Qt + WASM boot (~1 s for the
+filter cases, ~2-4 s for the chains, which prewarm a bigger worker pool) plus
+the 2 s reading. The two knobs are `MIN_RUN_SECONDS` and the case list; both
+trade directly against accuracy.
 
-Worth knowing when reading results: absolute numbers track machine state
-heavily. On this laptop the same filter measured 12.3 MS/s early in a session
-and 3.8 MS/s after an hour of repeated benchmarking, recovering after an idle
-period — CPU power and thermal behavior, not leaked workers (iframe teardown
-was checked). The dialog says so.
+Absolute numbers track machine state heavily. On this laptop the same filter
+case measured 12.3 MS/s early in a session and 3.8 MS/s after an hour of
+repeated benchmarking, recovering after an idle period — CPU power and thermal
+behavior, not leaked workers (iframe teardown was checked).

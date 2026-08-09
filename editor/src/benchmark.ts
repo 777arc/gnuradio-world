@@ -56,17 +56,29 @@ const FILTERS: FilterCase[] = [
 const POLL_MS = 40;
 /**
  * How long a flowgraph must have been running before its counters are read.
- * The runner publishes at ~3 Hz, so the snapshot actually used lands somewhere
- * in [0.25s, 0.6s]; whatever it is, its own `uptime_s` is the divisor, so the
- * arrival time costs accuracy only through how much of the reading is start-up
- * ramp. Measured convergence: the first snapshot is already within ~5% of where
- * the rate settles after two seconds.
+ *
+ * An end-to-end rate is a *cumulative* average — every sample since the graph
+ * started, over every second since the graph started — so it approaches the
+ * sustained rate from below and only gets there once start-up is a small part
+ * of the total. How long that takes depends on the flowgraph: a three-block
+ * filter chain is within ~5% after half a second, but a 25-block chain is still
+ * filling its pipeline then, because the block being counted sits at the *end*
+ * of it. Read too early and that case reports a rate 40x too low.
+ *
+ * Two seconds puts every case here within ~10-15% of where it settles, and one
+ * value for all of them keeps the cells comparable with each other. It is also
+ * most of what a run costs: nine cases, two seconds each.
  */
-const MIN_RUN_SECONDS = 0.25;
+const MIN_RUN_SECONDS = 2;
 /** Nominal cost of one case, used to pace the progress bar (not a timeout). */
-const CASE_ESTIMATE_MS = 900;
-/** Ceiling on Qt + WASM startup plus the flowgraph producing its first samples. */
-const START_TIMEOUT_MS = 45000;
+const CASE_ESTIMATE_MS = 3200;
+/**
+ * Ceiling on Qt + WASM startup plus the flowgraph producing its first samples.
+ * Generous because of the 256-worker tier: the 30-block chain spends ~28s
+ * spawning workers on this machine before its first sample, so a slower one
+ * must not trip the timeout and report a case that was merely still starting.
+ */
+const START_TIMEOUT_MS = 90000;
 
 const repeat = (value: string, count: number) => '[' + new Array(count).fill(value).join(',') + ']';
 const quoted = (value: string) => `'${value}'`;
@@ -77,26 +89,90 @@ function grcBlock(name: string, id: string, params: Record<string, string>): str
     '\n    states:\n        coordinate: [0, 0]\n        rotation: 0\n        state: enabled\n';
 }
 
-export interface BenchmarkFlowgraph {
-  key: string; label: string; taps: number; grc: string;
+const NULL_SOURCE = grcBlock('src', 'blocks_null_source',
+  { type: 'complex', num_outputs: "'1'", vlen: "'1'" });
+const NULL_SINK = grcBlock('snk', 'blocks_null_sink',
+  { type: 'complex', num_inputs: "'1'", vlen: "'1'" });
+
+function flowgraph(blocks: string, connections: string): string {
+  return 'options:\n    parameters:\n        id: gr_world_benchmark\n' +
+    '    states:\n        coordinate: [0, 0]\n        rotation: 0\n        state: enabled\n' +
+    `blocks:\n${NULL_SOURCE}${blocks}${NULL_SINK}connections:\n${connections}`;
 }
 
-/** Every case a run measures, in order: one flowgraph each, run on its own. */
-export function benchmarkFlowgraphs(): BenchmarkFlowgraph[] {
-  const cases: BenchmarkFlowgraph[] = [];
-  for (const filter of FILTERS) {
-    for (const taps of TAP_COUNTS) {
-      const grc = 'options:\n    parameters:\n        id: gr_world_benchmark\n' +
-        '    states:\n        coordinate: [0, 0]\n        rotation: 0\n        state: enabled\n' +
-        'blocks:\n' +
-        grcBlock('src', 'blocks_null_source', { type: 'complex', num_outputs: "'1'", vlen: "'1'" }) +
-        grcBlock('dut', filter.id, filter.params(taps)) +
-        grcBlock('snk', 'blocks_null_sink', { type: 'complex', num_inputs: "'1'", vlen: "'1'" }) +
-        "connections:\n- [src, '0', dut, '0']\n- [dut, '0', snk, '0']\n";
-      cases.push({ key: `${filter.key}:${taps}`, label: filter.label, taps, grc });
-    }
+// How many Multiply Const blocks to string together. Length costs more than
+// arithmetic here, because GNU Radio runs one thread per block and the runner's
+// pool ladder (poolTierForBlockCount in runner.html, worker_tier_for in
+// runner.cpp) jumps straight from 32 workers to 256. 30 blocks plus the source
+// and sink needs 33 workers, so it lands in the 256 tier and spends ~28s
+// spawning them before its first sample; 25 would have needed 28 and booted in
+// ~4s like every other case. Rounding the ladder to multiples of 8 would fix
+// it, in both copies.
+const CHAIN_LENGTHS = [10, 20, 30];
+
+/** A chain of `count` Multiply Const blocks between the source and the sink. */
+function multiplyChainFlowgraph(count: number): string {
+  let blocks = '';
+  let connections = '';
+  let upstream = 'src';
+  for (let index = 0; index < count; index++) {
+    // The last one is the block the rate is read from, so it carries the name
+    // every case uses; being last it has also seen the whole chain's latency.
+    const name = index === count - 1 ? 'dut' : `mult${index}`;
+    blocks += grcBlock(name, 'blocks_multiply_const_vxx',
+      { type: 'complex', mode: 'scalar', const: "'1'", vlen: "'1'" });
+    connections += `- [${upstream}, '0', ${name}, '0']\n`;
+    upstream = name;
   }
-  return cases;
+  return flowgraph(blocks, connections + `- [${upstream}, '0', snk, '0']\n`);
+}
+
+export interface BenchmarkCase { key: string; column: string; grc: string }
+export interface BenchmarkTable {
+  /** `columnHeading` doubles as the group's label: it heads the first column. */
+  key: string; columnHeading: string;
+  rows: { key: string; label: string; cases: BenchmarkCase[] }[];
+}
+
+/**
+ * Every case a run measures, grouped the way the dialog tabulates it. Filters
+ * first, then the Multiply Const chains; a run walks them in this order, one
+ * flowgraph at a time.
+ */
+export function benchmarkTables(): BenchmarkTable[] {
+  return [
+    {
+      key: 'filters', columnHeading: 'Filter',
+      rows: FILTERS.map(filter => ({
+        key: filter.key,
+        label: filter.label,
+        cases: TAP_COUNTS.map(taps => ({
+          key: `${filter.key}:${taps}`,
+          column: `${taps.toLocaleString()} taps`,
+          grc: flowgraph(grcBlock('dut', filter.id, filter.params(taps)),
+            "- [src, '0', dut, '0']\n- [dut, '0', snk, '0']\n"),
+        })),
+      })),
+    },
+    {
+      key: 'chain', columnHeading: 'Long Chain of Blocks',
+      rows: [{
+        key: 'mult',
+        label: 'Null Source -> N x Multiply Const -> Null Sink',
+        cases: CHAIN_LENGTHS.map(count => ({
+          key: `mult:${count}`,
+          column: `${count} blocks`,
+          grc: multiplyChainFlowgraph(count),
+        })),
+      }],
+    },
+  ];
+}
+
+/** The cases a run walks, flattened into measurement order. */
+export function benchmarkCases(): (BenchmarkCase & { label: string })[] {
+  return benchmarkTables().flatMap(table =>
+    table.rows.flatMap(row => row.cases.map(item => ({ ...item, label: row.label }))));
 }
 
 // The one iframe a run drives, so the editor can tell the runner messages it
@@ -147,7 +223,7 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 /** Run one case on its own and return its end-to-end rate in samples/second. */
 async function measureCase(
-  frame: HTMLIFrameElement, benchmark: BenchmarkFlowgraph, alive: () => boolean,
+  frame: HTMLIFrameElement, benchmark: BenchmarkCase, alive: () => boolean,
 ): Promise<number> {
   // A hash-only change does not reload a document, so the query string carries
   // the case: without it every case after the first would re-measure the first.
@@ -190,7 +266,7 @@ export function showBenchmarkDialog(deps: BenchmarkDeps): void {
     intro.textContent =
       'Measures how fast this machine pushes complex samples through ' +
       'blocks in WebAssembly. Rate is end-to-end: samples through the flowgraph divided by how ' +
-      'long it  ran.';
+      'long it ran, so startup overhead is included.';
     body.appendChild(intro);
 
     const warning = document.createElement('div');
@@ -220,33 +296,38 @@ export function showBenchmarkDialog(deps: BenchmarkDeps): void {
     track.appendChild(fill);
     body.appendChild(track);
 
-    const table = document.createElement('table');
-    table.className = 'debug-table bench-table';
-    const thead = document.createElement('thead');
-    const headRow = document.createElement('tr');
-    headRow.appendChild(Object.assign(document.createElement('th'), { textContent: 'Filter' }));
-    for (const taps of TAP_COUNTS) {
-      const th = document.createElement('th');
-      th.className = 'num';
-      th.textContent = `${taps.toLocaleString()} taps`;
-      headRow.appendChild(th);
-    }
-    thead.appendChild(headRow);
-    const tbody = document.createElement('tbody');
+    // One table per group of cases: the filters, then the Multiply Const chains.
+    // Every cell is addressable by case key, which is all the run loop needs.
     const cells = new Map<string, HTMLTableCellElement>();
-    for (const filter of FILTERS) {
-      const tr = document.createElement('tr');
-      tr.appendChild(Object.assign(document.createElement('td'), { textContent: filter.label }));
-      for (const taps of TAP_COUNTS) {
-        const td = document.createElement('td');
-        td.className = 'num';
-        cells.set(`${filter.key}:${taps}`, td);
-        tr.appendChild(td);
+    for (const spec of benchmarkTables()) {
+      const table = document.createElement('table');
+      table.className = 'debug-table bench-table';
+      const thead = document.createElement('thead');
+      const headRow = document.createElement('tr');
+      headRow.appendChild(Object.assign(document.createElement('th'),
+        { textContent: spec.columnHeading }));
+      for (const item of spec.rows[0].cases) {
+        const th = document.createElement('th');
+        th.className = 'num';
+        th.textContent = item.column;
+        headRow.appendChild(th);
       }
-      tbody.appendChild(tr);
+      thead.appendChild(headRow);
+      const tbody = document.createElement('tbody');
+      for (const row of spec.rows) {
+        const tr = document.createElement('tr');
+        tr.appendChild(Object.assign(document.createElement('td'), { textContent: row.label }));
+        for (const item of row.cases) {
+          const td = document.createElement('td');
+          td.className = 'num';
+          cells.set(item.key, td);
+          tr.appendChild(td);
+        }
+        tbody.appendChild(tr);
+      }
+      table.append(thead, tbody);
+      body.appendChild(table);
     }
-    table.append(thead, tbody);
-    body.appendChild(table);
 
     const paint = (key: string) => {
       const cell = cells.get(key);
@@ -286,7 +367,7 @@ export function showBenchmarkDialog(deps: BenchmarkDeps): void {
       document.body.appendChild(frame);
       benchFrame = frame;
 
-      const benchmarks = benchmarkFlowgraphs();
+      const benchmarks = benchmarkCases();
       // The bar is paced, not polled: booting Qt and the WASM runtime has no
       // progress to report, so each case creeps across its own segment against
       // a nominal case time and snaps forward as the case lands.
@@ -313,15 +394,15 @@ export function showBenchmarkDialog(deps: BenchmarkDeps): void {
           cell.title = '';
           cell.classList.remove('bench-error');
           cell.classList.add('bench-busy');
-          status.textContent = `Measuring ${benchmark.label} at ${benchmark.taps.toLocaleString()} ` +
-            `taps (${done + 1} of ${benchmarks.length})…`;
+          status.textContent = `Measuring ${benchmark.label} at ${benchmark.column} ` +
+            `(${done + 1} of ${benchmarks.length})…`;
           try {
             results.set(benchmark.key, { rate: await measureCase(frame, benchmark, alive) });
           } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             if (message === 'cancelled') return;
             results.set(benchmark.key, { error: message });
-            log(`benchmark: ${benchmark.label} at ${benchmark.taps} taps failed: ${message}`);
+            log(`benchmark: ${benchmark.label} at ${benchmark.column} failed: ${message}`);
           }
           paint(benchmark.key);
           done++;
@@ -329,11 +410,11 @@ export function showBenchmarkDialog(deps: BenchmarkDeps): void {
         const seconds = ((Date.now() - startedAt) / 1000).toFixed(1);
         lastRunLabel = `Last run ${new Date().toLocaleTimeString()} (${seconds}s).`;
         status.textContent = lastRunLabel;
-        log(`benchmark complete in ${seconds}s: ` + FILTERS.map(filter =>
-          `${filter.label} ` + TAP_COUNTS.map(taps => {
-            const result = results.get(`${filter.key}:${taps}`);
+        log(`benchmark complete in ${seconds}s: ` + benchmarkTables().flatMap(spec =>
+          spec.rows.map(row => `${row.label} ` + row.cases.map(item => {
+            const result = results.get(item.key);
             return result?.rate != null ? formatRate(result.rate) : 'failed';
-          }).join(' / ')).join('; '));
+          }).join(' / '))).join('; '));
       } finally {
         running = false;
         window.clearInterval(ticker);
