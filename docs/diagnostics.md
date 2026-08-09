@@ -172,3 +172,62 @@ so the bottleneck lights up without reading numbers.
 Verified headless: a `src → multiply_const → throttle → null_sink` graph reports
 `realtime 0.92×`, correct per-block throughput (~29.5k/s at samp_rate 32k),
 `sleep` for the throttle, `bottleneck none`, and smooth sparklines.
+
+## Second consumer: the Benchmark Tool
+
+Help ▸ Benchmark Tool ([`editor/src/benchmark.ts`](../editor/src/benchmark.ts))
+reads the same `window.__grstats` snapshot, for a different question: not "is
+this flowgraph keeping up?" but "how fast is this machine?". It fills a
+six-cell matrix — Decimating FIR and FFT Filter, complex in/out with real taps,
+at 101, 1001 and 10001 taps.
+
+- **One case per flowgraph, run one at a time.** Each cell is its own Null
+  Source → filter → Null Sink `.grc`, loaded into a private offscreen runner
+  iframe, so the filter under test has the machine to itself. Null Source keeps
+  the samples at zero, the one input that can never drag a float path into
+  denormals. `grc.test.mjs` parses all six, because they are hand-written text
+  going straight to the runner.
+- **The rate is end-to-end**: the block's `items` divided by the snapshot's own
+  `uptime_s`, both from a single snapshot. `uptime_s` runs from the instant
+  `start_prepared_flowgraph()` launched `tb->run()`, so the divisor covers graph
+  start-up and every per-sample cost in the chain — the source and the sink as
+  much as the filter kernel. It is *not* the per-block work timer: that one
+  (`work_total_s`, what the debug panel uses) excludes waiting, and under
+  Emscripten it is not CPU time either, because GR only reaches for
+  `CLOCK_THREAD_CPUTIME_ID` on the `__linux__` branch of `high_res_timer.h`,
+  which this toolchain does not define.
+- **A reading is taken at the first snapshot past `MIN_RUN_SECONDS`** (0.25 s;
+  counters publish at ~3 Hz, so it lands in 0.25–0.6 s). Whatever its arrival
+  time, that snapshot's own uptime is the divisor, so arrival costs accuracy
+  only through how much start-up ramp is still in the average. On a warm machine
+  the first snapshot is within ~5% of where the rate settles after two seconds;
+  on a heat-soaked laptop the ramp is much longer and short runs read low.
+- **Every read is checked against the case's own document.** `frame.src` does
+  not navigate synchronously, so for a moment after it is set the *previous*
+  case's document is still there with its `__grstats` and its `#result` on it —
+  a reading that passes every sanity check while belonging to the wrong filter.
+  Both reads compare `contentWindow.location.search` against the
+  `?benchmark=<case>` this navigation used. That query also exists because a
+  hash-only change does not reload a document at all.
+- The iframe is offscreen rather than `display:none`, because Qt for
+  WebAssembly needs a laid-out canvas to start at all. It is torn down when the
+  run finishes or the dialog closes, which is also what cancels a run in
+  progress.
+- Its runner posts the usual `gr-error`/`gr-print`/`gr-module` messages to the
+  parent, so `main.ts` filters them out by frame (`isBenchmarkFrameSource`) —
+  otherwise a benchmark case would flip the editor's Run status.
+- The progress bar is **paced, not polled**: booting Qt and the WASM runtime has
+  no progress to report, so each case creeps across its own sixth of the bar
+  against a nominal case time and snaps forward as the case lands.
+
+A run costs about 8–10 s, and start-up dominates it: ~1.1 s of Qt + WASM boot
+per case against ~0.3–0.6 s of measurement. Six isolated runs cannot be much
+faster without giving up the isolation — batching a whole row into one flowgraph
+does fit in ~3 s, but the chains then share the machine, which read the FIR row
+~20% low on a 2 P-core + 8 E-core laptop and all six together ~40% low.
+
+Worth knowing when reading results: absolute numbers track machine state
+heavily. On this laptop the same filter measured 12.3 MS/s early in a session
+and 3.8 MS/s after an hour of repeated benchmarking, recovering after an idle
+period — CPU power and thermal behavior, not leaked workers (iframe teardown
+was checked). The dialog says so.

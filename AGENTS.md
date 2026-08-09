@@ -17,7 +17,7 @@ This file is what you need for almost any change. Per-task detail lives in
 | [docs/ci.md](docs/ci.md) | changing a workflow, the deploy, or PR preview deployments |
 | [docs/gnuradio-patches.md](docs/gnuradio-patches.md) | changing anything inside the `gnuradio/` submodule or `qtgui/` |
 | [docs/double-mapped-buffer.md](docs/double-mapped-buffer.md) | working on the emulated vmcircbuf |
-| [docs/diagnostics.md](docs/diagnostics.md) | working on the runner's `__grstats` snapshot or debug panel |
+| [docs/diagnostics.md](docs/diagnostics.md) | working on the runner's `__grstats` snapshot, the debug panel, or the Benchmark Tool |
 
 ## Project overview
 

@@ -104,6 +104,21 @@ button:hover { filter:brightness(1.15); }
 .debug-table .state-loaded { color:#4fc3d6; }
 .debug-table .state-pending { color:#c9903a; }
 .debug-totals { margin-top:10px; font-size:16px; color:#aeb8d0; }
+/* Benchmark Tool dialog */
+.bench-intro { line-height:1.55; color:#c3cbe0; margin-bottom:12px; }
+.bench-warn { color:#ffb877; line-height:1.5; margin-bottom:10px; }
+.bench-warn[hidden] { display:none; }
+.bench-controls { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+.bench-run { padding:7px 14px; font-size:16px; }
+.bench-run:disabled { opacity:.55; cursor:default; filter:none; }
+.bench-status { color:#8b93ab; }
+.bench-progress { height:8px; border-radius:4px; background:#171a24; border:1px solid #3a4366;
+    overflow:hidden; margin:0 0 12px; }
+.bench-progress[hidden] { display:none; }
+.bench-progress-fill { height:100%; width:0; background:#58a6ff; transition:width .05s linear; }
+.bench-table td:first-child { color:#dde7f6; }
+.bench-table .bench-busy { color:#c9903a; }
+.bench-table .bench-error { color:#ff9b95; }
 #palette { min-height:0; background:#20232f; overflow:auto; }
 /* Vertical splitter between the palette and the workspace */
 #paletteSplitter { min-width:0; position:relative; z-index:20; cursor:col-resize;

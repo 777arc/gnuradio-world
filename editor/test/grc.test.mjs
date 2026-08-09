@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { exampleFiles } from './example-files.mjs';
+import { bundleModule } from './bundle-module.mjs';
 import { mainSource as main } from './editor-contract-source.mjs';
 
 // grc.ts is TypeScript and pulls in js-yaml, so bundle it to an importable mjs.
@@ -110,4 +111,29 @@ for (const file of exampleFiles) {
   assert.match(derivedId(title), /^[A-Za-z]\w*$/, `${file} title yields an unusable flowgraph id`);
 }
 
-console.log(`checked .grc round-trip, byte-exact formatting, and ${exampleFiles.length} derived flowgraph ids`);
+// ---- the Benchmark Tool's hand-written .grc ----
+// Those flowgraphs are text that module builds and hands straight to the
+// runner, never round-tripped through the editor, so nothing else would notice
+// them going malformed. Parsing them here is the guard.
+const { benchmarkFlowgraphs } = await bundleModule('../src/benchmark.ts');
+const benchmarks = benchmarkFlowgraphs();
+assert.equal(benchmarks.length, 6, 'two filters at three tap counts');
+assert.equal(new Set(benchmarks.map(benchmark => benchmark.key)).size, benchmarks.length,
+  'case keys are unique');
+for (const benchmark of benchmarks) {
+  const parsed = parseGrc(benchmark.grc);
+  // One case per flowgraph: each filter is measured with the machine to itself.
+  assert.deepEqual(parsed.blocks.map(block => block.name), ['src', 'dut', 'snk'],
+    `${benchmark.key}: source, filter, sink and nothing else`);
+  assert.deepEqual(parsed.connections, [['src', '0', 'dut', '0'], ['dut', '0', 'snk', '0']],
+    `${benchmark.key}: connected in a line`);
+  const dut = parsed.blocks[1];
+  // Complex in, complex out, real taps, and no decimation.
+  assert.equal(dut.parameters.type, 'ccf', `${benchmark.key}: complex I/O with real taps`);
+  assert.equal(dut.parameters.decim, '1', `${benchmark.key}: rate is input and output samples`);
+  assert.equal(JSON.parse(String(dut.parameters.taps)).length, benchmark.taps,
+    `${benchmark.key}: tap count`);
+}
+
+console.log(`checked .grc round-trip, byte-exact formatting, ${exampleFiles.length} derived flowgraph ids, ` +
+  `and ${benchmarks.length} benchmark cases`);

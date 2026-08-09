@@ -56,6 +56,7 @@ import {
 } from './example-catalog';
 import { installGeneratedBlocks, numericOrExpression, portOptional } from './block-library';
 import { showDebugInfo } from './debug-panel';
+import { isBenchmarkFrameSource, showBenchmarkDialog } from './benchmark';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const el = (id: string) => document.getElementById(id)!;
@@ -2985,6 +2986,9 @@ const loadedModules = new Set<string>();
 window.addEventListener('message', (e) => {
   const d = (e as MessageEvent).data;
   if (!d) return;
+  // The Benchmark Tool drives a runner of its own. Its messages belong to that
+  // dialog, not to the Run status, the console, or the loaded-module set.
+  if (isBenchmarkFrameSource(e as MessageEvent)) return;
   if (d.type === 'gr-recording-ready') {
     const tab = recordingTabForMessage(e as MessageEvent);
     if (tab) {
@@ -4026,6 +4030,11 @@ const MENUS: TopMenu[] = [
     { label: 'Keyboard Shortcuts', key: 'Ctrl+K', run: showShortcutHelp },
     { label: 'WebAssembly Modules & Debug Info…',
       run: () => showDebugInfo({ openDialog, library: () => LIB, blocksUrl: BLOCKS_URL, loadedModules }) },
+    { label: 'Benchmark Tool',
+      run: () => showBenchmarkDialog({
+        openDialog, log,
+        isFlowgraphRunning: () => el('workspace').classList.contains('running'),
+      }) },
     { label: 'Parser Errors', reason: R_XML },
     'sep',
     { label: 'Get Involved', run: () => openLink('https://www.gnuradio.org/get-involved/') },
