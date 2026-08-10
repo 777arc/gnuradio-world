@@ -63,3 +63,49 @@ freq_xlating_fir_filter_xxx:
     callbacks:
     - set_taps(${taps})
     - set_center_freq(${center_freq})
+
+# The PMT message and tag sources. All three have a C++ implementation in
+# gr-blocks and no cpp_templates upstream, because their defining parameter is a
+# PMT and GRC renders one by evaluating Python. The `pmt` dtype is this build's
+# answer to that: the value stays the Python constructor call a .grc already
+# carries (so the file round-trips to native GRC unchanged), and the runner
+# parses it in wasm_registry::pmt_value() instead of evaluating it.
+blocks_message_strobe:
+  flags: [python, cpp]
+  parameter_dtypes:
+    msg: pmt
+  cpp_templates:
+    includes: ['#include <gnuradio/blocks/message_strobe.h>']
+    declarations: 'blocks::message_strobe::sptr ${id};'
+    make: 'this->${id} = blocks::message_strobe::make(${msg}, ${period});'
+
+blocks_message_strobe_random:
+  flags: [python, cpp]
+  parameter_dtypes:
+    msg: pmt
+  cpp_templates:
+    includes: ['#include <gnuradio/blocks/message_strobe_random.h>']
+    declarations: 'blocks::message_strobe_random::sptr ${id};'
+    make: 'this->${id} = blocks::message_strobe_random::make(${msg}, ${dist}, ${mean}, ${std});'
+    translations:
+      blocks\.: 'blocks::'
+
+blocks_tags_strobe:
+  flags: [python, cpp]
+  parameter_dtypes:
+    value: pmt
+    key: pmt
+  cpp_templates:
+    includes: ['#include <gnuradio/blocks/tags_strobe.h>']
+    declarations: 'blocks::tags_strobe::sptr ${id};'
+    make: 'this->${id} = blocks::tags_strobe::make(${type.size}*${vlen}, ${value}, ${nsamps}, ${key});'
+
+# Tag Object is a GRC *variable* holding one gr::tag_t, not a block, so it has no
+# cpp_templates to give it: registry.cpp constructs it into the runtime tag
+# registry and Vector Source's `tags` parameter names it. Retyped only so its
+# three PMT fields are decoded rather than evaluated as arithmetic.
+variable_tag_object:
+  parameter_dtypes:
+    key: pmt
+    value: pmt
+    src: pmt

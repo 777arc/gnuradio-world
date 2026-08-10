@@ -1783,6 +1783,23 @@ static std::map<std::string, Factory>& registry_storage() {
                  bool_from(p, "padding", false));
              return {};
          }},
+        // GRC's Tag Object: a variable holding one gr::tag_t, which a Vector
+        // Source names in its `tags` parameter. Upstream builds it with
+        // gr.tag_utils.python_to_tag((offset, key, value, src)); here the three
+        // PMT fields are decoded from their source text and the object is filed
+        // under its variable name for wasm_registry::tag_objects() to find.
+        {"variable_tag_object", [](const json& p) -> BuiltBlock {
+             const std::string name = p.value("__name", std::string());
+             if (name.empty())
+                 throw std::runtime_error("Tag Object requires a block name");
+             gr::tag_t tag;
+             tag.offset = static_cast<std::uint64_t>(number_from(p, "offset", 0));
+             tag.key = wasm_registry::pmt_value(p, "key", "pmt.intern(\"key\")");
+             tag.value = wasm_registry::pmt_value(p, "value", "pmt.intern(\"value\")");
+             tag.srcid = wasm_registry::pmt_value(p, "src", "pmt.intern(\"src\")");
+             wasm_registry::runtime_tag_objects()[name] = tag;
+             return {};
+         }},
         {"fec_async_decoder", [](const json& p) -> BuiltBlock {
              return { gr::fec::async_decoder::make(
                           named_cc_decoder(p.value("decoder", std::string())),
@@ -2420,6 +2437,8 @@ const std::map<std::string, Factory>& block_registry() {
 void clear_runtime_objects()
 {
     runtime_constellations().clear();
+    runtime_cc_decoders().clear();
+    wasm_registry::runtime_tag_objects().clear();
 }
 
 // Called by dlopen'd category side modules (generated_registry_<m>.cpp) to add

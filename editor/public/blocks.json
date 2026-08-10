@@ -8833,19 +8833,20 @@
     "Message Tools"
    ],
    "flags": [
-    "python"
+    "python",
+    "cpp"
    ],
-   "runnable": false,
-   "unavailable_reason": "Python-only block",
+   "runnable": true,
+   "unavailable_reason": null,
    "module": "core",
    "documentation": "",
-   "api_documentation": "",
+   "api_documentation": "Send message at defined interval\n\nTakes a PMT message and sends it out every period_ms\nmilliseconds. Useful for testing/debugging the message system.\n\nMake a message stobe block to send message msg every \\p\nperiod_ms milliseconds.\n\nParameters:\n  msg: The message to send as a PMT.\n  period_ms: the time period in milliseconds in which to send \\p msg.",
    "wiki_url": "https://wiki.gnuradio.org/index.php/Message_Strobe",
    "params": [
     {
      "id": "msg",
      "label": "Message PMT",
-     "dtype": "raw",
+     "dtype": "pmt",
      "default": "pmt.intern(\"TEST\")",
      "category": "General",
      "options": null,
@@ -8894,19 +8895,20 @@
     "Message Tools"
    ],
    "flags": [
-    "python"
+    "python",
+    "cpp"
    ],
-   "runnable": false,
-   "unavailable_reason": "Python-only block",
+   "runnable": true,
+   "unavailable_reason": null,
    "module": "core",
    "documentation": "",
-   "api_documentation": "",
+   "api_documentation": "Send message at defined interval\n\nTakes a PMT message and sends it out at random\nintervals. The interval is based on a random distribution, \\p\ndist, with specified mean (mean_ms) and variance (\\p\nstd_ms). Useful for testing/debugging the message system.\n\nMake a message stobe block to sends message msg at random\nintervals defined by the distribution dist with mean \\p\nmean_ms and standard deviation std_ms.\n\nParameters:\n  msg: The message to send as a PMT.\n  dist: The random distribution from which to draw the time between events.\n  mean_ms: The mean of the distribution, in milliseconds.\n  std_ms: The standard deviation of the Gaussian distribution, or the maximum absolute deviation of the Uniform distribution, in milliseconds. This argument is ignored for other distributions.",
    "wiki_url": "https://wiki.gnuradio.org/index.php/Message_Strobe_Random-Delay",
    "params": [
     {
      "id": "msg",
      "label": "Message PMT",
-     "dtype": "raw",
+     "dtype": "pmt",
      "default": "pmt.intern(\"TEST\")",
      "category": "General",
      "options": null,
@@ -13427,8 +13429,8 @@
     "show_id",
     "python"
    ],
-   "runnable": false,
-   "unavailable_reason": "Python-only block",
+   "runnable": true,
+   "unavailable_reason": null,
    "module": "core",
    "documentation": "This block creates a tag object. While tags are based on an\n    absolute offset, this is based on a relative offset that must be\n    appropriately translated by the block using it. For example, this\n    is used by the vector_source blocks, which will treat a 0 offset\n    in the tag as the first item in the stream when the vector starts\n    or repeats.\n\n    The tag objects are created using the python_to_tag Python\n    function to make it easy to generate a tag_t in Python. The call\n    looks like:\n\n        gr.tag_utils.python_to_tag(($offset, $key, $value, $src))",
    "api_documentation": "",
@@ -13448,7 +13450,7 @@
     {
      "id": "key",
      "label": "Key",
-     "dtype": "raw",
+     "dtype": "pmt",
      "default": "pmt.intern(\"key\")",
      "category": "General",
      "options": null,
@@ -13459,7 +13461,7 @@
     {
      "id": "value",
      "label": "Value",
-     "dtype": "raw",
+     "dtype": "pmt",
      "default": "pmt.intern(\"value\")",
      "category": "General",
      "options": null,
@@ -13470,7 +13472,7 @@
     {
      "id": "src",
      "label": "Source ID",
-     "dtype": "raw",
+     "dtype": "pmt",
      "default": "pmt.intern(\"src\")",
      "category": "General",
      "options": null,
@@ -13989,13 +13991,14 @@
     "Debug Tools"
    ],
    "flags": [
-    "python"
+    "python",
+    "cpp"
    ],
-   "runnable": false,
-   "unavailable_reason": "Python-only block",
+   "runnable": true,
+   "unavailable_reason": null,
    "module": "core",
    "documentation": "",
-   "api_documentation": "",
+   "api_documentation": "Send tags at defined interval\n\nSends a tag with key 'strobe' and a user-defined value (as a\nPMT) every nsamps number of samples. Useful for\ntesting/debugging the tags system.\n\nBecause tags are sent with a data stream, this is a source\nblock that acts identical to a null_source block.\n\nMake a tags stobe block to send tags with value value\nevery nsamps number of samples.\n\nParameters:\n  sizeof_stream_item: size of the stream items in bytes.\n  value: The value of the tags to send, as a PMT.\n  nsamps: the number of samples between each tag.\n  key: The tag key to sent",
    "wiki_url": "https://wiki.gnuradio.org/index.php/Tags_Strobe",
    "params": [
     {
@@ -14026,7 +14029,7 @@
     {
      "id": "value",
      "label": "Value (PMT)",
-     "dtype": "raw",
+     "dtype": "pmt",
      "default": "pmt.intern(\"TEST\")",
      "category": "General",
      "options": null,
@@ -14037,7 +14040,7 @@
     {
      "id": "key",
      "label": "Key (PMT)",
-     "dtype": "raw",
+     "dtype": "pmt",
      "default": "pmt.intern(\"strobe\")",
      "category": "General",
      "options": null,

@@ -54,7 +54,8 @@ static bool is_runtime_object(const std::string& id)
 {
     return id == "variable_constellation" ||
            id == "variable_constellation_rect" ||
-           id == "variable_cc_decoder_def";
+           id == "variable_cc_decoder_def" ||
+           id == "variable_tag_object";
 }
 
 static nlohmann::json resolve_variables(

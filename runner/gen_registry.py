@@ -133,6 +133,9 @@ CUSTOM_IDS = {
     "fec_depuncture_bb",
     "fec_puncture_xx",
     "variable_cc_decoder_def",
+    # GRC's Tag Object: a variable holding one gr::tag_t, filed under its name
+    # for Vector Source's `tags` parameter to reference.
+    "variable_tag_object",
     "fec_async_decoder",
     "fec_extended_decoder",
     "variable_constellation",
@@ -398,6 +401,21 @@ def enum_expression(param: dict[str, Any], attribute: str | None = None) -> str:
             f'{{{", ".join(pairs)}}}, {cpp_atom(default_value)})')
 
 
+def pmt_argument(pid: str, default: Any) -> str:
+    """A PMT-valued parameter, decoded from its source text at run time.
+
+    Nothing between the .grc and here evaluates it: the editor's expr.ts is a
+    numeric/vector evaluator by design, and a PMT is neither, so the constructor
+    call GRC would have run through Python (``pmt.intern("TEST")``) arrives as
+    text and ``wasm_registry::pmt_value()`` parses it.  The yaml default is
+    passed along so a .grc that omits the parameter still gets the block's
+    documented value rather than PMT_NIL.
+    """
+    expression = "" if default is None else str(default).strip()
+    return (f"wasm_registry::pmt_value(p, {json.dumps(pid)}, "
+            f"{json.dumps(expression)})")
+
+
 def resolve_dtype(dtype: str, namespace: dict[str, Any]) -> str:
     if "${" not in dtype:
         return dtype
@@ -437,6 +455,13 @@ def param_arg(block_id: str, param: dict[str, Any], namespace: dict[str, Any]) -
         return Arg(expression)
     if dtype == "complex":
         return Arg(f"wasm_registry::complex(p, {quoted_id})")
+    # `pmt` is a browser-only dtype, set by an overlay on a parameter upstream
+    # types `raw` because it holds a Python PMT constructor call. Nothing on the
+    # way here evaluates it -- the editor's expr.ts is a numeric evaluator -- so
+    # the value reaches the runner as its source text and
+    # wasm_registry::pmt_value() parses the constructor grammar.
+    if dtype == "pmt":
+        return Arg(pmt_argument(pid, default))
     item_type = vector_type(dtype)
     if item_type:
         if block_id == "blocks_blockinterleaver_xx" and pid == "interleaver_indices":
@@ -470,7 +495,7 @@ def param_arg(block_id: str, param: dict[str, Any], namespace: dict[str, Any]) -
         "false_value",
         "meta",
     }:
-        return Arg(f"wasm_registry::pmt_value(p, {quoted_id})")
+        return Arg(pmt_argument(pid, default))
     if dtype == "raw" and pid == "gfpoly":
         return Arg(f"wasm_registry::number<int>(p, {quoted_id}, {fallback('int', default)})")
     if dtype == "raw" and pid == "special_tags":
@@ -486,7 +511,9 @@ def param_arg(block_id: str, param: dict[str, Any], namespace: dict[str, Any]) -
     if dtype == "raw" and pid in {"bus_structure_source", "bus_structure_sink"}:
         return Arg("{}")
     if dtype == "raw" and pid == "tags":
-        return Arg("std::vector<gr::tag_t>{}")
+        # A list of Tag Object variable names, resolved against the tag objects
+        # built before any block (see wasm_registry::tag_objects).
+        return Arg(f"wasm_registry::tag_objects(p, {quoted_id})")
     if dtype == "raw" and pid == "vector":
         # vector_source's selected type supplies its vector dtype.
         selected_type = namespace.get("type")

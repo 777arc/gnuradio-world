@@ -1048,6 +1048,10 @@ function effectiveDtype(inst: Inst, def: RunnableDef, p: ParamDef): string {
 // Parameters whose value is a Python expression rather than a literal, and so
 // have to be evaluated before the runner (which parses JSON-ish scalars and
 // vectors, not Python) sees them.
+// Deliberately not here: the browser-only `pmt` dtype (Message Strobe's message,
+// a Tag Object's key/value). Those are Python too, but they evaluate to a PMT
+// rather than a number, so expr.ts has nothing to say about them and the runner
+// parses the constructor call itself -- see wasm_registry::pmt_value().
 const EVALUATED_DTYPES = new Set([
   'int', 'real', 'float', 'hex', 'raw',
   'int_vector', 'real_vector', 'float_vector', 'complex_vector',

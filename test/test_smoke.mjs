@@ -71,6 +71,21 @@ const CASES = [
   { name: 'new core/filter blocks', grc: 'test/fixtures/wasm_added_core.grc' },
   { name: 'new constellation and synchronizer blocks', grc: 'test/fixtures/wasm_added_digital.grc' },
   { name: 'new FEC leaf blocks', grc: 'test/fixtures/wasm_added_fec.grc' },
+  // The PMT-valued blocks. `expectLogs` is what makes this case meaningful: a
+  // PMT parameter that parsed into the *wrong* PMT still builds, still runs and
+  // still moves items, so only what the tag and message debuggers print can tell
+  // pmt.cons(intern, init_u8vector) apart from a symbol named after its own
+  // source text. See wasm_registry::pmt_value().
+  { name: 'PMT message/tag strobes and Tag Object',
+    grc: 'test/fixtures/wasm_pmt_blocks.grc',
+    expectLogs: [
+      '(payload . #[11 22 33 44])',  // Message Strobe: a PDU built by pmt.cons
+      'RANDOM_STROBE',               // Message Strobe Random-Delay: pmt.intern
+      'Key: strobe_key',             // Tags Strobe: its key and pmt.from_double
+      'Value: 2.5',
+      'Key: burst',                  // Tag Object, emitted by Vector Source
+      'Source: vector_src',
+    ] },
   { name: 'gr-satellites hier rebuilds', grc: 'test/fixtures/wasm_satellites_hier.grc' },
   { name: 'gr-satellites AX.25 framer/deframer loopback',
     grc: 'test/fixtures/wasm_satellites_ax25_loopback.grc' },
@@ -178,8 +193,13 @@ for (const test of CASES) {
   // snapshot), so requiring items > 0 of them would fail every PDU chain.
   const idle = blocks.filter(b => !b.msg_only && !(b.items > 0))
                      .map(b => `${b.name} (${b.id})`);
+  // What the flowgraph printed, for a case whose correctness the item counters
+  // cannot see (a block that ran with the wrong parameter value).
+  const missingLogs = (test.expectLogs || [])
+    .filter(expected => !logs.some(line => line.includes(expected)));
 
-  const ok = started && blocks.length > 0 && idle.length === 0 && monitorOk;
+  const ok = started && blocks.length > 0 && idle.length === 0 && monitorOk &&
+    missingLogs.length === 0;
   allOk = allOk && ok;
   console.log(`\n[${ok ? 'OK' : 'FAIL'}] ${test.name}  (${test.grc})`);
   console.log(`   ${verdict.trim()}`);
@@ -187,6 +207,8 @@ for (const test of CASES) {
     console.log('   items: ' + blocks.map(b => `${b.name}=${b.items}`).join(' '));
   else console.log('   no diagnostics snapshot — the graph never reached the scheduler');
   if (idle.length) console.log(`   produced nothing: ${idle.join(', ')}`);
+  if (missingLogs.length)
+    console.log(`   never printed: ${missingLogs.map(s => JSON.stringify(s)).join(', ')}`);
   if (!monitorOk)
     console.log(`   diagnostics headline mismatch: ${JSON.stringify(monitor)}, ` +
       `pool=${pool}, initialExpectedPool=${initialExpectedPool}, ` +

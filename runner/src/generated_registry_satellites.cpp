@@ -431,7 +431,7 @@ struct Registrar_satellites {
         throw std::runtime_error("unsupported type selection for satellites_packet_csma");
     });
     wasm_registry_add("satellites_pdu_add_meta", +[](const nlohmann::json& p) -> BuiltBlock {
-        auto block = satellites::pdu_add_meta::make(wasm_registry::pmt_value(p, "meta"));
+        auto block = satellites::pdu_add_meta::make(wasm_registry::pmt_value(p, "meta", ""));
         return { block, nullptr };
     });
     wasm_registry_add("satellites_pdu_head_tail", +[](const nlohmann::json& p) -> BuiltBlock {

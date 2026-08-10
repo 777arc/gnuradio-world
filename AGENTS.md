@@ -705,6 +705,23 @@ Definition (`variable_cc_decoder_def`), which `fec_async_decoder` and
 - **Enum params** whose `.block.yml` has `cpp_templates: translations` that rewrite
   option strings (e.g. `analog.cpm.` → `analog::cpm::`) just work:
   `wasm_registry::choice` matches with `::`/`.` normalized.
+- **A PMT parameter is parsed, not evaluated.** Native GRC renders Message
+  Strobe's message or a Tag Object's key by running `pmt.intern("TEST")` as
+  Python. There is none here, and [`expr.ts`](editor/src/expr.ts) stops at
+  numbers and vectors on purpose, so such a parameter is retyped to the
+  browser-only `pmt` dtype in `blocks/overlays/<module>/metadata.yml` and reaches
+  the runner as its own source text, which `wasm_registry::pmt_value()` parses
+  (`intern`, `from_*`, `cons`, `dict_add`, the `init_*vector`s; anything else
+  throws by name rather than being interned as its own text). The .grc keeps the
+  Python spelling, so it still round-trips to desktop GRC. Note the parser is the
+  *parameter* path only — a PMT crossing into the Embedded Python Block's worker
+  is a separate, unbuilt bridge (see [docs/embedded-python.md](docs/embedded-python.md)).
+- **Tag Object is a variable, not a block.** `variable_tag_object` builds one
+  `gr::tag_t` into `wasm_registry::runtime_tag_objects()` before any block is
+  constructed — the same pre-pass `variable_constellation` uses, listed in
+  `is_runtime_object()` in `runner.cpp` — and Vector Source's `tags` parameter
+  names it. A block that grows a tag-list parameter resolves it the same way,
+  through `wasm_registry::tag_objects()`.
 - **A block whose work() is not C++ blocks its own scheduler thread and nothing
   else.** The Embedded Python Block runs a user's `work()` in Pyodide in a Web
   Worker, and rendezvous is a futex: the GR thread posts a request into a control

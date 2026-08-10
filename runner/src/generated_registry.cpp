@@ -62,6 +62,8 @@
 #include <gnuradio/blocks/magphase_to_complex.h>
 #include <gnuradio/blocks/max_blk.h>
 #include <gnuradio/blocks/message_debug.h>
+#include <gnuradio/blocks/message_strobe.h>
+#include <gnuradio/blocks/message_strobe_random.h>
 #include <gnuradio/blocks/min_blk.h>
 #include <gnuradio/blocks/moving_average.h>
 #include <gnuradio/blocks/multiply_by_tag_value_cc.h>
@@ -108,6 +110,7 @@
 #include <gnuradio/blocks/tagged_stream_align.h>
 #include <gnuradio/blocks/tagged_stream_multiply_length.h>
 #include <gnuradio/blocks/tagged_stream_mux.h>
+#include <gnuradio/blocks/tags_strobe.h>
 #include <gnuradio/blocks/test_tag_variable_rate_ff.h>
 #include <gnuradio/blocks/threshold_ff.h>
 #include <gnuradio/blocks/throttle.h>
@@ -672,6 +675,14 @@ void register_generated_blocks(std::map<std::string, Factory>& registry)
             return { block, nullptr };
         }
         throw std::runtime_error("unsupported type selection for blocks_message_debug");
+    });
+    registry.emplace("blocks_message_strobe", [](const nlohmann::json& p) -> BuiltBlock {
+        auto block = blocks::message_strobe::make(wasm_registry::pmt_value(p, "msg", "pmt.intern(\"TEST\")"), wasm_registry::number<int>(p, "period", 1000));
+        return { block, nullptr };
+    });
+    registry.emplace("blocks_message_strobe_random", [](const nlohmann::json& p) -> BuiltBlock {
+        auto block = blocks::message_strobe_random::make(wasm_registry::pmt_value(p, "msg", "pmt.intern(\"TEST\")"), wasm_registry::choice(p, "dist", {{"blocks::STROBE_EXPONENTIAL", blocks::STROBE_EXPONENTIAL}, {"blocks::STROBE_UNIFORM", blocks::STROBE_UNIFORM}, {"blocks::STROBE_GAUSSIAN", blocks::STROBE_GAUSSIAN}, {"blocks::STROBE_POISSON", blocks::STROBE_POISSON}}, blocks::STROBE_EXPONENTIAL), wasm_registry::number<double>(p, "mean", 1000.0), wasm_registry::number<double>(p, "std", 100.0));
+        return { block, nullptr };
     });
     registry.emplace("blocks_min_xx", [](const nlohmann::json& p) -> BuiltBlock {
         if (wasm_registry::text(p, "type", "float") == "float") {
@@ -1500,6 +1511,29 @@ void register_generated_blocks(std::map<std::string, Factory>& registry)
         }
         throw std::runtime_error("unsupported type selection for blocks_tagged_stream_mux");
     });
+    registry.emplace("blocks_tags_strobe", [](const nlohmann::json& p) -> BuiltBlock {
+        if (wasm_registry::text(p, "type", "complex") == "complex") {
+            auto block = blocks::tags_strobe::make(sizeof(gr_complex)*wasm_registry::number<int>(p, "vlen", 1), wasm_registry::pmt_value(p, "value", "pmt.intern(\"TEST\")"), wasm_registry::number<int>(p, "nsamps", 1000), wasm_registry::pmt_value(p, "key", "pmt.intern(\"strobe\")"));
+            return { block, nullptr };
+        }
+        else if (wasm_registry::text(p, "type", "complex") == "float") {
+            auto block = blocks::tags_strobe::make(sizeof(float)*wasm_registry::number<int>(p, "vlen", 1), wasm_registry::pmt_value(p, "value", "pmt.intern(\"TEST\")"), wasm_registry::number<int>(p, "nsamps", 1000), wasm_registry::pmt_value(p, "key", "pmt.intern(\"strobe\")"));
+            return { block, nullptr };
+        }
+        else if (wasm_registry::text(p, "type", "complex") == "int") {
+            auto block = blocks::tags_strobe::make(sizeof(int)*wasm_registry::number<int>(p, "vlen", 1), wasm_registry::pmt_value(p, "value", "pmt.intern(\"TEST\")"), wasm_registry::number<int>(p, "nsamps", 1000), wasm_registry::pmt_value(p, "key", "pmt.intern(\"strobe\")"));
+            return { block, nullptr };
+        }
+        else if (wasm_registry::text(p, "type", "complex") == "short") {
+            auto block = blocks::tags_strobe::make(sizeof(short)*wasm_registry::number<int>(p, "vlen", 1), wasm_registry::pmt_value(p, "value", "pmt.intern(\"TEST\")"), wasm_registry::number<int>(p, "nsamps", 1000), wasm_registry::pmt_value(p, "key", "pmt.intern(\"strobe\")"));
+            return { block, nullptr };
+        }
+        else if (wasm_registry::text(p, "type", "complex") == "byte") {
+            auto block = blocks::tags_strobe::make(sizeof(char)*wasm_registry::number<int>(p, "vlen", 1), wasm_registry::pmt_value(p, "value", "pmt.intern(\"TEST\")"), wasm_registry::number<int>(p, "nsamps", 1000), wasm_registry::pmt_value(p, "key", "pmt.intern(\"strobe\")"));
+            return { block, nullptr };
+        }
+        throw std::runtime_error("unsupported type selection for blocks_tags_strobe");
+    });
     registry.emplace("blocks_test_tag_variable_rate_ff", [](const nlohmann::json& p) -> BuiltBlock {
         auto block = blocks::test_tag_variable_rate_ff::make(wasm_registry::choice(p, "once", {{"True", true}, {"False", false}}, false), wasm_registry::number<double>(p, "step", 0.001));
         return { block, nullptr };
@@ -1614,23 +1648,23 @@ void register_generated_blocks(std::map<std::string, Factory>& registry)
     });
     registry.emplace("blocks_vector_source_x", [](const nlohmann::json& p) -> BuiltBlock {
         if (wasm_registry::text(p, "type", "complex") == "complex") {
-            auto block = blocks::vector_source_c::make(wasm_registry::vector<gr_complex>(p, "vector"), wasm_registry::choice(p, "repeat", {{"True", true}, {"False", false}}, true), wasm_registry::number<int>(p, "vlen", 1), std::vector<gr::tag_t>{});
+            auto block = blocks::vector_source_c::make(wasm_registry::vector<gr_complex>(p, "vector"), wasm_registry::choice(p, "repeat", {{"True", true}, {"False", false}}, true), wasm_registry::number<int>(p, "vlen", 1), wasm_registry::tag_objects(p, "tags"));
             return { block, nullptr };
         }
         else if (wasm_registry::text(p, "type", "complex") == "float") {
-            auto block = blocks::vector_source_f::make(wasm_registry::vector<float>(p, "vector"), wasm_registry::choice(p, "repeat", {{"True", true}, {"False", false}}, true), wasm_registry::number<int>(p, "vlen", 1), std::vector<gr::tag_t>{});
+            auto block = blocks::vector_source_f::make(wasm_registry::vector<float>(p, "vector"), wasm_registry::choice(p, "repeat", {{"True", true}, {"False", false}}, true), wasm_registry::number<int>(p, "vlen", 1), wasm_registry::tag_objects(p, "tags"));
             return { block, nullptr };
         }
         else if (wasm_registry::text(p, "type", "complex") == "int") {
-            auto block = blocks::vector_source_i::make(wasm_registry::vector<std::int32_t>(p, "vector"), wasm_registry::choice(p, "repeat", {{"True", true}, {"False", false}}, true), wasm_registry::number<int>(p, "vlen", 1), std::vector<gr::tag_t>{});
+            auto block = blocks::vector_source_i::make(wasm_registry::vector<std::int32_t>(p, "vector"), wasm_registry::choice(p, "repeat", {{"True", true}, {"False", false}}, true), wasm_registry::number<int>(p, "vlen", 1), wasm_registry::tag_objects(p, "tags"));
             return { block, nullptr };
         }
         else if (wasm_registry::text(p, "type", "complex") == "short") {
-            auto block = blocks::vector_source_s::make(wasm_registry::vector<std::int16_t>(p, "vector"), wasm_registry::choice(p, "repeat", {{"True", true}, {"False", false}}, true), wasm_registry::number<int>(p, "vlen", 1), std::vector<gr::tag_t>{});
+            auto block = blocks::vector_source_s::make(wasm_registry::vector<std::int16_t>(p, "vector"), wasm_registry::choice(p, "repeat", {{"True", true}, {"False", false}}, true), wasm_registry::number<int>(p, "vlen", 1), wasm_registry::tag_objects(p, "tags"));
             return { block, nullptr };
         }
         else if (wasm_registry::text(p, "type", "complex") == "byte") {
-            auto block = blocks::vector_source_b::make(wasm_registry::vector<std::uint8_t>(p, "vector"), wasm_registry::choice(p, "repeat", {{"True", true}, {"False", false}}, true), wasm_registry::number<int>(p, "vlen", 1), std::vector<gr::tag_t>{});
+            auto block = blocks::vector_source_b::make(wasm_registry::vector<std::uint8_t>(p, "vector"), wasm_registry::choice(p, "repeat", {{"True", true}, {"False", false}}, true), wasm_registry::number<int>(p, "vlen", 1), wasm_registry::tag_objects(p, "tags"));
             return { block, nullptr };
         }
         throw std::runtime_error("unsupported type selection for blocks_vector_source_x");

@@ -47,10 +47,16 @@ Supported keys, all optional except where an entry would otherwise do nothing:
     The GRC C++ template mapping the factory generator renders.
 ``parameter_dtypes`` / ``parameter_defaults`` / ``parameter_labels``
     Retype, re-default or relabel one parameter by id.  Retyping is used where
-    upstream's dtype is ``raw`` holding an expression the generator cannot type
-    (a ``pmt.intern(...)`` call becomes a plain ``string`` the template wraps
-    itself).  Relabelling is for a parameter the browser build gives a different
-    meaning: gr-paint's Image File Source names a URL, not a local file.
+    upstream's dtype is ``raw`` holding an expression the generator cannot type:
+    a symbol-only parameter becomes a plain ``string`` the template wraps in
+    ``pmt::intern`` itself, and one holding any PMT becomes ``pmt``, a
+    browser-only dtype the generator renders as
+    ``wasm_registry::pmt_value()`` -- which parses the Python constructor call
+    (``pmt.intern("TEST")``, ``pmt.cons(...)``) that GRC would have evaluated.
+    Keeping the value in its Python spelling is what lets the .grc round-trip to
+    native GRC unchanged.  Relabelling is for a parameter the browser build gives
+    a different meaning: gr-paint's Image File Source names a URL, not a local
+    file.
 ``prune_options``
     Drop enum options the WASM build cannot name -- an enumerator absent from the
     vendored C++ enum fails the side-module compile.  Takes option *values* and

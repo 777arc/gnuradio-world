@@ -1,0 +1,141 @@
+options:
+    parameters:
+        id: wasm_pmt_blocks
+        title: WASM PMT message, tag and Tag Object blocks
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: tag0
+    id: variable_tag_object
+    parameters:
+        offset: '0'
+        key: pmt.intern("burst")
+        value: pmt.from_long(42)
+        src: pmt.intern("vector_src")
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: vector_src
+    id: blocks_vector_source_x
+    parameters:
+        type: byte
+        vector: '[7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26]'
+        tags: '[tag0]'
+        repeat: 'True'
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: vector_throttle
+    id: blocks_throttle2
+    parameters:
+        type: byte
+        samples_per_second: '200'
+        vlen: '1'
+        ignoretag: 'True'
+        limit: time
+        maximum: '0.1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: vector_tag_debug
+    id: blocks_tag_debug
+    parameters:
+        type: byte
+        name: vector_source_tags
+        filter: '""'
+        num_inputs: '1'
+        vlen: '1'
+        display: 'True'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: tags_strobe
+    id: blocks_tags_strobe
+    parameters:
+        type: float
+        value: pmt.from_double(2.5)
+        key: pmt.intern("strobe_key")
+        nsamps: '1000'
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: strobe_throttle
+    id: blocks_throttle2
+    parameters:
+        type: float
+        samples_per_second: '8000'
+        vlen: '1'
+        ignoretag: 'True'
+        limit: time
+        maximum: '0.1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: strobe_tag_debug
+    id: blocks_tag_debug
+    parameters:
+        type: float
+        name: tags_strobe_tags
+        filter: '""'
+        num_inputs: '1'
+        vlen: '1'
+        display: 'True'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: message_strobe
+    id: blocks_message_strobe
+    parameters:
+        msg: pmt.cons(pmt.intern("payload"), pmt.init_u8vector(4, [11, 22, 33, 44]))
+        period: '200'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: message_strobe_random
+    id: blocks_message_strobe_random
+    parameters:
+        msg: pmt.intern("RANDOM_STROBE")
+        dist: blocks.STROBE_GAUSSIAN
+        mean: '200'
+        std: '50'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: message_debug
+    id: blocks_message_debug
+    parameters:
+        en_uvec: 'True'
+        log_level: info
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+connections:
+- [vector_src, '0', vector_throttle, '0']
+- [vector_throttle, '0', vector_tag_debug, '0']
+- [tags_strobe, '0', strobe_throttle, '0']
+- [strobe_throttle, '0', strobe_tag_debug, '0']
+-   src_blk_id: message_strobe
+    src_port_id: strobe
+    snk_blk_id: message_debug
+    snk_port_id: print
+-   src_blk_id: message_strobe_random
+    src_port_id: strobe
+    snk_blk_id: message_debug
+    snk_port_id: print
+metadata:
+    file_format: 2
+    grc_version: 3.10.9.2
