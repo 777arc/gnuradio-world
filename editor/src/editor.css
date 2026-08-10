@@ -328,6 +328,14 @@ svg text { user-select:none; -webkit-user-select:none; -moz-user-select:none; }
 .blk.invalid rect.body { fill:#fff0f0; stroke:#d1242f; stroke-width:2; }
 .blk.invalid text.title { fill:#a40e26 !important; }
 .blk text.title { fill:#000; font-size:18px; font-weight:700; font-family:'DejaVu Sans',Verdana,sans-serif; }
+/* The Embedded Python Block's subtitle: smaller and grey, so it reads as a note
+   about the block rather than part of its name. SUBTITLE_FONT_SIZE in main.ts is
+   what the width is measured against, and has to match. */
+.blk text.subtitle { fill:#5a5a5a; font-size:12px;
+    font-family:'DejaVu Sans',Verdana,sans-serif; }
+.blk.invalid text.subtitle { fill:#a40e26; }
+.blk.disabled text.subtitle { fill:#9a9a9a; }
+.blk.bypassed text.subtitle { fill:#7a5c12; }
 .blk text.param { fill:#111; font-size:16px; font-family:'DejaVu Sans',Verdana,sans-serif; }
 .blk .plabel { font-weight:700; }
 .blk text.pval { fill:#1a63c4; }
@@ -396,7 +404,30 @@ svg text { user-select:none; -webkit-user-select:none; -moz-user-select:none; }
 .dlgrow:has(textarea) { align-items:start; }
 .dlgrow:has(textarea) label { padding-top:8px; }
 .dlgrow textarea { display:block; resize:vertical; font-family:inherit; line-height:1.4; }
+/* `display:block` above is an author rule, so it beats the UA's [hidden] one and
+   the Code textarea would stay visible under the code editor mounted over it. */
+.dlgrow textarea[hidden] { display:none; }
 .field-control { min-width:0; }
+/* The Embedded Python Block's Code field is a program, not a value: it gets the
+   full width of a wider dialog, its own monospace box, and the label above it
+   rather than beside it. */
+.modal.props .dlg-code { width:min(1080px,96vw); }
+.dlg-code .dlgrow:has(.code-field) { grid-template-columns:1fr; gap:6px; }
+.dlg-code .dlgrow:has(.code-field) label { text-align:left; padding-top:0; }
+.code-field { display:grid; gap:8px; min-width:0; }
+.dlgrow textarea.code-editor { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:14px; line-height:1.45; tab-size:4; white-space:pre; overflow:auto;
+    resize:vertical; min-height:220px; }
+/* CodeMirror, mounted over that textarea once its chunk arrives
+   (editor/src/code-editor.ts). The box is styled here, everything inside it by
+   the theme in that module; both track the dialog's own input styling. */
+.code-cm { border:1px solid #3a4366; border-radius:5px; overflow:hidden;
+    height:min(56vh,520px); min-height:220px; resize:vertical; }
+.code-cm.cm-focused { outline:none; border-color:#58a6ff; }
+.code-controls { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.code-controls button { padding:7px 12px; white-space:nowrap; }
+.code-status { color:#9aa7c6; font-size:14px; min-width:0; overflow-wrap:anywhere; }
+.code-status.code-error { color:#ff9a9a; white-space:pre-wrap; }
 .file-picker { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:7px; align-items:center; }
 .file-picker button { padding:7px 12px; white-space:nowrap; }
 .file-picker-native { display:none !important; }

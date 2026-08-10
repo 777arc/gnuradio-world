@@ -55,6 +55,10 @@ import {
   type ExampleDirectory,
 } from './example-catalog';
 import { installGeneratedBlocks, numericOrExpression, portOptional } from './block-library';
+import {
+  EPY_BLOCK_ID, EPY_CODE_DTYPE, EPY_IO_CACHE_PARAM, EPY_SOURCE_PARAM, epyDefForCache,
+  epySourceError, isForeignIoCache, pythonRuntime, setEpySourceError,
+} from './epy';
 import { showDebugInfo } from './debug-panel';
 import { isBenchmarkFrameSource, showBenchmarkDialog } from './benchmark';
 
@@ -96,6 +100,8 @@ let paletteSearch: HTMLInputElement | null = null;
 // exception to native, which shows the flowgraph id there: this editor derives
 // that id from the Title instead, so the block has no ID to show or edit and
 // the override must not conjure one.
+// Keyed by block id rather than through defFor(): show_id is a property of the
+// block *type*, and a Python Block's synthesized definition inherits it unchanged.
 function blockIdVisible(inst: Inst): boolean {
   if (inst.id === OPTIONS_ID) return false;
   return showAllBlockIds || !!RUNNABLE[inst.id]?.showId;
@@ -190,6 +196,16 @@ const TITLE_H = 26, ROW_H = 20, PAD = 8, PORT_H = 17;
 // Baselines within the title bar and within a parameter row: PAD under the top
 // edge for the title, and the row's own text sitting on the same rhythm.
 const TITLE_BASELINE = 21, ROW_BASELINE = 15;
+// A subtitle under the title, which only the Embedded Python Block has: its name,
+// parameters and ports come from source the user wrote, and no other block on the
+// canvas works that way, so the face says which language that source is in. Size
+// and colour are what set it apart from the title; SUBTITLE_GAP is deliberately
+// tight — a subtitle rather than a second line of the name — and SUBTITLE_H is
+// the height it adds to the title bar, chosen so the
+// commonest Python Block (one parameter, one port a side) comes out exactly as
+// tall as it did without one: the line fits in slack the block already had.
+const SUBTITLE_FONT_SIZE = 12, SUBTITLE_H = 12, SUBTITLE_GAP = 12;
+const subtitleFor = (inst: Inst) => inst.id === EPY_BLOCK_ID ? 'Python' : '';
 // Ports sit three grid cells apart, which is what gives a multi-port block room
 // to breathe between its tabs. Block heights stay rounded to *two* cells, not to
 // the pitch: that keeps the group's midpoint on the grid and, unlike rounding to
@@ -224,7 +240,7 @@ const BLOCK_MIN_W = 140;
 const BODY_SLACK = 14;
 // Rows sit centered in the body: the height is rounded up to the port pitch, and
 // giving that slack to the bottom alone left the text visibly high in the block.
-const rowsTop = (h: number, rows: number) => (h + TITLE_H - rows * ROW_H) / 2;
+const rowsTop = (h: number, rows: number, headH = TITLE_H) => (h + headH - rows * ROW_H) / 2;
 
 function templateScope(params: Record<string, any>): Scope {
   const scope: Scope = { ...varScope };
@@ -273,8 +289,22 @@ function templateMultiplicity(raw: any, params: Record<string, any>): number {
   return Number.isFinite(number) && number >= 1 ? Math.trunc(number) : 1;
 }
 
+// A block's definition. For everything but the Embedded Python Block this is the
+// schema RUNNABLE holds for its block id; a Python Block's parameters and ports
+// come from its own source instead, so the definition is synthesized per instance
+// from the interface cached in its `_io_cache` parameter (see editor/src/epy.ts).
+//
+// Every consumer that reads a definition *for an instance* goes through here.
+// The id-keyed lookups that remain -- the palette, RUNNABLE[OPTIONS_ID] -- are
+// asking a different question and are right to stay as they are.
+function defFor(inst: Inst): RunnableDef {
+  const base = RUNNABLE[inst.id];
+  if (inst.id !== EPY_BLOCK_ID || !base) return base;
+  return epyDefForCache(base, inst.params[EPY_IO_CACHE_PARAM]);
+}
+
 function resolvedPorts(inst: Inst, kind: 'in' | 'out'): ResolvedPort[] | null {
-  const d = RUNNABLE[inst.id];
+  const d = defFor(inst);
   const templates = kind === 'in' ? d.inputTemplates : d.outputTemplates;
   if (!templates) return null;
   const result: ResolvedPort[] = [];
@@ -305,7 +335,7 @@ function resolvedPorts(inst: Inst, kind: 'in' | 'out'): ResolvedPort[] | null {
 }
 
 function legacyPortCount(inst: Inst, kind: 'in' | 'out'): number {
-  const d = RUNNABLE[inst.id];
+  const d = defFor(inst);
   const key = kind === 'in'
     ? (d.params.some(p => p.id === 'num_inputs') ? 'num_inputs' :
        d.params.some(p => p.id === 'nconnections') && d.inputs ? 'nconnections' : '')
@@ -319,7 +349,7 @@ function legacyPortCount(inst: Inst, kind: 'in' | 'out'): number {
 function portMeta(inst: Inst, kind: 'in' | 'out', i: number): ResolvedPort {
   const dynamic = resolvedPorts(inst, kind);
   if (dynamic?.[i]) return dynamic[i];
-  const d = RUNNABLE[inst.id];
+  const d = defFor(inst);
   const domains = kind === 'in' ? d.inDomains : d.outDomains;
   const types = kind === 'in' ? d.inTypes : d.outTypes;
   const ids = kind === 'in' ? d.inIds : d.outIds;
@@ -346,7 +376,8 @@ function visiblePortIndices(inst: Inst, kind: 'in' | 'out'): number[] {
 }
 
 function remapConnectionsForPortChange(inst: Inst, nextParams: Record<string, any>) {
-  if (!RUNNABLE[inst.id].inputTemplates && !RUNNABLE[inst.id].outputTemplates) return;
+  const def = defFor(inst);
+  if (!def.inputTemplates && !def.outputTemplates) return;
   const next = { ...inst, params: nextParams };
   const portKey = (port: ResolvedPort) =>
     port.domain === 'stream' ? `stream:${port.streamIndex}` : `message:${port.id}`;
@@ -375,7 +406,7 @@ function remapConnectionsForPortChange(inst: Inst, nextParams: Record<string, an
 // A port's dtype: explicit per-port (converters), else the block's `type` param
 // (complex/float), else its fixed `dtype`, else complex.
 function portType(inst: Inst, kind: 'in' | 'out', i: number): string {
-  const d = RUNNABLE[inst.id];
+  const d = defFor(inst);
   const meta = portMeta(inst, kind, i);
   if (meta.domain === 'message') return 'message';
   if (meta.dtype) {
@@ -407,7 +438,7 @@ const portColor = (inst: Inst, kind: 'in' | 'out', i: number) =>
   DTYPE_COLOR[portType(inst, kind, i)] || '#2196F3';
 
 function portLabel(inst: Inst, kind: 'in' | 'out', i: number): string {
-  const d = RUNNABLE[inst.id];
+  const d = defFor(inst);
   if (kind === 'in' ? d.inputTemplates : d.outputTemplates)
     return portMeta(inst, kind, i).name;
   const labels = kind === 'in' ? d.inLabels : d.outLabels;
@@ -490,7 +521,22 @@ function wrapValidationMessage(message: string, maxCharacters: number): string[]
 }
 
 function validateGraph(blocks: Inst[] = insts, connections: Conn[] = conns): ValidationIssue[] {
-  return validateFlowgraph(blocks, connections, { portCount, portMeta, portType });
+  const issues = validateFlowgraph(blocks, connections,
+                                   { portCount, portMeta, portType, def: defFor });
+  // A Python Block whose source could not be read is invalid, the way it is in
+  // native GRC (embedded_python.py attaches `_epy_reload_error` to the Code
+  // parameter). The rule lives here rather than in validation.ts because the
+  // error comes from having *run* the source, not from anything in the .grc.
+  for (const block of blocks) {
+    if (block.id !== EPY_BLOCK_ID) continue;
+    const message = epySourceError(block.uid);
+    // Blocking only while the block is active, as validation.ts treats every
+    // other issue: a disabled Python Block with broken code cannot break a run.
+    if (message)
+      issues.push({ uid: block.uid, field: EPY_SOURCE_PARAM, message,
+                    blocking: block.enabled && !block.bypassed });
+  }
+  return issues;
 }
 
 function fieldIssue(issues: ValidationIssue[], uid: string, field: string): string {
@@ -552,14 +598,14 @@ function noteGeom(inst: Inst, d: RunnableDef) {
   let w = textW(d.label, TITLE_FONT_SIZE, true);
   for (const line of lines) w = Math.max(w, textW(line, NOTE_FONT_SIZE));
   return {
-    d, rows,
+    d, rows, subtitle: '', headH: TITLE_H,
     h: TITLE_H + Math.max(rows.length * ROW_H, ROW_H) + BODY_SLACK,
     w: Math.max(BLOCK_MIN_W, Math.ceil(w) + TEXT_PAD_L + TEXT_PAD_R),
   };
 }
 
 function geom(inst: Inst) {
-  const d = RUNNABLE[inst.id];
+  const d = defFor(inst);
   if (inst.id === NOTE_ID) return noteGeom(inst, d);
   // Categorized parameters belong in the modal notebook. Native GRC also keeps
   // parameters marked `hide: part` or `hide: all` off the block face.
@@ -586,12 +632,15 @@ function geom(inst: Inst) {
   const bodyH = Math.max(rows.length * ROW_H + PAD, nports * PORT_PITCH + PAD, ROW_H);
   // Two grid cells keep the centered port group's midpoint on the grid. Width is
   // one-cell aligned so right-edge ports align as well.
-  const h = ceilToGrid(TITLE_H + bodyH, BLOCK_H_STEP);
-  let w = textW(d.label, TITLE_FONT_SIZE, true);
+  const subtitle = subtitleFor(inst);
+  const headH = TITLE_H + (subtitle ? SUBTITLE_H : 0);
+  const h = ceilToGrid(headH + bodyH, BLOCK_H_STEP);
+  let w = Math.max(textW(d.label, TITLE_FONT_SIZE, true),
+                   textW(subtitle, SUBTITLE_FONT_SIZE));
   for (const r of rows)
     w = Math.max(w, textW(r.l, PARAM_FONT_SIZE, true) + textW(r.v, PARAM_FONT_SIZE));
   w = ceilToGrid(Math.max(BLOCK_MIN_W, Math.ceil(w) + TEXT_PAD_L + TEXT_PAD_R));
-  return { d, rows, h, w };
+  return { d, rows, h, w, subtitle, headH };
 }
 type Edge = 'L' | 'R' | 'T' | 'B';
 // Port position (relative to the block) + which edge it sits on, honouring rotation.
@@ -831,7 +880,7 @@ function autoArrangeBlocks() {
 function cycleBlockType(direction: number) {
   const blocks = selectedInsts(); let changed = false;
   for (const block of blocks) {
-    const param = RUNNABLE[block.id].params.find(p => p.id === 'type' && p.options?.length);
+    const param = defFor(block).params.find(p => p.id === 'type' && p.options?.length);
     if (!param?.options?.length) continue;
     const current = param.options.indexOf(String(block.params.type));
     block.params.type = param.options[(current + direction + param.options.length) % param.options.length];
@@ -843,7 +892,7 @@ function changePortCount(delta: number) {
   const candidates = ['nconnections', 'num_inputs', 'num_outputs', 'nports'];
   const blocks = selectedInsts(); let changed = false;
   for (const block of blocks) {
-    const key = candidates.find(id => RUNNABLE[block.id].params.some(p => p.id === id));
+    const key = candidates.find(id => defFor(block).params.some(p => p.id === id));
     if (!key) continue;
     const nextParams = { ...block.params,
       [key]: Math.max(1, Math.trunc(Number(block.params[key]) || 1) + delta) };
@@ -1005,7 +1054,7 @@ const EVALUATED_DTYPES = new Set([
 ]);
 
 function resolveParamsForRun(inst: Inst, scope: Scope): Record<string, any> {
-  const def = RUNNABLE[inst.id];
+  const def = defFor(inst);
   const out: Record<string, any> = { ...inst.params };
   if (!def) return out;
   for (const p of def.params) {
@@ -1131,7 +1180,7 @@ function portIndex(inst: Inst, kind: 'in' | 'out', token: string): number {
     const idx = ports.findIndex(port => port.id === token);
     return idx >= 0 ? idx : 0;
   }
-  const def = RUNNABLE[inst.id];
+  const def = defFor(inst);
   const num = Number(token);
   if (Number.isInteger(num) && String(num) === token.trim()) {
     const arr = kind === 'in' ? def?.inStreamIndices : def?.outStreamIndices;
@@ -1162,8 +1211,20 @@ function loadFlowgraph(doc: any) {
 
   const nameToUid = new Map<string, string>();
   doc.blocks.forEach((b: any, index: number) => {
-    const def = RUNNABLE[b.id];
+    // A Python Block's parameters are whatever its source declares, so its
+    // definition has to be built from the file's own cached interface before its
+    // values can be imported -- importParams keeps only what the definition
+    // declares, and the derived parameters would otherwise be dropped.
+    const def = b.id === EPY_BLOCK_ID && RUNNABLE[EPY_BLOCK_ID]
+      ? epyDefForCache(RUNNABLE[EPY_BLOCK_ID], b.parameters?.[EPY_IO_CACHE_PARAM])
+      : RUNNABLE[b.id];
     if (!def) { log(`skipped unsupported block "${b.id}"`); return; }
+    // Written by desktop GRC as a Python tuple repr under `states`, which this
+    // editor cannot read. Say so once rather than silently showing no ports.
+    if (b.id === EPY_BLOCK_ID && !b.parameters?.[EPY_IO_CACHE_PARAM] &&
+        isForeignIoCache(b.states?.[EPY_IO_CACHE_PARAM]))
+      log(`"${b.name}": Python Block written by desktop GRC — open its Properties ` +
+          `and load Python to read its ports and parameters`);
     const coord = Array.isArray(b.states?.coordinate) ? b.states.coordinate
       : [60 + (index % 4) * 190, 60 + Math.floor(index / 4) * 130];
     const flags = stateToFlags(b.states?.state);
@@ -1502,8 +1563,14 @@ document.addEventListener('keydown', e => {
   if (ctrl && key === 'e') { consume(e); showVariableEditor(); return; }
   if (ctrl && key === 'r') { consume(e); toggleConsole(); return; }
   if (ctrl && key === 'b') { consume(e); togglePalette(); return; }
-  const active = document.activeElement;
-  if (active && ['INPUT', 'SELECT', 'TEXTAREA'].includes(active.tagName)) return;
+  // Everything below is a bare-key shortcut, so anything the user is typing into
+  // keeps them. A code editor is the case a tag list alone misses: CodeMirror's
+  // editable surface is a contenteditable <div>, not a form control, so without
+  // isContentEditable, typing `d` into the Embedded Python Block's source
+  // disabled the block instead.
+  const active = document.activeElement as HTMLElement | null;
+  if (active && (['INPUT', 'SELECT', 'TEXTAREA'].includes(active.tagName) ||
+                 active.isContentEditable)) return;
 
   if (ctrl && key === 'z') { consume(e); e.shiftKey ? redo() : undo(); }
   else if (ctrl && key === 'y') { consume(e); redo(); }
@@ -1540,7 +1607,7 @@ document.addEventListener('keydown', e => {
 // ---- block Properties dialog (GRC-style modal) ----
 function showPropsDialog(inst: Inst) {
   closeMenu();
-  const d = RUNNABLE[inst.id]; if (!d) return;
+  const d = defFor(inst); if (!d) return;
   const tmp: { name: string; params: Record<string, any>; localFileToken?: string } = {
     name: inst.name,
     params: { ...inst.params },
@@ -1549,12 +1616,13 @@ function showPropsDialog(inst: Inst) {
 
   const overlay = document.createElement('div'); overlay.className = 'modal props';
   const dlg = document.createElement('div'); dlg.className = 'dlg';
+  if (inst.id === EPY_BLOCK_ID) dlg.classList.add('dlg-code');
   const head = document.createElement('div'); head.className = 'dlghead withclose';
   const headTitle = document.createElement('span'); headTitle.textContent = 'Properties: ' + d.label;
   const headClose = document.createElement('button'); headClose.className = 'dlgclose';
   headClose.type = 'button'; headClose.title = 'Close'; headClose.setAttribute('aria-label', 'Close');
   headClose.textContent = '×';
-  headClose.onclick = () => overlay.remove();
+  headClose.onclick = () => closeDialog();
   head.append(headTitle, headClose);
   const tabBar = document.createElement('div'); tabBar.className = 'dlgtabs'; tabBar.setAttribute('role', 'tablist');
   const body = document.createElement('div'); body.className = 'dlgbody';
@@ -1571,6 +1639,17 @@ function showPropsDialog(inst: Inst) {
   const conditionalRows: { param: ParamDef; row: HTMLElement }[] = [];
   let refreshValidation = () => {};
   let refreshVisibility = () => {};
+  // The Embedded Python Block's Code field, when this dialog has one: `pending`
+  // is true while the source has been edited but not re-read by Python, which is
+  // what blocks Apply/OK. `dispose` tears the code editor down with the dialog.
+  // See the code-editor branch below.
+  const code: {
+    pending: boolean; busy: boolean; message: string;
+    refresh: () => void; dispose: () => void;
+  } = { pending: false, busy: false, message: '', refresh: () => {}, dispose: () => {} };
+  // Every way this dialog closes goes through here, so nothing leaks a mounted
+  // CodeMirror on a detached node.
+  const closeDialog = () => { code.dispose(); overlay.remove(); };
   const activateTab = (category: string) => {
     panels.forEach((panel, name) => panel.hidden = name !== category);
     tabs.forEach(tab => {
@@ -1645,6 +1724,9 @@ function showPropsDialog(inst: Inst) {
     nameI.oninput = () => { tmp.name = nameI.value.replace(/\s+/g, '_'); refreshValidation(); };
   }
   for (const p of d.params) {
+    // The derived-interface cache is written by the code reader, never by hand,
+    // and is a JSON blob the length of a paragraph. It has no field.
+    if (p.id === EPY_IO_CACHE_PARAM) continue;
     if (p.type === 'enum') {
       const s = document.createElement('select');
       (p.options || []).forEach((o, index) => {
@@ -1694,6 +1776,98 @@ function showPropsDialog(inst: Inst) {
       addField(p.category || 'General', `${p.label}  (${p.id})`, picker, p.id, inp);
       refreshDetail();
       if (p.showWhen) conditionalRows.push({ param: p, row: picker.closest('.dlgrow') as HTMLElement });
+    } else if (p.dtype === EPY_CODE_DTYPE) {
+      // The Embedded Python Block's source. Native GRC hands this parameter to an
+      // external editor and re-reads the block every time the file is saved
+      // (grc/gui_qt/external_editor.py); the browser equivalent is a code area
+      // plus an explicit re-read, because re-reading means running the source in
+      // Pyodide and Pyodide is a ~16 MB opt-in download.
+      const area = document.createElement('textarea');
+      area.className = 'code-editor'; area.rows = 22; area.spellcheck = false;
+      area.value = String(tmp.params[p.id]);
+      const committed = area.value;
+      area.onkeydown = event => {
+        // Tab indents instead of leaving the field: this is a Python editor, and
+        // an accidental dedent is a syntax error rather than a cosmetic slip.
+        // CodeMirror's own indentWithTab does the same once it has mounted.
+        if (event.key !== 'Tab' || event.shiftKey) return;
+        event.preventDefault();
+        const start = area.selectionStart, end = area.selectionEnd;
+        area.setRangeText('    ', start, end, 'end');
+        tmp.params[p.id] = area.value;
+      };
+      // Syntax highlighting, line numbers and Python indentation, fetched on
+      // demand and mirrored back into the textarea above -- which stays the
+      // field's value either way. See editor/src/code-editor.ts.
+      void import('./code-editor').then(({ mountCodeEditor }) => mountCodeEditor(area))
+        .then(handle => { code.dispose = () => handle?.destroy(); })
+        .catch(() => {});
+      const status = document.createElement('small'); status.className = 'code-status';
+      const reload = document.createElement('button');
+      reload.type = 'button'; reload.className = 'code-reload';
+      const readSource = async () => {
+        code.busy = true; code.message = ''; code.refresh();
+        try {
+          const io = await pythonRuntime.introspect(String(tmp.params[p.id]));
+          // Sorted keys, so re-reading identical code leaves the .grc byte
+          // for byte unchanged (and matches the default in epy_block.block.yml).
+          tmp.params[EPY_IO_CACHE_PARAM] = JSON.stringify(Object.fromEntries(
+            Object.keys(io).sort().map(key => [key, (io as any)[key]])));
+          setEpySourceError(inst.uid, '');
+          code.pending = false; code.busy = false; code.message = '';
+          // The parameter and port set has just changed, so the dialog it is
+          // drawn from is stale. Commit and reopen -- the same effect as native
+          // GRC rebuilding the block when the external editor saves.
+          apply();
+          closeDialog();
+          log(`${inst.name}: read "${io.label}" — ${io.params.length} parameter(s), ` +
+              `${io.sinks.length} input(s), ${io.sources.length} output(s)`);
+          showPropsDialog(inst);
+        } catch (error) {
+          code.busy = false;
+          code.message = String((error as Error).message || error);
+          setEpySourceError(inst.uid, code.message.split('\n').slice(-1)[0].trim() ||
+                            'the block\'s source could not be read');
+          code.refresh();
+          render();
+        }
+      };
+      reload.onclick = () => { void readSource(); };
+      area.oninput = () => {
+        tmp.params[p.id] = area.value;
+        code.pending = area.value !== committed;
+        code.refresh();
+        refreshValidation();
+      };
+      const field = document.createElement('div'); field.className = 'code-field';
+      const controlsRow = document.createElement('div'); controlsRow.className = 'code-controls';
+      controlsRow.append(reload, status);
+      field.append(area, controlsRow);
+      addField(p.category || 'General', p.label, field, p.id, area);
+      code.refresh = () => {
+        if (!overlay.isConnected && overlay.parentNode !== null) return;
+        const state = pythonRuntime.state;
+        reload.disabled = code.busy || state === 'loading';
+        reload.textContent = code.busy ? 'Reading…'
+          : state === 'loading' ? 'Starting Python…'
+          : state === 'ready' ? 'Re-read this block from its code'
+          : 'Load Python and read this block  (~16 MB)';
+        status.textContent = code.message
+          ? code.message.split('\n').slice(-1)[0].trim()
+          : code.pending
+            ? 'The code has changed. Read it to update this block’s parameters and ports.'
+            : state === 'ready' ? 'Python is loaded.'
+            : state === 'loading' ? 'Downloading and starting CPython…'
+            : 'Parameters and ports below are from the last time this code was read.';
+        status.classList.toggle('code-error', !!code.message);
+      };
+      code.refresh();
+      pythonRuntime.onchange = () => code.refresh();
+      // Already loaded it once in an earlier session? Then the opt-in has been
+      // given and re-asking is just a click in the way. Nothing is fetched for a
+      // user who has never loaded it.
+      if (pythonRuntime.consented && pythonRuntime.state === 'absent')
+        void pythonRuntime.load();
     } else {
       // Prose params (the Note block) get a textarea so the text can contain the
       // line breaks the block face honours; everything else stays a one-liner.
@@ -1734,9 +1908,24 @@ function showPropsDialog(inst: Inst) {
   const btn = (label: string, fn: () => void, cls = '') => {
     const b = document.createElement('button'); b.textContent = label; if (cls) b.className = cls; b.onclick = fn; return b;
   };
-  foot.appendChild(btn('Cancel', () => overlay.remove()));
-  foot.appendChild(btn('Apply', apply));
-  foot.appendChild(btn('OK', () => { apply(); overlay.remove(); }, 'run'));
+  foot.appendChild(btn('Cancel', () => closeDialog()));
+  const applyButton = btn('Apply', apply);
+  const okButton = btn('OK', () => { apply(); closeDialog(); }, 'run');
+  foot.append(applyButton, okButton);
+  if (inst.id === EPY_BLOCK_ID) {
+    // Committing edited code without re-reading it would leave the block's
+    // parameters and ports describing the *previous* source: the flowgraph would
+    // then be wired one way and built another, and only the runner would notice.
+    // So the code has to be read before it can be applied.
+    const refreshCode = code.refresh;
+    code.refresh = () => {
+      refreshCode();
+      applyButton.disabled = okButton.disabled = code.pending || code.busy;
+      applyButton.title = okButton.title = code.pending
+        ? 'Read the code first, so this block’s parameters and ports match it' : '';
+    };
+    code.refresh();
+  }
 
   activateTab('General');
   dlg.append(head, tabBar, body, foot); overlay.appendChild(dlg); document.body.appendChild(overlay);
@@ -1744,7 +1933,8 @@ function showPropsDialog(inst: Inst) {
   // on the backdrop must not discard them. Only OK/Cancel/× close it.
   refreshValidation();
   // The ID field when the block has one, otherwise its first real parameter.
-  const first = panels.get('General')!.querySelector('input, select, textarea') as HTMLElement | null;
+  const first = panels.get('General')!.querySelector(
+    'input:not([hidden]), select:not([hidden]), textarea:not([hidden])') as HTMLElement | null;
   first?.focus();
   if (first instanceof HTMLInputElement) first.select();
 }
@@ -1829,7 +2019,7 @@ function render() {
   // blocks
   for (const inst of insts) {
     if (hideDisabled && !inst.enabled) continue;
-    const { d, rows, h, w } = geom(inst);
+    const { d, rows, h, w, subtitle, headH } = geom(inst);
     const blockIssues = validation.filter(issue => issue.uid === inst.uid);
     const g = svgEl('g', { class: 'blk' + (selectedBlocks.has(inst.uid) ? ' sel' : '') +
       (inst.enabled ? '' : ' disabled') + (inst.bypassed ? ' bypassed' : '') +
@@ -1839,16 +2029,23 @@ function render() {
     g.appendChild(rect);
     // Native GRC has no title separator. With no face parameters, center the
     // title in the whole block instead of leaving it in an empty title row.
+    // With a subtitle it is the pair that gets centered, so the title rises by
+    // half the line the subtitle occupies.
+    const titleY = rows.length ? TITLE_BASELINE : h / 2 - (subtitle ? SUBTITLE_H / 2 : 0);
     const titleAttrs: Record<string, string> = {
-      class: 'title', x: String(w / 2), y: rows.length ? String(TITLE_BASELINE) : String(h / 2),
-      'text-anchor': 'middle',
+      class: 'title', x: String(w / 2), y: String(titleY), 'text-anchor': 'middle',
     };
     if (!rows.length) titleAttrs['dominant-baseline'] = 'central';
     const t = svgEl('text', titleAttrs);
     t.textContent = d.label; g.appendChild(t);
+    if (subtitle) {
+      const s = svgEl('text', { ...titleAttrs, class: 'subtitle',
+                                y: String(titleY + SUBTITLE_GAP) });
+      s.textContent = subtitle; g.appendChild(s);
+    }
     // parameter rows: "label: value"
     rows.forEach((r, i) => {
-      const y = rowsTop(h, rows.length) + i * ROW_H + ROW_BASELINE;
+      const y = rowsTop(h, rows.length, headH) + i * ROW_H + ROW_BASELINE;
       const tx = svgEl('text', { class: 'param' + (fieldIssue(blockIssues, inst.uid, r.id) ? ' invalid' : '') +
         (r.id === MORE_ROW_ID ? ' pmore' : ''), x: String(TEXT_PAD_L), y: String(y) });
       const l = document.createElementNS(SVGNS, 'tspan'); l.setAttribute('class', 'plabel'); l.textContent = r.l;
@@ -3149,6 +3346,10 @@ async function buildPalette() {
     LIB = await (await fetch(BLOCKS_URL).then(r => r.ok ? r : fetch('/editor/public/blocks.json'))).json();
     installGeneratedBlocks(LIB.blocks || []);
   } catch (e) { log('block library not loaded: ' + e); }
+  // Anything a Python Block prints while the editor reads it -- Pyodide's own
+  // progress, or a print() at the top of the user's source -- goes to the same
+  // console pane a running flowgraph's output goes to.
+  pythonRuntime.onprint = line => log(line);
   const draw = (q: string) => {
     tree.textContent = '';
     renderTree(buildTree(LIB.blocks), tree, 0, q);

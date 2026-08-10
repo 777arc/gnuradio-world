@@ -50,4 +50,12 @@ assert.doesNotMatch(source, /e\.key === 'F5'/);
 assert.doesNotMatch(source, /ctrl && key === 'f'/);
 assert.doesNotMatch(source, /e\.key === '\/'/);
 assert.match(html, /id="menus"/);
+// A bare-key shortcut must never fire while the user is typing. Form controls
+// were the whole of that until the Embedded Python Block's code field became
+// CodeMirror, whose editable surface is a contenteditable <div>: without the
+// second half of this test, typing `d` into a block's Python source disabled the
+// block.
+assert.match(source,
+  /\['INPUT', 'SELECT', 'TEXTAREA'\]\.includes\(active\.tagName\) \|\|\s*active\.isContentEditable\)\) return;/,
+  'bare-key shortcuts must yield to a focused code editor as well as to form fields');
 console.log(`checked ${Object.keys(bindings).length} native shortcut groups`);

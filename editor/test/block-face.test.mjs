@@ -37,7 +37,7 @@ assert.match(source,
   /const visible = visiblePortIndices\(inst, kind\);[\s\S]*?const slot = Math\.max\(0, visible\.indexOf\(i\)\);[\s\S]*?const vSlot = centeredPortSlot\(h, count, slot, PORT_PITCH\)/,
   'each input/output port group must be centered vertically on the block');
 assert.match(source,
-  /const h = ceilToGrid\(TITLE_H \+ bodyH, BLOCK_H_STEP\);[\s\S]*?w = ceilToGrid\(/,
+  /const h = ceilToGrid\(headH \+ bodyH, BLOCK_H_STEP\);[\s\S]*?w = ceilToGrid\(/,
   'block height and width must keep the port group centered on a grid coordinate');
 assert.match(source, /const PORT_PITCH = SNAP_GRID_SIZE \* 3;/,
   'ports sit three grid cells apart');
@@ -66,12 +66,31 @@ for (const id of ['title', 'author', 'description']) {
     new RegExp(`id: '${id}', label: '[^']+', type: 'string', def: '' }`),
     `Options ${id} must remain visible on the block face when empty`);
 }
-assert.match(source, /y: rows\.length \? String\(TITLE_BASELINE\) : String\(h \/ 2\)/,
+assert.match(source,
+  /const titleY = rows\.length \? TITLE_BASELINE : h \/ 2 - \(subtitle \? SUBTITLE_H \/ 2 : 0\)/,
   'a block without visible parameters must center its title vertically');
+// The Embedded Python Block is the only block whose name, parameters and ports
+// come from source the user wrote, so its face says which language that is. The
+// measured size and the drawn one are two declarations of one thing, as with the
+// title and parameter rows above.
+assert.match(source, /const subtitleFor = \(inst: Inst\) => inst\.id === EPY_BLOCK_ID \? 'Python' : ''/,
+  'the Python Block is the block that carries a subtitle');
+assert.match(source, /const headH = TITLE_H \+ \(subtitle \? SUBTITLE_H : 0\)/,
+  'a subtitle must lengthen the title bar, or it collides with the first parameter row');
+assert.match(source, /rowsTop\(h, rows\.length, headH\)/,
+  'parameter rows must be centered under the title bar the subtitle grew');
+assert.match(source, /textW\(subtitle, SUBTITLE_FONT_SIZE\)/,
+  'block width must account for the subtitle');
+assert.match(html, /\.blk text\.subtitle \{[^}]*font-size:12px/,
+  'the subtitle must be drawn at the size main.ts measures it at');
+assert.doesNotMatch(html, /\.blk text\.subtitle \{[^}]*font-style:italic/,
+  'the subtitle is set apart by size and colour, not by italics');
+assert.match(source, /const SUBTITLE_FONT_SIZE = 12, SUBTITLE_H = 12, SUBTITLE_GAP = 12;/,
+  'the subtitle must be measured at the size editor.css draws it at');
 assert.match(source,
   /if \(rows\.length > MAX_FACE_ROWS\) {[\s\S]*?rows\.length = MAX_FACE_ROWS - 1;[\s\S]*?more parameters/,
   'a face with more parameters than the cap must be cut and say how many it dropped');
-assert.match(source, /const y = rowsTop\(h, rows\.length\) \+ i \* ROW_H \+ ROW_BASELINE/,
+assert.match(source, /const y = rowsTop\(h, rows\.length, headH\) \+ i \* ROW_H \+ ROW_BASELINE/,
   'parameter rows must be centered in the body so top and bottom padding match');
 // dvbs2_bbheader_bb has 29 face parameters; without the cap it draws ~480px tall.
 {

@@ -30,11 +30,25 @@ inline std::string trim(const std::string& s)
 }
 
 // Strip an unquoted trailing "# comment" (only when preceded by whitespace).
+// A '#' *inside* a quoted scalar is content, not a comment: an Embedded Python
+// Block's source is one double-quoted scalar with the newlines escaped, so its
+// own `# ...` comments would otherwise truncate the value mid-string.
 inline std::string strip_comment(const std::string& s)
 {
-    for (std::size_t i = 0; i < s.size(); ++i)
-        if (s[i] == '#' && (i == 0 || s[i - 1] == ' ' || s[i - 1] == '\t'))
+    char quote = 0;
+    for (std::size_t i = 0; i < s.size(); ++i) {
+        char c = s[i];
+        if (quote == '"') {
+            if (c == '\\') ++i;              // skip the escaped character
+            else if (c == '"') quote = 0;
+        } else if (quote == '\'') {
+            if (c == '\'') quote = 0;        // a doubled '' re-opens on the next char
+        } else if (c == '\'' || c == '"') {
+            quote = c;
+        } else if (c == '#' && (i == 0 || s[i - 1] == ' ' || s[i - 1] == '\t')) {
             return trim(s.substr(0, i));
+        }
+    }
     return s;
 }
 

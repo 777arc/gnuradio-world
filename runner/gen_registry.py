@@ -73,6 +73,12 @@ OBJECT_PARAMETERS = {
 # Custom WASM factories provide widgets, live callbacks, or a browser-safe
 # implementation.  Do not emit duplicate generated code for them.
 CUSTOM_IDS = {
+    # The Embedded Python Block. Upstream it has no .block.yml at all -- it is a
+    # GRC built-in whose parameters and ports come from introspecting the user's
+    # source -- so blocks/grc/epy_block.block.yml carries the palette entry and
+    # the default code, and the interface is derived at edit and run time by
+    # Pyodide. See docs/embedded-python.md.
+    "epy_block",
     # Runner-only sinks, defined in blocks/grc (no upstream GNU Radio block).
     "wasm_packet_rate_sink",
     "wasm_text_sink",

@@ -182,9 +182,36 @@ inline json lower(const json& g) {
         blocksOut.push_back(std::move(nb));
     }
 
+    // The flowgraph's variables, by name. Every *parameter* above already has the
+    // plain ones inlined, so nothing in the block registry needs this; the
+    // Embedded Python Block does, because its parameter expressions are evaluated
+    // by Python rather than by the editor, and `samp_rate/2` is only meaningful
+    // with samp_rate in scope. See runner.cpp's Python prepare step.
+    //
+    // The live controls (QT GUI Range and friends) are here too, at their initial
+    // value, and deliberately *not* in plainVar: inlining them into every block's
+    // parameters would erase the very names run_now() matches to wire a control's
+    // setter to a parameter. A Python Block's parameter set to a Range's ID gets
+    // both -- Python evaluates the name to the starting value, and the Range then
+    // drives the block's callback exactly as it drives a C++ block's setter.
+    json variables = json::object();
+    for (const auto& [name, raw] : plainVar) {
+        std::set<std::string> seen;
+        variables[name] = resolveVar(name, seen);
+    }
+    for (const auto& b : blocks) {
+        const std::string id = b.value("id", std::string());
+        if (id.rfind("variable_qtgui_", 0) != 0) continue;
+        const std::string name = b.value("name", std::string());
+        if (name.empty() || !active(name) || !b.contains("parameters")) continue;
+        const json value = coerce_numeric(b["parameters"].value("value", std::string()));
+        if (!value.is_string()) variables[name] = value;
+    }
+
     json out = json::object();
     out["blocks"] = std::move(blocksOut);
     out["connections"] = std::move(connsOut);
+    out["variables"] = std::move(variables);
     return out;
 }
 

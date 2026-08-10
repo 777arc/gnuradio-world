@@ -8,6 +8,12 @@
 // Source also keeps the samples at zero, the one input that can never drag a
 // float path into denormal territory.
 //
+// One row is not C++ at all: the same filter written as an Embedded Python
+// Block over scipy.signal.fftconvolve, which is what makes the C++ numbers
+// mean something in the direction people actually ask about. It needs the
+// Python runtime, so those cells report the fetch failing on a build without
+// pyodide/ (deps/fetch-pyodide.sh) rather than dragging the rest down.
+//
 // The rate is end-to-end: samples the filter has produced divided by the time
 // the flowgraph has been running. Both numbers come from a single diagnostics
 // snapshot (window.__grstats, published ~3 Hz by the runner), whose `uptime_s`
@@ -28,32 +34,6 @@ export interface BenchmarkDeps {
 
 const TAP_COUNTS = [101, 1001, 10001];
 
-interface FilterCase {
-  key: string;
-  label: string;
-  id: string;
-  /** The .grc parameters for the device under test, at `taps` taps. */
-  params: (taps: number) => Record<string, string>;
-}
-
-// Both filters are complex in, complex out, real taps (`ccf`), decimation 1.
-// Tap *values* do not affect the cost of either, so they are short constants
-// that keep the URL small at 10001 taps.
-const FILTERS: FilterCase[] = [
-  {
-    key: 'fir', label: 'Null Source -> Decimating FIR Filter -> Null Sink', id: 'fir_filter_xxx',
-    params: taps => ({ type: 'ccf', decim: "'1'", taps: quoted(repeat('1e-4', taps)), samp_delay: "'0'" }),
-  },
-  {
-    key: 'fft', label: 'Null Source -> FFT Filter -> Null Sink', id: 'fft_filter_xxx',
-    params: taps => ({
-      type: 'ccf', decim: "'1'", taps: quoted(repeat('1e-4', taps)),
-      nthreads: "'1'", samp_delay: "'0'",
-    }),
-  },
-];
-
-const POLL_MS = 40;
 /**
  * How long a flowgraph must have been running before its counters are read.
  *
@@ -66,19 +46,109 @@ const POLL_MS = 40;
  * of it. Read too early and that case reports a rate 40x too low.
  *
  * Two seconds puts every case here within ~10-15% of where it settles, and one
- * value for all of them keeps the cells comparable with each other. It is also
- * most of what a run costs: nine cases, two seconds each.
+ * value for most of them keeps the cells comparable with each other. It is also
+ * most of what a run costs: two seconds a case, once each case is running —
+ * which is why the one row that is slow to *get* running (the Python Block,
+ * whose interpreter has to start first) halves it, through `runSeconds`.
+ *
+ * Declared before the cases because one of them reads it.
  */
 const MIN_RUN_SECONDS = 2;
+
+interface FilterCase {
+  key: string;
+  label: string;
+  id: string;
+  /** The .grc parameters for the device under test, at `taps` taps. */
+  params: (taps: number) => Record<string, string>;
+  /** Overrides MIN_RUN_SECONDS for this row; see the Python row below. */
+  runSeconds?: number;
+}
+
+/**
+ * The Embedded Python Block's row: the same FIR filter, convolved by scipy.
+ *
+ * It answers the question the other two rows raise on their own — what does it
+ * cost to write the filter in Python instead? — with everything else held
+ * fixed: same Null Source, same tap count, an FFT convolution either way. What
+ * differs is the whole Python path, and all of it is in the measurement: the
+ * hop to the Pyodide worker and back on every work() call, the copy of the
+ * input into Pyodide's separate WebAssembly memory and of the result back out
+ * (two memories cannot alias, so upstream's zero-copy view is not available
+ * here), and scipy's own FFT against gr-fft's.
+ *
+ * `set_history(ntaps)` is what makes `mode='valid'` yield exactly
+ * `noutput_items` samples: GNU Radio then hands work() the ntaps-1 samples of
+ * overlap the C++ FIR filters get from their own history. Taps are a constant
+ * for the same reason as above — their values cost nothing either way.
+ */
+const SCIPY_FIR_SOURCE = `import numpy as np
+from scipy.signal import fftconvolve
+from gnuradio import gr
+
+
+class blk(gr.sync_block):
+    """A FIR filter convolved by scipy, for comparison with the C++ filters"""
+
+    def __init__(self, ntaps=101):
+        gr.sync_block.__init__(self, name='scipy fftconvolve',
+                               in_sig=[np.complex64], out_sig=[np.complex64])
+        self.taps = np.full(ntaps, 1e-4, dtype=np.float32)
+        self.set_history(ntaps)
+
+    def work(self, input_items, output_items):
+        n = len(output_items[0])
+        output_items[0][:] = fftconvolve(input_items[0], self.taps, mode='valid')[:n]
+        return n
+`;
+
+// Every filter is complex in, complex out, real taps, decimation 1. Tap *values*
+// do not affect the cost of any of them, so they are short constants that keep
+// the URL small at 10001 taps.
+const FILTERS: FilterCase[] = [
+  {
+    key: 'fir', label: 'Null Source -> Decimating FIR Filter -> Null Sink', id: 'fir_filter_xxx',
+    params: taps => ({ type: 'ccf', decim: "'1'", taps: quoted(repeat('1e-4', taps)), samp_delay: "'0'" }),
+  },
+  {
+    key: 'fft', label: 'Null Source -> FFT Filter -> Null Sink', id: 'fft_filter_xxx',
+    params: taps => ({
+      type: 'ccf', decim: "'1'", taps: quoted(repeat('1e-4', taps)),
+      nthreads: "'1'", samp_delay: "'0'",
+    }),
+  },
+  {
+    key: 'scipy',
+    label: 'Null Source -> Python Block (scipy.signal.fftconvolve) -> Null Sink',
+    id: 'epy_block',
+    // JSON is a subset of YAML's double-quoted scalar, so stringify emits the
+    // source as the one escaped line the runner's YAML reader wants -- the same
+    // form the editor's own .grc writer produces for it.
+    params: taps => ({ _source_code: JSON.stringify(SCIPY_FIR_SOURCE), ntaps: quoted(String(taps)) }),
+    // Half the samples of the other rows: this is the slowest row to get
+    // through, and it is a three-block chain, which MIN_RUN_SECONDS says is
+    // within a few percent of its sustained rate well before a second.
+    runSeconds: MIN_RUN_SECONDS / 2,
+  },
+];
+
+const POLL_MS = 40;
 /** Nominal cost of one case, used to pace the progress bar (not a timeout). */
 const CASE_ESTIMATE_MS = 3200;
 /**
  * Ceiling on Qt + WASM startup plus the flowgraph producing its first samples.
  * Generous on purpose: the longest chain prewarms a 40-worker pool and takes
  * ~3.5s to first sample here, and a slower machine must not trip the timeout
- * and report a case that was merely still starting.
+ * and report a case that was merely still starting. The Python row raises the
+ * ceiling again — on a cold cache it fetches the interpreter and scipy, ~30 MB,
+ * before its flowgraph starts.
+ *
+ * That fetch does not distort the rates. Both come from the runner's own
+ * `uptime_s`, which starts at `tb->run()` — and the Python Block's interpreter
+ * is loaded before that, in the prepare step, because a block's io signature
+ * has to be known before GR can size its buffers.
  */
-const START_TIMEOUT_MS = 90000;
+const START_TIMEOUT_MS = 180000;
 
 const repeat = (value: string, count: number) => '[' + new Array(count).fill(value).join(',') + ']';
 const quoted = (value: string) => `'${value}'`;
@@ -126,7 +196,11 @@ function multiplyChainFlowgraph(count: number): string {
   return flowgraph(blocks, connections + `- [${upstream}, '0', snk, '0']\n`);
 }
 
-export interface BenchmarkCase { key: string; column: string; grc: string }
+export interface BenchmarkCase {
+  key: string; column: string; grc: string;
+  /** Seconds of flowgraph uptime to measure over; MIN_RUN_SECONDS if absent. */
+  runSeconds?: number;
+}
 export interface BenchmarkTable {
   /** `columnHeading` doubles as the group's label: it heads the first column. */
   key: string; columnHeading: string;
@@ -150,6 +224,7 @@ export function benchmarkTables(): BenchmarkTable[] {
           column: `${taps.toLocaleString()} taps`,
           grc: flowgraph(grcBlock('dut', filter.id, filter.params(taps)),
             "- [src, '0', dut, '0']\n- [dut, '0', snk, '0']\n"),
+          runSeconds: filter.runSeconds,
         })),
       })),
     },
@@ -269,8 +344,9 @@ async function measureCase(
 
   // Halfway is late enough to be past the fill: even the longest chain here has
   // its last block producing within ~0.3s of uptime.
-  const first = await readUntil(r => r.seconds >= MIN_RUN_SECONDS / 2);
-  const last = await readUntil(r => r.seconds >= MIN_RUN_SECONDS && r.seconds > first.seconds);
+  const runSeconds = benchmark.runSeconds ?? MIN_RUN_SECONDS;
+  const first = await readUntil(r => r.seconds >= runSeconds / 2);
+  const last = await readUntil(r => r.seconds >= runSeconds && r.seconds > first.seconds);
   return {
     withStartup: last.items / last.seconds,
     withoutStartup: (last.items - first.items) / (last.seconds - first.seconds),
@@ -315,7 +391,9 @@ export function showBenchmarkDialog(deps: BenchmarkDeps): void {
     intro.textContent =
       'Measures how fast this machine pushes complex samples through ' +
       'blocks in WebAssembly. Rate is end-to-end: samples through the flowgraph divided by how ' +
-      'long it ran. Results are shown with and without including startup overhead.';
+      'long it ran. Results are shown with and without including startup overhead. ' +
+      'The Python Block row runs the same filter in Python, and downloads the Python ' +
+      'runtime the first time — so a run takes a while longer than the others.';
     body.appendChild(intro);
 
     const warning = document.createElement('div');

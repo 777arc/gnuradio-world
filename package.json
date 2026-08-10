@@ -6,7 +6,7 @@
   "author": "Marc Lichtman",
   "license": "GPL-3.0-or-later",
   "scripts": {
-    "test": "node test/test_smoke.mjs && node test/test_lazy_scenarios.mjs",
+    "test": "node test/test_smoke.mjs && node test/test_lazy_scenarios.mjs && node test/test_python_block.mjs && node test/test_python_block_editor.mjs",
     "test:block-capacity": "node test/test_block_capacity.mjs"
   },
   "dependencies": {

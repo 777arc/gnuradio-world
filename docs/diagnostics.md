@@ -187,15 +187,35 @@ Verified headless: a `src → multiply_const → throttle → null_sink` graph r
 Help ▸ Benchmark Tool ([`editor/src/benchmark.ts`](../editor/src/benchmark.ts))
 reads the same `window.__grstats` snapshot, for a different question: not "is
 this flowgraph keeping up?" but "how fast is this machine?". One click fills two
-matrices: Decimating FIR and FFT Filter (complex in/out, real taps) at 101, 1001
-and 10001 taps, then chains of 10, 20 and 30 Multiply Const blocks in series.
+matrices: three filters (complex in/out, real taps) at 101, 1001 and 10001 taps,
+then chains of 10, 20 and 30 Multiply Const blocks in series.
+
+The filter rows are Decimating FIR, FFT Filter, and — the reason they are in one
+table — the same filter written as an **Embedded Python Block** over
+`scipy.signal.fftconvolve`. Everything but the language is held fixed: same Null
+Source, same tap count, an FFT convolution in the second and third rows either
+way. What the third row adds is the whole Python path, and all of it is measured:
+the hop to the Pyodide worker and back on every `work()` call, the copy of the
+input into Pyodide's separate WebAssembly memory and of the result back out, and
+scipy's FFT against gr-fft's. On this laptop it lands between the two C++ rows —
+several times slower than the C++ FFT Filter, several times faster than the
+time-domain FIR at the same tap count.
+
+Two consequences of that row being Python. It needs `pyodide/`
+([docs/embedded-python.md](embedded-python.md)), and on a build without it those
+three cells report the failure and the other nine are unaffected. And it makes a
+run take about twice as long in wall-clock time, because each case starts the
+interpreter and installs scipy — which does *not* touch the rates, since
+`uptime_s` starts at `tb->run()` and the Python Block's interpreter is loaded
+before that, in the prepare step.
 
 - **One case per flowgraph, run one at a time.** Each cell is its own Null
   Source → *thing under test* → Null Sink `.grc`, loaded into a private
   offscreen runner iframe, so it has the machine to itself. Null Source keeps
   the samples at zero, the one input that can never drag a float path into
-  denormals. `grc.test.mjs` parses all nine, because they are hand-written text
-  going straight to the runner.
+  denormals. `grc.test.mjs` parses all twelve, because they are hand-written text
+  going straight to the runner — including the Python row's source, which has to
+  survive the `.grc` as one escaped line.
 - **The rate is end-to-end**: the counted block's `items` divided by the
   snapshot's own `uptime_s`, both from a single snapshot. `uptime_s` runs from
   the instant `start_prepared_flowgraph()` launched `tb->run()`, so the divisor

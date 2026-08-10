@@ -119,7 +119,8 @@ const { benchmarkTables, benchmarkCases } = await bundleModule('../src/benchmark
 const benchmarks = benchmarkCases();
 assert.deepEqual(benchmarkTables().map(table => table.key), ['filters', 'chain'],
   'filters are measured first, then the chains');
-assert.equal(benchmarks.length, 9, 'two filters at three tap counts, plus three chain lengths');
+assert.equal(benchmarks.length, 12,
+  'three filters at three tap counts, plus three chain lengths');
 assert.equal(new Set(benchmarks.map(benchmark => benchmark.key)).size, benchmarks.length,
   'case keys are unique');
 for (const benchmark of benchmarks) {
@@ -151,11 +152,25 @@ for (const benchmark of benchmarks) {
   } else {
     assert.deepEqual(names, ['src', 'dut', 'snk'], `${benchmark.key}: source, filter, sink`);
     const dut = parsed.blocks[1];
-    // Complex in, complex out, real taps, and no decimation.
-    assert.equal(dut.parameters.type, 'ccf', `${benchmark.key}: complex I/O with real taps`);
-    assert.equal(dut.parameters.decim, '1', `${benchmark.key}: rate is input and output samples`);
-    assert.equal(JSON.parse(String(dut.parameters.taps)).length,
-      Number(benchmark.key.split(':')[1]), `${benchmark.key}: tap count`);
+    const taps = Number(benchmark.key.split(':')[1]);
+    if (benchmark.key.startsWith('scipy:')) {
+      // The Python row filters in scipy instead. Its tap count is a parameter of
+      // the block's own __init__, and its source has to survive the .grc as one
+      // escaped line -- a Python `#` comment in there once truncated the value,
+      // so parse it back and check it is the whole program.
+      assert.equal(dut.id, 'epy_block', `${benchmark.key}: an Embedded Python Block`);
+      assert.equal(dut.parameters.ntaps, String(taps), `${benchmark.key}: tap count`);
+      const source = String(dut.parameters._source_code);
+      assert.match(source, /^import numpy as np\n/, `${benchmark.key}: source starts intact`);
+      assert.match(source, /fftconvolve\(input_items\[0\]/, `${benchmark.key}: work() survived`);
+      assert.ok(source.endsWith('return n\n'), `${benchmark.key}: source ends intact`);
+    } else {
+      // Complex in, complex out, real taps, and no decimation.
+      assert.equal(dut.parameters.type, 'ccf', `${benchmark.key}: complex I/O with real taps`);
+      assert.equal(dut.parameters.decim, '1', `${benchmark.key}: rate is input and output samples`);
+      assert.equal(JSON.parse(String(dut.parameters.taps)).length, taps,
+        `${benchmark.key}: tap count`);
+    }
   }
 }
 

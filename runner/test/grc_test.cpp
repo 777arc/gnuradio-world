@@ -118,6 +118,17 @@ int main() {
     assert(g["blocks"][0]["parameters"]["value"] == "1500");
     assert(g["connections"][0][1] == "0");
 
+    // A '#' inside a quoted scalar is content, not a comment: an Embedded Python
+    // Block's source is one double-quoted line with escaped newlines, carrying
+    // its own Python comments. A real trailing comment is still stripped.
+    json q = grc_yaml::parse(
+        "code: \"class blk(gr.sync_block):  # other bases\\n    pass\\n\"  # trailing\n"
+        "quoted: 'it''s # not a comment'\n"
+        "plain: 5  # five\n");
+    assert(q["code"] == "class blk(gr.sync_block):  # other bases\n    pass\n");
+    assert(q["quoted"] == "it's # not a comment");
+    assert(q["plain"] == 5);
+
     // ---- lowering ----
     json low = grc_lower::lower(g);
     const json& lb = low.at("blocks");

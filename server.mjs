@@ -23,7 +23,12 @@ const server = http.createServer(async (req, res) => {
   // Cross-origin isolation headers on every response, the recording view's
   // included: it fetches the recording in CORS mode, which satisfies COEP.
   setIsolationHeaders(res);
-  res.setHeader('Cache-Control', 'no-store');
+  // no-store everywhere, so an edit-reload loop never serves yesterday's build.
+  // Pyodide is the exception: 16 MB of a pinned upstream release that no local
+  // build can change, and re-downloading it on every Run of a flowgraph with a
+  // Python Block makes the block unusable to develop against.
+  res.setHeader('Cache-Control',
+    urlPath.startsWith('/pyodide/') ? 'public, max-age=86400' : 'no-store');
 
   try {
     // The recording view needs no special case: it is the editor build's second

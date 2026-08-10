@@ -130,6 +130,19 @@ jobs:
       - name: Fetch runner source dependencies
         run: bash deps/fetch-deps.sh --runner-only
 
+      # Pyodide: the Embedded Python Block's interpreter, served same-origin
+      # because cross-origin isolation forbids the CDN. Cached on the pin in
+      # fetch-pyodide.sh -- 30 MB off GitHub releases and jsDelivr per bump.
+      - name: Restore Pyodide cache
+        id: cache-pyodide
+        uses: actions/cache@v4
+        with:
+          path: pyodide
+          key: pyodide-${{ hashFiles('deps/fetch-pyodide.sh') }}
+      - name: Fetch Pyodide
+        if: steps.cache-pyodide.outputs.cache-hit != 'true'
+        run: bash deps/fetch-pyodide.sh
+
       - name: Build dependency sysroot
         if: steps.cache-sysroot.outputs.cache-hit != 'true'
         run: |
@@ -209,6 +222,12 @@ jobs:
           python3 runner/gen_registry.py
           python3 editor/gen/gen_blocklib.py editor/public/blocks.json
 
+          # The Embedded Python Block's Python side, on the host: seconds, no
+          # browser, and it catches a broken block contract before the 20-minute
+          # WASM build does not.
+          pip install --quiet numpy
+          python3 runner/test/test_grworld.py
+
           (cd qtgui && "$QT_WASM/bin/qt-cmake" -S . -B build -GNinja \
              -DQT_HOST_PATH="$QT_HOST" -DCMAKE_CXX_FLAGS="-pthread -fPIC" \
              -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
@@ -244,6 +263,11 @@ jobs:
           npm ci
           node test/test_smoke.mjs           # flowgraphs run and produce samples
           node test/test_lazy_scenarios.mjs  # on-demand side modules still load
+          # The Embedded Python Block, in the runner and in the editor. Both skip
+          # with a message if pyodide/ is absent, so they never turn a missing
+          # optional runtime into a failed deploy.
+          node test/test_python_block.mjs
+          node test/test_python_block_editor.mjs
 
       - name: Save ccache
         if: ${{ inputs.save_ccache }}

@@ -21,7 +21,10 @@ const ROOT = join(SCRIPT_DIR, '..');
 const OUT = process.argv[2] || join(process.cwd(), 'site');
 
 // runner/build files the browser needs (everything else there is build scratch).
-const RUNTIME_EXT = new Set(['.html', '.js', '.mjs', '.wasm', '.svg', '.css', '.data', '.mem']);
+// .py and .json are here for runner/build/pyodide/: the Embedded Python Block's
+// shim is real Python fetched at runtime, listed by a generated manifest.json.
+const RUNTIME_EXT = new Set(['.html', '.js', '.mjs', '.wasm', '.svg', '.css', '.data',
+                             '.mem', '.py', '.json']);
 const SKIP_DIR = name => name === 'CMakeFiles' || name.endsWith('_autogen');
 
 async function walkRuntimeFiles(dir) {
@@ -116,6 +119,23 @@ async function main() {
   await writeFile(join(OUT, 'example_flowgraphs', 'index.json'), JSON.stringify(grcFiles));
   console.log(`example_flowgraphs: ${grcFiles.length} .grc`);
 
+  // 3b. Pyodide, if it has been fetched. It is only needed by a flowgraph that
+  //     contains a Python Block, and the whole distribution is version-pinned
+  //     by deps/fetch-pyodide.sh, so it is copied verbatim -- no stamping, and
+  //     `immutable` cache headers below. A tree that never ran the fetch script
+  //     deploys without it, and the Python Block then reports that the runtime
+  //     is missing instead of the site failing to assemble.
+  const pyodideDir = join(ROOT, 'pyodide');
+  const pyodideFiles = await readdir(pyodideDir).catch(() => null);
+  if (pyodideFiles) {
+    await mkdir(join(OUT, 'pyodide'), { recursive: true });
+    for (const f of pyodideFiles.filter(f => !f.startsWith('.')))
+      await cp(join(pyodideDir, f), join(OUT, 'pyodide', f));
+    console.log(`pyodide: ${pyodideFiles.length} files`);
+  } else {
+    console.log('pyodide: absent (run deps/fetch-pyodide.sh) -- Python Block will not run');
+  }
+
   // 4. The recording view needs no step of its own: it is the editor build's
   //    second entry, so editor/dist/recording/ came along with the copy of
   //    editor/dist in step 1 and lands at /recording/. It uses hash routing, so
@@ -148,6 +168,13 @@ async function main() {
   //    inert). Freezing those for a year would let that one hand-debugging path
   //    pin a stale runner.js across deploys and reproduce the very crash the
   //    stamp exists to prevent. A day keeps the win and bounds the exposure.
+  //
+  //    /pyodide/* gets the same day, for the same reason and one more: Pyodide's
+  //    own file names carry no version (pyodide.asm.wasm is pyodide.asm.wasm at
+  //    every release) and the interpreter resolves them itself, relative to its
+  //    indexURL, so there is no URL we could stamp even if we wanted to.
+  //    `immutable` here would pin whatever 16 MB a visitor happened to cache
+  //    across a version bump of the pin in deps/fetch-pyodide.sh.
   await writeFile(join(OUT, '_headers'),
 `/*
   Cross-Origin-Opener-Policy: same-origin
@@ -170,6 +197,9 @@ async function main() {
   Cache-Control: public, max-age=86400
 
 /runner/build/*.wasm
+  Cache-Control: public, max-age=86400
+
+/pyodide/*
   Cache-Control: public, max-age=86400
 `);
   //    _redirects: 200-rewrite the bare flowgraph listing path to its static

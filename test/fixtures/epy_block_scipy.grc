@@ -1,0 +1,74 @@
+options:
+    parameters:
+        id: epy_block_scipy
+        generate_options: qt_gui
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: samp_rate
+    id: variable
+    parameters:
+        value: '32000'
+    states:
+        coordinate: [184, 12]
+        rotation: 0
+        state: enabled
+-   name: analog_sig_source_x_0
+    id: analog_sig_source_x
+    parameters:
+        amplitude: '1'
+        frequency: '1000'
+        offset: '0'
+        phase: '0'
+        samp_rate: '32000'
+        type: float
+        waveform: analog.GR_CONST_WAVE
+    states:
+        coordinate: [80, 100]
+        rotation: 0
+        state: enabled
+-   name: blocks_throttle2_0
+    id: blocks_throttle2
+    parameters:
+        limit: time
+        maximum: '0.1'
+        samples_per_second: '32000'
+        type: float
+    states:
+        coordinate: [320, 108]
+        rotation: 0
+        state: enabled
+# The block under test imports scipy, which is the whole point: no Python Block
+# needs scipy until one says so in its own source, so the worker installs it from
+# the import statements before executing them (loadPackagesFromImports in
+# gr_pyodide_worker.js) and deps/fetch-pyodide.sh vendors the wheel for it to
+# find. A 4-tap filter over a constant 1.0 makes the answer exactly the tap sum,
+# 10.0, so a scipy that loaded but computed nothing is still a failure.
+#
+# _source_code is one unbroken line for the reason epy_block_scale.grc explains.
+-   name: epy_block_0
+    id: epy_block
+    parameters:
+        _source_code: "import numpy as np\nfrom scipy.signal import fftconvolve\nfrom gnuradio import gr\n\n\nclass blk(gr.sync_block):\n    \"\"\"Filter with scipy, whose wheel is fetched from this source's imports\"\"\"\n\n    def __init__(self, gain=1.0):\n        gr.sync_block.__init__(self, name='scipy filter',\n                               in_sig=[np.float32], out_sig=[np.float32])\n        self.taps = np.array([1, 2, 3, 4], dtype=np.float32) * gain\n        self.set_history(len(self.taps))\n        self.reported = False\n\n    def work(self, input_items, output_items):  # taps sum to 10, input is 1.0\n        n = len(output_items[0])\n        output_items[0][:] = fftconvolve(input_items[0], self.taps, mode='valid')[:n]\n        if not self.reported and n > 3:\n            self.reported = True\n            # The first three outputs still see the zeros GNU Radio pads the\n            # history with; the last output of a full block never does.\n            print('epy scipy steady output %.3f' % output_items[0][n - 1])\n        return n\n"
+        gain: '1'
+    states:
+        coordinate: [560, 108]
+        rotation: 0
+        state: enabled
+-   name: blocks_probe_signal_x_0
+    id: blocks_probe_signal_x
+    parameters:
+        type: float
+    states:
+        coordinate: [800, 116]
+        rotation: 0
+        state: enabled
+connections:
+- [analog_sig_source_x_0, '0', blocks_throttle2_0, '0']
+- [blocks_throttle2_0, '0', epy_block_0, '0']
+- [epy_block_0, '0', blocks_probe_signal_x_0, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.10.12.0

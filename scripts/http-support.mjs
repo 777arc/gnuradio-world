@@ -14,12 +14,17 @@ const MIME = {
   '.map': 'application/json',
   '.mjs': 'text/javascript; charset=utf-8',
   '.png': 'image/png',
+  '.py': 'text/x-python; charset=utf-8',
   '.svg': 'image/svg+xml',
   '.ttf': 'font/ttf',
   '.txt': 'text/plain; charset=utf-8',
   '.wasm': 'application/wasm',
   '.woff': 'font/woff',
   '.woff2': 'font/woff2',
+  // Pyodide's vendored distribution: python_stdlib.zip and the numpy wheel,
+  // both fetched by the interpreter itself rather than by the page.
+  '.whl': 'application/zip',
+  '.zip': 'application/zip',
 };
 
 export function contentType(path) {

@@ -5,6 +5,10 @@ import { mainSource as main, cssSource as css } from './editor-contract-source.m
 
 const { validateFlowgraph, NAME_FIELD, BLOCK_FIELD } =
   await bundleModule('../src/validation.ts');
+// The hand-written schemas the cases below use (analog_sig_source_x, variable,
+// the null sink) come from block-defs, which is where validateFlowgraph's
+// injected `def` accessor reads them from in the editor too.
+const { RUNNABLE: DEFS } = await bundleModule('../src/block-defs.ts');
 
 const inst = (uid, id, name, params = {}, extra = {}) => ({
   uid, id, name, params, x: 0, y: 0, enabled: true, rotation: 0,
@@ -34,6 +38,10 @@ const ports = {
     if (block.id === 'blocks_complex_to_float') return kind === 'in' ? 'complex' : 'float';
     return block.params.type || 'complex';
   },
+  // Definitions are looked up per instance, because an Embedded Python Block's
+  // parameters come from its own source rather than from its block id. Every
+  // block here has a plain generated schema, so this is the id lookup.
+  def(block) { return DEFS[block.id]; },
 };
 
 const signal = inst('sig', 'analog_sig_source_x', 'sig', {

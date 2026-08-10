@@ -527,13 +527,97 @@ static void on_module_error(void* user) {
                       (err ? std::string(" — ") + err : std::string()));
 }
 
+// ---- the Embedded Python Block's prepare step ------------------------------
+// A Python Block's io signature, history and output multiple come from its own
+// Python object -- and are needed *before* the C++ block is constructed, because
+// GR sizes buffers at construction. The block's constructor cannot go and ask:
+// it runs here on the browser main thread, which may not block.
+//
+// So the whole flowgraph waits once instead. Every Python Block is instantiated
+// in the Pyodide worker before any C++ block is built, which also means the
+// Python runtime's download and startup happen with the console pane visible and
+// a failure is reported against the block that caused it.
+static std::string g_python_pending_flowgraph;
+
+// {scope: {variable: value}, blocks: [{name, source, params}]}, or no blocks at
+// all when the flowgraph has none -- which is the overwhelmingly common case, and
+// the one where nothing is fetched and nothing waits.
+static nlohmann::json python_prepare_request(const nlohmann::json& lowered) {
+    nlohmann::json blocks = nlohmann::json::array();
+    for (const auto& b : lowered["blocks"]) {
+        if (b.value("id", std::string()) != "epy_block") continue;
+        const auto& params = b["params"];
+        nlohmann::json values = nlohmann::json::object();
+        for (const auto& item : params.items())
+            if (item.key() != "_source_code" && item.key() != "_io_cache")
+                values[item.key()] = item.value();
+        nlohmann::json entry = nlohmann::json::object();
+        entry["name"] = b.value("name", std::string());
+        entry["source"] = params.value("_source_code", std::string());
+        entry["params"] = std::move(values);
+        blocks.push_back(std::move(entry));
+    }
+    nlohmann::json request = nlohmann::json::object();
+    request["blocks"] = std::move(blocks);
+    request["scope"] = lowered.value("variables", nlohmann::json::object());
+    return request;
+}
+
+static void prepare_python_then_run(const std::string& fgs) {
+    nlohmann::json request;
+    try {
+        request = python_prepare_request(nlohmann::json::parse(fgs));
+    } catch (const std::exception& e) {
+        report(false, std::string("Python Block error: ") + e.what());
+        return;
+    }
+    if (request["blocks"].empty()) {
+        run_now(fgs);
+        return;
+    }
+    g_python_pending_flowgraph = fgs;
+    const std::string text = request.dump();
+    // The glue itself lives in runner.html, which is a far better place for 90
+    // lines of worker plumbing than an EM_ASM string. But runner.html's scope
+    // cannot see the module's exports or its memory -- only an EM_ASM body runs
+    // inside the module scope -- so hand it both here, as a bridge object.
+    //
+    // NOTE the EM_ASM comma caveat (see notify_module above): arguments are split
+    // on commas outside parentheses, so the bridge is built field by field rather
+    // than as an object literal.
+    EM_ASM({
+        var bridge = {};
+        bridge.memory = wasmMemory;
+        bridge.finish = function(ok, message) {
+            var pointer = message ? stringToNewUTF8(message) : 0;
+            _gr_finish_pyodide_prepare(ok ? 1 : 0, pointer);
+            if (pointer) _free(pointer);
+        };
+        window.__grPyodideBridge = bridge;
+        window.__grPyodidePrepare(UTF8ToString($0));
+    }, text.c_str());
+}
+
+// Called back from runner.html once the worker has instantiated every Python
+// Block (or failed to). Mirrors gr_finish_worker_preload above.
+extern "C" EMSCRIPTEN_KEEPALIVE void gr_finish_pyodide_prepare(int ok, const char* message) {
+    const std::string fgs = std::move(g_python_pending_flowgraph);
+    g_python_pending_flowgraph.clear();
+    if (!ok) {
+        report(false, std::string("Python Block: ") +
+                          (message && *message ? message : "the Python runtime failed to start"));
+        return;
+    }
+    run_now(fgs);
+}
+
 static void load_next(LoadCtx* ctx) {
     while (ctx->idx < ctx->mods.size() && g_loaded_modules.count(ctx->mods[ctx->idx]))
         ++ctx->idx;  // already fetched in a previous run
     if (ctx->idx >= ctx->mods.size()) {
         const std::string fgs = std::move(ctx->fgs);
         delete ctx;
-        run_now(fgs);
+        prepare_python_then_run(fgs);
         return;
     }
     const std::string& m = ctx->mods[ctx->idx];

@@ -9,6 +9,7 @@
 #include "digital_hier.hpp"
 #include "fec_hier.hpp"
 #include "filter_hier.hpp"
+#include "python_block.hpp"
 #include "qtgui_sinks.hpp"
 #include "text_sink.hpp"
 #include "hrpt_image_sink.hpp"
@@ -1299,6 +1300,83 @@ BuiltBlock make_fosphor_sink(const json& p, const std::string& block_name)
     return result;
 }
 
+// ---- Embedded Python Block ------------------------------------------------
+// The Python object already exists by the time this runs: gr_run_json's prepare
+// step instantiated every Python Block in the Pyodide worker before building any
+// C++ block, precisely so this constructor does not have to wait for one (it runs
+// on the browser main thread, which may not block). What is left here is reading
+// back what that object turned out to be. See blocks/src/python_block.hpp.
+
+static std::vector<int> itemsizes_from(const json& description, const char* key)
+{
+    std::vector<int> out;
+    if (description.contains(key))
+        for (const auto& size : description[key]) out.push_back(size.get<int>());
+    return out;
+}
+
+static BuiltBlock make_python_block(const json& p)
+{
+    const std::string name = p.value("__name", std::string());
+    if (name.empty())
+        throw std::runtime_error("Python Block: the flowgraph gave it no block id");
+
+    // The worker's report, as the prepare step left it on the page.
+    char* raw = reinterpret_cast<char*>(MAIN_THREAD_EM_ASM_PTR({
+        var description = window.__grPyodideDescription
+            ? window.__grPyodideDescription(UTF8ToString($0)) : null;
+        return description ? stringToNewUTF8(JSON.stringify(description)) : 0;
+    }, name.c_str()));
+    if (!raw)
+        throw std::runtime_error("Python Block '" + name + "': the Python runtime did not "
+                                 "report this block — see the console for why it failed to "
+                                 "load");
+    const std::string text(raw);
+    std::free(raw);
+    const json description = json::parse(text);
+
+    // Message ports need a PMT bridge between C++ and Python, which does not
+    // exist yet (docs/embedded-python.md). Registering ports that could never
+    // deliver anything would turn that into a flowgraph which runs and silently
+    // does nothing, so refuse it in terms the user can act on.
+    if (!description.value("msg_ports_in", json::array()).empty() ||
+        !description.value("msg_ports_out", json::array()).empty())
+        throw std::runtime_error("Python Block '" + name + "': message ports are not "
+                                 "supported yet — this block registers one, and stream "
+                                 "ports are all the browser runner can carry so far");
+
+    grworld::PythonBlockConfig config;
+    config.name = name;
+    config.label = description.value("label", std::string("Python Block"));
+    config.in_itemsizes = itemsizes_from(description, "itemsizes_in");
+    config.out_itemsizes = itemsizes_from(description, "itemsizes_out");
+    config.decim = std::max(1, description.value("decim", 1));
+    config.interp = std::max(1, description.value("interp", 1));
+    config.history = std::max(1, description.value("history", 1));
+    config.output_multiple = description.value("output_multiple", 0);
+    config.relative_rate = description.value("relative_rate", 1.0);
+    config.tag_propagation_policy = description.value("tag_propagation_policy", 1);
+    config.min_output_buffer = description.value("min_output_buffer", 0);
+    config.max_noutput_items = description.value("max_noutput_items", 0);
+    config.overrides_forecast = description.value("overrides_forecast", false);
+
+    std::vector<std::string> callbacks;
+    for (const auto& callback : description.value("callbacks", json::array()))
+        callbacks.push_back(callback.get<std::string>());
+    config.callback_count = static_cast<int>(callbacks.size());
+
+    auto block = grworld::PythonBlockWasm::make(config);
+    BuiltBlock result{ block };
+    // Every introspected callback becomes a live setter, so a QT GUI Range can
+    // drive a Python Block's parameter exactly as it drives a C++ block's. The
+    // index is the callback's position, which is how the worker addresses it.
+    for (int i = 0; i < static_cast<int>(callbacks.size()) && i < grworld::kMaxCallbacks; ++i)
+        result.numeric_setters[callbacks[i]] = [block, i](double value) {
+            block->set_callback_value(i, value);
+        };
+    return result;
+}
+
 } // namespace
 
 static std::map<std::string, Factory>& registry_storage() {
@@ -2101,6 +2179,12 @@ static std::map<std::string, Factory>& registry_storage() {
                  label,
                  unquoted(p.value("unit", std::string())));
              return { block, block->qwidget() };
+         }},
+        // ---- arbitrary Python ----
+        // The user's own work() method, running in Pyodide in a worker of its
+        // own. See make_python_block above and blocks/src/python_block.hpp.
+        {"epy_block", [](const json& p) -> BuiltBlock {
+             return make_python_block(p);
          }},
         // Runner-only: a byte stream printed as text in the console pane. The
         // browser's stand-in for the File Sink an upstream flowgraph ends a

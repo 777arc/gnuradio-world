@@ -1,0 +1,91 @@
+# The Embedded Python Block.
+#
+# Upstream this block has no .block.yml at all: it is a Python built-in class,
+# gnuradio/grc/core/blocks/embedded_python.py, whose parameters and ports GRC
+# synthesizes from the user's source at edit time. This file exists because both
+# generators here read yaml -- it gives the block a palette entry, its category
+# and its default source -- while the synthesized parameters and ports come from
+# the same introspection upstream does, run in Pyodide (editor/src/epy.ts).
+#
+# So `parameters:` below is only the two the block always has, and `inputs:`/
+# `outputs:` are deliberately absent: an epy_block's ports are whatever its
+# in_sig/out_sig say.
+id: epy_block
+label: Python Block
+category: '[Core]/Misc'
+flags: [cpp]
+
+documentation: |-
+    This block represents an arbitrary GNU Radio Python Block.
+
+    Its source code is the 'Code' parameter in the Properties dialog. Each time
+    it changes, the block is re-read: the number, names and defaults of the
+    parameters, the ports (stream and message), and the block's name and
+    documentation all follow from the source, exactly as in desktop GNU Radio.
+
+    The Python runs in Pyodide -- CPython compiled to WebAssembly -- in a worker
+    of its own, so a block written for desktop GNU Radio runs here unmodified.
+    numpy and the standard library are available. `gnuradio.gr` provides the four
+    block base classes (sync_block, basic_block, decim_block, interp_block) and
+    nothing else: the DSP blocks live in the runner's separate WebAssembly
+    instance and are placed on the canvas instead.
+
+    Reading the source needs the Python runtime (~16 MB), which the editor
+    fetches only when asked -- see the Code parameter. Pressing Run on a
+    flowgraph containing this block fetches it too.
+
+    Two differences from desktop GNU Radio worth knowing. Python blocks share one
+    interpreter, so their work() calls serialize, as the GIL makes them serialize
+    natively. And input and output arrays are copies of the flowgraph's buffers
+    rather than views of them, because Pyodide has its own WebAssembly memory --
+    so writing to `input_items` changes nothing.
+
+    Block Documentation:
+    (will be replaced by the docstring of your block class)
+
+parameters:
+-   id: _source_code
+    label: Code
+    dtype: _multiline_python_external
+    default: "\"\"\"\nEmbedded Python Blocks:\n\nEach time this file is saved,\
+        \ GRC will instantiate the first class it finds\nto get ports and parameters\
+        \ of your block. The arguments to __init__  will\nbe the parameters. All\
+        \ of them are required to have default values!\n\"\"\"\n\nimport numpy as\
+        \ np\nfrom gnuradio import gr\n\n\nclass blk(gr.sync_block):  # other base\
+        \ classes are basic_block, decim_block, interp_block\n    \"\"\"Embedded\
+        \ Python Block example - a simple multiply const\"\"\"\n\n    def __init__(self,\
+        \ example_param=1):  # only default arguments here\n        \"\"\"arguments\
+        \ to this function show up as parameters in GRC\"\"\"\n        gr.sync_block.__init__(\n\
+        \            self,\n            name='Embedded Python Block',   # will show\
+        \ up in GRC\n            in_sig=[np.complex64],\n            out_sig=[np.complex64]\n\
+        \        )\n        # if an attribute with the same name as a parameter is\
+        \ found,\n        # a callback is registered (properties work, too).\n   \
+        \     self.example_param = example_param\n\n    def work(self, input_items,\
+        \ output_items):\n        \"\"\"example: multiply with constant\"\"\"\n   \
+        \     output_items[0][:] = input_items[0] * self.example_param\n        return\
+        \ len(output_items[0])\n"
+    hide: part
+# The block's derived interface, cached so a flowgraph draws its ports before the
+# Python runtime has loaded -- and without it at all, if nothing was edited.
+#
+# Upstream keeps the same thing as a Python tuple repr under `states: _io_cache:`.
+# Here it is a JSON *parameter* instead: the editor's whole parameter pipeline
+# (defaults, import, serialization) then carries it with no special case, and
+# desktop GRC reading such a file sees an unknown parameter it ignores rather than
+# a states entry it would try to literal_eval. A .grc written by desktop GRC has
+# no parameter here, so its ports are re-derived when Python loads.
+#
+# Never shown and never edited by hand; see editor/src/epy.ts.
+#
+# The default is the interface of the default source above, which is what lets a
+# freshly placed Python Block be wired up with no Python runtime fetched at all.
+# runner/test/test_grworld.py asserts the two defaults still agree.
+-   id: _io_cache
+    label: IO Cache
+    dtype: string
+    default: '{"block_type":"sync","callbacks":["example_param"],"cls":"blk","decim":1,"doc":"Embedded
+        Python Block example - a simple multiply const","history":1,"interp":1,"itemsizes_in":[8],"itemsizes_out":[8],"label":"Embedded
+        Python Block","max_noutput_items":0,"min_output_buffer":0,"msg_ports_in":[],"msg_ports_out":[],"output_multiple":0,"overrides_forecast":false,"params":[["example_param","1"]],"relative_rate":1.0,"sinks":[["0","complex",1]],"sources":[["0","complex",1]],"tag_propagation_policy":1}'
+    hide: all
+
+file_format: 1

@@ -18,6 +18,7 @@ This file is what you need for almost any change. Per-task detail lives in
 | [docs/gnuradio-patches.md](docs/gnuradio-patches.md) | changing anything inside the `gnuradio/` submodule or `qtgui/` |
 | [docs/double-mapped-buffer.md](docs/double-mapped-buffer.md) | working on the emulated vmcircbuf |
 | [docs/diagnostics.md](docs/diagnostics.md) | working on the runner's `__grstats` snapshot, the debug panel, or the Benchmark Tool |
+| [docs/embedded-python.md](docs/embedded-python.md) | touching the Embedded Python Block — Pyodide, the Python shim under `runner/src/pyodide/`, `blocks/src/python_block.hpp`, `editor/src/epy.ts`, or the Code field's CodeMirror in `editor/src/code-editor.ts` |
 
 ## Project overview
 
@@ -41,6 +42,12 @@ WebAssembly.
   of wasm-specific aspects to it, but it attempts to look just like the native
   version.
 - `gnuradio/`: submodule of the main GNU Radio repo.
+- `pyodide/`: CPython for WebAssembly, fetched (not committed) by
+  `deps/fetch-pyodide.sh` and served same-origin. This is what makes GRC's
+  Embedded Python Block work: a user's `gr.sync_block` subclass runs in a worker
+  of its own. Only a flowgraph containing one fetches it, and numpy and scipy are
+  vendored beside the interpreter — scipy fetched only by a block whose source
+  imports it. See [docs/embedded-python.md](docs/embedded-python.md).
 - Vendored out-of-tree GNU Radio modules (e.g. gr-rds) compiled as on-demand WASM
   side modules.
 - `deps/`: dependency fetch/build scripts, and any patches needed. Built
@@ -127,6 +134,7 @@ hierarchy instead.
 | `blocks/grc/` | `.block.yml` for runner-only blocks with no upstream GNU Radio equivalent (`wasm_packet_rate_sink`, `wasm_text_sink`); read by *both* generators alongside GNU Radio's own yaml |
 | `blocks/src/` | hand-written block implementations not owned by any one vendored module — `browser_file_source.cpp` and the like |
 | `blocks/overlays/<module>/` | one directory per module: `metadata.yml` (every browser-only addition to that module's blocks) plus, for an OOT module, its `shims/` and any C++ rebuilt from a Python-only block. This is why the submodules need no fork. `blocks/overlays/gnuradio/` is the in-tree equivalent, metadata only |
+| `runner/src/pyodide/` | the Embedded Python Block's worker and the Python shim a user's block runs against (`gnuradio.gr`'s base classes, `pmt`, the introspection and work driver). Copied to `runner/build/pyodide/` and served to both the runner and the editor |
 | `docs/` | the per-task docs listed at the top of this file |
 | `example_flowgraphs/` | the `.grc` files the editor's "Example Flowgraphs" palette tab lists recursively (nested directories appear as collapsible folders); several are also smoke-test cases. Each is linkable as `#example=<relative path without .grc>`. Test changes with `scripts/run_example.mjs` — see "Run and test" |
 | `workers/sigmf-indexer/` | Cloudflare Queue consumer that rebuilds the recordings bucket's `index.json` — see [docs/recording-viewer.md](docs/recording-viewer.md) |
@@ -198,7 +206,13 @@ header-only CRCpp directly, so those two need no separate install step.
 ```bash
 bash deps/fetch-deps.sh         # -> deps/src/   (skips what is present)
 bash deps/build-deps.sh         # -> sysroot/    (needs QT_HOST + QT_WASM)
+bash deps/fetch-pyodide.sh      # -> pyodide/    (optional; ~30 MB)
 ```
+
+`fetch-pyodide.sh` is separate and optional: nothing in the C++ build needs it,
+and a tree without it builds and runs fine — only a flowgraph containing an
+Embedded Python Block notices, and its tests skip with a message. See
+[docs/embedded-python.md](docs/embedded-python.md).
 
 `DEPS_MIRROR=https://host/path` makes `fetch-deps.sh` pull the tarballs from a
 mirror you control instead of SourceForge/ftp.gnu.org, which rate-limit CI
@@ -301,7 +315,15 @@ Useful validation:
 node test/test_lazy_scenarios.mjs   # deferred category modules are fetched and dlopen'd
 node test/test_smoke.mjs            # blocks actually move samples, not merely that it links
 node scripts/run.mjs /runner/build/runner.html RUNNER_PASS
+python3 runner/test/test_grworld.py     # the Embedded Python Block's Python contract
+node test/test_python_block.mjs         # ... a flowgraph whose work() is Python
+node test/test_python_block_editor.mjs  # ... and the editor deriving ports from code
 ```
+
+The last three cover the Embedded Python Block. The two browser ones skip unless
+`deps/fetch-pyodide.sh` has been run, which is why the Python Block is not a case
+in `test_smoke.mjs` — the suite the deploy is gated on should not fail over an
+optional runtime.
 
 Both browser tests start their own COOP/COEP server on a private port, so they
 need no `server.mjs` running; `scripts/run.mjs` does (port 8090 by default, hence
@@ -683,6 +705,28 @@ Definition (`variable_cc_decoder_def`), which `fec_async_decoder` and
 - **Enum params** whose `.block.yml` has `cpp_templates: translations` that rewrite
   option strings (e.g. `analog.cpm.` → `analog::cpm::`) just work:
   `wasm_registry::choice` matches with `::`/`.` normalized.
+- **A block whose work() is not C++ blocks its own scheduler thread and nothing
+  else.** The Embedded Python Block runs a user's `work()` in Pyodide in a Web
+  Worker, and rendezvous is a futex: the GR thread posts a request into a control
+  block in shared memory and `emscripten_futex_wait`s for the answer. Two rules
+  fall out of it, and they apply to any future off-thread block. A **constructor
+  cannot wait** — it runs on the browser main thread, where `Atomics.wait` is
+  illegal — so anything needed at construction (an io signature, `set_history`,
+  `set_output_multiple`) is settled in a *prepare* step before any block is built;
+  see `prepare_python_then_run` in `runner.cpp`. And a **call back into C++ from
+  inside work() cannot be synchronous**, because the thread that would service it
+  is the one asleep: `consume`/`produce`/tags are recorded on the far side and
+  applied when work() returns, and anything the far side needs to *read* is
+  pre-supplied with the request. Same reason the main thread can only ever
+  fire-and-forget: a QT GUI Range driving a Python parameter writes a value and
+  ORs a dirty bit, and the worker drains it between work() calls. See
+  [docs/embedded-python.md](docs/embedded-python.md).
+- **A block's parameters and ports are usually a property of its block id — the
+  Embedded Python Block's are not.** They come from its own source, so the editor
+  reads definitions for an instance through `defFor(inst)` in `main.ts`, never
+  `RUNNABLE[inst.id]`, and `validateFlowgraph` takes a `def` accessor for the same
+  reason. New code that looks a definition up by id will silently give a Python
+  Block the generic schema, losing every parameter and port it declared.
 - **No true double-mapped memory.** Emscripten cannot create VM aliases; the
   emulated buffer uses twice the physical memory and copies produced bytes into
   its mirror. See [docs/double-mapped-buffer.md](docs/double-mapped-buffer.md).

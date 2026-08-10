@@ -155,7 +155,7 @@ target_link_options(runner PRIVATE
   # EXPORT_ALL covers functions but not Emscripten's special exception-handling
   # data globals, which category side modules import as GOT.mem entries. Export
   # them (and the registry shim) explicitly so side-module relocation resolves.
-  -sEXPORTED_FUNCTIONS=_main,_gr_run_json,_gr_finish_worker_preload,_gr_fosphor_webgpu_frequency,_free,_malloc,_wasm_registry_add
+  -sEXPORTED_FUNCTIONS=_main,_gr_run_json,_gr_finish_worker_preload,_gr_finish_pyodide_prepare,_gr_fosphor_webgpu_frequency,_free,_malloc,_wasm_registry_add
   # The remaining symbols side modules import from main (libc++abi/compiler-rt:
   # __cxa_pure_virtual, std type-info vtables, the thread_local exception globals,
   # …) are exported via the generated response file appended at the end of this
@@ -197,11 +197,46 @@ add_custom_command(TARGET runner POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
           ${CMAKE_CURRENT_SOURCE_DIR}/src/fosphor_webgpu.js
           ${CMAKE_CURRENT_BINARY_DIR}/fosphor_webgpu.js
+  COMMAND ${CMAKE_COMMAND} -E copy_directory
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/pyodide
+          ${CMAKE_CURRENT_BINARY_DIR}/pyodide
   COMMENT "Patching runner.js addFunction signature default")
 set_property(TARGET runner APPEND PROPERTY LINK_DEPENDS
   ${CMAKE_CURRENT_SOURCE_DIR}/src/runner.html
   ${CMAKE_CURRENT_SOURCE_DIR}/src/browser_file_reader.js
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/fosphor_webgpu.js)
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/fosphor_webgpu.js
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/pyodide/gr_pyodide_worker.js)
+
+# ---------------------------------------------------------------------------
+# The Embedded Python Block's worker and its Python shim (src/pyodide/), copied
+# next to runner.html by the command above and served from there to *both*
+# clients -- the runner iframe and the editor, which introspects a Python Block's
+# source through the same worker.
+#
+# The worker fetches the shim by manifest rather than by a hard-coded list, and
+# the manifest is generated here from what is actually in src/pyodide/py, so
+# adding a module to the shim needs no second edit and cannot be half-done. This
+# runs at configure time, so a *new* .py file needs a re-configure -- which
+# CMakeLists.txt being a dependency of the build already forces.
+# ---------------------------------------------------------------------------
+# Package __init__.py files must be written before the modules inside them, so
+# the sort matters: it puts gnuradio/__init__.py before gnuradio/gr/*.
+file(GLOB_RECURSE PYODIDE_SHIM_FILES
+     RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}/src/pyodide/py
+     ${CMAKE_CURRENT_SOURCE_DIR}/src/pyodide/py/*.py)
+list(SORT PYODIDE_SHIM_FILES)
+# The copy above hangs off the link step, so the worker and the shim have to be
+# link dependencies too -- otherwise editing one leaves the build tree serving
+# the previous copy, with nothing to suggest the edit did not take.
+foreach(shim ${PYODIDE_SHIM_FILES})
+  set_property(TARGET runner APPEND PROPERTY LINK_DEPENDS
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/pyodide/py/${shim})
+endforeach()
+string(REPLACE ";" "\",\n    \"" PYODIDE_SHIM_JSON "${PYODIDE_SHIM_FILES}")
+# Into the build tree, not next to the sources: it is a build output, and the
+# copy_directory above leaves files the source tree does not have in place.
+file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/pyodide/py/manifest.json
+     "{\n  \"files\": [\n    \"${PYODIDE_SHIM_JSON}\"\n  ]\n}\n")
 
 # ---------------------------------------------------------------------------
 # Category side modules: one WebAssembly SIDE_MODULE per deferred category. Each

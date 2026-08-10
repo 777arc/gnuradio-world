@@ -10,6 +10,7 @@
 /editor/dist/
 /qtgui/build/
 /runner/build/
+/pyodide/
 /wasm-deps.tar.zst
 /site/
 /Qt/

@@ -1,0 +1,102 @@
+options:
+    parameters:
+        author: Claude
+        copyright: ''
+        description: Arbitrary Python DSP in the browser -- a soft limiter written
+            as an Embedded Python Block, with its gain driven live by a slider
+        generate_options: qt_gui
+        id: Python_Block_Soft_Limiter
+        title: Python Block - Soft Limiter
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: samp_rate
+    id: variable
+    parameters:
+        value: '48000'
+    states:
+        coordinate: [312, 12]
+        rotation: 0
+        state: enabled
+-   name: gain
+    id: variable_qtgui_range
+    parameters:
+        label: Limiter gain
+        min_len: '240'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '0.1'
+        step: '0.1'
+        stop: '20'
+        value: '1'
+        widget: counter_slider
+    states:
+        coordinate: [512, 12]
+        rotation: 0
+        state: enabled
+-   name: tone
+    id: analog_sig_source_x
+    parameters:
+        amplitude: '1'
+        frequency: '1000'
+        offset: '0'
+        phase: '0'
+        samp_rate: samp_rate
+        type: float
+        waveform: analog.GR_COS_WAVE
+    states:
+        coordinate: [64, 140]
+        rotation: 0
+        state: enabled
+-   name: throttle
+    id: blocks_throttle2
+    parameters:
+        limit: time
+        maximum: '0.1'
+        samples_per_second: samp_rate
+        type: float
+        vlen: '1'
+    states:
+        coordinate: [312, 148]
+        rotation: 0
+        state: enabled
+-   name: soft_limiter
+    id: epy_block
+    parameters:
+        _io_cache: "{\"block_type\":\"sync\",\"callbacks\":[\"gain\"],\"cls\":\"blk\",\"decim\":1,\"doc\":\"Soft limiter: y = tanh(gain * x)\",\"history\":1,\"interp\":1,\"itemsizes_in\":[4],\"itemsizes_out\":[4],\"label\":\"Soft Limiter\",\"max_noutput_items\":0,\"min_output_buffer\":0,\"msg_ports_in\":[],\"msg_ports_out\":[],\"output_multiple\":0,\"overrides_forecast\":false,\"params\":[[\"gain\",\"1.0\"]],\"relative_rate\":1.0,\"sinks\":[[\"0\",\"float\",1]],\"sources\":[[\"0\",\"float\",1]],\"tag_propagation_policy\":1}"
+        _source_code: "\"\"\"\nEmbedded Python Block: a soft limiter.\n\nThe gain below is driven live by the QT GUI Range control in this flowgraph, so\nraising the slider past 1.0 turns the sine into a flat-topped, clipped wave --\na shape no stock GNU Radio block produces.\n\nEdit this code in the block's Properties dialog, press the button under it to\nre-read it, and the block's parameters and ports follow whatever you wrote.\n\"\"\"\n\nimport numpy as np\nfrom gnuradio import gr\n\n\nclass blk(gr.sync_block):\n    \"\"\"Soft limiter: y = tanh(gain * x)\"\"\"\n\n    def __init__(self, gain=1.0):\n        gr.sync_block.__init__(\n            self,\n            name='Soft Limiter',\n            in_sig=[np.float32],\n            out_sig=[np.float32])\n        self.gain = gain\n\n    def work(self, input_items, output_items):\n        np.tanh(self.gain * input_items[0], out=output_items[0])\n        return len(output_items[0])\n"
+        gain: gain
+    states:
+        coordinate: [552, 148]
+        rotation: 0
+        state: enabled
+-   name: scope
+    id: qtgui_time_sink_x
+    parameters:
+        autoscale: 'False'
+        entags: 'True'
+        grid: 'True'
+        gui_hint: ''
+        label1: limited
+        legend: 'True'
+        name: Soft limiter output
+        nconnections: '1'
+        size: '1024'
+        srate: samp_rate
+        type: float
+        ymax: '1.5'
+        ymin: '-1.5'
+        yunit: ''
+    states:
+        coordinate: [808, 132]
+        rotation: 0
+        state: enabled
+connections:
+- [soft_limiter, '0', scope, '0']
+- [throttle, '0', soft_limiter, '0']
+- [tone, '0', throttle, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.10.12.0

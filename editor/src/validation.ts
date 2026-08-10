@@ -1,4 +1,4 @@
-import { RUNNABLE, type ResolvedPort } from './block-defs';
+import { RUNNABLE, type ResolvedPort, type RunnableDef } from './block-defs';
 import { buildScope, evaluate as evalExpr, type Scope } from './expr';
 import type { Conn, Inst, ValidationIssue } from './graph-model';
 
@@ -6,6 +6,10 @@ export interface GraphPortAccess {
   portCount(block: Inst, kind: 'in' | 'out'): number;
   portMeta(block: Inst, kind: 'in' | 'out', index: number): ResolvedPort;
   portType(block: Inst, kind: 'in' | 'out', index: number): string;
+  // A block's definition, which for the Embedded Python Block is synthesized per
+  // instance from its own source rather than looked up by block id. Everything
+  // else here is already per instance, so the parameter checks below must be too.
+  def(block: Inst): RunnableDef | undefined;
 }
 
 export const NAME_FIELD = '__name';
@@ -72,7 +76,7 @@ export function validateFlowgraph(
   };
 
   for (const block of blocks) {
-    const def = RUNNABLE[block.id];
+    const def = ports.def(block);
     if (!def) { add(block, BLOCK_FIELD, `Unknown block type "${block.id}".`); continue; }
     const name = String(block.name || '').trim();
     if (!name) add(block, NAME_FIELD, 'Block ID is required.');

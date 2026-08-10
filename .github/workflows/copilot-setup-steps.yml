@@ -59,7 +59,9 @@ jobs:
       # mako renders the generated registrars, pyyaml reads every .block.yml.
       # aqtinstall/packaging are build.yml's, for Qt, and have no use here.
       - name: Python deps for the generators
-        run: pip install mako pyyaml
+        # numpy is for runner/test/test_grworld.py, the Embedded Python Block's
+        # host-runnable contract test.
+        run: pip install mako pyyaml numpy
 
       - name: Node deps
         run: |
@@ -75,4 +77,5 @@ jobs:
           python3 editor/gen/gen_blocklib.py editor/public/blocks.json
           git diff --exit-code   # a clean checkout must regenerate to itself
           (cd runner/test && g++ -std=c++17 -I../src -I../third_party grc_test.cpp -o grc_test && ./grc_test)
+          python3 runner/test/test_grworld.py
           (cd editor && npm run check)

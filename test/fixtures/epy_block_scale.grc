@@ -1,0 +1,82 @@
+options:
+    parameters:
+        id: epy_block_scale
+        generate_options: qt_gui
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: samp_rate
+    id: variable
+    parameters:
+        value: '32000'
+    states:
+        coordinate: [184, 12]
+        rotation: 0
+        state: enabled
+-   name: analog_sig_source_x_0
+    id: analog_sig_source_x
+    parameters:
+        amplitude: '1'
+        frequency: '1000'
+        offset: '0'
+        phase: '0'
+        samp_rate: '32000'
+        type: float
+        waveform: analog.GR_CONST_WAVE
+    states:
+        coordinate: [80, 100]
+        rotation: 0
+        state: enabled
+-   name: blocks_throttle2_0
+    id: blocks_throttle2
+    parameters:
+        limit: time
+        maximum: '0.1'
+        samples_per_second: '32000'
+        type: float
+    states:
+        coordinate: [320, 108]
+        rotation: 0
+        state: enabled
+# The block under test: a decim_block, so the fixture covers the parts a plain
+# sync block would not -- forecast(), the output multiple, and consume_each of
+# decim * produced. Its scale factor is `samp_rate / 32000` rather than a literal,
+# which only evaluates if the flowgraph's variables reached Python's namespace.
+#
+# _source_code is one unbroken line on purpose, unreadable as that is. It is
+# exactly what the editor's .grc writer emits (editor/src/grc.ts emitScalar), and
+# this fixture goes straight to runner.html, whose YAML subset
+# (runner/src/grc_yaml.hpp) is line-oriented: it reads \n escapes but not PyYAML's
+# folded continuations, and its tokenizer drops the blank and #-comment lines a
+# `|` block scalar would need to keep. Regenerate with
+# `python3 -c "import json; print(json.dumps(open('block.py').read()))"`.
+# It keeps a Python `#` comment of its own for the same reason: inside that one
+# quoted line, a '#' is content, and a reader stripping trailing YAML comments
+# without tracking quotes truncates the source there -- which is what the default
+# template, commented on nearly every line, used to trip over.
+-   name: epy_block_0
+    id: epy_block
+    parameters:
+        _source_code: "import numpy as np\nfrom gnuradio import gr\n\n\nclass blk(gr.decim_block):  # a Python comment, which the YAML reader must not mistake for its own\n    \"\"\"Halve the rate and scale\"\"\"\n\n    def __init__(self, scale=1.0):\n        gr.decim_block.__init__(self, name='Scaling Decimator',\n                                in_sig=[np.float32], out_sig=[np.float32], decim=2)\n        self.scale = scale\n\n    def work(self, input_items, output_items):\n        n = len(output_items[0])\n        output_items[0][:] = input_items[0][:2 * n:2] * self.scale\n        if self.nitems_written(0) == 0:\n            print('epy first output %.3f' % output_items[0][0])\n        return n\n"
+        scale: samp_rate / 32000 * 4
+    states:
+        coordinate: [560, 108]
+        rotation: 0
+        state: enabled
+-   name: blocks_probe_signal_x_0
+    id: blocks_probe_signal_x
+    parameters:
+        type: float
+    states:
+        coordinate: [800, 116]
+        rotation: 0
+        state: enabled
+connections:
+- [analog_sig_source_x_0, '0', blocks_throttle2_0, '0']
+- [blocks_throttle2_0, '0', epy_block_0, '0']
+- [epy_block_0, '0', blocks_probe_signal_x_0, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.10.12.0

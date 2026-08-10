@@ -183,6 +183,103 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
           stats.state = 'cancelled';
       };
 
+      // Embedded Python Block: the Pyodide worker and the prepare step.
+      //
+      // The C++ side cannot wait for Python at construction time (see
+      // blocks/src/python_block.hpp), so gr_run_json pauses the whole flowgraph
+      // here instead: __grPyodidePrepare starts the worker, has it instantiate
+      // every Python Block, and calls back into _gr_finish_pyodide_prepare with
+      // the answer. Each block's constructor then reads its own description
+      // synchronously through __grPyodideDescription and posts its control block
+      // through __grPyodideBindBlock.
+      //
+      // One worker for the whole flowgraph: Python Blocks then serialize against
+      // each other, exactly as the GIL makes them serialize in desktop GNU Radio.
+      // Widths of the control block in blocks/src/python_block.hpp, passed on to
+      // the worker so a mismatch is an error message rather than a wild write.
+      const PYTHON_MAX_PORTS = 32;
+      const PYTHON_CONTROL_WORDS = 10 + 5 * PYTHON_MAX_PORTS;
+      const PYTHON_DOUBLE_SLOTS = 2 * PYTHON_MAX_PORTS + 32;
+
+      let pyodideWorker = null;
+      const pyodideDescriptions = Object.create(null);
+      window.__grPyodideDescription = name => pyodideDescriptions[name] || null;
+
+      window.__grPyodidePrepare = requestJson => {
+        // __grPyodideBridge is installed by prepare_python_then_run in
+        // runner.cpp: this page cannot reach the module's exports or its memory
+        // on its own.
+        const bridge = window.__grPyodideBridge;
+        let request;
+        try {
+          request = JSON.parse(requestJson);
+        } catch (error) {
+          bridge.finish(false, 'malformed prepare request: ' + error.message);
+          return;
+        }
+        queueStdout('Python Block: starting the Python runtime (about 16 MB, once per visit)');
+        const workerUrl = new URL('pyodide/gr_pyodide_worker.js', location.href);
+        if (window.__grBuildStamp) workerUrl.searchParams.set('v', window.__grBuildStamp);
+        const worker = new Worker(workerUrl, { type: 'module' });
+        pyodideWorker = worker;
+        let settled = false;
+        const fail = message => {
+          if (settled) return;
+          settled = true;
+          bridge.finish(false, message);
+        };
+        worker.onerror = event => fail(event.message || 'Python worker failed to start');
+        worker.onmessage = event => {
+          const message = event.data || {};
+          if (message.type === 'print') { console.log(message.line); queueStdout(message.line); return; }
+          if (message.type === 'ready') {
+            worker.postMessage({
+              type: 'prepare',
+              blocks: request.blocks,
+              scope: request.scope,
+              controlWords: PYTHON_CONTROL_WORDS,
+              doubleSlots: PYTHON_DOUBLE_SLOTS,
+            });
+            return;
+          }
+          if (message.type === 'prepared') {
+            Object.assign(pyodideDescriptions, message.descriptions);
+            if (settled) return;
+            settled = true;
+            bridge.finish(true, '');
+            return;
+          }
+          if (message.type === 'failed') { fail(message.message); return; }
+        };
+        worker.postMessage({
+          type: 'init',
+          indexURL: new URL('/pyodide/', location.href).href,
+          shimURL: new URL('pyodide/py/', location.href).href,
+        });
+      };
+
+      window.__grPyodideBindBlock = (
+        name, controlPointer, doublePointer, textPointer, textCapacity,
+        controlWords, doubleSlots
+      ) => {
+        if (!pyodideWorker) return false;
+        if (controlWords !== PYTHON_CONTROL_WORDS || doubleSlots !== PYTHON_DOUBLE_SLOTS) {
+          console.error(`Python Block ${name}: control block is ${controlWords}/${doubleSlots} ` +
+            `words, runner.html expects ${PYTHON_CONTROL_WORDS}/${PYTHON_DOUBLE_SLOTS}`);
+          return false;
+        }
+        pyodideWorker.postMessage({
+          type: 'bind',
+          name,
+          memory: window.__grPyodideBridge.memory,
+          controlPointer,
+          doublePointer,
+          textPointer,
+          textCapacity,
+        });
+        return true;
+      };
+
       // gr-paint's Image File Source, decoded by the browser.
       //
       // Upstream is a Python block that opens a local file with PIL. There is

@@ -270,6 +270,7 @@
     "dvbs2rx_bbdescrambler_bb",
     "dvbs2rx_bch_decoder_bb",
     "dvbs2rx_ldpc_decoder_cb",
+    "epy_block",
     "fec_async_decoder",
     "fec_ber_bf",
     "fec_decode_ccsds_27_fb",
