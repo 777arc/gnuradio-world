@@ -10,7 +10,6 @@ const bindings = {
   'cut/copy/paste': /key === 'c'.*copyBlocks[\s\S]*key === 'x'.*copyBlocks.*deleteBlocks[\s\S]*key === 'v'.*pasteBlock/,
   'rotate/type': /ArrowRight.*rotateSelected\(90\)[\s\S]*ArrowLeft.*rotateSelected\(-90\)[\s\S]*ArrowUp.*cycleBlockType\(-1\)[\s\S]*ArrowDown.*cycleBlockType\(1\)/,
   'enable/disable/bypass': /key === 'e'.*setSelectedEnabled\(true\)[\s\S]*key === 'd'.*setSelectedEnabled\(false\)[\s\S]*key === 'b'.*bypassSelected/,
-  'alignment': /alignSelected\('top'\)[\s\S]*alignSelected\('middle'\)[\s\S]*alignSelected\('bottom'\)[\s\S]*alignSelected\('left'\)[\s\S]*alignSelected\('center'\)[\s\S]*alignSelected\('right'\)/,
   'zoom': /NumpadAdd.*setZoom[\s\S]*NumpadSubtract.*setZoom[\s\S]*key === '0'.*setZoom\(1\)/,
   // Ctrl+B and Ctrl+R go through togglePalette()/toggleConsole() rather than
   // toggling the class inline, because the narrow layout's palette drawer and
@@ -37,6 +36,7 @@ assert.match(about,
   /only the WebAssembly modules corresponding[\s\S]*?limitless collection of out-of-tree modules[\s\S]*?downloaded only when you use them[\s\S]*?IQEngine[\s\S]*?real[\s\S]*?recordings of the corresponding signals/,
   'the GNU Radio World dialog must explain on-demand modules, OOTs, and RF recordings');
 assert.doesNotMatch(source, /label: 'Generate'/);
+assert.doesNotMatch(source, /alignSelected/);
 assert.doesNotMatch(source, /label: 'Find Blocks'/);
 assert.doesNotMatch(source, /label: 'Reload Blocks'/);
 assert.doesNotMatch(source, /label: 'Tools'/);

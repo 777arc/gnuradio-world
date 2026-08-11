@@ -827,26 +827,6 @@ function bypassSelected() {
   if (!changed) { log('bypass only works on 1-in/1-out blocks'); return; }
   render(); recordHistory();
 }
-type Alignment = 'top' | 'middle' | 'bottom' | 'left' | 'center' | 'right';
-function alignSelected(alignment: Alignment) {
-  const blocks = selectedInsts(); if (blocks.length < 2) return;
-  const boxes = blocks.map(block => ({ block, ...geom(block) }));
-  const left = Math.min(...boxes.map(b => b.block.x));
-  const right = Math.max(...boxes.map(b => b.block.x + b.w));
-  const top = Math.min(...boxes.map(b => b.block.y));
-  const bottom = Math.max(...boxes.map(b => b.block.y + b.h));
-  for (const b of boxes) {
-    if (alignment === 'top') b.block.y = top;
-    else if (alignment === 'middle') b.block.y = Math.round((top + bottom - b.h) / 2);
-    else if (alignment === 'bottom') b.block.y = bottom - b.h;
-    else if (alignment === 'left') b.block.x = left;
-    else if (alignment === 'center') b.block.x = Math.round((left + right - b.w) / 2);
-    else b.block.x = right - b.w;
-    const position = constrainBlockPosition(b.block.x, b.block.y, snapToGrid);
-    b.block.x = position.x; b.block.y = position.y;
-  }
-  render(); recordHistory();
-}
 // Auto-arrange: hand the whole flowgraph to the layout engine and drop every
 // block on the coordinate it comes back with. Everything the engine needs is
 // measured here — box size, how far the port tabs stick out on each side, and
@@ -1515,7 +1495,6 @@ const SHORTCUTS: [string, string][] = [
   ['Ctrl+X / C / V', 'Cut / copy / paste'], ['Left / Right', 'Rotate counterclockwise / clockwise'],
   ['Return', 'Block properties'], ['E / D / B', 'Enable / disable / bypass'],
   ['C', 'Create hierarchy (not available in WASM)'],
-  ['Shift+T / M / B', 'Align top / middle / bottom'], ['Shift+L / C / R', 'Align left / center / right'],
   ['Up / Down', 'Previous / next block type'], ['+ / −', 'Increase / decrease dynamic ports'],
   ['Ctrl++ / Ctrl+− / Ctrl+0', 'Zoom in / out / reset'], ['Ctrl+9', 'Zoom to fit the flowgraph'],
   ['Ctrl+D', 'Hide disabled blocks'],
@@ -1604,12 +1583,6 @@ document.addEventListener('keydown', e => {
   else if (!ctrl && !e.shiftKey && key === 'd') { consume(e); setSelectedEnabled(false); }
   else if (!ctrl && !e.shiftKey && key === 'b') { consume(e); bypassSelected(); }
   else if (!ctrl && !e.shiftKey && key === 'c') { consume(e); log('hierarchical blocks are not supported in WebAssembly'); }
-  else if (e.shiftKey && !ctrl && key === 't') { consume(e); alignSelected('top'); }
-  else if (e.shiftKey && !ctrl && key === 'm') { consume(e); alignSelected('middle'); }
-  else if (e.shiftKey && !ctrl && key === 'b') { consume(e); alignSelected('bottom'); }
-  else if (e.shiftKey && !ctrl && key === 'l') { consume(e); alignSelected('left'); }
-  else if (e.shiftKey && !ctrl && key === 'c') { consume(e); alignSelected('center'); }
-  else if (e.shiftKey && !ctrl && key === 'r') { consume(e); alignSelected('right'); }
   else if (!ctrl && (e.key === '+' || e.key === '=')) { consume(e); changePortCount(1); }
   else if (!ctrl && (e.key === '-' || e.key === '_')) { consume(e); changePortCount(-1); }
   else if (!ctrl && !e.shiftKey && key === 'g') { consume(e); el('canvasWrap').classList.toggle('grid-hidden'); }
@@ -4153,7 +4126,7 @@ function contributeExample() {
 // ---- menu model + builder ----
 type MenuItem =
   | { label: string; key?: string; run?: () => void; reason?: string;
-      enabled?: () => boolean; check?: () => boolean; danger?: boolean; sub?: (MenuItem | 'sep')[] };
+      enabled?: () => boolean; check?: () => boolean; danger?: boolean };
 interface TopMenu { label: string; items: (MenuItem | 'sep')[] }
 
 const MENUS: TopMenu[] = [
@@ -4185,15 +4158,6 @@ const MENUS: TopMenu[] = [
     'sep',
     { label: 'Rotate Counterclockwise', key: '←', run: () => rotateSelected(-90), enabled: hasSel },
     { label: 'Rotate Clockwise', key: '→', run: () => rotateSelected(90), enabled: hasSel },
-    { label: 'Align', sub: [
-      { label: 'Vertical Align Top', key: 'Shift+T', run: () => alignSelected('top') },
-      { label: 'Vertical Align Middle', key: 'Shift+M', run: () => alignSelected('middle') },
-      { label: 'Vertical Align Bottom', key: 'Shift+B', run: () => alignSelected('bottom') },
-      'sep',
-      { label: 'Horizontal Align Left', key: 'Shift+L', run: () => alignSelected('left') },
-      { label: 'Horizontal Align Center', key: 'Shift+C', run: () => alignSelected('center') },
-      { label: 'Horizontal Align Right', key: 'Shift+R', run: () => alignSelected('right') },
-    ] },
     { label: 'Auto-Arrange Blocks', run: autoArrangeBlocks, enabled: hasBlocks },
     'sep',
     { label: 'Enable', key: 'E', run: () => setSelectedEnabled(true), enabled: hasSel },
@@ -4253,9 +4217,9 @@ const MENUS: TopMenu[] = [
   ] },
 ];
 
-function buildMenuDrop(items: (MenuItem | 'sep')[], submenu = false): HTMLElement {
+function buildMenuDrop(items: (MenuItem | 'sep')[]): HTMLElement {
   const drop = document.createElement('div');
-  drop.className = 'menu-drop' + (submenu ? ' submenu' : '');
+  drop.className = 'menu-drop';
   drop.setAttribute('role', 'menu');
   for (const it of items) {
     if (it === 'sep') { drop.appendChild(Object.assign(document.createElement('div'), { className: 'menu-sep' })); continue; }
@@ -4266,22 +4230,11 @@ function buildMenuDrop(items: (MenuItem | 'sep')[], submenu = false): HTMLElemen
     check.textContent = it.check && it.check() ? '✓' : '';
     const label = document.createElement('span'); label.className = 'mi-label'; label.textContent = it.label;
     row.append(check, label);
-    if (it.sub) {
-      row.classList.add('has-sub');
-      const arrow = document.createElement('span'); arrow.className = 'mi-arrow'; arrow.textContent = '▸';
-      row.appendChild(arrow);
-      row.appendChild(buildMenuDrop(it.sub, true));
-      // CSS flies the submenu out on hover, which a touch screen never does; a
-      // tap on the row opens it instead. Leaf rows stop their own clicks, so
-      // choosing something inside the submenu does not reach this handler.
-      row.addEventListener('click', e => { e.stopPropagation(); row.classList.toggle('open'); });
-    } else {
-      const key = document.createElement('span'); key.className = 'mi-key'; key.textContent = it.key || '';
-      row.appendChild(key);
-      if (it.reason) { row.classList.add('disabled'); attachTip(row, it.reason); }
-      else if (it.enabled && !it.enabled()) { row.classList.add('disabled'); }
-      else row.addEventListener('click', e => { e.stopPropagation(); closeMenus(); it.run && it.run(); });
-    }
+    const key = document.createElement('span'); key.className = 'mi-key'; key.textContent = it.key || '';
+    row.appendChild(key);
+    if (it.reason) { row.classList.add('disabled'); attachTip(row, it.reason); }
+    else if (it.enabled && !it.enabled()) { row.classList.add('disabled'); }
+    else row.addEventListener('click', e => { e.stopPropagation(); closeMenus(); it.run && it.run(); });
     drop.appendChild(row);
   }
   return drop;

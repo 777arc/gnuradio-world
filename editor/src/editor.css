@@ -41,18 +41,11 @@ button:hover { filter:brightness(1.15); }
 .menuitem .mi-check { width:16px; min-width:16px; text-align:center; color:#3fae63; font-size:14px; }
 .menuitem .mi-label { flex:1; }
 .menuitem .mi-key { color:#8b97b8; font-size:16px; font-family:monospace; padding-left:18px; }
-.menuitem .mi-arrow { color:#8b97b8; font-size:12px; }
 .menuitem.danger { color:#ff7b72; }
 .menuitem.disabled { color:#5c637a; cursor:not-allowed; }
 .menuitem.disabled:hover { background:transparent; }
 .menuitem.disabled .mi-key { color:#4b5266; }
 .menu-sep { height:1px; background:#3a4160; margin:4px 0; }
-.menuitem.has-sub { position:relative; }
-.menu-drop.submenu { display:none; top:-5px; left:100%; }
-/* Hover opens it with a mouse; `.open` is how a tap does, since a touch screen
-   never hovers (buildMenuDrop toggles the class on a has-sub row's click). */
-.menuitem.has-sub:hover > .menu-drop.submenu,
-.menuitem.has-sub.open > .menu-drop.submenu { display:block; }
 /* ---- GRC-style icon toolbar (mirrors TOOLBAR_LIST) ---- */
 #toolbar { display:flex; align-items:center; gap:2px; padding:4px 10px; height:44px;
     border-top:1px solid #262b3b; overflow-x:auto; }
@@ -520,15 +513,10 @@ svg text { user-select:none; -webkit-user-select:none; -moz-user-select:none; }
   /* A top-level menu anchored to its own label runs off the right edge on a
      phone (Help sits ~90% across). Anchoring to the menubar instead gives every
      drop the same full-width sheet — hence `position:static` on .menu-top and
-     `relative` on #menubar above. The submenu keeps its own anchor, since
-     .menuitem.has-sub stays relative. */
+     `relative` on #menubar above. */
   .menu-top { position:static; }
-  .menu-drop:not(.submenu) { left:6px; right:6px; top:100%; min-width:0;
+  .menu-drop { left:6px; right:6px; top:100%; min-width:0;
       max-height:min(68dvh,460px); overflow-y:auto; overscroll-behavior:contain; }
-  /* No hover to fly a submenu out sideways, and no room to fly to: a tap expands
-     it in place instead, indented under its row. */
-  .menu-drop.submenu { position:static; margin:4px 0 2px 18px; box-shadow:none;
-      background:#212636; max-height:none; }
   .menuitem { padding:13px 16px 13px 10px; }
   .menuitem .mi-key { padding-left:14px; }
   .ctxitem { padding:13px 20px; }
