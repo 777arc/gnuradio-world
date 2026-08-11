@@ -902,10 +902,17 @@ function changePortCount(delta: number) {
   }
   if (changed) { render(); recordHistory(); }
 }
+const ZOOM_MIN = 0.4, ZOOM_MAX = 2.5, ZOOM_STEP = 1.15;
 function setZoom(next: number) {
-  zoom = Math.max(0.4, Math.min(2.5, next));
+  zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, next));
   // Draw the grid at the snap spacing so every line is a legal block position.
   el('canvasWrap').style.setProperty('--grid-size', `${SNAP_GRID_SIZE * zoom}px`); render();
+  // The toolbar's two zoom buttons grey out at the clamp, so a click that could
+  // not change anything looks like one rather than logging the same percentage.
+  for (const [label, atLimit] of [['Zoom In', zoom >= ZOOM_MAX], ['Zoom Out', zoom <= ZOOM_MIN]] as const) {
+    const button = document.querySelector<HTMLButtonElement>(`.tbtn[data-tool="${label}"]`);
+    if (button) { button.classList.toggle('disabled', atLimit); button.disabled = atLimit; }
+  }
   log(`zoom ${Math.round(zoom * 100)}%`);
 }
 // Scale the canvas down until the whole flowgraph fits the visible pane — the
@@ -1559,8 +1566,8 @@ document.addEventListener('keydown', e => {
   if (e.key === 'F6') { consume(e); run(); return; }
   if (e.key === 'F7') { consume(e); stop(); return; }
   if (e.key === 'ScrollLock') { consume(e); autoScrollLog = !autoScrollLog; log(`console autoscroll ${autoScrollLog ? 'on' : 'off'}`); return; }
-  if (ctrl && (e.key === '+' || e.key === '=' || e.code === 'NumpadAdd')) { consume(e); setZoom(zoom * 1.15); return; }
-  if (ctrl && (e.key === '-' || e.key === '_' || e.code === 'NumpadSubtract')) { consume(e); setZoom(zoom / 1.15); return; }
+  if (ctrl && (e.key === '+' || e.key === '=' || e.code === 'NumpadAdd')) { consume(e); setZoom(zoom * ZOOM_STEP); return; }
+  if (ctrl && (e.key === '-' || e.key === '_' || e.code === 'NumpadSubtract')) { consume(e); setZoom(zoom / ZOOM_STEP); return; }
   if (ctrl && key === '9') { consume(e); zoomToFit(); return; }
   if (ctrl && key === '0') { consume(e); setZoom(1); return; }
   if (ctrl && key === 'd') { consume(e); hideDisabled = !hideDisabled; render(); return; }
@@ -3932,7 +3939,6 @@ async function buildRecordings(panel: HTMLElement) {
 
 // Reasons shown when hovering an action that is unavailable in the WASM build.
 const R_QUIT = "A browser tab can't quit the application — just close the tab instead.";
-const R_HIER = "Hierarchical blocks aren't supported in the WebAssembly editor.";
 const R_XML = "GRC no longer uses XML flowgraphs, so there are no XML parser errors to display.";
 const R_TODO = "This display option isn't implemented in the browser editor yet.";
 
@@ -4218,8 +4224,8 @@ const MENUS: TopMenu[] = [
     { label: 'Show All Block IDs', run: toggleShowAllBlockIds, check: () => showAllBlockIds },
     { label: 'Show Properties Field Colors', reason: R_TODO },
     'sep',
-    { label: 'Zoom In', key: 'Ctrl++', run: () => setZoom(zoom * 1.15) },
-    { label: 'Zoom Out', key: 'Ctrl+-', run: () => setZoom(zoom / 1.15) },
+    { label: 'Zoom In', key: 'Ctrl++', run: () => setZoom(zoom * ZOOM_STEP) },
+    { label: 'Zoom Out', key: 'Ctrl+-', run: () => setZoom(zoom / ZOOM_STEP) },
     { label: 'Zoom to Fit', key: 'Ctrl+9', run: zoomToFit, enabled: hasBlocks },
     { label: 'Reset Zoom', key: 'Ctrl+0', run: () => setZoom(1) },
     'sep',
@@ -4342,7 +4348,8 @@ const TOOLBAR: (Tool | 'sep')[] = [
   { icon: '⤳', label: 'Bypass', key: 'B', run: bypassSelected },
   { icon: '👁', label: 'Hide Disabled Blocks', key: 'Ctrl+D', run: toggleHideDisabled },
   'sep',
-  { icon: '↧', label: 'Open Hier', reason: R_HIER },
+  { icon: '🔍+', label: 'Zoom In', key: 'Ctrl++', run: () => setZoom(zoom * ZOOM_STEP) },
+  { icon: '🔍−', label: 'Zoom Out', key: 'Ctrl+-', run: () => setZoom(zoom / ZOOM_STEP) },
 ];
 function buildToolbar() {
   const bar = el('toolbar'); bar.textContent = '';
