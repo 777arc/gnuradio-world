@@ -86,6 +86,18 @@ const CASES = [
       'Key: burst',                  // Tag Object, emitted by Vector Source
       'Source: vector_src',
     ] },
+  // The QT GUI controls. Their widgets need a click to say anything, which this
+  // harness has no way to deliver, so what the logs prove is the half that runs
+  // without one: a Message Strobe drives the Digital Number Control's `valuein`
+  // and the control republishes on `valueout`, exercising both directions of a
+  // control's message path, and the Message Edit Box emits its default value at
+  // start(). Everything else here is proved by constructing at all -- a control
+  // whose parameters it cannot make sense of throws rather than running.
+  { name: 'QT GUI control widgets', grc: 'test/fixtures/wasm_qtgui_controls.grc',
+    expectLogs: [
+      '(freq . 42)',    // Digital Number Control: message in, message back out
+      '(edit . hello)', // Message Edit Box: its default, published by start()
+    ] },
   { name: 'gr-satellites hier rebuilds', grc: 'test/fixtures/wasm_satellites_hier.grc' },
   { name: 'gr-satellites AX.25 framer/deframer loopback',
     grc: 'test/fixtures/wasm_satellites_ax25_loopback.grc' },

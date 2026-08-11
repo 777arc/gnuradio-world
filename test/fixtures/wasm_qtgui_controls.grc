@@ -1,0 +1,261 @@
+options:
+    parameters:
+        id: wasm_qtgui_controls
+        title: WASM QT GUI controls
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: tone
+    id: variable_qtgui_numeric_entry
+    parameters:
+        label: Tone
+        unit: Hz
+        value: '1200'
+        value_min: '0'
+        value_max: '4000'
+        increment: '100'
+        precision: '10'
+        description: ''
+        enabled: 'True'
+        gui_hint: ''
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: readout
+    id: variable_qtgui_label
+    parameters:
+        label: Tone now
+        type: real
+        value: tone
+        formatter: None
+        gui_hint: ''
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: gain_sw
+    id: variable_qtgui_toggle_switch
+    parameters:
+        label: Gain
+        position: '4'
+        type: real
+        value: '2'
+        initPressed: 'True'
+        pressed: '2'
+        released: '1'
+        outputmsgname: gain
+        switchOnBackground: green
+        switchOffBackground: gray
+        cellalignment: '1'
+        verticalalignment: '1'
+        gui_hint: ''
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: level
+    id: variable_qtgui_dial_control
+    parameters:
+        label: Level
+        type: int
+        value: '3'
+        minimum: '0'
+        maximum: '10'
+        scaleFactor: '1'
+        showvalue: 'True'
+        minsize: '100'
+        outputmsgname: level
+        relBackgroundColor: default
+        gui_hint: ''
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: mute
+    id: variable_qtgui_msgcheckbox
+    parameters:
+        label: Mute
+        type: int
+        value: '0'
+        initPressed: 'False'
+        pressed: '1'
+        released: '0'
+        cellalignment: '1'
+        verticalalignment: '1'
+        outputmsgname: mute
+        gui_hint: ''
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: burst
+    id: variable_qtgui_toggle_button_msg
+    parameters:
+        label: Burst
+        type: int
+        value: '0'
+        initPressed: 'False'
+        pressed: '1'
+        released: '0'
+        outputmsgname: burst
+        relBackgroundColor: default
+        relFontColor: default
+        pressBackgroundColor: green
+        pressFontColor: black
+        gui_hint: ''
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: ping
+    id: variable_qtgui_msg_push_button
+    parameters:
+        label: Ping
+        type: int
+        msgName: ping
+        value: '1'
+        relBackgroundColor: default
+        relFontColor: default
+        gui_hint: ''
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: dial_freq
+    id: qtgui_msgdigitalnumbercontrol
+    parameters:
+        lbl: Frequency
+        minFreqHz: '0'
+        maxFreqHz: '1000'
+        value: '0'
+        ThousandsSeparator: ','
+        outputmsgname: freq
+        relBackgroundColor: black
+        relFontColor: white
+        readOnly: 'False'
+        gui_hint: ''
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: edit
+    id: qtgui_edit_box_msg
+    parameters:
+        type: string
+        value: hello
+        label: Edit
+        is_pair: 'True'
+        is_static: 'True'
+        key: edit
+        gui_hint: ''
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: src
+    id: analog_sig_source_x
+    parameters:
+        type: complex
+        samp_rate: '32000'
+        waveform: analog.GR_COS_WAVE
+        frequency: tone
+        amplitude: '1'
+        offset: '0'
+        phase: '0'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: amp
+    id: blocks_multiply_const_xx
+    parameters:
+        type: complex
+        constant: gain_sw
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: throttle
+    id: blocks_throttle2
+    parameters:
+        ignoretag: 'True'
+        limit: auto
+        maximum: '0.1'
+        samples_per_second: '32000'
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: sink
+    id: blocks_null_sink
+    parameters:
+        type: complex
+        num_inputs: '1'
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: freq_strobe
+    id: blocks_message_strobe
+    parameters:
+        msg: pmt.cons(pmt.intern("freq"), pmt.from_double(42))
+        period: '200'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: message_debug
+    id: blocks_message_debug
+    parameters:
+        en_uvec: 'True'
+        log_level: info
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+connections:
+- [src, '0', amp, '0']
+- [amp, '0', throttle, '0']
+- [throttle, '0', sink, '0']
+-   src_blk_id: freq_strobe
+    src_port_id: strobe
+    snk_blk_id: dial_freq
+    snk_port_id: valuein
+-   src_blk_id: dial_freq
+    src_port_id: valueout
+    snk_blk_id: message_debug
+    snk_port_id: print
+-   src_blk_id: edit
+    src_port_id: msg
+    snk_blk_id: message_debug
+    snk_port_id: print
+-   src_blk_id: ping
+    src_port_id: pressed
+    snk_blk_id: message_debug
+    snk_port_id: print
+-   src_blk_id: burst
+    src_port_id: state
+    snk_blk_id: message_debug
+    snk_port_id: print
+-   src_blk_id: mute
+    src_port_id: state
+    snk_blk_id: message_debug
+    snk_port_id: print
+-   src_blk_id: gain_sw
+    src_port_id: state
+    snk_blk_id: message_debug
+    snk_port_id: print
+-   src_blk_id: level
+    src_port_id: value
+    snk_blk_id: message_debug
+    snk_port_id: print
+metadata:
+    file_format: 2
+    grc_version: 3.10.9.2

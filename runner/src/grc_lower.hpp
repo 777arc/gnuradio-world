@@ -18,15 +18,18 @@ namespace grc_lower {
 
 using nlohmann::json;
 
-// Variable controls have no GNU Radio block: they publish a value that other
-// blocks' numeric parameters bind to. They stay live in the graph (unlike plain
-// `variable` blocks, whose values are inlined away).
+// The QT GUI controls: widgets that publish a value other blocks' numeric
+// parameters bind to. They stay live in the graph (unlike plain `variable`
+// blocks, whose values are inlined away), so run_now() builds them before
+// anything else and keeps them for the whole run.
+//
+// The id prefix is the rule, matching the scan in lower() below and `isVar` in
+// editor/src/expr.ts. Some of these also carry a message port and therefore a
+// gr::block, which run_now() connects as it would any other block's; Digital
+// Number Control is the one whose id predates the naming convention.
 inline bool is_variable_control(const std::string& id) {
-    return id == "variable_qtgui_range" ||
-           id == "variable_qtgui_chooser" ||
-           id == "variable_qtgui_push_button" ||
-           id == "variable_qtgui_check_box" ||
-           id == "variable_qtgui_entry";
+    return id.rfind("variable_qtgui_", 0) == 0 ||
+           id == "qtgui_msgdigitalnumbercontrol";
 }
 
 // A GRC scalar (int/string) rendered as a string, for connection port tokens.
@@ -201,7 +204,7 @@ inline json lower(const json& g) {
     }
     for (const auto& b : blocks) {
         const std::string id = b.value("id", std::string());
-        if (id.rfind("variable_qtgui_", 0) != 0) continue;
+        if (!is_variable_control(id)) continue;
         const std::string name = b.value("name", std::string());
         if (name.empty() || !active(name) || !b.contains("parameters")) continue;
         const json value = coerce_numeric(b["parameters"].value("value", std::string()));

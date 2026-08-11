@@ -233,6 +233,17 @@ function numish(v: Value): number {
   if (v instanceof Complex && v.im === 0) return v.re;
   throw new Error('expected a real number');
 }
+// numish() plus Python's string conversions ('1.5', 'inf', '-inf', 'nan'), for
+// the builtins that accept one.
+function numeric(v: Value): number {
+  if (typeof v !== 'string') return numish(v);
+  const text = v.trim();
+  // Python spells the non-finite literals `inf`/`-inf`/`nan`; JS wants `Infinity`.
+  const value = text ? Number(text.replace(/^([+-]?)inf(inity)?$/i, '$1Infinity')) : NaN;
+  if (Number.isNaN(value) && !/^nan$/i.test(text))
+    throw new Error(`could not convert string to float: '${v}'`);
+  return value;
+}
 function simplifyC(c: Complex): Value { return c.im === 0 ? c.re : c; }
 
 function add(a: Value, b: Value): Value {
@@ -427,8 +438,12 @@ function elementwise(fn: (x: number) => number) {
 
 const BUILTINS: Record<string, (args: Value[]) => Value> = {
   len: a => (Array.isArray(a[0]) ? a[0].length : typeof a[0] === 'string' ? (a[0] as string).length : (() => { throw new Error('len() of non-sequence'); })()),
-  int: a => Math.trunc(numish(a[0])),
-  float: a => numish(a[0]),
+  int: a => Math.trunc(numeric(a[0])),
+  // Python's float() parses a string too, which is the only way to write an
+  // infinity as a literal: GRC's QT GUI Numeric Entry defaults its Maximum value
+  // to `float("inf")`, and a parameter that does not evaluate blocks the Run
+  // button rather than reaching the runner.
+  float: a => numeric(a[0]),
   bool: a => !!a[0] && a[0] !== 0,
   str: a => formatValue(a[0]),
   abs: a => (a[0] instanceof Complex ? Math.hypot(a[0].re, a[0].im) : Math.abs(numish(a[0]))),
@@ -648,7 +663,11 @@ export function serializeForRunner(v: Value, complexAsPair = false): string {
 // block name. Values may reference one another, so resolve to a fixpoint.
 export interface VarBlock { id: string; name: string; params: Record<string, any> }
 export function buildScope(blocks: VarBlock[]): Scope {
-  const isVar = (b: VarBlock) => b.id === 'variable' || b.id.startsWith('variable_');
+  // The id prefix, plus the one control whose id predates the convention. Same
+  // rule as `is_variable_control()` in runner/src/grc_lower.hpp and
+  // VARIABLE_CONTROL_IDS in validation.ts.
+  const isVar = (b: VarBlock) => b.id === 'variable' || b.id.startsWith('variable_') ||
+    b.id === 'qtgui_msgdigitalnumbercontrol';
   const raw = new Map<string, string>();
   for (const b of blocks) {
     if (!isVar(b)) continue;

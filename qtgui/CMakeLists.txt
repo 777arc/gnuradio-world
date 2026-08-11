@@ -48,6 +48,10 @@ add_library(gr_qtgui_ts STATIC
   ${GRQ}/lib/waterfalldisplayform.cc
   ${GRQ}/lib/waterfall_sink_c_impl.cc
   ${GRQ}/lib/waterfall_sink_f_impl.cc
+  # message edit box -- the one GUI *control* upstream writes in C++ rather than
+  # in Python, so unlike the rest of GRC's GUI Widgets/QT family it needs no
+  # rebuild, only compiling for Qt6 (blocks/src/qtgui_controls.hpp has the rest).
+  ${GRQ}/lib/edit_box_msg_impl.cc
   # Q_OBJECT headers listed so AUTOMOC generates their meta-object code
   # (multi-class headers like form_menus.h have no matching .cc).
   ${GRQ}/include/gnuradio/qtgui/DisplayPlot.h
@@ -71,6 +75,7 @@ add_library(gr_qtgui_ts STATIC
   ${GRQ}/lib/waterfall_sink_f_impl.h
   ${GRQ}/lib/time_sink_f_impl.h
   ${GRQ}/lib/time_sink_c_impl.h
+  ${GRQ}/lib/edit_box_msg_impl.h
 )
 target_include_directories(gr_qtgui_ts PUBLIC
   ${GRQ}/include ${GRQ}/lib

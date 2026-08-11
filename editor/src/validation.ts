@@ -15,17 +15,29 @@ export interface GraphPortAccess {
 export const NAME_FIELD = '__name';
 export const BLOCK_FIELD = '__block';
 
-// Variable controls have no stream ports; they publish a numeric value that
-// other blocks' numeric fields may reference by the control's block ID. The
-// three qtgui controls run as live blocks in the runner; the plain `variable`
-// block is inlined away by the runner's lowering step, so its value may itself
-// reference another variable.
+// Variable controls publish a numeric value that other blocks' numeric fields
+// may reference by the control's block ID. They run as live blocks in the
+// runner, unlike the plain `variable` block, which the runner's lowering step
+// inlines away — which is why a `variable` may itself reference another one and
+// a control may not (see below). This list is `is_variable_control()` in
+// runner/src/grc_lower.hpp, block for block; the two have to agree, or the
+// editor accepts a reference the runner cannot resolve.
 export const VARIABLE_CONTROL_IDS = new Set([
   'variable_qtgui_range', 'variable_qtgui_chooser', 'variable_qtgui_push_button',
-  'variable_qtgui_check_box', 'variable_qtgui_entry',
+  'variable_qtgui_check_box', 'variable_qtgui_entry', 'variable_qtgui_label',
+  'variable_qtgui_numeric_entry', 'variable_qtgui_toggle_switch',
+  'variable_qtgui_toggle_button_msg', 'variable_qtgui_msgcheckbox',
+  'variable_qtgui_msg_push_button', 'variable_qtgui_dial_control',
+  'qtgui_msgdigitalnumbercontrol',
 ]);
 // Every block ID that can be the target of a numeric variable reference.
 export const VARIABLE_IDS = new Set([...VARIABLE_CONTROL_IDS, 'variable']);
+// A control's own parameters are read when it is constructed, before any other
+// control exists, so they cannot reference one. The exception is a parameter the
+// runner does not read but *binds*, through the same numeric setter that lets a
+// Range drive a block's parameter: a QT GUI Label's Value may name a control and
+// then tracks it, which is the only thing that makes a Label worth placing.
+const TRACKING_PARAMS = new Set(['variable_qtgui_label:value']);
 
 export function validateFlowgraph(
   blocks: Inst[],
@@ -92,14 +104,16 @@ export function validateFlowgraph(
     for (const param of def.params) {
       const value = block.params?.[param.id];
       if (param.type === 'number') {
-        const variableReference = !VARIABLE_CONTROL_IDS.has(block.id) && typeof value === 'string' &&
+        const binds = !VARIABLE_CONTROL_IDS.has(block.id) ||
+          TRACKING_PARAMS.has(`${block.id}:${param.id}`);
+        const variableReference = binds && typeof value === 'string' &&
           activeVariables.has(value.trim());
         if (!finiteNumber(value) && !variableReference && !evaluates(value, staticScope)) {
           // An expression the live controls *could* satisfy is still rejected:
           // the runner wires a control into a parameter only when the parameter
           // is exactly the control's ID, so `freq/2` would never track the
           // slider. Say so rather than reporting a generic bad expression.
-          const liveOnly = !VARIABLE_CONTROL_IDS.has(block.id) && evaluates(value, fullScope);
+          const liveOnly = binds && evaluates(value, fullScope);
           add(block, param.id, liveOnly
             ? `${param.label} may reference a live control only on its own, not inside an expression.`
             : `${param.label} must be a number, a variable ID, or an expression of them.`);

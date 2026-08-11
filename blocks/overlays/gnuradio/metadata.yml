@@ -109,3 +109,21 @@ variable_tag_object:
     key: pmt
     value: pmt
     src: pmt
+
+# The QT GUI controls rebuilt from gr-qtgui's Python widgets
+# (blocks/src/qtgui_controls.hpp). Each has a hand-written factory, so none needs
+# cpp_templates; what they need is their Type parameter trimmed. The runner's
+# variable model carries a double (BuiltBlock::variable_value), so a
+# string-valued control has no value to publish and its factory throws by name --
+# and an option the runtime always refuses does not belong in the palette.
+variable_qtgui_toggle_switch:
+  prune_options: ['string']
+
+variable_qtgui_toggle_button_msg:
+  prune_options: ['string']
+
+variable_qtgui_msgcheckbox:
+  prune_options: ['string']
+
+variable_qtgui_msg_push_button:
+  prune_options: ['string']

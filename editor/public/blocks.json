@@ -57374,11 +57374,11 @@
     "show_id",
     "python"
    ],
-   "runnable": false,
-   "unavailable_reason": "Python-only block",
+   "runnable": true,
+   "unavailable_reason": null,
    "module": "core",
    "documentation": "This block creates a dial control. The control does control a variable which can be used for other items.  Leave the label blank to use the variable id as the label.\n\nThe block also creates an optional message with the control value that can be used in message-based applications.\n\nNote: Dials only produce integer values, so the scale factor can be used with the min/max to adjust the output value to the desired range.  Think of the min/max as the increments, and the scale factor as the adjustment to get the values you want.\n\nThe GUI hint can be used to position the widget within the application. The hint is of the form [tab_id@tab_index]: [row, col, row_span, col_span]. Both the tab specification and the grid position are optional.",
-   "api_documentation": "",
+   "api_documentation": "This block creates a dial control. The control does control a\nvariable which can be used for other items.  Leave the label\nblank to use the variable id as the label. The block also\ncreates an optional message with the control value that\ncan be used in message-based applications.\n\nNote: Dials only produce integer values, so the scale factor\ncan be used with the min/max to adjust the output value to\nthe desired range.  Think of the min/max as the increments,\nand the scale factor as the adjustment to get the values you want.",
    "wiki_url": "https://wiki.gnuradio.org/index.php/QT_GUI_Dial",
    "params": [
     {
@@ -57983,8 +57983,8 @@
    "flags": [
     "python"
    ],
-   "runnable": false,
-   "unavailable_reason": "Python-only block",
+   "runnable": true,
+   "unavailable_reason": null,
    "module": "core",
    "documentation": "The GUI hint can be used to position the widget within the application. The hint is of the form [tab_id@tab_index]: [row, col, row_span, col_span]. Both the tab specification and the grid position are optional.",
    "api_documentation": "",
@@ -61906,8 +61906,8 @@
     "python",
     "cpp"
    ],
-   "runnable": false,
-   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "runnable": true,
+   "unavailable_reason": null,
    "module": "core",
    "documentation": "This block creates a variable with a label widget for text. Leave the label blank to use the variable id as the label.\n\nThe GUI hint can be used to position the widget within the application. The hint is of the form [tab_id@tab_index]: [row, col, row_span, col_span]. Both the tab specification and the grid position are optional.",
    "api_documentation": "",
@@ -62746,11 +62746,11 @@
     "show_id",
     "python"
    ],
-   "runnable": false,
-   "unavailable_reason": "Python-only block",
+   "runnable": true,
+   "unavailable_reason": null,
    "module": "core",
    "documentation": "This block creates a variable checkbox. Leave the label blank to use the variable id as the label.\n\nA checkbox selects between two values of similar type, but will stay depressed until clicked again. The variable will take on one value or the other depending on whether the button is pressed or released.\n\nThis control will also produce a state message matching the set values.\n\nThe GUI hint can be used to position the widget within the application. The hint is of the form [tab_id@tab_index]: [row, col, row_span, col_span]. Both the tab specification and the grid position are optional.",
-   "api_documentation": "",
+   "api_documentation": "This block creates a variable checkbox. Leave the label blank to\nuse the variable id as the label. A checkbox selects between\ntwo values of similar type, but will stay depressed until\nclicked again. The variable will take on one value or the other\ndepending on whether the button is pressed or released.\n\n This control will also produce a state message matching the\n set values.",
    "wiki_url": "https://wiki.gnuradio.org/index.php/QT_GUI_Msg_CheckBox",
    "params": [
     {
@@ -62920,11 +62920,11 @@
     "show_id",
     "python"
    ],
-   "runnable": false,
-   "unavailable_reason": "Python-only block",
+   "runnable": true,
+   "unavailable_reason": null,
    "module": "core",
    "documentation": "While it can be used for anything, this block replicates the frequency control found in many SDR receiver software.",
-   "api_documentation": "",
+   "api_documentation": "GNU Radio Block Class",
    "wiki_url": "https://wiki.gnuradio.org/index.php/QT_GUI_Digital_Number_Control",
    "params": [
     {
@@ -63139,11 +63139,11 @@
     "show_id",
     "python"
    ],
-   "runnable": false,
-   "unavailable_reason": "Python-only block",
+   "runnable": true,
+   "unavailable_reason": null,
    "module": "core",
    "documentation": "This block creates a variable push button that creates a message when clicked. Leave the label blank to use the variable id as the label.\n\nYou can define both the output message pmt name as well as the value and value type.\n\nThe GUI hint can be used to position the widget within the application. The hint is of the form [tab_id@tab_index]: [row, col, row_span, col_span]. Both the tab specification and the grid position are optional.\n\nThis block replaces the deprecated \u201cQT GUI Push Button\u201d and provides a message-based interface for button events.",
-   "api_documentation": "",
+   "api_documentation": "This block creates a variable push button that creates a message\nwhen clicked. Leave the label blank to use the variable id as\nthe label. You can define both the output message pmt name as\nwell as the value and value type.",
    "wiki_url": "https://wiki.gnuradio.org/index.php/QT_GUI_Msg_Push_Button",
    "params": [
     {
@@ -63954,8 +63954,8 @@
     "show_id",
     "python"
    ],
-   "runnable": false,
-   "unavailable_reason": "Python-only block",
+   "runnable": true,
+   "unavailable_reason": null,
    "module": "core",
    "documentation": "This block creates a variable with a text entry box to accept numeric data in any common format.\nIt handles units, numeric expressions and lower/upper bounds.\n\nExamples (unit Hz):\n\"0.1\" -> 0.1 Hz\n\"1e3\" -> 1000 Hz\n\"5*2-3\" -> 7 Hz\n\"8 kHz\" -> 8000 Hz\n\"30m\" -> 0.03 Hz\n\nWhen the entry is focussed, the user can use the UP/DOWN keys to in-/decrement the value by the specified increment, and the PageUp/PageDown for ten times the increment.\n\nThe label color is used to indicate the status:\nblue = editing but value not yet applied\nred = invalid input\nblack = value applied\n\nIf one of the boundaries (min/max value) changes, or if the variable is changed from some other place in the flowgraph via the top block's \"set_xxx()\" callback (e.g. Message Pair to Var block), this is reflected on the UI\n\nThe precision defines the maximum decimal places to consider.\n\nThe widget can be en-/disabled dynamically if required to prevent the user from changing the values (programatic limit and value updates are still applied).\n\nThe GUI hint can be used to position the widget within the application. The hint is of the form [tab_id@tab_index]: [row, col, row_span, col_span]. Both the tab specification and the grid position are optional.",
    "api_documentation": "",
@@ -67370,11 +67370,11 @@
     "show_id",
     "python"
    ],
-   "runnable": false,
-   "unavailable_reason": "Python-only block",
+   "runnable": true,
+   "unavailable_reason": null,
    "module": "core",
    "documentation": "This block creates a variable toggle button. Leave the label blank to use the variable id as the label.\n\nA toggle button selects between two values of similar type, but will stay depressed until clicked again. The variable will take on one value or the other depending on whether the button is pressed or released.\n\nThis button will also produce a state message matching the set values.\n\nThe GUI hint can be used to position the widget within the application. The hint is of the form [tab_id@tab_index]: [row, col, row_span, col_span]. Both the tab specification and the grid position are optional.",
-   "api_documentation": "",
+   "api_documentation": "This block creates a variable toggle button. Leave the label\nblank to use the variable id as the label. A toggle button\nselects between two values of similar type, but will stay\ndepressed until clicked again. The variable will take on one\nvalue or the other depending on whether the button is pressed\nor released. This button will also produce a state message\nmatching the set values.",
    "wiki_url": "https://wiki.gnuradio.org/index.php/QT_GUI_Toggle_Button",
    "params": [
     {
@@ -67685,11 +67685,11 @@
     "show_id",
     "python"
    ],
-   "runnable": false,
-   "unavailable_reason": "Python-only block",
+   "runnable": true,
+   "unavailable_reason": null,
    "module": "core",
    "documentation": "This block creates a modern toggle switch. The variable will take on one value or the other as set in the dialog.\n\nThis switch will also produce a state message matching the set values.\n\nThe GUI hint can be used to position the widget within the application. The hint is of the form [tab_id@tab_index]: [row, col, row_span, col_span]. Both the tab specification and the grid position are optional.",
-   "api_documentation": "",
+   "api_documentation": "This block creates a modern toggle switch. The variable will take\non one value or the other as set in the dialog. This button will\nalso produce a state message matching the set values.",
    "wiki_url": "https://wiki.gnuradio.org/index.php/QT_GUI_Toggle_Switch",
    "params": [
     {

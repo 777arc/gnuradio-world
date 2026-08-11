@@ -600,6 +600,36 @@ Definition (`variable_cc_decoder_def`), which `fec_async_decoder` and
   message-sink block whose handler records the parser's `(type, text)` tuples and
   whose QTimer paints them (message handlers run on GR threads; widgets are
   main-thread only). See `example_flowgraphs/rds/rds_receiver.grc`.
+- **A QT GUI control is two objects, not one.** Most of GRC's "GUI Widgets/QT"
+  family are Python QWidgets upstream, rebuilt in
+  [`blocks/src/qtgui_controls.hpp`](blocks/src/qtgui_controls.hpp). Each is a
+  *variable* (it publishes a value under its block ID, which
+  `is_variable_control()` in `grc_lower.hpp` marks so run_now() builds it before
+  anything else) and usually also a *message* block (a `state`/`value` port), and
+  those cannot be the same object: a QWidget is not a `gr::block`. So the factory
+  returns a `BuiltBlock` carrying both, and the flowgraph connects the block by
+  the control's own name. Three things follow, and none is guessable:
+  - **The value model is a double**, so a control's `type: string` option has
+    nothing to publish. The factories throw by name and
+    `blocks/overlays/gnuradio/metadata.yml` prunes the option, rather than
+    letting the palette offer one the runtime always refuses.
+  - **A state control announces itself in `start()`**, which upstream's Python
+    widgets do not do. Without it a receiver wired to a Toggle Switch has no idea
+    which way the switch is set until someone flips it, and gr-qtgui's own C++
+    control (`edit_box_msg_impl::start`) already publishes its default this way.
+    The Msg Push Button deliberately does not: a momentary trigger announces an
+    event, and an event that did not happen must not be announced.
+  - **`VARIABLE_CONTROL_IDS` in `editor/src/validation.ts` is a hand-kept copy of
+    that C++ rule**, and the two drifting is silent: the editor refuses a
+    parameter naming a control it does not know is one, with the wrong reason. A
+    case in `editor/test/validation.test.mjs` asserts them equal against
+    blocks.json.
+
+  A control's own parameters are read when it is constructed, before any other
+  control exists, so they cannot reference one — except QT GUI Label's Value,
+  which is *bound* through a numeric setter rather than read, and so may name a
+  control and track it. `example_flowgraphs/qtgui/control_widgets.grc` exercises
+  every one of them.
 - **Python blocks whose dependency is a browser capability** get rebuilt around
   the browser's version of it. gr-paint's `paint_image_source` ("Image File
   Source") decodes an image with PIL upstream; there is neither PIL nor a

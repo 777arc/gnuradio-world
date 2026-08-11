@@ -102,6 +102,18 @@ CUSTOM_IDS = {
     "variable_qtgui_push_button",
     "variable_qtgui_check_box",
     "variable_qtgui_entry",
+    # The rest of GRC's GUI Widgets/QT family. All Python QWidgets upstream,
+    # rebuilt in blocks/src/qtgui_controls.hpp -- except edit_box_msg, which is
+    # C++ already and only needs a factory that reads its parameters.
+    "variable_qtgui_label",
+    "variable_qtgui_numeric_entry",
+    "variable_qtgui_toggle_switch",
+    "variable_qtgui_toggle_button_msg",
+    "variable_qtgui_msgcheckbox",
+    "variable_qtgui_msg_push_button",
+    "variable_qtgui_dial_control",
+    "qtgui_msgdigitalnumbercontrol",
+    "qtgui_edit_box_msg",
     "analog_sig_source_x",
     "analog_noise_source_x",
     "analog_random_source_x",
@@ -694,6 +706,19 @@ def load_blocks() -> list[dict[str, Any]]:
             block["__path"] = str(path.relative_to(base))
             block["__module"] = short
             blocks.append(block)
+    # gr-qtgui is read for its block *ids* alone. It is not a MODULE above and
+    # never will be: it is not a side module, and every one of its blocks the
+    # browser supports has a hand-written factory (the sinks need a QWidget, the
+    # controls are rebuilds of Python widgets), so there is nothing here to
+    # generate. Its overlays are real all the same, and without these ids
+    # validate() cannot tell one of them from a typo.
+    for path in sorted((GR / "gr-qtgui" / "grc").rglob("*.block.yml")):
+        try:
+            block = yaml.safe_load(path.read_text())
+        except Exception:
+            continue
+        if isinstance(block, dict) and "id" in block:
+            seen.setdefault(str(block["id"]), "qtgui")
     block_overrides.validate(BLOCK_OVERRIDES, seen)
     # Same typo trap block_overrides.validate() guards: an id that matches no
     # block would silently exclude nothing at all.

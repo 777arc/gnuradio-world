@@ -10,6 +10,7 @@
 #include "fec_hier.hpp"
 #include "filter_hier.hpp"
 #include "python_block.hpp"
+#include "qtgui_controls.hpp"
 #include "qtgui_sinks.hpp"
 #include "text_sink.hpp"
 #include "hrpt_image_sink.hpp"
@@ -70,6 +71,7 @@
 #include <gnuradio/qtgui/const_sink_c.h>
 #include <gnuradio/qtgui/waterfall_sink_c.h>
 #include <gnuradio/qtgui/waterfall_sink_f.h>
+#include <gnuradio/qtgui/edit_box_msg.h>
 #include <QBoxLayout>
 #include <QButtonGroup>
 #include <QCheckBox>
@@ -1232,6 +1234,391 @@ BuiltBlock make_entry(const json& p)
     return result;
 }
 
+// ---- the controls rebuilt from gr-qtgui's Python widgets -------------------
+// Everything above this line is a control registry.cpp assembles from stock Qt
+// classes. The rest of GRC's "GUI Widgets/QT" family are Python QWidgets with no
+// C++ path at all, rebuilt in blocks/src/qtgui_controls.hpp; these are their
+// factories. See that header for how a widget, its message block and the
+// runner's variable model fit together.
+
+QString control_label(const json& p, const char* fallback)
+{
+    QString label = QString::fromStdString(unquoted(p.value("label", std::string())));
+    if (label.isEmpty())
+        label = QString::fromStdString(p.value("__name", std::string(fallback)));
+    return label;
+}
+
+grworld::ControlType control_type(const json& p, const char* what)
+{
+    const std::string type = unquoted(p.value("type", std::string("int")));
+    if (type == "real" || type == "float")
+        return grworld::ControlType::Real;
+    if (type == "int")
+        return grworld::ControlType::Int;
+    if (type == "bool")
+        return grworld::ControlType::Bool;
+    throw std::runtime_error(std::string(what) +
+                             " supports real, int, and bool values in WebAssembly");
+}
+
+// Toggle Switch, Toggle Button and Msg CheckBox differ only in the widget the
+// user clicks: each carries a Pressed and a Released value, publishes whichever
+// is current as its variable, and puts the same value on a `state` message. This
+// is the half they share.
+struct TwoStateControl {
+    grworld::ControlType type = grworld::ControlType::Int;
+    double pressed = 1.0;
+    double released = 0.0;
+    bool initially_pressed = false;
+    std::string message_name;
+    std::shared_ptr<ControlState> state = std::make_shared<ControlState>();
+    grworld::ControlMessageBlock::sptr block;
+
+    double initial() const { return initially_pressed ? pressed : released; }
+
+    pmt::pmt_t message(double value) const
+    {
+        return pmt::cons(pmt::intern(message_name), grworld::control_pmt(type, value));
+    }
+
+    // Called from the widget's Qt callback, on the browser main thread.
+    void changed(bool on) const
+    {
+        const double value = on ? pressed : released;
+        state->publish(value);
+        block->publish(message(value));
+    }
+
+    BuiltBlock built(QWidget* widget) const
+    {
+        block->set_initial_message(message(initial()));
+        BuiltBlock result{ block, widget };
+        result.is_variable = true;
+        result.variable_value = initial();
+        auto subscribers = state;
+        result.subscribe = [subscribers](std::function<void(double)> subscriber) {
+            subscribers->subscribers.push_back(std::move(subscriber));
+        };
+        return result;
+    }
+};
+
+TwoStateControl two_state_from(const json& p, const char* what)
+{
+    TwoStateControl control;
+    control.type = control_type(p, what);
+    control.pressed = control_number(p, "pressed", 1.0);
+    control.released = control_number(p, "released", 0.0);
+    control.initially_pressed = bool_from(p, "initPressed", false);
+    control.message_name =
+        unquoted(p.value("outputmsgname", std::string("value")));
+    control.block = grworld::ControlMessageBlock::make(
+        p.value("__name", std::string(what)), "state");
+    return control;
+}
+
+BuiltBlock make_toggle_switch(const json& p)
+{
+    TwoStateControl control = two_state_from(p, "QT GUI Toggle Switch");
+    auto* toggle = new grworld::ToggleSwitchWidget(
+        QString::fromStdString(
+            unquoted(p.value("switchOnBackground", std::string("green")))),
+        QString::fromStdString(
+            unquoted(p.value("switchOffBackground", std::string("gray")))),
+        control.initially_pressed,
+        50);
+    toggle->on_change = [control](bool on) { control.changed(on); };
+    return control.built(grworld::label_around(
+        toggle,
+        QString::fromStdString(unquoted(p.value("label", std::string()))),
+        static_cast<int>(number_from(p, "position", 4)),
+        static_cast<int>(number_from(p, "cellalignment", 1)),
+        static_cast<int>(number_from(p, "verticalalignment", 1))));
+}
+
+BuiltBlock make_toggle_button(const json& p)
+{
+    TwoStateControl control = two_state_from(p, "QT GUI Toggle Button");
+    const QString released_style = grworld::color_style(
+        unquoted(p.value("relBackgroundColor", std::string("default"))),
+        unquoted(p.value("relFontColor", std::string("default"))));
+    const QString pressed_style = grworld::color_style(
+        unquoted(p.value("pressBackgroundColor", std::string("default"))),
+        unquoted(p.value("pressFontColor", std::string("default"))));
+
+    auto* button = new QPushButton(control_label(p, "Toggle Button"));
+    button->setCheckable(true);
+    button->setChecked(control.initially_pressed);
+    button->setStyleSheet(control.initially_pressed ? pressed_style : released_style);
+    QObject::connect(button, &QPushButton::toggled, button,
+                     [control, button, pressed_style, released_style](bool on) {
+                         button->setStyleSheet(on ? pressed_style : released_style);
+                         control.changed(on);
+                     });
+    return control.built(button);
+}
+
+BuiltBlock make_msg_check_box(const json& p)
+{
+    TwoStateControl control = two_state_from(p, "QT GUI Msg CheckBox");
+    auto* check_box = new QCheckBox(control_label(p, "Check Box"));
+    check_box->setChecked(control.initially_pressed);
+    QObject::connect(check_box, &QCheckBox::toggled, check_box,
+                     [control](bool on) { control.changed(on); });
+    // The label belongs to the check box itself, so the frame around it is here
+    // only for the two alignment parameters.
+    return control.built(grworld::label_around(
+        check_box,
+        QString(),
+        1,
+        static_cast<int>(number_from(p, "cellalignment", 1)),
+        static_cast<int>(number_from(p, "verticalalignment", 1))));
+}
+
+BuiltBlock make_msg_push_button(const json& p)
+{
+    // Alone among these, this one is not a variable: upstream's var_make is
+    // `self.<id> = None`, because its Value is what the message carries rather
+    // than something the flowgraph reads.
+    const grworld::ControlType type = control_type(p, "QT GUI Msg Push Button");
+    const double value = control_number(p, "value", 1.0);
+    const std::string key = unquoted(p.value("msgName", std::string("pressed")));
+    auto block = grworld::ControlMessageBlock::make(
+        p.value("__name", std::string("QT GUI Msg Push Button")), "pressed");
+
+    auto* button = new QPushButton(control_label(p, "Button"));
+    button->setStyleSheet(grworld::color_style(
+        unquoted(p.value("relBackgroundColor", std::string("default"))),
+        unquoted(p.value("relFontColor", std::string("default")))));
+    QObject::connect(button, &QPushButton::clicked, button, [block, type, value, key] {
+        block->publish(pmt::cons(pmt::intern(key), grworld::control_pmt(type, value)));
+    });
+    return BuiltBlock{ block, button };
+}
+
+BuiltBlock make_dial_control(const json& p)
+{
+    // A QDial counts in integers, so upstream turns a float dial into an integer
+    // one scaled on the way out: min/max are the dial's own steps and the value
+    // the flowgraph sees is step * scaleFactor.
+    const grworld::ControlType type = control_type(p, "QT GUI Dial");
+    const double scale =
+        type == grworld::ControlType::Real ? number_from(p, "scaleFactor", 1.0) : 1.0;
+    if (scale == 0.0)
+        throw std::runtime_error("QT GUI Dial: Scale Factor must not be zero");
+    const int minimum = static_cast<int>(number_from(p, "minimum", 0.0));
+    const int maximum = static_cast<int>(number_from(p, "maximum", 100.0));
+    if (maximum < minimum)
+        throw std::runtime_error("QT GUI Dial: Maximum must be at least Minimum");
+    const int minimum_size = static_cast<int>(number_from(p, "minsize", 100.0));
+    const bool show_value = bool_from(p, "showvalue", false);
+    const std::string key = unquoted(p.value("outputmsgname", std::string("value")));
+    const QString label = QString::fromStdString(
+        unquoted(p.value("label", std::string())));
+    const double requested = number_from(p, "value", 0.0);
+    const int steps = std::min(std::max(static_cast<int>(std::llround(requested / scale)),
+                                        minimum),
+                               maximum);
+
+    auto block = grworld::ControlMessageBlock::make(
+        p.value("__name", std::string("QT GUI Dial")), "value");
+    auto state = std::make_shared<ControlState>();
+
+    auto* widget = new QWidget;
+    auto* layout = new QVBoxLayout(widget);
+    layout->setContentsMargins(2, 2, 2, 2);
+    layout->setAlignment(Qt::AlignCenter);
+    // Upstream's label doubles as the readout when Show Value is on.
+    const auto caption = [label, type](double value) {
+        QString text = label.isEmpty() ? QString() : label + QStringLiteral(" - ");
+        return text + (type == grworld::ControlType::Real
+                           ? QString::number(value, 'f', 2)
+                           : QString::number(static_cast<long long>(value)));
+    };
+    auto* caption_label = new QLabel(show_value ? caption(steps * scale) : label, widget);
+    caption_label->setAlignment(Qt::AlignCenter);
+    layout->addWidget(caption_label);
+
+    auto* dial = new QDial(widget);
+    dial->setMinimumSize(minimum_size, minimum_size);
+    dial->setMinimum(minimum);
+    dial->setMaximum(maximum);
+    dial->setValue(steps);
+    const QString style = grworld::color_style(
+        unquoted(p.value("relBackgroundColor", std::string("default"))), std::string());
+    if (!style.isEmpty())
+        dial->setStyleSheet(style);
+    QObject::connect(
+        dial, &QDial::valueChanged, dial,
+        [state, block, key, type, scale, show_value, caption, caption_label](int value) {
+            const double scaled = value * scale;
+            state->publish(scaled);
+            block->publish(pmt::cons(pmt::intern(key), grworld::control_pmt(type, scaled)));
+            if (show_value)
+                caption_label->setText(caption(scaled));
+        });
+    layout->addWidget(dial);
+
+    block->set_initial_message(
+        pmt::cons(pmt::intern(key), grworld::control_pmt(type, steps * scale)));
+    BuiltBlock result{ block, widget };
+    result.is_variable = true;
+    result.variable_value = steps * scale;
+    result.subscribe = [state](std::function<void(double)> subscriber) {
+        state->subscribers.push_back(std::move(subscriber));
+    };
+    return result;
+}
+
+BuiltBlock make_gui_label(const json& p)
+{
+    const std::string type = unquoted(p.value("type", std::string("int")));
+    // A Label displays whatever it is given, so unlike the controls above it has
+    // no reason to refuse a string: `type` only decides the formatting.
+    const auto format = [type](double value) {
+        if (type == "bool")
+            return QString(value != 0.0 ? "True" : "False");
+        if (type == "int")
+            return QString::number(static_cast<long long>(std::llround(value)));
+        return QString::number(value, 'g', 12);
+    };
+
+    auto* widget = new QWidget;
+    auto* layout = new QHBoxLayout(widget);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->addWidget(new QLabel(control_label(p, "Label") + ": ", widget));
+    // A value that is neither a number nor a numeric string is shown as it was
+    // written (`type: string`, or a reference to a control built after this one).
+    const auto value = p.find("value");
+    double initial = 0.0;
+    QString text;
+    if (value != p.end() && value->is_number()) {
+        initial = value->get<double>();
+        text = format(initial);
+    } else {
+        const std::string written = unquoted(
+            value != p.end() && value->is_string() ? value->get<std::string>()
+                                                   : std::string("0"));
+        char* end = nullptr;
+        const double parsed = std::strtod(written.c_str(), &end);
+        if (end && *end == '\0' && !written.empty()) {
+            initial = parsed;
+            text = format(initial);
+        } else {
+            text = QString::fromStdString(written);
+        }
+    }
+    auto* display = new QLabel(text, widget);
+    display->setStyleSheet(QStringLiteral("font-weight: 600;"));
+    layout->addWidget(display);
+
+    BuiltBlock result;
+    result.widget = widget;
+    result.is_variable = true;
+    result.variable_value = initial;
+    // Nothing subscribes to a Label -- it is a display, not a control -- but it
+    // is the one variable control that *is* driven: a Label whose Value is a
+    // Range's block ID tracks that Range, through the same parameter binding
+    // that wires a Range to a block's setter. See run_now() in runner.cpp.
+    result.subscribe = [](std::function<void(double)>) {};
+    result.numeric_setters["value"] = [display, format](double updated) {
+        display->setText(format(updated));
+    };
+    return result;
+}
+
+BuiltBlock make_numeric_entry(const json& p)
+{
+    auto* entry = new grworld::NumericEntryWidget(
+        QString::fromStdString(unquoted(p.value("label", std::string()))),
+        number_from(p, "value", 0.0),
+        number_from(p, "increment", 0.1),
+        QString::fromStdString(unquoted(p.value("unit", std::string()))),
+        QString::fromStdString(unquoted(p.value("description", std::string()))),
+        static_cast<int>(number_from(p, "precision", 10)),
+        bool_from(p, "enabled", true),
+        number_from(p, "value_min", -std::numeric_limits<double>::infinity()),
+        number_from(p, "value_max", std::numeric_limits<double>::infinity()));
+
+    auto state = std::make_shared<ControlState>();
+    entry->on_change = [state](double value) { state->publish(value); };
+
+    BuiltBlock result;
+    result.widget = entry;
+    result.is_variable = true;
+    result.variable_value = entry->value();
+    result.subscribe = [state](std::function<void(double)> subscriber) {
+        state->subscribers.push_back(std::move(subscriber));
+    };
+    return result;
+}
+
+BuiltBlock make_digital_number_control(const json& p)
+{
+    const long long minimum =
+        static_cast<long long>(std::llround(number_from(p, "minFreqHz", 30e6)));
+    const long long maximum =
+        static_cast<long long>(std::llround(number_from(p, "maxFreqHz", 1700e6)));
+    if (maximum < minimum)
+        throw std::runtime_error(
+            "QT GUI Digital Number Control: Max Freq is below Min Freq");
+    const std::string key = unquoted(p.value("outputmsgname", std::string("freq")));
+    auto block = grworld::ControlMessageBlock::make(
+        p.value("__name", std::string("QT GUI Digital Number Control")),
+        "valueout",
+        "valuein");
+
+    auto* number = new grworld::DigitalNumberWidget(
+        minimum,
+        maximum,
+        QString::fromStdString(unquoted(p.value("ThousandsSeparator", std::string(",")))),
+        QString::fromStdString(unquoted(p.value("relBackgroundColor", std::string("black")))),
+        QString::fromStdString(unquoted(p.value("relFontColor", std::string("white")))));
+    const double requested = number_from(p, "value", static_cast<double>(minimum));
+    number->set_value_now(static_cast<long long>(std::llround(
+        std::min(std::max(requested, static_cast<double>(minimum)),
+                 static_cast<double>(maximum)))));
+    number->set_read_only(bool_from(p, "readOnly", false));
+
+    auto state = std::make_shared<ControlState>();
+    const auto announce = [state, block, key](double value) {
+        state->publish(value);
+        block->publish(pmt::cons(pmt::intern(key), pmt::from_double(value)));
+    };
+    number->on_change = announce;
+    // Runs on a GR thread: the value is queued for the widget's own timer to
+    // paint, and only then re-announced, exactly as upstream's msgHandler does.
+    block->set_handler([number, announce](pmt::pmt_t message) {
+        if (!pmt::is_pair(message))
+            return;
+        const pmt::pmt_t value = pmt::cdr(message);
+        if (!pmt::is_number(value))
+            return;
+        const double updated = pmt::to_double(value);
+        number->queue_value(updated);
+        announce(updated);
+    });
+
+    block->set_initial_message(
+        pmt::cons(pmt::intern(key),
+                  pmt::from_double(static_cast<double>(number->value()))));
+    // Upstream puts the label above the digits (LabeledDigitalNumberControl).
+    BuiltBlock result{ block,
+                       grworld::label_around(
+                           number,
+                           QString::fromStdString(unquoted(p.value("lbl", std::string()))),
+                           1,
+                           1,
+                           1) };
+    result.is_variable = true;
+    result.variable_value = static_cast<double>(number->value());
+    result.subscribe = [state](std::function<void(double)> subscriber) {
+        state->subscribers.push_back(std::move(subscriber));
+    };
+    return result;
+}
+
 BuiltBlock make_fosphor_sink(const json& p, const std::string& block_name)
 {
     const auto window = wasm_registry::choice<gr::fft::window::win_type>(
@@ -1399,6 +1786,60 @@ static std::map<std::string, Factory>& registry_storage() {
          }},
         {"variable_qtgui_entry", [](const json& p) -> BuiltBlock {
              return make_entry(p);
+         }},
+        {"variable_qtgui_label", [](const json& p) -> BuiltBlock {
+             return make_gui_label(p);
+         }},
+        {"variable_qtgui_numeric_entry", [](const json& p) -> BuiltBlock {
+             return make_numeric_entry(p);
+         }},
+        {"variable_qtgui_toggle_switch", [](const json& p) -> BuiltBlock {
+             return make_toggle_switch(p);
+         }},
+        {"variable_qtgui_toggle_button_msg", [](const json& p) -> BuiltBlock {
+             return make_toggle_button(p);
+         }},
+        {"variable_qtgui_msgcheckbox", [](const json& p) -> BuiltBlock {
+             return make_msg_check_box(p);
+         }},
+        {"variable_qtgui_msg_push_button", [](const json& p) -> BuiltBlock {
+             return make_msg_push_button(p);
+         }},
+        {"variable_qtgui_dial_control", [](const json& p) -> BuiltBlock {
+             return make_dial_control(p);
+         }},
+        {"qtgui_msgdigitalnumbercontrol", [](const json& p) -> BuiltBlock {
+             return make_digital_number_control(p);
+         }},
+        // The one control upstream already writes in C++ (gr-qtgui's
+        // edit_box_msg_impl.cc); qtgui/CMakeLists.txt builds it for Qt6.
+        {"qtgui_edit_box_msg", [](const json& p) -> BuiltBlock {
+             // The parameter holds the option *value* (`string`, `int_vec`, …);
+             // it is the `t` option attribute that spells the enumerator, and
+             // only the Python template ever reads that.
+             const auto type = wasm_registry::choice<gr::qtgui::data_type_t>(
+                 p,
+                 "type",
+                 {
+                     { "string", gr::qtgui::STRING },
+                     { "int", gr::qtgui::INT },
+                     { "float", gr::qtgui::FLOAT },
+                     { "double", gr::qtgui::DOUBLE },
+                     { "complex", gr::qtgui::COMPLEX },
+                     { "int_vec", gr::qtgui::INT_VEC },
+                     { "flt_vec", gr::qtgui::FLOAT_VEC },
+                     { "dbl_vec", gr::qtgui::DOUBLE_VEC },
+                     { "cpx_vec", gr::qtgui::COMPLEX_VEC },
+                 },
+                 gr::qtgui::STRING);
+             auto b = gr::qtgui::edit_box_msg::make(
+                 type,
+                 unquoted(p.value("value", std::string())),
+                 unquoted(p.value("label", std::string())),
+                 bool_from(p, "is_pair", true),
+                 bool_from(p, "is_static", true),
+                 unquoted(p.value("key", std::string())));
+             return BuiltBlock{ b, b->qwidget() };
          }},
         // ---- sources ----
         {"analog_sig_source_x", [](const json& p) -> BuiltBlock {

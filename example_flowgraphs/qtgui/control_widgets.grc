@@ -1,0 +1,276 @@
+options:
+  parameters:
+    author: ''
+    category: '[GRC Hier Blocks]'
+    comment: ''
+    description: Every QT GUI control widget in one flowgraph. The Numeric Entry
+      retunes the tone and the Dial rides its level; the rest publish their state
+      as messages, which the console pane prints. Each state control announces
+      itself once when the flowgraph starts, so what the widgets show and what the
+      graph believes agree before anything is touched.
+    generate_options: qt_gui
+    id: control_widgets
+    output_language: python
+    run: 'True'
+    sizing_mode: fixed
+    title: QT GUI Control Widgets
+  states:
+    coordinate: [10, 10]
+    rotation: 0
+    state: enabled
+blocks:
+- name: samp_rate
+  id: variable
+  parameters:
+    value: '32000'
+  states:
+    coordinate: [310, 10]
+    rotation: 0
+    state: enabled
+- name: tone
+  id: variable_qtgui_numeric_entry
+  parameters:
+    description: The tone the signal chain generates.
+    enabled: 'True'
+    gui_hint: ''
+    increment: '100'
+    label: Tone
+    precision: '10'
+    unit: Hz
+    value: '1000'
+    value_max: '4000'
+    value_min: '100'
+  states:
+    coordinate: [480, 10]
+    rotation: 0
+    state: enabled
+- name: readout
+  id: variable_qtgui_label
+  parameters:
+    formatter: None
+    gui_hint: ''
+    label: Tone now
+    type: real
+    value: tone
+  states:
+    coordinate: [750, 10]
+    rotation: 0
+    state: enabled
+- name: level
+  id: variable_qtgui_dial_control
+  parameters:
+    gui_hint: ''
+    label: Level
+    maximum: '10'
+    minimum: '0'
+    minsize: '100'
+    outputmsgname: level
+    relBackgroundColor: default
+    scaleFactor: '0.1'
+    showvalue: 'True'
+    type: real
+    value: '0.8'
+  states:
+    coordinate: [80, 130]
+    rotation: 0
+    state: enabled
+- name: mode
+  id: variable_qtgui_toggle_switch
+  parameters:
+    cellalignment: '1'
+    gui_hint: ''
+    initPressed: 'True'
+    label: Mode
+    outputmsgname: mode
+    position: '4'
+    pressed: '1'
+    released: '0'
+    switchOffBackground: gray
+    switchOnBackground: green
+    type: int
+    value: '1'
+    verticalalignment: '1'
+  states:
+    coordinate: [80, 330]
+    rotation: 0
+    state: enabled
+- name: burst
+  id: variable_qtgui_toggle_button_msg
+  parameters:
+    gui_hint: ''
+    initPressed: 'False'
+    label: Burst
+    outputmsgname: burst
+    pressBackgroundColor: green
+    pressFontColor: black
+    pressed: '1'
+    relBackgroundColor: default
+    relFontColor: default
+    released: '0'
+    type: int
+    value: '0'
+  states:
+    coordinate: [80, 510]
+    rotation: 0
+    state: enabled
+- name: mute
+  id: variable_qtgui_msgcheckbox
+  parameters:
+    cellalignment: '1'
+    gui_hint: ''
+    initPressed: 'False'
+    label: Mute
+    outputmsgname: mute
+    pressed: '1'
+    released: '0'
+    type: int
+    value: '0'
+    verticalalignment: '1'
+  states:
+    coordinate: [80, 690]
+    rotation: 0
+    state: enabled
+- name: ping
+  id: variable_qtgui_msg_push_button
+  parameters:
+    gui_hint: ''
+    label: Ping
+    msgName: ping
+    relBackgroundColor: default
+    relFontColor: default
+    type: int
+    value: '1'
+  states:
+    coordinate: [80, 870]
+    rotation: 0
+    state: enabled
+- name: radio
+  id: qtgui_msgdigitalnumbercontrol
+  parameters:
+    ThousandsSeparator: ','
+    gui_hint: ''
+    lbl: Receive frequency
+    maxFreqHz: '1700'
+    minFreqHz: '30'
+    outputmsgname: freq
+    readOnly: 'False'
+    relBackgroundColor: black
+    relFontColor: white
+    value: '100'
+  states:
+    coordinate: [80, 1010]
+    rotation: 0
+    state: enabled
+- name: note
+  id: qtgui_edit_box_msg
+  parameters:
+    gui_hint: ''
+    is_pair: 'True'
+    is_static: 'True'
+    key: note
+    label: Note
+    type: string
+    value: hello
+  states:
+    coordinate: [80, 1170]
+    rotation: 0
+    state: enabled
+- name: source
+  id: analog_sig_source_x
+  parameters:
+    amplitude: '1'
+    frequency: tone
+    offset: '0'
+    phase: '0'
+    samp_rate: samp_rate
+    type: complex
+    waveform: analog.GR_COS_WAVE
+  states:
+    coordinate: [10, 1370]
+    rotation: 0
+    state: enabled
+- name: gain
+  id: blocks_multiply_const_xx
+  parameters:
+    constant: level
+    type: complex
+    vlen: '1'
+  states:
+    coordinate: [290, 1390]
+    rotation: 0
+    state: enabled
+- name: throttle
+  id: blocks_throttle2
+  parameters:
+    ignoretag: 'True'
+    limit: auto
+    maximum: '0.1'
+    samples_per_second: samp_rate
+    type: complex
+    vlen: '1'
+  states:
+    coordinate: [560, 1370]
+    rotation: 0
+    state: enabled
+- name: scope
+  id: qtgui_time_sink_x
+  parameters:
+    autoscale: 'False'
+    grid: 'False'
+    name: Tone
+    nconnections: '1'
+    samp_rate: samp_rate
+    size: '1024'
+    type: complex
+    ylabel: Amplitude
+    ymax: '2'
+    ymin: '-2'
+    yunit: ''
+  states:
+    coordinate: [890, 1370]
+    rotation: 0
+    state: enabled
+- name: message_debug
+  id: blocks_message_debug
+  parameters:
+    en_uvec: 'True'
+    log_level: info
+  states:
+    coordinate: [600, 150]
+    rotation: 0
+    state: enabled
+connections:
+- [source, '0', gain, '0']
+- [gain, '0', throttle, '0']
+- [throttle, '0', scope, '0']
+- src_blk_id: level
+  src_port_id: value
+  snk_blk_id: message_debug
+  snk_port_id: print
+- src_blk_id: mode
+  src_port_id: state
+  snk_blk_id: message_debug
+  snk_port_id: print
+- src_blk_id: burst
+  src_port_id: state
+  snk_blk_id: message_debug
+  snk_port_id: print
+- src_blk_id: mute
+  src_port_id: state
+  snk_blk_id: message_debug
+  snk_port_id: print
+- src_blk_id: ping
+  src_port_id: pressed
+  snk_blk_id: message_debug
+  snk_port_id: print
+- src_blk_id: radio
+  src_port_id: valueout
+  snk_blk_id: message_debug
+  snk_port_id: print
+- src_blk_id: note
+  src_port_id: msg
+  snk_blk_id: message_debug
+  snk_port_id: print
+metadata:
+  file_format: 1
+  grc_version: 3.10.9.2

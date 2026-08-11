@@ -360,8 +360,21 @@ static void run_now(const std::string& json_source) {
                     source_param.value().get<std::string>();
                 auto variable = variables.find(variable_name);
                 auto setter = bb.numeric_setters.find(source_param.key());
-                if (variable != variables.end() && setter != bb.numeric_setters.end())
+                if (variable == variables.end() ||
+                    setter == bb.numeric_setters.end())
+                    continue;
+                // A control that publishes nothing (Msg Push Button, whose value
+                // is only ever the message's) has no subscriber list to join.
+                if (variable->second.built.subscribe)
                     variable->second.built.subscribe(setter->second);
+                // The controls are built before this loop, from *unresolved*
+                // parameters, because that is the only order in which each one's
+                // value is available to the others. So one referencing another
+                // starts out showing the reference rather than the value: a QT
+                // GUI Label reading `freq` says "freq" until the Range moves.
+                // Push the resolved value through the same setter to settle it.
+                if (is_variable_control(id) && params[source_param.key()].is_number())
+                    setter->second(params[source_param.key()].get<double>());
             }
 
             // Record a stats entry for any block that is a gr::block (all our

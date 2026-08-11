@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { bundleModule } from './bundle-module.mjs';
 import { mainSource as main, cssSource as css } from './editor-contract-source.mjs';
 
-const { validateFlowgraph, NAME_FIELD, BLOCK_FIELD } =
+const { validateFlowgraph, NAME_FIELD, BLOCK_FIELD, VARIABLE_CONTROL_IDS } =
   await bundleModule('../src/validation.ts');
 // The hand-written schemas the cases below use (analog_sig_source_x, variable,
 // the null sink) come from block-defs, which is where validateFlowgraph's
@@ -164,6 +164,19 @@ assert.deepEqual(validateFlowgraph([source, passthrough({ bypassed: true }), dra
                     'qtgui_const_sink_x', 'qtgui_waterfall_sink_x'])
     assert.deepEqual(RUNNABLE[id].inOptional, [false],
       `${id} must require its stream input, like native GRC`);
+
+  // VARIABLE_CONTROL_IDS is a hand-kept copy of `is_variable_control()` in
+  // runner/src/grc_lower.hpp, and the two disagreeing is silent in the worst
+  // way: the runner resolves a parameter naming a control the editor does not
+  // know is one, so the editor rejects a flowgraph that would have run — with
+  // the wrong reason ("only on its own, not inside an expression") for a
+  // reference that is on its own. Assert the C++ rule against what the palette
+  // actually offers.
+  const controls = (library.blocks || []).filter(block => block.runnable &&
+    (String(block.id).startsWith('variable_qtgui_') ||
+     block.id === 'qtgui_msgdigitalnumbercontrol')).map(block => block.id);
+  assert.deepEqual([...VARIABLE_CONTROL_IDS].sort(), controls.sort(),
+    'VARIABLE_CONTROL_IDS must match is_variable_control() in grc_lower.hpp');
 }
 
 // Keep a small integration contract for presentation and run wiring. Business
