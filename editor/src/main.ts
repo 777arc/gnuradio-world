@@ -9,6 +9,17 @@ import { ceilToGrid, centeredPortSlot, constrainBlockPosition, SNAP_GRID_SIZE } 
 import { arrangeFlowgraph, type LayoutNode } from './layout';
 import { evaluate as evalExpr, buildScope, formatValue as fmtExprVal, serializeForRunner, type Scope } from './expr';
 import { wrapNoteText, NOTE_FONT_SIZE } from './note';
+import {
+  layoutColumns,
+  layoutRowHeight,
+  packLayout,
+  parseTiles,
+  placeTile,
+  rowsUsed,
+  serializeTiles,
+  type TileMap,
+  type WidgetRef,
+} from './gui-layout';
 import { EXAMPLES_REPO, examplePath, newExampleFileUrl, sanitizeExampleName } from './contribute';
 import aboutHtml from './about.html?raw';
 
@@ -604,9 +615,60 @@ function noteGeom(inst: Inst, d: RunnableDef) {
   };
 }
 
+// The GUI Layout block's body is a miniature of the runner window: one rectangle
+// per widget, where that widget will actually appear. A parameter row holding
+// `{"qtgui_freq_sink_x_0":[0,0,8,4]}` tells a reader nothing, and the whole
+// point of the block is the arrangement, so the arrangement is what it shows.
+// Same idea as the Note block above, whose body is its text.
+const LAYOUT_THUMB_W = 240;      // px of block face the grid is drawn across
+const LAYOUT_THUMB_CELL_H = 15;  // px per grid row in the miniature
+const LAYOUT_THUMB_MAX_ROWS = 14;
+const LAYOUT_THUMB_FONT = 9;
+export interface LayoutThumbTile { name: string; x: number; y: number; w: number; h: number }
+// Shorten to fit a measured width, ellipsis included. truncateValue() above
+// counts characters, which is right for a parameter row in a monospaced column
+// and wrong for a tile whose width is whatever fraction of the grid it spans.
+function truncateToWidth(text: string, maxWidth: number, fontSize: number): string {
+  if (textW(text, fontSize) <= maxWidth) return text;
+  let cut = text;
+  while (cut.length > 1 && textW(cut + '…', fontSize) > maxWidth) cut = cut.slice(0, -1);
+  return cut + '…';
+}
+function layoutGeom(inst: Inst, d: RunnableDef) {
+  const columns = layoutColumns(inst.params.columns);
+  const tiles = layoutTilesFor(inst);
+  // An empty grid still draws its outline, so the block reads as "nothing is
+  // placed here yet" rather than as a block with a missing body.
+  const rows = Math.max(1, Math.min(rowsUsed(tiles), LAYOUT_THUMB_MAX_ROWS));
+  const cellW = LAYOUT_THUMB_W / columns;
+  const thumb: LayoutThumbTile[] = [];
+  for (const [name, tile] of Object.entries(tiles)) {
+    if (tile.row >= LAYOUT_THUMB_MAX_ROWS) continue;   // clipped; the dialog shows all
+    thumb.push({
+      name,
+      x: tile.col * cellW, y: tile.row * LAYOUT_THUMB_CELL_H,
+      w: tile.w * cellW,
+      h: Math.min(tile.h, LAYOUT_THUMB_MAX_ROWS - tile.row) * LAYOUT_THUMB_CELL_H,
+    });
+  }
+  const thumbH = rows * LAYOUT_THUMB_CELL_H;
+  // The title bar is exactly as tall as the title: TITLE_BASELINE puts an 18px
+  // cap line at PAD, and the descenders of "GUI Layout" land on TITLE_H itself.
+  // So the grid needs a gap of its own under it, or the two touch. PAD on both
+  // sides of the grid rather than BODY_SLACK underneath it, which would leave
+  // the block padded at the bottom and not at the top.
+  return {
+    d, rows: [] as { id: string; l: string; v: string }[], subtitle: '', headH: TITLE_H,
+    h: TITLE_H + PAD + thumbH + PAD,
+    w: Math.max(BLOCK_MIN_W, LAYOUT_THUMB_W + TEXT_PAD_L + TEXT_PAD_R),
+    thumb, thumbH, thumbTop: TITLE_H + PAD,
+  };
+}
+
 function geom(inst: Inst) {
   const d = defFor(inst);
   if (inst.id === NOTE_ID) return noteGeom(inst, d);
+  if (inst.id === LAYOUT_ID) return layoutGeom(inst, d);
   // Categorized parameters belong in the modal notebook. Native GRC also keeps
   // parameters marked `hide: part` or `hide: all` off the block face.
   const rows = d.params
@@ -728,9 +790,12 @@ function uniqueBlockName(base: string, taken: Set<string> = new Set(insts.map(i 
 function addBlock(id: string, x = 60 + (counter % 5) * 30, y = 60 + (counter % 7) * 24,
                   paramOverrides: Record<string, any> = {}, record = true): Inst | null {
   const d = RUNNABLE[id]; if (!d) { log('block "' + id + '" is not runnable yet'); return null; }
-  if (id === OPTIONS_ID) {
-    const existing = insts.find(i => i.id === OPTIONS_ID);
-    if (existing) { log('only one Options block is allowed per flowgraph'); select(existing.uid); return existing; }
+  if (id === OPTIONS_ID || id === LAYOUT_ID) {
+    const existing = insts.find(i => i.id === id);
+    if (existing) {
+      log(`only one ${d.label} block is allowed per flowgraph`);
+      select(existing.uid); return existing;
+    }
   }
   const uid = 'b' + (++counter);
   const params: Record<string, any> = {};
@@ -751,8 +816,8 @@ function addBlock(id: string, x = 60 + (counter % 5) * 30, y = 60 + (counter % 7
 // ---- block operations (used by the context menu and shortcuts) ----
 function deleteBlocks(uids = selectedBlocks) {
   if (!uids.size) return;
-  // The Options block is a required singleton and cannot be deleted.
-  insts = insts.filter(i => !uids.has(i.uid) || i.id === OPTIONS_ID);
+  // Options and GUI Layout are required singletons and cannot be deleted.
+  insts = insts.filter(i => !uids.has(i.uid) || i.id === OPTIONS_ID || i.id === LAYOUT_ID);
   conns = conns.filter(c => !uids.has(c.from) && !uids.has(c.to));
   selectedBlocks.clear(); selected = null; selectedConnection = null;
   render(); recordHistory();
@@ -764,7 +829,9 @@ function deleteConnection(conn: Conn) {
 }
 function duplicateBlock(uid: string) {
   const s = insts.find(i => i.uid === uid); if (!s) return;
-  if (s.id === OPTIONS_ID) { log('only one Options block is allowed per flowgraph'); return; }
+  if (s.id === OPTIONS_ID || s.id === LAYOUT_ID) {
+    log(`only one ${defFor(s).label} block is allowed per flowgraph`); return;
+  }
   const nu = 'b' + (++counter);
   const position = constrainBlockPosition(s.x + 24, s.y + 24, snapToGrid);
   insts.push({ uid: nu, id: s.id, name: uniqueBlockName(s.name),
@@ -779,8 +846,10 @@ function copyBlock(uid: string) {
   copyBlocks(selectedBlocks.has(uid) ? selectedBlocks : new Set([uid]));
 }
 function copyBlocks(uids = selectedBlocks) {
-  // The Options block is a singleton; never copy it (so paste can't duplicate it).
-  const blocks = insts.filter(i => uids.has(i.uid) && i.id !== OPTIONS_ID);
+  // Options and GUI Layout are singletons; never copy them (so paste can't
+  // duplicate one).
+  const blocks = insts.filter(i =>
+    uids.has(i.uid) && i.id !== OPTIONS_ID && i.id !== LAYOUT_ID);
   if (!blocks.length) return;
   clipboard = clone({ blocks, connections: conns.filter(c => uids.has(c.from) && uids.has(c.to)) });
   log(`copied ${blocks.length} block${blocks.length === 1 ? '' : 's'}`);
@@ -845,7 +914,10 @@ function autoArrangeBlocks() {
       Math.max(0, ...visiblePortIndices(inst, kind).map(i => portWidth(inst, kind, i)));
     return {
       uid: inst.uid, w, h, leftPad: pad('in'), rightPad: pad('out'),
-      in: offsets('in'), out: offsets('out'), pinned: inst.id === OPTIONS_ID,
+      in: offsets('in'), out: offsets('out'),
+      // Both singletons park in the corner ahead of everything else; neither is
+      // wired to anything, so they would otherwise land wherever they fell.
+      pinned: inst.id === OPTIONS_ID || inst.id === LAYOUT_ID,
     };
   });
   const byUid = new Map(insts.map(inst => [inst.uid, inst]));
@@ -931,6 +1003,55 @@ function ensureOptionsBlock() {
   if (!insts.some(i => i.id === OPTIONS_ID)) insts.unshift(makeOptionsInst());
 }
 
+// ---- GUI Layout block: the other required singleton ----
+// Where the flowgraph's QT GUI widgets go in the runner window, as a grid. Like
+// Options it is placed automatically and cannot be deleted or duplicated, so a
+// flowgraph is always arrangeable without anyone having to know the block
+// exists. A .grc that predates it simply has no tiles, which the runner renders
+// as the vertical stack it always used to.
+const LAYOUT_ID = 'wasm_gui_layout';
+const LAYOUT_PARAM = 'layout';
+const LAYOUT_DTYPE = 'gui_layout';
+function makeLayoutInst(): Inst {
+  const params: Record<string, any> = {};
+  RUNNABLE[LAYOUT_ID].params.forEach(p => params[p.id] = p.def);
+  return { uid: 'b' + (++counter), id: LAYOUT_ID, name: uniqueBlockName(LAYOUT_ID),
+    x: 10, y: 120, params, enabled: true, rotation: 0, bypassed: false };
+}
+function ensureLayoutBlock() {
+  // A build with no generated library yet (the very first paint) has no schema
+  // to build one from; the next load settles it.
+  if (!RUNNABLE[LAYOUT_ID]) return;
+  if (!insts.some(i => i.id === LAYOUT_ID)) insts.push(makeLayoutInst());
+}
+const layoutInst = (): Inst | undefined => insts.find(i => i.id === LAYOUT_ID);
+// The blocks that take a tile: those whose factory builds a QWidget. Only the
+// C++ knows which those are, so the answer comes from the generated library's
+// `gui` flag (GUI_IDS in runner/gen_registry.py). Disabled blocks are left out
+// because the runner never builds them.
+function guiWidgets(): WidgetRef[] {
+  return insts.filter(i => i.enabled && !i.bypassed && GUI_BLOCK_IDS.has(i.id))
+    .map(i => ({ name: i.name, id: i.id }));
+}
+function layoutTilesFor(inst: Inst | undefined = layoutInst()): TileMap {
+  if (!inst) return {};
+  return packLayout(guiWidgets(), parseTiles(String(inst.params[LAYOUT_PARAM] ?? '{}')),
+                    layoutColumns(inst.params.columns));
+}
+// Write a new arrangement back into the flowgraph. This is what makes a drag --
+// in the Properties dialog or over the running window -- part of the .grc rather
+// than a view setting: it lands in the block's parameter, so Save writes it and
+// the next Run reads it.
+function setLayoutTiles(tiles: TileMap, record = true) {
+  const inst = layoutInst();
+  if (!inst) return;
+  const text = serializeTiles(tiles);
+  if (text === String(inst.params[LAYOUT_PARAM] ?? '')) return;
+  inst.params[LAYOUT_PARAM] = text;
+  render();
+  if (record) recordHistory();
+}
+
 // ---- the default (new) flowgraph ----
 // A new flowgraph is not empty in native GRC: it is loaded from the template in
 // `grc/core/default_flow_graph.grc`, which holds the Options block plus a
@@ -960,7 +1081,8 @@ function setCurrentFileName(file: string | null) {
 function clearFlowgraph(record = true) {
   insts = []; conns = []; counter = 0; selected = null; selectedBlocks.clear();
   insts.push(makeSampRateInst());   // the default flowgraph's one variable
-  selectedConnection = null; cancelConnect(); ensureOptionsBlock(); render();
+  selectedConnection = null; cancelConnect();
+  ensureOptionsBlock(); ensureLayoutBlock(); render();
   setExampleHash(null);   // the canvas is empty; any #example= in the URL is stale
   setCurrentFileName(null);
   if (record) recordHistory();
@@ -1238,6 +1360,11 @@ function loadFlowgraph(doc: any) {
     conns.push({ from, fp: portIndex(G0(from), 'out', sp), to, tp: portIndex(G0(to), 'in', tp) });
   }
   ensureOptionsBlock();
+  // A .grc written before this block existed -- every upstream example, and
+  // anything desktop GRC saved -- gets one here, so it is arrangeable without
+  // the reader having to add anything. Its tiles start empty, which is the
+  // vertical stack such a flowgraph has always been rendered as.
+  ensureLayoutBlock();
   selected = null; selectedBlocks.clear(); selectedConnection = null; cancelConnect();
   render(); recordHistory(); log(`opened ${insts.length} blocks`);
 }
@@ -1631,9 +1758,12 @@ function showPropsDialog(inst: Inst) {
     pending: boolean; busy: boolean; message: string;
     refresh: () => void; dispose: () => void;
   } = { pending: false, busy: false, message: '', refresh: () => {}, dispose: () => {} };
+  // Same, for the GUI Layout block's designer: it owns a ResizeObserver on a
+  // node that is about to be detached.
+  const layoutDesigner: { dispose: () => void } = { dispose: () => {} };
   // Every way this dialog closes goes through here, so nothing leaks a mounted
-  // CodeMirror on a detached node.
-  const closeDialog = () => { code.dispose(); overlay.remove(); };
+  // CodeMirror or a live observer on a detached node.
+  const closeDialog = () => { code.dispose(); layoutDesigner.dispose(); overlay.remove(); };
   const activateTab = (category: string) => {
     panels.forEach((panel, name) => panel.hidden = name !== category);
     tabs.forEach(tab => {
@@ -1760,6 +1890,32 @@ function showPropsDialog(inst: Inst) {
       addField(p.category || 'General', `${p.label}  (${p.id})`, picker, p.id, inp);
       refreshDetail();
       if (p.showWhen) conditionalRows.push({ param: p, row: picker.closest('.dlgrow') as HTMLElement });
+    } else if (p.dtype === LAYOUT_DTYPE) {
+      // The GUI Layout block's grid. Editing the JSON by hand is possible and
+      // pointless, so the field is the arrangement itself: a drag-and-drop
+      // miniature of the runner window, fetched on demand like the code editor.
+      const mount = document.createElement('div');
+      mount.className = 'gui-designer-mount';
+      const fallback = document.createElement('small');
+      fallback.className = 'field-hint';
+      fallback.textContent = 'Loading the layout designer…';
+      mount.appendChild(fallback);
+      void import('./gui-layout-designer')
+        .then(({ mountLayoutDesigner }) => {
+          fallback.remove();
+          const handle = mountLayoutDesigner(mount, {
+            widgets: guiWidgets(),
+            tiles: parseTiles(String(tmp.params[p.id] ?? '{}')),
+            columns: layoutColumns(tmp.params.columns),
+            rowHeight: layoutRowHeight(tmp.params.row_height),
+            // Straight into the dialog's working copy, so OK saves the
+            // arrangement and Cancel discards it like any other field.
+            onChange: next => { tmp.params[p.id] = serializeTiles(next); },
+          });
+          layoutDesigner.dispose = () => handle.destroy();
+        })
+        .catch(error => { fallback.textContent = `Layout designer failed to load: ${error}`; });
+      addField(p.category || 'General', p.label, mount, p.id);
     } else if (p.dtype === EPY_CODE_DTYPE) {
       // The Embedded Python Block's source. Native GRC hands this parameter to an
       // external editor and re-reads the block every time the file is saved
@@ -2003,7 +2159,9 @@ function render() {
   // blocks
   for (const inst of insts) {
     if (hideDisabled && !inst.enabled) continue;
-    const { d, rows, h, w, subtitle, headH } = geom(inst);
+    const { d, rows, h, w, subtitle, headH, thumb, thumbH, thumbTop } = geom(inst) as
+      ReturnType<typeof geom> &
+      { thumb?: LayoutThumbTile[]; thumbH?: number; thumbTop?: number };
     const blockIssues = validation.filter(issue => issue.uid === inst.uid);
     const g = svgEl('g', { class: 'blk' + (selectedBlocks.has(inst.uid) ? ' sel' : '') +
       (inst.enabled ? '' : ' disabled') + (inst.bypassed ? ' bypassed' : '') +
@@ -2015,7 +2173,8 @@ function render() {
     // title in the whole block instead of leaving it in an empty title row.
     // With a subtitle it is the pair that gets centered, so the title rises by
     // half the line the subtitle occupies.
-    const titleY = rows.length ? TITLE_BASELINE : h / 2 - (subtitle ? SUBTITLE_H / 2 : 0);
+    const titleY = (rows.length || thumb) ? TITLE_BASELINE
+      : h / 2 - (subtitle ? SUBTITLE_H / 2 : 0);
     const titleAttrs: Record<string, string> = {
       class: 'title', x: String(w / 2), y: String(titleY), 'text-anchor': 'middle',
     };
@@ -2036,6 +2195,28 @@ function render() {
       const v = document.createElementNS(SVGNS, 'tspan'); v.setAttribute('class', 'pval'); v.textContent = r.v;
       tx.appendChild(l); tx.appendChild(v); g.appendChild(tx);
     });
+    // The GUI Layout block's miniature runner window: the grid outline plus one
+    // labelled rectangle per widget, in the position it will occupy.
+    if (thumb) {
+      const top = thumbTop ?? TITLE_H;
+      g.appendChild(svgEl('rect', { class: 'gui-thumb-frame', x: String(TEXT_PAD_L),
+        y: String(top), width: String(LAYOUT_THUMB_W), height: String(thumbH ?? 0) }));
+      for (const tile of thumb) {
+        g.appendChild(svgEl('rect', { class: 'gui-thumb-tile',
+          x: String(TEXT_PAD_L + tile.x + 1), y: String(top + tile.y + 1),
+          width: String(Math.max(1, tile.w - 2)), height: String(Math.max(1, tile.h - 2)),
+          rx: '1' }));
+        // Only label a tile with room for a legible word; a 1x1 control tile in
+        // a 12-column grid is 20px wide, where any text is noise.
+        if (tile.w < 34 || tile.h < 11) continue;
+        const label = svgEl('text', { class: 'gui-thumb-label',
+          x: String(TEXT_PAD_L + tile.x + tile.w / 2),
+          y: String(top + tile.y + tile.h / 2), 'text-anchor': 'middle',
+          'dominant-baseline': 'central' });
+        label.textContent = truncateToWidth(tile.name, tile.w - 6, LAYOUT_THUMB_FONT);
+        g.appendChild(label);
+      }
+    }
     const messages = [...new Set(blockIssues.map(issue => issue.message))];
     const wrapped = messages.flatMap(message => wrapValidationMessage(message, Math.max(22, Math.floor(w / ERROR_CHAR_W))));
     wrapped.slice(0, 5).forEach((message, i) => {
@@ -2420,10 +2601,194 @@ function setRunnerRunning(running: boolean, status?: string) {
   el('workspace').classList.toggle('running', running);
   el('runStatus').textContent = status || (running ? 'Running flowgraph…' : 'No flowgraph running');
   (el('btnStop') as HTMLButtonElement).disabled = !running;
+  // Arranging needs live widgets to drag. A new run re-enables the button when
+  // its first widget report arrives.
+  if (!running) {
+    runnerLayout = null;
+    setArrangeMode(false);
+    (el('btnArrange') as HTMLButtonElement).disabled = true;
+  }
   const qtTab = el('tabQtGui');
   const qtLabel = running ? 'QT GUI — flowgraph running' : 'QT GUI';
   qtTab.title = qtLabel;
   qtTab.setAttribute('aria-label', qtLabel);
+}
+
+// ---- Arrange mode: rearranging the widgets of a *running* flowgraph ---------
+// The runner reports where its grid is on screen (in the iframe's own CSS
+// pixels, which is what Qt's global coordinates are there) and which widget
+// landed in which tile. This draws handles over them in the editor's own DOM,
+// turns a drag into grid cells through the same gui-layout.ts rules the
+// Properties designer uses, writes the result into the GUI Layout block -- so it
+// is part of the flowgraph and Save keeps it -- and sends it down to be applied
+// live. Nothing restarts: the plots keep plotting while they move.
+interface RunnerWidget { name: string; id: string; col: number; row: number; w: number; h: number }
+interface RunnerLayoutReport {
+  columns: number; rowHeight: number; arranged: boolean;
+  rect: { x: number; y: number; width: number; height: number };
+  widgets: RunnerWidget[];
+}
+let runnerLayout: RunnerLayoutReport | null = null;
+let arrangeMode = false;
+// Block ids the runner built a widget for that the generated library does not
+// flag as `gui`. That means GUI_IDS in runner/gen_registry.py has fallen behind
+// registry.cpp, and the only symptom otherwise is a widget the editor cannot
+// offer a tile for. Reported once per id per session.
+const unflaggedGuiIds = new Set<string>();
+
+const tilesFromReport = (report: RunnerLayoutReport): TileMap =>
+  Object.fromEntries(report.widgets.map(w =>
+    [w.name, { col: w.col, row: w.row, w: w.w, h: w.h }]));
+
+function pushLayoutToRunner(tiles: TileMap) {
+  const frame = el('runFrame') as HTMLIFrameElement;
+  if (!frame.contentWindow || !runnerLayout) return;
+  frame.contentWindow.postMessage({
+    type: 'gr-set-layout', tiles: serializeTiles(tiles),
+    columns: runnerLayout.columns, rowHeight: runnerLayout.rowHeight,
+  }, location.origin);
+}
+
+function setArrangeMode(on: boolean) {
+  arrangeMode = on && !!runnerLayout;
+  const overlay = el('arrangeOverlay');
+  overlay.hidden = !arrangeMode;
+  const button = el('btnArrange') as HTMLButtonElement;
+  button.classList.toggle('active', arrangeMode);
+  button.setAttribute('aria-pressed', String(arrangeMode));
+  if (arrangeMode) drawArrangeOverlay();
+  else overlay.textContent = '';
+}
+
+function drawArrangeOverlay() {
+  const overlay = el('arrangeOverlay');
+  if (!arrangeMode || !runnerLayout) { overlay.textContent = ''; return; }
+  const report = runnerLayout;
+  const tiles = tilesFromReport(report);
+  const rows = Math.max(1, rowsUsed(tiles));
+  const cellW = report.rect.width / report.columns;
+  const cellH = report.rect.height / rows;
+  overlay.textContent = '';
+
+  const frame = document.createElement('div');
+  frame.className = 'arrange-grid';
+  frame.style.left = `${report.rect.x}px`; frame.style.top = `${report.rect.y}px`;
+  frame.style.width = `${report.rect.width}px`; frame.style.height = `${report.rect.height}px`;
+  overlay.appendChild(frame);
+
+  for (const widget of report.widgets) {
+    const tile = document.createElement('div');
+    tile.className = 'arrange-tile';
+    tile.dataset.name = widget.name;
+    tile.style.left = `${report.rect.x + widget.col * cellW}px`;
+    tile.style.top = `${report.rect.y + widget.row * cellH}px`;
+    tile.style.width = `${widget.w * cellW}px`;
+    tile.style.height = `${widget.h * cellH}px`;
+    const name = document.createElement('span');
+    name.className = 'arrange-tile-name'; name.textContent = widget.name;
+    const size = document.createElement('span');
+    size.className = 'arrange-tile-size'; size.textContent = `${widget.w}×${widget.h}`;
+    const handle = document.createElement('div');
+    handle.className = 'arrange-tile-resize'; handle.setAttribute('aria-hidden', 'true');
+    tile.append(name, size, handle);
+    overlay.appendChild(tile);
+  }
+
+  const hint = document.createElement('div');
+  hint.className = 'arrange-hint';
+  hint.textContent = report.widgets.length
+    ? 'Drag a widget to move it, or its corner to resize. Changes are saved into ' +
+      'the flowgraph’s GUI Layout block. Press Arrange again to finish.'
+    : 'This flowgraph has no QT GUI widgets to arrange.';
+  overlay.appendChild(hint);
+}
+
+// One drag, from pointerdown on a tile to release. The tiles are recomputed on
+// every cell boundary crossed and pushed straight down to the runner, so the
+// real widgets move under the cursor; the .grc is written once, at the end, so
+// Undo steps over whole drags rather than individual cells.
+let arrangeDrag: {
+  name: string; mode: 'move' | 'resize'; startX: number; startY: number;
+  origin: { col: number; row: number; w: number; h: number };
+  cellW: number; cellH: number; pointer: number;
+} | null = null;
+
+function initArrangeOverlay() {
+  const overlay = el('arrangeOverlay');
+  overlay.addEventListener('pointerdown', event => {
+    const target = (event.target as HTMLElement).closest('.arrange-tile') as HTMLElement | null;
+    if (!target || event.button !== 0 || !runnerLayout) return;
+    const widget = runnerLayout.widgets.find(w => w.name === target.dataset.name);
+    if (!widget) return;
+    event.preventDefault();
+    const rows = Math.max(1, rowsUsed(tilesFromReport(runnerLayout)));
+    arrangeDrag = {
+      name: widget.name,
+      mode: (event.target as HTMLElement).classList.contains('arrange-tile-resize')
+        ? 'resize' : 'move',
+      startX: event.clientX, startY: event.clientY,
+      origin: { col: widget.col, row: widget.row, w: widget.w, h: widget.h },
+      cellW: runnerLayout.rect.width / runnerLayout.columns,
+      cellH: runnerLayout.rect.height / rows,
+      pointer: event.pointerId,
+    };
+    target.classList.add('dragging');
+    overlay.setPointerCapture(event.pointerId);
+  });
+
+  overlay.addEventListener('pointermove', event => {
+    if (!arrangeDrag || !runnerLayout || event.pointerId !== arrangeDrag.pointer) return;
+    const dx = Math.round((event.clientX - arrangeDrag.startX) / arrangeDrag.cellW);
+    const dy = Math.round((event.clientY - arrangeDrag.startY) / arrangeDrag.cellH);
+    const origin = arrangeDrag.origin;
+    const next = arrangeDrag.mode === 'move'
+      ? { ...origin, col: origin.col + dx, row: origin.row + dy }
+      : { ...origin, w: origin.w + dx, h: origin.h + dy };
+    const settled = placeTile(tilesFromReport(runnerLayout), arrangeDrag.name, next,
+                             runnerLayout.columns);
+    if (serializeTiles(settled) === serializeTiles(tilesFromReport(runnerLayout))) return;
+    // Optimistic: redraw the handles and move the real widgets now. The runner
+    // echoes its own report back, which agrees with this and changes nothing.
+    runnerLayout = { ...runnerLayout, widgets: runnerLayout.widgets.map(w =>
+      ({ ...w, ...settled[w.name] })) };
+    drawArrangeOverlay();
+    overlay.querySelector(`.arrange-tile[data-name="${CSS.escape(arrangeDrag.name)}"]`)
+      ?.classList.add('dragging');
+    pushLayoutToRunner(settled);
+  });
+
+  const finish = (event: PointerEvent) => {
+    if (!arrangeDrag || event.pointerId !== arrangeDrag.pointer) return;
+    arrangeDrag = null;
+    if (!runnerLayout) return;
+    // Into the flowgraph, which is what makes the arrangement outlive this run.
+    setLayoutTiles(tilesFromReport(runnerLayout));
+    drawArrangeOverlay();
+  };
+  overlay.addEventListener('pointerup', finish);
+  overlay.addEventListener('pointercancel', finish);
+
+  (el('btnArrange') as HTMLButtonElement).addEventListener(
+    'click', () => setArrangeMode(!arrangeMode));
+}
+
+// A fresh report from the runner: the widgets it built, their tiles, and where
+// the grid sits in the iframe. Arrives on every run and whenever the window is
+// moved, resized or rearranged.
+function applyRunnerLayoutReport(payload: string) {
+  let report: RunnerLayoutReport;
+  try { report = JSON.parse(payload); } catch { return; }
+  if (!report || !Array.isArray(report.widgets)) return;
+  runnerLayout = report;
+  (el('btnArrange') as HTMLButtonElement).disabled = !report.widgets.length;
+  for (const widget of report.widgets) {
+    if (GUI_BLOCK_IDS.has(widget.id) || unflaggedGuiIds.has(widget.id)) continue;
+    unflaggedGuiIds.add(widget.id);
+    log(`note: "${widget.id}" builds a GUI widget but is not listed in GUI_IDS ` +
+        `(runner/gen_registry.py), so the layout designer cannot offer it a tile`);
+  }
+  // A drag redraws for itself, and a report arriving mid-drag would fight it.
+  if (arrangeMode && !arrangeDrag) drawArrangeOverlay();
 }
 
 // runner.html is same-origin and takes this one-time payload before Qt/WASM
@@ -2988,7 +3353,11 @@ async function run() {
     select(first.uid);
     return;
   }
-  if (!insts.some(i => i.id !== OPTIONS_ID)) { log('nothing to run — add some blocks'); return; }
+  // Both singletons are placed automatically, so neither counts as something
+  // the reader put on the canvas to run.
+  if (!insts.some(i => i.id !== OPTIONS_ID && i.id !== LAYOUT_ID)) {
+    log('nothing to run — add some blocks'); return;
+  }
   const recordingFiles: RunnerInputFile[] = [];
   const fileOverrides = new Map<string, string>();
   const addedPaths = new Set<string>();
@@ -3118,6 +3487,11 @@ function stop() {
 // ---- Palette ----
 // ---- GRC-style block tree (collapsible categories + search) ----
 interface LibraryBlock { id: string; label: string; runnable: boolean; unavailableReason?: string; module: string }
+// Blocks whose factory builds a QWidget, and so take a tile in the runner
+// window's GUI Layout grid. Filled from the generated library's `gui` flag,
+// which carries GUI_IDS in runner/gen_registry.py -- the C++ decides this, and
+// the editor has no way to work it out for itself.
+const GUI_BLOCK_IDS = new Set<string>();
 interface Cat { name: string; subs: Map<string, Cat>; blocks: LibraryBlock[] }
 
 // Blocks that stay loadable and runnable but are not offered in the palette:
@@ -3191,6 +3565,11 @@ window.addEventListener('message', (e) => {
   }
   if (d.type === 'gr-info' && typeof d.message === 'string') {
     log(d.message);
+    return;
+  }
+  // Where the running flowgraph's widgets ended up, for the Arrange overlay.
+  if (d.type === 'gr-widgets' && typeof d.payload === 'string') {
+    applyRunnerLayoutReport(d.payload);
     return;
   }
   // Anything the running flowgraph printed: Message Debug's PDU dumps, Print
@@ -3329,6 +3708,8 @@ async function buildPalette() {
   try {
     LIB = await (await fetch(BLOCKS_URL).then(r => r.ok ? r : fetch('/editor/public/blocks.json'))).json();
     installGeneratedBlocks(LIB.blocks || []);
+    for (const block of LIB.blocks || [])
+      if (block.gui) GUI_BLOCK_IDS.add(block.id);
   } catch (e) { log('block library not loaded: ' + e); }
   // Anything a Python Block prints while the editor reads it -- Pyodide's own
   // progress, or a print() at the top of the user's source -- goes to the same
@@ -4322,6 +4703,7 @@ function buildToolbar() {
 buildMenuBar();
 buildToolbar();
 el('btnStop').addEventListener('click', stop);
+initArrangeOverlay();
 (el('fileOpen') as HTMLInputElement).addEventListener('change', async event => {
   const input = event.currentTarget as HTMLInputElement, file = input.files?.[0]; if (!file) return;
   try { loadFlowgraph(parseGrc(await file.text())); setExampleHash(null); setCurrentFileName(file.name); }
@@ -4430,6 +4812,9 @@ function showWelcomePopup() {
 }
 
 paletteReady.then(async () => {
+  // The GUI Layout block needs its schema, which only arrives with the generated
+  // library, so the canvas built before that gets its singleton here instead.
+  ensureLayoutBlock(); render();
   // In this order so a link naming both lands on the recording, and so the
   // canvas is left empty for a link that names only one — the reader asked to
   // see that recording, not the default example.

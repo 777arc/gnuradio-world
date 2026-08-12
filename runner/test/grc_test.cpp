@@ -129,6 +129,17 @@ int main() {
     assert(q["quoted"] == "it's # not a comment");
     assert(q["plain"] == 5);
 
+    // The GUI Layout block's grid is JSON inside a single-quoted scalar, so it
+    // is full of characters YAML cares about: `{`, `"`, `,`, `[`. It has to come
+    // back as the one string gui_layout::parse() then reads -- if the flow
+    // handling ever claimed it instead, every arranged flowgraph would silently
+    // fall back to a vertical stack. See docs/gui-layout.md.
+    json layout = grc_yaml::parse(
+        "layout: '{\"scope\":[0,0,6,4],\"freq_ctl\":[6,0,6,1]}'\n"
+        "columns: '12'\n");
+    assert(layout["layout"] == "{\"scope\":[0,0,6,4],\"freq_ctl\":[6,0,6,1]}");
+    assert(layout["columns"] == "12");
+
     // ---- lowering ----
     json low = grc_lower::lower(g);
     const json& lb = low.at("blocks");

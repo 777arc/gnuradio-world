@@ -66,8 +66,10 @@ for (const id of ['title', 'author', 'description']) {
     new RegExp(`id: '${id}', label: '[^']+', type: 'string', def: '' }`),
     `Options ${id} must remain visible on the block face when empty`);
 }
+// A block with a body -- parameter rows, or the GUI Layout block's grid
+// miniature -- keeps its title in the title bar; one with neither centers it.
 assert.match(source,
-  /const titleY = rows\.length \? TITLE_BASELINE : h \/ 2 - \(subtitle \? SUBTITLE_H \/ 2 : 0\)/,
+  /const titleY = \(rows\.length \|\| thumb\) \? TITLE_BASELINE\s*\n?\s*: h \/ 2 - \(subtitle \? SUBTITLE_H \/ 2 : 0\)/,
   'a block without visible parameters must center its title vertically');
 // The Embedded Python Block is the only block whose name, parameters and ports
 // come from source the user wrote, so its face says which language that is. The

@@ -77,10 +77,19 @@
         <div id="runBar">
           <b id="runStatus">No flowgraph running</b>
           <span class="spacer"></span>
+          <!-- Rearranges the live widgets by dragging them, writing the result
+               back into the flowgraph's GUI Layout block. -->
+          <button id="btnArrange" disabled aria-pressed="false">⌗ Arrange</button>
           <button id="btnStop" disabled>✕ Stop</button>
         </div>
         <div id="runEmpty">Run a flowgraph to open its QT GUI here.</div>
-        <iframe id="runFrame" title="GNU Radio QT GUI" hidden></iframe>
+        <div id="runStage">
+          <iframe id="runFrame" title="GNU Radio QT GUI" hidden></iframe>
+          <!-- Drawn over the iframe, in the editor's own DOM: the runner reports
+               where its grid is on screen and this positions handles to match,
+               so all the drag logic stays in TypeScript. -->
+          <div id="arrangeOverlay" hidden></div>
+        </div>
       </section>
     </div>
     <div id="consoleSplitter" role="separator" aria-label="Resize console"

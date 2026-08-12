@@ -15,6 +15,7 @@ GNU Radio, entirely in your browser — explore the open-source SDR ecosystem wi
 - Identical .grc flowgraph files as the native version
 - Share flowgraphs you create entirely via URL
 - Submit your own example flowgraphs and recordings
+- QT GUI Hints are replaced with a web-style live window arrangement, using a live miniature in the canvas
 
 ## Limitations
 

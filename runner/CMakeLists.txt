@@ -155,7 +155,7 @@ target_link_options(runner PRIVATE
   # EXPORT_ALL covers functions but not Emscripten's special exception-handling
   # data globals, which category side modules import as GOT.mem entries. Export
   # them (and the registry shim) explicitly so side-module relocation resolves.
-  -sEXPORTED_FUNCTIONS=_main,_gr_run_json,_gr_finish_worker_preload,_gr_finish_pyodide_prepare,_gr_fosphor_webgpu_frequency,_free,_malloc,_wasm_registry_add
+  -sEXPORTED_FUNCTIONS=_main,_gr_run_json,_gr_apply_gui_layout,_gr_finish_worker_preload,_gr_finish_pyodide_prepare,_gr_fosphor_webgpu_frequency,_free,_malloc,_wasm_registry_add
   # The remaining symbols side modules import from main (libc++abi/compiler-rt:
   # __cxa_pure_virtual, std type-info vtables, the thread_local exception globals,
   # …) are exported via the generated response file appended at the end of this

@@ -321,6 +321,9 @@ def main(out_path):
     manifest = json.load(open(MANIFEST))
     supported = set(manifest["supported"])
     skipped = manifest.get("skipped", {})
+    # Blocks whose factory builds a QWidget, and so take a tile in the runner
+    # window. Only the C++ knows this; GUI_IDS in gen_registry.py carries it here.
+    gui = set(manifest.get("gui", []))
     # id -> deferred category side module (fetched on demand). Blocks absent from
     # this map live in the always-loaded core module.
     block_module = manifest.get("block_module", {})
@@ -405,6 +408,8 @@ def main(out_path):
                 "flags": d.get("flags", []),
                 "runnable": runnable,
                 "unavailable_reason": unavailable_reason,
+                # Occupies a tile in the runner window's GUI Layout grid.
+                "gui": block_id in gui,
                 # Which downloadable chunk supplies this block's code; "core" is
                 # always present, others are fetched on first use.
                 "module": block_module.get(block_id, "core"),

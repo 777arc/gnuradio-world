@@ -14,6 +14,7 @@
 #include "qtgui_sinks.hpp"
 #include "text_sink.hpp"
 #include "hrpt_image_sink.hpp"
+#include "gui_layout.hpp"
 #include <emscripten.h>
 #include <gnuradio/analog/sig_source.h>
 #include <gnuradio/analog/noise_source.h>
@@ -2241,6 +2242,19 @@ static std::map<std::string, Factory>& registry_storage() {
              wasm_registry::runtime_tag_objects()[name] = tag;
              return {};
          }},
+        // GUI Layout: not a block at all, and the only "parameter" it has that
+        // the runtime reads is a grid spec. Like the Tag Object above it is
+        // built in run_now()'s pre-pass, before any widget exists, and files
+        // what it parsed for the layout pass to pick up once they do.
+        {"wasm_gui_layout", [](const json& p) -> BuiltBlock {
+             gui_layout::runtime_spec() = gui_layout::parse(
+                 unquoted(p.value("layout", std::string("{}"))),
+                 static_cast<int>(number_from(p, "columns",
+                                              gui_layout::kDefaultColumns)),
+                 static_cast<int>(number_from(p, "row_height",
+                                              gui_layout::kDefaultRowHeight)));
+             return {};
+         }},
         {"fec_async_decoder", [](const json& p) -> BuiltBlock {
              return { gr::fec::async_decoder::make(
                           named_cc_decoder(p.value("decoder", std::string())),
@@ -2880,6 +2894,9 @@ void clear_runtime_objects()
     runtime_constellations().clear();
     runtime_cc_decoders().clear();
     wasm_registry::runtime_tag_objects().clear();
+    // Back to "no GUI Layout block", so a flowgraph without one gets the plain
+    // vertical stack rather than the previous flowgraph's grid.
+    gui_layout::runtime_spec() = gui_layout::Spec{};
 }
 
 // Called by dlopen'd category side modules (generated_registry_<m>.cpp) to add

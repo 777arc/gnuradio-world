@@ -6,6 +6,7 @@
 #include "registry.hpp"
 #include "grc_yaml.hpp"
 #include "grc_lower.hpp"
+#include "gui_layout.hpp"
 #include "flat_flowgraph.h"
 #include <gnuradio/blocks/probe_signal.h>
 #include <gnuradio/top_block.h>
@@ -17,6 +18,7 @@
 #include <QPointer>
 #include <QScreen>
 #include <QWidget>
+#include <QGridLayout>
 #include <QVBoxLayout>
 #include <QTimer>
 #include <spdlog/sinks/base_sink.h>
@@ -37,9 +39,30 @@
 #include <vector>
 
 static gr::top_block_sptr g_tb;
+// The top-level flowgraph window. Its own layout is fixed: an error banner (when
+// there is one) above g_gui_area, which is the part a flowgraph arranges.
 static QWidget* g_container = nullptr;
+// Every GUI widget this run built lives in here, in the layout the flowgraph's
+// GUI Layout block asked for. Kept separate from g_container so the layout
+// object can be swapped per run -- and per live Arrange drag -- without the
+// banner or the window's own geometry being caught up in it.
+static QWidget* g_gui_area = nullptr;
 static unsigned int g_run_generation = 0;
 static std::string g_pending_success_message;
+
+// This run's widgets, in flowgraph order, for the layout pass and for re-laying
+// out on the fly when the editor sends a new spec. QPointer because run_now()
+// deleteLater()s the previous run's widgets: a stale entry nulls itself rather
+// than dangling.
+struct PlacedWidget {
+    std::string name;              // block ID, which is what a tile is keyed by
+    std::string id;                // GRC block id, for the editor's palette
+    QPointer<QWidget> widget;
+    // Where it actually ended up, which is not always what the spec asked for:
+    // a widget the spec says nothing about is given a row of its own.
+    gui_layout::Tile tile;
+};
+static std::vector<PlacedWidget> g_widgets;
 
 struct VariableControl {
     double value;
@@ -55,7 +78,9 @@ static bool is_runtime_object(const std::string& id)
     return id == "variable_constellation" ||
            id == "variable_constellation_rect" ||
            id == "variable_cc_decoder_def" ||
-           id == "variable_tag_object";
+           id == "variable_tag_object" ||
+           // Files the window's grid spec; see gui_layout.hpp.
+           id == "wasm_gui_layout";
 }
 
 static nlohmann::json resolve_variables(
@@ -90,11 +115,17 @@ static std::chrono::steady_clock::time_point g_run_start;
 // Show an error inside the flowgraph window. Without this a failure is invisible:
 // the #result div lives under Qt's canvas, and a graph that dies during
 // construction just leaves an empty window (no sink widget was ever added). The
-// banner is reused, and run_now() clears it with the rest of the layout, so a
-// later successful run starts clean. Main thread only.
+// banner is reused, and run_now() hides it, so a later successful run starts
+// clean. Main thread only.
+//
+// It sits in g_container's own fixed layout, above the arranged area, rather
+// than in the arrangement: a flowgraph that failed to build has no widgets and
+// therefore no grid to put a banner in, and a run that replaces the grid must
+// not take the reason the last one failed with it.
 static QPointer<QLabel> g_error_banner;
 static void show_error_in_window(const QString& title, const std::string& msg) {
-    if (!g_container || !g_container->layout())
+    auto* outer = g_container ? qobject_cast<QVBoxLayout*>(g_container->layout()) : nullptr;
+    if (!outer)
         return;
     if (!g_error_banner) {
         g_error_banner = new QLabel(g_container);
@@ -104,10 +135,147 @@ static void show_error_in_window(const QString& title, const std::string& msg) {
         g_error_banner->setStyleSheet(QStringLiteral(
             "color:#b00020; background:#fff3f3; border:1px solid #f0c0c0;"
             "padding:12px; font-size:14px;"));
-        g_container->layout()->addWidget(g_error_banner);
+        outer->insertWidget(0, g_error_banner);
     }
     g_error_banner->setText(title + QStringLiteral("\n\n") + QString::fromStdString(msg));
     g_error_banner->show();
+}
+
+// Tell the editor which widgets this run actually built and where they ended up,
+// so its designer can offer them as tiles and its Arrange overlay can draw
+// handles over them. Sent as one JSON string because EM_ASM splits its macro
+// arguments on top-level commas, which rules out building the object in JS.
+static void post_widgets_to_editor(const std::string& payload) {
+    EM_ASM({
+        if (window.parent && window.parent !== window) {
+            var m = {};
+            m.type = 'gr-widgets';
+            m.payload = UTF8ToString($0);
+            window.parent.postMessage(m, '*');
+        }
+    }, payload.c_str());
+}
+
+// Lay this run's widgets out in g_gui_area, replacing whatever arrangement was
+// there. Called once per run and again for every live Arrange edit, so it has to
+// be idempotent: it builds a fresh layout object each time rather than mutating
+// one, which is also the only way to change a QGridLayout's spans.
+static void apply_gui_layout() {
+    if (!g_gui_area)
+        return;
+    // Detach the widgets before the layout that holds them is destroyed; they
+    // belong to this run, not to the arrangement, and are re-added below.
+    if (auto* previous = g_gui_area->layout()) {
+        QLayoutItem* item;
+        while ((item = previous->takeAt(0)) != nullptr)
+            delete item;
+        delete previous;
+    }
+    const gui_layout::Spec& spec = gui_layout::runtime_spec();
+    if (!spec.present) {
+        // No GUI Layout block: the full-width vertical stack every flowgraph got
+        // before this existed, which is what an older .grc still deserves.
+        auto* column = new QVBoxLayout(g_gui_area);
+        int row = 0;
+        for (auto& placed : g_widgets) {
+            if (!placed.widget)
+                continue;
+            column->addWidget(placed.widget);
+            placed.widget->show();
+            placed.tile = { 0, row++, gui_layout::kDefaultColumns, 1 };
+        }
+        return;
+    }
+
+    auto* grid = new QGridLayout(g_gui_area);
+    grid->setContentsMargins(4, 4, 4, 4);
+    grid->setSpacing(4);
+    // Every column and row stretches equally, which is what makes a tile's w and
+    // h proportional rather than absolute: the window's width is shared between
+    // `columns` columns, so a 6-wide tile is half of any window.
+    for (int c = 0; c < spec.columns; ++c)
+        grid->setColumnStretch(c, 1);
+
+    int next_row = gui_layout::rows_used(spec);
+    int last_row = 0;
+    for (auto& placed : g_widgets) {
+        if (!placed.widget)
+            continue;
+        auto found = spec.tiles.find(placed.name);
+        // A widget with no tile of its own -- a sink added since the flowgraph
+        // was last arranged -- goes full width under everything that has one, so
+        // it is never invisible. The editor gives it a real tile on the next
+        // edit; until then this is where it appears, and where the Arrange
+        // overlay draws its handle.
+        const int rows = is_variable_control(placed.id) ? gui_layout::kControlRows
+                                                        : gui_layout::kSinkRows;
+        placed.tile = found != spec.tiles.end()
+            ? found->second
+            : gui_layout::Tile{ 0, next_row, spec.columns, rows };
+        if (found == spec.tiles.end())
+            next_row += rows;
+        grid->addWidget(placed.widget, placed.tile.row, placed.tile.col,
+                        placed.tile.h, placed.tile.w);
+        placed.widget->show();
+        last_row = std::max(last_row, placed.tile.row + placed.tile.h);
+    }
+    for (int r = 0; r < last_row; ++r) {
+        grid->setRowStretch(r, 1);
+        grid->setRowMinimumHeight(r, spec.row_height);
+    }
+}
+
+// What the editor needs to draw handles over the live widgets: the tiles as
+// placed, and the on-screen rectangle the grid occupies inside the iframe. Qt's
+// global coordinates are relative to the browser-backed QScreen, which is the
+// container div filling the runner page, so they are the iframe's own CSS
+// pixels and the editor can position an overlay with them directly.
+//
+// Sent only when something changes, from the same timer that publishes
+// diagnostics: the rectangle moves whenever the window is dragged, resized or
+// maximized, and none of those is an event this file otherwise hears about.
+static std::string g_last_layout_payload;
+static void publish_gui_layout(bool force) {
+    if (!g_gui_area)
+        return;
+    const gui_layout::Spec& spec = gui_layout::runtime_spec();
+    const QPoint origin = g_gui_area->mapToGlobal(QPoint(0, 0));
+    nlohmann::json payload;
+    payload["columns"] = spec.present ? spec.columns : gui_layout::kDefaultColumns;
+    payload["rowHeight"] = spec.present ? spec.row_height : gui_layout::kDefaultRowHeight;
+    payload["arranged"] = spec.present;
+    payload["rect"] = { { "x", origin.x() }, { "y", origin.y() },
+                        { "width", g_gui_area->width() },
+                        { "height", g_gui_area->height() } };
+    nlohmann::json widgets = nlohmann::json::array();
+    for (const auto& placed : g_widgets) {
+        if (!placed.widget)
+            continue;
+        widgets.push_back({ { "name", placed.name }, { "id", placed.id },
+                            { "col", placed.tile.col }, { "row", placed.tile.row },
+                            { "w", placed.tile.w }, { "h", placed.tile.h } });
+    }
+    payload["widgets"] = std::move(widgets);
+    std::string text = payload.dump();
+    if (!force && text == g_last_layout_payload)
+        return;
+    g_last_layout_payload = std::move(text);
+    post_widgets_to_editor(g_last_layout_payload);
+}
+
+// Re-arrange a running flowgraph from a spec the editor just edited, without
+// restarting it: the Arrange overlay drags a live plot around and the plot keeps
+// plotting. Called from runner.html when the parent frame posts a new spec.
+extern "C" EMSCRIPTEN_KEEPALIVE void gr_apply_gui_layout(const char* tiles_json,
+                                                         int columns,
+                                                         int row_height) {
+    if (!tiles_json)
+        return;
+    gui_layout::runtime_spec() = gui_layout::parse(tiles_json, columns, row_height);
+    apply_gui_layout();
+    // The tiles changed, so the editor's own overlay geometry is stale; it will
+    // not hear about it from the change it just made.
+    publish_gui_layout(true);
 }
 
 // Mirror a message to the editor (parent frame), which logs it next to the Run
@@ -273,14 +441,18 @@ static void run_now(const std::string& json_source) {
     try {
         auto j = nlohmann::json::parse(json_source);
         if (g_tb) { g_tb->stop(); g_tb->wait(); g_tb.reset(); }
-        // clear previous sink widgets
-        if (g_container->layout()) {
+        // clear previous sink widgets, and the arrangement they were in
+        g_widgets.clear();
+        if (g_gui_area && g_gui_area->layout()) {
             QLayoutItem* item;
-            while ((item = g_container->layout()->takeAt(0)) != nullptr) {
+            while ((item = g_gui_area->layout()->takeAt(0)) != nullptr) {
                 if (item->widget()) item->widget()->deleteLater();
                 delete item;
             }
         }
+        // The banner outlives the arrangement now that it sits outside it, so a
+        // run that gets further than the last one has to put it away itself.
+        if (g_error_banner) g_error_banner->hide();
 
         // Turn on GR's per-block performance counters (compiled in, off by
         // default). The scheduler reads this pref when it builds each block's
@@ -349,7 +521,9 @@ static void run_now(const std::string& json_source) {
             if (bb.block)
                 byname[name] = bb.block;
             ++nblocks;
-            if (bb.widget) { g_container->layout()->addWidget(bb.widget); bb.widget->show(); ++nsinks; }
+            // Collected rather than placed: where a widget goes is decided once,
+            // below, by the flowgraph's GUI Layout block.
+            if (bb.widget) { g_widgets.push_back({ name, id, bb.widget }); ++nsinks; }
 
             // Bind parameters whose expression is exactly a Range variable ID.
             // GRC's common `frequency: freq` form now updates the live block.
@@ -390,6 +564,12 @@ static void run_now(const std::string& json_source) {
                 if (sr > g_ref_samp_rate) { g_ref_samp_rate = sr; ref_maxrate_name = name; }
             }
         }
+
+        // Every widget exists now, so the window can be arranged. Done before
+        // the graph is connected and started so the first frame a sink paints
+        // lands where it belongs rather than being moved out from under itself.
+        apply_gui_layout();
+        publish_gui_layout(true);
 
         for (const auto& c : j.at("connections")) {
             std::string src = c[0].get<std::string>(), dst = c[2].get<std::string>();
@@ -843,7 +1023,14 @@ int main(int argc, char** argv) {
     g_container->setWindowTitle(QStringLiteral("GNU Radio Flowgraph"));
     g_container->setMinimumSize(320, 240);
     g_container->setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
-    g_container->setLayout(new QVBoxLayout());
+    // The window's own layout never changes: an error banner may be inserted
+    // above, and everything else happens inside g_gui_area, whose layout each
+    // run replaces with the arrangement its GUI Layout block asks for.
+    auto* outer = new QVBoxLayout(g_container);
+    outer->setContentsMargins(0, 0, 0, 0);
+    outer->setSpacing(0);
+    g_gui_area = new QWidget(g_container);
+    outer->addWidget(g_gui_area, 1);
 
     // Keep the initial frame and its resize handles inside the browser-backed
     // QScreen, including when the runner is opened in a relatively small tab.
@@ -865,7 +1052,13 @@ int main(int argc, char** argv) {
 
     // Publish diagnostics to window.__grstats ~3 Hz for the panel (diag.js).
     static QTimer stats_timer;
-    QObject::connect(&stats_timer, &QTimer::timeout, [] { publish_stats(); });
+    QObject::connect(&stats_timer, &QTimer::timeout, [] {
+        publish_stats();
+        // Cheap: it posts only when the arrangement or the window's geometry
+        // actually changed, which is the only way the editor's Arrange overlay
+        // hears about the window being dragged, resized or maximized.
+        publish_gui_layout(false);
+    });
     stats_timer.start(333);
 
     return app.exec();

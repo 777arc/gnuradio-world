@@ -503,6 +503,32 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
         if (!stdoutTimer) stdoutTimer = setTimeout(flushStdout, STDOUT_FLUSH_MS);
       }
 
+      // The editor's Arrange overlay drags a live widget around and sends the
+      // new grid down here, where it is applied to the running flowgraph in
+      // place: the plots keep plotting, nothing is rebuilt, and the flowgraph
+      // never restarts. The editor owns the packing rules (one implementation,
+      // in editor/src/gui-layout.ts) and this end only renders what it is sent.
+      window.addEventListener('message', event => {
+        const data = event.data;
+        if (!data || data.type !== 'gr-set-layout') return;
+        // Only the frame that embedded this one has any business rearranging it.
+        if (event.source !== window.parent) return;
+        const instance = window.__grRunnerInstance;
+        if (!instance) return;   // still loading; the run picks the spec up itself
+        // Qt's qtLoad() resolves to the Emscripten module, but not with ccall or
+        // malloc on it -- only the string helpers and the raw exports. The spec
+        // is a few hundred bytes, so the stack is the right place for it and
+        // needs no allocator.
+        const stack = instance.stackSave();
+        try {
+          instance._gr_apply_gui_layout(
+            instance.stringToUTF8OnStack(String(data.tiles || '{}')),
+            Number(data.columns) || 12, Number(data.rowHeight) || 60);
+        } finally {
+          instance.stackRestore(stack);
+        }
+      });
+
       async function init()
       {
         const spinner = document.querySelector('#qtspinner');

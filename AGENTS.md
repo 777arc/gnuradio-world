@@ -14,6 +14,7 @@ This file is what you need for almost any change. Per-task detail lives in
 | [docs/adding-modules.md](docs/adding-modules.md) | adding a GNU Radio component library or vendoring an out-of-tree module — a self-contained checklist for both, plus the gr-satellites rebuilds |
 | [docs/recording-viewer.md](docs/recording-viewer.md) | touching File Source, the R2 recording bucket and its CORS policy, recording tabs, or the SigMF viewer under `editor/src/recording/` |
 | [docs/editor-ui.md](docs/editor-ui.md) | working on block IDs, auto-arrange, or the narrow-screen/touch layout |
+| [docs/gui-layout.md](docs/gui-layout.md) | touching where QT GUI widgets go in the runner window — the GUI Layout block, `editor/src/gui-layout*.ts`, `runner/src/gui_layout.hpp`, or Arrange mode |
 | [docs/ci.md](docs/ci.md) | changing a workflow, the deploy, or PR preview deployments |
 | [docs/gnuradio-patches.md](docs/gnuradio-patches.md) | changing anything inside the `gnuradio/` submodule or `qtgui/` |
 | [docs/double-mapped-buffer.md](docs/double-mapped-buffer.md) | working on the emulated vmcircbuf |
@@ -401,9 +402,11 @@ Two things to know when doing this in bulk rather than by hand:
 - **Save is a lossy round-trip; auto-arrange is not.** The editor drops what its
   schema does not declare, so saving a file returns it without `import` blocks,
   without GRC's `affinity`/`alias`/`comment`/`maxoutbuf`/`minoutbuf`, without
-  `gui_hint` (which places the widget in the QT GUI), and without most of the
-  options block. That is fine for a flowgraph you authored in the editor and
-  destructive for one adapted from upstream. When arranging in bulk, take the
+  `gui_hint` (desktop GRC's widget placement, which this build does not
+  implement — see the GUI Layout block below), and without most of the options
+  block. Saving also *adds* one block, the GUI Layout singleton. That is fine for
+  a flowgraph you authored in the editor and destructive for one adapted from
+  upstream. When arranging in bulk, take the
   `states.coordinate`/`states.rotation` out of the saved file and merge those
   into the original rather than adopting the saved file wholesale.
 
@@ -600,6 +603,22 @@ Definition (`variable_cc_decoder_def`), which `fec_async_decoder` and
   message-sink block whose handler records the parser's `(type, text)` tuples and
   whose QTimer paints them (message handlers run on GR threads; widgets are
   main-thread only). See `example_flowgraphs/rds/rds_receiver.grc`.
+- **`gui_hint` does nothing; one block arranges the whole window.** Where a
+  widget goes is not a property of the block that owns it here. Every flowgraph
+  carries a singleton **GUI Layout** block (`wasm_gui_layout`), auto-inserted
+  like Options and undeletable, holding a dashboard-style grid of
+  `block ID → [col, row, w, h]`; the runner renders it as a `QGridLayout` so the
+  arrangement stretches with the browser tab. Three things follow. The packing
+  rules live *only* in [`editor/src/gui-layout.ts`](editor/src/gui-layout.ts) —
+  the C++ renders a spec and never edits one, so a drag has one definition and
+  it is the one with tests. Whether a block *has* a widget is decided in C++, so
+  it is carried to the editor by `GUI_IDS` in `gen_registry.py` → the `gui` flag
+  in blocks.json, and a factory that grows a `QWidget` without an entry there
+  silently loses its tile (the runner reports what it actually built, so the
+  console names the drift). And a widget with no tile gets a full-width row
+  *below* everything placed, at the same default height on both sides — an
+  unarranged flowgraph must preview as what it runs as. See
+  [docs/gui-layout.md](docs/gui-layout.md).
 - **A QT GUI control is two objects, not one.** Most of GRC's "GUI Widgets/QT"
   family are Python QWidgets upstream, rebuilt in
   [`blocks/src/qtgui_controls.hpp`](blocks/src/qtgui_controls.hpp). Each is a

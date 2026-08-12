@@ -1,0 +1,47 @@
+id: wasm_gui_layout
+label: GUI Layout
+category: '[Core]/GUI Widgets/QT'
+flags: [cpp]
+
+documentation: |-
+    Arranges the flowgraph's QT GUI sinks and controls in the runner window.
+
+    Every flowgraph has exactly one of these, placed automatically. Without it
+    the runner stacks each widget in a full-width vertical column, which is what
+    a flowgraph saved before this block existed still gets.
+
+    The window is a grid: Columns wide, with each row Row Height pixels tall.
+    Every widget is a tile at some (column, row) spanning some width and height
+    in those units, and tiles never overlap. Columns share the window width
+    equally, so the whole arrangement stretches with the browser tab.
+
+    Two ways to arrange it, and both write straight back into the flowgraph:
+    open this block's properties for a drag-and-drop grid, or press Arrange
+    above a running flowgraph and drag the live widgets around.
+
+    A widget with no tile of its own is placed full-width underneath the ones
+    that have, so a sink added to an already-arranged flowgraph is never
+    invisible. Tiles are remembered by block ID, so renaming a sink starts it
+    over at the bottom.
+
+    This block exists only in the WebAssembly runner. It has no Python
+    implementation, and desktop GNU Radio positions its widgets with each
+    block's GUI Hint instead, which this build ignores.
+
+parameters:
+-   id: layout
+    label: Widget Layout
+    dtype: gui_layout
+    default: '{}'
+    # The block face draws the grid itself, so the raw JSON never appears on it.
+    hide: part
+-   id: columns
+    label: Columns
+    dtype: int
+    default: '12'
+-   id: row_height
+    label: Row Height (px)
+    dtype: int
+    default: '60'
+
+file_format: 1

@@ -79,6 +79,10 @@ CUSTOM_IDS = {
     # the default code, and the interface is derived at edit and run time by
     # Pyodide. See docs/embedded-python.md.
     "epy_block",
+    # Where every GUI widget goes in the runner window. Not a gr::block at all --
+    # its factory only files the grid spec for run_now() to lay out with, the way
+    # variable_tag_object files a tag. See blocks/grc/wasm_gui_layout.block.yml.
+    "wasm_gui_layout",
     # Runner-only sinks, defined in blocks/grc (no upstream GNU Radio block).
     "wasm_packet_rate_sink",
     "wasm_text_sink",
@@ -188,6 +192,48 @@ CUSTOM_IDS = {
     "qtgui_waterfall_sink_x",
 }
 
+# Blocks whose factory returns a QWidget, i.e. everything that occupies a tile in
+# the runner window. The editor needs this to lay a flowgraph out *before* it has
+# ever been run, which is the one question it cannot answer for itself: whether a
+# BuiltBlock carries a widget is decided in C++, by the hand-written factories in
+# registry.cpp. It reaches the palette as each block's `gui` flag, by way of the
+# generated_blocks.json manifest.
+#
+# The list is therefore a copy of a fact that lives elsewhere, and a stale copy
+# would silently cost a widget its tile. Two things guard it: every id here has
+# to be a hand-written factory (checked below -- a generated factory never builds
+# a widget), and the runner reports the widgets it actually built on every run,
+# so the editor can name anything missing from this set in the console.
+GUI_IDS = {
+    # gr-qtgui's sinks, plus the two runner-only ones.
+    "qtgui_time_sink_x",
+    "qtgui_freq_sink_x",
+    "qtgui_const_sink_x",
+    "qtgui_waterfall_sink_x",
+    "qtgui_number_sink",
+    "qtgui_edit_box_msg",
+    "wasm_packet_rate_sink",
+    "hrpt_image_sink",
+    # Two Python QWidgets upstream, rebuilt in C++ here.
+    "rds_panel",
+    "fosphor_qt_sink_c",
+    # GRC's GUI Widgets/QT family: each is a variable *and* a widget, so it takes
+    # a tile like any sink. See blocks/src/qtgui_controls.hpp.
+    "variable_qtgui_range",
+    "variable_qtgui_chooser",
+    "variable_qtgui_push_button",
+    "variable_qtgui_check_box",
+    "variable_qtgui_entry",
+    "variable_qtgui_label",
+    "variable_qtgui_numeric_entry",
+    "variable_qtgui_toggle_switch",
+    "variable_qtgui_toggle_button_msg",
+    "variable_qtgui_msgcheckbox",
+    "variable_qtgui_msg_push_button",
+    "variable_qtgui_dial_control",
+    "qtgui_msgdigitalnumbercontrol",
+}
+
 INVALID_CPP_TEMPLATES = {
     # Not present in the WASM static libraries because their optional native
     # dependencies/features (CtrlPort or libsndfile) are disabled.
@@ -262,6 +308,14 @@ def validate_configuration() -> None:
         if unexpected:
             details.append("factories absent from CUSTOM_IDS: " + ", ".join(unexpected))
         raise SystemExit("custom factory registry mismatch:\n  " + "\n  ".join(details))
+
+    # Only a hand-written factory ever builds a QWidget, so a GUI id that is not
+    # one is a typo -- and a typo here costs that block its tile in the runner
+    # window with no other symptom.
+    not_custom = sorted(GUI_IDS - CUSTOM_IDS)
+    if not_custom:
+        raise SystemExit(
+            "GUI_IDS names blocks with no hand-written factory: " + ", ".join(not_custom))
 
 
 def cpp_atom(value: Any) -> str:
@@ -873,6 +927,8 @@ def generate(output_dir: Path, manifest: Path) -> None:
     manifest.write_text(json.dumps({
         "supported": sorted(set(supported)),
         "skipped": skipped,
+        # Blocks that occupy a tile in the runner window (see GUI_IDS).
+        "gui": sorted(GUI_IDS),
         "core_modules": list(CORE_MODULES),
         "deferred_modules": emitted_modules,
         "module_deps": MODULE_DEPS,

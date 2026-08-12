@@ -335,6 +335,14 @@ svg text { user-select:none; -webkit-user-select:none; -moz-user-select:none; }
 .blk text.param.pmore { fill:#6b6b6b; font-style:italic; }
 .blk text.param.invalid, .blk text.param.invalid .pval { fill:#d1242f; font-weight:700; }
 .blk text.validation-error { fill:#d1242f; font:14px 'DejaVu Sans',Verdana,sans-serif; pointer-events:none; }
+/* The GUI Layout block's body: a miniature of the runner window. The frame is
+   the window, each tile a widget in it. */
+.blk rect.gui-thumb-frame { fill:#fff; stroke:#b9b9b9; stroke-width:1; }
+.blk rect.gui-thumb-tile { fill:#dbe7f7; stroke:#1a63c4; stroke-width:1; }
+.blk text.gui-thumb-label { fill:#1a3f78; font:9px 'DejaVu Sans',Verdana,sans-serif;
+    pointer-events:none; }
+.blk.disabled rect.gui-thumb-tile { fill:#eee; stroke:#9a9a9a; }
+.blk.disabled text.gui-thumb-label { fill:#9a9a9a; }
 .port { stroke:#000; stroke-width:1; cursor:crosshair; }
 .port:hover { stroke:#1a63c4; stroke-width:2; }
 .port-label { fill:#111; font:14px 'DejaVu Sans',Verdana,sans-serif;
@@ -421,6 +429,36 @@ svg text { user-select:none; -webkit-user-select:none; -moz-user-select:none; }
 .code-controls button { padding:7px 12px; white-space:nowrap; }
 .code-status { color:#9aa7c6; font-size:14px; min-width:0; overflow-wrap:anywhere; }
 .code-status.code-error { color:#ff9a9a; white-space:pre-wrap; }
+/* The GUI Layout block's designer: a drag-and-drop miniature of the runner
+   window. Like the Code field it is the whole point of its dialog, so it takes
+   the full width with the label above it rather than beside it. */
+.modal.props .dlg:has(.gui-designer-mount) { width:min(960px,96vw); }
+.dlgrow:has(.gui-designer-mount) { grid-template-columns:1fr; gap:6px; align-items:start; }
+.dlgrow:has(.gui-designer-mount) label { text-align:left; padding-top:0; }
+.gui-designer { display:grid; gap:10px; min-width:0; }
+/* Leaves room inside the dialog body for the buttons and the hint under the
+   grid, which is why this is well short of the body's own height. */
+.gui-designer-scroll { max-height:min(44vh,430px); overflow:auto; border-radius:5px; }
+.gui-designer-grid { position:relative; border:1px solid #3a4366; border-radius:5px;
+    background-color:#171a24; touch-action:none; overflow:hidden;
+    background-image:linear-gradient(to right,#2b3350 1px,transparent 1px),
+                     linear-gradient(to bottom,#2b3350 1px,transparent 1px); }
+.gui-tile { position:absolute; box-sizing:border-box; border:1px solid #58a6ff;
+    background:#1d3352; border-radius:4px; cursor:grab;
+    display:grid; align-content:center; justify-items:center; gap:2px;
+    padding:2px 6px; overflow:hidden; user-select:none; }
+.gui-tile.control { border-color:#7ee0a1; background:#1b3a2a; }
+.gui-tile:focus-visible { outline:2px solid #ffd166; outline-offset:-3px; }
+.gui-tile.dragging { cursor:grabbing; z-index:2; box-shadow:0 4px 14px #0008; }
+.gui-tile-name { font-size:13px; color:#e6e9f0; max-width:100%; overflow:hidden;
+    text-overflow:ellipsis; white-space:nowrap; }
+.gui-tile-size { font-size:11px; color:#9aa7c6; }
+.gui-tile-resize { position:absolute; right:0; bottom:0; width:14px; height:14px;
+    cursor:nwse-resize;
+    background:linear-gradient(135deg,transparent 50%,#58a6ff 50%); }
+.gui-designer-actions { display:flex; gap:10px; }
+.gui-designer-actions button { padding:7px 12px; }
+.gui-designer-hint { margin:0; color:#9aa7c6; font-size:14px; line-height:1.4; }
 .file-picker { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:7px; align-items:center; }
 .file-picker button { padding:7px 12px; white-space:nowrap; }
 .file-picker-native { display:none !important; }
@@ -447,8 +485,32 @@ svg text { user-select:none; -webkit-user-select:none; -moz-user-select:none; }
 #runEmpty { min-height:0; flex:1; display:grid; place-items:center; padding:28px;
     color:#8f9ab5; text-align:center; font-size:16px; }
 #runEmpty[hidden] { display:none; }
+/* The iframe and the Arrange overlay share a stacking context, so the overlay
+   can be positioned in the iframe's own coordinates. */
+#runStage { position:relative; min-height:0; flex:1; display:flex; }
 #runFrame { min-height:0; flex:1; display:block; width:100%; border:0; background:#fff; }
 #runFrame[hidden] { display:none; }
+/* Arrange mode. The overlay covers the whole iframe so a drag that leaves a tile
+   still tracks, and it is only in the DOM while arranging -- the rest of the
+   time the plots have to stay interactive (zoom, pan, right-click menus). */
+#arrangeOverlay { position:absolute; inset:0; z-index:3; touch-action:none;
+    background:#0b0e1799; cursor:default; }
+#arrangeOverlay[hidden] { display:none; }
+/* The runner's grid area, reported by the runner in iframe coordinates. */
+.arrange-grid { position:absolute; border:1px dashed #58a6ff88; }
+.arrange-tile { position:absolute; box-sizing:border-box; border:2px solid #58a6ff;
+    background:#58a6ff1f; border-radius:4px; cursor:grab; display:grid;
+    align-content:center; justify-items:center; gap:2px; padding:2px 6px;
+    overflow:hidden; user-select:none; }
+.arrange-tile.dragging { cursor:grabbing; z-index:2; background:#58a6ff3d; }
+.arrange-tile-name { font-size:13px; color:#fff; text-shadow:0 1px 3px #000c;
+    max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.arrange-tile-size { font-size:11px; color:#cfe3ff; text-shadow:0 1px 3px #000c; }
+.arrange-tile-resize { position:absolute; right:0; bottom:0; width:16px; height:16px;
+    cursor:nwse-resize; background:linear-gradient(135deg,transparent 50%,#58a6ff 50%); }
+.arrange-hint { position:absolute; left:50%; bottom:14px; transform:translateX(-50%);
+    background:#171a24e6; color:#e6e9f0; border:1px solid #3a4366; border-radius:6px;
+    padding:8px 14px; font-size:14px; pointer-events:none; max-width:90%; text-align:center; }
 #editorPane[hidden], #runPane[hidden] { display:none; }
 
 /* ================= Narrow viewports (phones, small tablets) =================
