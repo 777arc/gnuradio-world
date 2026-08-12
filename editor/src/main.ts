@@ -100,6 +100,11 @@ let hideDisabled = false;
 // Unlike desktop GRC's historical preference default, the WASM editor starts
 // with snapping enabled so newly opened sessions get aligned movement.
 let snapToGrid = true;
+// Native GRC draws no grid at all — the canvas is one flat brush, and the only
+// grid it has is the invisible one Snap to Grid rounds to. The drawn grid is
+// this editor's own, on by default because it is what makes the snapping it
+// also defaults to legible.
+let showGrid = true;
 // GRC's View ▸ Show All Block IDs (`grc/show_block_ids`): off by default, and
 // when on it forces the otherwise hidden `id` parameter onto every block face
 // and into every Properties dialog.
@@ -1712,7 +1717,7 @@ document.addEventListener('keydown', e => {
   else if (!ctrl && !e.shiftKey && key === 'c') { consume(e); log('hierarchical blocks are not supported in WebAssembly'); }
   else if (!ctrl && (e.key === '+' || e.key === '=')) { consume(e); changePortCount(1); }
   else if (!ctrl && (e.key === '-' || e.key === '_')) { consume(e); changePortCount(-1); }
-  else if (!ctrl && !e.shiftKey && key === 'g') { consume(e); el('canvasWrap').classList.toggle('grid-hidden'); }
+  else if (!ctrl && !e.shiftKey && key === 'g') { consume(e); toggleShowGrid(); }
 });
 
 // ---- block Properties dialog (GRC-style modal) ----
@@ -4355,6 +4360,13 @@ function toggleSnapToGrid() {
   snapToGrid = !snapToGrid;
   log(`snap to grid ${snapToGrid ? 'on' : 'off'}`);
 }
+// The grid lines themselves. Flipped from the View menu or G, so the class and
+// the flag the menu's checkmark reads have to move together.
+function toggleShowGrid() {
+  showGrid = !showGrid;
+  el('canvasWrap').classList.toggle('grid-hidden', !showGrid);
+  log(`grid ${showGrid ? 'shown' : 'hidden'}`);
+}
 function openLink(url: string) { window.open(url, '_blank', 'noopener'); }
 
 // ---- enable/state predicates (evaluated each time a menu opens) ----
@@ -4564,6 +4576,7 @@ const MENUS: TopMenu[] = [
     { label: 'Hide Variables', reason: R_TODO },
     { label: 'Hide Disabled Blocks', key: 'Ctrl+D', run: toggleHideDisabled, check: () => hideDisabled },
     { label: 'Auto-Hide Port Labels', reason: R_TODO },
+    { label: 'Show Grid', key: 'G', run: toggleShowGrid, check: () => showGrid },
     { label: 'Snap to Grid', run: toggleSnapToGrid, check: () => snapToGrid },
     { label: 'Show Block Comments', reason: R_TODO },
     { label: 'Show All Block IDs', run: toggleShowAllBlockIds, check: () => showAllBlockIds },

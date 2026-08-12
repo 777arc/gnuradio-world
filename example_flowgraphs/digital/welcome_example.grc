@@ -48,7 +48,7 @@ blocks:
     parameters:
         value: '200000'
     states:
-        coordinate: [300, 20]
+        coordinate: [660, 20]
         rotation: 0
         state: enabled
 -   name: tone_mag
@@ -79,6 +79,90 @@ blocks:
         coordinate: [350, 480]
         rotation: 0
         state: enabled
+-   name: constellation
+    id: qtgui_const_sink_x
+    parameters:
+        alpha1: '1'
+        alpha10: '1'
+        alpha2: '1'
+        alpha3: '1'
+        alpha4: '1'
+        alpha5: '1'
+        alpha6: '1'
+        alpha7: '1'
+        alpha8: '1'
+        alpha9: '1'
+        autoscale: 'False'
+        axislabels: 'True'
+        color1: '"blue"'
+        color10: '"dark blue"'
+        color2: '"red"'
+        color3: '"green"'
+        color4: '"black"'
+        color5: '"cyan"'
+        color6: '"magenta"'
+        color7: '"yellow"'
+        color8: '"dark red"'
+        color9: '"dark green"'
+        grid: 'False'
+        label1: ''
+        label10: ''
+        label2: ''
+        label3: ''
+        label4: ''
+        label5: ''
+        label6: ''
+        label7: ''
+        label8: ''
+        label9: ''
+        legend: 'True'
+        marker1: '0'
+        marker10: '0'
+        marker2: '0'
+        marker3: '0'
+        marker4: '0'
+        marker5: '0'
+        marker6: '0'
+        marker7: '0'
+        marker8: '0'
+        marker9: '0'
+        name: Constellation
+        nconnections: '1'
+        size: '1024'
+        style1: '0'
+        style10: '0'
+        style2: '0'
+        style3: '0'
+        style4: '0'
+        style5: '0'
+        style6: '0'
+        style7: '0'
+        style8: '0'
+        style9: '0'
+        tr_chan: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_slope: qtgui.TRIG_SLOPE_POS
+        tr_tag: ''
+        update_time: '0.1'
+        width1: '0'
+        width10: '1'
+        width2: '1'
+        width3: '1'
+        width4: '1'
+        width5: '1'
+        width6: '1'
+        width7: '1'
+        width8: '1'
+        width9: '1'
+        xmax: '2'
+        xmin: '-2'
+        ymax: '2'
+        ymin: '-2'
+    states:
+        coordinate: [1260, 410]
+        rotation: 0
+        state: enabled
 -   name: mod7
     id: digital_psk_mod
     parameters:
@@ -96,37 +180,92 @@ blocks:
     parameters:
         note: Welcome to GNU Radio World!
     states:
-        coordinate: [630, 80]
+        coordinate: [730, 160]
         rotation: 0
         state: enabled
 -   name: qtgui_freq_sink_x_1
     id: qtgui_freq_sink_x
     parameters:
         alpha1: '1'
+        alpha10: '1'
+        alpha2: '1'
+        alpha3: '1'
+        alpha4: '1'
+        alpha5: '1'
+        alpha6: '1'
+        alpha7: '1'
+        alpha8: '1'
+        alpha9: '1'
         autoscale: 'False'
         average: '0.2'
         axislabels: 'True'
         color1: '"blue"'
+        color10: '"dark blue"'
+        color2: '"red"'
+        color3: '"green"'
+        color4: '"black"'
+        color5: '"cyan"'
+        color6: '"magenta"'
+        color7: '"yellow"'
+        color8: '"dark red"'
+        color9: '"dark green"'
         ctrlpanel: 'False'
         fc: '0'
         fftsize: '1024'
         grid: 'True'
         label1: ''
+        label10: ''
+        label2: ''
+        label3: ''
+        label4: ''
+        label5: ''
+        label6: ''
+        label7: ''
+        label8: ''
+        label9: ''
         legend: 'True'
         marker1: '-1'
+        marker10: '-1'
+        marker2: '-1'
+        marker3: '-1'
+        marker4: '-1'
+        marker5: '-1'
+        marker6: '-1'
+        marker7: '-1'
+        marker8: '-1'
+        marker9: '-1'
         name: Spectrum
+        nconnections: '1'
         samp_rate: samp_rate
         style1: '1'
+        style10: '1'
+        style2: '1'
+        style3: '1'
+        style4: '1'
+        style5: '1'
+        style6: '1'
+        style7: '1'
+        style8: '1'
+        style9: '1'
         tr_chan: '0'
         tr_level: '0'
         tr_mode: qtgui.TRIG_MODE_FREE
         tr_tag: ''
         update_time: '0.1'
         width1: '1'
+        width10: '1'
+        width2: '1'
+        width3: '1'
+        width4: '1'
+        width5: '1'
+        width6: '1'
+        width7: '1'
+        width8: '1'
+        width9: '1'
         ymax: '0'
         ymin: '-90'
     states:
-        coordinate: [1240, 260]
+        coordinate: [1260, 250]
         rotation: 0
         state: enabled
 -   name: throttle4
@@ -140,6 +279,16 @@ blocks:
         vlen: '1'
     states:
         coordinate: [900, 330]
+        rotation: 0
+        state: enabled
+-   name: wasm_gui_layout_0
+    id: wasm_gui_layout
+    parameters:
+        columns: '12'
+        layout: '{"constellation":[0,2,5,4],"freq":[0,0,6,1],"noise":[0,1,12,1],"qtgui_freq_sink_x_1":[5,2,7,4],"tone_mag":[6,0,6,1]}'
+        row_height: '60'
+    states:
+        coordinate: [380, 10]
         rotation: 0
         state: enabled
 -   name: x2
@@ -164,35 +313,6 @@ blocks:
         coordinate: [30, 330]
         rotation: 0
         state: enabled
--   name: x9
-    id: qtgui_const_sink_x
-    parameters:
-        alpha1: '1'
-        autoscale: 'False'
-        axislabels: 'True'
-        color1: '"blue"'
-        grid: 'False'
-        label1: ''
-        legend: 'True'
-        marker1: '0'
-        name: Constellation
-        size: '1024'
-        style1: '0'
-        tr_chan: '0'
-        tr_level: '0'
-        tr_mode: qtgui.TRIG_MODE_FREE
-        tr_slope: qtgui.TRIG_SLOPE_POS
-        tr_tag: ''
-        update_time: '0.1'
-        width1: '0'
-        xmax: '2'
-        xmin: '-2'
-        ymax: '2'
-        ymin: '-2'
-    states:
-        coordinate: [1240, 400]
-        rotation: 0
-        state: enabled
 -   name: xx3
     id: blocks_add_xx
     parameters:
@@ -206,8 +326,8 @@ blocks:
 connections:
 - [analog_sig_source_x_0, '0', xx3, '2']
 - [mod7, '0', xx3, '1']
+- [throttle4, '0', constellation, '0']
 - [throttle4, '0', qtgui_freq_sink_x_1, '0']
-- [throttle4, '0', x9, '0']
 - [x2, '0', xx3, '0']
 - [x8, '0', mod7, '0']
 - [xx3, '0', throttle4, '0']

@@ -314,11 +314,14 @@ button:hover { filter:brightness(1.15); }
    scrollbar ever appears just because the other scrollbar took up room. */
 svg { width:100%; height:100%; display:block; }
 svg text { user-select:none; -webkit-user-select:none; -moz-user-select:none; }
-/* GRC block: light body, black border, bold black title, param rows */
+/* GRC block: light body, grey border, bold black title, param rows. The fills
+   and the border are native GRC's own: BLOCK_ENABLED_COLOR / BORDER_COLOR in
+   grc/gui/canvas/colors.py, identical in grc/gui_qt/components/canvas/colors.py. */
 .blk { cursor:move; }
-.blk rect.body { fill:#f2f2f2; stroke:#000; stroke-width:1; }
+.blk rect.body { fill:#f1ecff; stroke:#616161; stroke-width:1; }
 .blk.sel rect.body { fill:#e3f0ff; stroke:#1a63c4; stroke-width:2; }
-.blk.invalid rect.body { fill:#fff0f0; stroke:#d1242f; stroke-width:2; }
+/* native MISSING_BLOCK_BACKGROUND_COLOR / MISSING_BLOCK_BORDER_COLOR */
+.blk.invalid rect.body { fill:#fff2f2; stroke:#ff0000; stroke-width:2; }
 .blk.invalid text.title { fill:#a40e26 !important; }
 .blk text.title { fill:#000; font-size:18px; font-weight:700; font-family:'DejaVu Sans',Verdana,sans-serif; }
 /* The Embedded Python Block's subtitle: smaller and grey, so it reads as a note
@@ -327,8 +330,8 @@ svg text { user-select:none; -webkit-user-select:none; -moz-user-select:none; }
 .blk text.subtitle { fill:#5a5a5a; font-size:12px;
     font-family:'DejaVu Sans',Verdana,sans-serif; }
 .blk.invalid text.subtitle { fill:#a40e26; }
-.blk.disabled text.subtitle { fill:#9a9a9a; }
-.blk.bypassed text.subtitle { fill:#7a5c12; }
+.blk.disabled text.subtitle { fill:#666; }
+.blk.bypassed text.subtitle { fill:#3a4c5e; }
 .blk text.param { fill:#111; font-size:16px; font-family:'DejaVu Sans',Verdana,sans-serif; }
 .blk .plabel { font-weight:700; }
 .blk text.pval { fill:#1a63c4; }
@@ -354,15 +357,17 @@ svg text { user-select:none; -webkit-user-select:none; -moz-user-select:none; }
 .wire-hit { stroke:transparent; stroke-width:12; fill:none; cursor:pointer; pointer-events:stroke; }
 .selection-box { fill:#1a63c426; stroke:#1a63c4; stroke-width:1; stroke-dasharray:4 3;
     vector-effect:non-scaling-stroke; pointer-events:none; }
-/* disabled block (GRC greys it out) */
-.blk.disabled rect.body { fill:#e6e6e6; stroke:#9a9a9a; stroke-dasharray:5 3; }
-.blk.disabled text.title, .blk.disabled text.param, .blk.disabled text.pval { fill:#9a9a9a; }
+/* disabled block: native BLOCK_DISABLED_COLOR over BORDER_COLOR_DISABLED. The
+   grey body is dark enough that the text has to stay near-black to be read. */
+.blk.disabled rect.body { fill:#cccccc; stroke:#888888; stroke-dasharray:5 3; }
+.blk.disabled text.title, .blk.disabled text.param, .blk.disabled text.pval { fill:#4a4a4a; }
 .blk.disabled .port { opacity:.35; }
 .blk.disabled .port-label { fill:#777; }
-/* bypassed block (GRC pale look, distinct from disabled) */
-.blk.bypassed rect.body { fill:#fff4d6; stroke:#b8973a; stroke-dasharray:6 3; }
-.blk.bypassed text.title { fill:#7a5c12; }
-.blk.disabled.invalid rect.body, .blk.bypassed.invalid rect.body { fill:#fff0f0; stroke:#d1242f; }
+/* bypassed block: native BLOCK_BYPASSED_COLOR (light steel blue), kept dashed so
+   it stays distinguishable from a disabled one at a glance */
+.blk.bypassed rect.body { fill:#b0c4de; stroke:#616161; stroke-dasharray:6 3; }
+.blk.bypassed text.title { fill:#16283a; }
+.blk.disabled.invalid rect.body, .blk.bypassed.invalid rect.body { fill:#fff2f2; stroke:#ff0000; }
 .blk.disabled.invalid text.title, .blk.bypassed.invalid text.title { fill:#a40e26; }
 /* right-click context menu */
 .ctxmenu { position:fixed; z-index:200; background:#272c3d; border:1px solid #46507a;
