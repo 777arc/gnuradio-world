@@ -110,6 +110,17 @@ Three things about the C++ side that are not guessable:
 - **The window has a fixed outer layout.** `g_container` holds an error banner
   and `g_gui_area`; only the latter's layout is replaced per run. A flowgraph
   that fails to build has no widgets and therefore no grid to put a banner in.
+- **The window *is* the tab.** `g_container` is created
+  `Qt::FramelessWindowHint` and shown with `showFullScreen()`, so there is no
+  title bar, no border and nothing to drag or resize — the grid is what fills
+  the runner tab. That is deliberate: with the arrangement itself draggable, a
+  window inside the tab was a second and weaker way to place the same widgets,
+  and it cost a margin on every side. Qt resizes a full-screen window whenever
+  the screen geometry changes, and the screen here is the browser-backed canvas,
+  so the grid tracks the tab for free. One consequence: an arrangement taller
+  than the tab is clipped at the bottom rather than reachable by moving the
+  window (`setRowMinimumHeight` gives every row `row_height` pixels, and a
+  widget's own minimum can be larger still).
 - **`apply_gui_layout()` must be idempotent.** It runs once per run and again on
   every live edit, and it builds a fresh layout object each time rather than
   mutating one — which is also the only way to change a `QGridLayout`'s spans.

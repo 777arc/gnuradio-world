@@ -1011,17 +1011,21 @@ int main(int argc, char** argv) {
     // runtime error, including a block throwing out of work(), is discarded.
     gr::logging::singleton().add_default_sink(std::make_shared<BrowserLogSink>());
 
-    // Be explicit about the top-level window decorations. Qt's WASM platform
-    // implements its draggable title bar and resize handles from these flags;
-    // relying on QWidget's implicit defaults can leave the canvas looking like
-    // an undecorated, fixed panel instead of an interactive window.
-    const Qt::WindowFlags window_flags = Qt::Window | Qt::WindowTitleHint |
-                                         Qt::WindowSystemMenuHint |
-                                         Qt::WindowMaximizeButtonHint |
-                                         Qt::WindowCloseButtonHint;
+    // The flowgraph fills the whole runner tab: no title bar, no frame, nothing
+    // to drag or resize. Where a widget goes is the GUI Layout block's business
+    // (see docs/gui-layout.md), so a window inside the tab would only be a
+    // second, weaker way to arrange the same widgets -- and it wasted the
+    // margin around itself. Qt's WASM platform draws its non-client area from
+    // these flags plus the window state: frameless *and* full screen, so
+    // neither the title bar nor the resize handles are created.
+    const Qt::WindowFlags window_flags = Qt::Window | Qt::FramelessWindowHint;
     g_container = new QWidget(nullptr, window_flags);
+    // Never shown (there is no title bar), but Qt uses it for the window's
+    // accessible name.
     g_container->setWindowTitle(QStringLiteral("GNU Radio Flowgraph"));
-    g_container->setMinimumSize(320, 240);
+    // No minimum: the window tracks the browser tab, and a floor larger than a
+    // narrow phone-sized tab would push the arrangement off the right edge.
+    g_container->setMinimumSize(0, 0);
     g_container->setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
     // The window's own layout never changes: an error banner may be inserted
     // above, and everything else happens inside g_gui_area, whose layout each
@@ -1032,16 +1036,12 @@ int main(int argc, char** argv) {
     g_gui_area = new QWidget(g_container);
     outer->addWidget(g_gui_area, 1);
 
-    // Keep the initial frame and its resize handles inside the browser-backed
-    // QScreen, including when the runner is opened in a relatively small tab.
-    const QRect available = app.primaryScreen()->availableGeometry();
-    const QSize initial_size(qMin(820, qMax(320, available.width() - 48)),
-                             qMin(520, qMax(240, available.height() - 48)));
-    g_container->resize(initial_size);
-    g_container->move(available.topLeft() + QPoint(24, 24));
-    // showNormal() is important on WASM: a fullscreen/maximized window has no
-    // non-client frame, so Qt hides the draggable title bar and resize handles.
-    g_container->showNormal();
+    // The QScreen is the browser-backed canvas, so its geometry is the tab.
+    // showFullScreen() both sizes the window to it and keeps it sized to it:
+    // Qt resizes full-screen windows itself whenever the screen geometry
+    // changes, which is what a browser resize looks like from here.
+    g_container->setGeometry(app.primaryScreen()->geometry());
+    g_container->showFullScreen();
     // Editor passes the flowgraph via the URL hash; fall back to the embedded demo.
     char* fg = flowgraph_from_url();
     std::string fgs = fg ? fg : kEmbeddedFlowgraph;
@@ -1056,7 +1056,7 @@ int main(int argc, char** argv) {
         publish_stats();
         // Cheap: it posts only when the arrangement or the window's geometry
         // actually changed, which is the only way the editor's Arrange overlay
-        // hears about the window being dragged, resized or maximized.
+        // hears about the browser tab being resized.
         publish_gui_layout(false);
     });
     stats_timer.start(333);

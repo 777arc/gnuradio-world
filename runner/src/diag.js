@@ -163,11 +163,32 @@
     ['d-dot','d-rt','d-cpu','d-mem','d-fps','d-tier','d-workers','d-thr','d-jank','d-bot','d-rows'].forEach(function (id) {
       el[id] = document.getElementById(id);
     });
-    root.querySelector('.bar').addEventListener('click', function () {
+    var bar = root.querySelector('.bar');
+    bar.addEventListener('click', function () {
       expanded = !expanded;
       root.classList.toggle('open', expanded);
       document.getElementById('d-btn').textContent = expanded ? 'metrics ▼' : 'metrics ▲';
     });
+
+    // Keep the bar out of the flowgraph's way. It is fixed to the bottom of the
+    // page, and the Qt window fills the page (frameless and full screen, see
+    // runner.cpp), so a bar drawn over it covers the bottom of whatever the GUI
+    // Layout block put on that row. Shrink the *container element* instead: Qt
+    // takes its QScreen geometry from it, and keeps a full-screen window matched
+    // to that, so the flowgraph gets the whole page minus this strip and nothing
+    // overlaps. Measured rather than hardcoded because the height is whatever
+    // the bar's font and padding come to. Only the collapsed bar is subtracted:
+    // the expanded metrics table is a transient panel to read, and taking a
+    // third of the window away from a running flowgraph to show it -- resizing
+    // every plot in the process -- would be worse than covering it.
+    var screenEl = document.getElementById('screen');
+    var applyInset = function () {
+      var height = bar.offsetHeight;
+      if (screenEl && height) screenEl.style.height = 'calc(100% - ' + height + 'px)';
+    };
+    applyInset();
+    if (typeof ResizeObserver !== 'undefined')
+      new ResizeObserver(applyInset).observe(bar);
   }
 
   // ---- update loop -------------------------------------------------------
