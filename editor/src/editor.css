@@ -23,7 +23,7 @@ header { grid-column:1/4; display:flex; align-items:stretch; background:#181b26;
 #headerBars { display:flex; flex-direction:column; flex:1; min-width:0; }
 header .brand { display:flex; align-items:center; flex:none; padding:0 0 0 5px; }
 header .brand a { display:flex; align-items:center; }
-header .brand img { height:48px; width:auto; display:block; }
+header .brand img { height:60px; width:auto; display:block; }
 header .spacer { flex:1; }
 button { background:#2f3650; color:#e6e9f0; border:1px solid #46507a; border-radius:6px; padding:7px 14px; cursor:pointer; font-size:16px; }
 button.run { background:#2e7d46; border-color:#3fae63; font-weight:600; }
