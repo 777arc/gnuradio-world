@@ -1,5 +1,8 @@
 <p align="center">
-  <img src="editor/public/gnuradio_world_logo.svg" alt="GNU Radio World" width="700">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="editor/public/gnuradio_world_logo_dark.svg">
+    <img src="editor/public/gnuradio_world_logo.svg" alt="GNU Radio World" width="700">
+  </picture>
 </p>
 
 <p align="center">
