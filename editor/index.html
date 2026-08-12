@@ -98,6 +98,24 @@
           <div id="arrangeOverlay" hidden></div>
         </div>
       </section>
+      <!-- The embedded layout (?embed=1) shows this pair of panels and nothing
+           else, so neither the toolbar's ▶ nor the run bar's Stop is on screen.
+           #embedRun is both: which pane is showing follows the run state there,
+           so Run and Stop are the same control. #embedOpen is the way out of the
+           frame and into the application, hence a real link rather than a button
+           — it opens in a tab of its own, and middle-click and "copy link
+           address" work as the reader expects. Hidden — and inert — in the full
+           editor. -->
+      <div id="embedControls" class="embed-controls" hidden>
+        <button id="embedRun" class="embed-run" type="button">▶ Run</button>
+        <!-- Two labels, one link: a frame narrow enough to be a phone has no room
+             for the long one beside a centred Run, and the accessible name is on
+             the anchor either way. -->
+        <a id="embedOpen" class="embed-open" target="_blank" rel="noopener noreferrer"
+           href="/" aria-label="Open this flowgraph in the full GNU Radio World editor"
+           ><span class="embed-open-long">Open in GNU Radio World</span
+           ><span class="embed-open-short">Open</span> ↗</a>
+      </div>
     </div>
     <div id="consoleSplitter" role="separator" aria-label="Resize console"
          aria-orientation="horizontal" aria-valuemin="29" tabindex="0"></div>

@@ -31,8 +31,15 @@ export function contentType(path) {
   return MIME[extname(path)] || 'application/octet-stream';
 }
 
+// COOP + COEP are what SharedArrayBuffer and Emscripten's pthreads require.
+// CORP is `cross-origin` so another site can frame the embedded editor
+// (?embed=1 -- see docs/editor-ui.md): a host page that is itself cross-origin
+// isolated sends COEP: require-corp, and such a page may only frame a document
+// whose CORP admits it. Everything served here is public static content, so
+// there is nothing for the stricter value to protect. Keep this in step with the
+// _headers block in scripts/assemble-site.mjs, which is the deployed copy.
 export function setIsolationHeaders(response) {
   response.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
   response.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
-  response.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+  response.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
 }

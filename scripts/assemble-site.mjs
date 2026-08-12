@@ -154,6 +154,16 @@ async function main() {
   //    and so satisfies COEP. (This is also why it carries no Pyodide: that
   //    loads off a CDN, which cross-origin isolation forbids.)
   //
+  //    CORP is `cross-origin` rather than `same-origin` so another site can frame
+  //    the embedded editor (?embed=1 -- see docs/editor-ui.md). Running a
+  //    flowgraph there needs SharedArrayBuffer, so the host page has to be
+  //    cross-origin isolated itself, and a COEP: require-corp host may only frame
+  //    a document whose CORP names it. Nothing served from this origin is private
+  //    -- it is a public static site, and the recordings live in a separate
+  //    bucket with its own CORS policy -- so what CORP protects here is not worth
+  //    the feature. It stays declared rather than dropped because COEP demands an
+  //    explicit CORP on anything cross-origin regardless.
+  //
   //    The runner assets are also given a cache lifetime, which Pages otherwise
   //    sets to `max-age=0, must-revalidate` -- a conditional request per file per
   //    Run, and the pthread workers re-request runner.js as well (9 requests on a
@@ -179,7 +189,7 @@ async function main() {
 `/*
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Embedder-Policy: require-corp
-  Cross-Origin-Resource-Policy: same-origin
+  Cross-Origin-Resource-Policy: cross-origin
 
 /*.wasm
   Content-Type: application/wasm

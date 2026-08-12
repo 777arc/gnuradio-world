@@ -76,6 +76,15 @@ import { isBenchmarkFrameSource, showBenchmarkDialog } from './benchmark';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const el = (id: string) => document.getElementById(id)!;
+// ?embed=1 — the layout another site frames. Declared up here rather than beside
+// the rest of the embed wiring further down because the history functions, which
+// are declared before it, keep its "open in GNU Radio World" link current.
+const EMBEDDED = (() => {
+  const value = new URLSearchParams(location.search).get('embed');
+  return value !== null && value !== '0' && value.toLowerCase() !== 'false';
+})();
+const embedRun = el('embedRun') as HTMLButtonElement;
+const embedOpen = el('embedOpen') as HTMLAnchorElement;
 const nodesG = el('nodes'), wiresG = el('wires'), selectionG = el('selectionOverlay');
 const svg = el('svg') as unknown as SVGSVGElement;
 
@@ -152,8 +161,12 @@ let historyIndex = -1;
 let historyReady = false;
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
 function snapshot(): GraphSnapshot { return clone({ insts, conns, counter }); }
+// The three places the canvas changes as a whole are also the three that decide
+// where an embed's "open in GNU Radio World" link points: an untouched flowgraph
+// links to itself by name, an edited one carries the edit.
 function resetHistory() {
   graphHistory.length = 0; graphHistory.push(snapshot()); historyIndex = 0;
+  void refreshEmbedOpen();
 }
 function recordHistory() {
   if (!historyReady) return;
@@ -161,10 +174,12 @@ function recordHistory() {
   graphHistory.push(snapshot());
   if (graphHistory.length > 100) graphHistory.shift();
   historyIndex = graphHistory.length - 1;
+  void refreshEmbedOpen();
 }
 function restoreHistory(index: number) {
   if (index < 0 || index >= graphHistory.length) return;
   historyIndex = index;
+  void refreshEmbedOpen();
   const state = clone(graphHistory[index]);
   insts = state.insts; conns = state.conns; counter = state.counter;
   selected = null; selectedBlocks.clear(); selectedConnection = null; cancelConnect();
@@ -2570,6 +2585,34 @@ async function publicHttpFileSize(url: string): Promise<number | null> {
   } catch { return null; }
 }
 
+// ---- embedded mode (?embed=1) ----------------------------------------------
+// What another site frames to show one flowgraph: editor.css drops everything
+// around #workspaceContent, leaving the canvas and the QT GUI pane, and two
+// controls over them. #embedRun is Run and Stop both, because the pane on screen
+// follows the run state — running opens the QT GUI, stopping comes back to the
+// canvas — so there is never a moment where both would be offered. #embedOpen
+// hands the flowgraph to the full application in a tab of its own.
+// A query parameter rather than a fragment key: the fragment already says which
+// flowgraph to open (#example=…) and is rewritten as the reader works, while
+// this is a property of the host page's <iframe src> that nothing may touch —
+// which is also what makes dropping the whole query the right way to leave.
+if (EMBEDDED) el('app').classList.add('embedded');
+
+// Same page without the embed flag, so an untouched embed hands over the clean,
+// bookmarkable #example= link it was framed with. Once the reader has changed
+// something that link would open a *different* flowgraph than the one on screen,
+// so from then on the canvas rides along as the same frozen #fg= payload File ▸
+// Copy Flowgraph URL hands out. Kept current rather than computed on click:
+// gzipping is async, and an <a> has to know where it points before the click.
+// A declaration, not a const: the history functions above call the refresh, and
+// they run before this point in the module.
+function embedOpenUrl() { return location.href.split('#')[0].split('?')[0] + location.hash; }
+async function refreshEmbedOpen() {
+  if (!EMBEDDED) return;
+  try { embedOpen.href = historyIndex > 0 ? await flowgraphToUrl() : embedOpenUrl(); }
+  catch { embedOpen.href = embedOpenUrl(); }
+}
+
 // Editor and QT GUI are the two fixed tabs; recording tabs ('rec:<key>') are
 // added and removed by syncRecordingTabs() as File Sources come and go, so the
 // bar is a registry rather than the pair of buttons it used to be.
@@ -2634,7 +2677,22 @@ function wireWorkspaceTab(entry: WorkspaceTabEntry) {
 }
 workspaceTabs.forEach(wireWorkspaceTab);
 
+let runnerRunning = false;
+
+function updateEmbedRun(failed = false) {
+  embedRun.classList.toggle('running', runnerRunning && !failed);
+  embedRun.classList.toggle('failed', failed);
+  embedRun.textContent = failed ? '⚠ Cannot run' : runnerRunning ? '■ Stop' : '▶ Run';
+  const hint = failed ? 'The flowgraph could not be started'
+    : runnerRunning ? 'Stop the flowgraph and return to the block editor'
+    : 'Run the flowgraph and open its QT GUI';
+  embedRun.title = hint;
+  embedRun.setAttribute('aria-label', hint);
+}
+
 function setRunnerRunning(running: boolean, status?: string) {
+  runnerRunning = running;
+  updateEmbedRun();
   el('workspace').classList.toggle('running', running);
   el('runStatus').textContent = status || (running ? 'Running flowgraph…' : 'No flowgraph running');
   (el('btnStop') as HTMLButtonElement).disabled = !running;
@@ -2649,6 +2707,30 @@ function setRunnerRunning(running: boolean, status?: string) {
   const qtLabel = running ? 'QT GUI — flowgraph running' : 'QT GUI';
   qtTab.title = qtLabel;
   qtTab.setAttribute('aria-label', qtLabel);
+}
+
+if (EMBEDDED) {
+  el('embedControls').hidden = false;
+  // The fragment names the flowgraph, and loading an example rewrites it.
+  window.addEventListener('hashchange', () => void refreshEmbedOpen());
+  void refreshEmbedOpen();
+  let failedTimer = 0;
+  embedRun.addEventListener('click', async () => {
+    window.clearTimeout(failedTimer);
+    // Neither call needs anything extra to move the reader: stop() already
+    // returns to the canvas and run() already opens the QT GUI pane.
+    if (runnerRunning) { stop(); return; }
+    updateEmbedRun();   // clears a "cannot run" still on the button from before
+    await run();
+    // run() refuses a flowgraph that does not validate, and says why in the
+    // console pane — which is one of the parts an embed does not show. So a run
+    // that never started has to be visible on the button itself.
+    if (!runnerRunning) {
+      updateEmbedRun(/* failed */ true);
+      failedTimer = window.setTimeout(() => updateEmbedRun(), 3000);
+    }
+  });
+  updateEmbedRun();
 }
 
 // ---- Arrange mode: rearranging the widgets of a *running* flowgraph ---------
@@ -4871,5 +4953,7 @@ paletteReady.then(async () => {
     catch (error) { log(`could not load default example "digital/welcome_example.grc": ${error}`); }
   }
   historyReady = true; resetHistory();
-  showWelcomePopup();
+  // Nothing of the application's own is offered in an embed, and a modal about
+  // contributing examples is the last thing a host page's reader asked for.
+  if (!EMBEDDED) showWelcomePopup();
 });

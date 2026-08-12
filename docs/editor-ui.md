@@ -108,6 +108,87 @@ carry it, and each has a reason it is where it is:
   `logLines()` marks the workspace `console-unread` while it is collapsed and the
   bar carries a dot until it is opened again.
 
+## Embedding a flowgraph in another page (`?embed=1`)
+
+`https://gnuradioworld.com/?embed=1#example=digital/welcome_example` in an
+`<iframe>` is the whole interface: another site gets the flowgraph and its QT
+GUI, and none of the application around them.
+
+```html
+<iframe src="https://gnuradioworld.com/?embed=1#example=ofdm/ofdm"
+        allow="cross-origin-isolated" width="960" height="560"></iframe>
+```
+
+A **query** parameter, not a fragment key, because the fragment already says
+*which* flowgraph to show (`#example=`, `#fg=`, `#recording=`) and is rewritten as
+the reader works, while this is a property of the host page's `src` that nothing
+in the app may touch — which is also what makes dropping the whole query the
+right way to *leave* one, as `#embedOpen` does below. Any value but `0`/`false`
+turns it on, bare `?embed` included. It composes with every existing fragment, so
+an embed can carry a shared `#fg=` flowgraph just as well as a named example.
+
+Four things make it an embed, and each is one place:
+
+- **The layout is a class.** `EMBEDDED` in `main.ts` adds `embedded` to `#app`
+  and `editor.css` does the rest: header, palette and its splitter, the tab
+  strip, the run bar and the console are `display:none`, so their grid tracks
+  collapse and `#workspaceContent` — the editor canvas and the QT GUI pane, the
+  two panels the tabs would switch between — fills the frame. `display`, not
+  `visibility`, for that reason. The rules outrank the narrow-layout media query,
+  which otherwise brings ☰ and the console collapse bar back on a phone-sized
+  frame; an embed has neither a palette nor a console to reach.
+- **One button is both Run and Stop.** `#embedRun` floats in the top centre of
+  the panels, with `#embedOpen` in the corner of the same row (a bar of their own
+  would eat the height the host page gave the frame; the row spans the frame and
+  passes pointer events through, so it is not a strip of dead canvas across the
+  top). Nothing new happens when it is pressed: `run()` already
+  selects the QT GUI pane and `stop()` already returns to the canvas, so the pane
+  on screen follows the run state and the two actions are never both available.
+  Run is nearly the only control left, so it also has to report a **refusal** —
+  `run()` explains a flowgraph that fails validation in the console pane, which
+  an embed does not show, hence the three-second `⚠ Cannot run` on the button.
+- **The way out is a link, and it follows the canvas.** `#embedOpen` opens the
+  flowgraph in the full application in a tab of its own — an `<a>` rather than a
+  button, so middle-click and "copy link address" behave; below the narrow
+  breakpoint it drops to "Open ↗", which is the only room a phone-sized frame has
+  left beside a centred Run. Leaving the embed is
+  just dropping the query the host page framed it with, and while the reader has
+  changed nothing that leaves the clean, bookmarkable `#example=` link. After an
+  edit that URL would open a *different* flowgraph than the one on screen, so
+  `refreshEmbedOpen()` swaps in the frozen `#fg=` payload that File ▸ Copy
+  Flowgraph URL hands out. It is *kept* current rather than computed on click
+  because gzipping is async and a link has to know where it points beforehand,
+  which is why the three history functions call it: they are where the canvas
+  changes as a whole.
+- **The canvas is still the editor.** Blocks can be moved, opened and rewired;
+  what is missing is everything that acts on the *application* — no menus, no
+  palette to add a block from, and no welcome modal (`showWelcomePopup()` is
+  skipped, since an embed's reader did not come for it).
+
+**Running one off-site needs a cross-origin isolated host page.** The runner is
+Emscripten pthreads, so it needs `SharedArrayBuffer`, and cross-origin isolation
+is inherited from the top-level document — a framed page cannot earn it alone. So
+the host page must send `Cross-Origin-Opener-Policy: same-origin` and
+`Cross-Origin-Embedder-Policy: require-corp` and mark the frame
+`allow="cross-origin-isolated"`. This is also why this site serves
+`Cross-Origin-Resource-Policy: cross-origin` (`scripts/http-support.mjs`, and the
+`_headers` block in `scripts/assemble-site.mjs` that deploys it): a COEP host may
+only frame a document whose CORP admits it, and with the stricter value the
+iframe does not load at all — `ERR_BLOCKED_BY_RESPONSE`, before any of the above
+matters. Nothing here is private, so that is a cheap price; keep the two copies
+of the header in step.
+
+A host page that is *not* isolated still gets a working embed of everything but
+Run: the flowgraph renders and can be explored, and pressing Run fails in the
+runner. Same-origin embedding — a page on this site framing another — needs none
+of it.
+
+`editor/test/workspace-tabs.test.mjs` covers the embedded layout alongside the
+tabs it stands in for. What it cannot check is that a real host page can frame
+it, which is a browser-level property: to verify a change here by hand, serve a
+page with those two headers, frame `?embed=1`, and confirm `crossOriginIsolated`
+inside the frame before pressing Run.
+
 `editor/test/selection.test.mjs` pins the pointer-event wiring. Everything else
 about the layout is a judgement for the eye, like auto-arrange: check a change by
 loading the editor at a phone viewport, opening the drawer, the Properties dialog

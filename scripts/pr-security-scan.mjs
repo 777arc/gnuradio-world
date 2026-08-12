@@ -237,7 +237,10 @@ const RULES = [
   {
     id: "cross-origin-isolation",
     severity: "warn",
-    files: (f) => f === "server.mjs" || f.endsWith("_headers") || f.includes("assemble-site"),
+    // http-support.mjs is where the dev server and the browser tests get these
+    // headers from; assemble-site.mjs writes the deployed _headers copy.
+    files: (f) => f === "server.mjs" || f.endsWith("_headers") ||
+      f.includes("assemble-site") || f.includes("http-support"),
     test: (l) => /Cross-Origin-(Opener|Embedder|Resource)-Policy|Content-Security-Policy/i.test(l) &&
       "the COOP/COEP headers are what make SharedArrayBuffer and pthreads work — and what isolate the preview origin",
   },
