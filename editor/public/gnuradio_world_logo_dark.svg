@@ -22,15 +22,15 @@
      inkscape:pageopacity="0.0"
      inkscape:pagecheckerboard="0"
      inkscape:deskcolor="#d1d1d1"
-     inkscape:zoom="1.1955496"
-     inkscape:cx="521.09927"
-     inkscape:cy="268.91399"
+     inkscape:zoom="9.5643968"
+     inkscape:cx="220.71439"
+     inkscape:cy="229.02647"
      inkscape:window-width="1920"
      inkscape:window-height="991"
      inkscape:window-x="-9"
      inkscape:window-y="-9"
      inkscape:window-maximized="1"
-     inkscape:current-layer="svg40" />
+     inkscape:current-layer="g14" />
   <title
      id="title">GNU Radio World logo — dark mode</title>
   <desc
@@ -211,7 +211,7 @@
        width="11.224152"
        height="8.603054"
        id="rect24"
-       style="fill:#3399ff;fill-opacity:1;stroke:none" />
+       style="fill:#ff8c69;fill-opacity:1;stroke:none" />
     <rect
        class="port-blue"
        x="282.57318"

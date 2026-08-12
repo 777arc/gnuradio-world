@@ -22,15 +22,15 @@
      inkscape:pageopacity="0.0"
      inkscape:pagecheckerboard="0"
      inkscape:deskcolor="#d1d1d1"
-     inkscape:zoom="0.59777478"
-     inkscape:cx="420.72702"
-     inkscape:cy="57.714044"
+     inkscape:zoom="1.6907624"
+     inkscape:cx="121.83853"
+     inkscape:cy="157.02975"
      inkscape:window-width="1920"
      inkscape:window-height="991"
      inkscape:window-x="-9"
      inkscape:window-y="-9"
      inkscape:window-maximized="1"
-     inkscape:current-layer="svg40" />
+     inkscape:current-layer="g14" />
   <title
      id="title">GNU Radio-style flowgraph</title>
   <desc
@@ -211,7 +211,7 @@
        width="11.224152"
        height="8.603054"
        id="rect24"
-       style="fill:#3399ff;fill-opacity:1;stroke:none" />
+       style="fill:#ff8c69;fill-opacity:1;stroke:none" />
     <rect
        class="port-blue"
        x="282.57318"
