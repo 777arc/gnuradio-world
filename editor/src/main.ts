@@ -71,6 +71,7 @@ import {
   epySourceError, isForeignIoCache, pythonRuntime, setEpySourceError,
 } from './epy';
 import { showDebugInfo } from './debug-panel';
+import { showVersionsDialog } from './versions';
 import { isBenchmarkFrameSource, showBenchmarkDialog } from './benchmark';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
@@ -4630,6 +4631,7 @@ const MENUS: TopMenu[] = [
     { label: 'Keyboard Shortcuts', key: 'Ctrl+K', run: showShortcutHelp },
     { label: 'WebAssembly Modules & Debug Info…',
       run: () => showDebugInfo({ openDialog, library: () => LIB, blocksUrl: BLOCKS_URL, loadedModules }) },
+    { label: 'Software Versions…', run: () => showVersionsDialog({ openDialog, copyText }) },
     { label: 'Benchmark Tool',
       run: () => showBenchmarkDialog({
         openDialog, log,

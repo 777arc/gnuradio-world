@@ -130,6 +130,7 @@ hierarchy instead.
 | `qtgui/` | Qt6 build of the gr-qtgui sink chain |
 | `runner/` | the JSON-driven WASM flowgraph runner, generated C++ registry, support manifest, and shared side-module topology in `modules.json`; vendored headers under `third_party/` |
 | `editor/` | the TypeScript flowgraph editor; `main.ts` owns browser orchestration while block schemas, validation, generated-library installation, and example/recording catalogs live in focused modules beside it |
+| `editor/gen/` | build-time generators: `gen_blocklib.py` (the palette) and `gen_versions.mjs`, which scrapes every dependency pin into the `virtual:versions` module behind Help ▸ Software Versions — see "Version reporting" |
 | `tools/` | `block_overrides.py`, the browser-only block-metadata overlay loader/merger shared by `gen_registry.py` and `gen_blocklib.py` |
 | `blocks/` | everything a human wrote about blocks, as opposed to `runner/`, which is the app plus everything generated. See "Where a block's source lives" |
 | `blocks/grc/` | `.block.yml` for runner-only blocks with no upstream GNU Radio equivalent (`wasm_packet_rate_sink`, `wasm_text_sink`); read by *both* generators alongside GNU Radio's own yaml |
@@ -284,6 +285,28 @@ Do not hand-edit generated registry or palette artifacts; change source block
 metadata (for a vendored module, its `blocks/overlays/<module>/metadata.yml`
 rather than the submodule's own yaml), `runner/gen_registry.py`, or the
 handwritten registry as appropriate, then regenerate.
+
+### Version reporting
+
+**Help ▸ Software Versions** lists every piece of software in the stack, and not
+one of those numbers is written by hand.
+[`editor/gen/gen_versions.mjs`](editor/gen/gen_versions.mjs) reads them back out
+of the file that pins each one — `deps/fetch-deps.sh` for the C++ dependencies,
+`deps/env.sh` for Emscripten, `build.yml` for Qt, `deps/fetch-pyodide.sh` for the
+Python runtime, `.gitmodules` plus the gitlinks for GNU Radio and the OOTs,
+`gnuradio/CMakeLists.txt` for GNU Radio's own version, and
+`editor/package-lock.json` for the web packages — and `vite.config.ts` serves the
+result as the `virtual:versions` module, so dev and build both report the tree
+they are running out of and nothing is checked in to go stale.
+
+Two consequences. A new dependency needs **no** edit to the dialog as long as it
+is pinned in one of the forms already used (`clone`, `clone_commit`, `fetch_tar`,
+a submodule, a locked npm package); it appears on its own. And *reword* a pin
+file and its table silently empties rather than anything failing — collection is
+best-effort by design, so a missing submodule checkout or a tree with no git
+history degrades to "unknown" instead of breaking the build. `node
+editor/gen/gen_versions.mjs` prints the manifest, which is how to check a table
+is still being filled.
 
 ### On-demand category modules
 

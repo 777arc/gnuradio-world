@@ -101,6 +101,12 @@ button:hover { filter:brightness(1.15); }
 .debug-table .state-loaded { color:#4fc3d6; }
 .debug-table .state-pending { color:#c9903a; }
 .debug-totals { margin-top:10px; font-size:16px; color:#aeb8d0; }
+/* Software Versions dialog (shares the debug dialog's section/table styling) */
+.debug-note { color:#8b93ab; font-size:15px; margin:0 0 8px; }
+.debug-table a { color:#7fb4ff; text-decoration:none; }
+.debug-table a:hover { text-decoration:underline; }
+.debug-table td.ver-detail { color:#8b93ab; }
+.ver-copy { padding:7px 12px; font-size:16px; }
 /* Benchmark Tool dialog */
 .bench-intro { line-height:1.55; color:#c3cbe0; margin-bottom:12px; }
 .bench-warn { color:#ffb877; line-height:1.5; margin-bottom:10px; }
