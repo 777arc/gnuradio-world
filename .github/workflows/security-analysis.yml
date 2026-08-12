@@ -1,0 +1,272 @@
+name: Security analysis
+
+# Static analysis of a pull request's diff, factored out so the two callers run
+# byte-identical steps. Callers:
+#
+#   pr-preview-build.yml  pull_request — gates the build; the `build` job needs it
+#   pr-security.yml       pull_request_target — the authoritative copy, from main
+#
+# Why twice: on a `pull_request` event the workflow files come from the PR's own
+# branch, so a contributor can delete the gate in the same PR it is meant to
+# screen. That copy exists to fail fast and save the three-hour compile. The
+# copy that cannot be edited is the pull_request_target one, which GitHub runs
+# from the base branch.
+#
+# SECURITY: nothing here may EXECUTE the pull request's code. No npm ci, no
+# build, no test run over PR sources -- the trusted caller has a write token in
+# scope, and a single `npm install` of a PR-authored package.json would hand it
+# over. Everything below only reads:
+#
+#   * the diff scan never checks the PR out at all. It fetches refs/pull/N/head
+#     into the object store and reads blobs with `git show`, so the working tree
+#     stays on the base branch.
+#   * CodeQL does check the PR out, but analyzes javascript-typescript, python
+#     and actions with `build-mode: none` -- extraction parses source, it does
+#     not run it, and no dependencies are installed for it to run.
+#
+# Adding a step that runs PR code turns this into a credential-theft primitive.
+# Put such a step in pr-preview-build.yml, which holds no secret by design.
+on:
+  workflow_call:
+    inputs:
+      pr_number:
+        description: "Pull request to analyze"
+        type: number
+        required: true
+      base_ref:
+        description: "Branch the PR targets"
+        type: string
+        required: true
+      base_sha:
+        description: "Base commit, for the dependency comparison (which takes shas, not refs)"
+        type: string
+        required: true
+      head_sha:
+        description: "PR head commit, likewise"
+        type: string
+        required: true
+      upload_sarif:
+        description: >-
+          Upload CodeQL results to the Security tab. Only possible from a
+          trusted event: a fork's GITHUB_TOKEN has no security-events: write,
+          and there is no way to grant it.
+        type: boolean
+        default: false
+      comment:
+        description: "Post the findings as a sticky comment on the PR"
+        type: boolean
+        default: false
+
+jobs:
+  # -------------------------------------------------------------------------
+  # The diff scan: this repository's own rules, over added lines only.
+  # -------------------------------------------------------------------------
+  diff-scan:
+    name: Diff scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # Base branch only. Submodules are deliberately not fetched: a pointer
+      # move is judged from the gitlink in the diff, and checking out whatever
+      # commit a fork's pointer names would be running their tree.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.base_ref }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      # refs/pull/<n>/head is readable on the base repository even for a fork
+      # PR, and fetching it brings the objects in WITHOUT touching the working
+      # tree. The scanner reads them with `git show` / `git diff`.
+      - name: Fetch the pull request head
+        env:
+          PR: ${{ inputs.pr_number }}
+        run: git fetch --no-tags --quiet origin "+refs/pull/${PR}/head:refs/prhead"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # A scanner that has stopped matching anything looks exactly like a clean
+      # PR, so its own tests run first, from the base branch, before it is
+      # trusted to pass anything.
+      - name: Self-test the scanner
+        run: node test/test_pr_security_scan.mjs
+
+      - name: Scan the diff
+        run: |
+          node scripts/pr-security-scan.mjs \
+            --base "origin/${{ inputs.base_ref }}" \
+            --head refs/prhead \
+            --markdown diff-scan.md \
+            --json diff-scan.json
+
+      - name: Upload the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-diff-scan
+          path: |
+            diff-scan.md
+            diff-scan.json
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # -------------------------------------------------------------------------
+  # CodeQL. `actions` covers the workflow files themselves, which is where the
+  # highest-value findings in a repository like this one live.
+  # -------------------------------------------------------------------------
+  codeql:
+    name: CodeQL (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # No `permissions:` block anywhere in this workflow. A called workflow's job
+    # may only narrow what the caller granted, so declaring `security-events:
+    # write` here would hard-error the fork path, where the caller cannot grant
+    # it. Inheriting instead lets one file serve both callers: the trusted one
+    # passes the write scopes down, the fork one passes contents: read.
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [javascript-typescript, python, actions]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/pull/${{ inputs.pr_number }}/head
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+          config-file: ./.github/codeql/config.yml
+
+      - uses: github/codeql-action/analyze@v3
+        with:
+          category: /language:${{ matrix.language }}
+          output: sarif-results
+          # `never` on the fork path: the upload would fail on permissions and
+          # take the job with it, hiding the results that did come back.
+          upload: ${{ inputs.upload_sarif && 'always' || 'never' }}
+
+      # CodeQL never fails a job on its own. Reduce the run to alerts this PR is
+      # responsible for -- high severity, in a file it changed -- and fail on
+      # those. Pre-existing debt stays an alert, not a blocked contributor.
+      - name: Gate on new high-severity alerts
+        run: |
+          git fetch --no-tags --quiet origin "+refs/heads/${{ inputs.base_ref }}:refs/basehead"
+          git diff --name-only --merge-base refs/basehead HEAD > changed.txt
+          node scripts/sarif-gate.mjs --sarif sarif-results --files changed.txt \
+            --markdown codeql-${{ matrix.language }}.md
+
+      - name: Upload the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-codeql-${{ matrix.language }}
+          path: codeql-${{ matrix.language }}.md
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # -------------------------------------------------------------------------
+  # Known-vulnerable and newly introduced dependencies. Reads the dependency
+  # graph through the API; installs nothing.
+  # -------------------------------------------------------------------------
+  dependency-review:
+    name: Dependency review
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.base_ref }}
+          persist-credentials: false
+      - uses: actions/dependency-review-action@v4
+        with:
+          # The dependency-graph compare API takes commits, not refs.
+          base-ref: ${{ inputs.base_sha }}
+          head-ref: ${{ inputs.head_sha }}
+          fail-on-severity: high
+          comment-summary-in-pr: ${{ inputs.comment && 'on-failure' || 'never' }}
+
+  # -------------------------------------------------------------------------
+  # One status the branch protection rule can require, and one comment.
+  # -------------------------------------------------------------------------
+  report:
+    name: Security analysis
+    runs-on: ubuntu-latest
+    needs: [diff-scan, codeql, dependency-review]
+    if: always()
+    steps:
+      # Best effort: a job that died before its report step uploaded nothing,
+      # and the summary should still say which check failed rather than the
+      # reporting job itself failing on a missing artifact.
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          pattern: security-*
+          merge-multiple: true
+          path: reports
+
+      - name: Assemble the report
+        id: report
+        env:
+          DIFF: ${{ needs.diff-scan.result }}
+          CODEQL: ${{ needs.codeql.result }}
+          DEPS: ${{ needs.dependency-review.result }}
+        run: |
+          {
+            echo "<!-- pr-security-report -->"
+            echo "### 🔒 PR security analysis"
+            echo
+            echo "| check | result |"
+            echo "|---|---|"
+            for pair in "Diff scan:$DIFF" "CodeQL:$CODEQL" "Dependency review:$DEPS"; do
+              name="${pair%%:*}"; res="${pair##*:}"
+              case "$res" in
+                success) icon="✅ passed" ;;
+                skipped) icon="⏭️ skipped" ;;
+                cancelled) icon="⚪ cancelled" ;;
+                *) icon="❌ **$res**" ;;
+              esac
+              echo "| $name | $icon |"
+            done
+            echo
+            cat reports/*.md 2>/dev/null || true
+            echo
+            echo "<sub>A finding is not an accusation — it is a change that needs a human to say it was intended."
+            echo "See docs/ci.md for how to suppress one.</sub>"
+          } > report.md
+          cat report.md >> "$GITHUB_STEP_SUMMARY"
+
+      # Rewritten in place, the way the preview comment is, so a PR with many
+      # pushes does not accumulate a column of stale verdicts.
+      - name: Comment on the pull request
+        if: ${{ inputs.comment }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ inputs.pr_number }}
+          REPO: ${{ github.repository }}
+        run: |
+          existing=$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
+            --jq '[.[] | select(.body | startswith("<!-- pr-security-report -->"))] | .[0].id // empty')
+          if [ -n "$existing" ]; then
+            gh api -X PATCH "repos/$REPO/issues/comments/$existing" -F body=@report.md >/dev/null
+          else
+            gh api -X POST "repos/$REPO/issues/$PR/comments" -F body=@report.md >/dev/null
+          fi
+
+      - name: Fail if any check did not pass
+        env:
+          DIFF: ${{ needs.diff-scan.result }}
+          CODEQL: ${{ needs.codeql.result }}
+          DEPS: ${{ needs.dependency-review.result }}
+        run: |
+          for r in "$DIFF" "$CODEQL" "$DEPS"; do
+            if [ "$r" != "success" ] && [ "$r" != "skipped" ]; then
+              echo "::error::security analysis did not pass — see the job summary"
+              exit 1
+            fi
+          done
+          echo "security analysis passed"

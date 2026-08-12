@@ -1,0 +1,36 @@
+name: gnuradio-world
+
+# CodeQL scans this repository's own source only. Everything below is either a
+# pristine upstream checkout we do not write (the submodules), a fetched
+# artifact (pyodide, sysroot), or a build output (dist, gr/build-gr,
+# runner/build, generated registries) -- scanning those buries the handful of
+# results that describe a change someone actually made.
+#
+# C++ is deliberately not analyzed: the runner only exists as a cross-compiled
+# WASM target, so CodeQL would need the full three-hour Emscripten build to
+# extract it, and a WASM module has no host attack surface to find. The C++
+# review that matters here is human, plus the diff scan's `native-shell-out`
+# rule for the calls that do escape the sandbox.
+paths-ignore:
+  - gnuradio
+  - gr-foo
+  - gr-dvbs2
+  - gr-dvbs2rx
+  - gr-rds
+  - gr-satellites
+  - gr-paint
+  - gr-fosphor
+  - gr-droneid
+  - gr-ham
+  - gr-ieee802_11
+  - gr-hrpt
+  - pyodide
+  - sysroot
+  - deps/src
+  - gr/build-gr
+  - runner/build
+  - qtgui/build
+  - editor/dist
+  - "**/node_modules"
+  - runner/third_party
+  - editor/public/blocks.json

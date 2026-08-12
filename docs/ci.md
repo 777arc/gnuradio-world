@@ -133,6 +133,78 @@ If the ~30–45 min per push ever becomes the problem, gating the build on a
 maintainer-applied label is one `if:` on `pr-preview-build.yml`'s `build` job
 plus `labeled` in its `types:` — the rest of the chain is unchanged.
 
+## The pull request security gate
+
+Every pull request is analyzed before anything of its is compiled or run. The
+checks live in one reusable workflow, `security-analysis.yml`, and two workflows
+call it — the point of the duplication being that neither placement is
+sufficient alone:
+
+- **`pr-preview-build.yml`** (`pull_request`) calls it as a job that `build`
+  `needs:`, so a flagged PR never reaches the ~30–45 min compile, and a failure
+  skips `build`, fails the run and so keeps `pr-preview-deploy.yml`'s
+  `conclusion == 'success'` from ever publishing a preview. But on this event
+  the workflow files come from the PR's own branch, so a contributor can delete
+  the gate in the very PR it screens. **This copy is a fast-fail, not a
+  boundary.**
+- **`pr-security.yml`** (`pull_request_target`) runs `main`'s copy, which the PR
+  cannot edit, and holds the two permissions a fork's token can never be
+  granted: `security-events: write` to file CodeQL results, and
+  `pull-requests: write` to leave the findings comment. **This is the check to
+  require in the branch protection rule.**
+
+`pull_request_target` is elsewhere the most dangerous trigger there is, and it
+is safe here for one reason only: **nothing under it executes the PR's code.**
+The diff scan never checks the PR out at all — it fetches `refs/pull/<n>/head`
+into the object store and reads blobs with `git show`, leaving the working tree
+on the base branch — and CodeQL extraction with `build-mode: none` parses source
+without running it, with no dependencies installed for it to run. Adding an
+`npm ci`, a build, or a test over PR sources to that workflow turns it into a
+credential-theft primitive. Such work belongs in `pr-preview-build.yml`, which
+holds no secret by design; this is the same rule `pr-preview-cleanup.yml`
+carries.
+
+Three checks run:
+
+- **`scripts/pr-security-scan.mjs`** — this repository's own rules over the
+  diff's *added lines only*, so existing code never re-flags and a rule can be
+  strict without a repo-wide cleanup first. It looks for what a contributor
+  could actually do here rather than what a generic taint analysis looks for:
+  nothing processes user input at runtime (the editor is a static site, the
+  runner a WASM sandbox), so the realistic attack is on the *build* — a workflow
+  that leaks the Cloudflare token, a submodule pointer moved to a fork, an npm
+  `postinstall`, a `curl | sh`, a `fetch()` to a host that appears nowhere in
+  the base revision. That last rule derives its allowlist from the base tree
+  rather than a hard-coded list, so it stays correct as the repo grows.
+  Findings are `block` (fails) or `warn` (annotates). Suppress one with
+  `pr-security-scan: allow <rule-id>` in a comment on the line or the line
+  above, or an entry in `.github/pr-security-allow.txt` — and note that editing
+  either that file or the scanner is *itself* a blocking finding, so a PR cannot
+  quietly widen its own exemptions.
+- **CodeQL** over `javascript-typescript`, `python` and `actions`, configured by
+  `.github/codeql/config.yml`. C++ is deliberately absent: it only exists as a
+  cross-compiled WASM target, so extraction would need the full three-hour
+  Emscripten build to find bugs in a module with no host attack surface. CodeQL
+  never fails a job on its own, so `scripts/sarif-gate.mjs` reduces the run to
+  the alerts a PR is responsible for — `security-severity >= 7.0`, in a file
+  that PR changed — and fails on those. Pre-existing debt stays an alert in the
+  Security tab rather than blocking a contributor over something they did not
+  write.
+- **`actions/dependency-review-action`** for known-vulnerable dependencies,
+  `fail-on-severity: high`.
+
+Two things to know before changing any of it. The reusable workflow declares
+**no `permissions:` blocks at all** — a called workflow's job may only *narrow*
+what the caller granted, so requesting `security-events: write` there would
+hard-error the fork path where the caller cannot grant it; inheriting instead
+lets one file serve both callers. And `test/test_pr_security_scan.mjs` runs
+*before* the scan, from the base branch, because a scanner that has stopped
+matching anything looks exactly like a clean PR.
+
+A blocking finding is not an accusation. It is a change that needs a human to
+say it was intended — adding a submodule or a new download host legitimately
+trips it, which is the design working.
+
 This replaced a prebuilt `sysroot` + GR libs + qtgui tarball attached to a
 `deps-vX` GitHub release. That artifact had to be repacked by hand after any GNU
 Radio C++ change; when someone forgot, CI silently linked stale libraries and the

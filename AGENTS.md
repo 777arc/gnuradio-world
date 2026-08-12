@@ -15,7 +15,7 @@ This file is what you need for almost any change. Per-task detail lives in
 | [docs/recording-viewer.md](docs/recording-viewer.md) | touching File Source, the R2 recording bucket and its CORS policy, recording tabs, or the SigMF viewer under `editor/src/recording/` |
 | [docs/editor-ui.md](docs/editor-ui.md) | working on block IDs, auto-arrange, or the narrow-screen/touch layout |
 | [docs/gui-layout.md](docs/gui-layout.md) | touching where QT GUI widgets go in the runner window — the GUI Layout block, `editor/src/gui-layout*.ts`, `runner/src/gui_layout.hpp`, or Arrange mode |
-| [docs/ci.md](docs/ci.md) | changing a workflow, the deploy, or PR preview deployments |
+| [docs/ci.md](docs/ci.md) | changing a workflow, the deploy, PR preview deployments, or the PR security gate (`security-analysis.yml`, `scripts/pr-security-scan.mjs`) |
 | [docs/gnuradio-patches.md](docs/gnuradio-patches.md) | changing anything inside the `gnuradio/` submodule or `qtgui/` |
 | [docs/double-mapped-buffer.md](docs/double-mapped-buffer.md) | working on the emulated vmcircbuf |
 | [docs/diagnostics.md](docs/diagnostics.md) | working on the runner's `__grstats` snapshot, the debug panel, or the Benchmark Tool |
@@ -140,8 +140,8 @@ hierarchy instead.
 | `example_flowgraphs/` | the `.grc` files the editor's "Example Flowgraphs" palette tab lists recursively (nested directories appear as collapsible folders); several are also smoke-test cases. Each is linkable as `#example=<relative path without .grc>`. Test changes with `scripts/run_example.mjs` — see "Run and test" |
 | `workers/sigmf-indexer/` | Cloudflare Queue consumer that rebuilds the recordings bucket's `index.json` — see [docs/recording-viewer.md](docs/recording-viewer.md) |
 | `server.mjs` | COOP/COEP static dev server (needed for SharedArrayBuffer / pthreads); serves the repo root, falls back to `editor/dist/` for `/`, and synthesizes the `/example_flowgraphs` listing. Recording discovery and objects always come directly from R2 |
-| `test/` | `test_smoke.mjs` and `test_lazy_scenarios.mjs` plus the `fixtures/` `.grc` they load; CI gates the deploy on both. `editor/test/` and `runner/test/` hold their own suites |
-| `scripts/` | `assemble-site.mjs` (assembles the static site CI deploys to Pages), `serve_site.mjs` (serves it the way Pages does), `run.mjs` (headless-Chromium harness, waits on a page `#result`), `run_example.mjs` (opens an example in the real editor and presses Run), `r2-cors.json` |
+| `test/` | `test_smoke.mjs` and `test_lazy_scenarios.mjs` plus the `fixtures/` `.grc` they load; CI gates the deploy on both. `test_pr_security_scan.mjs` covers the PR security gate's diff scan and runs in that gate's own workflow. `editor/test/` and `runner/test/` hold their own suites |
+| `scripts/` | `assemble-site.mjs` (assembles the static site CI deploys to Pages), `serve_site.mjs` (serves it the way Pages does), `run.mjs` (headless-Chromium harness, waits on a page `#result`), `run_example.mjs` (opens an example in the real editor and presses Run), `pr-security-scan.mjs` + `sarif-gate.mjs` (the PR security gate — see [docs/ci.md](docs/ci.md)), `r2-cors.json` |
 | `editor/src/recording/` | the SigMF recording viewer, emitted at `/recording/` by the normal editor build |
 
 ## Toolchain and prerequisites
@@ -319,9 +319,12 @@ node scripts/run.mjs /runner/build/runner.html RUNNER_PASS
 python3 runner/test/test_grworld.py     # the Embedded Python Block's Python contract
 node test/test_python_block.mjs         # ... a flowgraph whose work() is Python
 node test/test_python_block_editor.mjs  # ... and the editor deriving ports from code
+
+node test/test_pr_security_scan.mjs     # the PR security gate's diff scan still detects
+node scripts/pr-security-scan.mjs --base origin/main --head HEAD   # ... over your own branch
 ```
 
-The last three cover the Embedded Python Block. The two browser ones skip unless
+The last three browser tests cover the Embedded Python Block. The two browser ones skip unless
 `deps/fetch-pyodide.sh` has been run, which is why the Python Block is not a case
 in `test_smoke.mjs` — the suite the deploy is gated on should not fail over an
 optional runtime.

@@ -1,0 +1,54 @@
+name: PR Security
+
+# The authoritative PR security gate.
+#
+# `pull_request_target` is what makes it authoritative: GitHub runs the base
+# branch's copy of this file, so a contributor cannot edit, weaken or delete the
+# gate in the pull request it is screening. pr-preview-build.yml calls the same
+# reusable workflow from the `pull_request` event, but that copy comes from the
+# PR's branch and is only there to fail the build fast; this one is the check to
+# require in the branch protection rule.
+#
+# `pull_request_target` is also, on any other repository, the single most
+# dangerous trigger there is -- it runs with a write token and repository
+# secrets against code an anonymous contributor wrote. It is safe HERE for
+# exactly one reason: nothing this workflow reaches ever executes the pull
+# request's code. security-analysis.yml reads the PR's blobs out of the object
+# store and runs CodeQL extraction over them; it does not check the PR out as a
+# working tree it then builds, does not `npm ci`, and runs no test from it.
+# pr-preview-cleanup.yml carries the same warning for the same reason. Adding a
+# build or install step to either turns it into a credential-theft primitive --
+# put that work in pr-preview-build.yml, which holds no secret by design.
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: pr-security-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  # Files CodeQL results in the Security tab -- the fork-triggered copy of this
+  # gate cannot, which is half of why this workflow exists.
+  security-events: write
+  # The sticky findings comment.
+  pull-requests: write
+
+jobs:
+  analyze:
+    uses: ./.github/workflows/security-analysis.yml
+    permissions:
+      contents: read
+      security-events: write
+      pull-requests: write
+    with:
+      pr_number: ${{ github.event.pull_request.number }}
+      base_ref: ${{ github.event.pull_request.base.ref }}
+      base_sha: ${{ github.event.pull_request.base.sha }}
+      head_sha: ${{ github.event.pull_request.head.sha }}
+      upload_sarif: true
+      comment: true
+    # No `secrets:`. This job needs nothing beyond the automatic GITHUB_TOKEN,
+    # and passing a repository secret into a pull_request_target workflow is the
+    # mistake the whole comment above is about.

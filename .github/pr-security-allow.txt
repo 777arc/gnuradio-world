@@ -1,0 +1,12 @@
+# Repo-wide exemptions for scripts/pr-security-scan.mjs.
+#
+#   <rule-id> <path-glob>
+#
+# `*` matches within a path segment, `**` across segments. Prefer an inline
+# `pr-security-scan: allow <rule-id>` comment on the offending line: it sits
+# next to the thing it excuses and disappears with it. This file is for a rule
+# that is structurally wrong for a whole directory.
+#
+# Editing this file is itself a blocking finding (`security-gate-modified`), so
+# a pull request cannot quietly widen its own exemptions -- which is the point,
+# and why it starts empty. Nothing in the repository currently needs an entry.

@@ -31,7 +31,34 @@ permissions:
   contents: read
 
 jobs:
+  # Runs before anything compiles or executes. A pull request that changes a
+  # workflow, repoints a submodule, adds an npm lifecycle script or introduces a
+  # new outbound host stops here rather than three hours into a build -- and,
+  # more to the point, before any of its code has been run on a runner at all.
+  # A failure here skips `build`, which fails the run, which is what keeps
+  # pr-preview-deploy.yml (`conclusion == 'success'`) from publishing a preview.
+  #
+  # This copy of the gate is a fast-fail, NOT the security boundary: on a
+  # `pull_request` event the workflow files come from the PR's own branch, so it
+  # can be edited or deleted in the same PR it screens. pr-security.yml runs the
+  # base branch's copy on `pull_request_target` and is the one to require in the
+  # branch protection rule.
+  security:
+    uses: ./.github/workflows/security-analysis.yml
+    permissions:
+      contents: read
+    with:
+      pr_number: ${{ github.event.pull_request.number }}
+      base_ref: ${{ github.event.pull_request.base.ref }}
+      base_sha: ${{ github.event.pull_request.base.sha }}
+      head_sha: ${{ github.event.pull_request.head.sha }}
+      # A fork's GITHUB_TOKEN has no security-events: write and no way to be
+      # granted it, and it may not comment either. The trusted copy does both.
+      upload_sarif: false
+      comment: false
+
   build:
+    needs: security
     uses: ./.github/workflows/build.yml
     permissions:
       contents: read
