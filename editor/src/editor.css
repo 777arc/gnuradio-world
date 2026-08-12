@@ -16,16 +16,20 @@ html,body { margin:0; height:100%; font-family:system-ui,Arial,sans-serif; color
 #app.hide-palette #paletteSplitter { visibility:hidden; }
 #app.resizing-palette { cursor:col-resize; }
 #app.resizing-palette iframe { pointer-events:none; }
-header { grid-column:1/4; display:flex; flex-direction:column; background:#181b26; border-bottom:1px solid #333a4d; }
+/* One row: the logo, then the two bars stacked beside it. The bars are the
+   column that grows, so a menu that has to scroll on a narrow screen scrolls
+   within its own row and never pushes the mark off the edge. */
+header { grid-column:1/4; display:flex; align-items:stretch; background:#181b26; border-bottom:1px solid #333a4d; }
+#headerBars { display:flex; flex-direction:column; flex:1; min-width:0; }
+header .brand { display:flex; align-items:center; flex:none; padding:0 0 0 5px; }
+header .brand a { display:flex; align-items:center; }
+header .brand img { height:48px; width:auto; display:block; }
 header .spacer { flex:1; }
 button { background:#2f3650; color:#e6e9f0; border:1px solid #46507a; border-radius:6px; padding:7px 14px; cursor:pointer; font-size:16px; }
 button.run { background:#2e7d46; border-color:#3fae63; font-weight:600; }
 button:hover { filter:brightness(1.15); }
 /* ---- GRC-style menu bar (mirrors grc/gui/Bars.py MENU_BAR_LIST) ---- */
 #menubar { display:flex; align-items:center; gap:2px; padding:0 10px; height:40px; }
-#menubar .brand { display:flex; align-items:center; margin-right:12px; }
-#menubar .brand a { display:flex; align-items:center; }
-#menubar .brand img { height:24px; width:auto; display:block; }
 #menus { display:flex; gap:1px; }
 .menu-top { position:relative; padding:6px 12px; font-size:16px; color:#c3cbe0; border-radius:5px; cursor:pointer; user-select:none; }
 .menu-top:hover, .menu-top.open { background:#2a2f42; color:#fff; }
@@ -556,12 +560,12 @@ svg text { user-select:none; -webkit-user-select:none; -moz-user-select:none; }
 
   /* ---- header: one scrollable row of menus, one of tools ---- */
   #menubar { gap:0; padding:0 6px; height:50px; position:relative; }
-  #menubar .brand { margin-right:6px; }
-  #menubar .brand img { height:18px; }
+  header .brand { padding:0 6px 0 2px; }
+  header .brand img { height:30px; }
   #menus { flex:1; min-width:0; overflow-x:auto; scrollbar-width:none; }
   #menus::-webkit-scrollbar { display:none; }
-  #paletteToggle { display:inline-flex; align-items:center; justify-content:center;
-      flex:none; width:42px; height:42px; margin-right:2px; padding:0; font-size:21px;
+  #paletteToggle { display:inline-flex; align-self:center; align-items:center; justify-content:center;
+      flex:none; width:42px; height:42px; margin:0 0 0 4px; padding:0; font-size:21px;
       line-height:1; background:transparent; border:1px solid transparent; color:#c3cbe0; }
   #paletteToggle:hover, #paletteToggle:focus-visible { background:#2a2f42; color:#fff; filter:none; }
   #app:not(.hide-palette) #paletteToggle { background:#2a2f42; color:#fff; border-color:#3a4366; }
@@ -665,12 +669,13 @@ svg text { user-select:none; -webkit-user-select:none; -moz-user-select:none; }
       width:8px; height:8px; border-radius:50%; background:#58a6ff; }
 }
 
-/* Phone widths: the five menus need ~226px and the wordmark alone is ~144px, so
-   one of them has to give. Crop the logo to its antenna mark (it leads the
-   artwork, hence object-position:left) and every menu fits without scrolling. */
+/* Phone widths. The wordmark used to be cropped to its antenna mark here,
+   because the five menus need ~226px and it shared their row -- which it no
+   longer does. The menus now have a row of their own beside the logo, and that
+   row already scrolls (#menus is overflow-x:auto), so the narrowest phones
+   scroll Help into view rather than making the mark unreadable to avoid it. */
 @media (max-width:560px) {
-  #menubar .brand img { height:22px; width:18px; object-fit:cover; object-position:left center; }
-  /* Likewise the palette's own three tabs, so "SigMF Recordings" is not left
+  /* The palette's own three tabs still give, so "SigMF Recordings" is not left
      half-scrolled off the drawer. */
   .paltab { padding:13px 10px; font-size:16px; }
 }

@@ -24,7 +24,7 @@ blocks:
         value: '0.7'
         widget: counter_slider
     states:
-        coordinate: [290, 10]
+        coordinate: [580, 10]
         rotation: 0
         state: enabled
 -   name: am_spectrum
@@ -54,7 +54,7 @@ blocks:
         ymax: '10'
         ymin: '-100'
     states:
-        coordinate: [1420, 240]
+        coordinate: [1420, 230]
         rotation: 0
         state: enabled
 -   name: am_waveform
@@ -94,7 +94,7 @@ blocks:
         ymin: '-2'
         yunit: ''
     states:
-        coordinate: [1420, 380]
+        coordinate: [1420, 390]
         rotation: 0
         state: enabled
 -   name: audio_tone

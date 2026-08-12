@@ -16,7 +16,7 @@ blocks:
     parameters:
         value: '48000'
     states:
-        coordinate: [310, 10]
+        coordinate: [600, 10]
         rotation: 0
         state: enabled
 -   name: afsk_demod
@@ -92,7 +92,7 @@ blocks:
         ymin: '-4'
         yunit: ''
     states:
-        coordinate: [1190, 150]
+        coordinate: [1190, 140]
         rotation: 0
         state: enabled
 -   name: to_float

@@ -35,7 +35,7 @@ blocks:
     comment: ''
     value: '32000'
   states:
-    coordinate: [290, 10]
+    coordinate: [580, 10]
     rotation: 0
     state: enabled
 - name: analog_fastnoise_source_x_0
@@ -137,7 +137,7 @@ blocks:
       python simple_copy_controller.py 127.0.0.1 <PORT> true'
     note: ''
   states:
-    coordinate: [460, 10]
+    coordinate: [750, 10]
     rotation: 0
     state: enabled
 - name: qtgui_time_sink_x_0

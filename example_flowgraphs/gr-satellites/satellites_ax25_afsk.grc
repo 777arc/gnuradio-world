@@ -16,7 +16,7 @@ blocks:
     parameters:
         value: samp_rate/samp_per_sym
     states:
-        coordinate: [310, 10]
+        coordinate: [600, 10]
         rotation: 0
         state: enabled
 -   name: samp_per_sym
@@ -24,7 +24,7 @@ blocks:
     parameters:
         value: '40'
     states:
-        coordinate: [480, 10]
+        coordinate: [770, 10]
         rotation: 0
         state: enabled
 -   name: samp_rate
@@ -32,7 +32,7 @@ blocks:
     parameters:
         value: '48000'
     states:
-        coordinate: [680, 10]
+        coordinate: [970, 10]
         rotation: 0
         state: enabled
 -   name: af_carrier
@@ -44,7 +44,7 @@ blocks:
         type: complex
         waveform: analog.GR_SIN_WAVE
     states:
-        coordinate: [1200, 290]
+        coordinate: [1200, 350]
         rotation: 0
         state: enabled
 -   name: analytic
@@ -54,7 +54,7 @@ blocks:
         num_taps: '65'
         win: window.WIN_HAMMING
     states:
-        coordinate: [610, 690]
+        coordinate: [610, 750]
         rotation: 0
         state: enabled
 -   name: audio_scope
@@ -94,7 +94,7 @@ blocks:
         ymin: '-1.5'
         yunit: ''
     states:
-        coordinate: [610, 790]
+        coordinate: [610, 850]
         rotation: 0
         state: enabled
 -   name: bits_to_float
@@ -103,7 +103,7 @@ blocks:
         scale: '1'
         vlen: '1'
     states:
-        coordinate: [950, 290]
+        coordinate: [950, 350]
         rotation: 0
         state: enabled
 -   name: downmix
@@ -113,7 +113,7 @@ blocks:
         type: complex
         vlen: '1'
     states:
-        coordinate: [980, 570]
+        coordinate: [980, 630]
         rotation: 0
         state: enabled
 -   name: fm_modulator
@@ -121,7 +121,7 @@ blocks:
     parameters:
         sensitivity: 2*math.pi*1000/samp_rate
     states:
-        coordinate: [1200, 430]
+        coordinate: [1200, 490]
         rotation: 0
         state: enabled
 -   name: frame_tagger
@@ -132,7 +132,7 @@ blocks:
         type: byte
         vlen: '1'
     states:
-        coordinate: [690, 150]
+        coordinate: [690, 210]
         rotation: 0
         state: enabled
 -   name: framed_bits
@@ -142,7 +142,7 @@ blocks:
         early_behavior: pdu.EARLY_BURST_APPEND
         type: byte
     states:
-        coordinate: [100, 290]
+        coordinate: [100, 350]
         rotation: 0
         state: enabled
 -   name: frames
@@ -151,7 +151,7 @@ blocks:
         en_uvec: 'True'
         log_level: info
     states:
-        coordinate: [570, 1230]
+        coordinate: [570, 1320]
         rotation: 0
         state: enabled
 -   name: hdlc_deframer
@@ -160,7 +160,7 @@ blocks:
         check_fcs: 'True'
         max_length: '10000'
     states:
-        coordinate: [80, 1320]
+        coordinate: [80, 1410]
         rotation: 0
         state: enabled
 -   name: hdlc_framer
@@ -169,7 +169,7 @@ blocks:
         postamble_bytes: '7'
         preamble_bytes: '50'
     states:
-        coordinate: [1450, 150]
+        coordinate: [1450, 210]
         rotation: 0
         state: enabled
 -   name: lo
@@ -181,7 +181,7 @@ blocks:
         type: complex
         waveform: analog.GR_COS_WAVE
     states:
-        coordinate: [610, 550]
+        coordinate: [610, 610]
         rotation: 0
         state: enabled
 -   name: matched_filter
@@ -192,21 +192,21 @@ blocks:
         taps: '[1/samp_per_sym] * samp_per_sym'
         type: fff
     states:
-        coordinate: [80, 1020]
+        coordinate: [80, 1100]
         rotation: 0
         state: enabled
 -   name: nrzi_decode
     id: satellites_nrzi_decode
     parameters:
     states:
-        coordinate: [1480, 980]
+        coordinate: [1480, 1060]
         rotation: 0
         state: enabled
 -   name: nrzi_encode
     id: satellites_nrzi_encode
     parameters:
     states:
-        coordinate: [430, 290]
+        coordinate: [430, 350]
         rotation: 0
         state: enabled
 -   name: payload
@@ -218,7 +218,7 @@ blocks:
         vector: '[130, 160, 144, 100, 96, 100, 96, 154, 96, 168, 144, 152, 64, 97, 3, 240, 72, 101, 108, 108, 111, 32, 102, 114, 111, 109, 32, 65, 88, 46, 50, 53]'
         vlen: '1'
     states:
-        coordinate: [10, 140]
+        coordinate: [10, 200]
         rotation: 0
         state: enabled
 -   name: payload_throttle
@@ -231,7 +231,7 @@ blocks:
         type: byte
         vlen: '1'
     states:
-        coordinate: [360, 130]
+        coordinate: [360, 190]
         rotation: 0
         state: enabled
 -   name: quad_demod
@@ -239,7 +239,7 @@ blocks:
     parameters:
         gain: samp_rate/(2*math.pi*500)
     states:
-        coordinate: [1220, 580]
+        coordinate: [1220, 640]
         rotation: 0
         state: enabled
 -   name: repeat
@@ -249,14 +249,14 @@ blocks:
         type: byte
         vlen: '1'
     states:
-        coordinate: [680, 290]
+        coordinate: [680, 350]
         rotation: 0
         state: enabled
 -   name: slicer
     id: digital_binary_slicer_fb
     parameters:
     states:
-        coordinate: [1120, 980]
+        coordinate: [1120, 1060]
         rotation: 0
         state: enabled
 -   name: symbol_scope
@@ -296,7 +296,7 @@ blocks:
         ymin: '-2'
         yunit: ''
     states:
-        coordinate: [1120, 1080]
+        coordinate: [1120, 1160]
         rotation: 0
         state: enabled
 -   name: symbol_sync
@@ -315,7 +315,7 @@ blocks:
         ted_type: digital.TED_GARDNER
         type: ff
     states:
-        coordinate: [460, 930]
+        coordinate: [460, 1010]
         rotation: 0
         state: enabled
 -   name: to_audio
@@ -323,7 +323,7 @@ blocks:
     parameters:
         vlen: '1'
     states:
-        coordinate: [330, 560]
+        coordinate: [330, 620]
         rotation: 0
         state: enabled
 -   name: to_pdu
@@ -332,7 +332,7 @@ blocks:
         tag: packet_len
         type: byte
     states:
-        coordinate: [1070, 150]
+        coordinate: [1070, 210]
         rotation: 0
         state: enabled
 -   name: upmix
@@ -342,7 +342,7 @@ blocks:
         type: complex
         vlen: '1'
     states:
-        coordinate: [90, 550]
+        coordinate: [90, 610]
         rotation: 0
         state: enabled
 connections:

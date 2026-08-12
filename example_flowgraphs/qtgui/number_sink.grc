@@ -40,7 +40,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [300, 10]
+    coordinate: [590, 10]
     rotation: 0
     state: true
 - name: samp_rate
@@ -52,7 +52,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [470, 10]
+    coordinate: [760, 10]
     rotation: 0
     state: enabled
 - name: analog_sig_source_x_0

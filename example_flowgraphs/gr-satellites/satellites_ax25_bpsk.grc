@@ -16,7 +16,7 @@ blocks:
     parameters:
         value: samp_rate/samp_per_sym
     states:
-        coordinate: [310, 10]
+        coordinate: [600, 10]
         rotation: 0
         state: enabled
 -   name: samp_per_sym
@@ -24,7 +24,7 @@ blocks:
     parameters:
         value: '8'
     states:
-        coordinate: [480, 10]
+        coordinate: [770, 10]
         rotation: 0
         state: enabled
 -   name: samp_rate
@@ -32,7 +32,7 @@ blocks:
     parameters:
         value: '9600'
     states:
-        coordinate: [680, 10]
+        coordinate: [970, 10]
         rotation: 0
         state: enabled
 -   name: bpsk_const
@@ -48,7 +48,7 @@ blocks:
         sym_map: '[]'
         type: bpsk
     states:
-        coordinate: [850, 10]
+        coordinate: [1140, 10]
         rotation: 0
         state: enabled
 -   name: bpsk_demod
@@ -92,7 +92,7 @@ blocks:
         en_uvec: 'True'
         log_level: info
     states:
-        coordinate: [1180, 750]
+        coordinate: [1180, 770]
         rotation: 0
         state: enabled
 -   name: hdlc_deframer
@@ -101,7 +101,7 @@ blocks:
         check_fcs: 'True'
         max_length: '10000'
     states:
-        coordinate: [690, 840]
+        coordinate: [690, 860]
         rotation: 0
         state: enabled
 -   name: hdlc_framer
@@ -131,7 +131,7 @@ blocks:
     id: satellites_nrzi_decode
     parameters:
     states:
-        coordinate: [440, 840]
+        coordinate: [440, 860]
         rotation: 0
         state: enabled
 -   name: nrzi_encode
@@ -181,7 +181,7 @@ blocks:
     id: digital_binary_slicer_fb
     parameters:
     states:
-        coordinate: [80, 840]
+        coordinate: [80, 860]
         rotation: 0
         state: enabled
 -   name: spectrum
@@ -251,7 +251,7 @@ blocks:
         ymin: '-2'
         yunit: ''
     states:
-        coordinate: [80, 940]
+        coordinate: [80, 960]
         rotation: 0
         state: enabled
 -   name: to_pdu

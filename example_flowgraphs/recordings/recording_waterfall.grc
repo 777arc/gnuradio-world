@@ -65,7 +65,7 @@ blocks:
         samp_rate: '32000'
         update_time: '0.1'
     states:
-        coordinate: [1010, 140]
+        coordinate: [1010, 130]
         rotation: 0
         state: enabled
 connections:

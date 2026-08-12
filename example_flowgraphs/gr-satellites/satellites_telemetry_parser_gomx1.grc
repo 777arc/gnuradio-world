@@ -16,7 +16,7 @@ blocks:
     parameters:
         value: '48000'
     states:
-        coordinate: [310, 10]
+        coordinate: [600, 10]
         rotation: 0
         state: enabled
 -   name: afsk_demod
@@ -62,7 +62,7 @@ blocks:
     parameters:
         note: Upstream ends in Telemetry Parser, a Python block with no C++ path. Print CSP Header dissects the same frames; Message Debug shows the payload bytes the parser would decode.
     states:
-        coordinate: [480, 10]
+        coordinate: [770, 10]
         rotation: 0
         state: enabled
 -   name: recording

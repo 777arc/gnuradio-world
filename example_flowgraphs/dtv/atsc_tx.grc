@@ -129,7 +129,7 @@ blocks:
     comment: ''
     value: 429e6
   states:
-    coordinate: [300, 10]
+    coordinate: [590, 10]
     rotation: 0
     state: enabled
 - name: dtv_atsc_field_sync_mux_0
@@ -245,7 +245,7 @@ blocks:
     comment: ''
     value: (6000000.0 - (symbol_rate / 2)) / 2
   states:
-    coordinate: [470, 10]
+    coordinate: [760, 10]
     rotation: 0
     state: enabled
 - name: qtgui_freq_sink_x_0
@@ -331,7 +331,7 @@ blocks:
     comment: ''
     value: 4500000.0 / 286 * 684
   states:
-    coordinate: [760, 10]
+    coordinate: [1050, 10]
     rotation: 0
     state: enabled
 connections:

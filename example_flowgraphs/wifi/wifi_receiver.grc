@@ -16,7 +16,7 @@ blocks:
     parameters:
         value: '20000000'
     states:
-        coordinate: [310, 10]
+        coordinate: [600, 10]
         rotation: 0
         state: enabled
 -   name: sync_length
@@ -24,7 +24,7 @@ blocks:
     parameters:
         value: '320'
     states:
-        coordinate: [480, 10]
+        coordinate: [770, 10]
         rotation: 0
         state: enabled
 -   name: window_size
@@ -32,7 +32,7 @@ blocks:
     parameters:
         value: '48'
     states:
-        coordinate: [660, 10]
+        coordinate: [950, 10]
         rotation: 0
         state: enabled
 -   name: average_corr
@@ -44,7 +44,7 @@ blocks:
         type: complex
         vlen: '1'
     states:
-        coordinate: [80, 530]
+        coordinate: [80, 550]
         rotation: 0
         state: enabled
 -   name: average_power
@@ -56,7 +56,7 @@ blocks:
         type: float
         vlen: '1'
     states:
-        coordinate: [390, 650]
+        coordinate: [390, 670]
         rotation: 0
         state: enabled
 -   name: conjugate
@@ -70,7 +70,7 @@ blocks:
     id: blocks_complex_to_mag
     parameters:
     states:
-        coordinate: [390, 550]
+        coordinate: [390, 570]
         rotation: 0
         state: enabled
 -   name: correlate
@@ -89,7 +89,7 @@ blocks:
         debug: 'False'
         log: 'False'
     states:
-        coordinate: [1430, 830]
+        coordinate: [1430, 850]
         rotation: 0
         state: enabled
 -   name: delay_ltf
@@ -98,7 +98,7 @@ blocks:
         delay: sync_length
         type: complex
     states:
-        coordinate: [1230, 550]
+        coordinate: [1230, 570]
         rotation: 0
         state: enabled
 -   name: delay_stf
@@ -119,7 +119,7 @@ blocks:
         freq: '5320000000'
         log: 'False'
     states:
-        coordinate: [1060, 810]
+        coordinate: [1060, 830]
         rotation: 0
         state: enabled
 -   name: fft
@@ -132,7 +132,7 @@ blocks:
         type: complex
         window: '[1.0] * 64'
     states:
-        coordinate: [710, 810]
+        coordinate: [710, 830]
         rotation: 0
         state: enabled
 -   name: intro
@@ -140,7 +140,7 @@ blocks:
     parameters:
         note: A 20 MS/s recording of 802.11a frames at BPSK 1/2 (6 Mbit/s), about 15 dB SNR. Short training sequence detection, long training sequence alignment, a 64-point FFT and the frame equalizer recover the OFDM symbols; WiFi Decode MAC runs the Viterbi decoder and checks the CRC, and WiFi Parse MAC prints each header to the console below.
     states:
-        coordinate: [840, 10]
+        coordinate: [1130, 10]
         rotation: 0
         state: enabled
 -   name: normalize
@@ -150,7 +150,7 @@ blocks:
         type: float
         vlen: '1'
     states:
-        coordinate: [700, 550]
+        coordinate: [700, 570]
         rotation: 0
         state: enabled
 -   name: parse_mac
@@ -159,14 +159,14 @@ blocks:
         debug: 'True'
         log: 'False'
     states:
-        coordinate: [80, 990]
+        coordinate: [80, 1010]
         rotation: 0
         state: enabled
 -   name: power
     id: blocks_complex_to_mag_squared
     parameters:
     states:
-        coordinate: [80, 670]
+        coordinate: [80, 690]
         rotation: 0
         state: enabled
 -   name: recording
@@ -190,7 +190,7 @@ blocks:
         log: 'False'
         sync_length: sync_length
     states:
-        coordinate: [140, 830]
+        coordinate: [140, 850]
         rotation: 0
         state: enabled
 -   name: sync_short
@@ -201,7 +201,7 @@ blocks:
         min_plateau: '2'
         threshold: '0.56'
     states:
-        coordinate: [950, 520]
+        coordinate: [950, 540]
         rotation: 0
         state: enabled
 -   name: throttle
@@ -224,7 +224,7 @@ blocks:
         type: complex
         vlen: '1'
     states:
-        coordinate: [420, 840]
+        coordinate: [420, 860]
         rotation: 0
         state: enabled
 -   name: waterfall

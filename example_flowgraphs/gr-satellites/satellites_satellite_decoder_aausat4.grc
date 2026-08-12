@@ -16,7 +16,7 @@ blocks:
     parameters:
         value: '48000'
     states:
-        coordinate: [310, 10]
+        coordinate: [600, 10]
         rotation: 0
         state: enabled
 -   name: decoder_note
@@ -24,7 +24,7 @@ blocks:
     parameters:
         note: 'Satellite Decoder and the AAUSAT-4 deframer are both Python-only, so the deframer is built here from the blocks it uses: soft syncword search, FSM removal, terminated r=1/2 K=7 Viterbi, CCSDS descrambling and Reed-Solomon. Only the long-frame branch is wired: the short one needs PDU To Tagged Stream, which this runtime does not schedule.'
     states:
-        coordinate: [480, 10]
+        coordinate: [770, 10]
         rotation: 0
         state: enabled
 -   name: descrambler
@@ -131,7 +131,7 @@ blocks:
         state_start: '0'
         value: '"aausat4_long"'
     states:
-        coordinate: [900, 10]
+        coordinate: [1190, 10]
         rotation: 0
         state: enabled
 connections:

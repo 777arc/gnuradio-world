@@ -24,7 +24,7 @@ blocks:
         value: '1'
         widget: counter_slider
     states:
-        coordinate: [640, 280]
+        coordinate: [580, 10]
         rotation: 0
         state: enabled
 -   name: samp_rate
@@ -32,7 +32,7 @@ blocks:
     parameters:
         value: '48000'
     states:
-        coordinate: [312, 12]
+        coordinate: [830, 10]
         rotation: 0
         state: enabled
 -   name: scope
@@ -121,7 +121,7 @@ blocks:
         ymin: '-1.5'
         yunit: ''
     states:
-        coordinate: [930, 170]
+        coordinate: [860, 210]
         rotation: 0
         state: enabled
 -   name: soft_limiter
@@ -131,7 +131,7 @@ blocks:
         _source_code: "\"\"\"\nEmbedded Python Block: a soft limiter.\n\nThe gain below is driven live by the QT GUI Range control in this flowgraph, so\nraising the slider past 1.0 turns the sine into a flat-topped, clipped wave --\na shape no stock GNU Radio block produces.\n\nEdit this code in the block's Properties dialog, press the button under it to\nre-read it, and the block's parameters and ports follow whatever you wrote.\n\"\"\"\n\nimport numpy as np\nfrom gnuradio import gr\n\n\nclass blk(gr.sync_block):\n    \"\"\"Soft limiter: y = tanh(gain * x)\"\"\"\n\n    def __init__(self, gain=1.0):\n        gr.sync_block.__init__(\n            self,\n            name='Soft Limiter',\n            in_sig=[np.float32],\n            out_sig=[np.float32])\n        self.gain = gain\n\n    def work(self, input_items, output_items):\n        np.tanh(self.gain * input_items[0], out=output_items[0])\n        return len(output_items[0])\n"
         gain: gain
     states:
-        coordinate: [680, 190]
+        coordinate: [620, 230]
         rotation: 0
         state: enabled
 -   name: throttle
@@ -144,7 +144,7 @@ blocks:
         type: float
         vlen: '1'
     states:
-        coordinate: [330, 170]
+        coordinate: [290, 210]
         rotation: 0
         state: enabled
 -   name: tone
@@ -156,7 +156,7 @@ blocks:
         type: float
         waveform: analog.GR_COS_WAVE
     states:
-        coordinate: [50, 170]
+        coordinate: [10, 210]
         rotation: 0
         state: enabled
 connections:

@@ -24,7 +24,7 @@ blocks:
         width: '2000'
         win: window.WIN_HAMMING
     states:
-        coordinate: [870, 130]
+        coordinate: [870, 190]
         rotation: 0
         state: enabled
 -   name: passband_tone
@@ -36,7 +36,7 @@ blocks:
         type: complex
         waveform: analog.GR_COS_WAVE
     states:
-        coordinate: [10, 160]
+        coordinate: [10, 220]
         rotation: 0
         state: enabled
 -   name: spectrum_after
@@ -66,7 +66,7 @@ blocks:
         ymax: '10'
         ymin: '-100'
     states:
-        coordinate: [1220, 170]
+        coordinate: [1220, 220]
         rotation: 0
         state: enabled
 -   name: spectrum_before
@@ -96,7 +96,7 @@ blocks:
         ymax: '10'
         ymin: '-100'
     states:
-        coordinate: [870, 350]
+        coordinate: [870, 410]
         rotation: 0
         state: enabled
 -   name: stopband_tone
@@ -108,7 +108,7 @@ blocks:
         type: complex
         waveform: analog.GR_COS_WAVE
     states:
-        coordinate: [10, 300]
+        coordinate: [10, 360]
         rotation: 0
         state: enabled
 -   name: throttle
@@ -121,7 +121,7 @@ blocks:
         type: complex
         vlen: '1'
     states:
-        coordinate: [540, 170]
+        coordinate: [540, 230]
         rotation: 0
         state: enabled
 -   name: two_tones
@@ -131,7 +131,7 @@ blocks:
         type: complex
         vlen: '1'
     states:
-        coordinate: [300, 180]
+        coordinate: [300, 240]
         rotation: 0
         state: enabled
 connections:

@@ -16,7 +16,7 @@ blocks:
     parameters:
         value: '31.25'
     states:
-        coordinate: [310, 10]
+        coordinate: [600, 10]
         rotation: 0
         state: enabled
 -   name: baud_clock
@@ -69,7 +69,7 @@ blocks:
         ymin: '-0.2'
         yunit: ''
     states:
-        coordinate: [1290, 140]
+        coordinate: [1290, 130]
         rotation: 0
         state: enabled
 -   name: decoder
@@ -91,7 +91,7 @@ blocks:
     parameters:
         note: Varicode is self-synchronising - "00" ends every character
     states:
-        coordinate: [480, 10]
+        coordinate: [770, 10]
         rotation: 0
         state: enabled
 -   name: message
@@ -112,7 +112,7 @@ blocks:
         max_line: '40'
         prefix: '"loopback: "'
     states:
-        coordinate: [1290, 260]
+        coordinate: [1290, 270]
         rotation: 0
         state: enabled
 -   name: to_float

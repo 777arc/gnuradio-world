@@ -41,7 +41,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [310, 10]
+    coordinate: [600, 10]
     rotation: 0
     state: enabled
 - name: tag0
@@ -56,7 +56,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [10, 560.0]
+    coordinate: [770, 10]
     rotation: 0
     state: true
 - name: tag1
@@ -71,7 +71,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [230, 560.0]
+    coordinate: [1050, 10]
     rotation: 0
     state: true
 - name: blocks_stream_mux_0
@@ -90,7 +90,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [340, 160]
+    coordinate: [340, 260]
     rotation: 0
     state: true
 - name: blocks_throttle2_0
@@ -111,7 +111,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [650, 150]
+    coordinate: [650, 250]
     rotation: 0
     state: enabled
 - name: blocks_vector_source_x_0
@@ -131,7 +131,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [10, 150]
+    coordinate: [10, 250]
     rotation: 0
     state: true
 - name: blocks_vector_source_x_0_0
@@ -151,7 +151,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [10, 270]
+    coordinate: [10, 370]
     rotation: 0
     state: true
 - name: qtgui_time_sink_x_0
@@ -248,7 +248,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [980, 150]
+    coordinate: [980, 250]
     rotation: 0
     state: true
 - name: qtgui_time_sink_x_0_0
@@ -345,7 +345,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [340, 280]
+    coordinate: [340, 380]
     rotation: 0
     state: true
 - name: qtgui_time_sink_x_0_0_0
@@ -442,7 +442,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [340, 420]
+    coordinate: [340, 520]
     rotation: 0
     state: true
 connections:

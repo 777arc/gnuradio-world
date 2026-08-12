@@ -16,7 +16,7 @@ blocks:
     parameters:
         value: '163840'
     states:
-        coordinate: [310, 10]
+        coordinate: [600, 10]
         rotation: 0
         state: enabled
 -   name: image
@@ -73,7 +73,7 @@ blocks:
         samp_rate: samp_rate
         update_time: '0.025'
     states:
-        coordinate: [1050, 150]
+        coordinate: [1050, 140]
         rotation: 0
         state: enabled
 connections:

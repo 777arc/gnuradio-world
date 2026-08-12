@@ -41,7 +41,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [300, 10]
+    coordinate: [590, 10]
     rotation: 0
     state: enabled
 - name: tag0
@@ -56,7 +56,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [10, 400.0]
+    coordinate: [760, 10]
     rotation: 0
     state: enabled
 - name: tag1
@@ -71,7 +71,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [230, 400.0]
+    coordinate: [1040, 10]
     rotation: 0
     state: enabled
 - name: blocks_tag_debug_0
@@ -90,7 +90,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [680, 140]
+    coordinate: [680, 180]
     rotation: 0
     state: disabled
 - name: blocks_throttle2_0
@@ -111,7 +111,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [350, 130]
+    coordinate: [350, 170]
     rotation: 0
     state: enabled
 - name: blocks_vector_source_x_0
@@ -131,7 +131,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [10, 140]
+    coordinate: [10, 180]
     rotation: 0
     state: enabled
 - name: qtgui_time_sink_x_0
@@ -228,7 +228,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [680, 260]
+    coordinate: [680, 300]
     rotation: 0
     state: enabled
 connections:

@@ -16,7 +16,7 @@ blocks:
     parameters:
         value: '48000'
     states:
-        coordinate: [320, 10]
+        coordinate: [610, 10]
         rotation: 0
         state: enabled
 -   name: afsk_demod

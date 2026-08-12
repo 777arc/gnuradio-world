@@ -44,7 +44,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [700, 170]
+    coordinate: [700, 210]
     rotation: 0
     state: enabled
 - name: blocks_probe_rate_0
@@ -64,7 +64,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [290, 160]
+    coordinate: [290, 200]
     rotation: 0
     state: enabled
 - name: blocks_probe_rate_0_0_0
@@ -84,7 +84,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [290, 300]
+    coordinate: [290, 340]
     rotation: 0
     state: enabled
 - name: blocks_throttle2_0
@@ -105,7 +105,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [290, 420]
+    coordinate: [290, 460]
     rotation: 0
     state: enabled
 - name: qtgui_time_sink_x_0
@@ -202,7 +202,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [290, 560]
+    coordinate: [290, 600]
     rotation: 0
     state: enabled
 - name: qtgui_time_sink_x_0_0
@@ -299,7 +299,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [290, 700]
+    coordinate: [290, 740]
     rotation: 0
     state: enabled
 - name: samp_rate
@@ -311,7 +311,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [290, 10]
+    coordinate: [580, 10]
     rotation: 0
     state: enabled
 - name: throttled_source
@@ -334,7 +334,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [10, 150]
+    coordinate: [10, 190]
     rotation: 0
     state: enabled
 - name: unthrottled_source
@@ -357,7 +357,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [10, 290]
+    coordinate: [10, 330]
     rotation: 0
     state: enabled
 - name: wave_freq
@@ -369,7 +369,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [460, 10]
+    coordinate: [750, 10]
     rotation: 0
     state: enabled
 connections:

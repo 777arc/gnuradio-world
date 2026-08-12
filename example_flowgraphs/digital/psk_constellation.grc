@@ -24,7 +24,7 @@ blocks:
         value: '0.01'
         widget: counter_slider
     states:
-        coordinate: [310, 10]
+        coordinate: [600, 10]
         rotation: 0
         state: enabled
 -   name: mod7
@@ -100,7 +100,7 @@ blocks:
         ymax: '2'
         ymin: '-2'
     states:
-        coordinate: [1190, 240]
+        coordinate: [1190, 230]
         rotation: 0
         state: enabled
 -   name: xx3

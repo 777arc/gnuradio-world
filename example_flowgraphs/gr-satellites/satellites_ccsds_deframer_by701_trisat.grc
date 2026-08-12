@@ -16,7 +16,7 @@ blocks:
     parameters:
         value: '48000'
     states:
-        coordinate: [320, 10]
+        coordinate: [610, 10]
         rotation: 0
         state: enabled
 -   name: bpsk_demod
@@ -62,7 +62,7 @@ blocks:
     parameters:
         note: 'Upstream example: BY70-1, 9k6 BPSK, differential precoding, 114-byte frames. It decodes nothing in this runtime, though every block in it is proven working elsewhere.'
     states:
-        coordinate: [490, 10]
+        coordinate: [780, 10]
         rotation: 0
         state: enabled
 -   name: by701_recording
@@ -129,7 +129,7 @@ blocks:
     parameters:
         note: 'Same deframer block, TRISAT: 9766 baud FSK, NASA-DSN convolutional, dual-basis Reed-Solomon, 223-byte frames.'
     states:
-        coordinate: [910, 10]
+        coordinate: [1200, 10]
         rotation: 0
         state: enabled
 -   name: trisat_recording

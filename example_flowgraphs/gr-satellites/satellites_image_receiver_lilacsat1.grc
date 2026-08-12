@@ -16,7 +16,7 @@ blocks:
     parameters:
         value: '48000'
     states:
-        coordinate: [290, 10]
+        coordinate: [580, 10]
         rotation: 0
         state: enabled
 -   name: bpsk_demod
@@ -56,7 +56,7 @@ blocks:
     parameters:
         note: Upstream assembles the JPEG with the Python image receiver, behind the all-in-one Satellite Decoder. Both are Python-only, so the chain is explicit here and the KISS frames carrying the image are printed.
     states:
-        coordinate: [460, 10]
+        coordinate: [750, 10]
         rotation: 0
         state: enabled
 -   name: recording

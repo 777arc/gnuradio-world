@@ -41,7 +41,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [300, 10]
+    coordinate: [590, 10]
     rotation: 0
     state: enabled
 - name: analog_sig_source_x_0
@@ -64,7 +64,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [10, 210]
+    coordinate: [10, 330]
     rotation: 0
     state: enabled
 - name: blocks_char_to_float_0
@@ -81,7 +81,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [960, 220]
+    coordinate: [960, 340]
     rotation: 0
     state: enabled
 - name: blocks_file_sink_0
@@ -99,7 +99,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [500, 10]
+    coordinate: [790, 10]
     rotation: 0
     state: disabled
 - name: blocks_file_sink_0_0
@@ -117,7 +117,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [960, 320]
+    coordinate: [960, 440]
     rotation: 0
     state: disabled
 - name: blocks_file_sink_0_1
@@ -135,7 +135,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [1280, 210]
+    coordinate: [1280, 330]
     rotation: 0
     state: disabled
 - name: blocks_peak_detector2_fb_0
@@ -153,7 +153,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [650, 220]
+    coordinate: [650, 340]
     rotation: 0
     state: enabled
 - name: blocks_throttle2_0
@@ -174,7 +174,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [320, 210]
+    coordinate: [320, 330]
     rotation: 0
     state: enabled
 - name: factor
@@ -186,7 +186,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [740, 10]
+    coordinate: [1030, 10]
     rotation: 0
     state: enabled
 - name: lookahead
@@ -198,7 +198,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [910, 10]
+    coordinate: [1200, 10]
     rotation: 0
     state: enabled
 - name: offset
@@ -219,7 +219,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [1080, 10]
+    coordinate: [1370, 10]
     rotation: 0
     state: enabled
 - name: qtgui_time_sink_x_0
@@ -316,7 +316,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [1280, 330]
+    coordinate: [1280, 450]
     rotation: 0
     state: enabled
 - name: samp_rate
@@ -328,7 +328,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [1330, 10]
+    coordinate: [10, 230]
     rotation: 0
     state: enabled
 connections:

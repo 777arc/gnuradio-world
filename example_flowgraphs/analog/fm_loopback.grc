@@ -24,7 +24,7 @@ blocks:
         value: '0.05'
         widget: counter_slider
     states:
-        coordinate: [300, 10]
+        coordinate: [590, 10]
         rotation: 0
         state: enabled
 -   name: tone_frequency
@@ -40,7 +40,7 @@ blocks:
         value: '1000'
         widget: counter_slider
     states:
-        coordinate: [550, 10]
+        coordinate: [840, 10]
         rotation: 0
         state: enabled
 -   name: channel_noise
@@ -50,7 +50,7 @@ blocks:
         seed: '7'
         type: complex
     states:
-        coordinate: [290, 330]
+        coordinate: [290, 340]
         rotation: 0
         state: enabled
 -   name: fm_demodulator
@@ -58,7 +58,7 @@ blocks:
     parameters:
         gain: '1.5278874537'
     states:
-        coordinate: [1220, 240]
+        coordinate: [1220, 250]
         rotation: 0
         state: enabled
 -   name: fm_modulator
@@ -66,7 +66,7 @@ blocks:
     parameters:
         sensitivity: '0.6544984695'
     states:
-        coordinate: [290, 230]
+        coordinate: [290, 240]
         rotation: 0
         state: enabled
 -   name: fm_spectrum
@@ -96,7 +96,7 @@ blocks:
         ymax: '10'
         ymin: '-100'
     states:
-        coordinate: [1220, 340]
+        coordinate: [1220, 350]
         rotation: 0
         state: enabled
 -   name: message_tone
@@ -108,7 +108,7 @@ blocks:
         type: float
         waveform: analog.GR_COS_WAVE
     states:
-        coordinate: [10, 210]
+        coordinate: [10, 220]
         rotation: 0
         state: enabled
 -   name: noisy_channel
@@ -118,7 +118,7 @@ blocks:
         type: complex
         vlen: '1'
     states:
-        coordinate: [650, 230]
+        coordinate: [650, 240]
         rotation: 0
         state: enabled
 -   name: recovered_message
@@ -158,7 +158,7 @@ blocks:
         ymin: '-1.5'
         yunit: ''
     states:
-        coordinate: [80, 500]
+        coordinate: [80, 530]
         rotation: 0
         state: enabled
 -   name: throttle
@@ -171,7 +171,7 @@ blocks:
         type: complex
         vlen: '1'
     states:
-        coordinate: [890, 220]
+        coordinate: [890, 230]
         rotation: 0
         state: enabled
 connections:

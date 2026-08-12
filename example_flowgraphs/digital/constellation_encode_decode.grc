@@ -125,7 +125,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [300, 10]
+    coordinate: [590, 10]
     rotation: 0
     state: enabled
 - name: data
@@ -137,7 +137,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [620, 10]
+    coordinate: [910, 10]
     rotation: 0
     state: enabled
 - name: data_size
@@ -149,7 +149,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [880, 10]
+    coordinate: [1170, 10]
     rotation: 0
     state: enabled
 - name: digital_constellation_decoder_cb_0
@@ -193,7 +193,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [1050, 10]
+    coordinate: [1340, 10]
     rotation: 0
     state: enabled
 - name: qtgui_const_sink_x_0
@@ -394,7 +394,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [1220, 10]
+    coordinate: [1510, 10]
     rotation: 0
     state: enabled
 connections:

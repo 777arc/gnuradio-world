@@ -16,7 +16,7 @@ blocks:
     parameters:
         value: int(1e6)
     states:
-        coordinate: [290, 10]
+        coordinate: [580, 10]
         rotation: 0
         state: enabled
 -   name: complex10

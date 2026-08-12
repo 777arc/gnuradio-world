@@ -16,7 +16,7 @@ blocks:
     parameters:
         value: '32000'
     states:
-        coordinate: [300, 10]
+        coordinate: [590, 10]
         rotation: 0
         state: enabled
 -   name: blocks_message_debug_0
@@ -34,7 +34,7 @@ blocks:
         en_uvec: 'True'
         log_level: info
     states:
-        coordinate: [530, 670]
+        coordinate: [510, 760]
         rotation: 0
         state: enabled
 -   name: blocks_tag_debug_0
@@ -47,7 +47,7 @@ blocks:
         type: float
         vlen: '1'
     states:
-        coordinate: [1130, 10]
+        coordinate: [80, 440]
         rotation: 0
         state: enabled
 -   name: blocks_tag_debug_0_0
@@ -60,7 +60,7 @@ blocks:
         type: complex
         vlen: '1'
     states:
-        coordinate: [100, 800]
+        coordinate: [80, 890]
         rotation: 0
         state: enabled
 -   name: blocks_throttle2_0
@@ -86,7 +86,7 @@ blocks:
         type: complex
         vlen: '1'
     states:
-        coordinate: [1160, 500]
+        coordinate: [1140, 590]
         rotation: 0
         state: enabled
 -   name: blocks_vector_source_x_0
@@ -98,7 +98,7 @@ blocks:
         vector: '[complex(1.0), complex(-1.0)]*15'
         vlen: '1'
     states:
-        coordinate: [30, 510]
+        coordinate: [10, 600]
         rotation: 0
         state: enabled
 -   name: blocks_vector_source_x_0_0
@@ -136,7 +136,7 @@ blocks:
         type: complex
         window: '[0.0, 0.116978, 0.413176, 0.75, 0.969846, 0.969846, 0.75, 0.413176, 0.116978, 0.0]'
     states:
-        coordinate: [770, 490]
+        coordinate: [750, 580]
         rotation: 0
         state: enabled
 -   name: pdu_tagged_stream_to_pdu_0
@@ -154,7 +154,7 @@ blocks:
         tag: packet_len
         type: complex
     states:
-        coordinate: [100, 700]
+        coordinate: [80, 790]
         rotation: 0
         state: enabled
 -   name: tagger_c
@@ -165,7 +165,7 @@ blocks:
         type: complex
         vlen: '1'
     states:
-        coordinate: [390, 520]
+        coordinate: [370, 610]
         rotation: 0
         state: enabled
 -   name: tagger_f

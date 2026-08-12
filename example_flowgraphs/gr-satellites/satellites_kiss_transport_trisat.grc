@@ -16,7 +16,7 @@ blocks:
     parameters:
         value: '48000'
     states:
-        coordinate: [300, 10]
+        coordinate: [590, 10]
         rotation: 0
         state: enabled
 -   name: deframer
@@ -92,7 +92,7 @@ blocks:
     parameters:
         note: 'Upstream sends these frames to a KISS TCP client through satellites_kiss_transport, a Python block: no C++ path, and no TCP sockets in the browser. Print timestamp + Message Debug is the log a KISS client would have printed. Upstream reads BY70-1 here, which does not decode in this runtime, so this uses TRISAT.'
     states:
-        coordinate: [470, 10]
+        coordinate: [760, 10]
         rotation: 0
         state: enabled
 connections:

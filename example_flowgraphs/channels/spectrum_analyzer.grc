@@ -41,7 +41,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [320, 10]
+    coordinate: [610, 10]
     rotation: 0
     state: enabled
 - name: freq_offset
@@ -62,7 +62,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [490, 10]
+    coordinate: [780, 10]
     rotation: 0
     state: enabled
 - name: samp_rate
@@ -74,7 +74,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [740, 10]
+    coordinate: [1030, 10]
     rotation: 0
     state: enabled
 - name: snr
@@ -95,7 +95,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [910, 10]
+    coordinate: [1200, 10]
     rotation: 0
     state: enabled
 - name: analog_noise_source_x_0
@@ -114,7 +114,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [10, 350]
+    coordinate: [10, 420]
     rotation: 0
     state: enabled
 - name: analog_sig_source_x_0
@@ -137,7 +137,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [10, 210]
+    coordinate: [10, 280]
     rotation: 0
     state: enabled
 - name: blocks_add_xx_0
@@ -155,7 +155,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [310, 450]
+    coordinate: [310, 520]
     rotation: 0
     state: enabled
 - name: blocks_divide_xx_0
@@ -173,7 +173,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [560, 230]
+    coordinate: [560, 300]
     rotation: 0
     state: enabled
 - name: blocks_nlog10_ff_0
@@ -191,7 +191,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [930, 240]
+    coordinate: [930, 310]
     rotation: 0
     state: enabled
 - name: blocks_rms_xx_0
@@ -208,7 +208,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [310, 350]
+    coordinate: [310, 420]
     rotation: 0
     state: enabled
 - name: blocks_rms_xx_0_0
@@ -225,7 +225,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [310, 230]
+    coordinate: [310, 300]
     rotation: 0
     state: enabled
 - name: blocks_throttle2_0
@@ -246,7 +246,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [560, 440]
+    coordinate: [560, 510]
     rotation: 0
     state: enabled
 - name: qtgui_freq_sink_x_0
@@ -327,7 +327,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [930, 430]
+    coordinate: [930, 500]
     rotation: 0
     state: enabled
 - name: qtgui_number_sink_0
@@ -390,7 +390,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [560, 580]
+    coordinate: [560, 650]
     rotation: 0
     state: enabled
 - name: qtgui_number_sink_signal_amplitude
@@ -453,7 +453,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [560, 740]
+    coordinate: [560, 810]
     rotation: 0
     state: enabled
 - name: qtgui_number_sink_snr
@@ -516,7 +516,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [1280, 210]
+    coordinate: [1280, 280]
     rotation: 0
     state: enabled
 - name: qtgui_time_sink_x_0
@@ -613,7 +613,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [1190, 10]
+    coordinate: [1480, 10]
     rotation: 0
     state: disabled
 connections:

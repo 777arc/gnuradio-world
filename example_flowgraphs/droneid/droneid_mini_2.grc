@@ -16,7 +16,7 @@ blocks:
     parameters:
         value: '50000000'
     states:
-        coordinate: [310, 10]
+        coordinate: [600, 10]
         rotation: 0
         state: enabled
 -   name: channel_offset
@@ -24,7 +24,7 @@ blocks:
     parameters:
         value: '9619140.625'
     states:
-        coordinate: [490, 10]
+        coordinate: [780, 10]
         rotation: 0
         state: enabled
 -   name: droneid_rate
@@ -32,7 +32,7 @@ blocks:
     parameters:
         value: '15360000'
     states:
-        coordinate: [710, 10]
+        coordinate: [1000, 10]
         rotation: 0
         state: enabled
 -   name: padding_samples
@@ -40,7 +40,7 @@ blocks:
     parameters:
         value: '30000'
     states:
-        coordinate: [890, 10]
+        coordinate: [1180, 10]
         rotation: 0
         state: enabled
 -   name: recording_samples
@@ -48,7 +48,7 @@ blocks:
     parameters:
         value: '727500'
     states:
-        coordinate: [1110, 10]
+        coordinate: [1400, 10]
         rotation: 0
         state: enabled
 -   name: align_frame_start

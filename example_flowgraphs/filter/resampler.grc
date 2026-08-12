@@ -42,7 +42,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [300, 10]
+    coordinate: [590, 10]
     rotation: 0
     state: enabled
 - name: new_rate
@@ -54,7 +54,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [470, 10]
+    coordinate: [760, 10]
     rotation: 0
     state: enabled
 - name: nphases
@@ -66,7 +66,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [640, 10]
+    coordinate: [930, 10]
     rotation: 0
     state: enabled
 - name: rs_taps
@@ -78,7 +78,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [810, 10]
+    coordinate: [1100, 10]
     rotation: 0
     state: enabled
 - name: samp_rate
@@ -90,7 +90,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [1110, 10]
+    coordinate: [1400, 10]
     rotation: 0
     state: enabled
 - name: adder
@@ -108,7 +108,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [310, 150]
+    coordinate: [310, 210]
     rotation: 0
     state: enabled
 - name: analog_frequency_modulator_fc_0
@@ -124,7 +124,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [890, 150]
+    coordinate: [890, 210]
     rotation: 0
     state: enabled
 - name: analog_sig_source_x_0
@@ -147,7 +147,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [10, 130]
+    coordinate: [10, 190]
     rotation: 0
     state: enabled
 - name: blocks_throttle2_0
@@ -168,7 +168,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [560, 130]
+    coordinate: [560, 190]
     rotation: 0
     state: enabled
 - name: pfb_arb_resampler_xxx_0
@@ -189,7 +189,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [1260, 130]
+    coordinate: [1260, 190]
     rotation: 0
     state: enabled
 - name: qtgui_freq_sink_x_0
@@ -270,7 +270,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [1260, 270]
+    coordinate: [1260, 330]
     rotation: 0
     state: enabled
 - name: qtgui_freq_sink_x_0_0
@@ -351,7 +351,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [80, 450]
+    coordinate: [80, 510]
     rotation: 0
     state: enabled
 connections:

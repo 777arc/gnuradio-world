@@ -1023,11 +1023,42 @@ function makeLayoutInst(): Inst {
   return { uid: 'b' + (++counter), id: LAYOUT_ID, name: uniqueBlockName(LAYOUT_ID),
     x: 10, y: 120, params, enabled: true, rotation: 0, bypassed: false };
 }
+// Clearance kept around the block that is being dropped in, so it neither
+// touches its neighbours nor covers the port tabs and wires between them.
+const LAYOUT_DROP_GAP = SNAP_GRID_SIZE * 3;
+// Where a *newly inserted* GUI Layout block goes. Every .grc written before this
+// block existed — which is most of `example_flowgraphs/`, and anything from
+// desktop GRC — gets one on load, so the position cannot be a fixed corner: the
+// corner belongs to whoever arranged the flowgraph, and the block lands on top
+// of them. Start beside the header row the arrangement puts Options in (the two
+// singletons belong together) and slide down until nothing is in the way, which
+// terminates because below the lowest block everything is free.
+function placeLayoutInst(inst: Inst) {
+  const box = (i: Inst) => { const { w, h } = geom(i); return { x: i.x, y: i.y, w, h }; };
+  const boxes = insts.filter(i => i !== inst).map(box);
+  if (!boxes.length) return;
+  const self = geom(inst);
+  const header = insts.find(i => i.id === OPTIONS_ID) ?? insts[0];
+  const headerBox = box(header);
+  // The header band is the row Options sits in; the block goes after whatever
+  // else is already in that row rather than on top of the first one of them.
+  const inHeader = boxes.filter(b => b.y < headerBox.y + headerBox.h && headerBox.y < b.y + b.h);
+  const x = Math.max(...inHeader.map(b => b.x + b.w), headerBox.x + headerBox.w) + LAYOUT_DROP_GAP;
+  const clear = (y: number) => !boxes.some(b =>
+    x < b.x + b.w + LAYOUT_DROP_GAP && b.x < x + self.w + LAYOUT_DROP_GAP &&
+    y < b.y + b.h + LAYOUT_DROP_GAP && b.y < y + self.h + LAYOUT_DROP_GAP);
+  let y = headerBox.y;
+  while (!clear(y)) y += SNAP_GRID_SIZE;
+  ({ x: inst.x, y: inst.y } = constrainBlockPosition(x, y, snapToGrid));
+}
 function ensureLayoutBlock() {
   // A build with no generated library yet (the very first paint) has no schema
   // to build one from; the next load settles it.
   if (!RUNNABLE[LAYOUT_ID]) return;
-  if (!insts.some(i => i.id === LAYOUT_ID)) insts.push(makeLayoutInst());
+  if (insts.some(i => i.id === LAYOUT_ID)) return;
+  const inst = makeLayoutInst();
+  placeLayoutInst(inst);
+  insts.push(inst);
 }
 const layoutInst = (): Inst | undefined => insts.find(i => i.id === LAYOUT_ID);
 // The blocks that take a tile: those whose factory builds a QWidget. Only the

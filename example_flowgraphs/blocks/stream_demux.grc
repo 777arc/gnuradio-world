@@ -41,7 +41,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [310, 10]
+    coordinate: [600, 10]
     rotation: 0
     state: enabled
 - name: tag0
@@ -56,7 +56,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [10, 570.0]
+    coordinate: [770, 10]
     rotation: 0
     state: true
 - name: tag1
@@ -71,7 +71,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [230, 570.0]
+    coordinate: [1050, 10]
     rotation: 0
     state: true
 - name: tag2
@@ -86,7 +86,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [450, 570.0]
+    coordinate: [1330, 10]
     rotation: 0
     state: true
 - name: blocks_stream_demux_0
@@ -105,7 +105,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [660, 170]
+    coordinate: [660, 300]
     rotation: 0
     state: true
 - name: blocks_throttle2_0
@@ -126,7 +126,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [330, 180]
+    coordinate: [330, 310]
     rotation: 0
     state: enabled
 - name: blocks_vector_source_x_0
@@ -146,7 +146,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [10, 190]
+    coordinate: [10, 320]
     rotation: 0
     state: true
 - name: qtgui_time_sink_x_0
@@ -243,7 +243,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [330, 320]
+    coordinate: [330, 450]
     rotation: 0
     state: true
 - name: qtgui_time_sink_x_0_0
@@ -340,7 +340,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [940, 430]
+    coordinate: [940, 560]
     rotation: 0
     state: true
 - name: qtgui_time_sink_x_0_0_0
@@ -437,7 +437,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [940, 150]
+    coordinate: [940, 280]
     rotation: 0
     state: true
 - name: qtgui_time_sink_x_0_0_0_0
@@ -534,7 +534,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [940, 290]
+    coordinate: [940, 420]
     rotation: 0
     state: true
 connections:

@@ -233,7 +233,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [290, 10]
+    coordinate: [580, 10]
     rotation: 0
     state: enabled
 - name: qtgui_time_sink_x_0
@@ -342,7 +342,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [560, 10]
+    coordinate: [850, 10]
     rotation: 0
     state: enabled
 connections:

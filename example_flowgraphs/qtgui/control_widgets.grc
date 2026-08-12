@@ -24,7 +24,7 @@ blocks:
   parameters:
     value: '32000'
   states:
-    coordinate: [310, 10]
+    coordinate: [600, 10]
     rotation: 0
     state: enabled
 - name: tone
@@ -41,7 +41,7 @@ blocks:
     value_max: '4000'
     value_min: '100'
   states:
-    coordinate: [480, 10]
+    coordinate: [770, 10]
     rotation: 0
     state: enabled
 - name: readout
@@ -53,7 +53,7 @@ blocks:
     type: real
     value: tone
   states:
-    coordinate: [750, 10]
+    coordinate: [1040, 10]
     rotation: 0
     state: enabled
 - name: level
@@ -71,7 +71,7 @@ blocks:
     type: real
     value: '0.8'
   states:
-    coordinate: [80, 130]
+    coordinate: [80, 280]
     rotation: 0
     state: enabled
 - name: mode
@@ -91,7 +91,7 @@ blocks:
     value: '1'
     verticalalignment: '1'
   states:
-    coordinate: [80, 330]
+    coordinate: [80, 480]
     rotation: 0
     state: enabled
 - name: burst
@@ -110,7 +110,7 @@ blocks:
     type: int
     value: '0'
   states:
-    coordinate: [80, 510]
+    coordinate: [80, 660]
     rotation: 0
     state: enabled
 - name: mute
@@ -127,7 +127,7 @@ blocks:
     value: '0'
     verticalalignment: '1'
   states:
-    coordinate: [80, 690]
+    coordinate: [80, 840]
     rotation: 0
     state: enabled
 - name: ping
@@ -141,7 +141,7 @@ blocks:
     type: int
     value: '1'
   states:
-    coordinate: [80, 870]
+    coordinate: [80, 1020]
     rotation: 0
     state: enabled
 - name: radio
@@ -158,7 +158,7 @@ blocks:
     relFontColor: white
     value: '100'
   states:
-    coordinate: [80, 1010]
+    coordinate: [80, 1160]
     rotation: 0
     state: enabled
 - name: note
@@ -172,7 +172,7 @@ blocks:
     type: string
     value: hello
   states:
-    coordinate: [80, 1170]
+    coordinate: [80, 1320]
     rotation: 0
     state: enabled
 - name: source
@@ -186,7 +186,7 @@ blocks:
     type: complex
     waveform: analog.GR_COS_WAVE
   states:
-    coordinate: [10, 1370]
+    coordinate: [10, 1520]
     rotation: 0
     state: enabled
 - name: gain
@@ -196,7 +196,7 @@ blocks:
     type: complex
     vlen: '1'
   states:
-    coordinate: [290, 1390]
+    coordinate: [290, 1540]
     rotation: 0
     state: enabled
 - name: throttle
@@ -209,7 +209,7 @@ blocks:
     type: complex
     vlen: '1'
   states:
-    coordinate: [560, 1370]
+    coordinate: [560, 1520]
     rotation: 0
     state: enabled
 - name: scope
@@ -227,7 +227,7 @@ blocks:
     ymin: '-2'
     yunit: ''
   states:
-    coordinate: [890, 1370]
+    coordinate: [890, 1520]
     rotation: 0
     state: enabled
 - name: message_debug
@@ -236,7 +236,7 @@ blocks:
     en_uvec: 'True'
     log_level: info
   states:
-    coordinate: [600, 150]
+    coordinate: [600, 300]
     rotation: 0
     state: enabled
 connections:

@@ -13,12 +13,18 @@
 <body>
 <div id="app">
   <header>
+    <!-- Opens the palette drawer; only the narrow layout shows it, where the
+         palette overlays the canvas instead of sitting beside it. -->
+    <button id="paletteToggle" type="button" aria-controls="palette" aria-expanded="false"
+            aria-label="Show block palette" title="Show block palette">☰</button>
+    <!-- The logo stands beside the whole header rather than inside the menu row:
+         both bars run to the right of it. The dark-background variant, because
+         the app's chrome is dark and the light artwork's lettering disappears
+         into it. README.md keeps the light one, which is what GitHub renders it
+         against. -->
+    <span class="brand"><a href="/" aria-label="GNU Radio World home"><img src="/gnuradio_world_logo_dark.svg" alt="GNU Radio World" /></a></span>
+    <div id="headerBars">
     <div id="menubar">
-      <!-- Opens the palette drawer; only the narrow layout shows it, where the
-           palette overlays the canvas instead of sitting beside it. -->
-      <button id="paletteToggle" type="button" aria-controls="palette" aria-expanded="false"
-              aria-label="Show block palette" title="Show block palette">☰</button>
-      <span class="brand"><a href="/" aria-label="GNU Radio World home"><img src="/gnuradio_world_logo.svg" alt="GNU Radio World" /></a></span>
       <nav id="menus" role="menubar" aria-label="Main menu"></nav>
       <a class="github-link" href="https://github.com/777arc/gnuradio-world"
          target="_blank" rel="noopener noreferrer" aria-label="View 777arc/gnuradio-world on GitHub"
@@ -29,6 +35,7 @@
       </a>
     </div>
     <div id="toolbar" role="toolbar" aria-label="Editor toolbar"></div>
+    </div>
   </header>
   <div id="palette"></div>
   <!-- Dismisses the palette drawer by tapping the canvas behind it. Inert (and

@@ -16,7 +16,7 @@ blocks:
     parameters:
         value: '48000'
     states:
-        coordinate: [320, 10]
+        coordinate: [610, 10]
         rotation: 0
         state: enabled
 -   name: asm_deframer
@@ -56,7 +56,7 @@ blocks:
     parameters:
         note: ASM+Golay mode
     states:
-        coordinate: [490, 10]
+        coordinate: [780, 10]
         rotation: 0
         state: enabled
 -   name: asm_recording
@@ -119,7 +119,7 @@ blocks:
     parameters:
         note: Reed-Solomon mode
     states:
-        coordinate: [680, 10]
+        coordinate: [970, 10]
         rotation: 0
         state: enabled
 -   name: rs_recording

@@ -53,7 +53,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [290, 10]
+    coordinate: [580, 10]
     rotation: 0
     state: true
 - name: samp_rate
@@ -65,7 +65,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [540, 10]
+    coordinate: [830, 10]
     rotation: 0
     state: enabled
 - name: analog_pll_freqdet_cf_0

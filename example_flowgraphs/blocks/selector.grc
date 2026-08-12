@@ -44,7 +44,7 @@ blocks:
     value: '200'
     widget: counter_slider
   states:
-    coordinate: [300, 10]
+    coordinate: [590, 10]
     rotation: 0
     state: true
 - name: input_index
@@ -62,7 +62,7 @@ blocks:
     value: '0'
     widget: counter_slider
   states:
-    coordinate: [550, 10]
+    coordinate: [840, 10]
     rotation: 0
     state: true
 - name: samp_rate
@@ -71,7 +71,7 @@ blocks:
     comment: ''
     value: '32000'
   states:
-    coordinate: [800, 10]
+    coordinate: [1090, 10]
     rotation: 0
     state: enabled
 - name: analog_sig_source_x_0
