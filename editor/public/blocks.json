@@ -50851,7 +50851,7 @@
      "id": "attr_type",
      "label": "Attribute Type",
      "dtype": "enum",
-     "default": "'Channel'",
+     "default": "0",
      "category": "General",
      "options": [
       "0",
@@ -50874,7 +50874,7 @@
      "id": "output",
      "label": "Input/Output",
      "dtype": "enum",
-     "default": "'Input'",
+     "default": "False",
      "category": "General",
      "options": [
       "False",
@@ -50956,7 +50956,7 @@
      "id": "attr_type",
      "label": "Attribute Type",
      "dtype": "enum",
-     "default": "'Channel'",
+     "default": "0",
      "category": "General",
      "options": [
       "0",
@@ -50977,7 +50977,7 @@
      "id": "output",
      "label": "Input/Output",
      "dtype": "enum",
-     "default": "'Input'",
+     "default": "False",
      "category": "General",
      "options": [
       "False",
@@ -51027,7 +51027,7 @@
      "id": "type",
      "label": "Data Type",
      "dtype": "enum",
-     "default": "'Input'",
+     "default": "0",
      "category": "General",
      "options": [
       "0",
@@ -53945,7 +53945,7 @@
      "id": "metadict",
      "label": "Mode",
      "dtype": "enum",
-     "default": "True",
+     "default": "Metadata",
      "category": "General",
      "options": [
       "Metadata",
@@ -60573,7 +60573,7 @@
      "id": "average",
      "label": "Average",
      "dtype": "enum",
-     "default": "False",
+     "default": "1.0",
      "category": "General",
      "options": [
       "1.0",
@@ -65000,7 +65000,7 @@
      "id": "palette",
      "label": "Color Palette",
      "dtype": "enum",
-     "default": "True",
+     "default": "iron",
      "category": "General",
      "options": [
       "iron",
@@ -65670,7 +65670,7 @@
      "id": "type",
      "label": "Type",
      "dtype": "enum",
-     "default": "complex",
+     "default": "byte",
      "category": "General",
      "options": [
       "byte",
@@ -68649,7 +68649,7 @@
      "id": "average",
      "label": "Average",
      "dtype": "enum",
-     "default": "False",
+     "default": "1.0",
      "category": "General",
      "options": [
       "1.0",
@@ -70671,7 +70671,7 @@
      "id": "time_header",
      "label": "Time Header",
      "dtype": "enum",
-     "default": "drop_down",
+     "default": "0",
      "category": "General",
      "options": [
       "0",
@@ -70699,7 +70699,7 @@
      "id": "time_format",
      "label": "Time Format",
      "dtype": "enum",
-     "default": "drop_down",
+     "default": "0",
      "category": "General",
      "options": [
       "0",
@@ -70722,7 +70722,7 @@
      "id": "pfield",
      "label": "PField Presence",
      "dtype": "enum",
-     "default": "drop_down",
+     "default": "1",
      "category": "General",
      "options": [
       "1",
@@ -70779,7 +70779,7 @@
      "id": "packet_type",
      "label": "Packet Type",
      "dtype": "enum",
-     "default": "drop_down",
+     "default": "0",
      "category": "General",
      "options": [
       "0",
@@ -70796,7 +70796,7 @@
      "id": "secondary_header_flag",
      "label": "Secondary Header Flag",
      "dtype": "enum",
-     "default": "drop_down",
+     "default": "1",
      "category": "General",
      "options": [
       "1",
@@ -70835,7 +70835,7 @@
      "id": "count_or_name",
      "label": "Count or Name",
      "dtype": "enum",
-     "default": "drop_down",
+     "default": "0",
      "category": "General",
      "options": [
       "0",
@@ -70923,7 +70923,7 @@
      "id": "manual_automatic",
      "label": "Manual or Automatic Time",
      "dtype": "enum",
-     "default": "drop_down",
+     "default": "0",
      "category": "General",
      "options": [
       "0",
@@ -70940,7 +70940,7 @@
      "id": "time_format",
      "label": "Time Format",
      "dtype": "enum",
-     "default": "drop_down",
+     "default": "0",
      "category": "General",
      "options": [
       "0",
@@ -70974,7 +70974,7 @@
      "id": "pfield",
      "label": "PField Presence",
      "dtype": "enum",
-     "default": "drop_down",
+     "default": "1",
      "category": "General",
      "options": [
       "1",
@@ -70991,7 +70991,7 @@
      "id": "pfield_extension",
      "label": "PField Extension",
      "dtype": "enum",
-     "default": "drop_down",
+     "default": "1",
      "category": "General",
      "options": [
       "1",
@@ -71008,7 +71008,7 @@
      "id": "time_code_identification_cuc",
      "label": "Time Code Identification",
      "dtype": "enum",
-     "default": "drop_down",
+     "default": "1",
      "category": "General",
      "options": [
       "1",
@@ -71058,7 +71058,7 @@
      "id": "pfield_extension_extended",
      "label": "PField Extension extended",
      "dtype": "enum",
-     "default": "drop_down",
+     "default": "1",
      "category": "General",
      "options": [
       "1",
@@ -71097,7 +71097,7 @@
      "id": "epoch_identification_cds",
      "label": "Epoch Identification",
      "dtype": "enum",
-     "default": "drop_down",
+     "default": "0",
      "category": "General",
      "options": [
       "0",
@@ -71667,7 +71667,7 @@
      "id": "coding",
      "label": "Coding",
      "dtype": "enum",
-     "default": "drop_down",
+     "default": "1",
      "category": "General",
      "options": [
       "1",
@@ -71694,7 +71694,7 @@
      "id": "reed_solomon_concat",
      "label": "Reed Solomon or Concatenated",
      "dtype": "enum",
-     "default": "drop_down",
+     "default": "0",
      "category": "General",
      "options": [
       "0",
@@ -71744,7 +71744,7 @@
      "id": "turbo",
      "label": "Turbo",
      "dtype": "enum",
-     "default": "drop_down",
+     "default": "223",
      "category": "General",
      "options": [
       "223",
@@ -71760,7 +71760,7 @@
      "id": "ldpc_tf",
      "label": "LDPC applied to TF",
      "dtype": "enum",
-     "default": "drop_down",
+     "default": "0",
      "category": "General",
      "options": [
       "0",
@@ -71781,7 +71781,7 @@
      "id": "ldpc_tf_size",
      "label": "LDPC Size",
      "dtype": "enum",
-     "default": "drop_down",
+     "default": "128",
      "category": "General",
      "options": [
       "128",
@@ -71840,7 +71840,7 @@
      "id": "ocf_flag",
      "label": "OCF Flag",
      "dtype": "enum",
-     "default": "drop_down",
+     "default": "1",
      "category": "General",
      "options": [
       "1",
@@ -71879,7 +71879,7 @@
      "id": "transfer_frame_secondary_header_flag",
      "label": "Transfer Frame Secondary Header Flag",
      "dtype": "enum",
-     "default": "drop_down",
+     "default": "1",
      "category": "General",
      "options": [
       "1",
@@ -71896,7 +71896,7 @@
      "id": "synch_flag",
      "label": "Synch Flag",
      "dtype": "enum",
-     "default": "drop_down",
+     "default": "1",
      "category": "General",
      "options": [
       "1",
@@ -71913,7 +71913,7 @@
      "id": "packet_order_flag",
      "label": "Packet Order Flag",
      "dtype": "enum",
-     "default": "drop_down",
+     "default": "1",
      "category": "General",
      "options": [
       "1",
@@ -72047,7 +72047,7 @@
      "id": "time_format_general",
      "label": "Time Format",
      "dtype": "enum",
-     "default": "drop_down",
+     "default": "0",
      "category": "General",
      "options": [
       "0",
@@ -72114,7 +72114,7 @@
      "id": "length_of_day_cds",
      "label": "Length of Day",
      "dtype": "enum",
-     "default": "drop_down",
+     "default": "0",
      "category": "General",
      "options": [
       "0",
@@ -72131,7 +72131,7 @@
      "id": "length_of_submillisecond_cds",
      "label": "Length of Submilliseconds",
      "dtype": "enum",
-     "default": "drop_down",
+     "default": "0",
      "category": "General",
      "options": [
       "0",
@@ -72150,7 +72150,7 @@
      "id": "calendar_variation_ccs",
      "label": "Calendar variation",
      "dtype": "enum",
-     "default": "drop_down",
+     "default": "0",
      "category": "General",
      "options": [
       "0",
@@ -72167,7 +72167,7 @@
      "id": "number_of_subsecond_ccs",
      "label": "Number of Subseconds",
      "dtype": "enum",
-     "default": "drop_down",
+     "default": "0",
      "category": "General",
      "options": [
       "0",
@@ -72205,7 +72205,7 @@
      "id": "add_z_terminator",
      "label": "Add Z terminator",
      "dtype": "enum",
-     "default": "drop_down",
+     "default": "1",
      "category": "General",
      "options": [
       "1",

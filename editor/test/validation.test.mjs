@@ -77,6 +77,18 @@ assert.ok(liveIssues.some(issue => issue.field === 'stop'));
 assert.ok(liveIssues.some(issue => issue.field === 'step'));
 assert.ok(liveIssues.some(issue => issue.field === 'min_len'));
 
+// Desktop GRC stores an enum value with the quotes its own code generation needs
+// (`rangeType: '"float"'` against options spelled `float`), so both spellings
+// have to name the same choice or importing a native flowgraph reports an error
+// on a field the user cannot fix.
+const quoted = inst('quoted', 'variable_qtgui_range', 'gain', {
+  label: '', rangeType: '"float"', value: 5, start: 0, stop: 10, step: 1,
+  widget: 'slider', orient: 'QtCore.Qt.Horizontal', min_len: 100,
+});
+assert.deepEqual(validateFlowgraph([quoted], [], ports)
+  .filter(issue => issue.field === 'rangeType'), [],
+  'a quoted enum value picks the same option as the bare one');
+
 const sink = inst('sink', 'blocks_null_sink', 'sink', { type: 'float', vlen: 1 });
 const mismatch = validateFlowgraph([signal, sink], [{ from: 'sig', fp: 0, to: 'sink', tp: 0 }], ports);
 assert.ok(mismatch.some(issue => issue.field === BLOCK_FIELD && issue.message.includes('type mismatch')));
@@ -165,23 +177,34 @@ assert.deepEqual(validateFlowgraph([source, passthrough({ bypassed: true }), dra
     assert.deepEqual(RUNNABLE[id].inOptional, [false],
       `${id} must require its stream input, like native GRC`);
 
-  // An enum's options have to be spelled the way a .grc spells its values, or
-  // validateFlowgraph rejects the block for holding its own default. Most
-  // boolean parameters write `options: ['True', 'False']`, but a few blocks --
-  // Matrix Interleaver, QT GUI Matrix Sink, three gr-satellites decoders --
-  // leave the quotes off, so yaml hands back Python booleans; gen_blocklib.py
-  // normalizes them, and this asserts no other type ever reaches the palette.
+  // A block must never arrive on the canvas holding a value it rejects, which is
+  // what a choice parameter whose default is not one of its own options amounts
+  // to: place it, and the title goes red over a field the user never touched.
+  // Nearly forty parameters were in that state upstream (a widget hint pasted
+  // into `default:`, an option label where the value belongs, a value older than
+  // the option list); gen_blocklib.py's enum_default repairs them, so assert the
+  // property over the whole palette rather than over the blocks that happened to
+  // be noticed. Options are compared the way validateFlowgraph compares them --
+  // a boolean option would fail typeof, and Python quoting is not a difference.
+  const unquote = text => {
+    const trimmed = String(text).trim();
+    return trimmed.length >= 2 && trimmed[0] === trimmed.at(-1) && /['"]/.test(trimmed[0])
+      ? trimmed.slice(1, -1) : trimmed;
+  };
   for (const block of library.blocks || []) {
     for (const param of block.params || []) {
-      for (const option of param.options || [])
+      const options = param.options || [];
+      for (const option of options)
         assert.notEqual(typeof option, 'boolean',
           `${block.id}.${param.id} offers a boolean option; a .grc stores text`);
+      // `bool` joins `enum` because the editor resolves both to a choice field.
+      if (!options.length || !['enum', 'bool'].includes(String(param.dtype))) continue;
+      if (param.default === '' || param.default == null) continue;  // means options[0]
+      assert.ok(options.some(option => unquote(option) === unquote(param.default)),
+        `${block.id}.${param.id} defaults to ${JSON.stringify(param.default)}, ` +
+        `which is not one of ${JSON.stringify(options)}`);
     }
   }
-  const deint = RUNNABLE.blocks_matrix_interleaver.params.find(p => p.id === 'deint');
-  assert.deepEqual(deint.options, ['True', 'False']);
-  assert.ok(deint.options.includes(String(deint.def)),
-    'Matrix Interleaver must not arrive holding a Deinterleave value it rejects');
 
   // VARIABLE_CONTROL_IDS is a hand-kept copy of `is_variable_control()` in
   // runner/src/grc_lower.hpp, and the two disagreeing is silent in the worst

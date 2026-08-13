@@ -39,6 +39,21 @@ export const VARIABLE_IDS = new Set([...VARIABLE_CONTROL_IDS, 'variable']);
 // then tracks it, which is the only thing that makes a Label worth placing.
 const TRACKING_PARAMS = new Set(['variable_qtgui_label:value']);
 
+// Whether a stored value picks a given option. GRC quotes an enum value whenever
+// its own code generation needs a Python string literal there -- QT GUI Range
+// writes `rangeType: '"float"'` against options spelled `float` -- so a
+// flowgraph written by desktop GRC carries the quotes and one written here does
+// not. Both name the same choice, and refusing either would refuse a file that
+// runs.
+const sameChoice = (option: string, value: unknown) => {
+  const unquote = (text: string) => {
+    const trimmed = text.trim();
+    return trimmed.length >= 2 && trimmed[0] === trimmed[trimmed.length - 1] &&
+      (trimmed[0] === '"' || trimmed[0] === "'") ? trimmed.slice(1, -1) : trimmed;
+  };
+  return option === String(value) || unquote(option) === unquote(String(value));
+};
+
 export function validateFlowgraph(
   blocks: Inst[],
   connections: Conn[],
@@ -118,7 +133,8 @@ export function validateFlowgraph(
             ? `${param.label} may reference a live control only on its own, not inside an expression.`
             : `${param.label} must be a number, a variable ID, or an expression of them.`);
         }
-      } else if (param.type === 'enum' && param.options?.length && !param.options.includes(String(value))) {
+      } else if (param.type === 'enum' && param.options?.length &&
+                 !param.options.some(option => sameChoice(option, value))) {
         add(block, param.id, `${param.label} has unsupported value "${String(value)}".`);
       }
     }

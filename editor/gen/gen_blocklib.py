@@ -114,6 +114,66 @@ def python_options(options):
     return [python_option(option) for option in options]
 
 
+def unquoted(value):
+    """A value with one layer of matching Python quotes removed."""
+    text = str(value).strip()
+    if len(text) >= 2 and text[0] == text[-1] and text[0] in "\"'":
+        return text[1:-1]
+    return text
+
+
+# Every enum default this had to repair, as "block.param: was -> is", for the
+# generator's own summary line. Silence would make an upstream slip look like a
+# deliberate default.
+REPAIRED_DEFAULTS: list[str] = []
+
+
+def enum_default(block_id, param):
+    """A choice parameter's default, guaranteed to be one of its own options.
+
+    An enum whose default is not among its options puts the block on the canvas
+    already in error, because the editor validates a value by looking it up in
+    the option list -- and the block would be holding the value the palette gave
+    it.  Roughly forty parameters across the tree are in that state upstream, in
+    four flavours, and GRC never notices because it only evaluates the value it
+    is handed:
+
+    * a widget hint pasted into the wrong key (gr-satellites' CCSDS blocks all
+      default to the literal ``drop_down``);
+    * an option *label* where the value belongs (gr-iio's ``'Input'`` for an
+      option list of ``['False', 'True']``);
+    * a value that predates the option list (the Frequency Sink's averaging
+      still defaults to ``False``, from before the choice became an alpha, and
+      the Time Raster Sink offers no ``complex`` mode at all);
+    * a plain ``True`` for a three-way choice (gr-pdu's PDU Lambda).
+
+    A label is translated to the option it labels; anything else falls back to
+    the first option, which is both what GRC does for an enum with no default at
+    all and what ``wasm_registry::choice()`` already falls back to in the runner,
+    so the palette and the runtime agree on the same value.  A default that
+    differs from its option only by Python quoting is *kept*: the quotes are
+    usually load-bearing in upstream's own code generation (QT GUI Range renders
+    ``${rangeType}`` straight into a Python call), and this editor's validation
+    compares enum values with them stripped.
+    """
+    default = python_option(param.get("default", ""))
+    if str(param.get("dtype", "")) not in {"enum", "bool"}:
+        return default
+    options = [str(option) for option in python_options(param.get("options") or [])]
+    # An absent default already means "the first option" to every reader.
+    if not options or default in (None, ""):
+        return default
+    if str(default) in options or unquoted(default) in map(unquoted, options):
+        return default
+    labels = [str(label) for label in (param.get("option_labels") or [])]
+    for label, option in zip(labels, options):
+        if unquoted(label) == unquoted(default):
+            REPAIRED_DEFAULTS.append(f"{block_id}.{param['id']}: {default} -> {option}")
+            return option
+    REPAIRED_DEFAULTS.append(f"{block_id}.{param['id']}: {default} -> {options[0]}")
+    return options[0]
+
+
 def clean_doxygen(comment):
     """Turn one /** ... */ comment into readable, plain-text documentation."""
     text = re.sub(r"^/\*[*!]|(?:\*/)$", "", comment.strip())
@@ -392,7 +452,7 @@ def main(out_path):
                     param_categories[p["id"]] = param_category
                     params.append({"id": p["id"], "label": p.get("label", p["id"]),
                                    "dtype": str(p.get("dtype", "")),
-                                   "default": python_option(p.get("default", "")),
+                                   "default": enum_default(block_id, p),
                                    "category": param_category,
                                    "options": python_options(p.get("options")),
                                    "option_labels": p.get("option_labels"),
@@ -449,6 +509,11 @@ def main(out_path):
         os.makedirs(output_dir, exist_ok=True)
     json.dump({"blocks": blocks}, open(out_path, "w"), indent=1)
     print(f"wrote {len(blocks)} blocks -> {out_path}")
+    if REPAIRED_DEFAULTS:
+        print(f"  {len(REPAIRED_DEFAULTS)} enum defaults were not among their own "
+              f"options and were repaired (see enum_default):")
+        for repair in REPAIRED_DEFAULTS:
+            print(f"    {repair}")
 
 if __name__ == "__main__":
     main(sys.argv[1] if len(sys.argv) > 1 else "blocks.json")
