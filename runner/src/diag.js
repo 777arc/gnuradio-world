@@ -36,8 +36,20 @@
   function workerCount() {
     return PThread.unusedWorkers.length + PThread.runningWorkers.length;
   }
-  function installWorkerTracker(prewarmed) {
+  // The tier the runner is configured for *right now*. Deliberately read live
+  // rather than from the stats snapshot, which carries the same number but is
+  // published by a separate 3 Hz C++ timer: run_now()'s pre-start top-up raises
+  // the tier and allocates its workers in one synchronous step, so a snapshot
+  // taken before that correction can still be the newest one when a tick lands
+  // after it. Sizing the pool against that stale tier books the entire
+  // corrective preload as scheduler-created extras (a 16 -> 48 correction shows
+  // up as "+32 extra" on an otherwise identical run).
+  function poolTier() {
+    return (typeof globalThis.__grPoolTier === 'number') ? globalThis.__grPoolTier : 16;
+  }
+  function installWorkerTracker() {
     if (workerTracker || typeof PThread === 'undefined') return;
+    var prewarmed = poolTier();
     var allocated = workerCount();
     workerTracker = {
       prewarmed: prewarmed,
@@ -59,10 +71,13 @@
     };
     window.__grWorkerStats = workerTracker;
   }
-  function readWorkerStats(prewarmed) {
+  function readWorkerStats() {
     try {
-      installWorkerTracker(prewarmed);
+      installWorkerTracker();
       if (!workerTracker) return null;
+      // Keep the reported tier current too: a tracker installed before the
+      // top-up would otherwise go on naming the tier the pool has left behind.
+      workerTracker.prewarmed = poolTier();
       workerTracker.active = PThread.runningWorkers.length;
       workerTracker.allocated = workerCount();
       return workerTracker;
@@ -238,7 +253,7 @@
     el['d-cpu'].innerHTML = '<span class="k">cpu</span> ' + Math.round(sumCpu) + '% <span class="k">/' + cores + 'c</span>';
     el['d-mem'].innerHTML = '<span class="k">wasm</span> ' + (st ? mb(st.wasm_heap) : '--') + 'MB';
     el['d-fps'].innerHTML = '<span class="k">fps</span> ' + Math.round(fps);
-    var workers = st ? readWorkerStats(st.pool) : null;
+    var workers = st ? readWorkerStats() : null;
     el['d-tier'].innerHTML = '<span class="k">tier</span> ' +
       (st ? st.pool + (workers ? ' +' + workers.additionalCreated + ' extra' : '') : '--');
     el['d-workers'].innerHTML = '<span class="k">active workers</span> ' +

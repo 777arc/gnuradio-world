@@ -198,8 +198,14 @@ for (const test of CASES) {
      line.includes(`workers: calc_used_blocks() = ${test.exactWorkers};`)));
   const preloadLogOk = test.preloadedWorkers === undefined || logs.some(line =>
     line.includes(`workers: preloading ${test.preloadedWorkers} missing workers`));
+  // `prewarmed` is asserted alongside the rest because it is what the flake was
+  // made of: the tracker used to size itself from the stats snapshot, which is
+  // published by a separate 3 Hz timer, so a tick landing between the pre-start
+  // top-up and the next snapshot compared the corrected pool against the tier it
+  // replaced and booked the whole preload as scheduler-created extras.
   const correctedPoolOk = test.preloadedWorkers === undefined ||
     (pool === test.expectedPool && monitor.workerStats?.allocated === test.expectedPool &&
+     monitor.workerStats?.prewarmed === test.expectedPool &&
      monitor.workerStats?.additionalCreated === 0);
   const poolOk = test.expectedPool === undefined
     ? pool % 8 === 0 && pool <= 256 && pool >= initialExpectedPool

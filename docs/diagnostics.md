@@ -146,6 +146,15 @@ so the bottleneck lights up without reading numbers.
    `additionalCreated` remains cumulative even after an extra worker returns to
    the unused pool. The toolchain is pinned, and the smoke test guards this
    internal integration.
+   The tier it measures those arrays against is read **live** from
+   `globalThis.__grPoolTier`, never from the stats snapshot, even though the
+   snapshot carries the same number. The two are not interchangeable: the
+   pre-start top-up (spike #7) raises the tier and allocates its workers in one
+   synchronous step, while the snapshot is published by an independent 3 Hz C++
+   timer, so a tick landing between the two compares the corrected pool against
+   the tier it replaced. That made the smoke test's 16 → 48 correction report
+   "+32 extra" on perhaps two runs in five, with the tier and thread count
+   correct on the very same run.
 6. `runner.html` prewarms the flowgraph's worker need — top-level block count
    plus one scheduler-launch worker — **rounded up to a multiple of 8** and
    clamped to [8, 256]. The rounding is slack, not waste: the URL-time count
