@@ -1,0 +1,387 @@
+options:
+    parameters:
+        id: wasm_hier_core
+        title: WASM core hier block rebuilds
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: bytes
+    id: blocks_vector_source_x
+    parameters:
+        type: byte
+        vector: '[0, 1, 1, 0, 1, 0, 0, 1]'
+        repeat: 'True'
+        vlen: '1'
+        tags: '[]'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: byte_throttle
+    id: blocks_throttle2
+    parameters:
+        ignoretag: 'True'
+        limit: auto
+        maximum: '0.1'
+        samples_per_second: '32000'
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: interleaver
+    id: blocks_matrix_interleaver
+    parameters:
+        type: byte
+        vlen: '1'
+        rows: '4'
+        cols: '8'
+        deint: 'False'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: deinterleaver
+    id: blocks_matrix_interleaver
+    parameters:
+        type: byte
+        vlen: '1'
+        rows: '4'
+        cols: '8'
+        deint: 'True'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: interleaver_sink
+    id: blocks_null_sink
+    parameters:
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: signal
+    id: analog_sig_source_x
+    parameters:
+        type: complex
+        samp_rate: '32000'
+        waveform: analog.GR_COS_WAVE
+        frequency: '1000'
+        amplitude: '1'
+        offset: '0'
+        phase: '0'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: signal_throttle
+    id: blocks_throttle2
+    parameters:
+        ignoretag: 'True'
+        limit: auto
+        maximum: '0.1'
+        samples_per_second: '32000'
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: decimator
+    id: blocks_stream_to_vector_decimator
+    parameters:
+        type: complex
+        sample_rate: '32000'
+        vec_rate: '30'
+        vlen: '64'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: decimator_sink
+    id: blocks_null_sink
+    parameters:
+        type: complex
+        vlen: '64'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: logpwrfft
+    id: logpwrfft_x
+    parameters:
+        type: complex
+        sample_rate: '32000'
+        fft_size: '64'
+        ref_scale: '2'
+        frame_rate: '30'
+        average: 'True'
+        avg_alpha: '0.5'
+        shift: 'True'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: logpwrfft_sink
+    id: blocks_null_sink
+    parameters:
+        type: float
+        vlen: '64'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: channelizer
+    id: pfb_channelizer_hier_ccf
+    parameters:
+        nchans: '4'
+        n_filterbanks: '2'
+        taps: None
+        outchans: None
+        atten: '100'
+        bw: '1.0'
+        tb: '0.2'
+        ripple: '0.1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: channel0_sink
+    id: blocks_null_sink
+    parameters:
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: channel1_sink
+    id: blocks_null_sink
+    parameters:
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: channel2_sink
+    id: blocks_null_sink
+    parameters:
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: channel3_sink
+    id: blocks_null_sink
+    parameters:
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: encoder_def
+    id: variable_cc_encoder_def
+    parameters:
+        ndim: '0'
+        dim1: '1'
+        dim2: '1'
+        framebits: '256'
+        k: '7'
+        rate: '2'
+        polys: '[79, 109]'
+        state_start: '0'
+        mode: fec.CC_STREAMING
+        padding: 'False'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: decoder_def
+    id: variable_cc_decoder_def
+    parameters:
+        ndim: '0'
+        dim1: '1'
+        dim2: '1'
+        framebits: '256'
+        k: '7'
+        rate: '2'
+        polys: '[79, 109]'
+        state_start: '0'
+        state_end: '-1'
+        mode: fec.CC_STREAMING
+        padding: 'False'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: unpack
+    id: blocks_unpack_k_bits_bb
+    parameters:
+        k: '8'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: extended_encoder
+    id: fec_extended_encoder
+    parameters:
+        encoder_list: encoder_def
+        threadtype: none
+        puncpat: '11'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: symbols
+    id: blocks_uchar_to_float
+    parameters: {}
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: extended_decoder
+    id: fec_extended_decoder
+    parameters:
+        value: fec_extended_decoder
+        decoder_list: decoder_def
+        threadtype: none
+        ann: None
+        puncpat: '11'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: extended_sink
+    id: blocks_null_sink
+    parameters:
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: tagged_encoder
+    id: fec_extended_tagged_encoder
+    parameters:
+        encoder_list: encoder_def
+        mtu: '1500'
+        puncpat: '11'
+        lentagname: None
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: tagged_symbols
+    id: blocks_uchar_to_float
+    parameters: {}
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: tagged_decoder
+    id: fec_extended_tagged_decoder
+    parameters:
+        value: fec_extended_decoder
+        decoder_list: decoder_def
+        mtu: '1500'
+        ann: None
+        puncpat: '11'
+        lentagname: None
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: tagged_sink
+    id: blocks_null_sink
+    parameters:
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: pdu_strobe
+    id: blocks_message_strobe
+    parameters:
+        msg: pmt.cons(pmt.PMT_NIL, pmt.init_u8vector(4, [11, 22, 33, 44]))
+        period: '200'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: async_encoder
+    id: fec_extended_async_encoder
+    parameters:
+        encoder_list: encoder_def
+        puncpat: '11'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: async_debug
+    id: blocks_message_debug
+    parameters:
+        en_uvec: 'True'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: autocorrelator
+    id: qtgui_auto_correlator_sink
+    parameters:
+        sampRate: '32000'
+        fac_size: '512'
+        fac_decimation: '10'
+        useDB: 'True'
+        title: '""'
+        grid: 'False'
+        autoScale: 'True'
+        yMin: '-60'
+        yMax: '10'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+connections:
+- [bytes, '0', byte_throttle, '0']
+- [byte_throttle, '0', interleaver, '0']
+- [interleaver, '0', deinterleaver, '0']
+- [deinterleaver, '0', interleaver_sink, '0']
+- [signal, '0', signal_throttle, '0']
+- [signal_throttle, '0', decimator, '0']
+- [decimator, '0', decimator_sink, '0']
+- [signal_throttle, '0', logpwrfft, '0']
+- [logpwrfft, '0', logpwrfft_sink, '0']
+- [signal_throttle, '0', channelizer, '0']
+- [channelizer, '0', channel0_sink, '0']
+- [channelizer, '1', channel1_sink, '0']
+- [channelizer, '2', channel2_sink, '0']
+- [channelizer, '3', channel3_sink, '0']
+- [byte_throttle, '0', unpack, '0']
+- [unpack, '0', extended_encoder, '0']
+- [extended_encoder, '0', symbols, '0']
+- [symbols, '0', extended_decoder, '0']
+- [extended_decoder, '0', extended_sink, '0']
+- [unpack, '0', tagged_encoder, '0']
+- [tagged_encoder, '0', tagged_symbols, '0']
+- [tagged_symbols, '0', tagged_decoder, '0']
+- [tagged_decoder, '0', tagged_sink, '0']
+- [signal_throttle, '0', autocorrelator, '0']
+-   src_blk_id: pdu_strobe
+    src_port_id: strobe
+    snk_blk_id: async_encoder
+    snk_port_id: in
+-   src_blk_id: async_encoder
+    src_port_id: out
+    snk_blk_id: async_debug
+    snk_port_id: print
+metadata:
+    file_format: 1

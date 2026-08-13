@@ -108,6 +108,33 @@ const CASES = [
   // so -- a sink that constructs but never pairs its two inputs prints nothing.
   { name: 'QT GUI sinks (eye, histogram, raster, vector, matrix, combined, BER)',
     grc: 'test/fixtures/wasm_qtgui_sinks.grc', expectLogs: ['ber_sink_b -'] },
+  // The in-tree Python hier blocks rebuilt in C++ (blocks/src/*_hier.hpp). A
+  // hier_block2 is not a gr::block, so it never appears in the diagnostics
+  // snapshot itself: what these cases check is that each one constructs and that
+  // the leaf blocks *downstream* of it moved items, which is what a hierarchy
+  // that builds but stalls inside would fail.
+  // expectLogs covers the one block here with no stream side at all: the async
+  // encoder answers a 4-bit PDU with an 8-bit one, so the length Message Debug
+  // prints is what says the rate-1/2 encoder ran rather than the PDU passing
+  // straight through.
+  { name: 'core hier rebuilds (interleaver, decimator, logpwrfft, channelizer, FEC)',
+    grc: 'test/fixtures/wasm_hier_core.grc',
+    expectLogs: ['pdu length =', '8 bytes'] },
+  { name: 'GFSK/GMSK modems (deferred digital module)',
+    grc: 'test/fixtures/wasm_hier_modems.grc' },
+  // The BER curve generator is the one case here that checks the *arithmetic*
+  // rather than the wiring: each Es/N0 point encodes a random byte stream, adds
+  // Gaussian noise at that ratio and decodes, so what the BER sink prints says
+  // whether the convolutional code is really being applied. The two points are
+  // chosen either side of the K=7 rate-1/2 code's threshold: -4 dB is past it
+  // and prints a bit error rate, +12 dB is well inside it and runs out of bits
+  // to test before it finds an error ("BER Limit Reached"). A chain that ran but
+  // decoded nothing would print a rate near log10(0.5) at both.
+  { name: 'FEC BER curve generator (extended encoder/decoder per Es/N0 point)',
+    grc: 'test/fixtures/wasm_hier_bercurve.grc',
+    expectLogs: ['ber_sink_b -', 'BER Limit Reached'] },
+  { name: 'CVSD vocoder and ATSC RX filter (deferred vocoder/dtv modules)',
+    grc: 'test/fixtures/wasm_hier_vocoder_dtv.grc' },
   { name: 'gr-satellites hier rebuilds', grc: 'test/fixtures/wasm_satellites_hier.grc' },
   { name: 'gr-satellites AX.25 framer/deframer loopback',
     grc: 'test/fixtures/wasm_satellites_ax25_loopback.grc' },

@@ -94,6 +94,26 @@ def expand_include_template(include, block):
     return variants
 
 
+def python_option(value):
+    """One enum value as GRC writes it into a .grc.
+
+    Almost every boolean parameter spells its options ``['True', 'False']``, but
+    a handful of blocks (Matrix Interleaver, QT GUI Matrix Sink, three
+    gr-satellites decoders) leave the quotes off, so yaml hands back Python
+    ``True``/``False``.  The .grc still stores the value as the text "False", and
+    the editor validates a value by looking it up among the options -- so
+    without this the block is rejected for holding its own default.
+    """
+    return str(value) if isinstance(value, bool) else value
+
+
+def python_options(options):
+    """A parameter's option list, each value spelled as GRC writes it."""
+    if not isinstance(options, list):
+        return options
+    return [python_option(option) for option in options]
+
+
 def clean_doxygen(comment):
     """Turn one /** ... */ comment into readable, plain-text documentation."""
     text = re.sub(r"^/\*[*!]|(?:\*/)$", "", comment.strip())
@@ -372,9 +392,9 @@ def main(out_path):
                     param_categories[p["id"]] = param_category
                     params.append({"id": p["id"], "label": p.get("label", p["id"]),
                                    "dtype": str(p.get("dtype", "")),
-                                   "default": p.get("default", ""),
+                                   "default": python_option(p.get("default", "")),
                                    "category": param_category,
-                                   "options": p.get("options"),
+                                   "options": python_options(p.get("options")),
                                    "option_labels": p.get("option_labels"),
                                    "option_attributes": p.get("option_attributes"),
                                    "hide": p.get("hide", "none")})

@@ -4609,7 +4609,7 @@
      "id": "is_packed",
      "label": "Packed bytes",
      "dtype": "bool",
-     "default": false,
+     "default": "False",
      "category": "General",
      "options": null,
      "option_labels": null,
@@ -8632,14 +8632,15 @@
     "Stream Operators"
    ],
    "flags": [
-    "python"
+    "python",
+    "cpp"
    ],
-   "runnable": false,
-   "unavailable_reason": "Python-only block",
+   "runnable": true,
+   "unavailable_reason": null,
    "gui": false,
    "module": "core",
    "documentation": "|- Block interleaver reads inputs into rows and writes outputs by cols\npython/matrix_interleaver.py",
-   "api_documentation": "",
+   "api_documentation": "Block interleaver writes inputs into conceptual rows of the matrix\nand reads outputs by conceptual columns of the matrix.\nIn deinterleaver mode it writes inputs into conceptual columns\nand reads outputs by conceptual rows.",
    "wiki_url": "https://wiki.gnuradio.org/index.php/Matrix_Interleaver",
    "params": [
     {
@@ -8704,11 +8705,11 @@
      "id": "deint",
      "label": "Deinterleave",
      "dtype": "bool",
-     "default": false,
+     "default": "False",
      "category": "General",
      "options": [
-      true,
-      false
+      "True",
+      "False"
      ],
      "option_labels": null,
      "option_attributes": null,
@@ -12929,14 +12930,15 @@
     "Stream Operators"
    ],
    "flags": [
-    "python"
+    "python",
+    "cpp"
    ],
-   "runnable": false,
-   "unavailable_reason": "Python-only block",
+   "runnable": true,
+   "unavailable_reason": null,
    "gui": false,
    "module": "core",
    "documentation": "",
-   "api_documentation": "",
+   "api_documentation": "Convert the stream to a vector, decimate the vector stream to achieve the vector rate.",
    "wiki_url": "https://wiki.gnuradio.org/index.php/Stream_to_Vec_Decim",
    "params": [
     {
@@ -20026,7 +20028,7 @@
      "id": "input_reflected",
      "label": "LSB-first input",
      "dtype": "bool",
-     "default": true,
+     "default": "True",
      "category": "General",
      "options": null,
      "option_labels": null,
@@ -20037,7 +20039,7 @@
      "id": "result_reflected",
      "label": "LSB-first result",
      "dtype": "bool",
-     "default": true,
+     "default": "True",
      "category": "General",
      "options": null,
      "option_labels": null,
@@ -20048,7 +20050,7 @@
      "id": "swap_endianness",
      "label": "LSB CRC in PDU",
      "dtype": "bool",
-     "default": false,
+     "default": "False",
      "category": "General",
      "options": null,
      "option_labels": null,
@@ -20155,7 +20157,7 @@
      "id": "input_reflected",
      "label": "LSB-first input",
      "dtype": "bool",
-     "default": true,
+     "default": "True",
      "category": "General",
      "options": null,
      "option_labels": null,
@@ -20166,7 +20168,7 @@
      "id": "result_reflected",
      "label": "LSB-first result",
      "dtype": "bool",
-     "default": true,
+     "default": "True",
      "category": "General",
      "options": null,
      "option_labels": null,
@@ -20177,7 +20179,7 @@
      "id": "swap_endianness",
      "label": "LSB CRC in PDU",
      "dtype": "bool",
-     "default": false,
+     "default": "False",
      "category": "General",
      "options": null,
      "option_labels": null,
@@ -20188,7 +20190,7 @@
      "id": "discard_crc",
      "label": "Discard CRC",
      "dtype": "bool",
-     "default": false,
+     "default": "False",
      "category": "General",
      "options": null,
      "option_labels": null,
@@ -20822,14 +20824,15 @@
     "Modulators"
    ],
    "flags": [
-    "python"
+    "python",
+    "cpp"
    ],
-   "runnable": false,
-   "unavailable_reason": "Python-only block",
+   "runnable": true,
+   "unavailable_reason": null,
    "gui": false,
-   "module": "core",
+   "module": "digital",
    "documentation": "",
-   "api_documentation": "",
+   "api_documentation": "Hierarchical block for Gaussian Minimum Shift Key (GFSK)\ndemodulation.\n\nThe input is the complex modulated signal at baseband.\nThe output is a stream of bits packed 1 bit per byte (the LSB)\n\nArgs:\n    samples_per_symbol: samples per baud (integer)\n    verbose: Print information about modulator? (bool)\n    log: Print modualtion data to files? (bool)\n\nClock recovery parameters.  These all have reasonable defaults.\n\nArgs:\n    gain_mu: controls rate of mu adjustment (float)\n    mu: unused but unremoved for backward compatibility (unused)\n    omega_relative_limit: sets max variation in omega (float, typically 0.000200 (200 ppm))\n    freq_error: bit rate error as a fraction",
    "wiki_url": "https://wiki.gnuradio.org/index.php/GFSK_Demod",
    "params": [
     {
@@ -20962,14 +20965,15 @@
     "Modulators"
    ],
    "flags": [
-    "python"
+    "python",
+    "cpp"
    ],
-   "runnable": false,
-   "unavailable_reason": "Python-only block",
+   "runnable": true,
+   "unavailable_reason": null,
    "gui": false,
-   "module": "core",
+   "module": "digital",
    "documentation": "",
-   "api_documentation": "",
+   "api_documentation": "Hierarchical block for Gaussian Frequency Shift Key (GFSK)\nmodulation.\n\nThe input is a byte stream (unsigned char) and the\noutput is the complex modulated signal at baseband.\n\nArgs:\n    samples_per_symbol: samples per baud >= 2 (integer)\n    bt: Gaussian filter bandwidth * symbol time (float)\n    verbose: Print information about modulator? (bool)\n    debug: Print modualtion data to files? (bool)\n    unpack: Unpack input byte stream? (bool)",
    "wiki_url": "https://wiki.gnuradio.org/index.php/GFSK_Mod",
    "params": [
     {
@@ -21187,14 +21191,15 @@
     "Modulators"
    ],
    "flags": [
-    "python"
+    "python",
+    "cpp"
    ],
-   "runnable": false,
-   "unavailable_reason": "Python-only block",
+   "runnable": true,
+   "unavailable_reason": null,
    "gui": false,
-   "module": "core",
+   "module": "digital",
    "documentation": "",
-   "api_documentation": "",
+   "api_documentation": "Hierarchical block for Gaussian Minimum Shift Key (GMSK)\ndemodulation.\n\nThe input is the complex modulated signal at baseband.\nThe output is a stream of bits packed 1 bit per byte (the LSB)\n\nArgs:\n    samples_per_symbol: samples per baud (integer)\n    gain_mu: controls rate of mu adjustment (float)\n    mu: unused but unremoved for backward compatibility (unused)\n    omega_relative_limit: sets max variation in omega (float)\n    freq_error: bit rate error as a fraction (float)\n    verbose: Print information about modulator? (boolean)\n    log: Print modualtion data to files? (boolean)",
    "wiki_url": "https://wiki.gnuradio.org/index.php/GMSK_Demod",
    "params": [
     {
@@ -21316,14 +21321,15 @@
     "Modulators"
    ],
    "flags": [
-    "python"
+    "python",
+    "cpp"
    ],
-   "runnable": false,
-   "unavailable_reason": "Python-only block",
+   "runnable": true,
+   "unavailable_reason": null,
    "gui": false,
-   "module": "core",
+   "module": "digital",
    "documentation": "",
-   "api_documentation": "",
+   "api_documentation": "Hierarchical block for Gaussian Minimum Shift Key (GMSK)\nmodulation.\n\nThe input is a byte stream (unsigned char with packed bits)\nand the output is the complex modulated signal at baseband.\n\nArgs:\n    samples_per_symbol: samples per baud >= 2 (integer)\n    bt: Gaussian filter bandwidth * symbol time (float)\n    verbose: Print information about modulator? (boolean)\n    log: Print modulation data to files? (boolean)",
    "wiki_url": "https://wiki.gnuradio.org/index.php/GMSK_Mod",
    "params": [
     {
@@ -21429,14 +21435,15 @@
     "Modulators"
    ],
    "flags": [
-    "python"
+    "python",
+    "cpp"
    ],
-   "runnable": false,
-   "unavailable_reason": "Python-only block",
+   "runnable": true,
+   "unavailable_reason": null,
    "gui": false,
-   "module": "core",
+   "module": "digital",
    "documentation": "",
-   "api_documentation": "",
+   "api_documentation": "Generic CPM modulator\n\nExamples:\n- Setting h = 0.5, L = 1, type = LREC yields MSK.\n- Setting h = 0.5, type = GAUSSIAN and beta = 0.3 yields GMSK\nas used in GSM.\n\nThe input of this block are symbols from an M-ary alphabet\n+/-1, +/-3, ..., +/-(M-1). Usually, M = 2 and therefore, the\nvalid inputs are +/-1.\nThe modulator will silently accept any other inputs, though.\nThe output is the phase-modulated signal.\n\nMake CPM modulator block.\n\n\\pi every samples_per_sym samples. Set this to 0.5\nfor Minimum Shift Keying variants.\n\nParameters:\n  type: The modulation type. Can be one of LREC, LRC, LSRC, TFM or GAUSSIAN. See gr_cpm::phase_response() for a detailed description.\n  h: The modulation index. \\f$ h \\cdot \\pi\\f$ is the maximum phase change that can occur between two symbols, i.e., if you only send ones, the phase will increase by \\f$ h \\cdot\n  samples_per_sym: Samples per symbol.\n  L: The length of the phase duration in symbols. For L=1, this yields full- response CPM symbols, for L > 1, partial-response.\n  beta: For LSRC, this is the rolloff factor. For Gaussian pulses, this is the 3 dB time-bandwidth product.",
    "wiki_url": "https://wiki.gnuradio.org/index.php/GMSK_Modulator",
    "params": [
     {
@@ -26196,11 +26203,13 @@
     "Digital Television",
     "ATSC"
    ],
-   "flags": [],
-   "runnable": false,
-   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "flags": [
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
    "gui": false,
-   "module": "core",
+   "module": "dtv",
    "documentation": "",
    "api_documentation": "",
    "wiki_url": "https://wiki.gnuradio.org/index.php/ATSC_Receive_Pipeline",
@@ -26257,11 +26266,13 @@
     "Digital Television",
     "ATSC"
    ],
-   "flags": [],
-   "runnable": false,
-   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "flags": [
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
    "gui": false,
-   "module": "core",
+   "module": "dtv",
    "documentation": "",
    "api_documentation": "",
    "wiki_url": "https://wiki.gnuradio.org/index.php/ATSC_RX_Filter",
@@ -40257,8 +40268,8 @@
     "Error Coding"
    ],
    "flags": [],
-   "runnable": false,
-   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "runnable": true,
+   "unavailable_reason": null,
    "gui": false,
    "module": "core",
    "documentation": "Note that this block tries to launch many parallel codes to run simultaneously. Thus, it requires that the definitions for each encoder and decoder (specified in the \"Encoder list\" and \"Decoder list\") be configured with a parallelism > 0. If the parallelism for one of the encoder or decoder definition blocks is configured to 0, you will likely see an error like:\n\n    generic_decoder=decoder_list[i],\n    TypeError: 'generic_decoder_sptr' object does not support indexing\n\n    or\n\n    generic_encoder=encoder_list[i],\n    TypeError: 'generic_encoder_sptr' object does not support indexing",
@@ -40725,8 +40736,8 @@
     "Error Coding"
    ],
    "flags": [],
-   "runnable": false,
-   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "runnable": true,
+   "unavailable_reason": null,
    "gui": false,
    "module": "core",
    "documentation": "",
@@ -40888,8 +40899,8 @@
     "Error Coding"
    ],
    "flags": [],
-   "runnable": false,
-   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "runnable": true,
+   "unavailable_reason": null,
    "gui": false,
    "module": "core",
    "documentation": "",
@@ -40969,8 +40980,8 @@
     "Error Coding"
    ],
    "flags": [],
-   "runnable": false,
-   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "runnable": true,
+   "unavailable_reason": null,
    "gui": false,
    "module": "core",
    "documentation": "",
@@ -41073,8 +41084,8 @@
     "Error Coding"
    ],
    "flags": [],
-   "runnable": false,
-   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "runnable": true,
+   "unavailable_reason": null,
    "gui": false,
    "module": "core",
    "documentation": "",
@@ -42118,8 +42129,8 @@
    "flags": [
     "show_id"
    ],
-   "runnable": false,
-   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "runnable": true,
+   "unavailable_reason": null,
    "gui": false,
    "module": "core",
    "documentation": "",
@@ -42265,8 +42276,8 @@
    "flags": [
     "show_id"
    ],
-   "runnable": false,
-   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "runnable": true,
+   "unavailable_reason": null,
    "gui": false,
    "module": "core",
    "documentation": "",
@@ -42368,8 +42379,8 @@
    "flags": [
     "show_id"
    ],
-   "runnable": false,
-   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "runnable": true,
+   "unavailable_reason": null,
    "gui": false,
    "module": "core",
    "documentation": "",
@@ -42450,8 +42461,8 @@
    "flags": [
     "show_id"
    ],
-   "runnable": false,
-   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "runnable": true,
+   "unavailable_reason": null,
    "gui": false,
    "module": "core",
    "documentation": "",
@@ -43480,8 +43491,8 @@
    "flags": [
     "show_id"
    ],
-   "runnable": false,
-   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "runnable": true,
+   "unavailable_reason": null,
    "gui": false,
    "module": "core",
    "documentation": "",
@@ -43584,8 +43595,8 @@
    "flags": [
     "show_id"
    ],
-   "runnable": false,
-   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "runnable": true,
+   "unavailable_reason": null,
    "gui": false,
    "module": "core",
    "documentation": "",
@@ -43933,8 +43944,8 @@
    "flags": [
     "python"
    ],
-   "runnable": false,
-   "unavailable_reason": "Python-only block",
+   "runnable": true,
+   "unavailable_reason": null,
    "gui": false,
    "module": "core",
    "documentation": "",
@@ -46665,8 +46676,8 @@
    "flags": [
     "python"
    ],
-   "runnable": false,
-   "unavailable_reason": "Python-only block",
+   "runnable": true,
+   "unavailable_reason": null,
    "gui": false,
    "module": "core",
    "documentation": "",
@@ -47817,7 +47828,7 @@
      "id": "verbose",
      "label": "Verbose Output",
      "dtype": "bool",
-     "default": false,
+     "default": "False",
      "category": "General",
      "options": null,
      "option_labels": null,
@@ -49493,11 +49504,11 @@
      "id": "sync_check",
      "label": "Sync check",
      "dtype": "bool",
-     "default": true,
+     "default": "True",
      "category": "General",
      "options": [
-      true,
-      false
+      "True",
+      "False"
      ],
      "option_labels": null,
      "option_attributes": null,
@@ -49757,11 +49768,11 @@
      "id": "sync_check",
      "label": "Sync check",
      "dtype": "bool",
-     "default": true,
+     "default": "True",
      "category": "General",
      "options": [
-      true,
-      false
+      "True",
+      "False"
      ],
      "option_labels": null,
      "option_attributes": null,
@@ -49869,11 +49880,11 @@
      "id": "sync_check",
      "label": "Sync check",
      "dtype": "bool",
-     "default": true,
+     "default": "True",
      "category": "General",
      "options": [
-      true,
-      false
+      "True",
+      "False"
      ],
      "option_labels": null,
      "option_attributes": null,
@@ -53934,7 +53945,7 @@
      "id": "metadict",
      "label": "Mode",
      "dtype": "enum",
-     "default": true,
+     "default": "True",
      "category": "General",
      "options": [
       "Metadata",
@@ -55008,12 +55019,12 @@
     "QT"
    ],
    "flags": [],
-   "runnable": false,
-   "unavailable_reason": "not implemented in the WebAssembly runner",
-   "gui": false,
+   "runnable": true,
+   "unavailable_reason": null,
+   "gui": true,
    "module": "core",
    "documentation": "This block uses the Wiener Khinchin theorem that the FFT of a signal's power spectrum is its auto-correlation function. \n     \nFAC Size controls the FFT size and therefore the length of time (samp_rate/fac_size) the auto-correlation runs over.\n\nThe GUI hint can be used to position the widget within the application. The hint is of the form [tab_id@tab_index]: [row, col, row_span, col_span]. Both the tab specification and the grid position are optional.",
-   "api_documentation": "",
+   "api_documentation": "docstring for block AutoCorrelatorSink",
    "wiki_url": "https://wiki.gnuradio.org/index.php/QT_GUI_Fast_Auto-Correlator_Sink",
    "params": [
     {
@@ -63079,11 +63090,11 @@
      "id": "contour",
      "label": "Contour Plot",
      "dtype": "bool",
-     "default": false,
+     "default": "False",
      "category": "General",
      "options": [
-      true,
-      false
+      "True",
+      "False"
      ],
      "option_labels": null,
      "option_attributes": null,
@@ -64573,7 +64584,7 @@
      "id": "enabled",
      "label": "Enabled",
      "dtype": "bool",
-     "default": true,
+     "default": "True",
      "category": "General",
      "options": null,
      "option_labels": null,
@@ -72326,7 +72337,7 @@
      "id": "verbose",
      "label": "Verbose",
      "dtype": "bool",
-     "default": false,
+     "default": "False",
      "category": "General",
      "options": null,
      "option_labels": null,
@@ -72439,7 +72450,7 @@
      "id": "verbose",
      "label": "Verbose",
      "dtype": "bool",
-     "default": false,
+     "default": "False",
      "category": "General",
      "options": null,
      "option_labels": null,
@@ -72450,7 +72461,7 @@
      "id": "display",
      "label": "Display",
      "dtype": "bool",
-     "default": true,
+     "default": "True",
      "category": "General",
      "options": null,
      "option_labels": null,
@@ -72461,7 +72472,7 @@
      "id": "fullscreen",
      "label": "Fullscreen",
      "dtype": "bool",
-     "default": true,
+     "default": "True",
      "category": "General",
      "options": null,
      "option_labels": null,
@@ -76075,7 +76086,7 @@
      "id": "iq",
      "label": "IQ input",
      "dtype": "bool",
-     "default": false,
+     "default": "False",
      "category": "General",
      "options": null,
      "option_labels": null,
@@ -76171,7 +76182,7 @@
      "id": "differential",
      "label": "Differential",
      "dtype": "bool",
-     "default": false,
+     "default": "False",
      "category": "General",
      "options": null,
      "option_labels": null,
@@ -76182,7 +76193,7 @@
      "id": "manchester",
      "label": "Manchester",
      "dtype": "bool",
-     "default": false,
+     "default": "False",
      "category": "General",
      "options": null,
      "option_labels": null,
@@ -76193,7 +76204,7 @@
      "id": "iq",
      "label": "IQ input",
      "dtype": "bool",
-     "default": false,
+     "default": "False",
      "category": "General",
      "options": null,
      "option_labels": null,
@@ -76278,7 +76289,7 @@
      "id": "iq",
      "label": "IQ input",
      "dtype": "bool",
-     "default": false,
+     "default": "False",
      "category": "General",
      "options": null,
      "option_labels": null,
@@ -76289,7 +76300,7 @@
      "id": "subaudio",
      "label": "Subaudio",
      "dtype": "bool",
-     "default": false,
+     "default": "False",
      "category": "General",
      "options": null,
      "option_labels": null,
@@ -76600,7 +76611,7 @@
      "id": "iq",
      "label": "IQ input",
      "dtype": "bool",
-     "default": false,
+     "default": "False",
      "category": "General",
      "options": null,
      "option_labels": null,
@@ -78053,7 +78064,7 @@
      "id": "input_reflected",
      "label": "LSB-first input",
      "dtype": "bool",
-     "default": true,
+     "default": "True",
      "category": "General",
      "options": null,
      "option_labels": null,
@@ -78064,7 +78075,7 @@
      "id": "result_reflected",
      "label": "LSB-first result",
      "dtype": "bool",
-     "default": true,
+     "default": "True",
      "category": "General",
      "options": null,
      "option_labels": null,
@@ -78075,7 +78086,7 @@
      "id": "swap_endianness",
      "label": "LSB CRC in PDU",
      "dtype": "bool",
-     "default": false,
+     "default": "False",
      "category": "General",
      "options": null,
      "option_labels": null,
@@ -78182,7 +78193,7 @@
      "id": "input_reflected",
      "label": "LSB-first input",
      "dtype": "bool",
-     "default": true,
+     "default": "True",
      "category": "General",
      "options": null,
      "option_labels": null,
@@ -78193,7 +78204,7 @@
      "id": "result_reflected",
      "label": "LSB-first result",
      "dtype": "bool",
-     "default": true,
+     "default": "True",
      "category": "General",
      "options": null,
      "option_labels": null,
@@ -78204,7 +78215,7 @@
      "id": "swap_endianness",
      "label": "LSB CRC in PDU",
      "dtype": "bool",
-     "default": false,
+     "default": "False",
      "category": "General",
      "options": null,
      "option_labels": null,
@@ -78215,7 +78226,7 @@
      "id": "discard_crc",
      "label": "Discard CRC",
      "dtype": "bool",
-     "default": false,
+     "default": "False",
      "category": "General",
      "options": null,
      "option_labels": null,
@@ -81535,7 +81546,7 @@
      "id": "buggy_crc",
      "label": "Buggy CRC",
      "dtype": "bool",
-     "default": true,
+     "default": "True",
      "category": "General",
      "options": null,
      "option_labels": null,
@@ -85985,11 +85996,11 @@
      "id": "dc_removal1",
      "label": "Ch1: Automatic DC Removal",
      "dtype": "string",
-     "default": true,
+     "default": "True",
      "category": "RF Options",
      "options": [
-      false,
-      true
+      "False",
+      "True"
      ],
      "option_labels": [
       false,
@@ -90738,7 +90749,7 @@
      "id": "repeat",
      "label": "Repeat?",
      "dtype": "bool",
-     "default": false,
+     "default": "False",
      "category": "General",
      "options": null,
      "option_labels": null,
@@ -93142,14 +93153,15 @@
     "Audio"
    ],
    "flags": [
-    "python"
+    "python",
+    "cpp"
    ],
-   "runnable": false,
-   "unavailable_reason": "Python-only block",
+   "runnable": true,
+   "unavailable_reason": null,
    "gui": false,
-   "module": "core",
+   "module": "vocoder",
    "documentation": "",
-   "api_documentation": "",
+   "api_documentation": "This is a wrapper for the CVSD decoder that performs decimation and filtering\nnecessary to work with the vocoding. It converts an incoming CVSD-encoded short to a float, decodes it\nto a float, decimates it, and scales it (by 32000; slightly below the maximum value to avoid clipping).\n\nThe sampling rate can be anything, though, of course, the higher the sampling rate and the\nhigher the interpolation rate are, the better the sound quality.",
    "wiki_url": "https://wiki.gnuradio.org/index.php/CVSD_Decoder",
    "params": [
     {
@@ -93244,14 +93256,15 @@
     "Audio"
    ],
    "flags": [
-    "python"
+    "python",
+    "cpp"
    ],
-   "runnable": false,
-   "unavailable_reason": "Python-only block",
+   "runnable": true,
+   "unavailable_reason": null,
    "gui": false,
-   "module": "core",
+   "module": "vocoder",
    "documentation": "",
-   "api_documentation": "",
+   "api_documentation": "This is a wrapper for the CVSD encoder that performs interpolation and filtering\nnecessary to work with the vocoding. It converts an incoming float (+-1) to a short, scales\nit (to 32000; slightly below the maximum value), interpolates it, and then vocodes it.\n\nThe incoming sampling rate can be anything, though, of course, the higher the sampling rate and the\nhigher the interpolation rate are, the better the sound quality.",
    "wiki_url": "https://wiki.gnuradio.org/index.php/CVSD_Encoder",
    "params": [
     {
@@ -93441,7 +93454,7 @@
      "id": "squelch_enable",
      "label": "Squelch Enable",
      "dtype": "bool",
-     "default": true,
+     "default": "True",
      "category": "General",
      "options": null,
      "option_labels": null,
@@ -93581,7 +93594,7 @@
      "id": "clip_val",
      "label": "Clip",
      "dtype": "bool",
-     "default": false,
+     "default": "False",
      "category": "General",
      "options": null,
      "option_labels": null,
@@ -93592,7 +93605,7 @@
      "id": "tx_bpf_val",
      "label": "Tx BPF",
      "dtype": "bool",
-     "default": true,
+     "default": "True",
      "category": "General",
      "options": null,
      "option_labels": null,

@@ -224,7 +224,11 @@ export const RUNNABLE: Record<string, RunnableDef> = {
       { id: 'const', label: 'Constant', type: 'string', def: '0' },
     ],
   },
-  blocks_null_source: { label: 'Null Source', inputs: 0, outputs: 1, params: [STREAM_TYPE_PARAM] },
+  blocks_null_source: {
+    label: 'Null Source', inputs: 0, outputs: 1, params: [
+      STREAM_TYPE_PARAM,
+      { id: 'vlen', label: 'Vector Length', type: 'number', def: 1 },
+    ] },
   blocks_swapiq: {
     label: 'Swap IQ', inputs: 1, outputs: 1, params: [
       { id: 'datatype', label: 'Input Type', type: 'enum', def: 'complex',
@@ -366,7 +370,15 @@ export const RUNNABLE: Record<string, RunnableDef> = {
     ],
   },
   // ---- sinks ----
-  blocks_null_sink: { label: 'Null Sink', inputs: 1, outputs: 0, params: [STREAM_TYPE_PARAM] },
+  // vlen is declared because a vector stream has to be terminable: the runner
+  // sizes the sink from it, and without it here this schema (which supersedes
+  // the generated one) drops the parameter and the connection is refused as a
+  // vector-length mismatch.
+  blocks_null_sink: {
+    label: 'Null Sink', inputs: 1, outputs: 0, params: [
+      STREAM_TYPE_PARAM,
+      { id: 'vlen', label: 'Vector Length', type: 'number', def: 1 },
+    ] },
   qtgui_time_sink_x: {
     label: 'QT GUI Time Sink', inputs: 1, outputs: 0, params: [
       TYPE_PARAM,

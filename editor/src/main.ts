@@ -329,6 +329,22 @@ function portHidden(raw: string | boolean, params: Record<string, any>): boolean
 }
 
 function templateMultiplicity(raw: any, params: Record<string, any>): number {
+  // GRC's "a count, unless an explicit list overrides it" idiom:
+  //   ${ nchans if outchans is None else len(outchans) }
+  // expr.ts has no conditional expressions (nor `is`), so this would otherwise
+  // fall back to a single port -- and for the Hierarchical Polyphase
+  // Channelizer, which is where it appears, one port is not a cosmetic loss: a
+  // hier block's io_signature fixes the output count, so every channel it does
+  // not bring out is an unconnected port the runner refuses to start with.
+  const listOverride = String(raw ?? '').trim().match(
+    /^\$\{\s*(\w+)\s+if\s+(\w+)\s+is\s+None\s+else\s+len\(\s*\2\s*\)\s*\}$/);
+  if (listOverride) {
+    const override = listParam(String(params[listOverride[2]] ?? 'None').trim());
+    const count = Array.isArray(override)
+      ? override.length
+      : Number(templateValue('${' + listOverride[1] + '}', params));
+    return Number.isFinite(count) && count >= 1 ? Math.trunc(count) : 1;
+  }
   const value = templateValue(raw, params);
   const number = Number(value);
   // GRC's EvaluatedPInt falls back to one for zero, negative or invalid values.
@@ -403,9 +419,17 @@ function portMeta(inst: Inst, kind: 'in' | 'out', i: number): ResolvedPort {
   const indices = kind === 'in' ? d.inStreamIndices : d.outStreamIndices;
   const optional = kind === 'in' ? d.inOptional : d.outOptional;
   const domain = domains?.[i] || 'stream';
+  // Ports of a hand-written schema carry no vlen template of their own, but the
+  // whole GRC family that has a Vector Length parameter puts `vlen: ${vlen}` on
+  // every port, so read it off the instance when the schema declares one. Null
+  // Sink is why this matters: without it, terminating any vector stream is
+  // refused as a vector-length mismatch.
+  const vlen = d.params.some(p => p.id === 'vlen')
+    ? Number(templateValue('${vlen}', inst.params))
+    : 1;
   return {
     dtype: types?.[i] || '',
-    vlen: 1,
+    vlen: Number.isFinite(vlen) && vlen >= 1 ? Math.trunc(vlen) : 1,
     domain,
     id: ids?.[i] ?? (domain === 'stream' ? String(indices?.[i] ?? i) : String(i)),
     name: labels?.[i] || `${kind}${legacyPortCount(inst, kind) > 1 ? i : ''}`,

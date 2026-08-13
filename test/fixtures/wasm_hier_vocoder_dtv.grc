@@ -1,0 +1,115 @@
+options:
+    parameters:
+        id: wasm_hier_vocoder_dtv
+        title: WASM CVSD and ATSC hier block rebuilds
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: audio
+    id: analog_sig_source_x
+    parameters:
+        type: float
+        samp_rate: '8000'
+        waveform: analog.GR_COS_WAVE
+        frequency: '400'
+        amplitude: '0.5'
+        offset: '0'
+        phase: '0'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: audio_throttle
+    id: blocks_throttle2
+    parameters:
+        ignoretag: 'True'
+        limit: auto
+        maximum: '0.1'
+        samples_per_second: '8000'
+        type: float
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: cvsd_encoder
+    id: vocoder_cvsd_encode_fb
+    parameters:
+        resample: '8'
+        bw: '0.5'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: cvsd_decoder
+    id: vocoder_cvsd_decode_bf
+    parameters:
+        resample: '8'
+        bw: '0.5'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: cvsd_sink
+    id: blocks_null_sink
+    parameters:
+        type: float
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: rf
+    id: analog_noise_source_x
+    parameters:
+        type: complex
+        noise_type: analog.GR_GAUSSIAN
+        amp: '0.1'
+        seed: '0'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: rf_throttle
+    id: blocks_throttle2
+    parameters:
+        ignoretag: 'True'
+        limit: auto
+        maximum: '0.1'
+        samples_per_second: '200000'
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: atsc_filter
+    id: dtv_atsc_rx_filter
+    parameters:
+        rate: '6400000'
+        sps: '1.1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: atsc_filter_sink
+    id: blocks_null_sink
+    parameters:
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+connections:
+- [audio, '0', audio_throttle, '0']
+- [audio_throttle, '0', cvsd_encoder, '0']
+- [cvsd_encoder, '0', cvsd_decoder, '0']
+- [cvsd_decoder, '0', cvsd_sink, '0']
+- [rf, '0', rf_throttle, '0']
+- [rf_throttle, '0', atsc_filter, '0']
+- [atsc_filter, '0', atsc_filter_sink, '0']
+metadata:
+    file_format: 1

@@ -127,3 +127,89 @@ variable_qtgui_msgcheckbox:
 
 variable_qtgui_msg_push_button:
   prune_options: ['string']
+
+# ---------------------------------------------------------------------------
+# In-tree Python gr.hier_block2 compositions, rebuilt in C++ under blocks/src/.
+# Each of these is a chain of blocks the browser already has, held together by
+# Python that this build has none of, so the rebuild is the same composition and
+# the entry here is what points the generated factory at it. Blocks needing live
+# setters or a coder object are hand-written in registry.cpp instead and appear
+# in gen_registry.py's CUSTOM_IDS rather than here.
+# ---------------------------------------------------------------------------
+
+# gr-digital's GFSK and GMSK modems (blocks/src/digital_hier.hpp). `verbose` and
+# `log` only print and write .dat files upstream, so the rebuilds accept and
+# ignore them rather than refusing a flowgraph that sets them.
+digital_gfsk_mod:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <digital_hier.hpp>']
+    make: 'auto block = GfskMod::make(${samples_per_symbol}, ${sensitivity}, ${bt}, ${do_unpack});'
+
+digital_gfsk_demod:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <digital_hier.hpp>']
+    make: 'auto block = GfskDemod::make(${samples_per_symbol}, ${sensitivity}, ${gain_mu}, ${omega_relative_limit}, ${freq_error});'
+
+digital_gmsk_mod:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <digital_hier.hpp>']
+    make: 'auto block = GmskMod::make(${samples_per_symbol}, ${bt}, ${do_unpack});'
+
+digital_gmsk_demod:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <digital_hier.hpp>']
+    make: 'auto block = GmskDemod::make(${samples_per_symbol}, ${gain_mu}, ${omega_relative_limit}, ${freq_error});'
+
+# Not a hier block at all: gr-digital's GMSK Modulator is the C++ cpmmod_bc with
+# the CPM type and modulation index fixed, and upstream simply never declared
+# cpp_templates for it.
+digital_gmskmod_bc:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <gnuradio/digital/cpmmod_bc.h>']
+    make: 'auto block = digital::cpmmod_bc::make_gmskmod_bc(${samples_per_symbol}, ${L}, ${bt});'
+
+# gr-blocks' two hier blocks (blocks/src/blocks_hier.hpp).
+blocks_matrix_interleaver:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <blocks_hier.hpp>']
+    make: 'auto block = MatrixInterleaver::make(${type.size} * ${vlen}, ${rows}, ${cols}, ${deint});'
+
+blocks_stream_to_vector_decimator:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <blocks_hier.hpp>']
+    make: 'auto block = StreamToVectorDecimator::make(${type.size}, ${sample_rate}, ${vec_rate}, ${vlen});'
+
+# gr-vocoder's CVSD wrappers (blocks/src/vocoder_hier.hpp). The vocoder blocks
+# they wrap are C++ already.
+vocoder_cvsd_encode_fb:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <vocoder_hier.hpp>']
+    make: 'auto block = CvsdEncode::make(${resample}, ${bw});'
+
+vocoder_cvsd_decode_bf:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <vocoder_hier.hpp>']
+    make: 'auto block = CvsdDecode::make(${resample}, ${bw});'
+
+# gr-dtv's ATSC receiver (blocks/src/dtv_hier.hpp). Every block in it is C++;
+# only the wiring was Python.
+dtv_atsc_rx_filter:
+  flags: [cpp]
+  cpp_templates:
+    includes: ['#include <dtv_hier.hpp>']
+    make: 'auto block = AtscRxFilter::make(${rate}, ${sps});'
+
+dtv_atsc_rx:
+  flags: [cpp]
+  cpp_templates:
+    includes: ['#include <dtv_hier.hpp>']
+    make: 'auto block = AtscRx::make(${rate}, ${sps});'

@@ -6,8 +6,10 @@
 #include "fosphor_sink.hpp"
 #include "fosphor_webgpu_sink.hpp"
 #include "analog_hier.hpp"
+#include "blocks_hier.hpp"
 #include "digital_hier.hpp"
 #include "fec_hier.hpp"
+#include "fft_hier.hpp"
 #include "filter_hier.hpp"
 #include "python_block.hpp"
 #include "qtgui_controls.hpp"
@@ -53,7 +55,13 @@
 #include <gnuradio/fec/async_decoder.h>
 #include <gnuradio/fec/ber_bf.h>
 #include <gnuradio/fec/cc_decoder.h>
+#include <gnuradio/fec/cc_encoder.h>
+#include <gnuradio/fec/ccsds_encoder.h>
 #include <gnuradio/fec/decode_ccsds_27_fb.h>
+#include <gnuradio/fec/dummy_decoder.h>
+#include <gnuradio/fec/dummy_encoder.h>
+#include <gnuradio/fec/repetition_decoder.h>
+#include <gnuradio/fec/repetition_encoder.h>
 #include <gnuradio/fec/decoder.h>
 #include <gnuradio/fec/depuncture_bb.h>
 #include <gnuradio/fec/encode_ccsds_27_bb.h>
@@ -647,23 +655,92 @@ gr::digital::constellation_sptr named_constellation(const std::string& expressio
         "Constellation Modulator references unknown constellation object: " + value);
 }
 
-// CC Decoder Definition objects, keyed by their GRC variable name. Like
+// Coder Definition objects, keyed by their GRC variable name. Like
 // variable_constellation these are GRC *variables* rather than blocks: the
 // factory constructs one and files it here, and the FEC blocks that take a
-// "Decoder Obj." parameter look it up by name.
-std::map<std::string, gr::fec::generic_decoder::sptr>& runtime_cc_decoders()
+// "Decoder Obj." or "Encoder Obj." parameter look it up by name.
+//
+// Each name holds a *list* because GRC's definition blocks have a Parallelism
+// parameter: 0 declares one object, 1 declares dim1 of them, and the blocks that
+// take a list (BER Curve Gen., the extended coders' threading modes) index into
+// it. A parallelism of 0 is therefore a list of one, and the singular lookups
+// below insist on exactly that.
+std::map<std::string, std::vector<gr::fec::generic_decoder::sptr>>&
+runtime_cc_decoders()
 {
-    static std::map<std::string, gr::fec::generic_decoder::sptr> objects;
+    static std::map<std::string, std::vector<gr::fec::generic_decoder::sptr>> objects;
     return objects;
 }
 
-gr::fec::generic_decoder::sptr named_cc_decoder(const std::string& expression)
+std::map<std::string, std::vector<gr::fec::generic_encoder::sptr>>& runtime_fec_encoders()
+{
+    static std::map<std::string, std::vector<gr::fec::generic_encoder::sptr>> objects;
+    return objects;
+}
+
+// How many objects a definition block declares: GRC's `ndim` parallelism, whose
+// dimensions are dim1 x dim2. Only one dimension of workers is meaningful here,
+// so a two-dimensional declaration is refused rather than silently flattened.
+int coder_definition_count(const json& p, const char* what)
+{
+    const int ndim = static_cast<int>(number_from(p, "ndim", 0));
+    if (ndim <= 0)
+        return 1;
+    if (ndim > 1)
+        throw std::runtime_error(std::string(what) +
+                                 " parallelism must be 0 or 1 in the browser");
+    const int dim1 = static_cast<int>(number_from(p, "dim1", 1));
+    if (dim1 < 1)
+        throw std::runtime_error(std::string(what) + " dimension must be positive");
+    return dim1;
+}
+
+std::vector<gr::fec::generic_decoder::sptr> named_cc_decoders(
+    const std::string& expression)
 {
     const std::string value = unquoted(expression);
     auto found = runtime_cc_decoders().find(value);
     if (found != runtime_cc_decoders().end())
         return found->second;
     throw std::runtime_error("FEC block references unknown decoder object: " + value);
+}
+
+std::vector<gr::fec::generic_encoder::sptr> named_fec_encoders(
+    const std::string& expression)
+{
+    const std::string value = unquoted(expression);
+    auto found = runtime_fec_encoders().find(value);
+    if (found != runtime_fec_encoders().end())
+        return found->second;
+    throw std::runtime_error("FEC block references unknown encoder object: " + value);
+}
+
+gr::fec::generic_decoder::sptr named_cc_decoder(const std::string& expression)
+{
+    auto decoders = named_cc_decoders(expression);
+    if (decoders.size() != 1)
+        throw std::runtime_error(
+            "FEC block needs a decoder object with a parallelism of 0: " +
+            unquoted(expression));
+    return decoders.front();
+}
+
+// GRC spells "this stream is not tagged" as a length tag name of None, which is
+// what selects the untagged encoder/decoder inside the extended blocks.
+std::string length_tag_name(const json& p)
+{
+    const std::string value = wasm_registry::text(p, "lentagname", "None");
+    return value == "None" ? std::string() : value;
+}
+
+gr::fec::generic_encoder::sptr named_fec_encoder(const std::string& expression)
+{
+    auto encoders = named_fec_encoders(expression);
+    if (encoders.size() != 1)
+        throw std::runtime_error(
+            "FEC block needs an encoder object with a parallelism of 0: " +
+            unquoted(expression));
+    return encoders.front();
 }
 
 cc_mode_t cc_mode_from(const json& p, const char* key)
@@ -2121,7 +2198,9 @@ static std::map<std::string, Factory>& registry_storage() {
              };
          }},
         {"blocks_null_source", [](const json& p) -> BuiltBlock {
-             return { gr::blocks::null_source::make(itemsize_of(p)), nullptr };
+             const auto vlen = static_cast<std::size_t>(
+                 std::max(1.0, number_from(p, "vlen", 1)));
+             return { gr::blocks::null_source::make(itemsize_of(p) * vlen), nullptr };
          }},
         {"blocks_correctiq", [](const json&) -> BuiltBlock {
              return { gr::blocks::correctiq::make(), nullptr };
@@ -2268,20 +2347,112 @@ static std::map<std::string, Factory>& registry_storage() {
              const std::string name = p.value("__name", std::string());
              if (name.empty())
                  throw std::runtime_error("CC Decoder Definition requires a block name");
-             // Parallelism (ndim) builds a list of decoders in GRC. Only the
-             // scalar form has a single object to hand to a block parameter.
-             if (static_cast<int>(number_from(p, "ndim", 0)) != 0)
+             // Each object in a parallel declaration is built separately rather
+             // than shared: a decoder carries per-codeword state, so N workers
+             // need N of them.
+             std::vector<gr::fec::generic_decoder::sptr> decoders;
+             const int count = coder_definition_count(p, "CC Decoder Definition");
+             for (int i = 0; i < count; ++i)
+                 decoders.push_back(gr::fec::code::cc_decoder::make(
+                     static_cast<int>(number_from(p, "framebits", 2048)),
+                     static_cast<int>(number_from(p, "k", 7)),
+                     static_cast<int>(number_from(p, "rate", 2)),
+                     flat_sequence<int>(p, "polys"),
+                     static_cast<int>(number_from(p, "state_start", 0)),
+                     static_cast<int>(number_from(p, "state_end", -1)),
+                     cc_mode_from(p, "mode"),
+                     bool_from(p, "padding", false)));
+             runtime_cc_decoders()[name] = std::move(decoders);
+             return {};
+         }},
+        {"variable_cc_encoder_def", [](const json& p) -> BuiltBlock {
+             const std::string name = p.value("__name", std::string());
+             if (name.empty())
+                 throw std::runtime_error("CC Encoder Definition requires a block name");
+             std::vector<gr::fec::generic_encoder::sptr> encoders;
+             const int count = coder_definition_count(p, "CC Encoder Definition");
+             for (int i = 0; i < count; ++i)
+                 encoders.push_back(gr::fec::code::cc_encoder::make(
+                     static_cast<int>(number_from(p, "framebits", 2048)),
+                     static_cast<int>(number_from(p, "k", 7)),
+                     static_cast<int>(number_from(p, "rate", 2)),
+                     flat_sequence<int>(p, "polys"),
+                     static_cast<int>(number_from(p, "state_start", 0)),
+                     cc_mode_from(p, "mode"),
+                     bool_from(p, "padding", false)));
+             runtime_fec_encoders()[name] = std::move(encoders);
+             return {};
+         }},
+        {"variable_ccsds_encoder_def", [](const json& p) -> BuiltBlock {
+             const std::string name = p.value("__name", std::string());
+             if (name.empty())
                  throw std::runtime_error(
-                     "CC Decoder Definition parallelism must be 0 in the browser");
-             runtime_cc_decoders()[name] = gr::fec::code::cc_decoder::make(
-                 static_cast<int>(number_from(p, "framebits", 2048)),
-                 static_cast<int>(number_from(p, "k", 7)),
-                 static_cast<int>(number_from(p, "rate", 2)),
-                 flat_sequence<int>(p, "polys"),
-                 static_cast<int>(number_from(p, "state_start", 0)),
-                 static_cast<int>(number_from(p, "state_end", -1)),
-                 cc_mode_from(p, "mode"),
-                 bool_from(p, "padding", false));
+                     "CCSDS Encoder Definition requires a block name");
+             std::vector<gr::fec::generic_encoder::sptr> encoders;
+             const int count = coder_definition_count(p, "CCSDS Encoder Definition");
+             for (int i = 0; i < count; ++i)
+                 encoders.push_back(gr::fec::code::ccsds_encoder::make(
+                     static_cast<int>(number_from(p, "framebits", 2048)),
+                     static_cast<int>(number_from(p, "state_start", 0)),
+                     cc_mode_from(p, "mode")));
+             runtime_fec_encoders()[name] = std::move(encoders);
+             return {};
+         }},
+        {"variable_dummy_encoder_def", [](const json& p) -> BuiltBlock {
+             const std::string name = p.value("__name", std::string());
+             if (name.empty())
+                 throw std::runtime_error(
+                     "Dummy Encoder Definition requires a block name");
+             std::vector<gr::fec::generic_encoder::sptr> encoders;
+             const int count = coder_definition_count(p, "Dummy Encoder Definition");
+             for (int i = 0; i < count; ++i)
+                 encoders.push_back(gr::fec::code::dummy_encoder::make(
+                     static_cast<int>(number_from(p, "framebits", 2048))));
+             runtime_fec_encoders()[name] = std::move(encoders);
+             return {};
+         }},
+        {"variable_repetition_encoder_def", [](const json& p) -> BuiltBlock {
+             const std::string name = p.value("__name", std::string());
+             if (name.empty())
+                 throw std::runtime_error(
+                     "Repetition Encoder Definition requires a block name");
+             std::vector<gr::fec::generic_encoder::sptr> encoders;
+             const int count =
+                 coder_definition_count(p, "Repetition Encoder Definition");
+             for (int i = 0; i < count; ++i)
+                 encoders.push_back(gr::fec::code::repetition_encoder::make(
+                     static_cast<int>(number_from(p, "framebits", 2048)),
+                     static_cast<int>(number_from(p, "rep", 3))));
+             runtime_fec_encoders()[name] = std::move(encoders);
+             return {};
+         }},
+        {"variable_dummy_decoder_def", [](const json& p) -> BuiltBlock {
+             const std::string name = p.value("__name", std::string());
+             if (name.empty())
+                 throw std::runtime_error(
+                     "Dummy Decoder Definition requires a block name");
+             std::vector<gr::fec::generic_decoder::sptr> decoders;
+             const int count = coder_definition_count(p, "Dummy Decoder Definition");
+             for (int i = 0; i < count; ++i)
+                 decoders.push_back(gr::fec::code::dummy_decoder::make(
+                     static_cast<int>(number_from(p, "framebits", 2048))));
+             runtime_cc_decoders()[name] = std::move(decoders);
+             return {};
+         }},
+        {"variable_repetition_decoder_def", [](const json& p) -> BuiltBlock {
+             const std::string name = p.value("__name", std::string());
+             if (name.empty())
+                 throw std::runtime_error(
+                     "Repetition Decoder Definition requires a block name");
+             std::vector<gr::fec::generic_decoder::sptr> decoders;
+             const int count =
+                 coder_definition_count(p, "Repetition Decoder Definition");
+             for (int i = 0; i < count; ++i)
+                 decoders.push_back(gr::fec::code::repetition_decoder::make(
+                     static_cast<int>(number_from(p, "framebits", 2048)),
+                     static_cast<int>(number_from(p, "rep", 3)),
+                     static_cast<float>(number_from(p, "prob", 0.5))));
+             runtime_cc_decoders()[name] = std::move(decoders);
              return {};
          }},
         // GRC's Tag Object: a variable holding one gr::tag_t, which a Vector
@@ -2324,7 +2495,54 @@ static std::map<std::string, Factory>& registry_storage() {
          }},
         {"fec_extended_decoder", [](const json& p) -> BuiltBlock {
              return { ExtendedDecoder::make(
-                          named_cc_decoder(p.value("decoder_list", std::string()))),
+                          named_cc_decoder(p.value("decoder_list", std::string())),
+                          wasm_registry::text(p, "puncpat", "11")),
+                      nullptr };
+         }},
+        {"fec_extended_encoder", [](const json& p) -> BuiltBlock {
+             return { ExtendedEncoder::make(
+                          named_fec_encoders(p.value("encoder_list", std::string())),
+                          fec_threading_from(
+                              unquoted(p.value("threadtype", std::string("capillary")))),
+                          wasm_registry::text(p, "puncpat", "11")),
+                      nullptr };
+         }},
+        {"fec_extended_async_encoder", [](const json& p) -> BuiltBlock {
+             return { ExtendedAsyncEncoder::make(
+                          named_fec_encoder(p.value("encoder_list", std::string()))),
+                      nullptr };
+         }},
+        {"fec_extended_tagged_encoder", [](const json& p) -> BuiltBlock {
+             return { ExtendedTaggedEncoder::make(
+                          named_fec_encoder(p.value("encoder_list", std::string())),
+                          wasm_registry::text(p, "puncpat", "11"),
+                          length_tag_name(p),
+                          static_cast<int>(number_from(p, "mtu", 1500))),
+                      nullptr };
+         }},
+        {"fec_extended_tagged_decoder", [](const json& p) -> BuiltBlock {
+             const std::string annihilator =
+                 wasm_registry::text(p, "ann", "None");
+             if (!annihilator.empty() && annihilator != "None")
+                 throw std::runtime_error(
+                     "FEC Extended Tagged Decoder annihilator is not supported");
+             return { ExtendedTaggedDecoder::make(
+                          named_cc_decoder(p.value("decoder_list", std::string())),
+                          wasm_registry::text(p, "puncpat", "11"),
+                          length_tag_name(p),
+                          static_cast<int>(number_from(p, "mtu", 1500))),
+                      nullptr };
+         }},
+        {"fec_bercurve_generator", [](const json& p) -> BuiltBlock {
+             const auto esno = flat_sequence<float>(p, "esno");
+             return { BerCurveGenerator::make(
+                          named_fec_encoders(p.value("encoder_list", std::string())),
+                          named_cc_decoders(p.value("decoder_list", std::string())),
+                          std::vector<double>(esno.begin(), esno.end()),
+                          fec_threading_from(
+                              unquoted(p.value("threadtype", std::string("capillary")))),
+                          wasm_registry::text(p, "puncpat", "11"),
+                          static_cast<long>(number_from(p, "seed", 0))),
                       nullptr };
          }},
         {"variable_constellation", [](const json& p) -> BuiltBlock {
@@ -2571,6 +2789,68 @@ static std::map<std::string, Factory>& registry_storage() {
                           bool_from(p, "scramble_bits", false)),
                       nullptr };
          }},
+        // gr-fft's Log Power FFT, a Python hier block upstream. Hand-written
+        // rather than generated because all three of its GRC callbacks are
+        // meaningful live: a Range control can drive the averaging on and off
+        // and retune the alpha while the graph runs.
+        {"logpwrfft_x", [](const json& p) -> BuiltBlock {
+             const std::string type = unquoted(p.value("type", std::string("complex")));
+             const double sample_rate = number_from(p, "sample_rate", 32000.0);
+             const int fft_size = static_cast<int>(number_from(p, "fft_size", 1024));
+             const double ref_scale = number_from(p, "ref_scale", 2.0);
+             const double frame_rate = number_from(p, "frame_rate", 30.0);
+             const double avg_alpha = number_from(p, "avg_alpha", 1.0);
+             const bool average = bool_from(p, "average", false);
+             const bool shift = bool_from(p, "shift", false);
+             const auto with_setters = [&p](auto block) {
+                 BuiltBlock result{ block };
+                 result.numeric_setters["sample_rate"] =
+                     [block](double value) { block->set_sample_rate(value); };
+                 result.numeric_setters["avg_alpha"] =
+                     [block](double value) { block->set_avg_alpha(value); };
+                 result.numeric_setters["average"] =
+                     [block](double value) { block->set_average(value != 0.0); };
+                 return result;
+             };
+             if (type == "complex")
+                 return with_setters(LogPwrFftC::make(sample_rate, fft_size, ref_scale,
+                                                      frame_rate, avg_alpha, average,
+                                                      shift));
+             if (type == "float")
+                 return with_setters(LogPwrFftF::make(sample_rate, fft_size, ref_scale,
+                                                      frame_rate, avg_alpha, average,
+                                                      shift));
+             throw std::runtime_error("Log Power FFT input type must be complex or float");
+         }},
+        // gr-filter's Hierarchical Polyphase Channelizer. Both of its list
+        // parameters are optional in a way the generated factories have no
+        // spelling for: an unset `taps` means "design a prototype filter with
+        // optfir", and an unset `outchans` means every channel.
+        {"pfb_channelizer_hier_ccf", [](const json& p) -> BuiltBlock {
+             auto block = PfbChannelizerHier::make(
+                 static_cast<int>(number_from(p, "nchans", 3)),
+                 static_cast<int>(number_from(p, "n_filterbanks", 4)),
+                 flat_sequence<float>(p, "taps"),
+                 flat_sequence<int>(p, "outchans"),
+                 number_from(p, "atten", 100.0),
+                 number_from(p, "bw", 1.0),
+                 number_from(p, "tb", 0.2),
+                 number_from(p, "ripple", 0.1));
+             return { block, nullptr };
+         }},
+        {"qtgui_auto_correlator_sink", [](const json& p) -> BuiltBlock {
+             auto block = AutoCorrelatorSinkWasm::make(
+                 number_from(p, "sampRate", 32000.0),
+                 static_cast<int>(number_from(p, "fac_size", 512)),
+                 static_cast<int>(number_from(p, "fac_decimation", 10)),
+                 wasm_registry::text(p, "title"),
+                 bool_from(p, "autoScale", false),
+                 bool_from(p, "grid", false),
+                 number_from(p, "yMin", 0.0),
+                 number_from(p, "yMax", 1.0),
+                 bool_from(p, "useDB", true));
+             return { block, block->qwidget() };
+         }},
         {"freq_xlating_fft_filter_ccc", [](const json& p) -> BuiltBlock {
              auto block = FrequencyXlatingFftFilter::make(
                  static_cast<int>(number_from(p, "decim", 1)),
@@ -2663,7 +2943,12 @@ static std::map<std::string, Factory>& registry_storage() {
         {"blocks_float_to_complex", [](const json&) -> BuiltBlock { return { gr::blocks::float_to_complex::make(1), nullptr }; }},
         // ---- sinks ----
         {"blocks_null_sink", [](const json& p) -> BuiltBlock {
-             return { gr::blocks::null_sink::make(itemsize_of(p)), nullptr };
+             // vlen matters here: a vector stream terminated by a scalar-sized
+             // null sink is an itemsize mismatch, which fails the whole graph at
+             // connection time rather than in this factory.
+             const auto vlen = static_cast<std::size_t>(
+                 std::max(1.0, number_from(p, "vlen", 1)));
+             return { gr::blocks::null_sink::make(itemsize_of(p) * vlen), nullptr };
          }},
         {"qtgui_number_sink", [](const json& p) -> BuiltBlock {
              const std::string input_type = type_from(p, "float");
@@ -3235,6 +3520,7 @@ void clear_runtime_objects()
 {
     runtime_constellations().clear();
     runtime_cc_decoders().clear();
+    runtime_fec_encoders().clear();
     wasm_registry::runtime_tag_objects().clear();
     // Back to "no GUI Layout block", so a flowgraph without one gets the plain
     // vertical stack rather than the previous flowgraph's grid.

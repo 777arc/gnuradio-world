@@ -1,0 +1,80 @@
+options:
+    parameters:
+        id: wasm_hier_bercurve
+        title: WASM FEC BER curve generator
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: encoder_def
+    id: variable_cc_encoder_def
+    parameters:
+        ndim: '1'
+        dim1: '2'
+        dim2: '1'
+        framebits: '512'
+        k: '7'
+        rate: '2'
+        polys: '[79, 109]'
+        state_start: '0'
+        mode: fec.CC_TERMINATED
+        padding: 'False'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: decoder_def
+    id: variable_cc_decoder_def
+    parameters:
+        ndim: '1'
+        dim1: '2'
+        dim2: '1'
+        framebits: '512'
+        k: '7'
+        rate: '2'
+        polys: '[79, 109]'
+        state_start: '0'
+        state_end: '-1'
+        mode: fec.CC_TERMINATED
+        padding: 'False'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: curve
+    id: fec_bercurve_generator
+    parameters:
+        esno: '[-4.0, 12.0]'
+        samp_rate: '200000'
+        encoder_list: encoder_def
+        decoder_list: decoder_def
+        puncpat: '11'
+        threadtype: none
+        seed: '0'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: bercurve
+    id: qtgui_bercurve_sink
+    parameters:
+        esno: '[-4.0, 12.0]'
+        num_curves: '1'
+        berminerrors: '100'
+        berlimit: '-4.0'
+        curvenames: '[]'
+        ymin: '-10'
+        ymax: '0'
+        update_time: '0.10'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+connections:
+- [curve, '0', bercurve, '0']
+- [curve, '1', bercurve, '1']
+- [curve, '2', bercurve, '2']
+- [curve, '3', bercurve, '3']
+metadata:
+    file_format: 1

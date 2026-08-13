@@ -5,6 +5,7 @@
 // keeps upstream's block id and is rebuilt here from the same chain; see the
 // module's own Python source named in each class comment.
 
+#include "filter_hier.hpp"
 #include "hier_support.hpp"
 #include <gnuradio/analog/frequency_modulator_fc.h>
 #include <gnuradio/blocks/multiply.h>
@@ -29,48 +30,6 @@
 #include <gnuradio/filter/fir_filter_blk.h>
 #include <gnuradio/blocks/add_blk.h>
 #include <vector>
-
-inline std::vector<float> optfir_low_pass(double gain,
-                                   double sample_rate,
-                                   double passband,
-                                   double stopband,
-                                   double passband_ripple_db,
-                                   double stopband_atten_db)
-{
-    require_positive("sample rate", sample_rate);
-    if (!(passband > 0.0 && stopband > passband && stopband < sample_rate / 2.0))
-        throw std::runtime_error(
-            "low-pass frequencies must satisfy 0 < passband < stopband < Nyquist");
-
-    const double pass_dev =
-        (std::pow(10.0, passband_ripple_db / 20.0) - 1.0) /
-        (std::pow(10.0, passband_ripple_db / 20.0) + 1.0);
-    const double stop_dev = std::pow(10.0, -stopband_atten_db / 20.0);
-    const double relative_pass_dev = pass_dev / std::abs(gain);
-    const double df = std::abs(stopband - passband) / sample_rate;
-    const double ddp = std::log10(relative_pass_dev);
-    const double dds = std::log10(stop_dev);
-    const double dinf =
-        ((5.309e-3 * ddp * ddp + 7.114e-2 * ddp - 4.761e-1) * dds) +
-        (-2.66e-3 * ddp * ddp - 5.941e-1 * ddp - 4.278e-1);
-    const double correction = 11.01217 + 0.5124401 * (ddp - dds);
-    const double estimated_length = dinf / df - correction * df + 1.0;
-    const int order = static_cast<int>(std::ceil(estimated_length)) - 1;
-    if (order <= 0)
-        throw std::runtime_error("cannot determine sufficient low-pass filter order");
-
-    const double max_dev = std::max(relative_pass_dev, stop_dev);
-    const auto taps = gr::filter::pm_remez(order + 2,
-                                           { 0.0,
-                                             2.0 * passband / sample_rate,
-                                             2.0 * stopband / sample_rate,
-                                             1.0 },
-                                           { gain, gain, 0.0, 0.0 },
-                                           { max_dev / relative_pass_dev,
-                                             max_dev / stop_dev },
-                                           "bandpass");
-    return std::vector<float>(taps.begin(), taps.end());
-}
 
 inline gr::filter::iir_filter_ffd::sptr make_fm_deemph(double sample_rate, double tau)
 {

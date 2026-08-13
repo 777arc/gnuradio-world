@@ -12,6 +12,7 @@
 #include <gnuradio/vocoder/g723_40_encode_sb.h>
 #include <gnuradio/vocoder/ulaw_decode_bs.h>
 #include <gnuradio/vocoder/ulaw_encode_sb.h>
+#include <vocoder_hier.hpp>
 
 using namespace gr;
 
@@ -31,8 +32,16 @@ struct Registrar_vocoder {
         auto block = vocoder::alaw_encode_sb::make();
         return { block, nullptr };
     });
+    wasm_registry_add("vocoder_cvsd_decode_bf", +[](const nlohmann::json& p) -> BuiltBlock {
+        auto block = CvsdDecode::make(wasm_registry::number<int>(p, "resample", 8), wasm_registry::number<double>(p, "bw", 0.5));
+        return { block, nullptr };
+    });
     wasm_registry_add("vocoder_cvsd_decode_bs", +[](const nlohmann::json& p) -> BuiltBlock {
         auto block = vocoder::cvsd_decode_bs::make();
+        return { block, nullptr };
+    });
+    wasm_registry_add("vocoder_cvsd_encode_fb", +[](const nlohmann::json& p) -> BuiltBlock {
+        auto block = CvsdEncode::make(wasm_registry::number<int>(p, "resample", 8), wasm_registry::number<double>(p, "bw", 0.5));
         return { block, nullptr };
     });
     wasm_registry_add("vocoder_cvsd_encode_sb", +[](const nlohmann::json& p) -> BuiltBlock {

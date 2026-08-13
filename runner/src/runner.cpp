@@ -77,7 +77,15 @@ static bool is_runtime_object(const std::string& id)
 {
     return id == "variable_constellation" ||
            id == "variable_constellation_rect" ||
+           // gr-fec's coder definitions: GRC variables holding a coder object
+           // (or a list of them) for an FEC block to name.
            id == "variable_cc_decoder_def" ||
+           id == "variable_cc_encoder_def" ||
+           id == "variable_ccsds_encoder_def" ||
+           id == "variable_dummy_decoder_def" ||
+           id == "variable_dummy_encoder_def" ||
+           id == "variable_repetition_decoder_def" ||
+           id == "variable_repetition_encoder_def" ||
            id == "variable_tag_object" ||
            // Files the window's grid spec; see gui_layout.hpp.
            id == "wasm_gui_layout";

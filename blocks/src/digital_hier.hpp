@@ -1,14 +1,19 @@
 #pragma once
 
 // C++ rebuilds of gr-digital's Python gr.hier_block2 compositions: PSK
-// modulation and demodulation, the constellation modulator, and the OFDM
-// transmitter and receiver.
+// modulation and demodulation, the constellation modulator, the GFSK and GMSK
+// modems, and the OFDM transmitter and receiver.
 
 #include "hier_support.hpp"
 #include <gnuradio/analog/agc2_cc.h>
+#include <gnuradio/analog/quadrature_demod_cf.h>
 #include <gnuradio/digital/additive_scrambler.h>
+#include <gnuradio/blocks/multiply.h>
+#include <gnuradio/blocks/multiply_const.h>
 #include <gnuradio/blocks/packed_to_unpacked.h>
+#include <gnuradio/digital/binary_slicer_fb.h>
 #include <gnuradio/digital/chunks_to_symbols.h>
+#include <gnuradio/digital/symbol_sync_ff.h>
 #include <gnuradio/analog/frequency_modulator_fc.h>
 #include <gnuradio/blocks/file_sink.h>
 #include <gnuradio/blocks/head.h>
@@ -39,6 +44,7 @@
 #include <gnuradio/digital/pfb_clock_sync_ccf.h>
 #include <gnuradio/fft/fft_v.h>
 #include <gnuradio/filter/firdes.h>
+#include <gnuradio/filter/interp_fir_filter.h>
 #include <gnuradio/filter/pfb_arb_resampler_ccf.h>
 #include <gnuradio/hier_block2.h>
 #include <gnuradio/io_signature.h>
@@ -315,6 +321,201 @@ public:
 
         for (std::size_t i = 1; i < chain.size(); ++i)
             connect(chain[i - 1], 0, chain[i], 0);
+    }
+};
+
+// ---------------------------------------------------------------------------
+// GFSK and GMSK (digital_gfsk_mod/demod, digital_gmsk_mod/demod)
+//
+// Four Python hier blocks that are the same two chains twice over: GMSK is GFSK
+// with the modulation index pinned to 0.5, i.e. a sensitivity of (pi/2)/sps
+// rather than one the user gives. Upstream's `verbose` and `log` parameters only
+// print and write .dat files, neither of which the browser has, so they are
+// accepted and ignored -- a flowgraph carrying them still loads.
+// ---------------------------------------------------------------------------
+
+// The pulse shape both modulators use: a Gaussian response convolved with a
+// rectangular window one symbol wide (numpy.convolve of firdes.gaussian with
+// (1,)*sps), which is what turns the impulse response into a partial-response
+// CPM pulse.
+inline std::vector<float> gaussian_nrz_taps(int samples_per_symbol, double bt)
+{
+    const std::vector<float> gaussian = gr::filter::firdes::gaussian(
+        1.0, samples_per_symbol, bt, 4 * samples_per_symbol);
+    std::vector<float> taps(gaussian.size() + samples_per_symbol - 1, 0.0F);
+    for (std::size_t i = 0; i < gaussian.size(); ++i)
+        for (int j = 0; j < samples_per_symbol; ++j)
+            taps[i + j] += gaussian[i];
+    return taps;
+}
+
+// GMSK is GFSK at a modulation index of 0.5: the phase advances by pi/2 per
+// symbol, so both ends of it fix the sensitivity rather than taking one.
+inline double gmsk_sensitivity(int samples_per_symbol)
+{
+    if (samples_per_symbol < 2)
+        throw std::runtime_error("GMSK samples per symbol must be at least 2");
+    return (PI / 2.0) / samples_per_symbol;
+}
+
+class GfskMod : public gr::hier_block2
+{
+public:
+    using sptr = std::shared_ptr<GfskMod>;
+    static sptr make(int samples_per_symbol,
+                     double sensitivity,
+                     double bt,
+                     bool do_unpack)
+    {
+        return gnuradio::make_block_sptr<GfskMod>(
+            "gfsk_mod", samples_per_symbol, sensitivity, bt, do_unpack, true);
+    }
+
+    GfskMod(const std::string& name,
+            int samples_per_symbol,
+            double sensitivity,
+            double bt,
+            bool do_unpack,
+            bool attenuate)
+        : gr::hier_block2(name,
+                          gr::io_signature::make(1, 1, sizeof(std::uint8_t)),
+                          gr::io_signature::make(1, 1, sizeof(gr_complex)))
+    {
+        if (samples_per_symbol < 2)
+            throw std::runtime_error(
+                "GFSK/GMSK Mod samples per symbol must be at least 2");
+        require_positive("GFSK/GMSK Mod BT product", bt);
+
+        std::vector<gr::basic_block_sptr> chain{ self() };
+        if (do_unpack)
+            chain.push_back(
+                gr::blocks::packed_to_unpacked_bb::make(1, gr::GR_MSB_FIRST));
+        chain.push_back(
+            gr::digital::chunks_to_symbols_bf::make(std::vector<float>{ -1.0F, 1.0F }));
+        chain.push_back(gr::filter::interp_fir_filter_fff::make(
+            samples_per_symbol, gaussian_nrz_taps(samples_per_symbol, bt)));
+        chain.push_back(gr::analog::frequency_modulator_fc::make(sensitivity));
+        // GFSK keeps a little headroom so the modulator cannot clip a sink;
+        // GMSK's version of the same chain does not.
+        if (attenuate)
+            chain.push_back(gr::blocks::multiply_const_cc::make(0.999F));
+        chain.push_back(self());
+        for (std::size_t i = 1; i < chain.size(); ++i)
+            connect(chain[i - 1], 0, chain[i], 0);
+    }
+};
+
+// GMSK modulation: the same chain with the modulation index fixed and no output
+// attenuator (digital.gmsk.gmsk_mod).
+class GmskMod : public GfskMod
+{
+public:
+    using sptr = std::shared_ptr<GmskMod>;
+    static sptr make(int samples_per_symbol, double bt, bool do_unpack)
+    {
+        return gnuradio::make_block_sptr<GmskMod>(samples_per_symbol, bt, do_unpack);
+    }
+
+    GmskMod(int samples_per_symbol, double bt, bool do_unpack)
+        : GfskMod("gmsk_mod",
+                  samples_per_symbol,
+                  gmsk_sensitivity(samples_per_symbol),
+                  bt,
+                  do_unpack,
+                  false)
+    {
+    }
+};
+
+class GfskDemod : public gr::hier_block2
+{
+public:
+    using sptr = std::shared_ptr<GfskDemod>;
+    static sptr make(int samples_per_symbol,
+                     double sensitivity,
+                     double gain_mu,
+                     double omega_relative_limit,
+                     double freq_error)
+    {
+        return gnuradio::make_block_sptr<GfskDemod>("gfsk_demod",
+                                                    samples_per_symbol,
+                                                    sensitivity,
+                                                    gain_mu,
+                                                    omega_relative_limit,
+                                                    freq_error);
+    }
+
+    GfskDemod(const std::string& name,
+              int samples_per_symbol,
+              double sensitivity,
+              double gain_mu,
+              double omega_relative_limit,
+              double freq_error)
+        : gr::hier_block2(name,
+                          gr::io_signature::make(1, 1, sizeof(gr_complex)),
+                          gr::io_signature::make(1, 1, sizeof(std::uint8_t)))
+    {
+        if (samples_per_symbol < 2)
+            throw std::runtime_error(
+                "GFSK/GMSK Demod samples per symbol must be at least 2");
+        if (sensitivity == 0.0 || !std::isfinite(sensitivity))
+            throw std::runtime_error("GFSK Demod sensitivity must be non-zero");
+
+        // Upstream substitutes its own default for a falsy gain_mu, and derives
+        // the symbol sync loop bandwidth from the critically damped mu/omega
+        // gain pair the old clock recovery block took directly.
+        if (gain_mu == 0.0)
+            gain_mu = 0.175;
+        const double gain_omega = 0.25 * gain_mu * gain_mu;
+        const double loop_bw = -std::log((gain_mu + gain_omega) / -2.0 + 1.0);
+        const double omega = samples_per_symbol * (1.0 + freq_error);
+        const double max_deviation = omega_relative_limit * samples_per_symbol;
+
+        auto demod = gr::analog::quadrature_demod_cf::make(1.0 / sensitivity);
+        auto clock_recovery = gr::digital::symbol_sync_ff::make(
+            gr::digital::TED_MUELLER_AND_MULLER,
+            static_cast<float>(omega),
+            static_cast<float>(loop_bw),
+            1.0F,
+            1.0F,
+            static_cast<float>(max_deviation),
+            1,
+            gr::digital::constellation_bpsk::make()->base(),
+            gr::digital::IR_MMSE_8TAP,
+            128,
+            {});
+        auto slicer = gr::digital::binary_slicer_fb::make();
+        connect(self(), 0, demod, 0);
+        connect(demod, 0, clock_recovery, 0);
+        connect(clock_recovery, 0, slicer, 0);
+        connect(slicer, 0, self(), 0);
+    }
+};
+
+class GmskDemod : public GfskDemod
+{
+public:
+    using sptr = std::shared_ptr<GmskDemod>;
+    static sptr make(int samples_per_symbol,
+                     double gain_mu,
+                     double omega_relative_limit,
+                     double freq_error)
+    {
+        return gnuradio::make_block_sptr<GmskDemod>(
+            samples_per_symbol, gain_mu, omega_relative_limit, freq_error);
+    }
+
+    GmskDemod(int samples_per_symbol,
+              double gain_mu,
+              double omega_relative_limit,
+              double freq_error)
+        : GfskDemod("gmsk_demod",
+                    samples_per_symbol,
+                    gmsk_sensitivity(samples_per_symbol),
+                    gain_mu,
+                    omega_relative_limit,
+                    freq_error)
+    {
     }
 };
 

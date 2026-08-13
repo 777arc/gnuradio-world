@@ -49,7 +49,7 @@ const signal = inst('sig', 'analog_sig_source_x', 'sig', {
   frequency: 'samp_rate/4', amplitude: '1',
 });
 const variable = inst('rate', 'variable', 'samp_rate', { value: '32000' });
-const terminated = inst('term', 'blocks_null_sink', 'term', { type: 'complex' });
+const terminated = inst('term', 'blocks_null_sink', 'term', { type: 'complex', vlen: 1 });
 const wired = [{ from: 'sig', fp: 0, to: 'term', tp: 0 }];
 assert.deepEqual(validateFlowgraph([variable, signal, terminated], wired, ports), [],
   'numeric expressions may use active plain variables');
@@ -77,7 +77,7 @@ assert.ok(liveIssues.some(issue => issue.field === 'stop'));
 assert.ok(liveIssues.some(issue => issue.field === 'step'));
 assert.ok(liveIssues.some(issue => issue.field === 'min_len'));
 
-const sink = inst('sink', 'blocks_null_sink', 'sink', { type: 'float' });
+const sink = inst('sink', 'blocks_null_sink', 'sink', { type: 'float', vlen: 1 });
 const mismatch = validateFlowgraph([signal, sink], [{ from: 'sig', fp: 0, to: 'sink', tp: 0 }], ports);
 assert.ok(mismatch.some(issue => issue.field === BLOCK_FIELD && issue.message.includes('type mismatch')));
 const badPort = validateFlowgraph([signal, sink], [{ from: 'sig', fp: 4, to: 'sink', tp: 0 }], ports);
@@ -92,7 +92,7 @@ const source = inst('src', 'analog_sig_source_x', 'src', {
   type: 'complex', samp_rate: 32000, waveform: 'analog.GR_COS_WAVE',
   frequency: 1000, amplitude: 1,
 });
-const drain = inst('drain', 'blocks_null_sink', 'drain', { type: 'complex' });
+const drain = inst('drain', 'blocks_null_sink', 'drain', { type: 'complex', vlen: 1 });
 const link = { from: 'src', fp: 0, to: 'drain', tp: 0 };
 const unconnected = validateFlowgraph([source, drain], [], ports);
 assert.deepEqual(unconnected.map(issue => issue.message).sort(), [
@@ -164,6 +164,24 @@ assert.deepEqual(validateFlowgraph([source, passthrough({ bypassed: true }), dra
                     'qtgui_const_sink_x', 'qtgui_waterfall_sink_x'])
     assert.deepEqual(RUNNABLE[id].inOptional, [false],
       `${id} must require its stream input, like native GRC`);
+
+  // An enum's options have to be spelled the way a .grc spells its values, or
+  // validateFlowgraph rejects the block for holding its own default. Most
+  // boolean parameters write `options: ['True', 'False']`, but a few blocks --
+  // Matrix Interleaver, QT GUI Matrix Sink, three gr-satellites decoders --
+  // leave the quotes off, so yaml hands back Python booleans; gen_blocklib.py
+  // normalizes them, and this asserts no other type ever reaches the palette.
+  for (const block of library.blocks || []) {
+    for (const param of block.params || []) {
+      for (const option of param.options || [])
+        assert.notEqual(typeof option, 'boolean',
+          `${block.id}.${param.id} offers a boolean option; a .grc stores text`);
+    }
+  }
+  const deint = RUNNABLE.blocks_matrix_interleaver.params.find(p => p.id === 'deint');
+  assert.deepEqual(deint.options, ['True', 'False']);
+  assert.ok(deint.options.includes(String(deint.def)),
+    'Matrix Interleaver must not arrive holding a Deinterleave value it rejects');
 
   // VARIABLE_CONTROL_IDS is a hand-kept copy of `is_variable_control()` in
   // runner/src/grc_lower.hpp, and the two disagreeing is silent in the worst

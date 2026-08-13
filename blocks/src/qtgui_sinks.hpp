@@ -5,7 +5,19 @@
 // same block ids and display parameters.
 
 #include "hier_support.hpp"
+#include <gnuradio/blocks/complex_to_mag.h>
+#include <gnuradio/blocks/divide.h>
+#include <gnuradio/blocks/keep_one_in_n.h>
+#include <gnuradio/blocks/max_blk.h>
+#include <gnuradio/blocks/nlog10_ff.h>
+#include <gnuradio/blocks/repeat.h>
+#include <gnuradio/blocks/stream_to_vector.h>
+#include <gnuradio/blocks/vector_to_stream.h>
+#include <gnuradio/fft/fft_v.h>
+#include <gnuradio/filter/single_pole_iir_filter_ff.h>
+#include <gnuradio/hier_block2.h>
 #include <gnuradio/io_signature.h>
+#include <gnuradio/qtgui/time_sink_f.h>
 #include <gnuradio/sync_block.h>
 #include <QTimer>
 #include <QGroupBox>
@@ -13,8 +25,10 @@
 #include <QPointer>
 #include <QVBoxLayout>
 #include <QWidget>
+#include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cmath>
 #include <vector>
 
 // The trimmed browser QTGUI archive does not include GNU Radio's number_sink
@@ -222,4 +236,130 @@ private:
     std::atomic<unsigned long long> d_items{ 0 };
     unsigned long long d_last_items = 0;
     std::chrono::steady_clock::time_point d_last;
+};
+
+// ---------------------------------------------------------------------------
+// QT GUI Fast Auto-Correlator Sink (qtgui_auto_correlator_sink)
+//
+// A Python hier block upstream, and one of the few whose composition is the
+// whole point of it: by the Wiener-Khinchin theorem the FFT of a signal's power
+// spectrum is its autocorrelation, so this is two forward FFTs with a magnitude
+// between them, displayed on a plain time sink. FAC size sets the FFT length and
+// therefore the time span (fac_size/samp_rate) each trace covers.
+//
+// The sink is a member rather than a separate block because it holds the widget
+// the runner has to place: qwidget() below is what reaches BuiltBlock.
+// ---------------------------------------------------------------------------
+
+class AutoCorrelatorSinkWasm : public gr::hier_block2
+{
+public:
+    using sptr = std::shared_ptr<AutoCorrelatorSinkWasm>;
+
+    static sptr make(double sample_rate,
+                     int fac_size,
+                     int fac_decimation,
+                     const std::string& title,
+                     bool auto_scale,
+                     bool grid,
+                     double y_min,
+                     double y_max,
+                     bool use_db)
+    {
+        return gnuradio::make_block_sptr<AutoCorrelatorSinkWasm>(sample_rate,
+                                                                 fac_size,
+                                                                 fac_decimation,
+                                                                 title,
+                                                                 auto_scale,
+                                                                 grid,
+                                                                 y_min,
+                                                                 y_max,
+                                                                 use_db);
+    }
+
+    AutoCorrelatorSinkWasm(double sample_rate,
+                           int fac_size,
+                           int fac_decimation,
+                           const std::string& title,
+                           bool auto_scale,
+                           bool grid,
+                           double y_min,
+                           double y_max,
+                           bool use_db)
+        : gr::hier_block2("auto_correlator_sink",
+                          gr::io_signature::make(1, 1, sizeof(gr_complex)),
+                          gr::io_signature::make(0, 0, 0))
+    {
+        if (fac_size < 2 || fac_size % 2 != 0)
+            throw std::runtime_error(
+                "QT GUI Fast Auto-Correlator Sink FAC size must be an even number "
+                "of at least 2");
+        if (fac_decimation < 1)
+            throw std::runtime_error(
+                "QT GUI Fast Auto-Correlator Sink FAC decimation must be positive");
+        require_positive("QT GUI Fast Auto-Correlator Sink sample rate", sample_rate);
+
+        const std::vector<float> no_window;
+        auto to_vector =
+            gr::blocks::stream_to_vector::make(sizeof(gr_complex), fac_size);
+        const int decimation =
+            static_cast<int>(sample_rate / fac_size / fac_decimation);
+        auto one_in_n = gr::blocks::keep_one_in_n::make(
+            sizeof(gr_complex) * fac_size, std::max(1, decimation));
+        auto spectrum = gr::fft::fft_v<gr_complex, true>::make(fac_size, no_window);
+        auto spectrum_magnitude = gr::blocks::complex_to_mag::make(fac_size);
+        auto correlation = gr::fft::fft_v<float, true>::make(fac_size, no_window);
+        auto correlation_magnitude = gr::blocks::complex_to_mag::make(fac_size);
+        auto average = gr::filter::single_pole_iir_filter_ff::make(1.0, fac_size);
+
+        connect(self(), 0, to_vector, 0);
+        connect(to_vector, 0, one_in_n, 0);
+        connect(one_in_n, 0, spectrum, 0);
+        connect(spectrum, 0, spectrum_magnitude, 0);
+        connect(spectrum_magnitude, 0, correlation, 0);
+        connect(correlation, 0, correlation_magnitude, 0);
+        connect(correlation_magnitude, 0, average, 0);
+
+        gr::basic_block_sptr tail = average;
+        if (use_db) {
+            auto to_db = gr::blocks::nlog10_ff::make(
+                20.0F, fac_size, static_cast<float>(-20.0 * std::log10(fac_size)));
+            connect(average, 0, to_db, 0);
+            tail = to_db;
+        } else {
+            // Normalise each vector against its own peak, so the trace stays in
+            // 0..1 without an absolute reference: divide the vector by its
+            // maximum, held constant across the vector by repeat + s2v.
+            auto peak = gr::blocks::max_ff::make(fac_size);
+            auto spread = gr::blocks::repeat::make(sizeof(float), fac_size);
+            auto peak_vector = gr::blocks::stream_to_vector::make(sizeof(float),
+                                                                  fac_size);
+            auto divide = gr::blocks::divide_ff::make(fac_size);
+            connect(average, 0, peak, 0);
+            connect(peak, 0, spread, 0);
+            connect(spread, 0, peak_vector, 0);
+            connect(average, 0, divide, 0);
+            connect(peak_vector, 0, divide, 1);
+            tail = divide;
+        }
+
+        auto to_stream = gr::blocks::vector_to_stream::make(sizeof(float), fac_size);
+        // Only the first half of the autocorrelation is meaningful; the rest is
+        // its mirror image, which is why the sink is half as wide as the FFT.
+        d_sink = gr::qtgui::time_sink_f::make(
+            fac_size / 2, sample_rate, title, 1, nullptr);
+        d_sink->enable_grid(grid);
+        d_sink->set_y_axis(y_min, y_max);
+        d_sink->enable_autoscale(auto_scale);
+        d_sink->disable_legend();
+        d_sink->set_update_time(0.1);
+
+        connect(tail, 0, to_stream, 0);
+        connect(to_stream, 0, d_sink, 0);
+    }
+
+    QWidget* qwidget() { return d_sink->qwidget(); }
+
+private:
+    gr::qtgui::time_sink_f::sptr d_sink;
 };

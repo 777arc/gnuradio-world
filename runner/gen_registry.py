@@ -148,12 +148,28 @@ CUSTOM_IDS = {
     "fec_decode_ccsds_27_fb",
     "fec_depuncture_bb",
     "fec_puncture_xx",
+    # gr-fec's coder definition variables. Each files a coder object -- or, at a
+    # non-zero Parallelism, a list of them -- for an FEC block to name.
     "variable_cc_decoder_def",
+    "variable_cc_encoder_def",
+    "variable_ccsds_encoder_def",
+    "variable_dummy_decoder_def",
+    "variable_dummy_encoder_def",
+    "variable_repetition_decoder_def",
+    "variable_repetition_encoder_def",
     # GRC's Tag Object: a variable holding one gr::tag_t, filed under its name
     # for Vector Source's `tags` parameter to reference.
     "variable_tag_object",
     "fec_async_decoder",
+    # gr-fec's Python hier blocks, rebuilt in blocks/src/fec_hier.hpp. Each takes
+    # a coder *object* by name rather than a plain parameter, which is what keeps
+    # them out of the generated factories.
     "fec_extended_decoder",
+    "fec_extended_encoder",
+    "fec_extended_async_encoder",
+    "fec_extended_tagged_encoder",
+    "fec_extended_tagged_decoder",
+    "fec_bercurve_generator",
     "variable_constellation",
     "variable_constellation_rect",
     "digital_constellation_decoder_cb",
@@ -169,6 +185,12 @@ CUSTOM_IDS = {
     # C++ rebuild of gr-digital's Python-only OFDM Transmitter hier block.
     "digital_ofdm_tx",
     "freq_xlating_fft_filter_ccc",
+    # gr-filter's Python channelizer hierarchy: its taps and output channel list
+    # are both optional in a way a generated factory cannot express.
+    "pfb_channelizer_hier_ccf",
+    # gr-fft's Log Power FFT (Python hier upstream), whose three GRC callbacks
+    # are worth having live.
+    "logpwrfft_x",
     "blocks_throttle",
     "blocks_head",
     "blocks_delay",
@@ -200,6 +222,9 @@ CUSTOM_IDS = {
     "qtgui_vector_sink_f",
     "qtgui_matrix_sink",
     "qtgui_bercurve_sink",
+    # A Python hier block plus a Python QWidget upstream; the composition is
+    # rebuilt in blocks/src/qtgui_sinks.hpp around gr-qtgui's own time sink.
+    "qtgui_auto_correlator_sink",
 }
 
 # Blocks whose factory returns a QWidget, i.e. everything that occupies a tile in
@@ -229,6 +254,7 @@ GUI_IDS = {
     "qtgui_vector_sink_f",
     "qtgui_matrix_sink",
     "qtgui_bercurve_sink",
+    "qtgui_auto_correlator_sink",
     "wasm_packet_rate_sink",
     "hrpt_image_sink",
     # Two Python QWidgets upstream, rebuilt in C++ here.

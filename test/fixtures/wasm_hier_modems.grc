@@ -1,0 +1,146 @@
+options:
+    parameters:
+        id: wasm_hier_modems
+        title: WASM GFSK/GMSK hier block rebuilds
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: bytes
+    id: blocks_vector_source_x
+    parameters:
+        type: byte
+        vector: '[85, 170, 15, 240]'
+        repeat: 'True'
+        vlen: '1'
+        tags: '[]'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: byte_throttle
+    id: blocks_throttle2
+    parameters:
+        ignoretag: 'True'
+        limit: auto
+        maximum: '0.1'
+        samples_per_second: '8000'
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: gfsk_mod
+    id: digital_gfsk_mod
+    parameters:
+        samples_per_symbol: '4'
+        sensitivity: '1.0'
+        bt: '0.35'
+        verbose: 'False'
+        log: 'False'
+        do_unpack: 'True'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: gfsk_demod
+    id: digital_gfsk_demod
+    parameters:
+        samples_per_symbol: '4'
+        sensitivity: '1.0'
+        gain_mu: '0.175'
+        mu: '0.5'
+        omega_relative_limit: '0.005'
+        freq_error: '0.0'
+        verbose: 'False'
+        log: 'False'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: gfsk_sink
+    id: blocks_null_sink
+    parameters:
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: gmsk_mod
+    id: digital_gmsk_mod
+    parameters:
+        samples_per_symbol: '4'
+        bt: '0.35'
+        verbose: 'False'
+        log: 'False'
+        do_unpack: 'True'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: gmsk_demod
+    id: digital_gmsk_demod
+    parameters:
+        samples_per_symbol: '4'
+        gain_mu: '0.175'
+        mu: '0.5'
+        omega_relative_limit: '0.005'
+        freq_error: '0.0'
+        verbose: 'False'
+        log: 'False'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: gmsk_sink
+    id: blocks_null_sink
+    parameters:
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: unpack
+    id: blocks_unpack_k_bits_bb
+    parameters:
+        k: '8'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: gmsk_modulator
+    id: digital_gmskmod_bc
+    parameters:
+        samples_per_symbol: '4'
+        bt: '0.3'
+        L: '4'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: gmsk_modulator_sink
+    id: blocks_null_sink
+    parameters:
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+connections:
+- [bytes, '0', byte_throttle, '0']
+- [byte_throttle, '0', gfsk_mod, '0']
+- [gfsk_mod, '0', gfsk_demod, '0']
+- [gfsk_demod, '0', gfsk_sink, '0']
+- [byte_throttle, '0', gmsk_mod, '0']
+- [gmsk_mod, '0', gmsk_demod, '0']
+- [gmsk_demod, '0', gmsk_sink, '0']
+- [byte_throttle, '0', unpack, '0']
+- [unpack, '0', gmsk_modulator, '0']
+- [gmsk_modulator, '0', gmsk_modulator_sink, '0']
+metadata:
+    file_format: 1
