@@ -55295,9 +55295,9 @@
    "flags": [
     "python"
    ],
-   "runnable": false,
-   "unavailable_reason": "Python-only block",
-   "gui": false,
+   "runnable": true,
+   "unavailable_reason": null,
+   "gui": true,
    "module": "core",
    "documentation": "The GUI hint can be used to position the widget within the application.     The hint is of the form [tab_id@tab_index]: [row, col, row_span, col_span].     Both the tab specification and the grid position are optional.",
    "api_documentation": "",
@@ -57052,7 +57052,7 @@
      "id": "tr_slope",
      "label": "Trigger Slope",
      "dtype": "enum",
-     "default": "qtgui.TRIG_MODE_POS",
+     "default": "qtgui.TRIG_SLOPE_POS",
      "category": "Trigger",
      "options": [
       "qtgui.TRIG_SLOPE_POS",
@@ -58754,9 +58754,9 @@
     "QT"
    ],
    "flags": [],
-   "runnable": false,
-   "unavailable_reason": "not implemented in the WebAssembly runner",
-   "gui": false,
+   "runnable": true,
+   "unavailable_reason": null,
+   "gui": true,
    "module": "core",
    "documentation": "The GUI hint can be used to position the widget within the application. The hint is of the form [tab_id@tab_index]: [row, col, row_span, col_span]. Both the tab specification and the grid position are optional.",
    "api_documentation": "",
@@ -58982,7 +58982,7 @@
      "id": "tr_slope",
      "label": "Trigger Slope",
      "dtype": "enum",
-     "default": "qtgui.TRIG_MODE_POS",
+     "default": "qtgui.TRIG_SLOPE_POS",
      "category": "Trigger",
      "options": [
       "qtgui.TRIG_SLOPE_POS",
@@ -61466,9 +61466,9 @@
    "flags": [
     "python"
    ],
-   "runnable": false,
-   "unavailable_reason": "Python-only block",
-   "gui": false,
+   "runnable": true,
+   "unavailable_reason": null,
+   "gui": true,
    "module": "core",
    "documentation": "The GUI hint can be used to position the widget within the application. The hint is of the form [tab_id@tab_index]: [row, col, row_span, col_span]. Both the tab specification and the grid position are optional.",
    "api_documentation": "",
@@ -63034,9 +63034,9 @@
     "QT"
    ],
    "flags": [],
-   "runnable": false,
-   "unavailable_reason": "not implemented in the WebAssembly runner",
-   "gui": false,
+   "runnable": true,
+   "unavailable_reason": null,
+   "gui": true,
    "module": "core",
    "documentation": "The matrix sink displays a 2D matrix of data as a color plot. The data is displayed in a window with a color bar on the right side. The color bar shows the mapping of data values to colors. The color bar can be used to change the range of data values that are displayed. \nThe color map can be one of the following: RGB, indexed, or alpha. \nThe interpolation method can be one of the following: none, bilinear or nearest neighbor. The matrix sink can also display contour lines. \nThe GUI hint can be used to position the widget within the application. The hint is of the form [tab_id@tab_index]: [row, col, row_span, col_span]. Both the tab specification and the grid position are optional.",
    "api_documentation": "",
@@ -65075,12 +65075,12 @@
     "python",
     "cpp"
    ],
-   "runnable": false,
-   "unavailable_reason": "not implemented in the WebAssembly runner",
-   "gui": false,
+   "runnable": true,
+   "unavailable_reason": null,
+   "gui": true,
    "module": "core",
    "documentation": "The GUI hint can be used to position the widget within the application. The hint is of the form [tab_id@tab_index]: [row, col, row_span, col_span]. Both the tab specification and the grid position are optional.",
-   "api_documentation": "",
+   "api_documentation": "A graphical sink to display freq, spec, time, and const plots.\n\nThis is a QT-based graphical sink the takes a complex stream and\nplots it. The default action is to plot the signal as a PSD (FFT),\nspectrogram (waterfall), time domain I&Q, and constellation (I\nvs. Q) plots. The plots may be turned off by setting the\nappropriate boolean value in the constructor to False.\n\nMessage Ports:\n\n- freq (input):\nReceives a PMT pair: (intern(\"freq\"), double(frequency).\nThis is used to retune the center frequency of the\ndisplay's x-axis.\n\n- freq (output):\nProduces a PMT pair with (intern(\"freq\"), double(frequency).\nWhen a user double-clicks on the display, the block\nproduces and emits a message containing the frequency of\nwhere on the x-axis the user clicked. This value can be\nused by other blocks to update their frequency setting.\n\nTo perform click-to-tune behavior, this output 'freq'\nport can be redirected to this block's input 'freq' port\nto catch the message and update the center frequency of\nthe display.\n\nBuild a complex qtgui sink.\n\nParameters:\n  fftsize: size of the FFT to compute and display\n  wintype: type of window to apply (see gnuradio/filter/firdes.h)\n  fc: center frequency of signal (use for x-axis labels)\n  bw: bandwidth of signal (used to set x-axis labels)\n  name: title for the plot\n  plotfreq: Toggle frequency plot on/off\n  plotwaterfall: Toggle waterfall plot on/off\n  plottime: Toggle time plot on/off\n  plotconst: Toggle constellation plot on/off\n  parent: a QWidget parent object, if any",
    "wiki_url": "https://wiki.gnuradio.org/index.php/QT_GUI_Sink",
    "params": [
     {
@@ -65647,9 +65647,9 @@
    "flags": [
     "python"
    ],
-   "runnable": false,
-   "unavailable_reason": "Python-only block",
-   "gui": false,
+   "runnable": true,
+   "unavailable_reason": null,
+   "gui": true,
    "module": "core",
    "documentation": "The GUI hint can be used to position the widget within the application. The hint is of the form [tab_id@tab_index]: [row, col, row_span, col_span]. Both the tab specification and the grid position are optional.\n\nNote that for user-defined axis values, numbers will be scaled to their power of 10 3-unit grouping (e.g. Giga, Mega, Kilo, milli, nano (u), pico) and appended with the first letter descriptor for a more concise display.",
    "api_documentation": "",
@@ -66507,7 +66507,7 @@
      "id": "tr_slope",
      "label": "Trigger Slope",
      "dtype": "enum",
-     "default": "qtgui.TRIG_MODE_POS",
+     "default": "qtgui.TRIG_SLOPE_POS",
      "category": "Trigger",
      "options": [
       "qtgui.TRIG_SLOPE_POS",
@@ -68493,9 +68493,9 @@
    "flags": [
     "python"
    ],
-   "runnable": false,
-   "unavailable_reason": "Python-only block",
-   "gui": false,
+   "runnable": true,
+   "unavailable_reason": null,
+   "gui": true,
    "module": "core",
    "documentation": "The GUI hint can be used to position the widget within the application. The hint is of the form [tab_id@tab_index]: [row, col, row_span, col_span]. Both the tab specification and the grid position are optional.",
    "api_documentation": "",

@@ -105,9 +105,15 @@ node server.mjs 8090 "$PWD"
   message-port connections are both serialized by the editor. QT GUI Range
   controls can be referenced by ID from numeric block parameters and update those
   parameters while the graph is running.
-- **qtgui** (`qtgui/`): builds the gr-qtgui time/frequency/constellation/
-  waterfall sinks (Qt5 upstream) against Qt 6 for WebAssembly, as a static lib
-  the runner links.
+- **qtgui** (`qtgui/`): builds gr-qtgui's sink chains (Qt5 upstream) against Qt 6
+  for WebAssembly, as a static lib the runner links —
+  time/frequency/constellation/waterfall, the eye/histogram/time-raster/vector/
+  matrix/BER-curve sinks, and `sink_x`, the four-pane one. Only the last needs
+  `uic`, and its `.ui` file is why: see the `--connections string` comment in
+  `qtgui/CMakeLists.txt` and the `spectrumdisplayform.cc` entry in
+  [docs/gnuradio-patches.md](docs/gnuradio-patches.md). The sinks with no C++
+  upstream at all (Number Sink, and the gauges and other Python QWidgets) are
+  rebuilt in `blocks/src/` instead.
 
 The gr-fosphor Qt sink is a dual-backend GUI path (its standalone GLFW
 counterpart is hidden — a separate desktop window has no browser meaning).

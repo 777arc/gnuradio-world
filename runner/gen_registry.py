@@ -190,6 +190,16 @@ CUSTOM_IDS = {
     "qtgui_const_sink_x",
     "qtgui_number_sink",
     "qtgui_waterfall_sink_x",
+    # The rest of gr-qtgui's C++ sinks. Only qtgui_sink_x declares cpp_templates
+    # upstream (the other five are marked Python-only despite having a C++ class),
+    # and all of them need a widget and live setters, so each is hand-written.
+    "qtgui_sink_x",
+    "qtgui_eye_sink_x",
+    "qtgui_histogram_sink_x",
+    "qtgui_time_raster_sink_x",
+    "qtgui_vector_sink_f",
+    "qtgui_matrix_sink",
+    "qtgui_bercurve_sink",
 }
 
 # Blocks whose factory returns a QWidget, i.e. everything that occupies a tile in
@@ -212,6 +222,13 @@ GUI_IDS = {
     "qtgui_waterfall_sink_x",
     "qtgui_number_sink",
     "qtgui_edit_box_msg",
+    "qtgui_sink_x",
+    "qtgui_eye_sink_x",
+    "qtgui_histogram_sink_x",
+    "qtgui_time_raster_sink_x",
+    "qtgui_vector_sink_f",
+    "qtgui_matrix_sink",
+    "qtgui_bercurve_sink",
     "wasm_packet_rate_sink",
     "hrpt_image_sink",
     # Two Python QWidgets upstream, rebuilt in C++ here.

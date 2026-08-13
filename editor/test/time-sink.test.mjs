@@ -89,8 +89,10 @@ assert.match(runner, /configure_time_sink\(b, p, 2 \* nc\)/,
   }
 }
 
-// A .grc that omits them gets the same defaults, since the runner has no yaml.
-assert.match(runner, /number_from\(p, "marker" \+ suffix, -1\)/,
+// A .grc that omits them gets the same defaults, since the runner has no yaml:
+// configure_line's own fallbacks are the Time/Frequency Sink's, and a sink whose
+// yaml declares others (the Bercurve Sink's circles) overrides them at the call.
+assert.match(runner, /int default_style = 1,\s*\n\s*int default_marker = -1\)/,
   'an unspecified Time/Frequency Sink marker must default to no marker');
 
 console.log('checked multi-input QT GUI sink traces and line markers');

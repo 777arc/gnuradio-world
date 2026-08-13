@@ -7,7 +7,7 @@ import { dumpGrc, parseGrc, type GrcDoc, type GrcScalar } from './grc';
 import { boundsBetween, boundsIntersect, type Point } from './selection';
 import { ceilToGrid, centeredPortSlot, constrainBlockPosition, SNAP_GRID_SIZE } from './grid';
 import { arrangeFlowgraph, type LayoutNode } from './layout';
-import { evaluate as evalExpr, buildScope, formatValue as fmtExprVal, serializeForRunner, type Scope } from './expr';
+import { evaluate as evalExpr, buildScope, formatValue as fmtExprVal, serializeForRunner, type Scope, type Value } from './expr';
 import { wrapNoteText, NOTE_FONT_SIZE } from './note';
 import {
   layoutColumns,
@@ -281,9 +281,23 @@ function templateScope(params: Record<string, any>): Scope {
     if (typeof raw === 'number' || typeof raw === 'boolean') scope[id] = raw;
     else if (text === 'True' || text === 'False') scope[id] = text === 'True';
     else if (text && Number.isFinite(Number(text))) scope[id] = Number(text);
-    else scope[id] = text;
+    else scope[id] = listParam(text);
   }
   return scope;
+}
+
+// A parameter holding a *list* is worth evaluating before it goes into a
+// template scope, because a port template can count it: the Bercurve Sink's
+// input multiplicity is `len(esno)*2*num_curves`, and with `esno` left as the
+// text "numpy.arange(0.0, 4.0, .5)" that len() is the length of the string —
+// 26 input ports where the flowgraph wants 8. Only a value that evaluates to a
+// list is substituted: a number or a bool would change how an existing `hide`
+// or `optional` expression reads, while nothing can ask a *string* parameter
+// for its length and mean it.
+function listParam(text: string): Value {
+  if (!/[[(]/.test(text)) return text;
+  const result = evalExpr(text, varScope);
+  return result.ok && Array.isArray(result.value) ? result.value : text;
 }
 
 function templateValue(raw: any, params: Record<string, any>): any {

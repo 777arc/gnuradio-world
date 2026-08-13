@@ -1,0 +1,150 @@
+options:
+  parameters:
+    author: ''
+    category: '[GRC Hier Blocks]'
+    comment: ''
+    description: The two sinks that plot a whole vector at a time rather than a
+      stream. Stream to Vector cuts the noisy tone into 256-sample frames; the
+      Vector Sink draws one frame as a trace against its sample index, and the
+      Matrix Sink draws the same 256 numbers as a 16x16 intensity grid, filled a
+      row at a time.
+    generate_options: qt_gui
+    id: vector_matrix_sinks
+    output_language: python
+    run: 'True'
+    sizing_mode: fixed
+    title: QT GUI Vector and Matrix Sinks
+  states:
+    coordinate: [10, 10]
+    rotation: 0
+    state: enabled
+blocks:
+- name: samp_rate
+  id: variable
+  parameters:
+    value: '32000'
+  states:
+    coordinate: [580, 10]
+    rotation: 0
+    state: enabled
+- name: vlen
+  id: variable
+  parameters:
+    value: '256'
+  states:
+    coordinate: [750, 10]
+    rotation: 0
+    state: enabled
+- name: analog_sig_source_x_0
+  id: analog_sig_source_x
+  parameters:
+    type: float
+    samp_rate: samp_rate
+    waveform: analog.GR_COS_WAVE
+    frequency: '1000'
+    amplitude: '1'
+    offset: '0'
+    phase: '0'
+  states:
+    coordinate: [10, 210]
+    rotation: 0
+    state: enabled
+- name: analog_noise_source_x_0
+  id: analog_noise_source_x
+  parameters:
+    type: float
+    noise_type: analog.GR_GAUSSIAN
+    amplitude: '0.1'
+    seed: '0'
+  states:
+    coordinate: [10, 350]
+    rotation: 0
+    state: enabled
+- name: blocks_add_xx_0
+  id: blocks_add_xx
+  parameters:
+    type: float
+    num_inputs: '2'
+    vlen: '1'
+  states:
+    coordinate: [300, 230]
+    rotation: 0
+    state: enabled
+- name: blocks_throttle2_0
+  id: blocks_throttle2
+  parameters:
+    type: float
+    samples_per_second: samp_rate
+    vlen: '1'
+    ignoretag: 'True'
+    limit: time
+    maximum: '0.1'
+  states:
+    coordinate: [540, 220]
+    rotation: 0
+    state: enabled
+- name: blocks_stream_to_vector_0
+  id: blocks_stream_to_vector
+  parameters:
+    type: float
+    num_items: vlen
+    vlen: '1'
+  states:
+    coordinate: [870, 240]
+    rotation: 0
+    state: enabled
+- name: qtgui_vector_sink_f_0
+  id: qtgui_vector_sink_f
+  parameters:
+    name: '"One frame at a time"'
+    vlen: vlen
+    x_start: '0'
+    x_step: '1'
+    x_axis_label: '"Sample"'
+    y_axis_label: '"Amplitude"'
+    x_units: '""'
+    y_units: '""'
+    ref_level: '0'
+    nconnections: '1'
+    ymin: '-2'
+    ymax: '2'
+    autoscale: 'False'
+    grid: 'True'
+    average: '1.0'
+    update_time: '0.10'
+    showports: 'False'
+  states:
+    coordinate: [1160, 190]
+    rotation: 0
+    state: enabled
+- name: qtgui_matrix_sink_0
+  id: qtgui_matrix_sink
+  parameters:
+    name: '"The same frame as a grid"'
+    vlen: vlen
+    num_cols: '16'
+    contour: 'false'
+    color_map: '"rgb"'
+    interpolation: '"NearestNeighbour"'
+    x_start: '0'
+    x_end: '16'
+    y_start: '0'
+    y_end: '16'
+    z_min: '-1.5'
+    z_max: '1.5'
+    x_axis_label: '"Column"'
+    y_axis_label: '"Row"'
+    z_axis_label: '"Amplitude"'
+  states:
+    coordinate: [1160, 390]
+    rotation: 0
+    state: enabled
+connections:
+- [analog_sig_source_x_0, '0', blocks_add_xx_0, '0']
+- [analog_noise_source_x_0, '0', blocks_add_xx_0, '1']
+- [blocks_add_xx_0, '0', blocks_throttle2_0, '0']
+- [blocks_throttle2_0, '0', blocks_stream_to_vector_0, '0']
+- [blocks_stream_to_vector_0, '0', qtgui_vector_sink_f_0, '0']
+- [blocks_stream_to_vector_0, '0', qtgui_matrix_sink_0, '0']
+metadata:
+  file_format: 1

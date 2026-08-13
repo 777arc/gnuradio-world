@@ -43,6 +43,13 @@ sources against Qt 6 instead — but they carry WASM guards too:
   queued update event before posting a new one, so a display that paints slower
   than the flowgraph produces shows the newest frame instead of accumulating
   latency.
+- `gr-qtgui/lib/spectrumdisplayform.cc` — QT GUI Sink's FFT Size selector,
+  reconnected under `QT_VERSION >= 6`. Its `.ui` file connects
+  `QComboBox::activated(const QString&)`, an overload Qt6 removed; the connection
+  is resolved by name at run time, so it costs one warning rather than a build
+  error and leaves the selector doing nothing. The replacement uses the `int`
+  overload both versions have. See also `qtgui/CMakeLists.txt`, where the same
+  file needs `uic --connections string`.
 - `gr-qtgui/lib/TimeDomainDisplayPlot.cc`, its header — `QwtPlotCanvas::ImmediatePaint`
   plus antialiasing off and `FilterPointsAggressive` on the curves; Qwt's backing
   pixmap and Qt's antialiased polyline rasterizer are both disproportionately

@@ -1,0 +1,263 @@
+options:
+    parameters:
+        id: wasm_qtgui_sinks
+        title: WASM QT GUI sinks
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: samp_rate
+    id: variable
+    parameters:
+        value: '32000'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: sig
+    id: analog_sig_source_x
+    parameters:
+        type: float
+        samp_rate: samp_rate
+        waveform: analog.GR_COS_WAVE
+        frequency: '1000'
+        amplitude: '1'
+        offset: '0'
+        phase: '0'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: throttle_f
+    id: blocks_throttle2
+    parameters:
+        type: float
+        samples_per_second: samp_rate
+        vlen: '1'
+        ignoretag: 'True'
+        limit: time
+        maximum: '0.1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: eye
+    id: qtgui_eye_sink_x
+    parameters:
+        type: float
+        name: '"Eye"'
+        size: '1024'
+        samp_per_symbol: '4'
+        srate: samp_rate
+        nconnections: '1'
+        ymin: '-2'
+        ymax: '2'
+        update_time: '0.10'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: histogram
+    id: qtgui_histogram_sink_x
+    parameters:
+        type: float
+        name: '"Histogram"'
+        size: '1024'
+        bins: '64'
+        xmin: '-2'
+        xmax: '2'
+        nconnections: '1'
+        update_time: '0.10'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: to_vector
+    id: blocks_stream_to_vector
+    parameters:
+        type: float
+        num_items: '128'
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: vector
+    id: qtgui_vector_sink_f
+    parameters:
+        name: '"Vector"'
+        vlen: '128'
+        x_start: '0'
+        x_step: '1'
+        x_axis_label: '"Sample"'
+        y_axis_label: '"Amplitude"'
+        nconnections: '1'
+        ymin: '-2'
+        ymax: '2'
+        update_time: '0.10'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: matrix
+    id: qtgui_matrix_sink
+    parameters:
+        name: '"Matrix"'
+        vlen: '128'
+        num_cols: '16'
+        contour: 'false'
+        color_map: '"rgb"'
+        interpolation: '"NearestNeighbour"'
+        z_min: '-1.5'
+        z_max: '1.5'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: sig_c
+    id: analog_sig_source_x
+    parameters:
+        type: complex
+        samp_rate: samp_rate
+        waveform: analog.GR_COS_WAVE
+        frequency: '4000'
+        amplitude: '0.7'
+        offset: '0'
+        phase: '0'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: throttle_c
+    id: blocks_throttle2
+    parameters:
+        type: complex
+        samples_per_second: samp_rate
+        vlen: '1'
+        ignoretag: 'True'
+        limit: time
+        maximum: '0.1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: combined
+    id: qtgui_sink_x
+    parameters:
+        type: complex
+        name: '"Combined"'
+        fftsize: '1024'
+        wintype: window.WIN_BLACKMAN_hARRIS
+        fc: '0'
+        bw: samp_rate
+        rate: '10'
+        showrf: 'False'
+        plotfreq: 'True'
+        plotwaterfall: 'True'
+        plottime: 'True'
+        plotconst: 'True'
+        showports: 'False'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: bits
+    id: analog_random_source_x
+    parameters:
+        type: byte
+        min: '0'
+        max: '2'
+        num_samps: '10000'
+        repeat: 'True'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: throttle_b
+    id: blocks_throttle2
+    parameters:
+        type: byte
+        samples_per_second: '8000'
+        vlen: '1'
+        ignoretag: 'True'
+        limit: time
+        maximum: '0.1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: raster
+    id: qtgui_time_raster_sink_x
+    parameters:
+        type: byte
+        name: '"Raster"'
+        samp_rate: '8000'
+        nrows: '16'
+        ncols: '32'
+        nconnections: '1'
+        zmin: '0'
+        zmax: '1'
+        mult: '[]'
+        offset: '[]'
+        update_time: '0.10'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: reference
+    id: blocks_vector_source_x
+    parameters:
+        type: byte
+        vector: '[0, 1]'
+        repeat: 'True'
+        tags: '[]'
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: throttle_ref
+    id: blocks_throttle2
+    parameters:
+        type: byte
+        samples_per_second: '8000'
+        vlen: '1'
+        ignoretag: 'True'
+        limit: time
+        maximum: '0.1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: bercurve
+    id: qtgui_bercurve_sink
+    parameters:
+        esno: '[0.0]'
+        num_curves: '1'
+        berminerrors: '100'
+        berlimit: '-7.0'
+        curvenames: '[]'
+        ymin: '-10'
+        ymax: '0'
+        update_time: '0.10'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+connections:
+- [sig, '0', throttle_f, '0']
+- [throttle_f, '0', eye, '0']
+- [throttle_f, '0', histogram, '0']
+- [throttle_f, '0', to_vector, '0']
+- [to_vector, '0', vector, '0']
+- [to_vector, '0', matrix, '0']
+- [sig_c, '0', throttle_c, '0']
+- [throttle_c, '0', combined, '0']
+- [bits, '0', throttle_b, '0']
+- [throttle_b, '0', raster, '0']
+- [throttle_b, '0', bercurve, '0']
+- [reference, '0', throttle_ref, '0']
+- [throttle_ref, '0', bercurve, '1']
+metadata:
+    file_format: 1

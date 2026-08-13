@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { editorSource as source } from './editor-contract-source.mjs';
+import { bundleModule } from './bundle-module.mjs';
+
+const { evaluate } = await bundleModule('../src/expr.ts');
 
 const library = JSON.parse(await readFile(
   new URL('../public/blocks.json', import.meta.url), 'utf8'));
@@ -42,5 +45,21 @@ assert.match(source, /configured multiplicity part of its topology rather than a
   'all configured Selector stream ports must be required like native GRC');
 assert.match(source, /Connection vector-length mismatch/,
   'Selector vector lengths must participate in stream compatibility checks');
+
+// The Bercurve Sink counts a *list* parameter to size its ports
+// (`len(esno)*2*num_curves`, one input pair per Es/No point per curve). That only
+// works if the template scope holds `esno` as the list it evaluates to rather
+// than as its own source text — with the text, len() returns the number of
+// characters in "numpy.arange(0.0, 4.0, .5)" and the block draws 52 ports.
+const bercurve = (library.blocks || []).find(block => block.id === 'qtgui_bercurve_sink');
+assert.equal(bercurve?.inputs?.[0]?.multiplicity, '${ len(esno)*2*num_curves }',
+  'Bercurve Sink inputs must retain their native per-Es/No multiplicity');
+const esno = evaluate(bercurve.params.find(p => p.id === 'esno').default, {});
+assert.ok(esno.ok && Array.isArray(esno.value) && esno.value.length === 8,
+  'the Bercurve Sink default Es/No range must evaluate to a list of 8 points');
+assert.match(source, /else scope\[id\] = listParam\(text\)/,
+  'template scopes must carry list-valued parameters as lists');
+assert.match(source, /result\.ok && Array\.isArray\(result\.value\) \? result\.value : text/,
+  'only a parameter that evaluates to a list may be substituted into the scope');
 
 console.log('checked native-compatible Selector ports, controls and topology');

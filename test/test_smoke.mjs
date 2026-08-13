@@ -98,6 +98,16 @@ const CASES = [
       '(freq . 42)',    // Digital Number Control: message in, message back out
       '(edit . hello)', // Message Edit Box: its default, published by start()
     ] },
+  // The seven gr-qtgui sinks the Qt6 port added after the original four. Only
+  // three of them have example flowgraphs, and an example is not run by this
+  // harness anyway; what a case here proves is that each sink's display chain
+  // is still in the qtgui archive and still constructs, which is the half of
+  // the port that a CMake edit can silently undo. The Bercurve Sink also has
+  // its log checked: it is fed a random stream against an alternating
+  // reference, so it must reach a bit error rate near 0.5 (log10 -0.3) and say
+  // so -- a sink that constructs but never pairs its two inputs prints nothing.
+  { name: 'QT GUI sinks (eye, histogram, raster, vector, matrix, combined, BER)',
+    grc: 'test/fixtures/wasm_qtgui_sinks.grc', expectLogs: ['ber_sink_b -'] },
   { name: 'gr-satellites hier rebuilds', grc: 'test/fixtures/wasm_satellites_hier.grc' },
   { name: 'gr-satellites AX.25 framer/deframer loopback',
     grc: 'test/fixtures/wasm_satellites_ax25_loopback.grc' },

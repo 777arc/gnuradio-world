@@ -1,0 +1,103 @@
+options:
+  parameters:
+    author: ''
+    category: '[GRC Hier Blocks]'
+    comment: ''
+    description: QT GUI Sink is the spectrum, waterfall, time and constellation
+      plots in one tabbed widget rather than four blocks, which is the quickest
+      way to look at an unfamiliar signal. Here it watches a noisy tone; the tabs
+      along the top switch views and the whole widget shares one FFT.
+    generate_options: qt_gui
+    id: combined_sink
+    output_language: python
+    run: 'True'
+    sizing_mode: fixed
+    title: QT GUI Sink (all four plots)
+  states:
+    coordinate: [10, 10]
+    rotation: 0
+    state: enabled
+blocks:
+- name: samp_rate
+  id: variable
+  parameters:
+    value: '200000'
+  states:
+    coordinate: [600, 10]
+    rotation: 0
+    state: enabled
+- name: analog_sig_source_x_0
+  id: analog_sig_source_x
+  parameters:
+    type: complex
+    samp_rate: samp_rate
+    waveform: analog.GR_COS_WAVE
+    frequency: '20000'
+    amplitude: '0.7'
+    offset: '0'
+    phase: '0'
+  states:
+    coordinate: [10, 130]
+    rotation: 0
+    state: enabled
+- name: analog_noise_source_x_0
+  id: analog_noise_source_x
+  parameters:
+    type: complex
+    noise_type: analog.GR_GAUSSIAN
+    amplitude: '0.05'
+    seed: '0'
+  states:
+    coordinate: [10, 270]
+    rotation: 0
+    state: enabled
+- name: blocks_add_xx_0
+  id: blocks_add_xx
+  parameters:
+    type: complex
+    num_inputs: '2'
+    vlen: '1'
+  states:
+    coordinate: [310, 150]
+    rotation: 0
+    state: enabled
+- name: blocks_throttle2_0
+  id: blocks_throttle2
+  parameters:
+    type: complex
+    samples_per_second: samp_rate
+    vlen: '1'
+    ignoretag: 'True'
+    limit: time
+    maximum: '0.1'
+  states:
+    coordinate: [550, 140]
+    rotation: 0
+    state: enabled
+- name: qtgui_sink_x_0
+  id: qtgui_sink_x
+  parameters:
+    type: complex
+    name: '"Noisy tone"'
+    fftsize: '1024'
+    wintype: window.WIN_BLACKMAN_hARRIS
+    fc: '0'
+    bw: samp_rate
+    rate: '10'
+    showrf: 'False'
+    plotfreq: 'True'
+    plotwaterfall: 'True'
+    plottime: 'True'
+    plotconst: 'True'
+    showports: 'False'
+  states:
+    coordinate: [880, 130]
+    rotation: 0
+    state: enabled
+connections:
+- [analog_sig_source_x_0, '0', blocks_add_xx_0, '0']
+- [analog_noise_source_x_0, '0', blocks_add_xx_0, '1']
+- [blocks_add_xx_0, '0', blocks_throttle2_0, '0']
+- [blocks_throttle2_0, '0', qtgui_sink_x_0, '0']
+metadata:
+  file_format: 1

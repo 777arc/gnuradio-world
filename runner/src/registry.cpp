@@ -63,6 +63,7 @@
 #include <gnuradio/filter/filter_delay_fc.h>
 #include <gnuradio/filter/filterbank_vcvcf.h>
 #include <gnuradio/filter/ival_decimator.h>
+#include <gnuradio/fft/window.h>
 #include <gnuradio/hier_block2.h>
 #include <gnuradio/io_signature.h>
 #include <gnuradio/sync_block.h>
@@ -73,6 +74,16 @@
 #include <gnuradio/qtgui/waterfall_sink_c.h>
 #include <gnuradio/qtgui/waterfall_sink_f.h>
 #include <gnuradio/qtgui/edit_box_msg.h>
+#include <gnuradio/qtgui/sink_c.h>
+#include <gnuradio/qtgui/sink_f.h>
+#include <gnuradio/qtgui/eye_sink_c.h>
+#include <gnuradio/qtgui/eye_sink_f.h>
+#include <gnuradio/qtgui/histogram_sink_f.h>
+#include <gnuradio/qtgui/time_raster_sink_b.h>
+#include <gnuradio/qtgui/time_raster_sink_f.h>
+#include <gnuradio/qtgui/vector_sink_f.h>
+#include <gnuradio/qtgui/matrix_sink.h>
+#include <gnuradio/qtgui/ber_sink_b.h>
 #include <QBoxLayout>
 #include <QButtonGroup>
 #include <QCheckBox>
@@ -216,11 +227,27 @@ static gr::qtgui::trigger_slope trigger_slope_from(const json& p)
                                                    : gr::qtgui::TRIG_SLOPE_POS;
 }
 
+// GRC's own per-line default colors, in the order its `colorN` parameters
+// declare them, so line N of a sink whose .grc leaves its color unset comes out
+// the color the editor draws in its properties dialog.
+static const std::vector<std::string> DEFAULT_LINE_COLORS = {
+    "blue", "red", "green", "black", "cyan", "magenta", "yellow",
+    "dark red", "dark green", "dark blue"
+};
+
+static const std::string& default_line_color(int line)
+{
+    return DEFAULT_LINE_COLORS[static_cast<std::size_t>(line) %
+                               DEFAULT_LINE_COLORS.size()];
+}
+
 template <typename Sink>
 static void configure_line(const std::shared_ptr<Sink>& sink,
                            const json& p,
                            unsigned int line,
-                           const std::string& default_color)
+                           const std::string& default_color,
+                           int default_style = 1,
+                           int default_marker = -1)
 {
     const std::string suffix = std::to_string(line + 1);
     if (auto it = p.find("label" + suffix); it != p.end() && it->is_string())
@@ -233,10 +260,12 @@ static void configure_line(const std::shared_ptr<Sink>& sink,
     // declares: a solid line (Qt::SolidLine) and no marker (QwtSymbol::NoSymbol,
     // which is -1, not 0 — 0 is a circle). A .grc that leaves these out is
     // asking for GRC's default, so 0 here would put a marker on every sample.
+    // A sink whose own yaml declares different defaults (the Bercurve Sink plots
+    // one circle per Es/No point) passes them in.
     sink->set_line_style(
-        line, static_cast<int>(number_from(p, "style" + suffix, 1)));
+        line, static_cast<int>(number_from(p, "style" + suffix, default_style)));
     sink->set_line_marker(
-        line, static_cast<int>(number_from(p, "marker" + suffix, -1)));
+        line, static_cast<int>(number_from(p, "marker" + suffix, default_marker)));
     sink->set_line_alpha(line, number_from(p, "alpha" + suffix, 1.0));
 }
 
@@ -245,10 +274,6 @@ static void configure_time_sink(const std::shared_ptr<Sink>& sink,
                                 const json& p,
                                 unsigned int line_count)
 {
-    static const std::vector<std::string> default_colors = {
-        "blue", "red", "green", "black", "cyan", "magenta", "yellow",
-        "dark red", "dark green", "dark blue"
-    };
     sink->set_y_label(unquoted(p.value("ylabel", std::string("Amplitude"))),
                       unquoted(p.value("yunit", std::string())));
     sink->set_y_axis(number_from(p, "ymin", -1.0), number_from(p, "ymax", 1.0));
@@ -261,7 +286,7 @@ static void configure_time_sink(const std::shared_ptr<Sink>& sink,
     if (!bool_from(p, "legend", true))
         sink->disable_legend();
     for (unsigned int line = 0; line < line_count; ++line)
-        configure_line(sink, p, line, default_colors[line % default_colors.size()]);
+        configure_line(sink, p, line, default_line_color(static_cast<int>(line)));
     sink->set_trigger_mode(trigger_mode_from(p),
                            trigger_slope_from(p),
                            static_cast<float>(number_from(p, "tr_level", 0.0)),
@@ -337,6 +362,40 @@ static void configure_waterfall_sink(const std::shared_ptr<Sink>& sink,
             i, static_cast<int>(number_from(p, "color" + suffix, 0)));
         sink->set_line_alpha(i, number_from(p, "alpha" + suffix, 1.0));
     }
+}
+
+// GRC's Window Type enum, shared by every sink that takes an FFT window. The
+// yaml spells the options `window.WIN_*` and its cpp_templates rewrite them to
+// `fft::window::WIN_*`; choice() normalizes both.
+static gr::fft::window::win_type window_type_from(const json& p)
+{
+    return wasm_registry::choice<gr::fft::window::win_type>(
+        p,
+        "wintype",
+        {
+            { "window.WIN_BLACKMAN_hARRIS", gr::fft::window::WIN_BLACKMAN_hARRIS },
+            { "window.WIN_HAMMING", gr::fft::window::WIN_HAMMING },
+            { "window.WIN_HANN", gr::fft::window::WIN_HANN },
+            { "window.WIN_BLACKMAN", gr::fft::window::WIN_BLACKMAN },
+            { "window.WIN_RECTANGULAR", gr::fft::window::WIN_RECTANGULAR },
+            { "window.WIN_KAISER", gr::fft::window::WIN_KAISER },
+            { "window.WIN_FLATTOP", gr::fft::window::WIN_FLATTOP },
+        },
+        gr::fft::window::WIN_BLACKMAN_hARRIS);
+}
+
+// The stream connection count for the sinks whose Type parameter has message
+// variants (`msg_complex`, `msg_float`, `msg_byte`): those carry no stream
+// inputs at all, so the sink is constructed with zero connections and fed
+// through its `in` message port instead.
+static int sink_connections(const json& p, const std::string& block_label)
+{
+    if (type_from(p, "complex").rfind("msg", 0) == 0)
+        return 0;
+    const int connections = static_cast<int>(number_from(p, "nconnections", 1));
+    if (connections < 0)
+        throw std::runtime_error(block_label + " connections cannot be negative");
+    return connections;
 }
 
 // One scalar in Python/GRC spelling ("2", "-1.5", "1+1j", "-1j") -> gr_complex.
@@ -2875,6 +2934,289 @@ static std::map<std::string, Factory>& registry_storage() {
                      fftsize, wintype, initial_fc, initial_bw, nm, nconnections));
              return finish(gr::qtgui::waterfall_sink_c::make(
                  fftsize, wintype, initial_fc, initial_bw, nm, nconnections));
+         }},
+        // The combined four-pane sink: one widget with a tab each for spectrum,
+        // waterfall, time and constellation. Its Update Rate is a rate in Hz,
+        // not a period, unlike every other sink's Update Period.
+        {"qtgui_sink_x", [](const json& p) -> BuiltBlock {
+             const double initial_fc = number_from(p, "fc", 0.0);
+             const double initial_bw = number_from(p, "bw", 32000.0);
+             const int fftsize = static_cast<int>(number_from(p, "fftsize", 1024));
+             const std::string nm = unquoted(p.value("name", std::string()));
+             const int wintype = static_cast<int>(window_type_from(p));
+             const bool plotfreq = bool_from(p, "plotfreq", true);
+             const bool plotwaterfall = bool_from(p, "plotwaterfall", true);
+             const bool plottime = bool_from(p, "plottime", true);
+             const bool plotconst = bool_from(p, "plotconst", true);
+
+             auto range = std::make_shared<std::pair<double, double>>(initial_fc,
+                                                                     initial_bw);
+             auto finish = [&](auto b) -> BuiltBlock {
+                 const double rate = number_from(p, "rate", 10.0);
+                 b->set_update_time(rate > 0.0 ? 1.0 / rate : 0.1);
+                 b->enable_rf_freq(bool_from(p, "showrf", false));
+                 BuiltBlock result{ b, b->qwidget() };
+                 result.numeric_setters["fftsize"] =
+                     [b](double value) { b->set_fft_size(static_cast<int>(value)); };
+                 result.numeric_setters["rate"] = [b](double value) {
+                     b->set_update_time(value > 0.0 ? 1.0 / value : 0.1);
+                 };
+                 result.numeric_setters["fc"] = [b, range](double value) {
+                     range->first = value;
+                     b->set_frequency_range(range->first, range->second);
+                 };
+                 result.numeric_setters["bw"] = [b, range](double value) {
+                     range->second = value;
+                     b->set_frequency_range(range->first, range->second);
+                 };
+                 return result;
+             };
+             if (is_float(p))
+                 return finish(gr::qtgui::sink_f::make(fftsize, wintype, initial_fc,
+                                                      initial_bw, nm, plotfreq,
+                                                      plotwaterfall, plottime,
+                                                      plotconst));
+             return finish(gr::qtgui::sink_c::make(fftsize, wintype, initial_fc,
+                                                   initial_bw, nm, plotfreq,
+                                                   plotwaterfall, plottime,
+                                                   plotconst));
+         }},
+        {"qtgui_eye_sink_x", [](const json& p) -> BuiltBlock {
+             const int connections = sink_connections(p, "QT GUI Eye Sink");
+             const std::string type = type_from(p, "complex");
+             const double sr = number_from(p, "srate", 32000.0);
+             const int size = static_cast<int>(number_from(p, "size", 1024));
+             const bool complex_variant =
+                 type == "complex" || type == "msg_complex";
+             // A complex input is drawn as two eyes, real and imaginary, so it
+             // owns two of the sink's lines per connection. Message mode carries
+             // no connections but still draws one input's worth.
+             const unsigned int lines = static_cast<unsigned int>(
+                 std::max(connections, 1) * (complex_variant ? 2 : 1));
+             auto finish = [&](auto b) -> BuiltBlock {
+                 configure_time_sink(b, p, lines);
+                 b->set_samp_per_symbol(static_cast<unsigned int>(
+                     number_from(p, "samp_per_symbol", 1.0)));
+                 b->enable_tags(bool_from(p, "entags", true));
+                 BuiltBlock result{ b, b->qwidget() };
+                 result.numeric_setters["srate"] =
+                     [b](double value) { b->set_samp_rate(value); };
+                 result.numeric_setters["samp_per_symbol"] = [b](double value) {
+                     b->set_samp_per_symbol(static_cast<unsigned int>(value));
+                 };
+                 result.numeric_setters["update_time"] =
+                     [b](double value) { b->set_update_time(value); };
+                 return result;
+             };
+             if (complex_variant)
+                 return finish(gr::qtgui::eye_sink_c::make(
+                     size, sr, static_cast<unsigned int>(connections)));
+             return finish(gr::qtgui::eye_sink_f::make(
+                 size, sr, static_cast<unsigned int>(connections)));
+         }},
+        {"qtgui_histogram_sink_x", [](const json& p) -> BuiltBlock {
+             const int connections = sink_connections(p, "QT GUI Histogram Sink");
+             auto x_axis = std::make_shared<std::pair<double, double>>(
+                 number_from(p, "xmin", -1.0), number_from(p, "xmax", 1.0));
+             auto b = gr::qtgui::histogram_sink_f::make(
+                 static_cast<int>(number_from(p, "size", 1024)),
+                 static_cast<int>(number_from(p, "bins", 100)),
+                 x_axis->first,
+                 x_axis->second,
+                 unquoted(p.value("name", std::string())),
+                 connections);
+             b->set_update_time(number_from(p, "update_time", 0.1));
+             b->enable_autoscale(bool_from(p, "autoscale", true));
+             b->enable_accumulate(bool_from(p, "accum", false));
+             b->enable_grid(bool_from(p, "grid", false));
+             b->enable_axis_labels(bool_from(p, "axislabels", true));
+             if (!bool_from(p, "legend", true))
+                 b->disable_legend();
+             for (int i = 0; i < std::max(connections, 1); ++i)
+                 configure_line(b, p, static_cast<unsigned int>(i),
+                                default_line_color(i));
+
+             BuiltBlock result{ b, b->qwidget() };
+             result.numeric_setters["bins"] = [b](double value) {
+                 b->set_bins(static_cast<int>(value));
+             };
+             result.numeric_setters["size"] = [b](double value) {
+                 b->set_nsamps(static_cast<int>(value));
+             };
+             result.numeric_setters["update_time"] =
+                 [b](double value) { b->set_update_time(value); };
+             result.numeric_setters["xmin"] = [b, x_axis](double value) {
+                 x_axis->first = value;
+                 b->set_x_axis(x_axis->first, x_axis->second);
+             };
+             result.numeric_setters["xmax"] = [b, x_axis](double value) {
+                 x_axis->second = value;
+                 b->set_x_axis(x_axis->first, x_axis->second);
+             };
+             return result;
+         }},
+        {"qtgui_time_raster_sink_x", [](const json& p) -> BuiltBlock {
+             const int connections = sink_connections(p, "QT GUI Time Raster Sink");
+             const std::string type = type_from(p, "byte");
+             const double rows = number_from(p, "nrows", 256.0);
+             const double cols = number_from(p, "ncols", 256.0);
+             const std::vector<float> mult = flat_sequence<float>(p, "mult");
+             const std::vector<float> offset = flat_sequence<float>(p, "offset");
+             const std::string nm = unquoted(p.value("name", std::string()));
+
+             auto finish = [&](auto b) -> BuiltBlock {
+                 b->set_update_time(number_from(p, "update_time", 0.1));
+                 b->set_intensity_range(
+                     static_cast<float>(number_from(p, "zmin", -1.0)),
+                     static_cast<float>(number_from(p, "zmax", 1.0)));
+                 b->enable_grid(bool_from(p, "grid", false));
+                 b->enable_axis_labels(bool_from(p, "axislabels", true));
+                 b->set_x_label(unquoted(p.value("x_label", std::string())));
+                 b->set_x_range(number_from(p, "x_start_value", 0.0),
+                                number_from(p, "x_end_value", 0.0));
+                 b->set_y_label(unquoted(p.value("y_label", std::string())));
+                 b->set_y_range(number_from(p, "y_start_value", 0.0),
+                                number_from(p, "y_end_value", 0.0));
+                 // Per-connection label, color map and alpha, as for the
+                 // Waterfall Sink -- a raster is an intensity plot, so its
+                 // "color" is a map id rather than a pen color.
+                 for (int i = 0; i < std::max(connections, 1); ++i) {
+                     const std::string suffix = std::to_string(i + 1);
+                     if (auto it = p.find("label" + suffix);
+                         it != p.end() && it->is_string())
+                         b->set_line_label(static_cast<unsigned int>(i),
+                                           unquoted(it->get<std::string>()));
+                     b->set_color_map(
+                         static_cast<unsigned int>(i),
+                         static_cast<int>(number_from(p, "color" + suffix, 0)));
+                     b->set_line_alpha(static_cast<unsigned int>(i),
+                                       number_from(p, "alpha" + suffix, 1.0));
+                 }
+                 BuiltBlock result{ b, b->qwidget() };
+                 result.numeric_setters["nrows"] =
+                     [b](double value) { b->set_num_rows(value); };
+                 result.numeric_setters["ncols"] =
+                     [b](double value) { b->set_num_cols(value); };
+                 result.numeric_setters["samp_rate"] =
+                     [b](double value) { b->set_samp_rate(value); };
+                 result.numeric_setters["update_time"] =
+                     [b](double value) { b->set_update_time(value); };
+                 return result;
+             };
+             const double sr = number_from(p, "samp_rate", 32000.0);
+             if (type == "float" || type == "msg_float")
+                 return finish(gr::qtgui::time_raster_sink_f::make(
+                     sr, rows, cols, mult, offset, nm, connections));
+             return finish(gr::qtgui::time_raster_sink_b::make(
+                 sr, rows, cols, mult, offset, nm, connections));
+         }},
+        {"qtgui_vector_sink_f", [](const json& p) -> BuiltBlock {
+             const int connections =
+                 static_cast<int>(number_from(p, "nconnections", 1));
+             if (connections <= 0)
+                 throw std::runtime_error(
+                     "QT GUI Vector Sink requires at least one input");
+             auto b = gr::qtgui::vector_sink_f::make(
+                 static_cast<unsigned int>(number_from(p, "vlen", 1024)),
+                 number_from(p, "x_start", 0.0),
+                 number_from(p, "x_step", 1.0),
+                 unquoted(p.value("x_axis_label", std::string("x-Axis"))),
+                 unquoted(p.value("y_axis_label", std::string("y-Axis"))),
+                 unquoted(p.value("name", std::string())),
+                 connections);
+             auto y_axis = std::make_shared<std::pair<double, double>>(
+                 number_from(p, "ymin", -140.0), number_from(p, "ymax", 10.0));
+             b->set_update_time(number_from(p, "update_time", 0.1));
+             b->set_y_axis(y_axis->first, y_axis->second);
+             // Shares the Frequency Sink's Average enum: an IIR alpha, 1 = off.
+             b->set_vec_average(static_cast<float>(fft_average_from(p)));
+             b->enable_autoscale(bool_from(p, "autoscale", false));
+             b->enable_grid(bool_from(p, "grid", false));
+             b->set_x_axis_units(unquoted(p.value("x_units", std::string())));
+             b->set_y_axis_units(unquoted(p.value("y_units", std::string())));
+             b->set_ref_level(number_from(p, "ref_level", 0.0));
+             if (!bool_from(p, "legend", true))
+                 b->disable_legend();
+             for (int i = 0; i < connections; ++i)
+                 configure_line(b, p, static_cast<unsigned int>(i),
+                                default_line_color(i));
+
+             BuiltBlock result{ b, b->qwidget() };
+             result.numeric_setters["update_time"] =
+                 [b](double value) { b->set_update_time(value); };
+             result.numeric_setters["ref_level"] =
+                 [b](double value) { b->set_ref_level(value); };
+             result.numeric_setters["ymin"] = [b, y_axis](double value) {
+                 y_axis->first = value;
+                 b->set_y_axis(y_axis->first, y_axis->second);
+             };
+             result.numeric_setters["ymax"] = [b, y_axis](double value) {
+                 y_axis->second = value;
+                 b->set_y_axis(y_axis->first, y_axis->second);
+             };
+             return result;
+         }},
+        {"qtgui_matrix_sink", [](const json& p) -> BuiltBlock {
+             auto b = gr::qtgui::matrix_sink::make(
+                 unquoted(p.value("name", std::string("Matrix Sink"))),
+                 static_cast<unsigned int>(number_from(p, "num_cols", 10.0)),
+                 static_cast<unsigned int>(number_from(p, "vlen", 100.0)),
+                 bool_from(p, "contour", false),
+                 unquoted(p.value("color_map", std::string("rgb"))),
+                 unquoted(p.value("interpolation",
+                                  std::string("BilinearInterpolation"))));
+             b->set_x_start(number_from(p, "x_start", 0.0));
+             b->set_x_end(number_from(p, "x_end", 1.0));
+             b->set_y_start(number_from(p, "y_start", 0.0));
+             b->set_y_end(number_from(p, "y_end", 1.0));
+             b->set_z_max(number_from(p, "z_max", 1.0));
+             b->set_z_min(number_from(p, "z_min", 0.0));
+             b->set_x_axis_label(
+                 unquoted(p.value("x_axis_label", std::string("x-Axis"))));
+             b->set_y_axis_label(
+                 unquoted(p.value("y_axis_label", std::string("y-Axis"))));
+             b->set_z_axis_label(
+                 unquoted(p.value("z_axis_label", std::string("z-Axis"))));
+
+             BuiltBlock result{ b, b->qwidget() };
+             result.numeric_setters["z_min"] =
+                 [b](double value) { b->set_z_min(value); };
+             result.numeric_setters["z_max"] =
+                 [b](double value) { b->set_z_max(value); };
+             return result;
+         }},
+        // BER vs Es/No, one input pair (data, reference) per Es/No point per
+        // curve -- so its input count is len(esno)*2*num_curves, and the sink
+        // itself counts the bit errors between each pair.
+        {"qtgui_bercurve_sink", [](const json& p) -> BuiltBlock {
+             std::vector<float> esnos = flat_sequence<float>(p, "esno");
+             if (esnos.empty())
+                 throw std::runtime_error(
+                     "QT GUI Bercurve Sink needs at least one Es/No value");
+             const int curves = static_cast<int>(number_from(p, "num_curves", 1));
+             if (curves <= 0)
+                 throw std::runtime_error(
+                     "QT GUI Bercurve Sink requires at least one curve");
+             // Curve names are left empty and the labels applied below instead:
+             // GRC's own template does the same, overwriting whatever it passed
+             // here with label1..label10 straight afterwards.
+             auto b = gr::qtgui::ber_sink_b::make(
+                 esnos,
+                 curves,
+                 static_cast<int>(number_from(p, "berminerrors", 100)),
+                 static_cast<float>(number_from(p, "berlimit", -7.0)));
+             b->set_update_time(number_from(p, "update_time", 0.1));
+             b->set_y_axis(number_from(p, "ymin", -10.0),
+                           number_from(p, "ymax", 0.0));
+             b->set_x_axis(esnos.front(), esnos.back());
+             for (int i = 0; i < curves; ++i)
+                 configure_line(b, p, static_cast<unsigned int>(i),
+                                default_line_color(i), 1, 0);
+
+             BuiltBlock result{ b, b->qwidget() };
+             result.numeric_setters["update_time"] =
+                 [b](double value) { b->set_update_time(value); };
+             return result;
          }},
       };
       // Custom factories intentionally win over generated direct-make factories.
