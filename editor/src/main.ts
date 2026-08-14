@@ -1626,6 +1626,39 @@ async function copyFlowgraphUrl() {
   log(await copyText(url) ? `copied shareable URL to clipboard (${url.length} chars)`
         : 'could not copy automatically — URL logged below:\n' + url);
 }
+// Native GRC gives a combo box to *any* parameter that carries an options list,
+// not only to `dtype: enum`: `build_param_entrys` in
+// gnuradio/grc/gui_qt/components/dialogs.py branches on
+// `param.dtype == "enum" or param.options`, and makes the combo **editable**
+// for the non-enum ones. Editable is not decoration — plenty of those lists are
+// suggestions rather than a closed set (audio_sink's Sample Rate defaults to
+// the `samp_rate` variable, which is on none of them; Fast Noise Source's Noise
+// Type is `dtype: raw` with four options and could name a variable instead), so
+// such a field stays a text input and gains a datalist. Turning it into a
+// <select> would silently rewrite any value not on the list, which is the one
+// thing a properties dialog must never do.
+let optionListSeq = 0;
+function attachOptionList(input: HTMLInputElement | HTMLTextAreaElement, param: ParamDef) {
+  if (param.type === 'enum' || !param.options?.length || param.multiline) return;
+  const list = document.createElement('datalist');
+  list.id = `optlist-${++optionListSeq}`;
+  param.options.forEach((option, index) => {
+    const node = document.createElement('option');
+    node.value = option;
+    // Chrome shows the label beside the value; the value is what the .grc
+    // stores and what the block face shows, so it stays the primary text.
+    const label = param.optionLabels?.[index];
+    if (label && label !== option) node.label = label;
+    list.appendChild(node);
+  });
+  input.setAttribute('list', list.id);
+  input.after(list);
+  // Browsers disagree about whether clicking a field opens its datalist, and the
+  // chevron the CSS paints promises that it does. showPicker() keeps that promise
+  // wherever it exists and is a no-op where it does not — typing filters the same
+  // list either way.
+  input.onclick = () => { try { (input as any).showPicker?.(); } catch { /* not supported */ } };
+}
 function showVariableEditor() {
   closeMenu(); document.querySelector('.modal')?.remove();
   const variables = insts.filter(i => i.id === 'variable' || i.id.startsWith('variable_'));
@@ -1672,6 +1705,7 @@ function showVariableEditor() {
       };
       input.onchange = recordHistory;
       add(param.label, input, param.id);
+      if (input instanceof HTMLInputElement) attachOptionList(input, param);
     }
   }
   const foot = document.createElement('div'); foot.className = 'dlgfoot';
@@ -2236,6 +2270,7 @@ function showPropsDialog(inst: Inst) {
         refreshVisibility(); refreshValidation();
       };
       addField(p.category || 'General', `${p.label}  (${p.id})`, inp, p.id);
+      attachOptionList(inp, p);
       if (p.showWhen) conditionalRows.push({ param: p, row: inp.closest('.dlgrow') as HTMLElement });
     }
   }

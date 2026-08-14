@@ -461,6 +461,16 @@ svg text { user-select:none; -webkit-user-select:none; -moz-user-select:none; }
    the Code textarea would stay visible under the code editor mounted over it. */
 .dlgrow textarea[hidden] { display:none; }
 .field-control { min-width:0; }
+/* An editable combo (a text field with a datalist — see attachOptionList in
+   main.ts) has to *look* like a dropdown, and browsers disagree about whether
+   they draw an indicator at all. Paint one of our own and suppress Chromium's,
+   so the field reads the same everywhere and never shows two arrows. */
+.dlgrow input[list] { padding-right:28px;
+    background-image:linear-gradient(45deg,transparent 50%,#9aa7c6 50%),
+        linear-gradient(135deg,#9aa7c6 50%,transparent 50%);
+    background-position:calc(100% - 15px) calc(50% + 2px), calc(100% - 10px) calc(50% + 2px);
+    background-size:5px 5px, 5px 5px; background-repeat:no-repeat; }
+.dlgrow input[list]::-webkit-calendar-picker-indicator { display:none; }
 /* The Embedded Python Block's Code field is a program, not a value: it gets the
    full width of a wider dialog, its own monospace box, and the label above it
    rather than beside it. */
