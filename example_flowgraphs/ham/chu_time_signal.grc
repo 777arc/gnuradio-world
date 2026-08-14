@@ -84,15 +84,13 @@ blocks:
         rotation: 0
         state: enabled
 -   name: source16
-    id: blocks_file_source
+    id: wasm_gr_world_recording
     parameters:
-        begin_tag: pmt.PMT_NIL
-        file: /recordings/ham_chu_14670kHz.sigmf-data
         length: '0'
         offset: '0'
+        recording: ham_chu_14670kHz
         repeat: 'True'
         type: short
-        vlen: '1'
     states:
         coordinate: [10, 190]
         rotation: 0

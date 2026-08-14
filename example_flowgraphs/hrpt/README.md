@@ -15,9 +15,12 @@ frames, biphase-encoded 2 symbols/bit) is generated instead, carrying a real
 image -- this repo's own logo -- as the payload so the display can be checked
 by eye, not just by exit code. It is hosted at this repository's own
 `raw.githubusercontent.com` URL (the same pattern `droneid_mini_2.grc` uses for
-its sample capture) rather than committed as a *huge* binary, so **the file
-source in `hrpt_noaa_synthetic_image.grc` only resolves once this changeset is
-pushed to `main`** -- before that, test locally by pointing its `file`
+its sample capture), read by a **Public HTTP Recording** block -- the one of the
+three source blocks that takes a URL, where File Source takes a file on this
+computer and GR World Recording takes a key into the recordings bucket. It is
+not committed as a *huge* binary, so **the source block in
+`hrpt_noaa_synthetic_image.grc` only resolves once this changeset is pushed to
+`main`** -- before that, test locally by pointing its `url`
 parameter at a `http://localhost:<port>/example_flowgraphs/hrpt/...` URL served
 by a Range-capable dev server instead (`server.mjs` itself does not serve
 Range requests for arbitrary static files, only `/recordings/`; see

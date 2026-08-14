@@ -1,0 +1,70 @@
+id: wasm_gr_world_recording
+label: GR World Recording
+category: '[Core]/File Operators'
+flags: [cpp]
+
+documentation: |-
+    Streams one of GNU Radio World's hosted SigMF recordings.
+
+    Recording is the recording's key as the Recordings palette tab lists it --
+    'estevez/by701', say, without a directory prefix and without either SigMF
+    suffix. It is the same key a copied recording link carries. Pick one from the
+    list in this dialog, or click a card in the Recordings tab to place the block
+    already configured for that recording.
+
+    The recording is read on demand in bounded byte ranges while the flowgraph
+    runs, so a multi-gigabyte capture costs no more memory than a small one and
+    nothing is downloaded up front. Output Type follows the recording's SigMF
+    datatype -- it is shown in this dialog but not editable, since reading a
+    recording as anything else would only mis-read it. cf32 recordings are
+    complex, and an interleaved-integer recording (ci16) is a short stream to
+    feed IShort To Complex, which is the same convention GNU Radio uses for such
+    files.
+
+    Offset and Length select part of the recording, in samples, exactly as File
+    Source's do; dragging a time selection in this block's recording tab writes
+    them back here.
+
+    For a recording on this computer, use File Source instead.
+
+    This block exists only in the WebAssembly runner -- it has no Python
+    implementation, so a flowgraph using it will not run in desktop GNU Radio.
+
+parameters:
+-   id: recording
+    label: Recording
+    dtype: gr_world_recording
+    default: ''
+# Not a choice: the recording's SigMF datatype says how its samples are laid
+# out, so the editor sets this when a recording is picked and shows it read-only.
+-   id: type
+    label: Output Type
+    dtype: enum
+    default: complex
+    options: [complex, float, int, short, byte]
+    option_attributes:
+        size: [gr.sizeof_gr_complex, gr.sizeof_float, gr.sizeof_int, gr.sizeof_short, gr.sizeof_char]
+    hide: part
+-   id: repeat
+    label: Repeat
+    dtype: enum
+    default: 'False'
+    options: ['True', 'False']
+    option_labels: ['Yes', 'No']
+-   id: offset
+    label: Offset (samples)
+    dtype: int
+    default: '0'
+    hide: part
+-   id: length
+    label: Length (samples)
+    dtype: int
+    default: '0'
+    hide: part
+
+# A recording is a stream of scalar samples; there is no vector length to set.
+outputs:
+-   domain: stream
+    dtype: ${ type }
+
+file_format: 1

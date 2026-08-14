@@ -515,6 +515,9 @@ svg text { user-select:none; -webkit-user-select:none; -moz-user-select:none; }
 .file-picker button { padding:7px 12px; white-space:nowrap; }
 .file-picker-native { display:none !important; }
 .file-picker-detail { grid-column:1 / -1; color:#8f9ab5; font-size:16px; overflow-wrap:anywhere; }
+.field-hint { display:block; color:#8f9ab5; font-size:16px; line-height:1.35; margin-top:4px; }
+/* A derived field: shown so its value is readable, not editable. */
+.dlgrow select:disabled, .dlgrow input:disabled { color:#9aa7c6; opacity:1; cursor:default; }
 .field-error { display:block; color:#ff7b72; font-size:16px; line-height:1.35; margin-top:4px; }
 .field-error[hidden] { display:none; }
 .field-invalid { border-color:#ff4d5e !important; box-shadow:0 0 0 1px #ff4d5e66; }

@@ -1,0 +1,70 @@
+id: wasm_public_http_recording
+label: Public HTTP Recording
+category: '[Core]/File Operators'
+flags: [cpp]
+
+documentation: |-
+    Streams a recording from any public HTTP(S) URL.
+
+    This is the block for IQ data that lives somewhere else on the web -- a file
+    in a GitHub repository, a capture published beside a paper -- as opposed to
+    GR World Recording, which streams the recordings hosted here, and File
+    Source, which opens a file on this computer.
+
+    The file is read on demand in bounded byte ranges while the flowgraph runs,
+    so nothing is downloaded up front. That asks two things of whoever serves it,
+    and both fail as browser console errors rather than as a decode that merely
+    looks wrong:
+
+    * It must answer range requests with 206 and a matching Content-Range. Most
+      static hosts do; a few answer 200 with the whole file, which is refused.
+    * It must send CORS headers permitting this origin, since the browser reads
+      it directly. raw.githubusercontent.com does; many web servers do not.
+
+    The URL names raw bytes, not a SigMF recording, so Output Type says how to
+    read them -- there is no metadata to take it from, and no recording tab.
+
+    This block exists only in the WebAssembly runner -- it has no Python
+    implementation, so a flowgraph using it will not run in desktop GNU Radio.
+
+parameters:
+-   id: url
+    label: URL
+    dtype: string
+    default: ''
+-   id: type
+    label: Output Type
+    dtype: enum
+    default: complex
+    options: [complex, float, int, short, byte]
+    option_attributes:
+        size: [gr.sizeof_gr_complex, gr.sizeof_float, gr.sizeof_int, gr.sizeof_short, gr.sizeof_char]
+    hide: part
+-   id: repeat
+    label: Repeat
+    dtype: enum
+    default: 'False'
+    options: ['True', 'False']
+    option_labels: ['Yes', 'No']
+-   id: vlen
+    label: Vector Length
+    dtype: int
+    default: '1'
+    hide: part
+-   id: offset
+    label: Offset (samples)
+    dtype: int
+    default: '0'
+    hide: part
+-   id: length
+    label: Length (samples)
+    dtype: int
+    default: '0'
+    hide: part
+
+outputs:
+-   domain: stream
+    dtype: ${ type }
+    vlen: ${ vlen }
+
+file_format: 1

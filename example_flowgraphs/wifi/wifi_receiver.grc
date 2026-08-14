@@ -170,15 +170,13 @@ blocks:
         rotation: 0
         state: enabled
 -   name: recording
-    id: blocks_file_source
+    id: wasm_gr_world_recording
     parameters:
-        begin_tag: pmt.PMT_NIL
-        file: /recordings/wifi_80211a_bpsk12_20M.sigmf-data
         length: '0'
         offset: '0'
+        recording: wifi_80211a_bpsk12_20M
         repeat: 'True'
         type: complex
-        vlen: '1'
     states:
         coordinate: [10, 230]
         rotation: 0

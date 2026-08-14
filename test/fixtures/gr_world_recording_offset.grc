@@ -1,21 +1,19 @@
 options:
     parameters:
-        id: file_source_offset
+        id: gr_world_recording_offset
     states:
         coordinate: [0, 0]
         rotation: 0
         state: enabled
 blocks:
 -   name: source
-    id: blocks_file_source
+    id: wasm_gr_world_recording
     parameters:
-        begin_tag: pmt.PMT_NIL
-        file: /local-files/offset-test/fm_rds_250k_1Msamples.sigmf-data
         length: '1'
         offset: '3'
+        recording: fm_rds_250k_1Msamples
         repeat: 'False'
         type: complex
-        vlen: '1'
     states:
         coordinate: [0, 0]
         rotation: 0

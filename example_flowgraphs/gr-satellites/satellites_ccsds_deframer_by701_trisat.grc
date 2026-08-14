@@ -66,15 +66,13 @@ blocks:
         rotation: 0
         state: enabled
 -   name: by701_recording
-    id: blocks_file_source
+    id: wasm_gr_world_recording
     parameters:
-        begin_tag: pmt.PMT_NIL
-        file: /recordings/estevez/by701.sigmf-data
         length: '0'
         offset: '0'
+        recording: estevez/by701
         repeat: 'False'
         type: short
-        vlen: '1'
     states:
         coordinate: [10, 210]
         rotation: 0
@@ -133,15 +131,13 @@ blocks:
         rotation: 0
         state: enabled
 -   name: trisat_recording
-    id: blocks_file_source
+    id: wasm_gr_world_recording
     parameters:
-        begin_tag: pmt.PMT_NIL
-        file: /recordings/estevez/trisat.sigmf-data
         length: '0'
         offset: '0'
+        recording: estevez/trisat
         repeat: 'False'
         type: short
-        vlen: '1'
     states:
         coordinate: [10, 470]
         rotation: 0

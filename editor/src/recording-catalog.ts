@@ -48,6 +48,22 @@ export function recordingsBucketUrl(key: string): string {
   return RECORDINGS_R2_BASE + '/' + encodeRecordingPath(key);
 }
 
+// GR World Recording: the block that streams a hosted recording, and the
+// parameter holding the base key it streams.
+export const RECORDING_ID = 'wasm_gr_world_recording';
+export const RECORDING_PARAM = 'recording';
+
+// The path a hosted recording's data object is handed to the runner under. GR
+// World Recording stores only the base key, and the runner's factory derives
+// this same path from it (see the wasm_gr_world_recording entry in
+// runner/src/registry.cpp) -- the two spellings have to agree, or the reader
+// looks up a descriptor the editor never registered.
+export const RECORDING_PATH_PREFIX = '/recordings/';
+
+export function recordingDataPath(key: string): string {
+  return RECORDING_PATH_PREFIX + normalizeRecordingKey(key) + '.sigmf-data';
+}
+
 export function finiteNumber(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
@@ -150,7 +166,7 @@ export const displayBytes = (bytes: number): string => {
   return `${value.toFixed(unit ? 1 : 0)} ${units[unit]}`;
 };
 
-// File Source exposes integer recordings as scalar component streams, matching
+// GR World Recording exposes integer recordings as scalar component streams, matching
 // GNU Radio's normal interleaved-I/Q convention. For example, ci16_le becomes
 // short with vlen=1 and can feed IShort To Complex with Vector Input disabled.
 // Floating-point complex samples have a native GNU Radio complex item type.

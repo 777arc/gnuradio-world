@@ -1,5 +1,6 @@
-// Recording tabs: one workspace tab per File Source, each holding the built-in
-// recording view for whatever that block reads. The properties worth pinning are
+// Recording tabs: one workspace tab per block with a recording behind it -- a GR
+// World Recording, or a File Source bound to a local file -- each holding the
+// built-in recording view for whatever that block reads. The properties worth pinning are
 // the ones a browser test would take minutes to notice and a reader would take
 // even longer: that drawing the tabs never touches the network, that the iframe
 // is built only when the tab is opened, and that a tab going away takes its blob
@@ -26,38 +27,42 @@ assert.match(source, /updateCanvasExtent\(\);\s*\n\s*syncRecordingTabs\(\);/,
   'render() rebuilds the recording tabs, so every mutation path keeps them current');
 
 const sources = between('function recordingSources()', '\nfunction createRecordingTab');
-assert.match(sources, /block\.id !== 'blocks_file_source'/,
-  'recording tabs come from File Source blocks');
+assert.match(sources, /!RECORDING_BLOCK_IDS\.has\(block\.id\)/,
+  'recording tabs come from the blocks that can have a recording behind them');
+assert.match(source, /const RECORDING_BLOCK_IDS = new Set\(\['blocks_file_source', RECORDING_ID\]\)/,
+  'those blocks are File Source (a local file) and GR World Recording (a hosted one)');
 assert.match(sources, /seen\.has\(source\.key\)/,
-  'two File Sources reading the same recording share one tab');
+  'two blocks reading the same recording share one tab');
 
 const sourceFor = between('function recordingSourceFor', '\nfunction recordingSources');
 assert.match(sourceFor, /if \(!file\) return null;/,
   'a local file lost with the session (its File is gone) gets no tab');
-assert.match(sourceFor, /if \(!savedPath\.startsWith\('\/recordings\/'\)\) return null;/,
-  'a File Source with no recording behind it gets no tab');
-assert.match(sourceFor, /replace\(\/\\\.sigmf-data\$\/, ''\)/,
-  "a remote tab is labelled from its path, so drawing it needs no manifest fetch");
+assert.match(sourceFor, /if \(!block\.localFileToken\) return null;/,
+  'a File Source that has picked no file gets no tab: a .grc keeps only a name');
+assert.match(sourceFor, /path = recordingDataPath\(String\(block\.params\[RECORDING_PARAM\] \|\| ''\)\)/,
+  "a remote tab is keyed from the block's own recording key, so drawing it needs no index fetch");
+assert.match(sourceFor, /catch \{ return null; \}/,
+  'a GR World Recording with no recording chosen yet gets no tab');
 
 // ---- ...except a pinned tab, which no block on the canvas owns --------------
 // The Recordings palette's View control and the #recording= link both open a
 // recording view with nothing on the canvas behind it. Such a tab has to survive
 // the sync that rebuilds every other one, and be closable by hand instead.
 assert.match(source, /if \(!wanted\.has\(tab\.source\.key\) && !tab\.pinned\) destroyRecordingTab\(tab\)/,
-  'only a tab the canvas owns is destroyed when its File Source goes away');
+  'only a tab the canvas owns is destroyed when its block goes away');
 assert.match(source, /tab\.close\.hidden = !tab\.pinned \|\| wanted\.has\(tab\.source\.key\)/,
-  'a tab is closable exactly while no File Source owns its recording');
+  'a tab is closable exactly while no block owns its recording');
 
 const preview = between('function openRecordingPreview', '\n// A local file is a bare stream');
 assert.match(preview, /const path = bindRemoteRecording\(recording\);[\s\S]*?recordingTabs\.get\(path\)/,
-  'a preview keys its tab by the same /recordings/ path a File Source would, so it is never duplicated');
+  'a preview keys its tab by the same /recordings/ path a GR World Recording would, so it is never duplicated');
 assert.match(preview, /tab\.pinned = true;/, 'a previewed recording survives syncRecordingTabs()');
 assert.match(preview, /setUrlFragment\(\{ recording: normalizeRecordingKey\(name\) \}\)/,
   'viewing a recording points the address bar at it, as loading an example does');
 
 const close = between('function closeRecordingTab', '\n// Called from render()');
 assert.match(close, /recordingSources\(\)\.some\(source => source\.key === tab\.source\.key\)/,
-  'closing a tab a File Source has meanwhile claimed unpins it rather than destroying it');
+  'closing a tab a block has meanwhile claimed unpins it rather than destroying it');
 assert.match(source, /function recordingKeyOf[\s\S]*?tab\.source\.kind === 'remote' \? tab\.source\.name : null/,
   'a locally picked file exists only for this session, so it is not linkable');
 
@@ -103,9 +108,9 @@ assert.match(open, /if \(!tab \|\| tab\.frame \|\| tab\.opening\) return;/,
 assert.match(open, /frame\.src = recordingViewUrl\(metaUrl, dataUrl, tab\.source\.name\)/,
   "the pane frames the viewer's 'url' data source route, the same one the recordings palette builds");
 assert.match(open, /recordingTabs\.get\(key\) !== tab\) return;/,
-  'a File Source deleted mid-load must not leave an orphaned frame or blob URL behind');
+  'a recording block deleted mid-load must not leave an orphaned frame or blob URL behind');
 
-// ---- time selection updates the associated File Source ---------------------
+// ---- time selection updates the associated block ---------------------------
 assert.match(timeSelector, /type: 'gr-recording-selection'[\s\S]*?offset:[\s\S]*?length:/,
   'the recording time selector must send its offset and length to the editor');
 assert.match(timeSelector, /window\.parent\.postMessage\([\s\S]*?window\.location\.origin/,
@@ -115,12 +120,12 @@ assert.match(source, /function recordingTabForMessage[\s\S]*?event\.origin !== l
   'the editor must reject cross-origin selection messages');
 assert.match(source, /function recordingTabForMessage[\s\S]*?candidate\.frame\?\.contentWindow === event\.source/,
   'the editor must associate a selection message with its sending recording tab');
-assert.match(selection, /block\.id !== 'blocks_file_source'/,
-  'selection updates must only modify File Source blocks');
+assert.match(selection, /!RECORDING_BLOCK_IDS\.has\(block\.id\)/,
+  'selection updates must only modify blocks that read a recording');
 assert.match(selection, /recordingSourceFor\(block\)\?\.key !== tab\.source\.key/,
-  'selection updates must only modify File Sources associated with that recording');
+  'selection updates must only modify the blocks associated with that recording');
 assert.match(selection, /block\.params\.offset = offset;[\s\S]*?block\.params\.length = length;/,
-  'the associated File Source must receive both sample parameters');
+  'the associated block must receive both sample parameters');
 assert.match(selection, /render\(\);\s*recordHistory\(\);/,
   'selection changes must redraw the block and participate in undo history');
 
@@ -174,7 +179,7 @@ assert.match(destroy, /recordingHashKey\(\) === recordingKeyOf\(tab\)[\s\S]*?set
 assert.match(destroy, /if \(activeWorkspaceTab === tab\.entry\.id\) activateWorkspaceTab\('editor'\)/,
   'closing the tab in view falls back to the Editor');
 assert.match(sync, /if \(!workspaceTabs\.some\(entry => entry\.id === activeWorkspaceTab\)\)\s*\n?\s*activateWorkspaceTab\('editor'\)/,
-  'deleting the File Source of the tab in view falls back to the Editor');
+  'deleting the block of the tab in view falls back to the Editor');
 assert.match(sync, /Only the tab buttons are reordered/,
   'panels are never re-inserted: moving an iframe in the DOM reloads the document inside it');
 
@@ -186,4 +191,4 @@ assert.match(html, /\.workspace-tab-label \{[^}]*text-overflow:ellipsis/,
 assert.match(html, /#workspaceTabs \{[^}]*overflow-x:auto/,
   'many recordings scroll the tab bar instead of squeezing the fixed tabs');
 
-console.log('checked per-File-Source recording tabs and their lazy recording-view panes');
+console.log('checked per-block recording tabs and their lazy recording-view panes');

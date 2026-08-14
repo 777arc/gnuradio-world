@@ -95443,6 +95443,112 @@
    "outputs": []
   },
   {
+   "id": "wasm_gr_world_recording",
+   "label": "GR World Recording",
+   "category": [
+    "Core",
+    "File Operators"
+   ],
+   "flags": [
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "gui": false,
+   "module": "core",
+   "documentation": "Streams one of GNU Radio World's hosted SigMF recordings.\n\nRecording is the recording's key as the Recordings palette tab lists it --\n'estevez/by701', say, without a directory prefix and without either SigMF\nsuffix. It is the same key a copied recording link carries. Pick one from the\nlist in this dialog, or click a card in the Recordings tab to place the block\nalready configured for that recording.\n\nThe recording is read on demand in bounded byte ranges while the flowgraph\nruns, so a multi-gigabyte capture costs no more memory than a small one and\nnothing is downloaded up front. Output Type follows the recording's SigMF\ndatatype -- it is shown in this dialog but not editable, since reading a\nrecording as anything else would only mis-read it. cf32 recordings are\ncomplex, and an interleaved-integer recording (ci16) is a short stream to\nfeed IShort To Complex, which is the same convention GNU Radio uses for such\nfiles.\n\nOffset and Length select part of the recording, in samples, exactly as File\nSource's do; dragging a time selection in this block's recording tab writes\nthem back here.\n\nFor a recording on this computer, use File Source instead.\n\nThis block exists only in the WebAssembly runner -- it has no Python\nimplementation, so a flowgraph using it will not run in desktop GNU Radio.",
+   "api_documentation": "",
+   "wiki_url": "https://wiki.gnuradio.org/index.php/GR_World_Recording",
+   "params": [
+    {
+     "id": "recording",
+     "label": "Recording",
+     "dtype": "gr_world_recording",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "type",
+     "label": "Output Type",
+     "dtype": "enum",
+     "default": "complex",
+     "category": "General",
+     "options": [
+      "complex",
+      "float",
+      "int",
+      "short",
+      "byte"
+     ],
+     "option_labels": null,
+     "option_attributes": {
+      "size": [
+       "gr.sizeof_gr_complex",
+       "gr.sizeof_float",
+       "gr.sizeof_int",
+       "gr.sizeof_short",
+       "gr.sizeof_char"
+      ]
+     },
+     "hide": "part"
+    },
+    {
+     "id": "repeat",
+     "label": "Repeat",
+     "dtype": "enum",
+     "default": "False",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": [
+      "Yes",
+      "No"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "offset",
+     "label": "Offset (samples)",
+     "dtype": "int",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    },
+    {
+     "id": "length",
+     "label": "Length (samples)",
+     "dtype": "int",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [],
+   "outputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "${ type }",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
    "id": "wasm_gui_layout",
    "label": "GUI Layout",
    "category": [
@@ -95605,6 +95711,124 @@
     }
    ],
    "outputs": []
+  },
+  {
+   "id": "wasm_public_http_recording",
+   "label": "Public HTTP Recording",
+   "category": [
+    "Core",
+    "File Operators"
+   ],
+   "flags": [
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "gui": false,
+   "module": "core",
+   "documentation": "Streams a recording from any public HTTP(S) URL.\n\nThis is the block for IQ data that lives somewhere else on the web -- a file\nin a GitHub repository, a capture published beside a paper -- as opposed to\nGR World Recording, which streams the recordings hosted here, and File\nSource, which opens a file on this computer.\n\nThe file is read on demand in bounded byte ranges while the flowgraph runs,\nso nothing is downloaded up front. That asks two things of whoever serves it,\nand both fail as browser console errors rather than as a decode that merely\nlooks wrong:\n\n* It must answer range requests with 206 and a matching Content-Range. Most\n  static hosts do; a few answer 200 with the whole file, which is refused.\n* It must send CORS headers permitting this origin, since the browser reads\n  it directly. raw.githubusercontent.com does; many web servers do not.\n\nThe URL names raw bytes, not a SigMF recording, so Output Type says how to\nread them -- there is no metadata to take it from, and no recording tab.\n\nThis block exists only in the WebAssembly runner -- it has no Python\nimplementation, so a flowgraph using it will not run in desktop GNU Radio.",
+   "api_documentation": "",
+   "wiki_url": "https://wiki.gnuradio.org/index.php/Public_HTTP_Recording",
+   "params": [
+    {
+     "id": "url",
+     "label": "URL",
+     "dtype": "string",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "type",
+     "label": "Output Type",
+     "dtype": "enum",
+     "default": "complex",
+     "category": "General",
+     "options": [
+      "complex",
+      "float",
+      "int",
+      "short",
+      "byte"
+     ],
+     "option_labels": null,
+     "option_attributes": {
+      "size": [
+       "gr.sizeof_gr_complex",
+       "gr.sizeof_float",
+       "gr.sizeof_int",
+       "gr.sizeof_short",
+       "gr.sizeof_char"
+      ]
+     },
+     "hide": "part"
+    },
+    {
+     "id": "repeat",
+     "label": "Repeat",
+     "dtype": "enum",
+     "default": "False",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": [
+      "Yes",
+      "No"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "vlen",
+     "label": "Vector Length",
+     "dtype": "int",
+     "default": "1",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    },
+    {
+     "id": "offset",
+     "label": "Offset (samples)",
+     "dtype": "int",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    },
+    {
+     "id": "length",
+     "label": "Length (samples)",
+     "dtype": "int",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [],
+   "outputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "${ type }",
+     "multiplicity": "1",
+     "optional": false,
+     "vlen": "${ vlen }"
+    }
+   ]
   },
   {
    "id": "wasm_text_sink",

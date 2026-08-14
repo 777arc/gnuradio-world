@@ -113,15 +113,13 @@ blocks:
         rotation: 0
         state: enabled
 -   name: source21
-    id: blocks_file_source
+    id: wasm_gr_world_recording
     parameters:
-        begin_tag: pmt.PMT_NIL
-        file: /recordings/dji_mavic3_classic_cut19_51.sigmf-data
         length: '0'
         offset: '0'
+        recording: dji_mavic3_classic_cut19_51
         repeat: 'False'
         type: complex
-        vlen: '1'
     states:
         coordinate: [10, 130]
         rotation: 0

@@ -45,6 +45,9 @@ import {
   encodeRecordingPath,
   isCi16Datatype,
   normalizeRecordingKey,
+  RECORDING_ID,
+  RECORDING_PARAM,
+  recordingDataPath,
   recordingFromR2Index,
   recordingTreeCount,
   recordingUrl,
@@ -144,9 +147,34 @@ const LOCAL_FILE_PARAMS: Record<string, string> = {
   paint_image_source: 'image_file',   // gr-paint's Image File Source
 };
 // What the native file input offers, per block: an Image File Source only ever
-// wants a picture, where a File Source takes any recording.
+// wants a picture, where a File Source takes any IQ file.
 const LOCAL_FILE_ACCEPT: Record<string, string> = {
   paint_image_source: 'image/*',
+};
+
+// GR World Recording (RECORDING_ID/RECORDING_PARAM, defined beside the .grc
+// migration in recording-catalog.ts) is a hosted SigMF recording, named by the
+// base key the bucket index calls `base_filename`. It is the browser-only
+// counterpart of File Source, which — as in native GNU Radio — opens a file on
+// this computer and nothing else. Its parameter's dtype is browser-only too:
+// the Properties dialog renders it as a chooser over the live recordings index.
+const RECORDING_DTYPE = 'gr_world_recording';
+
+// Public HTTP Recording: raw IQ at any public URL, for data hosted somewhere
+// this project does not control. Its URL is not a path the runner can resolve,
+// so the Run path rewrites this parameter the way it rewrites a local file's —
+// see HTTP_RECORDING_PREFIX.
+const HTTP_RECORDING_ID = 'wasm_public_http_recording';
+const HTTP_RECORDING_PARAM = 'url';
+const HTTP_RECORDING_PREFIX = '/recordings/external/';
+
+// The parameter the Run path rewrites to a path the runner resolves a browser
+// binding through, per block. A local file becomes /local-files/..., a public
+// URL /recordings/external/...; GR World Recording is absent because the runner
+// derives its path from the recording key itself.
+const RUN_BOUND_PARAMS: Record<string, string> = {
+  ...LOCAL_FILE_PARAMS,
+  [HTTP_RECORDING_ID]: HTTP_RECORDING_PARAM,
 };
 
 const localFilesByToken = new Map<string, File>();
@@ -1326,7 +1354,7 @@ function grcTextForRun(fileOverrides: Map<string, string> = new Map()): string {
   const doc = buildGrcDoc(true);
   for (const block of doc.blocks) {
     const path = fileOverrides.get(block.name);
-    const param = LOCAL_FILE_PARAMS[block.id];
+    const param = RUN_BOUND_PARAMS[block.id];
     if (path !== undefined && param) block.parameters[param] = path;
   }
   return dumpGrc(doc);
@@ -1940,8 +1968,18 @@ function showPropsDialog(inst: Inst) {
         s.appendChild(opt);
       });
       s.value = String(tmp.params[p.id]);
+      // GR World Recording's Output Type is the recording's SigMF datatype, set
+      // by the chooser below. It is shown so the reader can see how the samples
+      // are being read, and disabled because reading them as anything else would
+      // only mis-read them.
+      s.disabled = inst.id === RECORDING_ID && p.id === 'type';
       s.onchange = () => { tmp.params[p.id] = s.value; refreshVisibility(); refreshValidation(); };
       addField(p.category || 'General', `${p.label}  (${p.id})`, s, p.id);
+      if (s.disabled) {
+        const hint = document.createElement('small'); hint.className = 'field-hint';
+        hint.textContent = 'Set from the SigMF datatype of the recording above.';
+        s.closest('.field-control')?.appendChild(hint);
+      }
       if (p.showWhen) conditionalRows.push({ param: p, row: s.closest('.dlgrow') as HTMLElement });
     } else if (LOCAL_FILE_PARAMS[inst.id] === p.id && p.dtype === 'file_open') {
       const picker = document.createElement('div'); picker.className = 'file-picker';
@@ -1979,6 +2017,94 @@ function showPropsDialog(inst: Inst) {
       picker.append(inp, choose, native, detail);
       addField(p.category || 'General', `${p.label}  (${p.id})`, picker, p.id, inp);
       refreshDetail();
+      if (p.showWhen) conditionalRows.push({ param: p, row: picker.closest('.dlgrow') as HTMLElement });
+    } else if (p.dtype === RECORDING_DTYPE) {
+      // GR World Recording's recording, chosen from the live bucket index — the
+      // same list the Recordings palette tab draws. The block stores the key
+      // alone, so a field that could only be a select degrades to a text input
+      // when the index cannot be read: the flowgraph still runs, and a key typed
+      // from a shared link still works.
+      const picker = document.createElement('div'); picker.className = 'file-picker';
+      const select = document.createElement('select');
+      const typed = document.createElement('input');
+      typed.hidden = true;
+      typed.placeholder = 'estevez/by701';
+      const detail = document.createElement('small'); detail.className = 'file-picker-detail';
+      let known = new Map<string, ExampleRecording>();
+
+      const describe = () => {
+        const key = String(tmp.params[p.id] ?? '');
+        const recording = known.get(key);
+        if (!recording) {
+          detail.textContent = key
+            ? `"${key}" — streamed from the recordings bucket.`
+            : 'No recording chosen. Pick one, or click a card in the Recordings tab.';
+          return;
+        }
+        const parts = [
+          recording.datatype || 'unknown datatype',
+          displaySi(recording.sampleRate, 'Hz'),
+          displayBytes(recording.byteLength),
+        ];
+        detail.textContent = parts.join(' · ') +
+          (isCi16Datatype(recording.datatype)
+            ? ' · interleaved 16-bit I/Q: feed IShort To Complex'
+            : '');
+      };
+      // A recording's SigMF datatype decides how its samples are read, so
+      // choosing one writes Output Type — the field the reader can see but not
+      // edit — rather than leaving the block reading them as something else.
+      const applyDatatype = (key: string) => {
+        const format = sigmfFileSourceFormat(known.get(key)?.datatype ?? null);
+        if (!format) return;
+        tmp.params.type = format.type;
+        const node = controls.get('type')?.node;
+        if (node instanceof HTMLSelectElement) node.value = format.type;
+      };
+      const choose = (key: string) => {
+        tmp.params[p.id] = key;
+        applyDatatype(key);
+        describe(); refreshVisibility(); refreshValidation();
+      };
+      select.onchange = () => choose(select.value);
+      typed.oninput = () => { tmp.params[p.id] = typed.value.trim(); describe(); refreshValidation(); };
+
+      const fill = (recordings: ExampleRecording[]) => {
+        select.replaceChildren();
+        const key = String(tmp.params[p.id] ?? '');
+        // Only what this block can read: Output Type follows the datatype and
+        // cannot be corrected by hand, so a datatype with no stream type of its
+        // own (the palette greys those cards out) would be a dead end here.
+        const keys = recordings.filter(recording => sigmfFileSourceFormat(recording.datatype))
+          .map(recording => recording.name).sort();
+        // The block's own recording is always offered, listed or not: a bucket
+        // that has since dropped it must not silently reselect the block.
+        if (!key || !keys.includes(key)) keys.unshift(key);
+        for (const name of keys) {
+          const option = document.createElement('option');
+          option.value = name;
+          option.textContent = name || '— choose a recording —';
+          select.appendChild(option);
+        }
+        select.value = key;
+      };
+      fill([]);
+      void loadExampleRecordings()
+        .then(recordings => {
+          known = new Map(recordings.map(recording => [recording.name, recording]));
+          fill(recordings);
+          describe();
+        })
+        .catch(error => {
+          select.hidden = true;
+          typed.hidden = false;
+          typed.value = String(tmp.params[p.id] ?? '');
+          detail.textContent = `Recordings index unavailable (${error}); type a recording key.`;
+        });
+
+      picker.append(select, typed, detail);
+      addField(p.category || 'General', `${p.label}  (${p.id})`, picker, p.id, select);
+      describe();
       if (p.showWhen) conditionalRows.push({ param: p, row: picker.closest('.dlgrow') as HTMLElement });
     } else if (p.dtype === LAYOUT_DTYPE) {
       // The GUI Layout block's grid. Editing the JSON by hand is possible and
@@ -2339,7 +2465,7 @@ function render() {
     nodesG.appendChild(g);
   }
   updateCanvasExtent();
-  syncRecordingTabs();   // one workspace tab per File Source with a recording
+  syncRecordingTabs();   // one workspace tab per block with a recording behind it
 }
 
 // Grow the drawing surface past the viewport when blocks sit outside it, so the
@@ -2599,6 +2725,12 @@ type RunnerInputFile =
 const pendingRunnerRecordings = new Map<string, RunnerInputFile[]>();
 let pendingRunnerToken: string | null = null;
 
+// How big the file at a Public HTTP Recording's URL is. The reader needs the
+// length up front to bound its ranges, and there is no metadata to take it
+// from, so ask the server: HEAD first, and a one-byte range for the hosts that
+// serve ranges but not HEAD. Either answer also proves the URL is reachable
+// with this origin's CORS headers, which is what makes it worth doing before
+// the flowgraph starts rather than inside the reader worker.
 async function publicHttpFileSize(url: string): Promise<number | null> {
   let parsed: URL;
   try { parsed = new URL(url); } catch { return null; }
@@ -2652,7 +2784,7 @@ async function refreshEmbedOpen() {
 }
 
 // Editor and QT GUI are the two fixed tabs; recording tabs ('rec:<key>') are
-// added and removed by syncRecordingTabs() as File Sources come and go, so the
+// added and removed by syncRecordingTabs() as recording blocks come and go, so the
 // bar is a registry rather than the pair of buttons it used to be.
 // `container` is what the bar orders and holds: a recording tab is a group of
 // the tab button plus its close button, because a button cannot contain one.
@@ -2958,8 +3090,9 @@ function applyRunnerLayoutReport(payload: string) {
   return files;
 };
 
-// ---- Recording tabs (an embedded recording view per File Source) ------------
-// Every File Source with something to show gets its own workspace tab holding
+// ---- Recording tabs (an embedded recording view per recording) --------------
+// Every block with a recording behind it — a GR World Recording, or a File
+// Source bound to a local file — gets its own workspace tab holding
 // the recording viewer this same build emits at /recording/ (adapted from
 // IQEngine; see editor/src/recording/), driven through its 'url' data source.
 // One <iframe> per tab, created the first time that tab is activated and kept
@@ -2972,19 +3105,19 @@ function applyRunnerLayoutReport(payload: string) {
 // one exception is a *pinned* tab: the Recordings palette and the #recording=
 // deep link both open a recording no block owns, so those tabs survive the sync
 // and carry a close button instead. Both origins key a tab by the same
-// '/recordings/...' path a File Source would produce, so adding the block for a
-// previewed recording adopts its tab rather than opening a second one.
+// '/recordings/...' path a GR World Recording would produce, so adding the block
+// for a previewed recording adopts its tab rather than opening a second one.
 interface RecordingSource {
   key: string;            // '/recordings/<path>' or 'local:<token>'
   label: string;          // tab text
-  title: string;          // tooltip: the full path or file name
+  title: string;          // tooltip: the recording key or file name
   name: string;           // display name handed to the recording view
   kind: 'remote' | 'local';
   path: string;           // remote: the /recordings/... path this resolves through
   token?: string;         // local: key into localFilesByToken
   datatype?: string;      // local: SigMF datatype inferred from the block
   sampleRate?: number;    // local: samp_rate from the flowgraph, when numeric
-  offset: number;         // File Source selection, in samples
+  offset: number;         // the block's sample selection
   length: number;
 }
 
@@ -2997,7 +3130,7 @@ interface RecordingTab {
   frame: HTMLIFrameElement | null;
   opening: boolean;
   ready: boolean;
-  pinned: boolean;        // opened without a File Source behind it; survives sync
+  pinned: boolean;        // opened without a block behind it; survives sync
   viewerOffset: number | null;
   viewerLength: number | null;
   blobUrls: string[];
@@ -3012,7 +3145,7 @@ const recordingTabKey = (id: WorkspaceTab): string => id.slice(4);
 // A local file has no SigMF metadata, so the datatype is inferred from the File
 // Source itself. GNU Radio reads interleaved I/Q integers as a scalar stream fed
 // into a converter, so a short/byte source whose only sink is that converter is
-// a complex recording — the same shape addRecordingFileSource() builds for ci16.
+// a complex recording — the same shape addRecordingBlock() builds for ci16.
 const FILE_SOURCE_DATATYPES: Record<string, string> = {
   complex: 'cf32_le', float: 'rf32_le', int: 'ri32_le', short: 'ri16_le', byte: 'ri8',
 };
@@ -3044,30 +3177,35 @@ function fileSourceSelection(block: Inst): { offset: number; length: number } {
   return { offset: samples(resolved.offset), length: samples(resolved.length) };
 }
 
+// The two blocks that can have a recording behind them: File Source, for a file
+// on this computer, and GR World Recording, for a hosted one.
+const RECORDING_BLOCK_IDS = new Set(['blocks_file_source', RECORDING_ID]);
+
 function recordingSourceFor(block: Inst): RecordingSource | null {
-  const savedPath = String(block.params.file || '');
   const selection = fileSourceSelection(block);
-  if (block.localFileToken) {
-    const file = localFilesByToken.get(block.localFileToken);
-    if (!file) return null;   // picked in a previous session; the File is gone
-    const rate = Number(varScope['samp_rate']);
+  if (block.id === RECORDING_ID) {
+    let path: string;
+    try { path = recordingDataPath(String(block.params[RECORDING_PARAM] || '')); }
+    catch { return null; }     // no recording chosen yet, or an unusable key
+    // The label comes from the key, not from the recordings index, so drawing
+    // the tab never has to wait on (or trigger) a fetch.
+    const name = String(block.params[RECORDING_PARAM]);
     return {
-      key: 'local:' + block.localFileToken,
-      label: file.name, title: file.name, name: file.name,
-      kind: 'local', path: savedPath, token: block.localFileToken,
-      datatype: localRecordingDatatype(block),
-      sampleRate: Number.isFinite(rate) && rate > 0 ? rate : undefined,
+      key: path, label: name.split('/').pop() || name, title: name, name,
+      kind: 'remote', path,
       ...selection,
     };
   }
-  if (!savedPath.startsWith('/recordings/')) return null;
-  // The label comes from the path, not from the recordings manifest, so drawing
-  // the tab never has to wait on (or trigger) a fetch.
-  const relative = savedPath.slice('/recordings/'.length);
-  const name = relative.replace(/\.sigmf-data$/, '');
+  if (!block.localFileToken) return null;
+  const file = localFilesByToken.get(block.localFileToken);
+  if (!file) return null;      // picked in a previous session; the File is gone
+  const rate = Number(varScope['samp_rate']);
   return {
-    key: savedPath, label: name.split('/').pop() || name, title: relative, name,
-    kind: 'remote', path: savedPath,
+    key: 'local:' + block.localFileToken,
+    label: file.name, title: file.name, name: file.name,
+    kind: 'local', path: String(block.params.file || ''), token: block.localFileToken,
+    datatype: localRecordingDatatype(block),
+    sampleRate: Number.isFinite(rate) && rate > 0 ? rate : undefined,
     ...selection,
   };
 }
@@ -3076,9 +3214,9 @@ function recordingSources(): RecordingSource[] {
   const sources: RecordingSource[] = [];
   const seen = new Set<string>();
   for (const block of insts) {
-    if (block.id !== 'blocks_file_source') continue;
+    if (!RECORDING_BLOCK_IDS.has(block.id)) continue;
     const source = recordingSourceFor(block);
-    if (!source || seen.has(source.key)) continue;   // two File Sources, one tab
+    if (!source || seen.has(source.key)) continue;   // two blocks, one tab
     seen.add(source.key);
     sources.push(source);
   }
@@ -3143,7 +3281,7 @@ function recordingKeyOf(tab: RecordingTab): string | null {
 const recordingHashKey = (): string | null =>
   new URLSearchParams(location.hash.slice(1)).get('recording');
 
-// Only a pinned tab has a close button, so a File Source still owning this
+// Only a pinned tab has a close button, so a block still owning this
 // recording cannot be closed out from under the canvas.
 function closeRecordingTab(tab: RecordingTab) {
   tab.pinned = false;
@@ -3179,7 +3317,7 @@ function syncRecordingTabs() {
       postFileSourceSelection(tab);
   }
 
-  // A pinned tab is closable exactly while no File Source owns its recording;
+  // A pinned tab is closable exactly while no block owns its recording;
   // once one does, the canvas is what decides whether the tab exists.
   for (const tab of recordingTabs.values())
     tab.close.hidden = !tab.pinned || wanted.has(tab.source.key);
@@ -3202,7 +3340,7 @@ function syncRecordingTabs() {
 
 // Opens the recording view for a recording nothing on the canvas refers to —
 // the Recordings palette's View control and the #recording= link. The tab is
-// keyed by the same '/recordings/...' path a File Source would produce, so a
+// keyed by the same '/recordings/...' path a GR World Recording would produce, so a
 // recording already showing (either way) is revealed rather than duplicated.
 function openRecordingPreview(recording: ExampleRecording) {
   const path = bindRemoteRecording(recording);
@@ -3280,7 +3418,7 @@ function applyRecordingSelection(event: MessageEvent, data: any): boolean {
 
   let changed = false;
   for (const block of insts) {
-    if (block.id !== 'blocks_file_source' ||
+    if (!RECORDING_BLOCK_IDS.has(block.id) ||
         recordingSourceFor(block)?.key !== tab.source.key) continue;
     const current = fileSourceSelection(block);
     if (current.offset === offset && current.length === length) continue;
@@ -3302,7 +3440,7 @@ async function openRecordingPane(key: string) {
   try {
     recordingPaneMessage(tab, 'Loading the recording view…');
 
-    // The File Source can be deleted while the bucket index fetch below is in
+    // The block can be deleted while the bucket index fetch below is in
     // flight; anything created past this point would never be cleaned up.
     if (recordingTabs.get(key) !== tab) return;
 
@@ -3520,6 +3658,53 @@ async function run() {
   const addedPaths = new Set<string>();
   for (const block of insts) {
     if (!block.enabled || block.bypassed) continue;
+
+    // A hosted recording: the runner's factory derives '/recordings/<key>.sigmf-data'
+    // from the block's own parameter, so all the editor owes it is the URL and
+    // size to read that path through. Nothing is rewritten in the .grc.
+    if (block.id === RECORDING_ID) {
+      const key = String(block.params[RECORDING_PARAM] || '');
+      const recording = key ? await resolveRemoteRecording(recordingDataPath(key)) : undefined;
+      if (!recording) {
+        log(key
+          ? `cannot run: recording "${key}" for "${block.name}" is unavailable`
+          : `cannot run: choose a recording for "${block.name}"`);
+        select(block.uid);
+        return;
+      }
+      const path = recordingDataPath(key);
+      if (!addedPaths.has(path)) {
+        recordingFiles.push({
+          kind: 'http', path, url: recording.downloadUrl, size: recording.byteLength,
+        });
+        addedPaths.add(path);
+      }
+      continue;
+    }
+
+    // A file on another origin: the browser reads it directly, so its size —
+    // and with it whether the host answers ranges to this origin at all — is
+    // settled here rather than in the reader worker.
+    if (block.id === HTTP_RECORDING_ID) {
+      const url = String(block.params[HTTP_RECORDING_PARAM] || '').trim();
+      const size = url ? await publicHttpFileSize(url) : null;
+      if (size === null) {
+        log(url
+          ? `cannot run: "${url}" for "${block.name}" is not a readable public ` +
+            `HTTP(S) file (it must answer range requests and allow this origin)`
+          : `cannot run: give "${block.name}" a URL`);
+        select(block.uid);
+        return;
+      }
+      const path = HTTP_RECORDING_PREFIX + encodeURIComponent(url);
+      fileOverrides.set(block.name, path);
+      if (!addedPaths.has(path)) {
+        recordingFiles.push({ kind: 'http', path, url, size });
+        addedPaths.add(path);
+      }
+      continue;
+    }
+
     const fileParam = LOCAL_FILE_PARAMS[block.id];
     if (!fileParam) continue;
     const savedPath = String(block.params[fileParam] || '');
@@ -3550,43 +3735,16 @@ async function run() {
       continue;
     }
 
-    if (savedPath.startsWith('/recordings/')) {
-      const recording = await resolveRemoteRecording(savedPath);
-      if (!recording) {
-        log(`cannot run: recording for "${block.name}" is unavailable`);
-        select(block.uid);
-        return;
-      }
-      if (!addedPaths.has(savedPath)) {
-        recordingFiles.push({
-          kind: 'http',
-          path: savedPath,
-          url: recording.downloadUrl,
-          size: recording.byteLength,
-        });
-        addedPaths.add(savedPath);
-      }
-      continue;
-    }
-
-    const publicUrlSize = await publicHttpFileSize(savedPath);
-    if (publicUrlSize !== null) {
-      const path = `/recordings/external/${encodeURIComponent(savedPath)}`;
-      fileOverrides.set(block.name, path);
-      if (!addedPaths.has(path)) {
-        recordingFiles.push({
-          kind: 'http', path, url: savedPath, size: publicUrlSize,
-        });
-        addedPaths.add(path);
-      }
-      continue;
-    }
-
+    // File Source opens a file on this computer and nothing else, exactly as
+    // native GNU Radio's does; a .grc keeps only the file's name, so a session
+    // that has not picked it has nothing to open. Hosted recordings are GR
+    // World Recording's job.
     if (!savedPath) {
-      log(`cannot run: choose a file for "${block.name}"`);
+      log(`cannot run: choose a file for "${block.name}" with Browse`);
     } else {
-      log(`cannot run: "${savedPath}" is not an accessible public HTTP(S) file; ` +
-          `open "${block.name}" properties and choose it with Browse`);
+      log(`cannot run: no local file is bound to "${block.name}"; ` +
+          `open its properties and choose "${savedPath}" with Browse, ` +
+          `or use GR World Recording for a hosted recording`);
     }
     select(block.uid);
     return;
@@ -3599,8 +3757,9 @@ async function run() {
       return;
     }
     if (file.kind === 'http' && file.size === 0) {
-      const block = insts.find(item => String(item.params.file || '') === file.path);
-      log(`cannot run: recording for "${block?.name || 'File Source'}" is empty`);
+      const block = insts.find(item => item.id === RECORDING_ID &&
+        recordingSourceFor(item)?.path === file.path);
+      log(`cannot run: recording for "${block?.name || 'GR World Recording'}" is empty`);
       if (block) select(block.uid);
       return;
     }
@@ -4137,7 +4296,7 @@ const remoteRecordingsByPath = new Map<string, ExampleRecording>();
 let exampleRecordingsPromise: Promise<ExampleRecording[]> | null = null;
 
 function bindRemoteRecording(recording: ExampleRecording): string {
-  const path = '/recordings/' + recording.dataFile;
+  const path = recordingDataPath(recording.name);
   remoteRecordingsByPath.set(path, recording);
   return path;
 }
@@ -4171,12 +4330,14 @@ async function resolveRemoteRecording(path: string): Promise<ExampleRecording | 
   return remoteRecordingsByPath.get(path);
 }
 
+// The hosted recordings a flowgraph reads.
 function flowgraphRecordingPaths(doc: any): string[] {
   const paths = new Set<string>();
   for (const block of Array.isArray(doc?.blocks) ? doc.blocks : []) {
-    if (block?.id !== 'blocks_file_source') continue;
-    const path = String(block.parameters?.file || '');
-    if (path.startsWith('/recordings/')) paths.add(path);
+    if (block?.id !== RECORDING_ID) continue;
+    const key = String(block.parameters?.[RECORDING_PARAM] || '');
+    if (!key) continue;
+    try { paths.add(recordingDataPath(key)); } catch { /* unusable key */ }
   }
   return [...paths];
 }
@@ -4216,24 +4377,24 @@ async function bindFlowgraphRecordings(doc: any, exampleName: string) {
 // The URLs are absolute R2 URLs so the route keeps working wherever the viewer
 // is served from. Both the metadata and data objects come from the bucket.
 
-async function addRecordingFileSource(recording: ExampleRecording, format: FileSourceFormat) {
+async function addRecordingBlock(recording: ExampleRecording, format: FileSourceFormat) {
   await paletteReady;
   const addIShortToComplex = isCi16Datatype(recording.datatype);
   const converterId = 'blocks_interleaved_short_to_complex';
   if (addIShortToComplex && !RUNNABLE[converterId])
     throw new Error('IShort To Complex is not available');
 
-  const virtualPath = bindRemoteRecording(recording);
-  const block = addBlock('blocks_file_source', undefined, undefined, {
-    file: virtualPath,
+  // Binding the recording here is what lets its tab, and the Run path, resolve
+  // the block's key without waiting on another index fetch.
+  bindRemoteRecording(recording);
+  const block = addBlock(RECORDING_ID, undefined, undefined, {
+    [RECORDING_PARAM]: recording.name,
     type: format.type,
     repeat: 'False',
-    vlen: format.vlen,
-    begin_tag: 'pmt.PMT_NIL',
     offset: 0,
     length: 0,
   }, false);
-  if (!block) throw new Error('File Source is not available');
+  if (!block) throw new Error('GR World Recording is not available');
 
   if (addIShortToComplex) {
     const converter = addBlock(
@@ -4249,13 +4410,13 @@ async function addRecordingFileSource(recording: ExampleRecording, format: FileS
     selectedConnection = null;
     render();
     recordHistory();
-    log(`added streaming File Source and IShort To Complex for "${recording.name}"`);
+    log(`added streaming GR World Recording and IShort To Complex for "${recording.name}"`);
     return;
   }
 
   render();
   recordHistory();
-  log(`added streaming File Source for "${recording.name}"`);
+  log(`added streaming GR World Recording for "${recording.name}"`);
 }
 
 function makeRecordingItem(recording: ExampleRecording): HTMLElement {
@@ -4267,9 +4428,9 @@ function makeRecordingItem(recording: ExampleRecording): HTMLElement {
   // card itself to the recording's basename instead of repeating that path.
   title.textContent = recording.name.split('/').filter(Boolean).pop() || recording.name;
   // View and the copy-link button open the recording view without touching the
-  // canvas, so they are offered even for a datatype File Source cannot
+  // canvas, so they are offered even for a datatype GR World Recording cannot
   // represent — that recording is otherwise not viewable here at all. Both stop
-  // propagation: clicking one must not also drop a File Source on the canvas.
+  // propagation: clicking one must not also drop a block on the canvas.
   const view = document.createElement('button'); view.className = 'rec-view';
   view.type = 'button'; view.textContent = 'View';
   view.title = `Open the recording view of "${recording.name}" without adding it to the flowgraph`;
@@ -4303,7 +4464,7 @@ function makeRecordingItem(recording: ExampleRecording): HTMLElement {
     // sub-directory still saves under its own base name.
     link.href = url; link.download = fileName.split('/').pop()!; link.rel = 'noopener';
     link.textContent = label;
-    // Clicking a link must not also drop a File Source on the canvas.
+    // Clicking a link must not also drop a block on the canvas.
     link.onclick = event => event.stopPropagation();
     sizeVal.append(link);
   };
@@ -4322,14 +4483,14 @@ function makeRecordingItem(recording: ExampleRecording): HTMLElement {
     badge.textContent = 'Unsupported';
     head.append(badge);
     item.setAttribute('aria-disabled', 'true');
-    item.title = `File Source cannot directly represent ${recording.datatype || 'this datatype'}`;
+    item.title = `GR World Recording cannot directly represent ${recording.datatype || 'this datatype'}`;
     return item;
   }
 
   const useRecording = async () => {
     try {
       closePaletteDrawer();
-      await addRecordingFileSource(recording, format);
+      await addRecordingBlock(recording, format);
     } catch (error) {
       log(`recording "${recording.name}" could not be added: ${error}`);
     }

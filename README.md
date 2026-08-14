@@ -130,8 +130,8 @@ node server.mjs 8090 "$PWD"
 Then open **<http://localhost:8090/>** in Chrome or Firefox, pick an example from
 the *Example Flowgraphs* tab (or drag blocks onto the canvas), and press ▶ Run.
 Use port 8090 specifically: it is the origin allowed by the recordings bucket's
-CORS policy, so the Recordings palette and File Source range reads only work
-there.
+CORS policy, so the Recordings palette and GR World Recording's range reads only
+work there.
 
 To confirm the build is actually healthy rather than merely linked:
 

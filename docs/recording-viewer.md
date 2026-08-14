@@ -1,6 +1,6 @@
-# Recordings: File Source, R2, and the recording viewer
+# Recordings: the source blocks, R2, and the recording viewer
 
-Three connected things: the browser-backed File Source that reads bytes, the R2
+Three connected things: the browser-backed source blocks that read bytes, the R2
 bucket those bytes come from, and the recording tabs that display them.
 
 `editor/src/recording/` is a focused viewer adapted from IQEngine — the SigMF
@@ -15,27 +15,56 @@ at `/recording/` — there is no separate IQEngine checkout or build step.
 pin most of what follows. Neither runs a browser, so a change here also wants the
 manual pass described in AGENTS.md's "Run and test".
 
-## Browser-backed File Source
+## The three source blocks
 
 The WASM registry replaces GNU Radio's POSIX-backed `blocks_file_source` with
-`blocks/src/browser_file_source.cpp`. A File Source can be bound either to a
-local `File` selected with the editor's Properties → Browse control or to a
-recording URL from R2. The binding is session-only: `.grc` files keep the
-human-readable filename or `/recordings/...` path and never serialize a browser
-file handle.
+`blocks/src/browser_file_source.cpp`, which reads a *path the browser resolves a
+binding through* rather than a file on a filesystem. Three blocks are that same
+class over three kinds of binding, and which one a flowgraph wants is decided by
+where its samples are:
+
+| block | parameter | the path it reads | who produces that path |
+|-------|-----------|-------------------|------------------------|
+| **File Source** (`blocks_file_source`) | `file` — a plain name, as native GNU Radio | `/local-files/<token>/<name>` | the editor's Run path, from the `File` picked with Properties → Browse |
+| **GR World Recording** (`wasm_gr_world_recording`) | `recording` — a bucket base key, `estevez/by701` | `/recordings/<key>.sigmf-data` | the *runner's factory*, from the key itself |
+| **Public HTTP Recording** (`wasm_public_http_recording`) | `url` — any public http(s) URL | `/recordings/external/<encoded url>` | the editor's Run path, after probing the URL's size |
+
+File Source is deliberately the native block and nothing more: it has no path
+into the bucket and no URL of its own, so a flowgraph that reads a file this
+project hosts, or one anybody hosts, says which by the block it uses.
+
+GR World Recording's **Output Type is derived, not chosen**: the recording's
+SigMF datatype says how its samples are laid out, so picking a recording writes
+that parameter and the dialog shows it disabled (a `cf32_le` recording is
+`complex`, a `ci16_le` one is `short` feeding IShort To Complex). For the same
+reason the chooser lists only recordings whose datatype has a stream type here —
+one that does not could not be corrected by hand — and the block has no vector
+length at all.
+
+Two consequences worth keeping straight. GR World Recording is the one whose path
+the **C++** derives, so the editor rewrites nothing on its Run path and only
+registers that path's URL and byte length; `recordingDataPath()` in
+[`editor/src/recording-catalog.ts`](../editor/src/recording-catalog.ts) is the
+other half of that mapping, and the two spellings have to agree or the reader
+looks up a descriptor nobody registered. And every binding is session-only: a
+`.grc` keeps the human-readable filename, the recording key or the URL, and never
+a browser file handle.
 
 Each running source owns a `browser_file_reader.js` worker. It reads local files
-with bounded `File.slice()` calls and remote recordings with required HTTP Range
+with bounded `File.slice()` calls and remote ones with required HTTP Range
 requests, then feeds a fixed 16 MiB ring in shared WASM memory. Individual reads
 are capped at 2 MiB, so source memory is independent of recording size. Servers
 must return `206` with a matching `Content-Range`; a `200` response is rejected
 before its body is consumed. Keep R2's CORS policy in `scripts/r2-cors.json`
-configured to allow the `Range` request header and expose `Content-Range`.
+configured to allow the `Range` request header and expose `Content-Range` — and
+note that a Public HTTP Recording asks the same two things of a host nobody here
+controls, which is why the editor probes it (HEAD, then a one-byte range) and
+refuses the Run rather than letting the reader fail later.
 
 `test/test_smoke.mjs` covers both backends. Its local-file case selects a sparse
 file larger than 4 GiB through the actual editor and reads beyond the 32-bit
-boundary; its HTTP endpoint refuses non-Range requests and verifies the exact
-range consumed.
+boundary; its HTTP case runs a GR World Recording against an endpoint that
+refuses non-Range requests and verifies the exact range consumed.
 
 ## R2 recording source of truth
 
@@ -56,14 +85,14 @@ endpoint performs the same job on demand.
 
 The editor fetches that live index with `cache: no-store`, then constructs both
 object URLs from each base key. Each card in the palette offers three things: the
-card itself drops a File Source (plus an IShort To Complex for `ci16`) on the
-canvas, **View** opens the recording view alone, and 🔗 copies
-`#recording=<base key>` — the same base key the index calls `base_filename`, so a
-link is readable and survives a re-index. View and 🔗 are offered even when the
-datatype has no File Source representation, since that recording is otherwise not
-viewable here at all. `server.mjs`, `scripts/assemble-site.mjs`, and Cloudflare
-Pages never build or serve a recording manifest, and no recording is ever checked
-into this repository.
+card itself drops a GR World Recording (plus an IShort To Complex for `ci16`) on
+the canvas, **View** opens the recording view alone, and 🔗 copies
+`#recording=<base key>` — the same base key the index calls `base_filename`, and
+the same one the block stores, so a link is readable and survives a re-index.
+View and 🔗 are offered even when the datatype has no block representation, since
+that recording is otherwise not viewable here at all. `server.mjs`,
+`scripts/assemble-site.mjs`, and Cloudflare Pages never build or serve a
+recording manifest, and no recording is ever checked into this repository.
 
 To publish a recording, upload both matching objects directly to R2 using the
 dashboard, the S3-compatible API, rclone, or another R2 client. The event batch
@@ -92,15 +121,17 @@ It allows the production origins, `https://*.gnuradio-world-previews.pages.dev`
 requests, and exposes `Content-Length`/`Content-Range`. Local testing must use
 `http://localhost:8090/`, matching that exact allowed origin. An origin missing
 from this list is the one failure that looks like a working build: the editor
-loads and flowgraphs run, and only the Recordings palette, File Source range
-reads and recording tabs fail, as CORS errors in the console pane.
+loads and flowgraphs run, and only the Recordings palette, GR World Recording's
+range reads and recording tabs fail, as CORS errors in the console pane.
 
 ## Recording tabs
 
-Every File Source with something to show gets its own workspace tab holding the
-recording view for it — added when a recording is clicked in the palette, when an
-example that references one is opened, or when a file is picked with Properties →
-Browse. A recording can also be viewed *without* being put on the canvas at all,
+Every block with something to show — a GR World Recording, or a File Source
+bound to a local file — gets its own workspace tab holding the recording view for
+it, added when a recording is clicked in the palette, when an example that
+references one is opened, or when a file is picked with Properties → Browse. A
+Public HTTP Recording gets none: raw bytes at a URL are not a SigMF recording,
+and nothing here knows how to describe them. A recording can also be viewed *without* being put on the canvas at all,
 which is the one kind of tab no block owns. Each tab is an `<iframe>` on the
 viewer at `/recording/`, driven through its base64url URL route
 (`recordingViewUrl()` in `editor/src/main.ts` builds it). The rules that keep it
@@ -109,16 +140,16 @@ working:
 - **The tab set is derived state.** `syncRecordingTabs()` rebuilds it from
   `insts` at the end of every `render()`, so no mutation path has to remember to
   update it, and nothing about a tab reaches the `.grc`. It must stay synchronous
-  and network-free: a remote tab's label comes from the `/recordings/...` path,
-  not from the R2 recording index.
+  and network-free: a remote tab's label comes from the block's own recording
+  key, not from the R2 recording index.
 - **A pinned tab is the exception**, and the only one. The Recordings palette's
   **View** control and the `#recording=<base key>` link both open a recording
   view for a recording nothing on the canvas refers to, so `openRecordingPreview()`
   sets `pinned` and the sync destroys only unpinned tabs it no longer wants. Such
-  a tab carries a `×`, shown exactly while no File Source owns its recording —
+  a tab carries a `×`, shown exactly while no block owns its recording —
   the tab bar is `.workspace-tab-group`, a tab button plus that sibling button,
   because a `<button>` cannot contain one. Both origins key the tab by the same
-  `/recordings/...` path `recordingSourceFor()` derives from a File Source, so
+  `/recordings/...` path `recordingSourceFor()` derives from a GR World Recording, so
   adding the block for a previewed recording *adopts* its tab (the `×` disappears)
   rather than opening a second one, and deleting the block hands it back.
 - **`#recording=` composes with `#example=` rather than replacing it.** The

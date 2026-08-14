@@ -33,7 +33,11 @@ const PORT = Number(process.argv[2] || 8101);
 // First eight cf32_le samples from the fm_rds example recording. Keeping only
 // this prefix in the test makes it deterministic in CI, where the full
 // git-ignored recording is intentionally unavailable.
+// The path GR World Recording's factory derives from the key in
+// gr_world_recording_offset.grc, and the one a File Source bound to a local file
+// is rewritten to by the editor.
 const OFFSET_RECORDING_PATH = '/recordings/fm_rds_250k_1Msamples.sigmf-data';
+const OFFSET_LOCAL_PATH = '/local-files/offset-test/fm_rds_250k_1Msamples.sigmf-data';
 const OFFSET_RECORDING_BASE64 =
   'dMG5PFtRrb3Awd88U7GpvUWBojxmwbK9gAHAOGlBtL3DgWG8WAGsvXFBuLxLsaW9/4H/vEAhoL064Ry9PBGevQ==';
 const OFFSET_SAMPLE = 3;
@@ -272,13 +276,13 @@ for (const test of CASES) {
   await page.close();
 }
 
-// Exercise the editor-to-runner recording handoff as an iframe, then assert the
+// Exercise the editor-to-runner file handoff as an iframe, then assert the
 // value observed by a Probe Signal after the WASM scheduler has consumed the
 // one sample selected by File Source. The offset is deliberately a sample
 // index: for cf32 it must advance by 8 bytes, not 3 bytes.
 {
   const test = {
-    name: 'File Source starts an example recording at its sample offset',
+    name: 'File Source starts a local file at its sample offset',
     grc: 'test/fixtures/file_source_offset.grc',
   };
   const page = await browser.newPage();
@@ -308,7 +312,7 @@ for (const test of CASES) {
   }, {
     grc,
     recordingBase64: OFFSET_RECORDING_BASE64,
-    recordingPath: OFFSET_RECORDING_PATH,
+    recordingPath: OFFSET_LOCAL_PATH,
   });
 
   let verdict = '(no #result)';
@@ -348,12 +352,14 @@ for (const test of CASES) {
   await page.close();
 }
 
-// Exercise the HTTP backend. The test server refuses requests without Range,
-// so this cannot accidentally pass by downloading the complete recording.
+// Exercise the HTTP backend, through the block that uses it: GR World Recording
+// derives the descriptor path from its recording key. The test server refuses
+// requests without Range, so this cannot accidentally pass by downloading the
+// complete recording.
 {
   const test = {
-    name: 'File Source streams an example recording with bounded HTTP ranges',
-    grc: 'test/fixtures/file_source_offset.grc',
+    name: 'GR World Recording streams a hosted recording with bounded HTTP ranges',
+    grc: 'test/fixtures/gr_world_recording_offset.grc',
   };
   const page = await browser.newPage();
   const logs = [];

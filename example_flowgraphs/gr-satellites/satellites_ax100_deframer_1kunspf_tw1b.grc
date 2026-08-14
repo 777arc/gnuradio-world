@@ -60,15 +60,13 @@ blocks:
         rotation: 0
         state: enabled
 -   name: asm_recording
-    id: blocks_file_source
+    id: wasm_gr_world_recording
     parameters:
-        begin_tag: pmt.PMT_NIL
-        file: /recordings/estevez/1kuns_pf.sigmf-data
         length: '0'
         offset: '0'
+        recording: estevez/1kuns_pf
         repeat: 'False'
         type: short
-        vlen: '1'
     states:
         coordinate: [10, 190]
         rotation: 0
@@ -123,15 +121,13 @@ blocks:
         rotation: 0
         state: enabled
 -   name: rs_recording
-    id: blocks_file_source
+    id: wasm_gr_world_recording
     parameters:
-        begin_tag: pmt.PMT_NIL
-        file: /recordings/estevez/tw_1b.sigmf-data
         length: '0'
         offset: '0'
+        recording: estevez/tw_1b
         repeat: 'False'
         type: short
-        vlen: '1'
     states:
         coordinate: [10, 430]
         rotation: 0

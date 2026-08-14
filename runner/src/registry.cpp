@@ -2188,6 +2188,50 @@ static std::map<std::string, Factory>& registry_storage() {
                                                length),
                       nullptr };
         }},
+        // The same browser reader over a hosted SigMF recording. The editor
+        // registers the recording's URL under the '/recordings/<key>.sigmf-data'
+        // path this derives, so the mapping lives in exactly two places:
+        // recordingDataPath() in editor/src/recording-catalog.ts and here.
+        {"wasm_gr_world_recording", [](const json& p) -> BuiltBlock {
+             const auto key = p.value("recording", std::string());
+             if (key.empty())
+                 throw std::runtime_error(
+                     "GR World Recording: no recording chosen");
+             // A recording is a stream of scalar samples: no vector length, and
+             // the item type is the one its SigMF datatype dictates.
+             const auto item_size = static_cast<std::size_t>(itemsize_of(p));
+             const auto offset = static_cast<std::uint64_t>(
+                 std::max(0.0, number_from(p, "offset", 0.0)));
+             const auto length = static_cast<std::uint64_t>(
+                 std::max(0.0, number_from(p, "length", 0.0)));
+             return { BrowserFileSource::make(item_size,
+                                               "/recordings/" + key + ".sigmf-data",
+                                               bool_from(p, "repeat", false),
+                                               offset,
+                                               length),
+                      nullptr };
+        }},
+        // A file at any public URL. The editor probes its size and registers it
+        // under the '/recordings/external/...' path it rewrites this parameter
+        // to on the Run path, so what arrives here is already that path.
+        {"wasm_public_http_recording", [](const json& p) -> BuiltBlock {
+             const auto url = p.value("url", std::string());
+             if (url.empty())
+                 throw std::runtime_error("Public HTTP Recording: no URL given");
+             const auto vlen = static_cast<std::size_t>(
+                 std::max(1.0, number_from(p, "vlen", 1.0)));
+             const auto item_size = static_cast<std::size_t>(itemsize_of(p)) * vlen;
+             const auto offset = static_cast<std::uint64_t>(
+                 std::max(0.0, number_from(p, "offset", 0.0)));
+             const auto length = static_cast<std::uint64_t>(
+                 std::max(0.0, number_from(p, "length", 0.0)));
+             return { BrowserFileSource::make(item_size,
+                                               url,
+                                               bool_from(p, "repeat", false),
+                                               offset,
+                                               length),
+                      nullptr };
+        }},
         {"blocks_interleaved_short_to_complex", [](const json& p) -> BuiltBlock {
              return {
                  gr::blocks::interleaved_short_to_complex::make(

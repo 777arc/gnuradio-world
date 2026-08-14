@@ -86,6 +86,13 @@ CUSTOM_IDS = {
     # Runner-only sinks, defined in blocks/grc (no upstream GNU Radio block).
     "wasm_packet_rate_sink",
     "wasm_text_sink",
+    # Streams a hosted SigMF recording over the same browser reader File Source
+    # uses for a local file; the factory derives the recording's path from its
+    # key. See blocks/grc/wasm_gr_world_recording.block.yml.
+    "wasm_gr_world_recording",
+    # The same reader over a file at any public URL, which the editor binds on
+    # the Run path. See blocks/grc/wasm_public_http_recording.block.yml.
+    "wasm_public_http_recording",
     # Runner-only HRPT AVHRR image display; no upstream equivalent (gr-hrpt's
     # own noaa_hrpt_decoder never extracts imagery). See
     # blocks/src/hrpt_image_sink.hpp.

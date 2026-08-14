@@ -12,7 +12,7 @@ This file is what you need for almost any change. Per-task detail lives in
 | doc | read it when |
 |-----|--------------|
 | [docs/adding-modules.md](docs/adding-modules.md) | adding a GNU Radio component library or vendoring an out-of-tree module — a self-contained checklist for both, plus the gr-satellites rebuilds |
-| [docs/recording-viewer.md](docs/recording-viewer.md) | touching File Source, the R2 recording bucket and its CORS policy, recording tabs, or the SigMF viewer under `editor/src/recording/` |
+| [docs/recording-viewer.md](docs/recording-viewer.md) | touching the three source blocks that read a file (File Source, GR World Recording, Public HTTP Recording), the R2 recording bucket and its CORS policy, recording tabs, or the SigMF viewer under `editor/src/recording/` |
 | [docs/editor-ui.md](docs/editor-ui.md) | working on block IDs, auto-arrange, the narrow-screen/touch layout, or the embedded layout another site frames (`?embed=1`) |
 | [docs/gui-layout.md](docs/gui-layout.md) | touching where QT GUI widgets go in the runner window — the GUI Layout block, `editor/src/gui-layout*.ts`, `runner/src/gui_layout.hpp`, or Arrange mode |
 | [docs/ci.md](docs/ci.md) | changing a workflow, the deploy, PR preview deployments, or the PR security gate (`security-analysis.yml`, `scripts/pr-security-scan.mjs`) |
@@ -54,8 +54,9 @@ WebAssembly.
 - `deps/`: dependency fetch/build scripts, and any patches needed. Built
   dependencies are installed into the generated, git-ignored `sysroot/`.
 - `editor/recording/` + `editor/src/recording/`: a focused recording viewer
-  adapted from IQEngine, giving every File Source — and every recording opened on
-  its own — a tab showing the signal in a spectrogram-based interface. Part of
+  adapted from IQEngine, giving every block that reads a recording — and every
+  recording opened on its own — a tab showing the signal in a spectrogram-based
+  interface. Part of
   the editor's own Vite build.
 
 The editor passes a serialized `.grc` flowgraph to the runner. The runner is an
@@ -89,7 +90,7 @@ node server.mjs 8090 "$PWD"
   enable/disable, bypass), a Properties dialog, Edit ▸ Auto-Arrange Blocks, and a
   Run button that hands the flowgraph `.grc` to the runner. The editor canvas and
   embedded Qt GUI runner share tabs in the workspace, joined by one *recording
-  tab* per File Source and per recording opened on its own. The recording viewer
+  tab* per recording-reading block and per recording opened on its own. The recording viewer
   is part of this same Vite build, with the console remaining visible below any
   tab.
 - **Runner** (`runner/`): a generic C++/WASM "player" — parses the flowgraph
@@ -681,6 +682,20 @@ Definition (`variable_cc_decoder_def`), which `fec_async_decoder` and
   which is *bound* through a numeric setter rather than read, and so may name a
   control and track it. `example_flowgraphs/qtgui/control_widgets.grc` exercises
   every one of them.
+- **Three blocks read a file, one per place a file can be.** They are all
+  `BrowserFileSource` over a path the browser resolves a binding through, and
+  they differ only in where that path comes from. **File Source** is native GNU
+  Radio's: a file on this computer, picked with Properties ▸ Browse and bound for
+  the session — it has no remote path of any kind. **GR World Recording**
+  (`wasm_gr_world_recording`) names a recording in the R2 bucket by its base key,
+  and the *runner's factory* derives `/recordings/<key>.sigmf-data` from it, so
+  the editor rewrites nothing and only registers that path's URL and size;
+  `recordingDataPath()` in `editor/src/recording-catalog.ts` is the other half of
+  that mapping and the two have to agree. **Public HTTP Recording**
+  (`wasm_public_http_recording`) takes any public URL, whose size the editor
+  probes on the Run path before rewriting the parameter to
+  `/recordings/external/...`. See
+  [docs/recording-viewer.md](docs/recording-viewer.md).
 - **Python blocks whose dependency is a browser capability** get rebuilt around
   the browser's version of it. gr-paint's `paint_image_source` ("Image File
   Source") decodes an image with PIL upstream; there is neither PIL nor a
@@ -703,7 +718,8 @@ Definition (`variable_cc_decoder_def`), which `fec_async_decoder` and
   does: `LOCAL_FILE_PARAMS` in `main.ts` names the parameter each such block
   keeps its file in, which is what puts a Browse control in its Properties
   dialog and rewrites that parameter to a `/local-files/...` path on the Run
-  path. A `.grc` still stores only the file name. An image on another origin
+  path (`RUN_BOUND_PARAMS` adds Public HTTP Recording's URL, rewritten the same
+  way to `/recordings/external/...`). A `.grc` still stores only the file name. An image on another origin
   must be served with permissive CORS headers, which is why the
   `example_flowgraphs/paint/` examples paint same-origin assets from
   `editor/public/example_images/`.
