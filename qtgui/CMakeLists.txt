@@ -160,6 +160,7 @@ add_library(gr_qtgui_ts STATIC
 )
 target_include_directories(gr_qtgui_ts PUBLIC
   ${GRQ}/include ${GRQ}/lib
+  ${WASM_ROOT}/blocks/src                         # qtgui_plot_title.hpp
   ${CMAKE_CURRENT_BINARY_DIR}                     # spectrumdisplayform.ui.h
   ${GR}/gnuradio-runtime/include
   ${GR}/gr-blocks/include

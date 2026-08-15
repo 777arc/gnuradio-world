@@ -63057,7 +63057,7 @@
      "id": "name",
      "label": "Name",
      "dtype": "string",
-     "default": "\"Matrix Sink\"",
+     "default": "\"\"",
      "category": "General",
      "options": null,
      "option_labels": null,

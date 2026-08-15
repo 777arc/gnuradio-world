@@ -50,6 +50,14 @@ blocks_vco_c:
   parameter_defaults:
     samp_rate: samp_rate
 
+# Every QT GUI plot defaults to no title -- a plot in a browser tile is captioned
+# by the flowgraph around it, and the title, when there is one, is drawn inside
+# the canvas (blocks/src/qtgui_plot_title.hpp). The Matrix Sink is the one sink
+# upstream gives a default Name, and until now it displayed it nowhere.
+qtgui_matrix_sink:
+  parameter_defaults:
+    name: '""'
+
 # gr-filter's Frequency Xlating FIR Filter has no cpp_templates upstream, only
 # Python generation. Mirrors filter_fir_filter_xxx's shape. gr-satellites' AFSK
 # and BPSK demodulators both use it.

@@ -123,7 +123,7 @@ blocks:
     name: '"The same frame as a grid"'
     vlen: vlen
     num_cols: '16'
-    contour: 'false'
+    contour: 'False'
     color_map: '"rgb"'
     interpolation: '"NearestNeighbour"'
     x_start: '0'

@@ -3095,7 +3095,7 @@ static std::map<std::string, Factory>& registry_storage() {
          }},
         {"qtgui_time_sink_x", [](const json& p) -> BuiltBlock {
              int n = p.value("size", 1024); double sr = p.value("samp_rate", 32000.0);
-             std::string nm = p.value("name", std::string("Scope")); int nc = p.value("nconnections", 1);
+             std::string nm = unquoted(p.value("name", std::string())); int nc = p.value("nconnections", 1);
              if (is_float(p)) {
                  auto b = gr::qtgui::time_sink_f::make(n, sr, nm, nc);
                  configure_time_sink(b, p, nc);
@@ -3117,7 +3117,7 @@ static std::map<std::string, Factory>& registry_storage() {
              const double initial_bw = p.value("bw", sr);
              auto b = gr::qtgui::freq_sink_c::make(p.value("fftsize", 1024),
                  p.value("wintype", 5), initial_fc, initial_bw,
-                 p.value("name", std::string("Spectrum")), p.value("nconnections", 1));
+                 unquoted(p.value("name", std::string())), p.value("nconnections", 1));
              configure_freq_sink(b, p);
              auto range = std::make_shared<std::pair<double, double>>(initial_fc, initial_bw);
              BuiltBlock result{ b, b->qwidget() };
@@ -3146,7 +3146,7 @@ static std::map<std::string, Factory>& registry_storage() {
                      "QT GUI Constellation Sink connections cannot be negative");
              auto block = gr::qtgui::const_sink_c::make(
                  static_cast<int>(number_from(p, "size", 1024)),
-                 unquoted(p.value("name", std::string("Constellation"))),
+                 unquoted(p.value("name", std::string())),
                  connections);
 
              auto x_axis = std::make_shared<std::pair<double, double>>(
@@ -3229,7 +3229,7 @@ static std::map<std::string, Factory>& registry_storage() {
              const int wintype = static_cast<int>(number_from(p, "wintype", 0));
              const double initial_fc = number_from(p, "fc", 0.0);
              const double initial_bw = number_from(p, "bw", sr);
-             const std::string nm = unquoted(p.value("name", std::string("Waterfall")));
+             const std::string nm = unquoted(p.value("name", std::string()));
              // Message-mode variants carry no stream inputs.
              const int nconnections = type.rfind("msg", 0) == 0
                                           ? 0
@@ -3487,7 +3487,7 @@ static std::map<std::string, Factory>& registry_storage() {
          }},
         {"qtgui_matrix_sink", [](const json& p) -> BuiltBlock {
              auto b = gr::qtgui::matrix_sink::make(
-                 unquoted(p.value("name", std::string("Matrix Sink"))),
+                 unquoted(p.value("name", std::string())),
                  static_cast<unsigned int>(number_from(p, "num_cols", 10.0)),
                  static_cast<unsigned int>(number_from(p, "vlen", 100.0)),
                  bool_from(p, "contour", false),

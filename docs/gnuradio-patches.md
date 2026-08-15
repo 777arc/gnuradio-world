@@ -50,6 +50,19 @@ sources against Qt 6 instead — but they carry WASM guards too:
   error and leaves the selector doing nothing. The replacement uses the `int`
   overload both versions have. See also `qtgui/CMakeLists.txt`, where the same
   file needs `uic --connections string`.
+- `gr-qtgui/lib/displayform.cc`, `lib/matrix_display.cc` — a plot's title is drawn
+  *inside* its canvas, centered along the top, instead of in Qwt's title widget
+  above it. A sink here is one tile of the runner's grid layout, so a title
+  stacked on top of the canvas costs the trace real height and leaves a row of
+  tiles with plots of differing sizes depending on which of them are named. Both
+  call `wasm_qtgui::set_canvas_title()` in
+  [`blocks/src/qtgui_plot_title.hpp`](../blocks/src/qtgui_plot_title.hpp), which
+  attaches a `QwtPlotTextLabel` with a plate behind the text so it stays legible
+  over a waterfall's colormap; `qtgui/CMakeLists.txt` puts `blocks/src` on the
+  include path for it. `DisplayForm::setTitle` is the single funnel every
+  DisplayForm-based sink's `set_title()` and its Title menu item go through;
+  Matrix Sink has no DisplayForm and upstream shows its `name` nowhere at all, so
+  its display sets the title once at construction.
 - `gr-qtgui/lib/TimeDomainDisplayPlot.cc`, its header — `QwtPlotCanvas::ImmediatePaint`
   plus antialiasing off and `FilterPointsAggressive` on the curves; Qwt's backing
   pixmap and Qt's antialiased polyline rasterizer are both disproportionately
