@@ -1633,31 +1633,48 @@ async function copyFlowgraphUrl() {
 // for the non-enum ones. Editable is not decoration — plenty of those lists are
 // suggestions rather than a closed set (audio_sink's Sample Rate defaults to
 // the `samp_rate` variable, which is on none of them; Fast Noise Source's Noise
-// Type is `dtype: raw` with four options and could name a variable instead), so
-// such a field stays a text input and gains a datalist. Turning it into a
-// <select> would silently rewrite any value not on the list, which is the one
-// thing a properties dialog must never do.
-let optionListSeq = 0;
-function attachOptionList(input: HTMLInputElement | HTMLTextAreaElement, param: ParamDef) {
-  if (param.type === 'enum' || !param.options?.length || param.multiline) return;
-  const list = document.createElement('datalist');
-  list.id = `optlist-${++optionListSeq}`;
-  param.options.forEach((option, index) => {
-    const node = document.createElement('option');
-    node.value = option;
-    // Chrome shows the label beside the value; the value is what the .grc
-    // stores and what the block face shows, so it stays the primary text.
-    const label = param.optionLabels?.[index];
-    if (label && label !== option) node.label = label;
-    list.appendChild(node);
-  });
-  input.setAttribute('list', list.id);
-  input.after(list);
-  // Browsers disagree about whether clicking a field opens its datalist, and the
-  // chevron the CSS paints promises that it does. showPicker() keeps that promise
-  // wherever it exists and is a no-op where it does not — typing filters the same
-  // list either way.
-  input.onclick = () => { try { (input as any).showPicker?.(); } catch { /* not supported */ } };
+// Type is `dtype: raw` with four options), so the field cannot be a bare
+// <select>: that would silently rewrite whatever the flowgraph already holds
+// into the first option on the list, which is the one thing a properties dialog
+// must never do. It cannot be a <datalist> either — that looks like the web's
+// editable combo and is not one, because browsers filter those suggestions
+// against the text already in the field, so a parameter sitting on one of its
+// own options offers that option alone and hides its siblings.
+//
+// What works is a real select carrying the options *plus* whatever value the
+// flowgraph holds, and a "Custom value…" entry that swaps in a text field for an
+// expression or a variable name.
+const CUSTOM_OPTION = '__grw_custom_value__';   // no GRC option can collide with it
+function optionCombo(param: ParamDef, value: string, commit: (value: string) => void) {
+  const wrap = document.createElement('div'); wrap.className = 'opt-combo';
+  const select = document.createElement('select');
+  const input = document.createElement('input');
+  const hint = document.createElement('small'); hint.className = 'field-hint';
+  hint.textContent = 'Custom value — reopen this dialog to choose from the list again.';
+  input.hidden = hint.hidden = true;
+  const labelOf = new Map((param.options || []).map(
+    (option, index) => [option, param.optionLabels?.[index] ?? option]));
+  // A stored value the list does not have leads it, so a variable or an
+  // expression is shown as what it is rather than quietly replaced.
+  const values = labelOf.has(value) ? [...labelOf.keys()] : [value, ...labelOf.keys()];
+  for (const option of values) select.appendChild(new Option(labelOf.get(option) ?? option, option));
+  select.appendChild(new Option('Custom value…', CUSTOM_OPTION));
+  select.value = value;
+  let current = value;
+  select.onchange = () => {
+    if (select.value !== CUSTOM_OPTION) { current = select.value; commit(current); return; }
+    // The sentinel is a mode, never a value: the field keeps what it had, and
+    // selects it, so typing replaces the option rather than appending to it.
+    input.value = current;
+    select.hidden = true; input.hidden = hint.hidden = false;
+    input.focus(); input.select();
+  };
+  input.oninput = () => { current = input.value; commit(current); };
+  wrap.append(select, input, hint);
+  return { wrap, select, input };
+}
+function usesOptionCombo(param: ParamDef): boolean {
+  return param.type !== 'enum' && !param.multiline && !!param.options?.length;
 }
 function showVariableEditor() {
   closeMenu(); document.querySelector('.modal')?.remove();
@@ -1678,19 +1695,33 @@ function showVariableEditor() {
     const d = RUNNABLE[variable.id];
     const title = document.createElement('div'); title.className = 'dlghead'; title.textContent = d.label;
     body.appendChild(title);
-    const add = (label: string, node: HTMLElement, field: string) => {
+    const add = (label: string, node: HTMLElement, field: string,
+                 validationNode: HTMLElement = node) => {
       const row = document.createElement('div'); row.className = 'dlgrow';
       const l = document.createElement('label'); l.textContent = label;
       const control = document.createElement('div'); control.className = 'field-control';
       const error = document.createElement('small'); error.className = 'field-error'; error.hidden = true;
       control.append(node, error); row.append(l, control); body.appendChild(row);
-      controls.push({ uid: variable.uid, field, node, error });
+      controls.push({ uid: variable.uid, field, node: validationNode, error });
     };
     const name = document.createElement('input'); name.value = variable.name;
     name.oninput = () => { variable.name = name.value.replace(/\s+/g, '_'); render(); refreshValidation(); };
     name.onchange = recordHistory;
     add('ID', name, NAME_FIELD);
     for (const param of d.params) {
+      const set = (value: string) => {
+        variable.params[param.id] = param.type === 'number' ? numericOrExpression(value) : value;
+        render(); refreshValidation();
+      };
+      if (usesOptionCombo(param)) {
+        const combo = optionCombo(param, String(variable.params[param.id]), set);
+        // addEventListener, not onchange: the combo needs its own change handler
+        // to switch into custom mode.
+        combo.select.addEventListener('change', recordHistory);
+        combo.input.addEventListener('change', recordHistory);
+        add(param.label, combo.wrap, param.id, combo.select);
+        continue;
+      }
       let input: HTMLInputElement | HTMLSelectElement;
       if (param.type === 'enum') {
         input = document.createElement('select');
@@ -1699,13 +1730,9 @@ function showVariableEditor() {
       } else {
         input = document.createElement('input'); input.value = String(variable.params[param.id]);
       }
-      input.oninput = () => {
-        variable.params[param.id] = param.type === 'number' ? numericOrExpression(input.value) : input.value;
-        render(); refreshValidation();
-      };
+      input.oninput = () => set(input.value);
       input.onchange = recordHistory;
       add(param.label, input, param.id);
-      if (input instanceof HTMLInputElement) attachOptionList(input, param);
     }
   }
   const foot = document.createElement('div'); foot.className = 'dlgfoot';
@@ -2258,6 +2285,16 @@ function showPropsDialog(inst: Inst) {
       // user who has never loaded it.
       if (pythonRuntime.consented && pythonRuntime.state === 'absent')
         void pythonRuntime.load();
+    } else if (usesOptionCombo(p)) {
+      // A parameter with an options list that is not `dtype: enum` — see
+      // optionCombo(): a dropdown of the options, still able to hold an
+      // expression or a variable.
+      const combo = optionCombo(p, String(tmp.params[p.id]), value => {
+        tmp.params[p.id] = p.type === 'number' ? numericOrExpression(value) : value;
+        refreshVisibility(); refreshValidation();
+      });
+      addField(p.category || 'General', `${p.label}  (${p.id})`, combo.wrap, p.id, combo.select);
+      if (p.showWhen) conditionalRows.push({ param: p, row: combo.wrap.closest('.dlgrow') as HTMLElement });
     } else {
       // Prose params (the Note block) get a textarea so the text can contain the
       // line breaks the block face honours; everything else stays a one-liner.
@@ -2270,7 +2307,6 @@ function showPropsDialog(inst: Inst) {
         refreshVisibility(); refreshValidation();
       };
       addField(p.category || 'General', `${p.label}  (${p.id})`, inp, p.id);
-      attachOptionList(inp, p);
       if (p.showWhen) conditionalRows.push({ param: p, row: inp.closest('.dlgrow') as HTMLElement });
     }
   }

@@ -54,6 +54,12 @@ const sameChoice = (option: string, value: unknown) => {
   return option === String(value) || unquote(option) === unquote(String(value));
 };
 
+// The two noise sources, and the only distributions their complex form has.
+// See the check that uses them, below.
+const NOISE_SOURCE_IDS = new Set(['analog_noise_source_x', 'analog_fastnoise_source_x']);
+const COMPLEX_NOISE_TYPES = ['analog.GR_UNIFORM', 'analog.GR_GAUSSIAN',
+                             'analog::GR_UNIFORM', 'analog::GR_GAUSSIAN'];
+
 export function validateFlowgraph(
   blocks: Inst[],
   connections: Conn[],
@@ -172,6 +178,22 @@ export function validateFlowgraph(
           (!Number.isInteger(outputIndex) || outputIndex < 0 || outputIndex >= numOutputs))
         add(block, 'output_index', 'Output Index must select an available output port.');
     }
+    // GNU Radio generates only Uniform and Gaussian *complex* noise. The
+    // gr_complex specializations of both noise sources
+    // (noise_source_impl<gr_complex>::work, fastnoise_source_impl<gr_complex>::
+    // generate) have no Laplacian or Impulse case and fall through to
+    // `throw std::runtime_error("invalid type")`, while the float/int/short
+    // templates implement all four. Fast Noise Source throws it from its
+    // *constructor*, so the flowgraph dies at Run with nothing to go on but
+    // "invalid type". Native GRC offers the same combination and fails the same
+    // way; naming it here is the difference between a fixable message and a
+    // mystery.
+    if (NOISE_SOURCE_IDS.has(block.id) &&
+        sameChoice('complex', block.params.type) &&
+        block.params.noise_type !== undefined &&
+        !COMPLEX_NOISE_TYPES.some(option => sameChoice(option, block.params.noise_type)))
+      add(block, 'noise_type', 'Complex output supports only Uniform and Gaussian noise. ' +
+          'Choose one of those, or a float, int or short Output Type.');
   }
 
   const byUid = new Map(blocks.map(block => [block.uid, block]));

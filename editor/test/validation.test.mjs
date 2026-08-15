@@ -159,6 +159,28 @@ assert.deepEqual(validateFlowgraph([source, passthrough({ bypassed: true }), dra
   assert.deepEqual(RUNNABLE.analog_sig_source_x.outOptional, [false],
     'a plain source output stays required');
 
+  // Complex noise is Uniform or Gaussian only: the gr_complex specializations of
+  // both noise sources have no Laplacian or Impulse case and throw "invalid
+  // type", and Fast Noise Source throws it from its *constructor*, so without
+  // this the flowgraph dies at Run with only that string to explain itself.
+  // Generated schema, hence this scope rather than the DEFS-backed cases above.
+  const noisePorts = { ...ports, def: block => RUNNABLE[block.id] };
+  const noise = params => inst('noise', 'analog_fastnoise_source_x', 'noise',
+    { amp: 1, seed: 0, samples: 8192, ...params });
+  assert.ok(validateFlowgraph(
+    [noise({ type: 'complex', noise_type: 'analog.GR_LAPLACIAN' })], [], noisePorts)
+    .some(issue => issue.field === 'noise_type' && issue.blocking &&
+          issue.message.includes('Uniform and Gaussian')),
+    'complex + Laplacian is refused on the Noise Type field');
+  for (const params of [
+    { type: 'complex', noise_type: 'analog.GR_GAUSSIAN' },  // complex has this one
+    { type: 'float', noise_type: 'analog.GR_LAPLACIAN' },   // every real type has all four
+    { type: 'complex', noise_type: 'analog::GR_UNIFORM' },  // the runner's spelling
+  ])
+    assert.ok(!validateFlowgraph([noise(params)], [], noisePorts)
+      .some(issue => issue.field === 'noise_type'),
+      `${params.type} + ${params.noise_type} is a supported combination`);
+
   // The flag is native's EvaluatedFlag, not a string: a `${ ... }` expression is
   // evaluated against the block's parameters and defaults to False — required —
   // when it cannot be. Reading the template text as truthy is what used to
