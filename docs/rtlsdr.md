@@ -4,6 +4,12 @@ Read this before touching `blocks/src/rtlsdr_source.{hpp,cpp}`,
 `runner/src/rtlsdr_reader.js`, `editor/src/rtlsdr.ts`, or the `wasm_rtlsdr_source`
 factory in [`runner/src/registry.cpp`](../runner/src/registry.cpp).
 
+The editor half is one of two WebUSB radios now — see
+[docs/plutosdr.md](plutosdr.md) — so what the canvas, the Properties dialog and
+the Run click do for *any* radio lives in `editor/src/usb-radio.ts`, and
+`editor/src/rtlsdr.ts` supplies the dongle-specific half plus the
+`RTLSDR_RADIO` descriptor that joins the two.
+
 The block receives from an RTL2832U dongle plugged into the machine running the
 browser. There is no server and no native helper: Chromium's WebUSB API gives a
 web page the same vendor control transfers and bulk reads librtlsdr issues, and

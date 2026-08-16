@@ -36,7 +36,7 @@ blocks:
         rangeType: float
         start: '0'
         step: '1'
-        stop: '74'
+        stop: '73'
         value: '65'
         widget: counter_slider
     states:
@@ -44,9 +44,14 @@ blocks:
         rotation: 0
         state: enabled
 -   name: samp_rate
-    id: variable
+    id: variable_qtgui_chooser
     parameters:
+        label: Sample Rate
+        labels: '["2.4 MHz", "2.5 MHz", "3.2 MHz", "3.84 MHz", "4 MHz", "5 MHz", "6 MHz", "7.68 MHz", "8 MHz", "10 MHz", "12 MHz", "15.36 MHz", "16 MHz", "20 MHz", "24 MHz", "25 MHz", "30.72 MHz", "32 MHz", "40 MHz", "50 MHz", "56 MHz"]'
+        options: '[2400000, 2500000, 3200000, 3840000, 4000000, 5000000, 6000000, 7680000, 8000000, 10000000, 12000000, 15360000, 16000000, 20000000, 24000000, 25000000, 30720000, 32000000, 40000000, 50000000, 56000000]'
+        orient: Qt.QVBoxLayout
         value: '2500000'
+        widget: combo_box
     states:
         coordinate: [1100, 10]
         rotation: 0
@@ -188,7 +193,7 @@ blocks:
     id: wasm_gui_layout
     parameters:
         columns: '12'
-        layout: '{"center_freq":[0,0,7,1],"rx_gain":[8,0,4,1],"qtgui_freq_sink_x_0":[0,1,12,3],"qtgui_waterfall_sink_x_0":[0,4,12,6]}'
+        layout: '{"center_freq":[0,0,5,1],"rx_gain":[5,0,4,1],"samp_rate":[9,0,3,1],"qtgui_freq_sink_x_0":[0,1,12,3],"qtgui_waterfall_sink_x_0":[0,4,12,6]}'
         row_height: '60'
     states:
         coordinate: [310, 10]
@@ -197,7 +202,7 @@ blocks:
 -   name: wasm_plutosdr_source_0
     id: wasm_plutosdr_source
     parameters:
-        bandwidth: '2000000'
+        bandwidth: samp_rate
         bb_dc: 'True'
         buffer_size: '32768'
         center_freq: center_freq

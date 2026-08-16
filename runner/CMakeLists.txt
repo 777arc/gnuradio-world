@@ -102,6 +102,7 @@ qt_add_executable(runner
   src/registry.cpp
   ${BLOCKS}/src/browser_file_source.cpp
   ${BLOCKS}/src/rtlsdr_source.cpp
+  ${BLOCKS}/src/plutosdr_common.cpp
   ${BLOCKS}/src/plutosdr_source.cpp
   ${BLOCKS}/src/plutosdr_sink.cpp
   ${BLOCKS}/overlays/gr-paint/paint_image_source.cpp

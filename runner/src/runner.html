@@ -181,10 +181,21 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
       // See docs/rtlsdr.md.
       let nextRtlReaderId = 1;
       const rtlReaders = new Map();
-      // The reader messages that say where a run *is*, as opposed to the ones
-      // that report on a run already under way.
-      const RTL_STATES = new Set(['running', 'cancelled', 'error']);
+      // The worker messages that say where a run *is*, as opposed to the ones
+      // that report on a run already under way. Shared by every USB worker.
+      const USB_WORKER_STATES = new Set(['running', 'cancelled', 'error']);
       window.__grUsbStats = Object.create(null);
+      // A USB worker's failure, followed by the operations that led to it.
+      // console.group keeps that flight recorder from burying everything else.
+      const reportUsbWorkerError = (label, message) => {
+        console.error(`${label}: ${message.message}`);
+        if (message.recent && message.recent.length) {
+          console.groupCollapsed(
+            `${label}: last ${message.recent.length} USB operations`);
+          for (const line of message.recent) console.log(line);
+          console.groupEnd();
+        }
+      };
       window.__grStartRtlSdrSource = (
         serial, memory, ringPointer, capacityPairs,
         controlPointer, errorPointer, sampleRate, directSampling, bufflen
@@ -223,21 +234,12 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
           // 'overrun' all report on a reader that is still running, so letting
           // them through would leave the debug panel showing a graph that had
           // merely passed 16 MB as though 'progress' were where it had stopped.
-          if (RTL_STATES.has(message.type)) stats.state = message.type;
+          if (USB_WORKER_STATES.has(message.type)) stats.state = message.type;
           if (message.type === 'tuner')
             console.log(`RTL-SDR Source ${label}: tuner ${message.tuner}, ` +
                         `${message.manufacturer || '?'} / ${message.model || '?'}`);
-          if (message.type === 'error') {
-            console.error(`RTL-SDR Source ${label}: ${message.message}`);
-            // The USB operations leading up to the failure. console.group keeps
-            // a 60-line flight recorder from burying everything else.
-            if (message.recent && message.recent.length) {
-              console.groupCollapsed(
-                `RTL-SDR Source ${label}: last ${message.recent.length} USB operations`);
-              for (const line of message.recent) console.log(line);
-              console.groupEnd();
-            }
-          }
+          if (message.type === 'error')
+            reportUsbWorkerError(`RTL-SDR Source ${label}`, message);
           if (message.type === 'cancelled' || message.type === 'error')
             rtlReaders.delete(id);
         };
@@ -279,10 +281,9 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
       // values from one firmware release. See docs/plutosdr.md.
       let nextPlutoWorkerId = 10000;
       const plutoWorkers = new Map();
-      const PLUTO_STATES = new Set(['running', 'cancelled', 'error']);
       window.__grStartPlutoSdr = (
         direction, serial, memory, ringPointer, capacityFrames, channels,
-        controlPointer, errorPointer, sampleRate, bufferSize, cyclic
+        controlPointer, errorPointer, sampleRate, bufferSize
       ) => {
         const id = nextPlutoWorkerId++;
         const workerUrl = new URL('plutosdr_worker.js', location.href);
@@ -306,8 +307,11 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
         };
         window.__grUsbStats[id] = stats;
         plutoWorkers.set(id, worker);
+        const name = `PlutoSDR ${direction.toUpperCase()} ${label}`;
         worker.onmessage = event => {
           const message = event.data || {};
+          if (Number.isFinite(message.requestedRate))
+            stats.requestedRate = message.requestedRate;
           if (Number.isFinite(message.actualRate)) stats.actualRate = message.actualRate;
           if (Number.isFinite(message.bytes)) {
             if (direction === 'rx') stats.bytesRead = message.bytes;
@@ -318,27 +322,17 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
             else stats.underflows = message.events;
           }
           if (Number.isFinite(message.lost)) stats.droppedSamples = message.lost;
-          if (PLUTO_STATES.has(message.type)) stats.state = message.type;
+          if (USB_WORKER_STATES.has(message.type)) stats.state = message.type;
           if (message.type === 'running')
-            console.log(`PlutoSDR ${direction.toUpperCase()} ${label}: ` +
-                        `${message.channels} channel(s) at ${message.actualRate} S/s`);
-          if (message.type === 'error') {
-            console.error(`PlutoSDR ${direction.toUpperCase()} ${label}: ${message.message}`);
-            if (message.recent && message.recent.length) {
-              console.groupCollapsed(
-                `PlutoSDR ${label}: last ${message.recent.length} USB operations`);
-              for (const line of message.recent) console.log(line);
-              console.groupEnd();
-            }
-          }
+            console.log(
+              `${name}: ${message.channels} channel(s) at ${message.actualRate} S/s`);
+          if (message.type === 'error') reportUsbWorkerError(name, message);
           if (message.type === 'cancelled' || message.type === 'error')
             plutoWorkers.delete(id);
         };
         worker.onerror = event => {
           stats.state = 'error';
-          console.error(
-            `PlutoSDR ${direction.toUpperCase()} worker ${label}: ` +
-            `${event.message || 'worker error'}`);
+          console.error(`${name} worker: ${event.message || 'worker error'}`);
           plutoWorkers.delete(id);
         };
         worker.postMessage({
@@ -353,7 +347,6 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
           errorCapacity: 512,
           sampleRate,
           bufferSize,
-          cyclic,
         });
         return id;
       };

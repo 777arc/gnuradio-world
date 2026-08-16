@@ -37,31 +37,9 @@ import {
   VARIABLE_IDS,
   validateFlowgraph,
 } from './validation';
-import {
-  RTLSDR_DTYPE,
-  RTLSDR_ID,
-  RTLSDR_USB_FILTERS,
-  type UsbLike,
-  describeDevice,
-  deviceDisplay,
-  deviceOptions,
-  prepareRtlDevices,
-  refreshRtlDevices,
-  usbApi,
-  watchRtlDevices,
-} from './rtlsdr';
-import {
-  PLUTOSDR_DTYPE,
-  PLUTOSDR_SINK_ID,
-  PLUTOSDR_SOURCE_ID,
-  PLUTOSDR_USB_FILTERS,
-  describePluto,
-  plutoDeviceDisplay,
-  plutoDeviceOptions,
-  preparePlutoDevices,
-  refreshPlutoDevices,
-  watchPlutoDevices,
-} from './plutosdr';
+import { type UsbLike, type UsbRadio, usbApi } from './usb-radio';
+import { RTLSDR_RADIO } from './rtlsdr';
+import { PLUTOSDR_RADIO } from './plutosdr';
 import {
   buildRecordingTree,
   displayBytes,
@@ -104,6 +82,14 @@ import { isBenchmarkFrameSource, showBenchmarkDialog } from './benchmark';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const el = (id: string) => document.getElementById(id)!;
+/**
+ * The WebUSB radios the editor knows how to wire up: a device picker in the
+ * Properties dialog, the device a block face resolves to, and the permission
+ * prompt on the Run click. Adding one is adding it here. See ./usb-radio.
+ */
+const USB_RADIOS: UsbRadio[] = [RTLSDR_RADIO, PLUTOSDR_RADIO];
+const radioForDtype = (dtype?: string): UsbRadio | undefined =>
+  USB_RADIOS.find(radio => radio.dtype === dtype);
 // ?embed=1 — the layout another site frames. Declared up here rather than beside
 // the rest of the embed wiring further down because the history functions, which
 // are declared before it, keep its "open in GNU Radio World" link current.
@@ -613,12 +599,11 @@ function truncateValue(label: string, s: string, style = 0): string {
 function paramDisplay(p: ParamDef, raw: any): string {
   const cut = (s: string, style = 0) => truncateValue(p.label, s, style);
   const fileStyle = p.dtype === 'file_open' || p.dtype === 'file_save' ? -1 : 0;
-  // An RTL-SDR's device is the one parameter whose empty value means something
-  // ("first available"), so it resolves to the dongle it will actually open
-  // rather than drawing an empty row. See deviceDisplay().
-  if (p.dtype === RTLSDR_DTYPE) return cut(deviceDisplay(String(raw ?? '')));
-  if (p.dtype === PLUTOSDR_DTYPE)
-    return cut(plutoDeviceDisplay(String(raw ?? '')));
+  // A radio's device is the one parameter whose empty value means something
+  // ("first available"), so it resolves to the radio it will actually open
+  // rather than drawing an empty row. See UsbRadio.display().
+  const radio = radioForDtype(p.dtype);
+  if (radio) return cut(radio.display(String(raw ?? '')));
   if (p.type !== 'number') {
     const optionIndex = p.options?.indexOf(String(raw)) ?? -1;
     const display = optionIndex >= 0 ? p.optionLabels?.[optionIndex] ?? raw : raw;
@@ -2110,18 +2095,13 @@ function showPropsDialog(inst: Inst) {
       addField(p.category || 'General', `${p.label}  (${p.id})`, picker, p.id, inp);
       refreshDetail();
       if (p.showWhen) conditionalRows.push({ param: p, row: picker.closest('.dlgrow') as HTMLElement });
-    } else if (p.dtype === RTLSDR_DTYPE || p.dtype === PLUTOSDR_DTYPE) {
+    } else if (radioForDtype(p.dtype)) {
       // A WebUSB radio. Unlike a local file this binds nothing for the
       // session: the browser remembers the permission per origin, so all a .grc
       // needs is the serial number, and the runner's worker finds the device
       // again by itself. Degrades to a plain text field where WebUSB is absent,
       // so a flowgraph authored in Firefox still round-trips.
-      const isPluto = p.dtype === PLUTOSDR_DTYPE;
-      const optionsFor = isPluto ? plutoDeviceOptions : deviceOptions;
-      const describe = isPluto ? describePluto : describeDevice;
-      const refreshShared = isPluto ? refreshPlutoDevices : refreshRtlDevices;
-      const filters = isPluto ? PLUTOSDR_USB_FILTERS : RTLSDR_USB_FILTERS;
-      const radioName = isPluto ? 'PlutoSDR' : 'RTL-SDR';
+      const radio = radioForDtype(p.dtype)!;
       const picker = document.createElement('div'); picker.className = 'file-picker';
       const select = document.createElement('select');
       // The fallback for a .grc naming a dongle that is not plugged in, and for
@@ -2131,7 +2111,7 @@ function showPropsDialog(inst: Inst) {
       typed.placeholder = 'serial number, or blank for the first available';
       const choose = document.createElement('button'); choose.type = 'button';
       choose.textContent = 'Add…';
-      choose.title = `Grant this site access to another ${radioName}`;
+      choose.title = `Grant this site access to another ${radio.name}`;
       const detail = document.createElement('small'); detail.className = 'file-picker-detail';
       let shared: UsbLike[] = [];
 
@@ -2140,19 +2120,19 @@ function showPropsDialog(inst: Inst) {
       // options and the block-face display. Only the DOM wiring is here.
       const paint = () => {
         const serial = String(tmp.params[p.id] ?? '').trim();
-        select.replaceChildren(...optionsFor(serial, shared).map(o => {
+        select.replaceChildren(...radio.options(serial, shared).map(o => {
           const option = document.createElement('option');
           option.value = o.value; option.textContent = o.label;
           return option;
         }));
         select.value = serial;
-        detail.textContent = describe(serial, shared);
+        detail.textContent = radio.describe(serial, shared);
       };
 
       // The same cache the block face draws from, so the dialog and the canvas
       // cannot name different dongles for one flowgraph.
       const refreshDevices = async () => {
-        shared = await refreshShared();
+        shared = await radio.refresh();
         if (!usbApi()) { select.hidden = true; typed.hidden = false; choose.disabled = true; }
         paint(); render();
       };
@@ -2163,7 +2143,7 @@ function showPropsDialog(inst: Inst) {
       select.onchange = () => commit(select.value);
       typed.oninput = () => {
         tmp.params[p.id] = typed.value.trim();
-        detail.textContent = describe(typed.value.trim(), shared);
+        detail.textContent = radio.describe(typed.value.trim(), shared);
         refreshValidation();
       };
       choose.onclick = async () => {
@@ -2171,8 +2151,8 @@ function showPropsDialog(inst: Inst) {
         if (!usb) return;
         try {
           const device: UsbLike =
-            await usb.requestDevice({ filters });
-          shared = await refreshShared();
+            await usb.requestDevice({ filters: radio.filters });
+          shared = await radio.refresh();
           // A radio with no serial cannot be named, so it can only ever be
           // reached as "first available".
           commit(device.serialNumber ?? '');
@@ -3835,19 +3815,11 @@ async function run() {
   // requestDevice() needs a user gesture, and neither the runner's constructor
   // nor its worker has one. Everything below this point may await freely; this
   // may not, so it comes before the first await that is not part of the prompt.
-  const plutoProblem = await preparePlutoDevices(insts);
-  if (plutoProblem) {
-    log(`cannot run: ${plutoProblem}`);
-    const block = insts.find(i =>
-      (i.id === PLUTOSDR_SOURCE_ID || i.id === PLUTOSDR_SINK_ID) &&
-      i.enabled && !i.bypassed);
-    if (block) select(block.uid);
-    return;
-  }
-  const usbProblem = await prepareRtlDevices(insts);
-  if (usbProblem) {
-    log(`cannot run: ${usbProblem}`);
-    const block = insts.find(i => i.id === RTLSDR_ID && i.enabled && !i.bypassed);
+  for (const radio of USB_RADIOS) {
+    const problem = await radio.prepare(insts);
+    if (!problem) continue;
+    log(`cannot run: ${problem}`);
+    const block = insts.find(i => radio.owns(i) && i.enabled && !i.bypassed);
     if (block) select(block.uid);
     return;
   }
@@ -5239,10 +5211,9 @@ initArrangeOverlay();
 
 const paletteReady = buildPalette();
 ensureOptionsBlock();
-// An RTL-SDR Source left on "first available" draws the dongle it resolves to,
-// so the canvas has to redraw when one is plugged in or pulled out.
-watchRtlDevices(() => render());
-watchPlutoDevices(() => render());
+// A radio block left on "first available" draws the device it resolves to, so
+// the canvas has to redraw when one is plugged in or pulled out.
+for (const radio of USB_RADIOS) radio.watch(() => render());
 select(null); render();
 log('Editor ready. Click ▶ Run to execute the flowgraph in WebAssembly.');
 // A flowgraph named by the URL fragment wins over the default example.

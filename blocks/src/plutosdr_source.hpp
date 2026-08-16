@@ -3,13 +3,8 @@
 #include "plutosdr_common.hpp"
 
 #include <gnuradio/sync_block.h>
-#include <cstddef>
-#include <cstdint>
-#include <functional>
 #include <memory>
-#include <mutex>
 #include <string>
-#include <vector>
 
 class PlutoSdrSource : public gr::sync_block
 {
@@ -37,43 +32,22 @@ public:
              gr_vector_const_void_star& input_items,
              gr_vector_void_star& output_items) override;
 
-    void set_center_freq(double hz);
-    void set_bandwidth(double hz);
-    void set_gain1(double db);
-    void set_gain2(double db);
+    void set_sample_rate(double samples_per_second)
+    {
+        d_link.set_sample_rate(samples_per_second);
+    }
+    void set_center_freq(double hz) { d_link.set_center_freq(hz); }
+    void set_bandwidth(double hz) { d_link.set_bandwidth(hz); }
+    void set_gain1(double db) { d_link.set_value1(db); }
+    void set_gain2(double db) { d_link.set_value2(db); }
 
 private:
-    PlutoSdrSource(std::string serial,
+    PlutoSdrSource(const std::string& serial,
                    int channels,
                    double sample_rate,
-                   double center_freq,
-                   double bandwidth,
-                   int buffer_size,
-                   plutosdr::GainMode gain_mode1,
-                   double gain1,
-                   plutosdr::GainMode gain_mode2,
-                   double gain2,
-                   bool quadrature,
-                   bool rf_dc,
-                   bool bb_dc);
+                   const plutosdr::Command& initial,
+                   int buffer_size);
 
-    std::string d_serial;
     int d_channels;
-    double d_sample_rate;
-    int d_buffer_size;
-    std::size_t d_capacity_frames;
-    std::vector<std::int16_t> d_ring;
-    plutosdr::Control d_control;
-    char d_error[plutosdr::ERROR_BYTES]{};
-    int d_worker_id = 0;
-    std::mutex d_command_mutex;
-    std::int32_t d_reported_rate = 0;
-    std::int32_t d_reported_events = 0;
-
-    std::int32_t load(const std::int32_t* value) const;
-    void store(std::int32_t* value, std::int32_t next);
-    void wake(std::int32_t* value);
-    void stage(const std::function<void()>& write_slots);
-    void set_frequency_slots(double hz);
-    std::string worker_error() const;
+    plutosdr::WorkerLink d_link;
 };

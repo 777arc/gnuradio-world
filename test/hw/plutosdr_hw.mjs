@@ -68,6 +68,12 @@ try {
     stats = await page.evaluate(() => window.__stats());
     check(stats.acknowledged === sequence, 'live RX retune is acknowledged',
       `${stats.acknowledged}/${sequence}`);
+    const rateSequence = await page.evaluate(() => window.__setSampleRate(5000000));
+    await sleep(1000);
+    stats = await page.evaluate(() => window.__stats());
+    check(stats.acknowledged === rateSequence && stats.actualRate === 5000000,
+      'live RX sample-rate change is acknowledged',
+      `${stats.actualRate} S/s, command ${stats.acknowledged}/${rateSequence}`);
   } else {
     console.log('  [SKIP] live RX retune — RX did not start');
   }

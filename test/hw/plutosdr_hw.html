@@ -5,18 +5,18 @@
 <button id="grant">Grant device access</button>
 <pre id="out">idle</pre>
 <script>
-const FILTERS = [{ vendorId: 0x0456, productId: 0xb673 }];
+const PLUTO_FILTERS = [{ vendorId: 0x0456, productId: 0xb673 }];
 const CTRL = {
   READ_POS: 0, WRITE_POS: 1, STATE: 2, ERROR_LENGTH: 3, EVENTS: 4,
   LOST_SAMPLES: 5, ACTUAL_RATE: 6, CMD_SEQ: 7, CMD_ACK: 8,
   FREQ_HI: 9, FREQ_LO: 10, BANDWIDTH: 11, VALUE1_MILLI: 12,
-  VALUE2_MILLI: 13, MODE1: 14, MODE2: 15, FLAGS: 16,
+  VALUE2_MILLI: 13, MODE1: 14, MODE2: 15, FLAGS: 16, SAMPLE_RATE: 17,
 };
 const CANCELLED = 3, ERROR = 2;
 const CONTROL_PTR = 0, ERROR_PTR = 256, ERROR_CAPACITY = 512, RING_PTR = 4096;
 
 document.getElementById('grant').onclick = () => {
-  navigator.usb.requestDevice({ filters: FILTERS })
+  navigator.usb.requestDevice({ filters: PLUTO_FILTERS })
     .then(device => { window.__granted = device.serialNumber || ''; })
     .catch(error => { window.__grantError = String(error); });
 };
@@ -70,10 +70,11 @@ window.__start = async ({
   const bytes = RING_PTR + capacityFrames * channels * 4;
   const pages = Math.ceil(bytes / 65536);
   const memory = new WebAssembly.Memory({ initial: pages, maximum: pages, shared: true });
-  const control = new Int32Array(memory.buffer, CONTROL_PTR, 17);
+  const control = new Int32Array(memory.buffer, CONTROL_PTR, 18);
   state.memory = memory; state.control = control; state.direction = direction;
   state.channels = channels; state.capacityFrames = capacityFrames;
   state.captured = 0; state.supplied = 0; state.messages = []; state.error = '';
+  Atomics.store(control, CTRL.SAMPLE_RATE, sampleRate);
   stageFrequency(centerFreq);
   Atomics.store(control, CTRL.BANDWIDTH, bandwidth);
   Atomics.store(control, CTRL.VALUE1_MILLI, direction === 'rx' ? 30000 : 89750);
@@ -93,8 +94,7 @@ window.__start = async ({
   worker.postMessage({
     direction, serial, memory, ringPointer: RING_PTR, capacityFrames, channels,
     controlPointer: CONTROL_PTR, errorPointer: ERROR_PTR,
-    errorCapacity: ERROR_CAPACITY, sampleRate, bufferSize, cyclic: false,
-    debug: true,
+    errorCapacity: ERROR_CAPACITY, sampleRate, bufferSize, debug: true,
   });
   state.timer = setInterval(direction === 'rx' ? drainRx : fillTx, 5);
   return true;
@@ -102,6 +102,12 @@ window.__start = async ({
 
 window.__retune = hz => {
   stageFrequency(hz);
+  Atomics.add(state.control, CTRL.CMD_SEQ, 1);
+  return Atomics.load(state.control, CTRL.CMD_SEQ);
+};
+
+window.__setSampleRate = samplesPerSecond => {
+  Atomics.store(state.control, CTRL.SAMPLE_RATE, Math.round(samplesPerSecond));
   Atomics.add(state.control, CTRL.CMD_SEQ, 1);
   return Atomics.load(state.control, CTRL.CMD_SEQ);
 };

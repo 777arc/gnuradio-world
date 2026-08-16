@@ -2315,6 +2315,8 @@ static std::map<std::string, Factory>& registry_storage() {
                  bool_from(p, "rf_dc", true),
                  bool_from(p, "bb_dc", true));
              BuiltBlock result{ block };
+             result.numeric_setters["samp_rate"] =
+                 [block](double value) { block->set_sample_rate(value); };
              result.numeric_setters["center_freq"] =
                  [block](double value) { block->set_center_freq(value); };
              result.numeric_setters["bandwidth"] =
@@ -2336,6 +2338,8 @@ static std::map<std::string, Factory>& registry_storage() {
                  number_from(p, "attenuation1", 89.75),
                  number_from(p, "attenuation2", 89.75));
              BuiltBlock result{ block };
+             result.numeric_setters["samp_rate"] =
+                 [block](double value) { block->set_sample_rate(value); };
              result.numeric_setters["center_freq"] =
                  [block](double value) { block->set_center_freq(value); };
              result.numeric_setters["bandwidth"] =

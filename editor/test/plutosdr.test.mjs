@@ -6,25 +6,42 @@ import vm from 'node:vm';
 import { bundleModule } from './bundle-module.mjs';
 
 const pluto = await bundleModule('../src/plutosdr.ts');
-
-const worker = await readFile(
+const workerSource = await readFile(
   new URL('../../runner/src/plutosdr_worker.js', import.meta.url), 'utf8');
-const table = worker.match(/const PLUTO_FILTERS = \[([^\n]+)\];/);
-assert.ok(table, 'worker Pluto filter not found');
-const pair = table[1].match(/vendorId:\s*(0x[0-9a-f]+),\s*productId:\s*(0x[0-9a-f]+)/i);
-assert.ok(pair, 'worker Pluto VID/PID not found');
-assert.deepEqual(pluto.PLUTOSDR_USB_FILTERS, [{
-  vendorId: Number(pair[1]), productId: Number(pair[2]),
-}], 'the editor and worker must accept the same USB device');
+
+// The VID/PID lives in three realms that cannot share a module -- the editor's
+// picker, the worker, and the hardware harness page that grants the worker its
+// permission -- so drift between them fails only at run time, with the browser
+// offering a Pluto the worker then refuses to match. Compared as source text.
+async function filtersIn(path) {
+  const source = await readFile(new URL(path, import.meta.url), 'utf8');
+  const table = source.match(/const PLUTO_FILTERS = \[([^\n]+)\];/);
+  assert.ok(table, `PLUTO_FILTERS not found in ${path}`);
+  return [...table[1].matchAll(
+    /vendorId:\s*(0x[0-9a-f]+),\s*productId:\s*(0x[0-9a-f]+)/gi)]
+    .map(([, vendorId, productId]) => ({
+      vendorId: Number(vendorId), productId: Number(productId),
+    }));
+}
+
+for (const path of [
+  '../../runner/src/plutosdr_worker.js',
+  '../../test/hw/plutosdr_hw.html',
+])
+  assert.deepEqual(await filtersIn(path), pluto.PLUTOSDR_USB_FILTERS,
+    `editor/src/plutosdr.ts and ${path.replace('../../', '')} disagree about ` +
+    'which USB device is a PlutoSDR');
 
 // Exercise the worker's XML-driven discovery without depending on deviceN,
 // interface, or endpoint numbers. Fake streaming deliberately bypasses this.
 const workerContext = {
   TextEncoder, TextDecoder, performance, Atomics, Int32Array, Uint8Array,
-  Uint32Array, BigInt, Map, Set, Promise, setTimeout, clearTimeout,
+  Uint32Array, SharedArrayBuffer, BigInt, Map, Set, Promise, setTimeout, clearTimeout,
   navigator: { usb: {} }, postMessage() {}, close() {}, onmessage: null,
 };
-vm.runInNewContext(`${worker}\nthis.__plutoTest = { parseContextXml, radioLayout };`,
+vm.runInNewContext(
+  `${workerSource}\nthis.__plutoTest = { ` +
+  `parseContextXml, radioLayout, applyPendingConfiguration, CTRL };`,
   workerContext);
 const contextXml = `
 <context>
@@ -53,6 +70,26 @@ assert.equal(txLayout.frameBytes, 4);
 assert.throws(() => workerContext.__plutoTest.radioLayout(discovered, 'rx', 2),
   /only 1 RX channel/);
 
+// A chooser update must traverse the shared mailbox, change fake-device pacing,
+// publish the accepted rate, and acknowledge the exact command sequence. This
+// is the same path a real worker uses before writing sampling_frequency to IIO.
+const { CTRL } = workerContext.__plutoTest;
+const mailboxMemory = { buffer: new SharedArrayBuffer(18 * Int32Array.BYTES_PER_ELEMENT) };
+const mailbox = new Int32Array(mailboxMemory.buffer);
+const fakeData = { memory: mailboxMemory, controlPointer: 0, sampleRate: 2500000 };
+Atomics.store(mailbox, CTRL.SAMPLE_RATE, 2500000);
+Atomics.store(mailbox, CTRL.CMD_SEQ, 1);
+let applied = await workerContext.__plutoTest.applyPendingConfiguration(
+  fakeData, null, null, 'rx', null, true);
+assert.equal(applied.actualRate, 2500000);
+Atomics.store(mailbox, CTRL.SAMPLE_RATE, 56000000);
+Atomics.store(mailbox, CTRL.CMD_SEQ, 2);
+applied = await workerContext.__plutoTest.applyPendingConfiguration(
+  fakeData, null, null, 'rx', applied, true);
+assert.equal(fakeData.sampleRate, 56000000);
+assert.equal(Atomics.load(mailbox, CTRL.ACTUAL_RATE), 56000000);
+assert.equal(Atomics.load(mailbox, CTRL.CMD_ACK), 2);
+
 const hardware = {
   vendorId: 0x0456,
   productId: 0xb673,
@@ -63,7 +100,8 @@ assert.equal(pluto.matchesPluto(hardware), true);
 assert.equal(pluto.matchesPluto({ vendorId: 0x0456, productId: 0xb672 }), false);
 assert.equal(pluto.plutoLabel(hardware),
   'ADALM-PLUTO · 1044735411960001');
-assert.equal(pluto.isFakePluto('fake:100000'), true);
+assert.deepEqual(pluto.plutoDeviceOptions('fake:100000', []).at(-1),
+  { value: 'fake:100000', label: 'fake:100000 — test signal generator' });
 
 assert.deepEqual(pluto.plutoDeviceOptions('', [hardware]), [
   { value: '', label: 'First available — ADALM-PLUTO · 1044735411960001' },

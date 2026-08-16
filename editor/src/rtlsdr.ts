@@ -1,13 +1,21 @@
 // RTL-SDR Source's browser half: which dongles the block accepts, which of them
 // this origin may already open, and the one operation that must happen under a
-// user gesture. main.ts owns orchestration; the WebUSB details live here.
-//
-// Nothing is bound for the session the way a local file is. WebUSB permission is
-// granted per origin and outlives the tab, so a .grc needs only a serial number
-// and the runner's worker re-acquires the device with getDevices() — there is no
-// handoff between the editor and the runner frame at all. See docs/rtlsdr.md.
+// user gesture. main.ts owns orchestration, ./usb-radio owns what this shares
+// with the other WebUSB radios, and the RTL-SDR specifics live here. See
+// docs/rtlsdr.md.
 
 import type { Inst } from './graph-model';
+import {
+  isFakeDevice,
+  unsatisfiedSerials,
+  usbApi,
+  type UsbFilter,
+  type UsbLike,
+  type UsbRadio,
+} from './usb-radio';
+
+export { isFakeDevice, unsatisfiedSerials, usbApi };
+export type { UsbLike };
 
 export const RTLSDR_ID = 'wasm_rtlsdr_source';
 export const RTLSDR_DTYPE = 'rtlsdr_device';
@@ -20,7 +28,7 @@ export const RTLSDR_DTYPE = 'rtlsdr_device';
  * worker then refuses to match, and the block would fail at run time with
  * "no RTL-SDR has been shared with this site".
  */
-export const RTLSDR_USB_FILTERS: { vendorId: number; productId: number }[] = [
+export const RTLSDR_USB_FILTERS: UsbFilter[] = [
   { vendorId: 0x0bda, productId: 0x2838 },  // Realtek RTL2838 (generic)
   { vendorId: 0x0bda, productId: 0x2832 },  // Realtek RTL2832U
   { vendorId: 0x0413, productId: 0x6680 },  // DigitalNow Quad DVB-T
@@ -37,29 +45,6 @@ export const RTLSDR_USB_FILTERS: { vendorId: number; productId: number }[] = [
   { vendorId: 0x1d19, productId: 0x1101 },  // Dexatek DK DVB-T
   { vendorId: 0x1f4d, productId: 0xb803 },  // GTek T803
 ];
-
-export type UsbLike = {
-  serialNumber?: string;
-  vendorId: number;
-  productId: number;
-  productName?: string;
-  manufacturerName?: string;
-};
-
-/** null in Firefox and Safari, which have both declined to implement WebUSB. */
-export function usbApi(): any | null {
-  return (navigator as any).usb ?? null;
-}
-
-/**
- * A Device parameter of 'fake' or 'fake:<Hz>' opens no hardware at all. Spelled
- * exactly as the worker spells it (`isFake` in run(), rtlsdr_reader.js): a
- * looser test here would skip the permission prompt for a serial the worker
- * then went looking for on real hardware.
- */
-export function isFakeDevice(serial: string): boolean {
-  return serial === 'fake' || serial.startsWith('fake:');
-}
 
 export function matchesRtl(device: UsbLike): boolean {
   return RTLSDR_USB_FILTERS.some(
@@ -193,14 +178,6 @@ export function requiredRtlSerials(blocks: Inst[]): string[] {
   return [...wanted];
 }
 
-/** Which of `wanted` no currently-shared device satisfies. */
-export function unsatisfiedSerials(
-  wanted: string[], available: UsbLike[]): string[] {
-  return wanted.filter(serial => serial
-    ? !available.some(device => device.serialNumber === serial)
-    : available.length === 0);
-}
-
 /**
  * Ensures the flowgraph's RTL-SDR blocks have a device to open, prompting if
  * they do not. Must be called from a user gesture: requestDevice() needs one,
@@ -232,3 +209,17 @@ export async function prepareRtlDevices(blocks: Inst[]): Promise<string | null> 
     : 'no RTL-SDR is shared with this site — plug one in and choose it from ' +
       'the block\'s properties';
 }
+
+/** RTL-SDR Source as the editor's generic WebUSB wiring sees it. */
+export const RTLSDR_RADIO: UsbRadio = {
+  dtype: RTLSDR_DTYPE,
+  name: 'RTL-SDR',
+  filters: RTLSDR_USB_FILTERS,
+  owns: inst => inst.id === RTLSDR_ID,
+  display: deviceDisplay,
+  options: deviceOptions,
+  describe: describeDevice,
+  refresh: refreshRtlDevices,
+  watch: watchRtlDevices,
+  prepare: prepareRtlDevices,
+};

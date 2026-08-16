@@ -24,10 +24,10 @@ const CTRL = {
   MODE1: 14,
   MODE2: 15,
   FLAGS: 16,
+  SAMPLE_RATE: 17,
 };
-const CTRL_WORDS = 17;
+const CTRL_WORDS = 18;
 
-const INITIAL = 0;
 const RUNNING = 1;
 const ERROR = 2;
 const CANCELLED = 3;
@@ -56,12 +56,28 @@ function record(text) {
   if (debugTrace) postMessage({ type: 'trace', text: line });
 }
 
-function controlView(memory, pointer) {
-  return new Int32Array(memory.buffer, pointer, CTRL_WORDS);
+// The two views onto the block's shared memory: its control struct and its
+// ring. Both are cached on the start message, because shared memory never
+// detaches and the loops below would otherwise build one per IIO buffer.
+function control(data) {
+  return (data.controlView ??=
+    new Int32Array(data.memory.buffer, data.controlPointer, CTRL_WORDS));
+}
+
+function ring(data) {
+  return (data.ringView ??= new Uint8Array(
+    data.memory.buffer, data.ringPointer, data.capacityFrames * data.channels * 4));
+}
+
+/** Frames the producer has written and the consumer has not taken yet. */
+function usedFrames(data) {
+  const read = Atomics.load(control(data), CTRL.READ_POS);
+  const write = Atomics.load(control(data), CTRL.WRITE_POS);
+  return write >= read ? write - read : data.capacityFrames - (read - write);
 }
 
 function cancelled(data) {
-  return Atomics.load(controlView(data.memory, data.controlPointer), CTRL.STATE) === CANCELLED;
+  return Atomics.load(control(data), CTRL.STATE) === CANCELLED;
 }
 
 function fail(data, error) {
@@ -71,11 +87,10 @@ function fail(data, error) {
     const length = Math.min(bytes.byteLength, data.errorCapacity - 1);
     new Uint8Array(data.memory.buffer, data.errorPointer, data.errorCapacity).fill(0);
     new Uint8Array(data.memory.buffer, data.errorPointer, length).set(bytes.subarray(0, length));
-    const control = controlView(data.memory, data.controlPointer);
-    Atomics.store(control, CTRL.ERROR_LENGTH, length);
-    Atomics.store(control, CTRL.STATE, ERROR);
-    Atomics.notify(control, CTRL.READ_POS);
-    Atomics.notify(control, CTRL.WRITE_POS);
+    Atomics.store(control(data), CTRL.ERROR_LENGTH, length);
+    Atomics.store(control(data), CTRL.STATE, ERROR);
+    Atomics.notify(control(data), CTRL.READ_POS);
+    Atomics.notify(control(data), CTRL.WRITE_POS);
   } catch {
     // The iframe may already be unloading.
   }
@@ -447,27 +462,31 @@ async function pickDevice(serial) {
   return device;
 }
 
-function readCommand(control) {
+// The seqlock the C++ side publishes its mailbox through: re-read the slots if
+// the sequence number moved while they were being read.
+function readCommand(data) {
+  const mailbox = control(data);
   for (let attempt = 0; attempt < 8; ++attempt) {
-    const seq = Atomics.load(control, CTRL.CMD_SEQ);
+    const seq = Atomics.load(mailbox, CTRL.CMD_SEQ);
     const command = {
       seq,
-      frequency: Atomics.load(control, CTRL.FREQ_HI) * 4294967296 +
-        (Atomics.load(control, CTRL.FREQ_LO) >>> 0),
-      bandwidth: Atomics.load(control, CTRL.BANDWIDTH),
-      value1: Atomics.load(control, CTRL.VALUE1_MILLI) / 1000,
-      value2: Atomics.load(control, CTRL.VALUE2_MILLI) / 1000,
-      mode1: Atomics.load(control, CTRL.MODE1),
-      mode2: Atomics.load(control, CTRL.MODE2),
-      flags: Atomics.load(control, CTRL.FLAGS),
+      sampleRate: Atomics.load(mailbox, CTRL.SAMPLE_RATE),
+      frequency: Atomics.load(mailbox, CTRL.FREQ_HI) * 4294967296 +
+        (Atomics.load(mailbox, CTRL.FREQ_LO) >>> 0),
+      bandwidth: Atomics.load(mailbox, CTRL.BANDWIDTH),
+      value1: Atomics.load(mailbox, CTRL.VALUE1_MILLI) / 1000,
+      value2: Atomics.load(mailbox, CTRL.VALUE2_MILLI) / 1000,
+      mode1: Atomics.load(mailbox, CTRL.MODE1),
+      mode2: Atomics.load(mailbox, CTRL.MODE2),
+      flags: Atomics.load(mailbox, CTRL.FLAGS),
     };
-    if (Atomics.load(control, CTRL.CMD_SEQ) === seq) return command;
+    if (Atomics.load(mailbox, CTRL.CMD_SEQ) === seq) return command;
   }
   return null;
 }
 
-function commandWaiting(control, applied) {
-  return !applied || Atomics.load(control, CTRL.CMD_SEQ) !== applied.seq;
+function commandWaiting(data, applied) {
+  return !applied || Atomics.load(control(data), CTRL.CMD_SEQ) !== applied.seq;
 }
 
 async function configureStatic(pluto, layout, direction, sampleRate) {
@@ -482,11 +501,43 @@ async function configureStatic(pluto, layout, direction, sampleRate) {
   return actual;
 }
 
+// Apply one coherent mailbox command and acknowledge it only after the Pluto
+// has accepted every changed attribute. Fake devices take the same path so the
+// browser tests exercise live sample-rate delivery and pacing without USB.
+async function applyPendingConfiguration(data, pluto, layout, direction, previous, fake) {
+  if (!commandWaiting(data, previous)) return previous;
+  const command = readCommand(data);
+  if (!command) return previous;
+
+  let applied;
+  if (fake) {
+    if (!(command.sampleRate > 0)) throw new Error('invalid Pluto sample rate');
+    applied = { ...command, actualRate: Math.round(command.sampleRate) };
+  } else {
+    applied = await applyConfiguration(pluto, layout, direction, command, previous);
+  }
+
+  data.sampleRate = applied.actualRate;
+  Atomics.store(control(data), CTRL.ACTUAL_RATE, applied.actualRate);
+  Atomics.store(control(data), CTRL.CMD_ACK, applied.seq);
+  if (previous && applied.actualRate !== previous.actualRate)
+    postMessage({
+      type: 'configured', requestedRate: command.sampleRate,
+      actualRate: applied.actualRate, sequence: applied.seq,
+    });
+  return applied;
+}
+
 async function applyConfiguration(pluto, layout, direction, command, previous) {
   if (!command || (previous && command.seq === previous.seq)) return previous;
   const first = !previous;
   const write = (channel, attribute, value) => pluto.writeAttribute(
     layout.phy, direction === 'rx' ? 'INPUT' : 'OUTPUT', channel, attribute, value);
+
+  let actualRate = previous?.actualRate || 0;
+  if (first || command.sampleRate !== previous.sampleRate)
+    actualRate = Math.round(
+      await configureStatic(pluto, layout, direction, command.sampleRate));
 
   if (first || command.frequency !== previous.frequency)
     await pluto.writeAttribute(
@@ -524,7 +575,7 @@ async function applyConfiguration(pluto, layout, direction, command, previous) {
         await write(layout.rfChannels[index], 'hardwaregain', -Math.abs(value));
     }
   }
-  return command;
+  return { ...command, actualRate };
 }
 
 async function disableDds(pluto, layout) {
@@ -547,37 +598,41 @@ function deliverRx(data, bytes, counters) {
   const aligned = bytes.byteLength - (bytes.byteLength % frameBytes);
   if (!aligned) return;
   const frames = aligned / frameBytes;
-  const control = controlView(data.memory, data.controlPointer);
-  const read = Atomics.load(control, CTRL.READ_POS);
-  const write = Atomics.load(control, CTRL.WRITE_POS);
-  const used = write >= read ? write - read : data.capacityFrames - (read - write);
-  const free = data.capacityFrames - used - 1;
+  // One slot stays empty so a full ring cannot read as an empty one.
+  const free = data.capacityFrames - usedFrames(data) - 1;
   if (free < frames) {
+    // RX cannot backpressure live RF, so a full ring drops the newest buffer.
     ++counters.events;
     counters.lost += frames;
-    Atomics.store(control, CTRL.EVENTS, counters.events);
-    Atomics.store(control, CTRL.LOST_SAMPLES, counters.lost);
+    Atomics.store(control(data), CTRL.EVENTS, counters.events);
+    Atomics.store(control(data), CTRL.LOST_SAMPLES, counters.lost);
     postMessage({ type: 'overrun', ...counters });
     return;
   }
-  const ring = new Uint8Array(
-    data.memory.buffer, data.ringPointer, data.capacityFrames * frameBytes);
+  const write = Atomics.load(control(data), CTRL.WRITE_POS);
   const beforeWrap = Math.min(frames, data.capacityFrames - write);
-  ring.set(bytes.subarray(0, beforeWrap * frameBytes), write * frameBytes);
-  if (beforeWrap < frames) ring.set(bytes.subarray(beforeWrap * frameBytes, aligned), 0);
-  Atomics.store(control, CTRL.WRITE_POS, (write + frames) % data.capacityFrames);
-  Atomics.notify(control, CTRL.WRITE_POS);
+  ring(data).set(bytes.subarray(0, beforeWrap * frameBytes), write * frameBytes);
+  if (beforeWrap < frames)
+    ring(data).set(bytes.subarray(beforeWrap * frameBytes, aligned), 0);
+  Atomics.store(control(data), CTRL.WRITE_POS, (write + frames) % data.capacityFrames);
+  Atomics.notify(control(data), CTRL.WRITE_POS);
   counters.bytes += aligned;
+}
+
+// Holds a fake stream to the requested sample rate. `state` carries the next
+// due time across calls, so pacing survives a buffer that took too long.
+async function pace(state, frames, sampleRate) {
+  const now = performance.now();
+  if (!state.nextDue || state.nextDue < now - 1000) state.nextDue = now;
+  const due = state.nextDue;
+  state.nextDue += frames / sampleRate * 1000;
+  const wait = due - performance.now();
+  if (wait > 0) await new Promise(resolve => setTimeout(resolve, wait));
 }
 
 async function fakeRxBuffer(data, phaseState) {
   const frames = data.bufferSize;
-  const now = performance.now();
-  if (!phaseState.nextDue || phaseState.nextDue < now - 1000) phaseState.nextDue = now;
-  const due = phaseState.nextDue;
-  phaseState.nextDue += frames / data.sampleRate * 1000;
-  const wait = due - performance.now();
-  if (wait > 0) await new Promise(resolve => setTimeout(resolve, wait));
+  await pace(phaseState, frames, data.sampleRate);
   const raw = new Int16Array(frames * data.channels * 2);
   const baseTone = Number(data.serial.slice(5)) || 100000;
   for (let frame = 0; frame < frames; ++frame) {
@@ -598,11 +653,8 @@ async function rxLoop(data, pluto, layout, applied, fake) {
   const counters = { bytes: 0, events: 0, lost: 0 };
   const phaseState = { phase: Array(data.channels).fill(0), nextDue: 0 };
   while (!cancelled(data)) {
-    const control = controlView(data.memory, data.controlPointer);
-    if (!fake && commandWaiting(control, applied)) {
-      applied = await applyConfiguration(pluto, layout, 'rx', readCommand(control), applied);
-      Atomics.store(control, CTRL.CMD_ACK, applied.seq);
-    }
+    applied = await applyPendingConfiguration(
+      data, pluto, layout, 'rx', applied, fake);
     const bytes = fake
       ? await fakeRxBuffer(data, phaseState)
       : await pluto.readBuffer(bytesPerBuffer);
@@ -614,25 +666,17 @@ async function rxLoop(data, pluto, layout, applied, fake) {
   postMessage({ type: 'cancelled', ...counters });
 }
 
-function txAvailable(data, control) {
-  const read = Atomics.load(control, CTRL.READ_POS);
-  const write = Atomics.load(control, CTRL.WRITE_POS);
-  return write >= read ? write - read : data.capacityFrames - (read - write);
-}
-
 function takeTx(data, frames) {
   const frameBytes = data.channels * 4;
-  const control = controlView(data.memory, data.controlPointer);
-  const read = Atomics.load(control, CTRL.READ_POS);
-  const ring = new Uint8Array(
-    data.memory.buffer, data.ringPointer, data.capacityFrames * frameBytes);
+  const read = Atomics.load(control(data), CTRL.READ_POS);
   const bytes = new Uint8Array(frames * frameBytes);
   const beforeWrap = Math.min(frames, data.capacityFrames - read);
-  bytes.set(ring.subarray(read * frameBytes, (read + beforeWrap) * frameBytes));
+  bytes.set(ring(data).subarray(read * frameBytes, (read + beforeWrap) * frameBytes));
   if (beforeWrap < frames)
-    bytes.set(ring.subarray(0, (frames - beforeWrap) * frameBytes), beforeWrap * frameBytes);
-  Atomics.store(control, CTRL.READ_POS, (read + frames) % data.capacityFrames);
-  Atomics.notify(control, CTRL.READ_POS);
+    bytes.set(ring(data).subarray(0, (frames - beforeWrap) * frameBytes),
+      beforeWrap * frameBytes);
+  Atomics.store(control(data), CTRL.READ_POS, (read + frames) % data.capacityFrames);
+  Atomics.notify(control(data), CTRL.READ_POS);
   return bytes;
 }
 
@@ -640,34 +684,24 @@ async function txLoop(data, pluto, layout, applied, fake) {
   let bytes = 0;
   let events = 0;
   let wrote = false;
-  let nextDue = 0;
+  const pacing = { nextDue: 0 };
   while (!cancelled(data)) {
-    const control = controlView(data.memory, data.controlPointer);
-    if (!fake && commandWaiting(control, applied)) {
-      applied = await applyConfiguration(pluto, layout, 'tx', readCommand(control), applied);
-      Atomics.store(control, CTRL.CMD_ACK, applied.seq);
-    }
-    let available = txAvailable(data, control);
-    if (available < data.bufferSize) {
+    applied = await applyPendingConfiguration(
+      data, pluto, layout, 'tx', applied, fake);
+    if (usedFrames(data) < data.bufferSize) {
+      // The block backpressures rather than dropping, so a short ring means the
+      // graph could not keep up: count it and wait for the block to fill more.
       if (wrote) {
         ++events;
-        Atomics.store(control, CTRL.EVENTS, events);
+        Atomics.store(control(data), CTRL.EVENTS, events);
       }
-      const expected = Atomics.load(control, CTRL.WRITE_POS);
-      Atomics.wait(control, CTRL.WRITE_POS, expected, 100);
+      const expected = Atomics.load(control(data), CTRL.WRITE_POS);
+      Atomics.wait(control(data), CTRL.WRITE_POS, expected, 100);
       continue;
     }
     const chunk = takeTx(data, data.bufferSize);
-    if (fake) {
-      const now = performance.now();
-      if (!nextDue || nextDue < now - 1000) nextDue = now;
-      const due = nextDue;
-      nextDue += data.bufferSize / data.sampleRate * 1000;
-      const wait = due - performance.now();
-      if (wait > 0) await new Promise(resolve => setTimeout(resolve, wait));
-    } else {
-      await pluto.writeBuffer(chunk);
-    }
+    if (fake) await pace(pacing, data.bufferSize, data.sampleRate);
+    else await pluto.writeBuffer(chunk);
     wrote = true;
     bytes += chunk.byteLength;
     if ((bytes & ((16 * 1024 * 1024) - 1)) < chunk.byteLength)
@@ -710,27 +744,22 @@ async function run(data) {
       pluto = await PlutoUsb.open(await pickDevice(data.serial));
       const devices = parseContextXml(await pluto.contextXml());
       layout = radioLayout(devices, data.direction, data.channels);
-      const actualRate = await configureStatic(pluto, layout, data.direction, data.sampleRate);
-      const control = controlView(data.memory, data.controlPointer);
-      applied = await applyConfiguration(
-        pluto, layout, data.direction, readCommand(control), null);
-      Atomics.store(control, CTRL.CMD_ACK, applied.seq);
+      applied = await applyPendingConfiguration(
+        data, pluto, layout, data.direction, null, false);
+      if (!applied) throw new Error('Pluto command mailbox was not readable');
       if (data.direction === 'tx') await disableDds(pluto, layout);
       await pluto.openBuffer(layout, data.bufferSize);
-      Atomics.store(control, CTRL.ACTUAL_RATE, Math.round(actualRate));
     } else {
-      const control = controlView(data.memory, data.controlPointer);
-      applied = readCommand(control);
-      Atomics.store(control, CTRL.CMD_ACK, applied?.seq || 0);
-      Atomics.store(control, CTRL.ACTUAL_RATE, Math.round(data.sampleRate));
+      applied = await applyPendingConfiguration(
+        data, null, null, data.direction, null, true);
+      if (!applied) throw new Error('Pluto command mailbox was not readable');
     }
-    const control = controlView(data.memory, data.controlPointer);
-    Atomics.store(control, CTRL.STATE, RUNNING);
-    Atomics.notify(control, CTRL.READ_POS);
-    Atomics.notify(control, CTRL.WRITE_POS);
+    Atomics.store(control(data), CTRL.STATE, RUNNING);
+    Atomics.notify(control(data), CTRL.READ_POS);
+    Atomics.notify(control(data), CTRL.WRITE_POS);
     postMessage({
       type: 'running', direction: data.direction, channels: data.channels,
-      actualRate: Atomics.load(control, CTRL.ACTUAL_RATE), fake,
+      actualRate: Atomics.load(control(data), CTRL.ACTUAL_RATE), fake,
       serial: data.serial || 'first available',
     });
     if (data.direction === 'rx')

@@ -72,9 +72,11 @@ dB), then written to IIO as its negative `hardwaregain` value. The default is
 `89.75` dB. Before opening TX, the worker zeros the DDS raw controls. On every
 normal or error close it tries to restore `-89.75` dB before releasing USB.
 
-Center frequency, RF bandwidth, RX manual gain and TX attenuation have live
-numeric setters. Sample rate, number of channels, gain-control modes,
-correction switches and IIO buffer size are construction-time settings.
+Sample rate, center frequency, RF bandwidth, RX manual gain and TX attenuation
+have live numeric setters. A sample-rate change is applied between IIO buffers,
+read back from the device, and reported in the flowgraph console. Number of
+channels, gain-control modes, correction switches and IIO buffer size are
+construction-time settings.
 
 ## Single and dual channel
 
@@ -93,10 +95,17 @@ to 61.44 MS/s.
 ## Files and rebuilds
 
 - GRC metadata: `blocks/grc/wasm_plutosdr_{source,sink}.block.yml`
-- C++ blocks and shared ABI: `blocks/src/plutosdr_*`
+- C++ blocks: `blocks/src/plutosdr_{source,sink}.{hpp,cpp}` — each one is its
+  `work()`, its sample conversion and its live setters, and nothing else
+- shared ABI and worker link: `blocks/src/plutosdr_common.{hpp,cpp}` — the
+  `Control` struct the worker mirrors, plus `plutosdr::WorkerLink`, which owns
+  the ring, the seqlock command mailbox and the worker's lifetime for both
+  directions. Anything a Source and a Sink would do identically belongs here
 - USB/IIOD worker: `runner/src/plutosdr_worker.js`
 - worker launcher and diagnostics: `runner/src/runner.html`
-- WebUSB picker and ownership validation: `editor/src/plutosdr.ts`
+- WebUSB picker and ownership validation: `editor/src/plutosdr.ts`, exposed to
+  the editor's generic radio wiring as the `PLUTOSDR_RADIO` descriptor defined
+  by `editor/src/usb-radio.ts`
 - factories: `runner/src/registry.cpp`
 
 After metadata or factory changes, regenerate both registries and rebuild the
