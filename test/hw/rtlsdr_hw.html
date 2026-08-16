@@ -1,0 +1,210 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>RTL-SDR hardware harness</title>
+<!--
+  Drives runner/src/rtlsdr_reader.js directly, without GNU Radio: the worker
+  writes into a shared ring exactly as it does for RtlSdrSource, and this page
+  plays the part the C++ block plays -- draining the ring and staging commands
+  in the control block. That isolates the USB layer, which is where every bug
+  in this driver has been so far.
+
+  Served by server.mjs for its COOP/COEP headers (SharedArrayBuffer). Driven by
+  test/hw/rtlsdr_hw.mjs; see docs/rtlsdr.md.
+-->
+<body>
+<button id="grant">Grant device access</button>
+<pre id="out">idle</pre>
+<script>
+// Must match struct Control in blocks/src/rtlsdr_source.hpp and CTRL in the
+// reader worker.
+const CTRL = {
+  READ_POS: 0, WRITE_POS: 1, STATE: 2, ERROR_LENGTH: 3, OVERRUNS: 4,
+  DROPPED_PAIRS: 5, ACTUAL_RATE: 6, CMD_SEQ: 7, CMD_ACK: 8,
+  FREQ_HI: 9, FREQ_LO: 10, GAIN_TENTHS: 11, PPM: 12, FLAGS: 13,
+};
+const CANCELLED = 3, ERROR = 2;
+const FLAG_AGC = 1, FLAG_BIAS_TEE = 2;
+
+const CONTROL_PTR = 0;
+const ERROR_PTR = 256;
+const ERROR_CAPACITY = 512;
+const RING_PTR = 4096;
+
+const RTL_FILTERS = [
+  { vendorId: 0x0bda, productId: 0x2838 }, { vendorId: 0x0bda, productId: 0x2832 },
+  { vendorId: 0x0413, productId: 0x6680 }, { vendorId: 0x0413, productId: 0x6f0f },
+  { vendorId: 0x0458, productId: 0x707f }, { vendorId: 0x0ccd, productId: 0x00a9 },
+  { vendorId: 0x0ccd, productId: 0x00b3 }, { vendorId: 0x0ccd, productId: 0x00d3 },
+  { vendorId: 0x0ccd, productId: 0x00e0 }, { vendorId: 0x1554, productId: 0x5020 },
+  { vendorId: 0x15f4, productId: 0x0131 }, { vendorId: 0x185b, productId: 0x0620 },
+  { vendorId: 0x1b80, productId: 0xd393 }, { vendorId: 0x1d19, productId: 0x1101 },
+  { vendorId: 0x1f4d, productId: 0xb803 },
+];
+
+document.getElementById('grant').onclick = () => {
+  // Marks that the gesture reached the handler at all, which is the first
+  // thing to rule out when no chooser appears.
+  window.__grantClicked = (window.__grantClicked || 0) + 1;
+  navigator.usb.requestDevice({ filters: RTL_FILTERS })
+    .then(d => { window.__granted = d.serialNumber ?? ''; })
+    .catch(error => { window.__grantError = String(error); });
+};
+
+const state = {
+  memory: null, control: null, worker: null, capacityPairs: 0,
+  messages: [], trace: [], capture: null, captured: 0, drain: null,
+};
+window.__hw = state;
+
+/** Radix-2 FFT over interleaved I/Q, unsigned 8-bit offset 128. */
+function peakBin(bytes, count) {
+  let n = 1;
+  while (n * 2 <= count) n *= 2;
+  const re = new Float64Array(n), im = new Float64Array(n);
+  for (let i = 0; i < n; ++i) {
+    // Hann window, so a carrier lands in a clean peak rather than smeared.
+    const w = 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / (n - 1));
+    re[i] = ((bytes[2 * i] - 127.4) / 128) * w;
+    im[i] = ((bytes[2 * i + 1] - 127.4) / 128) * w;
+  }
+  for (let i = 1, j = 0; i < n; ++i) {
+    let bit = n >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j) {
+      [re[i], re[j]] = [re[j], re[i]];
+      [im[i], im[j]] = [im[j], im[i]];
+    }
+  }
+  for (let len = 2; len <= n; len <<= 1) {
+    const ang = (-2 * Math.PI) / len;
+    const wr = Math.cos(ang), wi = Math.sin(ang);
+    for (let i = 0; i < n; i += len) {
+      let cr = 1, ci = 0;
+      for (let k = 0; k < len / 2; ++k) {
+        const ur = re[i + k], ui = im[i + k];
+        const vr = re[i + k + len / 2] * cr - im[i + k + len / 2] * ci;
+        const vi = re[i + k + len / 2] * ci + im[i + k + len / 2] * cr;
+        re[i + k] = ur + vr; im[i + k] = ui + vi;
+        re[i + k + len / 2] = ur - vr; im[i + k + len / 2] = ui - vi;
+        const ncr = cr * wr - ci * wi;
+        ci = cr * wi + ci * wr; cr = ncr;
+      }
+    }
+  }
+  let best = 0, bestPower = -1, total = 0;
+  for (let i = 0; i < n; ++i) {
+    const power = re[i] * re[i] + im[i] * im[i];
+    total += power;
+    if (power > bestPower) { bestPower = power; best = i; }
+  }
+  // Report the bin as a signed offset from DC, which is what a frequency shift
+  // moves; and the peak-to-average ratio, which says whether it is a real
+  // carrier or just noise.
+  const signed = best >= n / 2 ? best - n : best;
+  return { bin: signed, bins: n, snr: bestPower / (total / n) };
+}
+window.__peakBin = peakBin;
+
+window.__start = opts => {
+  const { serial, sampleRate, centerFreq, gainTenths, agc, directSampling,
+          bufflen, capacityPairs } = opts;
+  const pages = Math.ceil((RING_PTR + capacityPairs * 2) / 65536) + 4;
+  state.memory = new WebAssembly.Memory({ initial: pages, maximum: pages, shared: true });
+  state.control = new Int32Array(state.memory.buffer, CONTROL_PTR, 14);
+  state.capacityPairs = capacityPairs;
+  state.messages = []; state.trace = [];
+  state.capture = new Uint8Array(1 << 21);
+  state.captured = 0;
+
+  // The opening configuration goes through the mailbox, as the C++ block does.
+  const freq = BigInt(Math.round(centerFreq));
+  Atomics.store(state.control, CTRL.FREQ_HI, Number(freq >> 32n));
+  Atomics.store(state.control, CTRL.FREQ_LO, Number(BigInt.asIntN(32, freq)));
+  Atomics.store(state.control, CTRL.GAIN_TENTHS, gainTenths);
+  Atomics.store(state.control, CTRL.PPM, 0);
+  Atomics.store(state.control, CTRL.FLAGS, agc ? FLAG_AGC : 0);
+  Atomics.store(state.control, CTRL.CMD_SEQ, 1);
+
+  state.worker = new Worker('/runner/build/rtlsdr_reader.js');
+  state.worker.onmessage = event => {
+    const message = event.data || {};
+    if (message.type === 'trace') { state.trace.push(message.text); return; }
+    state.messages.push(message);
+  };
+  state.worker.onerror = event =>
+    state.messages.push({ type: 'workererror', message: event.message });
+  state.worker.postMessage({
+    serial, memory: state.memory, ringPointer: RING_PTR, capacityPairs,
+    controlPointer: CONTROL_PTR, errorPointer: ERROR_PTR,
+    errorCapacity: ERROR_CAPACITY, sampleRate, directSampling, bufflen,
+  });
+
+  // Play the consumer: without one the ring fills and the worker reports
+  // overruns, which would mask whatever is being measured.
+  state.drain = setInterval(() => {
+    const read = Atomics.load(state.control, CTRL.READ_POS);
+    const write = Atomics.load(state.control, CTRL.WRITE_POS);
+    if (read === write) return;
+    const ring = new Uint8Array(state.memory.buffer, RING_PTR, capacityPairs * 2);
+    const available = write > read ? write - read : capacityPairs - read;
+    const take = Math.min(available, capacityPairs);
+    if (state.captured + take * 2 <= state.capture.length) {
+      state.capture.set(ring.subarray(read * 2, (read + take) * 2), state.captured);
+      state.captured += take * 2;
+    }
+    Atomics.store(state.control, CTRL.READ_POS, (read + take) % capacityPairs);
+    Atomics.notify(state.control, CTRL.READ_POS);
+  }, 5);
+  return true;
+};
+
+/** Clears the capture so the next peak measurement sees only fresh samples. */
+window.__recapture = () => { state.captured = 0; return true; };
+
+window.__peak = () => {
+  if (state.captured < 8192) return null;
+  return peakBin(state.capture.subarray(0, state.captured), state.captured >> 1);
+};
+
+window.__setFrequency = hz => {
+  const freq = BigInt(Math.round(hz));
+  Atomics.store(state.control, CTRL.FREQ_HI, Number(freq >> 32n));
+  Atomics.store(state.control, CTRL.FREQ_LO, Number(BigInt.asIntN(32, freq)));
+  Atomics.store(state.control, CTRL.CMD_SEQ,
+    Atomics.load(state.control, CTRL.CMD_SEQ) + 1);
+  return Atomics.load(state.control, CTRL.CMD_SEQ);
+};
+
+window.__stats = () => ({
+  state: Atomics.load(state.control, CTRL.STATE),
+  overruns: Atomics.load(state.control, CTRL.OVERRUNS),
+  droppedPairs: Atomics.load(state.control, CTRL.DROPPED_PAIRS),
+  actualRate: Atomics.load(state.control, CTRL.ACTUAL_RATE),
+  cmdSeq: Atomics.load(state.control, CTRL.CMD_SEQ),
+  cmdAck: Atomics.load(state.control, CTRL.CMD_ACK),
+  captured: state.captured,
+  messages: state.messages,
+  trace: state.trace.slice(-40),
+  error: (() => {
+    const length = Atomics.load(state.control, CTRL.ERROR_LENGTH);
+    if (!length) return null;
+    // TextDecoder refuses a view onto a SharedArrayBuffer, so copy it out
+    // first. Getting this wrong turns a reported error into a different,
+    // misleading one.
+    return new TextDecoder().decode(
+      new Uint8Array(state.memory.buffer, ERROR_PTR, length).slice());
+  })(),
+});
+
+window.__stop = () => {
+  if (state.drain) clearInterval(state.drain);
+  state.drain = null;
+  if (state.control) {
+    Atomics.store(state.control, CTRL.STATE, CANCELLED);
+    Atomics.notify(state.control, CTRL.WRITE_POS);
+  }
+  return true;
+};
+</script>
+</body>

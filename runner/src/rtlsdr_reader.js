@@ -49,12 +49,13 @@ const TRANSFER_DEPTH = 4;
 const CONTROL_RETRIES = 4;
 
 // ---- Tracing ---------------------------------------------------------------
-// Temporary instrumentation for the retune path. Control transfers only happen
-// at startup and when a command is applied -- never during streaming -- so this
-// is quiet in the steady state and verbose exactly where the trouble is.
-// Set TRACE to false to silence the running commentary; the flight recorder
-// below costs nothing and stays.
-let TRACE = true;
+// Control transfers only happen at startup and when a command is applied --
+// never during streaming -- so tracing them is quiet in the steady state and
+// verbose exactly where the trouble is. Flip TRACE to true for a running
+// commentary; the flight recorder below is always on, because it costs nothing
+// and it is what finally identified the DMA/demod-write constraint after four
+// wrong hypotheses. See docs/rtlsdr.md.
+let TRACE = false;
 
 const t0 = performance.now();
 const stamp = () => (performance.now() - t0).toFixed(1).padStart(8) + 'ms';

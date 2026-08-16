@@ -191,24 +191,34 @@ retry if it moved — and applies only the fields that changed. Retuning walks t
 tuner PLL behind an I²C repeater, which is far too expensive to redo on every
 poll.
 
-**The endpoint queue is drained before any command is applied.** A control
-transfer issued while several large bulk reads are queued on the same device
-fails on Windows/WinUSB, and it fails on the *first* write a retune makes — the
-I²C repeater — so it surfaces as `control write failed for register 0x120 in
-block 0x1` from a dongle that was streaming perfectly a moment earlier. The
-stream loop therefore checks `commandWaiting()` before refilling the queue,
-delivers what is already in flight, applies the command against an idle
-endpoint, and refills. The cost is a few milliseconds of samples, which
-retuning loses on real hardware anyway.
+**The device's streaming is stopped across every command.** This is the single
+least guessable thing about the driver, and it cost most of a day to find.
 
-**And it calls `resetBuffer()` afterwards.** A retune walks the tuner's PLL
-behind the I²C repeater, which takes long enough that nothing drains the
-dongle's FIFO and it overflows — the same condition `resetBuffer()` clears
-before the first read. Leaving it uncleared has a memorable signature: the
-retune that caused the overflow *succeeds*, and the next one fails on the
-repeater write, so the error points at a retune that was fine and away from the
-one that wedged the device. The carry byte is dropped with it, since the FIFO no
-longer holds its partner.
+The RTL2832U **refuses writes to its demodulator and to the I²C repeater while
+its endpoint DMA is running.** They fail as a fast, unconditional
+`A transfer error has occurred` — while *reads of the very same registers*
+succeed, and while writes to the USB and SYS blocks succeed. So a retune dies on
+the first write it makes, opening the I²C repeater, which reads as
+`USB control write failed for register 0x120 in block 0x1` and looks like a
+tuner fault. It is not.
+
+`aroundCommands()` therefore holds `USB_EPA_CTL`'s stall/FIFO-reset bit across
+the command: stop the device, apply the tuning, clear the stall. The host queue
+is drained first so nothing is in flight, and the carry byte is dropped, since
+the FIFO reset loses its partner. A retune costs a visible glitch in the
+waterfall, which is honest — the radio really did stop.
+
+Four things were tried first and **none of them works**, so they are not worth
+retrying: draining the host's transfer queue (the endpoint goes idle and the
+write is still refused); re-claiming the interface; `clearHalt()` on the bulk
+endpoint (it succeeds and changes nothing); and retrying the transfer (four
+attempts, all rejected in ~3 ms each). Every one of those quiesces the *host*
+while the dongle keeps streaming. librtlsdr never hits this because it is not
+what the driver does — but the failure is real and reproducible here.
+
+The `record()` flight recorder in the reader worker is what identified it, by
+showing the same write succeeding immediately after an unrelated `EPA_CTL`
+write. Leave it on.
 
 **`samp_rate` is deliberately not a live setter.** Changing it needs a demod
 reset and a buffer reset while GNU Radio's rate assumptions are already baked
@@ -262,15 +272,56 @@ dongle the picker offers and the worker then refuses.
 
 ### With hardware
 
-There is no automated coverage of the register protocol. Check by hand:
+`test/hw/rtlsdr_hw.mjs` drives the reader worker directly against a plain shared
+ring — no GNU Radio — so it isolates the USB layer, which is where every bug in
+this driver has been. It is **not** in any CI suite, because it needs a dongle.
 
-- an RTL-SDR **V3** (R820T2) and a **V4** (R828D) — the V4 takes a different I²C
-  address, different MUX configs, and an upconverter for HF;
-- WFM at 88–108 MHz, sounding correct through Rational Resampler → WBFM Receive;
-- a QT GUI Range on `center_freq`, retuning while running;
+```bash
+node test/hw/rtlsdr_hw.mjs --fake     # no hardware: proves the harness itself
+node test/hw/rtlsdr_hw.mjs            # against a real dongle
+```
+
+The check that matters is `the hardware actually retuned`: it FFTs the captured
+IQ, finds the strongest carrier, retunes 300 kHz, and requires the carrier to
+move by that amount. An error-free retune proves nothing — the failure that
+prompted this harness was a retune that reported success while the hardware
+stayed put, and the QT GUI sinks then relabelled their axis, so the plot lied.
+`--fake` runs everything except that check (the generator has no tuner) and
+verifies the FFT against a known tone instead.
+
+**Setup, once.** The dongle must be visible to the browser, which on WSL means
+`usbipd attach --wsl` rather than leaving it on Windows. Then:
+
+```bash
+npx @puppeteer/browsers install chrome@stable --path ./chrome-for-testing
+node test/hw/grant.mjs        # opens a real window; click through the chooser
+```
+
+`chrome-headless-shell`, which the other suites use, has no WebUSB at all — the
+hardware harness needs a full Chrome. The WebUSB grant is stored per profile in
+`test/hw/.profile`, so `grant.mjs` is a one-time step and every run afterwards
+goes straight to `getDevices()`. Automating the chooser through CDP's
+`DeviceAccess` domain does *not* work here: `requestDevice()` hangs and no
+`deviceRequestPrompted` event is ever emitted, headless or headful. Granting by
+hand once sidesteps it.
+
+On Linux the device node is `root:plugdev`, so membership of `plugdev` is enough
+— no udev rule and no root. A WSL kernel has no DVB driver to blacklist either;
+that step is only needed on a normal Linux desktop.
+
+### Still by hand
+
+One thing the harness cannot do, because it cannot power-cycle the dongle:
+
 - **unplug the dongle mid-run** — it must surface a readable error through the
-  `BrowserLogSink`, not hang;
-- 2.4 MS/s clean, 3.2 MS/s reporting overruns rather than lying.
+  `BrowserLogSink`, not hang.
+
+And two it does not cover, being above the USB layer or needing hardware nobody
+here has:
+
+- WFM at 88–108 MHz, sounding correct through Rational Resampler → WBFM Receive;
+- an RTL-SDR **V4** (R828D) — a different I²C address, different MUX configs and
+  an HF upconverter. Only the **V3** (R820T) path has been run against hardware.
 
 ## Platform notes
 
