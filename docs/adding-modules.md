@@ -3,8 +3,9 @@
 Two recipes: an **in-tree** GNU Radio component library (`gr-<m>` built by the
 `gr/build-gr` umbrella build), and a **third-party out-of-tree module** vendored
 as a submodule and compiled straight into a side module. Read
-[AGENTS.md](../AGENTS.md) — "Registry and module conventions" and "Runtime
-gotchas" — first; this file assumes them.
+[blocks.md](blocks.md) — "Where a block's source lives" and "Registry and module
+conventions" — first; this file assumes them. [building.md](building.md) covers
+the toolchain and the side-module mechanism itself.
 
 ## In-tree: adding a category
 
@@ -272,6 +273,25 @@ node scripts/run.mjs "$URL" RUNNER_PASS 8090 45000   # headless chrome; prints t
 constructed and the graph started — it does **not** verify DSP correctness of the
 chain.
 
+## Symbols across the core/side-module boundary
+
+`gen_side_exports.py` re-exports whatever a side module imports, so most
+cross-module calls need no thought. Two cases do:
+
+- If a **core** hand-written factory references a **deferred** module's symbols
+  (as `digital_psk_mod` uses a few `gr-digital` blocks), link that module's `.a`
+  *normally* (not whole-archive) into the main module too, so just those objects
+  are pulled into core; the rest stay in the side module. See the `gr-digital`
+  entry in `target_link_libraries` for the pattern.
+- If a **deferred** module's factory references *another deferred* module's
+  symbols, the `.a` trick does not help: `gen_side_exports.py` re-exports with
+  `--export-if-defined`, so a symbol nothing in main references is never pulled
+  in, never defined, never exported, and the side module fails at `dlopen` with
+  `bad export type for '<mangled name>': undefined`. Add the edge to
+  `module_deps` in [`runner/modules.json`](../runner/modules.json) instead —
+  gr-satellites' rebuilt hierarchies use `gr::pdu`, hence
+  `"module_deps": {"satellites": ["pdu"]}`.
+
 ## gr-satellites: the largest rebuild
 
 Its hierarchies, demodulators and deframers are all Python with no C++ path
@@ -301,5 +321,5 @@ Two more gr-satellites specifics:
   so the palette categories come for free.
 - Its rebuilt hierarchies wrap their message ports with
   `gr::pdu::{pdu_to_tagged_stream,tagged_stream_to_pdu}`, hence
-  `"module_deps": {"satellites": ["pdu"]}` in `runner/modules.json` — see the
-  deferred-to-deferred symbol rule in AGENTS.md's "Runtime gotchas".
+  `"module_deps": {"satellites": ["pdu"]}` in `runner/modules.json` — see
+  "Symbols across the core/side-module boundary" above.

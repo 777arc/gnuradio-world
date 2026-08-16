@@ -15,8 +15,8 @@
 //     mac::make() takes std::vector<uint8_t>.
 //
 // These take plain C++ arguments, never a `const json&`, which is what keeps
-// them on this side of the registry.cpp line (see AGENTS.md, "Registry and
-// module conventions").
+// them on this side of the registry.cpp line (see docs/blocks.md, "Registry
+// and module conventions").
 #pragma once
 
 #include <cstdint>

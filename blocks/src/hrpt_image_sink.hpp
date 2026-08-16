@@ -6,9 +6,9 @@
 // this -- it only parses minor-frame timestamps/telemetry -- and upstream
 // flowgraphs instead write the deframer's raw words to a File Sink and hand
 // the file to an external tool (MetFy3x, HRPT Reader, weathersat). The
-// browser has no such file-handoff (see AGENTS.md's "a block that prints text
-// has somewhere to print it" for the same trade under wasm_text_sink), so this
-// sink does the channel de-interleave and display itself.
+// browser has no such file-handoff (see docs/blocks.md's "a block that prints
+// text has somewhere to print it" for the same trade under wasm_text_sink),
+// so this sink does the channel de-interleave and display itself.
 //
 // Minor-frame layout: 11090 10-bit words, 6 sync words + 1 ID word, then AVHRR
 // video as 2048 groups of 5 interleaved channel words starting at word 751

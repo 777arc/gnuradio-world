@@ -49,11 +49,12 @@ push a fix rather than leaving it for the reviewer.
 
 Because you cannot execute a flowgraph, be correspondingly careful with changes
 that only fail at run time — anything under `blocks/`, `runner/src/registry.cpp`,
-or `example_flowgraphs/`. AGENTS.md's "Runtime gotchas" and "Example flowgraphs"
-sections list the failures that are silent by construction: an editor schema that
-drops undeclared parameter ids, an inline YAML flow mapping the runner ignores,
-a `blocks_throttle` that stalls. Re-read them for that kind of change; a green
-build proves nothing about any of them.
+or `example_flowgraphs/`. AGENTS.md's "Runtime gotchas" and
+[docs/flowgraph-files.md](../docs/flowgraph-files.md) list the failures that are
+silent by construction: an editor schema that drops undeclared parameter ids, an
+inline YAML flow mapping the runner ignores, a `blocks_throttle` that stalls.
+Re-read them for that kind of change; a green build proves nothing about any of
+them.
 
 ## Scope
 
