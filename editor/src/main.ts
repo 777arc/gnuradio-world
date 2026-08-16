@@ -42,11 +42,11 @@ import {
   RTLSDR_ID,
   RTLSDR_USB_FILTERS,
   type UsbLike,
+  describeDevice,
   deviceDisplay,
-  isFakeDevice,
+  deviceOptions,
   prepareRtlDevices,
   refreshRtlDevices,
-  rtlLabel,
   usbApi,
   watchRtlDevices,
 } from './rtlsdr';
@@ -189,9 +189,6 @@ const RUN_BOUND_PARAMS: Record<string, string> = {
   ...LOCAL_FILE_PARAMS,
   [HTTP_RECORDING_ID]: HTTP_RECORDING_PARAM,
 };
-
-// RTL-SDR Source's dongle: named by serial number in the .grc, chosen through
-// the browser's own device picker. The WebUSB half lives in ./rtlsdr.
 
 const localFilesByToken = new Map<string, File>();
 function newLocalFileToken(): string {
@@ -2118,68 +2115,18 @@ function showPropsDialog(inst: Inst) {
       const detail = document.createElement('small'); detail.className = 'file-picker-detail';
       let shared: UsbLike[] = [];
 
-      // "First available" is the portable default -- a flowgraph pinned to one
-      // dongle's serial will not run on anyone else's -- so the empty value is
-      // kept as a real choice rather than silently replaced by a serial. What
-      // it currently resolves to is spelled out instead, in the option itself
-      // and again below, so the field never reads as simply blank.
-      const fill = () => {
+      // What the field offers and what it says about the current value are both
+      // "which dongle does this resolve to", so both live in ./rtlsdr beside
+      // the block face's deviceDisplay(). Only the DOM wiring is here.
+      const paint = () => {
         const serial = String(tmp.params[p.id] ?? '').trim();
-        select.replaceChildren();
-        const add = (value: string, label: string) => {
+        select.replaceChildren(...deviceOptions(serial, shared).map(o => {
           const option = document.createElement('option');
-          option.value = value; option.textContent = label;
-          select.appendChild(option);
-        };
-        add('', shared.length
-          ? `First available — ${rtlLabel(shared[0])}`
-          : 'First available');
-        for (const device of shared)
-          if (device.serialNumber) add(device.serialNumber, rtlLabel(device));
-        // A serial the browser cannot see right now still belongs in the list,
-        // or opening the dialog would silently repoint the block at a dongle
-        // the reader never chose.
-        if (serial && !shared.some(d => d.serialNumber === serial))
-          add(serial, isFakeDevice(serial)
-            ? `${serial} — test signal generator`
-            : `${serial} — not connected`);
+          option.value = o.value; option.textContent = o.label;
+          return option;
+        }));
         select.value = serial;
-      };
-
-      const describe = () => {
-        const serial = String(tmp.params[p.id] ?? '').trim();
-        if (isFakeDevice(serial)) {
-          detail.textContent =
-            'Test signal generator — no hardware is opened. Used by the ' +
-            'runner\'s own tests.';
-          return;
-        }
-        if (!usbApi()) {
-          detail.textContent =
-            'This browser has no WebUSB, so no device can be chosen here. ' +
-            'Chrome, Edge and Opera can run this block.';
-          return;
-        }
-        if (!shared.length) {
-          detail.textContent =
-            'No RTL-SDR shared with this site yet — click Add, or just press ' +
-            'Run and the browser will ask.';
-          return;
-        }
-        if (!serial) {
-          detail.textContent =
-            `Uses ${rtlLabel(shared[0])}` +
-            (shared.length > 1
-              ? ` — first of ${shared.length} shared with this site`
-              : '') +
-            '. Leaving this on "first available" keeps the flowgraph portable.';
-          return;
-        }
-        const match = shared.find(d => d.serialNumber === serial);
-        detail.textContent = match
-          ? `Connected · ${rtlLabel(match)}`
-          : `"${serial}" is not shared with this site right now — plug it in, ` +
-            'or click Add.';
+        detail.textContent = describeDevice(serial, shared);
       };
 
       // The same cache the block face draws from, so the dialog and the canvas
@@ -2187,14 +2134,18 @@ function showPropsDialog(inst: Inst) {
       const refreshDevices = async () => {
         shared = await refreshRtlDevices();
         if (!usbApi()) { select.hidden = true; typed.hidden = false; choose.disabled = true; }
-        fill(); describe(); render();
+        paint(); render();
       };
       const commit = (serial: string) => {
         tmp.params[p.id] = serial;
-        fill(); describe(); refreshVisibility(); refreshValidation();
+        paint(); refreshVisibility(); refreshValidation();
       };
       select.onchange = () => commit(select.value);
-      typed.oninput = () => { tmp.params[p.id] = typed.value.trim(); describe(); refreshValidation(); };
+      typed.oninput = () => {
+        tmp.params[p.id] = typed.value.trim();
+        detail.textContent = describeDevice(typed.value.trim(), shared);
+        refreshValidation();
+      };
       choose.onclick = async () => {
         const usb = usbApi();
         if (!usb) return;
@@ -2212,7 +2163,7 @@ function showPropsDialog(inst: Inst) {
       typed.value = String(tmp.params[p.id] ?? '');
       picker.append(select, typed, choose, detail);
       addField(p.category || 'General', `${p.label}  (${p.id})`, picker, p.id, select);
-      fill();
+      paint();                  // synchronously, before the device list resolves
       void refreshDevices();
       if (p.showWhen) conditionalRows.push({ param: p, row: picker.closest('.dlgrow') as HTMLElement });
     } else if (p.dtype === RECORDING_DTYPE) {

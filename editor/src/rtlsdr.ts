@@ -51,9 +51,14 @@ export function usbApi(): any | null {
   return (navigator as any).usb ?? null;
 }
 
-/** A Device parameter of 'fake' or 'fake:<Hz>' opens no hardware at all. */
+/**
+ * A Device parameter of 'fake' or 'fake:<Hz>' opens no hardware at all. Spelled
+ * exactly as the worker spells it (`isFake` in run(), rtlsdr_reader.js): a
+ * looser test here would skip the permission prompt for a serial the worker
+ * then went looking for on real hardware.
+ */
 export function isFakeDevice(serial: string): boolean {
-  return serial.startsWith('fake');
+  return serial === 'fake' || serial.startsWith('fake:');
 }
 
 export function matchesRtl(device: UsbLike): boolean {
@@ -104,6 +109,67 @@ export function deviceDisplay(serial: string): string {
   const first = sharedDevices[0];
   if (!first) return 'first available';
   return `first available · ${first.serialNumber || first.productName || 'RTL-SDR'}`;
+}
+
+/**
+ * The Device dropdown's options, in order. "First available" is the portable
+ * default -- a flowgraph pinned to one dongle's serial will not run on anyone
+ * else's -- so the empty value stays a real choice rather than being silently
+ * replaced by a serial; what it currently resolves to is spelled out instead.
+ */
+export function deviceOptions(
+  serial: string, shared: UsbLike[]): { value: string; label: string }[] {
+  const options = [{
+    value: '',
+    label: shared.length
+      ? `First available — ${rtlLabel(shared[0])}`
+      : 'First available',
+  }];
+  for (const device of shared)
+    if (device.serialNumber)
+      options.push({ value: device.serialNumber, label: rtlLabel(device) });
+  // A serial the browser cannot see right now still belongs in the list, or
+  // opening the dialog would silently repoint the block at a dongle the reader
+  // never chose.
+  if (serial && !shared.some(d => d.serialNumber === serial))
+    options.push({
+      value: serial,
+      label: isFakeDevice(serial)
+        ? `${serial} — test signal generator`
+        : `${serial} — not connected`,
+    });
+  return options;
+}
+
+/**
+ * The line under the Device field, saying what this value will actually open.
+ * Kept beside deviceOptions() rather than in the dialog: it is the same "which
+ * dongle does this resolve to" question deviceDisplay() answers for the canvas.
+ * `hasUsb` is passed rather than read from navigator so this stays a pure
+ * function of what the dialog can see.
+ */
+export function describeDevice(
+  serial: string, shared: UsbLike[], hasUsb = !!usbApi()): string {
+  if (isFakeDevice(serial))
+    return 'Test signal generator — no hardware is opened. Used by the ' +
+           'runner\'s own tests.';
+  if (!hasUsb)
+    return 'This browser has no WebUSB, so no device can be chosen here. ' +
+           'Chrome, Edge and Opera can run this block.';
+  if (!shared.length)
+    return 'No RTL-SDR shared with this site yet — click Add, or just press ' +
+           'Run and the browser will ask.';
+  if (!serial)
+    return `Uses ${rtlLabel(shared[0])}` +
+           (shared.length > 1
+             ? ` — first of ${shared.length} shared with this site`
+             : '') +
+           '. Leaving this on "first available" keeps the flowgraph portable.';
+  const match = shared.find(d => d.serialNumber === serial);
+  return match
+    ? `Connected · ${rtlLabel(match)}`
+    : `"${serial}" is not shared with this site right now — plug it in, ` +
+      'or click Add.';
 }
 
 /** Keeps the cache current, calling `onChange` whenever the device set moves. */

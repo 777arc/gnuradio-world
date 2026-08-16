@@ -163,57 +163,11 @@ class RtlCom {
                `(try ${tries + 1}): ${lastError}`);
       }
     }
-    await this._probe();
-    throw lastError;
-  }
-
-  /**
-   * Which register blocks still answer, once one has stopped. Retries and
-   * clearHalt() have already been shown not to help, so the open question is
-   * whether the *device* has stopped talking or only one path to it has: a
-   * read from the USB and SYS blocks goes through the same control pipe as the
-   * demod write that failed, but touches completely different hardware.
-   * Deliberately bypasses _retry() -- this must not recurse.
-   */
-  async _probe() {
-    const probes = [
-      ['USB   0x2148/0x100', 0x2148, BLOCK_USB],
-      ['SYS   0x3000/0x200', 0x3000, BLOCK_SYS],
-      ['DEMOD 0x120/0xa', 0x0120, 0x0a],
-    ];
-    for (const [label, value, index] of probes) {
-      try {
-        const result = await this.device.controlTransferIn(
-          { requestType: 'vendor', recipient: 'device', request: 0, value, index }, 8);
-        record(`  probe READ ${label} -> ${result.status}` +
-               (result.status === 'ok'
-                 ? ' ' + [...new Uint8Array(result.data.buffer)]
-                     .map(b => b.toString(16).padStart(2, '0')).join('')
-                 : ''));
-      } catch (error) {
-        record(`  probe READ ${label} THREW: ${error.message || error}`);
-      }
-    }
-    // Reads passing while writes fail leaves one question: is every OUT
-    // transfer refused, or only the demodulator/I2C path? These two write back
-    // a value that was just read, so both are no-ops on the hardware whatever
-    // the answer turns out to be.
-    for (const [label, value, index, bytes] of [
-      ['SYS   0x3001/0x200', 0x3001, BLOCK_SYS, [0x18]],
-      ['USB   0x2148/0x100', 0x2148, BLOCK_USB, [0x00, 0x00]],
-    ]) {
-      try {
-        const result = await this.device.controlTransferOut(
-          { requestType: 'vendor', recipient: 'device', request: 0, value,
-            index: index | WRITE_FLAG },
-          new Uint8Array(bytes).buffer);
-        record(`  probe WRITE ${label} -> ${result.status}`);
-      } catch (error) {
-        record(`  probe WRITE ${label} THREW: ${error.message || error}`);
-      }
-    }
-    record(`  probe device.opened=${this.device.opened} ` +
+    // The flight recorder above already carries every attempt and its status,
+    // which is what a failure here needs to be diagnosable.
+    record(`  device.opened=${this.device.opened} ` +
            `configuration=${this.device.configuration?.configurationValue}`);
+    throw lastError;
   }
 
   async _readCtrl(value, index, length) {
@@ -406,6 +360,14 @@ const BIT_REVS = [
 
 const XTAL_FREQ = 28800000;
 const IF_FREQ = 3570000;
+
+// The RTL2832U resamples by a 26-bit ratio off its crystal, so most rates are
+// not exactly achievable. Returns the register value and the rate it produces;
+// FakeRtl rounds through the same function so a test sees a plausible rate.
+function resampleRatio(rate, xtalFreq) {
+  const ratio = Math.floor((xtalFreq * (1 << 22)) / rate) & 0x0ffffffc;
+  return { ratio, realRate: Math.floor((xtalFreq * (1 << 22)) / ratio) };
+}
 
 class R8xx {
   constructor(com, i2c, muxCfgs, vcoPowerRef) {
@@ -636,36 +598,6 @@ class R820T extends R8xx {
   }
 }
 
-/**
- * Identifies the tuner. The probe reads chip id 0x69 from an I2C address, but a
- * *read* from an address with nothing on it does not reliably fail on every
- * dongle -- so a candidate that answers the probe and then NAKs its first write
- * has to fall through to the next one rather than abort. Getting that wrong
- * looks exactly like broken USB: "control write failed for register 0x34 in
- * block 0x600", from a dongle whose tuner was at 0x74 all along.
- */
-async function findTuner(com) {
-  const { manufacturer, model } = com.getBranding();
-  const attempts = [];
-  for (const [name, maybeInit] of
-       [['R820T', R820T.maybeInit], ['R828D', R828D.maybeInit]]) {
-    try {
-      const tuner = await maybeInit(com);
-      if (tuner) {
-        postMessage({ type: 'tuner', tuner: name, manufacturer, model });
-        return tuner;
-      }
-      attempts.push(`${name}: not present`);
-    } catch (error) {
-      attempts.push(`${name}: ${error.message || error}`);
-    }
-  }
-  throw new Error(
-    `could not initialize a tuner on this dongle (${manufacturer || '?'} / ` +
-    `${model || '?'}). Only R820T/R820T2/R860 and R828D are supported. ` +
-    `Tried -- ${attempts.join('; ')}`);
-}
-
 class R828D extends R8xx {
   constructor(com, isBlogV4) {
     super(com, 0x74, isBlogV4 ? MUX_CFGS_V4 : STD_MUX_CFGS, 1);
@@ -718,6 +650,36 @@ class R828D extends R8xx {
   getMinimumFrequency() {
     return this.isBlogV4 ? 0 : super.getMinimumFrequency();
   }
+}
+
+/**
+ * Identifies the tuner. The probe reads chip id 0x69 from an I2C address, but a
+ * *read* from an address with nothing on it does not reliably fail on every
+ * dongle -- so a candidate that answers the probe and then NAKs its first write
+ * has to fall through to the next one rather than abort. Getting that wrong
+ * looks exactly like broken USB: "control write failed for register 0x34 in
+ * block 0x600", from a dongle whose tuner was at 0x74 all along.
+ */
+async function findTuner(com) {
+  const { manufacturer, model } = com.getBranding();
+  const attempts = [];
+  for (const [name, maybeInit] of
+       [['R820T', R820T.maybeInit], ['R828D', R828D.maybeInit]]) {
+    try {
+      const tuner = await maybeInit(com);
+      if (tuner) {
+        postMessage({ type: 'tuner', tuner: name, manufacturer, model });
+        return tuner;
+      }
+      attempts.push(`${name}: not present`);
+    } catch (error) {
+      attempts.push(`${name}: ${error.message || error}`);
+    }
+  }
+  throw new Error(
+    `could not initialize a tuner on this dongle (${manufacturer || '?'} / ` +
+    `${model || '?'}). Only R820T/R820T2/R860 and R828D are supported. ` +
+    `Tried -- ${attempts.join('; ')}`);
 }
 
 // ---- The RTL2832U demodulator ----------------------------------------------
@@ -798,11 +760,7 @@ class RTL2832U {
   }
 
   async setSampleRate(rate) {
-    // The RTL2832U resamples by a 26-bit ratio off its crystal, so most rates
-    // are not exactly achievable. Report what it will actually run at.
-    let ratio = Math.floor((this._xtalFrequency() * (1 << 22)) / rate);
-    ratio &= 0x0ffffffc;
-    const realRate = Math.floor((this._xtalFrequency() * (1 << 22)) / ratio);
+    const { ratio, realRate } = resampleRatio(rate, this._xtalFrequency());
     await this.com.setDemodReg(1, 0x9f, (ratio >> 16) & 0xffff, 2);
     await this.com.setDemodReg(1, 0xa1, ratio & 0xffff, 2);
     await this._resetDemodulator();
@@ -991,10 +949,7 @@ class FakeRtl {
   }
 
   async setSampleRate(rate) {
-    // Round the same way real hardware does, so a test sees a plausible rate.
-    let ratio = Math.floor((XTAL_FREQ * (1 << 22)) / rate);
-    ratio &= 0x0ffffffc;
-    this.rate = Math.floor((XTAL_FREQ * (1 << 22)) / ratio);
+    this.rate = resampleRatio(rate, XTAL_FREQ).realRate;
     return this.rate;
   }
 

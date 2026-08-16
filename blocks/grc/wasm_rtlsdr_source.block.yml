@@ -6,7 +6,7 @@ flags: [cpp, throttle]
 documentation: |-
     Receives from an RTL-SDR dongle plugged into this computer, over WebUSB.
 
-    Device names the dongle by serial number. Click Select to pick one -- the
+    Device names the dongle by serial number. Click Add to pick one -- the
     browser asks permission once per device and remembers it for this site.
     Leave it empty to use the first RTL-SDR you have already granted access to.
 

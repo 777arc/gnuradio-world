@@ -27,17 +27,28 @@ blocks:
         coordinate: [320, 20]
         rotation: 0
         state: enabled
-# A plain variable rather than a QT GUI Chooser: the QT GUI sinks track
-# samp_rate live, but RTL-SDR Source reads it once when it is built (changing
-# the rate needs a demod and buffer reset the running graph cannot absorb). A
-# runtime control would therefore rescale both plots while the dongle kept
-# sampling at the old rate -- a wrong axis rather than no effect.
+-   name: gain
+    id: variable_qtgui_range
+    parameters:
+        label: Gain
+        min_len: '200'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '0'
+        step: '1'
+        stop: '49'
+        value: '45'
+        widget: counter_slider
+    states:
+        coordinate: [560, 20]
+        rotation: 0
+        state: enabled
 -   name: samp_rate
     id: variable
     parameters:
         value: '2048000'
     states:
-        coordinate: [570, 30]
+        coordinate: [80, 130]
         rotation: 0
         state: enabled
 -   name: qtgui_freq_sink_x_0
@@ -53,7 +64,7 @@ blocks:
         alpha7: '1'
         alpha8: '1'
         alpha9: '1'
-        autoscale: 'False'
+        autoscale: 'True'
         average: '0.1'
         axislabels: 'True'
         color1: '"blue"'
@@ -68,7 +79,7 @@ blocks:
         color9: '"dark green"'
         ctrlpanel: 'False'
         fc: center_freq
-        fftsize: '1024'
+        fftsize: '2048'
         grid: 'False'
         label1: ''
         label10: ''
@@ -122,7 +133,7 @@ blocks:
         ymax: '10'
         ymin: '-140'
     states:
-        coordinate: [410, 260]
+        coordinate: [430, 250]
         rotation: 0
         state: enabled
 -   name: qtgui_waterfall_sink_x_0
@@ -170,17 +181,17 @@ blocks:
         samp_rate: samp_rate
         update_time: '0.1'
     states:
-        coordinate: [410, 470]
+        coordinate: [430, 420]
         rotation: 0
         state: enabled
 -   name: wasm_gui_layout_0
     id: wasm_gui_layout
     parameters:
         columns: '12'
-        layout: '{"center_freq":[0,0,12,1],"qtgui_freq_sink_x_0":[0,1,12,4],"qtgui_waterfall_sink_x_0":[0,5,12,4]}'
+        layout: '{"center_freq":[0,0,7,1],"gain":[8,0,4,1],"qtgui_freq_sink_x_0":[0,1,12,3],"qtgui_waterfall_sink_x_0":[0,4,12,6]}'
         row_height: '60'
     states:
-        coordinate: [890, 20]
+        coordinate: [820, 30]
         rotation: 0
         state: enabled
 -   name: wasm_rtlsdr_source_0
@@ -192,8 +203,8 @@ blocks:
         device: ''
         direct_samp: '0'
         freq_correction: '0'
-        gain: '30'
-        gain_mode: 'True'
+        gain: gain
+        gain_mode: 'False'
         samp_rate: samp_rate
         type: complex
     states:

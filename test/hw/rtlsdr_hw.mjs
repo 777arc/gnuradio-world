@@ -9,38 +9,12 @@
 // grant is kept in a persistent Chrome profile under test/hw/.profile, so only
 // the first run has to answer it. See docs/rtlsdr.md.
 
-import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import puppeteer from 'puppeteer-core';
+import { INSTALL_HINT, findChrome } from './chrome.mjs';
 
 const ROOT = new URL('../..', import.meta.url).pathname;
 const PAGE = 'http://localhost:8090/test/hw/rtlsdr_hw.html';
-// Real hardware needs WebUSB, which chrome-headless-shell does not carry -- it
-// is a stripped build with no device APIs. So hardware runs use a full Chrome
-// for Testing, installed alongside it with:
-//
-//   npx @puppeteer/browsers install chrome@stable --path ./chrome-for-testing
-//
-// The fake device needs no WebUSB, so it can use whichever is present.
-function findChrome() {
-  const full = join(ROOT, 'chrome-for-testing', 'chrome');
-  if (existsSync(full)) {
-    for (const version of readdirSync(full).sort().reverse()) {
-      const candidate = join(full, version, 'chrome-linux64', 'chrome');
-      if (existsSync(candidate)) return candidate;
-    }
-  }
-  if (!FAKE) return null;
-  const shell = join(ROOT, 'chrome-headless-shell');
-  if (existsSync(shell)) {
-    for (const version of readdirSync(shell).sort().reverse()) {
-      const candidate = join(shell, version, 'chrome-headless-shell-linux64',
-                             'chrome-headless-shell');
-      if (existsSync(candidate)) return candidate;
-    }
-  }
-  return null;
-}
 
 const args = process.argv.slice(2);
 const flag = name => args.includes(`--${name}`);
@@ -67,12 +41,26 @@ const check = (ok, what, detail = '') => {
   if (!ok) ++failures;
 };
 
+// The harness's standard run. --fake changes only the serial: everything after
+// it is the same ring, mailbox and drain loop either way.
+const start = (page, sampleRate = SAMPLE_RATE, centerFreq = CENTER) =>
+  page.evaluate((serial, rate, freq) => window.__start({
+    serial, sampleRate: rate, centerFreq: freq,
+    gainTenths: 300, agc: true,
+    directSampling: 0, bufflen: 262144, capacityPairs: 1 << 20,
+  }), FAKE ? 'fake:200000' : '', sampleRate, centerFreq);
+
+const statsOf = page => page.evaluate(() => window.__stats());
+const restart = async (page, sampleRate, centerFreq) => {
+  await page.evaluate(() => window.__stop());
+  await sleep(1200);
+  await start(page, sampleRate, centerFreq);
+};
+
 async function main() {
-  const executablePath = findChrome();
+  const executablePath = findChrome(FAKE);
   if (!executablePath)
-    throw new Error(
-      'no usable Chrome found. Hardware runs need a full build:\n' +
-      '  npx @puppeteer/browsers install chrome@stable --path ./chrome-for-testing');
+    throw new Error(`no usable Chrome found. ${INSTALL_HINT}`);
   console.log(`  browser: ${executablePath}${FAKE ? '  (fake device)' : ''}`);
 
   const browser = await puppeteer.launch({
@@ -126,14 +114,9 @@ async function main() {
     }
 
     // ---- open and stream --------------------------------------------------
-    await page.evaluate((sampleRate, centerFreq, FAKE) => window.__start({
-      serial: FAKE ? 'fake:200000' : '', sampleRate, centerFreq,
-      gainTenths: 300, agc: true,
-      directSampling: 0, bufflen: 262144, capacityPairs: 1 << 20,
-    }), SAMPLE_RATE, CENTER, FAKE);
-
+    await start(page);
     await sleep(3000);
-    let stats = await page.evaluate(() => window.__stats());
+    let stats = await statsOf(page);
     if (stats.error) {
       check(false, 'streaming starts', stats.error);
       for (const line of stats.trace) console.log('    ', line);
@@ -161,7 +144,7 @@ async function main() {
     const seq = await page.evaluate(hz => window.__setFrequency(hz), CENTER + OFFSET);
     console.log(`  retune to ${(CENTER + OFFSET) / 1e6} MHz (seq ${seq})`);
     await sleep(1500);
-    stats = await page.evaluate(() => window.__stats());
+    stats = await statsOf(page);
     check(!stats.error, 'retune completes without a USB error', stats.error || '');
     check(stats.cmdAck === seq, 'the worker acknowledged the command',
       `ack=${stats.cmdAck} seq=${seq}`);
@@ -201,39 +184,27 @@ async function main() {
     for (let i = 1; i <= 5 && stormOk; ++i) {
       const s = await page.evaluate(hz => window.__setFrequency(hz), CENTER + i * 100000);
       await sleep(700);
-      const now = await page.evaluate(() => window.__stats());
+      const now = await statsOf(page);
       if (now.error || now.cmdAck !== s) { stormOk = false; console.log(`    retune ${i}: ${now.error || 'not acked'}`); }
     }
     check(stormOk, 'five consecutive retunes all apply');
 
-    stats = await page.evaluate(() => window.__stats());
+    stats = await statsOf(page);
     console.log(`  overruns=${stats.overruns} droppedPairs=${stats.droppedPairs}`);
 
     // ---- stop, then open the device a second time -------------------------
     // Covers the device.close() in RTL2832U.close(): without it the dongle
     // stays claimed by the page and the second run cannot take the interface.
-    await page.evaluate(() => window.__stop());
-    await sleep(1200);
-    await page.evaluate((sampleRate, centerFreq, FAKE) => window.__start({
-      serial: FAKE ? 'fake:200000' : '', sampleRate, centerFreq,
-      gainTenths: 300, agc: true,
-      directSampling: 0, bufflen: 262144, capacityPairs: 1 << 20,
-    }), SAMPLE_RATE, CENTER, FAKE);
+    await restart(page);
     await sleep(2500);
-    stats = await page.evaluate(() => window.__stats());
+    stats = await statsOf(page);
     check(!stats.error && stats.captured > 0, 'the device reopens after a stop',
       stats.error || `${(stats.captured / 2).toLocaleString()} IQ pairs on the second run`);
 
     // ---- a rate the hardware struggles with -------------------------------
-    await page.evaluate(() => window.__stop());
-    await sleep(1200);
-    await page.evaluate((centerFreq, FAKE) => window.__start({
-      serial: FAKE ? 'fake:200000' : '', sampleRate: 3200000, centerFreq,
-      gainTenths: 300, agc: true,
-      directSampling: 0, bufflen: 262144, capacityPairs: 1 << 20,
-    }), CENTER, FAKE);
+    await restart(page, 3200000);
     await sleep(3000);
-    stats = await page.evaluate(() => window.__stats());
+    stats = await statsOf(page);
     check(!stats.error && stats.captured > 0, 'streams at 3.2 MS/s',
       stats.error || `rate ${stats.actualRate}, overruns ${stats.overruns}, ` +
       `dropped ${stats.droppedPairs}`);

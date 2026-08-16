@@ -3,6 +3,7 @@
 #include <gnuradio/sync_block.h>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -137,7 +138,11 @@ private:
     std::int32_t load(const std::int32_t* value) const;
     void store(std::int32_t* value, std::int32_t next);
     void wake(std::int32_t* value);
-    void publish_command();  // bump cmd_seq; d_command_mutex must be held
+    // Writes the command slots under d_command_mutex and bumps cmd_seq, which
+    // is what publishes them. Every setter is one of these.
+    void stage(const std::function<void()>& write_slots);
+    void set_flag(std::int32_t flag, bool on);   // slot writers; call from stage()
+    void set_frequency_slots(double hz);
     std::string reader_error() const;
     void convert(const unsigned char* pairs, std::size_t count, void* out) const;
 };

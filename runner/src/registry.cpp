@@ -162,29 +162,6 @@ static std::string type_from(const json& p, const std::string& fallback)
     return p.value("type", fallback);
 }
 
-// A text parameter, read without assuming the lowering step left it as text.
-// json::value() throws type_error.302 on a type mismatch, and that surfaces as
-// an opaque "type must be string, but is number" with no parameter named -- so
-// accept whatever arrived. is_text_param() in grc_lower.hpp is what keeps a
-// numeric-looking value (a device serial) from being coerced in the first
-// place; this is the backstop for a hand-written .grc that bypasses it.
-static std::string string_from(const json& p, const std::string& key,
-                               const std::string& fallback)
-{
-    auto it = p.find(key);
-    if (it == p.end() || it->is_null())
-        return fallback;
-    if (it->is_string())
-        return it->get<std::string>();
-    if (it->is_number_integer())
-        return std::to_string(it->get<long long>());
-    if (it->is_number())
-        return std::to_string(it->get<double>());
-    if (it->is_boolean())
-        return it->get<bool>() ? "True" : "False";
-    return fallback;
-}
-
 static bool bool_from(const json& p, const std::string& key, bool fallback)
 {
     auto it = p.find(key);
@@ -2275,8 +2252,14 @@ static std::map<std::string, Factory>& registry_storage() {
                      "RTL-SDR Source: unsupported output type: " + type);
 
              const auto agc = bool_from(p, "gain_mode", false);
+             // wasm_registry::text() rather than json::value(): the latter
+             // throws type_error.302 on a type mismatch, which surfaces as an
+             // opaque "type must be string, but is number" naming no parameter.
+             // is_text_param() in grc_lower.hpp is what keeps a numeric-looking
+             // serial from being coerced in the first place; this is the
+             // backstop for a hand-written .grc that bypasses it.
              auto block = RtlSdrSource::make(
-                 string_from(p, "device", std::string()),
+                 wasm_registry::text(p, "device"),
                  output,
                  number_from(p, "samp_rate", 2048000.0),
                  number_from(p, "center_freq", 100e6),

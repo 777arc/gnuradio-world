@@ -11,28 +11,17 @@
 // automate the chooser, produces no prompt event in this environment -- neither
 // headless nor headful. Granting by hand once sidesteps it entirely.
 
-import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import puppeteer from 'puppeteer-core';
+import { INSTALL_HINT, findChrome } from './chrome.mjs';
 
 const ROOT = new URL('../..', import.meta.url).pathname;
 const PROFILE = join(ROOT, 'test/hw/.profile');
 const PAGE = 'http://localhost:8090/test/hw/rtlsdr_hw.html';
 
-function findChrome() {
-  const full = join(ROOT, 'chrome-for-testing', 'chrome');
-  if (!existsSync(full)) return null;
-  for (const version of readdirSync(full).sort().reverse()) {
-    const candidate = join(full, version, 'chrome-linux64', 'chrome');
-    if (existsSync(candidate)) return candidate;
-  }
-  return null;
-}
-
 const executablePath = findChrome();
 if (!executablePath) {
-  console.error('Install Chrome first:\n' +
-    '  npx @puppeteer/browsers install chrome@stable --path ./chrome-for-testing');
+  console.error(INSTALL_HINT);
   process.exit(1);
 }
 

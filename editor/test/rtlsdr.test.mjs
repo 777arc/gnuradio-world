@@ -10,24 +10,32 @@ import { bundleModule } from './bundle-module.mjs';
 
 const rtl = await bundleModule('../src/rtlsdr.ts');
 
-// ---- The device table matches the reader worker's ----
+// ---- The device table matches every other copy of it ----
 
-const workerSource = await readFile(
-  new URL('../../runner/src/rtlsdr_reader.js', import.meta.url), 'utf8');
-const table = workerSource.match(
-  /const RTL_DEVICE_FILTERS = \[([\s\S]*?)\n\];/);
-assert.ok(table, 'RTL_DEVICE_FILTERS not found in runner/src/rtlsdr_reader.js');
-const workerFilters = [...table[1].matchAll(
-  /vendorId:\s*(0x[0-9a-f]+),\s*productId:\s*(0x[0-9a-f]+)/gi)]
-  .map(([, vendorId, productId]) => `${vendorId}:${productId}`.toLowerCase());
+// Three files carry it: this module, the reader worker, and the hardware
+// harness page that grants the worker its permission. They run in three realms
+// and cannot share a module, so the table is compared as source text.
+async function filtersIn(path, name) {
+  const source = await readFile(new URL(path, import.meta.url), 'utf8');
+  const table = source.match(new RegExp(`const ${name} = \\[([\\s\\S]*?)\\n\\];`));
+  assert.ok(table, `${name} not found in ${path}`);
+  return [...table[1].matchAll(
+    /vendorId:\s*(0x[0-9a-f]+),\s*productId:\s*(0x[0-9a-f]+)/gi)]
+    .map(([, vendorId, productId]) => `${vendorId}:${productId}`.toLowerCase());
+}
+
 const editorFilters = rtl.RTLSDR_USB_FILTERS.map(
   f => `0x${f.vendorId.toString(16).padStart(4, '0')}:` +
        `0x${f.productId.toString(16).padStart(4, '0')}`);
+assert.ok(editorFilters.length >= 15, 'the editor table looks truncated');
 
-assert.ok(workerFilters.length >= 15, 'the worker table looks truncated');
-assert.deepEqual(editorFilters, workerFilters,
-  'editor/src/rtlsdr.ts and runner/src/rtlsdr_reader.js disagree about which ' +
-  'USB devices are RTL-SDRs');
+for (const [path, name] of [
+  ['../../runner/src/rtlsdr_reader.js', 'RTL_DEVICE_FILTERS'],
+  ['../../test/hw/rtlsdr_hw.html', 'RTL_FILTERS'],
+])
+  assert.deepEqual(await filtersIn(path, name), editorFilters,
+    `editor/src/rtlsdr.ts and ${path.replace('../../', '')} disagree about ` +
+    'which USB devices are RTL-SDRs');
 
 // ---- Device matching ----
 
@@ -82,6 +90,38 @@ assert.equal(rtl.deviceDisplay('00000001'), '00000001',
   'a pinned serial shows as itself');
 assert.equal(rtl.deviceDisplay('  00000001  '), '00000001');
 assert.equal(rtl.deviceDisplay('fake:100000'), 'fake:100000');
+
+// ---- What the Properties dialog offers ----
+
+// "First available" stays a real, selectable choice: pinning a serial into the
+// .grc is what makes a flowgraph unrunnable on anyone else's machine.
+assert.deepEqual(rtl.deviceOptions('', []),
+  [{ value: '', label: 'First available' }]);
+assert.deepEqual(rtl.deviceOptions('', [{ ...generic, productName: 'RTL2838' }]), [
+  { value: '', label: 'First available — RTL2838 · 00000001' },
+  { value: '00000001', label: 'RTL2838 · 00000001' },
+]);
+// A serial the browser cannot see right now still has to be listed, or opening
+// the dialog would silently repoint the block at a different dongle.
+assert.deepEqual(rtl.deviceOptions('00000009', [generic]).at(-1),
+  { value: '00000009', label: '00000009 — not connected' });
+assert.deepEqual(rtl.deviceOptions('fake:100000', []).at(-1),
+  { value: 'fake:100000', label: 'fake:100000 — test signal generator' });
+// A dongle with no serial cannot be named, so it appears only as "first
+// available" rather than as an option that would store an empty value twice.
+assert.equal(
+  rtl.deviceOptions('', [{ vendorId: 0x0bda, productId: 0x2838 }]).length, 1);
+
+assert.match(rtl.describeDevice('fake', [], true), /Test signal generator/);
+assert.match(rtl.describeDevice('00000001', [generic], true), /^Connected/);
+assert.match(rtl.describeDevice('00000009', [generic], true),
+  /not shared with this site/);
+assert.match(rtl.describeDevice('', [generic], true), /keeps the flowgraph portable/);
+assert.match(rtl.describeDevice('', [], true), /No RTL-SDR shared with this site/);
+// A Firefox user is told why the picker is inert rather than left with an
+// empty dropdown; the fake device is still described, since it needs no WebUSB.
+assert.match(rtl.describeDevice('00000001', [generic], false), /no WebUSB/);
+assert.match(rtl.describeDevice('fake', [], false), /Test signal generator/);
 
 // ---- No WebUSB at all ----
 

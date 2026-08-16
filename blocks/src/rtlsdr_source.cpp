@@ -105,15 +105,15 @@ RtlSdrSource::RtlSdrSource(std::string serial,
 
     // Stage the initial tuning as the first mailbox command rather than as
     // separate start() arguments, so the worker has one code path for the
-    // opening configuration and for every later retune.
-    const std::lock_guard<std::mutex> guard(d_command_mutex);
-    const auto hz = static_cast<std::int64_t>(center_freq);
-    d_control.freq_hi = static_cast<std::int32_t>(hz >> 32);
-    d_control.freq_lo = static_cast<std::int32_t>(hz & 0xffffffff);
-    d_control.gain_tenths = static_cast<std::int32_t>(gain_db * 10.0);
-    d_control.ppm = static_cast<std::int32_t>(freq_correction_ppm);
-    d_control.flags = (agc ? FLAG_AGC : 0) | (bias_tee ? FLAG_BIAS_TEE : 0);
-    d_control.cmd_seq = 1;
+    // opening configuration and for every later retune. This is what leaves
+    // cmd_seq at 1 before the worker ever looks at it.
+    stage([&] {
+        set_frequency_slots(center_freq);
+        store(&d_control.gain_tenths, static_cast<std::int32_t>(gain_db * 10.0));
+        store(&d_control.ppm, static_cast<std::int32_t>(freq_correction_ppm));
+        set_flag(FLAG_AGC, agc);
+        set_flag(FLAG_BIAS_TEE, bias_tee);
+    });
 }
 
 RtlSdrSource::~RtlSdrSource() { stop(); }
@@ -133,12 +133,27 @@ void RtlSdrSource::wake(std::int32_t* value)
     emscripten_futex_wake(value, INT_MAX);
 }
 
-void RtlSdrSource::publish_command()
+void RtlSdrSource::stage(const std::function<void()>& write_slots)
 {
+    const std::lock_guard<std::mutex> guard(d_command_mutex);
+    write_slots();
     // Seqlock: the worker re-reads the value slots whenever this counter moves
     // and retries if it moves again mid-read, so the release here is what makes
     // the slot writes above visible as one update.
     store(&d_control.cmd_seq, load(&d_control.cmd_seq) + 1);
+}
+
+void RtlSdrSource::set_flag(std::int32_t flag, bool on)
+{
+    const auto flags = load(&d_control.flags);
+    store(&d_control.flags, on ? (flags | flag) : (flags & ~flag));
+}
+
+void RtlSdrSource::set_frequency_slots(double hz)
+{
+    const auto value = static_cast<std::int64_t>(hz);
+    store(&d_control.freq_hi, static_cast<std::int32_t>(value >> 32));
+    store(&d_control.freq_lo, static_cast<std::int32_t>(value & 0xffffffff));
 }
 
 bool RtlSdrSource::start()
@@ -205,41 +220,27 @@ bool RtlSdrSource::stop()
 
 void RtlSdrSource::set_center_freq(double hz)
 {
-    const std::lock_guard<std::mutex> guard(d_command_mutex);
-    const auto value = static_cast<std::int64_t>(hz);
-    store(&d_control.freq_hi, static_cast<std::int32_t>(value >> 32));
-    store(&d_control.freq_lo, static_cast<std::int32_t>(value & 0xffffffff));
-    publish_command();
+    stage([&] { set_frequency_slots(hz); });
 }
 
 void RtlSdrSource::set_gain(double db)
 {
-    const std::lock_guard<std::mutex> guard(d_command_mutex);
-    store(&d_control.gain_tenths, static_cast<std::int32_t>(db * 10.0));
-    publish_command();
+    stage([&] { store(&d_control.gain_tenths, static_cast<std::int32_t>(db * 10.0)); });
 }
 
 void RtlSdrSource::set_gain_mode(bool agc)
 {
-    const std::lock_guard<std::mutex> guard(d_command_mutex);
-    const auto flags = load(&d_control.flags);
-    store(&d_control.flags, agc ? (flags | FLAG_AGC) : (flags & ~FLAG_AGC));
-    publish_command();
+    stage([&] { set_flag(FLAG_AGC, agc); });
 }
 
 void RtlSdrSource::set_freq_correction(double ppm)
 {
-    const std::lock_guard<std::mutex> guard(d_command_mutex);
-    store(&d_control.ppm, static_cast<std::int32_t>(ppm));
-    publish_command();
+    stage([&] { store(&d_control.ppm, static_cast<std::int32_t>(ppm)); });
 }
 
 void RtlSdrSource::set_bias_tee(bool on)
 {
-    const std::lock_guard<std::mutex> guard(d_command_mutex);
-    const auto flags = load(&d_control.flags);
-    store(&d_control.flags, on ? (flags | FLAG_BIAS_TEE) : (flags & ~FLAG_BIAS_TEE));
-    publish_command();
+    stage([&] { set_flag(FLAG_BIAS_TEE, on); });
 }
 
 std::string RtlSdrSource::reader_error() const

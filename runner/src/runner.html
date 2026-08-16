@@ -181,6 +181,9 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
       // See docs/rtlsdr.md.
       let nextRtlReaderId = 1;
       const rtlReaders = new Map();
+      // The reader messages that say where a run *is*, as opposed to the ones
+      // that report on a run already under way.
+      const RTL_STATES = new Set(['running', 'cancelled', 'error']);
       window.__grUsbStats = Object.create(null);
       window.__grStartRtlSdrSource = (
         serial, memory, ringPointer, capacityPairs,
@@ -210,14 +213,17 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
           if (Number.isFinite(message.droppedPairs))
             stats.droppedPairs = message.droppedPairs;
           if (Number.isFinite(message.actualRate)) stats.actualRate = message.actualRate;
-          // Tracing is a running commentary, not a state: it must not overwrite
-          // 'running' in the stats, and it is the one message that is expected
-          // to arrive in bulk.
+          // Tracing is a running commentary, not a state, and it is the one
+          // message expected to arrive in bulk.
           if (message.type === 'trace') {
             console.log(`RTL-SDR ${label}| ${message.text}`);
             return;
           }
-          if (message.type) stats.state = message.type;
+          // Only a lifecycle message moves `state`. 'tuner', 'progress' and
+          // 'overrun' all report on a reader that is still running, so letting
+          // them through would leave the debug panel showing a graph that had
+          // merely passed 16 MB as though 'progress' were where it had stopped.
+          if (RTL_STATES.has(message.type)) stats.state = message.type;
           if (message.type === 'tuner')
             console.log(`RTL-SDR Source ${label}: tuner ${message.tuner}, ` +
                         `${message.manufacturer || '?'} / ${message.model || '?'}`);
