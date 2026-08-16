@@ -522,6 +522,7 @@
     "wasm_gui_layout",
     "wasm_packet_rate_sink",
     "wasm_public_http_recording",
+    "wasm_rtlsdr_source",
     "wasm_text_sink"
   ],
   "skipped": {

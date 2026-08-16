@@ -95831,6 +95831,182 @@
    ]
   },
   {
+   "id": "wasm_rtlsdr_source",
+   "label": "RTL-SDR Source",
+   "category": [
+    "Core",
+    "Sources"
+   ],
+   "flags": [
+    "cpp",
+    "throttle"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "gui": false,
+   "module": "core",
+   "documentation": "Receives from an RTL-SDR dongle plugged into this computer, over WebUSB.\n\nDevice names the dongle by serial number. Click Select to pick one -- the\nbrowser asks permission once per device and remembers it for this site.\nLeave it empty to use the first RTL-SDR you have already granted access to.\n\nRequires a Chromium-based browser (Chrome, Edge, Opera) on desktop or\nAndroid. Firefox and Safari do not implement WebUSB and cannot run this\nblock at all.\n\nOn Linux the kernel's DVB-T driver claims the dongle first, so blacklist\ndvb_usb_rtl28xxu and add a udev rule granting your user access; Chromium\ninstalled as a Snap cannot reach USB devices at all. On Windows the dongle\nneeds the WinUSB driver, which Zadig installs. macOS, Android and ChromeOS\nneed no setup.\n\nSample Rate is a request. The RTL2832U divides a 28.8 MHz clock, so the\nachievable rate is what the flowgraph actually runs at; it is reported to\nthe console when the graph starts. 2.4 MS/s and below are reliable, and\n2.88 or 3.2 MS/s drop samples on most hardware -- those losses are counted\nand reported as overruns rather than silently closing the gap.\n\nCenter Freq and RF Gain accept a QT GUI Range and can be changed while the\nflowgraph runs. Sample Rate cannot: it is read once, when the block is\nbuilt.\n\nDirect Sampling bypasses the tuner to receive below ~24 MHz. It needs a\ndongle wired for it (an RTL-SDR V3 shorts the Q branch internally); on\neverything else it receives nothing but noise.\n\nThis block exists only in the WebAssembly runner -- it has no Python\nimplementation, so a flowgraph using it will not run in desktop GNU Radio.\nSoapy RTLSDR Source is the native equivalent.",
+   "api_documentation": "",
+   "wiki_url": "https://wiki.gnuradio.org/index.php/RTL-SDR_Source",
+   "params": [
+    {
+     "id": "device",
+     "label": "Device",
+     "dtype": "rtlsdr_device",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "type",
+     "label": "Output Type",
+     "dtype": "enum",
+     "default": "complex",
+     "category": "General",
+     "options": [
+      "complex",
+      "short",
+      "byte"
+     ],
+     "option_labels": [
+      "Complex Float32",
+      "Complex Int16",
+      "Complex Byte"
+     ],
+     "option_attributes": {
+      "size": [
+       "gr.sizeof_gr_complex",
+       "gr.sizeof_short",
+       "gr.sizeof_char"
+      ]
+     },
+     "hide": "part"
+    },
+    {
+     "id": "samp_rate",
+     "label": "Sample Rate",
+     "dtype": "float",
+     "default": "samp_rate",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "center_freq",
+     "label": "Center Freq (Hz)",
+     "dtype": "real",
+     "default": "100e6",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "gain_mode",
+     "label": "Gain Mode",
+     "dtype": "enum",
+     "default": "False",
+     "category": "General",
+     "options": [
+      "False",
+      "True"
+     ],
+     "option_labels": [
+      "Manual",
+      "Automatic"
+     ],
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "gain",
+     "label": "RF Gain (dB)",
+     "dtype": "real",
+     "default": "30",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    },
+    {
+     "id": "freq_correction",
+     "label": "Frequency Correction (PPM)",
+     "dtype": "real",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    },
+    {
+     "id": "direct_samp",
+     "label": "Direct Sampling",
+     "dtype": "enum",
+     "default": "0",
+     "category": "General",
+     "options": [
+      "0",
+      "1",
+      "2"
+     ],
+     "option_labels": [
+      false,
+      "I branch",
+      "Q branch"
+     ],
+     "option_attributes": null,
+     "hide": "part"
+    },
+    {
+     "id": "bias_tee",
+     "label": "Bias Tee Power",
+     "dtype": "enum",
+     "default": "False",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": [
+      true,
+      false
+     ],
+     "option_attributes": null,
+     "hide": "part"
+    },
+    {
+     "id": "bufflen",
+     "label": "USB Transfer Size",
+     "dtype": "int",
+     "default": "262144",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [],
+   "outputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "${ type }",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
    "id": "wasm_text_sink",
    "label": "Text Sink",
    "category": [

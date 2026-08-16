@@ -101,6 +101,7 @@ qt_add_executable(runner
   src/runner.cpp
   src/registry.cpp
   ${BLOCKS}/src/browser_file_source.cpp
+  ${BLOCKS}/src/rtlsdr_source.cpp
   ${BLOCKS}/overlays/gr-paint/paint_image_source.cpp
   ${BLOCKS}/overlays/gr-fosphor/fosphor_webgpu_sink.cpp
   src/generated_registry.cpp
@@ -195,6 +196,9 @@ add_custom_command(TARGET runner POST_BUILD
           ${CMAKE_CURRENT_SOURCE_DIR}/src/browser_file_reader.js
           ${CMAKE_CURRENT_BINARY_DIR}/browser_file_reader.js
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/rtlsdr_reader.js
+          ${CMAKE_CURRENT_BINARY_DIR}/rtlsdr_reader.js
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
           ${CMAKE_CURRENT_SOURCE_DIR}/src/fosphor_webgpu.js
           ${CMAKE_CURRENT_BINARY_DIR}/fosphor_webgpu.js
   COMMAND ${CMAKE_COMMAND} -E copy_directory
@@ -204,6 +208,7 @@ add_custom_command(TARGET runner POST_BUILD
 set_property(TARGET runner APPEND PROPERTY LINK_DEPENDS
   ${CMAKE_CURRENT_SOURCE_DIR}/src/runner.html
   ${CMAKE_CURRENT_SOURCE_DIR}/src/browser_file_reader.js
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/rtlsdr_reader.js
   ${CMAKE_CURRENT_SOURCE_DIR}/src/fosphor_webgpu.js
   ${CMAKE_CURRENT_SOURCE_DIR}/src/pyodide/gr_pyodide_worker.js)
 

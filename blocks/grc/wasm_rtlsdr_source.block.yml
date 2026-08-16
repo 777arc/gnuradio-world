@@ -1,0 +1,113 @@
+id: wasm_rtlsdr_source
+label: RTL-SDR Source
+category: '[Core]/Sources'
+flags: [cpp, throttle]
+
+documentation: |-
+    Receives from an RTL-SDR dongle plugged into this computer, over WebUSB.
+
+    Device names the dongle by serial number. Click Select to pick one -- the
+    browser asks permission once per device and remembers it for this site.
+    Leave it empty to use the first RTL-SDR you have already granted access to.
+
+    Requires a Chromium-based browser (Chrome, Edge, Opera) on desktop or
+    Android. Firefox and Safari do not implement WebUSB and cannot run this
+    block at all.
+
+    On Linux the kernel's DVB-T driver claims the dongle first, so blacklist
+    dvb_usb_rtl28xxu and add a udev rule granting your user access; Chromium
+    installed as a Snap cannot reach USB devices at all. On Windows the dongle
+    needs the WinUSB driver, which Zadig installs. macOS, Android and ChromeOS
+    need no setup.
+
+    Sample Rate is a request. The RTL2832U divides a 28.8 MHz clock, so the
+    achievable rate is what the flowgraph actually runs at; it is reported to
+    the console when the graph starts. 2.4 MS/s and below are reliable, and
+    2.88 or 3.2 MS/s drop samples on most hardware -- those losses are counted
+    and reported as overruns rather than silently closing the gap.
+
+    Center Freq and RF Gain accept a QT GUI Range and can be changed while the
+    flowgraph runs. Sample Rate cannot: it is read once, when the block is
+    built.
+
+    Direct Sampling bypasses the tuner to receive below ~24 MHz. It needs a
+    dongle wired for it (an RTL-SDR V3 shorts the Q branch internally); on
+    everything else it receives nothing but noise.
+
+    This block exists only in the WebAssembly runner -- it has no Python
+    implementation, so a flowgraph using it will not run in desktop GNU Radio.
+    Soapy RTLSDR Source is the native equivalent.
+
+parameters:
+# Browser-only dtype: the Properties dialog renders it as a device picker over
+# navigator.usb, and a .grc stores only the serial number it chose.
+-   id: device
+    label: Device
+    dtype: rtlsdr_device
+    default: ''
+-   id: type
+    label: Output Type
+    dtype: enum
+    default: complex
+    options: [complex, short, byte]
+    option_labels: [Complex Float32, Complex Int16, Complex Byte]
+    option_attributes:
+        size: [gr.sizeof_gr_complex, gr.sizeof_short, gr.sizeof_char]
+    hide: part
+-   id: samp_rate
+    label: Sample Rate
+    dtype: float
+    default: samp_rate
+# A literal, unlike Soapy RTLSDR Source's 'freq': the default flowgraph has a
+# samp_rate variable but no freq, so referencing one would not evaluate.
+-   id: center_freq
+    label: 'Center Freq (Hz)'
+    dtype: real
+    default: '100e6'
+-   id: gain_mode
+    label: Gain Mode
+    dtype: enum
+    default: 'False'
+    options: ['False', 'True']
+    option_labels: [Manual, Automatic]
+-   id: gain
+    label: 'RF Gain (dB)'
+    dtype: real
+    default: '30'
+    hide: part
+-   id: freq_correction
+    label: 'Frequency Correction (PPM)'
+    dtype: real
+    default: '0'
+    hide: part
+-   id: direct_samp
+    label: Direct Sampling
+    dtype: enum
+    default: '0'
+    options: ['0', '1', '2']
+    option_labels: [Off, I branch, Q branch]
+    hide: part
+-   id: bias_tee
+    label: Bias Tee Power
+    dtype: enum
+    default: 'False'
+    options: ['True', 'False']
+    option_labels: [On, Off]
+    hide: part
+# One bulk transfer's size. librtlsdr uses 16 * 32 * 512 for the same job, and
+# the RTL2832U's bulk endpoint only delivers whole 512-byte packets.
+-   id: bufflen
+    label: 'USB Transfer Size'
+    dtype: int
+    default: '262144'
+    hide: part
+
+asserts:
+-   ${ bufflen % 512 == 0 }
+-   ${ bufflen > 0 }
+
+outputs:
+-   domain: stream
+    dtype: ${ type }
+
+file_format: 1

@@ -45,6 +45,16 @@ inline std::string scalar_to_str(const json& v) {
 // numeric strings back to numbers; leave expressions/enums/text as strings.
 // Uses strtoll/strtod (non-throwing): std::stoll/std::stod on non-numeric text
 // throw, and in this Emscripten build that exception escapes uncatchably.
+// Parameters whose value is text even when it reads as a number, so
+// coerce_numeric below must leave them alone. A device serial number is the
+// case that forced this: "00000001" is not the integer 1, and coercing it loses
+// the leading zeros the dongle actually reports, so the serial never matches
+// again. Anything here is a parameter a *human* types or a picker fills in,
+// never one a factory wants as a number.
+inline bool is_text_param(const std::string& block_id, const std::string& param) {
+    return block_id == "wasm_rtlsdr_source" && param == "device";
+}
+
 inline json coerce_numeric(const std::string& s) {
     if (s.empty()) return json(s);
     const char* b = s.c_str();
@@ -108,14 +118,15 @@ inline json lower(const json& g) {
         if (plainVar.count(raw)) return resolveVar(raw, seen);
         return json(raw);
     };
-    auto resolveParams = [&](const json& params) -> json {
+    auto resolveParams = [&](const std::string& block_id, const json& params) -> json {
         json r = json::object();
         if (params.is_object())
             for (auto& it : params.items()) {
                 const json& v = it.value();
                 if (v.is_string()) {
                     const std::string s = v.get<std::string>();
-                    if (plainVar.count(s)) { std::set<std::string> seen; r[it.key()] = resolveVar(s, seen); }
+                    if (is_text_param(block_id, it.key())) r[it.key()] = s;
+                    else if (plainVar.count(s)) { std::set<std::string> seen; r[it.key()] = resolveVar(s, seen); }
                     else r[it.key()] = coerce_numeric(s);
                 } else r[it.key()] = v;
             }
@@ -181,7 +192,7 @@ inline json lower(const json& g) {
         json nb = json::object();
         nb["name"] = name; nb["id"] = id;
         nb["params"] = (b.contains("parameters") && b["parameters"].is_object())
-            ? resolveParams(b["parameters"]) : json::object();
+            ? resolveParams(id, b["parameters"]) : json::object();
         blocksOut.push_back(std::move(nb));
     }
 

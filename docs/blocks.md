@@ -214,6 +214,18 @@ editor by `GUI_IDS` in `gen_registry.py` → the `gui` flag in blocks.json, so a
 factory that grows a `QWidget` without an entry there silently loses its tile. See
 [gui-layout.md](gui-layout.md).
 
+### The block that reads hardware
+
+RTL-SDR Source is the one block whose data comes from a USB device rather than a
+file, a URL or another block. It is the same shape as `BrowserFileSource` — a
+worker fills a ring in shared WASM memory, `work()` drains it on the source's own
+scheduler pthread — with the differences a live source forces: a full ring drops
+rather than waits, and the block sends commands *back* through a mailbox so a QT
+GUI Range can retune the dongle while the graph runs. Its device permission has
+to be obtained under a user gesture before the flowgraph starts, which is why the
+editor prompts on the Run click. Read [rtlsdr.md](rtlsdr.md) before touching any
+of it.
+
 ### The three blocks that read a file
 
 File Source, GR World Recording and Public HTTP Recording are all

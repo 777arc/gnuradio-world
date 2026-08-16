@@ -15,6 +15,7 @@ full* before starting that kind of work:
 | [docs/flowgraph-files.md](docs/flowgraph-files.md) | writing or editing a `.grc` by hand — anything in `example_flowgraphs/` or `test/fixtures/`, parameter dtypes, expressions, PMTs |
 | [docs/adding-modules.md](docs/adding-modules.md) | adding a GNU Radio component library or vendoring an out-of-tree module — a self-contained checklist for both, plus the gr-satellites rebuilds |
 | [docs/recording-viewer.md](docs/recording-viewer.md) | touching the three source blocks that read a file (File Source, GR World Recording, Public HTTP Recording), the R2 recording bucket and its CORS policy, recording tabs, or the SigMF viewer under `editor/src/recording/` |
+| [docs/rtlsdr.md](docs/rtlsdr.md) | touching RTL-SDR Source — the WebUSB reader worker, the RTL2832U/tuner drivers, the device-permission flow, or anything that has to reach USB hardware from a tab |
 | [docs/editor-ui.md](docs/editor-ui.md) | working on block IDs, auto-arrange, the narrow-screen/touch layout, or the embedded layout another site frames (`?embed=1`) |
 | [docs/gui-layout.md](docs/gui-layout.md) | touching where QT GUI widgets go in the runner window — the GUI Layout block, `editor/src/gui-layout*.ts`, `runner/src/gui_layout.hpp`, or Arrange mode |
 | [docs/ci.md](docs/ci.md) | changing a workflow, the deploy, PR preview deployments, or the PR security gate (`security-analysis.yml`, `scripts/pr-security-scan.mjs`) |
@@ -340,6 +341,14 @@ explanation lives in that doc — follow it before working in that area.
   session-bound), GR World Recording (an R2 key the runner's factory expands), and
   Public HTTP Recording (a URL the editor rewrites on the Run path). See
   [docs/recording-viewer.md](docs/recording-viewer.md).
+- **One block reads a radio, and its permission is granted before the graph
+  starts.** RTL-SDR Source reaches a dongle over WebUSB from a worker, through
+  the same shared-memory ring and futex `BrowserFileSource` uses — but a live
+  source cannot backpressure, so a full ring drops and counts. `requestDevice()`
+  needs a user gesture that neither a GNU Radio constructor nor a worker has, so
+  the editor prompts on the Run click and the worker re-acquires the device by
+  origin permission; no `USBDevice` ever crosses a frame. Chromium only. See
+  [docs/rtlsdr.md](docs/rtlsdr.md).
 - **Python-only blocks have no automatic C++ path** — a `gr.hier_block2`, a GUI
   QWidget, or a block resting on a host facility gets a hand-written rebuild or
   stays greyed out in the palette. See [docs/blocks.md](docs/blocks.md).

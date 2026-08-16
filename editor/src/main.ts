@@ -38,6 +38,19 @@ import {
   validateFlowgraph,
 } from './validation';
 import {
+  RTLSDR_DTYPE,
+  RTLSDR_ID,
+  RTLSDR_USB_FILTERS,
+  type UsbLike,
+  deviceDisplay,
+  isFakeDevice,
+  prepareRtlDevices,
+  refreshRtlDevices,
+  rtlLabel,
+  usbApi,
+  watchRtlDevices,
+} from './rtlsdr';
+import {
   buildRecordingTree,
   displayBytes,
   displayRecordingValue,
@@ -176,6 +189,9 @@ const RUN_BOUND_PARAMS: Record<string, string> = {
   ...LOCAL_FILE_PARAMS,
   [HTTP_RECORDING_ID]: HTTP_RECORDING_PARAM,
 };
+
+// RTL-SDR Source's dongle: named by serial number in the .grc, chosen through
+// the browser's own device picker. The WebUSB half lives in ./rtlsdr.
 
 const localFilesByToken = new Map<string, File>();
 function newLocalFileToken(): string {
@@ -588,6 +604,10 @@ function truncateValue(label: string, s: string, style = 0): string {
 function paramDisplay(p: ParamDef, raw: any): string {
   const cut = (s: string, style = 0) => truncateValue(p.label, s, style);
   const fileStyle = p.dtype === 'file_open' || p.dtype === 'file_save' ? -1 : 0;
+  // An RTL-SDR's device is the one parameter whose empty value means something
+  // ("first available"), so it resolves to the dongle it will actually open
+  // rather than drawing an empty row. See deviceDisplay().
+  if (p.dtype === RTLSDR_DTYPE) return cut(deviceDisplay(String(raw ?? '')));
   if (p.type !== 'number') {
     const optionIndex = p.options?.indexOf(String(raw)) ?? -1;
     const display = optionIndex >= 0 ? p.optionLabels?.[optionIndex] ?? raw : raw;
@@ -2078,6 +2098,122 @@ function showPropsDialog(inst: Inst) {
       picker.append(inp, choose, native, detail);
       addField(p.category || 'General', `${p.label}  (${p.id})`, picker, p.id, inp);
       refreshDetail();
+      if (p.showWhen) conditionalRows.push({ param: p, row: picker.closest('.dlgrow') as HTMLElement });
+    } else if (p.dtype === RTLSDR_DTYPE) {
+      // RTL-SDR Source's dongle. Unlike a local file this binds nothing for the
+      // session: the browser remembers the permission per origin, so all a .grc
+      // needs is the serial number, and the runner's worker finds the device
+      // again by itself. Degrades to a plain text field where WebUSB is absent,
+      // so a flowgraph authored in Firefox still round-trips.
+      const picker = document.createElement('div'); picker.className = 'file-picker';
+      const select = document.createElement('select');
+      // The fallback for a .grc naming a dongle that is not plugged in, and for
+      // a browser with no WebUSB at all: the value still round-trips.
+      const typed = document.createElement('input');
+      typed.hidden = true;
+      typed.placeholder = 'serial number, or blank for the first available';
+      const choose = document.createElement('button'); choose.type = 'button';
+      choose.textContent = 'Add…';
+      choose.title = 'Grant this site access to another RTL-SDR';
+      const detail = document.createElement('small'); detail.className = 'file-picker-detail';
+      let shared: UsbLike[] = [];
+
+      // "First available" is the portable default -- a flowgraph pinned to one
+      // dongle's serial will not run on anyone else's -- so the empty value is
+      // kept as a real choice rather than silently replaced by a serial. What
+      // it currently resolves to is spelled out instead, in the option itself
+      // and again below, so the field never reads as simply blank.
+      const fill = () => {
+        const serial = String(tmp.params[p.id] ?? '').trim();
+        select.replaceChildren();
+        const add = (value: string, label: string) => {
+          const option = document.createElement('option');
+          option.value = value; option.textContent = label;
+          select.appendChild(option);
+        };
+        add('', shared.length
+          ? `First available — ${rtlLabel(shared[0])}`
+          : 'First available');
+        for (const device of shared)
+          if (device.serialNumber) add(device.serialNumber, rtlLabel(device));
+        // A serial the browser cannot see right now still belongs in the list,
+        // or opening the dialog would silently repoint the block at a dongle
+        // the reader never chose.
+        if (serial && !shared.some(d => d.serialNumber === serial))
+          add(serial, isFakeDevice(serial)
+            ? `${serial} — test signal generator`
+            : `${serial} — not connected`);
+        select.value = serial;
+      };
+
+      const describe = () => {
+        const serial = String(tmp.params[p.id] ?? '').trim();
+        if (isFakeDevice(serial)) {
+          detail.textContent =
+            'Test signal generator — no hardware is opened. Used by the ' +
+            'runner\'s own tests.';
+          return;
+        }
+        if (!usbApi()) {
+          detail.textContent =
+            'This browser has no WebUSB, so no device can be chosen here. ' +
+            'Chrome, Edge and Opera can run this block.';
+          return;
+        }
+        if (!shared.length) {
+          detail.textContent =
+            'No RTL-SDR shared with this site yet — click Add, or just press ' +
+            'Run and the browser will ask.';
+          return;
+        }
+        if (!serial) {
+          detail.textContent =
+            `Uses ${rtlLabel(shared[0])}` +
+            (shared.length > 1
+              ? ` — first of ${shared.length} shared with this site`
+              : '') +
+            '. Leaving this on "first available" keeps the flowgraph portable.';
+          return;
+        }
+        const match = shared.find(d => d.serialNumber === serial);
+        detail.textContent = match
+          ? `Connected · ${rtlLabel(match)}`
+          : `"${serial}" is not shared with this site right now — plug it in, ` +
+            'or click Add.';
+      };
+
+      // The same cache the block face draws from, so the dialog and the canvas
+      // cannot name different dongles for one flowgraph.
+      const refreshDevices = async () => {
+        shared = await refreshRtlDevices();
+        if (!usbApi()) { select.hidden = true; typed.hidden = false; choose.disabled = true; }
+        fill(); describe(); render();
+      };
+      const commit = (serial: string) => {
+        tmp.params[p.id] = serial;
+        fill(); describe(); refreshVisibility(); refreshValidation();
+      };
+      select.onchange = () => commit(select.value);
+      typed.oninput = () => { tmp.params[p.id] = typed.value.trim(); describe(); refreshValidation(); };
+      choose.onclick = async () => {
+        const usb = usbApi();
+        if (!usb) return;
+        try {
+          const device: UsbLike =
+            await usb.requestDevice({ filters: RTLSDR_USB_FILTERS });
+          shared = await refreshRtlDevices();
+          // A dongle with no serial cannot be named, so it can only ever be
+          // reached as "first available".
+          commit(device.serialNumber ?? '');
+        } catch {
+          await refreshDevices();   // the chooser was dismissed
+        }
+      };
+      typed.value = String(tmp.params[p.id] ?? '');
+      picker.append(select, typed, choose, detail);
+      addField(p.category || 'General', `${p.label}  (${p.id})`, picker, p.id, select);
+      fill();
+      void refreshDevices();
       if (p.showWhen) conditionalRows.push({ param: p, row: picker.closest('.dlgrow') as HTMLElement });
     } else if (p.dtype === RECORDING_DTYPE) {
       // GR World Recording's recording, chosen from the live bucket index — the
@@ -3724,6 +3860,18 @@ async function run() {
   if (!insts.some(i => i.id !== OPTIONS_ID && i.id !== LAYOUT_ID)) {
     log('nothing to run — add some blocks'); return;
   }
+  // The one thing that must happen under the Run click itself: WebUSB's
+  // requestDevice() needs a user gesture, and neither the runner's constructor
+  // nor its worker has one. Everything below this point may await freely; this
+  // may not, so it comes before the first await that is not part of the prompt.
+  const usbProblem = await prepareRtlDevices(insts);
+  if (usbProblem) {
+    log(`cannot run: ${usbProblem}`);
+    const block = insts.find(i => i.id === RTLSDR_ID && i.enabled && !i.bypassed);
+    if (block) select(block.uid);
+    return;
+  }
+
   const recordingFiles: RunnerInputFile[] = [];
   const fileOverrides = new Map<string, string>();
   const addedPaths = new Set<string>();
@@ -5111,6 +5259,9 @@ initArrangeOverlay();
 
 const paletteReady = buildPalette();
 ensureOptionsBlock();
+// An RTL-SDR Source left on "first available" draws the dongle it resolves to,
+// so the canvas has to redraw when one is plugged in or pulled out.
+watchRtlDevices(() => render());
 select(null); render();
 log('Editor ready. Click ▶ Run to execute the flowgraph in WebAssembly.');
 // A flowgraph named by the URL fragment wins over the default example.

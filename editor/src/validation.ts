@@ -157,6 +157,28 @@ export function validateFlowgraph(
       if (minLength !== null && minLength < 1)
         add(block, 'min_len', 'Minimum Length must be at least 1.');
     }
+    // Mirror what the RTL-SDR hardware will and will not accept, so a rate the
+    // dongle silently mangles is caught here rather than after a run produces
+    // nothing recognisable. The two windows are librtlsdr's; the gap between
+    // them is a region the RTL2832U's resampler cannot reach. Whether a *device*
+    // is attached cannot be settled here — that needs an await and a user
+    // gesture, so the Run path prompts for it instead (prepareRtlDevices).
+    if (block.id === 'wasm_rtlsdr_source') {
+      const sampleRate = resolvedNumber(block.params.samp_rate, staticScope);
+      if (sampleRate !== null &&
+          !((sampleRate > 225000 && sampleRate <= 300000) ||
+            (sampleRate > 900000 && sampleRate <= 3200000)))
+        add(block, 'samp_rate',
+          'RTL-SDR sample rate must be 225–300 kS/s or 900 kS/s–3.2 MS/s. ' +
+          'Above 2.4 MS/s samples are usually dropped.');
+      const bufflen = resolvedNumber(block.params.bufflen, staticScope);
+      if (bufflen !== null && (!Number.isInteger(bufflen) || bufflen <= 0 || bufflen % 512))
+        add(block, 'bufflen', 'USB Transfer Size must be a positive multiple of 512.');
+      // Deliberately no check on center_freq being below the tuner's ~24 MHz
+      // floor: an RTL-SDR V4 upconverts HF on its own, and every issue raised
+      // on an active block blocks the run, so that would refuse a flowgraph
+      // that works. The block's documentation covers direct sampling instead.
+    }
     if (block.id === 'blocks_selector') {
       const numInputs = resolvedNumber(block.params.num_inputs, staticScope);
       const numOutputs = resolvedNumber(block.params.num_outputs, staticScope);

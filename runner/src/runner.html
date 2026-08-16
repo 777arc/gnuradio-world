@@ -174,6 +174,99 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
         stats.state = 'running';
         return id;
       };
+      // RtlSdrSource.start() proxies here for the same reason, and the reader
+      // it launches owns the USBDevice for as long as the flowgraph runs. The
+      // permission itself is granted by the editor on a user gesture before the
+      // graph starts; this worker only re-acquires it through getDevices().
+      // See docs/rtlsdr.md.
+      let nextRtlReaderId = 1;
+      const rtlReaders = new Map();
+      window.__grUsbStats = Object.create(null);
+      window.__grStartRtlSdrSource = (
+        serial, memory, ringPointer, capacityPairs,
+        controlPointer, errorPointer, sampleRate, directSampling, bufflen
+      ) => {
+        const id = nextRtlReaderId++;
+        const workerUrl = new URL('rtlsdr_reader.js', location.href);
+        if (window.__grBuildStamp) workerUrl.searchParams.set('v', window.__grBuildStamp);
+        const worker = new Worker(workerUrl);
+        const label = serial || 'first available';
+        const stats = {
+          serial: label,
+          ringBytes: capacityPairs * 2,
+          requestedRate: sampleRate,
+          actualRate: 0,
+          bytesRead: 0,
+          overruns: 0,
+          droppedPairs: 0,
+          state: 'starting',
+        };
+        window.__grUsbStats[id] = stats;
+        rtlReaders.set(id, worker);
+        worker.onmessage = event => {
+          const message = event.data || {};
+          if (Number.isFinite(message.bytesRead)) stats.bytesRead = message.bytesRead;
+          if (Number.isFinite(message.overruns)) stats.overruns = message.overruns;
+          if (Number.isFinite(message.droppedPairs))
+            stats.droppedPairs = message.droppedPairs;
+          if (Number.isFinite(message.actualRate)) stats.actualRate = message.actualRate;
+          // Tracing is a running commentary, not a state: it must not overwrite
+          // 'running' in the stats, and it is the one message that is expected
+          // to arrive in bulk.
+          if (message.type === 'trace') {
+            console.log(`RTL-SDR ${label}| ${message.text}`);
+            return;
+          }
+          if (message.type) stats.state = message.type;
+          if (message.type === 'tuner')
+            console.log(`RTL-SDR Source ${label}: tuner ${message.tuner}, ` +
+                        `${message.manufacturer || '?'} / ${message.model || '?'}`);
+          if (message.type === 'error') {
+            console.error(`RTL-SDR Source ${label}: ${message.message}`);
+            // The USB operations leading up to the failure. console.group keeps
+            // a 60-line flight recorder from burying everything else.
+            if (message.recent && message.recent.length) {
+              console.groupCollapsed(
+                `RTL-SDR Source ${label}: last ${message.recent.length} USB operations`);
+              for (const line of message.recent) console.log(line);
+              console.groupEnd();
+            }
+          }
+          if (message.type === 'cancelled' || message.type === 'error')
+            rtlReaders.delete(id);
+        };
+        worker.onerror = event => {
+          stats.state = 'error';
+          console.error(
+            `RTL-SDR Source worker ${label}: ${event.message || 'worker error'}`);
+          rtlReaders.delete(id);
+        };
+        worker.postMessage({
+          serial,
+          memory,
+          ringPointer,
+          capacityPairs,
+          controlPointer,
+          errorPointer,
+          errorCapacity: 512,
+          sampleRate,
+          directSampling,
+          bufflen,
+        });
+        return id;
+      };
+      window.__grStopRtlSdrSource = id => {
+        const worker = rtlReaders.get(id);
+        // The worker closes itself on the CANCELLED state the block sets before
+        // calling this, which is what lets it release the USB interface first.
+        // Terminating outright would leave the dongle claimed until the page
+        // unloads, so give it a moment before pulling the plug.
+        if (worker) setTimeout(() => worker.terminate(), 250);
+        rtlReaders.delete(id);
+        const stats = window.__grUsbStats[id];
+        if (stats && stats.state !== 'error') stats.state = 'cancelled';
+      };
+
       window.__grStopBrowserFileSource = id => {
         const worker = fileReaders.get(id);
         if (worker) worker.terminate();

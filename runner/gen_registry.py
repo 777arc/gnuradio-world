@@ -93,6 +93,12 @@ CUSTOM_IDS = {
     # The same reader over a file at any public URL, which the editor binds on
     # the Run path. See blocks/grc/wasm_public_http_recording.block.yml.
     "wasm_public_http_recording",
+    # An RTL-SDR on this computer, over WebUSB. A dedicated worker owns the
+    # dongle and fills a shared-memory ring the block drains; nothing about it
+    # exists upstream, because native GNU Radio reaches the same hardware
+    # through SoapySDR or gr-osmosdr. See blocks/grc/wasm_rtlsdr_source.block.yml
+    # and docs/rtlsdr.md.
+    "wasm_rtlsdr_source",
     # Runner-only HRPT AVHRR image display; no upstream equivalent (gr-hrpt's
     # own noaa_hrpt_decoder never extracts imagery). See
     # blocks/src/hrpt_image_sink.hpp.

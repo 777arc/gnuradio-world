@@ -1,0 +1,51 @@
+options:
+    parameters:
+        id: rtlsdr_fake
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+blocks:
+# Device 'fake' selects the generator in runner/src/rtlsdr_reader.js instead of
+# a USBDevice, so this exercises the ring, the futex handoff, the command
+# mailbox and the u8->complex conversion on a machine with nothing plugged in.
+# See docs/rtlsdr.md.
+-   name: rtl
+    id: wasm_rtlsdr_source
+    parameters:
+        device: 'fake:100000'
+        type: complex
+        samp_rate: '1024000'
+        center_freq: '100000000'
+        gain_mode: 'False'
+        gain: '30'
+        freq_correction: '0'
+        direct_samp: '0'
+        bias_tee: 'False'
+        bufflen: '16384'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: mag
+    id: blocks_complex_to_mag
+    parameters:
+        vlen: '1'
+    states:
+        coordinate: [200, 0]
+        rotation: 0
+        state: enabled
+-   name: probe
+    id: blocks_probe_signal_x
+    parameters:
+        type: float
+    states:
+        coordinate: [400, 0]
+        rotation: 0
+        state: enabled
+connections:
+- [rtl, '0', mag, '0']
+- [mag, '0', probe, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0

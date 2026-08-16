@@ -1,6 +1,7 @@
 #include "registry.hpp"
 #include "registry_helpers.hpp"
 #include "browser_file_source.hpp"
+#include "rtlsdr_source.hpp"
 #include "paint_image_source.hpp"
 #include "rds_panel.hpp"
 #include "fosphor_sink.hpp"
@@ -159,6 +160,29 @@ static int itemsize_of(const json& p)
 static std::string type_from(const json& p, const std::string& fallback)
 {
     return p.value("type", fallback);
+}
+
+// A text parameter, read without assuming the lowering step left it as text.
+// json::value() throws type_error.302 on a type mismatch, and that surfaces as
+// an opaque "type must be string, but is number" with no parameter named -- so
+// accept whatever arrived. is_text_param() in grc_lower.hpp is what keeps a
+// numeric-looking value (a device serial) from being coerced in the first
+// place; this is the backstop for a hand-written .grc that bypasses it.
+static std::string string_from(const json& p, const std::string& key,
+                               const std::string& fallback)
+{
+    auto it = p.find(key);
+    if (it == p.end() || it->is_null())
+        return fallback;
+    if (it->is_string())
+        return it->get<std::string>();
+    if (it->is_number_integer())
+        return std::to_string(it->get<long long>());
+    if (it->is_number())
+        return std::to_string(it->get<double>());
+    if (it->is_boolean())
+        return it->get<bool>() ? "True" : "False";
+    return fallback;
 }
 
 static bool bool_from(const json& p, const std::string& key, bool fallback)
@@ -2231,6 +2255,52 @@ static std::map<std::string, Factory>& registry_storage() {
                                                offset,
                                                length),
                       nullptr };
+        }},
+        // An RTL-SDR on this computer, reached over WebUSB by the worker in
+        // runner/src/rtlsdr_reader.js. The Device parameter is a serial number
+        // the editor picked with navigator.usb.requestDevice(); the permission
+        // it granted is what lets the worker re-acquire the dongle without a
+        // user gesture of its own. See docs/rtlsdr.md.
+        {"wasm_rtlsdr_source", [](const json& p) -> BuiltBlock {
+             const auto type = type_from(p, "complex");
+             RtlSdrSource::Output output;
+             if (type == "complex")
+                 output = RtlSdrSource::Output::COMPLEX;
+             else if (type == "short")
+                 output = RtlSdrSource::Output::SHORT;
+             else if (type == "byte")
+                 output = RtlSdrSource::Output::BYTE;
+             else
+                 throw std::runtime_error(
+                     "RTL-SDR Source: unsupported output type: " + type);
+
+             const auto agc = bool_from(p, "gain_mode", false);
+             auto block = RtlSdrSource::make(
+                 string_from(p, "device", std::string()),
+                 output,
+                 number_from(p, "samp_rate", 2048000.0),
+                 number_from(p, "center_freq", 100e6),
+                 agc,
+                 number_from(p, "gain", 30.0),
+                 number_from(p, "freq_correction", 0.0),
+                 static_cast<int>(number_from(p, "direct_samp", 0.0)),
+                 bool_from(p, "bias_tee", false),
+                 static_cast<int>(number_from(p, "bufflen", 262144.0)));
+
+             BuiltBlock result{ block };
+             // Bound by GRC parameter name, so a QT GUI Range referencing
+             // center_freq or gain retunes the dongle while the graph runs.
+             result.numeric_setters["center_freq"] =
+                 [block](double value) { block->set_center_freq(value); };
+             result.numeric_setters["gain"] =
+                 [block](double value) { block->set_gain(value); };
+             result.numeric_setters["gain_mode"] =
+                 [block](double value) { block->set_gain_mode(value != 0.0); };
+             result.numeric_setters["freq_correction"] =
+                 [block](double value) { block->set_freq_correction(value); };
+             result.numeric_setters["bias_tee"] =
+                 [block](double value) { block->set_bias_tee(value != 0.0); };
+             return result;
         }},
         {"blocks_interleaved_short_to_complex", [](const json& p) -> BuiltBlock {
              return {

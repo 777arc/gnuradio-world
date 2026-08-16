@@ -75,6 +75,15 @@ const CASES = [
   { name: 'new core/filter blocks', grc: 'test/fixtures/wasm_added_core.grc' },
   { name: 'new constellation and synchronizer blocks', grc: 'test/fixtures/wasm_added_digital.grc' },
   { name: 'new FEC leaf blocks', grc: 'test/fixtures/wasm_added_fec.grc' },
+  // RTL-SDR Source against its own generator rather than a dongle: CI has no
+  // hardware, but the ring, the futex handoff, the command mailbox and the
+  // u8->complex conversion are all the same code either way. `expectLogs`
+  // catches the one thing a "blocks moved items" pass cannot — that the block
+  // reported the rate the RTL2832U's resampler can actually reach, not the one
+  // that was asked for. See docs/rtlsdr.md.
+  { name: 'RTL-SDR Source (generated samples, no hardware)',
+    grc: 'test/fixtures/rtlsdr_fake.grc',
+    expectLogs: ['RTL-SDR Source: running at 1024000 S/s'] },
   // The PMT-valued blocks. `expectLogs` is what makes this case meaningful: a
   // PMT parameter that parsed into the *wrong* PMT still builds, still runs and
   // still moves items, so only what the tag and message debuggers print can tell

@@ -26,6 +26,19 @@ never competes with the scheduler threads.
 3. **GNU Radio scheduler** — a new exported C function `gr_stats_json()` that
    snapshots counters and returns a JSON string, polled at ~3 Hz from the panel.
 
+Two reader-owned side channels sit beside them on `window`, published by the
+workers that feed the source blocks rather than by `gr_stats_json()`:
+`__grFileStats` (one entry per File Source / recording reader: `bytesRead`,
+`maxChunkBytes`, `state`) and `__grUsbStats` (one per RTL-SDR Source: `serial`,
+`requestedRate`, `actualRate`, `bytesRead`, `overruns`, `droppedPairs`, `state`).
+
+`__grUsbStats` is the only place the *hardware* side of a run is visible, and the
+two fields worth reading are `actualRate` — the RTL2832U divides a 28.8 MHz
+clock, so it is rarely the requested rate — and `overruns`, which counts bulk
+transfers dropped because the ring was full. Note that `bytesRead` updates only
+every 16 MB, so it is a progress indicator, not a rate meter; derive throughput
+from block `items` instead. See [rtlsdr.md](rtlsdr.md).
+
 ### Decision: build with `ENABLE_PERFORMANCE_COUNTERS`
 
 The runner (and the GR runtime it links) will be built with GR's

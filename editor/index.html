@@ -91,7 +91,13 @@
         </div>
         <div id="runEmpty">Run a flowgraph to open its QT GUI here.</div>
         <div id="runStage">
-          <iframe id="runFrame" title="GNU Radio QT GUI" hidden></iframe>
+          <!-- allow="usb": RTL-SDR Source reaches its dongle from inside this
+               frame. The `usb` permission policy defaults to 'self', so a
+               same-origin frame would normally inherit it, but an editor
+               embedded cross-origin (?embed=1) only gets what its host grants —
+               and being explicit here is what makes that failure legible rather
+               than a NotFoundError from getDevices(). See docs/rtlsdr.md. -->
+          <iframe id="runFrame" title="GNU Radio QT GUI" allow="usb" hidden></iframe>
           <!-- Drawn over the iframe, in the editor's own DOM: the runner reports
                where its grid is on screen and this positions handles to match,
                so all the drag logic stays in TypeScript. -->
