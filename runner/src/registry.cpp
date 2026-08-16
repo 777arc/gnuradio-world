@@ -2,6 +2,8 @@
 #include "registry_helpers.hpp"
 #include "browser_file_source.hpp"
 #include "rtlsdr_source.hpp"
+#include "plutosdr_source.hpp"
+#include "plutosdr_sink.hpp"
 #include "paint_image_source.hpp"
 #include "rds_panel.hpp"
 #include "fosphor_sink.hpp"
@@ -2283,6 +2285,65 @@ static std::map<std::string, Factory>& registry_storage() {
                  [block](double value) { block->set_freq_correction(value); };
              result.numeric_setters["bias_tee"] =
                  [block](double value) { block->set_bias_tee(value != 0.0); };
+             return result;
+        }},
+        // ADALM-PLUTO over the IIOD protocol exposed by the stock firmware's
+        // WebUSB IIO interface. Device permission is granted by the editor;
+        // runner/src/plutosdr_worker.js owns the USBDevice while this runs.
+        {"wasm_plutosdr_source", [](const json& p) -> BuiltBlock {
+             const auto gain_mode = [](const json& params, const char* key) {
+                 const auto value = wasm_registry::text(params, key, "slow_attack");
+                 if (value == "slow_attack") return plutosdr::SLOW_ATTACK;
+                 if (value == "fast_attack") return plutosdr::FAST_ATTACK;
+                 if (value == "hybrid") return plutosdr::HYBRID;
+                 if (value == "manual") return plutosdr::MANUAL;
+                 throw std::runtime_error(
+                     std::string("PlutoSDR Source: invalid gain mode: ") + value);
+             };
+             auto block = PlutoSdrSource::make(
+                 wasm_registry::text(p, "device"),
+                 static_cast<int>(number_from(p, "channels", 1.0)),
+                 number_from(p, "samp_rate", 2.5e6),
+                 number_from(p, "center_freq", 2.4e9),
+                 number_from(p, "bandwidth", 2.0e6),
+                 static_cast<int>(number_from(p, "buffer_size", 32768.0)),
+                 gain_mode(p, "gain_mode1"),
+                 number_from(p, "gain1", 30.0),
+                 gain_mode(p, "gain_mode2"),
+                 number_from(p, "gain2", 30.0),
+                 bool_from(p, "quadrature", true),
+                 bool_from(p, "rf_dc", true),
+                 bool_from(p, "bb_dc", true));
+             BuiltBlock result{ block };
+             result.numeric_setters["center_freq"] =
+                 [block](double value) { block->set_center_freq(value); };
+             result.numeric_setters["bandwidth"] =
+                 [block](double value) { block->set_bandwidth(value); };
+             result.numeric_setters["gain1"] =
+                 [block](double value) { block->set_gain1(value); };
+             result.numeric_setters["gain2"] =
+                 [block](double value) { block->set_gain2(value); };
+             return result;
+        }},
+        {"wasm_plutosdr_sink", [](const json& p) -> BuiltBlock {
+             auto block = PlutoSdrSink::make(
+                 wasm_registry::text(p, "device"),
+                 static_cast<int>(number_from(p, "channels", 1.0)),
+                 number_from(p, "samp_rate", 2.5e6),
+                 number_from(p, "center_freq", 2.4e9),
+                 number_from(p, "bandwidth", 2.0e6),
+                 static_cast<int>(number_from(p, "buffer_size", 32768.0)),
+                 number_from(p, "attenuation1", 89.75),
+                 number_from(p, "attenuation2", 89.75));
+             BuiltBlock result{ block };
+             result.numeric_setters["center_freq"] =
+                 [block](double value) { block->set_center_freq(value); };
+             result.numeric_setters["bandwidth"] =
+                 [block](double value) { block->set_bandwidth(value); };
+             result.numeric_setters["attenuation1"] =
+                 [block](double value) { block->set_attenuation1(value); };
+             result.numeric_setters["attenuation2"] =
+                 [block](double value) { block->set_attenuation2(value); };
              return result;
         }},
         {"blocks_interleaved_short_to_complex", [](const json& p) -> BuiltBlock {

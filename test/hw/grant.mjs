@@ -17,7 +17,10 @@ import { INSTALL_HINT, findChrome } from './chrome.mjs';
 
 const ROOT = new URL('../..', import.meta.url).pathname;
 const PROFILE = join(ROOT, 'test/hw/.profile');
-const PAGE = 'http://localhost:8090/test/hw/rtlsdr_hw.html';
+const PLUTO = process.argv.includes('--pluto');
+const PAGE = PLUTO
+  ? 'http://localhost:8090/test/hw/plutosdr_hw.html'
+  : 'http://localhost:8090/test/hw/rtlsdr_hw.html';
 
 const executablePath = findChrome();
 if (!executablePath) {
@@ -32,14 +35,19 @@ const browser = await puppeteer.launch({
   args: ['--no-sandbox'],
   defaultViewport: null,
 });
-const page = (await browser.pages())[0] ?? await browser.newPage();
+// Persistent profiles restore old tabs. Reusing pages()[0] can navigate a
+// background tab while Chrome keeps showing an unrelated restored tab, making
+// it look as though the harness never opened.
+const page = await browser.newPage();
 await page.goto(PAGE, { waitUntil: 'domcontentloaded' });
+await page.bringToFront();
 
 const at = process.argv.indexOf('--minutes');
 const MINUTES = at >= 0 && process.argv[at + 1] ? Number(process.argv[at + 1]) : 15;
 
 console.log('A Chrome window should be open on your desktop.');
-console.log('Click "Grant device access", pick the RTL-SDR, and press Connect.');
+console.log(`Click "Grant device access", pick the ${PLUTO ? 'PlutoSDR' : 'RTL-SDR'}, ` +
+            'and press Connect.');
 console.log(`Waiting up to ${MINUTES} minutes (--minutes N to change)…`);
 console.log('Also worth noting: whether a chooser dialog appears AT ALL is the ' +
             'answer we need. If none does, say so and we stop here.');

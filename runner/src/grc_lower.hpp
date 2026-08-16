@@ -52,7 +52,10 @@ inline std::string scalar_to_str(const json& v) {
 // again. Anything here is a parameter a *human* types or a picker fills in,
 // never one a factory wants as a number.
 inline bool is_text_param(const std::string& block_id, const std::string& param) {
-    return block_id == "wasm_rtlsdr_source" && param == "device";
+    return param == "device" &&
+           (block_id == "wasm_rtlsdr_source" ||
+            block_id == "wasm_plutosdr_source" ||
+            block_id == "wasm_plutosdr_sink");
 }
 
 inline json coerce_numeric(const std::string& s) {

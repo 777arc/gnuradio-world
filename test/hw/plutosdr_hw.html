@@ -1,0 +1,138 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>PlutoSDR hardware harness</title>
+<body>
+<button id="grant">Grant device access</button>
+<pre id="out">idle</pre>
+<script>
+const FILTERS = [{ vendorId: 0x0456, productId: 0xb673 }];
+const CTRL = {
+  READ_POS: 0, WRITE_POS: 1, STATE: 2, ERROR_LENGTH: 3, EVENTS: 4,
+  LOST_SAMPLES: 5, ACTUAL_RATE: 6, CMD_SEQ: 7, CMD_ACK: 8,
+  FREQ_HI: 9, FREQ_LO: 10, BANDWIDTH: 11, VALUE1_MILLI: 12,
+  VALUE2_MILLI: 13, MODE1: 14, MODE2: 15, FLAGS: 16,
+};
+const CANCELLED = 3, ERROR = 2;
+const CONTROL_PTR = 0, ERROR_PTR = 256, ERROR_CAPACITY = 512, RING_PTR = 4096;
+
+document.getElementById('grant').onclick = () => {
+  navigator.usb.requestDevice({ filters: FILTERS })
+    .then(device => { window.__granted = device.serialNumber || ''; })
+    .catch(error => { window.__grantError = String(error); });
+};
+
+const state = {
+  memory: null, control: null, worker: null, direction: '', channels: 0,
+  capacityFrames: 0, captured: 0, supplied: 0, messages: [], error: '', timer: 0,
+};
+window.__hw = state;
+
+function stageFrequency(hz) {
+  const value = BigInt(Math.round(hz));
+  Atomics.store(state.control, CTRL.FREQ_HI, Number(BigInt.asIntN(32, value >> 32n)));
+  Atomics.store(state.control, CTRL.FREQ_LO, Number(BigInt.asIntN(32, value)));
+}
+
+function fillTx() {
+  if (!state.control || Atomics.load(state.control, CTRL.STATE) === CANCELLED) return;
+  const read = Atomics.load(state.control, CTRL.READ_POS);
+  const write = Atomics.load(state.control, CTRL.WRITE_POS);
+  const used = write >= read ? write - read : state.capacityFrames - (read - write);
+  const free = state.capacityFrames - used - 1;
+  if (free > 0) {
+    // The WebAssembly memory starts zeroed. Advancing WRITE_POS supplies exact
+    // zero IQ, which exercises real TX USB without intentionally radiating a
+    // waveform. The worker also holds attenuation at the requested 89.75 dB.
+    Atomics.store(state.control, CTRL.WRITE_POS, (write + free) % state.capacityFrames);
+    Atomics.notify(state.control, CTRL.WRITE_POS);
+    state.supplied += free;
+  }
+}
+
+function drainRx() {
+  if (!state.control || Atomics.load(state.control, CTRL.STATE) === CANCELLED) return;
+  const read = Atomics.load(state.control, CTRL.READ_POS);
+  const write = Atomics.load(state.control, CTRL.WRITE_POS);
+  const available = write >= read ? write - read : state.capacityFrames - (read - write);
+  if (available > 0) {
+    Atomics.store(state.control, CTRL.READ_POS, write);
+    Atomics.notify(state.control, CTRL.READ_POS);
+    state.captured += available;
+  }
+}
+
+window.__start = async ({
+  direction = 'rx', serial = '', channels = 1, sampleRate = 2500000,
+  centerFreq = 2400000000, bandwidth = 2000000, bufferSize = 16384,
+} = {}) => {
+  if (state.worker) throw new Error('worker already running');
+  const capacityFrames = 1 << 20;
+  const bytes = RING_PTR + capacityFrames * channels * 4;
+  const pages = Math.ceil(bytes / 65536);
+  const memory = new WebAssembly.Memory({ initial: pages, maximum: pages, shared: true });
+  const control = new Int32Array(memory.buffer, CONTROL_PTR, 17);
+  state.memory = memory; state.control = control; state.direction = direction;
+  state.channels = channels; state.capacityFrames = capacityFrames;
+  state.captured = 0; state.supplied = 0; state.messages = []; state.error = '';
+  stageFrequency(centerFreq);
+  Atomics.store(control, CTRL.BANDWIDTH, bandwidth);
+  Atomics.store(control, CTRL.VALUE1_MILLI, direction === 'rx' ? 30000 : 89750);
+  Atomics.store(control, CTRL.VALUE2_MILLI, direction === 'rx' ? 30000 : 89750);
+  Atomics.store(control, CTRL.MODE1, 0);
+  Atomics.store(control, CTRL.MODE2, 0);
+  Atomics.store(control, CTRL.FLAGS, 7);
+  Atomics.store(control, CTRL.CMD_SEQ, 1);
+
+  const worker = new Worker(`../../runner/src/plutosdr_worker.js?v=${Date.now()}`);
+  state.worker = worker;
+  worker.onmessage = event => {
+    state.messages.push(event.data);
+    if (event.data?.type === 'error') state.error = event.data.message || 'worker error';
+  };
+  worker.onerror = event => { state.error = event.message || 'worker error'; };
+  worker.postMessage({
+    direction, serial, memory, ringPointer: RING_PTR, capacityFrames, channels,
+    controlPointer: CONTROL_PTR, errorPointer: ERROR_PTR,
+    errorCapacity: ERROR_CAPACITY, sampleRate, bufferSize, cyclic: false,
+    debug: true,
+  });
+  state.timer = setInterval(direction === 'rx' ? drainRx : fillTx, 5);
+  return true;
+};
+
+window.__retune = hz => {
+  stageFrequency(hz);
+  Atomics.add(state.control, CTRL.CMD_SEQ, 1);
+  return Atomics.load(state.control, CTRL.CMD_SEQ);
+};
+
+window.__stats = () => ({
+  direction: state.direction,
+  captured: state.captured,
+  supplied: state.supplied,
+  actualRate: state.control ? Atomics.load(state.control, CTRL.ACTUAL_RATE) : 0,
+  command: state.control ? Atomics.load(state.control, CTRL.CMD_SEQ) : 0,
+  acknowledged: state.control ? Atomics.load(state.control, CTRL.CMD_ACK) : 0,
+  events: state.control ? Atomics.load(state.control, CTRL.EVENTS) : 0,
+  lost: state.control ? Atomics.load(state.control, CTRL.LOST_SAMPLES) : 0,
+  status: state.control ? Atomics.load(state.control, CTRL.STATE) : 0,
+  messages: state.messages,
+  error: state.error || (state.control && Atomics.load(state.control, CTRL.STATE) === ERROR
+    ? new TextDecoder().decode(
+      new Uint8Array(state.memory.buffer, ERROR_PTR,
+        Atomics.load(state.control, CTRL.ERROR_LENGTH)))
+    : ''),
+});
+
+window.__stop = () => {
+  clearInterval(state.timer); state.timer = 0;
+  if (state.control) {
+    Atomics.store(state.control, CTRL.STATE, CANCELLED);
+    Atomics.notify(state.control, CTRL.READ_POS);
+    Atomics.notify(state.control, CTRL.WRITE_POS);
+  }
+  const worker = state.worker;
+  if (worker) setTimeout(() => worker.terminate(), 3500);
+  state.worker = null;
+};
+</script>

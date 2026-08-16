@@ -51,6 +51,18 @@ import {
   watchRtlDevices,
 } from './rtlsdr';
 import {
+  PLUTOSDR_DTYPE,
+  PLUTOSDR_SINK_ID,
+  PLUTOSDR_SOURCE_ID,
+  PLUTOSDR_USB_FILTERS,
+  describePluto,
+  plutoDeviceDisplay,
+  plutoDeviceOptions,
+  preparePlutoDevices,
+  refreshPlutoDevices,
+  watchPlutoDevices,
+} from './plutosdr';
+import {
   buildRecordingTree,
   displayBytes,
   displayRecordingValue,
@@ -605,6 +617,8 @@ function paramDisplay(p: ParamDef, raw: any): string {
   // ("first available"), so it resolves to the dongle it will actually open
   // rather than drawing an empty row. See deviceDisplay().
   if (p.dtype === RTLSDR_DTYPE) return cut(deviceDisplay(String(raw ?? '')));
+  if (p.dtype === PLUTOSDR_DTYPE)
+    return cut(plutoDeviceDisplay(String(raw ?? '')));
   if (p.type !== 'number') {
     const optionIndex = p.options?.indexOf(String(raw)) ?? -1;
     const display = optionIndex >= 0 ? p.optionLabels?.[optionIndex] ?? raw : raw;
@@ -2096,12 +2110,18 @@ function showPropsDialog(inst: Inst) {
       addField(p.category || 'General', `${p.label}  (${p.id})`, picker, p.id, inp);
       refreshDetail();
       if (p.showWhen) conditionalRows.push({ param: p, row: picker.closest('.dlgrow') as HTMLElement });
-    } else if (p.dtype === RTLSDR_DTYPE) {
-      // RTL-SDR Source's dongle. Unlike a local file this binds nothing for the
+    } else if (p.dtype === RTLSDR_DTYPE || p.dtype === PLUTOSDR_DTYPE) {
+      // A WebUSB radio. Unlike a local file this binds nothing for the
       // session: the browser remembers the permission per origin, so all a .grc
       // needs is the serial number, and the runner's worker finds the device
       // again by itself. Degrades to a plain text field where WebUSB is absent,
       // so a flowgraph authored in Firefox still round-trips.
+      const isPluto = p.dtype === PLUTOSDR_DTYPE;
+      const optionsFor = isPluto ? plutoDeviceOptions : deviceOptions;
+      const describe = isPluto ? describePluto : describeDevice;
+      const refreshShared = isPluto ? refreshPlutoDevices : refreshRtlDevices;
+      const filters = isPluto ? PLUTOSDR_USB_FILTERS : RTLSDR_USB_FILTERS;
+      const radioName = isPluto ? 'PlutoSDR' : 'RTL-SDR';
       const picker = document.createElement('div'); picker.className = 'file-picker';
       const select = document.createElement('select');
       // The fallback for a .grc naming a dongle that is not plugged in, and for
@@ -2111,28 +2131,28 @@ function showPropsDialog(inst: Inst) {
       typed.placeholder = 'serial number, or blank for the first available';
       const choose = document.createElement('button'); choose.type = 'button';
       choose.textContent = 'Add…';
-      choose.title = 'Grant this site access to another RTL-SDR';
+      choose.title = `Grant this site access to another ${radioName}`;
       const detail = document.createElement('small'); detail.className = 'file-picker-detail';
       let shared: UsbLike[] = [];
 
       // What the field offers and what it says about the current value are both
-      // "which dongle does this resolve to", so both live in ./rtlsdr beside
-      // the block face's deviceDisplay(). Only the DOM wiring is here.
+      // "which radio does this resolve to", so the radio modules own both the
+      // options and the block-face display. Only the DOM wiring is here.
       const paint = () => {
         const serial = String(tmp.params[p.id] ?? '').trim();
-        select.replaceChildren(...deviceOptions(serial, shared).map(o => {
+        select.replaceChildren(...optionsFor(serial, shared).map(o => {
           const option = document.createElement('option');
           option.value = o.value; option.textContent = o.label;
           return option;
         }));
         select.value = serial;
-        detail.textContent = describeDevice(serial, shared);
+        detail.textContent = describe(serial, shared);
       };
 
       // The same cache the block face draws from, so the dialog and the canvas
       // cannot name different dongles for one flowgraph.
       const refreshDevices = async () => {
-        shared = await refreshRtlDevices();
+        shared = await refreshShared();
         if (!usbApi()) { select.hidden = true; typed.hidden = false; choose.disabled = true; }
         paint(); render();
       };
@@ -2143,7 +2163,7 @@ function showPropsDialog(inst: Inst) {
       select.onchange = () => commit(select.value);
       typed.oninput = () => {
         tmp.params[p.id] = typed.value.trim();
-        detail.textContent = describeDevice(typed.value.trim(), shared);
+        detail.textContent = describe(typed.value.trim(), shared);
         refreshValidation();
       };
       choose.onclick = async () => {
@@ -2151,9 +2171,9 @@ function showPropsDialog(inst: Inst) {
         if (!usb) return;
         try {
           const device: UsbLike =
-            await usb.requestDevice({ filters: RTLSDR_USB_FILTERS });
-          shared = await refreshRtlDevices();
-          // A dongle with no serial cannot be named, so it can only ever be
+            await usb.requestDevice({ filters });
+          shared = await refreshShared();
+          // A radio with no serial cannot be named, so it can only ever be
           // reached as "first available".
           commit(device.serialNumber ?? '');
         } catch {
@@ -3815,6 +3835,15 @@ async function run() {
   // requestDevice() needs a user gesture, and neither the runner's constructor
   // nor its worker has one. Everything below this point may await freely; this
   // may not, so it comes before the first await that is not part of the prompt.
+  const plutoProblem = await preparePlutoDevices(insts);
+  if (plutoProblem) {
+    log(`cannot run: ${plutoProblem}`);
+    const block = insts.find(i =>
+      (i.id === PLUTOSDR_SOURCE_ID || i.id === PLUTOSDR_SINK_ID) &&
+      i.enabled && !i.bypassed);
+    if (block) select(block.uid);
+    return;
+  }
   const usbProblem = await prepareRtlDevices(insts);
   if (usbProblem) {
     log(`cannot run: ${usbProblem}`);
@@ -5213,6 +5242,7 @@ ensureOptionsBlock();
 // An RTL-SDR Source left on "first available" draws the dongle it resolves to,
 // so the canvas has to redraw when one is plugged in or pulled out.
 watchRtlDevices(() => render());
+watchPlutoDevices(() => render());
 select(null); render();
 log('Editor ready. Click ▶ Run to execute the flowgraph in WebAssembly.');
 // A flowgraph named by the URL fragment wins over the default example.

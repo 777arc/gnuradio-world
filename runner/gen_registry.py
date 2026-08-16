@@ -99,6 +99,10 @@ CUSTOM_IDS = {
     # through SoapySDR or gr-osmosdr. See blocks/grc/wasm_rtlsdr_source.block.yml
     # and docs/rtlsdr.md.
     "wasm_rtlsdr_source",
+    # ADALM-PLUTO over the stock firmware's USB IIOD interface. Separate RX and
+    # TX workers stream through shared-memory rings. See docs/plutosdr.md.
+    "wasm_plutosdr_source",
+    "wasm_plutosdr_sink",
     # Runner-only HRPT AVHRR image display; no upstream equivalent (gr-hrpt's
     # own noaa_hrpt_decoder never extracts imagery). See
     # blocks/src/hrpt_image_sink.hpp.

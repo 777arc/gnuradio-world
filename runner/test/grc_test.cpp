@@ -173,11 +173,10 @@ int main() {
     assert(x1_xx3 && xx3_snk && !has_x2 && !has_thr);
 
     // A text parameter survives lowering as text even when it reads as a
-    // number. RTL-SDR Source's device serial is the case: coerce_numeric would
-    // turn "00000001" into the integer 1, which loses the leading zeros and
-    // means the serial never matches a real dongle again -- and the factory
-    // failed with an opaque "type must be string, but is number" rather than
-    // anything that named the parameter. See is_text_param() in grc_lower.hpp.
+    // number. USB-radio device serials are the case: coerce_numeric would turn
+    // "00000001" into the integer 1, which loses the leading zeros and means
+    // the serial never matches real hardware again. See is_text_param() in
+    // grc_lower.hpp.
     {
         const char* rtl_doc =
             "options:\n"
@@ -189,6 +188,16 @@ int main() {
             "        device: '00000001'\n"
             "        samp_rate: '2048000'\n"
             "    states: {coordinate: [0, 0], rotation: 0, state: enabled}\n"
+            "-   name: pluto_rx\n"
+            "    id: wasm_plutosdr_source\n"
+            "    parameters:\n"
+            "        device: '00104242'\n"
+            "    states: {coordinate: [0, 0], rotation: 0, state: enabled}\n"
+            "-   name: pluto_tx\n"
+            "    id: wasm_plutosdr_sink\n"
+            "    parameters:\n"
+            "        device: '00009999'\n"
+            "    states: {coordinate: [0, 0], rotation: 0, state: enabled}\n"
             "-   name: other\n"
             "    id: blocks_null_sink\n"
             "    parameters:\n"
@@ -197,14 +206,20 @@ int main() {
             "connections: []\n";
         const json rtl_low = grc_lower::lower(grc_yaml::parse(rtl_doc));
         const json* rtl = nullptr;
+        const json* pluto_rx = nullptr;
+        const json* pluto_tx = nullptr;
         const json* other = nullptr;
         for (const auto& b : rtl_low.at("blocks")) {
             if (b.at("name") == "rtl") rtl = &b;
+            if (b.at("name") == "pluto_rx") pluto_rx = &b;
+            if (b.at("name") == "pluto_tx") pluto_tx = &b;
             if (b.at("name") == "other") other = &b;
         }
-        assert(rtl && other);
+        assert(rtl && pluto_rx && pluto_tx && other);
         assert(rtl->at("params").at("device").is_string());
         assert(rtl->at("params").at("device") == "00000001");
+        assert(pluto_rx->at("params").at("device") == "00104242");
+        assert(pluto_tx->at("params").at("device") == "00009999");
         // Still coerced for every other numeric param on the same block...
         assert(rtl->at("params").at("samp_rate").is_number());
         // ...and the exception is keyed on the block id, not the name alone.

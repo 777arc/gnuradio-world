@@ -273,6 +273,100 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
         if (stats && stats.state !== 'error') stats.state = 'cancelled';
       };
 
+      // PlutoSDR Source and Sink use the stock firmware's USB IIOD service.
+      // One worker owns each selected Pluto and discovers the IIO interface,
+      // endpoint pairs, device ids and scan layout instead of baking in the
+      // values from one firmware release. See docs/plutosdr.md.
+      let nextPlutoWorkerId = 10000;
+      const plutoWorkers = new Map();
+      const PLUTO_STATES = new Set(['running', 'cancelled', 'error']);
+      window.__grStartPlutoSdr = (
+        direction, serial, memory, ringPointer, capacityFrames, channels,
+        controlPointer, errorPointer, sampleRate, bufferSize, cyclic
+      ) => {
+        const id = nextPlutoWorkerId++;
+        const workerUrl = new URL('plutosdr_worker.js', location.href);
+        if (window.__grBuildStamp) workerUrl.searchParams.set('v', window.__grBuildStamp);
+        const worker = new Worker(workerUrl);
+        const label = serial || 'first available';
+        const stats = {
+          device: 'PlutoSDR',
+          direction,
+          serial: label,
+          channels,
+          ringBytes: capacityFrames * channels * 4,
+          requestedRate: sampleRate,
+          actualRate: 0,
+          bytesRead: 0,
+          bytesWritten: 0,
+          overruns: 0,
+          underflows: 0,
+          droppedSamples: 0,
+          state: 'starting',
+        };
+        window.__grUsbStats[id] = stats;
+        plutoWorkers.set(id, worker);
+        worker.onmessage = event => {
+          const message = event.data || {};
+          if (Number.isFinite(message.actualRate)) stats.actualRate = message.actualRate;
+          if (Number.isFinite(message.bytes)) {
+            if (direction === 'rx') stats.bytesRead = message.bytes;
+            else stats.bytesWritten = message.bytes;
+          }
+          if (Number.isFinite(message.events)) {
+            if (direction === 'rx') stats.overruns = message.events;
+            else stats.underflows = message.events;
+          }
+          if (Number.isFinite(message.lost)) stats.droppedSamples = message.lost;
+          if (PLUTO_STATES.has(message.type)) stats.state = message.type;
+          if (message.type === 'running')
+            console.log(`PlutoSDR ${direction.toUpperCase()} ${label}: ` +
+                        `${message.channels} channel(s) at ${message.actualRate} S/s`);
+          if (message.type === 'error') {
+            console.error(`PlutoSDR ${direction.toUpperCase()} ${label}: ${message.message}`);
+            if (message.recent && message.recent.length) {
+              console.groupCollapsed(
+                `PlutoSDR ${label}: last ${message.recent.length} USB operations`);
+              for (const line of message.recent) console.log(line);
+              console.groupEnd();
+            }
+          }
+          if (message.type === 'cancelled' || message.type === 'error')
+            plutoWorkers.delete(id);
+        };
+        worker.onerror = event => {
+          stats.state = 'error';
+          console.error(
+            `PlutoSDR ${direction.toUpperCase()} worker ${label}: ` +
+            `${event.message || 'worker error'}`);
+          plutoWorkers.delete(id);
+        };
+        worker.postMessage({
+          direction,
+          serial,
+          memory,
+          ringPointer,
+          capacityFrames,
+          channels,
+          controlPointer,
+          errorPointer,
+          errorCapacity: 512,
+          sampleRate,
+          bufferSize,
+          cyclic,
+        });
+        return id;
+      };
+      window.__grStopPlutoSdr = id => {
+        const worker = plutoWorkers.get(id);
+        // The data endpoint has a three-second IIOD timeout. Let the worker
+        // observe CANCELLED and close/release normally before forcing it down.
+        if (worker) setTimeout(() => worker.terminate(), 3500);
+        plutoWorkers.delete(id);
+        const stats = window.__grUsbStats[id];
+        if (stats && stats.state !== 'error') stats.state = 'cancelled';
+      };
+
       window.__grStopBrowserFileSource = id => {
         const worker = fileReaders.get(id);
         if (worker) worker.terminate();

@@ -1,0 +1,121 @@
+id: wasm_plutosdr_sink
+label: PlutoSDR Sink
+category: '[Core]/Sinks'
+flags: [cpp, throttle]
+
+documentation: |-
+    Transmits complex samples with an ADALM-PLUTO (PlutoSDR) over WebUSB using
+    the IIO service included in the out-of-the-box Analog Devices firmware.
+
+    On Windows, first install the [PlutoSDR/M2k USB driver](https://github.com/analogdevicesinc/plutosdr-m2k-drivers-win/releases/download/v0.9/PlutoSDR-M2k-USB-Drivers.exe),
+    then plug in the Pluto.
+
+    Click Add beside Device to let the browser share a Pluto with this site.
+    Leave Device empty to use the first already-shared Pluto. WebUSB requires a
+    Chromium-based browser such as Chrome, Edge or Opera; Firefox and Safari do
+    not implement it.
+
+    WSL setup (only when Chromium itself runs inside WSL): install usbipd-win on
+    Windows. With the Pluto plugged in, open an Administrator PowerShell and
+    find and share it (binding is normally needed only once):
+
+        usbipd list
+        usbipd bind --busid <BUSID>
+
+    If bind says Windows is using the device, close software using the Pluto;
+    if necessary, use `usbipd bind --force --busid <BUSID>`. Keep a WSL terminal
+    open, then run this in a normal, non-Administrator Windows PowerShell:
+
+        usbipd attach --wsl --busid <BUSID>
+
+    In WSL, verify the Pluto and grant the current user access to its device
+    node. Re-run the `chmod` after a detach/replug because its bus or device
+    number can change:
+
+        lsusb -d 0456:b673
+        PLUTO_USB_NODE=$(lsusb -d 0456:b673 | sed -E 's/Bus ([0-9]+) Device ([0-9]+):.*/\/dev\/bus\/usb\/\1\/\2/')
+        sudo chmod a+rw "$PLUTO_USB_NODE"
+
+    The Pluto is unavailable to native Windows while attached. Return it with
+    `usbipd detach --busid <BUSID>`. USB/IP can enumerate some Plutos yet stall
+    on IIOD bulk reads; if the worker stops after sending `PRINT`, detach it and
+    use native Windows Chrome instead. The block does not require libusb.
+
+    The Pluto's default network address is 192.168.2.1. This block uses its USB
+    IIO interface, not the IP address, so no firmware or network reconfiguration
+    is required.
+
+    Single mode accepts one complex input. Dual mode accepts two, but it works
+    only when the connected hardware and stock firmware actually advertise two
+    RF paths (normally a suitable Rev C unit configured for 2R2T, with the
+    required second-port hardware modification). Capability is detected from
+    the Pluto's live IIO context; unsupported dual mode fails clearly.
+
+    TX Attenuation is a positive magnitude: 0 dB is maximum output and 89.75 dB
+    is minimum output. The conservative default is 89.75 dB. The block disables
+    the Pluto DDS generators before streaming and restores maximum attenuation
+    when it stops. Center Frequency, RF Bandwidth and attenuation accept QT GUI
+    Range values and may be changed while running. The sink backpressures its
+    inputs instead of silently discarding transmit samples; underflows are
+    counted and reported.
+
+    A Pluto may be owned by only one PlutoSDR block at a time. A future combined
+    receive/transmit block can add coordinated full duplex; using this Sink and
+    PlutoSDR Source on the same physical unit is intentionally rejected.
+
+parameters:
+-   id: device
+    label: Device
+    dtype: plutosdr_device
+    default: ''
+-   id: channels
+    label: Channels
+    dtype: enum
+    default: '1'
+    options: ['1', '2']
+    option_labels: [Single, Dual]
+-   id: samp_rate
+    label: Sample Rate
+    dtype: float
+    default: samp_rate
+-   id: center_freq
+    label: 'Center Frequency (Hz)'
+    dtype: real
+    default: '2.4e9'
+-   id: bandwidth
+    label: 'RF Bandwidth (Hz)'
+    dtype: real
+    default: '2e6'
+-   id: attenuation1
+    label: 'TX1 Attenuation (dB)'
+    dtype: real
+    default: '89.75'
+    hide: part
+-   id: attenuation2
+    label: 'TX2 Attenuation (dB)'
+    dtype: real
+    default: '89.75'
+    hide: part
+-   id: buffer_size
+    label: 'IIO Buffer (samples)'
+    dtype: int
+    default: '32768'
+    hide: part
+
+asserts:
+-   ${ channels == 1 or channels == 2 }
+-   ${ samp_rate >= 2083334 and samp_rate <= 61440000 }
+-   ${ channels == 1 or samp_rate <= 30720000 }
+-   ${ center_freq >= 325e6 and center_freq <= 3.8e9 }
+-   ${ bandwidth >= 200000 and bandwidth <= 56000000 }
+-   ${ attenuation1 >= 0 and attenuation1 <= 89.75 }
+-   ${ attenuation2 >= 0 and attenuation2 <= 89.75 }
+-   ${ buffer_size > 0 and buffer_size * channels * 4 <= 1048576 }
+
+inputs:
+-   label: TX
+    domain: stream
+    dtype: complex
+    multiplicity: ${ channels }
+
+file_format: 1

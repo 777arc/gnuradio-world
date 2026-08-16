@@ -1,0 +1,74 @@
+options:
+    parameters:
+        id: plutosdr_fake
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+blocks:
+# Device 'fake' runs the same shared rings and command mailboxes without USB.
+# RX generates a tone; TX paces and consumes buffers. See docs/plutosdr.md.
+-   name: pluto_rx
+    id: wasm_plutosdr_source
+    parameters:
+        device: 'fake:100000'
+        channels: '1'
+        samp_rate: '2500000'
+        center_freq: '2400000000'
+        bandwidth: '2000000'
+        gain_mode1: slow_attack
+        gain1: '30'
+        gain_mode2: slow_attack
+        gain2: '30'
+        quadrature: 'True'
+        rf_dc: 'True'
+        bb_dc: 'True'
+        buffer_size: '4096'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: rx_null
+    id: blocks_null_sink
+    parameters:
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [200, 0]
+        rotation: 0
+        state: enabled
+-   name: tone
+    id: analog_sig_source_x
+    parameters:
+        type: complex
+        samp_rate: '2500000'
+        waveform: analog.GR_COS_WAVE
+        freq: '100000'
+        amp: '0.01'
+        offset: '0'
+        phase: '0'
+    states:
+        coordinate: [0, 150]
+        rotation: 0
+        state: enabled
+-   name: pluto_tx
+    id: wasm_plutosdr_sink
+    parameters:
+        device: 'fake'
+        channels: '1'
+        samp_rate: '2500000'
+        center_freq: '2400000000'
+        bandwidth: '2000000'
+        attenuation1: '89.75'
+        attenuation2: '89.75'
+        buffer_size: '4096'
+    states:
+        coordinate: [200, 150]
+        rotation: 0
+        state: enabled
+connections:
+- [pluto_rx, '0', rx_null, '0']
+- [tone, '0', pluto_tx, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0
