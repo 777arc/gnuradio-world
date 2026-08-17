@@ -35,6 +35,10 @@ for (const [placeholder, append] of [
 // ---- Blocks -----------------------------------------------------------------
 assert.match(source, /search\.oninput = \(\) => draw\(search\.value\.trim\(\)\.toLowerCase\(\)\)/,
   'typing in the block search must redraw the tree');
+assert.match(source, /TOP_PALETTE_CATEGORY = 'Supported SDRs'/,
+  'Supported SDRs must have explicit root-category priority');
+assert.match(source, /if \(depth === 0\)[\s\S]*?a\.name === TOP_PALETTE_CATEGORY[\s\S]*?return -1/,
+  'Supported SDRs must sort above Core at the root of the block tree');
 
 // ---- Example Flowgraphs -----------------------------------------------------
 // What it matches: every whitespace-separated term, against one lowercased blob.

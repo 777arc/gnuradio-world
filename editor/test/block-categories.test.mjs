@@ -22,6 +22,21 @@ assert.equal(byId.get('fosphor_qt_sink_c')?.runnable, true,
 assert.equal(byId.get('fosphor_qt_sink_c')?.label, 'Fosphor Sink',
   'the browser exposes the remaining fosphor implementation as Fosphor Sink');
 
+const supportedSdrBlocks = new Map([
+  ['wasm_rtlsdr_source', '👂 RTL-SDR Source'],
+  ['wasm_hackrf_source', '👂 HackRF Source'],
+  ['wasm_hackrf_sink', '🛜 HackRF Sink'],
+  ['wasm_plutosdr_source', '👂 PlutoSDR Source'],
+  ['wasm_plutosdr_sink', '🛜 PlutoSDR Sink'],
+]);
+for (const [id, label] of supportedSdrBlocks) {
+  assert.equal(byId.get(id)?.runnable, true, `${id} must stay runnable in WASM`);
+  assert.deepEqual(byId.get(id)?.category, ['Supported SDRs'],
+    `${id} must appear in the root-level Supported SDRs category`);
+  assert.equal(byId.get(id)?.label, label,
+    `${id} must show whether it receives or transmits`);
+}
+
 const addedWasmBlocks = [
   'blocks_correctiq',
   'blocks_correctiq_auto',

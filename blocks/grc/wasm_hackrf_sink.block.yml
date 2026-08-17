@@ -1,6 +1,6 @@
 id: wasm_hackrf_sink
-label: HackRF Sink
-category: '[Core]/Sinks'
+label: '🛜 HackRF Sink'
+category: '[Supported SDRs]'
 flags: [cpp, throttle]
 
 documentation: |-

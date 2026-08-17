@@ -95606,10 +95606,9 @@
   },
   {
    "id": "wasm_hackrf_sink",
-   "label": "HackRF Sink",
+   "label": "\ud83d\udedc HackRF Sink",
    "category": [
-    "Core",
-    "Sinks"
+    "Supported SDRs"
    ],
    "flags": [
     "cpp",
@@ -95621,7 +95620,7 @@
    "module": "core",
    "documentation": "Transmits signed 8-bit complex samples through a HackRF One connected to\nthis computer. The browser drives the stock HackRF USB protocol directly\nover WebUSB; libhackrf and a native helper are not required.\n\nClick Add beside Device to grant this site access to a HackRF. Leave Device\nempty to use the first already-shared unit. WebUSB requires a Chromium-based\nbrowser such as Chrome, Edge or Opera; Firefox and Safari cannot run it.\n\nSample Rate is fixed when the flowgraph starts. HackRF supports 2 through\n20 MS/s, though 8 MS/s or more is recommended. Bandwidth 0 selects the\nsame automatic filter choice as libhackrf. Center Frequency and TX VGA Gain\nmay be driven by QT GUI controls while running.\n\nTX VGA gain is 0-47 dB. Both it and the separate roughly 11 dB RF amplifier\ndefault to their minimum/off settings. Transmission does not begin until\nfour full USB buffers have been queued. If the graph cannot keep supplying\nsamples, the worker stops the transmitter rather than repeating stale data.\nStopping or failing the block switches the HackRF to OFF before releasing\nUSB. Bias tee power defaults off as well.\n\nConnect an appropriate load, antenna and filters before transmitting, and\ncomply with the radio regulations that apply where you are operating.\nHackRF is half-duplex and may be owned by only one active Source or Sink.",
    "api_documentation": "",
-   "wiki_url": "https://wiki.gnuradio.org/index.php/HackRF_Sink",
+   "wiki_url": "",
    "params": [
     {
      "id": "device",
@@ -95738,10 +95737,9 @@
   },
   {
    "id": "wasm_hackrf_source",
-   "label": "HackRF Source",
+   "label": "\ud83d\udc42 HackRF Source",
    "category": [
-    "Core",
-    "Sources"
+    "Supported SDRs"
    ],
    "flags": [
     "cpp",
@@ -95753,7 +95751,7 @@
    "module": "core",
    "documentation": "Receives signed 8-bit complex samples from a HackRF One connected to this\ncomputer. The browser drives the stock HackRF USB protocol directly over\nWebUSB; libhackrf and a native helper are not required.\n\nClick Add beside Device to grant this site access to a HackRF. Leave Device\nempty to use the first already-shared unit. WebUSB requires a Chromium-based\nbrowser such as Chrome, Edge or Opera; Firefox and Safari cannot run it.\n\nOn Linux, grant the browser access to the USB device and ensure no native\napplication has it open. Chromium installed as a Snap may be unable to see\nUSB devices. On Windows, bind the HackRF to WinUSB (Zadig is commonly used).\n\nSample Rate may be changed while receiving. HackRF supports 2 through 20\nMS/s, though 8 MS/s or more is recommended for useful analog filtering.\nBandwidth 0 selects an automatic filter (the libhackrf choice below 75% of the\nsample rate). Center Frequency, RX IF Gain and RX Baseband Gain may be\ndriven by QT GUI controls while running.\n\nRX IF gain is 0-40 dB in 8 dB steps. RX Baseband gain is 0-62 dB in 2 dB\nsteps. The RF amplifier is a separate roughly 11 dB stage and defaults off.\nThe RF amplifier and bias tee are applied at startup and default off. The\nbias tee supplies antenna-port power.\n\nA HackRF is half-duplex and may be owned by only one active HackRF Source or\nSink. Receive overruns drop the newest USB transfer and report the loss.",
    "api_documentation": "",
-   "wiki_url": "https://wiki.gnuradio.org/index.php/HackRF_Source",
+   "wiki_url": "",
    "params": [
     {
      "id": "device",
@@ -95989,10 +95987,9 @@
   },
   {
    "id": "wasm_plutosdr_sink",
-   "label": "PlutoSDR Sink",
+   "label": "\ud83d\udedc PlutoSDR Sink",
    "category": [
-    "Core",
-    "Sinks"
+    "Supported SDRs"
    ],
    "flags": [
     "cpp",
@@ -96004,7 +96001,7 @@
    "module": "core",
    "documentation": "Transmits complex samples with an ADALM-PLUTO (PlutoSDR) over WebUSB using\nthe IIO service included in the out-of-the-box Analog Devices firmware.\n\nOn Windows, first install the [PlutoSDR/M2k USB driver](https://github.com/analogdevicesinc/plutosdr-m2k-drivers-win/releases/download/v0.9/PlutoSDR-M2k-USB-Drivers.exe),\nthen plug in the Pluto.\n\nClick Add beside Device to let the browser share a Pluto with this site.\nLeave Device empty to use the first already-shared Pluto. WebUSB requires a\nChromium-based browser such as Chrome, Edge or Opera; Firefox and Safari do\nnot implement it.\n\nWSL setup (only when Chromium itself runs inside WSL): install usbipd-win on\nWindows. With the Pluto plugged in, open an Administrator PowerShell and\nfind and share it (binding is normally needed only once):\n\n    usbipd list\n    usbipd bind --busid <BUSID>\n\nIf bind says Windows is using the device, close software using the Pluto;\nif necessary, use `usbipd bind --force --busid <BUSID>`. Keep a WSL terminal\nopen, then run this in a normal, non-Administrator Windows PowerShell:\n\n    usbipd attach --wsl --busid <BUSID>\n\nIn WSL, verify the Pluto and grant the current user access to its device\nnode. Re-run the `chmod` after a detach/replug because its bus or device\nnumber can change:\n\n    lsusb -d 0456:b673\n    PLUTO_USB_NODE=$(lsusb -d 0456:b673 | sed -E 's/Bus ([0-9]+) Device ([0-9]+):.*/\\/dev\\/bus\\/usb\\/\\1\\/\\2/')\n    sudo chmod a+rw \"$PLUTO_USB_NODE\"\n\nThe Pluto is unavailable to native Windows while attached. Return it with\n`usbipd detach --busid <BUSID>`. USB/IP can enumerate some Plutos yet stall\non IIOD bulk reads; if the worker stops after sending `PRINT`, detach it and\nuse native Windows Chrome instead. The block does not require libusb.\n\nThe Pluto's default network address is 192.168.2.1. This block uses its USB\nIIO interface, not the IP address, so no firmware or network reconfiguration\nis required.\n\nSingle mode accepts one complex input. Dual mode accepts two, but it works\nonly when the connected hardware and stock firmware actually advertise two\nRF paths (normally a suitable Rev C unit configured for 2R2T, with the\nrequired second-port hardware modification). Capability is detected from\nthe Pluto's live IIO context; unsupported dual mode fails clearly.\n\nTX Attenuation is a positive magnitude: 0 dB is maximum output and 89.75 dB\nis minimum output. The conservative default is 89.75 dB. The block disables\nthe Pluto DDS generators before streaming and restores maximum attenuation\nwhen it stops. Center Frequency, RF Bandwidth and attenuation accept QT GUI\nRange values and may be changed while running. The sink backpressures its\ninputs instead of silently discarding transmit samples; underflows are\ncounted and reported.\n\nA Pluto may be owned by only one PlutoSDR block at a time. A future combined\nreceive/transmit block can add coordinated full duplex; using this Sink and\nPlutoSDR Source on the same physical unit is intentionally rejected.",
    "api_documentation": "",
-   "wiki_url": "https://wiki.gnuradio.org/index.php/PlutoSDR_Sink",
+   "wiki_url": "",
    "params": [
     {
      "id": "device",
@@ -96115,10 +96112,9 @@
   },
   {
    "id": "wasm_plutosdr_source",
-   "label": "PlutoSDR Source",
+   "label": "\ud83d\udc42 PlutoSDR Source",
    "category": [
-    "Core",
-    "Sources"
+    "Supported SDRs"
    ],
    "flags": [
     "cpp",
@@ -96130,7 +96126,7 @@
    "module": "core",
    "documentation": "Receives complex samples from an ADALM-PLUTO (PlutoSDR) over WebUSB using\nthe IIO service included in the out-of-the-box Analog Devices firmware.\n\nOn Windows, first install the [PlutoSDR/M2k USB driver](https://github.com/analogdevicesinc/plutosdr-m2k-drivers-win/releases/download/v0.9/PlutoSDR-M2k-USB-Drivers.exe),\nthen plug in the Pluto.\n\nClick Add beside Device to let the browser share a Pluto with this site.\nLeave Device empty to use the first already-shared Pluto. WebUSB requires a\nChromium-based browser such as Chrome, Edge or Opera; Firefox and Safari do\nnot implement it.\n\nWSL setup (only when Chromium itself runs inside WSL): install usbipd-win on\nWindows. With the Pluto plugged in, open an Administrator PowerShell and\nfind and share it (binding is normally needed only once):\n\n    usbipd list\n    usbipd bind --busid <BUSID>\n\nIf bind says Windows is using the device, close software using the Pluto;\nif necessary, use `usbipd bind --force --busid <BUSID>`. Keep a WSL terminal\nopen, then run this in a normal, non-Administrator Windows PowerShell:\n\n    usbipd attach --wsl --busid <BUSID>\n\nIn WSL, verify the Pluto and grant the current user access to its device\nnode. Re-run the `chmod` after a detach/replug because its bus or device\nnumber can change:\n\n    lsusb -d 0456:b673\n    PLUTO_USB_NODE=$(lsusb -d 0456:b673 | sed -E 's/Bus ([0-9]+) Device ([0-9]+):.*/\\/dev\\/bus\\/usb\\/\\1\\/\\2/')\n    sudo chmod a+rw \"$PLUTO_USB_NODE\"\n\nThe Pluto is unavailable to native Windows while attached. Return it with\n`usbipd detach --busid <BUSID>`. USB/IP can enumerate some Plutos yet stall\non IIOD bulk reads; if the worker stops after sending `PRINT`, detach it and\nuse native Windows Chrome instead. The block does not require libusb.\n\nThe Pluto's default network address is 192.168.2.1. This block uses its USB\nIIO interface, not the IP address, so no firmware or network reconfiguration\nis required.\n\nSingle mode exposes one complex output. Dual mode exposes two, but it works\nonly when the connected hardware and stock firmware actually advertise two\nRF paths (normally a suitable Rev C unit configured for 2R2T, with the\nrequired second-port hardware modification). Capability is detected from\nthe Pluto's live IIO context; unsupported dual mode fails with a clear\nmessage.\n\nCenter Frequency, RF Bandwidth and manual gains accept QT GUI Range values\nand may be changed while running. Sample Rate, channel count, gain modes,\ncorrection settings and buffer size are fixed when the flowgraph starts.\nRX overruns drop the newest IIO buffer and report the loss in the console.\n\nA Pluto may be owned by only one PlutoSDR block at a time. A future combined\nreceive/transmit block can add coordinated full duplex; using this Source\nand PlutoSDR Sink on the same physical unit is intentionally rejected.",
    "api_documentation": "",
-   "wiki_url": "https://wiki.gnuradio.org/index.php/PlutoSDR_Source",
+   "wiki_url": "",
    "params": [
     {
      "id": "device",
@@ -96452,10 +96448,9 @@
   },
   {
    "id": "wasm_rtlsdr_source",
-   "label": "RTL-SDR Source",
+   "label": "\ud83d\udc42 RTL-SDR Source",
    "category": [
-    "Core",
-    "Sources"
+    "Supported SDRs"
    ],
    "flags": [
     "cpp",
@@ -96467,7 +96462,7 @@
    "module": "core",
    "documentation": "Receives from an RTL-SDR dongle plugged into this computer, over WebUSB.\n\nDevice names the dongle by serial number. Click Add to pick one -- the\nbrowser asks permission once per device and remembers it for this site.\nLeave it empty to use the first RTL-SDR you have already granted access to.\n\nRequires a Chromium-based browser (Chrome, Edge, Opera) on desktop or\nAndroid. Firefox and Safari do not implement WebUSB and cannot run this\nblock at all.\n\nOn Linux the kernel's DVB-T driver claims the dongle first, so blacklist\ndvb_usb_rtl28xxu and add a udev rule granting your user access; Chromium\ninstalled as a Snap cannot reach USB devices at all. On Windows the dongle\nneeds the WinUSB driver, which Zadig installs. macOS, Android and ChromeOS\nneed no setup.\n\nSample Rate is a request. The RTL2832U divides a 28.8 MHz clock, so the\nachievable rate is what the flowgraph actually runs at; it is reported to\nthe console when the graph starts. 2.4 MS/s and below are reliable, and\n2.88 or 3.2 MS/s drop samples on most hardware -- those losses are counted\nand reported as overruns rather than silently closing the gap.\n\nCenter Freq and RF Gain accept a QT GUI Range and can be changed while the\nflowgraph runs. Sample Rate cannot: it is read once, when the block is\nbuilt.\n\nDirect Sampling bypasses the tuner to receive below ~24 MHz. It needs a\ndongle wired for it (an RTL-SDR V3 shorts the Q branch internally); on\neverything else it receives nothing but noise.\n\nThis block exists only in the WebAssembly runner -- it has no Python\nimplementation, so a flowgraph using it will not run in desktop GNU Radio.\nSoapy RTLSDR Source is the native equivalent.",
    "api_documentation": "",
-   "wiki_url": "https://wiki.gnuradio.org/index.php/RTL-SDR_Source",
+   "wiki_url": "",
    "params": [
     {
      "id": "device",

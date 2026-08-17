@@ -1,6 +1,6 @@
 id: wasm_hackrf_source
-label: HackRF Source
-category: '[Core]/Sources'
+label: '👂 HackRF Source'
+category: '[Supported SDRs]'
 flags: [cpp, throttle]
 
 documentation: |-

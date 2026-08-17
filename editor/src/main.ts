@@ -4142,8 +4142,17 @@ function makeCatRow(name: string, container: HTMLElement, open: boolean, bold = 
 // One level of block-tree indent, and the extra a leaf carries so it lines up
 // past its category's `.tri` (22px wide plus the row's 4px gap).
 const TREE_INDENT = 16;
+const TOP_PALETTE_CATEGORY = 'Supported SDRs';
+function comparePaletteCategories(a: Cat, b: Cat, depth: number): number {
+  if (depth === 0) {
+    if (a.name === TOP_PALETTE_CATEGORY) return -1;
+    if (b.name === TOP_PALETTE_CATEGORY) return 1;
+  }
+  return a.name.localeCompare(b.name);
+}
 function renderTree(node: Cat, container: HTMLElement, depth: number, q: string) {
-  for (const s of [...node.subs.values()].sort((a, b) => a.name.localeCompare(b.name))) {
+  for (const s of [...node.subs.values()].sort(
+    (a, b) => comparePaletteCategories(a, b, depth))) {
     if (!catMatches(s, q)) continue;
     const kids = makeCatRow(s.name, container, !!q || (depth === 0 && s.name === 'Core'),
                             false, 6 + depth * TREE_INDENT);
