@@ -18,10 +18,16 @@ import {
 } from './plutosdr';
 import {
   authorizedRtlDevices,
+  rtlDriverProblem,
   rtlLabel,
   RTLSDR_USB_FILTERS,
 } from './rtlsdr';
-import { usbApi, type UsbFilter, type UsbLike } from './usb-radio';
+import {
+  usbApi,
+  type UsbFilter,
+  type UsbLike,
+  type UsbPreparationProblem,
+} from './usb-radio';
 
 export interface SdrSpeedTestDeps {
   openDialog: (
@@ -505,11 +511,35 @@ export function showSdrSpeedTestDialog(deps: SdrSpeedTestDeps): void {
       return device;
     };
 
+    const showPreparationProblem = (
+      problem: Exclude<UsbPreparationProblem, string>,
+    ) => {
+      status.textContent = problem.message;
+      openDialog(problem.title, problemBody => {
+        const message = document.createElement('p');
+        message.textContent = problem.message;
+        problemBody.appendChild(message);
+      });
+    };
+
+    const rtlIsAccessible = async (
+      radio: SdrSpeedRadioConfig, device: UsbLike | null,
+    ): Promise<boolean> => {
+      if (radio.id !== 'rtlsdr' || !device) return true;
+      const problem = await rtlDriverProblem(device);
+      if (!problem || typeof problem === 'string') return true;
+      showPreparationProblem(problem);
+      return false;
+    };
+
     share.onclick = () => {
       if (running) return;
-      void requestDevice(selectedRadio).catch(error => {
-        status.textContent = error instanceof Error ? error.message : String(error);
-      });
+      const radio = selectedRadio;
+      void requestDevice(radio)
+        .then(device => rtlIsAccessible(radio, device))
+        .catch(error => {
+          status.textContent = error instanceof Error ? error.message : String(error);
+        });
     };
 
     radioSelect.onchange = () => {
@@ -526,17 +556,21 @@ export function showSdrSpeedTestDialog(deps: SdrSpeedTestDeps): void {
       }
       const radio = selectedRadio;
       let serial = deviceSelect.value;
+      let device = serial
+        ? devices.find(candidate => candidate.serialNumber === serial) || null
+        : devices[0] || null;
       if (!devices.length) {
         try {
           // No await precedes requestDevice(), preserving the Run button's
           // transient user activation for the WebUSB chooser.
-          const device = await requestDevice(radio);
+          device = await requestDevice(radio);
           serial = device?.serialNumber || '';
         } catch (error) {
           status.textContent = error instanceof Error ? error.message : String(error);
           return;
         }
       }
+      if (!await rtlIsAccessible(radio, device)) return;
 
       running = true;
       runButton.textContent = 'Cancel';

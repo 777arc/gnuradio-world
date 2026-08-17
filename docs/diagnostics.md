@@ -334,3 +334,8 @@ completion, cancellation or dialog close. `isSdrSpeedTestFrameSource()` keeps
 that runner's log/error/module messages from changing the editor's normal Run
 state. A normal flowgraph must be stopped before the test can start, both for
 clean results and to avoid contending for the same USB device.
+
+Before an RTL-SDR test creates that iframe, it uses the same open/configure/claim
+probe as the normal flowgraph Run path. This catches a dongle that appears in
+Chromium's chooser but lacks a usable host driver (most often WinUSB on Windows),
+shows the driver-setup dialog, and leaves the test stopped.

@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { bundleModule } from './bundle-module.mjs';
 import { mainSource, cssSource } from './editor-contract-source.mjs';
+
+const speedTestSource = await readFile(
+  new URL('../src/sdr-speed-test.ts', import.meta.url), 'utf8');
 
 const {
   receiveRate,
@@ -41,6 +45,14 @@ assert.match(mainSource, /label: 'SDR Receive Speed Test…'/,
   'the speed test is reachable from Help');
 assert.match(mainSource, /isSdrSpeedTestFrameSource/,
   'its private runner messages are excluded from the editor Run state');
+assert.match(mainSource, /showUsbPreparationProblem\(problem\)/,
+  'an RTL-SDR driver failure opens a modal before a normal flowgraph starts');
+assert.match(speedTestSource, /rtlDriverProblem\(device\)/,
+  'the speed test uses the RTL-SDR host-driver probe');
+assert.ok(
+  speedTestSource.indexOf('if (!await rtlIsAccessible(radio, device)) return;') <
+    speedTestSource.indexOf('running = true;'),
+  'the speed test blocks on the driver probe before starting its runner');
 for (const selector of [
   '.sdr-gauge', '.sdr-gauge-needle', '.sdr-speed-progress', '.sdr-speed-run',
 ])

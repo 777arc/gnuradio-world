@@ -144,4 +144,58 @@ try {
   });
 }
 
+// ---- Host driver preflight ----
+
+const calls = [];
+const usable = {
+  ...generic,
+  opened: false,
+  configuration: null,
+  async open() { calls.push('open'); this.opened = true; },
+  async selectConfiguration(value) {
+    calls.push(`configure:${value}`); this.configuration = { configurationValue: value };
+  },
+  async claimInterface(value) { calls.push(`claim:${value}`); },
+  async releaseInterface(value) { calls.push(`release:${value}`); },
+  async close() { calls.push('close'); this.opened = false; },
+};
+assert.equal(await rtl.rtlDriverProblem(usable), null);
+assert.deepEqual(calls, ['open', 'configure:1', 'claim:0', 'release:0', 'close'],
+  'the preflight claims the same interface as the worker and leaves it free');
+
+let closedAfterFailure = false;
+const missingDriver = {
+  ...generic,
+  opened: false,
+  configuration: { configurationValue: 1 },
+  async open() { this.opened = true; },
+  async claimInterface() { throw new DOMException('Unable to claim interface', 'NetworkError'); },
+  async close() { closedAfterFailure = true; this.opened = false; },
+};
+const driverProblem = await rtl.rtlDriverProblem(missingDriver);
+assert.equal(driverProblem.title, 'RTL-SDR device driver required');
+assert.match(driverProblem.message, /install the WinUSB driver/i);
+assert.equal(closedAfterFailure, true, 'a failed probe still closes what it opened');
+
+const navigatorBeforePrepareProbe = globalThis.navigator;
+try {
+  Object.defineProperty(globalThis, 'navigator', {
+    value: { usb: {
+      async getDevices() { return [missingDriver]; },
+      async requestDevice() { throw new Error('the existing grant should be used'); },
+    } },
+    configurable: true,
+    writable: true,
+  });
+  const prepareProblem = await rtl.prepareRtlDevices([
+    inst({ device: generic.serialNumber }),
+  ]);
+  assert.equal(prepareProblem.title, 'RTL-SDR device driver required',
+    'the normal Run preflight blocks an already-authorized unusable dongle');
+} finally {
+  Object.defineProperty(globalThis, 'navigator', {
+    value: navigatorBeforePrepareProbe, configurable: true, writable: true,
+  });
+}
+
 console.log('rtlsdr.test.mjs: ok');

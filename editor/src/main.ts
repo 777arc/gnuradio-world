@@ -37,7 +37,12 @@ import {
   VARIABLE_IDS,
   validateFlowgraph,
 } from './validation';
-import { type UsbLike, type UsbRadio, usbApi } from './usb-radio';
+import {
+  type UsbLike,
+  type UsbPreparationProblem,
+  type UsbRadio,
+  usbApi,
+} from './usb-radio';
 import { RTLSDR_RADIO } from './rtlsdr';
 import { PLUTOSDR_RADIO } from './plutosdr';
 import { HACKRF_RADIO } from './hackrf';
@@ -3823,7 +3828,9 @@ async function run() {
   for (const radio of USB_RADIOS) {
     const problem = await radio.prepare(insts);
     if (!problem) continue;
-    log(`cannot run: ${problem}`);
+    const message = typeof problem === 'string' ? problem : problem.message;
+    log(`cannot run: ${message}`);
+    if (typeof problem !== 'string') showUsbPreparationProblem(problem);
     const block = insts.find(i => radio.owns(i) && i.enabled && !i.bypassed);
     if (block) select(block.uid);
     return;
@@ -4882,6 +4889,14 @@ function openDialog(title: string, build: (body: HTMLElement) => void, wide = fa
   overlay.addEventListener('pointerdown', e => { if (e.target === overlay) overlay.remove(); });
   close.focus();
   return overlay;
+}
+
+function showUsbPreparationProblem(problem: Exclude<UsbPreparationProblem, string>): void {
+  openDialog(problem.title, body => {
+    const message = document.createElement('p');
+    message.textContent = problem.message;
+    body.appendChild(message);
+  });
 }
 const TYPE_NAMES: Record<string, string> = {
   complex: 'Complex Float 32', float: 'Float 32', int: 'Integer 32',

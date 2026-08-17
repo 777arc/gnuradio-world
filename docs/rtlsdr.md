@@ -126,7 +126,12 @@ Radio constructor has none, and neither does a worker. So:
    `device` parameter.
 2. **Run time** — `prepareRtlDevices()` in [`editor/src/rtlsdr.ts`](../editor/src/rtlsdr.ts)
    runs *first thing* inside the Run handler, before any other `await`, and
-   prompts if the permission is missing. This is the only reason it is placed
+   prompts if the permission is missing. It then briefly opens the selected
+   device and claims interface 0 before allowing the run. The WebUSB chooser can
+   list and grant a Windows RTL-SDR that has no WinUSB driver, but only this
+   probe exposes that the browser cannot use it; failure opens the driver-setup
+   dialog and prevents the runner from starting. The SDR Receive Speed Test uses
+   the same probe. This is the only reason permission preparation is placed
    where it is; moving it after another `await` would consume the activation.
 3. **Run time, in the worker** — `navigator.usb.getDevices()` re-acquires the
    device. **No `USBDevice` object crosses a frame or a worker boundary.** The

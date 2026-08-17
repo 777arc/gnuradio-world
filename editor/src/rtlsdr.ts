@@ -11,6 +11,7 @@ import {
   usbApi,
   type UsbFilter,
   type UsbLike,
+  type UsbPreparationProblem,
   type UsbRadio,
 } from './usb-radio';
 
@@ -19,6 +20,15 @@ export type { UsbLike };
 
 export const RTLSDR_ID = 'wasm_rtlsdr_source';
 export const RTLSDR_DTYPE = 'rtlsdr_device';
+
+export const RTLSDR_DRIVER_PROBLEM = {
+  title: 'RTL-SDR device driver required',
+  message: 'GNU Radio World can see this RTL-SDR, but the browser cannot ' +
+    'claim its USB interface. Install and configure the device driver before ' +
+    'continuing. On Windows, use Zadig to install the WinUSB driver. On Linux, ' +
+    'detach or blacklist dvb_usb_rtl28xxu and make sure your user can access ' +
+    'USB devices. Also close any other application using the RTL-SDR.',
+};
 
 /**
  * The USB IDs the block accepts, as librtlsdr lists them. Kept in step with
@@ -68,6 +78,35 @@ export async function authorizedRtlDevices(): Promise<UsbLike[]> {
     return ((await usb.getDevices()) as UsbLike[]).filter(matchesRtl);
   } catch {
     return [];
+  }
+}
+
+/**
+ * Proves that WebUSB can get past host-driver ownership before a runner starts.
+ * The chooser can enumerate and grant an RTL-SDR on Windows even when WinUSB
+ * is not installed; only open/configure/claim exposes that unusable binding.
+ */
+export async function rtlDriverProblem(
+  device: UsbLike,
+): Promise<UsbPreparationProblem | null> {
+  const usbDevice = device as any;
+  const openedHere = !usbDevice.opened;
+  let claimed = false;
+  try {
+    if (openedHere) await usbDevice.open();
+    if (!usbDevice.configuration) await usbDevice.selectConfiguration(1);
+    await usbDevice.claimInterface(0);
+    claimed = true;
+    return null;
+  } catch {
+    return { ...RTLSDR_DRIVER_PROBLEM };
+  } finally {
+    if (claimed) {
+      try { await usbDevice.releaseInterface(0); } catch { /* close releases it too */ }
+    }
+    if (openedHere) {
+      try { await usbDevice.close(); } catch { /* the probe is already finished */ }
+    }
   }
 }
 
@@ -186,21 +225,35 @@ export function requiredRtlSerials(blocks: Inst[]): string[] {
  *
  * @returns a message to report, or null when everything is in place.
  */
-export async function prepareRtlDevices(blocks: Inst[]): Promise<string | null> {
+export async function prepareRtlDevices(
+  blocks: Inst[],
+): Promise<UsbPreparationProblem | null> {
   const wanted = requiredRtlSerials(blocks);
   if (!wanted.length) return null;
   if (!usbApi())
     return 'RTL-SDR Source needs WebUSB, which only Chromium-based browsers ' +
            '(Chrome, Edge, Opera) provide. Firefox and Safari cannot run it.';
 
-  if (!unsatisfiedSerials(wanted, await authorizedRtlDevices()).length) return null;
-  try {
-    await usbApi().requestDevice({ filters: RTLSDR_USB_FILTERS });
-  } catch {
-    // The chooser was dismissed, or it had nothing to offer.
+  let available = await authorizedRtlDevices();
+  if (unsatisfiedSerials(wanted, available).length) {
+    try {
+      await usbApi().requestDevice({ filters: RTLSDR_USB_FILTERS });
+    } catch {
+      // The chooser was dismissed, or it had nothing to offer.
+    }
+    available = await authorizedRtlDevices();
   }
-  const missing = unsatisfiedSerials(wanted, await authorizedRtlDevices());
-  if (!missing.length) return null;
+  const missing = unsatisfiedSerials(wanted, available);
+  if (!missing.length) {
+    const devices = [...new Set(wanted.map(serial => serial
+      ? available.find(device => device.serialNumber === serial)
+      : available[0]).filter((device): device is UsbLike => !!device))];
+    for (const device of devices) {
+      const problem = await rtlDriverProblem(device);
+      if (problem) return problem;
+    }
+    return null;
+  }
 
   const named = missing.filter(Boolean);
   return named.length

@@ -23,6 +23,12 @@ export type UsbFilter = { vendorId: number; productId: number };
 
 export type DeviceOption = { value: string; label: string };
 
+/** A run-stopping problem that deserves a modal rather than console text alone. */
+export type UsbPreparationProblem = string | {
+  title: string;
+  message: string;
+};
+
 /** null in Firefox and Safari, which have both declined to implement WebUSB. */
 export function usbApi(): any | null {
   return (navigator as any).usb ?? null;
@@ -69,5 +75,5 @@ export type UsbRadio = {
    * Obtains any permission the flowgraph's blocks are missing, and returns a
    * message when the run cannot go ahead. Must be called from a user gesture.
    */
-  prepare(blocks: Inst[]): Promise<string | null>;
+  prepare(blocks: Inst[]): Promise<UsbPreparationProblem | null>;
 };
