@@ -136,14 +136,13 @@ startup cost until its reader asks for it:
 ```
 
 This flag has no effect without `embed`. With both flags enabled, the initial
-document shows the GNU Radio World logo, responsive up to 600 pixels wide, with
-a centred **Load** button over it. The tiny `bootstrap.ts` entry does not import
-application code; pressing the button dynamically imports `main.ts`, whose
-chunk owns `editor.css`, then moves the already-fetched logo element into the
-application header. That keeps the editor bundle, stylesheet, block catalog,
-example, recording index and runner out of the host page's initial waterfall.
-Like `embed`, any value but `0`/`false` enables `click_to_load`, including the
-bare flag.
+document fills the frame with `blurry_flowgraph.png` and centres the **Load**
+button over it. The tiny `bootstrap.ts` entry does not import application code;
+pressing the button dynamically imports `main.ts`, whose chunk owns
+`editor.css`, then loads the application header logo. That keeps the editor
+bundle, stylesheet, block catalog, example, recording index and runner out of
+the host page's initial waterfall. Like `embed`, any value but `0`/`false`
+enables `click_to_load`, including the bare flag.
 
 Four things make it an embed, and each is one place:
 

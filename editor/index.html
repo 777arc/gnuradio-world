@@ -36,10 +36,7 @@ html.click-to-load-pending body {
 html.click-to-load-pending body > :not(#clickToLoad) { display:none !important; }
 html.click-to-load-pending #clickToLoad {
   position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
-  overflow:hidden;
-}
-html.click-to-load-pending #clickToLoad img {
-  display:block; width:100%; max-width:600px; max-height:100%; object-fit:contain;
+  overflow:hidden; background:url('/blurry_flowgraph.png') center / cover no-repeat;
 }
 html.click-to-load-pending #clickToLoad button {
   position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
@@ -53,7 +50,6 @@ html.click-to-load-pending #clickToLoad button:disabled { cursor:default; opacit
 </head>
 <body>
 <div id="clickToLoad">
-  <img src="/gnuradio_world_logo_dark.svg" alt="GNU Radio World" />
   <button type="button">Load</button>
 </div>
 <div id="app">

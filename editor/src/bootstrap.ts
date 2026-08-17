@@ -5,18 +5,18 @@
 const root = document.documentElement;
 const gate = document.getElementById('clickToLoad')!;
 const button = gate.querySelector('button') as HTMLButtonElement;
-const logo = gate.querySelector('img') as HTMLImageElement;
 const deferred = root.classList.contains('click-to-load-pending');
 
-function moveLogoIntoEditor() {
-  // The gated screen has already fetched and decoded this image. Reuse that
-  // exact element in the application header instead of requesting it twice.
-  document.querySelector<HTMLImageElement>('header .brand img[data-src]')?.replaceWith(logo);
+function loadHeaderLogo() {
+  const logo = document.querySelector<HTMLImageElement>('header .brand img[data-src]');
+  if (!logo) return;
+  logo.src = logo.dataset.src!;
+  logo.removeAttribute('data-src');
 }
 
 async function loadEditor() {
   await import('./main');
-  moveLogoIntoEditor();
+  loadHeaderLogo();
   root.classList.remove('app-bootstrapping', 'click-to-load-pending');
   gate.remove();
 }

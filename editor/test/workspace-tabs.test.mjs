@@ -85,23 +85,23 @@ for (const fn of ['resetHistory', 'recordHistory', 'restoreHistory'])
     `${fn}() keeps the Open link in step with the canvas`);
 
 // click_to_load composes with embed, but leaves every other page on the normal
-// eager path. The app stylesheet belongs to main's lazy chunk; the one initial
-// visual asset is the logo behind the button, which is reused by the app.
+// eager path. The app stylesheet belongs to main's lazy chunk; the loading
+// background is fetched only while the gated class is active.
 assert.match(html,
   /enabled\('embed'\) && enabled\('click_to_load'\)[\s\S]*'click-to-load-pending'/,
   'click_to_load gates startup only when embedded mode is also enabled');
 assert.match(html,
-  /id="clickToLoad">[\s\S]*<img src="\/gnuradio_world_logo_dark\.svg"[^>]*>[\s\S]*<button type="button">Load<\/button>/,
-  'the gated screen puts one Load button over the existing logo');
+  /id="clickToLoad">[\s\S]*<button type="button">Load<\/button>/,
+  'the gated screen includes one Load button');
 assert.match(html,
   /html\.click-to-load-pending body > :not\(#clickToLoad\) \{ display:none !important; \}/,
   'nothing from the application is visible behind the loading gate');
 assert.match(html,
-  /#clickToLoad img \{[^}]*width:100%;[^}]*max-width:600px;[^}]*object-fit:contain/,
-  'the gate logo fills a small frame but is capped at 600px');
+  /#clickToLoad \{[^}]*background:url\('\/blurry_flowgraph\.png'\) center \/ cover no-repeat/,
+  'the gated screen fills the frame with the blurry flowgraph background');
 assert.match(html,
   /#clickToLoad button \{[^}]*position:absolute;[^}]*left:50%;[^}]*top:50%;[^}]*translate\(-50%,-50%\)/,
-  'the Load button stays centered over the logo');
+  'the Load button stays centered over the background');
 assert.doesNotMatch(html, /<link[^>]+editor\.css/,
   'the application stylesheet is not fetched directly by the document');
 assert.match(html, /<img data-src="\/gnuradio_world_logo_dark\.svg"/,
@@ -116,7 +116,7 @@ assert.match(source,
 assert.match(source, /async function loadEditor\(\)[\s\S]*await import\('\.\/main'\)/,
   'the application stays in a dynamic chunk behind the bootstrap');
 assert.match(source,
-  /function moveLogoIntoEditor\(\)[\s\S]*header \.brand img\[data-src\][\s\S]*replaceWith\(logo\)/,
-  'the already-fetched gate logo becomes the application header logo');
+  /function loadHeaderLogo\(\)[\s\S]*header \.brand img\[data-src\][\s\S]*logo\.src = logo\.dataset\.src/,
+  'the application header logo is loaded when the editor starts');
 
 console.log('checked tabbed editor/QT GUI workspace, persistent console, and embedded layout');
