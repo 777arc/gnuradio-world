@@ -128,6 +128,48 @@ button:hover { filter:brightness(1.15); }
 .bench-table td:first-child { color:#dde7f6; }
 .bench-table .bench-busy { color:#c9903a; }
 .bench-table .bench-error { color:#ff9b95; }
+/* Help ▸ SDR Receive Speed Test */
+.sdr-speed-body { max-width:780px; }
+.sdr-speed-intro { color:#c3cbe0; line-height:1.55; margin:0 0 4px; }
+.sdr-gauge { position:relative; width:min(100%,500px); margin:0 auto 28px;
+    text-align:center; font-variant-numeric:tabular-nums; }
+.sdr-gauge svg { display:block; width:100%; height:auto; overflow:visible; }
+.sdr-gauge-track, .sdr-gauge-color { fill:none; stroke-width:24; stroke-linecap:round; }
+.sdr-gauge-color { filter:drop-shadow(0 0 7px #4fc3d655); }
+.sdr-gauge-needle { transform:rotate(-90deg); transform-origin:180px 180px;
+    transition:transform .28s cubic-bezier(.2,.8,.2,1); }
+.sdr-gauge-needle line { stroke:#f5f7ff; stroke-width:5; stroke-linecap:round;
+    filter:drop-shadow(0 1px 4px #000); }
+.sdr-gauge-needle circle { fill:#f5f7ff; stroke:#20232f; stroke-width:4; }
+.sdr-gauge-tick { fill:#8490ad; font-size:13px; }
+.sdr-gauge-value { position:absolute; left:0; right:0; bottom:-2px;
+    color:#f5f7ff; font-size:32px; font-weight:700; letter-spacing:-.02em; }
+.sdr-gauge-caption { position:absolute; left:0; right:0; bottom:-22px;
+    color:#8b93ab; font-size:14px; text-transform:uppercase; letter-spacing:.08em; }
+.sdr-speed-form { display:grid;
+    grid-template-columns:minmax(115px,.4fr) minmax(210px,1fr) auto minmax(135px,.45fr);
+    gap:10px; align-items:end; margin:4px 0 14px; }
+.sdr-speed-form label { display:flex; flex-direction:column; gap:5px; color:#9da8c3;
+    font-size:14px; }
+.sdr-speed-form select, .sdr-speed-form button { min-height:38px; font-size:15px; }
+.sdr-speed-progress { height:10px; background:#171a24; border:1px solid #3a4366;
+    border-radius:6px; overflow:hidden; }
+.sdr-speed-progress-fill { width:0; height:100%; background:linear-gradient(90deg,#58a6ff,#4fc3d6,#55d17d);
+    transition:width .15s linear; }
+.sdr-speed-controls { display:flex; gap:12px; align-items:center; margin-top:13px; }
+.sdr-speed-run { min-width:150px; padding:8px 15px; font-size:16px; }
+.sdr-speed-status { color:#dce3f5; font-weight:600; }
+.sdr-speed-detail { min-height:24px; margin:8px 0 0 162px; color:#8b93ab;
+    font-variant-numeric:tabular-nums; }
+@media (max-width:700px) {
+  .sdr-speed-form { grid-template-columns:1fr; }
+  .sdr-speed-controls { align-items:flex-start; flex-direction:column; }
+  .sdr-speed-detail { margin-left:0; }
+  .sdr-gauge-value { font-size:27px; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .sdr-gauge-needle, .sdr-speed-progress-fill { transition:none; }
+}
 #palette { min-height:0; background:#20232f; overflow:auto; }
 /* Vertical splitter between the palette and the workspace */
 #paletteSplitter { min-width:0; position:relative; z-index:20; cursor:col-resize;

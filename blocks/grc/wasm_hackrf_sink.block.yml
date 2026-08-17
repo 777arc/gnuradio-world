@@ -1,0 +1,84 @@
+id: wasm_hackrf_sink
+label: HackRF Sink
+category: '[Core]/Sinks'
+flags: [cpp, throttle]
+
+documentation: |-
+    Transmits signed 8-bit complex samples through a HackRF One connected to
+    this computer. The browser drives the stock HackRF USB protocol directly
+    over WebUSB; libhackrf and a native helper are not required.
+
+    Click Add beside Device to grant this site access to a HackRF. Leave Device
+    empty to use the first already-shared unit. WebUSB requires a Chromium-based
+    browser such as Chrome, Edge or Opera; Firefox and Safari cannot run it.
+
+    Sample Rate is fixed when the flowgraph starts. HackRF supports 2 through
+    20 MS/s, though 8 MS/s or more is recommended. Bandwidth 0 selects the
+    same automatic filter choice as libhackrf. Center Frequency and TX VGA Gain
+    may be driven by QT GUI controls while running.
+
+    TX VGA gain is 0-47 dB. Both it and the separate roughly 11 dB RF amplifier
+    default to their minimum/off settings. Transmission does not begin until
+    four full USB buffers have been queued. If the graph cannot keep supplying
+    samples, the worker stops the transmitter rather than repeating stale data.
+    Stopping or failing the block switches the HackRF to OFF before releasing
+    USB. Bias tee power defaults off as well.
+
+    Connect an appropriate load, antenna and filters before transmitting, and
+    comply with the radio regulations that apply where you are operating.
+    HackRF is half-duplex and may be owned by only one active Source or Sink.
+
+parameters:
+-   id: device
+    label: Device
+    dtype: hackrf_device
+    default: ''
+-   id: samp_rate
+    label: Sample Rate
+    dtype: float
+    default: samp_rate
+-   id: center_freq
+    label: 'Center Frequency (Hz)'
+    dtype: real
+    default: '100e6'
+-   id: bandwidth
+    label: 'Baseband Bandwidth (Hz, 0 = Auto)'
+    dtype: real
+    default: '0'
+    hide: part
+-   id: txvga_gain
+    label: 'TX VGA Gain (dB)'
+    dtype: real
+    default: '0'
+-   id: amp
+    label: RF Amplifier
+    dtype: enum
+    default: 'False'
+    options: ['False', 'True']
+    option_labels: [Off, On]
+    hide: part
+-   id: bias_tee
+    label: Bias Tee Power
+    dtype: enum
+    default: 'False'
+    options: ['False', 'True']
+    option_labels: [Off, On]
+    hide: part
+-   id: transfer_size
+    label: 'USB Transfer Size (bytes)'
+    dtype: int
+    default: '262144'
+    hide: part
+
+asserts:
+-   ${ samp_rate >= 2000000 and samp_rate <= 20000000 }
+-   ${ center_freq >= 1000000 and center_freq <= 6000000000 }
+-   ${ txvga_gain >= 0 and txvga_gain <= 47 }
+-   ${ transfer_size > 0 and transfer_size <= 1048576 and transfer_size % 512 == 0 }
+
+inputs:
+-   label: TX
+    domain: stream
+    dtype: complex
+
+file_format: 1

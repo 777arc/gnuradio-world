@@ -206,6 +206,8 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
         const worker = new Worker(workerUrl);
         const label = serial || 'first available';
         const stats = {
+          device: 'RTL-SDR',
+          direction: 'rx',
           serial: label,
           ringBytes: capacityPairs * 2,
           requestedRate: sampleRate,
@@ -356,6 +358,84 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
         // observe CANCELLED and close/release normally before forcing it down.
         if (worker) setTimeout(() => worker.terminate(), 3500);
         plutoWorkers.delete(id);
+        const stats = window.__grUsbStats[id];
+        if (stats && stats.state !== 'error') stats.state = 'cancelled';
+      };
+
+      // HackRF One is a half-duplex signed-8-bit IQ device. One worker owns a
+      // selected unit for either RX or TX and talks its stock vendor-control
+      // protocol directly over WebUSB. See docs/hackrf.md.
+      let nextHackRfWorkerId = 20000;
+      const hackRfWorkers = new Map();
+      window.__grStartHackRf = (
+        direction, serial, memory, ringPointer, capacityPairs,
+        controlPointer, errorPointer, sampleRate, transferBytes
+      ) => {
+        const id = nextHackRfWorkerId++;
+        const workerUrl = new URL('hackrf_worker.js', location.href);
+        if (window.__grBuildStamp) workerUrl.searchParams.set('v', window.__grBuildStamp);
+        const worker = new Worker(workerUrl);
+        const label = serial || 'first available';
+        const stats = {
+          device: 'HackRF', direction, serial: label,
+          ringBytes: capacityPairs * 2,
+          requestedRate: sampleRate, actualRate: 0,
+          bytesRead: 0, bytesWritten: 0,
+          overruns: 0, underflows: 0, droppedSamples: 0,
+          firmware: '', usbApi: '', state: 'starting',
+        };
+        window.__grUsbStats[id] = stats;
+        hackRfWorkers.set(id, worker);
+        const name = `HackRF ${direction.toUpperCase()} ${label}`;
+        worker.onmessage = event => {
+          const message = event.data || {};
+          if (Number.isFinite(message.actualRate)) stats.actualRate = message.actualRate;
+          if (Number.isFinite(message.bytes)) {
+            if (direction === 'rx') stats.bytesRead = message.bytes;
+            else stats.bytesWritten = message.bytes;
+          }
+          if (Number.isFinite(message.events)) {
+            if (direction === 'rx') stats.overruns = message.events;
+            else stats.underflows = message.events;
+          }
+          if (Number.isFinite(message.lost)) stats.droppedSamples = message.lost;
+          if (message.type === 'device') {
+            stats.firmware = message.firmware || '';
+            stats.usbApi = message.usbApi || '';
+            console.log(`${name}: firmware ${stats.firmware}, USB API ${stats.usbApi}`);
+          }
+          if (message.type === 'trace') {
+            console.log(`${name}| ${message.text}`);
+            return;
+          }
+          if (USB_WORKER_STATES.has(message.type)) stats.state = message.type;
+          if (message.type === 'running')
+            console.log(`${name}: running at ${message.actualRate} S/s`);
+          if (message.type === 'error') reportUsbWorkerError(name, message);
+          if (message.type === 'cancelled' || message.type === 'error')
+            hackRfWorkers.delete(id);
+        };
+        worker.onerror = event => {
+          stats.state = 'error';
+          console.error(`${name} worker: ${event.message || 'worker error'}`);
+          hackRfWorkers.delete(id);
+        };
+        worker.postMessage({
+          direction, serial, memory, ringPointer, capacityPairs,
+          controlPointer, errorPointer, errorCapacity: 512,
+          sampleRate, transferBytes,
+        });
+        return id;
+      };
+      window.__grStopHackRf = id => {
+        const worker = hackRfWorkers.get(id);
+        // Ask the worker to switch the transceiver OFF immediately. The shared
+        // CANCELLED state remains the authoritative signal to its stream loop.
+        if (worker) {
+          worker.postMessage({ type: 'stop' });
+          setTimeout(() => worker.terminate(), 1000);
+        }
+        hackRfWorkers.delete(id);
         const stats = window.__grUsbStats[id];
         if (stats && stats.state !== 'error') stats.state = 'cancelled';
       };

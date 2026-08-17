@@ -1,0 +1,239 @@
+options:
+    parameters:
+        author: Marc
+        copyright: ''
+        description: Receive and display spectrum from a HackRF One over WebUSB.
+        generate_options: qt_gui
+        id: HackRF_Receive_Example
+        title: HackRF Receive Example
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: center_freq
+    id: variable_qtgui_range
+    parameters:
+        label: RF Frequency
+        min_len: '200'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '1000000'
+        step: '1000000'
+        stop: '6000000000'
+        value: '100000000'
+        widget: counter_slider
+    states:
+        coordinate: [610, 10]
+        rotation: 0
+        state: enabled
+-   name: lna_gain
+    id: variable_qtgui_range
+    parameters:
+        label: RX IF Gain
+        min_len: '160'
+        orient: QtCore.Qt.Horizontal
+        rangeType: int
+        start: '0'
+        step: '8'
+        stop: '40'
+        value: '16'
+        widget: counter_slider
+    states:
+        coordinate: [860, 10]
+        rotation: 0
+        state: enabled
+-   name: vga_gain
+    id: variable_qtgui_range
+    parameters:
+        label: RX Baseband Gain
+        min_len: '180'
+        orient: QtCore.Qt.Horizontal
+        rangeType: int
+        start: '0'
+        step: '2'
+        stop: '62'
+        value: '16'
+        widget: counter_slider
+    states:
+        coordinate: [1110, 10]
+        rotation: 0
+        state: enabled
+-   name: samp_rate
+    id: variable_qtgui_chooser
+    parameters:
+        label: Sample Rate
+        labels: '["2 MHz", "2.5 MHz", "4 MHz", "5 MHz", "8 MHz", "10 MHz", "12.5 MHz", "16 MHz", "20 MHz"]'
+        options: '[2000000, 2500000, 4000000, 5000000, 8000000, 10000000, 12500000, 16000000, 20000000]'
+        orient: Qt.QVBoxLayout
+        value: '10000000'
+        widget: combo_box
+    states:
+        coordinate: [1370, 10]
+        rotation: 0
+        state: enabled
+-   name: qtgui_freq_sink_x_0
+    id: qtgui_freq_sink_x
+    parameters:
+        alpha1: '1'
+        alpha10: '1'
+        alpha2: '1'
+        alpha3: '1'
+        alpha4: '1'
+        alpha5: '1'
+        alpha6: '1'
+        alpha7: '1'
+        alpha8: '1'
+        alpha9: '1'
+        autoscale: 'True'
+        average: '0.1'
+        axislabels: 'True'
+        color1: '"blue"'
+        color10: '"dark blue"'
+        color2: '"red"'
+        color3: '"green"'
+        color4: '"black"'
+        color5: '"cyan"'
+        color6: '"magenta"'
+        color7: '"yellow"'
+        color8: '"dark red"'
+        color9: '"dark green"'
+        ctrlpanel: 'False'
+        fc: center_freq
+        fftsize: '2048'
+        grid: 'False'
+        label1: ''
+        label10: ''
+        label2: ''
+        label3: ''
+        label4: ''
+        label5: ''
+        label6: ''
+        label7: ''
+        label8: ''
+        label9: ''
+        legend: 'True'
+        marker1: '-1'
+        marker10: '-1'
+        marker2: '-1'
+        marker3: '-1'
+        marker4: '-1'
+        marker5: '-1'
+        marker6: '-1'
+        marker7: '-1'
+        marker8: '-1'
+        marker9: '-1'
+        name: Spectrum
+        nconnections: '1'
+        samp_rate: samp_rate
+        style1: '1'
+        style10: '1'
+        style2: '1'
+        style3: '1'
+        style4: '1'
+        style5: '1'
+        style6: '1'
+        style7: '1'
+        style8: '1'
+        style9: '1'
+        tr_chan: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_tag: ''
+        update_time: '0.1'
+        width1: '1'
+        width10: '1'
+        width2: '1'
+        width3: '1'
+        width4: '1'
+        width5: '1'
+        width6: '1'
+        width7: '1'
+        width8: '1'
+        width9: '1'
+        ymax: '10'
+        ymin: '-140'
+    states:
+        coordinate: [390, 220]
+        rotation: 0
+        state: enabled
+-   name: qtgui_waterfall_sink_x_0
+    id: qtgui_waterfall_sink_x
+    parameters:
+        alpha1: '1'
+        alpha10: '1'
+        alpha2: '1'
+        alpha3: '1'
+        alpha4: '1'
+        alpha5: '1'
+        alpha6: '1'
+        alpha7: '1'
+        alpha8: '1'
+        alpha9: '1'
+        axislabels: 'True'
+        color1: '0'
+        color10: '0'
+        color2: '0'
+        color3: '0'
+        color4: '0'
+        color5: '0'
+        color6: '0'
+        color7: '0'
+        color8: '0'
+        color9: '0'
+        fc: center_freq
+        fftsize: '1024'
+        grid: 'False'
+        int_max: '10'
+        int_min: '-140'
+        label1: ''
+        label10: ''
+        label2: ''
+        label3: ''
+        label4: ''
+        label5: ''
+        label6: ''
+        label7: ''
+        label8: ''
+        label9: ''
+        legend: 'True'
+        name: Waterfall
+        nconnections: '1'
+        samp_rate: samp_rate
+        update_time: '0.1'
+    states:
+        coordinate: [390, 380]
+        rotation: 0
+        state: enabled
+-   name: wasm_gui_layout_0
+    id: wasm_gui_layout
+    parameters:
+        columns: '12'
+        layout: '{"center_freq":[0,0,4,1],"lna_gain":[4,0,2,1],"vga_gain":[6,0,3,1],"samp_rate":[9,0,3,1],"qtgui_freq_sink_x_0":[0,1,12,3],"qtgui_waterfall_sink_x_0":[0,4,12,6]}'
+        row_height: '60'
+    states:
+        coordinate: [320, 10]
+        rotation: 0
+        state: enabled
+-   name: wasm_hackrf_source_0
+    id: wasm_hackrf_source
+    parameters:
+        amp: 'False'
+        bandwidth: '0'
+        bias_tee: 'False'
+        center_freq: center_freq
+        device: ''
+        lna_gain: lna_gain
+        samp_rate: samp_rate
+        transfer_size: '262144'
+        vga_gain: vga_gain
+    states:
+        coordinate: [10, 220]
+        rotation: 0
+        state: enabled
+connections:
+- [wasm_hackrf_source_0, '0', qtgui_freq_sink_x_0, '0']
+- [wasm_hackrf_source_0, '0', qtgui_waterfall_sink_x_0, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0

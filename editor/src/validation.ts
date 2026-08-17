@@ -179,6 +179,47 @@ export function validateFlowgraph(
       // on an active block blocks the run, so that would refuse a flowgraph
       // that works. The block's documentation covers direct sampling instead.
     }
+    if (block.id === 'wasm_hackrf_source' || block.id === 'wasm_hackrf_sink') {
+      const sampleRate = resolvedNumber(block.params.samp_rate, staticScope);
+      if (sampleRate !== null &&
+          (!Number.isInteger(sampleRate) || sampleRate < 2e6 || sampleRate > 20e6))
+        add(block, 'samp_rate',
+          'HackRF sample rate must be an integer from 2 MS/s through 20 MS/s.');
+      const centerFreq = resolvedNumber(block.params.center_freq, staticScope);
+      if (centerFreq !== null && (centerFreq < 1e6 || centerFreq > 6e9))
+        add(block, 'center_freq', 'HackRF center frequency must be 1 MHz through 6 GHz.');
+      const bandwidth = resolvedNumber(block.params.bandwidth, staticScope);
+      const bandwidths = new Set([
+        0, 1750000, 2500000, 3500000, 5000000, 5500000, 6000000,
+        7000000, 8000000, 9000000, 10000000, 12000000, 14000000,
+        15000000, 20000000, 24000000, 28000000,
+      ]);
+      if (bandwidth !== null && !bandwidths.has(bandwidth))
+        add(block, 'bandwidth',
+          'HackRF bandwidth must be 0 (automatic) or one of the supported MAX2837 filter widths.');
+      const transferSize = resolvedNumber(block.params.transfer_size, staticScope);
+      if (transferSize !== null &&
+          (!Number.isInteger(transferSize) || transferSize <= 0 ||
+           transferSize > 1024 * 1024 || transferSize % 512))
+        add(block, 'transfer_size',
+          'USB Transfer Size must be a positive multiple of 512, at most 1 MiB.');
+
+      if (block.id === 'wasm_hackrf_source') {
+        const lnaGain = resolvedNumber(block.params.lna_gain, staticScope);
+        if (lnaGain !== null &&
+            (!Number.isInteger(lnaGain) || lnaGain < 0 || lnaGain > 40 || lnaGain % 8))
+          add(block, 'lna_gain', 'RX IF Gain must be 0-40 dB in 8 dB steps.');
+        const vgaGain = resolvedNumber(block.params.vga_gain, staticScope);
+        if (vgaGain !== null &&
+            (!Number.isInteger(vgaGain) || vgaGain < 0 || vgaGain > 62 || vgaGain % 2))
+          add(block, 'vga_gain', 'RX Baseband Gain must be 0-62 dB in 2 dB steps.');
+      } else {
+        const txvgaGain = resolvedNumber(block.params.txvga_gain, staticScope);
+        if (txvgaGain !== null &&
+            (!Number.isInteger(txvgaGain) || txvgaGain < 0 || txvgaGain > 47))
+          add(block, 'txvga_gain', 'TX VGA Gain must be an integer from 0 through 47 dB.');
+      }
+    }
     if (block.id === 'blocks_selector') {
       const numInputs = resolvedNumber(block.params.num_inputs, staticScope);
       const numOutputs = resolvedNumber(block.params.num_outputs, staticScope);

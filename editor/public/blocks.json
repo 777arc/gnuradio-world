@@ -95605,6 +95605,281 @@
    "outputs": []
   },
   {
+   "id": "wasm_hackrf_sink",
+   "label": "HackRF Sink",
+   "category": [
+    "Core",
+    "Sinks"
+   ],
+   "flags": [
+    "cpp",
+    "throttle"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "gui": false,
+   "module": "core",
+   "documentation": "Transmits signed 8-bit complex samples through a HackRF One connected to\nthis computer. The browser drives the stock HackRF USB protocol directly\nover WebUSB; libhackrf and a native helper are not required.\n\nClick Add beside Device to grant this site access to a HackRF. Leave Device\nempty to use the first already-shared unit. WebUSB requires a Chromium-based\nbrowser such as Chrome, Edge or Opera; Firefox and Safari cannot run it.\n\nSample Rate is fixed when the flowgraph starts. HackRF supports 2 through\n20 MS/s, though 8 MS/s or more is recommended. Bandwidth 0 selects the\nsame automatic filter choice as libhackrf. Center Frequency and TX VGA Gain\nmay be driven by QT GUI controls while running.\n\nTX VGA gain is 0-47 dB. Both it and the separate roughly 11 dB RF amplifier\ndefault to their minimum/off settings. Transmission does not begin until\nfour full USB buffers have been queued. If the graph cannot keep supplying\nsamples, the worker stops the transmitter rather than repeating stale data.\nStopping or failing the block switches the HackRF to OFF before releasing\nUSB. Bias tee power defaults off as well.\n\nConnect an appropriate load, antenna and filters before transmitting, and\ncomply with the radio regulations that apply where you are operating.\nHackRF is half-duplex and may be owned by only one active Source or Sink.",
+   "api_documentation": "",
+   "wiki_url": "https://wiki.gnuradio.org/index.php/HackRF_Sink",
+   "params": [
+    {
+     "id": "device",
+     "label": "Device",
+     "dtype": "hackrf_device",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "samp_rate",
+     "label": "Sample Rate",
+     "dtype": "float",
+     "default": "samp_rate",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "center_freq",
+     "label": "Center Frequency (Hz)",
+     "dtype": "real",
+     "default": "100e6",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "bandwidth",
+     "label": "Baseband Bandwidth (Hz, 0 = Auto)",
+     "dtype": "real",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    },
+    {
+     "id": "txvga_gain",
+     "label": "TX VGA Gain (dB)",
+     "dtype": "real",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "amp",
+     "label": "RF Amplifier",
+     "dtype": "enum",
+     "default": "False",
+     "category": "General",
+     "options": [
+      "False",
+      "True"
+     ],
+     "option_labels": [
+      false,
+      true
+     ],
+     "option_attributes": null,
+     "hide": "part"
+    },
+    {
+     "id": "bias_tee",
+     "label": "Bias Tee Power",
+     "dtype": "enum",
+     "default": "False",
+     "category": "General",
+     "options": [
+      "False",
+      "True"
+     ],
+     "option_labels": [
+      false,
+      true
+     ],
+     "option_attributes": null,
+     "hide": "part"
+    },
+    {
+     "id": "transfer_size",
+     "label": "USB Transfer Size (bytes)",
+     "dtype": "int",
+     "default": "262144",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "TX",
+     "domain": "stream",
+     "dtype": "complex",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": []
+  },
+  {
+   "id": "wasm_hackrf_source",
+   "label": "HackRF Source",
+   "category": [
+    "Core",
+    "Sources"
+   ],
+   "flags": [
+    "cpp",
+    "throttle"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "gui": false,
+   "module": "core",
+   "documentation": "Receives signed 8-bit complex samples from a HackRF One connected to this\ncomputer. The browser drives the stock HackRF USB protocol directly over\nWebUSB; libhackrf and a native helper are not required.\n\nClick Add beside Device to grant this site access to a HackRF. Leave Device\nempty to use the first already-shared unit. WebUSB requires a Chromium-based\nbrowser such as Chrome, Edge or Opera; Firefox and Safari cannot run it.\n\nOn Linux, grant the browser access to the USB device and ensure no native\napplication has it open. Chromium installed as a Snap may be unable to see\nUSB devices. On Windows, bind the HackRF to WinUSB (Zadig is commonly used).\n\nSample Rate may be changed while receiving. HackRF supports 2 through 20\nMS/s, though 8 MS/s or more is recommended for useful analog filtering.\nBandwidth 0 selects an automatic filter (the libhackrf choice below 75% of the\nsample rate). Center Frequency, RX IF Gain and RX Baseband Gain may be\ndriven by QT GUI controls while running.\n\nRX IF gain is 0-40 dB in 8 dB steps. RX Baseband gain is 0-62 dB in 2 dB\nsteps. The RF amplifier is a separate roughly 11 dB stage and defaults off.\nThe RF amplifier and bias tee are applied at startup and default off. The\nbias tee supplies antenna-port power.\n\nA HackRF is half-duplex and may be owned by only one active HackRF Source or\nSink. Receive overruns drop the newest USB transfer and report the loss.",
+   "api_documentation": "",
+   "wiki_url": "https://wiki.gnuradio.org/index.php/HackRF_Source",
+   "params": [
+    {
+     "id": "device",
+     "label": "Device",
+     "dtype": "hackrf_device",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "samp_rate",
+     "label": "Sample Rate",
+     "dtype": "float",
+     "default": "samp_rate",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "center_freq",
+     "label": "Center Frequency (Hz)",
+     "dtype": "real",
+     "default": "100e6",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "bandwidth",
+     "label": "Baseband Bandwidth (Hz, 0 = Auto)",
+     "dtype": "real",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    },
+    {
+     "id": "lna_gain",
+     "label": "RX IF Gain (dB)",
+     "dtype": "real",
+     "default": "16",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "vga_gain",
+     "label": "RX Baseband Gain (dB)",
+     "dtype": "real",
+     "default": "16",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "amp",
+     "label": "RF Amplifier",
+     "dtype": "enum",
+     "default": "False",
+     "category": "General",
+     "options": [
+      "False",
+      "True"
+     ],
+     "option_labels": [
+      false,
+      true
+     ],
+     "option_attributes": null,
+     "hide": "part"
+    },
+    {
+     "id": "bias_tee",
+     "label": "Bias Tee Power",
+     "dtype": "enum",
+     "default": "False",
+     "category": "General",
+     "options": [
+      "False",
+      "True"
+     ],
+     "option_labels": [
+      false,
+      true
+     ],
+     "option_attributes": null,
+     "hide": "part"
+    },
+    {
+     "id": "transfer_size",
+     "label": "USB Transfer Size (bytes)",
+     "dtype": "int",
+     "default": "262144",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    }
+   ],
+   "inputs": [],
+   "outputs": [
+    {
+     "id": "",
+     "label": "RX",
+     "domain": "stream",
+     "dtype": "complex",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
    "id": "wasm_packet_rate_sink",
    "label": "WASM Packet Rate Sink",
    "category": [

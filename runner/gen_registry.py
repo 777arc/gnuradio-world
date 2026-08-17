@@ -103,6 +103,10 @@ CUSTOM_IDS = {
     # TX workers stream through shared-memory rings. See docs/plutosdr.md.
     "wasm_plutosdr_source",
     "wasm_plutosdr_sink",
+    # HackRF One over its stock vendor-control and bulk-endpoint protocol. The
+    # browser worker owns the half-duplex device for either RX or TX.
+    "wasm_hackrf_source",
+    "wasm_hackrf_sink",
     # Runner-only HRPT AVHRR image display; no upstream equivalent (gr-hrpt's
     # own noaa_hrpt_decoder never extracts imagery). See
     # blocks/src/hrpt_image_sink.hpp.

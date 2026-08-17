@@ -90,6 +90,12 @@ const CASES = [
       'PlutoSDR Source: running at 2500000 S/s with 1 channel',
       'PlutoSDR Sink: running at 2500000 S/s with 1 channel',
     ] },
+  { name: 'HackRF Source and Sink (generated samples, no hardware)',
+    grc: 'test/fixtures/hackrf_fake.grc',
+    expectLogs: [
+      'HackRF Source: running at 2000000 S/s',
+      'HackRF Sink: running at 2000000 S/s',
+    ] },
   // The PMT-valued blocks. `expectLogs` is what makes this case meaningful: a
   // PMT parameter that parsed into the *wrong* PMT still builds, still runs and
   // still moves items, so only what the tag and message debuggers print can tell

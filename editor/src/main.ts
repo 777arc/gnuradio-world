@@ -40,6 +40,7 @@ import {
 import { type UsbLike, type UsbRadio, usbApi } from './usb-radio';
 import { RTLSDR_RADIO } from './rtlsdr';
 import { PLUTOSDR_RADIO } from './plutosdr';
+import { HACKRF_RADIO } from './hackrf';
 import {
   buildRecordingTree,
   displayBytes,
@@ -79,6 +80,10 @@ import {
 import { showDebugInfo } from './debug-panel';
 import { showVersionsDialog } from './versions';
 import { isBenchmarkFrameSource, showBenchmarkDialog } from './benchmark';
+import {
+  isSdrSpeedTestFrameSource,
+  showSdrSpeedTestDialog,
+} from './sdr-speed-test';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const el = (id: string) => document.getElementById(id)!;
@@ -87,7 +92,7 @@ const el = (id: string) => document.getElementById(id)!;
  * Properties dialog, the device a block face resolves to, and the permission
  * prompt on the Run click. Adding one is adding it here. See ./usb-radio.
  */
-const USB_RADIOS: UsbRadio[] = [RTLSDR_RADIO, PLUTOSDR_RADIO];
+const USB_RADIOS: UsbRadio[] = [RTLSDR_RADIO, PLUTOSDR_RADIO, HACKRF_RADIO];
 const radioForDtype = (dtype?: string): UsbRadio | undefined =>
   USB_RADIOS.find(radio => radio.dtype === dtype);
 // ?embed=1 — the layout another site frames. Declared up here rather than beside
@@ -4028,9 +4033,10 @@ const loadedModules = new Set<string>();
 window.addEventListener('message', (e) => {
   const d = (e as MessageEvent).data;
   if (!d) return;
-  // The Benchmark Tool drives a runner of its own. Its messages belong to that
-  // dialog, not to the Run status, the console, or the loaded-module set.
-  if (isBenchmarkFrameSource(e as MessageEvent)) return;
+  // Both benchmark dialogs drive runners of their own. Their messages belong
+  // to those dialogs, not to the Run status, console or loaded-module set.
+  if (isBenchmarkFrameSource(e as MessageEvent) ||
+      isSdrSpeedTestFrameSource(e as MessageEvent)) return;
   if (d.type === 'gr-recording-ready') {
     const tab = recordingTabForMessage(e as MessageEvent);
     if (tab) {
@@ -5086,6 +5092,11 @@ const MENUS: TopMenu[] = [
     { label: 'Software Versions…', run: () => showVersionsDialog({ openDialog, copyText }) },
     { label: 'Benchmark Tool',
       run: () => showBenchmarkDialog({
+        openDialog, log,
+        isFlowgraphRunning: () => el('workspace').classList.contains('running'),
+      }) },
+    { label: 'SDR Receive Speed Test…',
+      run: () => showSdrSpeedTestDialog({
         openDialog, log,
         isFlowgraphRunning: () => el('workspace').classList.contains('running'),
       }) },

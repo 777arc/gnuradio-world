@@ -181,6 +181,25 @@ assert.deepEqual(validateFlowgraph([source, passthrough({ bypassed: true }), dra
       .some(issue => issue.field === 'noise_type'),
       `${params.type} + ${params.noise_type} is a supported combination`);
 
+  const hackrfPorts = {
+    ...ports,
+    def: block => RUNNABLE[block.id],
+    portCount: (block, kind) =>
+      block.id === 'wasm_hackrf_source' && kind === 'out' ? 1 : 0,
+    portType: () => 'complex',
+  };
+  const invalidHackRf = inst('hackrf', 'wasm_hackrf_source', 'hackrf', {
+    device: 'fake', samp_rate: 1000000, center_freq: 7000000000,
+    bandwidth: 1234567, lna_gain: 17, vga_gain: 15,
+    amp: 'False', bias_tee: 'False', transfer_size: 1000,
+  });
+  const hackrfFields = new Set(validateFlowgraph(
+    [invalidHackRf], [], hackrfPorts).map(issue => issue.field));
+  for (const field of [
+    'samp_rate', 'center_freq', 'bandwidth', 'lna_gain', 'vga_gain', 'transfer_size',
+  ])
+    assert.ok(hackrfFields.has(field), `invalid HackRF ${field} must block the run`);
+
   // The flag is native's EvaluatedFlag, not a string: a `${ ... }` expression is
   // evaluated against the block's parameters and defaults to False — required —
   // when it cannot be. Reading the template text as truthy is what used to

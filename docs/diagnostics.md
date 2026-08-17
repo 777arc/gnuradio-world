@@ -29,14 +29,14 @@ never competes with the scheduler threads.
 Two reader-owned side channels sit beside them on `window`, published by the
 workers that feed the source blocks rather than by `gr_stats_json()`:
 `__grFileStats` (one entry per File Source / recording reader: `bytesRead`,
-`maxChunkBytes`, `state`) and `__grUsbStats` (one per RTL-SDR Source: `serial`,
-`requestedRate`, `actualRate`, `bytesRead`, `overruns`, `droppedPairs`, `state`).
+`maxChunkBytes`, `state`) and `__grUsbStats` (one per RTL-SDR, PlutoSDR or
+HackRF worker: `serial`, `requestedRate`, `actualRate`, byte progress, loss
+counters and `state`).
 
-`__grUsbStats` is the only place the *hardware* side of a run is visible, and the
-two fields worth reading are `actualRate` — the RTL2832U divides a 28.8 MHz
-clock, so it is rarely the requested rate — and `overruns`, which counts bulk
-transfers dropped because the ring was full. Note that `bytesRead` updates only
-every 16 MB, so it is a progress indicator, not a rate meter; derive throughput
+`__grUsbStats` is the only place the *hardware* side of a run is visible. The
+fields worth reading are `actualRate` — especially for an RTL2832U, whose clock
+divider rarely gives the exact request — and the overrun/loss counters. Byte
+progress is intentionally coarse, so it is not a rate meter; derive throughput
 from block `items` instead. See [rtlsdr.md](rtlsdr.md).
 
 ### Decision: build with `ENABLE_PERFORMANCE_COUNTERS`
@@ -304,3 +304,33 @@ Absolute numbers track machine state heavily. On this laptop the same filter
 case measured 12.3 MS/s early in a session and 3.8 MS/s after an hour of
 repeated benchmarking, recovering after an idle period — CPU power and thermal
 behavior, not leaked workers (iframe teardown was checked).
+
+## Third consumer: the SDR Receive Speed Test
+
+Help ▸ SDR Receive Speed Test ([`editor/src/sdr-speed-test.ts`](../editor/src/sdr-speed-test.ts))
+answers a narrower hardware question: how many live HackRF, PlutoSDR or RTL-SDR
+IQ samples per second make it all the way into GNU Radio? It opens its own
+offscreen runner with the selected radio's Source → Null Sink, warms the graph
+for one second, then differences the Source block's `items` and runner
+`uptime_s` across five seconds. The number on its speedometer therefore includes
+the WebUSB bulk path, the radio's raw-IQ ring, conversion to `gr_complex`,
+scheduler and sink consumption. Raw USB byte progress is not used as the
+headline.
+
+The selected sample rate is the dial ceiling. Defaults are the device ceilings:
+20 MS/s for HackRF, 61.44 MS/s for a single-channel PlutoSDR, and 3.2 MS/s for
+RTL-SDR (whose common hardware usually starts dropping above 2.4 MS/s). Running
+at the ceiling saturates the receive path the way a network speed test saturates
+a link; if the browser or scheduler cannot keep up, the measured item rate falls
+below the request and the dialog also reports the selected worker's overrun and
+lost-sample deltas. RF amplifier and bias power remain off. HackRF and RTL-SDR
+receive at 100 MHz; PlutoSDR receives at 1 GHz, all into a Null Sink.
+
+The Start button owns the WebUSB user gesture: when no selected radio has been
+shared with the origin it calls `requestDevice()` with that radio's filters
+before awaiting anything else. The private iframe is laid out offscreen for Qt,
+carries a unique query so every run really reloads, and is removed on
+completion, cancellation or dialog close. `isSdrSpeedTestFrameSource()` keeps
+that runner's log/error/module messages from changing the editor's normal Run
+state. A normal flowgraph must be stopped before the test can start, both for
+clean results and to avoid contending for the same USB device.

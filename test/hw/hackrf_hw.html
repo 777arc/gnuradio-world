@@ -1,0 +1,132 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>HackRF hardware harness</title>
+<!--
+  Receive-only real-hardware harness for runner/src/hackrf_worker.js. Served by
+  server.mjs for COOP/COEP and driven by hackrf_hw.mjs. There is intentionally
+  no TX entry point here: hardware transmit tests require a shielded load.
+-->
+<body>
+<button id="grant">Grant device access</button>
+<pre id="out">idle</pre>
+<script>
+const HACKRF_FILTERS = [{ vendorId: 0x1d50, productId: 0x6089 }];
+const CTRL = {
+  READ_POS: 0, WRITE_POS: 1, STATE: 2, ERROR_LENGTH: 3, EVENTS: 4,
+  LOST_SAMPLES: 5, ACTUAL_RATE: 6, CMD_SEQ: 7, CMD_ACK: 8,
+  FREQ_HI: 9, FREQ_LO: 10, BANDWIDTH: 11, LNA_GAIN: 12,
+  VGA_GAIN: 13, TXVGA_GAIN: 14, FLAGS: 15, SAMPLE_RATE: 16,
+};
+const CANCELLED = 3;
+const CONTROL_PTR = 0, ERROR_PTR = 256, ERROR_CAPACITY = 512, RING_PTR = 4096;
+
+document.getElementById('grant').onclick = () => {
+  navigator.usb.requestDevice({ filters: HACKRF_FILTERS })
+    .then(device => { window.__granted = device.serialNumber || ''; })
+    .catch(error => { window.__grantError = String(error); });
+};
+
+const state = {
+  memory: null, control: null, worker: null, capacityPairs: 0,
+  capturedPairs: 0, nonzeroBytes: 0, messages: [], trace: [], drain: 0,
+};
+window.__hw = state;
+
+function stageFrequency(hz) {
+  const value = BigInt(Math.round(hz));
+  Atomics.store(state.control, CTRL.FREQ_HI, Number(BigInt.asIntN(32, value >> 32n)));
+  Atomics.store(state.control, CTRL.FREQ_LO, Number(BigInt.asIntN(32, value)));
+}
+
+window.__start = ({
+  serial = '', sampleRate = 10000000, centerFreq = 100100000,
+  bandwidth = 0, lnaGain = 16, vgaGain = 16, transferBytes = 262144,
+} = {}) => {
+  if (state.worker) throw new Error('worker already running');
+  const capacityPairs = Math.max(1 << 20, transferBytes * 2 + 1);
+  const pages = Math.ceil((RING_PTR + capacityPairs * 2) / 65536) + 2;
+  const memory = new WebAssembly.Memory({ initial: pages, maximum: pages, shared: true });
+  const control = new Int32Array(memory.buffer, CONTROL_PTR, 17);
+  state.memory = memory; state.control = control; state.capacityPairs = capacityPairs;
+  state.capturedPairs = 0; state.nonzeroBytes = 0; state.messages = []; state.trace = [];
+
+  Atomics.store(control, CTRL.SAMPLE_RATE, sampleRate);
+  stageFrequency(centerFreq);
+  Atomics.store(control, CTRL.BANDWIDTH, bandwidth);
+  Atomics.store(control, CTRL.LNA_GAIN, lnaGain);
+  Atomics.store(control, CTRL.VGA_GAIN, vgaGain);
+  Atomics.store(control, CTRL.TXVGA_GAIN, 0);
+  Atomics.store(control, CTRL.FLAGS, 0);
+  Atomics.store(control, CTRL.CMD_SEQ, 1);
+
+  const worker = new Worker('/runner/build/hackrf_worker.js');
+  state.worker = worker;
+  worker.onmessage = event => {
+    const message = event.data || {};
+    if (message.type === 'trace') state.trace.push(message.text);
+    else state.messages.push(message);
+  };
+  worker.onerror = event => state.messages.push({ type: 'workererror', message: event.message });
+  worker.postMessage({
+    direction: 'rx', serial, memory, ringPointer: RING_PTR, capacityPairs,
+    controlPointer: CONTROL_PTR, errorPointer: ERROR_PTR,
+    errorCapacity: ERROR_CAPACITY, transferBytes, debug: true,
+  });
+
+  state.drain = setInterval(() => {
+    const read = Atomics.load(control, CTRL.READ_POS);
+    const write = Atomics.load(control, CTRL.WRITE_POS);
+    const available = write >= read ? write - read : capacityPairs - read;
+    if (!available) return;
+    const bytes = new Uint8Array(memory.buffer, RING_PTR + read * 2, available * 2);
+    // Inspect a bounded prefix to prove actual sample data arrived, then free
+    // the whole contiguous region promptly enough for a 20 MS/s USB stream.
+    for (let i = 0; i < Math.min(bytes.length, 8192); ++i)
+      if (bytes[i] !== 0) ++state.nonzeroBytes;
+    state.capturedPairs += available;
+    Atomics.store(control, CTRL.READ_POS, (read + available) % capacityPairs);
+    Atomics.notify(control, CTRL.READ_POS);
+  }, 2);
+  return true;
+};
+
+window.__retune = hz => {
+  stageFrequency(hz);
+  return Atomics.add(state.control, CTRL.CMD_SEQ, 1) + 1;
+};
+
+window.__stats = () => ({
+  capturedPairs: state.capturedPairs,
+  nonzeroBytes: state.nonzeroBytes,
+  actualRate: state.control ? Atomics.load(state.control, CTRL.ACTUAL_RATE) : 0,
+  command: state.control ? Atomics.load(state.control, CTRL.CMD_SEQ) : 0,
+  acknowledged: state.control ? Atomics.load(state.control, CTRL.CMD_ACK) : 0,
+  events: state.control ? Atomics.load(state.control, CTRL.EVENTS) : 0,
+  lost: state.control ? Atomics.load(state.control, CTRL.LOST_SAMPLES) : 0,
+  status: state.control ? Atomics.load(state.control, CTRL.STATE) : 0,
+  messages: state.messages,
+  trace: state.trace.slice(-40),
+  error: (() => {
+    if (!state.control) return '';
+    const length = Atomics.load(state.control, CTRL.ERROR_LENGTH);
+    return length ? new TextDecoder().decode(
+      new Uint8Array(state.memory.buffer, ERROR_PTR, length).slice()) : '';
+  })(),
+});
+
+window.__stop = () => {
+  if (state.drain) clearInterval(state.drain);
+  state.drain = 0;
+  if (state.worker) state.worker.postMessage({ type: 'stop' });
+  if (state.control) {
+    Atomics.store(state.control, CTRL.STATE, CANCELLED);
+    Atomics.notify(state.control, CTRL.READ_POS);
+    Atomics.notify(state.control, CTRL.WRITE_POS);
+  }
+  const worker = state.worker;
+  if (worker) setTimeout(() => worker.terminate(), 1200);
+  state.worker = null;
+  return true;
+};
+</script>
+</body>

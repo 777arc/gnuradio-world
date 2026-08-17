@@ -4,6 +4,8 @@
 #include "rtlsdr_source.hpp"
 #include "plutosdr_source.hpp"
 #include "plutosdr_sink.hpp"
+#include "hackrf_source.hpp"
+#include "hackrf_sink.hpp"
 #include "paint_image_source.hpp"
 #include "rds_panel.hpp"
 #include "fosphor_sink.hpp"
@@ -2348,6 +2350,55 @@ static std::map<std::string, Factory>& registry_storage() {
                  [block](double value) { block->set_attenuation1(value); };
              result.numeric_setters["attenuation2"] =
                  [block](double value) { block->set_attenuation2(value); };
+             return result;
+        }},
+        // HackRF One's stock vendor-control protocol and signed 8-bit IQ bulk
+        // endpoints, owned asynchronously by runner/src/hackrf_worker.js.
+        {"wasm_hackrf_source", [](const json& p) -> BuiltBlock {
+             auto block = HackRfSource::make(
+                 wasm_registry::text(p, "device"),
+                 number_from(p, "samp_rate", 10e6),
+                 number_from(p, "center_freq", 100e6),
+                 number_from(p, "bandwidth", 0.0),
+                 number_from(p, "lna_gain", 16.0),
+                 number_from(p, "vga_gain", 16.0),
+                 bool_from(p, "amp", false),
+                 bool_from(p, "bias_tee", false),
+                 static_cast<int>(number_from(p, "transfer_size", 262144.0)));
+             BuiltBlock result{ block };
+             result.numeric_setters["samp_rate"] =
+                 [block](double value) { block->set_sample_rate(value); };
+             result.numeric_setters["center_freq"] =
+                 [block](double value) { block->set_center_freq(value); };
+             result.numeric_setters["lna_gain"] =
+                 [block](double value) { block->set_lna_gain(value); };
+             result.numeric_setters["vga_gain"] =
+                 [block](double value) { block->set_vga_gain(value); };
+             result.numeric_setters["amp"] =
+                 [block](double value) { block->set_amp(value != 0.0); };
+             result.numeric_setters["bias_tee"] =
+                 [block](double value) { block->set_bias_tee(value != 0.0); };
+             return result;
+        }},
+        {"wasm_hackrf_sink", [](const json& p) -> BuiltBlock {
+             auto block = HackRfSink::make(
+                 wasm_registry::text(p, "device"),
+                 number_from(p, "samp_rate", 10e6),
+                 number_from(p, "center_freq", 100e6),
+                 number_from(p, "bandwidth", 0.0),
+                 number_from(p, "txvga_gain", 0.0),
+                 bool_from(p, "amp", false),
+                 bool_from(p, "bias_tee", false),
+                 static_cast<int>(number_from(p, "transfer_size", 262144.0)));
+             BuiltBlock result{ block };
+             result.numeric_setters["center_freq"] =
+                 [block](double value) { block->set_center_freq(value); };
+             result.numeric_setters["txvga_gain"] =
+                 [block](double value) { block->set_txvga_gain(value); };
+             result.numeric_setters["amp"] =
+                 [block](double value) { block->set_amp(value != 0.0); };
+             result.numeric_setters["bias_tee"] =
+                 [block](double value) { block->set_bias_tee(value != 0.0); };
              return result;
         }},
         {"blocks_interleaved_short_to_complex", [](const json& p) -> BuiltBlock {

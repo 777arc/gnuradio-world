@@ -1,0 +1,91 @@
+id: wasm_hackrf_source
+label: HackRF Source
+category: '[Core]/Sources'
+flags: [cpp, throttle]
+
+documentation: |-
+    Receives signed 8-bit complex samples from a HackRF One connected to this
+    computer. The browser drives the stock HackRF USB protocol directly over
+    WebUSB; libhackrf and a native helper are not required.
+
+    Click Add beside Device to grant this site access to a HackRF. Leave Device
+    empty to use the first already-shared unit. WebUSB requires a Chromium-based
+    browser such as Chrome, Edge or Opera; Firefox and Safari cannot run it.
+
+    On Linux, grant the browser access to the USB device and ensure no native
+    application has it open. Chromium installed as a Snap may be unable to see
+    USB devices. On Windows, bind the HackRF to WinUSB (Zadig is commonly used).
+
+    Sample Rate may be changed while receiving. HackRF supports 2 through 20
+    MS/s, though 8 MS/s or more is recommended for useful analog filtering.
+    Bandwidth 0 selects an automatic filter (the libhackrf choice below 75% of the
+    sample rate). Center Frequency, RX IF Gain and RX Baseband Gain may be
+    driven by QT GUI controls while running.
+
+    RX IF gain is 0-40 dB in 8 dB steps. RX Baseband gain is 0-62 dB in 2 dB
+    steps. The RF amplifier is a separate roughly 11 dB stage and defaults off.
+    The RF amplifier and bias tee are applied at startup and default off. The
+    bias tee supplies antenna-port power.
+
+    A HackRF is half-duplex and may be owned by only one active HackRF Source or
+    Sink. Receive overruns drop the newest USB transfer and report the loss.
+
+parameters:
+-   id: device
+    label: Device
+    dtype: hackrf_device
+    default: ''
+-   id: samp_rate
+    label: Sample Rate
+    dtype: float
+    default: samp_rate
+-   id: center_freq
+    label: 'Center Frequency (Hz)'
+    dtype: real
+    default: '100e6'
+-   id: bandwidth
+    label: 'Baseband Bandwidth (Hz, 0 = Auto)'
+    dtype: real
+    default: '0'
+    hide: part
+-   id: lna_gain
+    label: 'RX IF Gain (dB)'
+    dtype: real
+    default: '16'
+-   id: vga_gain
+    label: 'RX Baseband Gain (dB)'
+    dtype: real
+    default: '16'
+-   id: amp
+    label: RF Amplifier
+    dtype: enum
+    default: 'False'
+    options: ['False', 'True']
+    option_labels: [Off, On]
+    hide: part
+-   id: bias_tee
+    label: Bias Tee Power
+    dtype: enum
+    default: 'False'
+    options: ['False', 'True']
+    option_labels: [Off, On]
+    hide: part
+-   id: transfer_size
+    label: 'USB Transfer Size (bytes)'
+    dtype: int
+    default: '262144'
+    hide: part
+
+asserts:
+-   ${ samp_rate >= 2000000 and samp_rate <= 20000000 }
+-   ${ center_freq >= 1000000 and center_freq <= 6000000000 }
+-   ${ lna_gain >= 0 and lna_gain <= 40 and lna_gain % 8 == 0 }
+-   ${ vga_gain >= 0 and vga_gain <= 62 and vga_gain % 2 == 0 }
+-   ${ transfer_size > 0 and transfer_size <= 1048576 and transfer_size % 512 == 0 }
+
+outputs:
+-   label: RX
+    domain: stream
+    dtype: complex
+
+file_format: 1

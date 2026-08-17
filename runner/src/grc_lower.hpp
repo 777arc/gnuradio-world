@@ -55,7 +55,9 @@ inline bool is_text_param(const std::string& block_id, const std::string& param)
     return param == "device" &&
            (block_id == "wasm_rtlsdr_source" ||
             block_id == "wasm_plutosdr_source" ||
-            block_id == "wasm_plutosdr_sink");
+            block_id == "wasm_plutosdr_sink" ||
+            block_id == "wasm_hackrf_source" ||
+            block_id == "wasm_hackrf_sink");
 }
 
 inline json coerce_numeric(const std::string& s) {

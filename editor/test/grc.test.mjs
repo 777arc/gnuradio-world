@@ -174,5 +174,40 @@ for (const benchmark of benchmarks) {
   }
 }
 
+// ---- Help ▸ SDR Receive Speed Test's private hardware flowgraph -----------
+// Like the CPU benchmark cases above, this goes straight to runner.html. Keep
+// the numeric-looking USB serial textual and prove the Source really is what
+// the Null Sink counts rather than a raw worker-only throughput test.
+const { sdrReceiveBenchmarkFlowgraph } =
+  await bundleModule('../src/sdr-speed-test.ts');
+const speedTests = [
+  ['hackrf', 'wasm_hackrf_source', 20000000],
+  ['plutosdr', 'wasm_plutosdr_source', 61440000],
+  ['rtlsdr', 'wasm_rtlsdr_source', 3200000],
+];
+for (const [radio, sourceId, rate] of speedTests) {
+  const speedTest = parseGrc(
+    sdrReceiveBenchmarkFlowgraph(radio, '00000001', rate));
+  assert.deepEqual(speedTest.blocks.map(block => block.name),
+    ['sdr_source', 'sdr_sink']);
+  assert.equal(speedTest.blocks[0].id, sourceId);
+  assert.equal(speedTest.blocks[0].parameters.device, '00000001');
+  assert.equal(speedTest.blocks[0].parameters.samp_rate, String(rate));
+  assert.equal(speedTest.blocks[1].id, 'blocks_null_sink');
+  assert.deepEqual(speedTest.connections, [['sdr_source', '0', 'sdr_sink', '0']]);
+}
+const hackrfSpeed = parseGrc(
+  sdrReceiveBenchmarkFlowgraph('hackrf', '00000001', 20000000));
+assert.equal(hackrfSpeed.blocks[0].parameters.bandwidth, '0');
+assert.equal(hackrfSpeed.blocks[0].parameters.amp, 'False');
+const plutoSpeed = parseGrc(
+  sdrReceiveBenchmarkFlowgraph('plutosdr', '00000001', 61440000));
+assert.equal(plutoSpeed.blocks[0].parameters.channels, '1');
+assert.equal(plutoSpeed.blocks[0].parameters.bandwidth, '56000000');
+const rtlSpeed = parseGrc(
+  sdrReceiveBenchmarkFlowgraph('rtlsdr', '00000001', 3200000));
+assert.equal(rtlSpeed.blocks[0].parameters.type, 'complex');
+assert.equal(rtlSpeed.blocks[0].parameters.bufflen, '262144');
+
 console.log(`checked .grc round-trip, byte-exact formatting, ${exampleFiles.length} derived flowgraph ids, ` +
-  `and ${benchmarks.length} benchmark cases`);
+  `${benchmarks.length} CPU benchmark cases, and the SDR speed-test flowgraph`);

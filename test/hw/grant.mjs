@@ -1,11 +1,11 @@
 // One-time WebUSB grant for the hardware harness.
 //
-//   node test/hw/grant.mjs
+//   node test/hw/grant.mjs [--pluto | --hackrf]
 //
 // Opens a real Chrome window (WSLg) on the harness page and waits for you to
 // press "Grant device access" and pick the dongle. WebUSB permission is stored
 // per profile, so once this succeeds every later run of
-// test/hw/rtlsdr_hw.mjs reuses test/hw/.profile and needs no chooser.
+// the matching hardware harness reuses test/hw/.profile and needs no chooser.
 //
 // This exists because CDP's DeviceAccess domain, which is the documented way to
 // automate the chooser, produces no prompt event in this environment -- neither
@@ -18,9 +18,13 @@ import { INSTALL_HINT, findChrome } from './chrome.mjs';
 const ROOT = new URL('../..', import.meta.url).pathname;
 const PROFILE = join(ROOT, 'test/hw/.profile');
 const PLUTO = process.argv.includes('--pluto');
-const PAGE = PLUTO
-  ? 'http://localhost:8090/test/hw/plutosdr_hw.html'
-  : 'http://localhost:8090/test/hw/rtlsdr_hw.html';
+const HACKRF = process.argv.includes('--hackrf');
+const PAGE = HACKRF
+  ? 'http://localhost:8090/test/hw/hackrf_hw.html'
+  : PLUTO
+    ? 'http://localhost:8090/test/hw/plutosdr_hw.html'
+    : 'http://localhost:8090/test/hw/rtlsdr_hw.html';
+const DEVICE_NAME = HACKRF ? 'HackRF' : PLUTO ? 'PlutoSDR' : 'RTL-SDR';
 
 const executablePath = findChrome();
 if (!executablePath) {
@@ -46,7 +50,7 @@ const at = process.argv.indexOf('--minutes');
 const MINUTES = at >= 0 && process.argv[at + 1] ? Number(process.argv[at + 1]) : 15;
 
 console.log('A Chrome window should be open on your desktop.');
-console.log(`Click "Grant device access", pick the ${PLUTO ? 'PlutoSDR' : 'RTL-SDR'}, ` +
+console.log(`Click "Grant device access", pick the ${DEVICE_NAME}, ` +
             'and press Connect.');
 console.log(`Waiting up to ${MINUTES} minutes (--minutes N to change)…`);
 console.log('Also worth noting: whether a chooser dialog appears AT ALL is the ' +

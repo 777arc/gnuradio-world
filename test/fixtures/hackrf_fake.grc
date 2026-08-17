@@ -1,0 +1,69 @@
+options:
+    parameters:
+        id: hackrf_fake
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+blocks:
+# Device 'fake' runs the real shared rings and command mailboxes without USB.
+-   name: hackrf_rx
+    id: wasm_hackrf_source
+    parameters:
+        device: 'fake:100000'
+        samp_rate: '2000000'
+        center_freq: '100000000'
+        bandwidth: '0'
+        lna_gain: '16'
+        vga_gain: '16'
+        amp: 'False'
+        bias_tee: 'False'
+        transfer_size: '32768'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: rx_null
+    id: blocks_null_sink
+    parameters:
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [200, 0]
+        rotation: 0
+        state: enabled
+-   name: tone
+    id: analog_sig_source_x
+    parameters:
+        type: complex
+        samp_rate: '2000000'
+        waveform: analog.GR_COS_WAVE
+        freq: '100000'
+        amp: '0.01'
+        offset: '0'
+        phase: '0'
+    states:
+        coordinate: [0, 150]
+        rotation: 0
+        state: enabled
+-   name: hackrf_tx
+    id: wasm_hackrf_sink
+    parameters:
+        device: 'fake'
+        samp_rate: '2000000'
+        center_freq: '100000000'
+        bandwidth: '0'
+        txvga_gain: '0'
+        amp: 'False'
+        bias_tee: 'False'
+        transfer_size: '32768'
+    states:
+        coordinate: [200, 150]
+        rotation: 0
+        state: enabled
+connections:
+- [hackrf_rx, '0', rx_null, '0']
+- [tone, '0', hackrf_tx, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0
