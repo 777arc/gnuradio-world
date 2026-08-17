@@ -24,8 +24,8 @@ assert.equal(speedometerAngle(0, 20e6), -90);
 assert.equal(speedometerAngle(10e6, 20e6), 0);
 assert.equal(speedometerAngle(20e6, 20e6), 90);
 assert.equal(speedometerAngle(30e6, 20e6), 90, 'the needle clamps at the dial ceiling');
-assert.equal(formatSdrRate(19_876_543), '19.88 MS/s');
-assert.equal(formatSdrRate(875_500), '875.5 kS/s');
+assert.equal(formatSdrRate(19_876_543), '19.88 MSamples/s');
+assert.equal(formatSdrRate(875_500), '875.5 kSamples/s');
 
 for (const [radio, block] of [
   ['hackrf', 'wasm_hackrf_source'],
