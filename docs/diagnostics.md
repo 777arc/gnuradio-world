@@ -326,6 +326,12 @@ below the request and the dialog also reports the selected worker's overrun and
 lost-sample deltas. RF amplifier and bias power remain off. HackRF and RTL-SDR
 receive at 100 MHz; PlutoSDR receives at 1 GHz, all into a Null Sink.
 
+For PlutoSDR, the dialog also exposes the construction-time IIO buffer size so
+USB throughput can be compared across buffer sizes. It defaults to 32,768
+single-channel samples and currently accepts 1 to 262,144 samples. That is GNU
+Radio World's present 1 MiB transport limit, not the stock Pluto's 16 MiB DMA
+block limit; see "IIO buffer limits" in [plutosdr.md](plutosdr.md).
+
 The Start button owns the WebUSB user gesture: when no selected radio has been
 shared with the origin it calls `requestDevice()` with that radio's filters
 before awaiting anything else. The private iframe is laid out offscreen for Qt,

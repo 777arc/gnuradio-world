@@ -78,6 +78,53 @@ read back from the device, and reported in the flowgraph console. Number of
 channels, gain-control modes, correction switches and IIO buffer size are
 construction-time settings.
 
+## IIO buffer limits
+
+The current 262,144-sample single-channel limit is a GNU Radio World transport
+limit, not a PlutoSDR hardware limit. One complex sample frame occupies four
+bytes per enabled RF channel, and the block, GRC metadata and worker currently
+require one IIO buffer to fit within `MAX_TRANSFER`, which is 1 MiB. The current
+limits are consequently 262,144 frames in Single mode and 131,072 frames in
+Dual mode.
+
+A stock Pluto has a 16 MiB maximum DMA block by default. Its AXI DMAC uses the
+default 24-bit transfer-length field, so that is also the stock FPGA design's
+maximum transfer. In sample frames this is:
+
+- Single mode: 4,194,304 complex samples (`16 MiB / 4 bytes`);
+- Dual mode: 2,097,152 two-channel sample frames (`16 MiB / 8 bytes`).
+
+The Pluto's default 256 MiB contiguous-memory (CMA) reservation is the pool from
+which DMA buffers are allocated, not the maximum size of one buffer. Custom
+firmware can change the kernel's
+`/sys/module/industrialio_buffer_dma/parameters/max_block_size`, but exceeding
+16 MiB also requires increasing the AXI DMAC length width and rebuilding the
+FPGA design. Allocation still depends on CMA availability and the configured
+number of kernel buffers. See Analog Devices'
+[buffer-size guidance](https://wiki.analog.com/resources/tools-software/linux-software/libiio_tips_tricks)
+and the stock AXI DMAC's
+[`DMA_LENGTH_WIDTH`](https://github.com/analogdevicesinc/hdl/blob/4840c81f2af172b036cb3ccb3f9f2dc45ed9c1d3/library/axi_dmac/axi_dmac.v#L41-L46).
+
+IIOD does not require a `READBUF` or `WRITEBUF` request to fit in one underlying
+USB transfer; it can move the requested data in chunks. Raising GNU Radio
+World's limit therefore requires coordinated implementation work rather than
+only changing a UI maximum:
+
+- replace the 1 MiB assertions in both block definitions, `WorkerLink` and the
+  worker with a limit that reflects the stock 16 MiB DMA block;
+- chunk both WebUSB directions safely (RX's `readExact()` already assembles
+  multiple reads, while TX must not assume the remaining buffer is a suitable
+  single `transferOut()` request);
+- enlarge or rework the shared ring, whose current maximum is 1,048,576 frames
+  and whose sizing policy reserves at least two IIO buffers plus one frame;
+- exercise the larger sizes on real stock hardware before advertising them.
+
+The SDR Receive Speed Test currently exposes only the implemented 1 through
+262,144 single-channel range. Once the transport and ring changes above are
+made, its stock-Pluto ceiling should be 4,194,304 samples. Larger buffers reduce
+per-buffer overhead but increase latency and browser/Wasm memory use; at 61.44
+MS/s, a 4,194,304-sample buffer spans about 68.3 ms.
+
 ## Single and dual channel
 
 One RF channel consists of two scan elements: I and Q. The block exposes one
@@ -121,6 +168,9 @@ direction, port counts, scheduler behavior and stop path, but not IIOD.
 For real hardware, test all of these separately:
 
 - `PRINT` parses the current context and resolves devices by name;
+- the SDR Receive Speed Test can repeat RX measurements with an adjustable IIO
+  buffer size (currently 1 through 262,144 samples in its single-channel
+  flowgraph; see "IIO buffer limits" above);
 - Source Single moves samples for several IIO buffers without overruns;
 - Source Dual is rejected clearly on a 1R1T Pluto;
 - Sink Single sends a low-amplitude test signal into a shielded load or suitable

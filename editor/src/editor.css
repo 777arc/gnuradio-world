@@ -149,9 +149,15 @@ button:hover { filter:brightness(1.15); }
 .sdr-speed-form { display:grid;
     grid-template-columns:minmax(115px,.4fr) minmax(210px,1fr) auto minmax(135px,.45fr);
     gap:10px; align-items:end; margin:4px 0 14px; }
+.sdr-speed-form.has-pluto-buffer { grid-template-columns:minmax(105px,.35fr)
+    minmax(180px,1fr) auto minmax(120px,.45fr) minmax(130px,.5fr); }
 .sdr-speed-form label { display:flex; flex-direction:column; gap:5px; color:#9da8c3;
     font-size:14px; }
-.sdr-speed-form select, .sdr-speed-form button { min-height:38px; font-size:15px; }
+.sdr-speed-form select, .sdr-speed-form input, .sdr-speed-form button {
+    min-height:38px; font-size:15px; }
+.sdr-speed-buffer[hidden] { display:none; }
+.sdr-speed-buffer input { width:100%; min-width:0; padding:6px 8px;
+    color:#e6e9f0; background:#171a24; border:1px solid #3a4366; border-radius:5px; }
 .sdr-speed-progress { height:10px; background:#171a24; border:1px solid #3a4366;
     border-radius:6px; overflow:hidden; }
 .sdr-speed-progress-fill { width:0; height:100%; background:linear-gradient(90deg,#58a6ff,#4fc3d6,#55d17d);
@@ -162,7 +168,7 @@ button:hover { filter:brightness(1.15); }
 .sdr-speed-detail { min-height:24px; margin:8px 0 0 162px; color:#8b93ab;
     font-variant-numeric:tabular-nums; }
 @media (max-width:700px) {
-  .sdr-speed-form { grid-template-columns:1fr; }
+  .sdr-speed-form, .sdr-speed-form.has-pluto-buffer { grid-template-columns:1fr; }
   .sdr-speed-controls { align-items:flex-start; flex-direction:column; }
   .sdr-speed-detail { margin-left:0; }
   .sdr-gauge-value { font-size:27px; }

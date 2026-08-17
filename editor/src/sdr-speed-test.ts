@@ -99,15 +99,22 @@ const WARM_SECONDS = 1;
 const MEASURE_SECONDS = 5;
 const POLL_MS = 80;
 const START_TIMEOUT_MS = 30000;
+const DEFAULT_PLUTO_BUFFER_SIZE = 32768;
+const MAX_PLUTO_BUFFER_SIZE = 262144;
 
-function sourceBlock(radio: SdrSpeedRadio, serial: string, sampleRate: number): string {
+function sourceBlock(
+  radio: SdrSpeedRadio,
+  serial: string,
+  sampleRate: number,
+  plutoBufferSize: number,
+): string {
   const device = JSON.stringify(serial);
   const rate = Math.round(sampleRate);
   if (radio === 'plutosdr') return `    id: wasm_plutosdr_source
     parameters:
         bandwidth: '${Math.min(rate, 56000000)}'
         bb_dc: 'True'
-        buffer_size: '32768'
+        buffer_size: '${plutoBufferSize}'
         center_freq: '1000000000'
         channels: '1'
         device: ${device}
@@ -148,7 +155,12 @@ export function sdrReceiveBenchmarkFlowgraph(
   radio: SdrSpeedRadio,
   serial: string,
   sampleRate: number,
+  plutoBufferSize = DEFAULT_PLUTO_BUFFER_SIZE,
 ): string {
+  if (radio === 'plutosdr' &&
+      (!Number.isInteger(plutoBufferSize) || plutoBufferSize < 1 ||
+       plutoBufferSize > MAX_PLUTO_BUFFER_SIZE))
+    throw new Error(`PlutoSDR buffer size must be an integer from 1 to ${MAX_PLUTO_BUFFER_SIZE}`);
   return `options:
     parameters:
         id: sdr_receive_speed_test
@@ -158,7 +170,7 @@ export function sdrReceiveBenchmarkFlowgraph(
         state: enabled
 blocks:
 -   name: sdr_source
-${sourceBlock(radio, serial, sampleRate)}
+${sourceBlock(radio, serial, sampleRate, plutoBufferSize)}
     states:
         coordinate: [0, 0]
         rotation: 0
@@ -260,12 +272,14 @@ async function measureReceive(
   radio: SdrSpeedRadioConfig,
   serial: string,
   sampleRate: number,
+  plutoBufferSize: number,
   alive: () => boolean,
   progress: (rate: number, fraction: number, reading: SdrSpeedReading) => void,
 ): Promise<SdrSpeedResult> {
   const search = `?sdr-speed-test=${Date.now()}`;
   frame.src = `/runner/build/runner.html${search}#` +
-    encodeURIComponent(sdrReceiveBenchmarkFlowgraph(radio.id, serial, sampleRate));
+    encodeURIComponent(sdrReceiveBenchmarkFlowgraph(
+      radio.id, serial, sampleRate, plutoBufferSize));
 
   const deadline = Date.now() + START_TIMEOUT_MS;
   let baseline: SdrSpeedReading | null = null;
@@ -427,7 +441,17 @@ export function showSdrSpeedTestDialog(deps: SdrSpeedTestDeps): void {
     rateLabel.textContent = 'Test ceiling';
     const rateSelect = document.createElement('select');
     rateLabel.appendChild(rateSelect);
-    form.append(radioLabel, deviceLabel, share, rateLabel);
+    const bufferLabel = document.createElement('label');
+    bufferLabel.className = 'sdr-speed-buffer';
+    bufferLabel.textContent = 'IIO buffer (samples)';
+    const bufferInput = document.createElement('input');
+    bufferInput.type = 'number';
+    bufferInput.min = '1';
+    bufferInput.max = String(MAX_PLUTO_BUFFER_SIZE);
+    bufferInput.step = '1';
+    bufferInput.value = String(DEFAULT_PLUTO_BUFFER_SIZE);
+    bufferLabel.appendChild(bufferInput);
+    form.append(radioLabel, deviceLabel, share, rateLabel, bufferLabel);
     body.appendChild(form);
 
     const progress = document.createElement('div');
@@ -491,6 +515,9 @@ export function showSdrSpeedTestDialog(deps: SdrSpeedTestDeps): void {
     const renderRadio = () => {
       deviceLabel.firstChild!.textContent = `${selectedRadio.name} device`;
       share.textContent = `Share ${selectedRadio.name}…`;
+      form.classList.toggle('has-pluto-buffer', selectedRadio.id === 'plutosdr');
+      bufferLabel.hidden = selectedRadio.id !== 'plutosdr';
+      bufferInput.disabled = running || selectedRadio.id !== 'plutosdr';
       devices = [];
       renderDevices();
       renderRates();
@@ -555,6 +582,15 @@ export function showSdrSpeedTestDialog(deps: SdrSpeedTestDeps): void {
         return;
       }
       const radio = selectedRadio;
+      const plutoBufferSize = Number(bufferInput.value);
+      if (radio.id === 'plutosdr' &&
+          (!Number.isInteger(plutoBufferSize) || plutoBufferSize < 1 ||
+           plutoBufferSize > MAX_PLUTO_BUFFER_SIZE)) {
+        status.textContent =
+          `Enter a PlutoSDR buffer size from 1 to ${MAX_PLUTO_BUFFER_SIZE} samples.`;
+        bufferInput.focus();
+        return;
+      }
       let serial = deviceSelect.value;
       let device = serial
         ? devices.find(candidate => candidate.serialNumber === serial) || null
@@ -575,7 +611,7 @@ export function showSdrSpeedTestDialog(deps: SdrSpeedTestDeps): void {
       running = true;
       runButton.textContent = 'Cancel';
       share.disabled = true; radioSelect.disabled = true;
-      deviceSelect.disabled = true; rateSelect.disabled = true;
+      deviceSelect.disabled = true; rateSelect.disabled = true; bufferInput.disabled = true;
       gauge.update(0, Number(rateSelect.value)); setProgress(0);
       detail.textContent = '';
       status.textContent = `Starting the ${radio.name} receive flowgraph…`;
@@ -588,7 +624,8 @@ export function showSdrSpeedTestDialog(deps: SdrSpeedTestDeps): void {
       document.body.appendChild(frame); speedFrame = frame;
       const target = Number(rateSelect.value);
       try {
-        const result = await measureReceive(frame, radio, serial, target, alive,
+        const result = await measureReceive(
+          frame, radio, serial, target, plutoBufferSize, alive,
           (rate, fraction, reading) => {
             gauge.update(rate, target); setProgress(fraction);
             status.textContent = fraction < 0.02 ? 'Warming up…' :
@@ -606,13 +643,19 @@ export function showSdrSpeedTestDialog(deps: SdrSpeedTestDeps): void {
         detail.textContent =
           `${(result.samplesPerSecond * radio.bytesPerSample / 1e6).toFixed(1)} MB/s IQ · ` +
           `${utilization.toFixed(1)}% of ${formatSdrRate(result.actualRate)}` +
+          (radio.id === 'plutosdr'
+            ? ` · ${plutoBufferSize.toLocaleString()} sample IIO buffer`
+            : '') +
           (result.overruns
             ? ` · ${result.overruns.toLocaleString()} overruns, ` +
               `${result.lostSamples.toLocaleString()} samples dropped`
             : ' · no receive overruns');
         log(`${radio.name} receive speed test: ` +
           `${formatSdrRate(result.samplesPerSecond)} into GNU Radio World, ` +
-          `${result.overruns} overruns`);
+          `${result.overruns} overruns` +
+          (radio.id === 'plutosdr'
+            ? `, ${plutoBufferSize} sample IIO buffer`
+            : ''));
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         if (message === 'cancelled') {
@@ -629,6 +672,7 @@ export function showSdrSpeedTestDialog(deps: SdrSpeedTestDeps): void {
           runButton.disabled = false;
           runButton.textContent = 'Start Speed Test';
           share.disabled = false; radioSelect.disabled = false; rateSelect.disabled = false;
+          bufferInput.disabled = selectedRadio.id !== 'plutosdr';
           renderDevices(serial);
         }
       }

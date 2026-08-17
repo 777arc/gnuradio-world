@@ -201,9 +201,10 @@ const hackrfSpeed = parseGrc(
 assert.equal(hackrfSpeed.blocks[0].parameters.bandwidth, '0');
 assert.equal(hackrfSpeed.blocks[0].parameters.amp, 'False');
 const plutoSpeed = parseGrc(
-  sdrReceiveBenchmarkFlowgraph('plutosdr', '00000001', 61440000));
+  sdrReceiveBenchmarkFlowgraph('plutosdr', '00000001', 61440000, 65536));
 assert.equal(plutoSpeed.blocks[0].parameters.channels, '1');
 assert.equal(plutoSpeed.blocks[0].parameters.bandwidth, '56000000');
+assert.equal(plutoSpeed.blocks[0].parameters.buffer_size, '65536');
 const rtlSpeed = parseGrc(
   sdrReceiveBenchmarkFlowgraph('rtlsdr', '00000001', 3200000));
 assert.equal(rtlSpeed.blocks[0].parameters.type, 'complex');

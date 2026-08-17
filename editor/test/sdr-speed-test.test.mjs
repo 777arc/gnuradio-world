@@ -40,6 +40,14 @@ for (const [radio, block] of [
   assert.match(flowgraph, new RegExp(`id: ${block}`), `${radio} gets its own source`);
   assert.match(flowgraph, /id: blocks_null_sink/, `${radio} is measured into a Null Sink`);
 }
+assert.match(
+  sdrReceiveBenchmarkFlowgraph('plutosdr', 'fake', 2_500_000, 8192),
+  /buffer_size: '8192'/,
+  'the PlutoSDR speed test uses its selected IIO buffer size');
+assert.throws(
+  () => sdrReceiveBenchmarkFlowgraph('plutosdr', 'fake', 2_500_000, 262145),
+  /buffer size must be an integer from 1 to 262144/,
+  'the PlutoSDR speed test rejects buffers larger than its single-channel limit');
 
 assert.match(mainSource, /label: 'SDR Receive Speed Test…'/,
   'the speed test is reachable from Help');
@@ -55,6 +63,7 @@ assert.ok(
   'the speed test blocks on the driver probe before starting its runner');
 for (const selector of [
   '.sdr-gauge', '.sdr-gauge-needle', '.sdr-speed-progress', '.sdr-speed-run',
+  '.sdr-speed-buffer',
 ])
   assert.ok(cssSource.includes(selector), `missing ${selector} speed-test styling`);
 
