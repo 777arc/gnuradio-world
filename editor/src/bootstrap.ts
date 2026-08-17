@@ -1,0 +1,42 @@
+// The editor's deliberately tiny loading boundary. Keep imports out of this
+// file: a click-to-load embed must not pull any application code or CSS into
+// the bootstrap chunk before its reader asks for it.
+
+const root = document.documentElement;
+const gate = document.getElementById('clickToLoad')!;
+const button = gate.querySelector('button') as HTMLButtonElement;
+const logo = gate.querySelector('img') as HTMLImageElement;
+const deferred = root.classList.contains('click-to-load-pending');
+
+function moveLogoIntoEditor() {
+  // The gated screen has already fetched and decoded this image. Reuse that
+  // exact element in the application header instead of requesting it twice.
+  document.querySelector<HTMLImageElement>('header .brand img[data-src]')?.replaceWith(logo);
+}
+
+async function loadEditor() {
+  await import('./main');
+  moveLogoIntoEditor();
+  root.classList.remove('app-bootstrapping', 'click-to-load-pending');
+  gate.remove();
+}
+
+if (deferred) {
+  button.focus();
+  button.addEventListener('click', async () => {
+    button.disabled = true;
+    button.textContent = 'Loading…';
+    try {
+      await loadEditor();
+    } catch (error) {
+      console.error('Could not load GNU Radio World:', error);
+      button.disabled = false;
+      button.textContent = 'Retry';
+    }
+  });
+} else {
+  void loadEditor().catch(error => {
+    root.classList.remove('app-bootstrapping');
+    console.error('Could not load GNU Radio World:', error);
+  });
+}

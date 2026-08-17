@@ -127,6 +127,24 @@ right way to *leave* one, as `#embedOpen` does below. Any value but `0`/`false`
 turns it on, bare `?embed` included. It composes with every existing fragment, so
 an embed can carry a shared `#fg=` flowgraph just as well as a named example.
 
+Add `click_to_load=1` when the host should pay almost none of the application's
+startup cost until its reader asks for it:
+
+```html
+<iframe src="https://gnuradioworld.com/?embed=1&click_to_load=1#example=ofdm/ofdm"
+        allow="cross-origin-isolated" width="960" height="560"></iframe>
+```
+
+This flag has no effect without `embed`. With both flags enabled, the initial
+document shows the GNU Radio World logo, responsive up to 600 pixels wide, with
+a centred **Load** button over it. The tiny `bootstrap.ts` entry does not import
+application code; pressing the button dynamically imports `main.ts`, whose
+chunk owns `editor.css`, then moves the already-fetched logo element into the
+application header. That keeps the editor bundle, stylesheet, block catalog,
+example, recording index and runner out of the host page's initial waterfall.
+Like `embed`, any value but `0`/`false` enables `click_to_load`, including the
+bare flag.
+
 Four things make it an embed, and each is one place:
 
 - **The layout is a class.** `EMBEDDED` in `main.ts` adds `embedded` to `#app`

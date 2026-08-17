@@ -4,6 +4,7 @@ const read = relativePath => readFile(new URL(relativePath, import.meta.url), 'u
 
 export const [
   mainSource,
+  bootstrapSource,
   blockDefsSource,
   blockLibrarySource,
   validationSource,
@@ -14,6 +15,7 @@ export const [
   cssSource,
 ] = await Promise.all([
   read('../src/main.ts'),
+  read('../src/bootstrap.ts'),
   read('../src/block-defs.ts'),
   read('../src/block-library.ts'),
   read('../src/validation.ts'),
@@ -28,6 +30,7 @@ export const [
 // focused editor modules does not invalidate an otherwise unchanged contract.
 export const editorSource = [
   mainSource,
+  bootstrapSource,
   blockDefsSource,
   blockLibrarySource,
   validationSource,

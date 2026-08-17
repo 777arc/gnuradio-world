@@ -8,9 +8,54 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#181b26" />
 <title>GNU Radio World</title>
-<link rel="stylesheet" href="/src/editor.css" />
+<!-- Keep the click-to-load gate independent of the editor bundle: when both
+     query flags are on, neither that bundle nor its stylesheet is requested
+     until the reader presses Load. This tiny inline style is the entire gated
+     screen. app-bootstrapping also prevents an unstyled flash on ordinary
+     loads now that editor.css travels with the deferred module. -->
+<script>
+(() => {
+  const params = new URLSearchParams(location.search);
+  const enabled = name => {
+    const value = params.get(name);
+    return value !== null && value !== '0' && value.toLowerCase() !== 'false';
+  };
+  document.documentElement.classList.add(
+    enabled('embed') && enabled('click_to_load')
+      ? 'click-to-load-pending'
+      : 'app-bootstrapping',
+  );
+})();
+</script>
+<style>
+html.app-bootstrapping body { visibility:hidden; }
+#clickToLoad { display:none; }
+html.click-to-load-pending body {
+  margin:0; min-height:100vh; background:#1e2230;
+}
+html.click-to-load-pending body > :not(#clickToLoad) { display:none !important; }
+html.click-to-load-pending #clickToLoad {
+  position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+  overflow:hidden;
+}
+html.click-to-load-pending #clickToLoad img {
+  display:block; width:100%; max-width:600px; max-height:100%; object-fit:contain;
+}
+html.click-to-load-pending #clickToLoad button {
+  position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+  padding:10px 24px; border:1px solid #46507a; border-radius:6px;
+  background:#2f3650; color:#e6e9f0; cursor:pointer;
+  font:600 16px system-ui,Arial,sans-serif;
+}
+html.click-to-load-pending #clickToLoad button:hover { filter:brightness(1.15); }
+html.click-to-load-pending #clickToLoad button:disabled { cursor:default; opacity:.75; }
+</style>
 </head>
 <body>
+<div id="clickToLoad">
+  <img src="/gnuradio_world_logo_dark.svg" alt="GNU Radio World" />
+  <button type="button">Load</button>
+</div>
 <div id="app">
   <header>
     <!-- Opens the palette drawer; only the narrow layout shows it, where the
@@ -22,7 +67,7 @@
          the app's chrome is dark and the light artwork's lettering disappears
          into it. README.md keeps the light one, which is what GitHub renders it
          against. -->
-    <span class="brand"><a href="/" aria-label="GNU Radio World home"><img src="/gnuradio_world_logo_dark.svg" alt="GNU Radio World" /></a></span>
+    <span class="brand"><a href="/" aria-label="GNU Radio World home"><img data-src="/gnuradio_world_logo_dark.svg" alt="GNU Radio World" /></a></span>
     <div id="headerBars">
     <div id="menubar">
       <nav id="menus" role="menubar" aria-label="Main menu"></nav>
@@ -135,6 +180,6 @@
   </div>
 </div>
 <input id="fileOpen" type="file" accept=".grc" hidden />
-<script type="module" src="/src/main.ts"></script>
+<script type="module" src="/src/bootstrap.ts"></script>
 </body>
 </html>

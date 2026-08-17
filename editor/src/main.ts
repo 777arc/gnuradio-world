@@ -3,6 +3,7 @@
 // canvas, and Runs the flowgraph by handing JSON to the C++/WASM runner via a
 // URL hash (runner.html#<encoded json>).
 
+import './editor.css';
 import { dumpGrc, parseGrc, type GrcDoc, type GrcScalar } from './grc';
 import { boundsBetween, boundsIntersect, type Point } from './selection';
 import { ceilToGrid, centeredPortSlot, constrainBlockPosition, SNAP_GRID_SIZE } from './grid';
