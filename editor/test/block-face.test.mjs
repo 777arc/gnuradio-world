@@ -71,6 +71,9 @@ for (const id of ['title', 'author', 'description']) {
 assert.match(source,
   /const titleY = \(rows\.length \|\| thumb\) \? TITLE_BASELINE\s*\n?\s*: h \/ 2 - \(subtitle \? SUBTITLE_H \/ 2 : 0\)/,
   'a block without visible parameters must center its title vertically');
+assert.match(source,
+  /if \(!rows\.length && !thumb\) titleAttrs\['dominant-baseline'\] = 'central'/,
+  'the GUI Layout thumbnail must use the same title baseline as parameter rows');
 // The Embedded Python Block is the only block whose name, parameters and ports
 // come from source the user wrote, so its face says which language that is. The
 // measured size and the drawn one are two declarations of one thing, as with the

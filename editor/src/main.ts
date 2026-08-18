@@ -2563,7 +2563,10 @@ function render() {
     const titleAttrs: Record<string, string> = {
       class: 'title', x: String(w / 2), y: String(titleY), 'text-anchor': 'middle',
     };
-    if (!rows.length) titleAttrs['dominant-baseline'] = 'central';
+    // A thumbnail is body content too: keep its title on the same alphabetic
+    // baseline as a block with parameter rows. Only a truly bodyless block
+    // centres its title vertically in the whole face.
+    if (!rows.length && !thumb) titleAttrs['dominant-baseline'] = 'central';
     const t = svgEl('text', titleAttrs);
     t.textContent = d.label; g.appendChild(t);
     if (subtitle) {
