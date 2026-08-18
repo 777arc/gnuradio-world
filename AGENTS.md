@@ -187,6 +187,11 @@ then regenerate.
 Always serve the site through the repository server, because WASM pthreads and
 `SharedArrayBuffer` require its COOP/COEP headers:
 
+**Keep the app running.** Never stop, kill, or replace an existing repository
+server unless the user explicitly asks. If port 8090 is already in use, assume
+that server is intentional and reuse it. If the app is not running, start it and
+leave it running after the task is complete.
+
 ```bash
 node server.mjs 8090 "$PWD"
 # open http://localhost:8090/  → build a flowgraph → press ▶ Run
