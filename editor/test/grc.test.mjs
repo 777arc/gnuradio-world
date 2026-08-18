@@ -80,6 +80,17 @@ assert.deepEqual(back.blocks[0].states.coordinate, [50, 70], 'coordinate round-t
 assert.deepEqual(back.connections[0], ['b1', '0', 'b2', '0'], 'connections round-trip');
 assert.equal(dumpGrc(back), text, 'dump -> parse -> dump is a fixed point');
 
+// Native's implicit per-block Comment parameter is multiline. The web dumper
+// uses an escaped YAML scalar rather than PyYAML's folded presentation, but the
+// value desktop GRC reads must remain byte-for-byte the same text.
+const commented = structuredClone(doc);
+commented.blocks[0].parameters.comment = 'first line\nsecond line';
+const commentedText = dumpGrc(commented);
+assert.match(commentedText, /comment: "first line\\nsecond line"/,
+  'multiline block comments must be emitted as one safe YAML scalar');
+assert.equal(parseGrc(commentedText).blocks[0].parameters.comment,
+  'first line\nsecond line', 'multiline block comments must round-trip intact');
+
 // ---- the flowgraph id is derived from the Options Title ----
 // The Options block has no ID of its own, so nothing carries a loaded one into
 // the model; `id` is regenerated from the Title on the way out. It ends up as a

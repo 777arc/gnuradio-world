@@ -1,5 +1,31 @@
 import { RUNNABLE, type ParamDef, type PortTemplate } from './block-defs';
 
+// Native GRC appends this base parameter to every block after reading the
+// block's own YAML (grc/core/blocks/_build.py build_params). It deliberately is
+// not part of blocks.json: that file mirrors the YAML, while Comment belongs to
+// the common block model. Keeping the id here also gives the canvas and the
+// serializer one spelling to share.
+export const BLOCK_COMMENT_ID = 'comment';
+const BLOCK_COMMENT_PARAM: ParamDef = {
+  id: BLOCK_COMMENT_ID,
+  label: 'Comment',
+  type: 'string',
+  def: '',
+  category: 'Advanced',
+  hide: 'part',
+  multiline: true,
+};
+
+/** Add native GRC's implicit Comment parameter to every definition present. */
+export function installNativeBlockParams() {
+  for (const def of Object.values(RUNNABLE)) {
+    if (def.params.some(param => param.id === BLOCK_COMMENT_ID)) continue;
+    // A fresh object per definition: generated/hand-written schema merging is
+    // allowed to replace parameter metadata without coupling unrelated blocks.
+    def.params = [...def.params, { ...BLOCK_COMMENT_PARAM }];
+  }
+}
+
 // Numeric GRC fields may also contain a variable ID or expression.
 export function numericOrExpression(value: string): number | string {
   const text = value.trim();
@@ -204,4 +230,7 @@ export function installGeneratedBlocks(blocks: any[]) {
       outputTemplates: portTemplates(block.outputs),
     };
   }
+  // The loop can create definitions that did not exist in the hand-written
+  // registry when this module first loaded, so apply the base parameters again.
+  installNativeBlockParams();
 }

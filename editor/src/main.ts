@@ -78,7 +78,13 @@ import {
   normalizeExamplePath,
   type ExampleDirectory,
 } from './example-catalog';
-import { installGeneratedBlocks, numericOrExpression, portOptional } from './block-library';
+import {
+  BLOCK_COMMENT_ID,
+  installGeneratedBlocks,
+  installNativeBlockParams,
+  numericOrExpression,
+  portOptional,
+} from './block-library';
 import {
   EPY_BLOCK_ID, EPY_CODE_DTYPE, EPY_IO_CACHE_PARAM, EPY_SOURCE_PARAM, epyDefForCache,
   epySourceError, isForeignIoCache, pythonRuntime, setEpySourceError,
@@ -140,6 +146,9 @@ let snapToGrid = true;
 // this editor's own, on by default because it is what makes the snapping it
 // also defaults to legible.
 let showGrid = true;
+// GRC's grc/show_block_comments preference defaults to true. Comments remain
+// editable and serializable while hidden; this only controls their canvas text.
+let showBlockComments = true;
 // GRC's View ▸ Show All Block IDs (`grc/show_block_ids`): off by default, and
 // when on it forces the otherwise hidden `id` parameter onto every block face
 // and into every Properties dialog.
@@ -157,6 +166,12 @@ function blockIdVisible(inst: Inst): boolean {
   if (inst.id === OPTIONS_ID) return false;
   return showAllBlockIds || !!RUNNABLE[inst.id]?.showId;
 }
+
+// block-defs.ts contains the hand-written schemas available before the palette
+// fetch resolves. Give them native's implicit Comment parameter synchronously,
+// so even the initial Options instance has the complete schema. The palette
+// installer repeats this after adding generated-only definitions.
+installNativeBlockParams();
 
 // Blocks that name a file the browser has to open for itself, and the parameter
 // holding that name. Each gets a Browse control in its Properties dialog, and
@@ -633,6 +648,29 @@ function paramDisplay(p: ParamDef, raw: any): string {
 // in editor.css: line pitch, and the average glyph width the wrap column is
 // estimated from (the text is proportional, so this only has to be close).
 const ERROR_LINE_H = 17, ERROR_CHAR_W = 8;
+// Native positions the comment text immediately below the block and uses the
+// application's ordinary (non-bold) font. A small top gap corresponds to the
+// text-document margin in Qt and BLOCK_LABEL_PADDING in the GTK canvas.
+const COMMENT_FONT_SIZE = 14, COMMENT_LINE_H = 17, COMMENT_BASELINE = 14, COMMENT_GAP = 4;
+
+interface BlockCommentGeometry {
+  lines: string[];
+  width: number;
+  height: number;
+}
+
+function blockCommentGeometry(inst: Inst): BlockCommentGeometry {
+  const value = String(inst.params[BLOCK_COMMENT_ID] ?? '');
+  if (!showBlockComments || !value) return { lines: [], width: 0, height: 0 };
+  // One SVG text node per line preserves native's explicit line breaks without
+  // treating a comment imported from an untrusted .grc as executable markup.
+  const lines = value.split(/\r\n?|\n/);
+  return {
+    lines,
+    width: Math.ceil(Math.max(0, ...lines.map(line => textW(line, COMMENT_FONT_SIZE)))),
+    height: COMMENT_GAP + lines.length * COMMENT_LINE_H,
+  };
+}
 
 function wrapValidationMessage(message: string, maxCharacters: number): string[] {
   const lines: string[] = [];
@@ -1091,7 +1129,9 @@ function zoomToFit() {
   for (const inst of insts) {
     if (hideDisabled && !inst.enabled) continue;
     const { w, h } = geom(inst);
-    right = Math.max(right, inst.x + w); bottom = Math.max(bottom, inst.y + h);
+    const comment = blockCommentGeometry(inst);
+    right = Math.max(right, inst.x + Math.max(w, comment.width));
+    bottom = Math.max(bottom, inst.y + h + comment.height);
   }
   if (!right || !bottom) { log('nothing to fit'); return; }
   const pane = el('canvasWrap').getBoundingClientRect();
@@ -2547,6 +2587,7 @@ function render() {
     const { d, rows, h, w, subtitle, headH, thumb, thumbH, thumbTop } = geom(inst) as
       ReturnType<typeof geom> &
       { thumb?: LayoutThumbTile[]; thumbH?: number; thumbTop?: number };
+    const comment = blockCommentGeometry(inst);
     const blockIssues = validation.filter(issue => issue.uid === inst.uid);
     const g = svgEl('g', { class: 'blk' + (selectedBlocks.has(inst.uid) ? ' sel' : '') +
       (inst.enabled ? '' : ' disabled') + (inst.bypassed ? ' bypassed' : '') +
@@ -2605,14 +2646,25 @@ function render() {
         g.appendChild(label);
       }
     }
+    // Native GRC draws the comment as a separate text item below the body, not
+    // as another parameter row. It therefore neither changes the block/port
+    // geometry nor participates in block selection or dragging.
+    comment.lines.forEach((line, i) => {
+      const text = svgEl('text', { class: 'comment', x: '0',
+        y: String(h + COMMENT_GAP + COMMENT_BASELINE + i * COMMENT_LINE_H) });
+      text.textContent = line;
+      g.appendChild(text);
+    });
     const messages = [...new Set(blockIssues.map(issue => issue.message))];
     const wrapped = messages.flatMap(message => wrapValidationMessage(message, Math.max(22, Math.floor(w / ERROR_CHAR_W))));
     wrapped.slice(0, 5).forEach((message, i) => {
-      const error = svgEl('text', { class: 'validation-error', x: '0', y: String(h + ERROR_LINE_H * (i + 1)) });
+      const error = svgEl('text', { class: 'validation-error', x: '0',
+        y: String(h + comment.height + ERROR_LINE_H * (i + 1)) });
       error.textContent = message; g.appendChild(error);
     });
     if (wrapped.length > 5) {
-      const more = svgEl('text', { class: 'validation-error', x: '0', y: String(h + ERROR_LINE_H * 6) });
+      const more = svgEl('text', { class: 'validation-error', x: '0',
+        y: String(h + comment.height + ERROR_LINE_H * 6) });
       more.textContent = `+${wrapped.length - 5} more lines`; g.appendChild(more);
     }
     // Drag from anywhere on the block; ports stopPropagation so they still connect.
@@ -2652,8 +2704,9 @@ function updateCanvasExtent() {
   for (const inst of insts) {
     if (hideDisabled && !inst.enabled) continue;
     const { w, h } = geom(inst);
-    right = Math.max(right, inst.x + w);
-    bottom = Math.max(bottom, inst.y + h);
+    const comment = blockCommentGeometry(inst);
+    right = Math.max(right, inst.x + Math.max(w, comment.width));
+    bottom = Math.max(bottom, inst.y + h + comment.height);
   }
   svg.style.minWidth = `${Math.ceil((right + CANVAS_MARGIN) * zoom)}px`;
   svg.style.minHeight = `${Math.ceil((bottom + CANVAS_MARGIN) * zoom)}px`;
@@ -4862,6 +4915,10 @@ function syncConsoleToggle() {
 function toggleScrollLock() { autoScrollLog = !autoScrollLog; log(`console autoscroll ${autoScrollLog ? 'on' : 'off'}`); }
 function clearConsole() { el('log').textContent = ''; }
 function toggleHideDisabled() { hideDisabled = !hideDisabled; render(); }
+function toggleShowBlockComments() {
+  showBlockComments = !showBlockComments;
+  render();
+}
 function toggleShowAllBlockIds() {
   showAllBlockIds = !showAllBlockIds;
   render();
@@ -5096,7 +5153,7 @@ const MENUS: TopMenu[] = [
     { label: 'Auto-Hide Port Labels', reason: R_TODO },
     { label: 'Show Grid', key: 'G', run: toggleShowGrid, check: () => showGrid },
     { label: 'Snap to Grid', run: toggleSnapToGrid, check: () => snapToGrid },
-    { label: 'Show Block Comments', reason: R_TODO },
+    { label: 'Show Block Comments', run: toggleShowBlockComments, check: () => showBlockComments },
     { label: 'Show All Block IDs', run: toggleShowAllBlockIds, check: () => showAllBlockIds },
     { label: 'Show Properties Field Colors', reason: R_TODO },
     'sep',

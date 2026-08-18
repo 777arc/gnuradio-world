@@ -452,6 +452,8 @@ svg text { user-select:none; -webkit-user-select:none; -moz-user-select:none; }
 .blk text.pval { fill:#1a63c4; }
 .blk text.param.pmore { fill:#6b6b6b; font-style:italic; }
 .blk text.param.invalid, .blk text.param.invalid .pval { fill:#d1242f; font-weight:700; }
+.blk text.comment { fill:#444; font:14px 'DejaVu Sans',Verdana,sans-serif; pointer-events:none; }
+.blk.disabled text.comment { fill:#888; }
 .blk text.validation-error { fill:#d1242f; font:14px 'DejaVu Sans',Verdana,sans-serif; pointer-events:none; }
 /* The GUI Layout block's body: a miniature of the runner window. The frame is
    the window, each tile a widget in it. */

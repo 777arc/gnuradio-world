@@ -115,4 +115,34 @@ assert.doesNotMatch(source, /title \+ underline|GRC draws a rule under/,
 assert.doesNotMatch(source, /svgEl\('line',\s*{\s*x1: '0',\s*y1: String\(TITLE_H\)/,
   'the block title separator must not be drawn');
 
+// Comment is a native base parameter, not metadata repeated in every block
+// YAML. It belongs on Advanced, saves with every block, and is drawn below the
+// body without changing port geometry.
+assert.match(source,
+  /const BLOCK_COMMENT_PARAM: ParamDef = \{[\s\S]*?id: BLOCK_COMMENT_ID,[\s\S]*?label: 'Comment',[\s\S]*?category: 'Advanced',[\s\S]*?hide: 'part',[\s\S]*?multiline: true/,
+  'every block must receive native GRC\'s multiline Advanced Comment parameter');
+assert.match(source,
+  /function installNativeBlockParams\(\)[\s\S]*?def\.params = \[\.\.\.def\.params, \{ \.\.\.BLOCK_COMMENT_PARAM }\]/,
+  'the Comment base parameter must be appended to hand-written and generated block schemas');
+assert.ok(source.indexOf('installNativeBlockParams();') < source.indexOf('function addBlock('),
+  'base parameters must be installed before the first block instance is created');
+assert.match(source,
+  /const value = String\(inst\.params\[BLOCK_COMMENT_ID\] \?\? ''\);[\s\S]*?value\.split\(\/\\r\\n\?\|\\n\/\)/,
+  'canvas comments must read the native parameter and preserve explicit line breaks');
+assert.match(source,
+  /comment\.lines\.forEach[\s\S]*?class: 'comment'[\s\S]*?text\.textContent = line/,
+  'comments must render below blocks as inert text rather than executable markup');
+assert.match(source,
+  /label: 'Show Block Comments', run: toggleShowBlockComments, check: \(\) => showBlockComments/,
+  'View must expose the native Show Block Comments toggle');
+assert.match(source, /let showBlockComments = true;/,
+  'block comments must be visible by default like native GRC');
+assert.match(source,
+  /right = Math\.max\(right, inst\.x \+ Math\.max\(w, comment\.width\)\);[\s\S]*?bottom = Math\.max\(bottom, inst\.y \+ h \+ comment\.height\)/,
+  'scroll and zoom extents must include visible comment text');
+assert.match(html, /\.blk text\.comment \{[^}]*fill:#444;[^}]*font:14px[^}]*pointer-events:none/,
+  'enabled comments must use native-style gray, ordinary text that is not part of block hit testing');
+assert.match(html, /\.blk\.disabled text\.comment \{\s*fill:#888;\s*}/,
+  'disabled block comments must use native\'s lighter gray');
+
 console.log('checked native block-face parameter visibility and typography');
