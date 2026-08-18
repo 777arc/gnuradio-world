@@ -5348,7 +5348,11 @@ function showWelcomePopup() {
   close.focus();
 }
 
-paletteReady.then(async () => {
+// bootstrap.ts keeps the application hidden (or its click-to-load screen up)
+// until this resolves. The palette becomes populated before the initial
+// flowgraph fetch completes, but it must not become interactive in that gap: a
+// block placed there would be discarded when the startup flowgraph arrived.
+export const editorReady = paletteReady.then(async () => {
   // The GUI Layout block needs its schema, which only arrives with the generated
   // library, so the canvas built before that gets its singleton here instead.
   ensureLayoutBlock(); render();

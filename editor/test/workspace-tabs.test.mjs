@@ -116,6 +116,12 @@ assert.match(source,
 assert.match(source, /async function loadEditor\(\)[\s\S]*await import\('\.\/main'\)/,
   'the application stays in a dynamic chunk behind the bootstrap');
 assert.match(source,
+  /const editor = await import\('\.\/main'\);[\s\S]*await editor\.editorReady;[\s\S]*root\.classList\.remove\('app-bootstrapping', 'click-to-load-pending'\)/,
+  'the startup gate stays up until the initial flowgraph has settled');
+assert.match(source,
+  /export const editorReady = paletteReady\.then\(async \(\) => \{[\s\S]*historyReady = true; resetHistory\(\);/,
+  'the editor exposes initial palette and flowgraph completion to its bootstrap');
+assert.match(source,
   /function loadHeaderLogo\(\)[\s\S]*header \.brand img\[data-src\][\s\S]*logo\.src = logo\.dataset\.src/,
   'the application header logo is loaded when the editor starts');
 

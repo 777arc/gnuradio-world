@@ -15,7 +15,11 @@ function loadHeaderLogo() {
 }
 
 async function loadEditor() {
-  await import('./main');
+  const editor = await import('./main');
+  // main.ts can render palette rows before the URL/default flowgraph has
+  // finished loading. Keep the application gated until that initial canvas is
+  // settled, or an early click can be overwritten by the late startup load.
+  await editor.editorReady;
   loadHeaderLogo();
   root.classList.remove('app-bootstrapping', 'click-to-load-pending');
   gate.remove();

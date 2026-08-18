@@ -139,10 +139,13 @@ This flag has no effect without `embed`. With both flags enabled, the initial
 document fills the frame with `blurry_flowgraph.png` and centres the **Load**
 button over it. The tiny `bootstrap.ts` entry does not import application code;
 pressing the button dynamically imports `main.ts`, whose chunk owns
-`editor.css`, then loads the application header logo. That keeps the editor
-bundle, stylesheet, block catalog, example, recording index and runner out of
-the host page's initial waterfall. Like `embed`, any value but `0`/`false`
-enables `click_to_load`, including the bare flag.
+`editor.css`, waits for its exported `editorReady` promise (the block catalog and
+initial flowgraph), then loads the application header logo and removes the gate.
+The ordinary page uses the same promise before revealing its body, so a palette
+click cannot race and be overwritten by the initial flowgraph load. The gated
+path keeps the editor bundle, stylesheet, block catalog, example, recording
+index and runner out of the host page's initial waterfall. Like `embed`, any
+value but `0`/`false` enables `click_to_load`, including the bare flag.
 
 Four things make it an embed, and each is one place:
 

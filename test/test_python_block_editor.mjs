@@ -48,6 +48,10 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(200);
       return res.end('[]');
     }
+    // Make startup ordering deterministic: palette construction must finish
+    // first, while the bootstrap gate still prevents it from being used.
+    if (p === '/example_flowgraphs/digital/welcome_example.grc')
+      await new Promise(resolve => setTimeout(resolve, 250));
     if (p.endsWith('/')) p += 'index.html';
     const direct = normalize(join(ROOT, p));
     if (!direct.startsWith(ROOT)) { res.writeHead(403); return res.end(); }
@@ -137,7 +141,11 @@ page.on('pageerror', e => logs.push('PAGEERROR ' + e.message));
 await page.setViewport({ width: 1400, height: 900 });
 await suppressEditorWelcome(page);
 await page.goto(`http://localhost:${PORT}/`, { waitUntil: 'load', timeout: 30000 });
-await page.waitForFunction(() => !!document.querySelector('.pal-item'), { timeout: 30000 });
+// Palette rows are built before the asynchronous default flowgraph arrives.
+// Wait for bootstrap's shared readiness boundary so that load cannot replace a
+// block placed by the test (or by a fast user) immediately afterward.
+await page.waitForFunction(() =>
+  !document.documentElement.classList.contains('app-bootstrapping'), { timeout: 30000 });
 
 // Place a Python Block by clicking its palette entry, the way a user does.
 const placed = await page.evaluate(() => {
@@ -154,9 +162,9 @@ check(placed === '', 'the palette offers a runnable Python Block', placed);
 // no Python runtime fetched -- that is what the _io_cache default in
 // blocks/grc/epy_block.block.yml is for.
 const initial = await probe();
-check(initial.title === 'Embedded Python Block', 'the block face shows the class label',
+check(initial?.title === 'Embedded Python Block', 'the block face shows the class label',
       JSON.stringify(initial));
-check(initial.inputs === 1 && initial.outputs === 1,
+check(initial?.inputs === 1 && initial?.outputs === 1,
       'the default source\'s ports are drawn before Python is loaded',
       JSON.stringify(initial));
 
