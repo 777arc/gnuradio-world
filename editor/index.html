@@ -155,13 +155,25 @@ html.click-to-load-pending #clickToLoad button:disabled { cursor:default; opacit
            editor. -->
       <div id="embedControls" class="embed-controls" hidden>
         <button id="embedRun" class="embed-run" type="button">▶ Run</button>
-        <!-- Two labels, one link: a frame narrow enough to be a phone has no room
-             for the long one beside a centred Run, and the accessible name is on
-             the anchor either way. -->
-        <a id="embedOpen" class="embed-open" target="_blank" rel="noopener noreferrer"
-           href="/" aria-label="Open this flowgraph in the full GNU Radio World editor"
-           ><span class="embed-open-long">Open in GNU Radio World</span
-           ><span class="embed-open-short">Open</span> ↗</a>
+        <!-- The corner carries the way out and the two zoom controls, which an
+             embed has nowhere else: no toolbar, no menu bar, and Ctrl+± needs a
+             keyboard the frame may not be in front of. `data-tool` is what
+             setZoom() greys them out by, the same attribute the toolbar uses. -->
+        <div class="embed-corner">
+          <div id="embedZoom" class="embed-zoom">
+            <button id="embedZoomIn" type="button" data-tool="Zoom In"
+                    title="Zoom In (Ctrl++)" aria-label="Zoom in">🔍+</button>
+            <button id="embedZoomOut" type="button" data-tool="Zoom Out"
+                    title="Zoom Out (Ctrl+-)" aria-label="Zoom out">🔍−</button>
+          </div>
+          <!-- Two labels, one link: a frame narrow enough to be a phone has no room
+               for the long one beside a centred Run, and the accessible name is on
+               the anchor either way. -->
+          <a id="embedOpen" class="embed-open" target="_blank" rel="noopener noreferrer"
+             href="/" aria-label="Open this flowgraph in the full GNU Radio World editor"
+             ><span class="embed-open-long">Open in GNU Radio World</span
+             ><span class="embed-open-short">Open</span> ↗</a>
+        </div>
       </div>
     </div>
     <div id="consoleSplitter" role="separator" aria-label="Resize console"

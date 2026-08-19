@@ -164,7 +164,7 @@ path keeps the editor bundle, stylesheet, block catalog, example, recording
 index and runner out of the host page's initial waterfall. Like `embed`, any
 value but `0`/`false` enables `click_to_load`, including the bare flag.
 
-Four things make it an embed, and each is one place:
+Five things make it an embed, and each is one place:
 
 - **The layout is a class.** `EMBEDDED` in `main.ts` adds `embedded` to `#app`
   and `editor.css` does the rest: header, palette and its splitter, the tab
@@ -175,7 +175,7 @@ Four things make it an embed, and each is one place:
   which otherwise brings ☰ and the console collapse bar back on a phone-sized
   frame; an embed has neither a palette nor a console to reach.
 - **One button is both Run and Stop.** `#embedRun` floats in the top centre of
-  the panels, with `#embedOpen` in the corner of the same row (a bar of their own
+  the panels, with `#embedOpen` and the zoom pair in the corner of the same row (a bar of their own
   would eat the height the host page gave the frame; the row spans the frame and
   passes pointer events through, so it is not a strip of dead canvas across the
   top). Nothing new happens when it is pressed: `run()` already
@@ -184,6 +184,20 @@ Four things make it an embed, and each is one place:
   Run is nearly the only control left, so it also has to report a **refusal** —
   `run()` explains a flowgraph that fails validation in the console pane, which
   an embed does not show, hence the three-second `⚠ Cannot run` on the button.
+- **Zoom is two icons in the corner.** An embed has no toolbar and no menu bar,
+  so `#embedZoom` — 🔍+ and 🔍−, the same glyphs and the same `setZoom()` steps
+  the toolbar uses — sits beside `#embedOpen` at the right of that row, because
+  Ctrl+± needs a keyboard the frame may not be in front of and a flowgraph drawn
+  for a wider page needs scaling down more often than not. They carry the
+  toolbar's `data-tool="Zoom In"`/`"Zoom Out"`, which is how `setZoom()` greys
+  *every* zoom button out at `ZOOM_MIN`/`ZOOM_MAX` with one lookup. They are bare
+  glyphs — no button chrome, unlike Run and the link they sit next to — so the
+  stylesheet has to give them a dark colour: they are only ever over the light
+  canvas, and every other button in the app is light on dark. The pair
+  hides while the flowgraph runs: the QT GUI pane covers the canvas then, and
+  `updateEmbedRun()` — which already knows the run state — is where that happens.
+  A host that would rather open at a fixed level still has `?zoom=` above; these
+  are what its *reader* gets.
 - **The way out is a link, and it follows the canvas.** `#embedOpen` opens the
   flowgraph in the full application in a tab of its own — an `<a>` rather than a
   button, so middle-click and "copy link address" behave; below the narrow

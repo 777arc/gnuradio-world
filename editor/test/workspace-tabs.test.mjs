@@ -48,8 +48,12 @@ assert.match(html, /<a id="embedOpen"[^>]*target="_blank"[^>]*rel="noopener nore
   'opening the flowgraph in the full editor is a link, in a tab of its own');
 assert.match(html, /\.embed-run \{ grid-column:2; justify-self:center; \}/,
   'Run sits in the middle of the frame');
-assert.match(html, /\.embed-open \{ grid-column:3; justify-self:end; \}/,
-  'the way out sits in the corner, clear of it');
+assert.match(html, /\.embed-corner \{ grid-column:3; justify-self:end;/,
+  'the way out and the zoom pair share the corner, clear of Run');
+// An embed has no toolbar and no menu bar, so these are the only zoom controls a
+// frame without a keyboard has.
+assert.match(html, /<div id="embedZoom"[\s\S]*id="embedZoomIn"[^>]*data-tool="Zoom In"[\s\S]*id="embedZoomOut"[^>]*data-tool="Zoom Out"/,
+  'the embedded corner carries zoom in and zoom out, named as the toolbar names them');
 assert.match(html, /\.embed-controls \{[^}]*pointer-events:none/,
   'the row spanning the frame must not become a strip of dead canvas');
 assert.match(html, /@media \(max-width:820px\)[\s\S]*\.embed-open-long \{ display:none; \}/,
@@ -80,6 +84,10 @@ assert.match(source,
   'the Open link carries the edited canvas, and the plain example link until then');
 assert.match(source, /function embedOpenUrl\(\) \{ return location\.href\.split\('#'\)\[0\]\.split\('\?'\)\[0\] \+ location\.hash; \}/,
   'leaving the embed means dropping the query the host page framed it with');
+assert.match(source, /querySelectorAll<HTMLButtonElement>\(`button\[data-tool="\$\{label\}"\]`\)/,
+  'the clamp greys out every zoom button, the embedded pair as well as the toolbar\'s');
+assert.match(source, /embedZoom\.hidden = runnerRunning && !failed/,
+  'zoom acts on the canvas, so it goes away while the QT GUI pane covers it');
 for (const fn of ['resetHistory', 'recordHistory', 'restoreHistory'])
   assert.match(source, new RegExp(`function ${fn}\\([^)]*\\) \\{[\\s\\S]*?void refreshEmbedOpen\\(\\);`),
     `${fn}() keeps the Open link in step with the canvas`);

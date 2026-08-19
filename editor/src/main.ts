@@ -116,6 +116,7 @@ const EMBEDDED = (() => {
 })();
 const embedRun = el('embedRun') as HTMLButtonElement;
 const embedOpen = el('embedOpen') as HTMLAnchorElement;
+const embedZoom = el('embedZoom');
 const nodesG = el('nodes'), wiresG = el('wires'), selectionG = el('selectionOverlay');
 const svg = el('svg') as unknown as SVGSVGElement;
 
@@ -1111,11 +1112,14 @@ function setZoom(next: number) {
   zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, next));
   // Draw the grid at the snap spacing so every line is a legal block position.
   el('canvasWrap').style.setProperty('--grid-size', `${SNAP_GRID_SIZE * zoom}px`); render();
-  // The toolbar's two zoom buttons grey out at the clamp, so a click that could
-  // not change anything looks like one rather than logging the same percentage.
+  // The zoom buttons grey out at the clamp, so a click that could not change
+  // anything looks like one rather than logging the same percentage. Every
+  // button carrying the tool's name is updated, which is both the toolbar's pair
+  // and the embedded layout's — an embed has no toolbar to reach.
   for (const [label, atLimit] of [['Zoom In', zoom >= ZOOM_MAX], ['Zoom Out', zoom <= ZOOM_MIN]] as const) {
-    const button = document.querySelector<HTMLButtonElement>(`.tbtn[data-tool="${label}"]`);
-    if (button) { button.classList.toggle('disabled', atLimit); button.disabled = atLimit; }
+    for (const button of document.querySelectorAll<HTMLButtonElement>(`button[data-tool="${label}"]`)) {
+      button.classList.toggle('disabled', atLimit); button.disabled = atLimit;
+    }
   }
   log(`zoom ${Math.round(zoom * 100)}%`);
 }
@@ -3113,6 +3117,10 @@ function updateEmbedRun(failed = false) {
     : 'Run the flowgraph and open its QT GUI';
   embedRun.title = hint;
   embedRun.setAttribute('aria-label', hint);
+  // The QT GUI pane covers the canvas while the flowgraph runs, and zoom acts on
+  // the canvas alone, so the pair goes away with it rather than sitting over the
+  // widgets doing nothing.
+  embedZoom.hidden = runnerRunning && !failed;
 }
 
 function setRunnerRunning(running: boolean, status?: string) {
@@ -3136,6 +3144,10 @@ function setRunnerRunning(running: boolean, status?: string) {
 
 if (EMBEDDED) {
   el('embedControls').hidden = false;
+  // The two canvas controls an embed keeps. Same calls as the toolbar's buttons
+  // and Ctrl+±, which is what setZoom's shared `data-tool` lookup greys out.
+  el('embedZoomIn').addEventListener('click', () => setZoom(zoom * ZOOM_STEP));
+  el('embedZoomOut').addEventListener('click', () => setZoom(zoom / ZOOM_STEP));
   // The fragment names the flowgraph, and loading an example rewrites it.
   window.addEventListener('hashchange', () => void refreshEmbedOpen());
   void refreshEmbedOpen();

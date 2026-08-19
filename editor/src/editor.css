@@ -270,10 +270,25 @@ button:hover { filter:brightness(1.15); }
     pointer-events:none; }
 .embed-controls > * { pointer-events:auto; }
 .embed-run { grid-column:2; justify-self:center; }
-.embed-open { grid-column:3; justify-self:end; }
+/* The corner: the way out, with the zoom pair beside it. One grid item rather
+   than two, so the row keeps the three columns Run is centred in. */
+.embed-corner { grid-column:3; justify-self:end; display:flex; align-items:start; gap:8px; }
+.embed-open { flex:none; }
 .embed-controls[hidden] { display:none; }
 .embed-run, .embed-open { padding:8px 16px; font-size:16px; font-weight:600;
     box-shadow:0 4px 14px #0007; }
+/* Bare glyphs — no chrome of their own, unlike Run and the way out beside them.
+   They are only ever over the canvas, which is light, so the dark colour here
+   replaces the light one the base button rule gives every other button in the
+   app; the padding stays, since it is the hit target. Hidden while the QT GUI
+   pane is the one on screen — there is no canvas under it to zoom. */
+.embed-zoom { display:flex; flex:none; gap:2px; }
+.embed-zoom[hidden] { display:none; }
+.embed-zoom button { display:inline-flex; align-items:center; justify-content:center;
+    min-width:42px; padding:8px 10px; font-size:16px; font-weight:600;
+    color:#3a4160; background:transparent; border:1px solid transparent; box-shadow:none; }
+.embed-zoom button:hover { color:#11141d; filter:none; }
+.embed-zoom button:disabled { color:#a8adbe; cursor:not-allowed; filter:none; }
 .embed-run { background:#2e7d46e6; border-color:#3fae63; }
 .embed-run.running { background:#8a3232e6; border-color:#c9564f; }
 .embed-run.failed { background:#6b5320e6; border-color:#c9903a; }
@@ -780,6 +795,8 @@ svg text { user-select:none; -webkit-user-select:none; -moz-user-select:none; }
      column on one — cannot fit "Open in GNU Radio World" beside a centred Run. */
   .embed-open-long { display:none; }
   .embed-open-short { display:inline; }
+  /* Touch targets, like the toolbar's buttons above. */
+  .embed-zoom button { min-width:46px; padding:11px 10px; font-size:18px; }
   /* Nothing here can drag a 7px handle; the console keeps its auto height. */
   #consoleSplitter { display:none; }
   /* ...so the collapse bar takes its place. It toggles the same `console-hidden`
