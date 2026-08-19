@@ -67,3 +67,11 @@ sources against Qt 6 instead — but they carry WASM guards too:
   plus antialiasing off and `FilterPointsAggressive` on the curves; Qwt's backing
   pixmap and Qt's antialiased polyline rasterizer are both disproportionately
   expensive on the browser canvas.
+- `gr-qtgui/lib/waterfalldisplayform.cc`, `include/gnuradio/qtgui/waterfalldisplayform.h` —
+  a side panel added to the right of the waterfall plot containing an **Auto Scale**
+  button (triggers the existing `autoScale()` path) and two vertical intensity-range
+  sliders (**Max** and **Min**) flanking a CSS colorbar gradient. Moving either slider
+  immediately calls `setIntensityRange()`; `setIntensityRange()` mirrors its values
+  back to the sliders so that programmatic updates (including auto-scale) keep them
+  in sync. A `d_slider_updating` guard prevents feedback loops between the two
+  directions.
