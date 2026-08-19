@@ -182,26 +182,53 @@ void register_generated_blocks(std::map<std::string, Factory>& registry)
     registry.emplace("blocks_add_const_vxx", [](const nlohmann::json& p) -> BuiltBlock {
         const auto type = wasm_registry::text(p, "type", "complex");
         const bool vector = wasm_registry::number<int>(p, "vlen", 1) > 1;
-        if (type == "complex")
-            return { vector
-                ? static_cast<gr::basic_block_sptr>(blocks::add_const_vcc::make(wasm_registry::vector<gr_complex>(p, "const")))
-                : static_cast<gr::basic_block_sptr>(blocks::add_const_cc::make(wasm_registry::complex(p, "const"))), nullptr };
-        if (type == "float")
-            return { vector
-                ? static_cast<gr::basic_block_sptr>(blocks::add_const_vff::make(wasm_registry::vector<float>(p, "const")))
-                : static_cast<gr::basic_block_sptr>(blocks::add_const_ff::make(wasm_registry::number<float>(p, "const", 0.0F))), nullptr };
-        if (type == "int")
-            return { vector
-                ? static_cast<gr::basic_block_sptr>(blocks::add_const_vii::make(wasm_registry::vector<std::int32_t>(p, "const")))
-                : static_cast<gr::basic_block_sptr>(blocks::add_const_ii::make(wasm_registry::number<int>(p, "const", 0))), nullptr };
-        if (type == "short")
-            return { vector
-                ? static_cast<gr::basic_block_sptr>(blocks::add_const_vss::make(wasm_registry::vector<std::int16_t>(p, "const")))
-                : static_cast<gr::basic_block_sptr>(blocks::add_const_ss::make(wasm_registry::number<short>(p, "const", 0))), nullptr };
-        if (type == "byte")
-            return { vector
-                ? static_cast<gr::basic_block_sptr>(blocks::add_const_vbb::make(wasm_registry::vector<std::uint8_t>(p, "const")))
-                : static_cast<gr::basic_block_sptr>(blocks::add_const_bb::make(wasm_registry::number<unsigned char>(p, "const", 0))), nullptr };
+        if (type == "complex") {
+            if (vector)
+                return { blocks::add_const_vcc::make(wasm_registry::vector<gr_complex>(p, "const")), nullptr };
+            auto block = blocks::add_const_cc::make(wasm_registry::complex(p, "const"));
+            BuiltBlock built{ block };
+            built.numeric_setters["const"] = [block](double value) {
+                block->set_k(gr_complex(static_cast<float>(value), 0.0F));
+            };
+            return built;
+        }
+        if (type == "float") {
+            if (vector)
+                return { blocks::add_const_vff::make(wasm_registry::vector<float>(p, "const")), nullptr };
+            auto block = blocks::add_const_ff::make(wasm_registry::number<float>(p, "const", 0.0F));
+            BuiltBlock built{ block };
+            built.numeric_setters["const"] =
+                [block](double value) { block->set_k(static_cast<float>(value)); };
+            return built;
+        }
+        if (type == "int") {
+            if (vector)
+                return { blocks::add_const_vii::make(wasm_registry::vector<std::int32_t>(p, "const")), nullptr };
+            auto block = blocks::add_const_ii::make(wasm_registry::number<int>(p, "const", 0));
+            BuiltBlock built{ block };
+            built.numeric_setters["const"] =
+                [block](double value) { block->set_k(static_cast<int>(value)); };
+            return built;
+        }
+        if (type == "short") {
+            if (vector)
+                return { blocks::add_const_vss::make(wasm_registry::vector<std::int16_t>(p, "const")), nullptr };
+            auto block = blocks::add_const_ss::make(wasm_registry::number<short>(p, "const", 0));
+            BuiltBlock built{ block };
+            built.numeric_setters["const"] =
+                [block](double value) { block->set_k(static_cast<short>(value)); };
+            return built;
+        }
+        if (type == "byte") {
+            if (vector)
+                return { blocks::add_const_vbb::make(wasm_registry::vector<std::uint8_t>(p, "const")), nullptr };
+            auto block = blocks::add_const_bb::make(wasm_registry::number<unsigned char>(p, "const", 0));
+            BuiltBlock built{ block };
+            built.numeric_setters["const"] = [block](double value) {
+                block->set_k(static_cast<unsigned char>(value));
+            };
+            return built;
+        }
         throw std::runtime_error("unsupported type selection for blocks_add_const_vxx");
     });
     registry.emplace("blocks_and_const_xx", [](const nlohmann::json& p) -> BuiltBlock {

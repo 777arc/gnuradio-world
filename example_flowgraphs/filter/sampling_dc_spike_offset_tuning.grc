@@ -21,12 +21,12 @@ blocks:
         orient: QtCore.Qt.Horizontal
         rangeType: float
         start: '0'
-        step: '0.01'
-        stop: '0.5'
+        step: '0.025'
+        stop: '3'
         value: '0.15'
         widget: counter_slider
     states:
-        coordinate: [610, 10]
+        coordinate: [720, 30]
         rotation: 0
         state: enabled
 -   name: samp_rate
@@ -35,7 +35,7 @@ blocks:
         comment: ''
         value: '1000000'
     states:
-        coordinate: [880, 10]
+        coordinate: [10, 130]
         rotation: 0
         state: enabled
 -   name: soi_offset
@@ -44,7 +44,7 @@ blocks:
         comment: ''
         value: '250000'
     states:
-        coordinate: [1050, 10]
+        coordinate: [160, 130]
         rotation: 0
         state: enabled
 -   name: add
@@ -55,7 +55,7 @@ blocks:
         type: complex
         vlen: '1'
     states:
-        coordinate: [850, 440]
+        coordinate: [860, 310]
         rotation: 0
         state: enabled
 -   name: dc_offset
@@ -66,7 +66,7 @@ blocks:
         type: complex
         vlen: '1'
     states:
-        coordinate: [1090, 450]
+        coordinate: [1100, 320]
         rotation: 0
         state: enabled
 -   name: freq_raw
@@ -83,7 +83,7 @@ blocks:
         alpha8: '1'
         alpha9: '1'
         autoscale: 'False'
-        average: '0.2'
+        average: '1.0'
         axislabels: 'True'
         color1: '"blue"'
         color10: '"dark blue"'
@@ -99,6 +99,7 @@ blocks:
         ctrlpanel: 'False'
         fc: '0'
         fftsize: '1024'
+        freqhalf: 'True'
         grid: 'True'
         label1: ''
         label10: ''
@@ -138,6 +139,7 @@ blocks:
         tr_level: '0'
         tr_mode: qtgui.TRIG_MODE_FREE
         tr_tag: ''
+        type: complex
         update_time: '0.1'
         width1: '1'
         width10: '1'
@@ -152,7 +154,7 @@ blocks:
         ymax: '10'
         ymin: '-100'
     states:
-        coordinate: [90, 900]
+        coordinate: [1730, 280]
         rotation: 0
         state: enabled
 -   name: freq_tuned
@@ -169,7 +171,7 @@ blocks:
         alpha8: '1'
         alpha9: '1'
         autoscale: 'False'
-        average: '0.2'
+        average: '1.0'
         axislabels: 'True'
         color1: '"blue"'
         color10: '"dark blue"'
@@ -185,6 +187,7 @@ blocks:
         ctrlpanel: 'False'
         fc: '0'
         fftsize: '1024'
+        freqhalf: 'True'
         grid: 'True'
         label1: ''
         label10: ''
@@ -224,6 +227,7 @@ blocks:
         tr_level: '0'
         tr_mode: qtgui.TRIG_MODE_FREE
         tr_tag: ''
+        type: complex
         update_time: '0.1'
         width1: '1'
         width10: '1'
@@ -235,10 +239,10 @@ blocks:
         width7: '1'
         width8: '1'
         width9: '1'
-        ymax: '10'
-        ymin: '-100'
+        ymax: '-20'
+        ymin: '-120'
     states:
-        coordinate: [500, 750]
+        coordinate: [1700, 510]
         rotation: 0
         state: enabled
 -   name: lo_shift
@@ -251,7 +255,7 @@ blocks:
         type: complex
         waveform: analog.GR_COS_WAVE
     states:
-        coordinate: [260, 590]
+        coordinate: [270, 460]
         rotation: 0
         state: enabled
 -   name: noise_floor
@@ -262,25 +266,16 @@ blocks:
         seed: '1'
         type: complex
     states:
-        coordinate: [580, 550]
-        rotation: 0
-        state: enabled
--   name: note_dc
-    id: note
-    parameters:
-        comment: ''
-        note: A direct-conversion receiver leaks its own LO into the mixer, and the result is a constant added to every sample. Turn dc_amp up and a spike grows at 0 Hz
-    states:
-        coordinate: [1220, 10]
+        coordinate: [590, 420]
         rotation: 0
         state: enabled
 -   name: note_tune
     id: note
     parameters:
         comment: ''
-        note: 'Offset tuning is the fix: park the signal 250 kHz off centre, then shift it back digitally. The DC spike moves with the shift and lands outside the band of interest'
+        note: "A direct-conversion receiver leaks its own LO into the mixer, and the result is a constant added to every sample. Turn dc_amp up and a spike grows at 0 Hz\n\nOffset tuning is the fix: park the signal 250 kHz off centre, then shift it back digitally. The DC spike moves with the shift and lands outside the band of interest"
     states:
-        coordinate: [10, 230]
+        coordinate: [310, 10]
         rotation: 0
         state: enabled
 -   name: offset_tune
@@ -293,7 +288,7 @@ blocks:
         taps: firdes.low_pass(1, samp_rate, 150e3, 50e3)
         type: ccf
     states:
-        coordinate: [90, 760]
+        coordinate: [1290, 530]
         rotation: 0
         state: enabled
 -   name: shift_up
@@ -304,7 +299,7 @@ blocks:
         type: complex
         vlen: '1'
     states:
-        coordinate: [580, 430]
+        coordinate: [590, 300]
         rotation: 0
         state: enabled
 -   name: soi_noise
@@ -315,7 +310,7 @@ blocks:
         seed: '0'
         type: complex
     states:
-        coordinate: [10, 430]
+        coordinate: [20, 300]
         rotation: 0
         state: enabled
 -   name: soi_shape
@@ -332,7 +327,7 @@ blocks:
         width: '50000'
         win: window.WIN_HAMMING
     states:
-        coordinate: [260, 370]
+        coordinate: [270, 240]
         rotation: 0
         state: enabled
 -   name: throttle
@@ -346,7 +341,7 @@ blocks:
         type: complex
         vlen: '1'
     states:
-        coordinate: [1370, 430]
+        coordinate: [1380, 300]
         rotation: 0
         state: enabled
 -   name: wasm_gui_layout_0
@@ -357,7 +352,7 @@ blocks:
         layout: '{}'
         row_height: '60'
     states:
-        coordinate: [320, 10]
+        coordinate: [990, 40]
         rotation: 0
         state: enabled
 connections:

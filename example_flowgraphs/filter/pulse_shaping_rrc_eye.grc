@@ -26,7 +26,7 @@ blocks:
         value: '0.35'
         widget: counter_slider
     states:
-        coordinate: [610, 10]
+        coordinate: [990, 40]
         rotation: 0
         state: enabled
 -   name: noise_volt
@@ -43,7 +43,7 @@ blocks:
         value: '0.05'
         widget: counter_slider
     states:
-        coordinate: [860, 10]
+        coordinate: [740, 30]
         rotation: 0
         state: enabled
 -   name: samp_rate
@@ -52,7 +52,7 @@ blocks:
         comment: ''
         value: '100000'
     states:
-        coordinate: [1110, 10]
+        coordinate: [40, 130]
         rotation: 0
         state: enabled
 -   name: sps
@@ -61,7 +61,7 @@ blocks:
         comment: ''
         value: '8'
     states:
-        coordinate: [1280, 10]
+        coordinate: [40, 230]
         rotation: 0
         state: enabled
 -   name: timing_offset
@@ -78,7 +78,7 @@ blocks:
         value: '0'
         widget: counter_slider
     states:
-        coordinate: [1450, 10]
+        coordinate: [1230, 40]
         rotation: 0
         state: enabled
 -   name: bits_to_bpsk
@@ -91,7 +91,15 @@ blocks:
         out_type: complex
         symbol_table: '[-1+0j, 1+0j]'
     states:
-        coordinate: [490, 480]
+        coordinate: [490, 360]
+        rotation: 0
+        state: enabled
+-   name: blocks_complex_to_float_0
+    id: blocks_complex_to_float
+    parameters:
+        comment: BPSK, so we can ignore Q
+    states:
+        coordinate: [850, 710]
         rotation: 0
         state: enabled
 -   name: channel
@@ -105,7 +113,7 @@ blocks:
         seed: '0'
         taps: '[1.0]'
     states:
-        coordinate: [1230, 450]
+        coordinate: [1260, 330]
         rotation: 0
         state: enabled
 -   name: const_sink
@@ -190,7 +198,7 @@ blocks:
         ymax: '2'
         ymin: '-2'
     states:
-        coordinate: [1390, 690]
+        coordinate: [1330, 570]
         rotation: 0
         state: enabled
 -   name: delay
@@ -200,7 +208,7 @@ blocks:
         delay: timing_offset
         type: complex
     states:
-        coordinate: [790, 710]
+        coordinate: [820, 590]
         rotation: 0
         state: enabled
 -   name: eye_sink
@@ -274,7 +282,7 @@ blocks:
         tr_mode: qtgui.TRIG_MODE_FREE
         tr_slope: qtgui.TRIG_SLOPE_POS
         tr_tag: '""'
-        type: complex
+        type: float
         update_time: '0.1'
         width1: '1'
         width10: '1'
@@ -291,7 +299,7 @@ blocks:
         ymin: '-2'
         yunit: '""'
     states:
-        coordinate: [790, 810]
+        coordinate: [1180, 700]
         rotation: 0
         state: enabled
 -   name: freq_sink
@@ -324,6 +332,7 @@ blocks:
         ctrlpanel: 'False'
         fc: '0'
         fftsize: '1024'
+        freqhalf: 'True'
         grid: 'True'
         label1: ''
         label10: ''
@@ -363,6 +372,7 @@ blocks:
         tr_level: '0'
         tr_mode: qtgui.TRIG_MODE_FREE
         tr_tag: ''
+        type: complex
         update_time: '0.1'
         width1: '1'
         width10: '1'
@@ -377,46 +387,28 @@ blocks:
         ymax: '10'
         ymin: '-100'
     states:
-        coordinate: [790, 990]
+        coordinate: [820, 870]
         rotation: 0
         state: enabled
 -   name: note_eye
     id: note
     parameters:
         comment: ''
-        note: The eye diagram overlays symbol periods. Raise beta and the eye opens wider in time; raise the noise and it closes vertically
+        note: "The eye diagram overlays symbol periods. Raise beta and the eye opens wider in time; raise the noise and it closes vertically\n\nSampling instant slides where the decimator takes its one sample in eight. At 0 it sits in the middle of the eye; walk it away and the constellation smears\n\nRandom bits become BPSK symbols, one every 8 samples, then an RRC filter spreads each symbol over 11 symbol periods"
     states:
-        coordinate: [10, 300]
-        rotation: 0
-        state: enabled
--   name: note_samp
-    id: note
-    parameters:
-        comment: ''
-        note: Sampling instant slides where the decimator takes its one sample in eight. At 0 it sits in the middle of the eye; walk it away and the constellation smears
-    states:
-        coordinate: [410, 300]
-        rotation: 0
-        state: enabled
--   name: note_tx
-    id: note
-    parameters:
-        comment: ''
-        note: Random bits become BPSK symbols, one every 8 samples, then an RRC filter spreads each symbol over 11 symbol periods
-    states:
-        coordinate: [830, 300]
+        coordinate: [320, 20]
         rotation: 0
         state: enabled
 -   name: random_bits
     id: analog_random_uniform_source_x
     parameters:
         comment: ''
-        maximum: '1'
+        maximum: '2'
         minimum: '0'
         seed: '0'
         type: byte
     states:
-        coordinate: [10, 470]
+        coordinate: [40, 350]
         rotation: 0
         state: enabled
 -   name: rrc_rx
@@ -425,14 +417,14 @@ blocks:
         alpha: beta
         comment: ''
         decim: '1'
-        gain: 1.0/sps
+        gain: '1'
         interp: '1'
         ntaps: 11*sps
         samp_rate: samp_rate
         sym_rate: samp_rate/sps
         type: fir_filter_ccf
     states:
-        coordinate: [410, 660]
+        coordinate: [440, 540]
         rotation: 0
         state: enabled
 -   name: rrc_tx
@@ -448,7 +440,7 @@ blocks:
         sym_rate: samp_rate/sps
         type: interp_fir_filter_ccf
     states:
-        coordinate: [850, 440]
+        coordinate: [860, 320]
         rotation: 0
         state: enabled
 -   name: symbol_decim
@@ -459,7 +451,7 @@ blocks:
         type: complex
         vlen: '1'
     states:
-        coordinate: [1150, 710]
+        coordinate: [1090, 590]
         rotation: 0
         state: enabled
 -   name: throttle
@@ -473,7 +465,7 @@ blocks:
         type: complex
         vlen: '1'
     states:
-        coordinate: [80, 690]
+        coordinate: [110, 570]
         rotation: 0
         state: enabled
 -   name: wasm_gui_layout_0
@@ -481,19 +473,20 @@ blocks:
     parameters:
         columns: '12'
         comment: ''
-        layout: '{}'
+        layout: '{"beta":[0,0,4,1],"const_sink":[0,1,4,3],"eye_sink":[4,1,8,3],"freq_sink":[0,4,12,3],"noise_volt":[4,0,4,1],"timing_offset":[8,0,4,1]}'
         row_height: '60'
     states:
-        coordinate: [320, 10]
+        coordinate: [1530, 60]
         rotation: 0
         state: enabled
 connections:
 - [bits_to_bpsk, '0', rrc_tx, '0']
+- [blocks_complex_to_float_0, '0', eye_sink, '0']
 - [channel, '0', throttle, '0']
 - [delay, '0', symbol_decim, '0']
 - [random_bits, '0', bits_to_bpsk, '0']
+- [rrc_rx, '0', blocks_complex_to_float_0, '0']
 - [rrc_rx, '0', delay, '0']
-- [rrc_rx, '0', eye_sink, '0']
 - [rrc_rx, '0', freq_sink, '0']
 - [rrc_tx, '0', channel, '0']
 - [symbol_decim, '0', const_sink, '0']
