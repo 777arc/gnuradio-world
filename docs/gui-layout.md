@@ -117,10 +117,13 @@ Three things about the C++ side that are not guessable:
   window inside the tab was a second and weaker way to place the same widgets,
   and it cost a margin on every side. Qt resizes a full-screen window whenever
   the screen geometry changes, and the screen here is the browser-backed canvas,
-  so the grid tracks the tab for free. One consequence: an arrangement taller
-  than the tab is clipped at the bottom rather than reachable by moving the
-  window (`setRowMinimumHeight` gives every row `row_height` pixels, and a
-  widget's own minimum can be larger still).
+  so the grid tracks the tab for free. `runner.html` keeps that screen laid out
+  (but visually hidden behind the loader) while Qt starts; `display:none` gives
+  Qt stale/default startup geometry and leaves the first grid wrong until a
+  browser resize. One consequence: an arrangement taller than the tab is clipped
+  at the bottom rather than reachable by moving the window
+  (`setRowMinimumHeight` gives every row `row_height` pixels, and a widget's own
+  minimum can be larger still).
 - **`apply_gui_layout()` must be idempotent.** It runs once per run and again on
   every live edit, and it builds a fresh layout object each time rather than
   mutating one — which is also the only way to change a `QGridLayout`'s spans.

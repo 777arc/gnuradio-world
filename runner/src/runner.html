@@ -13,7 +13,13 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
     <title>runner</title>
     <style>
       html, body { padding: 0; margin: 0; overflow: hidden; height: 100% }
-      #screen { width: 100%; height: 100%; }
+      body { position: relative; }
+      /* Qt reads its container geometry while runner_entry() starts. Keep the
+         screen measurable during loading: display:none makes Qt start against
+         stale/default geometry, and the grid is then corrected only by the
+         next browser resize. The spinner covers the hidden screen instead. */
+      #screen { width: 100%; height: 100%; visibility: hidden; }
+      #qtspinner { position: absolute; inset: 0; z-index: 1; margin: 0; background: white; }
     </style>
   </head>
   <body onload="init()">
@@ -802,10 +808,12 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
         const status = document.querySelector('#qtstatus');
 
         const showUi = (ui) => {
-          [spinner, screen].forEach(element => element.style.display = 'none');
-          if (screen === ui)
-            screen.style.position = 'default';
-          ui.style.display = 'block';
+          const loaded = screen === ui;
+          // `screen` must remain laid out while Qt starts; visibility hides its
+          // contents without changing the QScreen dimensions Qt observes.
+          screen.style.display = 'block';
+          screen.style.visibility = loaded ? 'visible' : 'hidden';
+          spinner.style.display = loaded ? 'none' : 'block';
         }
 
         try {
