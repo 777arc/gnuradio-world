@@ -221,3 +221,49 @@ dtv_atsc_rx:
   cpp_templates:
     includes: ['#include <dtv_hier.hpp>']
     make: 'auto block = AtscRx::make(${rate}, ${sps});'
+
+# gr-channels has no cpp_templates upstream at all -- the whole component is
+# Python-generated -- so every one of its blocks needs its C++ spelling supplied
+# here. The three below are the ones the propagation examples need: the generic
+# channel model (AWGN + CFO + timing offset + a static tap set) and the two
+# Rayleigh/Rician fading models. Their impls are pure gr-analog/gr-filter/VOLK,
+# so the `channels` side module needs no module_deps entry.
+channels_channel_model:
+  flags: [python, cpp]
+  # Upstream defaults Taps to the scalar 1.0, which Python coerces to a
+  # one-element vector on the way into the constructor. wasm_registry::vector
+  # does not, so the default becomes the list it has to be.
+  parameter_defaults:
+    taps: '[1.0]'
+  cpp_templates:
+    includes: ['#include <gnuradio/channels/channel_model.h>']
+    declarations: 'channels::channel_model::sptr ${id};'
+    make: 'this->${id} = channels::channel_model::make(${noise_voltage}, ${freq_offset}, ${epsilon}, ${taps}, ${seed}, ${block_tags});'
+    link: ['gnuradio::gnuradio-channels']
+    callbacks:
+    - set_noise_voltage(${noise_voltage})
+    - set_frequency_offset(${freq_offset})
+    - set_taps(${taps})
+    - set_timing_offset(${epsilon})
+
+channels_fading_model:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <gnuradio/channels/fading_model.h>']
+    declarations: 'channels::fading_model::sptr ${id};'
+    make: 'this->${id} = channels::fading_model::make(${N}, ${fDTs}, ${LOS}, ${K}, ${seed});'
+    link: ['gnuradio::gnuradio-channels']
+    callbacks:
+    - set_fDTs(${fDTs})
+    - set_K(${K})
+
+channels_selective_fading_model:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <gnuradio/channels/selective_fading_model.h>']
+    declarations: 'channels::selective_fading_model::sptr ${id};'
+    make: 'this->${id} = channels::selective_fading_model::make(${N}, ${fDTs}, ${LOS}, ${K}, ${seed}, ${delays}, ${mags}, ${ntaps});'
+    link: ['gnuradio::gnuradio-channels']
+    callbacks:
+    - set_fDTs(${fDTs})
+    - set_K(${K})

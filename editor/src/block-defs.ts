@@ -407,8 +407,14 @@ export const RUNNABLE: Record<string, RunnableDef> = {
     ] },
   qtgui_freq_sink_x: {
     label: 'QT GUI Frequency Sink', inputs: 1, outputs: 0, params: [
+      TYPE_PARAM,
       { id: 'name', label: 'Title', type: 'string', def: 'Spectrum' },
       { id: 'fftsize', label: 'FFT Size', type: 'number', def: 1024 },
+      // A real input has a symmetric spectrum, so GRC offers to plot only its
+      // positive half. Named as upstream: 'True' is the full width, 'False' half.
+      { id: 'freqhalf', label: 'Spectrum Width', type: 'enum', def: 'True',
+        options: BOOL_OPTIONS, optionLabels: ['Full', 'Half'],
+        showWhen: (p) => p.type === 'float' },
       { id: 'samp_rate', label: 'Sample Rate', type: 'number', def: 32000 },
       { id: 'fc', label: 'Center Frequency', type: 'number', def: 0 },
       NCONNECTIONS_PARAM,
@@ -461,6 +467,14 @@ export const RUNNABLE: Record<string, RunnableDef> = {
       NCONNECTIONS_PARAM,
       { id: 'int_min', label: 'Intensity Min', type: 'number', def: -140, category: 'General' },
       { id: 'int_max', label: 'Intensity Max', type: 'number', def: 10, category: 'General' },
+      // Browser-only: gr-qtgui's waterfall has set_fft_average() but GRC exposes no
+      // parameter for it, so an unaveraged row of a noise spectrum is ~5.6 dB of
+      // per-bin speckle -- more spread than a Rayleigh channel's own frequency
+      // selectivity. Same alpha choices the Frequency Sink offers. 1.0 = none,
+      // which is what a .grc without the parameter falls back to in the runner.
+      { id: 'average', label: 'Average', type: 'enum', def: '1.0',
+        options: ['1.0', '0.2', '0.1', '0.05'],
+        optionLabels: ['None', 'Low', 'Medium', 'High'], category: 'General' },
       { id: 'grid', label: 'Grid', type: 'enum', def: 'False', options: BOOL_OPTIONS, category: 'General' },
       { id: 'update_time', label: 'Update Period', type: 'number', def: 0.1, category: 'General' },
       { id: 'legend', label: 'Legend', type: 'enum', def: 'True', options: BOOL_OPTIONS, category: 'Config' },

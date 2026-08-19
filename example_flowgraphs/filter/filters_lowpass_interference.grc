@@ -1,0 +1,287 @@
+options:
+    parameters:
+        author: PySDR
+        comment: ''
+        copyright: ''
+        description: Companion to the Filters chapter of PySDR
+        generate_options: qt_gui
+        id: PySDR__Low_Pass_Filtering_Out_an_Interferer
+        title: 'PySDR: Low-Pass Filtering Out an Interferer'
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: cutoff
+    id: variable_qtgui_range
+    parameters:
+        comment: ''
+        label: Low-pass cutoff (Hz)
+        min_len: '200'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '500'
+        step: '100'
+        stop: '20000'
+        value: '3000'
+        widget: counter_slider
+    states:
+        coordinate: [610, 10]
+        rotation: 0
+        state: enabled
+-   name: samp_rate
+    id: variable
+    parameters:
+        comment: ''
+        value: '50000'
+    states:
+        coordinate: [880, 10]
+        rotation: 0
+        state: enabled
+-   name: transition
+    id: variable_qtgui_range
+    parameters:
+        comment: ''
+        label: Transition width (Hz)
+        min_len: '200'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '200'
+        step: '100'
+        stop: '10000'
+        value: '1000'
+        widget: counter_slider
+    states:
+        coordinate: [1050, 10]
+        rotation: 0
+        state: enabled
+-   name: add
+    id: blocks_add_xx
+    parameters:
+        comment: ''
+        num_inputs: '3'
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [580, 430]
+        rotation: 0
+        state: enabled
+-   name: freq_sink
+    id: qtgui_freq_sink_x
+    parameters:
+        alpha1: '1'
+        alpha10: '1'
+        alpha2: '1'
+        alpha3: '1'
+        alpha4: '1'
+        alpha5: '1'
+        alpha6: '1'
+        alpha7: '1'
+        alpha8: '1'
+        alpha9: '1'
+        autoscale: 'False'
+        average: '0.2'
+        axislabels: 'True'
+        color1: '"blue"'
+        color10: '"dark blue"'
+        color2: '"red"'
+        color3: '"green"'
+        color4: '"black"'
+        color5: '"cyan"'
+        color6: '"magenta"'
+        color7: '"yellow"'
+        color8: '"dark red"'
+        color9: '"dark green"'
+        comment: ''
+        ctrlpanel: 'False'
+        fc: '0'
+        fftsize: '1024'
+        grid: 'True'
+        label1: Before
+        label10: ''
+        label2: After
+        label3: ''
+        label4: ''
+        label5: ''
+        label6: ''
+        label7: ''
+        label8: ''
+        label9: ''
+        legend: 'True'
+        marker1: '-1'
+        marker10: '-1'
+        marker2: '-1'
+        marker3: '-1'
+        marker4: '-1'
+        marker5: '-1'
+        marker6: '-1'
+        marker7: '-1'
+        marker8: '-1'
+        marker9: '-1'
+        name: Before vs after filtering
+        nconnections: '2'
+        samp_rate: samp_rate
+        style1: '1'
+        style10: '1'
+        style2: '1'
+        style3: '1'
+        style4: '1'
+        style5: '1'
+        style6: '1'
+        style7: '1'
+        style8: '1'
+        style9: '1'
+        tr_chan: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_tag: ''
+        update_time: '0.1'
+        width1: '1'
+        width10: '1'
+        width2: '1'
+        width3: '1'
+        width4: '1'
+        width5: '1'
+        width6: '1'
+        width7: '1'
+        width8: '1'
+        width9: '1'
+        ymax: '10'
+        ymin: '-100'
+    states:
+        coordinate: [1460, 440]
+        rotation: 0
+        state: enabled
+-   name: interferer
+    id: analog_sig_source_x
+    parameters:
+        amplitude: '0.3'
+        comment: ''
+        frequency: '10000'
+        samp_rate: samp_rate
+        type: complex
+        waveform: analog.GR_COS_WAVE
+    states:
+        coordinate: [260, 590]
+        rotation: 0
+        state: enabled
+-   name: noise_floor
+    id: analog_noise_source_x
+    parameters:
+        amplitude: '0.02'
+        comment: ''
+        seed: '1'
+        type: complex
+    states:
+        coordinate: [260, 730]
+        rotation: 0
+        state: enabled
+-   name: note_int
+    id: note
+    parameters:
+        comment: ''
+        note: Interferer at +10 kHz, plus a noise floor
+    states:
+        coordinate: [1330, 10]
+        rotation: 0
+        state: enabled
+-   name: note_sig
+    id: note
+    parameters:
+        comment: ''
+        note: 'Signal of interest: band-limited noise at 0 Hz'
+    states:
+        coordinate: [10, 230]
+        rotation: 0
+        state: enabled
+-   name: note_use
+    id: note
+    parameters:
+        comment: ''
+        note: 'Drag cutoff below 10 kHz: the interferer drops below the old noise floor. Narrowing the transition width sharpens the edge, at the cost of more filter taps'
+    states:
+        coordinate: [410, 230]
+        rotation: 0
+        state: enabled
+-   name: soi_noise
+    id: analog_noise_source_x
+    parameters:
+        amplitude: '0.7'
+        comment: ''
+        seed: '0'
+        type: complex
+    states:
+        coordinate: [10, 430]
+        rotation: 0
+        state: enabled
+-   name: soi_shape
+    id: low_pass_filter
+    parameters:
+        beta: '6.76'
+        comment: ''
+        cutoff_freq: '2500'
+        decim: '1'
+        gain: '3'
+        interp: '1'
+        samp_rate: samp_rate
+        type: fir_filter_ccf
+        width: '500'
+        win: window.WIN_HAMMING
+    states:
+        coordinate: [260, 370]
+        rotation: 0
+        state: enabled
+-   name: throttle
+    id: blocks_throttle2
+    parameters:
+        comment: ''
+        ignoretag: 'True'
+        limit: auto
+        maximum: '0.1'
+        samples_per_second: samp_rate
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [820, 440]
+        rotation: 0
+        state: enabled
+-   name: user_lpf
+    id: low_pass_filter
+    parameters:
+        beta: '6.76'
+        comment: ''
+        cutoff_freq: cutoff
+        decim: '1'
+        gain: '1'
+        interp: '1'
+        samp_rate: samp_rate
+        type: fir_filter_ccf
+        width: transition
+        win: window.WIN_HAMMING
+    states:
+        coordinate: [1150, 400]
+        rotation: 0
+        state: enabled
+-   name: wasm_gui_layout_0
+    id: wasm_gui_layout
+    parameters:
+        columns: '12'
+        comment: ''
+        layout: '{}'
+        row_height: '60'
+    states:
+        coordinate: [320, 10]
+        rotation: 0
+        state: enabled
+connections:
+- [add, '0', throttle, '0']
+- [interferer, '0', add, '1']
+- [noise_floor, '0', add, '2']
+- [soi_noise, '0', soi_shape, '0']
+- [soi_shape, '0', add, '0']
+- [throttle, '0', freq_sink, '0']
+- [throttle, '0', user_lpf, '0']
+- [user_lpf, '0', freq_sink, '1']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0

@@ -1,0 +1,647 @@
+options:
+    parameters:
+        author: PySDR
+        comment: ''
+        copyright: ''
+        description: Companion to the Digital Modulation chapter of PySDR
+        generate_options: qt_gui
+        id: PySDR__BPSK_vs_QPSK_vs_16_QAM
+        title: 'PySDR: BPSK vs QPSK vs 16-QAM'
+    states:
+        coordinate: [20, 0]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: noise_volt
+    id: variable_qtgui_range
+    parameters:
+        comment: ''
+        label: Noise voltage (same channel for all three)
+        min_len: '200'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '0'
+        step: '0.01'
+        stop: '1'
+        value: '0.1'
+        widget: counter_slider
+    states:
+        coordinate: [1020, 40]
+        rotation: 0
+        state: enabled
+-   name: samp_rate
+    id: variable
+    parameters:
+        comment: ''
+        value: '200000'
+    states:
+        coordinate: [820, 30]
+        rotation: 0
+        state: enabled
+-   name: sps
+    id: variable
+    parameters:
+        comment: ''
+        value: '4'
+    states:
+        coordinate: [820, 130]
+        rotation: 0
+        state: enabled
+-   name: bpsk
+    id: variable_constellation
+    parameters:
+        comment: ''
+        const_points: '[-1, 1]'
+        dims: '1'
+        normalization: digital.constellation.AMPLITUDE_NORMALIZATION
+        npwr: '1'
+        precision: '8'
+        rot_sym: '2'
+        soft_dec_lut: None
+        sym_map: '[0, 1]'
+        type: bpsk
+    states:
+        coordinate: [20, 110]
+        rotation: 0
+        state: enabled
+-   name: chan_bpsk
+    id: channels_channel_model
+    parameters:
+        block_tags: 'False'
+        comment: ''
+        epsilon: '1'
+        freq_offset: '0'
+        noise_voltage: noise_volt
+        seed: '0'
+        taps: '[1.0]'
+    states:
+        coordinate: [770, 310]
+        rotation: 0
+        state: enabled
+-   name: chan_qam16
+    id: channels_channel_model
+    parameters:
+        block_tags: 'False'
+        comment: ''
+        epsilon: '1'
+        freq_offset: '0'
+        noise_voltage: noise_volt
+        seed: '2'
+        taps: '[1.0]'
+    states:
+        coordinate: [800, 680]
+        rotation: 0
+        state: enabled
+-   name: chan_qpsk
+    id: channels_channel_model
+    parameters:
+        block_tags: 'False'
+        comment: ''
+        epsilon: '1'
+        freq_offset: '0'
+        noise_voltage: noise_volt
+        seed: '1'
+        taps: '[1.0]'
+    states:
+        coordinate: [790, 1070]
+        rotation: 0
+        state: enabled
+-   name: const_bpsk
+    id: qtgui_const_sink_x
+    parameters:
+        alpha1: '1'
+        alpha10: '1'
+        alpha2: '1'
+        alpha3: '1'
+        alpha4: '1'
+        alpha5: '1'
+        alpha6: '1'
+        alpha7: '1'
+        alpha8: '1'
+        alpha9: '1'
+        autoscale: 'False'
+        axislabels: 'True'
+        color1: '"blue"'
+        color10: '"dark blue"'
+        color2: '"red"'
+        color3: '"green"'
+        color4: '"black"'
+        color5: '"cyan"'
+        color6: '"magenta"'
+        color7: '"yellow"'
+        color8: '"dark red"'
+        color9: '"dark green"'
+        comment: ''
+        grid: 'True'
+        label1: ''
+        label10: ''
+        label2: ''
+        label3: ''
+        label4: ''
+        label5: ''
+        label6: ''
+        label7: ''
+        label8: ''
+        label9: ''
+        legend: 'True'
+        marker1: '0'
+        marker10: '0'
+        marker2: '0'
+        marker3: '0'
+        marker4: '0'
+        marker5: '0'
+        marker6: '0'
+        marker7: '0'
+        marker8: '0'
+        marker9: '0'
+        name: BPSK - 1 bit/symbol
+        nconnections: '1'
+        size: '1024'
+        style1: '0'
+        style10: '0'
+        style2: '0'
+        style3: '0'
+        style4: '0'
+        style5: '0'
+        style6: '0'
+        style7: '0'
+        style8: '0'
+        style9: '0'
+        tr_chan: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_slope: qtgui.TRIG_SLOPE_POS
+        tr_tag: ''
+        update_time: '0.1'
+        width1: '1'
+        width10: '1'
+        width2: '1'
+        width3: '1'
+        width4: '1'
+        width5: '1'
+        width6: '1'
+        width7: '1'
+        width8: '1'
+        width9: '1'
+        xmax: '2'
+        xmin: '-2'
+        ymax: '2'
+        ymin: '-2'
+    states:
+        coordinate: [1480, 330]
+        rotation: 0
+        state: enabled
+-   name: const_qam16
+    id: qtgui_const_sink_x
+    parameters:
+        alpha1: '1'
+        alpha10: '1'
+        alpha2: '1'
+        alpha3: '1'
+        alpha4: '1'
+        alpha5: '1'
+        alpha6: '1'
+        alpha7: '1'
+        alpha8: '1'
+        alpha9: '1'
+        autoscale: 'False'
+        axislabels: 'True'
+        color1: '"blue"'
+        color10: '"dark blue"'
+        color2: '"red"'
+        color3: '"green"'
+        color4: '"black"'
+        color5: '"cyan"'
+        color6: '"magenta"'
+        color7: '"yellow"'
+        color8: '"dark red"'
+        color9: '"dark green"'
+        comment: ''
+        grid: 'True'
+        label1: ''
+        label10: ''
+        label2: ''
+        label3: ''
+        label4: ''
+        label5: ''
+        label6: ''
+        label7: ''
+        label8: ''
+        label9: ''
+        legend: 'True'
+        marker1: '0'
+        marker10: '0'
+        marker2: '0'
+        marker3: '0'
+        marker4: '0'
+        marker5: '0'
+        marker6: '0'
+        marker7: '0'
+        marker8: '0'
+        marker9: '0'
+        name: 16-QAM - 4 bits/symbol
+        nconnections: '1'
+        size: '1024'
+        style1: '0'
+        style10: '0'
+        style2: '0'
+        style3: '0'
+        style4: '0'
+        style5: '0'
+        style6: '0'
+        style7: '0'
+        style8: '0'
+        style9: '0'
+        tr_chan: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_slope: qtgui.TRIG_SLOPE_POS
+        tr_tag: ''
+        update_time: '0.1'
+        width1: '1'
+        width10: '1'
+        width2: '1'
+        width3: '1'
+        width4: '1'
+        width5: '1'
+        width6: '1'
+        width7: '1'
+        width8: '1'
+        width9: '1'
+        xmax: '2'
+        xmin: '-2'
+        ymax: '2'
+        ymin: '-2'
+    states:
+        coordinate: [1520, 700]
+        rotation: 0
+        state: enabled
+-   name: const_qpsk
+    id: qtgui_const_sink_x
+    parameters:
+        alpha1: '1'
+        alpha10: '1'
+        alpha2: '1'
+        alpha3: '1'
+        alpha4: '1'
+        alpha5: '1'
+        alpha6: '1'
+        alpha7: '1'
+        alpha8: '1'
+        alpha9: '1'
+        autoscale: 'False'
+        axislabels: 'True'
+        color1: '"blue"'
+        color10: '"dark blue"'
+        color2: '"red"'
+        color3: '"green"'
+        color4: '"black"'
+        color5: '"cyan"'
+        color6: '"magenta"'
+        color7: '"yellow"'
+        color8: '"dark red"'
+        color9: '"dark green"'
+        comment: ''
+        grid: 'True'
+        label1: ''
+        label10: ''
+        label2: ''
+        label3: ''
+        label4: ''
+        label5: ''
+        label6: ''
+        label7: ''
+        label8: ''
+        label9: ''
+        legend: 'True'
+        marker1: '0'
+        marker10: '0'
+        marker2: '0'
+        marker3: '0'
+        marker4: '0'
+        marker5: '0'
+        marker6: '0'
+        marker7: '0'
+        marker8: '0'
+        marker9: '0'
+        name: QPSK - 2 bits/symbol
+        nconnections: '1'
+        size: '1024'
+        style1: '0'
+        style10: '0'
+        style2: '0'
+        style3: '0'
+        style4: '0'
+        style5: '0'
+        style6: '0'
+        style7: '0'
+        style8: '0'
+        style9: '0'
+        tr_chan: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_slope: qtgui.TRIG_SLOPE_POS
+        tr_tag: ''
+        update_time: '0.1'
+        width1: '1'
+        width10: '1'
+        width2: '1'
+        width3: '1'
+        width4: '1'
+        width5: '1'
+        width6: '1'
+        width7: '1'
+        width8: '1'
+        width9: '1'
+        xmax: '3'
+        xmin: '-3'
+        ymax: '3'
+        ymin: '-3'
+    states:
+        coordinate: [1520, 1090]
+        rotation: 0
+        state: enabled
+-   name: freq_sink
+    id: qtgui_freq_sink_x
+    parameters:
+        alpha1: '1'
+        alpha10: '1'
+        alpha2: '1'
+        alpha3: '1'
+        alpha4: '1'
+        alpha5: '1'
+        alpha6: '1'
+        alpha7: '1'
+        alpha8: '1'
+        alpha9: '1'
+        autoscale: 'False'
+        average: '0.2'
+        axislabels: 'True'
+        color1: '"blue"'
+        color10: '"dark blue"'
+        color2: '"red"'
+        color3: '"green"'
+        color4: '"black"'
+        color5: '"cyan"'
+        color6: '"magenta"'
+        color7: '"yellow"'
+        color8: '"dark red"'
+        color9: '"dark green"'
+        comment: ''
+        ctrlpanel: 'False'
+        fc: '0'
+        fftsize: '1024'
+        freqhalf: 'True'
+        grid: 'True'
+        label1: BPSK
+        label10: ''
+        label2: QPSK
+        label3: 16-QAM
+        label4: ''
+        label5: ''
+        label6: ''
+        label7: ''
+        label8: ''
+        label9: ''
+        legend: 'True'
+        marker1: '-1'
+        marker10: '-1'
+        marker2: '-1'
+        marker3: '-1'
+        marker4: '-1'
+        marker5: '-1'
+        marker6: '-1'
+        marker7: '-1'
+        marker8: '-1'
+        marker9: '-1'
+        name: All three occupy the same bandwidth
+        nconnections: '3'
+        samp_rate: samp_rate
+        style1: '1'
+        style10: '1'
+        style2: '1'
+        style3: '1'
+        style4: '1'
+        style5: '1'
+        style6: '1'
+        style7: '1'
+        style8: '1'
+        style9: '1'
+        tr_chan: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_tag: ''
+        type: complex
+        update_time: '0.1'
+        width1: '1'
+        width10: '1'
+        width2: '1'
+        width3: '1'
+        width4: '1'
+        width5: '1'
+        width6: '1'
+        width7: '1'
+        width8: '1'
+        width9: '1'
+        ymax: '10'
+        ymin: '-100'
+    states:
+        coordinate: [1640, 510]
+        rotation: 0
+        state: enabled
+-   name: mod_bpsk
+    id: digital_constellation_modulator
+    parameters:
+        comment: ''
+        constellation: bpsk
+        differential: 'False'
+        excess_bw: '0.35'
+        log: 'False'
+        samples_per_symbol: sps
+        truncate: 'False'
+        verbose: 'False'
+    states:
+        coordinate: [390, 300]
+        rotation: 0
+        state: enabled
+-   name: mod_qam16
+    id: digital_constellation_modulator
+    parameters:
+        comment: ''
+        constellation: qam16
+        differential: 'False'
+        excess_bw: '0.35'
+        log: 'False'
+        samples_per_symbol: sps
+        truncate: 'False'
+        verbose: 'False'
+    states:
+        coordinate: [420, 670]
+        rotation: 0
+        state: enabled
+-   name: mod_qpsk
+    id: digital_constellation_modulator
+    parameters:
+        comment: ''
+        constellation: qpsk
+        differential: 'False'
+        excess_bw: '0.35'
+        log: 'False'
+        samples_per_symbol: sps
+        truncate: 'False'
+        verbose: 'False'
+    states:
+        coordinate: [410, 1060]
+        rotation: 0
+        state: enabled
+-   name: note_noise
+    id: note
+    parameters:
+        comment: ''
+        note: "Raise the noise and 16-QAM blurs first: its points sit closer together for the same average power, so it buys throughput with noise margin\n\nOne bit per symbol, then two, then four. The same random byte stream feeds all three, through three copies of the same channel"
+    states:
+        coordinate: [350, 20]
+        rotation: 0
+        state: enabled
+-   name: qam16
+    id: variable_constellation
+    parameters:
+        comment: ''
+        const_points: '[-1-1j, -1+1j, 1+1j, 1-1j]'
+        dims: '1'
+        normalization: digital.constellation.AMPLITUDE_NORMALIZATION
+        npwr: '1'
+        precision: '8'
+        rot_sym: '4'
+        soft_dec_lut: None
+        sym_map: '[0, 1, 3, 2]'
+        type: 16qam
+    states:
+        coordinate: [20, 460]
+        rotation: 0
+        state: enabled
+-   name: qpsk
+    id: variable_constellation
+    parameters:
+        comment: ''
+        const_points: '[-1-1j, -1+1j, 1+1j, 1-1j]'
+        dims: '1'
+        normalization: digital.constellation.AMPLITUDE_NORMALIZATION
+        npwr: '1'
+        precision: '8'
+        rot_sym: '4'
+        soft_dec_lut: None
+        sym_map: '[0, 1, 3, 2]'
+        type: qpsk
+    states:
+        coordinate: [20, 860]
+        rotation: 0
+        state: enabled
+-   name: random_bits
+    id: analog_random_uniform_source_x
+    parameters:
+        comment: ''
+        maximum: '255'
+        minimum: '0'
+        seed: '0'
+        type: byte
+    states:
+        coordinate: [10, 340]
+        rotation: 0
+        state: enabled
+-   name: random_bits_0
+    id: analog_random_uniform_source_x
+    parameters:
+        comment: ''
+        maximum: '255'
+        minimum: '0'
+        seed: '0'
+        type: byte
+    states:
+        coordinate: [40, 1100]
+        rotation: 0
+        state: enabled
+-   name: random_bits_1
+    id: analog_random_uniform_source_x
+    parameters:
+        comment: ''
+        maximum: '255'
+        minimum: '0'
+        seed: '0'
+        type: byte
+    states:
+        coordinate: [30, 710]
+        rotation: 0
+        state: enabled
+-   name: throttle_bpsk
+    id: blocks_throttle2
+    parameters:
+        comment: ''
+        ignoretag: 'True'
+        limit: auto
+        maximum: '0.1'
+        samples_per_second: samp_rate
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [1130, 330]
+        rotation: 0
+        state: enabled
+-   name: throttle_qam16
+    id: blocks_throttle2
+    parameters:
+        comment: ''
+        ignoretag: 'True'
+        limit: auto
+        maximum: '0.1'
+        samples_per_second: samp_rate
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [1160, 700]
+        rotation: 0
+        state: enabled
+-   name: throttle_qpsk
+    id: blocks_throttle2
+    parameters:
+        comment: ''
+        ignoretag: 'True'
+        limit: auto
+        maximum: '0.1'
+        samples_per_second: samp_rate
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [1150, 1090]
+        rotation: 0
+        state: enabled
+-   name: wasm_gui_layout_0
+    id: wasm_gui_layout
+    parameters:
+        columns: '12'
+        comment: ''
+        layout: '{"const_bpsk":[0,1,4,4],"const_qam16":[4,1,4,4],"const_qpsk":[8,1,4,4],"freq_sink":[0,5,12,4],"noise_volt":[2,0,8,1]}'
+        row_height: '60'
+    states:
+        coordinate: [1340, 50]
+        rotation: 0
+        state: enabled
+connections:
+- [chan_bpsk, '0', throttle_bpsk, '0']
+- [chan_qam16, '0', throttle_qam16, '0']
+- [chan_qpsk, '0', throttle_qpsk, '0']
+- [mod_bpsk, '0', chan_bpsk, '0']
+- [mod_qam16, '0', chan_qam16, '0']
+- [mod_qpsk, '0', chan_qpsk, '0']
+- [random_bits, '0', mod_bpsk, '0']
+- [random_bits_0, '0', mod_qpsk, '0']
+- [random_bits_1, '0', mod_qam16, '0']
+- [throttle_bpsk, '0', const_bpsk, '0']
+- [throttle_bpsk, '0', freq_sink, '0']
+- [throttle_qam16, '0', const_qam16, '0']
+- [throttle_qam16, '0', freq_sink, '2']
+- [throttle_qpsk, '0', const_qpsk, '0']
+- [throttle_qpsk, '0', freq_sink, '1']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0

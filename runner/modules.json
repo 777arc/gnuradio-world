@@ -1,8 +1,8 @@
 {
   "core": ["blocks", "analog", "fft", "filter"],
-  "in_tree_deferred": ["digital", "dtv", "network", "pdu", "vocoder"],
+  "in_tree_deferred": ["digital", "dtv", "network", "pdu", "vocoder", "channels"],
   "deferred": [
-    "digital", "dtv", "network", "pdu", "vocoder",
+    "digital", "dtv", "network", "pdu", "vocoder", "channels",
     "rds", "foo", "dvbs2", "dvbs2rx", "satellites", "paint", "fosphor",
     "droneid", "ham", "ieee802_11", "hrpt"
   ],

@@ -1,0 +1,404 @@
+options:
+    parameters:
+        author: PySDR
+        comment: ''
+        copyright: ''
+        description: Companion to the Noise chapter of PySDR
+        generate_options: qt_gui
+        id: PySDR__AWGN_in_Time__Frequency__and_Distribution
+        title: 'PySDR: AWGN in Time, Frequency, and Distribution'
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: noise_amp
+    id: variable_qtgui_range
+    parameters:
+        comment: ''
+        label: Noise amplitude
+        min_len: '200'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '0'
+        step: '0.01'
+        stop: '1'
+        value: '0.1'
+        widget: counter_slider
+    states:
+        coordinate: [480, 30]
+        rotation: 0
+        state: enabled
+-   name: samp_rate
+    id: variable
+    parameters:
+        comment: ''
+        value: '100000'
+    states:
+        coordinate: [730, 30]
+        rotation: 0
+        state: enabled
+-   name: tone_amp
+    id: variable_qtgui_range
+    parameters:
+        comment: ''
+        label: Signal amplitude
+        min_len: '200'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '0'
+        step: '0.01'
+        stop: '1'
+        value: '0.05'
+        widget: counter_slider
+    states:
+        coordinate: [900, 30]
+        rotation: 0
+        state: enabled
+-   name: add
+    id: blocks_add_xx
+    parameters:
+        comment: ''
+        num_inputs: '2'
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [320, 320]
+        rotation: 0
+        state: enabled
+-   name: freq_sink
+    id: qtgui_freq_sink_x
+    parameters:
+        alpha1: '1'
+        alpha10: '1'
+        alpha2: '1'
+        alpha3: '1'
+        alpha4: '1'
+        alpha5: '1'
+        alpha6: '1'
+        alpha7: '1'
+        alpha8: '1'
+        alpha9: '1'
+        autoscale: 'False'
+        average: '0.1'
+        axislabels: 'True'
+        color1: '"blue"'
+        color10: '"dark blue"'
+        color2: '"red"'
+        color3: '"green"'
+        color4: '"black"'
+        color5: '"cyan"'
+        color6: '"magenta"'
+        color7: '"yellow"'
+        color8: '"dark red"'
+        color9: '"dark green"'
+        comment: ''
+        ctrlpanel: 'True'
+        fc: '0'
+        fftsize: '1024'
+        grid: 'True'
+        label1: ''
+        label10: ''''''
+        label2: ''''''
+        label3: ''''''
+        label4: ''''''
+        label5: ''''''
+        label6: ''''''
+        label7: ''''''
+        label8: ''''''
+        label9: ''''''
+        legend: 'True'
+        marker1: '-1'
+        marker10: '-1'
+        marker2: '-1'
+        marker3: '-1'
+        marker4: '-1'
+        marker5: '-1'
+        marker6: '-1'
+        marker7: '-1'
+        marker8: '-1'
+        marker9: '-1'
+        name: '"Power spectral density"'
+        nconnections: '1'
+        samp_rate: samp_rate
+        style1: '1'
+        style10: '1'
+        style2: '1'
+        style3: '1'
+        style4: '1'
+        style5: '1'
+        style6: '1'
+        style7: '1'
+        style8: '1'
+        style9: '1'
+        tr_chan: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_tag: '""'
+        update_time: '0.1'
+        width1: '1'
+        width10: '1'
+        width2: '1'
+        width3: '1'
+        width4: '1'
+        width5: '1'
+        width6: '1'
+        width7: '1'
+        width8: '1'
+        width9: '1'
+        ymax: '10'
+        ymin: '-120'
+    states:
+        coordinate: [890, 430]
+        rotation: 0
+        state: enabled
+-   name: hist_sink
+    id: qtgui_histogram_sink_x
+    parameters:
+        accum: 'False'
+        alpha1: '1'
+        alpha10: '1.0'
+        alpha2: '1.0'
+        alpha3: '1.0'
+        alpha4: '1.0'
+        alpha5: '1.0'
+        alpha6: '1.0'
+        alpha7: '1.0'
+        alpha8: '1.0'
+        alpha9: '1.0'
+        autoscale: 'True'
+        axislabels: 'True'
+        bins: '200'
+        color1: '"blue"'
+        color10: '"dark blue"'
+        color2: '"red"'
+        color3: '"green"'
+        color4: '"black"'
+        color5: '"cyan"'
+        color6: '"magenta"'
+        color7: '"yellow"'
+        color8: '"dark red"'
+        color9: '"dark green"'
+        comment: ''
+        grid: 'True'
+        gui_hint: ''
+        label1: ''
+        label10: ''
+        label2: ''
+        label3: ''
+        label4: ''
+        label5: ''
+        label6: ''
+        label7: ''
+        label8: ''
+        label9: ''
+        legend: 'True'
+        marker1: '-1'
+        marker10: '-1'
+        marker2: '-1'
+        marker3: '-1'
+        marker4: '-1'
+        marker5: '-1'
+        marker6: '-1'
+        marker7: '-1'
+        marker8: '-1'
+        marker9: '-1'
+        name: '"Distribution of the I samples"'
+        nconnections: '1'
+        size: '2048'
+        style1: '1'
+        style10: '1'
+        style2: '1'
+        style3: '1'
+        style4: '1'
+        style5: '1'
+        style6: '1'
+        style7: '1'
+        style8: '1'
+        style9: '1'
+        type: float
+        update_time: '0.1'
+        width1: '1'
+        width10: '1'
+        width2: '1'
+        width3: '1'
+        width4: '1'
+        width5: '1'
+        width6: '1'
+        width7: '1'
+        width8: '1'
+        width9: '1'
+        xmax: '1'
+        xmin: '-1'
+    states:
+        coordinate: [1230, 270]
+        rotation: 0
+        state: enabled
+-   name: noise
+    id: analog_noise_source_x
+    parameters:
+        amplitude: noise_amp
+        comment: ''
+        seed: '0'
+        type: complex
+    states:
+        coordinate: [20, 320]
+        rotation: 0
+        state: enabled
+-   name: note_psd
+    id: note
+    parameters:
+        comment: ''
+        note: "Slide the two amplitudes against each other to change SNR\n\nPSD looks like grass until you turn on averaging in the sink control panel"
+    states:
+        coordinate: [20, 150]
+        rotation: 0
+        state: enabled
+-   name: throttle
+    id: blocks_throttle2
+    parameters:
+        comment: ''
+        ignoretag: 'True'
+        limit: auto
+        maximum: '0.1'
+        samples_per_second: samp_rate
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [560, 310]
+        rotation: 0
+        state: enabled
+-   name: time_sink
+    id: qtgui_time_sink_x
+    parameters:
+        alpha1: '1'
+        alpha10: '1'
+        alpha2: '1'
+        alpha3: '1'
+        alpha4: '1'
+        alpha5: '1'
+        alpha6: '1'
+        alpha7: '1'
+        alpha8: '1'
+        alpha9: '1'
+        autoscale: 'False'
+        axislabels: 'True'
+        color1: blue
+        color10: dark blue
+        color2: red
+        color3: green
+        color4: black
+        color5: cyan
+        color6: magenta
+        color7: yellow
+        color8: dark red
+        color9: dark green
+        comment: ''
+        ctrlpanel: 'False'
+        grid: 'True'
+        label1: Signal 1
+        label10: Signal 10
+        label2: Signal 2
+        label3: Signal 3
+        label4: Signal 4
+        label5: Signal 5
+        label6: Signal 6
+        label7: Signal 7
+        label8: Signal 8
+        label9: Signal 9
+        legend: 'True'
+        marker1: '-1'
+        marker10: '-1'
+        marker2: '-1'
+        marker3: '-1'
+        marker4: '-1'
+        marker5: '-1'
+        marker6: '-1'
+        marker7: '-1'
+        marker8: '-1'
+        marker9: '-1'
+        name: '"Noise in the time domain"'
+        nconnections: '1'
+        samp_rate: samp_rate
+        size: '1024'
+        stemplot: 'False'
+        style1: '1'
+        style10: '1'
+        style2: '1'
+        style3: '1'
+        style4: '1'
+        style5: '1'
+        style6: '1'
+        style7: '1'
+        style8: '1'
+        style9: '1'
+        tr_chan: '0'
+        tr_delay: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_slope: qtgui.TRIG_SLOPE_POS
+        tr_tag: '""'
+        type: complex
+        update_time: '0.1'
+        width1: '1'
+        width10: '1'
+        width2: '1'
+        width3: '1'
+        width4: '1'
+        width5: '1'
+        width6: '1'
+        width7: '1'
+        width8: '1'
+        width9: '1'
+        ylabel: Amplitude
+        ymax: '1'
+        ymin: '-1'
+        yunit: '""'
+    states:
+        coordinate: [890, 590]
+        rotation: 0
+        state: enabled
+-   name: to_real
+    id: blocks_complex_to_real
+    parameters:
+        comment: ''
+        vlen: '1'
+    states:
+        coordinate: [890, 330]
+        rotation: 0
+        state: enabled
+-   name: tone
+    id: analog_sig_source_x
+    parameters:
+        amplitude: tone_amp
+        comment: ''
+        frequency: '10000'
+        samp_rate: samp_rate
+        type: complex
+        waveform: analog.GR_COS_WAVE
+    states:
+        coordinate: [20, 420]
+        rotation: 0
+        state: enabled
+-   name: wasm_gui_layout_0
+    id: wasm_gui_layout
+    parameters:
+        columns: '12'
+        comment: ''
+        layout: '{"freq_sink":[0,1,6,4],"hist_sink":[0,5,12,4],"noise_amp":[0,0,6,1],"time_sink":[6,1,6,4],"tone_amp":[6,0,6,1]}'
+        row_height: '60'
+    states:
+        coordinate: [1200, 40]
+        rotation: 0
+        state: enabled
+connections:
+- [add, '0', throttle, '0']
+- [noise, '0', add, '0']
+- [throttle, '0', freq_sink, '0']
+- [throttle, '0', time_sink, '0']
+- [throttle, '0', to_real, '0']
+- [to_real, '0', hist_sink, '0']
+- [tone, '0', add, '1']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0

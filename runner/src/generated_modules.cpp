@@ -7,6 +7,7 @@
 const std::map<std::string, std::string>& block_module_map()
 {
     static const std::map<std::string, std::string> m = {
+        {"channels_channel_model", "channels"},
         {"digital_additive_scrambler_bb", "digital"},
         {"digital_additive_scrambler_xx", "digital"},
         {"digital_binary_slicer_fb", "digital"},
@@ -16,7 +17,6 @@ const std::map<std::string, std::string>& block_module_map()
         {"digital_corr_est_cc", "digital"},
         {"digital_correlate_access_code_tag_xx", "digital"},
         {"digital_correlate_access_code_xx_ts", "digital"},
-        {"digital_costas_loop_cc", "digital"},
         {"digital_cpmmod_bc", "digital"},
         {"digital_crc16_async_bb", "digital"},
         {"digital_crc32_async_bb", "digital"},

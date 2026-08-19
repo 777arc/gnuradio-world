@@ -1,0 +1,376 @@
+options:
+    parameters:
+        author: PySDR
+        comment: ''
+        copyright: ''
+        description: Companion to the Sampling chapter of PySDR
+        generate_options: qt_gui
+        id: PySDR__DC_Spike_and_Offset_Tuning
+        title: 'PySDR: DC Spike and Offset Tuning'
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: dc_amp
+    id: variable_qtgui_range
+    parameters:
+        comment: ''
+        label: DC offset amplitude
+        min_len: '200'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '0'
+        step: '0.01'
+        stop: '0.5'
+        value: '0.15'
+        widget: counter_slider
+    states:
+        coordinate: [610, 10]
+        rotation: 0
+        state: enabled
+-   name: samp_rate
+    id: variable
+    parameters:
+        comment: ''
+        value: '1000000'
+    states:
+        coordinate: [880, 10]
+        rotation: 0
+        state: enabled
+-   name: soi_offset
+    id: variable
+    parameters:
+        comment: ''
+        value: '250000'
+    states:
+        coordinate: [1050, 10]
+        rotation: 0
+        state: enabled
+-   name: add
+    id: blocks_add_xx
+    parameters:
+        comment: ''
+        num_inputs: '2'
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [850, 440]
+        rotation: 0
+        state: enabled
+-   name: dc_offset
+    id: blocks_add_const_vxx
+    parameters:
+        comment: ''
+        const: dc_amp
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [1090, 450]
+        rotation: 0
+        state: enabled
+-   name: freq_raw
+    id: qtgui_freq_sink_x
+    parameters:
+        alpha1: '1'
+        alpha10: '1'
+        alpha2: '1'
+        alpha3: '1'
+        alpha4: '1'
+        alpha5: '1'
+        alpha6: '1'
+        alpha7: '1'
+        alpha8: '1'
+        alpha9: '1'
+        autoscale: 'False'
+        average: '0.2'
+        axislabels: 'True'
+        color1: '"blue"'
+        color10: '"dark blue"'
+        color2: '"red"'
+        color3: '"green"'
+        color4: '"black"'
+        color5: '"cyan"'
+        color6: '"magenta"'
+        color7: '"yellow"'
+        color8: '"dark red"'
+        color9: '"dark green"'
+        comment: ''
+        ctrlpanel: 'False'
+        fc: '0'
+        fftsize: '1024'
+        grid: 'True'
+        label1: ''
+        label10: ''
+        label2: ''
+        label3: ''
+        label4: ''
+        label5: ''
+        label6: ''
+        label7: ''
+        label8: ''
+        label9: ''
+        legend: 'True'
+        marker1: '-1'
+        marker10: '-1'
+        marker2: '-1'
+        marker3: '-1'
+        marker4: '-1'
+        marker5: '-1'
+        marker6: '-1'
+        marker7: '-1'
+        marker8: '-1'
+        marker9: '-1'
+        name: 'Raw: signal at +250 kHz, DC spike at 0'
+        nconnections: '1'
+        samp_rate: samp_rate
+        style1: '1'
+        style10: '1'
+        style2: '1'
+        style3: '1'
+        style4: '1'
+        style5: '1'
+        style6: '1'
+        style7: '1'
+        style8: '1'
+        style9: '1'
+        tr_chan: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_tag: ''
+        update_time: '0.1'
+        width1: '1'
+        width10: '1'
+        width2: '1'
+        width3: '1'
+        width4: '1'
+        width5: '1'
+        width6: '1'
+        width7: '1'
+        width8: '1'
+        width9: '1'
+        ymax: '10'
+        ymin: '-100'
+    states:
+        coordinate: [90, 900]
+        rotation: 0
+        state: enabled
+-   name: freq_tuned
+    id: qtgui_freq_sink_x
+    parameters:
+        alpha1: '1'
+        alpha10: '1'
+        alpha2: '1'
+        alpha3: '1'
+        alpha4: '1'
+        alpha5: '1'
+        alpha6: '1'
+        alpha7: '1'
+        alpha8: '1'
+        alpha9: '1'
+        autoscale: 'False'
+        average: '0.2'
+        axislabels: 'True'
+        color1: '"blue"'
+        color10: '"dark blue"'
+        color2: '"red"'
+        color3: '"green"'
+        color4: '"black"'
+        color5: '"cyan"'
+        color6: '"magenta"'
+        color7: '"yellow"'
+        color8: '"dark red"'
+        color9: '"dark green"'
+        comment: ''
+        ctrlpanel: 'False'
+        fc: '0'
+        fftsize: '1024'
+        grid: 'True'
+        label1: ''
+        label10: ''
+        label2: ''
+        label3: ''
+        label4: ''
+        label5: ''
+        label6: ''
+        label7: ''
+        label8: ''
+        label9: ''
+        legend: 'True'
+        marker1: '-1'
+        marker10: '-1'
+        marker2: '-1'
+        marker3: '-1'
+        marker4: '-1'
+        marker5: '-1'
+        marker6: '-1'
+        marker7: '-1'
+        marker8: '-1'
+        marker9: '-1'
+        name: 'Tuned: signal at 0, DC spike pushed to -250 kHz'
+        nconnections: '1'
+        samp_rate: samp_rate
+        style1: '1'
+        style10: '1'
+        style2: '1'
+        style3: '1'
+        style4: '1'
+        style5: '1'
+        style6: '1'
+        style7: '1'
+        style8: '1'
+        style9: '1'
+        tr_chan: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_tag: ''
+        update_time: '0.1'
+        width1: '1'
+        width10: '1'
+        width2: '1'
+        width3: '1'
+        width4: '1'
+        width5: '1'
+        width6: '1'
+        width7: '1'
+        width8: '1'
+        width9: '1'
+        ymax: '10'
+        ymin: '-100'
+    states:
+        coordinate: [500, 750]
+        rotation: 0
+        state: enabled
+-   name: lo_shift
+    id: analog_sig_source_x
+    parameters:
+        amplitude: '1'
+        comment: ''
+        frequency: soi_offset
+        samp_rate: samp_rate
+        type: complex
+        waveform: analog.GR_COS_WAVE
+    states:
+        coordinate: [260, 590]
+        rotation: 0
+        state: enabled
+-   name: noise_floor
+    id: analog_noise_source_x
+    parameters:
+        amplitude: '0.02'
+        comment: ''
+        seed: '1'
+        type: complex
+    states:
+        coordinate: [580, 550]
+        rotation: 0
+        state: enabled
+-   name: note_dc
+    id: note
+    parameters:
+        comment: ''
+        note: A direct-conversion receiver leaks its own LO into the mixer, and the result is a constant added to every sample. Turn dc_amp up and a spike grows at 0 Hz
+    states:
+        coordinate: [1220, 10]
+        rotation: 0
+        state: enabled
+-   name: note_tune
+    id: note
+    parameters:
+        comment: ''
+        note: 'Offset tuning is the fix: park the signal 250 kHz off centre, then shift it back digitally. The DC spike moves with the shift and lands outside the band of interest'
+    states:
+        coordinate: [10, 230]
+        rotation: 0
+        state: enabled
+-   name: offset_tune
+    id: freq_xlating_fir_filter_xxx
+    parameters:
+        center_freq: soi_offset
+        comment: ''
+        decim: '1'
+        samp_rate: samp_rate
+        taps: firdes.low_pass(1, samp_rate, 150e3, 50e3)
+        type: ccf
+    states:
+        coordinate: [90, 760]
+        rotation: 0
+        state: enabled
+-   name: shift_up
+    id: blocks_multiply_xx
+    parameters:
+        comment: ''
+        num_inputs: '2'
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [580, 430]
+        rotation: 0
+        state: enabled
+-   name: soi_noise
+    id: analog_noise_source_x
+    parameters:
+        amplitude: '0.5'
+        comment: ''
+        seed: '0'
+        type: complex
+    states:
+        coordinate: [10, 430]
+        rotation: 0
+        state: enabled
+-   name: soi_shape
+    id: low_pass_filter
+    parameters:
+        beta: '6.76'
+        comment: ''
+        cutoff_freq: '100000'
+        decim: '1'
+        gain: '2'
+        interp: '1'
+        samp_rate: samp_rate
+        type: fir_filter_ccf
+        width: '50000'
+        win: window.WIN_HAMMING
+    states:
+        coordinate: [260, 370]
+        rotation: 0
+        state: enabled
+-   name: throttle
+    id: blocks_throttle2
+    parameters:
+        comment: ''
+        ignoretag: 'True'
+        limit: auto
+        maximum: '0.1'
+        samples_per_second: samp_rate
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [1370, 430]
+        rotation: 0
+        state: enabled
+-   name: wasm_gui_layout_0
+    id: wasm_gui_layout
+    parameters:
+        columns: '12'
+        comment: ''
+        layout: '{}'
+        row_height: '60'
+    states:
+        coordinate: [320, 10]
+        rotation: 0
+        state: enabled
+connections:
+- [add, '0', dc_offset, '0']
+- [dc_offset, '0', throttle, '0']
+- [lo_shift, '0', shift_up, '1']
+- [noise_floor, '0', add, '1']
+- [offset_tune, '0', freq_tuned, '0']
+- [shift_up, '0', add, '0']
+- [soi_noise, '0', soi_shape, '0']
+- [soi_shape, '0', shift_up, '0']
+- [throttle, '0', freq_raw, '0']
+- [throttle, '0', offset_tune, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0

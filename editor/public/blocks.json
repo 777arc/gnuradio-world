@@ -16340,13 +16340,16 @@
     "Core",
     "Channel Models"
    ],
-   "flags": [],
-   "runnable": false,
-   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
    "gui": false,
-   "module": "core",
+   "module": "channels",
    "documentation": "",
-   "api_documentation": "",
+   "api_documentation": "Basic channel simulator.\n\nThis block implements a basic channel model simulator that can\nbe used to help evaluate, design, and test various signals,\nwaveforms, and algorithms.\n\nThis model allows the user to set the voltage of an AWGN noise\nsource (noise_voltage), a (normalized) frequency offset (\\p\nfrequency_offset), a sample timing offset (epsilon), and a\nseed (noise_seed) to randomize or make reproducible the AWGN\nnoise source.\n\nMultipath can be approximated in this model by using a FIR\nfilter representation of a multipath delay profile with the\nparameter taps.\n\nTo simulate a channel with time-variant channel, use\ngr::channels::channel_model2.\n\nBuild the channel simulator.\n\nParameters:\n  noise_voltage: The AWGN noise level as a voltage (to be calculated externally to meet, say, a desired SNR).\n  frequency_offset: The normalized frequency offset. 0 is no offset; 0.25 would be, for a digital modem, one quarter of the symbol rate.\n  epsilon: The sample timing offset to emulate the different rates between the sample clocks of the transmitter and receiver. 1.0 is no difference.\n  taps: Taps of a FIR filter to emulate a multipath delay profile.\n  noise_seed: A random number generator seed for the noise source.\n  block_tags: If true, tags will not be able to propagate through this block.",
    "wiki_url": "https://wiki.gnuradio.org/index.php/Channel_Model",
    "params": [
     {
@@ -16386,7 +16389,7 @@
      "id": "taps",
      "label": "Taps",
      "dtype": "complex_vector",
-     "default": 1.0,
+     "default": "[1.0]",
      "category": "General",
      "options": null,
      "option_labels": null,
@@ -16931,13 +16934,16 @@
     "Core",
     "Channel Models"
    ],
-   "flags": [],
-   "runnable": false,
-   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
    "gui": false,
    "module": "core",
    "documentation": "This algorithm implements the method described in\n   Compact Rayleigh and Rician fading simulator based on random walk processes\n   A. Alimohammad S.F. Fard B.F. Cockburn C. Schlegel\n   26th November 2008\n\n    unsigned int d_N=8;          // number of sinusoids\n    float d_fDTs=0.01   // normalized maximum doppler frequency (f_doppler / f_samprate)\n    float d_K=4;        // Rician factor (ratio of the specular power to the scattered power)\n    bool d_LOS=true;    // LOS path exists? chooses Rician (LOS) vs Rayleigh (NLOS) model.\n    uint32_t seed=0;         // noise seed",
-   "api_documentation": "",
+   "api_documentation": "fading simulator\n\nThis block implements a basic fading model simulator that can\nbe used to help evaluate, design, and test various signals,\nwaveforms, and algorithms.\n\nBuild the channel simulator.\n\nParameters:\n  N: the number of sinusoids to use in simulating the channel; 8 is a good value\n  fDTs: normalized maximum Doppler frequency, fD * Ts\n  LOS: include Line-of-Site path? selects between Rayleigh (NLOS) and Rician (LOS) models \\param K    Rician factor (ratio of the specular power to the scattered power) \\param seed a random number to seed the noise generators",
    "wiki_url": "https://wiki.gnuradio.org/index.php/Fading_Model",
    "params": [
     {
@@ -17396,13 +17402,16 @@
     "Core",
     "Channel Models"
    ],
-   "flags": [],
-   "runnable": false,
-   "unavailable_reason": "not implemented in the WebAssembly runner",
+   "flags": [
+    "python",
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
    "gui": false,
    "module": "core",
    "documentation": "unsigned int d_N=8;          // number of sinusoids used to simulate gain on each ray\n    float d_fDTs=0.01   // normalized maximum doppler frequency (f_doppler / f_samprate)\n    float d_K=4;        // Rician factor (ratio of the specular power to the scattered power)\n    bool d_LOS=true;    // LOS path exists? chooses Rician (LOS) vs Rayleigh (NLOS) model.\n    uint32_t seed=0;         // noise seed\n    unsigned int ntaps;          // Number of FIR taps to use in selective fading model\n\n      These two vectors comprise the Power Delay Profile of the signal\n    float_vector delays   // Time delay in the fir filter (in samples) for each arriving WSSUS Ray\n    float_vector mags     // Magnitude corresponding to each WSSUS Ray\n\n    If using a LOS model, the first delay and mag should correspond with the LOS component\n\n  References:\n\n  The flat-fading portion of the algorithm implements the following\n   Compact Rayleigh and Rician fading simulator based on random walk processes\n   A. Alimohammad S.F. Fard B.F. Cockburn C. Schlegel\n   26th November 2008\n\n  The frequency selective extension of the block roughly implements\n   A Low-Complexity Hardware Implementation of Discrete-Time\n   Frequency-Selective Rayleigh Fading Channels\n   F. Ren and Y. Zheng\n   24-27 May 2009\n\n  Implementation by Tim O'Shea",
-   "api_documentation": "",
+   "api_documentation": "fading simulator\n\nThis block implements a basic fading model simulator that can\nbe used to help evaluate, design, and test various signals,\nwaveforms, and algorithms.\n\nBuild the channel simulator.\n\nParameters:\n  N: the number of sinusoids to use in simulating the channel; 8 is a good value \\param fDTs   normalized maximum Doppler frequency, fD * Ts \\param LOS include Line-of-Site path? selects between Rayleigh (NLOS) and Rician (LOS) models\n  K: Rician factor (ratio of the specular power to the scattered power)\n  seed: a random number to seed the noise generators\n  delays: a vector of values that specify the time delay of each impulse\n  mags: a vector of values that specify the magnitude of each impulse\n  ntaps: the number of filter taps",
    "wiki_url": "https://wiki.gnuradio.org/index.php/Frequency_Selective_Fading_Model",
    "params": [
     {
@@ -19551,7 +19560,7 @@
    "runnable": true,
    "unavailable_reason": null,
    "gui": false,
-   "module": "digital",
+   "module": "core",
    "documentation": "",
    "api_documentation": "A Costas loop carrier recovery module.\n\nThe Costas loop locks to the center frequency of a signal and\ndownconverts it to baseband.\n\n\\li When order=2: used for BPSK where the real part of the\noutput signal is the baseband BPSK signal and the imaginary\npart is the error signal.\n\n\\li When order=4: can be used for QPSK where both I and Q (real\nand imaginary) are outputted.\n\n\\li When order=8: used for 8PSK.\n\nMore details can be found online:\n\nJ. Feigin, \"Practical Costas loop design: Designing a simple\nand inexpensive BPSK Costas loop carrier recovery circuit,\" RF\nsignal processing, pp. 20-36, 2002.\n\nhttp://rfdesign.com/images/archive/0102Feigin20.pdf\n\nThe Costas loop can have two output streams:\n\\li stream 1 (required) is the baseband I and Q;\n\\li stream 2 (optional) is the normalized frequency of the loop\n\nThere is a single optional message input:\n\\li noise: A noise floor estimate used to calculate the SNR of a sample.\n\nMake a Costas loop carrier recovery block.\n\nParameters:\n  loop_bw: internal 2nd order loop bandwidth (~ 2pi/100)\n  order: the loop order, either 2, 4, or 8\n  use_snr: Use or ignore SNR estimates (from noise message port) in measurements; also uses tanh instead of slicing.",
    "wiki_url": "https://wiki.gnuradio.org/index.php/Costas_Loop",

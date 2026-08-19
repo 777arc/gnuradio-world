@@ -72,6 +72,32 @@ arranging makes the whole palette consistently left-to-right, and it is the one
 thing a reader sees before anything else. Nothing but the coordinates changes, so
 it can never affect what the flowgraph computes.
 
+One script does exactly that, for a file or a batch:
+
+```bash
+node scripts/arrange_example.mjs analog/sampling_aliasing.grc digital/psk_constellation.grc
+# → RESULT: ARRANGE_PASS (2)
+```
+
+It drives the same editor and the same Save the manual route does, so the result
+is byte-identical to arranging by hand, and re-running it changes nothing. Two
+things it does that are easy to get wrong doing this by hand in bulk:
+
+- **It refuses to write a file it did not load.** The editor names the Save after
+  the flowgraph on the canvas, and the script checks that name against the file
+  it is about to overwrite. Without that check any stale canvas — a load that
+  quietly failed, an example slow enough to miss the wait — silently replaces one
+  example with another, and a `.grc` full of the wrong flowgraph looks entirely
+  normal.
+- **It waits for `document.fonts.ready`.** Auto-arrange packs by drawn size, and a
+  block's height comes from measured text — a Note's wrapped line count above
+  all. Arrange before the web fonts land and the layout shifts by a line next
+  time, so a re-run churns coordinates for no reason.
+
+The bulk caveat below still applies: the script adopts the saved file wholesale,
+which is right for a flowgraph authored here and wrong for one carried in from
+upstream.
+
 **Save is a lossy round-trip; auto-arrange is not.** The editor drops what its
 schema does not declare, so saving a file returns it without `import` blocks,
 without GRC's `affinity`/`alias`/`comment`/`maxoutbuf`/`minoutbuf`, without

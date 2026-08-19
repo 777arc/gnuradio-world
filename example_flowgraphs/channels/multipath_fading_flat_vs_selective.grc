@@ -1,0 +1,265 @@
+options:
+    parameters:
+        author: PySDR
+        comment: ''
+        copyright: ''
+        description: Companion to the Multipath Fading chapter of PySDR
+        generate_options: qt_gui
+        id: PySDR__Flat_vs_Frequency_Selective_Fading
+        title: 'PySDR: Flat vs Frequency-Selective Fading'
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: delays
+    id: variable
+    parameters:
+        comment: ''
+        value: '[0.0, 3.0, 7.0]'
+    states:
+        coordinate: [60, 140]
+        rotation: 0
+        state: enabled
+-   name: fDTs
+    id: variable_qtgui_range
+    parameters:
+        comment: ''
+        label: Normalized max Doppler, fD*Ts
+        min_len: '200'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '0'
+        step: '0.000001'
+        stop: '0.00001'
+        value: '0.000001'
+        widget: counter_slider
+    states:
+        coordinate: [800, 30]
+        rotation: 0
+        state: enabled
+-   name: mags
+    id: variable
+    parameters:
+        comment: ''
+        value: '[1, 1, 1]'
+    states:
+        coordinate: [1110, 10]
+        rotation: 0
+        state: enabled
+-   name: samp_rate
+    id: variable
+    parameters:
+        comment: ''
+        value: '500000'
+    states:
+        coordinate: [1140, 120]
+        rotation: 0
+        state: enabled
+-   name: freq_sink
+    id: qtgui_freq_sink_x
+    parameters:
+        alpha1: '1'
+        alpha10: '1'
+        alpha2: '1'
+        alpha3: '1'
+        alpha4: '1'
+        alpha5: '1'
+        alpha6: '1'
+        alpha7: '1'
+        alpha8: '1'
+        alpha9: '1'
+        autoscale: 'False'
+        average: '0.2'
+        axislabels: 'True'
+        color1: '"blue"'
+        color10: '"dark blue"'
+        color2: '"red"'
+        color3: '"green"'
+        color4: '"black"'
+        color5: '"cyan"'
+        color6: '"magenta"'
+        color7: '"yellow"'
+        color8: '"dark red"'
+        color9: '"dark green"'
+        comment: ''
+        ctrlpanel: 'False'
+        fc: '0'
+        fftsize: '1024'
+        freqhalf: 'True'
+        grid: 'True'
+        label1: ''
+        label10: ''
+        label2: ''
+        label3: ''
+        label4: ''
+        label5: ''
+        label6: ''
+        label7: ''
+        label8: ''
+        label9: ''
+        legend: 'True'
+        marker1: '-1'
+        marker10: '-1'
+        marker2: '-1'
+        marker3: '-1'
+        marker4: '-1'
+        marker5: '-1'
+        marker6: '-1'
+        marker7: '-1'
+        marker8: '-1'
+        marker9: '-1'
+        name: 'Wideband: notches move across the band'
+        nconnections: '1'
+        samp_rate: samp_rate
+        style1: '1'
+        style10: '1'
+        style2: '1'
+        style3: '1'
+        style4: '1'
+        style5: '1'
+        style6: '1'
+        style7: '1'
+        style8: '1'
+        style9: '1'
+        tr_chan: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_tag: ''
+        type: complex
+        update_time: '0.02'
+        width1: '1'
+        width10: '1'
+        width2: '1'
+        width3: '1'
+        width4: '1'
+        width5: '1'
+        width6: '1'
+        width7: '1'
+        width8: '1'
+        width9: '1'
+        ymax: '-10'
+        ymin: '-60'
+    states:
+        coordinate: [1110, 240]
+        rotation: 0
+        state: enabled
+-   name: note_flat
+    id: note
+    parameters:
+        comment: ''
+        note: 'Slide the bar to emulate the speed of movement in the system.  The wireless channel is emulated using three equal-strength rays at 0, 3 and 7 samples of delay. That spread puts about seven notch periods inside the band, so the spectrum is deeply scalloped rather than flat, showing frequency-selective fading. Raise the Doppler slider and the notches wash out: once the channel decorrelates faster than the sinks average, there is nothing steady left to draw'
+    states:
+        coordinate: [340, 10]
+        rotation: 0
+        state: enabled
+-   name: selective_fading
+    id: channels_selective_fading_model
+    parameters:
+        K: '4'
+        LOS: 'False'
+        N: '8'
+        comment: ''
+        delays: delays
+        fDTs: fDTs
+        mags: mags
+        ntaps: '16'
+        seed: '0'
+    states:
+        coordinate: [620, 280]
+        rotation: 0
+        state: enabled
+-   name: throttle_wb
+    id: blocks_throttle2
+    parameters:
+        comment: ''
+        ignoretag: 'True'
+        limit: auto
+        maximum: '0.1'
+        samples_per_second: samp_rate
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [280, 320]
+        rotation: 0
+        state: enabled
+-   name: wasm_gui_layout_0
+    id: wasm_gui_layout
+    parameters:
+        columns: '12'
+        comment: ''
+        layout: '{"fDTs":[3,0,6,1],"freq_sink":[0,1,12,4],"waterfall_sink":[0,5,12,4]}'
+        row_height: '60'
+    states:
+        coordinate: [1340, 20]
+        rotation: 0
+        state: enabled
+-   name: waterfall_sink
+    id: qtgui_waterfall_sink_x
+    parameters:
+        alpha1: '1'
+        alpha10: '1'
+        alpha2: '1'
+        alpha3: '1'
+        alpha4: '1'
+        alpha5: '1'
+        alpha6: '1'
+        alpha7: '1'
+        alpha8: '1'
+        alpha9: '1'
+        average: '0.2'
+        axislabels: 'True'
+        color1: '0'
+        color10: '0'
+        color2: '0'
+        color3: '0'
+        color4: '0'
+        color5: '0'
+        color6: '0'
+        color7: '0'
+        color8: '0'
+        color9: '0'
+        comment: ''
+        fc: '0'
+        fftsize: '1024'
+        grid: 'False'
+        int_max: '-10'
+        int_min: '-60'
+        label1: ''
+        label10: ''
+        label2: ''
+        label3: ''
+        label4: ''
+        label5: ''
+        label6: ''
+        label7: ''
+        label8: ''
+        label9: ''
+        legend: 'True'
+        name: Notches drifting over time
+        nconnections: '1'
+        samp_rate: samp_rate
+        update_time: '0.02'
+    states:
+        coordinate: [1130, 450]
+        rotation: 0
+        state: enabled
+-   name: wideband_src
+    id: analog_noise_source_x
+    parameters:
+        amplitude: '1'
+        comment: ''
+        seed: '0'
+        type: complex
+    states:
+        coordinate: [20, 340]
+        rotation: 0
+        state: enabled
+connections:
+- [selective_fading, '0', freq_sink, '0']
+- [selective_fading, '0', waterfall_sink, '0']
+- [throttle_wb, '0', selective_fading, '0']
+- [wideband_src, '0', throttle_wb, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0

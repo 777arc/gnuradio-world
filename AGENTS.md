@@ -31,9 +31,9 @@ full* before starting that kind of work:
 A GNU Radio Companion-style **flowgraph editor** and a **flowgraph runtime** that
 run entirely in a browser tab — no Python, no server round-trips. The GNU Radio
 DSP C++ stack (gnuradio-runtime, gr-blocks, gr-fft, gr-filter, gr-analog,
-gr-digital, gr-fec, gr-dtv, gr-network, gr-pdu, gr-vocoder) and the gr-qtgui
-sinks are cross-compiled to WebAssembly with Emscripten and threaded Qt 6 for
-WebAssembly.
+gr-digital, gr-fec, gr-dtv, gr-network, gr-pdu, gr-vocoder, gr-channels) and
+the gr-qtgui sinks are cross-compiled to WebAssembly with Emscripten and
+threaded Qt 6 for WebAssembly.
 
 - `editor/`: a Vite/TypeScript GRC-style flowgraph editor. It started as a 1:1
   port of the `gnuradio/grc/gui_qt` Python GUI but has been adapted since. If any
@@ -104,7 +104,7 @@ node server.mjs 8090 "$PWD"
   `src/registry.cpp` add browser widgets, live setters, and a few composed
   blocks. The generated and custom registries currently expose hundreds of blocks
   from gr-blocks, gr-analog, gr-fft, gr-filter, gr-digital, gr-dtv, gr-network,
-  gr-pdu, gr-vocoder and gr-qtgui, plus the vendored out-of-tree modules
+  gr-pdu, gr-vocoder, gr-channels and gr-qtgui, plus the vendored out-of-tree modules
   (including but not limited to gr-rds, gr-foo, gr-dvbs2, gr-dvbs2rx,
   gr-satellites, gr-paint, gr-fosphor, gr-droneid, gr-ham, gr-ieee802-11). Stream
   and message-port connections are both serialized by the editor. QT GUI Range
@@ -146,7 +146,7 @@ node server.mjs 8090 "$PWD"
 | `workers/sigmf-indexer/` | Cloudflare Queue consumer that rebuilds the recordings bucket's `index.json` — see [docs/recording-viewer.md](docs/recording-viewer.md) |
 | `server.mjs` | COOP/COEP static dev server (needed for SharedArrayBuffer / pthreads); serves the repo root, falls back to `editor/dist/` for `/`, and synthesizes the `/example_flowgraphs` listing. Recording discovery and objects always come directly from R2 |
 | `test/` | `test_smoke.mjs` and `test_lazy_scenarios.mjs` plus the `fixtures/` `.grc` they load; CI gates the deploy on both. `test_pr_security_scan.mjs` covers the PR security gate's diff scan and runs in that gate's own workflow. `editor/test/` and `runner/test/` hold their own suites |
-| `scripts/` | `assemble-site.mjs` (assembles the static site CI deploys to Pages), `serve_site.mjs` (serves it the way Pages does), `run.mjs` (headless-Chromium harness, waits on a page `#result`), `run_example.mjs` (opens an example in the real editor and presses Run), `pr-security-scan.mjs` + `sarif-gate.mjs` (the PR security gate — see [docs/ci.md](docs/ci.md)), `r2-cors.json` |
+| `scripts/` | `assemble-site.mjs` (assembles the static site CI deploys to Pages), `serve_site.mjs` (serves it the way Pages does), `run.mjs` (headless-Chromium harness, waits on a page `#result`), `run_example.mjs` (opens an example in the real editor and presses Run), `arrange_example.mjs` (auto-arranges examples through that same editor), `pr-security-scan.mjs` + `sarif-gate.mjs` (the PR security gate — see [docs/ci.md](docs/ci.md)), `r2-cors.json` |
 | `editor/src/recording/` | the SigMF recording viewer, emitted at `/recording/` by the normal editor build |
 
 ## Build
@@ -226,7 +226,8 @@ does not by itself prove DSP correctness.
 before it is done** — `node scripts/run_example.mjs <file>.grc`, expecting
 `EXAMPLE_PASS`. The headless harnesses hand the `.grc` straight to `runner.html`
 and skip every editor pass, and two classes of silent bug live in that gap. New
-examples also need auto-arranging before they are committed. See
+examples also need auto-arranging before they are committed
+(`node scripts/arrange_example.mjs <file>.grc`). See
 [docs/flowgraph-files.md](docs/flowgraph-files.md), which also covers writing
 `test/fixtures/` `.grc` by hand.
 

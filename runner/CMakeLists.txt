@@ -68,7 +68,7 @@ set(GR_INCLUDE_DIRS
   ${BLOCK_OVERLAY_DIRS}
   ${GR}/gnuradio-runtime/include ${GR}/gr-blocks/include ${GR}/gr-fft/include
   ${GR}/gr-filter/include ${GR}/gr-analog/include ${GR}/gr-digital/include
-  ${GR}/gr-fec/include ${GR}/gr-dtv/include
+  ${GR}/gr-fec/include ${GR}/gr-dtv/include ${GR}/gr-channels/include
   ${GR}/gr-network/include ${GR}/gr-pdu/include ${GR}/gr-vocoder/include
   ${GR}/gr-qtgui/include
   ${WORLD}/gr-rds/include
@@ -148,6 +148,10 @@ target_link_libraries(runner PRIVATE
   # blocks. Link it normally so only those objects are pulled into core; the
   # generated standalone digital blocks remain in digital.wasm.
   ${BUILDGR}/gr-digital/lib/libgnuradio-digital.a
+  # Same for gr-channels: its two fading models have hand-written factories (the
+  # live fDTs/K setters), so those objects join core while channel_model's
+  # generated factory stays in channels.wasm.
+  ${BUILDGR}/gr-channels/lib/libgnuradio-channels.a
   ${SYSROOT}/lib/libqwt.a
   ${SYSROOT}/lib/libfftw3f.a ${SYSROOT}/lib/libfftw3.a
   ${SYSROOT}/lib/libboost_thread.a ${SYSROOT}/lib/libboost_program_options.a

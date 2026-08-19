@@ -197,6 +197,7 @@ CUSTOM_IDS = {
     "digital_constellation_encoder_bc",
     "digital_constellation_receiver_cb",
     "digital_constellation_soft_decoder_cf",
+    "digital_costas_loop_cc",
     "digital_meas_evm_cc",
     "digital_symbol_sync_xx",
     "digital_constellation_modulator",
@@ -206,6 +207,12 @@ CUSTOM_IDS = {
     # C++ rebuild of gr-digital's Python-only OFDM Transmitter hier block.
     "digital_ofdm_tx",
     "freq_xlating_fft_filter_ccc",
+    # gr-channels' two fading models. Hand-written only for their live fDTs/K
+    # setters: a slider that cannot move the Doppler rate of a running graph
+    # makes the fading examples static. channels_channel_model keeps its
+    # generated factory and stays in channels.wasm.
+    "channels_fading_model",
+    "channels_selective_fading_model",
     # gr-filter's Python channelizer hierarchy: its taps and output channel list
     # are both optional in a way a generated factory cannot express.
     "pfb_channelizer_hier_ccf",

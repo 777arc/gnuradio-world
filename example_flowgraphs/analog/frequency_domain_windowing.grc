@@ -1,0 +1,318 @@
+options:
+    parameters:
+        author: PySDR
+        comment: ''
+        copyright: ''
+        description: Companion to the Frequency Domain chapter of PySDR
+        generate_options: qt_gui
+        id: PySDR__Windowing__FFT_Size__and_the_Waterfall
+        title: 'PySDR: Windowing, FFT Size, and the Waterfall'
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: noise_amp
+    id: variable_qtgui_range
+    parameters:
+        comment: ''
+        label: Noise amplitude
+        min_len: '200'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '0'
+        step: '0.001'
+        stop: '0.05'
+        value: '0.001'
+        widget: counter_slider
+    states:
+        coordinate: [350, 490]
+        rotation: 0
+        state: enabled
+-   name: samp_rate
+    id: variable
+    parameters:
+        comment: ''
+        value: '100000'
+    states:
+        coordinate: [80, 140]
+        rotation: 0
+        state: enabled
+-   name: strong_freq
+    id: variable_qtgui_range
+    parameters:
+        comment: ''
+        label: Strong tone (Hz)
+        min_len: '200'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '-40000'
+        step: '500'
+        stop: '40000'
+        value: '10000'
+        widget: counter_slider
+    states:
+        coordinate: [780, 10]
+        rotation: 0
+        state: enabled
+-   name: weak_amp
+    id: variable_qtgui_range
+    parameters:
+        comment: ''
+        label: Weak tone amplitude
+        min_len: '200'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '0.0001'
+        step: '0.0001'
+        stop: '0.1'
+        value: '0.003'
+        widget: counter_slider
+    states:
+        coordinate: [1280, 10]
+        rotation: 0
+        state: enabled
+-   name: weak_freq
+    id: variable_qtgui_range
+    parameters:
+        comment: ''
+        label: Weak tone (Hz)
+        min_len: '200'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '-40000'
+        step: '500'
+        stop: '40000'
+        value: '12000'
+        widget: counter_slider
+    states:
+        coordinate: [1030, 10]
+        rotation: 0
+        state: enabled
+-   name: add
+    id: blocks_add_xx
+    parameters:
+        comment: ''
+        num_inputs: '3'
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [340, 280]
+        rotation: 0
+        state: enabled
+-   name: freq_sink
+    id: qtgui_freq_sink_x
+    parameters:
+        alpha1: '1'
+        alpha10: '1'
+        alpha2: '1'
+        alpha3: '1'
+        alpha4: '1'
+        alpha5: '1'
+        alpha6: '1'
+        alpha7: '1'
+        alpha8: '1'
+        alpha9: '1'
+        autoscale: 'False'
+        average: '0.1'
+        axislabels: 'True'
+        color1: '"blue"'
+        color10: '"dark blue"'
+        color2: '"red"'
+        color3: '"green"'
+        color4: '"black"'
+        color5: '"cyan"'
+        color6: '"magenta"'
+        color7: '"yellow"'
+        color8: '"dark red"'
+        color9: '"dark green"'
+        comment: ''
+        ctrlpanel: 'False'
+        fc: '0'
+        fftsize: '1024'
+        grid: 'True'
+        label1: ''
+        label10: ''
+        label2: ''
+        label3: ''
+        label4: ''
+        label5: ''
+        label6: ''
+        label7: ''
+        label8: ''
+        label9: ''
+        legend: 'True'
+        marker1: '-1'
+        marker10: '-1'
+        marker2: '-1'
+        marker3: '-1'
+        marker4: '-1'
+        marker5: '-1'
+        marker6: '-1'
+        marker7: '-1'
+        marker8: '-1'
+        marker9: '-1'
+        name: Spectrum
+        nconnections: '1'
+        samp_rate: samp_rate
+        style1: '1'
+        style10: '1'
+        style2: '1'
+        style3: '1'
+        style4: '1'
+        style5: '1'
+        style6: '1'
+        style7: '1'
+        style8: '1'
+        style9: '1'
+        tr_chan: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_tag: ''
+        update_time: '0.1'
+        width1: '1'
+        width10: '1'
+        width2: '1'
+        width3: '1'
+        width4: '1'
+        width5: '1'
+        width6: '1'
+        width7: '1'
+        width8: '1'
+        width9: '1'
+        ymax: '10'
+        ymin: '-140'
+    states:
+        coordinate: [920, 280]
+        rotation: 0
+        state: enabled
+-   name: noise
+    id: analog_noise_source_x
+    parameters:
+        amplitude: noise_amp
+        comment: ''
+        seed: '0'
+        type: complex
+    states:
+        coordinate: [90, 540]
+        rotation: 0
+        state: enabled
+-   name: note_two
+    id: note
+    parameters:
+        comment: ''
+        note: "Two tones, one of them much weaker. Slide them together and watch the point where the FFT stops resolving them as two\n\nThe sidelobes of the strong tone's window are what buries the weak one. Raise the FFT Size on the Frequency Sink to narrow each bin and the two separate sooner"
+    states:
+        coordinate: [330, 30]
+        rotation: 0
+        state: enabled
+-   name: strong_tone
+    id: analog_sig_source_x
+    parameters:
+        amplitude: '1'
+        comment: ''
+        frequency: strong_freq
+        samp_rate: samp_rate
+        type: complex
+        waveform: analog.GR_COS_WAVE
+    states:
+        coordinate: [20, 260]
+        rotation: 0
+        state: enabled
+-   name: throttle
+    id: blocks_throttle2
+    parameters:
+        comment: ''
+        ignoretag: 'True'
+        limit: auto
+        maximum: '0.1'
+        samples_per_second: samp_rate
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [580, 290]
+        rotation: 0
+        state: enabled
+-   name: wasm_gui_layout_0
+    id: wasm_gui_layout
+    parameters:
+        columns: '12'
+        comment: ''
+        layout: '{"freq_sink":[0,3,12,4],"noise_amp":[0,0,12,1],"strong_freq":[0,1,12,1],"waterfall_sink":[0,7,12,4],"weak_amp":[6,2,6,1],"weak_freq":[0,2,6,1]}'
+        row_height: '60'
+    states:
+        coordinate: [1240, 230]
+        rotation: 0
+        state: enabled
+-   name: waterfall_sink
+    id: qtgui_waterfall_sink_x
+    parameters:
+        alpha1: '1'
+        alpha10: '1'
+        alpha2: '1'
+        alpha3: '1'
+        alpha4: '1'
+        alpha5: '1'
+        alpha6: '1'
+        alpha7: '1'
+        alpha8: '1'
+        alpha9: '1'
+        axislabels: 'True'
+        color1: '0'
+        color10: '0'
+        color2: '0'
+        color3: '0'
+        color4: '0'
+        color5: '0'
+        color6: '0'
+        color7: '0'
+        color8: '0'
+        color9: '0'
+        comment: ''
+        fc: '0'
+        fftsize: '1024'
+        grid: 'False'
+        int_max: '0'
+        int_min: '-140'
+        label1: ''
+        label10: ''
+        label2: ''
+        label3: ''
+        label4: ''
+        label5: ''
+        label6: ''
+        label7: ''
+        label8: ''
+        label9: ''
+        legend: 'True'
+        name: Waterfall
+        nconnections: '1'
+        samp_rate: samp_rate
+        update_time: '0.1'
+    states:
+        coordinate: [920, 440]
+        rotation: 0
+        state: enabled
+-   name: weak_tone
+    id: analog_sig_source_x
+    parameters:
+        amplitude: weak_amp
+        comment: ''
+        frequency: weak_freq
+        samp_rate: samp_rate
+        type: complex
+        waveform: analog.GR_COS_WAVE
+    states:
+        coordinate: [20, 400]
+        rotation: 0
+        state: enabled
+connections:
+- [add, '0', throttle, '0']
+- [noise, '0', add, '2']
+- [strong_tone, '0', add, '0']
+- [throttle, '0', freq_sink, '0']
+- [throttle, '0', waterfall_sink, '0']
+- [weak_tone, '0', add, '1']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0

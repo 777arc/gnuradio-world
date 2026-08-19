@@ -12,7 +12,6 @@
 #include <gnuradio/digital/correlate_access_code_ff_ts.h>
 #include <gnuradio/digital/correlate_access_code_tag_bb.h>
 #include <gnuradio/digital/correlate_access_code_tag_ff.h>
-#include <gnuradio/digital/costas_loop_cc.h>
 #include <gnuradio/digital/cpmmod_bc.h>
 #include <gnuradio/digital/crc16_async_bb.h>
 #include <gnuradio/digital/crc32_async_bb.h>
@@ -253,13 +252,6 @@ struct Registrar_digital {
             return { block, nullptr };
         }
         throw std::runtime_error("unsupported type selection for digital_correlate_access_code_xx_ts");
-    });
-    wasm_registry_add("digital_costas_loop_cc", +[](const nlohmann::json& p) -> BuiltBlock {
-        auto block = digital::costas_loop_cc::make(
-            wasm_registry::number<double>(p, "w", 0.0),
-            wasm_registry::number<int>(p, "order", 0),
-            wasm_registry::choice(p, "use_snr", {{"True", true}, {"False", false}}, false));
-        return { block, nullptr };
     });
     wasm_registry_add("digital_cpmmod_bc", +[](const nlohmann::json& p) -> BuiltBlock {
         auto block = digital::cpmmod_bc::make(

@@ -49,10 +49,13 @@
 #include <gnuradio/blocks/correctiq_swapiq.h>
 #include <gnuradio/blocks/phase_shift.h>
 #include <gnuradio/blocks/rotator_cc.h>
+#include <gnuradio/channels/fading_model.h>
+#include <gnuradio/channels/selective_fading_model.h>
 #include <gnuradio/digital/constellation.h>
 #include <gnuradio/digital/constellation_decoder_cb.h>
 #include <gnuradio/digital/constellation_encoder_bc.h>
 #include <gnuradio/digital/constellation_receiver_cb.h>
+#include <gnuradio/digital/costas_loop_cc.h>
 #include <gnuradio/digital/constellation_soft_decoder_cf.h>
 #include <gnuradio/digital/meas_evm_cc.h>
 #include <gnuradio/digital/symbol_sync_cc.h>
@@ -83,6 +86,7 @@
 #include <gnuradio/qtgui/time_sink_c.h>
 #include <gnuradio/qtgui/time_sink_f.h>
 #include <gnuradio/qtgui/freq_sink_c.h>
+#include <gnuradio/qtgui/freq_sink_f.h>
 #include <gnuradio/qtgui/const_sink_c.h>
 #include <gnuradio/qtgui/waterfall_sink_c.h>
 #include <gnuradio/qtgui/waterfall_sink_f.h>
@@ -359,6 +363,11 @@ static void configure_waterfall_sink(const std::shared_ptr<Sink>& sink,
 {
     sink->set_intensity_range(number_from(p, "int_min", -140.0),
                               number_from(p, "int_max", 10.0));
+    // Upstream has set_fft_average() but GRC never exposed a parameter for it, so
+    // a waterfall fed by noise shows the periodogram's own ~5.6 dB per-bin speckle
+    // and nothing of the channel. fft_average_from() defaults to 1.0 (no
+    // averaging), which is what every .grc without the parameter keeps.
+    sink->set_fft_average(static_cast<float>(fft_average_from(p)));
     sink->set_update_time(number_from(p, "update_time", 0.1));
     sink->enable_grid(bool_from(p, "grid", false));
     sink->enable_axis_labels(bool_from(p, "axislabels", true));
@@ -2859,6 +2868,23 @@ static std::map<std::string, Factory>& registry_storage() {
              };
              return result;
          }},
+        // Hand-written only to keep it out of the digital side module: built
+        // there, its scheduler thread dies on the first pass through the message
+        // queue with "null function" out of pmt::eqv, and everything downstream
+        // of it sits at zero items. Nothing about the block itself needs custom
+        // treatment -- the arguments are the generated ones -- so this is a
+        // placement fix, and the live loop-bandwidth setter is a bonus.
+        {"digital_costas_loop_cc", [](const json& p) -> BuiltBlock {
+             auto block = gr::digital::costas_loop_cc::make(
+                 static_cast<float>(number_from(p, "w", 0.0)),
+                 static_cast<unsigned int>(number_from(p, "order", 2)),
+                 bool_from(p, "use_snr", false));
+             BuiltBlock result{ block };
+             result.numeric_setters["w"] = [block](double value) {
+                 block->set_loop_bandwidth(static_cast<float>(value));
+             };
+             return result;
+         }},
         {"digital_constellation_soft_decoder_cf",
          [](const json& p) -> BuiltBlock {
              auto block = gr::digital::constellation_soft_decoder_cf::make(
@@ -3080,6 +3106,47 @@ static std::map<std::string, Factory>& registry_storage() {
              };
              return result;
          }},
+        // ---- gr-channels ----
+        // Hand-written for the live fDTs/K setters alone: a fading model whose
+        // Doppler rate cannot be moved while the graph runs is a demo nobody can
+        // see. Being CUSTOM_IDS they register from the main module, so
+        // libgnuradio-channels.a is linked normally below and only these two
+        // objects are pulled into core; channel_model stays in channels.wasm.
+        {"channels_fading_model", [](const json& p) -> BuiltBlock {
+             auto block = gr::channels::fading_model::make(
+                 static_cast<unsigned int>(number_from(p, "N", 8)),
+                 static_cast<float>(number_from(p, "fDTs", 0.0)),
+                 bool_from(p, "LOS", false),
+                 static_cast<float>(number_from(p, "K", 4.0)),
+                 static_cast<uint32_t>(number_from(p, "seed", 0)));
+             BuiltBlock result{ block };
+             result.numeric_setters["fDTs"] = [block](double value) {
+                 block->set_fDTs(static_cast<float>(value));
+             };
+             result.numeric_setters["K"] = [block](double value) {
+                 block->set_K(static_cast<float>(value));
+             };
+             return result;
+         }},
+        {"channels_selective_fading_model", [](const json& p) -> BuiltBlock {
+             auto block = gr::channels::selective_fading_model::make(
+                 static_cast<unsigned int>(number_from(p, "N", 8)),
+                 static_cast<float>(number_from(p, "fDTs", 0.0)),
+                 bool_from(p, "LOS", false),
+                 static_cast<float>(number_from(p, "K", 4.0)),
+                 static_cast<int>(number_from(p, "seed", 0)),
+                 flat_sequence<float>(p, "delays"),
+                 flat_sequence<float>(p, "mags"),
+                 static_cast<int>(number_from(p, "ntaps", 8)));
+             BuiltBlock result{ block };
+             result.numeric_setters["fDTs"] = [block](double value) {
+                 block->set_fDTs(static_cast<float>(value));
+             };
+             result.numeric_setters["K"] = [block](double value) {
+                 block->set_K(static_cast<float>(value));
+             };
+             return result;
+         }},
         // ---- flow control ----
         // Deprecated upstream and hidden from the editor palette in favour of
         // blocks_throttle2 (generated factory, same gr::blocks::throttle), but
@@ -3284,25 +3351,45 @@ static std::map<std::string, Factory>& registry_storage() {
              double sr = p.value("samp_rate", 32000.0);
              const double initial_fc = p.value("fc", 0.0);
              const double initial_bw = p.value("bw", sr);
-             auto b = gr::qtgui::freq_sink_c::make(p.value("fftsize", 1024),
-                 p.value("wintype", 5), initial_fc, initial_bw,
-                 unquoted(p.value("name", std::string())), p.value("nconnections", 1));
-             configure_freq_sink(b, p);
-             auto range = std::make_shared<std::pair<double, double>>(initial_fc, initial_bw);
-             BuiltBlock result{ b, b->qwidget() };
-             result.numeric_setters["fftsize"] =
-                 [b](double value) { b->set_fft_size(static_cast<int>(value)); };
-             result.numeric_setters["fc"] = [b, range](double value) {
-                 range->first = value;
-                 b->set_frequency_range(range->first, range->second);
+             const int fftsize = p.value("fftsize", 1024);
+             const int wintype = p.value("wintype", 5);
+             const std::string name = unquoted(p.value("name", std::string()));
+             const int nc = p.value("nconnections", 1);
+             // Everything past construction is identical for the two sinks, so
+             // the shared tail is a template over the sptr the branch produced.
+             auto finish = [&](auto b) {
+                 configure_freq_sink(b, p);
+                 auto range =
+                     std::make_shared<std::pair<double, double>>(initial_fc, initial_bw);
+                 BuiltBlock result{ b, b->qwidget() };
+                 result.numeric_setters["fftsize"] =
+                     [b](double value) { b->set_fft_size(static_cast<int>(value)); };
+                 result.numeric_setters["average"] = [b](double value) {
+                     b->set_fft_average(static_cast<float>(value));
+                 };
+                 result.numeric_setters["fc"] = [b, range](double value) {
+                     range->first = value;
+                     b->set_frequency_range(range->first, range->second);
+                 };
+                 auto set_bandwidth = [b, range](double value) {
+                     range->second = value;
+                     b->set_frequency_range(range->first, range->second);
+                 };
+                 result.numeric_setters["bw"] = set_bandwidth;
+                 result.numeric_setters["samp_rate"] = set_bandwidth;
+                 return result;
              };
-             auto set_bandwidth = [b, range](double value) {
-                 range->second = value;
-                 b->set_frequency_range(range->first, range->second);
-             };
-             result.numeric_setters["bw"] = set_bandwidth;
-             result.numeric_setters["samp_rate"] = set_bandwidth;
-             return result;
+             if (is_float(p)) {
+                 auto b = gr::qtgui::freq_sink_f::make(
+                     fftsize, wintype, initial_fc, initial_bw, name, nc);
+                 // GRC's Spectrum Width, meaningful only for a real input: its
+                 // spectrum is symmetric, so `freqhalf` False plots the positive
+                 // half alone. Same inversion as the yaml's cpp_template.
+                 b->set_plot_pos_half(!bool_from(p, "freqhalf", true));
+                 return finish(b);
+             }
+             return finish(gr::qtgui::freq_sink_c::make(
+                 fftsize, wintype, initial_fc, initial_bw, name, nc));
          }},
         {"qtgui_const_sink_x", [](const json& p) -> BuiltBlock {
              const std::string type = type_from(p, "complex");

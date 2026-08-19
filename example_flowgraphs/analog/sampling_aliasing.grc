@@ -1,0 +1,272 @@
+options:
+    parameters:
+        author: PySDR
+        comment: ''
+        copyright: ''
+        description: Companion to the Sampling chapter of PySDR
+        generate_options: qt_gui
+        id: PySDR__Nyquist_Sampling_and_Aliasing
+        title: 'PySDR: Nyquist Sampling and Aliasing'
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: samp_rate
+    id: variable
+    parameters:
+        comment: ''
+        value: '100000'
+    states:
+        coordinate: [320, 10]
+        rotation: 0
+        state: enabled
+-   name: tone_freq
+    id: variable_qtgui_range
+    parameters:
+        comment: ''
+        label: Tone frequency (Hz)
+        min_len: '200'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '100'
+        step: '100'
+        stop: '100000'
+        value: '2000'
+        widget: counter_slider
+    states:
+        coordinate: [730, 10]
+        rotation: 0
+        state: enabled
+-   name: freq_sink
+    id: qtgui_freq_sink_x
+    parameters:
+        alpha1: '1'
+        alpha10: '1'
+        alpha2: '1'
+        alpha3: '1'
+        alpha4: '1'
+        alpha5: '1'
+        alpha6: '1'
+        alpha7: '1'
+        alpha8: '1'
+        alpha9: '1'
+        autoscale: 'False'
+        average: '1.0'
+        axislabels: 'True'
+        color1: '"blue"'
+        color10: '"dark blue"'
+        color2: '"red"'
+        color3: '"green"'
+        color4: '"black"'
+        color5: '"cyan"'
+        color6: '"magenta"'
+        color7: '"yellow"'
+        color8: '"dark red"'
+        color9: '"dark green"'
+        comment: ''
+        ctrlpanel: 'False'
+        fc: '0'
+        fftsize: '1024'
+        freqhalf: 'False'
+        grid: 'True'
+        label1: ''
+        label10: ''''''
+        label2: ''''''
+        label3: ''''''
+        label4: ''''''
+        label5: ''''''
+        label6: ''''''
+        label7: ''''''
+        label8: ''''''
+        label9: ''''''
+        legend: 'True'
+        marker1: '-1'
+        marker10: '-1'
+        marker2: '-1'
+        marker3: '-1'
+        marker4: '-1'
+        marker5: '-1'
+        marker6: '-1'
+        marker7: '-1'
+        marker8: '-1'
+        marker9: '-1'
+        name: '"Where the tone appears"'
+        nconnections: '1'
+        samp_rate: samp_rate
+        style1: '1'
+        style10: '1'
+        style2: '1'
+        style3: '1'
+        style4: '1'
+        style5: '1'
+        style6: '1'
+        style7: '1'
+        style8: '1'
+        style9: '1'
+        tr_chan: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_tag: '""'
+        type: float
+        update_time: '0.1'
+        width1: '1'
+        width10: '1'
+        width2: '1'
+        width3: '1'
+        width4: '1'
+        width5: '1'
+        width6: '1'
+        width7: '1'
+        width8: '1'
+        width9: '1'
+        ymax: '10'
+        ymin: '-100'
+    states:
+        coordinate: [620, 210]
+        rotation: 0
+        state: enabled
+-   name: note_nyq
+    id: note
+    parameters:
+        comment: ''
+        note: Fs = 100 kHz, so Nyquist is 50 kHz. Sweep the tone past 50 kHz and watch the peak fold back
+    states:
+        coordinate: [290, 110]
+        rotation: 0
+        state: enabled
+-   name: throttle
+    id: blocks_throttle2
+    parameters:
+        comment: ''
+        ignoretag: 'True'
+        limit: auto
+        maximum: '0.1'
+        samples_per_second: samp_rate
+        type: float
+        vlen: '1'
+    states:
+        coordinate: [290, 230]
+        rotation: 0
+        state: enabled
+-   name: time_sink
+    id: qtgui_time_sink_x
+    parameters:
+        alpha1: '1'
+        alpha10: '1'
+        alpha2: '1'
+        alpha3: '1'
+        alpha4: '1'
+        alpha5: '1'
+        alpha6: '1'
+        alpha7: '1'
+        alpha8: '1'
+        alpha9: '1'
+        autoscale: 'False'
+        axislabels: 'True'
+        color1: blue
+        color10: dark blue
+        color2: red
+        color3: green
+        color4: black
+        color5: cyan
+        color6: magenta
+        color7: yellow
+        color8: dark red
+        color9: dark green
+        comment: ''
+        ctrlpanel: 'False'
+        grid: 'True'
+        label1: Signal 1
+        label10: Signal 10
+        label2: Signal 2
+        label3: Signal 3
+        label4: Signal 4
+        label5: Signal 5
+        label6: Signal 6
+        label7: Signal 7
+        label8: Signal 8
+        label9: Signal 9
+        legend: 'True'
+        marker1: '0'
+        marker10: '-1'
+        marker2: '-1'
+        marker3: '-1'
+        marker4: '-1'
+        marker5: '-1'
+        marker6: '-1'
+        marker7: '-1'
+        marker8: '-1'
+        marker9: '-1'
+        name: '"Samples in the time domain"'
+        nconnections: '1'
+        samp_rate: samp_rate
+        size: '200'
+        stemplot: 'False'
+        style1: '1'
+        style10: '1'
+        style2: '1'
+        style3: '1'
+        style4: '1'
+        style5: '1'
+        style6: '1'
+        style7: '1'
+        style8: '1'
+        style9: '1'
+        tr_chan: '0'
+        tr_delay: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_slope: qtgui.TRIG_SLOPE_POS
+        tr_tag: '""'
+        type: float
+        update_time: '0.1'
+        width1: '1'
+        width10: '1'
+        width2: '1'
+        width3: '1'
+        width4: '1'
+        width5: '1'
+        width6: '1'
+        width7: '1'
+        width8: '1'
+        width9: '1'
+        ylabel: Amplitude
+        ymax: '1.5'
+        ymin: '-1.5'
+        yunit: '""'
+    states:
+        coordinate: [620, 390]
+        rotation: 0
+        state: enabled
+-   name: tone
+    id: analog_sig_source_x
+    parameters:
+        amplitude: '1'
+        comment: ''
+        frequency: tone_freq
+        samp_rate: samp_rate
+        type: float
+        waveform: analog.GR_COS_WAVE
+    states:
+        coordinate: [10, 230]
+        rotation: 0
+        state: enabled
+-   name: wasm_gui_layout_0
+    id: wasm_gui_layout
+    parameters:
+        columns: '12'
+        comment: ''
+        layout: '{}'
+        row_height: '60'
+    states:
+        coordinate: [930, 220]
+        rotation: 0
+        state: enabled
+connections:
+- [throttle, '0', freq_sink, '0']
+- [throttle, '0', time_sink, '0']
+- [tone, '0', throttle, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0

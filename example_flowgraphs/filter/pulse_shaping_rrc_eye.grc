@@ -1,0 +1,503 @@
+options:
+    parameters:
+        author: PySDR
+        comment: ''
+        copyright: ''
+        description: Companion to the Pulse Shaping chapter of PySDR
+        generate_options: qt_gui
+        id: PySDR__RRC_Pulse_Shaping__Eye_Diagram__and_Sampling_Instant
+        title: 'PySDR: RRC Pulse Shaping, Eye Diagram, and Sampling Instant'
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: beta
+    id: variable_qtgui_range
+    parameters:
+        comment: ''
+        label: RRC roll-off (beta)
+        min_len: '200'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '0.01'
+        step: '0.01'
+        stop: '1'
+        value: '0.35'
+        widget: counter_slider
+    states:
+        coordinate: [610, 10]
+        rotation: 0
+        state: enabled
+-   name: noise_volt
+    id: variable_qtgui_range
+    parameters:
+        comment: ''
+        label: Noise voltage
+        min_len: '200'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '0'
+        step: '0.01'
+        stop: '0.5'
+        value: '0.05'
+        widget: counter_slider
+    states:
+        coordinate: [860, 10]
+        rotation: 0
+        state: enabled
+-   name: samp_rate
+    id: variable
+    parameters:
+        comment: ''
+        value: '100000'
+    states:
+        coordinate: [1110, 10]
+        rotation: 0
+        state: enabled
+-   name: sps
+    id: variable
+    parameters:
+        comment: ''
+        value: '8'
+    states:
+        coordinate: [1280, 10]
+        rotation: 0
+        state: enabled
+-   name: timing_offset
+    id: variable_qtgui_range
+    parameters:
+        comment: ''
+        label: Sampling instant (samples)
+        min_len: '200'
+        orient: QtCore.Qt.Horizontal
+        rangeType: int
+        start: '0'
+        step: '1'
+        stop: '7'
+        value: '0'
+        widget: counter_slider
+    states:
+        coordinate: [1450, 10]
+        rotation: 0
+        state: enabled
+-   name: bits_to_bpsk
+    id: digital_chunks_to_symbols_xx
+    parameters:
+        comment: ''
+        dimension: '1'
+        in_type: byte
+        num_ports: '1'
+        out_type: complex
+        symbol_table: '[-1+0j, 1+0j]'
+    states:
+        coordinate: [490, 480]
+        rotation: 0
+        state: enabled
+-   name: channel
+    id: channels_channel_model
+    parameters:
+        block_tags: 'False'
+        comment: ''
+        epsilon: '1'
+        freq_offset: '0'
+        noise_voltage: noise_volt
+        seed: '0'
+        taps: '[1.0]'
+    states:
+        coordinate: [1230, 450]
+        rotation: 0
+        state: enabled
+-   name: const_sink
+    id: qtgui_const_sink_x
+    parameters:
+        alpha1: '1'
+        alpha10: '1'
+        alpha2: '1'
+        alpha3: '1'
+        alpha4: '1'
+        alpha5: '1'
+        alpha6: '1'
+        alpha7: '1'
+        alpha8: '1'
+        alpha9: '1'
+        autoscale: 'False'
+        axislabels: 'True'
+        color1: '"blue"'
+        color10: '"dark blue"'
+        color2: '"red"'
+        color3: '"green"'
+        color4: '"black"'
+        color5: '"cyan"'
+        color6: '"magenta"'
+        color7: '"yellow"'
+        color8: '"dark red"'
+        color9: '"dark green"'
+        comment: ''
+        grid: 'True'
+        label1: ''
+        label10: ''
+        label2: ''
+        label3: ''
+        label4: ''
+        label5: ''
+        label6: ''
+        label7: ''
+        label8: ''
+        label9: ''
+        legend: 'True'
+        marker1: '0'
+        marker10: '0'
+        marker2: '0'
+        marker3: '0'
+        marker4: '0'
+        marker5: '0'
+        marker6: '0'
+        marker7: '0'
+        marker8: '0'
+        marker9: '0'
+        name: Sampled symbols
+        nconnections: '1'
+        size: '1024'
+        style1: '0'
+        style10: '0'
+        style2: '0'
+        style3: '0'
+        style4: '0'
+        style5: '0'
+        style6: '0'
+        style7: '0'
+        style8: '0'
+        style9: '0'
+        tr_chan: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_slope: qtgui.TRIG_SLOPE_POS
+        tr_tag: ''
+        update_time: '0.1'
+        width1: '1'
+        width10: '1'
+        width2: '1'
+        width3: '1'
+        width4: '1'
+        width5: '1'
+        width6: '1'
+        width7: '1'
+        width8: '1'
+        width9: '1'
+        xmax: '2'
+        xmin: '-2'
+        ymax: '2'
+        ymin: '-2'
+    states:
+        coordinate: [1390, 690]
+        rotation: 0
+        state: enabled
+-   name: delay
+    id: blocks_delay
+    parameters:
+        comment: ''
+        delay: timing_offset
+        type: complex
+    states:
+        coordinate: [790, 710]
+        rotation: 0
+        state: enabled
+-   name: eye_sink
+    id: qtgui_eye_sink_x
+    parameters:
+        alpha1: '1'
+        alpha10: '1'
+        alpha2: '1'
+        alpha3: '1'
+        alpha4: '1'
+        alpha5: '1'
+        alpha6: '1'
+        alpha7: '1'
+        alpha8: '1'
+        alpha9: '1'
+        autoscale: 'False'
+        axislabels: 'True'
+        color1: blue
+        color10: blue
+        color2: blue
+        color3: blue
+        color4: blue
+        color5: blue
+        color6: blue
+        color7: blue
+        color8: blue
+        color9: blue
+        comment: ''
+        ctrlpanel: 'False'
+        entags: 'True'
+        grid: 'True'
+        gui_hint: ''
+        label1: Signal 1
+        label10: Signal 10
+        label2: Signal 2
+        label3: Signal 3
+        label4: Signal 4
+        label5: Signal 5
+        label6: Signal 6
+        label7: Signal 7
+        label8: Signal 8
+        label9: Signal 9
+        legend: 'True'
+        marker1: '-1'
+        marker10: '-1'
+        marker2: '-1'
+        marker3: '-1'
+        marker4: '-1'
+        marker5: '-1'
+        marker6: '-1'
+        marker7: '-1'
+        marker8: '-1'
+        marker9: '-1'
+        nconnections: '1'
+        samp_per_symbol: sps
+        size: '1024'
+        srate: samp_rate
+        style1: '1'
+        style10: '1'
+        style2: '1'
+        style3: '1'
+        style4: '1'
+        style5: '1'
+        style6: '1'
+        style7: '1'
+        style8: '1'
+        style9: '1'
+        tr_chan: '0'
+        tr_delay: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_slope: qtgui.TRIG_SLOPE_POS
+        tr_tag: '""'
+        type: complex
+        update_time: '0.1'
+        width1: '1'
+        width10: '1'
+        width2: '1'
+        width3: '1'
+        width4: '1'
+        width5: '1'
+        width6: '1'
+        width7: '1'
+        width8: '1'
+        width9: '1'
+        ylabel: Amplitude
+        ymax: '2'
+        ymin: '-2'
+        yunit: '""'
+    states:
+        coordinate: [790, 810]
+        rotation: 0
+        state: enabled
+-   name: freq_sink
+    id: qtgui_freq_sink_x
+    parameters:
+        alpha1: '1'
+        alpha10: '1'
+        alpha2: '1'
+        alpha3: '1'
+        alpha4: '1'
+        alpha5: '1'
+        alpha6: '1'
+        alpha7: '1'
+        alpha8: '1'
+        alpha9: '1'
+        autoscale: 'False'
+        average: '0.2'
+        axislabels: 'True'
+        color1: '"blue"'
+        color10: '"dark blue"'
+        color2: '"red"'
+        color3: '"green"'
+        color4: '"black"'
+        color5: '"cyan"'
+        color6: '"magenta"'
+        color7: '"yellow"'
+        color8: '"dark red"'
+        color9: '"dark green"'
+        comment: ''
+        ctrlpanel: 'False'
+        fc: '0'
+        fftsize: '1024'
+        grid: 'True'
+        label1: ''
+        label10: ''
+        label2: ''
+        label3: ''
+        label4: ''
+        label5: ''
+        label6: ''
+        label7: ''
+        label8: ''
+        label9: ''
+        legend: 'True'
+        marker1: '-1'
+        marker10: '-1'
+        marker2: '-1'
+        marker3: '-1'
+        marker4: '-1'
+        marker5: '-1'
+        marker6: '-1'
+        marker7: '-1'
+        marker8: '-1'
+        marker9: '-1'
+        name: Pulse-shaped spectrum
+        nconnections: '1'
+        samp_rate: samp_rate
+        style1: '1'
+        style10: '1'
+        style2: '1'
+        style3: '1'
+        style4: '1'
+        style5: '1'
+        style6: '1'
+        style7: '1'
+        style8: '1'
+        style9: '1'
+        tr_chan: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_tag: ''
+        update_time: '0.1'
+        width1: '1'
+        width10: '1'
+        width2: '1'
+        width3: '1'
+        width4: '1'
+        width5: '1'
+        width6: '1'
+        width7: '1'
+        width8: '1'
+        width9: '1'
+        ymax: '10'
+        ymin: '-100'
+    states:
+        coordinate: [790, 990]
+        rotation: 0
+        state: enabled
+-   name: note_eye
+    id: note
+    parameters:
+        comment: ''
+        note: The eye diagram overlays symbol periods. Raise beta and the eye opens wider in time; raise the noise and it closes vertically
+    states:
+        coordinate: [10, 300]
+        rotation: 0
+        state: enabled
+-   name: note_samp
+    id: note
+    parameters:
+        comment: ''
+        note: Sampling instant slides where the decimator takes its one sample in eight. At 0 it sits in the middle of the eye; walk it away and the constellation smears
+    states:
+        coordinate: [410, 300]
+        rotation: 0
+        state: enabled
+-   name: note_tx
+    id: note
+    parameters:
+        comment: ''
+        note: Random bits become BPSK symbols, one every 8 samples, then an RRC filter spreads each symbol over 11 symbol periods
+    states:
+        coordinate: [830, 300]
+        rotation: 0
+        state: enabled
+-   name: random_bits
+    id: analog_random_uniform_source_x
+    parameters:
+        comment: ''
+        maximum: '1'
+        minimum: '0'
+        seed: '0'
+        type: byte
+    states:
+        coordinate: [10, 470]
+        rotation: 0
+        state: enabled
+-   name: rrc_rx
+    id: root_raised_cosine_filter
+    parameters:
+        alpha: beta
+        comment: ''
+        decim: '1'
+        gain: 1.0/sps
+        interp: '1'
+        ntaps: 11*sps
+        samp_rate: samp_rate
+        sym_rate: samp_rate/sps
+        type: fir_filter_ccf
+    states:
+        coordinate: [410, 660]
+        rotation: 0
+        state: enabled
+-   name: rrc_tx
+    id: root_raised_cosine_filter
+    parameters:
+        alpha: beta
+        comment: ''
+        decim: '1'
+        gain: sps
+        interp: sps
+        ntaps: 11*sps
+        samp_rate: samp_rate
+        sym_rate: samp_rate/sps
+        type: interp_fir_filter_ccf
+    states:
+        coordinate: [850, 440]
+        rotation: 0
+        state: enabled
+-   name: symbol_decim
+    id: blocks_keep_one_in_n
+    parameters:
+        comment: ''
+        n: sps
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [1150, 710]
+        rotation: 0
+        state: enabled
+-   name: throttle
+    id: blocks_throttle2
+    parameters:
+        comment: ''
+        ignoretag: 'True'
+        limit: auto
+        maximum: '0.1'
+        samples_per_second: samp_rate
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [80, 690]
+        rotation: 0
+        state: enabled
+-   name: wasm_gui_layout_0
+    id: wasm_gui_layout
+    parameters:
+        columns: '12'
+        comment: ''
+        layout: '{}'
+        row_height: '60'
+    states:
+        coordinate: [320, 10]
+        rotation: 0
+        state: enabled
+connections:
+- [bits_to_bpsk, '0', rrc_tx, '0']
+- [channel, '0', throttle, '0']
+- [delay, '0', symbol_decim, '0']
+- [random_bits, '0', bits_to_bpsk, '0']
+- [rrc_rx, '0', delay, '0']
+- [rrc_rx, '0', eye_sink, '0']
+- [rrc_rx, '0', freq_sink, '0']
+- [rrc_tx, '0', channel, '0']
+- [symbol_decim, '0', const_sink, '0']
+- [throttle, '0', rrc_rx, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0
