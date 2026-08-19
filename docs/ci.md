@@ -191,7 +191,14 @@ Three checks run:
   Security tab rather than blocking a contributor over something they did not
   write.
 - **`actions/dependency-review-action`** for known-vulnerable dependencies,
-  `fail-on-severity: high`.
+  `fail-on-severity: high`. It requires the repository's **dependency graph** to
+  be on (Settings ▸ Advanced Security); with it off the action does not report a
+  clean result, it hard-errors with "Dependency review is not supported on this
+  repository" — a repository setting failing every PR, and with it the `build`
+  job that `needs` the gate, so no preview is ever published. The job therefore
+  probes `repos/<repo>/dependency-graph/sbom` first and, on a 404, reports the
+  check as `⏭️ unavailable` with a pointer to the setting instead of failing.
+  Every other failure — a real vulnerability, an API outage — still blocks.
 
 Two things to know before changing any of it. The reusable workflow declares
 **no `permissions:` blocks at all** — a called workflow's job may only *narrow*
