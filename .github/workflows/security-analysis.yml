@@ -177,18 +177,56 @@ jobs:
     name: Dependency review
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    outputs:
+      status: ${{ steps.probe.outputs.status }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.base_ref }}
           persist-credentials: false
-      - uses: actions/dependency-review-action@v4
+
+      # The action hard-errors with "Dependency review is not supported on this
+      # repository" when the repository's dependency graph is switched off --
+      # a repository SETTING, nothing to do with the pull request. Left to fail,
+      # that takes `build` with it and no preview is ever published, so probe
+      # the feature first and report it as unavailable instead of as a finding.
+      # Anything else (a real vulnerability, an API outage) still fails the job.
+      - name: Is the dependency graph enabled?
+        id: probe
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          if gh api "repos/$REPO/dependency-graph/sbom" --silent 2>/dev/null; then
+            echo "status=ok" >> "$GITHUB_OUTPUT"
+          else
+            echo "status=unavailable" >> "$GITHUB_OUTPUT"
+            echo "::warning::dependency graph is disabled for $REPO — skipping dependency review. Enable it under Settings ▸ Advanced Security."
+            {
+              echo "**Dependency review skipped.** The dependency graph is disabled for"
+              echo "\`$REPO\`, so GitHub has no dependency data to compare. Enable it under"
+              echo "[Settings ▸ Advanced Security](https://github.com/$REPO/settings/security_analysis)"
+              echo "to turn this check back on."
+            } > dependency-review.md
+          fi
+
+      - if: steps.probe.outputs.status == 'ok'
+        uses: actions/dependency-review-action@v4
         with:
           # The dependency-graph compare API takes commits, not refs.
           base-ref: ${{ inputs.base_sha }}
           head-ref: ${{ inputs.head_sha }}
           fail-on-severity: high
           comment-summary-in-pr: ${{ inputs.comment && 'on-failure' || 'never' }}
+
+      - name: Upload the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-dependency-review
+          path: dependency-review.md
+          retention-days: 7
+          if-no-files-found: ignore
 
   # -------------------------------------------------------------------------
   # One status the branch protection rule can require, and one comment.
@@ -214,7 +252,7 @@ jobs:
         env:
           DIFF: ${{ needs.diff-scan.result }}
           CODEQL: ${{ needs.codeql.result }}
-          DEPS: ${{ needs.dependency-review.result }}
+          DEPS: ${{ needs.dependency-review.outputs.status == 'unavailable' && 'unavailable' || needs.dependency-review.result }}
         run: |
           {
             echo "<!-- pr-security-report -->"
@@ -227,6 +265,7 @@ jobs:
               case "$res" in
                 success) icon="✅ passed" ;;
                 skipped) icon="⏭️ skipped" ;;
+                unavailable) icon="⏭️ unavailable" ;;
                 cancelled) icon="⚪ cancelled" ;;
                 *) icon="❌ **$res**" ;;
               esac
