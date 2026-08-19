@@ -473,7 +473,7 @@ blocks:
     parameters:
         columns: '12'
         comment: ''
-        layout: '{"beta":[0,0,4,1],"const_sink":[0,1,4,3],"eye_sink":[4,1,8,3],"freq_sink":[0,4,12,3],"noise_volt":[4,0,4,1],"timing_offset":[8,0,4,1]}'
+        layout: '{"beta":[0,0,4,1],"const_sink":[0,2,3,3],"eye_sink":[4,2,8,3],"freq_sink":[0,5,12,3],"noise_volt":[0,1,12,1],"timing_offset":[8,0,4,1]}'
         row_height: '60'
     states:
         coordinate: [1530, 60]

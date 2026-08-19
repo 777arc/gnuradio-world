@@ -188,7 +188,7 @@ blocks:
     parameters:
         columns: '12'
         comment: ''
-        layout: '{"fDTs":[3,0,6,1],"freq_sink":[0,1,12,4],"waterfall_sink":[0,5,12,4]}'
+        layout: '{"fDTs":[2,0,8,1],"freq_sink":[0,1,12,4],"waterfall_sink":[0,5,12,4]}'
         row_height: '60'
     states:
         coordinate: [1340, 20]

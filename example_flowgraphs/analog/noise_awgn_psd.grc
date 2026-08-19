@@ -96,6 +96,7 @@ blocks:
         ctrlpanel: 'True'
         fc: '0'
         fftsize: '1024'
+        freqhalf: 'True'
         grid: 'True'
         label1: ''
         label10: ''''''
@@ -135,6 +136,7 @@ blocks:
         tr_level: '0'
         tr_mode: qtgui.TRIG_MODE_FREE
         tr_tag: '""'
+        type: complex
         update_time: '0.1'
         width1: '1'
         width10: '1'
@@ -385,7 +387,7 @@ blocks:
     parameters:
         columns: '12'
         comment: ''
-        layout: '{"freq_sink":[0,1,6,4],"hist_sink":[0,5,12,4],"noise_amp":[0,0,6,1],"time_sink":[6,1,6,4],"tone_amp":[6,0,6,1]}'
+        layout: '{"freq_sink":[0,1,6,4],"hist_sink":[0,5,12,4],"noise_amp":[0,0,5,1],"time_sink":[6,1,6,4],"tone_amp":[7,0,5,1]}'
         row_height: '60'
     states:
         coordinate: [1200, 40]

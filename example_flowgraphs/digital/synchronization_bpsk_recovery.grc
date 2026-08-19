@@ -571,7 +571,7 @@ blocks:
     parameters:
         columns: '12'
         comment: ''
-        layout: '{"const_rx":[0,1,4,3],"const_synced":[8,1,4,3],"const_timed":[4,1,4,3],"freq_offset":[0,0,4,1],"noise_volt":[4,0,4,1],"time_offset":[8,0,4,1],"time_symbols":[0,4,12,3]}'
+        layout: '{"const_rx":[0,2,4,3],"const_synced":[8,2,4,3],"const_timed":[4,2,4,3],"freq_offset":[0,0,5,1],"noise_volt":[0,1,12,1],"time_offset":[7,0,5,1],"time_symbols":[0,5,12,3]}'
         row_height: '60'
     states:
         coordinate: [320, 10]

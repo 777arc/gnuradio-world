@@ -1,6 +1,7 @@
 options:
     parameters:
         author: Marc
+        comment: ''
         copyright: ''
         description: 8PSK with added noise, adjustable via range widget
         generate_options: qt_gui
@@ -14,6 +15,7 @@ blocks:
 -   name: noise
     id: variable_qtgui_range
     parameters:
+        comment: ''
         label: ''
         min_len: '200'
         orient: QtCore.Qt.Horizontal
@@ -30,6 +32,7 @@ blocks:
 -   name: mod7
     id: digital_psk_mod
     parameters:
+        comment: ''
         constellation_points: '8'
         differential: 'True'
         excess_bw: '0.35'
@@ -42,6 +45,7 @@ blocks:
 -   name: throttle4
     id: blocks_throttle2
     parameters:
+        comment: ''
         ignoretag: 'True'
         limit: auto
         maximum: '0.1'
@@ -52,10 +56,22 @@ blocks:
         coordinate: [860, 230]
         rotation: 0
         state: enabled
+-   name: wasm_gui_layout_0
+    id: wasm_gui_layout
+    parameters:
+        columns: '12'
+        comment: ''
+        layout: '{}'
+        row_height: '60'
+    states:
+        coordinate: [850, 10]
+        rotation: 0
+        state: enabled
 -   name: x2
     id: analog_noise_source_x
     parameters:
         amplitude: noise
+        comment: ''
         seed: '0'
         type: complex
     states:
@@ -65,6 +81,7 @@ blocks:
 -   name: x8
     id: analog_random_source_x
     parameters:
+        comment: ''
         max: '2'
         min: '0'
         num_samps: '1000'
@@ -78,16 +95,63 @@ blocks:
     id: qtgui_const_sink_x
     parameters:
         alpha1: '1'
+        alpha10: '1'
+        alpha2: '1'
+        alpha3: '1'
+        alpha4: '1'
+        alpha5: '1'
+        alpha6: '1'
+        alpha7: '1'
+        alpha8: '1'
+        alpha9: '1'
         autoscale: 'False'
         axislabels: 'True'
         color1: '"blue"'
+        color10: '"dark blue"'
+        color2: '"red"'
+        color3: '"green"'
+        color4: '"black"'
+        color5: '"cyan"'
+        color6: '"magenta"'
+        color7: '"yellow"'
+        color8: '"dark red"'
+        color9: '"dark green"'
+        comment: ''
         grid: 'False'
         label1: ''
+        label10: ''
+        label2: ''
+        label3: ''
+        label4: ''
+        label5: ''
+        label6: ''
+        label7: ''
+        label8: ''
+        label9: ''
         legend: 'True'
         marker1: '0'
+        marker10: '0'
+        marker2: '0'
+        marker3: '0'
+        marker4: '0'
+        marker5: '0'
+        marker6: '0'
+        marker7: '0'
+        marker8: '0'
+        marker9: '0'
         name: Constellation
+        nconnections: '1'
         size: '1024'
-        style1: '1'
+        style1: '0'
+        style10: '0'
+        style2: '0'
+        style3: '0'
+        style4: '0'
+        style5: '0'
+        style6: '0'
+        style7: '0'
+        style8: '0'
+        style9: '0'
         tr_chan: '0'
         tr_level: '0'
         tr_mode: qtgui.TRIG_MODE_FREE
@@ -95,6 +159,15 @@ blocks:
         tr_tag: ''
         update_time: '0.1'
         width1: '1'
+        width10: '1'
+        width2: '1'
+        width3: '1'
+        width4: '1'
+        width5: '1'
+        width6: '1'
+        width7: '1'
+        width8: '1'
+        width9: '1'
         xmax: '2'
         xmin: '-2'
         ymax: '2'
@@ -106,6 +179,7 @@ blocks:
 -   name: xx3
     id: blocks_add_xx
     parameters:
+        comment: ''
         num_inputs: '2'
         type: complex
         vlen: '1'

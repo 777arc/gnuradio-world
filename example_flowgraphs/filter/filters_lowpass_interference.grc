@@ -251,7 +251,7 @@ blocks:
     parameters:
         columns: '12'
         comment: ''
-        layout: '{"cutoff":[0,0,6,1],"freq_sink":[0,1,12,4],"transition":[6,0,6,1]}'
+        layout: '{"cutoff":[0,0,5,1],"freq_sink":[0,1,12,4],"transition":[7,0,5,1]}'
         row_height: '60'
     states:
         coordinate: [1310, 70]
