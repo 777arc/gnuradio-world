@@ -240,6 +240,7 @@ CUSTOM_IDS = {
     "qtgui_const_sink_x",
     "qtgui_number_sink",
     "qtgui_waterfall_sink_x",
+    "wasm_gr_world_waterfall_sink",
     # The rest of gr-qtgui's C++ sinks. Only qtgui_sink_x declares cpp_templates
     # upstream (the other five are marked Python-only despite having a C++ class),
     # and all of them need a widget and live setters, so each is hand-written.
@@ -273,6 +274,7 @@ GUI_IDS = {
     "qtgui_freq_sink_x",
     "qtgui_const_sink_x",
     "qtgui_waterfall_sink_x",
+    "wasm_gr_world_waterfall_sink",
     "qtgui_number_sink",
     "qtgui_edit_box_msg",
     "qtgui_sink_x",

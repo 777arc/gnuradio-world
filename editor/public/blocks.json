@@ -95558,6 +95558,632 @@
    ]
   },
   {
+   "id": "wasm_gr_world_waterfall_sink",
+   "label": "GR World Waterfall Sink",
+   "category": [
+    "Wasm",
+    "GUI"
+   ],
+   "flags": [
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "gui": true,
+   "module": "core",
+   "documentation": "Browser-only QT waterfall sink with inline intensity controls.\n\nThis block mirrors QT GUI Waterfall Sink behavior while adding a side control\nstrip in the runner with a colorbar-style intensity scale, movable min/max\nticks, and an Auto Scale button.\n\nThis block exists only in the WebAssembly runner -- it has no desktop GNU\nRadio equivalent block id.",
+   "api_documentation": "",
+   "wiki_url": "",
+   "params": [
+    {
+     "id": "type",
+     "label": "Type",
+     "dtype": "enum",
+     "default": "complex",
+     "category": "General",
+     "options": [
+      "complex",
+      "float",
+      "msg_complex",
+      "msg_float"
+     ],
+     "option_labels": [
+      "Complex",
+      "Float",
+      "Complex Message",
+      "Float Message"
+     ],
+     "option_attributes": {
+      "t": [
+       "complex",
+       "float",
+       "message",
+       "message"
+      ]
+     },
+     "hide": "part"
+    },
+    {
+     "id": "name",
+     "label": "Name",
+     "dtype": "string",
+     "default": "\"GR World Waterfall Sink\"",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "fftsize",
+     "label": "FFT Size",
+     "dtype": "int",
+     "default": "1024",
+     "category": "General",
+     "options": [
+      "32",
+      "64",
+      "128",
+      "256",
+      "512",
+      "1024",
+      "2048",
+      "4096",
+      "8192",
+      "16384",
+      "32768"
+     ],
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('all' if type.startswith('msg') else 'none') }"
+    },
+    {
+     "id": "wintype",
+     "label": "Window Type",
+     "dtype": "enum",
+     "default": "window.WIN_BLACKMAN_hARRIS",
+     "category": "General",
+     "options": [
+      "window.WIN_BLACKMAN_hARRIS",
+      "window.WIN_HAMMING",
+      "window.WIN_HANN",
+      "window.WIN_BLACKMAN",
+      "window.WIN_RECTANGULAR",
+      "window.WIN_KAISER",
+      "window.WIN_FLATTOP"
+     ],
+     "option_labels": [
+      "Blackman-harris",
+      "Hamming",
+      "Hann",
+      "Blackman",
+      "Rectangular",
+      "Kaiser",
+      "Flat-top"
+     ],
+     "option_attributes": null,
+     "hide": "part"
+    },
+    {
+     "id": "fc",
+     "label": "Center Frequency (Hz)",
+     "dtype": "real",
+     "default": "0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "bw",
+     "label": "Bandwidth (Hz)",
+     "dtype": "real",
+     "default": "samp_rate",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "int_min",
+     "label": "Intensity Min",
+     "dtype": "float",
+     "default": "-140",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    },
+    {
+     "id": "int_max",
+     "label": "Intensity Max",
+     "dtype": "float",
+     "default": "10",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    },
+    {
+     "id": "grid",
+     "label": "Grid",
+     "dtype": "enum",
+     "default": "False",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": [
+      "Yes",
+      "No"
+     ],
+     "option_attributes": null,
+     "hide": "part"
+    },
+    {
+     "id": "nconnections",
+     "label": "Number of Inputs",
+     "dtype": "int",
+     "default": "1",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('all' if type.startswith('msg') else 'part') }"
+    },
+    {
+     "id": "update_time",
+     "label": "Update Period",
+     "dtype": "real",
+     "default": "0.10",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    },
+    {
+     "id": "showports",
+     "label": "Show Msg Ports",
+     "dtype": "bool",
+     "default": "False",
+     "category": "General",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": [
+      "Yes",
+      "No"
+     ],
+     "option_attributes": null,
+     "hide": "part"
+    },
+    {
+     "id": "legend",
+     "label": "Legend",
+     "dtype": "enum",
+     "default": "True",
+     "category": "Config",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": [
+      "Yes",
+      "No"
+     ],
+     "option_attributes": null,
+     "hide": "part"
+    },
+    {
+     "id": "axislabels",
+     "label": "Axis Labels",
+     "dtype": "enum",
+     "default": "True",
+     "category": "Config",
+     "options": [
+      "True",
+      "False"
+     ],
+     "option_labels": [
+      "Yes",
+      "No"
+     ],
+     "option_attributes": null,
+     "hide": "part"
+    },
+    {
+     "id": "label1",
+     "label": "Line 1 Label",
+     "dtype": "string",
+     "default": "",
+     "category": "Config",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('part' if int(nconnections) >= 1 else 'all') }"
+    },
+    {
+     "id": "color1",
+     "label": "Line 1 Color",
+     "dtype": "enum",
+     "default": "",
+     "category": "Config",
+     "options": [
+      "0",
+      "1",
+      "2",
+      "3",
+      "5",
+      "6"
+     ],
+     "option_labels": [
+      "Multi Color",
+      "White Hot",
+      "Black Hot",
+      "Incandescent",
+      "Sunset",
+      "Cool"
+     ],
+     "option_attributes": null,
+     "hide": "${ ('part' if int(nconnections) >= 1 else 'all') }"
+    },
+    {
+     "id": "alpha1",
+     "label": "Line 1 Alpha",
+     "dtype": "float",
+     "default": "1.0",
+     "category": "Config",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('part' if int(nconnections) >= 1 else 'all') }"
+    },
+    {
+     "id": "label2",
+     "label": "Line 2 Label",
+     "dtype": "",
+     "default": "",
+     "category": "Config",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('part' if int(nconnections) >= 2 else 'all') }"
+    },
+    {
+     "id": "color2",
+     "label": "Line 2 Color",
+     "dtype": "",
+     "default": "",
+     "category": "Config",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('part' if int(nconnections) >= 2 else 'all') }"
+    },
+    {
+     "id": "alpha2",
+     "label": "Line 2 Alpha",
+     "dtype": "",
+     "default": "",
+     "category": "Config",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('part' if int(nconnections) >= 2 else 'all') }"
+    },
+    {
+     "id": "label3",
+     "label": "Line 3 Label",
+     "dtype": "",
+     "default": "",
+     "category": "Config",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('part' if int(nconnections) >= 3 else 'all') }"
+    },
+    {
+     "id": "color3",
+     "label": "Line 3 Color",
+     "dtype": "",
+     "default": "",
+     "category": "Config",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('part' if int(nconnections) >= 3 else 'all') }"
+    },
+    {
+     "id": "alpha3",
+     "label": "Line 3 Alpha",
+     "dtype": "",
+     "default": "",
+     "category": "Config",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('part' if int(nconnections) >= 3 else 'all') }"
+    },
+    {
+     "id": "label4",
+     "label": "Line 4 Label",
+     "dtype": "",
+     "default": "",
+     "category": "Config",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('part' if int(nconnections) >= 4 else 'all') }"
+    },
+    {
+     "id": "color4",
+     "label": "Line 4 Color",
+     "dtype": "",
+     "default": "",
+     "category": "Config",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('part' if int(nconnections) >= 4 else 'all') }"
+    },
+    {
+     "id": "alpha4",
+     "label": "Line 4 Alpha",
+     "dtype": "",
+     "default": "",
+     "category": "Config",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('part' if int(nconnections) >= 4 else 'all') }"
+    },
+    {
+     "id": "label5",
+     "label": "Line 5 Label",
+     "dtype": "",
+     "default": "",
+     "category": "Config",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('part' if int(nconnections) >= 5 else 'all') }"
+    },
+    {
+     "id": "color5",
+     "label": "Line 5 Color",
+     "dtype": "",
+     "default": "",
+     "category": "Config",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('part' if int(nconnections) >= 5 else 'all') }"
+    },
+    {
+     "id": "alpha5",
+     "label": "Line 5 Alpha",
+     "dtype": "",
+     "default": "",
+     "category": "Config",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('part' if int(nconnections) >= 5 else 'all') }"
+    },
+    {
+     "id": "label6",
+     "label": "Line 6 Label",
+     "dtype": "",
+     "default": "",
+     "category": "Config",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('part' if int(nconnections) >= 6 else 'all') }"
+    },
+    {
+     "id": "color6",
+     "label": "Line 6 Color",
+     "dtype": "",
+     "default": "",
+     "category": "Config",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('part' if int(nconnections) >= 6 else 'all') }"
+    },
+    {
+     "id": "alpha6",
+     "label": "Line 6 Alpha",
+     "dtype": "",
+     "default": "",
+     "category": "Config",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('part' if int(nconnections) >= 6 else 'all') }"
+    },
+    {
+     "id": "label7",
+     "label": "Line 7 Label",
+     "dtype": "",
+     "default": "",
+     "category": "Config",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('part' if int(nconnections) >= 7 else 'all') }"
+    },
+    {
+     "id": "color7",
+     "label": "Line 7 Color",
+     "dtype": "",
+     "default": "",
+     "category": "Config",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('part' if int(nconnections) >= 7 else 'all') }"
+    },
+    {
+     "id": "alpha7",
+     "label": "Line 7 Alpha",
+     "dtype": "",
+     "default": "",
+     "category": "Config",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('part' if int(nconnections) >= 7 else 'all') }"
+    },
+    {
+     "id": "label8",
+     "label": "Line 8 Label",
+     "dtype": "",
+     "default": "",
+     "category": "Config",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('part' if int(nconnections) >= 8 else 'all') }"
+    },
+    {
+     "id": "color8",
+     "label": "Line 8 Color",
+     "dtype": "",
+     "default": "",
+     "category": "Config",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('part' if int(nconnections) >= 8 else 'all') }"
+    },
+    {
+     "id": "alpha8",
+     "label": "Line 8 Alpha",
+     "dtype": "",
+     "default": "",
+     "category": "Config",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('part' if int(nconnections) >= 8 else 'all') }"
+    },
+    {
+     "id": "label9",
+     "label": "Line 9 Label",
+     "dtype": "",
+     "default": "",
+     "category": "Config",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('part' if int(nconnections) >= 9 else 'all') }"
+    },
+    {
+     "id": "color9",
+     "label": "Line 9 Color",
+     "dtype": "",
+     "default": "",
+     "category": "Config",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('part' if int(nconnections) >= 9 else 'all') }"
+    },
+    {
+     "id": "alpha9",
+     "label": "Line 9 Alpha",
+     "dtype": "",
+     "default": "",
+     "category": "Config",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('part' if int(nconnections) >= 9 else 'all') }"
+    },
+    {
+     "id": "label10",
+     "label": "Line 10 Label",
+     "dtype": "",
+     "default": "",
+     "category": "Config",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('part' if int(nconnections) >= 10 else 'all') }"
+    },
+    {
+     "id": "color10",
+     "label": "Line 10 Color",
+     "dtype": "",
+     "default": "",
+     "category": "Config",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('part' if int(nconnections) >= 10 else 'all') }"
+    },
+    {
+     "id": "alpha10",
+     "label": "Line 10 Alpha",
+     "dtype": "",
+     "default": "",
+     "category": "Config",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "${ ('part' if int(nconnections) >= 10 else 'all') }"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "${ type.t }",
+     "multiplicity": "${ (0 if type.startswith('msg') else nconnections) }",
+     "optional": "${ (True if type.startswith('msg') else False) }"
+    },
+    {
+     "id": "freq",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true,
+     "hide": "${ not showports }"
+    },
+    {
+     "id": "bw",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true,
+     "hide": "${ not showports }"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "freq",
+     "label": "",
+     "domain": "message",
+     "dtype": "",
+     "multiplicity": "1",
+     "optional": true,
+     "hide": "${ not showports }"
+    }
+   ]
+  },
+  {
    "id": "wasm_gui_layout",
    "label": "GUI Layout",
    "category": [

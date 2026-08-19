@@ -108,6 +108,7 @@
 #include <QComboBox>
 #include <QDial>
 #include <QDoubleSpinBox>
+#include <QFrame>
 #include <QGridLayout>
 #include <QGroupBox>
 #include <QHBoxLayout>
@@ -391,6 +392,155 @@ static void configure_waterfall_sink(const std::shared_ptr<Sink>& sink,
         sink->set_line_alpha(i, number_from(p, "alpha" + suffix, 1.0));
     }
 }
+
+template <typename Sink>
+class GrWorldWaterfallWidget : public QWidget
+{
+public:
+    GrWorldWaterfallWidget(const std::shared_ptr<Sink>& sink,
+                           QWidget* sink_widget,
+                           double intensity_min,
+                           double intensity_max)
+        : d_sink(sink)
+    {
+        auto* layout = new QHBoxLayout(this);
+        layout->setContentsMargins(0, 0, 0, 0);
+        layout->setSpacing(8);
+        layout->addWidget(sink_widget, 1);
+
+        auto* side = new QVBoxLayout();
+        side->setContentsMargins(0, 4, 0, 4);
+        side->setSpacing(6);
+        layout->addLayout(side);
+
+        d_max_label = new QLabel(this);
+        d_max_label->setAlignment(Qt::AlignHCenter);
+        side->addWidget(d_max_label);
+
+        auto* sliders = new QHBoxLayout();
+        sliders->setContentsMargins(0, 0, 0, 0);
+        sliders->setSpacing(4);
+        side->addLayout(sliders, 1);
+
+        d_min_slider = new QSlider(Qt::Vertical, this);
+        d_min_slider->setRange(kMinSliderValue, kMaxSliderValue);
+        d_min_slider->setToolTip("Intensity min");
+        d_min_slider->setStyleSheet(
+            "QSlider::groove:vertical{width:6px;background:#2d2d2d;border-radius:3px;}"
+            "QSlider::handle:vertical{background:#4ea1ff;border:1px solid #d6ebff;"
+            "height:10px;margin:-1px -4px;border-radius:2px;}");
+        sliders->addWidget(d_min_slider);
+
+        auto* colorbar = new QFrame(this);
+        colorbar->setFixedWidth(14);
+        colorbar->setStyleSheet(
+            "QFrame{border:1px solid #666;border-radius:2px;"
+            "background:qlineargradient(x1:0,y1:0,x2:0,y2:1,"
+            "stop:0 #fff6a3,stop:0.25 #ff9e4a,stop:0.5 #ff3f63,"
+            "stop:0.75 #4a68ff,stop:1 #101018);}");
+        sliders->addWidget(colorbar);
+
+        d_max_slider = new QSlider(Qt::Vertical, this);
+        d_max_slider->setRange(kMinSliderValue, kMaxSliderValue);
+        d_max_slider->setToolTip("Intensity max");
+        d_max_slider->setStyleSheet(
+            "QSlider::groove:vertical{width:6px;background:#2d2d2d;border-radius:3px;}"
+            "QSlider::handle:vertical{background:#ff6979;border:1px solid #ffe2e7;"
+            "height:10px;margin:-1px -4px;border-radius:2px;}");
+        sliders->addWidget(d_max_slider);
+
+        d_min_label = new QLabel(this);
+        d_min_label->setAlignment(Qt::AlignHCenter);
+        side->addWidget(d_min_label);
+
+        auto* autoscale_button = new QPushButton("Auto Scale", this);
+        autoscale_button->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+        side->addWidget(autoscale_button);
+
+        set_intensity_range(intensity_min, intensity_max);
+        QObject::connect(d_min_slider, &QSlider::valueChanged, this, [this] {
+            apply_slider_range(false);
+        });
+        QObject::connect(d_max_slider, &QSlider::valueChanged, this, [this] {
+            apply_slider_range(true);
+        });
+        QObject::connect(autoscale_button, &QPushButton::clicked, this, [this] {
+            if (!d_sink)
+                return;
+            d_sink->auto_scale();
+            set_intensity_range(d_sink->min_intensity(0), d_sink->max_intensity(0));
+        });
+    }
+
+    void set_intensity_range(double min_value, double max_value)
+    {
+        const double bounded_min = std::clamp(min_value, kMinDb, kMaxDb);
+        const double bounded_max = std::clamp(max_value, kMinDb, kMaxDb);
+        const double clipped_min = std::min(bounded_min, bounded_max - kStepDb);
+        const double clipped_max = std::max(bounded_max, clipped_min + kStepDb);
+        if (d_min_slider)
+            d_min_slider->setValue(db_to_slider(clipped_min));
+        if (d_max_slider)
+            d_max_slider->setValue(db_to_slider(clipped_max));
+        update_labels(clipped_min, clipped_max);
+    }
+
+private:
+    static constexpr double kMinDb = -240.0;
+    static constexpr double kMaxDb = 40.0;
+    static constexpr double kStepDb = 0.1;
+    static constexpr int kScale = 10;
+    static constexpr int kMinSliderValue = static_cast<int>(kMinDb * kScale);
+    static constexpr int kMaxSliderValue = static_cast<int>(kMaxDb * kScale);
+
+    static int db_to_slider(double value)
+    {
+        return static_cast<int>(std::lround(value * static_cast<double>(kScale)));
+    }
+
+    static double slider_to_db(int value)
+    {
+        return static_cast<double>(value) / static_cast<double>(kScale);
+    }
+
+    void update_labels(double min_value, double max_value)
+    {
+        if (d_max_label)
+            d_max_label->setText(QString("Max %1 dB").arg(max_value, 0, 'f', 1));
+        if (d_min_label)
+            d_min_label->setText(QString("Min %1 dB").arg(min_value, 0, 'f', 1));
+    }
+
+    void apply_slider_range(bool changed_max)
+    {
+        if (!d_min_slider || !d_max_slider || !d_sink)
+            return;
+        int min_slider = d_min_slider->value();
+        int max_slider = d_max_slider->value();
+        if (min_slider >= max_slider) {
+            if (changed_max)
+                min_slider = std::min(max_slider - 1, kMaxSliderValue - 1);
+            else
+                max_slider = std::max(min_slider + 1, kMinSliderValue + 1);
+            {
+                const QSignalBlocker min_block(d_min_slider);
+                const QSignalBlocker max_block(d_max_slider);
+                d_min_slider->setValue(min_slider);
+                d_max_slider->setValue(max_slider);
+            }
+        }
+        const double min_value = slider_to_db(min_slider);
+        const double max_value = slider_to_db(max_slider);
+        d_sink->set_intensity_range(min_value, max_value);
+        update_labels(min_value, max_value);
+    }
+
+    std::shared_ptr<Sink> d_sink;
+    QPointer<QSlider> d_min_slider;
+    QPointer<QSlider> d_max_slider;
+    QPointer<QLabel> d_min_label;
+    QPointer<QLabel> d_max_label;
+};
 
 // GRC's Window Type enum, shared by every sink that takes an FFT window. The
 // yaml spells the options `window.WIN_*` and its cpp_templates rewrite them to
@@ -3518,6 +3668,52 @@ static std::map<std::string, Factory>& registry_storage() {
                  b->set_frequency_range(range->first, range->second);
                  configure_waterfall_sink(b, p, nconnections);
                  BuiltBlock result{ b, b->qwidget() };
+                 result.numeric_setters["fftsize"] =
+                     [b](double value) { b->set_fft_size(static_cast<int>(value)); };
+                 result.numeric_setters["fc"] = [b, range](double value) {
+                     range->first = value;
+                     b->set_frequency_range(range->first, range->second);
+                 };
+                 auto set_bandwidth = [b, range](double value) {
+                     range->second = value;
+                     b->set_frequency_range(range->first, range->second);
+                 };
+                 result.numeric_setters["bw"] = set_bandwidth;
+                 result.numeric_setters["samp_rate"] = set_bandwidth;
+                 return result;
+             };
+             const bool is_float_variant = type == "float" || type == "msg_float";
+             if (is_float_variant)
+                 return finish(gr::qtgui::waterfall_sink_f::make(
+                     fftsize, wintype, initial_fc, initial_bw, nm, nconnections));
+             return finish(gr::qtgui::waterfall_sink_c::make(
+                 fftsize, wintype, initial_fc, initial_bw, nm, nconnections));
+         }},
+        {"wasm_gr_world_waterfall_sink", [](const json& p) -> BuiltBlock {
+             const std::string type = type_from(p, "complex");
+             const double sr = number_from(p, "samp_rate", 32000.0);
+             const int fftsize = static_cast<int>(number_from(p, "fftsize", 1024));
+             const int wintype = static_cast<int>(number_from(p, "wintype", 0));
+             const double initial_fc = number_from(p, "fc", 0.0);
+             const double initial_bw = number_from(p, "bw", sr);
+             const std::string nm = unquoted(
+                 p.value("name", std::string("GR World Waterfall Sink")));
+             const double initial_int_min = number_from(p, "int_min", -140.0);
+             const double initial_int_max = number_from(p, "int_max", 10.0);
+             const int nconnections = type.rfind("msg", 0) == 0
+                                          ? 0
+                                          : static_cast<int>(number_from(p, "nconnections", 1));
+             if (nconnections < 0)
+                 throw std::runtime_error(
+                     "GR World Waterfall Sink connections cannot be negative");
+
+             auto range = std::make_shared<std::pair<double, double>>(initial_fc, initial_bw);
+             auto finish = [&](auto b) -> BuiltBlock {
+                 b->set_frequency_range(range->first, range->second);
+                 configure_waterfall_sink(b, p, nconnections);
+                 auto* widget = new GrWorldWaterfallWidget<typename decltype(b)::element_type>(
+                     b, b->qwidget(), initial_int_min, initial_int_max);
+                 BuiltBlock result{ b, widget };
                  result.numeric_setters["fftsize"] =
                      [b](double value) { b->set_fft_size(static_cast<int>(value)); };
                  result.numeric_setters["fc"] = [b, range](double value) {

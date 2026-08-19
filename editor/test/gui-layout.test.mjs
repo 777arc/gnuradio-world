@@ -250,6 +250,7 @@ assert.match(html, /id="arrangeOverlay"/);
   // Every block whose factory builds a QWidget is flagged, because that flag is
   // the editor's only way of knowing which blocks need a tile.
   for (const id of ['qtgui_time_sink_x', 'qtgui_freq_sink_x', 'qtgui_waterfall_sink_x',
+                    'wasm_gr_world_waterfall_sink',
                     'qtgui_const_sink_x', 'qtgui_number_sink', 'variable_qtgui_range',
                     'variable_qtgui_chooser', 'fosphor_qt_sink_c'])
     assert.equal(byId.get(id)?.gui, true, `${id} is flagged as a GUI widget`);
