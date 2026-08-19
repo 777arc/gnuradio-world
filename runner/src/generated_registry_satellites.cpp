@@ -244,7 +244,9 @@ struct Registrar_satellites {
     });
     wasm_registry_add("satellites_costas_loop_8apsk_cc", +[](const nlohmann::json& p) -> BuiltBlock {
         auto block = satellites::costas_loop_8apsk_cc::make(wasm_registry::number<double>(p, "loop_bw", 0.0));
-        return { block, nullptr };
+        BuiltBlock built{ block };
+        built.numeric_setters["loop_bw"] = [block](double value) { block->set_loop_bandwidth(static_cast<double>(value)); };
+        return built;
     });
     wasm_registry_add("satellites_crc_append", +[](const nlohmann::json& p) -> BuiltBlock {
         auto block = satellites::crc_append::make(wasm_registry::number<int>(p, "num_bits", 32), wasm_registry::number<std::uint64_t>(p, "poly", 79764919), wasm_registry::number<std::uint64_t>(p, "initial_value", 4294967295), wasm_registry::number<std::uint64_t>(p, "final_xor", 4294967295), wasm_registry::boolean(p, "input_reflected", true), wasm_registry::boolean(p, "result_reflected", true), wasm_registry::boolean(p, "swap_endianness", false), wasm_registry::number<int>(p, "skip_header_bytes", 0));
@@ -466,27 +468,42 @@ struct Registrar_satellites {
         if (wasm_registry::text(p, "type", "complex") == "complex") {
             auto block = satellites::selector::make(sizeof(gr_complex)*wasm_registry::number<int>(p, "vlen", 1),wasm_registry::number<int>(p, "input_index", 0),wasm_registry::number<int>(p, "output_index", 0));
             block->set_enabled(wasm_registry::boolean(p, "enabled", true));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["input_index"] = [block](double value) { block->set_input_index(static_cast<int>(value)); };
+            built.numeric_setters["output_index"] = [block](double value) { block->set_output_index(static_cast<int>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "float") {
             auto block = satellites::selector::make(sizeof(float)*wasm_registry::number<int>(p, "vlen", 1),wasm_registry::number<int>(p, "input_index", 0),wasm_registry::number<int>(p, "output_index", 0));
             block->set_enabled(wasm_registry::boolean(p, "enabled", true));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["input_index"] = [block](double value) { block->set_input_index(static_cast<int>(value)); };
+            built.numeric_setters["output_index"] = [block](double value) { block->set_output_index(static_cast<int>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "int") {
             auto block = satellites::selector::make(sizeof(int)*wasm_registry::number<int>(p, "vlen", 1),wasm_registry::number<int>(p, "input_index", 0),wasm_registry::number<int>(p, "output_index", 0));
             block->set_enabled(wasm_registry::boolean(p, "enabled", true));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["input_index"] = [block](double value) { block->set_input_index(static_cast<int>(value)); };
+            built.numeric_setters["output_index"] = [block](double value) { block->set_output_index(static_cast<int>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "short") {
             auto block = satellites::selector::make(sizeof(short)*wasm_registry::number<int>(p, "vlen", 1),wasm_registry::number<int>(p, "input_index", 0),wasm_registry::number<int>(p, "output_index", 0));
             block->set_enabled(wasm_registry::boolean(p, "enabled", true));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["input_index"] = [block](double value) { block->set_input_index(static_cast<int>(value)); };
+            built.numeric_setters["output_index"] = [block](double value) { block->set_output_index(static_cast<int>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "byte") {
             auto block = satellites::selector::make(sizeof(char)*wasm_registry::number<int>(p, "vlen", 1),wasm_registry::number<int>(p, "input_index", 0),wasm_registry::number<int>(p, "output_index", 0));
             block->set_enabled(wasm_registry::boolean(p, "enabled", true));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["input_index"] = [block](double value) { block->set_input_index(static_cast<int>(value)); };
+            built.numeric_setters["output_index"] = [block](double value) { block->set_output_index(static_cast<int>(value)); };
+            return built;
         }
         throw std::runtime_error("unsupported type selection for satellites_selector");
     });

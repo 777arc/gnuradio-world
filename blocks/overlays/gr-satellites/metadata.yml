@@ -409,6 +409,9 @@ satellites_rms_agc:
   cpp_templates:
     includes: ['#include "satellites_hier.hpp"']
     make: 'this->${id} = wasm_satellites::make_rms_agc(${alpha}, ${reference});'
+  # No live setters: the rebuild returns a hier_block2, so the setters the
+  # upstream Python block exposes are not on the type the factory holds.
+  callbacks: []
 
 satellites_sync_to_pdu:
   flags: [python, cpp]
@@ -419,6 +422,9 @@ satellites_sync_to_pdu:
   cpp_templates:
     includes: ['#include "satellites_hier.hpp"']
     make: 'this->${id} = wasm_satellites::make_sync_to_pdu(${packlen}, ${sync}, ${threshold});'
+  # No live setters: the rebuild returns a hier_block2, so the setters the
+  # upstream Python block exposes are not on the type the factory holds.
+  callbacks: []
 
 satellites_sync_to_pdu_packed:
   flags: [python, cpp]
@@ -429,6 +435,9 @@ satellites_sync_to_pdu_packed:
   cpp_templates:
     includes: ['#include "satellites_hier.hpp"']
     make: 'this->${id} = wasm_satellites::make_sync_to_pdu_packed(${packlen}, ${sync}, ${threshold});'
+  # No live setters: the rebuild returns a hier_block2, so the setters the
+  # upstream Python block exposes are not on the type the factory holds.
+  callbacks: []
 
 satellites_sync_to_pdu_soft:
   flags: [python, cpp]
@@ -439,6 +448,9 @@ satellites_sync_to_pdu_soft:
   cpp_templates:
     includes: ['#include "satellites_hier.hpp"']
     make: 'this->${id} = wasm_satellites::make_sync_to_pdu_soft(${packlen}, ${sync}, ${threshold});'
+  # No live setters: the rebuild returns a hier_block2, so the setters the
+  # upstream Python block exposes are not on the type the factory holds.
+  callbacks: []
 
 satellites_ccsds_viterbi:
   flags: [python, cpp]

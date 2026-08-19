@@ -77,6 +77,43 @@ constellation variables for Constellation Modulator, and gr-fec's CC Decoder
 Definition (`variable_cc_decoder_def`), which `fec_async_decoder` and
 `fec_extended_decoder` look up by name.
 
+### Live setters come from the yaml's callbacks
+
+GRC's own generator re-emits a block's `callbacks:` whenever a parameter's
+expression changes; that is how a native flowgraph's Range slider moves a
+running block. There is no generator in the browser, so the runner binds a QT
+GUI Range straight to an entry in the factory's `numeric_setters` map — see the
+parameter loop in [`runner/src/runner.cpp`](../runner/src/runner.cpp), which
+looks the setter up **by GRC parameter id** and skips the binding in silence
+when there is none. A parameter with no setter is frozen at its
+construction-time value while the slider still moves and still publishes, which
+is the failure that looks most like a working flowgraph.
+
+`gen_registry.py` therefore emits one setter per translatable callback, so a
+generated factory is as live as a hand-written one. Translatable means the
+simple shape — one argument that is exactly one numeric parameter
+(`set_noise_voltage(${noise_voltage})`). A callback over several parameters, or
+one taking a vector, string or enum, is skipped; give that block a hand-written
+factory if it needs a live control. Structural parameters are skipped too: they
+picked which class was constructed and cannot change on a running graph.
+
+Two things about the yaml can break the build, both fixed with the `callbacks`
+overlay key (`blocks/overlays/<module>/metadata.yml`), which replaces just the
+callback list and leaves the rest of `cpp_templates` alone:
+
+- **Upstream names a method the C++ class does not have.** GRC's Python
+  generator only ever emitted the text, so nothing upstream compiled it —
+  `digital_mpsk_snr_est_cc` says `set_tag_nsamples`, the class declares
+  `set_tag_nsample`. Overlay the corrected list.
+- **A Python-only block rebuilt here as a `hier_block2`** cannot expose its
+  upstream setters at all, because the factory holds a `hier_block2`, not the
+  class the callbacks name. `callbacks: []` is how that rebuild says so; the
+  four gr-satellites rebuilds are the worked examples.
+
+Where no `cpp_templates` callback list exists, the Python one is used — the two
+agree throughout GNU Radio today, and it is what makes Message Strobe's period
+and Probe Rate's alpha live.
+
 ## Writing the C++
 
 ### `registry.cpp` compiles its includes with Qt's macros in scope

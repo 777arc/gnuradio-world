@@ -207,15 +207,21 @@ void register_generated_blocks(std::map<std::string, Factory>& registry)
     registry.emplace("blocks_and_const_xx", [](const nlohmann::json& p) -> BuiltBlock {
         if (wasm_registry::text(p, "type", "int") == "int") {
             auto block = blocks::and_const_ii::make(wasm_registry::number<int>(p, "const", 0));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["const"] = [block](double value) { block->set_k(static_cast<int>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "int") == "short") {
             auto block = blocks::and_const_ss::make(wasm_registry::number<int>(p, "const", 0));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["const"] = [block](double value) { block->set_k(static_cast<int>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "int") == "byte") {
             auto block = blocks::and_const_bb::make(wasm_registry::number<int>(p, "const", 0));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["const"] = [block](double value) { block->set_k(static_cast<int>(value)); };
+            return built;
         }
         throw std::runtime_error("unsupported type selection for blocks_and_const_xx");
     });
@@ -350,7 +356,9 @@ void register_generated_blocks(std::map<std::string, Factory>& registry)
     });
     registry.emplace("blocks_char_to_float", [](const nlohmann::json& p) -> BuiltBlock {
         auto block = blocks::char_to_float::make(wasm_registry::number<int>(p, "vlen", 1), wasm_registry::number<double>(p, "scale", 1.0));
-        return { block, nullptr };
+        BuiltBlock built{ block };
+        built.numeric_setters["scale"] = [block](double value) { block->set_scale(static_cast<double>(value)); };
+        return built;
     });
     registry.emplace("blocks_char_to_short", [](const nlohmann::json& p) -> BuiltBlock {
         auto block = blocks::char_to_short::make(wasm_registry::number<int>(p, "vlen", 1));
@@ -370,7 +378,9 @@ void register_generated_blocks(std::map<std::string, Factory>& registry)
     });
     registry.emplace("blocks_complex_to_interleaved_short", [](const nlohmann::json& p) -> BuiltBlock {
         auto block = blocks::complex_to_interleaved_short::make(wasm_registry::choice(p, "vector_output", {{"False", false}, {"True", true}}, false));
-        return { block, nullptr };
+        BuiltBlock built{ block };
+        built.numeric_setters["scale_factor"] = [block](double value) { block->set_scale_factor(static_cast<double>(value)); };
+        return built;
     });
     registry.emplace("blocks_complex_to_magphase", [](const nlohmann::json& p) -> BuiltBlock {
         auto block = blocks::complex_to_magphase::make(wasm_registry::number<int>(p, "vlen", 1));
@@ -448,7 +458,9 @@ void register_generated_blocks(std::map<std::string, Factory>& registry)
     });
     registry.emplace("blocks_exponentiate_const_cci", [](const nlohmann::json& p) -> BuiltBlock {
         auto block = blocks::exponentiate_const_cci::make(wasm_registry::number<int>(p, "exponent", 1), wasm_registry::number<int>(p, "vlen", 1));
-        return { block, nullptr };
+        BuiltBlock built{ block };
+        built.numeric_setters["exponent"] = [block](double value) { block->set_exponent(static_cast<int>(value)); };
+        return built;
     });
     registry.emplace("blocks_file_descriptor_sink", [](const nlohmann::json& p) -> BuiltBlock {
         if (wasm_registry::text(p, "type", "complex") == "complex") {
@@ -521,23 +533,34 @@ void register_generated_blocks(std::map<std::string, Factory>& registry)
     });
     registry.emplace("blocks_float_to_char", [](const nlohmann::json& p) -> BuiltBlock {
         auto block = blocks::float_to_char::make(wasm_registry::number<int>(p, "vlen", 1), wasm_registry::number<double>(p, "scale", 1.0));
-        return { block, nullptr };
+        BuiltBlock built{ block };
+        built.numeric_setters["scale"] = [block](double value) { block->set_scale(static_cast<double>(value)); };
+        return built;
     });
     registry.emplace("blocks_float_to_int", [](const nlohmann::json& p) -> BuiltBlock {
         auto block = blocks::float_to_int::make(wasm_registry::number<int>(p, "vlen", 1), wasm_registry::number<double>(p, "scale", 1.0));
-        return { block, nullptr };
+        BuiltBlock built{ block };
+        built.numeric_setters["scale"] = [block](double value) { block->set_scale(static_cast<double>(value)); };
+        return built;
     });
     registry.emplace("blocks_float_to_short", [](const nlohmann::json& p) -> BuiltBlock {
         auto block = blocks::float_to_short::make(wasm_registry::number<int>(p, "vlen", 1), wasm_registry::number<double>(p, "scale", 1.0));
-        return { block, nullptr };
+        BuiltBlock built{ block };
+        built.numeric_setters["scale"] = [block](double value) { block->set_scale(static_cast<double>(value)); };
+        return built;
     });
     registry.emplace("blocks_float_to_uchar", [](const nlohmann::json& p) -> BuiltBlock {
         auto block = blocks::float_to_uchar::make(wasm_registry::number<int>(p, "vlen", 1), wasm_registry::number<double>(p, "scale", 1.0), wasm_registry::number<double>(p, "bias", 0.0));
-        return { block, nullptr };
+        BuiltBlock built{ block };
+        built.numeric_setters["scale"] = [block](double value) { block->set_scale(static_cast<double>(value)); };
+        built.numeric_setters["bias"] = [block](double value) { block->set_bias(static_cast<double>(value)); };
+        return built;
     });
     registry.emplace("blocks_int_to_float", [](const nlohmann::json& p) -> BuiltBlock {
         auto block = blocks::int_to_float::make(wasm_registry::number<int>(p, "vlen", 1), wasm_registry::number<double>(p, "scale", 1.0));
-        return { block, nullptr };
+        BuiltBlock built{ block };
+        built.numeric_setters["scale"] = [block](double value) { block->set_scale(static_cast<double>(value)); };
+        return built;
     });
     registry.emplace("blocks_integrate_xx", [](const nlohmann::json& p) -> BuiltBlock {
         if (wasm_registry::text(p, "type", "complex") == "complex") {
@@ -583,51 +606,83 @@ void register_generated_blocks(std::map<std::string, Factory>& registry)
     });
     registry.emplace("blocks_interleaved_char_to_complex", [](const nlohmann::json& p) -> BuiltBlock {
         auto block = blocks::interleaved_char_to_complex::make(wasm_registry::choice(p, "vector_input", {{"False", false}, {"True", true}}, false));
-        return { block, nullptr };
+        BuiltBlock built{ block };
+        built.numeric_setters["scale_factor"] = [block](double value) { block->set_scale_factor(static_cast<double>(value)); };
+        return built;
     });
     registry.emplace("blocks_keep_m_in_n", [](const nlohmann::json& p) -> BuiltBlock {
         if (wasm_registry::text(p, "type", "complex") == "complex") {
             auto block = blocks::keep_m_in_n::make(sizeof(gr_complex), wasm_registry::number<int>(p, "m", 1), wasm_registry::number<int>(p, "n", 2), wasm_registry::number<int>(p, "offset", 0));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["offset"] = [block](double value) { block->set_offset(static_cast<int>(value)); };
+            built.numeric_setters["m"] = [block](double value) { block->set_m(static_cast<int>(value)); };
+            built.numeric_setters["n"] = [block](double value) { block->set_n(static_cast<int>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "float") {
             auto block = blocks::keep_m_in_n::make(sizeof(float), wasm_registry::number<int>(p, "m", 1), wasm_registry::number<int>(p, "n", 2), wasm_registry::number<int>(p, "offset", 0));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["offset"] = [block](double value) { block->set_offset(static_cast<int>(value)); };
+            built.numeric_setters["m"] = [block](double value) { block->set_m(static_cast<int>(value)); };
+            built.numeric_setters["n"] = [block](double value) { block->set_n(static_cast<int>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "int") {
             auto block = blocks::keep_m_in_n::make(sizeof(int), wasm_registry::number<int>(p, "m", 1), wasm_registry::number<int>(p, "n", 2), wasm_registry::number<int>(p, "offset", 0));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["offset"] = [block](double value) { block->set_offset(static_cast<int>(value)); };
+            built.numeric_setters["m"] = [block](double value) { block->set_m(static_cast<int>(value)); };
+            built.numeric_setters["n"] = [block](double value) { block->set_n(static_cast<int>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "short") {
             auto block = blocks::keep_m_in_n::make(sizeof(short), wasm_registry::number<int>(p, "m", 1), wasm_registry::number<int>(p, "n", 2), wasm_registry::number<int>(p, "offset", 0));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["offset"] = [block](double value) { block->set_offset(static_cast<int>(value)); };
+            built.numeric_setters["m"] = [block](double value) { block->set_m(static_cast<int>(value)); };
+            built.numeric_setters["n"] = [block](double value) { block->set_n(static_cast<int>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "byte") {
             auto block = blocks::keep_m_in_n::make(sizeof(char), wasm_registry::number<int>(p, "m", 1), wasm_registry::number<int>(p, "n", 2), wasm_registry::number<int>(p, "offset", 0));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["offset"] = [block](double value) { block->set_offset(static_cast<int>(value)); };
+            built.numeric_setters["m"] = [block](double value) { block->set_m(static_cast<int>(value)); };
+            built.numeric_setters["n"] = [block](double value) { block->set_n(static_cast<int>(value)); };
+            return built;
         }
         throw std::runtime_error("unsupported type selection for blocks_keep_m_in_n");
     });
     registry.emplace("blocks_keep_one_in_n", [](const nlohmann::json& p) -> BuiltBlock {
         if (wasm_registry::text(p, "type", "complex") == "complex") {
             auto block = blocks::keep_one_in_n::make(sizeof(gr_complex)*wasm_registry::number<int>(p, "vlen", 1), wasm_registry::number<int>(p, "n", 1));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["n"] = [block](double value) { block->set_n(static_cast<int>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "float") {
             auto block = blocks::keep_one_in_n::make(sizeof(float)*wasm_registry::number<int>(p, "vlen", 1), wasm_registry::number<int>(p, "n", 1));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["n"] = [block](double value) { block->set_n(static_cast<int>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "int") {
             auto block = blocks::keep_one_in_n::make(sizeof(int)*wasm_registry::number<int>(p, "vlen", 1), wasm_registry::number<int>(p, "n", 1));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["n"] = [block](double value) { block->set_n(static_cast<int>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "short") {
             auto block = blocks::keep_one_in_n::make(sizeof(short)*wasm_registry::number<int>(p, "vlen", 1), wasm_registry::number<int>(p, "n", 1));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["n"] = [block](double value) { block->set_n(static_cast<int>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "byte") {
             auto block = blocks::keep_one_in_n::make(sizeof(char)*wasm_registry::number<int>(p, "vlen", 1), wasm_registry::number<int>(p, "n", 1));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["n"] = [block](double value) { block->set_n(static_cast<int>(value)); };
+            return built;
         }
         throw std::runtime_error("unsupported type selection for blocks_keep_one_in_n");
     });
@@ -702,11 +757,16 @@ void register_generated_blocks(std::map<std::string, Factory>& registry)
     });
     registry.emplace("blocks_message_strobe", [](const nlohmann::json& p) -> BuiltBlock {
         auto block = blocks::message_strobe::make(wasm_registry::pmt_value(p, "msg", "pmt.intern(\"TEST\")"), wasm_registry::number<int>(p, "period", 1000));
-        return { block, nullptr };
+        BuiltBlock built{ block };
+        built.numeric_setters["period"] = [block](double value) { block->set_period(static_cast<int>(value)); };
+        return built;
     });
     registry.emplace("blocks_message_strobe_random", [](const nlohmann::json& p) -> BuiltBlock {
         auto block = blocks::message_strobe_random::make(wasm_registry::pmt_value(p, "msg", "pmt.intern(\"TEST\")"), wasm_registry::choice(p, "dist", {{"blocks::STROBE_EXPONENTIAL", blocks::STROBE_EXPONENTIAL}, {"blocks::STROBE_UNIFORM", blocks::STROBE_UNIFORM}, {"blocks::STROBE_GAUSSIAN", blocks::STROBE_GAUSSIAN}, {"blocks::STROBE_POISSON", blocks::STROBE_POISSON}}, blocks::STROBE_EXPONENTIAL), wasm_registry::number<double>(p, "mean", 1000.0), wasm_registry::number<double>(p, "std", 100.0));
-        return { block, nullptr };
+        BuiltBlock built{ block };
+        built.numeric_setters["mean"] = [block](double value) { block->set_mean(static_cast<double>(value)); };
+        built.numeric_setters["std"] = [block](double value) { block->set_std(static_cast<double>(value)); };
+        return built;
     });
     registry.emplace("blocks_min_xx", [](const nlohmann::json& p) -> BuiltBlock {
         if (wasm_registry::text(p, "type", "float") == "float") {
@@ -761,7 +821,9 @@ void register_generated_blocks(std::map<std::string, Factory>& registry)
         }
         else if (wasm_registry::text(p, "type", "complex") == "float" && wasm_registry::text(p, "mode", "vector") == "scalar") {
             auto block = blocks::multiply_const_ff::make(wasm_registry::number<double>(p, "const", 1.0), wasm_registry::number<int>(p, "vlen", 1));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["const"] = [block](double value) { block->set_k(static_cast<double>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "float" && wasm_registry::text(p, "mode", "vector") == "vector") {
             auto block = blocks::multiply_const_vff::make(wasm_registry::vector<float>(p, "const"));
@@ -769,7 +831,9 @@ void register_generated_blocks(std::map<std::string, Factory>& registry)
         }
         else if (wasm_registry::text(p, "type", "complex") == "int" && wasm_registry::text(p, "mode", "vector") == "scalar") {
             auto block = blocks::multiply_const_ii::make(wasm_registry::number<int>(p, "const", 1), wasm_registry::number<int>(p, "vlen", 1));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["const"] = [block](double value) { block->set_k(static_cast<int>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "int" && wasm_registry::text(p, "mode", "vector") == "vector") {
             auto block = blocks::multiply_const_vii::make(wasm_registry::vector<std::int32_t>(p, "const"));
@@ -777,7 +841,9 @@ void register_generated_blocks(std::map<std::string, Factory>& registry)
         }
         else if (wasm_registry::text(p, "type", "complex") == "short" && wasm_registry::text(p, "mode", "vector") == "scalar") {
             auto block = blocks::multiply_const_ss::make(wasm_registry::number<int>(p, "const", 1), wasm_registry::number<int>(p, "vlen", 1));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["const"] = [block](double value) { block->set_k(static_cast<int>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "short" && wasm_registry::text(p, "mode", "vector") == "vector") {
             auto block = blocks::multiply_const_vss::make(wasm_registry::vector<std::int16_t>(p, "const"));
@@ -905,47 +971,78 @@ void register_generated_blocks(std::map<std::string, Factory>& registry)
     });
     registry.emplace("blocks_peak_detector2_fb", [](const nlohmann::json& p) -> BuiltBlock {
         auto block = blocks::peak_detector2_fb::make(wasm_registry::number<double>(p, "threshold_factor_rise", 7.0), wasm_registry::number<int>(p, "look_ahead", 1000), wasm_registry::number<double>(p, "alpha", 0.001));
-        return { block, nullptr };
+        BuiltBlock built{ block };
+        built.numeric_setters["threshold_factor_rise"] = [block](double value) { block->set_threshold_factor_rise(static_cast<double>(value)); };
+        built.numeric_setters["look_ahead"] = [block](double value) { block->set_look_ahead(static_cast<int>(value)); };
+        built.numeric_setters["alpha"] = [block](double value) { block->set_alpha(static_cast<double>(value)); };
+        return built;
     });
     registry.emplace("blocks_peak_detector_xb", [](const nlohmann::json& p) -> BuiltBlock {
         if (wasm_registry::text(p, "type", "float") == "float") {
             auto block = blocks::peak_detector_fb::make(wasm_registry::number<double>(p, "threshold_factor_rise", 0.25), wasm_registry::number<double>(p, "threshold_factor_fall", 0.4), wasm_registry::number<int>(p, "look_ahead", 10), wasm_registry::number<double>(p, "alpha", 0.001));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["threshold_factor_rise"] = [block](double value) { block->set_threshold_factor_rise(static_cast<double>(value)); };
+            built.numeric_setters["threshold_factor_fall"] = [block](double value) { block->set_threshold_factor_fall(static_cast<double>(value)); };
+            built.numeric_setters["look_ahead"] = [block](double value) { block->set_look_ahead(static_cast<int>(value)); };
+            built.numeric_setters["alpha"] = [block](double value) { block->set_alpha(static_cast<double>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "float") == "int") {
             auto block = blocks::peak_detector_ib::make(wasm_registry::number<double>(p, "threshold_factor_rise", 0.25), wasm_registry::number<double>(p, "threshold_factor_fall", 0.4), wasm_registry::number<int>(p, "look_ahead", 10), wasm_registry::number<double>(p, "alpha", 0.001));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["threshold_factor_rise"] = [block](double value) { block->set_threshold_factor_rise(static_cast<double>(value)); };
+            built.numeric_setters["threshold_factor_fall"] = [block](double value) { block->set_threshold_factor_fall(static_cast<double>(value)); };
+            built.numeric_setters["look_ahead"] = [block](double value) { block->set_look_ahead(static_cast<int>(value)); };
+            built.numeric_setters["alpha"] = [block](double value) { block->set_alpha(static_cast<double>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "float") == "short") {
             auto block = blocks::peak_detector_sb::make(wasm_registry::number<double>(p, "threshold_factor_rise", 0.25), wasm_registry::number<double>(p, "threshold_factor_fall", 0.4), wasm_registry::number<int>(p, "look_ahead", 10), wasm_registry::number<double>(p, "alpha", 0.001));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["threshold_factor_rise"] = [block](double value) { block->set_threshold_factor_rise(static_cast<double>(value)); };
+            built.numeric_setters["threshold_factor_fall"] = [block](double value) { block->set_threshold_factor_fall(static_cast<double>(value)); };
+            built.numeric_setters["look_ahead"] = [block](double value) { block->set_look_ahead(static_cast<int>(value)); };
+            built.numeric_setters["alpha"] = [block](double value) { block->set_alpha(static_cast<double>(value)); };
+            return built;
         }
         throw std::runtime_error("unsupported type selection for blocks_peak_detector_xb");
     });
     registry.emplace("blocks_plateau_detector_fb", [](const nlohmann::json& p) -> BuiltBlock {
         auto block = blocks::plateau_detector_fb::make(wasm_registry::number<int>(p, "max_len", 0), wasm_registry::number<double>(p, "threshold", 0.9));
-        return { block, nullptr };
+        BuiltBlock built{ block };
+        built.numeric_setters["threshold"] = [block](double value) { block->set_threshold(static_cast<double>(value)); };
+        return built;
     });
     registry.emplace("blocks_probe_rate", [](const nlohmann::json& p) -> BuiltBlock {
         if (wasm_registry::text(p, "type", "complex") == "complex") {
             auto block = blocks::probe_rate::make(sizeof(gr_complex)*wasm_registry::number<int>(p, "vlen", 1), wasm_registry::number<double>(p, "mintime", 500.0), wasm_registry::number<double>(p, "alpha", 0.15), wasm_registry::text(p, "name", ""));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["alpha"] = [block](double value) { block->set_alpha(static_cast<double>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "float") {
             auto block = blocks::probe_rate::make(sizeof(float)*wasm_registry::number<int>(p, "vlen", 1), wasm_registry::number<double>(p, "mintime", 500.0), wasm_registry::number<double>(p, "alpha", 0.15), wasm_registry::text(p, "name", ""));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["alpha"] = [block](double value) { block->set_alpha(static_cast<double>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "int") {
             auto block = blocks::probe_rate::make(sizeof(int)*wasm_registry::number<int>(p, "vlen", 1), wasm_registry::number<double>(p, "mintime", 500.0), wasm_registry::number<double>(p, "alpha", 0.15), wasm_registry::text(p, "name", ""));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["alpha"] = [block](double value) { block->set_alpha(static_cast<double>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "short") {
             auto block = blocks::probe_rate::make(sizeof(short)*wasm_registry::number<int>(p, "vlen", 1), wasm_registry::number<double>(p, "mintime", 500.0), wasm_registry::number<double>(p, "alpha", 0.15), wasm_registry::text(p, "name", ""));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["alpha"] = [block](double value) { block->set_alpha(static_cast<double>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "byte") {
             auto block = blocks::probe_rate::make(sizeof(char)*wasm_registry::number<int>(p, "vlen", 1), wasm_registry::number<double>(p, "mintime", 500.0), wasm_registry::number<double>(p, "alpha", 0.15), wasm_registry::text(p, "name", ""));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["alpha"] = [block](double value) { block->set_alpha(static_cast<double>(value)); };
+            return built;
         }
         throw std::runtime_error("unsupported type selection for blocks_probe_rate");
     });
@@ -1006,40 +1103,56 @@ void register_generated_blocks(std::map<std::string, Factory>& registry)
     registry.emplace("blocks_repeat", [](const nlohmann::json& p) -> BuiltBlock {
         if (wasm_registry::text(p, "type", "complex") == "complex") {
             auto block = blocks::repeat::make(sizeof(gr_complex)*wasm_registry::number<int>(p, "vlen", 1), wasm_registry::number<int>(p, "interp", 0));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["interp"] = [block](double value) { block->set_interpolation(static_cast<int>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "float") {
             auto block = blocks::repeat::make(sizeof(float)*wasm_registry::number<int>(p, "vlen", 1), wasm_registry::number<int>(p, "interp", 0));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["interp"] = [block](double value) { block->set_interpolation(static_cast<int>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "int") {
             auto block = blocks::repeat::make(sizeof(int)*wasm_registry::number<int>(p, "vlen", 1), wasm_registry::number<int>(p, "interp", 0));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["interp"] = [block](double value) { block->set_interpolation(static_cast<int>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "short") {
             auto block = blocks::repeat::make(sizeof(short)*wasm_registry::number<int>(p, "vlen", 1), wasm_registry::number<int>(p, "interp", 0));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["interp"] = [block](double value) { block->set_interpolation(static_cast<int>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "byte") {
             auto block = blocks::repeat::make(sizeof(char)*wasm_registry::number<int>(p, "vlen", 1), wasm_registry::number<int>(p, "interp", 0));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["interp"] = [block](double value) { block->set_interpolation(static_cast<int>(value)); };
+            return built;
         }
         throw std::runtime_error("unsupported type selection for blocks_repeat");
     });
     registry.emplace("blocks_rms_xx", [](const nlohmann::json& p) -> BuiltBlock {
         if (wasm_registry::text(p, "type", "complex") == "complex") {
             auto block = blocks::rms_cf::make(wasm_registry::number<double>(p, "alpha", 0.0001));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["alpha"] = [block](double value) { block->set_alpha(static_cast<double>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "float") {
             auto block = blocks::rms_ff::make(wasm_registry::number<double>(p, "alpha", 0.0001));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["alpha"] = [block](double value) { block->set_alpha(static_cast<double>(value)); };
+            return built;
         }
         throw std::runtime_error("unsupported type selection for blocks_rms_xx");
     });
     registry.emplace("blocks_rotator_cc", [](const nlohmann::json& p) -> BuiltBlock {
         auto block = blocks::rotator_cc::make(wasm_registry::number<double>(p, "phase_inc", 0.0), wasm_registry::choice(p, "tag_inc_update", {{"True", true}, {"False", false}}, false));
-        return { block, nullptr };
+        BuiltBlock built{ block };
+        built.numeric_setters["phase_inc"] = [block](double value) { block->set_phase_inc(static_cast<double>(value)); };
+        return built;
     });
     registry.emplace("blocks_sample_and_hold_xx", [](const nlohmann::json& p) -> BuiltBlock {
         if (wasm_registry::text(p, "type", "float") == "float") {
@@ -1064,27 +1177,42 @@ void register_generated_blocks(std::map<std::string, Factory>& registry)
         if (wasm_registry::text(p, "type", "complex") == "complex") {
             auto block = blocks::selector::make(sizeof(gr_complex)*wasm_registry::number<int>(p, "vlen", 1),wasm_registry::number<int>(p, "input_index", 0),wasm_registry::number<int>(p, "output_index", 0));
             block->set_enabled(wasm_registry::boolean(p, "enabled", true));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["input_index"] = [block](double value) { block->set_input_index(static_cast<int>(value)); };
+            built.numeric_setters["output_index"] = [block](double value) { block->set_output_index(static_cast<int>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "float") {
             auto block = blocks::selector::make(sizeof(float)*wasm_registry::number<int>(p, "vlen", 1),wasm_registry::number<int>(p, "input_index", 0),wasm_registry::number<int>(p, "output_index", 0));
             block->set_enabled(wasm_registry::boolean(p, "enabled", true));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["input_index"] = [block](double value) { block->set_input_index(static_cast<int>(value)); };
+            built.numeric_setters["output_index"] = [block](double value) { block->set_output_index(static_cast<int>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "int") {
             auto block = blocks::selector::make(sizeof(int)*wasm_registry::number<int>(p, "vlen", 1),wasm_registry::number<int>(p, "input_index", 0),wasm_registry::number<int>(p, "output_index", 0));
             block->set_enabled(wasm_registry::boolean(p, "enabled", true));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["input_index"] = [block](double value) { block->set_input_index(static_cast<int>(value)); };
+            built.numeric_setters["output_index"] = [block](double value) { block->set_output_index(static_cast<int>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "short") {
             auto block = blocks::selector::make(sizeof(short)*wasm_registry::number<int>(p, "vlen", 1),wasm_registry::number<int>(p, "input_index", 0),wasm_registry::number<int>(p, "output_index", 0));
             block->set_enabled(wasm_registry::boolean(p, "enabled", true));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["input_index"] = [block](double value) { block->set_input_index(static_cast<int>(value)); };
+            built.numeric_setters["output_index"] = [block](double value) { block->set_output_index(static_cast<int>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "byte") {
             auto block = blocks::selector::make(sizeof(char)*wasm_registry::number<int>(p, "vlen", 1),wasm_registry::number<int>(p, "input_index", 0),wasm_registry::number<int>(p, "output_index", 0));
             block->set_enabled(wasm_registry::boolean(p, "enabled", true));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["input_index"] = [block](double value) { block->set_input_index(static_cast<int>(value)); };
+            built.numeric_setters["output_index"] = [block](double value) { block->set_output_index(static_cast<int>(value)); };
+            return built;
         }
         throw std::runtime_error("unsupported type selection for blocks_selector");
     });
@@ -1094,7 +1222,9 @@ void register_generated_blocks(std::map<std::string, Factory>& registry)
     });
     registry.emplace("blocks_short_to_float", [](const nlohmann::json& p) -> BuiltBlock {
         auto block = blocks::short_to_float::make(wasm_registry::number<int>(p, "vlen", 1), wasm_registry::number<double>(p, "scale", 1.0));
-        return { block, nullptr };
+        BuiltBlock built{ block };
+        built.numeric_setters["scale"] = [block](double value) { block->set_scale(static_cast<double>(value)); };
+        return built;
     });
     registry.emplace("blocks_skiphead", [](const nlohmann::json& p) -> BuiltBlock {
         if (wasm_registry::text(p, "type", "complex") == "complex") {
@@ -1191,23 +1321,33 @@ void register_generated_blocks(std::map<std::string, Factory>& registry)
     registry.emplace("blocks_stream_to_tagged_stream", [](const nlohmann::json& p) -> BuiltBlock {
         if (wasm_registry::text(p, "type", "complex") == "complex") {
             auto block = blocks::stream_to_tagged_stream::make(sizeof(gr_complex), wasm_registry::number<int>(p, "vlen", 1), wasm_registry::number<int>(p, "packet_len", 0), wasm_registry::text(p, "len_tag_key", "packet_len"));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["packet_len"] = [block](double value) { block->set_packet_len(static_cast<int>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "float") {
             auto block = blocks::stream_to_tagged_stream::make(sizeof(float), wasm_registry::number<int>(p, "vlen", 1), wasm_registry::number<int>(p, "packet_len", 0), wasm_registry::text(p, "len_tag_key", "packet_len"));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["packet_len"] = [block](double value) { block->set_packet_len(static_cast<int>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "int") {
             auto block = blocks::stream_to_tagged_stream::make(sizeof(int), wasm_registry::number<int>(p, "vlen", 1), wasm_registry::number<int>(p, "packet_len", 0), wasm_registry::text(p, "len_tag_key", "packet_len"));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["packet_len"] = [block](double value) { block->set_packet_len(static_cast<int>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "short") {
             auto block = blocks::stream_to_tagged_stream::make(sizeof(short), wasm_registry::number<int>(p, "vlen", 1), wasm_registry::number<int>(p, "packet_len", 0), wasm_registry::text(p, "len_tag_key", "packet_len"));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["packet_len"] = [block](double value) { block->set_packet_len(static_cast<int>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "byte") {
             auto block = blocks::stream_to_tagged_stream::make(sizeof(char), wasm_registry::number<int>(p, "vlen", 1), wasm_registry::number<int>(p, "packet_len", 0), wasm_registry::text(p, "len_tag_key", "packet_len"));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["packet_len"] = [block](double value) { block->set_packet_len(static_cast<int>(value)); };
+            return built;
         }
         throw std::runtime_error("unsupported type selection for blocks_stream_to_tagged_stream");
     });
@@ -1237,23 +1377,38 @@ void register_generated_blocks(std::map<std::string, Factory>& registry)
     registry.emplace("blocks_stream_to_vector_decimator", [](const nlohmann::json& p) -> BuiltBlock {
         if (wasm_registry::text(p, "type", "complex") == "complex") {
             auto block = StreamToVectorDecimator::make(sizeof(gr_complex), wasm_registry::number<double>(p, "sample_rate", 0.0), wasm_registry::number<double>(p, "vec_rate", 30.0), wasm_registry::number<int>(p, "vlen", 1024));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["sample_rate"] = [block](double value) { block->set_sample_rate(static_cast<double>(value)); };
+            built.numeric_setters["vec_rate"] = [block](double value) { block->set_vec_rate(static_cast<double>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "float") {
             auto block = StreamToVectorDecimator::make(sizeof(float), wasm_registry::number<double>(p, "sample_rate", 0.0), wasm_registry::number<double>(p, "vec_rate", 30.0), wasm_registry::number<int>(p, "vlen", 1024));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["sample_rate"] = [block](double value) { block->set_sample_rate(static_cast<double>(value)); };
+            built.numeric_setters["vec_rate"] = [block](double value) { block->set_vec_rate(static_cast<double>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "int") {
             auto block = StreamToVectorDecimator::make(sizeof(int), wasm_registry::number<double>(p, "sample_rate", 0.0), wasm_registry::number<double>(p, "vec_rate", 30.0), wasm_registry::number<int>(p, "vlen", 1024));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["sample_rate"] = [block](double value) { block->set_sample_rate(static_cast<double>(value)); };
+            built.numeric_setters["vec_rate"] = [block](double value) { block->set_vec_rate(static_cast<double>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "short") {
             auto block = StreamToVectorDecimator::make(sizeof(short), wasm_registry::number<double>(p, "sample_rate", 0.0), wasm_registry::number<double>(p, "vec_rate", 30.0), wasm_registry::number<int>(p, "vlen", 1024));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["sample_rate"] = [block](double value) { block->set_sample_rate(static_cast<double>(value)); };
+            built.numeric_setters["vec_rate"] = [block](double value) { block->set_vec_rate(static_cast<double>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "byte") {
             auto block = StreamToVectorDecimator::make(sizeof(char), wasm_registry::number<double>(p, "sample_rate", 0.0), wasm_registry::number<double>(p, "vec_rate", 30.0), wasm_registry::number<int>(p, "vlen", 1024));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["sample_rate"] = [block](double value) { block->set_sample_rate(static_cast<double>(value)); };
+            built.numeric_setters["vec_rate"] = [block](double value) { block->set_vec_rate(static_cast<double>(value)); };
+            return built;
         }
         throw std::runtime_error("unsupported type selection for blocks_stream_to_vector_decimator");
     });
@@ -1515,23 +1670,33 @@ void register_generated_blocks(std::map<std::string, Factory>& registry)
     registry.emplace("blocks_tagged_stream_multiply_length", [](const nlohmann::json& p) -> BuiltBlock {
         if (wasm_registry::text(p, "type", "complex") == "complex") {
             auto block = blocks::tagged_stream_multiply_length::make(sizeof(gr_complex)*wasm_registry::number<int>(p, "vlen", 1), wasm_registry::text(p, "lengthtagname", ""), wasm_registry::number<double>(p, "c", 1.0));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["c"] = [block](double value) { block->set_scalar(static_cast<double>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "float") {
             auto block = blocks::tagged_stream_multiply_length::make(sizeof(float)*wasm_registry::number<int>(p, "vlen", 1), wasm_registry::text(p, "lengthtagname", ""), wasm_registry::number<double>(p, "c", 1.0));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["c"] = [block](double value) { block->set_scalar(static_cast<double>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "int") {
             auto block = blocks::tagged_stream_multiply_length::make(sizeof(int)*wasm_registry::number<int>(p, "vlen", 1), wasm_registry::text(p, "lengthtagname", ""), wasm_registry::number<double>(p, "c", 1.0));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["c"] = [block](double value) { block->set_scalar(static_cast<double>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "short") {
             auto block = blocks::tagged_stream_multiply_length::make(sizeof(short)*wasm_registry::number<int>(p, "vlen", 1), wasm_registry::text(p, "lengthtagname", ""), wasm_registry::number<double>(p, "c", 1.0));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["c"] = [block](double value) { block->set_scalar(static_cast<double>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "byte") {
             auto block = blocks::tagged_stream_multiply_length::make(sizeof(char)*wasm_registry::number<int>(p, "vlen", 1), wasm_registry::text(p, "lengthtagname", ""), wasm_registry::number<double>(p, "c", 1.0));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["c"] = [block](double value) { block->set_scalar(static_cast<double>(value)); };
+            return built;
         }
         throw std::runtime_error("unsupported type selection for blocks_tagged_stream_multiply_length");
     });
@@ -1561,23 +1726,33 @@ void register_generated_blocks(std::map<std::string, Factory>& registry)
     registry.emplace("blocks_tags_strobe", [](const nlohmann::json& p) -> BuiltBlock {
         if (wasm_registry::text(p, "type", "complex") == "complex") {
             auto block = blocks::tags_strobe::make(sizeof(gr_complex)*wasm_registry::number<int>(p, "vlen", 1), wasm_registry::pmt_value(p, "value", "pmt.intern(\"TEST\")"), wasm_registry::number<int>(p, "nsamps", 1000), wasm_registry::pmt_value(p, "key", "pmt.intern(\"strobe\")"));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["nsamps"] = [block](double value) { block->set_nsamps(static_cast<int>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "float") {
             auto block = blocks::tags_strobe::make(sizeof(float)*wasm_registry::number<int>(p, "vlen", 1), wasm_registry::pmt_value(p, "value", "pmt.intern(\"TEST\")"), wasm_registry::number<int>(p, "nsamps", 1000), wasm_registry::pmt_value(p, "key", "pmt.intern(\"strobe\")"));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["nsamps"] = [block](double value) { block->set_nsamps(static_cast<int>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "int") {
             auto block = blocks::tags_strobe::make(sizeof(int)*wasm_registry::number<int>(p, "vlen", 1), wasm_registry::pmt_value(p, "value", "pmt.intern(\"TEST\")"), wasm_registry::number<int>(p, "nsamps", 1000), wasm_registry::pmt_value(p, "key", "pmt.intern(\"strobe\")"));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["nsamps"] = [block](double value) { block->set_nsamps(static_cast<int>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "short") {
             auto block = blocks::tags_strobe::make(sizeof(short)*wasm_registry::number<int>(p, "vlen", 1), wasm_registry::pmt_value(p, "value", "pmt.intern(\"TEST\")"), wasm_registry::number<int>(p, "nsamps", 1000), wasm_registry::pmt_value(p, "key", "pmt.intern(\"strobe\")"));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["nsamps"] = [block](double value) { block->set_nsamps(static_cast<int>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "byte") {
             auto block = blocks::tags_strobe::make(sizeof(char)*wasm_registry::number<int>(p, "vlen", 1), wasm_registry::pmt_value(p, "value", "pmt.intern(\"TEST\")"), wasm_registry::number<int>(p, "nsamps", 1000), wasm_registry::pmt_value(p, "key", "pmt.intern(\"strobe\")"));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["nsamps"] = [block](double value) { block->set_nsamps(static_cast<int>(value)); };
+            return built;
         }
         throw std::runtime_error("unsupported type selection for blocks_tags_strobe");
     });
@@ -1587,28 +1762,41 @@ void register_generated_blocks(std::map<std::string, Factory>& registry)
     });
     registry.emplace("blocks_threshold_ff", [](const nlohmann::json& p) -> BuiltBlock {
         auto block = blocks::threshold_ff::make(wasm_registry::number<double>(p, "low", -100.0), wasm_registry::number<double>(p, "high", 100.0), wasm_registry::number<double>(p, "init", 0.0));
-        return { block, nullptr };
+        BuiltBlock built{ block };
+        built.numeric_setters["high"] = [block](double value) { block->set_hi(static_cast<double>(value)); };
+        built.numeric_setters["low"] = [block](double value) { block->set_lo(static_cast<double>(value)); };
+        return built;
     });
     registry.emplace("blocks_throttle2", [](const nlohmann::json& p) -> BuiltBlock {
         if (wasm_registry::text(p, "type", "complex") == "complex") {
             auto block = blocks::throttle::make(sizeof(gr_complex) * wasm_registry::number<int>(p, "vlen", 1), wasm_registry::number<double>(p, "samples_per_second", 0.0), wasm_registry::boolean(p, "ignoretag", true), wasm_registry::throttle_limit(p, wasm_registry::number<double>(p, "maximum", 0.1), wasm_registry::number<double>(p, "samples_per_second", 0.0)));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["samples_per_second"] = [block](double value) { block->set_sample_rate(static_cast<double>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "float") {
             auto block = blocks::throttle::make(sizeof(float) * wasm_registry::number<int>(p, "vlen", 1), wasm_registry::number<double>(p, "samples_per_second", 0.0), wasm_registry::boolean(p, "ignoretag", true), wasm_registry::throttle_limit(p, wasm_registry::number<double>(p, "maximum", 0.1), wasm_registry::number<double>(p, "samples_per_second", 0.0)));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["samples_per_second"] = [block](double value) { block->set_sample_rate(static_cast<double>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "int") {
             auto block = blocks::throttle::make(sizeof(int) * wasm_registry::number<int>(p, "vlen", 1), wasm_registry::number<double>(p, "samples_per_second", 0.0), wasm_registry::boolean(p, "ignoretag", true), wasm_registry::throttle_limit(p, wasm_registry::number<double>(p, "maximum", 0.1), wasm_registry::number<double>(p, "samples_per_second", 0.0)));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["samples_per_second"] = [block](double value) { block->set_sample_rate(static_cast<double>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "short") {
             auto block = blocks::throttle::make(sizeof(short) * wasm_registry::number<int>(p, "vlen", 1), wasm_registry::number<double>(p, "samples_per_second", 0.0), wasm_registry::boolean(p, "ignoretag", true), wasm_registry::throttle_limit(p, wasm_registry::number<double>(p, "maximum", 0.1), wasm_registry::number<double>(p, "samples_per_second", 0.0)));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["samples_per_second"] = [block](double value) { block->set_sample_rate(static_cast<double>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "byte") {
             auto block = blocks::throttle::make(sizeof(char) * wasm_registry::number<int>(p, "vlen", 1), wasm_registry::number<double>(p, "samples_per_second", 0.0), wasm_registry::boolean(p, "ignoretag", true), wasm_registry::throttle_limit(p, wasm_registry::number<double>(p, "maximum", 0.1), wasm_registry::number<double>(p, "samples_per_second", 0.0)));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["samples_per_second"] = [block](double value) { block->set_sample_rate(static_cast<double>(value)); };
+            return built;
         }
         throw std::runtime_error("unsupported type selection for blocks_throttle2");
     });
@@ -1780,57 +1968,100 @@ void register_generated_blocks(std::map<std::string, Factory>& registry)
     registry.emplace("analog_agc2_xx", [](const nlohmann::json& p) -> BuiltBlock {
         if (wasm_registry::text(p, "type", "complex") == "complex") {
             auto block = analog::agc2_cc::make(wasm_registry::number<double>(p, "attack_rate", 0.1), wasm_registry::number<double>(p, "decay_rate", 0.01), wasm_registry::number<double>(p, "reference", 1.0), wasm_registry::number<double>(p, "gain", 1.0), wasm_registry::number<double>(p, "max_gain", 65536.0));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["attack_rate"] = [block](double value) { block->set_attack_rate(static_cast<double>(value)); };
+            built.numeric_setters["decay_rate"] = [block](double value) { block->set_decay_rate(static_cast<double>(value)); };
+            built.numeric_setters["reference"] = [block](double value) { block->set_reference(static_cast<double>(value)); };
+            built.numeric_setters["gain"] = [block](double value) { block->set_gain(static_cast<double>(value)); };
+            built.numeric_setters["max_gain"] = [block](double value) { block->set_max_gain(static_cast<double>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "float") {
             auto block = analog::agc2_ff::make(wasm_registry::number<double>(p, "attack_rate", 0.1), wasm_registry::number<double>(p, "decay_rate", 0.01), wasm_registry::number<double>(p, "reference", 1.0), wasm_registry::number<double>(p, "gain", 1.0), wasm_registry::number<double>(p, "max_gain", 65536.0));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["attack_rate"] = [block](double value) { block->set_attack_rate(static_cast<double>(value)); };
+            built.numeric_setters["decay_rate"] = [block](double value) { block->set_decay_rate(static_cast<double>(value)); };
+            built.numeric_setters["reference"] = [block](double value) { block->set_reference(static_cast<double>(value)); };
+            built.numeric_setters["gain"] = [block](double value) { block->set_gain(static_cast<double>(value)); };
+            built.numeric_setters["max_gain"] = [block](double value) { block->set_max_gain(static_cast<double>(value)); };
+            return built;
         }
         throw std::runtime_error("unsupported type selection for analog_agc2_xx");
     });
     registry.emplace("analog_agc3_xx", [](const nlohmann::json& p) -> BuiltBlock {
         auto block = analog::agc3_cc::make(wasm_registry::number<double>(p, "attack_rate", 0.001), wasm_registry::number<double>(p, "decay_rate", 0.0001), wasm_registry::number<double>(p, "reference", 1.0), wasm_registry::number<double>(p, "gain", 1.0), wasm_registry::number<double>(p, "iir_update_decim", 1.0), wasm_registry::number<double>(p, "max_gain", 65536.0));
-        return { block, nullptr };
+        BuiltBlock built{ block };
+        built.numeric_setters["attack_rate"] = [block](double value) { block->set_attack_rate(static_cast<double>(value)); };
+        built.numeric_setters["decay_rate"] = [block](double value) { block->set_decay_rate(static_cast<double>(value)); };
+        built.numeric_setters["reference"] = [block](double value) { block->set_reference(static_cast<double>(value)); };
+        built.numeric_setters["gain"] = [block](double value) { block->set_gain(static_cast<double>(value)); };
+        built.numeric_setters["max_gain"] = [block](double value) { block->set_max_gain(static_cast<double>(value)); };
+        return built;
     });
     registry.emplace("analog_agc_xx", [](const nlohmann::json& p) -> BuiltBlock {
         if (wasm_registry::text(p, "type", "complex") == "complex") {
             auto block = analog::agc_cc::make(wasm_registry::number<double>(p, "rate", 0.0001), wasm_registry::number<double>(p, "reference", 1.0), wasm_registry::number<double>(p, "gain", 1.0), wasm_registry::number<double>(p, "max_gain", 65536.0));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["rate"] = [block](double value) { block->set_rate(static_cast<double>(value)); };
+            built.numeric_setters["reference"] = [block](double value) { block->set_reference(static_cast<double>(value)); };
+            built.numeric_setters["gain"] = [block](double value) { block->set_gain(static_cast<double>(value)); };
+            built.numeric_setters["max_gain"] = [block](double value) { block->set_max_gain(static_cast<double>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "float") {
             auto block = analog::agc_ff::make(wasm_registry::number<double>(p, "rate", 0.0001), wasm_registry::number<double>(p, "reference", 1.0), wasm_registry::number<double>(p, "gain", 1.0), wasm_registry::number<double>(p, "max_gain", 65536.0));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["rate"] = [block](double value) { block->set_rate(static_cast<double>(value)); };
+            built.numeric_setters["reference"] = [block](double value) { block->set_reference(static_cast<double>(value)); };
+            built.numeric_setters["gain"] = [block](double value) { block->set_gain(static_cast<double>(value)); };
+            built.numeric_setters["max_gain"] = [block](double value) { block->set_max_gain(static_cast<double>(value)); };
+            return built;
         }
         throw std::runtime_error("unsupported type selection for analog_agc_xx");
     });
     registry.emplace("analog_cpfsk_bc", [](const nlohmann::json& p) -> BuiltBlock {
         auto block = analog::cpfsk_bc::make(wasm_registry::number<double>(p, "k", 0.0), wasm_registry::number<double>(p, "amplitude", 0.0), wasm_registry::number<int>(p, "samples_per_symbol", 2));
-        return { block, nullptr };
+        BuiltBlock built{ block };
+        built.numeric_setters["amplitude"] = [block](double value) { block->set_amplitude(static_cast<double>(value)); };
+        return built;
     });
     registry.emplace("analog_ctcss_squelch_ff", [](const nlohmann::json& p) -> BuiltBlock {
         auto block = analog::ctcss_squelch_ff::make(wasm_registry::number<double>(p, "rate", 0.0), wasm_registry::number<double>(p, "freq", 100.0), wasm_registry::number<double>(p, "level", 0.01), wasm_registry::number<int>(p, "len", 0), wasm_registry::number<int>(p, "ramp", 0), wasm_registry::boolean(p, "gate", false));
-        return { block, nullptr };
+        BuiltBlock built{ block };
+        built.numeric_setters["level"] = [block](double value) { block->set_level(static_cast<double>(value)); };
+        built.numeric_setters["freq"] = [block](double value) { block->set_frequency(static_cast<double>(value)); };
+        return built;
     });
     registry.emplace("analog_dpll_bb", [](const nlohmann::json& p) -> BuiltBlock {
         auto block = analog::dpll_bb::make(wasm_registry::number<double>(p, "period", 0.0), wasm_registry::number<double>(p, "gain", 0.0));
-        return { block, nullptr };
+        BuiltBlock built{ block };
+        built.numeric_setters["gain"] = [block](double value) { block->set_gain(static_cast<double>(value)); };
+        return built;
     });
     registry.emplace("analog_fastnoise_source_x", [](const nlohmann::json& p) -> BuiltBlock {
         if (wasm_registry::text(p, "type", "complex") == "complex") {
             auto block = analog::fastnoise_source_c::make(wasm_registry::choice(p, "noise_type", {{"analog::GR_UNIFORM", analog::GR_UNIFORM}, {"analog::GR_GAUSSIAN", analog::GR_GAUSSIAN}, {"analog::GR_LAPLACIAN", analog::GR_LAPLACIAN}, {"analog::GR_IMPULSE", analog::GR_IMPULSE}}, analog::GR_GAUSSIAN), wasm_registry::number<double>(p, "amp", 1.0), wasm_registry::number<int>(p, "seed", 0), wasm_registry::number<int>(p, "samples", 8192));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["amp"] = [block](double value) { block->set_amplitude(static_cast<double>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "float") {
             auto block = analog::fastnoise_source_f::make(wasm_registry::choice(p, "noise_type", {{"analog::GR_UNIFORM", analog::GR_UNIFORM}, {"analog::GR_GAUSSIAN", analog::GR_GAUSSIAN}, {"analog::GR_LAPLACIAN", analog::GR_LAPLACIAN}, {"analog::GR_IMPULSE", analog::GR_IMPULSE}}, analog::GR_GAUSSIAN), wasm_registry::number<double>(p, "amp", 1.0), wasm_registry::number<int>(p, "seed", 0), wasm_registry::number<int>(p, "samples", 8192));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["amp"] = [block](double value) { block->set_amplitude(static_cast<double>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "int") {
             auto block = analog::fastnoise_source_i::make(wasm_registry::choice(p, "noise_type", {{"analog::GR_UNIFORM", analog::GR_UNIFORM}, {"analog::GR_GAUSSIAN", analog::GR_GAUSSIAN}, {"analog::GR_LAPLACIAN", analog::GR_LAPLACIAN}, {"analog::GR_IMPULSE", analog::GR_IMPULSE}}, analog::GR_GAUSSIAN), wasm_registry::number<double>(p, "amp", 1.0), wasm_registry::number<int>(p, "seed", 0), wasm_registry::number<int>(p, "samples", 8192));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["amp"] = [block](double value) { block->set_amplitude(static_cast<double>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "short") {
             auto block = analog::fastnoise_source_s::make(wasm_registry::choice(p, "noise_type", {{"analog::GR_UNIFORM", analog::GR_UNIFORM}, {"analog::GR_GAUSSIAN", analog::GR_GAUSSIAN}, {"analog::GR_LAPLACIAN", analog::GR_LAPLACIAN}, {"analog::GR_IMPULSE", analog::GR_IMPULSE}}, analog::GR_GAUSSIAN), wasm_registry::number<double>(p, "amp", 1.0), wasm_registry::number<int>(p, "seed", 0), wasm_registry::number<int>(p, "samples", 8192));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["amp"] = [block](double value) { block->set_amplitude(static_cast<double>(value)); };
+            return built;
         }
         throw std::runtime_error("unsupported type selection for analog_fastnoise_source_x");
     });
@@ -1840,69 +2071,110 @@ void register_generated_blocks(std::map<std::string, Factory>& registry)
     });
     registry.emplace("analog_frequency_modulator_fc", [](const nlohmann::json& p) -> BuiltBlock {
         auto block = analog::frequency_modulator_fc::make(wasm_registry::number<double>(p, "sensitivity", 0.0));
-        return { block, nullptr };
+        BuiltBlock built{ block };
+        built.numeric_setters["sensitivity"] = [block](double value) { block->set_sensitivity(static_cast<double>(value)); };
+        return built;
     });
     registry.emplace("analog_phase_modulator_fc", [](const nlohmann::json& p) -> BuiltBlock {
         auto block = analog::phase_modulator_fc::make(wasm_registry::number<double>(p, "sensitivity", 0.0));
-        return { block, nullptr };
+        BuiltBlock built{ block };
+        built.numeric_setters["sensitivity"] = [block](double value) { block->set_sensitivity(static_cast<double>(value)); };
+        return built;
     });
     registry.emplace("analog_pll_carriertracking_cc", [](const nlohmann::json& p) -> BuiltBlock {
         auto block = analog::pll_carriertracking_cc::make(wasm_registry::number<double>(p, "w", 0.0), wasm_registry::number<double>(p, "max_freq", 0.0), wasm_registry::number<double>(p, "min_freq", 0.0));
-        return { block, nullptr };
+        BuiltBlock built{ block };
+        built.numeric_setters["w"] = [block](double value) { block->set_loop_bandwidth(static_cast<double>(value)); };
+        built.numeric_setters["max_freq"] = [block](double value) { block->set_max_freq(static_cast<double>(value)); };
+        built.numeric_setters["min_freq"] = [block](double value) { block->set_min_freq(static_cast<double>(value)); };
+        return built;
     });
     registry.emplace("analog_pll_freqdet_cf", [](const nlohmann::json& p) -> BuiltBlock {
         auto block = analog::pll_freqdet_cf::make(wasm_registry::number<double>(p, "w", 0.0), wasm_registry::number<double>(p, "max_freq", 0.0), wasm_registry::number<double>(p, "min_freq", 0.0));
-        return { block, nullptr };
+        BuiltBlock built{ block };
+        built.numeric_setters["w"] = [block](double value) { block->set_loop_bandwidth(static_cast<double>(value)); };
+        built.numeric_setters["max_freq"] = [block](double value) { block->set_max_freq(static_cast<double>(value)); };
+        built.numeric_setters["min_freq"] = [block](double value) { block->set_min_freq(static_cast<double>(value)); };
+        return built;
     });
     registry.emplace("analog_pll_refout_cc", [](const nlohmann::json& p) -> BuiltBlock {
         auto block = analog::pll_refout_cc::make(wasm_registry::number<double>(p, "w", 0.0), wasm_registry::number<double>(p, "max_freq", 0.0), wasm_registry::number<double>(p, "min_freq", 0.0));
-        return { block, nullptr };
+        BuiltBlock built{ block };
+        built.numeric_setters["w"] = [block](double value) { block->set_loop_bandwidth(static_cast<double>(value)); };
+        built.numeric_setters["max_freq"] = [block](double value) { block->set_max_freq(static_cast<double>(value)); };
+        built.numeric_setters["min_freq"] = [block](double value) { block->set_min_freq(static_cast<double>(value)); };
+        return built;
     });
     registry.emplace("analog_pwr_squelch_xx", [](const nlohmann::json& p) -> BuiltBlock {
         if (wasm_registry::text(p, "type", "complex") == "complex") {
             auto block = analog::pwr_squelch_cc::make(wasm_registry::number<double>(p, "threshold", 0.0), wasm_registry::number<double>(p, "alpha", 0.0001), wasm_registry::number<int>(p, "ramp", 0), wasm_registry::choice(p, "gate", {{"True", true}, {"False", false}}, true));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["threshold"] = [block](double value) { block->set_threshold(static_cast<double>(value)); };
+            built.numeric_setters["alpha"] = [block](double value) { block->set_alpha(static_cast<double>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "float") {
             auto block = analog::pwr_squelch_ff::make(wasm_registry::number<double>(p, "threshold", 0.0), wasm_registry::number<double>(p, "alpha", 0.0001), wasm_registry::number<int>(p, "ramp", 0), wasm_registry::choice(p, "gate", {{"True", true}, {"False", false}}, true));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["threshold"] = [block](double value) { block->set_threshold(static_cast<double>(value)); };
+            built.numeric_setters["alpha"] = [block](double value) { block->set_alpha(static_cast<double>(value)); };
+            return built;
         }
         throw std::runtime_error("unsupported type selection for analog_pwr_squelch_xx");
     });
     registry.emplace("analog_quadrature_demod_cf", [](const nlohmann::json& p) -> BuiltBlock {
         auto block = analog::quadrature_demod_cf::make(wasm_registry::number<double>(p, "gain", 0.0));
-        return { block, nullptr };
+        BuiltBlock built{ block };
+        built.numeric_setters["gain"] = [block](double value) { block->set_gain(static_cast<double>(value)); };
+        return built;
     });
     registry.emplace("analog_rail_ff", [](const nlohmann::json& p) -> BuiltBlock {
         auto block = analog::rail_ff::make(wasm_registry::number<double>(p, "lo", 0.0), wasm_registry::number<double>(p, "hi", 0.0));
-        return { block, nullptr };
+        BuiltBlock built{ block };
+        built.numeric_setters["lo"] = [block](double value) { block->set_lo(static_cast<double>(value)); };
+        built.numeric_setters["hi"] = [block](double value) { block->set_hi(static_cast<double>(value)); };
+        return built;
     });
     registry.emplace("analog_simple_squelch_cc", [](const nlohmann::json& p) -> BuiltBlock {
         auto block = analog::simple_squelch_cc::make(wasm_registry::number<double>(p, "threshold", 0.0), wasm_registry::number<double>(p, "alpha", 0.0));
-        return { block, nullptr };
+        BuiltBlock built{ block };
+        built.numeric_setters["threshold"] = [block](double value) { block->set_threshold(static_cast<double>(value)); };
+        built.numeric_setters["alpha"] = [block](double value) { block->set_alpha(static_cast<double>(value)); };
+        return built;
     });
     registry.emplace("fft_vxx", [](const nlohmann::json& p) -> BuiltBlock {
         if (wasm_registry::text(p, "type", "complex") == "complex" && wasm_registry::text(p, "forward", "True") == "True") {
             auto block = fft::fft_v<gr_complex, true>::make(wasm_registry::number<int>(p, "fft_size", 1024), wasm_registry::vector<float>(p, "window"), wasm_registry::choice(p, "shift", {{"True", true}, {"False", false}}, true), wasm_registry::number<int>(p, "nthreads", 1));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["nthreads"] = [block](double value) { block->set_nthreads(static_cast<int>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "complex" && wasm_registry::text(p, "forward", "True") == "False") {
             auto block = fft::fft_v<gr_complex, false>::make(wasm_registry::number<int>(p, "fft_size", 1024), wasm_registry::vector<float>(p, "window"), wasm_registry::choice(p, "shift", {{"True", true}, {"False", false}}, true), wasm_registry::number<int>(p, "nthreads", 1));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["nthreads"] = [block](double value) { block->set_nthreads(static_cast<int>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "float" && wasm_registry::text(p, "forward", "True") == "True") {
             auto block = fft::fft_v<float, true>::make(wasm_registry::number<int>(p, "fft_size", 1024), wasm_registry::vector<float>(p, "window"), wasm_registry::choice(p, "shift", {{"True", true}, {"False", false}}, true), wasm_registry::number<int>(p, "nthreads", 1));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["nthreads"] = [block](double value) { block->set_nthreads(static_cast<int>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "float" && wasm_registry::text(p, "forward", "True") == "False") {
             auto block = fft::fft_v<float, false>::make(wasm_registry::number<int>(p, "fft_size", 1024), wasm_registry::vector<float>(p, "window"), wasm_registry::choice(p, "shift", {{"True", true}, {"False", false}}, true), wasm_registry::number<int>(p, "nthreads", 1));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["nthreads"] = [block](double value) { block->set_nthreads(static_cast<int>(value)); };
+            return built;
         }
         throw std::runtime_error("unsupported type selection for fft_vxx");
     });
     registry.emplace("goertzel_fc", [](const nlohmann::json& p) -> BuiltBlock {
         auto block = fft::goertzel_fc::make(wasm_registry::number<int>(p, "rate", 0), wasm_registry::number<int>(p, "len", 0), wasm_registry::number<double>(p, "freq", 0.0));
-        return { block, nullptr };
+        BuiltBlock built{ block };
+        built.numeric_setters["freq"] = [block](double value) { block->set_freq(static_cast<double>(value)); };
+        built.numeric_setters["rate"] = [block](double value) { block->set_rate(static_cast<int>(value)); };
+        return built;
     });
     registry.emplace("band_pass_filter", [](const nlohmann::json& p) -> BuiltBlock {
         if (wasm_registry::text(p, "type", "fir_filter_ccf") == "fir_filter_ccf" && wasm_registry::text(p, "win", "window.WIN_HAMMING") == "window.WIN_HAMMING") {
@@ -2969,7 +3241,9 @@ void register_generated_blocks(std::map<std::string, Factory>& registry)
                 taps,
                 wasm_registry::number<int>(p, "nthreads", 1));
             block->declare_sample_delay(wasm_registry::number<int>(p, "samp_delay", 0));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["nthreads"] = [block](double value) { block->set_nthreads(static_cast<int>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "ccc") == "ccf") {
             auto taps = wasm_registry::vector<float>(p, "taps");
@@ -2978,7 +3252,9 @@ void register_generated_blocks(std::map<std::string, Factory>& registry)
                 taps,
                 wasm_registry::number<int>(p, "nthreads", 1));
             block->declare_sample_delay(wasm_registry::number<int>(p, "samp_delay", 0));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["nthreads"] = [block](double value) { block->set_nthreads(static_cast<int>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "ccc") == "fff") {
             auto taps = wasm_registry::vector<float>(p, "taps");
@@ -2987,7 +3263,9 @@ void register_generated_blocks(std::map<std::string, Factory>& registry)
                 taps,
                 wasm_registry::number<int>(p, "nthreads", 1));
             block->declare_sample_delay(wasm_registry::number<int>(p, "samp_delay", 0));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["nthreads"] = [block](double value) { block->set_nthreads(static_cast<int>(value)); };
+            return built;
         }
         throw std::runtime_error("unsupported type selection for fft_filter_xxx");
     });
@@ -3039,27 +3317,39 @@ void register_generated_blocks(std::map<std::string, Factory>& registry)
     registry.emplace("freq_xlating_fir_filter_xxx", [](const nlohmann::json& p) -> BuiltBlock {
         if (wasm_registry::text(p, "type", "ccc") == "ccc") {
             auto block = filter::freq_xlating_fir_filter_ccc::make(wasm_registry::number<int>(p, "decim", 1), wasm_registry::vector<gr_complex>(p, "taps"), wasm_registry::number<double>(p, "center_freq", 0.0), wasm_registry::number<double>(p, "samp_rate", 0.0));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["center_freq"] = [block](double value) { block->set_center_freq(static_cast<double>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "ccc") == "ccf") {
             auto block = filter::freq_xlating_fir_filter_ccf::make(wasm_registry::number<int>(p, "decim", 1), wasm_registry::vector<float>(p, "taps"), wasm_registry::number<double>(p, "center_freq", 0.0), wasm_registry::number<double>(p, "samp_rate", 0.0));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["center_freq"] = [block](double value) { block->set_center_freq(static_cast<double>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "ccc") == "fcc") {
             auto block = filter::freq_xlating_fir_filter_fcc::make(wasm_registry::number<int>(p, "decim", 1), wasm_registry::vector<gr_complex>(p, "taps"), wasm_registry::number<double>(p, "center_freq", 0.0), wasm_registry::number<double>(p, "samp_rate", 0.0));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["center_freq"] = [block](double value) { block->set_center_freq(static_cast<double>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "ccc") == "fcf") {
             auto block = filter::freq_xlating_fir_filter_fcf::make(wasm_registry::number<int>(p, "decim", 1), wasm_registry::vector<float>(p, "taps"), wasm_registry::number<double>(p, "center_freq", 0.0), wasm_registry::number<double>(p, "samp_rate", 0.0));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["center_freq"] = [block](double value) { block->set_center_freq(static_cast<double>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "ccc") == "scc") {
             auto block = filter::freq_xlating_fir_filter_scc::make(wasm_registry::number<int>(p, "decim", 1), wasm_registry::vector<gr_complex>(p, "taps"), wasm_registry::number<double>(p, "center_freq", 0.0), wasm_registry::number<double>(p, "samp_rate", 0.0));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["center_freq"] = [block](double value) { block->set_center_freq(static_cast<double>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "ccc") == "scf") {
             auto block = filter::freq_xlating_fir_filter_scf::make(wasm_registry::number<int>(p, "decim", 1), wasm_registry::vector<float>(p, "taps"), wasm_registry::number<double>(p, "center_freq", 0.0), wasm_registry::number<double>(p, "samp_rate", 0.0));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["center_freq"] = [block](double value) { block->set_center_freq(static_cast<double>(value)); };
+            return built;
         }
         throw std::runtime_error("unsupported type selection for freq_xlating_fir_filter_xxx");
     });
@@ -3680,13 +3970,17 @@ void register_generated_blocks(std::map<std::string, Factory>& registry)
             auto block = filter::mmse_resampler_cc::make(
                 wasm_registry::number<double>(p, "phase_shift", 0.0),
                 wasm_registry::number<double>(p, "resamp_ratio", 0.0));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["resamp_ratio"] = [block](double value) { block->set_resamp_ratio(static_cast<double>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "float") {
             auto block = filter::mmse_resampler_ff::make(
                 wasm_registry::number<double>(p, "phase_shift", 0.0),
                 wasm_registry::number<double>(p, "resamp_ratio", 0.0));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["resamp_ratio"] = [block](double value) { block->set_resamp_ratio(static_cast<double>(value)); };
+            return built;
         }
         throw std::runtime_error("unsupported type selection for mmse_resampler_xx");
     });
@@ -3698,7 +3992,9 @@ void register_generated_blocks(std::map<std::string, Factory>& registry)
                 taps,
                 wasm_registry::number<int>(p, "nfilts", 32));
             block->declare_sample_delay(wasm_registry::number<int>(p, "samp_delay", 0));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["rrate"] = [block](double value) { block->set_rate(static_cast<double>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "ccf") == "fff") {
             auto taps = wasm_registry::vector<float>(p, "taps");
@@ -3707,7 +4003,9 @@ void register_generated_blocks(std::map<std::string, Factory>& registry)
                 taps,
                 wasm_registry::number<int>(p, "nfilts", 32));
             block->declare_sample_delay(wasm_registry::number<int>(p, "samp_delay", 0));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["rrate"] = [block](double value) { block->set_rate(static_cast<double>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "ccf") == "ccc") {
             auto taps = wasm_registry::vector<gr_complex>(p, "taps");
@@ -3716,7 +4014,9 @@ void register_generated_blocks(std::map<std::string, Factory>& registry)
                 taps,
                 wasm_registry::number<int>(p, "nfilts", 32));
             block->declare_sample_delay(wasm_registry::number<int>(p, "samp_delay", 0));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["rrate"] = [block](double value) { block->set_rate(static_cast<double>(value)); };
+            return built;
         }
         throw std::runtime_error("unsupported type selection for pfb_arb_resampler_xxx");
     });
@@ -3853,11 +4153,15 @@ void register_generated_blocks(std::map<std::string, Factory>& registry)
     registry.emplace("single_pole_iir_filter_xx", [](const nlohmann::json& p) -> BuiltBlock {
         if (wasm_registry::text(p, "type", "complex") == "complex") {
             auto block = filter::single_pole_iir_filter_cc::make(wasm_registry::number<double>(p, "alpha", 1.0), wasm_registry::number<int>(p, "vlen", 1));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["alpha"] = [block](double value) { block->set_taps(static_cast<double>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "float") {
             auto block = filter::single_pole_iir_filter_ff::make(wasm_registry::number<double>(p, "alpha", 1.0), wasm_registry::number<int>(p, "vlen", 1));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["alpha"] = [block](double value) { block->set_taps(static_cast<double>(value)); };
+            return built;
         }
         throw std::runtime_error("unsupported type selection for single_pole_iir_filter_xx");
     });

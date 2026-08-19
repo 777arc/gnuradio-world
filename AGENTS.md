@@ -345,6 +345,12 @@ explanation lives in that doc — follow it before working in that area.
 - **A QT GUI control is two objects, not one** — a variable that publishes a
   double under its block ID, plus (usually) a message block. See
   [docs/blocks.md](docs/blocks.md).
+- **A parameter a Range drives needs a `numeric_setters` entry, or it silently
+  freezes.** The runner binds a Range to a block by GRC parameter id and skips
+  the binding without a word when the factory has no setter for it — the slider
+  still moves and publishes, the block keeps its construction-time value.
+  Generated factories emit one per simple `callbacks:` entry in the yaml;
+  hand-written ones must add theirs. See [docs/blocks.md](docs/blocks.md).
 - **Three blocks read a file, one per place a file can be** — File Source (local,
   session-bound), GR World Recording (an R2 key the runner's factory expands), and
   Public HTTP Recording (a URL the editor rewrites on the Run path). See

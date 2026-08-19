@@ -207,10 +207,10 @@ CUSTOM_IDS = {
     # C++ rebuild of gr-digital's Python-only OFDM Transmitter hier block.
     "digital_ofdm_tx",
     "freq_xlating_fft_filter_ccc",
-    # gr-channels' two fading models. Hand-written only for their live fDTs/K
-    # setters: a slider that cannot move the Doppler rate of a running graph
-    # makes the fading examples static. channels_channel_model keeps its
-    # generated factory and stays in channels.wasm.
+    # gr-channels' two fading models, kept in core so the fading examples do not
+    # pull a side module. Their live fDTs/K setters, which is what they were
+    # hand-written for, a generated factory now emits by itself -- see
+    # callback_setters() -- so only the module placement still argues for these.
     "channels_fading_model",
     "channels_selective_fading_model",
     # gr-filter's Python channelizer hierarchy: its taps and output channel list
@@ -666,6 +666,60 @@ def param_arg(block_id: str, param: dict[str, Any], namespace: dict[str, Any]) -
     raise ValueError(f"unsupported parameter {pid} ({dtype})")
 
 
+# A GRC callback is a live setter: GRC's own generator re-emits it whenever a
+# parameter's expression changes, which is how a native flowgraph's Range slider
+# moves a running block. The browser has no generator, so the runner binds a QT
+# GUI Range straight to a factory's `numeric_setters` entry instead (see the
+# parameter loop in runner/src/runner.cpp). Emitting one per callback is what
+# keeps a generated factory as live as a hand-written one -- without it the
+# slider still moves and publishes, nothing is subscribed, and the parameter is
+# silently frozen at its construction-time value.
+#
+# Only the simple shape is translatable: one argument that is exactly one
+# numeric parameter. Anything else (a vector, a string, an enum, an expression
+# over several parameters) is left to a hand-written factory.
+CALLBACK_SETTER = re.compile(r"^\s*(set_\w+)\(\s*\$\{\s*(\w+)\s*\}\s*\)\s*$")
+
+# The C++ type the setter argument is cast to, per GRC dtype. These mirror the
+# types param_arg() reads the same parameter as at construction, so a setter and
+# its constructor argument cannot disagree about, say, int versus double.
+SETTER_CASTS = {"int": "int", "hex": "std::uint64_t", "real": "double", "float": "double"}
+
+
+def callback_setters(block: dict[str, Any], namespace: dict[str, Any],
+                     structural: set[str]) -> list[tuple[str, str, str]]:
+    """(parameter id, setter method, cast type) for each translatable callback.
+
+    `cpp_templates` wins over `templates` where both exist: the Python and C++
+    method names agree throughout GNU Radio today, but the C++ list is the one
+    that describes the class this factory actually builds.
+    """
+    cpp = block.get("cpp_templates") or {}
+    # An explicit cpp callbacks list wins even when empty: that is how an overlay
+    # says "this rebuild exposes no setters" for a block whose upstream Python
+    # hierarchy has them but our C++ stand-in does not.
+    callbacks = (cpp["callbacks"] if "callbacks" in cpp
+                 else (block.get("templates") or {}).get("callbacks") or [])
+    params = {str(param["id"]): param for param in block.get("parameters", []) or []
+              if isinstance(param, dict) and "id" in param}
+    setters: dict[str, tuple[str, str, str]] = {}
+    for callback in callbacks:
+        match = CALLBACK_SETTER.match(str(callback))
+        if not match:
+            continue
+        method, pid = match.group(1), match.group(2)
+        param = params.get(pid)
+        # A structural parameter picks which class was constructed, so it cannot
+        # be changed on a running graph whatever the yaml says.
+        if param is None or pid in structural:
+            continue
+        cast = SETTER_CASTS.get(resolve_dtype(str(param.get("dtype", "raw")), namespace))
+        if cast is None:
+            continue
+        setters.setdefault(pid, (pid, method, cast))
+    return list(setters.values())
+
+
 def render_namespace(block: dict[str, Any], selections: dict[str, Any]) -> dict[str, Any]:
     namespace: dict[str, Any] = {
         "id": Arg("block", evaluated="block"),
@@ -754,8 +808,9 @@ def render_block(block: dict[str, Any]) -> tuple[list[str], str]:
     });'''
         return includes, factory
     structural = structural_enums(block)
+    structural_ids = {str(param["id"]) for param in structural}
     combinations = list(itertools.product(*[param["options"] for param in structural])) or [()]
-    variants: list[tuple[dict[str, Any], str]] = []
+    variants: list[tuple[dict[str, Any], str, list[tuple[str, str, str]]]] = []
     includes: set[str] = set()
     for choices in combinations:
         selections = {str(param["id"]): choice for param, choice in zip(structural, choices)}
@@ -770,10 +825,10 @@ def render_block(block: dict[str, Any]) -> tuple[list[str], str]:
         make = translate_make(make, cpp.get("translations"))
         if "auto block =" not in make:
             raise ValueError("C++ template does not construct a stream/message block")
-        variants.append((selections, make))
+        variants.append((selections, make, callback_setters(block, namespace, structural_ids)))
 
     lines = [f'    registry.emplace("{block["id"]}", [](const nlohmann::json& p) -> BuiltBlock {{']
-    for index, (selections, make) in enumerate(variants):
+    for index, (selections, make, setters) in enumerate(variants):
         tests = [
             f'wasm_registry::text(p, {json.dumps(pid)}, {json.dumps(str(next(param.get("default", param["options"][0]) for param in structural if param["id"] == pid)))}) == {json.dumps(str(option))}'
             for pid, option in selections.items()
@@ -784,7 +839,15 @@ def render_block(block: dict[str, Any]) -> tuple[list[str], str]:
         else:
             indent = "        "
         lines.extend(indent + line for line in make.splitlines())
-        lines.append(indent + "return { block, nullptr };")
+        if not setters:
+            lines.append(indent + "return { block, nullptr };")
+        else:
+            lines.append(indent + "BuiltBlock built{ block };")
+            for pid, method, cast in setters:
+                lines.append(
+                    f'{indent}built.numeric_setters[{json.dumps(pid)}] = '
+                    f'[block](double value) {{ block->{method}(static_cast<{cast}>(value)); }};')
+            lines.append(indent + "return built;")
         if len(variants) > 1:
             lines.append("        }")
     if len(variants) > 1:

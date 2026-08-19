@@ -26,7 +26,11 @@ struct Registrar_foo {
     });
     wasm_registry_add("foo_channel_model", +[](const nlohmann::json& p) -> BuiltBlock {
         auto block = foo::channel_model::make(wasm_registry::number<double>(p, "noise_voltage", 0.0), wasm_registry::number<double>(p, "freq_offset", 0.0), wasm_registry::number<double>(p, "epsilon", 1.0), wasm_registry::vector<gr_complex>(p, "taps"), wasm_registry::number<int>(p, "seed", 0), wasm_registry::choice(p, "block_tags", {{"True", true}, {"False", false}}, false));
-        return { block, nullptr };
+        BuiltBlock built{ block };
+        built.numeric_setters["noise_voltage"] = [block](double value) { block->set_noise_voltage(static_cast<double>(value)); };
+        built.numeric_setters["freq_offset"] = [block](double value) { block->set_frequency_offset(static_cast<double>(value)); };
+        built.numeric_setters["epsilon"] = [block](double value) { block->set_timing_offset(static_cast<double>(value)); };
+        return built;
     });
     wasm_registry_add("foo_packet_dropper", +[](const nlohmann::json& p) -> BuiltBlock {
         auto block = foo::packet_dropper::make(wasm_registry::number<double>(p, "drop_rate", 0.5), wasm_registry::number<int>(p, "seed", 42));

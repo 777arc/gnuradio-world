@@ -45,7 +45,10 @@ struct Registrar_ieee802_11 {
     });
     wasm_registry_add("ieee802_11_frame_equalizer", +[](const nlohmann::json& p) -> BuiltBlock {
         auto block = ieee802_11::frame_equalizer::make(wasm_ieee802_11::equalizer(wasm_registry::text(p, "algo", "ieee802_11.LS")), wasm_registry::number<double>(p, "freq", 5890000000.0), wasm_registry::number<double>(p, "bw", 10000000.0), wasm_registry::boolean(p, "log", false), wasm_registry::boolean(p, "debug", false));
-        return { block, nullptr };
+        BuiltBlock built{ block };
+        built.numeric_setters["freq"] = [block](double value) { block->set_frequency(static_cast<double>(value)); };
+        built.numeric_setters["bw"] = [block](double value) { block->set_bandwidth(static_cast<double>(value)); };
+        return built;
     });
     wasm_registry_add("ieee802_11_mac", +[](const nlohmann::json& p) -> BuiltBlock {
         auto block = ieee802_11::mac::make(wasm_ieee802_11::mac_address(wasm_registry::vector<int>(p, "src_mac")), wasm_ieee802_11::mac_address(wasm_registry::vector<int>(p, "dst_mac")), wasm_ieee802_11::mac_address(wasm_registry::vector<int>(p, "bss_mac")));

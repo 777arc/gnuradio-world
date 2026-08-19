@@ -14,7 +14,9 @@ struct Registrar_fosphor {
     {
     wasm_registry_add("overlap_cc", +[](const nlohmann::json& p) -> BuiltBlock {
         auto block = gr::fosphor::overlap_cc::make(wasm_registry::number<int>(p, "wlen", 1024), wasm_registry::number<int>(p, "overlap", 1));
-        return { block, nullptr };
+        BuiltBlock built{ block };
+        built.numeric_setters["overlap"] = [block](double value) { block->set_overlap_ratio(static_cast<int>(value)); };
+        return built;
     });
     }
 } g_registrar_fosphor;

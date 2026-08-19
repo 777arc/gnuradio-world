@@ -196,7 +196,12 @@ struct Registrar_digital {
                 wasm_registry::number<double>(p, "mu", 0.5),
                 wasm_registry::number<double>(p, "gain_mu", 0.175),
                 wasm_registry::number<double>(p, "omega_relative_limit", 0.005));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["omega"] = [block](double value) { block->set_omega(static_cast<double>(value)); };
+            built.numeric_setters["gain_omega"] = [block](double value) { block->set_gain_omega(static_cast<double>(value)); };
+            built.numeric_setters["mu"] = [block](double value) { block->set_mu(static_cast<double>(value)); };
+            built.numeric_setters["gain_mu"] = [block](double value) { block->set_gain_mu(static_cast<double>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "float") {
             auto block = digital::clock_recovery_mm_ff::make(
@@ -205,7 +210,12 @@ struct Registrar_digital {
                 wasm_registry::number<double>(p, "mu", 0.5),
                 wasm_registry::number<double>(p, "gain_mu", 0.175),
                 wasm_registry::number<double>(p, "omega_relative_limit", 0.005));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["omega"] = [block](double value) { block->set_omega(static_cast<double>(value)); };
+            built.numeric_setters["gain_omega"] = [block](double value) { block->set_gain_omega(static_cast<double>(value)); };
+            built.numeric_setters["mu"] = [block](double value) { block->set_mu(static_cast<double>(value)); };
+            built.numeric_setters["gain_mu"] = [block](double value) { block->set_gain_mu(static_cast<double>(value)); };
+            return built;
         }
         throw std::runtime_error("unsupported type selection for digital_clock_recovery_mm_xx");
     });
@@ -217,7 +227,10 @@ struct Registrar_digital {
             wasm_registry::number<int>(p, "mark_delay", 0),
             wasm_registry::number<double>(p, "threshold", 0.9),
             wasm_registry::choice(p, "threshold_method", {{"digital::THRESHOLD_ABSOLUTE", digital::THRESHOLD_ABSOLUTE}, {"digital::THRESHOLD_DYNAMIC", digital::THRESHOLD_DYNAMIC}}, digital::THRESHOLD_ABSOLUTE));
-        return { block, nullptr };
+        BuiltBlock built{ block };
+        built.numeric_setters["mark_delay"] = [block](double value) { block->set_mark_delay(static_cast<int>(value)); };
+        built.numeric_setters["threshold"] = [block](double value) { block->set_threshold(static_cast<double>(value)); };
+        return built;
     });
     wasm_registry_add("digital_correlate_access_code_tag_xx", +[](const nlohmann::json& p) -> BuiltBlock {
         if (wasm_registry::text(p, "type", "byte") == "byte") {
@@ -225,14 +238,18 @@ struct Registrar_digital {
                 wasm_registry::text(p, "access_code", "101010"),
                 wasm_registry::number<int>(p, "threshold", 0),
                 wasm_registry::text(p, "tagname", ""));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["threshold"] = [block](double value) { block->set_threshold(static_cast<int>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "byte") == "float") {
             auto block = digital::correlate_access_code_tag_ff::make(
                 wasm_registry::text(p, "access_code", "101010"),
                 wasm_registry::number<int>(p, "threshold", 0),
                 wasm_registry::text(p, "tagname", ""));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["threshold"] = [block](double value) { block->set_threshold(static_cast<int>(value)); };
+            return built;
         }
         throw std::runtime_error("unsupported type selection for digital_correlate_access_code_tag_xx");
     });
@@ -332,7 +349,9 @@ struct Registrar_digital {
             wasm_registry::number<double>(p, "rolloff", 0.0),
             wasm_registry::number<int>(p, "filter_size", 0),
             wasm_registry::number<double>(p, "w", 0.0));
-        return { block, nullptr };
+        BuiltBlock built{ block };
+        built.numeric_setters["w"] = [block](double value) { block->set_loop_bandwidth(static_cast<double>(value)); };
+        return built;
     });
     wasm_registry_add("digital_gfsk_demod", +[](const nlohmann::json& p) -> BuiltBlock {
         auto block = GfskDemod::make(wasm_registry::number<int>(p, "samples_per_symbol", 2), wasm_registry::number<double>(p, "sensitivity", 1.0), wasm_registry::number<double>(p, "gain_mu", 0.175), wasm_registry::number<double>(p, "omega_relative_limit", 0.005), wasm_registry::number<double>(p, "freq_error", 0.0));
@@ -471,7 +490,10 @@ struct Registrar_digital {
             static_cast<digital::snr_est_type_t>(wasm_registry::choice(p, "type", {{"0", 0}, {"1", 1}, {"2", 2}, {"3", 3}}, 0)),
             wasm_registry::number<int>(p, "tag_nsamples", 10000),
             wasm_registry::number<double>(p, "alpha", 0.001));
-        return { block, nullptr };
+        BuiltBlock built{ block };
+        built.numeric_setters["tag_nsamples"] = [block](double value) { block->set_tag_nsample(static_cast<int>(value)); };
+        built.numeric_setters["alpha"] = [block](double value) { block->set_alpha(static_cast<double>(value)); };
+        return built;
     });
     wasm_registry_add("digital_msk_timing_recovery_cc", +[](const nlohmann::json& p) -> BuiltBlock {
         auto block = digital::msk_timing_recovery_cc::make(
@@ -479,7 +501,11 @@ struct Registrar_digital {
             wasm_registry::number<double>(p, "gain", 0.0),
             wasm_registry::number<double>(p, "limit", 0.0),
             wasm_registry::number<int>(p, "osps", 0));
-        return { block, nullptr };
+        BuiltBlock built{ block };
+        built.numeric_setters["gain"] = [block](double value) { block->set_gain(static_cast<double>(value)); };
+        built.numeric_setters["sps"] = [block](double value) { block->set_sps(static_cast<double>(value)); };
+        built.numeric_setters["limit"] = [block](double value) { block->set_limit(static_cast<double>(value)); };
+        return built;
     });
     wasm_registry_add("digital_ofdm_chanest_vcvc", +[](const nlohmann::json& p) -> BuiltBlock {
         auto sync_symbol1 = wasm_registry::vector<gr_complex>(p, "sync_symbol1");
@@ -507,7 +533,9 @@ struct Registrar_digital {
             wasm_registry::number<int>(p, "cp_len", 0),
             wasm_registry::choice(p, "use_even_carriers", {{"False", false}, {"True", true}}, false),
             wasm_registry::number<double>(p, "threshold", 0.9));
-        return { block, nullptr };
+        BuiltBlock built{ block };
+        built.numeric_setters["threshold"] = [block](double value) { block->set_threshold(static_cast<double>(value)); };
+        return built;
     });
     wasm_registry_add("digital_packet_headergenerator_bb_default", +[](const nlohmann::json& p) -> BuiltBlock {
         auto block = digital::packet_headergenerator_bb::make(
@@ -532,7 +560,9 @@ struct Registrar_digital {
                 wasm_registry::number<double>(p, "init_phase", 16.0),
                 wasm_registry::number<double>(p, "max_dev", 1.5),
                 wasm_registry::number<int>(p, "osps", 1));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["loop_bw"] = [block](double value) { block->set_loop_bandwidth(static_cast<double>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "ccf") == "fff") {
             auto taps = wasm_registry::vector<float>(p, "taps");
@@ -544,7 +574,9 @@ struct Registrar_digital {
                 wasm_registry::number<double>(p, "init_phase", 16.0),
                 wasm_registry::number<double>(p, "max_dev", 1.5),
                 wasm_registry::number<int>(p, "osps", 1));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["loop_bw"] = [block](double value) { block->set_loop_bandwidth(static_cast<double>(value)); };
+            return built;
         }
         throw std::runtime_error("unsupported type selection for digital_pfb_clock_sync_xxx");
     });
@@ -557,14 +589,19 @@ struct Registrar_digital {
     });
     wasm_registry_add("digital_probe_density_b", +[](const nlohmann::json& p) -> BuiltBlock {
         auto block = digital::probe_density_b::make(wasm_registry::number<double>(p, "alpha", 1.0));
-        return { block, nullptr };
+        BuiltBlock built{ block };
+        built.numeric_setters["alpha"] = [block](double value) { block->set_alpha(static_cast<double>(value)); };
+        return built;
     });
     wasm_registry_add("digital_probe_mpsk_snr_est_c", +[](const nlohmann::json& p) -> BuiltBlock {
         auto block = digital::probe_mpsk_snr_est_c::make(
             static_cast<digital::snr_est_type_t>(wasm_registry::choice(p, "type", {{"0", 0}, {"1", 1}, {"2", 2}, {"3", 3}}, 0)),
             wasm_registry::number<int>(p, "msg_nsamples", 10000),
             wasm_registry::number<double>(p, "alpha", 0.001));
-        return { block, nullptr };
+        BuiltBlock built{ block };
+        built.numeric_setters["msg_nsamples"] = [block](double value) { block->set_msg_nsample(static_cast<int>(value)); };
+        built.numeric_setters["alpha"] = [block](double value) { block->set_alpha(static_cast<double>(value)); };
+        return built;
     });
     wasm_registry_add("digital_scrambler_bb", +[](const nlohmann::json& p) -> BuiltBlock {
         auto block = digital::scrambler_bb::make(wasm_registry::number<std::uint64_t>(p, "mask", 138), wasm_registry::number<std::uint64_t>(p, "seed", 127), wasm_registry::number<int>(p, "len", 7));

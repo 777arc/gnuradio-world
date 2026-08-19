@@ -267,3 +267,12 @@ channels_selective_fading_model:
     callbacks:
     - set_fDTs(${fDTs})
     - set_K(${K})
+
+# gr-digital's MPSK SNR Estimator names a setter its C++ class does not have:
+# both callback lists say set_tag_nsamples, the class declares set_tag_nsample.
+# Upstream never noticed because GRC's Python generator only emits the text.
+digital_mpsk_snr_est_cc:
+  callbacks:
+  - set_type(${type})
+  - set_tag_nsample(${tag_nsamples})
+  - set_alpha(${alpha})

@@ -45,6 +45,15 @@ Supported keys, all optional except where an entry would otherwise do nothing:
     is subject to the page's CORS rules, neither of which upstream can mention.
 ``cpp_templates``
     The GRC C++ template mapping the factory generator renders.
+``callbacks``
+    Replaces just the ``cpp_templates`` callback list -- the setters the runner
+    binds a QT GUI Range to, so a slider moves the parameter on a running graph.
+    Separate from ``cpp_templates`` because that key is replaced wholesale, and
+    the two reasons to touch this list both leave the rest of the template alone:
+    upstream names a method the C++ class does not have (a yaml-only typo the
+    Python generator never compiled), and a Python-only block rebuilt here as a
+    ``hier_block2`` cannot expose its upstream setters at all -- ``callbacks: []``
+    is how that rebuild says so.
 ``parameter_dtypes`` / ``parameter_defaults`` / ``parameter_labels``
     Retype, re-default or relabel one parameter by id.  Retyping is used where
     upstream's dtype is ``raw`` holding an expression the generator cannot type:
@@ -83,7 +92,7 @@ METADATA = "metadata.yml"
 # gnuradio/, so validate() cannot pin them to one module the way it does for OOT.
 IN_TREE_MODULE = "gnuradio"
 
-KEYS = {"flags", "category", "label", "cpp_templates", "documentation",
+KEYS = {"flags", "category", "label", "cpp_templates", "callbacks", "documentation",
         "parameter_dtypes", "parameter_defaults", "parameter_labels",
         "prune_options", "hidden"}
 
@@ -151,6 +160,9 @@ def apply(block: dict[str, Any], override: dict[str, Any]) -> None:
         block["documentation"] = override["documentation"]
     block["cpp_templates"] = override.get(
         "cpp_templates", block.get("cpp_templates") or {})
+    if "callbacks" in override:
+        block["cpp_templates"] = dict(block["cpp_templates"],
+                                      callbacks=override["callbacks"])
 
     dtypes = override.get("parameter_dtypes") or {}
     defaults = override.get("parameter_defaults") or {}
