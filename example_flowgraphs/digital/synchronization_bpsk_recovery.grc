@@ -26,7 +26,7 @@ blocks:
         value: '0.005'
         widget: counter_slider
     states:
-        coordinate: [1030, 230]
+        coordinate: [610, 10]
         rotation: 0
         state: enabled
 -   name: nfilts
@@ -35,7 +35,7 @@ blocks:
         comment: ''
         value: '16'
     states:
-        coordinate: [690, 30]
+        coordinate: [900, 10]
         rotation: 0
         state: enabled
 -   name: noise_volt
@@ -52,7 +52,7 @@ blocks:
         value: '0.1'
         widget: counter_slider
     states:
-        coordinate: [860, 30]
+        coordinate: [1070, 10]
         rotation: 0
         state: enabled
 -   name: rrc_taps
@@ -61,7 +61,7 @@ blocks:
         comment: ''
         value: firdes.root_raised_cosine(nfilts, nfilts, 1.0/float(sps), 0.35, 11*sps*nfilts)
     states:
-        coordinate: [1120, 50]
+        coordinate: [1320, 10]
         rotation: 0
         state: enabled
 -   name: samp_rate
@@ -70,7 +70,7 @@ blocks:
         comment: ''
         value: '50000'
     states:
-        coordinate: [340, 20]
+        coordinate: [10, 230]
         rotation: 0
         state: enabled
 -   name: sps
@@ -79,7 +79,7 @@ blocks:
         comment: ''
         value: '8'
     states:
-        coordinate: [510, 20]
+        coordinate: [180, 230]
         rotation: 0
         state: enabled
 -   name: time_offset
@@ -96,7 +96,21 @@ blocks:
         value: '1.0002'
         widget: counter_slider
     states:
-        coordinate: [760, 230]
+        coordinate: [350, 230]
+        rotation: 0
+        state: enabled
+-   name: agc
+    id: analog_agc2_xx
+    parameters:
+        attack_rate: '0.06'
+        comment: ''
+        decay_rate: '0.001'
+        gain: '1'
+        max_gain: '65536'
+        reference: '1'
+        type: complex
+    states:
+        coordinate: [80, 790]
         rotation: 0
         state: enabled
 -   name: bpsk
@@ -113,7 +127,7 @@ blocks:
         sym_map: '[0, 1]'
         type: bpsk
     states:
-        coordinate: [420, 180]
+        coordinate: [630, 230]
         rotation: 0
         state: enabled
 -   name: bpsk_mod
@@ -128,7 +142,7 @@ blocks:
         truncate: 'False'
         verbose: 'False'
     states:
-        coordinate: [420, 430]
+        coordinate: [380, 510]
         rotation: 0
         state: enabled
 -   name: channel
@@ -142,21 +156,7 @@ blocks:
         seed: '0'
         taps: '[1.0]'
     states:
-        coordinate: [800, 440]
-        rotation: 0
-        state: enabled
--   name: agc
-    id: analog_agc2_xx
-    parameters:
-        attack_rate: '0.06'
-        comment: ''
-        decay_rate: '0.001'
-        gain: '1.0'
-        max_gain: '65536'
-        reference: '1.0'
-        type: complex
-    states:
-        coordinate: [1160, 620]
+        coordinate: [760, 520]
         rotation: 0
         state: enabled
 -   name: clock_sync
@@ -172,7 +172,7 @@ blocks:
         taps: rrc_taps
         type: ccf
     states:
-        coordinate: [120, 690]
+        coordinate: [460, 770]
         rotation: 0
         state: enabled
 -   name: const_rx
@@ -257,7 +257,7 @@ blocks:
         ymax: '2'
         ymin: '-2'
     states:
-        coordinate: [1540, 460]
+        coordinate: [80, 950]
         rotation: 0
         state: enabled
 -   name: const_synced
@@ -342,7 +342,7 @@ blocks:
         ymax: '2'
         ymin: '-2'
     states:
-        coordinate: [970, 650]
+        coordinate: [1310, 730]
         rotation: 0
         state: enabled
 -   name: const_timed
@@ -427,7 +427,7 @@ blocks:
         ymax: '2'
         ymin: '-2'
     states:
-        coordinate: [540, 850]
+        coordinate: [880, 930]
         rotation: 0
         state: enabled
 -   name: costas
@@ -438,7 +438,7 @@ blocks:
         use_snr: 'False'
         w: '0.0628'
     states:
-        coordinate: [540, 670]
+        coordinate: [880, 750]
         rotation: 0
         state: enabled
 -   name: note_rx
@@ -447,7 +447,7 @@ blocks:
         comment: ''
         note: "Receiver: the same steps the chapter writes by hand in Python\n\nTransmitter: random bits -> BPSK -> RRC pulse shaping\n\nChannel: noise + carrier frequency offset + sample clock offset\n\nTry adding more noise or more frequency offset"
     states:
-        coordinate: [20, 170]
+        coordinate: [950, 230]
         rotation: 0
         state: enabled
 -   name: random_bits
@@ -459,7 +459,7 @@ blocks:
         seed: '0'
         type: byte
     states:
-        coordinate: [50, 470]
+        coordinate: [10, 550]
         rotation: 0
         state: enabled
 -   name: throttle
@@ -473,7 +473,7 @@ blocks:
         type: complex
         vlen: '1'
     states:
-        coordinate: [1160, 460]
+        coordinate: [1120, 540]
         rotation: 0
         state: enabled
 -   name: time_symbols
@@ -563,7 +563,7 @@ blocks:
         ymin: '-2'
         yunit: '""'
     states:
-        coordinate: [970, 790]
+        coordinate: [1310, 870]
         rotation: 0
         state: enabled
 -   name: wasm_gui_layout_0
@@ -574,19 +574,19 @@ blocks:
         layout: '{"const_rx":[0,1,4,3],"const_synced":[8,1,4,3],"const_timed":[4,1,4,3],"freq_offset":[0,0,4,1],"noise_volt":[4,0,4,1],"time_offset":[8,0,4,1],"time_symbols":[0,4,12,3]}'
         row_height: '60'
     states:
-        coordinate: [1420, 60]
+        coordinate: [320, 10]
         rotation: 0
         state: enabled
 connections:
+- [agc, '0', clock_sync, '0']
 - [bpsk_mod, '0', channel, '0']
 - [channel, '0', throttle, '0']
-- [throttle, '0', agc, '0']
 - [clock_sync, '0', const_timed, '0']
 - [clock_sync, '0', costas, '0']
 - [costas, '0', const_synced, '0']
 - [costas, '0', time_symbols, '0']
 - [random_bits, '0', bpsk_mod, '0']
-- [agc, '0', clock_sync, '0']
+- [throttle, '0', agc, '0']
 - [throttle, '0', const_rx, '0']
 metadata:
     file_format: 1
