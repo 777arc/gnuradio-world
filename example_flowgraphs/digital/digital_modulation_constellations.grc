@@ -8,7 +8,7 @@ options:
         id: PySDR__BPSK_vs_QPSK_vs_16_QAM
         title: 'PySDR: BPSK vs QPSK vs 16-QAM'
     states:
-        coordinate: [20, 0]
+        coordinate: [20, 10]
         rotation: 0
         state: enabled
 blocks:
@@ -23,7 +23,7 @@ blocks:
         start: '0'
         step: '0.01'
         stop: '1'
-        value: '0.1'
+        value: '0.05'
         widget: counter_slider
     states:
         coordinate: [1020, 40]
@@ -42,7 +42,7 @@ blocks:
     id: variable
     parameters:
         comment: ''
-        value: '4'
+        value: '2'
     states:
         coordinate: [820, 130]
         rotation: 0
@@ -443,8 +443,8 @@ blocks:
         width7: '1'
         width8: '1'
         width9: '1'
-        ymax: '10'
-        ymin: '-100'
+        ymax: '-20'
+        ymin: '-80'
     states:
         coordinate: [1640, 510]
         rotation: 0

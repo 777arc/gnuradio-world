@@ -41,6 +41,10 @@ function approx(src, expected, eps = 1e-6, sc = scope) {
   assert.ok(Math.abs(r.value - expected) < eps, `for ${JSON.stringify(src)}: got ${r.value}, want ${expected}`);
   passed++;
 }
+// Numeric closeness between two values already in hand (approx() evaluates).
+function approxEq(got, want, eps, what) {
+  assert.ok(Math.abs(got - want) < eps, `${what}: got ${got}, want ${want}`);
+}
 function fails(src, sc = scope) {
   const r = evaluate(src, sc);
   assert.ok(!r.ok, `expected ${JSON.stringify(src)} to fail but got ${r.ok ? formatValue(r.value) : ''}`);
@@ -123,8 +127,30 @@ ok('window.WIN_HANN', '1');
   passed++;
   const rr = evaluate('firdes.root_raised_cosine(nfilts, nfilts, 1.0/sps, 0.35, 44*nfilts)', scope);
   assert.ok(rr.ok, 'rrc failed: ' + (rr.ok ? '' : rr.error));
-  assert.ok(Array.isArray(rr.value) && rr.value.length === 44 * 32 && rr.value.every(Number.isFinite), 'rrc taps');
+  // GNU Radio's firdes forces an odd tap count, so 44*nfilts comes back +1.
+  assert.ok(Array.isArray(rr.value) && rr.value.length === 44 * 32 + 1 &&
+            rr.value.every(Number.isFinite), 'rrc taps');
   passed++;
+  // These taps are not a preview: resolveParamsForRun ships them to the runner
+  // as the actual matched filter, so the *shape* has to be right. Length and
+  // finiteness alone missed a version whose tails diverged instead of decaying.
+  {
+    const taps = rr.value, n = taps.length, mid = (n - 1) / 2, spb = 32 / (1 / 4); // 128
+    // Normalised by the sum of taps, so each branch of a polyphase clock sync
+    // gets the requested DC gain (nfilts here) — not by tap energy.
+    approxEq(taps.reduce((a, b) => a + b, 0), 32, 1e-6, 'rrc DC gain');
+    // Symmetric about the centre, which is also the peak.
+    for (const d of [1, 37, 128, 400, mid]) approxEq(taps[mid - d], taps[mid + d], 1e-9, `rrc symmetry at ${d}`);
+    assert.ok(taps.every(t => Math.abs(t) <= Math.abs(taps[mid])), 'rrc peaks at its centre tap');
+    // Tails decay: the outermost symbol period is far weaker than the main lobe.
+    const rms = (from, to) => Math.hypot(...taps.slice(from, to)) / Math.sqrt(to - from);
+    assert.ok(rms(0, spb) < 0.02 * rms(mid - spb / 2, mid + spb / 2), 'rrc tails decay');
+    // A root-raised cosine's first zero sits just past one symbol period.
+    let zero = 0;
+    while (zero < mid && taps[mid + zero] * taps[mid + zero + 1] >= 0) zero++;
+    assert.ok(zero > 0.8 * spb && zero < 1.05 * spb, `rrc first zero at ${zero}, want ~${spb}`);
+    passed += 4;
+  }
 }
 
 // ---- out-of-subset things fail cleanly (caller falls back to raw text) ----

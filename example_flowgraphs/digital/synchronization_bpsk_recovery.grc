@@ -20,13 +20,13 @@ blocks:
         min_len: '200'
         orient: QtCore.Qt.Horizontal
         rangeType: float
-        start: '-0.02'
-        step: '0.001'
-        stop: '0.02'
+        start: '-0.03'
+        step: '0.002'
+        stop: '0.03'
         value: '0.005'
         widget: counter_slider
     states:
-        coordinate: [610, 10]
+        coordinate: [1030, 230]
         rotation: 0
         state: enabled
 -   name: nfilts
@@ -35,7 +35,7 @@ blocks:
         comment: ''
         value: '16'
     states:
-        coordinate: [900, 10]
+        coordinate: [690, 30]
         rotation: 0
         state: enabled
 -   name: noise_volt
@@ -48,11 +48,11 @@ blocks:
         rangeType: float
         start: '0'
         step: '0.01'
-        stop: '1'
+        stop: '3'
         value: '0.1'
         widget: counter_slider
     states:
-        coordinate: [1070, 10]
+        coordinate: [860, 30]
         rotation: 0
         state: enabled
 -   name: rrc_taps
@@ -61,7 +61,7 @@ blocks:
         comment: ''
         value: firdes.root_raised_cosine(nfilts, nfilts, 1.0/float(sps), 0.35, 11*sps*nfilts)
     states:
-        coordinate: [1320, 10]
+        coordinate: [1120, 50]
         rotation: 0
         state: enabled
 -   name: samp_rate
@@ -70,7 +70,7 @@ blocks:
         comment: ''
         value: '50000'
     states:
-        coordinate: [10, 300]
+        coordinate: [340, 20]
         rotation: 0
         state: enabled
 -   name: sps
@@ -79,7 +79,7 @@ blocks:
         comment: ''
         value: '8'
     states:
-        coordinate: [180, 300]
+        coordinate: [510, 20]
         rotation: 0
         state: enabled
 -   name: time_offset
@@ -96,7 +96,7 @@ blocks:
         value: '1.0002'
         widget: counter_slider
     states:
-        coordinate: [350, 300]
+        coordinate: [760, 230]
         rotation: 0
         state: enabled
 -   name: bpsk
@@ -113,7 +113,7 @@ blocks:
         sym_map: '[0, 1]'
         type: bpsk
     states:
-        coordinate: [630, 300]
+        coordinate: [420, 180]
         rotation: 0
         state: enabled
 -   name: bpsk_mod
@@ -128,7 +128,7 @@ blocks:
         truncate: 'False'
         verbose: 'False'
     states:
-        coordinate: [380, 660]
+        coordinate: [420, 430]
         rotation: 0
         state: enabled
 -   name: channel
@@ -142,7 +142,7 @@ blocks:
         seed: '0'
         taps: '[1.0]'
     states:
-        coordinate: [760, 670]
+        coordinate: [800, 440]
         rotation: 0
         state: enabled
 -   name: clock_sync
@@ -158,7 +158,7 @@ blocks:
         taps: rrc_taps
         type: ccf
     states:
-        coordinate: [80, 920]
+        coordinate: [120, 690]
         rotation: 0
         state: enabled
 -   name: const_rx
@@ -243,7 +243,7 @@ blocks:
         ymax: '2'
         ymin: '-2'
     states:
-        coordinate: [80, 1120]
+        coordinate: [1540, 460]
         rotation: 0
         state: enabled
 -   name: const_synced
@@ -328,7 +328,7 @@ blocks:
         ymax: '2'
         ymin: '-2'
     states:
-        coordinate: [930, 880]
+        coordinate: [970, 650]
         rotation: 0
         state: enabled
 -   name: const_timed
@@ -413,7 +413,7 @@ blocks:
         ymax: '2'
         ymin: '-2'
     states:
-        coordinate: [500, 1080]
+        coordinate: [540, 850]
         rotation: 0
         state: enabled
 -   name: costas
@@ -424,46 +424,28 @@ blocks:
         use_snr: 'False'
         w: '0.0628'
     states:
-        coordinate: [500, 900]
-        rotation: 0
-        state: enabled
--   name: note_ch
-    id: note
-    parameters:
-        comment: ''
-        note: 'Channel: noise + carrier frequency offset + sample clock offset'
-    states:
-        coordinate: [950, 300]
+        coordinate: [540, 670]
         rotation: 0
         state: enabled
 -   name: note_rx
     id: note
     parameters:
         comment: ''
-        note: 'Receiver: the same steps the chapter writes by hand in Python'
+        note: "Receiver: the same steps the chapter writes by hand in Python\n\nTransmitter: random bits -> BPSK -> RRC pulse shaping\n\nChannel: noise + carrier frequency offset + sample clock offset\n\nTry adding more noise or more frequency offset"
     states:
-        coordinate: [10, 560]
-        rotation: 0
-        state: enabled
--   name: note_tx
-    id: note
-    parameters:
-        comment: ''
-        note: 'Transmitter: random bits -> BPSK -> RRC pulse shaping'
-    states:
-        coordinate: [440, 560]
+        coordinate: [20, 170]
         rotation: 0
         state: enabled
 -   name: random_bits
     id: analog_random_uniform_source_x
     parameters:
         comment: ''
-        maximum: '255'
+        maximum: '256'
         minimum: '0'
         seed: '0'
         type: byte
     states:
-        coordinate: [10, 700]
+        coordinate: [50, 470]
         rotation: 0
         state: enabled
 -   name: throttle
@@ -477,7 +459,7 @@ blocks:
         type: complex
         vlen: '1'
     states:
-        coordinate: [1120, 690]
+        coordinate: [1160, 460]
         rotation: 0
         state: enabled
 -   name: time_symbols
@@ -567,7 +549,7 @@ blocks:
         ymin: '-2'
         yunit: '""'
     states:
-        coordinate: [930, 1020]
+        coordinate: [970, 790]
         rotation: 0
         state: enabled
 -   name: wasm_gui_layout_0
@@ -575,10 +557,10 @@ blocks:
     parameters:
         columns: '12'
         comment: ''
-        layout: '{}'
+        layout: '{"const_rx":[0,1,4,3],"const_synced":[8,1,4,3],"const_timed":[4,1,4,3],"freq_offset":[0,0,4,1],"noise_volt":[4,0,4,1],"time_offset":[8,0,4,1],"time_symbols":[0,4,12,3]}'
         row_height: '60'
     states:
-        coordinate: [320, 10]
+        coordinate: [1420, 60]
         rotation: 0
         state: enabled
 connections:

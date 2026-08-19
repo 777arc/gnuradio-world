@@ -531,9 +531,11 @@ const mathFuncs: Record<string, (args: Value[]) => Value> = {
   hypot: a => Math.hypot(...a.map(numish)),
 };
 
-// firdes shim — the filter designers the examples use. Real GNU Radio computes
-// these in C++ at generate time; these match the standard formulas closely
-// enough for the editor's value preview (exact taps come from the C++ runner).
+// firdes shim — the filter designers the examples use. These are not merely a
+// preview: `resolveParamsForRun` evaluates every expression here and ships the
+// resulting tap list to the runner, which cannot evaluate Python itself. So a
+// formula that is only approximately right produces a filter that is actually
+// wrong in the running flowgraph — port gr-filter/lib/firdes.cc faithfully.
 const firdesFuncs: Record<string, (args: Value[]) => Value> = {
   low_pass: a => lowPass(numish(a[0]), numish(a[1]), numish(a[2]), numish(a[3]), a.length > 4 ? numish(a[4]) : 0),
   low_pass_2: a => lowPass(numish(a[0]), numish(a[1]), numish(a[2]), numish(a[3]), a.length > 5 ? numish(a[5]) : 0),
@@ -570,29 +572,41 @@ function lowPass(gain: number, fs: number, cutoff: number, transition: number, w
   for (let n = 0; n < ntaps; n++) taps[n] = (taps[n] * gain) / sum;
   return taps;
 }
+// firdes::root_raised_cosine, transcribed from gr-filter/lib/firdes.cc. Two
+// details are load-bearing and were wrong here before: `x2` has no factor of pi
+// (a spurious one moves the x2*x2 == 1 singularity, so the tails diverge instead
+// of decaying — the taps stopped being a root-raised-cosine at all), and the
+// taps are normalised by their *sum*, not their energy, so each branch of a
+// polyphase clock sync ends up with the DC gain the caller asked for.
 function rrc(gain: number, fs: number, symRate: number, alpha: number, ntaps: number): number[] {
+  ntaps |= 1; // GNU Radio forces an odd tap count
+  const spb = fs / symRate; // samples per symbol
+  const half = Math.trunc(ntaps / 2);
   const taps = new Array(ntaps).fill(0);
-  const spb = fs / symRate;
+  let scale = 0;
   for (let i = 0; i < ntaps; i++) {
-    const x1 = Math.PI * (i - ntaps / 2) / spb;
+    const xindx = i - half;
+    const x1 = Math.PI * xindx / spb;
+    let x2 = 4 * alpha * xindx / spb;
+    let x3 = x2 * x2 - 1;
     let num: number, den: number;
-    const x2 = (4 * alpha) / Math.PI * ((i - ntaps / 2) / spb);
-    const x3 = x2 * x2 - 1;
-    if (Math.abs(x3) >= 1e-9) {
-      if (i !== Math.trunc(ntaps / 2)) num = Math.cos((1 + alpha) * x1) + Math.sin((1 - alpha) * x1) / (4 * alpha * (i - ntaps / 2) / spb);
+    if (Math.abs(x3) >= 0.000001) { // avoid rounding errors
+      if (i !== half) num = Math.cos((1 + alpha) * x1) + Math.sin((1 - alpha) * x1) / (4 * alpha * xindx / spb);
       else num = Math.cos((1 + alpha) * x1) + (1 - alpha) * Math.PI / (4 * alpha);
       den = x3 * Math.PI;
     } else { // l'Hopital limit
-      if (alpha === 1) { taps[i] = -1; continue; }
-      const x = (1 + alpha) * x1, y = (1 - alpha) * x1;
-      num = Math.cos(x) + Math.sin(y) / (4 * alpha * (i - ntaps / 2) / spb || 1);
-      den = -2 * Math.PI * (i - ntaps / 2) / spb;
+      if (alpha === 1) { taps[i] = -1; scale += -1; continue; }
+      x3 = (1 - alpha) * x1;
+      x2 = (1 + alpha) * x1;
+      num = Math.sin(x2) * (1 + alpha) * Math.PI
+        - Math.cos(x3) * ((1 - alpha) * Math.PI * spb) / (4 * alpha * xindx)
+        + Math.sin(x3) * spb * spb / (4 * alpha * xindx * xindx);
+      den = -32 * Math.PI * alpha * alpha * xindx / spb;
     }
-    taps[i] = (4 * alpha * num) / den;
+    taps[i] = 4 * alpha * num / den;
+    scale += taps[i];
   }
-  let s = 0; for (const t of taps) s += t * t;
-  const norm = gain / Math.sqrt(s || 1);
-  return taps.map(t => t * norm);
+  return taps.map(t => t * gain / scale);
 }
 
 const NS_FUNCS: Record<string, Record<string, (args: Value[]) => Value>> = {

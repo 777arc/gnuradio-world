@@ -26,7 +26,7 @@ blocks:
         value: '10000'
         widget: counter_slider
     states:
-        coordinate: [610, 10]
+        coordinate: [770, 20]
         rotation: 0
         state: enabled
 -   name: samp_rate
@@ -35,7 +35,7 @@ blocks:
         comment: ''
         value: '200000'
     states:
-        coordinate: [890, 10]
+        coordinate: [1060, 20]
         rotation: 0
         state: enabled
 -   name: sps
@@ -44,7 +44,7 @@ blocks:
         comment: ''
         value: '100'
     states:
-        coordinate: [1060, 10]
+        coordinate: [1060, 130]
         rotation: 0
         state: enabled
 -   name: deviation
@@ -54,7 +54,7 @@ blocks:
         constant: delta_f
         type: float
     states:
-        coordinate: [1120, 370]
+        coordinate: [1130, 270]
         rotation: 0
         state: enabled
 -   name: fm_mod
@@ -63,7 +63,7 @@ blocks:
         comment: ''
         sensitivity: math.pi/samp_rate
     states:
-        coordinate: [1390, 370]
+        coordinate: [1400, 270]
         rotation: 0
         state: enabled
 -   name: freq_sink
@@ -96,6 +96,7 @@ blocks:
         ctrlpanel: 'False'
         fc: '0'
         fftsize: '1024'
+        freqhalf: 'True'
         grid: 'True'
         label1: ''
         label10: ''
@@ -135,6 +136,7 @@ blocks:
         tr_level: '0'
         tr_mode: qtgui.TRIG_MODE_FREE
         tr_tag: ''
+        type: complex
         update_time: '0.1'
         width1: '1'
         width10: '1'
@@ -149,7 +151,7 @@ blocks:
         ymax: '10'
         ymin: '-100'
     states:
-        coordinate: [410, 500]
+        coordinate: [450, 390]
         rotation: 0
         state: enabled
 -   name: hold_symbol
@@ -160,37 +162,28 @@ blocks:
         type: float
         vlen: '1'
     states:
-        coordinate: [840, 370]
+        coordinate: [850, 270]
         rotation: 0
         state: enabled
 -   name: note_dev
     id: note
     parameters:
         comment: ''
-        note: Frequency modulating those levels puts four tones on the air, spaced delta f apart. Slide it and watch the tones separate in the spectrum and the waterfall
+        note: "Random 2-bit symbols map to the four levels -3, -1, 1, 3 and each is held for 100 samples, so the symbol rate is 2 kBd\n\nFrequency modulating those levels puts four tones on the air, spaced delta f apart. Slide it and watch the tones separate in the spectrum and the waterfall"
     states:
-        coordinate: [1230, 10]
-        rotation: 0
-        state: enabled
--   name: note_sym
-    id: note
-    parameters:
-        comment: ''
-        note: Random 2-bit symbols map to the four levels -3, -1, 1, 3 and each is held for 100 samples, so the symbol rate is 2 kBd
-    states:
-        coordinate: [10, 230]
+        coordinate: [320, 20]
         rotation: 0
         state: enabled
 -   name: random_symbols
     id: analog_random_uniform_source_x
     parameters:
         comment: ''
-        maximum: '3'
+        maximum: '4'
         minimum: '0'
         seed: '0'
         type: byte
     states:
-        coordinate: [10, 350]
+        coordinate: [20, 250]
         rotation: 0
         state: enabled
 -   name: symbol_map
@@ -203,7 +196,7 @@ blocks:
         out_type: float
         symbol_table: '[-3, -1, 1, 3]'
     states:
-        coordinate: [490, 360]
+        coordinate: [500, 260]
         rotation: 0
         state: enabled
 -   name: throttle
@@ -217,7 +210,7 @@ blocks:
         type: complex
         vlen: '1'
     states:
-        coordinate: [80, 510]
+        coordinate: [90, 410]
         rotation: 0
         state: enabled
 -   name: wasm_gui_layout_0
@@ -225,10 +218,10 @@ blocks:
     parameters:
         columns: '12'
         comment: ''
-        layout: '{}'
+        layout: '{"delta_f":[0,0,12,1],"freq_sink":[0,1,12,3],"waterfall_sink":[0,4,12,3]}'
         row_height: '60'
     states:
-        coordinate: [320, 10]
+        coordinate: [1250, 30]
         rotation: 0
         state: enabled
 -   name: waterfall_sink
@@ -244,6 +237,7 @@ blocks:
         alpha7: '1'
         alpha8: '1'
         alpha9: '1'
+        average: '1.0'
         axislabels: 'True'
         color1: '0'
         color10: '0'
@@ -277,7 +271,7 @@ blocks:
         samp_rate: samp_rate
         update_time: '0.1'
     states:
-        coordinate: [410, 660]
+        coordinate: [450, 580]
         rotation: 0
         state: enabled
 connections:
