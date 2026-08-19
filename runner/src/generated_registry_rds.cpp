@@ -25,7 +25,15 @@ struct Registrar_rds {
     });
     wasm_registry_add("rds_parser", +[](const nlohmann::json& p) -> BuiltBlock {
         auto block = rds::parser::make(wasm_registry::boolean(p, "log", false), wasm_registry::boolean(p, "debug", false), wasm_registry::number<int>(p, "pty_locale", 0));
-        return { block, nullptr };
+        BuiltBlock built{ block };
+        struct LiveCallbackParams {
+            int p_reset;
+        };
+        auto live = std::make_shared<LiveCallbackParams>();
+        live->p_reset = wasm_registry::number<int>(p, "reset", 0);
+        auto apply_callback_0 = [block, live]() { block->reset(); };
+        wasm_registry::add_numeric_setter(built, "reset", live, &LiveCallbackParams::p_reset, apply_callback_0);
+        return built;
     });
     wasm_registry_add("rds_tag_to_msg", +[](const nlohmann::json& p) -> BuiltBlock {
         if (wasm_registry::text(p, "type", "complex") == "complex") {

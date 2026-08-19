@@ -90,12 +90,20 @@ construction-time value while the slider still moves and still publishes, which
 is the failure that looks most like a working flowgraph.
 
 `gen_registry.py` therefore emits one setter per translatable callback, so a
-generated factory is as live as a hand-written one. Translatable means the
-simple shape — one argument that is exactly one numeric parameter
-(`set_noise_voltage(${noise_voltage})`). A callback over several parameters, or
-one taking a vector, string or enum, is skipped; give that block a hand-written
-factory if it needs a live control. Structural parameters are skipped too: they
-picked which class was constructed and cannot change on a running graph.
+generated factory is as live as a hand-written one. Simple callbacks — one
+argument that is exactly one numeric parameter
+(`set_noise_voltage(${noise_voltage})`) — become direct setters. Compound method
+callbacks become one setter per referenced numeric or boolean parameter, backed
+by shared state so changing any input recomputes the callback with the latest
+values of all the others. That is what makes tap-design callbacks such as
+`set_taps(firdes.low_pass(...))` live. Vector, string and enum parameters are not
+themselves controllable through the double-valued GUI controls, but their fixed
+values may be arguments to a compound callback. Structural parameters are
+skipped too: they picked which class was constructed and cannot change on a
+running graph. Generator-specific snippets that are not ordinary `set_*`,
+`update_*`, or no-argument `reset()` method calls still need a hand-written
+factory. If one of those snippets references a numeric or boolean parameter,
+generation rejects that block instead of silently emitting a frozen parameter.
 
 Two things about the yaml can break the build, both fixed with the `callbacks`
 overlay key (`blocks/overlays/<module>/metadata.yml`), which replaces just the

@@ -469,6 +469,7 @@ struct Registrar_satellites {
             auto block = satellites::selector::make(sizeof(gr_complex)*wasm_registry::number<int>(p, "vlen", 1),wasm_registry::number<int>(p, "input_index", 0),wasm_registry::number<int>(p, "output_index", 0));
             block->set_enabled(wasm_registry::boolean(p, "enabled", true));
             BuiltBlock built{ block };
+            built.numeric_setters["enabled"] = [block](double value) { block->set_enabled(static_cast<bool>(value)); };
             built.numeric_setters["input_index"] = [block](double value) { block->set_input_index(static_cast<int>(value)); };
             built.numeric_setters["output_index"] = [block](double value) { block->set_output_index(static_cast<int>(value)); };
             return built;
@@ -477,6 +478,7 @@ struct Registrar_satellites {
             auto block = satellites::selector::make(sizeof(float)*wasm_registry::number<int>(p, "vlen", 1),wasm_registry::number<int>(p, "input_index", 0),wasm_registry::number<int>(p, "output_index", 0));
             block->set_enabled(wasm_registry::boolean(p, "enabled", true));
             BuiltBlock built{ block };
+            built.numeric_setters["enabled"] = [block](double value) { block->set_enabled(static_cast<bool>(value)); };
             built.numeric_setters["input_index"] = [block](double value) { block->set_input_index(static_cast<int>(value)); };
             built.numeric_setters["output_index"] = [block](double value) { block->set_output_index(static_cast<int>(value)); };
             return built;
@@ -485,6 +487,7 @@ struct Registrar_satellites {
             auto block = satellites::selector::make(sizeof(int)*wasm_registry::number<int>(p, "vlen", 1),wasm_registry::number<int>(p, "input_index", 0),wasm_registry::number<int>(p, "output_index", 0));
             block->set_enabled(wasm_registry::boolean(p, "enabled", true));
             BuiltBlock built{ block };
+            built.numeric_setters["enabled"] = [block](double value) { block->set_enabled(static_cast<bool>(value)); };
             built.numeric_setters["input_index"] = [block](double value) { block->set_input_index(static_cast<int>(value)); };
             built.numeric_setters["output_index"] = [block](double value) { block->set_output_index(static_cast<int>(value)); };
             return built;
@@ -493,6 +496,7 @@ struct Registrar_satellites {
             auto block = satellites::selector::make(sizeof(short)*wasm_registry::number<int>(p, "vlen", 1),wasm_registry::number<int>(p, "input_index", 0),wasm_registry::number<int>(p, "output_index", 0));
             block->set_enabled(wasm_registry::boolean(p, "enabled", true));
             BuiltBlock built{ block };
+            built.numeric_setters["enabled"] = [block](double value) { block->set_enabled(static_cast<bool>(value)); };
             built.numeric_setters["input_index"] = [block](double value) { block->set_input_index(static_cast<int>(value)); };
             built.numeric_setters["output_index"] = [block](double value) { block->set_output_index(static_cast<int>(value)); };
             return built;
@@ -501,6 +505,7 @@ struct Registrar_satellites {
             auto block = satellites::selector::make(sizeof(char)*wasm_registry::number<int>(p, "vlen", 1),wasm_registry::number<int>(p, "input_index", 0),wasm_registry::number<int>(p, "output_index", 0));
             block->set_enabled(wasm_registry::boolean(p, "enabled", true));
             BuiltBlock built{ block };
+            built.numeric_setters["enabled"] = [block](double value) { block->set_enabled(static_cast<bool>(value)); };
             built.numeric_setters["input_index"] = [block](double value) { block->set_input_index(static_cast<int>(value)); };
             built.numeric_setters["output_index"] = [block](double value) { block->set_output_index(static_cast<int>(value)); };
             return built;

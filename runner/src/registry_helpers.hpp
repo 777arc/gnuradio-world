@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <initializer_list>
 #include <map>
+#include <memory>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -83,6 +84,20 @@ T number(const nlohmann::json& params, const char* key, T fallback)
             return static_cast<T>(parsed);
     }
     throw std::runtime_error(std::string(key) + " must be numeric");
+}
+
+template <typename State, typename Value, typename Apply>
+void add_numeric_setter(BuiltBlock& built,
+                        const std::string& parameter,
+                        std::shared_ptr<State> state,
+                        Value State::*field,
+                        Apply apply)
+{
+    built.numeric_setters[parameter] =
+        [state = std::move(state), field, apply = std::move(apply)](double value) {
+            state.get()->*field = static_cast<Value>(value);
+            apply();
+        };
 }
 
 inline gr_complex complex(const nlohmann::json& params,

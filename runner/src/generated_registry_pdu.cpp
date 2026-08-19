@@ -17,23 +17,33 @@ struct Registrar_pdu {
     wasm_registry_add("pdu_pdu_to_stream_x", +[](const nlohmann::json& p) -> BuiltBlock {
         if (wasm_registry::text(p, "type", "complex") == "complex") {
             auto block = pdu::pdu_to_stream_c::make(wasm_registry::choice(p, "early_behavior", {{"pdu::EARLY_BURST_APPEND", pdu::EARLY_BURST_APPEND}, {"pdu::EARLY_BURST_DROP", pdu::EARLY_BURST_DROP}, {"pdu::EARLY_BURST_BALK", pdu::EARLY_BURST_BALK}}, pdu::EARLY_BURST_APPEND), wasm_registry::number<int>(p, "depth", 64));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["depth"] = [block](double value) { block->set_max_queue_size(static_cast<int>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "float") {
             auto block = pdu::pdu_to_stream_f::make(wasm_registry::choice(p, "early_behavior", {{"pdu::EARLY_BURST_APPEND", pdu::EARLY_BURST_APPEND}, {"pdu::EARLY_BURST_DROP", pdu::EARLY_BURST_DROP}, {"pdu::EARLY_BURST_BALK", pdu::EARLY_BURST_BALK}}, pdu::EARLY_BURST_APPEND), wasm_registry::number<int>(p, "depth", 64));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["depth"] = [block](double value) { block->set_max_queue_size(static_cast<int>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "int") {
             auto block = pdu::pdu_to_stream_i::make(wasm_registry::choice(p, "early_behavior", {{"pdu::EARLY_BURST_APPEND", pdu::EARLY_BURST_APPEND}, {"pdu::EARLY_BURST_DROP", pdu::EARLY_BURST_DROP}, {"pdu::EARLY_BURST_BALK", pdu::EARLY_BURST_BALK}}, pdu::EARLY_BURST_APPEND), wasm_registry::number<int>(p, "depth", 64));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["depth"] = [block](double value) { block->set_max_queue_size(static_cast<int>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "short") {
             auto block = pdu::pdu_to_stream_s::make(wasm_registry::choice(p, "early_behavior", {{"pdu::EARLY_BURST_APPEND", pdu::EARLY_BURST_APPEND}, {"pdu::EARLY_BURST_DROP", pdu::EARLY_BURST_DROP}, {"pdu::EARLY_BURST_BALK", pdu::EARLY_BURST_BALK}}, pdu::EARLY_BURST_APPEND), wasm_registry::number<int>(p, "depth", 64));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["depth"] = [block](double value) { block->set_max_queue_size(static_cast<int>(value)); };
+            return built;
         }
         else if (wasm_registry::text(p, "type", "complex") == "byte") {
             auto block = pdu::pdu_to_stream_b::make(wasm_registry::choice(p, "early_behavior", {{"pdu::EARLY_BURST_APPEND", pdu::EARLY_BURST_APPEND}, {"pdu::EARLY_BURST_DROP", pdu::EARLY_BURST_DROP}, {"pdu::EARLY_BURST_BALK", pdu::EARLY_BURST_BALK}}, pdu::EARLY_BURST_APPEND), wasm_registry::number<int>(p, "depth", 64));
-            return { block, nullptr };
+            BuiltBlock built{ block };
+            built.numeric_setters["depth"] = [block](double value) { block->set_max_queue_size(static_cast<int>(value)); };
+            return built;
         }
         throw std::runtime_error("unsupported type selection for pdu_pdu_to_stream_x");
     });

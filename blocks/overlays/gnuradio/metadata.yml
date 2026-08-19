@@ -187,6 +187,7 @@ blocks_matrix_interleaver:
   cpp_templates:
     includes: ['#include <blocks_hier.hpp>']
     make: 'auto block = MatrixInterleaver::make(${type.size} * ${vlen}, ${rows}, ${cols}, ${deint});'
+    callbacks: []
 
 blocks_stream_to_vector_decimator:
   flags: [python, cpp]

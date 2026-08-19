@@ -675,20 +675,42 @@ def param_arg(block_id: str, param: dict[str, Any], namespace: dict[str, Any]) -
 # slider still moves and publishes, nothing is subscribed, and the parameter is
 # silently frozen at its construction-time value.
 #
-# Only the simple shape is translatable: one argument that is exactly one
-# numeric parameter. Anything else (a vector, a string, an enum, an expression
-# over several parameters) is left to a hand-written factory.
-CALLBACK_SETTER = re.compile(r"^\s*(set_\w+)\(\s*\$\{\s*(\w+)\s*\}\s*\)\s*$")
+# The simple shape can call the block setter directly. Compound callbacks need
+# shared state: changing one input to (for example) a firdes expression must
+# recompute it with the latest values of all its other Range-driven inputs.
+CALLBACK_SETTER = re.compile(
+    r"^\s*(set_\w+)\(\s*\$\{\s*(\w+)\s*\}\s*\)\s*;?\s*$"
+)
+CALLBACK_METHOD = re.compile(
+    r"^\s*(?:(?:set|update)_\w+|reset)\s*\(.*\)\s*;?\s*(?:#.*)?$",
+    re.DOTALL,
+)
+CALLBACK_EXPRESSION = re.compile(r"\$\{([^}]*)\}")
 
 # The C++ type the setter argument is cast to, per GRC dtype. These mirror the
 # types param_arg() reads the same parameter as at construction, so a setter and
 # its constructor argument cannot disagree about, say, int versus double.
-SETTER_CASTS = {"int": "int", "hex": "std::uint64_t", "real": "double", "float": "double"}
+SETTER_CASTS = {
+    "bool": "bool",
+    "int": "int",
+    "hex": "std::uint64_t",
+    "real": "double",
+    "float": "double",
+}
 
 
 def callback_setters(block: dict[str, Any], namespace: dict[str, Any],
-                     structural: set[str]) -> list[tuple[str, str, str]]:
-    """(parameter id, setter method, cast type) for each translatable callback.
+                     structural: set[str]) -> tuple[
+                         list[tuple[str, str, str]],
+                         list[tuple[list[tuple[str, str, str]], str]],
+                     ]:
+    """Return direct setters and stateful compound callbacks.
+
+    A direct setter is ``(parameter id, setter method, cast type)``. A compound
+    callback is ``(live parameters, rendered block call)``, where every live
+    parameter is ``(id, cast type, initial expression)``. The renderer installs
+    one numeric setter per live parameter and reruns every callback that depends
+    on it.
 
     `cpp_templates` wins over `templates` where both exist: the Python and C++
     method names agree throughout GNU Radio today, but the C++ list is the one
@@ -703,21 +725,66 @@ def callback_setters(block: dict[str, Any], namespace: dict[str, Any],
     params = {str(param["id"]): param for param in block.get("parameters", []) or []
               if isinstance(param, dict) and "id" in param}
     setters: dict[str, tuple[str, str, str]] = {}
+    compound: list[tuple[list[tuple[str, str, str]], str]] = []
     for callback in callbacks:
-        match = CALLBACK_SETTER.match(str(callback))
-        if not match:
+        callback_text = str(callback)
+        match = CALLBACK_SETTER.match(callback_text)
+        if match:
+            method, pid = match.group(1), match.group(2)
+            param = params.get(pid)
+            # A structural parameter picks which class was constructed, so it
+            # cannot be changed on a running graph whatever the yaml says.
+            if param is None or pid in structural:
+                continue
+            cast = SETTER_CASTS.get(
+                resolve_dtype(str(param.get("dtype", "raw")), namespace)
+            )
+            if cast is None:
+                continue
+            setters.setdefault(pid, (pid, method, cast))
             continue
-        method, pid = match.group(1), match.group(2)
-        param = params.get(pid)
-        # A structural parameter picks which class was constructed, so it cannot
-        # be changed on a running graph whatever the yaml says.
-        if param is None or pid in structural:
+
+        # Only translate an ordinary block method call. File open callbacks,
+        # comments used as reset triggers, and other generator-specific snippets
+        # still need a hand-written factory if they are to become live.
+        expressions = CALLBACK_EXPRESSION.findall(callback_text)
+        live: list[tuple[str, str, str]] = []
+        for pid, param in params.items():
+            if pid in structural or not any(
+                re.search(rf"\b{re.escape(pid)}\b", expression)
+                for expression in expressions
+            ):
+                continue
+            cast = SETTER_CASTS.get(
+                resolve_dtype(str(param.get("dtype", "raw")), namespace)
+            )
+            if cast is None:
+                continue
+            live.append((pid, cast, str(namespace[pid])))
+        if not live:
             continue
-        cast = SETTER_CASTS.get(resolve_dtype(str(param.get("dtype", "raw")), namespace))
-        if cast is None:
-            continue
-        setters.setdefault(pid, (pid, method, cast))
-    return list(setters.values())
+        if not CALLBACK_METHOD.match(callback_text):
+            ids = ", ".join(pid for pid, _cast, _initial in live)
+            raise ValueError(
+                f"unsupported live callback for {ids}: {callback_text.strip()}"
+            )
+
+        live_namespace = dict(namespace)
+        for pid, _cast, _initial in live:
+            original = namespace[pid]
+            field = "p_" + re.sub(r"\W", "_", pid)
+            live_namespace[pid] = Arg(
+                f"live->{field}",
+                getattr(original, "attributes", {}),
+                getattr(original, "evaluated", None),
+            )
+        rendered = Template(callback_text).render(**live_namespace)
+        rendered = rendered.split("#", 1)[0]
+        rendered = translate_make(rendered, cpp.get("translations")).rstrip(";")
+        if not CALLBACK_METHOD.match(rendered):
+            raise ValueError(f"could not translate live callback: {callback_text.strip()}")
+        compound.append((live, f"block->{rendered};"))
+    return list(setters.values()), compound
 
 
 def render_namespace(block: dict[str, Any], selections: dict[str, Any]) -> dict[str, Any]:
@@ -757,6 +824,14 @@ def translate_make(make: str, translations: dict[str, str] | None = None) -> str
     make = make.replace("self->block->", "block->")
     make = make.replace("self->block.", "block->")
     make = re.sub(r"\b(count|bits_per_byte|reset_tag_key)\s*=\s*", "", make)
+    # In a compound callback the live argument is already a plain C++ field,
+    # unlike the nested JSON reader in the construction template. Translate
+    # this simpler form before the general block_limit expression below.
+    make = re.sub(
+        r"block_limit\((live->\w+)\)",
+        r'wasm_registry::throttle_limit(p, \1, wasm_registry::number<double>(p, "samples_per_second", 0.0))',
+        make,
+    )
     make = re.sub(
         r"block_limit\(([^)]+(?:\)[^)]*)?)\)",
         r'wasm_registry::throttle_limit(p, \1, wasm_registry::number<double>(p, "samples_per_second", 0.0))',
@@ -810,7 +885,14 @@ def render_block(block: dict[str, Any]) -> tuple[list[str], str]:
     structural = structural_enums(block)
     structural_ids = {str(param["id"]) for param in structural}
     combinations = list(itertools.product(*[param["options"] for param in structural])) or [()]
-    variants: list[tuple[dict[str, Any], str, list[tuple[str, str, str]]]] = []
+    variants: list[tuple[
+        dict[str, Any],
+        str,
+        tuple[
+            list[tuple[str, str, str]],
+            list[tuple[list[tuple[str, str, str]], str]],
+        ],
+    ]] = []
     includes: set[str] = set()
     for choices in combinations:
         selections = {str(param["id"]): choice for param, choice in zip(structural, choices)}
@@ -828,7 +910,8 @@ def render_block(block: dict[str, Any]) -> tuple[list[str], str]:
         variants.append((selections, make, callback_setters(block, namespace, structural_ids)))
 
     lines = [f'    registry.emplace("{block["id"]}", [](const nlohmann::json& p) -> BuiltBlock {{']
-    for index, (selections, make, setters) in enumerate(variants):
+    for index, (selections, make, callback_plan) in enumerate(variants):
+        setters, compound = callback_plan
         tests = [
             f'wasm_registry::text(p, {json.dumps(pid)}, {json.dumps(str(next(param.get("default", param["options"][0]) for param in structural if param["id"] == pid)))}) == {json.dumps(str(option))}'
             for pid, option in selections.items()
@@ -839,14 +922,68 @@ def render_block(block: dict[str, Any]) -> tuple[list[str], str]:
         else:
             indent = "        "
         lines.extend(indent + line for line in make.splitlines())
-        if not setters:
+        if not setters and not compound:
             lines.append(indent + "return { block, nullptr };")
         else:
             lines.append(indent + "BuiltBlock built{ block };")
-            for pid, method, cast in setters:
+            simple = {pid: (method, cast) for pid, method, cast in setters}
+            compound_state: dict[str, tuple[str, str]] = {}
+            calls_by_param: dict[str, list[str]] = defaultdict(list)
+            compound_callbacks: list[tuple[str, str]] = []
+            for callback_index, (live, call) in enumerate(compound):
+                callback_name = f"apply_callback_{callback_index}"
+                compound_callbacks.append((callback_name, call))
+                for pid, cast, initial in live:
+                    compound_state.setdefault(pid, (cast, initial))
+                    if callback_name not in calls_by_param[pid]:
+                        calls_by_param[pid].append(callback_name)
+
+            if compound_state:
+                lines.append(indent + "struct LiveCallbackParams {")
+                for pid, (cast, _initial) in compound_state.items():
+                    field = "p_" + re.sub(r"\W", "_", pid)
+                    lines.append(f"{indent}    {cast} {field};")
+                lines.append(indent + "};")
+                lines.append(indent + "auto live = std::make_shared<LiveCallbackParams>();")
+                for pid, (_cast, initial) in compound_state.items():
+                    field = "p_" + re.sub(r"\W", "_", pid)
+                    lines.append(f"{indent}live->{field} = {initial};")
+                for callback_name, call in compound_callbacks:
+                    capture = "block, live, p" if re.search(r"\bp\b", call) else "block, live"
+                    lines.append(
+                        f"{indent}auto {callback_name} = [{capture}]() {{ {call} }};"
+                    )
+
+            for pid in dict.fromkeys([*simple, *calls_by_param]):
+                if pid not in calls_by_param:
+                    method, cast = simple[pid]
+                    lines.append(
+                        f'{indent}built.numeric_setters[{json.dumps(pid)}] = '
+                        f'[block](double value) {{ block->{method}(static_cast<{cast}>(value)); }};')
+                    continue
+                cast, _initial = compound_state[pid]
+                field = "p_" + re.sub(r"\W", "_", pid)
+                if pid not in simple and len(calls_by_param[pid]) == 1:
+                    lines.append(
+                        f'{indent}wasm_registry::add_numeric_setter(built, '
+                        f'{json.dumps(pid)}, live, &LiveCallbackParams::{field}, '
+                        f'{calls_by_param[pid][0]});')
+                    continue
+                captures = ["live", *calls_by_param[pid]]
+                if pid in simple:
+                    captures.insert(0, "block")
                 lines.append(
                     f'{indent}built.numeric_setters[{json.dumps(pid)}] = '
-                    f'[block](double value) {{ block->{method}(static_cast<{cast}>(value)); }};')
+                    f'[{", ".join(captures)}](double value) {{')
+                lines.append(f"{indent}    live->{field} = static_cast<{cast}>(value);")
+                if pid in simple:
+                    method, direct_cast = simple[pid]
+                    lines.append(
+                        f"{indent}    block->{method}(static_cast<{direct_cast}>(value));"
+                    )
+                for callback_name in calls_by_param[pid]:
+                    lines.append(f"{indent}    {callback_name}();")
+                lines.append(indent + "};")
             lines.append(indent + "return built;")
         if len(variants) > 1:
             lines.append("        }")
@@ -930,6 +1067,12 @@ def to_side_registration(factory: str) -> str:
 CORE_HEADER = "// Generated by gen_registry.py; do not edit."
 
 
+def write_if_changed(path: Path, content: str) -> None:
+    if path.exists() and path.read_text() == content:
+        return
+    path.write_text(content)
+
+
 def write_core_registrar(output_dir: Path, includes: set[str],
                          factories: list[str]) -> None:
     """Blocks statically linked into the main module. Registered directly into the
@@ -947,7 +1090,7 @@ def write_core_registrar(output_dir: Path, includes: set[str],
         "}",
         "",
     ]
-    (output_dir / "generated_registry.cpp").write_text("\n".join(source))
+    write_if_changed(output_dir / "generated_registry.cpp", "\n".join(source))
 
 
 def write_side_registrar(output_dir: Path, module: str, includes: set[str],
@@ -976,7 +1119,9 @@ def write_side_registrar(output_dir: Path, module: str, includes: set[str],
         "} // namespace",
         "",
     ]
-    (output_dir / f"generated_registry_{module}.cpp").write_text("\n".join(source))
+    write_if_changed(
+        output_dir / f"generated_registry_{module}.cpp", "\n".join(source)
+    )
 
 
 def write_module_map(output_dir: Path, block_module: dict[str, str]) -> None:
@@ -1012,7 +1157,7 @@ def write_module_map(output_dir: Path, block_module: dict[str, str]) -> None:
         "}",
         "",
     ]
-    (output_dir / "generated_modules.cpp").write_text("\n".join(source))
+    write_if_changed(output_dir / "generated_modules.cpp", "\n".join(source))
 
 
 def generate(output_dir: Path, manifest: Path) -> None:
@@ -1058,7 +1203,7 @@ def generate(output_dir: Path, manifest: Path) -> None:
 
     write_module_map(output_dir, block_module)
 
-    manifest.write_text(json.dumps({
+    manifest_content = json.dumps({
         "supported": sorted(set(supported)),
         "skipped": skipped,
         # Blocks that occupy a tile in the runner window (see GUI_IDS).
@@ -1067,7 +1212,8 @@ def generate(output_dir: Path, manifest: Path) -> None:
         "deferred_modules": emitted_modules,
         "module_deps": MODULE_DEPS,
         "block_module": block_module,
-    }, indent=2) + "\n")
+    }, indent=2) + "\n"
+    write_if_changed(manifest, manifest_content)
 
     core_total = sum(counts.get(m, 0) for m in CORE_MODULES)
     deferred_summary = ", ".join(f"{m}={counts[m]}" for m in emitted_modules)

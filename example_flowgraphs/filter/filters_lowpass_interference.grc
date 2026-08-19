@@ -26,7 +26,7 @@ blocks:
         value: '3000'
         widget: counter_slider
     states:
-        coordinate: [610, 10]
+        coordinate: [760, 50]
         rotation: 0
         state: enabled
 -   name: samp_rate
@@ -35,7 +35,7 @@ blocks:
         comment: ''
         value: '50000'
     states:
-        coordinate: [880, 10]
+        coordinate: [100, 150]
         rotation: 0
         state: enabled
 -   name: transition
@@ -52,7 +52,7 @@ blocks:
         value: '1000'
         widget: counter_slider
     states:
-        coordinate: [1050, 10]
+        coordinate: [1040, 50]
         rotation: 0
         state: enabled
 -   name: add
@@ -63,7 +63,7 @@ blocks:
         type: complex
         vlen: '1'
     states:
-        coordinate: [580, 430]
+        coordinate: [580, 320]
         rotation: 0
         state: enabled
 -   name: freq_sink
@@ -80,7 +80,7 @@ blocks:
         alpha8: '1'
         alpha9: '1'
         autoscale: 'False'
-        average: '0.2'
+        average: '1.0'
         axislabels: 'True'
         color1: '"blue"'
         color10: '"dark blue"'
@@ -96,6 +96,7 @@ blocks:
         ctrlpanel: 'False'
         fc: '0'
         fftsize: '1024'
+        freqhalf: 'True'
         grid: 'True'
         label1: Before
         label10: ''
@@ -135,6 +136,7 @@ blocks:
         tr_level: '0'
         tr_mode: qtgui.TRIG_MODE_FREE
         tr_tag: ''
+        type: complex
         update_time: '0.1'
         width1: '1'
         width10: '1'
@@ -149,7 +151,7 @@ blocks:
         ymax: '10'
         ymin: '-100'
     states:
-        coordinate: [1460, 440]
+        coordinate: [1440, 320]
         rotation: 0
         state: enabled
 -   name: interferer
@@ -162,7 +164,7 @@ blocks:
         type: complex
         waveform: analog.GR_COS_WAVE
     states:
-        coordinate: [260, 590]
+        coordinate: [260, 480]
         rotation: 0
         state: enabled
 -   name: noise_floor
@@ -173,34 +175,16 @@ blocks:
         seed: '1'
         type: complex
     states:
-        coordinate: [260, 730]
-        rotation: 0
-        state: enabled
--   name: note_int
-    id: note
-    parameters:
-        comment: ''
-        note: Interferer at +10 kHz, plus a noise floor
-    states:
-        coordinate: [1330, 10]
+        coordinate: [320, 620]
         rotation: 0
         state: enabled
 -   name: note_sig
     id: note
     parameters:
         comment: ''
-        note: 'Signal of interest: band-limited noise at 0 Hz'
+        note: "Signal of interest: band-limited noise at 0 Hz\n\nInterferer at +10 kHz, plus a noise floor\n\nDrag cutoff below 10 kHz: the interferer drops below the old noise floor. Narrowing the transition width sharpens the edge, at the cost of more filter taps"
     states:
-        coordinate: [10, 230]
-        rotation: 0
-        state: enabled
--   name: note_use
-    id: note
-    parameters:
-        comment: ''
-        note: 'Drag cutoff below 10 kHz: the interferer drops below the old noise floor. Narrowing the transition width sharpens the edge, at the cost of more filter taps'
-    states:
-        coordinate: [410, 230]
+        coordinate: [330, 40]
         rotation: 0
         state: enabled
 -   name: soi_noise
@@ -211,7 +195,7 @@ blocks:
         seed: '0'
         type: complex
     states:
-        coordinate: [10, 430]
+        coordinate: [10, 320]
         rotation: 0
         state: enabled
 -   name: soi_shape
@@ -228,7 +212,7 @@ blocks:
         width: '500'
         win: window.WIN_HAMMING
     states:
-        coordinate: [260, 370]
+        coordinate: [260, 260]
         rotation: 0
         state: enabled
 -   name: throttle
@@ -242,7 +226,7 @@ blocks:
         type: complex
         vlen: '1'
     states:
-        coordinate: [820, 440]
+        coordinate: [830, 330]
         rotation: 0
         state: enabled
 -   name: user_lpf
@@ -259,7 +243,7 @@ blocks:
         width: transition
         win: window.WIN_HAMMING
     states:
-        coordinate: [1150, 400]
+        coordinate: [1150, 450]
         rotation: 0
         state: enabled
 -   name: wasm_gui_layout_0
@@ -267,10 +251,10 @@ blocks:
     parameters:
         columns: '12'
         comment: ''
-        layout: '{}'
+        layout: '{"cutoff":[0,0,6,1],"freq_sink":[0,1,12,4],"transition":[6,0,6,1]}'
         row_height: '60'
     states:
-        coordinate: [320, 10]
+        coordinate: [1310, 70]
         rotation: 0
         state: enabled
 connections:
