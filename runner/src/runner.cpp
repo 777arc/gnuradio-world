@@ -1041,6 +1041,22 @@ int main(int argc, char** argv) {
     auto* outer = new QVBoxLayout(g_container);
     outer->setContentsMargins(0, 0, 0, 0);
     outer->setSpacing(0);
+    // ... and the layout must not put that minimum back. A layout on a *window*
+    // defaults to SetDefaultConstraint, which on every activate() copies its
+    // total minimum size onto the window -- and setMinimumSize() grows a window
+    // that is smaller than the new floor. So the moment a run adds widgets, the
+    // arrangement's minimum (each grid row is `row_height` tall, plus whatever
+    // the plots ask for) resized this frameless full-screen window taller than
+    // the tab and the bottom row fell off the bottom of the page. Nothing pulled
+    // it back, because the only thing that re-applies the screen geometry to a
+    // full-screen window is a screen-geometry *change* -- which is why the
+    // arrangement snapped into place as soon as the browser window was resized
+    // and looked cut off until then. With no constraint the window stays the
+    // size the browser gave it and the grid squeezes into it, which is exactly
+    // the state a resize used to produce. setMinimumSize(0, 0) above does not
+    // prevent this: an explicit *zero* minimum is indistinguishable from having
+    // set none at all, so the layout is free to overwrite it.
+    outer->setSizeConstraint(QLayout::SetNoConstraint);
     g_gui_area = new QWidget(g_container);
     outer->addWidget(g_gui_area, 1);
 
