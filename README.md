@@ -14,22 +14,20 @@ GNU Radio, entirely in your browser — explore the open-source SDR ecosystem wi
 - Includes popular out-of-tree modules (OOTs)
 - Many example flowgraphs
 - Example IQ recordings of signals to test them with
+- Support for RTL-SDR, PlutoSDR, HackRF
 - On-demand fetching of WebAssembly modules and IQ recordings, to keep the load time short
 - Identical .grc flowgraph files as the native version
 - Share flowgraphs you create entirely via URL
 - Submit your own example flowgraphs and recordings
 - QT GUI Hints are replaced with a web-style live window arrangement, using a live miniature in the canvas
+- Embedded Python Block using Pyodide
+- Embed flowgraphs and the GUI view in other webpages [(PySDR example)](https://pysdr.org/content/sync#frame-synchronization)
 
 ## Limitations
 
-- No Python runtime in the browser at the moment, Python-only blocks and hier blocks need a C++ implementation
+- No Python runtime in the browser at the moment, Python-only blocks and hier blocks need a C++ implementation, Pyodide is only used for Embedded Python Blocks
+-Embedded Python Blocks do not yet support message handling or stream tags
 - Parameter expressions support a Python subset (arithmetic, lists, `math`/`numpy`, and common `firdes` filter designers) but not any arbitrary Python
-
-## Coming Soon
-
-- Support for some hardware/SDRs
-- A beginner tutorial with an animated cursor that demonstrates adding blocks and running a flowgraph
-- An embeddable flowgraph and GUI view for interactive DSP examples, with a link to open the full editor in a new tab
 
 ## How to add a feature or fix a bug entirely from the browser
 
