@@ -1,6 +1,6 @@
 options:
     parameters:
-        author: PySDR
+        author: Marc
         comment: ''
         copyright: ''
         description: Companion to the Noise chapter of PySDR
