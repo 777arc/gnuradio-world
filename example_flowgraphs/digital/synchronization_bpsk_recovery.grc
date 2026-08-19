@@ -145,6 +145,20 @@ blocks:
         coordinate: [800, 440]
         rotation: 0
         state: enabled
+-   name: agc
+    id: analog_agc2_xx
+    parameters:
+        attack_rate: '0.06'
+        comment: ''
+        decay_rate: '0.001'
+        gain: '1.0'
+        max_gain: '65536'
+        reference: '1.0'
+        type: complex
+    states:
+        coordinate: [1160, 620]
+        rotation: 0
+        state: enabled
 -   name: clock_sync
     id: digital_pfb_clock_sync_xxx
     parameters:
@@ -566,12 +580,13 @@ blocks:
 connections:
 - [bpsk_mod, '0', channel, '0']
 - [channel, '0', throttle, '0']
+- [throttle, '0', agc, '0']
 - [clock_sync, '0', const_timed, '0']
 - [clock_sync, '0', costas, '0']
 - [costas, '0', const_synced, '0']
 - [costas, '0', time_symbols, '0']
 - [random_bits, '0', bpsk_mod, '0']
-- [throttle, '0', clock_sync, '0']
+- [agc, '0', clock_sync, '0']
 - [throttle, '0', const_rx, '0']
 metadata:
     file_format: 1
