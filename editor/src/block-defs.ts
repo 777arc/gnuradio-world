@@ -105,6 +105,19 @@ const NCONNECTIONS_PARAM: ParamDef = {
   id: 'nconnections', label: 'Number of Inputs', type: 'number', def: 1,
 };
 
+// Every rate field in GRC defaults to the *expression* `samp_rate`, never to a
+// literal — which is what makes a freshly placed Frequency Sink draw a 1 MHz
+// x-axis in a flowgraph whose samp_rate variable is 1 MHz instead of the 32 kHz
+// one it was born with. A new flowgraph always carries that variable
+// (makeSampRateInst() in main.ts), and the Run path evaluates the expression
+// before the runner sees it, so the default resolves like any other reference.
+// Blocks with a generated schema (the Eye, Time Raster and four-pane Sinks)
+// inherit this default from their yaml; the hand-written schemas below have to
+// spell it out, and did not, which left their axes stuck at 32 kHz.
+const SAMP_RATE_PARAM: ParamDef = {
+  id: 'samp_rate', label: 'Sample Rate', type: 'number', def: 'samp_rate',
+};
+
 // GRC gives each sink ten configurable lines and hides the ones past the active
 // line count; `configure_line` in runner/src/registry.cpp reads them back per
 // line under the same names. The colour cycle matches the runner's own default
@@ -189,7 +202,7 @@ export const RUNNABLE: Record<string, RunnableDef> = {
   analog_sig_source_x: {
     label: 'Signal Source', inputs: 0, outputs: 1, params: [
       TYPE_PARAM,
-      { id: 'samp_rate', label: 'Sample Rate', type: 'number', def: 32000 },
+      { ...SAMP_RATE_PARAM },
       { id: 'waveform', label: 'Waveform', type: 'enum', def: 'analog.GR_COS_WAVE',
         options: ['analog.GR_CONST_WAVE', 'analog.GR_SIN_WAVE', 'analog.GR_COS_WAVE', 'analog.GR_SQR_WAVE', 'analog.GR_TRI_WAVE', 'analog.GR_SAW_WAVE'] },
       { id: 'frequency', label: 'Frequency', type: 'number', def: 2000 },
@@ -384,7 +397,7 @@ export const RUNNABLE: Record<string, RunnableDef> = {
       TYPE_PARAM,
       { id: 'name', label: 'Title', type: 'string', def: 'Scope' },
       { id: 'size', label: 'Num Points', type: 'number', def: 1024 },
-      { id: 'samp_rate', label: 'Sample Rate', type: 'number', def: 32000 },
+      { ...SAMP_RATE_PARAM },
       NCONNECTIONS_PARAM,
       { id: 'ylabel', label: 'Y Axis Label', type: 'string', def: 'Amplitude', category: 'General' },
       { id: 'yunit', label: 'Y Axis Unit', type: 'string', def: '', category: 'General' },
@@ -415,7 +428,7 @@ export const RUNNABLE: Record<string, RunnableDef> = {
       { id: 'freqhalf', label: 'Spectrum Width', type: 'enum', def: 'True',
         options: BOOL_OPTIONS, optionLabels: ['Full', 'Half'],
         showWhen: (p) => p.type === 'float' },
-      { id: 'samp_rate', label: 'Sample Rate', type: 'number', def: 32000 },
+      { ...SAMP_RATE_PARAM },
       { id: 'fc', label: 'Center Frequency', type: 'number', def: 0 },
       NCONNECTIONS_PARAM,
       { id: 'grid', label: 'Grid', type: 'enum', def: 'False', options: BOOL_OPTIONS, category: 'General' },
@@ -462,7 +475,7 @@ export const RUNNABLE: Record<string, RunnableDef> = {
     label: 'QT GUI Waterfall Sink', inputs: 1, outputs: 0, params: [
       { id: 'name', label: 'Title', type: 'string', def: 'Waterfall' },
       { id: 'fftsize', label: 'FFT Size', type: 'number', def: 1024 },
-      { id: 'samp_rate', label: 'Sample Rate', type: 'number', def: 32000 },
+      { ...SAMP_RATE_PARAM },
       { id: 'fc', label: 'Center Frequency', type: 'number', def: 0 },
       NCONNECTIONS_PARAM,
       { id: 'int_min', label: 'Intensity Min', type: 'number', def: -140, category: 'General' },

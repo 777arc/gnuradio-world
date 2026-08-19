@@ -3336,27 +3336,40 @@ static std::map<std::string, Factory>& registry_storage() {
              return make_fosphor_sink(p, "fosphor_qt_sink_c");
          }},
         {"qtgui_time_sink_x", [](const json& p) -> BuiltBlock {
-             int n = p.value("size", 1024); double sr = p.value("samp_rate", 32000.0);
+             int n = static_cast<int>(number_from(p, "size", 1024));
+             // `srate` is GRC's own id for the rate; `samp_rate` is the spelling
+             // this editor writes. Accept both, upstream's first, so a .grc from
+             // native GRC handed straight to runner.html still scales its x-axis.
+             double sr = p.contains("srate") ? number_from(p, "srate", 32000.0)
+                                             : number_from(p, "samp_rate", 32000.0);
              std::string nm = unquoted(p.value("name", std::string())); int nc = p.value("nconnections", 1);
+             // A float input is one trace, a complex input two (real and
+             // imaginary), so the two branches configure different line counts.
              if (is_float(p)) {
                  auto b = gr::qtgui::time_sink_f::make(n, sr, nm, nc);
                  configure_time_sink(b, p, nc);
                  BuiltBlock result{ b, b->qwidget() };
-                 result.numeric_setters["samp_rate"] =
-                     [b](double value) { b->set_samp_rate(value); };
+                 const auto set_rate = [b](double value) { b->set_samp_rate(value); };
+                 result.numeric_setters["srate"] = set_rate;
+                 result.numeric_setters["samp_rate"] = set_rate;
                  return result;
              }
              auto b = gr::qtgui::time_sink_c::make(n, sr, nm, nc);
              configure_time_sink(b, p, 2 * nc);
              BuiltBlock result{ b, b->qwidget() };
-             result.numeric_setters["samp_rate"] =
-                 [b](double value) { b->set_samp_rate(value); };
+             const auto set_rate = [b](double value) { b->set_samp_rate(value); };
+             result.numeric_setters["srate"] = set_rate;
+             result.numeric_setters["samp_rate"] = set_rate;
              return result;
          }},
         {"qtgui_freq_sink_x", [](const json& p) -> BuiltBlock {
-             double sr = p.value("samp_rate", 32000.0);
-             const double initial_fc = p.value("fc", 0.0);
-             const double initial_bw = p.value("bw", sr);
+             // `bw` is GRC's own id for the rate, `samp_rate` the spelling this
+             // editor writes; upstream's wins where both are present, and the
+             // shared reader keeps a non-numeric value a clean error rather than
+             // an uncaught nlohmann type_error.
+             const double sr = number_from(p, "samp_rate", 32000.0);
+             const double initial_fc = number_from(p, "fc", 0.0);
+             const double initial_bw = number_from(p, "bw", sr);
              const int fftsize = p.value("fftsize", 1024);
              const int wintype = p.value("wintype", 5);
              const std::string name = unquoted(p.value("name", std::string()));
@@ -3486,7 +3499,7 @@ static std::map<std::string, Factory>& registry_storage() {
          }},
         {"qtgui_waterfall_sink_x", [](const json& p) -> BuiltBlock {
              const std::string type = type_from(p, "complex");
-             const double sr = p.value("samp_rate", 32000.0);
+             const double sr = number_from(p, "samp_rate", 32000.0);
              const int fftsize = static_cast<int>(number_from(p, "fftsize", 1024));
              const int wintype = static_cast<int>(number_from(p, "wintype", 0));
              const double initial_fc = number_from(p, "fc", 0.0);

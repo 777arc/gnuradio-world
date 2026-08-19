@@ -1456,14 +1456,25 @@ function stateToFlags(state: any): { enabled: boolean; bypassed: boolean } {
   const s = String(state ?? 'enabled');
   return { enabled: s !== 'disabled', bypassed: s === 'bypassed' };
 }
-// Parameter ids this editor wrote before its schema matched upstream GRC's, per
-// block id: `current id -> id found in old files`. Consulted only when the
-// current id is absent, so an existing .grc keeps its value instead of silently
+// Alternate spellings of a parameter id, per block id: `current id -> id found
+// in a file this schema does not match`. Either direction lands here -- an id
+// this editor wrote before its schema matched upstream GRC's, or upstream GRC's
+// own id for a field this schema still spells differently. Consulted only when
+// the current id is absent, so a .grc keeps its value instead of silently
 // falling back to the schema default.
 const LEGACY_PARAM_IDS: Record<string, Record<string, string>> = {
   // Deprecated "Throttle (old)", superseded by blocks_throttle2. Its rate was
   // written as `samp_rate`; upstream has always called it samples_per_second.
   blocks_throttle: { samples_per_second: 'samp_rate' },
+  // These three sinks' rate field is `samp_rate` here but `bw`/`srate` upstream,
+  // so a .grc written by native GRC carries the value under a name this schema
+  // does not declare -- and an undeclared parameter is dropped in silence,
+  // leaving the sink's axis at the schema default. Read the upstream spelling
+  // as a fallback so such a file keeps its rate. (The runner accepts both
+  // spellings too, for a .grc handed straight to runner.html.)
+  qtgui_freq_sink_x: { samp_rate: 'bw' },
+  qtgui_waterfall_sink_x: { samp_rate: 'bw' },
+  qtgui_time_sink_x: { samp_rate: 'srate' },
 };
 // GRC stores param values as strings; numeric fields become numbers (or keep a
 // variable-reference expression), everything else stays a string.
