@@ -337,7 +337,9 @@ static double fft_average_from(const json& p)
 }
 
 template <typename Sink>
-static void configure_freq_sink(const std::shared_ptr<Sink>& sink, const json& p)
+static void configure_freq_sink(const std::shared_ptr<Sink>& sink,
+                                const json& p,
+                                unsigned int line_count)
 {
     sink->set_fft_average(static_cast<float>(fft_average_from(p)));
     sink->set_y_axis(number_from(p, "ymin", -140.0),
@@ -349,7 +351,11 @@ static void configure_freq_sink(const std::shared_ptr<Sink>& sink, const json& p
     sink->enable_axis_labels(bool_from(p, "axislabels", true));
     if (!bool_from(p, "legend", true))
         sink->disable_legend();
-    configure_line(sink, p, 0, "blue");
+    for (unsigned int line = 0; line < line_count; ++line)
+        configure_line(sink,
+                       p,
+                       line,
+                       default_line_color(static_cast<int>(line)));
     sink->set_trigger_mode(trigger_mode_from(p),
                            static_cast<float>(number_from(p, "tr_level", 0.0)),
                            static_cast<int>(number_from(p, "tr_chan", 0)),
@@ -3358,7 +3364,7 @@ static std::map<std::string, Factory>& registry_storage() {
              // Everything past construction is identical for the two sinks, so
              // the shared tail is a template over the sptr the branch produced.
              auto finish = [&](auto b) {
-                 configure_freq_sink(b, p);
+                 configure_freq_sink(b, p, static_cast<unsigned int>(nc));
                  auto range =
                      std::make_shared<std::pair<double, double>>(initial_fc, initial_bw);
                  BuiltBlock result{ b, b->qwidget() };
