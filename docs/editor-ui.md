@@ -108,6 +108,23 @@ carry it, and each has a reason it is where it is:
   `logLines()` marks the workspace `console-unread` while it is collapsed and the
   bar carries a dot until it is opened again.
 
+## Opening at a given zoom (`?zoom=`)
+
+`?zoom=0.75` opens the canvas at 75% instead of 100%, which is what a link or an
+embed wants when its frame is smaller (or larger) than the flowgraph was drawn
+for. A percentage is accepted just as well — `?zoom=75` and `?zoom=75%` mean the
+same thing; anything at or above 10 is read as a percentage, which is
+unambiguous because `ZOOM_MAX` is 2.5. Values outside the editor's own
+`ZOOM_MIN`/`ZOOM_MAX` range are clamped, and anything that is not a positive
+number is ignored with a console line.
+
+A query parameter rather than a fragment key for the same reason `embed` is one:
+it says how the page was opened, not which flowgraph to show, and nothing in the
+app rewrites it — zooming with the toolbar or Ctrl+± leaves the URL alone.
+`applyZoomFromUrl()` in `main.ts` runs at the end of `editorReady`, after the
+flowgraph the fragment named has loaded, so it wins over any zoom the load path
+picked.
+
 ## Embedding a flowgraph in another page (`?embed=1`)
 
 `https://gnuradioworld.com/?embed=1#example=digital/welcome_example` in an

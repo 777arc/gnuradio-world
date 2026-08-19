@@ -1119,6 +1119,20 @@ function setZoom(next: number) {
   }
   log(`zoom ${Math.round(zoom * 100)}%`);
 }
+// ?zoom=<level> — the zoom the canvas opens at, so a link or an embed can hand
+// its reader a flowgraph already sized to the frame. A query parameter for the
+// same reason `embed` is one: it is a property of how the page was opened, not
+// of which flowgraph the fragment names, and the app never rewrites it as the
+// reader zooms. Both spellings a URL invites are accepted — a factor ("0.75")
+// and a percentage ("75", "75%") — split at 10, well above ZOOM_MAX; setZoom
+// clamps whatever comes out to the same range the toolbar buttons reach.
+function applyZoomFromUrl() {
+  const raw = new URLSearchParams(location.search).get('zoom');
+  if (raw === null) return;
+  const value = Number(raw.trim().replace(/%$/, ''));
+  if (!Number.isFinite(value) || value <= 0) { log(`ignoring ?zoom=${raw}: not a positive number`); return; }
+  setZoom(value >= 10 ? value / 100 : value);
+}
 // Scale the canvas down until the whole flowgraph fits the visible pane — the
 // quickest way to get your bearings on a screen narrower than the graph. It
 // never scales *up* past 100%: a two-block flowgraph blown up to fill the pane
@@ -5425,6 +5439,9 @@ export const editorReady = paletteReady.then(async () => {
     try { await loadExampleByName('digital/welcome_example.grc', /* updateHash */ false); }
     catch (error) { log(`could not load default example "digital/welcome_example.grc": ${error}`); }
   }
+  // After the flowgraph, so the level a link asks for outlives any zoom the
+  // load path chose for it.
+  applyZoomFromUrl();
   historyReady = true; resetHistory();
   // Nothing of the application's own is offered in an embed, and a modal about
   // contributing examples is the last thing a host page's reader asked for.
