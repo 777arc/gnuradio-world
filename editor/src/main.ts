@@ -1582,6 +1582,11 @@ function loadFlowgraph(doc: any) {
 // already on the canvas scatter off-screen in random directions while the
 // example's blocks sweep in from off-screen to their loaded positions.
 function loadFlowgraphAnimated(doc: any) {
+  // Opening an example replaces what is on the canvas, so a flowgraph still
+  // running is the *old* one: stop it rather than leave the QT GUI pane showing
+  // a graph the canvas no longer describes. stop() returns to the editor tab,
+  // which the fly-in also needs -- the canvas has no size while it is hidden.
+  if (runnerRunning) stop();
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
     loadFlowgraph(doc); resetHistory(); return;
   }
