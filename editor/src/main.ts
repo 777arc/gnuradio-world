@@ -1128,7 +1128,10 @@ function changePortCount(delta: number) {
   }
   if (changed) { render(); recordHistory(); }
 }
-const ZOOM_MIN = 0.4, ZOOM_MAX = 2.5, ZOOM_STEP = 1.15;
+// ZOOM_MIN is a floor against zoom hitting exactly 0 (scale(0) hides every
+// block and makes the canvas unreachable), not a legibility limit — there is
+// no lower bound on how small a link or an embed may want the canvas drawn.
+const ZOOM_MIN = 0.01, ZOOM_MAX = 2.5, ZOOM_STEP = 1.15;
 function setZoom(next: number) {
   zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, next));
   // Draw the grid at the snap spacing so every line is a legal block position.

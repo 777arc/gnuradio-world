@@ -210,6 +210,14 @@ button:hover { filter:brightness(1.15); }
     border:1px solid #46507a; border-radius:5px; }
 .ai-transcript { min-height:0; overflow:auto; padding:12px 10px; display:flex;
     flex-direction:column; gap:10px; }
+/* flex:none on every direct child .ai-transcript appends (message bubbles, tool
+   rows, authorization prompts) — a flex column's items default to
+   flex-shrink:1 with min-height:auto, so once enough of them piled up to
+   exceed .ai-transcript's height, Chromium shrank every one towards zero
+   instead of leaving their content size alone and letting overflow:auto
+   scroll. .ai-diff is exempt: it nests inside .ai-message rather than
+   .ai-transcript directly, so it is never itself a flex item. */
+.ai-message, .ai-tool, .ai-gesture { flex:none; }
 .ai-message { border:1px solid #38415a; border-radius:8px; padding:9px 10px; background:#24293a; }
 .ai-message.user { background:#25334a; border-color:#40577b; }
 .ai-message.status { color:#aeb8d0; background:#202532; }

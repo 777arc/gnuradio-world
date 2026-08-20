@@ -115,9 +115,11 @@ embed wants when its frame is smaller (or larger) than the flowgraph was drawn
 for. Always a percentage, with or without the `%` — `?zoom=75` and `?zoom=75%`
 mean the same thing, and so does `?zoom=5` (5%) or `?zoom=500` (500%, then
 clamped) — there is no factor spelling and no value where the meaning flips.
-Values outside the editor's own `ZOOM_MIN`/`ZOOM_MAX` (40%–250%) range are
+Values outside the editor's own `ZOOM_MIN`/`ZOOM_MAX` (1%–250%) range are
 clamped, and anything that is not a positive number is ignored with a console
-line.
+line. `ZOOM_MIN` is only a floor against hitting exactly 0 — `scale(0)` would
+hide every block and make the canvas unreachable — not a legibility limit, so
+it sits far below anything actually readable.
 
 A query parameter rather than a fragment key for the same reason `embed` is one:
 it says how the page was opened, not which flowgraph to show, and nothing in the
