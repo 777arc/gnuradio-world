@@ -1,0 +1,47 @@
+options:
+    parameters:
+        id: js_spike_probe_flowgraph
+        title: JS Block spike probe
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: src
+    id: analog_sig_source_x
+    parameters:
+        type: complex
+        samp_rate: '320000'
+        waveform: analog.GR_COS_WAVE
+        frequency: '1000'
+        amplitude: '1'
+        offset: '0'
+        phase: '0'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: probe
+    id: js_spike_probe
+    parameters:
+        gain: '2'
+    states:
+        coordinate: [200, 0]
+        rotation: 0
+        state: enabled
+-   name: sink
+    id: blocks_null_sink
+    parameters:
+        type: complex
+        vlen: '1'
+        num_inputs: '1'
+        bus_structure_sink: '[[0,],]'
+    states:
+        coordinate: [400, 0]
+        rotation: 0
+        state: enabled
+connections:
+- [src, '0', probe, '0']
+- [probe, '0', sink, '0']
+metadata:
+    file_format: 1

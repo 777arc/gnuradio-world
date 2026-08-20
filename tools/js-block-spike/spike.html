@@ -1,0 +1,23 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>js-block spike</title>
+<style>body{font:13px/1.5 ui-monospace,monospace;padding:16px}pre{white-space:pre-wrap}</style>
+<h1>JS Block spike — EM_ASM on a pthread, MAIN_MODULE=2, growable shared heap</h1>
+<pre id="result" data-status="pending">pending…</pre>
+<script>
+  // Emscripten prints through Module.print; mirror stdout into the page in case
+  // the MAIN_THREAD_EM_ASM publish never lands.
+  var lines = [];
+  var Module = {
+    print: function (t) { lines.push(t); },
+    printErr: function (t) { lines.push('stderr: ' + t); },
+    onExit: function () {
+      var el = document.getElementById('result');
+      if (el.dataset.status === 'pending') {
+        el.textContent = lines.join('\n');
+        el.dataset.status = 'done';
+      }
+    },
+  };
+</script>
+<script src="build/spike.js"></script>
