@@ -11,6 +11,7 @@ export const [
   recordingCatalogSource,
   exampleCatalogSource,
   debugPanelSource,
+  aiPanelSource,
   htmlSource,
   cssSource,
 ] = await Promise.all([
@@ -22,6 +23,7 @@ export const [
   read('../src/recording-catalog.ts'),
   read('../src/example-catalog.ts'),
   read('../src/debug-panel.ts'),
+  read('../src/ai/panel.ts'),
   read('../index.html'),
   read('../src/editor.css'),
 ]);
@@ -37,6 +39,7 @@ export const editorSource = [
   recordingCatalogSource,
   exampleCatalogSource,
   debugPanelSource,
+  aiPanelSource,
 ].join('\n');
 
 export const markupSource = `${htmlSource}\n${cssSource}`;

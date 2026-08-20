@@ -33,6 +33,36 @@ GNU Radio, entirely in your browser — explore the open-source SDR ecosystem wi
 
 Create a [new Issue](https://github.com/777arc/gnuradio-world/issues/new) in GitHub, describe what you want to change or fix, if it's a bug then point out how to reproduce it, or which example flowgraph can be used to reproduce it.  Then click "Assign to Agent", and once it's done the agent will create a PR, and it will automatically build a live version of the site under a different URL, which will be provided as a comment in the PR once it's live (~8m).  You can then test out the change and make a note in the PR that it looks good.
 
+## Benchmarking and Comparison to Native GNU Radio
+
+In GNU Radio World, go to Tools -> Benchmark Tool to benchmark your system.  Below shows an example of the results, compared to equivalent flowgraphs running on native GNU Radio, on a laptop with a AMD Ryzen 7 PRO 6850U:
+
+### Filtering Performance
+
+| Flowgraph | Taps | Native GNU Radio | GNU Radio World |
+|---|---:|---:|---:|
+| Decimating FIR Filter | 101 | 24 Msps | 12.1 Msps |
+|  | 1,001 | 4.6 Msps | 1.37 Msps |
+|  | 10,001 | 0.5 Msps | 0.14 Msps |
+| FFT Filter | 101 | 54 Msps | 35.4 Msps |
+|  | 1,001 | 39 Msps | 20.2 Msps |
+|  | 10,001 | 96 Msps | 24.1 Msps |
+| Python Block (`scipy.signal.fftconvolve`) | 101 | 11 Msps | 5.89 Msps |
+|  | 1,001 | 10 Msps | 4.41 Msps |
+|  | 10,001 | 5.0 Msps | 1.49 Msps |
+
+_All flowgraphs use: `Null Source → Filter → Null Sink`._
+
+### Long Chain of Blocks
+
+| Flowgraph | Blocks | Native GNU Radio | GNU Radio World |
+|---|---:|---:|---:|
+| N × Multiply Const | 10 | 45 Msps | 30.8 Msps |
+|  | 20 | 39 Msps | 20.1 Msps |
+|  | 30 | 37 Msps | 12.3 Msps |
+
+_Flowgraph: `Null Source → N × Multiply Const → Null Sink`._
+
 ## Developer Quickstart
 
 Everything below is the minimum needed on a fresh Ubuntu 24.04 or 26.04 install

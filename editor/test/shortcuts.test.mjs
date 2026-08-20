@@ -39,7 +39,9 @@ assert.doesNotMatch(source, /label: 'Generate'/);
 assert.doesNotMatch(source, /alignSelected/);
 assert.doesNotMatch(source, /label: 'Find Blocks'/);
 assert.doesNotMatch(source, /label: 'Reload Blocks'/);
-assert.doesNotMatch(source, /label: 'Tools'/);
+assert.match(source,
+  /label: 'Tools', items: \[\s*\{ label: 'Flowgraph Copilot', run: toggleAiPanel \}/,
+  'the one browser-specific Tools entry opens Flowgraph Copilot');
 assert.doesNotMatch(source, /label: 'Filter Design Tool'/);
 assert.doesNotMatch(source, /label: 'Set Default QT GUI Theme'/);
 assert.doesNotMatch(source, /label: 'Show Flowgraph Complexity'/);

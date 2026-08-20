@@ -37,6 +37,23 @@ assert.match(source,
   /d\.type === 'gr-error'[\s\S]*setRunnerRunning\(false, 'Flowgraph failed'\)/,
   'a runner startup failure also clears the running indicator');
 
+// ---- Flowgraph Copilot right dock -----------------------------------------
+assert.match(html,
+  /#app \{[^}]*--ai-width:420px;[^}]*grid-template-columns:[^}]*var\(--ai-splitter-width\) var\(--ai-width\)/,
+  'the desktop shell reserves a resizable right-hand Copilot column');
+assert.match(html, /#app\.ai-hidden \{ --ai-width:0px; --ai-splitter-width:0px; \}/,
+  'the Copilot dock is collapsed by default without leaving an empty grid track');
+assert.match(source,
+  /const paletteReady = buildPalette\(\);\s*void paletteReady\.then\(initializeAiPanel\)/,
+  'Copilot initializes against the complete generated block catalog');
+assert.match(source, /createAiPanel\([\s\S]*commitHistory: recordHistory[\s\S]*restoreSnapshot: restoreAiSnapshot/,
+  'the dock uses the editor history boundary for per-turn undo and revert');
+assert.match(source,
+  /newChat\.setAttribute\('aria-label', 'New chat'\)[\s\S]*const resetConversation[\s\S]*transcript\.textContent = ''[\s\S]*cost\.textContent = '\$0\.0000'[\s\S]*rebuildAgent\(\)/,
+  'New chat clears the transcript and cost and rebuilds the agent conversation');
+assert.match(source, /newChat\.disabled = !!controller \|\| !key/,
+  'New chat cannot interrupt an active turn or run without a connection');
+
 // ---- embedded layout (?embed=1) --------------------------------------------
 // What another page frames is #workspaceContent and nothing else, with one
 // button standing in for the toolbar's ▶ and the run bar's Stop at once.
@@ -65,6 +82,9 @@ for (const part of ['header', '#palette', '#paletteSplitter', '#paletteToggle', 
                     '#consoleSplitter', '#consoleToggle', '#log', '#runBar'])
   assert.match(embeddedHidden[1], new RegExp(`#app\\.embedded ${part}[\\s,]`),
     `the embedded layout drops ${part}`);
+assert.match(embeddedHidden[1], /#app\.embedded \.ai-splitter[\s,]/);
+assert.match(embeddedHidden[1], /#app\.embedded \.ai-dock[\s,]/,
+  'an embedded flowgraph does not expose the application Copilot dock');
 assert.match(html, /\.embed-controls \{[^}]*position:absolute;[^}]*z-index:40/,
   'the embedded controls float over the panels rather than taking a bar of their own');
 
@@ -77,8 +97,8 @@ assert.match(source,
   'the one embedded button runs the flowgraph and stops it again');
 assert.match(source, /if \(!runnerRunning\) \{\s*updateEmbedRun\(\/\* failed \*\/ true\)/,
   'a refused flowgraph reports on the button, since an embed has no console pane');
-assert.match(source, /if \(!EMBEDDED\) showWelcomePopup\(\)/,
-  'the welcome modal stays out of an embedded flowgraph');
+assert.match(source, /if \(!EMBEDDED && !returnedFromOpenRouter\) showWelcomePopup\(\)/,
+  'the welcome modal stays out of embedded flowgraphs and the OAuth return');
 assert.match(source,
   /embedOpen\.href = historyIndex > 0 \? await flowgraphToUrl\(\) : embedOpenUrl\(\)/,
   'the Open link carries the edited canvas, and the plain example link until then');

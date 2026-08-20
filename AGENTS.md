@@ -25,6 +25,7 @@ full* before starting that kind of work:
 | [docs/double-mapped-buffer.md](docs/double-mapped-buffer.md) | working on the emulated vmcircbuf |
 | [docs/diagnostics.md](docs/diagnostics.md) | working on the runner's `__grstats` snapshot, the debug panel, or the Benchmark Tool |
 | [docs/embedded-python.md](docs/embedded-python.md) | touching the Embedded Python Block — Pyodide, the Python shim under `runner/src/pyodide/`, `blocks/src/python_block.hpp`, `editor/src/epy.ts`, or the Code field's CodeMirror in `editor/src/code-editor.ts` |
+| [docs/ai-copilot.md](docs/ai-copilot.md) | touching Flowgraph Copilot — OpenRouter, structured graph tools, the agent loop, visible-run diagnostics, consent/key storage, or hardware authorization rows |
 
 ## Project overview
 

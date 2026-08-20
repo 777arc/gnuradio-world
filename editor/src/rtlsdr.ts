@@ -217,6 +217,12 @@ export function requiredRtlSerials(blocks: Inst[]): string[] {
   return [...wanted];
 }
 
+export async function needsRtlGesture(blocks: Inst[]): Promise<boolean> {
+  const wanted = requiredRtlSerials(blocks);
+  return !!usbApi() && wanted.length > 0 &&
+    unsatisfiedSerials(wanted, await authorizedRtlDevices()).length > 0;
+}
+
 /**
  * Ensures the flowgraph's RTL-SDR blocks have a device to open, prompting if
  * they do not. Must be called from a user gesture: requestDevice() needs one,
@@ -274,5 +280,6 @@ export const RTLSDR_RADIO: UsbRadio = {
   describe: describeDevice,
   refresh: refreshRtlDevices,
   watch: watchRtlDevices,
+  needsGesture: needsRtlGesture,
   prepare: prepareRtlDevices,
 };

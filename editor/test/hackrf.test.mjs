@@ -109,6 +109,7 @@ try {
   Object.defineProperty(globalThis, 'navigator', {
     value: {}, configurable: true, writable: true,
   });
+  assert.equal(await hackrf.needsHackRfGesture([source(device.serialNumber)]), false);
   assert.match(String(await hackrf.prepareHackRfDevices([source('')])), /WebUSB/);
   assert.equal(await hackrf.prepareHackRfDevices([source('fake')]), null);
 
@@ -126,6 +127,13 @@ try {
   assert.match(String(await hackrf.prepareHackRfDevices([source(''), sink('b')])),
     /explicit Device/);
   assert.equal(await hackrf.prepareHackRfDevices([source(device.serialNumber)]), null);
+
+  Object.defineProperty(globalThis, 'navigator', {
+    value: { usb: { getDevices: async () => [], addEventListener() {} } },
+    configurable: true, writable: true,
+  });
+  assert.equal(await hackrf.needsHackRfGesture([source(device.serialNumber)]), true);
+  assert.equal(await hackrf.needsHackRfGesture([source('fake')]), false);
 } finally {
   Object.defineProperty(globalThis, 'navigator', {
     value: savedNavigator, configurable: true, writable: true,

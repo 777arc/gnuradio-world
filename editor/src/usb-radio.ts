@@ -71,6 +71,8 @@ export type UsbRadio = {
   refresh(): Promise<UsbLike[]>;
   /** Calls back whenever the set of shared devices moves. */
   watch(onChange: () => void): void;
+  /** Read-only check: whether prepare() would need a requestDevice() gesture. */
+  needsGesture(blocks: Inst[]): Promise<boolean>;
   /**
    * Obtains any permission the flowgraph's blocks are missing, and returns a
    * message when the run cannot go ahead. Must be called from a user gesture.

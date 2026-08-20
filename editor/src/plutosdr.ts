@@ -128,6 +128,12 @@ function requiredPlutoSerials(blocks: Inst[]): string[] {
     .filter(serial => !isFakeDevice(serial));
 }
 
+export async function needsPlutoGesture(blocks: Inst[]): Promise<boolean> {
+  const wanted = requiredPlutoSerials(blocks);
+  return !!usbApi() && wanted.length > 0 &&
+    unsatisfiedSerials(wanted, await authorizedPlutoDevices()).length > 0;
+}
+
 /**
  * Enforces the current ownership model and obtains any missing WebUSB grant.
  * Separate real Plutos may run together, but one physical device cannot be
@@ -182,5 +188,6 @@ export const PLUTOSDR_RADIO: UsbRadio = {
   describe: describePluto,
   refresh: refreshPlutoDevices,
   watch: watchPlutoDevices,
+  needsGesture: needsPlutoGesture,
   prepare: preparePlutoDevices,
 };

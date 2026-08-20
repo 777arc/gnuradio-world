@@ -132,6 +132,8 @@ try {
   });
   assert.deepEqual(await rtl.authorizedRtlDevices(), [],
     'no WebUSB means no devices, not a throw');
+  assert.equal(await rtl.needsRtlGesture([inst({ device: '' })]), false,
+    'a browser without WebUSB cannot offer a useful permission gesture');
   const message = await rtl.prepareRtlDevices([inst({ device: '' })]);
   assert.match(String(message), /WebUSB/,
     'a Firefox user is told why, not left with a generic failure');
@@ -190,11 +192,26 @@ try {
   const prepareProblem = await rtl.prepareRtlDevices([
     inst({ device: generic.serialNumber }),
   ]);
+  assert.equal(await rtl.needsRtlGesture([inst({ device: generic.serialNumber })]), false,
+    'an existing origin grant needs no new gesture');
   assert.equal(prepareProblem.title, 'RTL-SDR device driver required',
     'the normal Run preflight blocks an already-authorized unusable dongle');
 } finally {
   Object.defineProperty(globalThis, 'navigator', {
     value: navigatorBeforePrepareProbe, configurable: true, writable: true,
+  });
+}
+
+const navigatorBeforeGesture = globalThis.navigator;
+try {
+  Object.defineProperty(globalThis, 'navigator', {
+    value: { usb: { getDevices: async () => [] } }, configurable: true, writable: true,
+  });
+  assert.equal(await rtl.needsRtlGesture([inst({ device: generic.serialNumber })]), true);
+  assert.equal(await rtl.needsRtlGesture([inst({ device: 'fake' })]), false);
+} finally {
+  Object.defineProperty(globalThis, 'navigator', {
+    value: navigatorBeforeGesture, configurable: true, writable: true,
   });
 }
 

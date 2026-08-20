@@ -114,6 +114,12 @@ export function requiredHackRfSerials(blocks: Inst[]): string[] {
     .filter(serial => !isFakeDevice(serial));
 }
 
+export async function needsHackRfGesture(blocks: Inst[]): Promise<boolean> {
+  const wanted = requiredHackRfSerials(blocks);
+  return !!usbApi() && wanted.length > 0 &&
+    unsatisfiedSerials(wanted, await authorizedHackRfDevices()).length > 0;
+}
+
 export async function prepareHackRfDevices(blocks: Inst[]): Promise<string | null> {
   const wanted = requiredHackRfSerials(blocks);
   if (!wanted.length) return null;
@@ -158,5 +164,6 @@ export const HACKRF_RADIO: UsbRadio = {
   describe: describeHackRf,
   refresh: refreshHackRfDevices,
   watch: watchHackRfDevices,
+  needsGesture: needsHackRfGesture,
   prepare: prepareHackRfDevices,
 };

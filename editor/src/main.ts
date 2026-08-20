@@ -96,6 +96,11 @@ import {
   isSdrSpeedTestFrameSource,
   showSdrSpeedTestDialog,
 } from './sdr-speed-test';
+import type { CatalogEntry } from './ai/catalog';
+import type { AiToolDeps } from './ai/tools';
+import type { HarnessDeps, RunAuthorization } from './ai/harness';
+import { createAiPanel, type AiPanel } from './ai/panel';
+import aiSystemPrompt from './ai/system-prompt.md?raw';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const el = (id: string) => document.getElementById(id)!;
@@ -240,6 +245,7 @@ function recordHistory() {
   graphHistory.push(snapshot());
   if (graphHistory.length > 100) graphHistory.shift();
   historyIndex = graphHistory.length - 1;
+  updateRunningCanvasState();
   void refreshEmbedOpen();
 }
 function restoreHistory(index: number) {
@@ -250,6 +256,7 @@ function restoreHistory(index: number) {
   insts = state.insts; conns = state.conns; counter = state.counter;
   selected = null; selectedBlocks.clear(); selectedConnection = null; cancelConnect();
   render();
+  updateRunningCanvasState();
 }
 function undo() { restoreHistory(historyIndex - 1); }
 function redo() { restoreHistory(historyIndex + 1); }
@@ -259,12 +266,14 @@ function redo() { restoreHistory(historyIndex + 1); }
 // second), and an unbounded textContent grows without limit and gets slower with
 // every append, so drop the oldest lines once the pane is full.
 const LOG_MAX_LINES = 4000;
+const logSubscribers = new Set<(lines: string[]) => void>();
 
 // Append a burst in one pass. A running flowgraph delivers stdout in batches of
 // up to a couple of hundred lines; rewriting the pane once per batch instead of
 // once per line keeps the cost proportional to the batch, not to batch x buffer.
 function logLines(lines: string[]) {
   if (!lines.length) return;
+  for (const subscriber of logSubscribers) subscriber([...lines]);
   const l = el('log');
   const existing = l.textContent ? l.textContent.split('\n') : [];
   if (existing.length && existing[existing.length - 1] === '') existing.pop();
@@ -967,13 +976,13 @@ function addBlock(id: string, x = 60 + (counter % 5) * 30, y = 60 + (counter % 7
 }
 
 // ---- block operations (used by the context menu and shortcuts) ----
-function deleteBlocks(uids = selectedBlocks) {
+function deleteBlocks(uids = selectedBlocks, record = true) {
   if (!uids.size) return;
   // Options and GUI Layout are required singletons and cannot be deleted.
   insts = insts.filter(i => !uids.has(i.uid) || i.id === OPTIONS_ID || i.id === LAYOUT_ID);
   conns = conns.filter(c => !uids.has(c.from) && !uids.has(c.to));
   selectedBlocks.clear(); selected = null; selectedConnection = null;
-  render(); recordHistory();
+  render(); if (record) recordHistory();
 }
 function deleteConnection(conn: Conn) {
   conns = conns.filter(c => c !== conn);
@@ -1053,7 +1062,7 @@ function bypassSelected() {
 // block on the coordinate it comes back with. Everything the engine needs is
 // measured here — box size, how far the port tabs stick out on each side, and
 // the y offset of every port — so `layout.ts` stays DOM-free and unit testable.
-function autoArrangeBlocks() {
+function autoArrangeBlocks(record = true) {
   if (!insts.length) return;
   // Ports have to face the way the layout flows, so a hand-rotated block is
   // straightened first: a 90° block's ports sit on its top and bottom edges, and
@@ -1079,7 +1088,7 @@ function autoArrangeBlocks() {
     const position = constrainBlockPosition(at.x, at.y, snapToGrid);
     inst.x = position.x; inst.y = position.y;
   }
-  render(); recordHistory();
+  render(); if (record) recordHistory();
   log(`arranged ${insts.length} block${insts.length === 1 ? '' : 's'}`);
 }
 function cycleBlockType(direction: number) {
@@ -1518,7 +1527,7 @@ function portIndex(inst: Inst, kind: 'in' | 'out', token: string): number {
   const idx = ids ? ids.indexOf(token) : -1;
   return idx >= 0 ? idx : 0;
 }
-function loadFlowgraph(doc: any) {
+function loadFlowgraph(doc: any, record = true) {
   if (!doc || !Array.isArray(doc.blocks))
     throw new Error('not a GNU Radio .grc flowgraph');
   insts = []; conns = []; counter = 0;
@@ -1580,7 +1589,7 @@ function loadFlowgraph(doc: any) {
   // vertical stack such a flowgraph has always been rendered as.
   ensureLayoutBlock();
   selected = null; selectedBlocks.clear(); selectedConnection = null; cancelConnect();
-  render(); recordHistory(); log(`opened ${insts.length} blocks`);
+  render(); if (record) recordHistory(); log(`opened ${insts.length} blocks`);
 }
 // Fly-in / fly-out transition used when opening an example flowgraph: the blocks
 // already on the canvas scatter off-screen in random directions while the
@@ -3107,6 +3116,16 @@ function wireWorkspaceTab(entry: WorkspaceTabEntry) {
 workspaceTabs.forEach(wireWorkspaceTab);
 
 let runnerRunning = false;
+let runningGraphSnapshot: string | null = null;
+
+function updateRunningCanvasState(): void {
+  if (!runnerRunning || !runningGraphSnapshot) return;
+  const stale = JSON.stringify(snapshot()) !== runningGraphSnapshot;
+  el('runStatus').textContent = stale
+    ? 'Running flowgraph — canvas has changed since'
+    : 'Running flowgraph…';
+  el('workspace').classList.toggle('run-stale', stale);
+}
 
 function updateEmbedRun(failed = false) {
   embedRun.classList.toggle('running', runnerRunning && !failed);
@@ -3127,6 +3146,10 @@ function setRunnerRunning(running: boolean, status?: string) {
   runnerRunning = running;
   updateEmbedRun();
   el('workspace').classList.toggle('running', running);
+  if (!running) {
+    runningGraphSnapshot = null;
+    el('workspace').classList.remove('run-stale');
+  }
   el('runStatus').textContent = status || (running ? 'Running flowgraph…' : 'No flowgraph running');
   (el('btnStop') as HTMLButtonElement).disabled = !running;
   // Arranging needs live widgets to drag. A new run re-enables the button when
@@ -3903,7 +3926,7 @@ consoleSplitter.addEventListener('keydown', event => {
 });
 window.addEventListener('resize', () => { if (consoleHeight) applyConsoleHeight(); });
 
-async function run() {
+async function run(): Promise<string | null> {
   const errors = validateGraph().filter(issue => issue.blocking);
   if (errors.length) {
     const first = errors[0];
@@ -3913,12 +3936,12 @@ async function run() {
       log(`  ${block?.name || block?.id || issue.uid}: ${issue.message}`);
     }
     select(first.uid);
-    return;
+    return null;
   }
   // Both singletons are placed automatically, so neither counts as something
   // the reader put on the canvas to run.
   if (!insts.some(i => i.id !== OPTIONS_ID && i.id !== LAYOUT_ID)) {
-    log('nothing to run — add some blocks'); return;
+    log('nothing to run — add some blocks'); return null;
   }
   // The one thing that must happen under the Run click itself: WebUSB's
   // requestDevice() needs a user gesture, and neither the runner's constructor
@@ -3932,7 +3955,7 @@ async function run() {
     if (typeof problem !== 'string') showUsbPreparationProblem(problem);
     const block = insts.find(i => radio.owns(i) && i.enabled && !i.bypassed);
     if (block) select(block.uid);
-    return;
+    return null;
   }
 
   const recordingFiles: RunnerInputFile[] = [];
@@ -3952,7 +3975,7 @@ async function run() {
           ? `cannot run: recording "${key}" for "${block.name}" is unavailable`
           : `cannot run: choose a recording for "${block.name}"`);
         select(block.uid);
-        return;
+        return null;
       }
       const path = recordingDataPath(key);
       if (!addedPaths.has(path)) {
@@ -3976,7 +3999,7 @@ async function run() {
             `HTTP(S) file (it must answer range requests and allow this origin)`
           : `cannot run: give "${block.name}" a URL`);
         select(block.uid);
-        return;
+        return null;
       }
       const path = HTTP_RECORDING_PREFIX + encodeURIComponent(url);
       fileOverrides.set(block.name, path);
@@ -3995,7 +4018,7 @@ async function run() {
       if (!file) {
         log(`cannot run: choose the local file for "${block.name}" again`);
         select(block.uid);
-        return;
+        return null;
       }
       const path = `/local-files/${block.localFileToken}/${encodeURIComponent(file.name)}`;
       fileOverrides.set(block.name, path);
@@ -4012,7 +4035,7 @@ async function run() {
       if (!savedPath) {
         log(`cannot run: choose an image for "${block.name}" with Browse, or type a URL`);
         select(block.uid);
-        return;
+        return null;
       }
       continue;
     }
@@ -4029,21 +4052,21 @@ async function run() {
           `or use GR World Recording for a hosted recording`);
     }
     select(block.uid);
-    return;
+    return null;
   }
   for (const file of recordingFiles) {
     if (file.kind === 'local' && file.file.size === 0) {
       const block = insts.find(item => fileOverrides.get(item.name) === file.path);
       log(`cannot run: local file for "${block?.name || 'File Source'}" is empty`);
       if (block) select(block.uid);
-      return;
+      return null;
     }
     if (file.kind === 'http' && file.size === 0) {
       const block = insts.find(item => item.id === RECORDING_ID &&
         recordingSourceFor(item)?.path === file.path);
       log(`cannot run: recording for "${block?.name || 'GR World Recording'}" is empty`);
       if (block) select(block.uid);
-      return;
+      return null;
     }
   }
   // The runner parses native .grc directly (it lowers disabled/bypassed blocks
@@ -4066,6 +4089,8 @@ async function run() {
   frame.src = url;
   const doc = buildGrcDoc();
   log('▶ running ' + doc.blocks.length + ' blocks, ' + doc.connections.length + ' connections');
+  runningGraphSnapshot = JSON.stringify(snapshot());
+  return token;
 }
 
 function stop() {
@@ -4978,6 +5003,13 @@ function toggleShowGrid() {
 }
 function openLink(url: string) { window.open(url, '_blank', 'noopener'); }
 
+let aiPanel: AiPanel | null = null;
+let openAiWhenReady = false;
+function toggleAiPanel() {
+  if (aiPanel) aiPanel.toggle();
+  else openAiWhenReady = true;
+}
+
 // ---- enable/state predicates (evaluated each time a menu opens) ----
 function hasSel() { return selectedBlocks.size > 0; }
 function hasSelOrConn() { return selectedBlocks.size > 0 || !!selectedConnection; }
@@ -5210,6 +5242,9 @@ const MENUS: TopMenu[] = [
     { label: 'Execute', key: 'F6', run: run },
     { label: 'Kill', key: 'F7', run: stop },
   ] },
+  { label: 'Tools', items: [
+    { label: 'Flowgraph Copilot', run: toggleAiPanel },
+  ] },
   { label: 'Help', items: [
     { label: 'Help', key: 'F1', run: () => openLink('https://wiki.gnuradio.org/index.php/Main_Page') },
     { label: 'Types', run: showTypesDialog },
@@ -5307,6 +5342,7 @@ const TOOLBAR: (Tool | 'sep')[] = [
   { icon: '↷', label: 'Redo', key: 'Ctrl+Y', run: redo },
   'sep',
   { icon: '⚠', label: 'Flowgraph Errors', run: showErrorsDialog },
+  { icon: '✨', label: 'Flowgraph Copilot', run: toggleAiPanel },
   { icon: '▶', label: 'Execute', key: 'F6', run: run },
   { icon: '■', label: 'Kill', key: 'F7', run: stop },
   'sep',
@@ -5336,6 +5372,197 @@ function buildToolbar() {
   }
 }
 
+function aiCatalogEntries(): CatalogEntry[] {
+  const generated = new Map<string, CatalogEntry>();
+  for (const block of LIB.blocks || []) {
+    if (!RUNNABLE[block.id] || PALETTE_HIDDEN.has(block.id)) continue;
+    const category = Array.isArray(block.category)
+      ? block.category.map(String).join(' / ')
+      : String(block.category || 'Other');
+    generated.set(block.id, {
+      id: String(block.id), label: String(block.label || block.id), category,
+    });
+  }
+  for (const [id, def] of Object.entries(RUNNABLE)) {
+    if (PALETTE_HIDDEN.has(id) || generated.has(id)) continue;
+    generated.set(id, { id, label: def.label, category: 'Core / Editor' });
+  }
+  return [...generated.values()].sort((a, b) => a.id.localeCompare(b.id));
+}
+
+function aiInstance(instOrId: Inst | string): Inst | null {
+  if (typeof instOrId !== 'string') return instOrId;
+  const def = RUNNABLE[instOrId];
+  if (!def) return null;
+  return {
+    uid: '__describe__', id: instOrId, name: instOrId, x: 0, y: 0,
+    params: Object.fromEntries(def.params.map(param => [param.id, param.def])),
+    enabled: true, bypassed: false, rotation: 0,
+  };
+}
+
+function aiPorts(instOrId: Inst | string, kind: 'in' | 'out'): ResolvedPort[] {
+  const inst = aiInstance(instOrId);
+  if (!inst) return [];
+  const expanded = resolvedPorts(inst, kind);
+  if (expanded) return expanded;
+  return Array.from({ length: portCount(inst, kind) }, (_, index) => portMeta(inst, kind, index));
+}
+
+function aiBlock(name: string): Inst {
+  const block = insts.find(item => item.name === name);
+  if (!block) throw new Error(`no block named "${name}"`);
+  return block;
+}
+
+function aiPortIndex(block: Inst, kind: 'in' | 'out', token: string | number): number {
+  const ports = aiPorts(block, kind);
+  const numeric = typeof token === 'number' ? token
+    : /^\d+$/.test(String(token).trim()) ? Number(token) : -1;
+  const index = numeric >= 0 ? numeric : ports.findIndex(item =>
+    item.name === String(token) || item.id === String(token));
+  if (!Number.isInteger(index) || index < 0 || index >= ports.length) {
+    const valid = ports.map((item, i) => `${i}=${item.name || item.id}`).join(', ');
+    throw new Error(`no ${kind} port "${token}" on "${block.name}"; valid ports are ${valid || 'none'}`);
+  }
+  return index;
+}
+
+function restoreAiSnapshot(state: GraphSnapshot, record: boolean): void {
+  insts = clone(state.insts);
+  conns = clone(state.conns);
+  counter = state.counter;
+  selected = null; selectedBlocks.clear(); selectedConnection = null; cancelConnect();
+  render();
+  if (record) recordHistory();
+}
+
+function aiAuthorization(): Promise<RunAuthorization | null> {
+  const tx = insts.find(block => block.enabled && !block.bypassed &&
+    (block.id === 'wasm_hackrf_sink' || block.id === 'wasm_plutosdr_sink'));
+  if (tx) {
+    const frequency = tx.params.center_freq ?? tx.params.frequency ?? 'unknown';
+    const rate = tx.params.samp_rate ?? tx.params.sample_rate ?? 'unknown';
+    return Promise.resolve({
+      title: `This flowgraph transmits with ${tx.name}.`,
+      detail: `Centre frequency ${frequency}; sample rate ${rate}. Transmission requires approval every time.`,
+      button: 'Transmit & Run',
+    });
+  }
+  return (async () => {
+    for (const radio of USB_RADIOS) {
+      if (!await radio.needsGesture(insts)) continue;
+      return {
+        title: `This flowgraph opens a ${radio.name}.`,
+        detail: 'The browser needs a hardware permission click before the visible run can start.',
+        button: 'Allow & Run',
+      };
+    }
+    return null;
+  })();
+}
+
+function aiToolDependencies(): Omit<AiToolDeps, 'runFlowgraph'> {
+  return {
+    blocks: () => insts,
+    connections: () => conns,
+    entries: aiCatalogEntries,
+    definition: value => typeof value === 'string' ? RUNNABLE[value] : defFor(value),
+    ports: aiPorts,
+    validate: () => validateGraph(),
+    addBlock: (id, requestedName) => {
+      if (!RUNNABLE[id] || PALETTE_HIDDEN.has(id))
+        throw new Error(`block "${id}" is not in the runnable index`);
+      const block = addBlock(id, undefined, undefined, {}, false);
+      if (!block) throw new Error(`could not add block "${id}"`);
+      if (requestedName) {
+        if (insts.some(item => item !== block && item.name === requestedName)) {
+          insts = insts.filter(item => item !== block);
+          throw new Error(`a block named "${requestedName}" already exists`);
+        }
+        block.name = requestedName;
+      }
+      render();
+      return block;
+    },
+    removeBlock: name => {
+      const block = aiBlock(name);
+      if (block.id === OPTIONS_ID || block.id === LAYOUT_ID)
+        throw new Error(`${block.name} is a required singleton and cannot be removed`);
+      deleteBlocks(new Set([block.uid]), false);
+    },
+    setParams: (name, params) => {
+      const block = aiBlock(name);
+      const next = { ...block.params, ...params };
+      remapConnectionsForPortChange(block, next);
+      block.params = next;
+      render();
+    },
+    connect: (fromName, output, toName, input) => {
+      const from = aiBlock(fromName), to = aiBlock(toName);
+      if (from === to) throw new Error('a block cannot connect to itself');
+      const fp = aiPortIndex(from, 'out', output), tp = aiPortIndex(to, 'in', input);
+      const source = aiPorts(from, 'out')[fp], sink = aiPorts(to, 'in')[tp];
+      if (source.domain !== sink.domain)
+        throw new Error(`cannot connect ${source.domain} output to ${sink.domain} input`);
+      conns = conns.filter(connection => !(connection.to === to.uid && connection.tp === tp));
+      conns.push({ from: from.uid, fp, to: to.uid, tp });
+      render();
+    },
+    disconnect: (fromName, output, toName, input) => {
+      const from = aiBlock(fromName), to = aiBlock(toName);
+      const fp = aiPortIndex(from, 'out', output), tp = aiPortIndex(to, 'in', input);
+      const length = conns.length;
+      conns = conns.filter(connection => !(connection.from === from.uid &&
+        connection.fp === fp && connection.to === to.uid && connection.tp === tp));
+      if (conns.length === length) throw new Error('that connection does not exist');
+      render();
+    },
+    setEnabled: (name, state) => {
+      const block = aiBlock(name);
+      if (state === 'bypassed' && (portCount(block, 'in') !== 1 || portCount(block, 'out') !== 1))
+        throw new Error(`"${name}" cannot be bypassed because it is not a 1-in/1-out block`);
+      block.enabled = state !== 'disabled';
+      block.bypassed = state === 'bypassed';
+      render();
+    },
+    autoArrange: () => autoArrangeBlocks(false),
+    replaceFlowgraph: grc => loadFlowgraph(parseGrc(grc), false),
+    listExamples: async () => {
+      const response = await fetch('/example_flowgraphs');
+      if (!response.ok) throw new Error(`example listing failed (${response.status})`);
+      const files = await response.json();
+      return Array.isArray(files) ? files.map(String).sort() : [];
+    },
+    readExample: async path => {
+      const response = await fetch('/example_flowgraphs/' + encodeExamplePath(path));
+      if (!response.ok) throw new Error(`example "${path}" could not be read (${response.status})`);
+      return response.text();
+    },
+  };
+}
+
+function initializeAiPanel(): void {
+  const harness: Omit<HarnessDeps, 'requestAuthorization'> = {
+    run,
+    frame: () => el('runFrame') as HTMLIFrameElement,
+    blocks: () => insts,
+    authorization: aiAuthorization,
+    subscribeLogs: subscriber => {
+      logSubscribers.add(subscriber);
+      return () => logSubscribers.delete(subscriber);
+    },
+  };
+  aiPanel = createAiPanel({
+    openDialog, log, systemPrompt: aiSystemPrompt, entries: aiCatalogEntries,
+    toolDeps: aiToolDependencies(), harness,
+    snapshot,
+    commitHistory: recordHistory,
+    restoreSnapshot: restoreAiSnapshot,
+  });
+  if (openAiWhenReady) { openAiWhenReady = false; aiPanel.open(); }
+}
+
 buildMenuBar();
 buildToolbar();
 el('btnStop').addEventListener('click', stop);
@@ -5348,6 +5575,7 @@ initArrangeOverlay();
 });
 
 const paletteReady = buildPalette();
+void paletteReady.then(initializeAiPanel);
 ensureOptionsBlock();
 // A radio block left on "first available" draws the device it resolves to, so
 // the canvas has to redraw when one is plugged in or pulled out.
@@ -5455,6 +5683,8 @@ function showWelcomePopup() {
 // flowgraph fetch completes, but it must not become interactive in that gap: a
 // block placed there would be discarded when the startup flowgraph arrived.
 export const editorReady = paletteReady.then(async () => {
+  const returnedFromOpenRouter = aiPanel?.isOAuthReturn() ?? false;
+  const oauthRestore = aiPanel?.oauthRestore() ?? Promise.resolve(null);
   // The GUI Layout block needs its schema, which only arrives with the generated
   // library, so the canvas built before that gets its singleton here instead.
   ensureLayoutBlock(); render();
@@ -5467,11 +5697,16 @@ export const editorReady = paletteReady.then(async () => {
     try { await loadExampleByName('digital/welcome_example.grc', /* updateHash */ false); }
     catch (error) { log(`could not load default example "digital/welcome_example.grc": ${error}`); }
   }
+  const oauthSnapshot = await oauthRestore;
+  if (oauthSnapshot) {
+    restoreAiSnapshot(oauthSnapshot, false);
+    log('restored the canvas after connecting OpenRouter');
+  }
   // After the flowgraph, so the level a link asks for outlives any zoom the
   // load path chose for it.
   applyZoomFromUrl();
   historyReady = true; resetHistory();
   // Nothing of the application's own is offered in an embed, and a modal about
   // contributing examples is the last thing a host page's reader asked for.
-  if (!EMBEDDED) showWelcomePopup();
+  if (!EMBEDDED && !returnedFromOpenRouter) showWelcomePopup();
 });

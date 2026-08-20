@@ -127,6 +127,7 @@ try {
   Object.defineProperty(globalThis, 'navigator', {
     value: {}, configurable: true, writable: true,
   });
+  assert.equal(await pluto.needsPlutoGesture([source('missing')]), false);
   assert.match(String(await pluto.preparePlutoDevices([source('')])), /WebUSB/);
   assert.equal(await pluto.preparePlutoDevices([source('fake')]), null);
 
@@ -141,6 +142,7 @@ try {
     configurable: true,
     writable: true,
   });
+  assert.equal(await pluto.needsPlutoGesture([source('missing')]), true);
   assert.match(String(await pluto.preparePlutoDevices([source('a'), sink('a')])),
     /one physical PlutoSDR/);
   assert.match(String(await pluto.preparePlutoDevices([source(''), sink('b')])),
@@ -157,6 +159,7 @@ try {
     configurable: true,
     writable: true,
   });
+  assert.equal(await pluto.needsPlutoGesture([source(hardware.serialNumber)]), false);
   assert.equal(await pluto.preparePlutoDevices([
     source(hardware.serialNumber), sink(second.serialNumber),
   ]), null);
@@ -165,6 +168,7 @@ try {
   ]), null);
 
   devices = [];
+  assert.equal(await pluto.needsPlutoGesture([source('missing')]), true);
   assert.match(String(await pluto.preparePlutoDevices([source('missing')])),
     /no PlutoSDR with serial/);
 } finally {

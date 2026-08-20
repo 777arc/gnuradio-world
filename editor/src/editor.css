@@ -5,8 +5,10 @@ html,body { margin:0; height:100%; font-family:system-ui,Arial,sans-serif; color
     -webkit-text-size-adjust:100%; overscroll-behavior:none; }
 /* dvh, not vh: a phone's vh is the *largest* viewport, so the console pane would
    sit under the browser's own toolbar until the reader scrolled it away. */
-#app { --palette-width:460px; --palette-splitter-width:7px; display:grid;
-    grid-template-columns:var(--palette-width) var(--palette-splitter-width) 1fr;
+#app { --palette-width:460px; --palette-splitter-width:7px; --ai-width:420px;
+    --ai-splitter-width:7px; display:grid;
+    grid-template-columns:var(--palette-width) var(--palette-splitter-width) minmax(0,1fr)
+      var(--ai-splitter-width) var(--ai-width);
     grid-template-rows:auto 1fr; height:100vh; height:100dvh; position:relative; }
 /* The narrow layout's drawer affordances; inert in the side-by-side layout. */
 #paletteToggle, #paletteScrim { display:none; }
@@ -16,10 +18,14 @@ html,body { margin:0; height:100%; font-family:system-ui,Arial,sans-serif; color
 #app.hide-palette #paletteSplitter { visibility:hidden; }
 #app.resizing-palette { cursor:col-resize; }
 #app.resizing-palette iframe { pointer-events:none; }
+#app.ai-hidden { --ai-width:0px; --ai-splitter-width:0px; }
+#app.ai-hidden .ai-dock, #app.ai-hidden .ai-splitter { visibility:hidden; overflow:hidden; }
+#app.resizing-ai { cursor:col-resize; }
+#app.resizing-ai iframe { pointer-events:none; }
 /* One row: the logo, then the two bars stacked beside it. The bars are the
    column that grows, so a menu that has to scroll on a narrow screen scrolls
    within its own row and never pushes the mark off the edge. */
-header { grid-column:1/4; display:flex; align-items:stretch; background:#181b26; border-bottom:1px solid #333a4d; }
+header { grid-column:1/-1; display:flex; align-items:stretch; background:#181b26; border-bottom:1px solid #333a4d; }
 #headerBars { display:flex; flex-direction:column; flex:1; min-width:0; }
 header .brand { display:flex; align-items:center; flex:none; padding:0 0 0 5px; }
 header .brand a { display:flex; align-items:center; }
@@ -180,6 +186,68 @@ button:hover { filter:brightness(1.15); }
 @media (prefers-reduced-motion:reduce) {
   .sdr-gauge-needle, .sdr-speed-progress-fill { transition:none; }
 }
+/* ---- Flowgraph Copilot dock -------------------------------------------- */
+.ai-splitter { min-width:0; position:relative; z-index:20; cursor:col-resize;
+    touch-action:none; background:#262b3b; border-left:1px solid #11141d;
+    border-right:1px solid #333a4d; outline:none; }
+.ai-splitter::after { content:''; position:absolute; width:2px; height:42px; border-radius:2px;
+    background:#7783a4; top:50%; left:2px; transform:translateY(-50%); }
+.ai-splitter:hover, .ai-splitter:focus-visible { background:#343b52; }
+.ai-dock { min-width:0; min-height:0; display:grid; grid-template-rows:auto auto minmax(0,1fr) auto;
+    background:#1d2130; border-left:1px solid #333a4d; overflow:hidden; }
+.ai-head { display:flex; align-items:center; gap:8px; min-width:0; padding:10px 10px 8px;
+    border-bottom:1px solid #333a4d; }
+.ai-head strong { flex:1; white-space:nowrap; }
+.ai-cost { color:#9eabc8; font:12px/1.2 ui-monospace,monospace; }
+.ai-icon { width:30px; height:30px; padding:0; font-size:18px; line-height:1; }
+.ai-controls { padding:8px 10px; border-bottom:1px solid #303548; }
+.ai-connection { display:flex; align-items:center; justify-content:space-between; gap:8px;
+    margin-bottom:7px; }
+.ai-boundary { color:#a9d8b4; font-size:12px; }
+.ai-boundary::before { content:'●'; margin-right:5px; color:#53c878; }
+.ai-disconnect { padding:3px 7px; color:#c4ccdd; background:transparent; font-size:12px; }
+.ai-model { width:100%; min-width:0; padding:7px; color:#e6e9f0; background:#262c3d;
+    border:1px solid #46507a; border-radius:5px; }
+.ai-transcript { min-height:0; overflow:auto; padding:12px 10px; display:flex;
+    flex-direction:column; gap:10px; }
+.ai-message { border:1px solid #38415a; border-radius:8px; padding:9px 10px; background:#24293a; }
+.ai-message.user { background:#25334a; border-color:#40577b; }
+.ai-message.status { color:#aeb8d0; background:#202532; }
+.ai-role { margin-bottom:5px; color:#91a5d0; font-size:12px; font-weight:700;
+    text-transform:uppercase; letter-spacing:.04em; }
+.ai-message-body { white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.45; }
+.ai-tool, .ai-diff { border:1px solid #394058; border-radius:6px; background:#1b1f2c; overflow:hidden; }
+.ai-tool summary, .ai-diff summary { padding:7px 9px; cursor:pointer; color:#bac6df; }
+.ai-tool pre { margin:0; padding:8px 9px; overflow:auto; max-height:220px; white-space:pre-wrap;
+    color:#aeb8d0; background:#171a25; font-size:12px; }
+.ai-tool pre.error { color:#ff9b95; }
+.ai-diff { margin-top:9px; }
+.ai-diff ul { margin:4px 12px 10px; padding-left:20px; color:#cbd5e9; font-size:13px; }
+.ai-diff button { margin:0 9px 9px; padding:5px 9px; font-size:13px; }
+.ai-compose { padding:10px; border-top:1px solid #333a4d; }
+.ai-prompt { width:100%; resize:vertical; min-height:70px; max-height:220px; padding:8px;
+    color:#eef2fa; background:#171b27; border:1px solid #46507a; border-radius:6px;
+    font:14px/1.4 system-ui,sans-serif; }
+.ai-compose-buttons { display:flex; justify-content:flex-end; gap:8px; margin-top:7px; }
+.ai-compose-buttons button { padding:6px 12px; font-size:14px; }
+.ai-gesture { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; align-items:center;
+    border:1px solid #a36d27; border-radius:7px; padding:10px; background:#3a2c1c; }
+.ai-gesture > button:last-child { grid-column:2; }
+.ai-gesture > div > div { margin-top:3px; color:#e8cfad; font-size:13px; }
+.ai-trust, .ai-data-boundary { margin:4px 0 12px; padding:10px 12px; border:1px solid #3e4a66;
+    border-radius:7px; background:#1b2030; }
+.ai-trust strong, .ai-data-boundary strong { color:#dce7fa; }
+.ai-trust p, .ai-data-boundary p { margin:6px 0 0; line-height:1.45; color:#cbd5e9; }
+.ai-trust-links { display:flex; flex-wrap:wrap; gap:7px 14px; margin:3px 0 14px; }
+.ai-trust-links a { color:#72b7ff; }
+.ai-manual-key { margin-top:12px; border-top:1px solid #394159; padding-top:10px; }
+.ai-manual-key summary { color:#aebbd4; cursor:pointer; }
+.ai-connect-status { min-height:1.2em; margin:8px 0 0; color:#e5b86f; }
+.ai-key-label { display:grid; gap:6px; margin:12px 0; }
+.ai-key { width:100%; padding:8px; color:#e6e9f0; background:#181c28;
+    border:1px solid #46507a; border-radius:5px; }
+.ai-consent { display:flex; align-items:flex-start; gap:7px; margin:10px 0 16px; line-height:1.4; }
+#workspace.run-stale #runStatus { color:#f0b866; }
 #palette { min-height:0; background:#20232f; overflow:auto; }
 /* Vertical splitter between the palette and the workspace */
 #paletteSplitter { min-width:0; position:relative; z-index:20; cursor:col-resize;
@@ -257,7 +325,7 @@ button:hover { filter:brightness(1.15); }
 #app.embedded header, #app.embedded #palette, #app.embedded #paletteSplitter,
 #app.embedded #paletteScrim, #app.embedded #paletteToggle, #app.embedded #workspaceTabs,
 #app.embedded #consoleSplitter, #app.embedded #consoleToggle, #app.embedded #log,
-#app.embedded #runBar { display:none; }
+#app.embedded #runBar, #app.embedded .ai-splitter, #app.embedded .ai-dock { display:none; }
 #app.embedded { grid-template-columns:minmax(0,1fr); grid-template-rows:minmax(0,1fr); }
 #app.embedded #workspace { grid-template-rows:minmax(0,1fr); }
 /* Over the panels rather than above them: the embed is framed at whatever size
@@ -700,6 +768,10 @@ svg text { user-select:none; -webkit-user-select:none; -moz-user-select:none; }
   /* Column resizing needs a pointer that can hover a 7px target; a drawer that
      covers the canvas has no width worth tuning by hand anyway. */
   #paletteSplitter { display:none; }
+  .ai-splitter { display:none; }
+  .ai-dock { position:absolute; grid-row:2; grid-column:1; top:0; bottom:0; right:0;
+      width:min(94vw,440px); z-index:140; box-shadow:-8px 0 34px #000a; }
+  #app.ai-hidden .ai-dock { display:none; }
 
   /* ---- header: one scrollable row of menus, one of tools ---- */
   #menubar { gap:0; padding:0 6px; height:50px; position:relative; }
