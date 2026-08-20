@@ -110,13 +110,14 @@ carry it, and each has a reason it is where it is:
 
 ## Opening at a given zoom (`?zoom=`)
 
-`?zoom=0.75` opens the canvas at 75% instead of 100%, which is what a link or an
+`?zoom=75` opens the canvas at 75% instead of 100%, which is what a link or an
 embed wants when its frame is smaller (or larger) than the flowgraph was drawn
-for. A percentage is accepted just as well — `?zoom=75` and `?zoom=75%` mean the
-same thing; anything at or above 10 is read as a percentage, which is
-unambiguous because `ZOOM_MAX` is 2.5. Values outside the editor's own
-`ZOOM_MIN`/`ZOOM_MAX` range are clamped, and anything that is not a positive
-number is ignored with a console line.
+for. Always a percentage, with or without the `%` — `?zoom=75` and `?zoom=75%`
+mean the same thing, and so does `?zoom=5` (5%) or `?zoom=500` (500%, then
+clamped) — there is no factor spelling and no value where the meaning flips.
+Values outside the editor's own `ZOOM_MIN`/`ZOOM_MAX` (40%–250%) range are
+clamped, and anything that is not a positive number is ignored with a console
+line.
 
 A query parameter rather than a fragment key for the same reason `embed` is one:
 it says how the page was opened, not which flowgraph to show, and nothing in the
@@ -124,6 +125,17 @@ app rewrites it — zooming with the toolbar or Ctrl+± leaves the URL alone.
 `applyZoomFromUrl()` in `main.ts` runs at the end of `editorReady`, after the
 flowgraph the fragment named has loaded, so it wins over any zoom the load path
 picked.
+
+## Opening centred on a point (`?center=`)
+
+`?center=800,400` scrolls the canvas so the flowgraph coordinate `(800, 400)` —
+the same units a block's own `x`/`y` are stored in — is in the middle of the
+viewport instead of render()'s default top-left corner, which is what a link or
+an embed wants when the interesting part of a large flowgraph is not near the
+origin. `applyCenterFromUrl()` runs right after `applyZoomFromUrl()` in
+`editorReady`, since the pixel position of a canvas coordinate scales with zoom;
+anything that does not parse as `"x,y"` is ignored with a console line, the same
+way a bad `?zoom=` is.
 
 ## Embedding a flowgraph in another page (`?embed=1`)
 
@@ -163,6 +175,32 @@ click cannot race and be overwritten by the initial flowgraph load. The gated
 path keeps the editor bundle, stylesheet, block catalog, example, recording
 index and runner out of the host page's initial waterfall. Like `embed`, any
 value but `0`/`false` enables `click_to_load`, including the bare flag.
+
+Add `no_scroll=1` to clip an oversized flowgraph at the frame edge instead of
+showing scrollbars over it, and `no_controls=1` to drop the `#embedControls` row
+— Run, the way out, and the two zoom icons — for a host that draws its own UI
+for them:
+
+```html
+<iframe src="https://gnuradioworld.com/?embed=1&no_scroll=1&no_controls=1#example=ofdm/ofdm"
+        allow="cross-origin-isolated" width="960" height="560"></iframe>
+```
+
+Both flags have no effect without `embed`, and both use the same truthy rule as
+it and `click_to_load`: any value but `0`/`false` turns them on, including the
+bare flag. `#app.embed-no-scroll` in `editor.css` turns off `#canvasScroll`'s
+`overflow:auto`. `no_controls` skips unhiding `#embedControls` and instead
+unhides `#embedPlayBlock` — a lone Run control drawn to look exactly like a GRC
+block (same body fill, border and radius as `.blk rect.body`, kept in step by
+hand since a button can't share the canvas's own selector) with a play triangle
+standing in for a title, so an embed with no other UI still has a way to start
+the flowgraph. It shares `updateEmbedRun()` and its click handler with
+`#embedRun` — running swaps the triangle for a stop square and the block's fill
+for the same blue a selected block gets, failing swaps in the same pink/red a
+block with no valid definition gets. It sits over `#workspaceContent`, outside
+the canvas's own scroll/zoom transform, so it stays pinned to the frame's
+corner regardless of where the reader has scrolled or zoomed the flowgraph
+underneath it.
 
 Five things make it an embed, and each is one place:
 

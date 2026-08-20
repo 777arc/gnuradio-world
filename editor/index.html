@@ -175,6 +175,23 @@ html.click-to-load-pending #clickToLoad button:disabled { cursor:default; opacit
              ><span class="embed-open-short">Open</span> ↗</a>
         </div>
       </div>
+      <!-- ?no_controls=1 replaces the whole row above with just this: a lone Run
+           control drawn to look exactly like a GRC block — same body fill,
+           border and corner radius as .blk rect.body on the canvas — with a play
+           triangle standing in for a title, so an embed that hides its own UI
+           still has a way to start the flowgraph without adding chrome that
+           doesn't belong on it. Positioned over #workspaceContent rather than
+           inside the canvas's own scroll/zoom transform, so it stays in the
+           corner of the frame regardless of where the reader has scrolled or
+           zoomed. Hidden — and inert — everywhere else. -->
+      <button id="embedPlayBlock" class="embed-play-block" type="button" hidden
+              title="Run the flowgraph" aria-label="Run the flowgraph">
+        <svg viewBox="0 0 70 60" aria-hidden="true">
+          <rect class="body" x="0.5" y="0.5" width="69" height="59" rx="2"></rect>
+          <path class="icon-play" d="M26 17 L46 30 L26 43 Z"></path>
+          <rect class="icon-stop" x="24" y="19" width="22" height="22"></rect>
+        </svg>
+      </button>
     </div>
     <div id="consoleSplitter" role="separator" aria-label="Resize console"
          aria-orientation="horizontal" aria-valuemin="29" tabindex="0"></div>

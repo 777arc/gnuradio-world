@@ -217,7 +217,15 @@ button:hover { filter:brightness(1.15); }
     text-transform:uppercase; letter-spacing:.04em; }
 .ai-message-body { white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.45; }
 .ai-tool, .ai-diff { border:1px solid #394058; border-radius:6px; background:#1b1f2c; overflow:hidden; }
-.ai-tool summary, .ai-diff summary { padding:7px 9px; cursor:pointer; color:#bac6df; }
+/* display:block, not the default list-item: a list-item flex/grid child
+   collapses to near-zero block size in Chromium, which is how these were
+   clipping to hairlines once dozens piled up in .ai-transcript's flex column. */
+.ai-tool summary, .ai-diff summary { display:block; list-style:none; padding:7px 9px 7px 22px;
+    position:relative; cursor:pointer; color:#bac6df; }
+.ai-tool summary::-webkit-details-marker, .ai-diff summary::-webkit-details-marker { display:none; }
+.ai-tool summary::before, .ai-diff summary::before { content:'▸'; position:absolute; left:9px;
+    color:#7783a4; }
+.ai-tool[open] summary::before, .ai-diff[open] summary::before { content:'▾'; }
 .ai-tool pre { margin:0; padding:8px 9px; overflow:auto; max-height:220px; white-space:pre-wrap;
     color:#aeb8d0; background:#171a25; font-size:12px; }
 .ai-tool pre.error { color:#ff9b95; }
@@ -328,6 +336,10 @@ button:hover { filter:brightness(1.15); }
 #app.embedded #runBar, #app.embedded .ai-splitter, #app.embedded .ai-dock { display:none; }
 #app.embedded { grid-template-columns:minmax(0,1fr); grid-template-rows:minmax(0,1fr); }
 #app.embedded #workspace { grid-template-rows:minmax(0,1fr); }
+/* ?no_scroll=1: a host that would rather clip an oversized flowgraph at the
+   frame edge than show scrollbars over it. Only #canvasScroll needs this —
+   every other embed panel is already overflow:hidden. */
+#app.embedded.embed-no-scroll #canvasScroll { overflow:hidden; }
 /* Over the panels rather than above them: the embed is framed at whatever size
    the host page gives it, and a bar of its own would eat that. The row spans the
    frame so Run can sit in the middle of it with the way out in the corner, and
@@ -366,6 +378,27 @@ button:hover { filter:brightness(1.15); }
     text-decoration:none; }
 .embed-open:hover, .embed-open:focus-visible { filter:brightness(1.15); }
 .embed-open-short { display:none; }
+/* ?no_controls=1's lone Run control: styled to match .blk rect.body exactly
+   (colors kept in step by hand — this is a button, not a canvas node, so it
+   can't share the selector) with a play triangle standing in for a title.
+   position:absolute over #workspaceContent, outside the canvas's own
+   scroll/zoom transform, so it stays pinned to the corner of the frame no
+   matter where the reader has scrolled or zoomed the flowgraph underneath it. */
+.embed-play-block { position:absolute; z-index:40; top:10px; right:10px;
+    padding:0; border:0; background:transparent; cursor:pointer; }
+.embed-play-block[hidden] { display:none; }
+.embed-play-block svg { display:block; width:35px; height:30px; }
+.embed-play-block rect.body { fill:#f1ecff; stroke:#616161; stroke-width:1; }
+.embed-play-block:hover rect.body { fill:#e6ddff; }
+.embed-play-block .icon-play, .embed-play-block .icon-stop { fill:none; stroke:#111;
+    stroke-width:2; stroke-linejoin:round; stroke-linecap:round; }
+.embed-play-block .icon-stop { display:none; }
+/* running: the same fill/border a selected block gets on the canvas. */
+.embed-play-block.running rect.body { fill:#e3f0ff; stroke:#1a63c4; stroke-width:2; }
+.embed-play-block.running .icon-play { display:none; }
+.embed-play-block.running .icon-stop { display:block; }
+/* failed: the same fill/border a block with no valid definition gets. */
+.embed-play-block.failed rect.body { fill:#fff2f2; stroke:#ff0000; stroke-width:2; }
 /* Recording tabs (one embedded recording view per File Source).
    Inactive ones are hidden with visibility, not display:none: collapsing an
    iframe to zero size resizes the window the viewer measures its spectrogram

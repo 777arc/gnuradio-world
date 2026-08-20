@@ -119,9 +119,21 @@ const EMBEDDED = (() => {
   const value = new URLSearchParams(location.search).get('embed');
   return value !== null && value !== '0' && value.toLowerCase() !== 'false';
 })();
+// ?no_scroll=1 and ?no_controls=1 — both no-ops without `embed`, same truthy
+// rule as it and `click_to_load`. See the embed-controls/embed-no-scroll wiring
+// further down.
+const EMBED_NO_SCROLL = (() => {
+  const value = new URLSearchParams(location.search).get('no_scroll');
+  return value !== null && value !== '0' && value.toLowerCase() !== 'false';
+})();
+const EMBED_NO_CONTROLS = (() => {
+  const value = new URLSearchParams(location.search).get('no_controls');
+  return value !== null && value !== '0' && value.toLowerCase() !== 'false';
+})();
 const embedRun = el('embedRun') as HTMLButtonElement;
 const embedOpen = el('embedOpen') as HTMLAnchorElement;
 const embedZoom = el('embedZoom');
+const embedPlayBlock = el('embedPlayBlock') as HTMLButtonElement;
 const nodesG = el('nodes'), wiresG = el('wires'), selectionG = el('selectionOverlay');
 const svg = el('svg') as unknown as SVGSVGElement;
 
@@ -1136,15 +1148,35 @@ function setZoom(next: number) {
 // its reader a flowgraph already sized to the frame. A query parameter for the
 // same reason `embed` is one: it is a property of how the page was opened, not
 // of which flowgraph the fragment names, and the app never rewrites it as the
-// reader zooms. Both spellings a URL invites are accepted — a factor ("0.75")
-// and a percentage ("75", "75%") — split at 10, well above ZOOM_MAX; setZoom
-// clamps whatever comes out to the same range the toolbar buttons reach.
+// reader zooms. Always a percentage — "5" and "5%" both mean 5% — so there is no
+// value where the meaning flips; setZoom clamps whatever comes out to the same
+// range the toolbar buttons reach.
 function applyZoomFromUrl() {
   const raw = new URLSearchParams(location.search).get('zoom');
   if (raw === null) return;
   const value = Number(raw.trim().replace(/%$/, ''));
   if (!Number.isFinite(value) || value <= 0) { log(`ignoring ?zoom=${raw}: not a positive number`); return; }
-  setZoom(value >= 10 ? value / 100 : value);
+  setZoom(value / 100);
+}
+// ?center=<x>,<y> — the canvas coordinate (in flowgraph units, the same x/y a
+// block's own position is stored in) to center the viewport on when the page
+// loads, so a link or an embed can open scrolled to one part of a flowgraph too
+// big for its frame instead of the top-left corner render() leaves it at. A
+// query parameter for the same reason `zoom` is one: it is a property of how
+// the page was opened, and nothing in the app rewrites it as the reader scrolls.
+// Applied after `?zoom=`, since the pixel position of a canvas coordinate scales
+// with it.
+function applyCenterFromUrl() {
+  const raw = new URLSearchParams(location.search).get('center');
+  if (raw === null) return;
+  const parts = raw.split(',').map(part => Number(part.trim()));
+  if (parts.length !== 2 || parts.some(n => !Number.isFinite(n))) {
+    log(`ignoring ?center=${raw}: expected "x,y"`); return;
+  }
+  const [x, y] = parts;
+  const scroller = el('canvasScroll');
+  const pane = scroller.getBoundingClientRect();
+  scroller.scrollTo(x * zoom - pane.width / 2, y * zoom - pane.height / 2);
 }
 // Scale the canvas down until the whole flowgraph fits the visible pane — the
 // quickest way to get your bearings on a screen narrower than the graph. It
@@ -3035,6 +3067,9 @@ async function publicHttpFileSize(url: string): Promise<number | null> {
 // this is a property of the host page's <iframe src> that nothing may touch —
 // which is also what makes dropping the whole query the right way to leave.
 if (EMBEDDED) el('app').classList.add('embedded');
+// ?no_scroll=1 — a host that would rather clip an oversized flowgraph than show
+// scrollbars over it. editor.css turns this off with #canvasScroll's overflow.
+if (EMBEDDED && EMBED_NO_SCROLL) el('app').classList.add('embed-no-scroll');
 
 // Same page without the embed flag, so an untouched embed hands over the clean,
 // bookmarkable #example= link it was framed with. Once the reader has changed
@@ -3140,6 +3175,12 @@ function updateEmbedRun(failed = false) {
   // the canvas alone, so the pair goes away with it rather than sitting over the
   // widgets doing nothing.
   embedZoom.hidden = runnerRunning && !failed;
+  // ?no_controls=1's block-styled stand-in: same states as #embedRun, applied
+  // as classes instead of text since its "label" is the play/stop icon.
+  embedPlayBlock.classList.toggle('running', runnerRunning && !failed);
+  embedPlayBlock.classList.toggle('failed', failed);
+  embedPlayBlock.title = hint;
+  embedPlayBlock.setAttribute('aria-label', hint);
 }
 
 function setRunnerRunning(running: boolean, status?: string) {
@@ -3166,7 +3207,12 @@ function setRunnerRunning(running: boolean, status?: string) {
 }
 
 if (EMBEDDED) {
-  el('embedControls').hidden = false;
+  // ?no_controls=1 — a host that draws its own Run/zoom UI and wants the canvas
+  // free of the row #embedControls otherwise floats over it (Run, the way out,
+  // and the two zoom icons). It gets the lone block-styled Run button instead,
+  // since without it an embed would have no way at all to start the flowgraph.
+  if (!EMBED_NO_CONTROLS) el('embedControls').hidden = false;
+  else embedPlayBlock.hidden = false;
   // The two canvas controls an embed keeps. Same calls as the toolbar's buttons
   // and Ctrl+±, which is what setZoom's shared `data-tool` lookup greys out.
   el('embedZoomIn').addEventListener('click', () => setZoom(zoom * ZOOM_STEP));
@@ -3175,7 +3221,7 @@ if (EMBEDDED) {
   window.addEventListener('hashchange', () => void refreshEmbedOpen());
   void refreshEmbedOpen();
   let failedTimer = 0;
-  embedRun.addEventListener('click', async () => {
+  const onEmbedRunClick = async () => {
     window.clearTimeout(failedTimer);
     // Neither call needs anything extra to move the reader: stop() already
     // returns to the canvas and run() already opens the QT GUI pane.
@@ -3189,7 +3235,9 @@ if (EMBEDDED) {
       updateEmbedRun(/* failed */ true);
       failedTimer = window.setTimeout(() => updateEmbedRun(), 3000);
     }
-  });
+  };
+  embedRun.addEventListener('click', onEmbedRunClick);
+  embedPlayBlock.addEventListener('click', onEmbedRunClick);
   updateEmbedRun();
 }
 
@@ -5244,11 +5292,8 @@ const MENUS: TopMenu[] = [
   ] },
   { label: 'Tools', items: [
     { label: 'Flowgraph Copilot', run: toggleAiPanel },
-  ] },
-  { label: 'Help', items: [
-    { label: 'Help', key: 'F1', run: () => openLink('https://wiki.gnuradio.org/index.php/Main_Page') },
+    'sep',
     { label: 'Types', run: showTypesDialog },
-    { label: 'Keyboard Shortcuts', key: 'Ctrl+K', run: showShortcutHelp },
     { label: 'WebAssembly Modules & Debug Info…',
       run: () => showDebugInfo({ openDialog, library: () => LIB, blocksUrl: BLOCKS_URL, loadedModules }) },
     { label: 'Software Versions…', run: () => showVersionsDialog({ openDialog, copyText }) },
@@ -5263,6 +5308,10 @@ const MENUS: TopMenu[] = [
         isFlowgraphRunning: () => el('workspace').classList.contains('running'),
       }) },
     { label: 'Parser Errors', reason: R_XML },
+  ] },
+  { label: 'Help', items: [
+    { label: 'Help', key: 'F1', run: () => openLink('https://wiki.gnuradio.org/index.php/Main_Page') },
+    { label: 'Keyboard Shortcuts', key: 'Ctrl+K', run: showShortcutHelp },
     'sep',
     { label: 'Get Involved', run: () => openLink('https://www.gnuradio.org/get-involved/') },
     { label: 'About', run: showAboutDialog },
@@ -5705,6 +5754,7 @@ export const editorReady = paletteReady.then(async () => {
   // After the flowgraph, so the level a link asks for outlives any zoom the
   // load path chose for it.
   applyZoomFromUrl();
+  applyCenterFromUrl();
   historyReady = true; resetHistory();
   // Nothing of the application's own is offered in an embed, and a modal about
   // contributing examples is the last thing a host page's reader asked for.
