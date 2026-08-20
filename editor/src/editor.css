@@ -66,6 +66,7 @@ button:hover { filter:brightness(1.15); }
 .tbtn.disabled { color:#4b5266; cursor:not-allowed; }
 .tbtn.disabled:hover { background:transparent; border-color:transparent; }
 .tsep { width:1px; min-width:1px; height:24px; background:#333a4d; margin:0 5px; }
+.tbtn[data-tool="Flowgraph Copilot"] { margin-left:auto; }
 /* ---- hover tooltip explaining WASM-unavailable actions ---- */
 #wasmTip { position:fixed; z-index:500; max-width:340px; background:#11141d; color:#dbe2f2;
     border:1px solid #46507a; border-radius:6px; padding:8px 12px; font:16px/1.45 system-ui,Arial,sans-serif;

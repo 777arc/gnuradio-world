@@ -5400,7 +5400,6 @@ const TOOLBAR: (Tool | 'sep')[] = [
   { icon: '↷', label: 'Redo', key: 'Ctrl+Y', run: redo },
   'sep',
   { icon: '⚠', label: 'Flowgraph Errors', run: showErrorsDialog },
-  { icon: '✨', label: 'Flowgraph Copilot', run: toggleAiPanel },
   { icon: '▶', label: 'Execute', key: 'F6', run: run },
   { icon: '■', label: 'Kill', key: 'F7', run: stop },
   'sep',
@@ -5414,6 +5413,7 @@ const TOOLBAR: (Tool | 'sep')[] = [
   'sep',
   { icon: '🔍+', label: 'Zoom In', key: 'Ctrl++', run: () => setZoom(zoom * ZOOM_STEP) },
   { icon: '🔍−', label: 'Zoom Out', key: 'Ctrl+-', run: () => setZoom(zoom / ZOOM_STEP) },
+  { icon: '✨', label: 'Flowgraph Copilot', run: toggleAiPanel },
 ];
 function buildToolbar() {
   const bar = el('toolbar'); bar.textContent = '';
