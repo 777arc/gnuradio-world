@@ -37,7 +37,7 @@ Create a [new Issue](https://github.com/777arc/gnuradio-world/issues/new) in Git
 
 In GNU Radio World, go to Tools -> Benchmark Tool to benchmark your system.  Below shows an example of the results, compared to equivalent flowgraphs running on native GNU Radio, on a laptop with a AMD Ryzen 7 PRO 6850U:
 
-### Filtering Performance
+**Filtering:**
 
 | Flowgraph | Taps | Native GNU Radio | GNU Radio World |
 |---|---:|---:|---:|
@@ -53,7 +53,7 @@ In GNU Radio World, go to Tools -> Benchmark Tool to benchmark your system.  Bel
 
 _All flowgraphs use: `Null Source → Filter → Null Sink`._
 
-### Long Chain of Blocks
+**Long Chain of Blocks:**
 
 | Flowgraph | Blocks | Native GNU Radio | GNU Radio World |
 |---|---:|---:|---:|
