@@ -134,6 +134,7 @@ const embedRun = el('embedRun') as HTMLButtonElement;
 const embedOpen = el('embedOpen') as HTMLAnchorElement;
 const embedZoom = el('embedZoom');
 const embedPlayBlock = el('embedPlayBlock') as HTMLButtonElement;
+const embedOpenBlock = el('embedOpenBlock') as HTMLAnchorElement;
 const nodesG = el('nodes'), wiresG = el('wires'), selectionG = el('selectionOverlay');
 const svg = el('svg') as unknown as SVGSVGElement;
 
@@ -3085,8 +3086,13 @@ if (EMBEDDED && EMBED_NO_SCROLL) el('app').classList.add('embed-no-scroll');
 function embedOpenUrl() { return location.href.split('#')[0].split('?')[0] + location.hash; }
 async function refreshEmbedOpen() {
   if (!EMBEDDED) return;
-  try { embedOpen.href = historyIndex > 0 ? await flowgraphToUrl() : embedOpenUrl(); }
-  catch { embedOpen.href = embedOpenUrl(); }
+  let href: string;
+  try { href = historyIndex > 0 ? await flowgraphToUrl() : embedOpenUrl(); }
+  catch { href = embedOpenUrl(); }
+  embedOpen.href = href;
+  // ?no_controls=1's stand-in for #embedOpen — same destination, kept current
+  // the same way.
+  embedOpenBlock.href = href;
 }
 
 // Editor and QT GUI are the two fixed tabs; recording tabs ('rec:<key>') are
@@ -3215,7 +3221,7 @@ if (EMBEDDED) {
   // and the two zoom icons). It gets the lone block-styled Run button instead,
   // since without it an embed would have no way at all to start the flowgraph.
   if (!EMBED_NO_CONTROLS) el('embedControls').hidden = false;
-  else embedPlayBlock.hidden = false;
+  else el('embedPlayCorner').hidden = false;
   // The two canvas controls an embed keeps. Same calls as the toolbar's buttons
   // and Ctrl+±, which is what setZoom's shared `data-tool` lookup greys out.
   el('embedZoomIn').addEventListener('click', () => setZoom(zoom * ZOOM_STEP));

@@ -184,14 +184,29 @@ html.click-to-load-pending #clickToLoad button:disabled { cursor:default; opacit
            inside the canvas's own scroll/zoom transform, so it stays in the
            corner of the frame regardless of where the reader has scrolled or
            zoomed. Hidden — and inert — everywhere else. -->
-      <button id="embedPlayBlock" class="embed-play-block" type="button" hidden
-              title="Run the flowgraph" aria-label="Run the flowgraph">
-        <svg viewBox="0 0 70 60" aria-hidden="true">
-          <rect class="body" x="0.5" y="0.5" width="69" height="59" rx="2"></rect>
-          <path class="icon-play" d="M26 17 L46 30 L26 43 Z"></path>
-          <rect class="icon-stop" x="24" y="19" width="22" height="22"></rect>
-        </svg>
-      </button>
+      <div id="embedPlayCorner" class="embed-play-corner" hidden>
+        <button id="embedPlayBlock" class="embed-play-block" type="button"
+                title="Run the flowgraph" aria-label="Run the flowgraph">
+          <svg viewBox="0 0 70 60" aria-hidden="true">
+            <rect class="body" x="0.5" y="0.5" width="69" height="59" rx="2"></rect>
+            <path class="icon-play" d="M26 17 L46 30 L26 43 Z"></path>
+            <rect class="icon-stop" x="24" y="19" width="22" height="22"></rect>
+          </svg>
+        </button>
+        <!-- Same block styling and size as the Run stand-in beside it — and the
+             same destination as #embedOpen (kept current the same way, by
+             refreshEmbedOpen) — since a ?no_controls=1 host has no chrome of its
+             own to offer a way out to the full application either. A real <a>,
+             not a button, for the same reason as #embedOpen: middle-click and
+             "copy link address" should work as the reader expects. -->
+        <a id="embedOpenBlock" class="embed-play-block" target="_blank" rel="noopener noreferrer"
+           href="/" title="Open in GNU Radio World" aria-label="Open in GNU Radio World">
+          <svg viewBox="0 0 70 60" aria-hidden="true">
+            <rect class="body" x="0.5" y="0.5" width="69" height="59" rx="2"></rect>
+            <path class="icon-open" d="M30 16 H22 V44 H50 V36 M38 16 H50 V28 M50 16 L32 34"></path>
+          </svg>
+        </a>
+      </div>
     </div>
     <div id="consoleSplitter" role="separator" aria-label="Resize console"
          aria-orientation="horizontal" aria-valuemin="29" tabindex="0"></div>

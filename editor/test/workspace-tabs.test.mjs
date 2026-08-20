@@ -100,8 +100,10 @@ assert.match(source, /if \(!runnerRunning\) \{\s*updateEmbedRun\(\/\* failed \*\
 assert.match(source, /if \(!EMBEDDED && !returnedFromOpenRouter\) showWelcomePopup\(\)/,
   'the welcome modal stays out of embedded flowgraphs and the OAuth return');
 assert.match(source,
-  /embedOpen\.href = historyIndex > 0 \? await flowgraphToUrl\(\) : embedOpenUrl\(\)/,
+  /href = historyIndex > 0 \? await flowgraphToUrl\(\) : embedOpenUrl\(\)/,
   'the Open link carries the edited canvas, and the plain example link until then');
+assert.match(source, /embedOpen\.href = href;[\s\S]*embedOpenBlock\.href = href;/,
+  'the no_controls stand-in opens the same place #embedOpen does');
 assert.match(source, /function embedOpenUrl\(\) \{ return location\.href\.split\('#'\)\[0\]\.split\('\?'\)\[0\] \+ location\.hash; \}/,
   'leaving the embed means dropping the query the host page framed it with');
 assert.match(source, /querySelectorAll<HTMLButtonElement>\(`button\[data-tool="\$\{label\}"\]`\)/,

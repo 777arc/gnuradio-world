@@ -209,8 +209,16 @@ await new Promise(r => server.listen(PORT, r));
 
 const browser = await launchBrowser(ROOT);
 
-let allOk = true;
-for (const test of CASES) {
+// Each case is a separate page/tab in the same browser process, so the
+// 60s-verdict-wait and the fixed 4s run-in settle time overlap across cases
+// instead of serializing — that dead time, not CPU work, is most of what this
+// loop spends. CONCURRENCY caps how many WASM runners run at once: CI's
+// `ubuntu-latest` has 4 vCPUs, and each page's runner spins up its own pthread
+// pool (some cases run dozens of workers), so this stays below what a bigger
+// dev box could sustain to avoid trading wall-clock time for CI flakiness.
+const CONCURRENCY = 4;
+
+async function runCase(test) {
   const page = await browser.newPage();
   const logs = [];
   page.on('console', m => logs.push(m.text()));
@@ -280,21 +288,39 @@ for (const test of CASES) {
 
   const ok = started && blocks.length > 0 && idle.length === 0 && monitorOk &&
     missingLogs.length === 0;
-  allOk = allOk && ok;
-  console.log(`\n[${ok ? 'OK' : 'FAIL'}] ${test.name}  (${test.grc})`);
-  console.log(`   ${verdict.trim()}`);
+  await page.close();
+
+  const lines = [];
+  lines.push(`\n[${ok ? 'OK' : 'FAIL'}] ${test.name}  (${test.grc})`);
+  lines.push(`   ${verdict.trim()}`);
   if (blocks.length)
-    console.log('   items: ' + blocks.map(b => `${b.name}=${b.items}`).join(' '));
-  else console.log('   no diagnostics snapshot — the graph never reached the scheduler');
-  if (idle.length) console.log(`   produced nothing: ${idle.join(', ')}`);
+    lines.push('   items: ' + blocks.map(b => `${b.name}=${b.items}`).join(' '));
+  else lines.push('   no diagnostics snapshot — the graph never reached the scheduler');
+  if (idle.length) lines.push(`   produced nothing: ${idle.join(', ')}`);
   if (missingLogs.length)
-    console.log(`   never printed: ${missingLogs.map(s => JSON.stringify(s)).join(', ')}`);
+    lines.push(`   never printed: ${missingLogs.map(s => JSON.stringify(s)).join(', ')}`);
   if (!monitorOk)
-    console.log(`   diagnostics headline mismatch: ${JSON.stringify(monitor)}, ` +
+    lines.push(`   diagnostics headline mismatch: ${JSON.stringify(monitor)}, ` +
       `pool=${pool}, initialExpectedPool=${initialExpectedPool}, ` +
       `expectedPool=${test.expectedPool ?? 'any corrected tier'}`);
-  if (!ok && logs.length) console.log('   logs: ' + logs.slice(-4).join('\n         '));
-  await page.close();
+  if (!ok && logs.length) lines.push('   logs: ' + logs.slice(-4).join('\n         '));
+  return { ok, lines };
+}
+
+const caseResults = new Array(CASES.length);
+let nextCase = 0;
+async function caseWorker() {
+  while (nextCase < CASES.length) {
+    const i = nextCase++;
+    caseResults[i] = await runCase(CASES[i]);
+  }
+}
+await Promise.all(Array.from({ length: CONCURRENCY }, caseWorker));
+
+let allOk = true;
+for (const result of caseResults) {
+  allOk = allOk && result.ok;
+  console.log(result.lines.join('\n'));
 }
 
 // Exercise the editor-to-runner file handoff as an iframe, then assert the
