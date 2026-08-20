@@ -107,7 +107,7 @@ emmake make -j"$JOBS" install
 #     Qt. qwt.pro is a subdirs project, so the install paths and -fPIC belong in
 #     the shared config file, not on the qmake command line. The block is
 #     delimited so re-running replaces it instead of stacking duplicates. ------
-cd "$DEPS_SRC/qwt-6.2.0"
+cd "$DEPS_SRC/qwt-6.3.0"
 sed -i '/^# >>> gnuradio-wasm >>>$/,/^# <<< gnuradio-wasm <<<$/d' qwtconfig.pri
 cat >> qwtconfig.pri <<CONF
 # >>> gnuradio-wasm >>>

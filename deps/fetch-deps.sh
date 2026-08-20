@@ -97,12 +97,12 @@ clone volk   v3.1.2  https://github.com/gnuradio/volk.git --recursive
 fetch_tar boost_1_83_0 https://archives.boost.io/release/1.83.0/source/boost_1_83_0.tar.bz2 xj
 fetch_tar fftw-3.3.10  https://www.fftw.org/fftw-3.3.10.tar.gz                              xz
 fetch_tar gmp-6.3.0    https://ftp.gnu.org/gnu/gmp/gmp-6.3.0.tar.xz                         xJ
-fetch_tar qwt-6.2.0    https://sourceforge.net/projects/qwt/files/qwt/6.2.0/qwt-6.2.0.tar.bz2 xj
+fetch_tar qwt-6.3.0    https://sourceforge.net/projects/qwt/files/qwt/6.3.0/qwt-6.3.0.tar.bz2 xj
 
-# Local fixes that upstream does not carry. These are NOT optional: without the
-# VOLK patch every flowgraph dies during construction (see the patch header), and
-# the failure only appears at run time, long after everything has built and
-# linked cleanly. Applied here so a fresh checkout and CI get them too.
+# Local fixes that upstream does not carry. This is NOT optional: without the
+# VOLK patch every flowgraph dies during construction (see the patch header)
+# -- the failure only appears at run time, long after everything has built and
+# linked cleanly. Applied here so a fresh checkout and CI get it too.
 apply_patch() {  # <git-repo-dir> <patch-file>
     local dir="$1" patch="$2"
     if git -C "$dir" apply --reverse --check "$patch" >/dev/null 2>&1; then

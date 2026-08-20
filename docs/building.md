@@ -18,7 +18,7 @@ Userspace (no sudo) requirements:
 - **Qt 6.9.1 for WebAssembly (multithread) + host tools**, via `aqtinstall`.
 - **Node ≥ 20** (for the editor build and the dev server; Ubuntu 24 ships 18).
 - Dependency sources fetched under `deps/src/` (VOLK 3.1.2, Boost 1.83, spdlog
-  1.12, GMP 6.3, FFTW 3.3.10, Qwt 6.2, CRCpp 1.2.2, and pinned turbofec).
+  1.12, GMP 6.3, FFTW 3.3.10, Qwt 6.3, CRCpp 1.2.2, and pinned turbofec).
 
 System packages and toolchains on a fresh machine:
 
