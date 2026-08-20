@@ -19,17 +19,22 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
          stale/default geometry, and the grid is then corrected only by the
          next browser resize. The spinner covers the hidden screen instead. */
       #screen { width: 100%; height: 100%; visibility: hidden; }
-      #qtspinner { position: absolute; inset: 0; z-index: 1; margin: 0; background: white; }
+      #qtspinner {
+        position: absolute; inset: 0; z-index: 1; margin: 0; background: white;
+        display: flex; align-items: center; justify-content: center;
+      }
+      #qtspinner figcaption { display: flex; flex-direction: column; align-items: center; }
+      #qtspinner img { display: block; width: min(60vw, 640px); height: auto; }
+      #qtstatus { margin-top: 1em; font-size: 1.5em; }
     </style>
   </head>
   <body onload="init()">
-    <figure style="overflow:visible;" id="qtspinner">
-      <center style="margin-top:1.5em; line-height:150%">
-        <img src="qtlogo.svg" width="320" height="200" style="display:block"></img>
-        <strong>Qt for WebAssembly: runner</strong>
+    <figure id="qtspinner">
+      <figcaption>
+        <img src="gnuradio_world_logo.svg"></img>
         <div id="qtstatus"></div>
         <noscript>JavaScript is disabled. Please enable JavaScript to use this application.</noscript>
-      </center>
+      </figcaption>
     </figure>
     <div id="screen"></div>
 
@@ -813,7 +818,7 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
           // contents without changing the QScreen dimensions Qt observes.
           screen.style.display = 'block';
           screen.style.visibility = loaded ? 'visible' : 'hidden';
-          spinner.style.display = loaded ? 'none' : 'block';
+          spinner.style.display = loaded ? 'none' : 'flex';
         }
 
         try {
@@ -824,7 +829,7 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
             status.textContent = 'Initializing WebGPU…';
             await window.__grFosphorWebGpu.prepare();
           }
-          status.textContent = 'Loading GNU Radio…';
+          status.textContent = 'Loading…';
           window.__grInputSources = Object.create(null);
           for (const source of inputSources)
             window.__grInputSources[source.path] = source;

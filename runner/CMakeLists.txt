@@ -203,6 +203,9 @@ add_custom_command(TARGET runner POST_BUILD
           ${CMAKE_CURRENT_SOURCE_DIR}/src/runner.html
           ${CMAKE_CURRENT_BINARY_DIR}/runner.html
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/gnuradio_world_logo.svg
+          ${CMAKE_CURRENT_BINARY_DIR}/gnuradio_world_logo.svg
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
           ${CMAKE_CURRENT_SOURCE_DIR}/src/browser_file_reader.js
           ${CMAKE_CURRENT_BINARY_DIR}/browser_file_reader.js
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
@@ -223,6 +226,7 @@ add_custom_command(TARGET runner POST_BUILD
   COMMENT "Patching runner.js addFunction signature default")
 set_property(TARGET runner APPEND PROPERTY LINK_DEPENDS
   ${CMAKE_CURRENT_SOURCE_DIR}/src/runner.html
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/gnuradio_world_logo.svg
   ${CMAKE_CURRENT_SOURCE_DIR}/src/browser_file_reader.js
   ${CMAKE_CURRENT_SOURCE_DIR}/src/rtlsdr_reader.js
   ${CMAKE_CURRENT_SOURCE_DIR}/src/plutosdr_worker.js
