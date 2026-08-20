@@ -120,10 +120,17 @@ Three things about the C++ side that are not guessable:
   so the grid tracks the tab for free. `runner.html` keeps that screen laid out
   (but visually hidden behind the loader) while Qt starts; `display:none` gives
   Qt stale/default startup geometry and leaves the first grid wrong until a
-  browser resize. One consequence: an arrangement taller than the tab is clipped
-  at the bottom rather than reachable by moving the window
-  (`setRowMinimumHeight` gives every row `row_height` pixels, and a widget's own
-  minimum can be larger still).
+  browser resize. There is no reachable-by-moving-the-window escape for an
+  arrangement taller than the tab, so instead of clipping at the bottom
+  `apply_gui_layout()` scales `row_height` down to whatever fits `g_gui_area`'s
+  actual height when the spec's own value would overflow it (floored at 8px so
+  a widget never collapses to nothing), and scales `g_gui_area`'s font down by
+  the same ratio — every widget below it that never called `setFont()` itself
+  inherits that, including a `QwtPlot`'s axis tick labels (`DisplayPlot.cc`
+  reads them from `axisWidget()->font()`), so shrinking one font shrinks labels,
+  buttons and plot axes together with no per-sink code. The 3 Hz stats timer
+  re-runs `apply_gui_layout()` whenever `g_gui_area`'s size actually changes, so
+  a live resize re-fits rather than staying clipped or oversized.
 - **`apply_gui_layout()` must be idempotent.** It runs once per run and again on
   every live edit, and it builds a fresh layout object each time rather than
   mutating one — which is also the only way to change a `QGridLayout`'s spans.

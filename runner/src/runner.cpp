@@ -16,7 +16,9 @@
 #include <QApplication>
 #include <QLabel>
 #include <QPointer>
+#include <QFontInfo>
 #include <QScreen>
+#include <QSize>
 #include <QWidget>
 #include <QGridLayout>
 #include <QVBoxLayout>
@@ -227,10 +229,42 @@ static void apply_gui_layout() {
         placed.widget->show();
         last_row = std::max(last_row, placed.tile.row + placed.tile.h);
     }
+    // Columns already scale down with the window (equal stretch above), so a
+    // narrow tab shrinks every tile's width for free. Rows don't: a fixed
+    // per-row minimum is exactly what makes an arrangement taller than the
+    // window clip at the bottom instead of shrinking to fit, which is normally
+    // fine (there's a scrollable tab behind it) but is the wrong call for a
+    // window too small to scroll at all -- an embedded flowgraph a few rows of
+    // widgets and a hundred-odd pixels tall. Scale row_height down so the whole
+    // arrangement fits vertically instead, floored so a widget never collapses
+    // to nothing.
+    constexpr int kMinRowHeight = 8;
+    int row_height = spec.row_height;
+    if (last_row > 0) {
+        const int available = g_gui_area->height();
+        if (available > 0 && available < last_row * row_height)
+            row_height = std::max(kMinRowHeight, available / last_row);
+    }
     for (int r = 0; r < last_row; ++r) {
         grid->setRowStretch(r, 1);
-        grid->setRowMinimumHeight(r, spec.row_height);
+        grid->setRowMinimumHeight(r, row_height);
     }
+    // Shrink the whole arrangement's text along with its rows: a QwtPlot reads
+    // its axis tick-label font from the widget's own font() (DisplayPlot.cc),
+    // and every widget below g_gui_area that never called setFont() itself
+    // inherits whatever is set here -- so one setFont() on the shared parent is
+    // enough to shrink labels, buttons and plot axes together, with no per-sink
+    // code. Scaled from the same base font every time (never from the last
+    // scaled result), so repeated calls at a since-grown size recover it.
+    static const QFont kBaseFont = g_gui_area->font();
+    QFont font = kBaseFont;
+    if (row_height < spec.row_height) {
+        const double scale = double(row_height) / double(spec.row_height);
+        const double base_pt =
+            kBaseFont.pointSizeF() > 0 ? kBaseFont.pointSizeF() : QFontInfo(kBaseFont).pointSizeF();
+        font.setPointSizeF(std::max(6.0, base_pt * scale));
+    }
+    g_gui_area->setFont(font);
 }
 
 // What the editor needs to draw handles over the live widgets: the tiles as
@@ -1076,8 +1110,19 @@ int main(int argc, char** argv) {
 
     // Publish diagnostics to window.__grstats ~3 Hz for the panel (diag.js).
     static QTimer stats_timer;
+    static QSize last_gui_area_size;
     QObject::connect(&stats_timer, &QTimer::timeout, [] {
         publish_stats();
+        // apply_gui_layout()'s row-height scaling (above) is a function of the
+        // window size it was last called with, so a resize after the run
+        // started -- there's no resizeEvent hook here, see the QScreen comment
+        // above main() -- needs a re-layout, not just a re-publish. Only on an
+        // actual size change: apply_gui_layout() rebuilds the whole grid, which
+        // would be wasted work at 3 Hz otherwise.
+        if (g_gui_area && g_gui_area->size() != last_gui_area_size) {
+            last_gui_area_size = g_gui_area->size();
+            apply_gui_layout();
+        }
         // Cheap: it posts only when the arrangement or the window's geometry
         // actually changed, which is the only way the editor's Arrange overlay
         // hears about the browser tab being resized.

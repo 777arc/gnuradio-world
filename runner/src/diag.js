@@ -28,6 +28,17 @@
   var el = {};               // cached DOM nodes
   var workerTracker = null;  // prewarmed tier + cumulative dynamic allocations
 
+  // Below this the bar itself (its stats alone, collapsed, need ~600px to read
+  // without wrapping into an unreadable mess) would eat a large fraction of an
+  // already-tiny window -- an embedded flowgraph at e.g. 200x120 -- for
+  // diagnostics nobody at that size can read anyway. Hide it there and give the
+  // whole window back to the flowgraph.
+  var MIN_WIDTH_FOR_BAR = 360;
+  var MIN_HEIGHT_FOR_BAR = 200;
+  function windowTooSmallForBar() {
+    return window.innerWidth < MIN_WIDTH_FOR_BAR || window.innerHeight < MIN_HEIGHT_FOR_BAR;
+  }
+
   // PThread is Emscripten's closure-local worker-pool object. It is deliberately
   // read directly here rather than through Module.PThread, which this Qt build
   // does not export. Install the wrapper lazily on the first diagnostics tick:
@@ -198,12 +209,15 @@
     // every plot in the process -- would be worse than covering it.
     var screenEl = document.getElementById('screen');
     var applyInset = function () {
-      var height = bar.offsetHeight;
-      if (screenEl && height) screenEl.style.height = 'calc(100% - ' + height + 'px)';
+      var tooSmall = windowTooSmallForBar();
+      root.style.display = tooSmall ? 'none' : '';
+      var height = tooSmall ? 0 : bar.offsetHeight;
+      if (screenEl) screenEl.style.height = height ? 'calc(100% - ' + height + 'px)' : '100%';
     };
     applyInset();
     if (typeof ResizeObserver !== 'undefined')
       new ResizeObserver(applyInset).observe(bar);
+    window.addEventListener('resize', applyInset);
   }
 
   // ---- update loop -------------------------------------------------------
