@@ -1397,8 +1397,8 @@ function ensureLayoutBlock() {
 const layoutInst = (): Inst | undefined => insts.find(i => i.id === LAYOUT_ID);
 // The blocks that take a tile: those whose factory builds a QWidget. Only the
 // C++ knows which those are, so the answer comes from the generated library's
-// `gui` flag (GUI_IDS in runner/gen_registry.py). Disabled blocks are left out
-// because the runner never builds them.
+// `gui` flag, which each block declares for itself as `gui: true`. Disabled
+// blocks are left out because the runner never builds them.
 function guiWidgets(): WidgetRef[] {
   return insts.filter(i => i.enabled && !i.bypassed && GUI_BLOCK_IDS.has(i.id))
     .map(i => ({ name: i.name, id: i.id }));
@@ -3486,9 +3486,9 @@ interface RunnerLayoutReport {
 let runnerLayout: RunnerLayoutReport | null = null;
 let arrangeMode = false;
 // Block ids the runner built a widget for that the generated library does not
-// flag as `gui`. That means GUI_IDS in runner/gen_registry.py has fallen behind
-// registry.cpp, and the only symptom otherwise is a widget the editor cannot
-// offer a tile for. Reported once per id per session.
+// flag as `gui`. That means the block's metadata never declared `gui: true`, and
+// the only symptom otherwise is a widget the editor cannot offer a tile for.
+// Reported once per id per session.
 const unflaggedGuiIds = new Set<string>();
 
 const tilesFromReport = (report: RunnerLayoutReport): TileMap =>
@@ -3639,8 +3639,8 @@ function applyRunnerLayoutReport(payload: string) {
   for (const widget of report.widgets) {
     if (GUI_BLOCK_IDS.has(widget.id) || unflaggedGuiIds.has(widget.id)) continue;
     unflaggedGuiIds.add(widget.id);
-    log(`note: "${widget.id}" builds a GUI widget but is not listed in GUI_IDS ` +
-        `(runner/gen_registry.py), so the layout designer cannot offer it a tile`);
+    log(`note: "${widget.id}" builds a GUI widget but its metadata does not ` +
+        `declare "gui: true", so the layout designer cannot offer it a tile`);
   }
   // A drag redraws for itself, and a report arriving mid-drag would fight it.
   if (arrangeMode && !arrangeDrag) drawArrangeOverlay();
@@ -4649,8 +4649,9 @@ interface LibraryBlock {
 }
 // Blocks whose factory builds a QWidget, and so take a tile in the runner
 // window's GUI Layout grid. Filled from the generated library's `gui` flag,
-// which carries GUI_IDS in runner/gen_registry.py -- the C++ decides this, and
-// the editor has no way to work it out for itself.
+// which each block declares as `gui: true` in its overlay (or, for a runner-only
+// block, its own yml) -- the C++ decides this, and the editor has no way to work
+// it out for itself.
 const GUI_BLOCK_IDS = new Set<string>();
 interface Cat { name: string; subs: Map<string, Cat>; blocks: LibraryBlock[] }
 

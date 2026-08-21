@@ -2082,6 +2082,10 @@ static std::map<std::string, Factory>& registry_storage() {
         {"variable_qtgui_entry", [](const json& p) -> BuiltBlock {
              return make_entry(p);
          }},
+        // The rest of GRC's GUI Widgets/QT family. All Python QWidgets
+        // upstream, rebuilt in blocks/src/qtgui_controls.hpp -- except
+        // edit_box_msg, which is C++ already and only needs a factory to read
+        // its parameters.
         {"variable_qtgui_label", [](const json& p) -> BuiltBlock {
              return make_gui_label(p);
          }},
@@ -2709,6 +2713,9 @@ static std::map<std::string, Factory>& registry_storage() {
                           nullptr };
              throw std::runtime_error("Puncture type must be byte or float");
          }},
+        // gr-fec's coder definition variables. Each files a coder object --
+        // or, at a non-zero Parallelism, a list of them -- for an FEC block to
+        // name. Being objects rather than blocks is what keeps them here.
         {"variable_cc_decoder_def", [](const json& p) -> BuiltBlock {
              const std::string name = p.value("__name", std::string());
              if (name.empty())
@@ -2859,6 +2866,9 @@ static std::map<std::string, Factory>& registry_storage() {
                           static_cast<int>(number_from(p, "mtu", 1500))),
                       nullptr };
          }},
+        // gr-fec's Python hier blocks, rebuilt in blocks/src/fec_hier.hpp.
+        // Each takes a coder *object* by name rather than a plain parameter,
+        // which is what keeps them out of the generated factories.
         {"fec_extended_decoder", [](const json& p) -> BuiltBlock {
              return { ExtendedDecoder::make(
                           named_cc_decoder(p.value("decoder_list", std::string())),
@@ -3135,6 +3145,8 @@ static std::map<std::string, Factory>& registry_storage() {
                           bool_from(p, "log", false)),
                       nullptr };
          }},
+        // C++ rebuild of gr-digital's Python-only OFDM Transmitter hier
+        // block.
         {"digital_ofdm_tx", [](const json& p) -> BuiltBlock {
              // The stock OFDM Transmitter is a Python hier block; this is the same
              // chain composed in C++ (see OfdmTxWasm above). Empty carrier/pilot/
@@ -3221,6 +3233,9 @@ static std::map<std::string, Factory>& registry_storage() {
                  number_from(p, "ripple", 0.1));
              return { block, nullptr };
          }},
+        // A Python hier block plus a Python QWidget upstream; the composition
+        // is rebuilt in blocks/src/qtgui_sinks.hpp around gr-qtgui's own time
+        // sink.
         {"qtgui_auto_correlator_sink", [](const json& p) -> BuiltBlock {
              auto block = AutoCorrelatorSinkWasm::make(
                  number_from(p, "sampRate", 32000.0),
@@ -3253,7 +3268,7 @@ static std::map<std::string, Factory>& registry_storage() {
         // ---- gr-channels ----
         // Hand-written for the live fDTs/K setters alone: a fading model whose
         // Doppler rate cannot be moved while the graph runs is a demo nobody can
-        // see. Being CUSTOM_IDS they register from the main module, so
+        // see. Being hand-written they register from the main module, so
         // libgnuradio-channels.a is linked normally below and only these two
         // objects are pulled into core; channel_model stays in channels.wasm.
         {"channels_fading_model", [](const json& p) -> BuiltBlock {
@@ -3407,6 +3422,8 @@ static std::map<std::string, Factory>& registry_storage() {
                  factors);
              return { block, block->qwidget() };
          }},
+        // A runner-only sink: no upstream GNU Radio block defines it, so its
+        // whole definition is blocks/grc/wasm_packet_rate_sink.block.yml.
         {"wasm_packet_rate_sink", [](const json& p) -> BuiltBlock {
              std::string label = unquoted(p.value("label", std::string()));
              if (label.empty())
@@ -3471,6 +3488,9 @@ static std::map<std::string, Factory>& registry_storage() {
                  static_cast<int>(number_from(p, "repeatmode", 1.0)));
              return { block, nullptr };
          }},
+        // gr-rds' display panel is a Python QWidget upstream
+        // (gr-rds/python/rdspanel.py), rebuilt in C++ at
+        // blocks/overlays/gr-rds/rds_panel.hpp.
         {"rds_panel", [](const json& p) -> BuiltBlock {
              auto block = RdsPanelWasm::make(number_from(p, "freq", 0.0));
              BuiltBlock result{ block, block->qwidget() };
@@ -3478,6 +3498,9 @@ static std::map<std::string, Factory>& registry_storage() {
                  [block](double value) { block->set_frequency(value); };
              return result;
          }},
+        // Upstream fosphor's Qt sink requires OpenCL and desktop OpenGL. The
+        // browser keeps its embedded-widget contract with WebGPU plus a Qt6 CPU
+        // fallback; see blocks/overlays/gr-fosphor.
         {"fosphor_qt_sink_c", [](const json& p) -> BuiltBlock {
              return make_fosphor_sink(p, "fosphor_qt_sink_c");
          }},

@@ -416,8 +416,8 @@ make the allocation escape.
   the block's own thread, because that thread is awake and on the stack. This is
   precisely what the Python block cannot have, and it is the first thing after v1.
 - **A JS block that draws.** The runner's GUI is Qt widgets placed by the GUI
-  Layout block; a JS block wanting its own canvas needs a `GUI_IDS` entry and a
-  widget to host it. See [docs/gui-layout.md](gui-layout.md).
+  Layout block; a JS block wanting its own canvas needs a `gui: true`
+  declaration and a widget to host it. See [docs/gui-layout.md](gui-layout.md).
 - **Importing anything.** The source is a function body, not a module. There is no
   module graph and no network fetch from inside a block — which is also half of
   why the security story stays simple.

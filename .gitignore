@@ -17,3 +17,10 @@
 __pycache__/
 
 /chrome-for-testing
+
+# Generated block metadata, rebuilt by `npm run blocks` (and by CI before every
+# build) from the .block.yml in the submodules plus blocks/overlays/. Committing
+# them put a regenerated 2 MB artifact in the diff of every block change, and the
+# committed copy was never what shipped -- CI regenerates both first either way.
+/editor/public/blocks.json
+/runner/generated_blocks.json

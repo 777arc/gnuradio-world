@@ -9,8 +9,8 @@
 # paint_bc is the module's only C++ block. paint_image_source is a Python
 # gr.sync_block that decodes an image with PIL, which has no C++ path at all, so
 # the browser decodes instead: registry.cpp registers it as a hand-written
-# factory over paint_image_source.cpp beside this file (hence its id in CUSTOM_IDS and
-# the absence of cpp_templates below) and the image is named either by URL or by
+# factory over paint_image_source.cpp beside this file (hence the absence of
+# cpp_templates below) and the image is named either by URL or by
 # a picture chosen from this computer, which the browser reads itself instead of
 # resolving a filesystem path. The overlay here is only what that changes in the
 # palette.

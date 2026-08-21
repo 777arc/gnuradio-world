@@ -62,8 +62,10 @@ OFDM sync words, the PSK constellation), take plain C++ arguments and belong in
 `blocks/`. That is what lets the block headers stay free of `nlohmann/json` and
 of `BuiltBlock`.
 
-- Add handwritten factory IDs to `CUSTOM_IDS` in `runner/gen_registry.py` to
-  avoid duplicate generated factories.
+- A hand-written factory needs no declaration anywhere else. `gen_registry.py`
+  reads the set of custom ids back out of `registry.cpp`'s own factory table, so
+  registering one there is what stops a duplicate generated factory being
+  emitted for it. Document *why* it is hand-written above the factory itself.
 - Put block metadata that cannot be rendered in `INVALID_CPP_TEMPLATES`, with a
   reason.
 - A block that *builds* fine but should not be offered in the browser goes in
@@ -265,10 +267,10 @@ Qt6 CPU spectrum/waterfall hierarchy instead.
 ### A widget's placement is not the block's business
 
 `gui_hint` does nothing here; a singleton **GUI Layout** block arranges the whole
-runner window. Whether a block *has* a widget is decided in C++ and carried to the
-editor by `GUI_IDS` in `gen_registry.py` → the `gui` flag in blocks.json, so a
-factory that grows a `QWidget` without an entry there silently loses its tile. See
-[gui-layout.md](gui-layout.md).
+runner window. Whether a block *has* a widget is decided in C++, and the block
+says so in its metadata with `gui: true` → the `gui` flag in blocks.json, so a
+factory that grows a `QWidget` without that declaration silently loses its tile.
+See [gui-layout.md](gui-layout.md).
 
 ### The block that reads hardware
 

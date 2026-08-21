@@ -22,6 +22,7 @@ overlap_cc:
         link: [gnuradio-fosphor]
 
 fosphor_qt_sink_c:
+    gui: true
     category: '[Fosphor]'
     label: Fosphor Sink
     flags: [python, cpp]

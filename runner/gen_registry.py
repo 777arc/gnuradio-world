@@ -70,194 +70,37 @@ OBJECT_PARAMETERS = {
     ("digital_ofdm_serializer_vcc", "occupied_carriers"),
 }
 
-# Custom WASM factories provide widgets, live callbacks, or a browser-safe
-# implementation.  Do not emit duplicate generated code for them.
-CUSTOM_IDS = {
-    # The Embedded Python Block. Upstream it has no .block.yml at all -- it is a
-    # GRC built-in whose parameters and ports come from introspecting the user's
-    # source -- so blocks/grc/epy_block.block.yml carries the palette entry and
-    # the default code, and the interface is derived at edit and run time by
-    # Pyodide. See docs/embedded-python.md.
-    "epy_block",
-    # Where every GUI widget goes in the runner window. Not a gr::block at all --
-    # its factory only files the grid spec for run_now() to lay out with, the way
-    # variable_tag_object files a tag. See blocks/grc/wasm_gui_layout.block.yml.
-    "wasm_gui_layout",
-    # The JavaScript Block. Its parameters and ports come from its own source,
-    # like the Python Block's, but the source is read synchronously by the factory
-    # -- so there is no prepare step and nothing to fetch. See docs/js-blocks.md.
-    "wasm_js_block",
-    # Runner-only sinks, defined in blocks/grc (no upstream GNU Radio block).
-    "wasm_packet_rate_sink",
-    "wasm_text_sink",
-    # Streams a hosted SigMF recording over the same browser reader File Source
-    # uses for a local file; the factory derives the recording's path from its
-    # key. See blocks/grc/wasm_gr_world_recording.block.yml.
-    "wasm_gr_world_recording",
-    # The same reader over a file at any public URL, which the editor binds on
-    # the Run path. See blocks/grc/wasm_public_http_recording.block.yml.
-    "wasm_public_http_recording",
-    # An RTL-SDR on this computer, over WebUSB. A dedicated worker owns the
-    # dongle and fills a shared-memory ring the block drains; nothing about it
-    # exists upstream, because native GNU Radio reaches the same hardware
-    # through SoapySDR or gr-osmosdr. See blocks/grc/wasm_rtlsdr_source.block.yml
-    # and docs/rtlsdr.md.
-    "wasm_rtlsdr_source",
-    # ADALM-PLUTO over the stock firmware's USB IIOD interface. Separate RX and
-    # TX workers stream through shared-memory rings. See docs/plutosdr.md.
-    "wasm_plutosdr_source",
-    "wasm_plutosdr_sink",
-    # HackRF One over its stock vendor-control and bulk-endpoint protocol. The
-    # browser worker owns the half-duplex device for either RX or TX.
-    "wasm_hackrf_source",
-    "wasm_hackrf_sink",
-    # Runner-only HRPT AVHRR image display; no upstream equivalent (gr-hrpt's
-    # own noaa_hrpt_decoder never extracts imagery). See
-    # blocks/src/hrpt_image_sink.hpp.
-    "hrpt_image_sink",
-    # gr-rds's display panel is a Python QWidget, rebuilt in C++ at
-    # blocks/overlays/gr-rds/rds_panel.hpp.
-    "rds_panel",
-    # gr-paint's Image File Source decodes with PIL; the browser decodes instead
-    # (blocks/overlays/gr-paint/paint_image_source.cpp), so its image is named by
-    # URL rather than by path.
-    "paint_image_source",
-    # Upstream fosphor's Qt sink requires OpenCL and desktop OpenGL. The browser
-    # keeps its embedded-widget contract with WebGPU plus a Qt6 CPU fallback in
-    # blocks/overlays/gr-fosphor.
-    "fosphor_qt_sink_c",
-    "variable_qtgui_range",
-    "variable_qtgui_chooser",
-    "variable_qtgui_push_button",
-    "variable_qtgui_check_box",
-    "variable_qtgui_entry",
-    # The rest of GRC's GUI Widgets/QT family. All Python QWidgets upstream,
-    # rebuilt in blocks/src/qtgui_controls.hpp -- except edit_box_msg, which is
-    # C++ already and only needs a factory that reads its parameters.
-    "variable_qtgui_label",
-    "variable_qtgui_numeric_entry",
-    "variable_qtgui_toggle_switch",
-    "variable_qtgui_toggle_button_msg",
-    "variable_qtgui_msgcheckbox",
-    "variable_qtgui_msg_push_button",
-    "variable_qtgui_dial_control",
-    "qtgui_msgdigitalnumbercontrol",
-    "qtgui_edit_box_msg",
-    "analog_sig_source_x",
-    "analog_noise_source_x",
-    "analog_random_source_x",
-    "analog_random_uniform_source_x",
-    "analog_const_source_x",
-    "analog_am_demod_cf",
-    "analog_fm_deemph",
-    "analog_fm_demod_cf",
-    "analog_fm_preemph",
-    "analog_nbfm_rx",
-    "analog_nbfm_tx",
-    "analog_standard_squelch",
-    "analog_wfm_rcv",
-    "analog_wfm_rcv_pll",
-    "analog_wfm_tx",
-    "blocks_null_source",
-    "blocks_correctiq",
-    "blocks_correctiq_auto",
-    "blocks_correctiq_man",
-    "blocks_freqshift_cc",
-    "blocks_phase_shift",
-    "blocks_swapiq",
-    "filter_delay_fc",
-    "filterbank_vcvcf",
-    "ival_decimator",
-    "fec_ber_bf",
-    "fec_encode_ccsds_27_bb",
-    "fec_decode_ccsds_27_fb",
-    "fec_depuncture_bb",
-    "fec_puncture_xx",
-    # gr-fec's coder definition variables. Each files a coder object -- or, at a
-    # non-zero Parallelism, a list of them -- for an FEC block to name.
-    "variable_cc_decoder_def",
-    "variable_cc_encoder_def",
-    "variable_ccsds_encoder_def",
-    "variable_dummy_decoder_def",
-    "variable_dummy_encoder_def",
-    "variable_repetition_decoder_def",
-    "variable_repetition_encoder_def",
-    # GRC's Tag Object: a variable holding one gr::tag_t, filed under its name
-    # for Vector Source's `tags` parameter to reference.
-    "variable_tag_object",
-    "fec_async_decoder",
-    # gr-fec's Python hier blocks, rebuilt in blocks/src/fec_hier.hpp. Each takes
-    # a coder *object* by name rather than a plain parameter, which is what keeps
-    # them out of the generated factories.
-    "fec_extended_decoder",
-    "fec_extended_encoder",
-    "fec_extended_async_encoder",
-    "fec_extended_tagged_encoder",
-    "fec_extended_tagged_decoder",
-    "fec_bercurve_generator",
-    "variable_constellation",
-    "variable_constellation_rect",
-    "digital_constellation_decoder_cb",
-    "digital_constellation_encoder_bc",
-    "digital_constellation_receiver_cb",
-    "digital_constellation_soft_decoder_cf",
-    "digital_costas_loop_cc",
-    "digital_meas_evm_cc",
-    "digital_symbol_sync_xx",
-    "digital_constellation_modulator",
-    "digital_psk_demod",
-    "digital_psk_mod",
-    "digital_ofdm_rx",
-    # C++ rebuild of gr-digital's Python-only OFDM Transmitter hier block.
-    "digital_ofdm_tx",
-    "freq_xlating_fft_filter_ccc",
-    # gr-channels' two fading models, kept in core so the fading examples do not
-    # pull a side module. Their live fDTs/K setters, which is what they were
-    # hand-written for, a generated factory now emits by itself -- see
-    # callback_setters() -- so only the module placement still argues for these.
-    "channels_fading_model",
-    "channels_selective_fading_model",
-    # gr-filter's Python channelizer hierarchy: its taps and output channel list
-    # are both optional in a way a generated factory cannot express.
-    "pfb_channelizer_hier_ccf",
-    # gr-fft's Log Power FFT (Python hier upstream), whose three GRC callbacks
-    # are worth having live.
-    "logpwrfft_x",
-    "blocks_throttle",
-    "blocks_head",
-    "blocks_delay",
-    "blocks_add_xx",
-    "blocks_sub_xx",
-    "blocks_multiply_xx",
-    "blocks_divide_xx",
-    "blocks_multiply_const_xx",
-    "blocks_conjugate_cc",
-    "blocks_complex_to_mag",
-    "blocks_complex_to_mag_squared",
-    "blocks_complex_to_float",
-    "blocks_float_to_complex",
-    "blocks_file_source",
-    "blocks_interleaved_short_to_complex",
-    "blocks_null_sink",
-    "qtgui_time_sink_x",
-    "qtgui_freq_sink_x",
-    "qtgui_const_sink_x",
-    "qtgui_number_sink",
-    "qtgui_waterfall_sink_x",
-    # The rest of gr-qtgui's C++ sinks. Only qtgui_sink_x declares cpp_templates
-    # upstream (the other five are marked Python-only despite having a C++ class),
-    # and all of them need a widget and live setters, so each is hand-written.
-    "qtgui_sink_x",
-    "qtgui_eye_sink_x",
-    "qtgui_histogram_sink_x",
-    "qtgui_time_raster_sink_x",
-    "qtgui_vector_sink_f",
-    "qtgui_matrix_sink",
-    "qtgui_bercurve_sink",
-    # A Python hier block plus a Python QWidget upstream; the composition is
-    # rebuilt in blocks/src/qtgui_sinks.hpp around gr-qtgui's own time sink.
-    "qtgui_auto_correlator_sink",
-}
+# Every hand-written factory in registry.cpp, read back out of the table itself.
+# A custom factory is one providing a widget, live callbacks, or a browser-safe
+# implementation, and the generator must not emit a duplicate of it.
+def read_custom_factory_ids() -> set[str]:
+    """The block ids registry.cpp's hand-written factory table registers.
+
+    Parsed rather than restated here.  That table is the only place deciding
+    which ids have a hand-written factory, so a second copy in this file could
+    only ever drift from it -- and the drift is silent in the harmless
+    direction and a duplicate-symbol link error in the other.  Whatever a
+    factory is for is documented above the factory, where the code is.
+
+    The delimiters are the map's own declaration and the comment closing it, so
+    a `{"id",` appearing anywhere else in registry.cpp -- in a helper, or in the
+    generated-factory merge below the table -- is not mistaken for an entry.
+    """
+    source = (WORLD / "runner" / "src" / "registry.cpp").read_text()
+    try:
+        table = source.split(
+            "const std::map<std::string, Factory> custom = {", 1)[1].split(
+            "      // Custom factories intentionally win", 1)[0]
+    except IndexError as error:
+        raise SystemExit(
+            "could not locate the custom factory table in registry.cpp") from error
+    ids = set(re.findall(r'^        \{"([^"]+)",', table, re.MULTILINE))
+    if not ids:
+        raise SystemExit("registry.cpp's custom factory table parsed as empty")
+    return ids
+
+
+CUSTOM_IDS = read_custom_factory_ids()
 
 # Blocks whose factory returns a QWidget, i.e. everything that occupies a tile in
 # the runner window. The editor needs this to lay a flowgraph out *before* it has
@@ -266,48 +109,29 @@ CUSTOM_IDS = {
 # registry.cpp. It reaches the palette as each block's `gui` flag, by way of the
 # generated_blocks.json manifest.
 #
-# The list is therefore a copy of a fact that lives elsewhere, and a stale copy
-# would silently cost a widget its tile. Two things guard it: every id here has
-# to be a hand-written factory (checked below -- a generated factory never builds
-# a widget), and the runner reports the widgets it actually built on every run,
-# so the editor can name anything missing from this set in the console.
-GUI_IDS = {
-    # gr-qtgui's sinks, plus the two runner-only ones.
-    "qtgui_time_sink_x",
-    "qtgui_freq_sink_x",
-    "qtgui_const_sink_x",
-    "qtgui_waterfall_sink_x",
-    "qtgui_number_sink",
-    "qtgui_edit_box_msg",
-    "qtgui_sink_x",
-    "qtgui_eye_sink_x",
-    "qtgui_histogram_sink_x",
-    "qtgui_time_raster_sink_x",
-    "qtgui_vector_sink_f",
-    "qtgui_matrix_sink",
-    "qtgui_bercurve_sink",
-    "qtgui_auto_correlator_sink",
-    "wasm_packet_rate_sink",
-    "hrpt_image_sink",
-    # Two Python QWidgets upstream, rebuilt in C++ here.
-    "rds_panel",
-    "fosphor_qt_sink_c",
-    # GRC's GUI Widgets/QT family: each is a variable *and* a widget, so it takes
-    # a tile like any sink. See blocks/src/qtgui_controls.hpp.
-    "variable_qtgui_range",
-    "variable_qtgui_chooser",
-    "variable_qtgui_push_button",
-    "variable_qtgui_check_box",
-    "variable_qtgui_entry",
-    "variable_qtgui_label",
-    "variable_qtgui_numeric_entry",
-    "variable_qtgui_toggle_switch",
-    "variable_qtgui_toggle_button_msg",
-    "variable_qtgui_msgcheckbox",
-    "variable_qtgui_msg_push_button",
-    "variable_qtgui_dial_control",
-    "qtgui_msgdigitalnumbercontrol",
-}
+# The fact is declared per block rather than listed here, so that adding a
+# widget-bearing block does not also mean remembering to edit this file: a
+# runner-only block says `gui: true` in its own blocks/grc/<id>.block.yml, and an
+# upstream one says it in its module's overlay, which is where every other
+# browser-only fact about that block already lives. validate() rejects the
+# declaration on a block with no hand-written factory, and the runner reports the
+# widgets it actually built on every run, so the editor can name in the console
+# anything that builds a widget without having said so.
+def read_gui_ids() -> set[str]:
+    """Block ids declaring `gui: true`, from the two places one can be declared."""
+    ids = {block_id for block_id, override in BLOCK_OVERRIDES.items()
+           if override.get("gui")}
+    for path in sorted((WORLD / "blocks" / "grc").glob("*.block.yml")):
+        try:
+            block = yaml.safe_load(path.read_text())
+        except Exception:
+            continue
+        if isinstance(block, dict) and block.get("gui") and "id" in block:
+            ids.add(str(block["id"]))
+    return ids
+
+
+GUI_IDS = read_gui_ids()
 
 INVALID_CPP_TEMPLATES = {
     # Not present in the WASM static libraries because their optional native
@@ -366,31 +190,14 @@ def validate_configuration() -> None:
             raise SystemExit(
                 f"runner/modules.json has unknown deferred dependency names: {unknown}")
 
-    registry_source = (WORLD / "runner" / "src" / "registry.cpp").read_text()
-    try:
-        custom_table = registry_source.split(
-            "const std::map<std::string, Factory> custom = {", 1)[1].split(
-            "      // Custom factories intentionally win", 1)[0]
-    except IndexError as error:
-        raise SystemExit("could not locate the custom factory table in registry.cpp") from error
-    registered = set(re.findall(r'^        \{"([^"]+)",', custom_table, re.MULTILINE))
-    missing = sorted(CUSTOM_IDS - registered)
-    unexpected = sorted(registered - CUSTOM_IDS)
-    if missing or unexpected:
-        details = []
-        if missing:
-            details.append("CUSTOM_IDS without a factory: " + ", ".join(missing))
-        if unexpected:
-            details.append("factories absent from CUSTOM_IDS: " + ", ".join(unexpected))
-        raise SystemExit("custom factory registry mismatch:\n  " + "\n  ".join(details))
-
-    # Only a hand-written factory ever builds a QWidget, so a GUI id that is not
-    # one is a typo -- and a typo here costs that block its tile in the runner
-    # window with no other symptom.
+    # Only a hand-written factory ever builds a QWidget, so a block declaring
+    # `gui: true` without one is a typo -- and a typo here costs that block its
+    # tile in the runner window with no other symptom.
     not_custom = sorted(GUI_IDS - CUSTOM_IDS)
     if not_custom:
         raise SystemExit(
-            "GUI_IDS names blocks with no hand-written factory: " + ", ".join(not_custom))
+            "blocks declare `gui: true` but have no hand-written factory: "
+            + ", ".join(not_custom))
 
 
 def cpp_atom(value: Any) -> str:
@@ -1336,8 +1143,8 @@ def generate(output_dir: Path, manifest: Path) -> None:
 
     # Repo JS blocks: a third category beside "generated C++" and "custom". They
     # are registered from a generated table rather than by hand in registry.cpp,
-    # so the CUSTOM_IDS assertion above does not see them -- but the palette does,
-    # and without a manifest entry every one of them greys out.
+    # so read_custom_factory_ids() does not see them -- but the palette does, and
+    # without a manifest entry every one of them greys out.
     js_blocks = load_js_blocks()
     write_js_registrar(output_dir, js_blocks)
     supported.extend(js_blocks)
@@ -1345,7 +1152,7 @@ def generate(output_dir: Path, manifest: Path) -> None:
     manifest_content = json.dumps({
         "supported": sorted(set(supported)),
         "skipped": skipped,
-        # Blocks that occupy a tile in the runner window (see GUI_IDS).
+        # Blocks that occupy a tile in the runner window (see read_gui_ids).
         "gui": sorted(GUI_IDS),
         "core_modules": list(CORE_MODULES),
         "deferred_modules": emitted_modules,

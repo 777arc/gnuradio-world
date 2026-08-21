@@ -72,6 +72,15 @@ Supported keys, all optional except where an entry would otherwise do nothing:
     removes each one's entry from ``options``, ``option_labels`` and every list
     under ``option_attributes``, which pair positionally.  Doing it here rather
     than by hand in the yaml is what keeps those three lists aligned.
+``gui``
+    ``true`` for a block whose factory builds a QWidget, and which therefore
+    occupies a tile in the runner window's GUI Layout grid.  It is an overlay
+    key rather than an upstream one because it is a browser-only fact: upstream
+    these blocks are Python QWidgets with no such notion, and here the answer is
+    decided in C++ by the hand-written factory.  A runner-only block declares
+    the same key directly in its own ``blocks/grc/<id>.block.yml``.  Reaches the
+    editor as the ``gui`` flag in the generated_blocks.json manifest -- without
+    it the block silently loses its tile.
 ``hidden``
     Removes an upstream block from both the browser palette and runtime support
     manifest. Use this only when the block has no meaningful browser concept;
@@ -94,7 +103,7 @@ IN_TREE_MODULE = "gnuradio"
 
 KEYS = {"flags", "category", "label", "cpp_templates", "callbacks", "documentation",
         "parameter_dtypes", "parameter_defaults", "parameter_labels",
-        "prune_options", "hidden"}
+        "prune_options", "gui", "hidden"}
 
 
 def _read(path: str) -> dict[str, Any]:
@@ -158,6 +167,8 @@ def apply(block: dict[str, Any], override: dict[str, Any]) -> None:
         block["label"] = override["label"]
     if "documentation" in override:
         block["documentation"] = override["documentation"]
+    if "gui" in override:
+        block["gui"] = override["gui"]
     block["cpp_templates"] = override.get(
         "cpp_templates", block.get("cpp_templates") or {})
     if "callbacks" in override:

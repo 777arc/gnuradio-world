@@ -3,6 +3,10 @@ label: HRPT Image Sink
 category: '[HRPT]/Image'
 flags: [cpp]
 
+# The factory in registry.cpp builds a QWidget, so this block takes a tile in
+# the runner window's GUI Layout grid. See tools/block_overrides.py.
+gui: true
+
 documentation: |-
     Decodes one AVHRR video channel out of a synced NOAA HRPT minor-frame word
     stream (as produced by NOAA HRPT Deframer) and displays it as a scrolling

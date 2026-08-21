@@ -7,10 +7,15 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "predev": "npm run blocks:check",
+    "blocks": "python3 ../runner/gen_registry.py && python3 gen/gen_blocklib.py public/blocks.json",
+    "blocks:check": "node -e \"if(!require('fs').existsSync('public/blocks.json')){console.error('editor/public/blocks.json is missing: it is generated, not committed. Run: npm run blocks');process.exit(1)}\"",
     "build": "vite build",
+    "prebuild": "npm run blocks:check",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p src/recording/tsconfig.json",
     "check": "npm run typecheck && npm test && npm run build",
     "test": "node test/run.mjs",
+    "pretest": "npm run blocks",
     "preview": "vite preview"
   },
   "devDependencies": {

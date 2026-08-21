@@ -55,6 +55,7 @@ blocks_vco_c:
 # the canvas (blocks/src/qtgui_plot_title.hpp). The Matrix Sink is the one sink
 # upstream gives a default Name, and until now it displayed it nowhere.
 qtgui_matrix_sink:
+  gui: true
   parameter_defaults:
     name: '""'
 
@@ -125,24 +126,110 @@ variable_tag_object:
 # string-valued control has no value to publish and its factory throws by name --
 # and an option the runtime always refuses does not belong in the palette.
 variable_qtgui_toggle_switch:
+  gui: true
   prune_options: ['string']
 
 variable_qtgui_toggle_button_msg:
+  gui: true
   prune_options: ['string']
 
 variable_qtgui_msgcheckbox:
+  gui: true
   prune_options: ['string']
 
 variable_qtgui_msg_push_button:
+  gui: true
   prune_options: ['string']
+
+# ---------------------------------------------------------------------------
+# Blocks whose hand-written factory in registry.cpp builds a QWidget, and which
+# therefore occupy a tile in the runner window's GUI Layout grid. Upstream has no
+# such notion -- native GRC places a widget with gui_hint, which does nothing here
+# -- so `gui: true` is a browser-only fact and belongs in this overlay like any
+# other. gen_registry.py collects it into the generated_blocks.json manifest,
+# which is how the editor can lay a flowgraph out before it has ever been run.
+#
+# The blocks below need no other overlay key; the five that do carry `gui: true`
+# beside it, above.
+# ---------------------------------------------------------------------------
+
+# gr-qtgui's sinks. Each needs a widget and live setters, so none is generated.
+qtgui_time_sink_x:
+  gui: true
+
+qtgui_freq_sink_x:
+  gui: true
+
+qtgui_const_sink_x:
+  gui: true
+
+qtgui_waterfall_sink_x:
+  gui: true
+
+qtgui_number_sink:
+  gui: true
+
+qtgui_edit_box_msg:
+  gui: true
+
+qtgui_sink_x:
+  gui: true
+
+qtgui_eye_sink_x:
+  gui: true
+
+qtgui_histogram_sink_x:
+  gui: true
+
+qtgui_time_raster_sink_x:
+  gui: true
+
+qtgui_vector_sink_f:
+  gui: true
+
+qtgui_bercurve_sink:
+  gui: true
+
+qtgui_auto_correlator_sink:
+  gui: true
+
+# GRC's GUI Widgets/QT family: each is a variable *and* a widget, so it takes a
+# tile like any sink. All Python QWidgets upstream, rebuilt in C++ at
+# blocks/src/qtgui_controls.hpp.
+variable_qtgui_range:
+  gui: true
+
+variable_qtgui_chooser:
+  gui: true
+
+variable_qtgui_push_button:
+  gui: true
+
+variable_qtgui_check_box:
+  gui: true
+
+variable_qtgui_entry:
+  gui: true
+
+variable_qtgui_label:
+  gui: true
+
+variable_qtgui_numeric_entry:
+  gui: true
+
+variable_qtgui_dial_control:
+  gui: true
+
+qtgui_msgdigitalnumbercontrol:
+  gui: true
 
 # ---------------------------------------------------------------------------
 # In-tree Python gr.hier_block2 compositions, rebuilt in C++ under blocks/src/.
 # Each of these is a chain of blocks the browser already has, held together by
 # Python that this build has none of, so the rebuild is the same composition and
 # the entry here is what points the generated factory at it. Blocks needing live
-# setters or a coder object are hand-written in registry.cpp instead and appear
-# in gen_registry.py's CUSTOM_IDS rather than here.
+# setters or a coder object are hand-written in registry.cpp instead, and a
+# hand-written factory needs no entry here at all.
 # ---------------------------------------------------------------------------
 
 # gr-digital's GFSK and GMSK modems (blocks/src/digital_hier.hpp). `verbose` and

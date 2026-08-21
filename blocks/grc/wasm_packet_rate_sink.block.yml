@@ -3,6 +3,10 @@ label: WASM Packet Rate Sink
 category: '[Wasm]'
 flags: [cpp]
 
+# The factory in registry.cpp builds a QWidget, so this block takes a tile in
+# the runner window's GUI Layout grid. See tools/block_overrides.py.
+gui: true
+
 documentation: |-
     Displays the throughput of its input stream, measured against the wall clock
     and refreshed on a timer.

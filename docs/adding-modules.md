@@ -118,14 +118,17 @@ hand-written rebuild they show greyed-out in the palette. Three kinds of rebuild
 all landing in the module's own `blocks/overlays/gr-<m>/`:
 
 - a **GUI panel** becomes a `QWidget` message sink — `rds_panel.hpp` is the
-  worked example — with its id added to `CUSTOM_IDS` and *no* step 3 entry,
-  since `registry.cpp` supplies the factory;
+  worked example — needing *no* step 3 `cpp_templates`, since `registry.cpp`
+  supplies the factory and `gen_registry.py` reads the custom ids back out of
+  that table. Its overlay entry declares only `gui: true`, so the editor knows
+  it takes a tile;
 - a **hierarchy** becomes a C++ `hier_block2`. The ~60 gr-satellites rebuilds do
   keep a step 3 entry, whose `make` calls into `satellites_*.cpp` beside their
   `metadata.yml`;
 - a block resting on a **host facility the browser also has** becomes a browser
   one: gr-paint's PIL-based `paint_image_source` decodes a locally picked `File`
-  or a fetched URL with `createImageBitmap` instead, again via `CUSTOM_IDS`.
+  or a fetched URL with `createImageBitmap` instead, again with a hand-written
+  factory in `registry.cpp` rather than a generated one.
 
 A module can be **entirely** Python: gr-ham's `lib/` holds a CMakeLists.txt and
 nothing else, so it has no vendored source to compile and its side module is the

@@ -185,13 +185,12 @@ assert.equal(rowsUsed({ a: tile(0, 0, 1, 3), b: tile(1, 1, 1, 1) }), 3);
 // ---- the block definition, and the runner that renders it ------------------
 const world = new URL('../../', import.meta.url);
 const read = path => readFile(new URL(path, world), 'utf8');
-const [blockYaml, runnerHpp, runnerCpp, registryCpp, genRegistry, runnerHtml, blocksJson] =
+const [blockYaml, runnerHpp, runnerCpp, registryCpp, runnerHtml, blocksJson] =
   await Promise.all([
     read('blocks/grc/wasm_gui_layout.block.yml'),
     read('runner/src/gui_layout.hpp'),
     read('runner/src/runner.cpp'),
     read('runner/src/registry.cpp'),
-    read('runner/gen_registry.py'),
     read('runner/src/runner.html'),
     read('editor/public/blocks.json'),
   ]);
@@ -219,7 +218,10 @@ assert.match(runnerCpp, /is_variable_control\(placed\.id\) \? gui_layout::kContr
 // it skips a constellation, or the graph tries to connect something that is not
 // a gr::block.
 assert.match(runnerCpp, /id == "wasm_gui_layout"/);
-assert.match(genRegistry, /"wasm_gui_layout",/, 'CUSTOM_IDS covers the hand-written factory');
+// The hand-written factory table is what declares this id custom -- gen_registry.py
+// reads the set back out of it, so the entry below is the only place it is said.
+assert.match(registryCpp, /\{"wasm_gui_layout", \[\]\(const json&/,
+             'registry.cpp registers the hand-written factory');
 
 // The live-Arrange round trip: the editor posts gr-set-layout down and the
 // runner posts gr-widgets back. Both names appear on both sides, or a drag

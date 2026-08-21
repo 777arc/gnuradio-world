@@ -6,11 +6,15 @@
 # tools/block_overrides.py for the supported keys, and docs/adding-modules.md
 # for the out-of-tree checklist this file is step 3 of.
 #
-# rds_panel is absent: it is a Python QWidget (gr-rds/python/rdspanel.py) and the
-# only thing in an RDS receiver that ever displays the decoded ASCII, so
-# runner/src/registry.cpp rebuilds it as a C++ message-sink block instead and its
-# id is listed in CUSTOM_IDS rather than overridden here.
+# rds_panel needs no cpp_templates: it is a Python QWidget
+# (gr-rds/python/rdspanel.py) and the only thing in an RDS receiver that ever
+# displays the decoded ASCII, so runner/src/registry.cpp rebuilds it as a C++
+# message-sink block with a hand-written factory. All it declares here is that
+# the factory builds a widget, and so takes a tile in the GUI Layout grid.
 # At some point, look into upstreaming these.
+
+rds_panel:
+  gui: true
 
 rds_decoder:
   flags: [python, cpp]

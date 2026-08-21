@@ -71,18 +71,24 @@ carries a `QWidget` — and every one of those is a hand-written factory in
 carried across:
 
 ```
-GUI_IDS (runner/gen_registry.py)
-  → "gui" in runner/generated_blocks.json
-    → each block's `gui` flag in editor/public/blocks.json
-      → GUI_BLOCK_IDS in editor/src/main.ts
+`gui: true` in the block's metadata
+  → read_gui_ids() in runner/gen_registry.py
+    → "gui" in runner/generated_blocks.json
+      → each block's `gui` flag in editor/public/blocks.json
+        → GUI_BLOCK_IDS in editor/src/main.ts
 ```
 
-`GUI_IDS` is therefore a copy of a fact that lives elsewhere, and a stale copy
-costs a widget its tile with no other symptom. Two things guard it: the
-generator refuses an id that is not a hand-written factory (a generated factory
-never builds a widget), and **the runner reports the widgets it actually built
-on every run**, so the editor names anything missing from the set in the console.
-If you add a widget-bearing factory, add it to `GUI_IDS` and regenerate.
+The declaration is per block, so adding a widget-bearing block does not also
+mean remembering to edit a list somewhere else. It goes in the same two places
+every other browser-only fact about a block goes: an upstream block declares it
+in its module's `blocks/overlays/<module>/metadata.yml`, and a runner-only block
+in its own `blocks/grc/<id>.block.yml`.
+
+Two things guard it. The generator refuses `gui: true` on a block with no
+hand-written factory (a generated factory never builds a widget), and **the
+runner reports the widgets it actually built on every run**, so the editor names
+anything that built one without having declared it in the console. If you add a
+widget-bearing factory, declare `gui: true` and regenerate.
 
 ## The two editing surfaces
 
