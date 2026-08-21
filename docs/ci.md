@@ -56,6 +56,23 @@ requests when opened directly instead of through the editor — freezing those f
 year would let that one hand-debugging path pin a stale `runner.js` across deploys
 and recreate the crash the stamp prevents.
 
+## No Content-Security-Policy — keep it that way
+
+[site/_headers](../site/_headers) sets `Cross-Origin-Opener-Policy`,
+`Cross-Origin-Embedder-Policy` and `Cross-Origin-Resource-Policy`, plus
+`Content-Type` and `Cache-Control` lines. There is deliberately **no CSP**, and
+this is a build invariant rather than an oversight: the JavaScript Block compiles
+a user's source with `new Function`, and the editor's introspection sandbox
+evaluates the same runtime inside an `<iframe srcdoc>`. **If a CSP is ever added
+it must keep `script-src 'unsafe-eval'`**, or every JS block stops working — in
+the editor first, where ports would stop following the code, and then in the
+runner. See [docs/js-blocks.md](js-blocks.md).
+
+The same file must keep `Cache-Control` lines for `/runner/build/js_runtime.js`
+and `/runner/build/js/*`, which are fetched at run time rather than linked in.
+`scripts/assemble-site.mjs` writes the deployed copy of `_headers`; the two are
+kept in step by hand.
+
 ## Preview deployments for pull requests
 
 Every pull request, including one from a fork, is built and published to its own

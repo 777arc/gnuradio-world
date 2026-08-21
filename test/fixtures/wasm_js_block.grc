@@ -1,0 +1,119 @@
+options:
+    parameters:
+        id: wasm_js_block
+        generate_options: qt_gui
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: samp_rate
+    id: variable
+    parameters:
+        value: '32000'
+    states:
+        coordinate: [184, 12]
+        rotation: 0
+        state: enabled
+-   name: float_source
+    id: analog_sig_source_x
+    parameters:
+        amplitude: '1'
+        frequency: '1000'
+        offset: '0'
+        phase: '0'
+        samp_rate: '32000'
+        type: float
+        waveform: analog.GR_CONST_WAVE
+    states:
+        coordinate: [80, 100]
+        rotation: 0
+        state: enabled
+-   name: throttle
+    id: blocks_throttle2
+    parameters:
+        limit: time
+        maximum: '0.1'
+        samples_per_second: '32000'
+        type: float
+    states:
+        coordinate: [320, 108]
+        rotation: 0
+        state: enabled
+# The block under test. `_source_code` is one unbroken double-quoted line on
+# purpose: it is exactly what the editor's .grc writer emits, and this fixture
+# goes straight to runner.html, whose YAML subset (runner/src/grc_yaml.hpp) is
+# line-oriented -- it reads \n escapes but not PyYAML's folded continuations.
+# It keeps JavaScript `//` comments of its own so the reader is exercised against
+# text that a naive trailing-comment stripper would mangle.
+-   name: js_scale
+    id: wasm_js_block
+    parameters:
+        _source_code: "// A decimating JS block: the fixture covers the parts a plain sync block would\n// not -- decimation, history, a live-settable parameter, and consume_each of\n// decim * produced.\ngr.export({\n  label: 'JS Scaling Decimator',\n  inputs: ['float'],\n  outputs: ['float'],\n  params: { scale: 1.0 },\n  decimation: 2,\n  start() { this.total = 0; },\n  work(nout, input, output) {\n    const x = input[0], y = output[0], s = this.scale;\n    for (let i = 0; i < nout; i++) y[i] = x[i * 2] * s;\n    if (this.total === 0) this.log('first output ' + y[0].toFixed(3));\n    this.total += nout;\n    return nout;\n  },\n});\n"
+        scale: '4'
+    states:
+        coordinate: [560, 108]
+        rotation: 0
+        state: enabled
+-   name: probe
+    id: blocks_probe_signal_x
+    parameters:
+        type: float
+    states:
+        coordinate: [800, 116]
+        rotation: 0
+        state: enabled
+-   name: complex_source
+    id: analog_sig_source_x
+    parameters:
+        amplitude: '1'
+        frequency: '1000'
+        offset: '0'
+        phase: '0'
+        samp_rate: '32000'
+        type: complex
+        waveform: analog.GR_COS_WAVE
+    states:
+        coordinate: [80, 300]
+        rotation: 0
+        state: enabled
+-   name: complex_throttle
+    id: blocks_throttle2
+    parameters:
+        limit: time
+        maximum: '0.1'
+        samples_per_second: '32000'
+        type: complex
+    states:
+        coordinate: [320, 308]
+        rotation: 0
+        state: enabled
+-   name: js_passthrough
+    id: wasm_js_block
+    parameters:
+        _source_code: "// A general block: generalWork() plus a synchronous this.consume(port, n).\n// Complex in, complex out, 1:1, consuming exactly what it produced.\ngr.export({\n  label: 'JS Passthrough',\n  inputs: ['complex'],\n  outputs: ['complex'],\n  generalWork(nout, nin, input, output) {\n    const n = Math.min(nout, nin[0]);\n    const x = input[0], y = output[0];\n    for (let i = 0; i < n * 2; i++) y[i] = x[i];\n    this.consume(0, n);\n    return n;\n  },\n});\n"
+    states:
+        coordinate: [560, 308]
+        rotation: 0
+        state: enabled
+-   name: complex_sink
+    id: blocks_null_sink
+    parameters:
+        type: complex
+        vlen: '1'
+        num_inputs: '1'
+        bus_structure_sink: '[[0,],]'
+    states:
+        coordinate: [800, 316]
+        rotation: 0
+        state: enabled
+connections:
+- [float_source, '0', throttle, '0']
+- [throttle, '0', js_scale, '0']
+- [js_scale, '0', probe, '0']
+- [complex_source, '0', complex_throttle, '0']
+- [complex_throttle, '0', js_passthrough, '0']
+- [js_passthrough, '0', complex_sink, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.10.12.0

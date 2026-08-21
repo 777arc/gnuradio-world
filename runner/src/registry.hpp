@@ -40,6 +40,17 @@ void clear_runtime_objects();
 // register themselves via wasm_registry_add() when their side module is dlopen'd.
 void register_generated_blocks(std::map<std::string, Factory>& registry);
 
+// ---- JavaScript blocks (docs/js-blocks.md) --------------------------------
+// Repo JS blocks, from generated_js_blocks.cpp: one generic factory bound to each
+// `flags: [js]` block id. Adding one needs no relink of anything but this table.
+void register_generated_js_blocks(std::map<std::string, Factory>& registry);
+void register_js_block(std::map<std::string, Factory>& registry, const std::string& block_id);
+// Which repo JS block ids the runner knows about, so runner.cpp can ask
+// runner.html to fetch just the ones a flowgraph actually uses.
+const std::map<std::string, std::string>& block_js_map();
+// The fetched text for one of them, installed before any block is built.
+void set_js_block_source(const std::string& block_id, const std::string& source);
+
 // Baked into the main module by generated_modules.cpp. block_module_map() maps a
 // GRC block id to the deferred category module that must be loaded before it can be
 // built (core blocks are absent). module_deps() gives inter-module load order.

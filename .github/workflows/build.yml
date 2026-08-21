@@ -264,6 +264,13 @@ jobs:
           npm ci
           node test/test_smoke.mjs           # flowgraphs run and produce samples
           node test/test_lazy_scenarios.mjs  # on-demand side modules still load
+          # The JavaScript Block. Unlike the Python one there is no optional
+          # runtime to skip over, so these gate the deploy outright -- and
+          # test_smoke.mjs carries JS block cases of its own for the same reason.
+          # The harness test needs no browser and runs in a second.
+          node runner/test/js_runtime.test.mjs
+          node test/test_js_block.mjs        # a flowgraph whose work() is JavaScript
+          node test/test_js_block_editor.mjs # ... and the editor deriving its ports
           # The Embedded Python Block, in the runner and in the editor. Both skip
           # with a message if pyodide/ is absent, so they never turn a missing
           # optional runtime into a failed deploy.

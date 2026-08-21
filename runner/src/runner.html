@@ -460,6 +460,41 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
           stats.state = 'cancelled';
       };
 
+      // Repo JavaScript Blocks: the source fetch.
+      //
+      // A JS block's factory reads its descriptor synchronously, so it needs the
+      // source *text* in hand when it runs -- and construction cannot await. One
+      // step joins the load chain before any block is built: runner.cpp scans the
+      // lowered flowgraph for repo JS block ids and asks for their files here.
+      //
+      // A handful of kilobytes of text, the same shape as the deferred
+      // side-module fetch above it -- not a runtime. An instance carrying its own
+      // inline source is never in this list: use the inline source when a block
+      // instance carries one, otherwise fetch by id.
+      window.__grLoadJsBlockSources = requestJson => {
+        const bridge = window.__grJsBridge;
+        let wanted;
+        try {
+          wanted = JSON.parse(requestJson);
+        } catch (error) {
+          bridge.finish(false, 'malformed JS block request: ' + error.message);
+          return;
+        }
+        Promise.all(wanted.map(entry => {
+          const url = new URL('js/' + entry.file, location.href);
+          if (window.__grBuildStamp) url.searchParams.set('v', window.__grBuildStamp);
+          return fetch(url).then(response => {
+            if (!response.ok)
+              throw new Error(`${entry.id}: js/${entry.file} — HTTP ${response.status}`);
+            return response.text();
+          }).then(text => [entry.id, text]);
+        })).then(pairs => {
+          bridge.finish(true, JSON.stringify(Object.fromEntries(pairs)));
+        }).catch(error => {
+          bridge.finish(false, 'JS Block source: ' + (error && error.message ? error.message : error));
+        });
+      };
+
       // Embedded Python Block: the Pyodide worker and the prepare step.
       //
       // The C++ side cannot wait for Python at construction time (see

@@ -38,7 +38,15 @@ export function examplePath(name: string): string {
 // the file body is pasted by the contributor (a `value=` prefill would blow past
 // the request-line limit for anything but the smallest flowgraphs).
 export function newExampleFileUrl(name: string): string {
+  return newRepoFileUrl(examplePath(name));
+}
+
+// The same hand-off for any repository path. A JS block saved in the editor is
+// two files -- blocks/js/<id>.js and blocks/grc/<id>.block.yml -- and GitHub's
+// new-file page commits to a branch, so the second one goes onto that same branch
+// and the pull request is the two of them. See docs/js-blocks.md.
+export function newRepoFileUrl(path: string): string {
   const { owner, repo, branch } = EXAMPLES_REPO;
   return `https://github.com/${owner}/${repo}/new/${branch}` +
-    `?filename=${encodeURIComponent(examplePath(name))}`;
+    `?filename=${encodeURIComponent(path)}`;
 }

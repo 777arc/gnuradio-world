@@ -23,6 +23,9 @@ const OUT = process.argv[2] || join(process.cwd(), 'site');
 // runner/build files the browser needs (everything else there is build scratch).
 // .py and .json are here for runner/build/pyodide/: the Embedded Python Block's
 // shim is real Python fetched at runtime, listed by a generated manifest.json.
+// The same walk carries runner/build/js/ -- the repo JavaScript blocks, fetched
+// by id at run time (docs/js-blocks.md) -- and runner/build/js_runtime.js, which
+// the editor reads to validate a descriptor with the runner's own code.
 const RUNTIME_EXT = new Set(['.html', '.js', '.mjs', '.wasm', '.svg', '.css', '.data',
                              '.mem', '.py', '.json']);
 const SKIP_DIR = name => name === 'CMakeFiles' || name.endsWith('_autogen');
@@ -207,6 +210,12 @@ async function main() {
   Cache-Control: public, max-age=86400
 
 /runner/build/fosphor_webgpu.js
+  Cache-Control: public, max-age=86400
+
+/runner/build/js_runtime.js
+  Cache-Control: public, max-age=86400
+
+/runner/build/js/*
   Cache-Control: public, max-age=86400
 
 /runner/build/*.wasm

@@ -74,12 +74,13 @@ assert.match(source,
 assert.match(source,
   /if \(!rows\.length && !thumb\) titleAttrs\['dominant-baseline'\] = 'central'/,
   'the GUI Layout thumbnail must use the same title baseline as parameter rows');
-// The Embedded Python Block is the only block whose name, parameters and ports
-// come from source the user wrote, so its face says which language that is. The
-// measured size and the drawn one are two declarations of one thing, as with the
-// title and parameter rows above.
-assert.match(source, /const subtitleFor = \(inst: Inst\) => inst\.id === EPY_BLOCK_ID \? 'Python' : ''/,
-  'the Python Block is the block that carries a subtitle');
+// The Embedded Python and JavaScript Blocks are the blocks whose name, parameters
+// and ports come from source the user wrote, so their faces say which language
+// that is. The measured size and the drawn one are two declarations of one thing,
+// as with the title and parameter rows above.
+assert.match(source,
+  /const subtitleFor = \(inst: Inst\) =>\s*\n?\s*inst\.id === EPY_BLOCK_ID \? 'Python' : inst\.id === JS_BLOCK_ID \? 'JavaScript' : '';/,
+  'the Python and JS Blocks are the blocks that carry a subtitle');
 assert.match(source, /const headH = TITLE_H \+ \(subtitle \? SUBTITLE_H : 0\)/,
   'a subtitle must lengthen the title bar, or it collides with the first parameter row');
 assert.match(source, /rowsTop\(h, rows\.length, headH\)/,

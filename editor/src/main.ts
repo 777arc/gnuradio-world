@@ -21,7 +21,9 @@ import {
   type TileMap,
   type WidgetRef,
 } from './gui-layout';
-import { EXAMPLES_REPO, examplePath, newExampleFileUrl, sanitizeExampleName } from './contribute';
+import {
+  EXAMPLES_REPO, examplePath, newExampleFileUrl, newRepoFileUrl, sanitizeExampleName,
+} from './contribute';
 import aboutHtml from './about.html?raw';
 
 import {
@@ -80,6 +82,7 @@ import {
 } from './example-catalog';
 import {
   BLOCK_COMMENT_ID,
+  blockFlags,
   installGeneratedBlocks,
   installNativeBlockParams,
   numericOrExpression,
@@ -89,6 +92,13 @@ import {
   EPY_BLOCK_ID, EPY_CODE_DTYPE, EPY_IO_CACHE_PARAM, EPY_SOURCE_PARAM, epyDefForCache,
   epySourceError, isForeignIoCache, pythonRuntime, setEpySourceError,
 } from './epy';
+import {
+  JS_BLOCK_ID, JS_CODE_DTYPE, JS_IO_PARAM, JS_LOCAL_SOURCE_PARAM, JS_SOURCE_PARAM,
+  acceptJsSource, generateBlockYml, isJsSourceAccepted, jsDefForCache, jsIntrospector,
+  jsSourceError, jsSourceOf, jsSourceParamOf, listLocalJsBlocks, parseJsIo,
+  sanitizeBlockId, saveLocalJsBlock, serializeJsIo, setJsSourceError,
+  type JsBlockIo, type LocalJsBlock,
+} from './js-block';
 import { showDebugInfo } from './debug-panel';
 import { showVersionsDialog } from './versions';
 import { isBenchmarkFrameSource, showBenchmarkDialog } from './benchmark';
@@ -325,7 +335,8 @@ const TITLE_BASELINE = 21, ROW_BASELINE = 15;
 // commonest Python Block (one parameter, one port a side) comes out exactly as
 // tall as it did without one: the line fits in slack the block already had.
 const SUBTITLE_FONT_SIZE = 12, SUBTITLE_H = 12, SUBTITLE_GAP = 12;
-const subtitleFor = (inst: Inst) => inst.id === EPY_BLOCK_ID ? 'Python' : '';
+const subtitleFor = (inst: Inst) =>
+  inst.id === EPY_BLOCK_ID ? 'Python' : inst.id === JS_BLOCK_ID ? 'JavaScript' : '';
 // Ports sit three grid cells apart, which is what gives a multi-port block room
 // to breathe between its tabs. Block heights stay rounded to *two* cells, not to
 // the pitch: that keeps the group's midpoint on the grid and, unlike rounding to
@@ -439,18 +450,28 @@ function templateMultiplicity(raw: any, params: Record<string, any>): number {
   return Number.isFinite(number) && number >= 1 ? Math.trunc(number) : 1;
 }
 
-// A block's definition. For everything but the Embedded Python Block this is the
-// schema RUNNABLE holds for its block id; a Python Block's parameters and ports
-// come from its own source instead, so the definition is synthesized per instance
-// from the interface cached in its `_io_cache` parameter (see editor/src/epy.ts).
+// Blocks whose parameters and ports are not a property of their block id: they
+// come from source the user wrote, so the definition is synthesized per instance
+// from the interface that instance caches. Both blocks that work this way
+// register here rather than each adding a branch to defFor -- the JS Block's
+// parameters are derived rather than declared, and the repo's most common
+// hand-authored-flowgraph failure is the editor silently dropping a parameter its
+// schema does not declare. This map is what stands between that trap and them.
+const DERIVED = new Map<string, (base: RunnableDef, inst: Inst) => RunnableDef>([
+  [EPY_BLOCK_ID, (base, inst) => epyDefForCache(base, inst.params[EPY_IO_CACHE_PARAM])],
+  [JS_BLOCK_ID, (base, inst) => jsDefForCache(base, inst.params[JS_IO_PARAM])],
+]);
+
+// A block's definition. For everything but those two this is the schema RUNNABLE
+// holds for its block id.
 //
 // Every consumer that reads a definition *for an instance* goes through here.
 // The id-keyed lookups that remain -- the palette, RUNNABLE[OPTIONS_ID] -- are
 // asking a different question and are right to stay as they are.
 function defFor(inst: Inst): RunnableDef {
   const base = RUNNABLE[inst.id];
-  if (inst.id !== EPY_BLOCK_ID || !base) return base;
-  return epyDefForCache(base, inst.params[EPY_IO_CACHE_PARAM]);
+  const derive = DERIVED.get(inst.id);
+  return base && derive ? derive(base, inst) : base;
 }
 
 function resolvedPorts(inst: Inst, kind: 'in' | 'out'): ResolvedPort[] | null {
@@ -709,18 +730,19 @@ function wrapValidationMessage(message: string, maxCharacters: number): string[]
 function validateGraph(blocks: Inst[] = insts, connections: Conn[] = conns): ValidationIssue[] {
   const issues = validateFlowgraph(blocks, connections,
                                    { portCount, portMeta, portType, def: defFor });
-  // A Python Block whose source could not be read is invalid, the way it is in
-  // native GRC (embedded_python.py attaches `_epy_reload_error` to the Code
+  // A Python or JS Block whose source could not be read is invalid, the way it is
+  // in native GRC (embedded_python.py attaches `_epy_reload_error` to the Code
   // parameter). The rule lives here rather than in validation.ts because the
   // error comes from having *run* the source, not from anything in the .grc.
   for (const block of blocks) {
-    if (block.id !== EPY_BLOCK_ID) continue;
-    const message = epySourceError(block.uid);
+    const message = block.id === EPY_BLOCK_ID ? epySourceError(block.uid)
+      : block.id === JS_BLOCK_ID ? jsSourceError(block.uid) : '';
     // Blocking only while the block is active, as validation.ts treats every
-    // other issue: a disabled Python Block with broken code cannot break a run.
+    // other issue: a disabled block with broken code cannot break a run.
     if (message)
-      issues.push({ uid: block.uid, field: EPY_SOURCE_PARAM, message,
-                    blocking: block.enabled && !block.bypassed });
+      issues.push({ uid: block.uid,
+                    field: block.id === JS_BLOCK_ID ? JS_SOURCE_PARAM : EPY_SOURCE_PARAM,
+                    message, blocking: block.enabled && !block.bypassed });
   }
   return issues;
 }
@@ -986,6 +1008,106 @@ function addBlock(id: string, x = 60 + (counter % 5) * 30, y = 60 + (counter % 7
   select(uid);
   if (record) recordHistory();
   return inst;
+}
+
+// ---- the JavaScript Block --------------------------------------------------
+// A JS Block's parameters and ports come from its own source, exactly as a
+// Python Block's do -- but deriving them costs a few milliseconds in a sandboxed
+// iframe rather than a 16 MB download, so it happens as the code is typed. These
+// two helpers are what both editing surfaces (the Properties dialog's inline
+// field and the popup editor) share. See editor/src/js-block.ts.
+
+/**
+ * Record a freshly derived interface on a parameter set, and give every newly
+ * derived parameter its default. Without the second half, adding a parameter to
+ * a descriptor would leave the instance with no value for it -- and the editor
+ * drops what its definition does not declare, so the block would run on the
+ * descriptor's default while the dialog showed nothing at all.
+ */
+function applyJsIo(params: Record<string, any>, io: JsBlockIo) {
+  params[JS_IO_PARAM] = serializeJsIo(io);
+  for (const [id, def] of io.params || [])
+    if (params[id] === undefined)
+      params[id] = def === null || def === undefined ? '' : def;
+}
+
+interface JsCodeModalOptions {
+  title: string;
+  source: string;
+  uid: string;
+  /** Called on every successful derivation, and on Save with the final source. */
+  apply(source: string, io: JsBlockIo | null): void;
+  /** Save & Close. */
+  onSave(source: string): void;
+  /** Redraw whatever surface the caller owns. */
+  render(): void;
+}
+
+// A dynamic import that 404s. The editor is a long-lived single-page app and its
+// chunk names carry a content hash, so a tab left open across a rebuild or a
+// deploy still asks for the chunk names it was loaded with -- and those are gone.
+// Nothing is wrong with the app; the page just has to be reloaded. Say that,
+// rather than reporting a bare TypeError nobody can act on.
+// Each engine words the failure differently.
+const CHUNK_GONE = /failed to fetch dynamically imported module|error loading dynamically imported module|importing a module script failed/i;
+
+function describeImportFailure(error: unknown, what: string): string {
+  const message = String((error as Error)?.message || error);
+  return CHUNK_GONE.test(message)
+    ? `${what} could not be loaded because this page is running an older build ` +
+      `of the editor — reload the page.`
+    : `${what} failed to load: ${message}`;
+}
+
+// Dynamically imported for the same reason CodeMirror is: nothing here is
+// fetched by a session that never opens a JS Block.
+function openJsCodeModal(options: JsCodeModalOptions) {
+  void import('./code-modal').then(({ openCodeModal }) => openCodeModal({
+    title: options.title,
+    source: options.source,
+    onDerived: (io, source) => {
+      options.apply(source, io);
+      // Typed in this session, so it needs no Run consent: the prompt exists for
+      // JavaScript that arrived from a link, not for what the user just wrote.
+      acceptJsSource(source);
+      setJsSourceError(options.uid, '');
+      options.render(); render();
+    },
+    onError: (message, source) => {
+      options.apply(source, null);
+      setJsSourceError(options.uid, message.split('\n')[0].trim() ||
+                       'the block\'s source could not be read');
+      options.render(); render();
+    },
+    onSave: source => { options.apply(source, null); options.onSave(source); },
+    onSaveAsBlock: (source, io) => saveJsBlockAs(source, io),
+  })).catch(error => log(describeImportFailure(error, 'the code editor')));
+}
+
+/**
+ * Double-clicking a JS Block opens its code rather than its Properties. Unlike
+ * the dialog's field this edits the instance directly, which is what lets the
+ * block's ports on the canvas follow the code as it is typed.
+ */
+function openJsBlockCode(inst: Inst) {
+  const sourceParam = jsSourceParamOf(inst.params);
+  openJsCodeModal({
+    title: `Code: ${inst.name}`,
+    source: jsSourceOf(inst.params),
+    uid: inst.uid,
+    apply: (source, io) => {
+      inst.params[sourceParam] = source;
+      if (io) applyJsIo(inst.params, io);
+    },
+    onSave: () => {
+      recordHistory();
+      const io = parseJsIo(inst.params[JS_IO_PARAM]);
+      if (io)
+        log(`${inst.name}: "${io.label}" — ${io.params.length} parameter(s), ` +
+            `${io.inputs.length} input(s), ${io.outputs.length} output(s)`);
+    },
+    render: () => {},
+  });
 }
 
 // ---- block operations (used by the context menu and shortcuts) ----
@@ -1583,12 +1705,13 @@ function loadFlowgraph(doc: any, record = true) {
 
   const nameToUid = new Map<string, string>();
   doc.blocks.forEach((b: any, index: number) => {
-    // A Python Block's parameters are whatever its source declares, so its
+    // A Python or JS Block's parameters are whatever its source declares, so its
     // definition has to be built from the file's own cached interface before its
     // values can be imported -- importParams keeps only what the definition
     // declares, and the derived parameters would otherwise be dropped.
-    const def = b.id === EPY_BLOCK_ID && RUNNABLE[EPY_BLOCK_ID]
-      ? epyDefForCache(RUNNABLE[EPY_BLOCK_ID], b.parameters?.[EPY_IO_CACHE_PARAM])
+    const derive = DERIVED.get(b.id);
+    const def = derive && RUNNABLE[b.id]
+      ? derive(RUNNABLE[b.id], { params: b.parameters || {} } as Inst)
       : RUNNABLE[b.id];
     if (!def) { log(`skipped unsupported block "${b.id}"`); return; }
     // Written by desktop GRC as a Python tuple repr under `states`, which this
@@ -2052,7 +2175,7 @@ function showPropsDialog(inst: Inst) {
 
   const overlay = document.createElement('div'); overlay.className = 'modal props';
   const dlg = document.createElement('div'); dlg.className = 'dlg';
-  if (inst.id === EPY_BLOCK_ID) dlg.classList.add('dlg-code');
+  if (inst.id === EPY_BLOCK_ID || inst.id === JS_BLOCK_ID) dlg.classList.add('dlg-code');
   const head = document.createElement('div'); head.className = 'dlghead withclose';
   const headTitle = document.createElement('span'); headTitle.textContent = 'Properties: ' + d.label;
   const headClose = document.createElement('button'); headClose.className = 'dlgclose';
@@ -2163,9 +2286,11 @@ function showPropsDialog(inst: Inst) {
     nameI.oninput = () => { tmp.name = nameI.value.replace(/\s+/g, '_'); refreshValidation(); };
   }
   for (const p of d.params) {
-    // The derived-interface cache is written by the code reader, never by hand,
-    // and is a JSON blob the length of a paragraph. It has no field.
-    if (p.id === EPY_IO_CACHE_PARAM) continue;
+    // The derived-interface caches are written by the code reader, never by hand,
+    // and are a JSON blob the length of a paragraph. Neither has a field, and
+    // neither does the inlined source a local JS block's instance carries.
+    if (p.id === EPY_IO_CACHE_PARAM || p.id === JS_IO_PARAM ||
+        p.id === JS_LOCAL_SOURCE_PARAM) continue;
     if (p.type === 'enum') {
       const s = document.createElement('select');
       (p.options || []).forEach((o, index) => {
@@ -2502,6 +2627,95 @@ function showPropsDialog(inst: Inst) {
       // user who has never loaded it.
       if (pythonRuntime.consented && pythonRuntime.state === 'absent')
         void pythonRuntime.load();
+    } else if (p.dtype === JS_CODE_DTYPE) {
+      // The JavaScript Block's source. Unlike the Python Block's Code field
+      // there is no re-read button and no gating: deriving a JS block's
+      // interface means evaluating its descriptor in a disposable sandbox, which
+      // costs a few milliseconds and needs nothing downloaded. So it is
+      // debounced on every keystroke and the panel below the field says what the
+      // code currently means. See editor/src/js-block.ts.
+      const area = document.createElement('textarea');
+      area.className = 'code-editor'; area.rows = 18; area.spellcheck = false;
+      area.value = String(tmp.params[p.id]);
+      area.onkeydown = event => {
+        if (event.key !== 'Tab' || event.shiftKey) return;
+        event.preventDefault();
+        area.setRangeText('  ', area.selectionStart, area.selectionEnd, 'end');
+        tmp.params[p.id] = area.value;
+      };
+      void import('./code-editor')
+        .then(({ mountCodeEditor }) => mountCodeEditor(area, 'javascript'))
+        .then(handle => { code.dispose = () => handle?.destroy(); })
+        .catch(() => {});
+      const status = document.createElement('small'); status.className = 'code-status';
+      const popout = document.createElement('button');
+      popout.type = 'button'; popout.className = 'code-reload';
+      popout.textContent = 'Edit Code ⤢';
+      popout.title = 'Open the large code editor with a live view of the derived block';
+      popout.onclick = () => {
+        // Seeded from the dialog's working copy and written back to it, so
+        // Cancel still discards everything the popup did.
+        openJsCodeModal({
+          title: `Code: ${tmp.name}`,
+          source: String(tmp.params[p.id]),
+          apply: (source, io) => {
+            tmp.params[p.id] = source;
+            if (io) applyJsIo(tmp.params, io);
+          },
+          uid: inst.uid,
+          onSave: () => {
+            // The parameter and port set may have just changed, so the dialog
+            // drawn from it is stale. Commit and reopen -- the same effect the
+            // Python Block's re-read has.
+            apply(); closeDialog(); showPropsDialog(inst);
+          },
+          render: () => { area.value = String(tmp.params[p.id]); refreshValidation(); },
+        });
+      };
+      let deriveTimer: number | undefined;
+      const describe = () => {
+        const source = String(tmp.params[p.id]);
+        jsIntrospector.describe(source).then(io => {
+          if (!overlay.isConnected || String(tmp.params[p.id]) !== source) return;
+          applyJsIo(tmp.params, io);
+          acceptJsSource(source);   // typed here, so no Run consent for it
+          setJsSourceError(inst.uid, '');
+          code.message = '';
+          code.refresh(); refreshValidation(); render();
+        }).catch(error => {
+          if (!overlay.isConnected || String(tmp.params[p.id]) !== source) return;
+          code.message = String((error as Error)?.message || error);
+          setJsSourceError(inst.uid, code.message.split('\n')[0].trim() ||
+                           'the block\'s source could not be read');
+          code.refresh(); refreshValidation(); render();
+        });
+      };
+      area.oninput = () => {
+        tmp.params[p.id] = area.value;
+        clearTimeout(deriveTimer);
+        deriveTimer = setTimeout(describe, 220) as unknown as number;
+      };
+      const field = document.createElement('div'); field.className = 'code-field';
+      const controlsRow = document.createElement('div'); controlsRow.className = 'code-controls';
+      controlsRow.append(popout, status);
+      field.append(area, controlsRow);
+      addField(p.category || 'General', p.label, field, p.id, area);
+      code.refresh = () => {
+        if (!overlay.isConnected && overlay.parentNode !== null) return;
+        const io = parseJsIo(tmp.params[JS_IO_PARAM]);
+        status.textContent = code.message
+          ? code.message.split('\n')[0].trim()
+          : io
+            ? `${io.label} — ${io.inputs.length} input(s), ${io.outputs.length} ` +
+              `output(s), ${io.params.length} parameter(s). ` +
+              `Apply to update this block's fields.`
+            : 'This block has no interface yet.';
+        status.classList.toggle('code-error', !!code.message);
+      };
+      const previousDispose = code.dispose;
+      code.dispose = () => { clearTimeout(deriveTimer); previousDispose(); };
+      code.refresh();
+      describe();
     } else if (usesOptionCombo(p)) {
       // A parameter with an options list that is not `dtype: enum` — see
       // optionCombo(): a dropdown of the options, still able to hold an
@@ -2950,7 +3164,12 @@ function startDrag(e: PointerEvent, inst: Inst) {
   const now = Date.now();
   if (lastMouseDown && lastMouseDown.uid === inst.uid && now - lastMouseDown.t < 350) {
     lastMouseDown = null; drag = null;
-    select(inst.uid); showPropsDialog(inst);   // same dialog as right-click → Properties
+    select(inst.uid);
+    // A JS Block's code is the thing you came to edit, so double-click opens the
+    // popup editor rather than Properties; its parameters are still one
+    // right-click away.
+    if (inst.id === JS_BLOCK_ID) openJsBlockCode(inst);
+    else showPropsDialog(inst);   // same dialog as right-click → Properties
     return;
   }
   lastMouseDown = { uid: inst.uid, t: now };
@@ -3983,6 +4202,246 @@ consoleSplitter.addEventListener('keydown', event => {
 });
 window.addEventListener('resize', () => { if (consoleHeight) applyConsoleHeight(); });
 
+// ---- the browser-local JS block library ------------------------------------
+// The repo pair (blocks/js/<id>.js + blocks/grc/<id>.block.yml) is the real
+// destination -- a JS block that ships is a block everyone gets. But a static
+// site with no backend cannot commit for you, so without this every block anyone
+// writes is unusable until a pull request merges.
+//
+// A local block is *not* a new block id. Its instances are ordinary
+// wasm_js_block instances carrying the source inline under `_js_source`, which is
+// what makes a flowgraph shared as a link work for someone who does not have this
+// library. Only a merged repo block gets an id of its own.
+let localJsBlocks: LocalJsBlock[] = [];
+let redrawPalette: (() => void) | null = null;
+
+/** Palette entries for the saved blocks, in the shape buildTree() reads. */
+function localJsPaletteEntries(): any[] {
+  return localJsBlocks.map(block => ({
+    id: block.id,
+    label: block.label,
+    runnable: true,
+    category: (block.category || '[Custom]').replace(/^\[|\]$/g, '')
+      .split('/').map(s => s.trim()).filter(Boolean),
+    localJs: block,
+  }));
+}
+
+async function refreshLocalJsBlocks() {
+  localJsBlocks = await listLocalJsBlocks();
+  // Saved here, so it needs no Run consent.
+  for (const block of localJsBlocks) acceptJsSource(block.source);
+  redrawPalette?.();
+}
+
+function placeLocalJsBlock(block: LocalJsBlock) {
+  const params: Record<string, any> = { [JS_LOCAL_SOURCE_PARAM]: block.source };
+  applyJsIo(params, block.io);
+  const inst = addBlock(JS_BLOCK_ID, undefined, undefined, params, false);
+  if (!inst) return;
+  // Named after the saved block rather than after wasm_js_block, so a canvas of
+  // them reads as the blocks they are.
+  inst.name = uniqueBlockName(block.id);
+  recordHistory();
+  render();
+}
+
+// ---- Save as Block ---------------------------------------------------------
+// Two things at once: the block is installed into the local library and appears
+// in the palette immediately, and the two repo files it would become are offered
+// as a download. The yml is generated from the descriptor -- it is authoritative
+// for a repo block, so no human writes it by hand.
+function saveJsBlockAs(source: string, io: JsBlockIo | null) {
+  if (!io) {
+    log('cannot save this block: its code has to read cleanly first');
+    return;
+  }
+  let idInput!: HTMLInputElement;
+  let labelInput!: HTMLInputElement;
+  let categoryInput!: HTMLInputElement;
+  let note!: HTMLElement;
+  const currentId = () => sanitizeBlockId(idInput.value || io.label);
+  const refresh = () => {
+    const id = currentId();
+    const clash = !!RUNNABLE[id] && id !== JS_BLOCK_ID;
+    note.textContent = clash
+      ? `"${id}" is already a block id in this editor — pick another.`
+      : `blocks/js/${id}.js  ·  blocks/grc/${id}.block.yml`;
+    note.classList.toggle('code-error', clash);
+    return !clash;
+  };
+  const overlay = openDialog('Save as Block', body => {
+    const row = (label: string, value: string, placeholder: string) => {
+      const wrap = document.createElement('div'); wrap.className = 'dlgrow';
+      const l = document.createElement('label'); l.textContent = label;
+      const input = document.createElement('input');
+      input.value = value; input.placeholder = placeholder;
+      wrap.append(l, input); body.appendChild(wrap);
+      return input;
+    };
+    labelInput = row('Label', io.label, 'JS Gain');
+    idInput = row('Block ID', sanitizeBlockId(io.label), 'js_gain');
+    categoryInput = row('Category', '[Custom]', '[Custom]/Filters');
+    note = document.createElement('small'); note.className = 'code-status';
+    body.appendChild(note);
+    labelInput.oninput = () => {
+      if (!idInput.dataset.touched) idInput.value = sanitizeBlockId(labelInput.value);
+      refresh();
+    };
+    idInput.oninput = () => { idInput.dataset.touched = '1'; refresh(); };
+  });
+  const foot = overlay.querySelector('.dlgfoot')!;
+  const save = document.createElement('button');
+  save.type = 'button'; save.className = 'run'; save.textContent = 'Save';
+  save.onclick = async () => {
+    if (!refresh()) return;
+    const block: LocalJsBlock = {
+      id: currentId(),
+      label: labelInput.value.trim() || io.label,
+      category: categoryInput.value.trim() || '[Custom]',
+      source, io, saved: Date.now(),
+    };
+    try {
+      await saveLocalJsBlock(block);
+    } catch (error) {
+      log('could not save the block to this browser: ' + error);
+      return;
+    }
+    acceptJsSource(source);
+    await refreshLocalJsBlocks();
+    overlay.remove();
+    log(`saved "${block.label}" to this browser's block library — it is in the ` +
+        `palette under ${block.category}`);
+    offerRepoFiles(block);
+  };
+  foot.insertBefore(save, foot.firstChild);
+  refresh();
+}
+
+// The pull request a saved block would become. The editor has no backend and no
+// credentials, so this is a hand-off in the same shape as "contribute this
+// flowgraph as an example": the two files are offered as downloads, and GitHub's
+// new-file page is opened at the right path for anyone who would rather paste.
+function offerRepoFiles(block: LocalJsBlock) {
+  openDialog(`Contribute "${block.label}"`, body => {
+    const lead = document.createElement('p');
+    lead.textContent =
+      'A JS block that ships is a block everyone gets. These are the two files ' +
+      'a pull request would add — the .js is the implementation, the .yml is its ' +
+      'palette entry and is authoritative for a repo block.';
+    body.appendChild(lead);
+    const files: [string, string][] = [
+      [`blocks/js/${block.id}.js`, block.source],
+      [`blocks/grc/${block.id}.block.yml`, generateBlockYml(block)],
+    ];
+    for (const [path, text] of files) {
+      const row = document.createElement('div'); row.className = 'dlgrow';
+      const label = document.createElement('label'); label.textContent = path;
+      const buttons = document.createElement('div'); buttons.className = 'code-controls';
+      const download = document.createElement('button');
+      download.type = 'button'; download.textContent = 'Download';
+      download.onclick = () => downloadBlob(text, 'text/plain', path.split('/').pop()!);
+      const copy = document.createElement('button');
+      copy.type = 'button'; copy.textContent = 'Copy';
+      copy.onclick = () => {
+        void navigator.clipboard?.writeText(text)
+          .then(() => log(`copied ${path} to the clipboard`))
+          .catch(() => log(`could not copy ${path}`));
+      };
+      const open = document.createElement('button');
+      open.type = 'button'; open.textContent = 'Open on GitHub';
+      open.onclick = () => window.open(newRepoFileUrl(path), '_blank', 'noopener');
+      buttons.append(download, copy, open);
+      row.append(label, buttons);
+      body.appendChild(row);
+    }
+    const tail = document.createElement('small');
+    tail.className = 'code-status';
+    tail.textContent =
+      'GitHub’s new-file page commits to a branch; put the second file on that ' +
+      'same branch and the pull request is the two of them.';
+    body.appendChild(tail);
+  }, true);
+}
+
+// ---- Run consent for a flowgraph's JavaScript ------------------------------
+// A .grc arriving from a link can carry arbitrary JavaScript, and the runner
+// iframe is same-origin with the editor. So pressing Run on a flowgraph
+// containing a JS Block whose source has not already been accepted shows the code
+// and asks -- the same shape as the RTL-SDR device prompt on the Run click,
+// remembered per source hash in localStorage.
+//
+// Source typed in this session is accepted as it is typed (every derivation
+// accepts it), and a repo JS block is trusted because it went through review, so
+// this only ever interrupts code that arrived from somewhere else.
+const shippedJsDefault = () => String(
+  RUNNABLE[JS_BLOCK_ID]?.params.find(p => p.id === JS_SOURCE_PARAM)?.def ?? '');
+
+function unacceptedJsSources(): { block: Inst; source: string }[] {
+  const out: { block: Inst; source: string }[] = [];
+  const seen = new Set<string>();
+  for (const block of insts) {
+    if (block.id !== JS_BLOCK_ID || !block.enabled || block.bypassed) continue;
+    const source = jsSourceOf(block.params);
+    // The palette's own default ships with the app and went through review, so a
+    // freshly placed block never asks.
+    if (!source.trim() || source === shippedJsDefault() || seen.has(source) ||
+        isJsSourceAccepted(source)) continue;
+    seen.add(source);
+    out.push({ block, source });
+  }
+  return out;
+}
+
+function askToRunJavaScript(pending: { block: Inst; source: string }[]): Promise<boolean> {
+  return new Promise(resolve => {
+    let settled = false;
+    const finish = (ok: boolean) => {
+      if (settled) return;
+      settled = true;
+      overlay.remove();
+      resolve(ok);
+    };
+    const overlay = document.createElement('div'); overlay.className = 'modal';
+    const dlg = document.createElement('div'); dlg.className = 'dlg dlg-code';
+    const head = document.createElement('div'); head.className = 'dlghead';
+    head.textContent = pending.length === 1
+      ? 'Run this flowgraph’s JavaScript?'
+      : `Run this flowgraph’s JavaScript? (${pending.length} blocks)`;
+    const body = document.createElement('div'); body.className = 'dlgbody';
+    const lead = document.createElement('p');
+    lead.textContent =
+      'This flowgraph carries JavaScript that did not come from this session. It ' +
+      'runs in this tab with the same reach as the page itself, so read it before ' +
+      'you run it.';
+    body.appendChild(lead);
+    for (const { block, source } of pending) {
+      const name = document.createElement('div');
+      name.className = 'code-consent-name';
+      name.textContent = block.name;
+      const pre = document.createElement('pre');
+      pre.className = 'code-consent-source';
+      pre.textContent = source;
+      body.append(name, pre);
+    }
+    const foot = document.createElement('div'); foot.className = 'dlgfoot';
+    const cancel = document.createElement('button');
+    cancel.type = 'button'; cancel.textContent = 'Cancel';
+    cancel.onclick = () => finish(false);
+    const accept = document.createElement('button');
+    accept.type = 'button'; accept.className = 'run'; accept.textContent = 'Run it';
+    accept.onclick = () => {
+      for (const { source } of pending) acceptJsSource(source);
+      finish(true);
+    };
+    foot.append(cancel, accept);
+    dlg.append(head, body, foot);
+    overlay.appendChild(dlg);
+    document.body.appendChild(overlay);
+    cancel.focus();
+  });
+}
+
 async function run(): Promise<string | null> {
   const errors = validateGraph().filter(issue => issue.blocking);
   if (errors.length) {
@@ -4012,6 +4471,16 @@ async function run(): Promise<string | null> {
     if (typeof problem !== 'string') showUsbPreparationProblem(problem);
     const block = insts.find(i => radio.owns(i) && i.enabled && !i.bypassed);
     if (block) select(block.uid);
+    return null;
+  }
+
+  // Consent for JavaScript that did not come from this session. It sits here,
+  // after the USB prompt (which must be first: it needs the user gesture) and
+  // before anything is fetched or bound, so a "no" costs nothing.
+  const pendingJs = unacceptedJsSources();
+  if (pendingJs.length && !await askToRunJavaScript(pendingJs)) {
+    log('cancelled: the flowgraph’s JavaScript was not accepted');
+    select(pendingJs[0].block.uid);
     return null;
   }
 
@@ -4166,7 +4635,18 @@ function stop() {
 
 // ---- Palette ----
 // ---- GRC-style block tree (collapsible categories + search) ----
-interface LibraryBlock { id: string; label: string; runnable: boolean; unavailableReason?: string; module: string }
+interface LibraryBlock {
+  id: string; label: string; runnable: boolean; unavailableReason?: string; module: string;
+  // Its work() is JavaScript rather than C++ — a repo block carrying `flags: [js]`,
+  // the inline JS Block, or one saved into this browser's library. The palette
+  // badges these, because "I could read and change this one" is a real difference
+  // to a user and nothing else on the row conveys it.
+  js?: boolean;
+  // A JS block saved in this browser (editor/src/js-block.ts). Its instances are
+  // ordinary wasm_js_block instances carrying the source inline, so a flowgraph
+  // shared as a link works for someone who does not have this library.
+  localJs?: LocalJsBlock;
+}
 // Blocks whose factory builds a QWidget, and so take a tile in the runner
 // window's GUI Layout grid. Filled from the generated library's `gui` flag,
 // which carries GUI_IDS in runner/gen_registry.py -- the C++ decides this, and
@@ -4202,6 +4682,8 @@ function buildTree(blocks: any[]): Cat {
       id: b.id, label: b.label || b.id, runnable: !!b.runnable,
       unavailableReason: b.unavailable_reason || undefined,
       module: b.module || 'core',
+      localJs: b.localJs,
+      js: !!b.localJs || b.id === JS_BLOCK_ID || blockFlags(b.flags).includes('js'),
     });
   }
   return root;
@@ -4270,17 +4752,24 @@ function makeBlockItem(b: LibraryBlock, indent: number): HTMLElement {
   // A hand-written schema in RUNNABLE means we support the block even if the
   // generated library marks it unavailable (e.g. the plain `variable` block,
   // which the editor resolves away instead of handing to the runner).
-  const run = !!RUNNABLE[b.id];
+  const run = !!b.localJs || !!RUNNABLE[b.id];
   const item = document.createElement('div');
-  item.className = 'pal-item ' + (run ? 'runnable' : 'unavailable');
+  // The JS badge is a CSS ::after rather than an element, so the row's
+  // textContent stays exactly the block's label — which is what the palette
+  // search, the browser tests and anything else reading the list expect.
+  item.className = 'pal-item ' + (run ? 'runnable' : 'unavailable') + (b.js ? ' pal-js' : '');
   item.style.paddingLeft = indent + 'px';
   item.textContent = b.label;
+  // Generated content is decoration; the tooltip is where the same fact is said
+  // in words, for anyone who cannot see the badge.
   item.title = !run ? `${b.id} — ${b.unavailableReason || 'not available in WebAssembly'}`
-    : b.id;
+    : b.js ? `${b.id} — implemented in JavaScript` : b.id;
   item.setAttribute('aria-disabled', String(!run));
   item.onclick = () => {
     if (!run) { log(`"${b.id}" is unavailable: ${b.unavailableReason || 'not implemented in WebAssembly'}`); return; }
-    addBlock(b.id); closePaletteDrawer();
+    if (b.localJs) placeLocalJsBlock(b.localJs);
+    else addBlock(b.id);
+    closePaletteDrawer();
   };
   // Right-click works on unavailable blocks too: an example that uses one is
   // still worth reading even when the runner cannot execute it.
@@ -4407,10 +4896,15 @@ async function buildPalette() {
   pythonRuntime.onprint = line => log(line);
   const draw = (q: string) => {
     tree.textContent = '';
-    renderTree(buildTree(LIB.blocks), tree, 0, q);
+    // The browser-local JS blocks join the generated library rather than living
+    // in a tab of their own: a block someone wrote should be findable exactly
+    // where every other block is.
+    renderTree(buildTree([...(LIB.blocks || []), ...localJsPaletteEntries()]), tree, 0, q);
   };
+  redrawPalette = () => draw(search.value.trim().toLowerCase());
   draw('');
   search.oninput = () => draw(search.value.trim().toLowerCase());
+  void refreshLocalJsBlocks();
 }
 
 // ---- Example Flowgraphs tab ------------------------------------------------
@@ -4486,12 +4980,27 @@ async function copyRecordingUrl(name: string) {
 }
 // Used by the #example= hash on startup; the palette's own click handler loads
 // the .grc it already fetched instead of going through here.
+/**
+ * A flowgraph out of `example_flowgraphs/` is repository content: it went through
+ * review the same way a repo JS block did, so its JavaScript is trusted as it is
+ * loaded and never raises the Run prompt. A .grc from anywhere else -- a shared
+ * link, a downloaded file -- deliberately does not go through here.
+ */
+function trustExampleJavaScript(fg: any) {
+  for (const block of fg?.blocks || []) {
+    if (String(block?.id) !== JS_BLOCK_ID) continue;
+    const source = jsSourceOf(block.parameters || {});
+    if (source.trim()) acceptJsSource(source);
+  }
+}
+
 async function loadExampleByName(name: string, updateHash = true) {
   const file = normalizeExamplePath(name);
   const res = await fetch('/example_flowgraphs/' + encodeExamplePath(file));
   if (!res.ok) throw new Error(`${file}: HTTP ${res.status}`);
   const fg = parseGrc(await res.text());
   const title = String(fg.options?.parameters?.title || file);
+  trustExampleJavaScript(fg);
   loadFlowgraphAnimated(fg);          // resets history itself
   if (updateHash) setExampleHash(file); // normalizes e.g. a link written with .grc
   setCurrentFileName(file);           // Save writes the example back under its own name
@@ -4622,6 +5131,7 @@ async function buildExamples(panel: HTMLElement) {
       item.onclick = () => {
         try {
           closePaletteDrawer();
+          trustExampleJavaScript(fg);
           loadFlowgraphAnimated(fg);
           setExampleHash(file);
           setCurrentFileName(file);

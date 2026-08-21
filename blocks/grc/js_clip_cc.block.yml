@@ -1,0 +1,48 @@
+# Implemented in JavaScript: blocks/js/js_clip_cc.js. See docs/js-blocks.md.
+#
+# `flags: [js]` and no `cpp` is what makes gen_registry.py skip the generated-C++
+# path for this block and bind its id to the generic JS factory instead. This yml
+# is authoritative for the block's palette entry, parameters and ports; the
+# descriptor's own port declaration has to agree with it, which the generator
+# checks.
+id: js_clip_cc
+label: Complex Soft Clipper
+category: '[Core]/Level Controllers'
+flags: [js]
+
+documentation: |-
+    Limits the magnitude of a complex stream while leaving its phase alone.
+
+    Hard-limiting I and Q separately -- which is what a pair of Clip blocks would
+    do -- rotates the constellation as it clips, because the two axes saturate at
+    different input levels. This scales the whole sample instead, so the
+    magnitude is limited and the phase comes through untouched. That is what an
+    amplifier's compression actually looks like, and what PAPR reduction wants.
+
+    Threshold is the magnitude the output is limited to. Knee is how gently it
+    gets there: 0 is a hard limiter, and 1 a tanh-shaped compression that begins
+    at half the threshold and approaches it asymptotically. Both can be driven by
+    a QT GUI Range while the flowgraph runs.
+
+    Implemented in JavaScript -- it has no Python implementation, so a flowgraph
+    using it will not run in desktop GNU Radio.
+
+parameters:
+-   id: threshold
+    label: Threshold
+    dtype: real
+    default: '1.0'
+-   id: knee
+    label: Knee
+    dtype: real
+    default: '0.0'
+
+inputs:
+-   domain: stream
+    dtype: complex
+
+outputs:
+-   domain: stream
+    dtype: complex
+
+file_format: 1

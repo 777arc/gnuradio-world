@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.4",
+    "@codemirror/lang-javascript": "^6.2.5",
     "@codemirror/lang-python": "^6.2.1",
     "@codemirror/language": "^6.12.4",
     "@codemirror/state": "^6.7.1",

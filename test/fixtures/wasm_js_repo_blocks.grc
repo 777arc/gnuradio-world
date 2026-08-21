@@ -1,0 +1,176 @@
+options:
+    parameters:
+        id: wasm_js_repo_blocks
+        generate_options: qt_gui
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+# The three repo JavaScript blocks (blocks/js/), whose sources the runner fetches
+# by id before any block is built -- none of these instances carries one inline.
+# See "How the source reaches the runner" in docs/js-blocks.md.
+#
+# Two of the three chains end in a probe whose value is arithmetic rather than
+# liveness: a constant 2+0j clipped to a threshold of 0.5 must read exactly 0.5,
+# and a constant -3.0 peak-held with Absolute on must read exactly 3.0. The third
+# chain only proves Phase Unwrap moves samples; its arithmetic is checked against
+# the shipped source directly in runner/test/js_runtime.test.mjs, where a wrapped
+# ramp can be fed in exactly.
+blocks:
+-   name: clip_source
+    id: analog_sig_source_x
+    parameters:
+        amplitude: '2'
+        frequency: '0'
+        offset: '0'
+        phase: '0'
+        samp_rate: '32000'
+        type: complex
+        waveform: analog.GR_CONST_WAVE
+    states:
+        coordinate: [80, 100]
+        rotation: 0
+        state: enabled
+-   name: clip_throttle
+    id: blocks_throttle2
+    parameters:
+        limit: time
+        maximum: '0.1'
+        samples_per_second: '32000'
+        type: complex
+    states:
+        coordinate: [300, 108]
+        rotation: 0
+        state: enabled
+-   name: clip
+    id: js_clip_cc
+    parameters:
+        threshold: '0.5'
+        knee: '0'
+    states:
+        coordinate: [520, 108]
+        rotation: 0
+        state: enabled
+-   name: clip_mag
+    id: blocks_complex_to_mag
+    parameters:
+        vlen: '1'
+    states:
+        coordinate: [720, 108]
+        rotation: 0
+        state: enabled
+-   name: probe_clip
+    id: blocks_probe_signal_x
+    parameters:
+        type: float
+    states:
+        coordinate: [920, 116]
+        rotation: 0
+        state: enabled
+-   name: peak_source
+    id: analog_sig_source_x
+    parameters:
+        amplitude: '-3'
+        frequency: '0'
+        offset: '0'
+        phase: '0'
+        samp_rate: '32000'
+        type: float
+        waveform: analog.GR_CONST_WAVE
+    states:
+        coordinate: [80, 260]
+        rotation: 0
+        state: enabled
+-   name: peak_throttle
+    id: blocks_throttle2
+    parameters:
+        limit: time
+        maximum: '0.1'
+        samples_per_second: '32000'
+        type: float
+    states:
+        coordinate: [300, 268]
+        rotation: 0
+        state: enabled
+-   name: peak_hold
+    id: js_peak_hold_ff
+    parameters:
+        absolute: '1'
+    states:
+        coordinate: [520, 268]
+        rotation: 0
+        state: enabled
+-   name: probe_peak
+    id: blocks_probe_signal_x
+    parameters:
+        type: float
+    states:
+        coordinate: [720, 276]
+        rotation: 0
+        state: enabled
+-   name: phase_source
+    id: analog_sig_source_x
+    parameters:
+        amplitude: '1'
+        frequency: '1000'
+        offset: '0'
+        phase: '0'
+        samp_rate: '32000'
+        type: complex
+        waveform: analog.GR_COS_WAVE
+    states:
+        coordinate: [80, 420]
+        rotation: 0
+        state: enabled
+-   name: phase_throttle
+    id: blocks_throttle2
+    parameters:
+        limit: time
+        maximum: '0.1'
+        samples_per_second: '32000'
+        type: complex
+    states:
+        coordinate: [300, 428]
+        rotation: 0
+        state: enabled
+-   name: to_arg
+    id: blocks_complex_to_arg
+    parameters:
+        vlen: '1'
+    states:
+        coordinate: [520, 428]
+        rotation: 0
+        state: enabled
+-   name: unwrap
+    id: js_phase_unwrap_ff
+    parameters: {}
+    states:
+        coordinate: [720, 428]
+        rotation: 0
+        state: enabled
+-   name: unwrap_sink
+    id: blocks_null_sink
+    parameters:
+        type: float
+        vlen: '1'
+        num_inputs: '1'
+        bus_structure_sink: '[[0,],]'
+    states:
+        coordinate: [920, 436]
+        rotation: 0
+        state: enabled
+connections:
+- [clip_source, '0', clip_throttle, '0']
+- [clip_throttle, '0', clip, '0']
+- [clip, '0', clip_mag, '0']
+- [clip_mag, '0', probe_clip, '0']
+- [peak_source, '0', peak_throttle, '0']
+- [peak_throttle, '0', peak_hold, '0']
+- [peak_hold, '0', probe_peak, '0']
+- [phase_source, '0', phase_throttle, '0']
+- [phase_throttle, '0', to_arg, '0']
+- [to_arg, '0', unwrap, '0']
+- [unwrap, '0', unwrap_sink, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.10.12.0

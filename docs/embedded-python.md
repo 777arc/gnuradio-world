@@ -15,6 +15,12 @@ Upstream this block has no `.block.yml`: it is a GRC built-in
 gives it a palette entry, the default source, and one hidden parameter; everything
 else is derived.
 
+There is a second escape hatch beside this one: the **JavaScript Block**
+([docs/js-blocks.md](js-blocks.md)), whose `work()` runs on the block's own GNU
+Radio scheduler thread against GNU Radio's own buffers — no worker, no copy, no
+runtime to fetch. Every mechanism on this page exists to work around a constraint
+JavaScript does not have, so the two are worth reading against each other.
+
 ## Why it is shaped like this
 
 Three constraints, and every design decision below follows from one of them.

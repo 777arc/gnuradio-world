@@ -160,6 +160,18 @@ const CASES = [
     expectLogs: ['ber_sink_b -', 'BER Limit Reached'] },
   { name: 'CVSD vocoder and ATSC RX filter (deferred vocoder/dtv modules)',
     grc: 'test/fixtures/wasm_hier_vocoder_dtv.grc' },
+  // The JavaScript Block is a case here, not an exemption. Unlike the Embedded
+  // Python Block there is no optional runtime to skip over -- the harness is in
+  // runner.js itself -- so the deploy gate covers it. `expectLogs` is what makes
+  // the first case meaningful: a constant 1.0 through a decimation-2 JS block
+  // scaling by 4 must print exactly 4.000, which only happens if the flowgraph's
+  // parameter arrived as a number and the input view was 2 * nout items long.
+  // Both cases' probe *values* are checked by test/test_js_block.mjs.
+  { name: 'JavaScript Block (inline source: work(), generalWork(), live parameter)',
+    grc: 'test/fixtures/wasm_js_block.grc',
+    expectLogs: ['js_scale: first output 4.000'] },
+  { name: 'repo JavaScript blocks (blocks/js/, fetched by id)',
+    grc: 'test/fixtures/wasm_js_repo_blocks.grc' },
   { name: 'gr-satellites hier rebuilds', grc: 'test/fixtures/wasm_satellites_hier.grc' },
   { name: 'gr-satellites AX.25 framer/deframer loopback',
     grc: 'test/fixtures/wasm_satellites_ax25_loopback.grc' },

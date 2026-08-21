@@ -763,6 +763,87 @@ static void on_module_error(void* user) {
                       (err ? std::string(" — ") + err : std::string()));
 }
 
+// ---- the JavaScript Block's source fetch ------------------------------------
+// A JS block's factory reads its descriptor synchronously by evaluating the
+// source, so unlike the Python Block there is nothing to instantiate ahead of
+// time and nothing to await -- but a *repo* JS block's source is a file, and a
+// constructor cannot fetch one. So the whole flowgraph waits once, here, for a
+// few kilobytes of text.
+//
+// The one rule, which is also what makes a shared link work before a pull
+// request merges: use the inline source when a block instance carries one,
+// otherwise fetch by id.
+static std::string g_js_pending_flowgraph;
+
+static nlohmann::json js_sources_needed(const nlohmann::json& lowered) {
+    std::set<std::string> wanted;
+    for (const auto& b : lowered["blocks"]) {
+        const std::string id = b.value("id", std::string());
+        const auto entry = block_js_map().find(id);
+        if (entry == block_js_map().end()) continue;
+        const auto params = b.value("params", nlohmann::json::object());
+        if (!params.value("_js_source", std::string()).empty()) continue;
+        if (!params.value("_source_code", std::string()).empty()) continue;
+        wanted.insert(id);
+    }
+    nlohmann::json request = nlohmann::json::array();
+    for (const auto& id : wanted)
+        request.push_back({ { "id", id }, { "file", block_js_map().at(id) } });
+    return request;
+}
+
+static void prepare_python_then_run(const std::string& fgs);
+
+static void fetch_js_sources_then_prepare(const std::string& fgs) {
+    nlohmann::json request;
+    try {
+        request = js_sources_needed(nlohmann::json::parse(fgs));
+    } catch (const std::exception& e) {
+        report(false, std::string("JS Block error: ") + e.what());
+        return;
+    }
+    if (request.empty()) {
+        prepare_python_then_run(fgs);
+        return;
+    }
+    g_js_pending_flowgraph = fgs;
+    const std::string text = request.dump();
+    // Same bridge shape as the Pyodide prepare step below: runner.html holds the
+    // fetching, an EM_ASM body is the only thing that can see the module's
+    // exports. NOTE the EM_ASM comma caveat -- the bridge is built field by field.
+    EM_ASM({
+        var bridge = {};
+        bridge.finish = function(ok, payload) {
+            var pointer = payload ? stringToNewUTF8(payload) : 0;
+            _gr_finish_js_sources(ok ? 1 : 0, pointer);
+            if (pointer) _free(pointer);
+        };
+        window.__grJsBridge = bridge;
+        window.__grLoadJsBlockSources(UTF8ToString($0));
+    }, text.c_str());
+}
+
+// Called back from runner.html with {block id: source} once every repo JS block
+// the flowgraph uses has been fetched (or with the reason it could not be).
+extern "C" EMSCRIPTEN_KEEPALIVE void gr_finish_js_sources(int ok, const char* payload) {
+    const std::string fgs = std::move(g_js_pending_flowgraph);
+    g_js_pending_flowgraph.clear();
+    if (!ok) {
+        report(false, payload && *payload ? payload
+                                          : "JS Block: its source could not be fetched");
+        return;
+    }
+    try {
+        const auto sources = nlohmann::json::parse(payload ? payload : "{}");
+        for (const auto& item : sources.items())
+            set_js_block_source(item.key(), item.value().get<std::string>());
+    } catch (const std::exception& e) {
+        report(false, std::string("JS Block: unreadable source payload: ") + e.what());
+        return;
+    }
+    prepare_python_then_run(fgs);
+}
+
 // ---- the Embedded Python Block's prepare step ------------------------------
 // A Python Block's io signature, history and output multiple come from its own
 // Python object -- and are needed *before* the C++ block is constructed, because
@@ -853,7 +934,7 @@ static void load_next(LoadCtx* ctx) {
     if (ctx->idx >= ctx->mods.size()) {
         const std::string fgs = std::move(ctx->fgs);
         delete ctx;
-        prepare_python_then_run(fgs);
+        fetch_js_sources_then_prepare(fgs);   // ... then the Python prepare step
         return;
     }
     const std::string& m = ctx->mods[ctx->idx];

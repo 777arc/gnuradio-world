@@ -95452,6 +95452,158 @@
    "outputs": []
   },
   {
+   "id": "js_clip_cc",
+   "label": "Complex Soft Clipper",
+   "category": [
+    "Core",
+    "Level Controllers"
+   ],
+   "flags": [
+    "js"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "gui": false,
+   "module": "core",
+   "documentation": "Limits the magnitude of a complex stream while leaving its phase alone.\n\nHard-limiting I and Q separately -- which is what a pair of Clip blocks would\ndo -- rotates the constellation as it clips, because the two axes saturate at\ndifferent input levels. This scales the whole sample instead, so the\nmagnitude is limited and the phase comes through untouched. That is what an\namplifier's compression actually looks like, and what PAPR reduction wants.\n\nThreshold is the magnitude the output is limited to. Knee is how gently it\ngets there: 0 is a hard limiter, and 1 a tanh-shaped compression that begins\nat half the threshold and approaches it asymptotically. Both can be driven by\na QT GUI Range while the flowgraph runs.\n\nImplemented in JavaScript -- it has no Python implementation, so a flowgraph\nusing it will not run in desktop GNU Radio.",
+   "api_documentation": "",
+   "wiki_url": "https://wiki.gnuradio.org/index.php/Complex_Soft_Clipper",
+   "params": [
+    {
+     "id": "threshold",
+     "label": "Threshold",
+     "dtype": "real",
+     "default": "1.0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    },
+    {
+     "id": "knee",
+     "label": "Knee",
+     "dtype": "real",
+     "default": "0.0",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "complex",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "complex",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "js_peak_hold_ff",
+   "label": "Peak Hold (decimating)",
+   "category": [
+    "Core",
+    "Peak Detectors"
+   ],
+   "flags": [
+    "js"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "gui": false,
+   "module": "core",
+   "documentation": "Holds the largest of every 8 input samples and emits it, so the stream comes\nout at an eighth of the rate with its envelope intact.\n\nDecimating a float stream by dropping samples (Keep 1 in N) is exactly wrong\nfor anything measuring level: the sample that mattered is the one most likely\nto be thrown away. This keeps the peak of each group instead, which is what a\nlevel meter, a burst detector's front end, or a long Time Sink plot wants.\n\nAbsolute decides whether the peak is of the value or of its magnitude: leave\nit at 1 for a bipolar waveform, set it to 0 for a stream that is already a\nmagnitude and whose sign is meaningful.\n\nThe decimation is fixed at 8 rather than being a parameter, because GNU Radio\nsizes its buffers from it when the block is constructed.\n\nImplemented in JavaScript -- it has no Python implementation, so a flowgraph\nusing it will not run in desktop GNU Radio.",
+   "api_documentation": "",
+   "wiki_url": "https://wiki.gnuradio.org/index.php/Peak_Hold_(decimating)",
+   "params": [
+    {
+     "id": "absolute",
+     "label": "Absolute Value",
+     "dtype": "int",
+     "default": "1",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "none"
+    }
+   ],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
+   "id": "js_phase_unwrap_ff",
+   "label": "Phase Unwrap",
+   "category": [
+    "Core",
+    "Math Operators"
+   ],
+   "flags": [
+    "js"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "gui": false,
+   "module": "core",
+   "documentation": "Removes the 2*pi discontinuities from a wrapped phase stream.\n\nComplex to Arg gives an angle in (-pi, pi], so a signal whose phase advances\nsteadily comes out as a sawtooth. Anything that wants the trend rather than\nthe wrapped value -- an instantaneous-frequency estimate, a phase-drift plot,\na cycle-slip count -- has to undo that first.\n\nA step of more than half a turn between adjacent samples is treated as a\nwrap, which is the rule numpy.unwrap uses. The accumulated offset carries\nacross work() calls, so the output stays continuous for as long as the\nflowgraph runs.\n\nImplemented in JavaScript -- it has no Python implementation, so a flowgraph\nusing it will not run in desktop GNU Radio.",
+   "api_documentation": "",
+   "wiki_url": "https://wiki.gnuradio.org/index.php/Phase_Unwrap",
+   "params": [],
+   "inputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ],
+   "outputs": [
+    {
+     "id": "",
+     "label": "",
+     "domain": "stream",
+     "dtype": "float",
+     "multiplicity": "1",
+     "optional": false
+    }
+   ]
+  },
+  {
    "id": "wasm_gr_world_recording",
    "label": "GR World Recording",
    "category": [
@@ -95885,6 +96037,61 @@
      "optional": false
     }
    ]
+  },
+  {
+   "id": "wasm_js_block",
+   "label": "JS Block",
+   "category": [
+    "Core",
+    "Misc"
+   ],
+   "flags": [
+    "cpp"
+   ],
+   "runnable": true,
+   "unavailable_reason": null,
+   "gui": false,
+   "module": "core",
+   "documentation": "A block whose work() is JavaScript, written in the Properties dialog or in\nthe popup code editor (double-click the block).\n\nThe code runs on this block's own GNU Radio scheduler thread -- which in the\nbrowser is a Web Worker that has already loaded the runner -- and reads and\nwrites GNU Radio's circular buffers directly, as typed-array views over the\nshared WebAssembly memory. Nothing is copied and nothing is proxied, so a JS\nblock costs well under 100 ns per work() call beyond what the block itself\ndoes.\n\nThe source calls gr.export() exactly once, with a descriptor:\n\n    gr.export({\n      label:   'JS Gain',\n      inputs:  ['complex'],\n      outputs: ['complex'],\n      params:  { gain: 1.0 },\n      work(nout, input, output) {\n        const x = input[0], y = output[0], g = this.gain;\n        for (let i = 0; i < nout * 2; i++) y[i] = x[i] * g;\n        return nout;\n      },\n    });\n\nPorts are 'complex', 'float', 'int', 'short' or 'byte' (or { dtype, vlen }).\nA complex or float port is a Float32Array -- complex interleaved, so 2 * n\nfloats for n items -- int an Int32Array, short an Int16Array, byte an\nInt8Array. Parameters arrive on `this` under their own names, and every\nnumeric one can be driven by a QT GUI Range while the flowgraph runs.\n\nAlso optional: `decimation` / `interpolation`, `history`, `outputMultiple`,\n`relativeRate`, `forecast()`, `start()`, `stop()`, `doc`, and `generalWork(\nnout, nin, input, output)` in place of `work` for a general block, which gets\na synchronous `this.consume(port, n)`.\n\nTwo things to know. The source is evaluated twice -- once to read its\ndescriptor and once on the block's own thread to build the instance -- so\nper-instance state belongs in start() or on `this`, never at the top level.\nAnd the views handed to work() are re-derived on every call: keeping one on\n`this` and using it later reads the wrong memory, silently.\n\nStream tags and message ports are not available yet.\n\nThis block exists only in the WebAssembly runner -- it has no Python\nimplementation, so a flowgraph using it will not run in desktop GNU Radio.",
+   "api_documentation": "",
+   "wiki_url": "https://wiki.gnuradio.org/index.php/JS_Block",
+   "params": [
+    {
+     "id": "_source_code",
+     "label": "Code",
+     "dtype": "_multiline_javascript_external",
+     "default": "// A JavaScript Block. The source calls gr.export() exactly once, with a\n// descriptor: everything about the block -- its label, its ports, its\n// parameters and its work() -- comes from that one object.\n//\n// input[0] / output[0] are zero-copy views on GNU Radio's own buffers, derived\n// fresh for every call. Never stash one on `this`.\n// A 'complex' port is a Float32Array of interleaved I/Q, so it has 2 * n floats.\ngr.export({\n  label: 'JS Block',\n  inputs: ['complex'],\n  outputs: ['complex'],\n  params: { gain: 1.0 },        // numeric parameters get live setters\n\n  // Optional. Runs once on this block's own scheduler thread, before the first\n  // work(). Per-instance state belongs here or on `this` -- never at the top\n  // level of this file, which is evaluated once per thread.\n  start() {\n    this.count = 0;\n  },\n\n  work(nout, input, output) {\n    const x = input[0], y = output[0], g = this.gain;\n    for (let i = 0; i < nout * 2; i++) y[i] = x[i] * g;\n    this.count += nout;\n    return nout;                // items produced\n  },\n});\n",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "part"
+    },
+    {
+     "id": "_js_io",
+     "label": "JS Interface",
+     "dtype": "string",
+     "default": "{\"decim\":1,\"doc\":\"\",\"general\":false,\"hasStart\":true,\"hasStop\":false,\"history\":1,\"inputs\":[{\"dtype\":\"complex\",\"vlen\":1}],\"interp\":1,\"label\":\"JS Block\",\"numericParams\":[\"gain\"],\"outputMultiple\":0,\"outputs\":[{\"dtype\":\"complex\",\"vlen\":1}],\"overridesForecast\":false,\"params\":[[\"gain\",1]],\"relativeRate\":1}",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "all"
+    },
+    {
+     "id": "_js_source",
+     "label": "JS Source",
+     "dtype": "string",
+     "default": "",
+     "category": "General",
+     "options": null,
+     "option_labels": null,
+     "option_attributes": null,
+     "hide": "all"
+    }
+   ],
+   "inputs": [],
+   "outputs": []
   },
   {
    "id": "wasm_packet_rate_sink",

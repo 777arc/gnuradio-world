@@ -1,4 +1,5 @@
-// CodeMirror for the Embedded Python Block's Code field.
+// CodeMirror for a Code field — the Embedded Python Block's, and the JavaScript
+// Block's.
 //
 // The field stays a <textarea>: it is what the Properties dialog builds, what
 // holds the value, and what everything downstream (`tmp.params`, the validation
@@ -7,15 +8,17 @@
 // offered and CodeMirror 6 dropped. Two things fall out of it that are worth the
 // mirroring:
 //
-//   * CodeMirror is loaded on demand. It is a few hundred kB, the Code field is
+//   * CodeMirror is loaded on demand. It is a few hundred kB, a Code field is
 //     the only place in the editor that wants one, and until the chunk arrives —
-//     or if it never does — the textarea is a working Python editor rather than
-//     an empty box. Nothing is fetched by a session that never opens a Python
-//     Block.
+//     or if it never does — the textarea is a working editor rather than an empty
+//     box. Nothing is fetched by a session that never opens a Python or JS Block.
 //   * Nothing in main.ts has to know CodeMirror exists.
 //
 // Everything here is dynamically imported for that reason; keep it that way, and
 // keep this module out of any import chain main.ts evaluates eagerly.
+
+/** Which language mode to mount. The field's dtype chooses it, not this module. */
+export type CodeLanguage = 'python' | 'javascript';
 
 /** A mounted editor. `destroy()` puts the plain textarea back. */
 export interface CodeEditorHandle {
@@ -50,6 +53,7 @@ const COLORS = {
  */
 export async function mountCodeEditor(
   area: HTMLTextAreaElement,
+  language: CodeLanguage = 'python',
 ): Promise<CodeEditorHandle | null> {
   let modules;
   try {
@@ -59,7 +63,10 @@ export async function mountCodeEditor(
       import('@codemirror/state'),
       import('@codemirror/language'),
       import('@codemirror/commands'),
-      import('@codemirror/lang-python'),
+      // Both modes are separate chunks; only the one the field asked for is
+      // fetched, so a session that never opens a JS Block never pays for it.
+      language === 'javascript' ? import('@codemirror/lang-javascript')
+                                : import('@codemirror/lang-python'),
       import('@lezer/highlight'),
     ]);
   } catch {
@@ -74,9 +81,14 @@ export async function mountCodeEditor(
     { EditorState },
     { HighlightStyle, indentUnit, syntaxHighlighting },
     { indentWithTab },
-    { python },
+    languageModule,
     { tags },
-  ] = modules;
+  ] = modules as any[];
+  const languageSupport = language === 'javascript'
+    ? languageModule.javascript() : languageModule.python();
+  // Four spaces for Python, as PEP 8 and every GRC Python Block template use;
+  // two for JavaScript, which is what the shipped JS blocks are written in.
+  const indent = language === 'javascript' ? '  ' : '    ';
 
   const theme = EditorView.theme({
     // No height here: the box is sized by .code-cm in editor.css, and CodeMirror
@@ -155,15 +167,14 @@ export async function mountCodeEditor(
       doc: area.value,
       extensions: [
         basicSetup,
-        python(),
-        // Four spaces, as PEP 8 and every GRC Python Block template use. Tab
-        // indents rather than leaving the field, which is what the textarea it
-        // replaces did; Escape first, then Tab, still moves focus on.
-        indentUnit.of('    '),
+        languageSupport,
+        // Tab indents rather than leaving the field, which is what the textarea
+        // it replaces did; Escape first, then Tab, still moves focus on.
+        indentUnit.of(indent),
         keymap.of([indentWithTab]),
         theme,
         syntaxHighlighting(highlight),
-        EditorView.updateListener.of(update => { if (update.docChanged) push(); }),
+        EditorView.updateListener.of((update: any) => { if (update.docChanged) push(); }),
         // CodeMirror owns the editor element's class attribute and rewrites it
         // whenever the theme changes, so the hook editor.css styles the box
         // through has to be declared as an extension rather than added by hand.

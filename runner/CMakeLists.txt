@@ -111,7 +111,8 @@ qt_add_executable(runner
   ${BLOCKS}/overlays/gr-paint/paint_image_source.cpp
   ${BLOCKS}/overlays/gr-fosphor/fosphor_webgpu_sink.cpp
   src/generated_registry.cpp
-  src/generated_modules.cpp)
+  src/generated_modules.cpp
+  src/generated_js_blocks.cpp)
 # Qt's WASM finalizer appends its own pool setting after ordinary link options.
 # Use the supported target property so its final setting is the tier selected by
 # runner.html before the modularized Emscripten runtime starts. Emscripten emits
@@ -166,7 +167,7 @@ target_link_options(runner PRIVATE
   # EXPORT_ALL covers functions but not Emscripten's special exception-handling
   # data globals, which category side modules import as GOT.mem entries. Export
   # them (and the registry shim) explicitly so side-module relocation resolves.
-  -sEXPORTED_FUNCTIONS=_main,_gr_run_json,_gr_apply_gui_layout,_gr_finish_worker_preload,_gr_finish_pyodide_prepare,_gr_fosphor_webgpu_frequency,_free,_malloc,_wasm_registry_add
+  -sEXPORTED_FUNCTIONS=_main,_gr_run_json,_gr_apply_gui_layout,_gr_finish_worker_preload,_gr_finish_pyodide_prepare,_gr_finish_js_sources,_gr_fosphor_webgpu_frequency,_free,_malloc,_wasm_registry_add
   # The remaining symbols side modules import from main (libc++abi/compiler-rt:
   # __cxa_pure_virtual, std type-info vtables, the thread_local exception globals,
   # …) are exported via the generated response file appended at the end of this
@@ -178,12 +179,22 @@ target_link_options(runner PRIVATE
   -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=268435456
   -sALLOW_TABLE_GROWTH=1
   -sNO_DISABLE_EXCEPTION_CATCHING
-  -sEXPORTED_RUNTIME_METHODS=ccall,cwrap,stringToNewUTF8,UTF8ToString,FS
+  # stringToUTF8 is the JS Block runtime's: it writes an error message into a
+  # fixed buffer C++ already owns rather than allocating one.
+  -sEXPORTED_RUNTIME_METHODS=ccall,cwrap,stringToNewUTF8,stringToUTF8,UTF8ToString,FS
+  # The JavaScript Block's runtime. --pre-js, not --post-js: it has to be in
+  # scope of the module factory, which every em-pthread worker re-enters, so a
+  # block's work() finds __grJs already defined in its own realm. See
+  # docs/js-blocks.md.
+  --pre-js ${CMAKE_CURRENT_SOURCE_DIR}/src/js_runtime.js
   # Diagnostics panel: injected into the page, survives Qt's html regeneration.
   --post-js ${CMAKE_CURRENT_SOURCE_DIR}/src/diag.js)
 
-# Rebuild the link step when the panel JS changes (--post-js isn't a tracked dep).
-set_property(TARGET runner APPEND PROPERTY LINK_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/diag.js)
+# Rebuild the link step when the injected JS changes (--pre-js/--post-js are not
+# tracked deps).
+set_property(TARGET runner APPEND PROPERTY LINK_DEPENDS
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/diag.js
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/js_runtime.js)
 
 # Optimized/release artifact: configure with -DCMAKE_BUILD_TYPE=Release to run the
 # link-time whole-program wasm-opt pass (the default link is -O0, which is why the
@@ -220,6 +231,12 @@ add_custom_command(TARGET runner POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
           ${CMAKE_CURRENT_SOURCE_DIR}/src/fosphor_webgpu.js
           ${CMAKE_CURRENT_BINARY_DIR}/fosphor_webgpu.js
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/js_runtime.js
+          ${CMAKE_CURRENT_BINARY_DIR}/js_runtime.js
+  COMMAND ${CMAKE_COMMAND} -E copy_directory
+          ${WORLD}/blocks/js
+          ${CMAKE_CURRENT_BINARY_DIR}/js
   COMMAND ${CMAKE_COMMAND} -E copy_directory
           ${CMAKE_CURRENT_SOURCE_DIR}/src/pyodide
           ${CMAKE_CURRENT_BINARY_DIR}/pyodide
@@ -259,6 +276,30 @@ foreach(shim ${PYODIDE_SHIM_FILES})
   set_property(TARGET runner APPEND PROPERTY LINK_DEPENDS
     ${CMAKE_CURRENT_SOURCE_DIR}/src/pyodide/py/${shim})
 endforeach()
+# ---------------------------------------------------------------------------
+# Repo JavaScript blocks (blocks/js/), copied next to runner.html by the command
+# above. Fetched by id at run time rather than linked in, so a block's source never
+# enters the wasm and editing one is a file copy. (Adding one still relinks: its id
+# is in the generated generated_js_blocks.cpp, which is compiled in.)
+#
+# The manifest is generated here from what is actually in blocks/js. Nothing reads
+# it at run time -- runner.html fetches by name from block_js_map() -- so it is
+# informational only, and being a configure-time file(GLOB) it is stale until the
+# next re-configure. Keep that in mind before making anything depend on it.
+# ---------------------------------------------------------------------------
+file(GLOB JS_BLOCK_FILES RELATIVE ${WORLD}/blocks/js ${WORLD}/blocks/js/*.js)
+list(SORT JS_BLOCK_FILES)
+foreach(js ${JS_BLOCK_FILES})
+  set_property(TARGET runner APPEND PROPERTY LINK_DEPENDS ${WORLD}/blocks/js/${js})
+endforeach()
+if(JS_BLOCK_FILES)
+  string(REPLACE ";" "\",\n    \"" JS_BLOCK_JSON "${JS_BLOCK_FILES}")
+  file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/js/manifest.json
+       "{\n  \"files\": [\n    \"${JS_BLOCK_JSON}\"\n  ]\n}\n")
+else()
+  file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/js/manifest.json "{\n  \"files\": []\n}\n")
+endif()
+
 string(REPLACE ";" "\",\n    \"" PYODIDE_SHIM_JSON "${PYODIDE_SHIM_FILES}")
 # Into the build tree, not next to the sources: it is a build output, and the
 # copy_directory above leaves files the source tree does not have in place.

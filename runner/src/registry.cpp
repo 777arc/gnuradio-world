@@ -17,6 +17,7 @@
 #include "fft_hier.hpp"
 #include "filter_hier.hpp"
 #include "python_block.hpp"
+#include "js_block.hpp"
 #include "qtgui_controls.hpp"
 #include "qtgui_sinks.hpp"
 #include "text_sink.hpp"
@@ -133,6 +134,7 @@
 #include <memory>
 #include <mutex>
 #include <random>
+#include <set>
 #include <stdexcept>
 #include <vector>
 
@@ -1921,7 +1923,143 @@ static BuiltBlock make_python_block(const json& p)
     return result;
 }
 
+// ---- the JavaScript Block --------------------------------------------------
+// Nothing to prepare and nothing to await: the descriptor is read here, on the
+// browser main thread, by evaluating the source synchronously. That is the whole
+// difference from make_python_block() above, and it is why there is no prepare
+// step in runner.cpp for this block.
+//
+// The instance the scheduler will actually call is built later, on the block's
+// own thread, by evaluating the same source a second time -- a JS object cannot
+// cross a worker boundary. See blocks/src/js_block.hpp.
+
+// Repo JS blocks (blocks/js/<id>.js), fetched by runner.html before any block is
+// built and copied in here. An instance carrying its own source never consults
+// this map; see js_block_source() below for the one rule that decides.
+static std::map<std::string, std::string>& js_block_sources()
+{
+    static std::map<std::string, std::string> sources;
+    return sources;
+}
+
+static int js_itemsize(const std::string& dtype, int vlen)
+{
+    int width = 0;
+    if (dtype == "complex") width = 8;
+    else if (dtype == "float" || dtype == "int") width = 4;
+    else if (dtype == "short") width = 2;
+    else if (dtype == "byte") width = 1;
+    else throw std::runtime_error("unsupported JS port type: " + dtype);
+    return width * std::max(1, vlen);
+}
+
+// One rule covers the inline block, a block installed from the browser-local
+// library, and a merged repo block: **use the inline source when the instance
+// carries one, otherwise fetch by id.**
+static std::string js_block_source(const std::string& block_id, const json& p)
+{
+    for (const char* key : { "_js_source", "_source_code" }) {
+        const std::string text = p.value(key, std::string());
+        if (!text.empty()) return text;
+    }
+    auto it = js_block_sources().find(block_id);
+    if (it != js_block_sources().end() && !it->second.empty()) return it->second;
+    throw std::runtime_error("JS Block '" + block_id + "': no source — the block's "
+                             "JavaScript was neither carried by the flowgraph nor "
+                             "found in blocks/js/");
+}
+
+static BuiltBlock make_js_block(const std::string& block_id, const json& p)
+{
+    const std::string source = js_block_source(block_id, p);
+
+    // Evaluate the source and read its descriptor. Plain EM_ASM: this runs on the
+    // browser main thread, which is where the factory always is, so nothing is
+    // proxied and nothing is lost by not proxying.
+    std::vector<char> error(grworld::kJsErrorBytes, '\0');
+    char* raw = reinterpret_cast<char*>(EM_ASM_PTR({
+        return __grJs.describe($0, $1, $2);
+    }, source.c_str(), error.data(), grworld::kJsErrorBytes));
+    if (!raw) {
+        error[grworld::kJsErrorBytes - 1] = '\0';
+        const std::string message(error.data());
+        throw std::runtime_error("JS Block '" + p.value("__name", block_id) + "': " +
+                                 (message.empty() ? "its source could not be read" : message));
+    }
+    const std::string text(raw);
+    std::free(raw);
+    const json info = json::parse(text);
+
+    grworld::JsBlockConfig config;
+    config.name = p.value("__name", block_id);
+    config.label = info.value("label", std::string("JS Block"));
+    config.source = source;
+    for (const auto& port : info.value("inputs", json::array()))
+        config.in_itemsizes.push_back(
+            js_itemsize(port.value("dtype", std::string()), port.value("vlen", 1)));
+    for (const auto& port : info.value("outputs", json::array()))
+        config.out_itemsizes.push_back(
+            js_itemsize(port.value("dtype", std::string()), port.value("vlen", 1)));
+    config.decim = std::max(1, info.value("decim", 1));
+    config.interp = std::max(1, info.value("interp", 1));
+    config.history = std::max(1, info.value("history", 1));
+    config.output_multiple = info.value("outputMultiple", 0);
+    config.relative_rate = info.value("relativeRate", 1.0);
+    config.general = info.value("general", false);
+    config.overrides_forecast = info.value("overridesForecast", false);
+
+    // The flowgraph's values for this instance's parameters, as JSON for the JS
+    // side to spread onto `this`. GRC parameters arrive as JSON numbers *or* as
+    // strings depending on the path, so a parameter the descriptor declared
+    // numeric is read with number_from() and carried across as a real number --
+    // otherwise `this.gain * x` would silently concatenate.
+    std::vector<std::string> numeric;
+    for (const auto& name : info.value("numericParams", json::array()))
+        numeric.push_back(name.get<std::string>());
+    const std::set<std::string> numeric_set(numeric.begin(), numeric.end());
+    json values = json::object();
+    for (const auto& entry : info.value("params", json::array())) {
+        if (!entry.is_array() || entry.empty()) continue;
+        const std::string name = entry[0].get<std::string>();
+        if (!p.contains(name)) continue;
+        if (numeric_set.count(name)) values[name] = number_from(p, name, 0.0);
+        else values[name] = p.at(name);
+    }
+    config.params_json = values.dump();
+    config.numeric_params = numeric;
+
+    auto block = grworld::JsBlockWasm::make(config);
+    BuiltBlock result{ block };
+    // Every numeric parameter becomes a live setter, so a QT GUI Range drives a JS
+    // block exactly as it drives a C++ one. Without an entry here the slider would
+    // still move and still publish, and the block would silently keep its
+    // construction-time value.
+    for (int i = 0; i < static_cast<int>(numeric.size()) && i < grworld::kJsMaxPorts; ++i)
+        result.numeric_setters[numeric[i]] = [block, i](double value) {
+            block->set_param_value(i, value);
+        };
+    return result;
+}
+
 } // namespace
+
+// Repo JS block sources, handed over by runner.cpp once runner.html has fetched
+// them -- before any block is built, because a factory cannot await anything. See
+// "How the source reaches the runner" in docs/js-blocks.md.
+void set_js_block_source(const std::string& block_id, const std::string& source)
+{
+    js_block_sources()[block_id] = source;
+}
+
+// Every repo JS block registers here rather than by hand in the table above: the
+// factory is generic and the block id is the only thing that differs. Called from
+// generated_js_blocks.cpp.
+void register_js_block(std::map<std::string, Factory>& registry, const std::string& block_id)
+{
+    registry[block_id] = [block_id](const nlohmann::json& p) -> BuiltBlock {
+        return make_js_block(block_id, p);
+    };
+}
 
 static std::map<std::string, Factory>& registry_storage() {
     static std::map<std::string, Factory> reg = [] {
@@ -3288,6 +3426,14 @@ static std::map<std::string, Factory>& registry_storage() {
         {"epy_block", [](const json& p) -> BuiltBlock {
              return make_python_block(p);
          }},
+        // ---- arbitrary JavaScript ----
+        // The user's own work(), running on this block's own scheduler thread
+        // against GNU Radio's buffers. See make_js_block above and
+        // blocks/src/js_block.hpp. Repo JS blocks (flags: [js]) bind to the same
+        // factory through generated_js_blocks.cpp, keyed by their own block id.
+        {"wasm_js_block", [](const json& p) -> BuiltBlock {
+             return make_js_block("wasm_js_block", p);
+         }},
         // Runner-only: a byte stream printed as text in the console pane. The
         // browser's stand-in for the File Sink an upstream flowgraph ends a
         // text decode with; see blocks/src/text_sink.hpp.
@@ -3826,6 +3972,10 @@ static std::map<std::string, Factory>& registry_storage() {
       // Custom factories intentionally win over generated direct-make factories.
       for (const auto& [id, factory] : custom)
           reg[id] = factory;
+      // Repo JS blocks (blocks/js/<id>.js, flags: [js]) last: they are a third
+      // category beside "generated C++" and "custom", registered from a generated
+      // table because the factory is generic and only the block id differs.
+      register_generated_js_blocks(reg);
       return reg;
     }();
     return reg;

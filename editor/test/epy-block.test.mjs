@@ -156,8 +156,17 @@ assert.equal(dumpGrc(reparsed), text, 'dump -> parse -> dump must be a fixed poi
 // Every consumer that reads a definition *for an instance* must go through
 // defFor(), or a Python Block gets the generic schema and loses its own
 // parameters and ports.
-assert.match(source, /function defFor\(inst: Inst\): RunnableDef \{[\s\S]*?epyDefForCache\(base, inst\.params\[EPY_IO_CACHE_PARAM\]\)/,
-  'defFor must synthesize a Python Block definition from its cached interface');
+//
+// defFor() is one branch for every block whose interface is derived rather than
+// declared -- the Python Block and the JavaScript Block both register into the
+// DERIVED map -- so this is written against the map rather than against a branch
+// per block. editor/test/js-block.test.mjs asserts the JS half of the same thing.
+assert.match(source,
+  /const DERIVED = new Map<[\s\S]{0,120}?\[EPY_BLOCK_ID, \(base, inst\) => epyDefForCache\(base, inst\.params\[EPY_IO_CACHE_PARAM\]\)\]/,
+  'the Python Block must register its per-instance definition in DERIVED');
+assert.match(source,
+  /function defFor\(inst: Inst\): RunnableDef \{[\s\S]{0,200}?DERIVED\.get\(inst\.id\)/,
+  'defFor must synthesize a definition from that map, not from a branch per block');
 for (const fn of ['resolvedPorts', 'legacyPortCount', 'portType', 'portLabel', 'geom',
                   'resolveParamsForRun']) {
   const body = new RegExp(`function ${fn}\\([^)]*\\)[^{]*\\{[\\s\\S]{0,200}?defFor\\(inst\\)`);
@@ -173,7 +182,7 @@ assert.match(source, /p\.dtype === EPY_CODE_DTYPE/,
   'the Code parameter must get the code field, not a plain text input');
 assert.match(source, /applyButton\.disabled = okButton\.disabled = code\.pending \|\| code\.busy/,
   'edited code must not be applicable until Python has re-read it');
-assert.match(source, /if \(p\.id === EPY_IO_CACHE_PARAM\) continue;/,
+assert.match(source, /if \(p\.id === EPY_IO_CACHE_PARAM \|\| p\.id === JS_IO_PARAM/,
   'the derived-interface cache must have no dialog field');
 assert.match(css, /textarea\.code-editor \{[^}]*monospace/,
   'the code field must be monospace');

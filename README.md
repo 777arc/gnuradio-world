@@ -63,6 +63,10 @@ _All flowgraphs use: `Null Source → Filter → Null Sink`._
 
 _Flowgraph: `Null Source → N × Multiply Const → Null Sink`._
 
+## JavaScript Blocks
+
+GNU Radio World is experimenting with the concept of JavaScript blocks, as a way to create a custom block entirely in the browser, without needing a wasm compile step or all the hacks involved in supporting Python blocks.  The hope is that combining JavaScript blocks with AI-assisted flowgraph editing, there is potential for AI (or humans) to create custom blocks on the fly, while keeping everything client-side only.  Once a JavaScript block and flowgraph are proven out, the custom JavaScript blocks can be converted to C++ and turned into a traditional OOT. See [this page](docs/js-blocks.md) for more info on JavaScript blocks.
+
 ## Developer Quickstart
 
 Everything below is the minimum needed on a fresh Ubuntu 24.04 or 26.04 install

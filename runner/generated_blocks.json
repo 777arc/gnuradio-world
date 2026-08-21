@@ -337,6 +337,9 @@
     "iir_filter_xxx",
     "interp_fir_filter_xxx",
     "ival_decimator",
+    "js_clip_cc",
+    "js_peak_hold_ff",
+    "js_phase_unwrap_ff",
     "logpwrfft_x",
     "low_pass_filter",
     "metop_cadu_deframer",
@@ -525,6 +528,7 @@
     "wasm_gui_layout",
     "wasm_hackrf_sink",
     "wasm_hackrf_source",
+    "wasm_js_block",
     "wasm_packet_rate_sink",
     "wasm_plutosdr_sink",
     "wasm_plutosdr_source",
@@ -881,5 +885,10 @@
     "noaa_hrpt_pll_cf": "hrpt",
     "viterbi_fengyun_decoder": "hrpt",
     "viterbi_metop_decoder": "hrpt"
+  },
+  "js_blocks": {
+    "js_clip_cc": "js_clip_cc.js",
+    "js_peak_hold_ff": "js_peak_hold_ff.js",
+    "js_phase_unwrap_ff": "js_phase_unwrap_ff.js"
   }
 }

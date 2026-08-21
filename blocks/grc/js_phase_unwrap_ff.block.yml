@@ -1,0 +1,31 @@
+# Implemented in JavaScript: blocks/js/js_phase_unwrap_ff.js. See docs/js-blocks.md.
+id: js_phase_unwrap_ff
+label: Phase Unwrap
+category: '[Core]/Math Operators'
+flags: [js]
+
+documentation: |-
+    Removes the 2*pi discontinuities from a wrapped phase stream.
+
+    Complex to Arg gives an angle in (-pi, pi], so a signal whose phase advances
+    steadily comes out as a sawtooth. Anything that wants the trend rather than
+    the wrapped value -- an instantaneous-frequency estimate, a phase-drift plot,
+    a cycle-slip count -- has to undo that first.
+
+    A step of more than half a turn between adjacent samples is treated as a
+    wrap, which is the rule numpy.unwrap uses. The accumulated offset carries
+    across work() calls, so the output stays continuous for as long as the
+    flowgraph runs.
+
+    Implemented in JavaScript -- it has no Python implementation, so a flowgraph
+    using it will not run in desktop GNU Radio.
+
+inputs:
+-   domain: stream
+    dtype: float
+
+outputs:
+-   domain: stream
+    dtype: float
+
+file_format: 1

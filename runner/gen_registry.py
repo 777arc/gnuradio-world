@@ -83,6 +83,10 @@ CUSTOM_IDS = {
     # its factory only files the grid spec for run_now() to lay out with, the way
     # variable_tag_object files a tag. See blocks/grc/wasm_gui_layout.block.yml.
     "wasm_gui_layout",
+    # The JavaScript Block. Its parameters and ports come from its own source,
+    # like the Python Block's, but the source is read synchronously by the factory
+    # -- so there is no prepare step and nothing to fetch. See docs/js-blocks.md.
+    "wasm_js_block",
     # Runner-only sinks, defined in blocks/grc (no upstream GNU Radio block).
     "wasm_packet_rate_sink",
     "wasm_text_sink",
@@ -1151,6 +1155,106 @@ def write_side_registrar(output_dir: Path, module: str, includes: set[str],
     )
 
 
+# ---- repo JavaScript blocks (docs/js-blocks.md) ----------------------------
+# A block whose implementation is a file in blocks/js/ rather than C++. Its
+# .block.yml carries `flags: [js]` and no `cpp`, so the generated-C++ path above
+# skips it for free; all that is left is binding its id to the one generic
+# factory and telling the runner which file to fetch.
+#
+# The point of fetching rather than baking the sources in as string literals: a
+# block's *source* then never enters the wasm, so editing one is a file copy. The
+# id still does -- the table below is compiled into the main module -- so adding a
+# block relinks. See "Adding a repo JS block" in docs/js-blocks.md.
+JS_BLOCK_DIR = WORLD / "blocks" / "js"
+JS_GRC_DIR = WORLD / "blocks" / "grc"
+
+
+def load_js_blocks() -> dict[str, str]:
+    """`flags: [js]` block ids -> the file under blocks/js/ that implements them."""
+    js_blocks: dict[str, str] = {}
+    for path in sorted(JS_GRC_DIR.glob("*.block.yml")):
+        try:
+            block = yaml.safe_load(path.read_text())
+        except Exception:
+            continue
+        if not isinstance(block, dict) or "id" not in block:
+            continue
+        flags = block.get("flags") or []
+        if isinstance(flags, str):
+            flags = flags.replace(",", " ").split()
+        if "js" not in [str(flag).strip() for flag in flags]:
+            continue
+        block_id = str(block["id"])
+        source = JS_BLOCK_DIR / f"{block_id}.js"
+        if not source.is_file():
+            raise SystemExit(
+                f"{path.name} declares flags: [js] but blocks/js/{block_id}.js does not exist")
+        # The yml is authoritative for a repo block, so a descriptor that also
+        # declares ports must agree with it -- otherwise the editor draws one
+        # thing and the runner builds another, and only the runner would notice.
+        check_js_ports_agree(block, source)
+        js_blocks[block_id] = f"{block_id}.js"
+    return js_blocks
+
+
+# GRC dtype -> the JS port dtype the runtime understands. Anything else in a yml
+# port makes the pair uncheckable, which is reported rather than assumed to agree.
+JS_PORT_DTYPES = {"complex", "float", "int", "short", "byte"}
+
+
+def check_js_ports_agree(block: dict[str, Any], source: Path) -> None:
+    """A descriptor's own port declaration is optional; when it is there, it has to
+    match the yml. Parsed textually -- this generator does not run JavaScript."""
+    text = source.read_text()
+    for side, key in (("inputs", "inputs"), ("outputs", "outputs")):
+        yml_ports = [p for p in (block.get(side) or [])
+                     if str(p.get("domain", "stream")) == "stream"]
+        match = re.search(rf"^\s*{key}\s*:\s*\[([^\]]*)\]", text, re.MULTILINE)
+        if not match:
+            continue
+        declared = re.findall(r"['\"](\w+)['\"]", match.group(1))
+        if not declared or any(d not in JS_PORT_DTYPES for d in declared):
+            continue
+        yml_dtypes = [str(p.get("dtype", "")) for p in yml_ports]
+        if any(d not in JS_PORT_DTYPES for d in yml_dtypes):
+            continue
+        if declared != yml_dtypes:
+            raise SystemExit(
+                f"{source.name}: gr.export() declares {side} {declared}, but "
+                f"{block['id']}.block.yml declares {yml_dtypes}. The yml is "
+                "authoritative for a repo block; make them agree.")
+
+
+def write_js_registrar(output_dir: Path, js_blocks: dict[str, str]) -> None:
+    """Baked into the main module: repo JS block id -> the file to fetch, and the
+    registration of each id against the generic factory in registry.cpp."""
+    entries = [f'        {{{json.dumps(bid)}, {json.dumps(path)}}},'
+               for bid, path in sorted(js_blocks.items())]
+    registrations = [f'    register_js_block(registry, {json.dumps(bid)});'
+                     for bid in sorted(js_blocks)]
+    source = [
+        CORE_HEADER,
+        '#include "registry.hpp"',
+        "#include <map>",
+        "#include <string>",
+        "",
+        "const std::map<std::string, std::string>& block_js_map()",
+        "{",
+        "    static const std::map<std::string, std::string> m = {",
+        *entries,
+        "    };",
+        "    return m;",
+        "}",
+        "",
+        "void register_generated_js_blocks(std::map<std::string, Factory>& registry)",
+        "{",
+        *(registrations or ["    (void)registry;"]),
+        "}",
+        "",
+    ]
+    write_if_changed(output_dir / "generated_js_blocks.cpp", "\n".join(source))
+
+
 def write_module_map(output_dir: Path, block_module: dict[str, str]) -> None:
     """Baked into the main module: block-id -> deferred module name, and the
     inter-module load order. Core blocks are absent (treated as already loaded)."""
@@ -1230,6 +1334,14 @@ def generate(output_dir: Path, manifest: Path) -> None:
 
     write_module_map(output_dir, block_module)
 
+    # Repo JS blocks: a third category beside "generated C++" and "custom". They
+    # are registered from a generated table rather than by hand in registry.cpp,
+    # so the CUSTOM_IDS assertion above does not see them -- but the palette does,
+    # and without a manifest entry every one of them greys out.
+    js_blocks = load_js_blocks()
+    write_js_registrar(output_dir, js_blocks)
+    supported.extend(js_blocks)
+
     manifest_content = json.dumps({
         "supported": sorted(set(supported)),
         "skipped": skipped,
@@ -1239,12 +1351,15 @@ def generate(output_dir: Path, manifest: Path) -> None:
         "deferred_modules": emitted_modules,
         "module_deps": MODULE_DEPS,
         "block_module": block_module,
+        # blocks/js/<id>.js, fetched at run time rather than linked in.
+        "js_blocks": js_blocks,
     }, indent=2) + "\n"
     write_if_changed(manifest, manifest_content)
 
     core_total = sum(counts.get(m, 0) for m in CORE_MODULES)
     deferred_summary = ", ".join(f"{m}={counts[m]}" for m in emitted_modules)
-    print(f"generated core={core_total} (+ {len(CUSTOM_IDS)} custom); "
+    print(f"generated core={core_total} (+ {len(CUSTOM_IDS)} custom, "
+          f"{len(js_blocks)} js); "
           f"deferred: {deferred_summary}; skipped {len(skipped)}")
 
 

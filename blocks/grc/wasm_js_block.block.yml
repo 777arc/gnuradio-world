@@ -1,0 +1,89 @@
+# The JavaScript Block.
+#
+# Like the Embedded Python Block, this block's parameters and ports are not a
+# property of its id: they come from its own source. What this file carries is
+# the palette entry, the default source, and the two hidden parameters that
+# travel with an instance -- the code itself and the interface derived from it.
+#
+# `inputs:`/`outputs:` are deliberately absent: a JS block's ports are whatever
+# its gr.export() descriptor declares. See docs/js-blocks.md.
+id: wasm_js_block
+label: JS Block
+category: '[Core]/Misc'
+flags: [cpp]
+
+documentation: |-
+    A block whose work() is JavaScript, written in the Properties dialog or in
+    the popup code editor (double-click the block).
+
+    The code runs on this block's own GNU Radio scheduler thread -- which in the
+    browser is a Web Worker that has already loaded the runner -- and reads and
+    writes GNU Radio's circular buffers directly, as typed-array views over the
+    shared WebAssembly memory. Nothing is copied and nothing is proxied, so a JS
+    block costs well under 100 ns per work() call beyond what the block itself
+    does.
+
+    The source calls gr.export() exactly once, with a descriptor:
+
+        gr.export({
+          label:   'JS Gain',
+          inputs:  ['complex'],
+          outputs: ['complex'],
+          params:  { gain: 1.0 },
+          work(nout, input, output) {
+            const x = input[0], y = output[0], g = this.gain;
+            for (let i = 0; i < nout * 2; i++) y[i] = x[i] * g;
+            return nout;
+          },
+        });
+
+    Ports are 'complex', 'float', 'int', 'short' or 'byte' (or { dtype, vlen }).
+    A complex or float port is a Float32Array -- complex interleaved, so 2 * n
+    floats for n items -- int an Int32Array, short an Int16Array, byte an
+    Int8Array. Parameters arrive on `this` under their own names, and every
+    numeric one can be driven by a QT GUI Range while the flowgraph runs.
+
+    Also optional: `decimation` / `interpolation`, `history`, `outputMultiple`,
+    `relativeRate`, `forecast()`, `start()`, `stop()`, `doc`, and `generalWork(
+    nout, nin, input, output)` in place of `work` for a general block, which gets
+    a synchronous `this.consume(port, n)`.
+
+    Two things to know. The source is evaluated twice -- once to read its
+    descriptor and once on the block's own thread to build the instance -- so
+    per-instance state belongs in start() or on `this`, never at the top level.
+    And the views handed to work() are re-derived on every call: keeping one on
+    `this` and using it later reads the wrong memory, silently.
+
+    Stream tags and message ports are not available yet.
+
+    This block exists only in the WebAssembly runner -- it has no Python
+    implementation, so a flowgraph using it will not run in desktop GNU Radio.
+
+parameters:
+-   id: _source_code
+    label: Code
+    dtype: _multiline_javascript_external
+    default: "// A JavaScript Block. The source calls gr.export() exactly once, with a\n// descriptor: everything about the block -- its label, its ports, its\n// parameters and its work() -- comes from that one object.\n//\n// input[0] / output[0] are zero-copy views on GNU Radio's own buffers, derived\n// fresh for every call. Never stash one on `this`.\n// A 'complex' port is a Float32Array of interleaved I/Q, so it has 2 * n floats.\ngr.export({\n  label: 'JS Block',\n  inputs: ['complex'],\n  outputs: ['complex'],\n  params: { gain: 1.0 },        // numeric parameters get live setters\n\n  // Optional. Runs once on this block's own scheduler thread, before the first\n  // work(). Per-instance state belongs here or on `this` -- never at the top\n  // level of this file, which is evaluated once per thread.\n  start() {\n    this.count = 0;\n  },\n\n  work(nout, input, output) {\n    const x = input[0], y = output[0], g = this.gain;\n    for (let i = 0; i < nout * 2; i++) y[i] = x[i] * g;\n    this.count += nout;\n    return nout;                // items produced\n  },\n});\n"
+    hide: part
+# The block's derived interface, cached so a flowgraph draws its ports without
+# evaluating anything -- opening a .grc never runs its JavaScript. The same role
+# the Python Block's `_io_cache` plays, and written the same way: JSON with
+# sorted keys, so re-deriving identical source leaves the file byte for byte
+# unchanged.
+#
+# Never shown and never edited by hand; see editor/src/js-block.ts.
+-   id: _js_io
+    label: JS Interface
+    dtype: string
+    default: '{"decim":1,"doc":"","general":false,"hasStart":true,"hasStop":false,"history":1,"inputs":[{"dtype":"complex","vlen":1}],"interp":1,"label":"JS Block","numericParams":["gain"],"outputMultiple":0,"outputs":[{"dtype":"complex","vlen":1}],"overridesForecast":false,"params":[["gain",1]],"relativeRate":1}'
+    hide: all
+# A JS block installed from the browser-local library inlines its source here so
+# a flowgraph shared as a link works for someone who does not have that library.
+# Empty for the inline block, whose source is `_source_code` above.
+-   id: _js_source
+    label: JS Source
+    dtype: string
+    default: ''
+    hide: all
+
+file_format: 1

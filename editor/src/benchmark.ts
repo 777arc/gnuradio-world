@@ -8,11 +8,13 @@
 // Source also keeps the samples at zero, the one input that can never drag a
 // float path into denormal territory.
 //
-// One row is not C++ at all: the same filter written as an Embedded Python
-// Block over scipy.signal.fftconvolve, which is what makes the C++ numbers
-// mean something in the direction people actually ask about. It needs the
-// Python runtime, so those cells report the fetch failing on a build without
-// pyodide/ (deps/fetch-pyodide.sh) rather than dragging the rest down.
+// Two rows are not C++ at all: the same filter written as an Embedded Python
+// Block over scipy.signal.fftconvolve, and again as a JavaScript Block, which is
+// what makes the C++ numbers mean something in the direction people actually ask
+// about. The Python one needs the Python runtime, so those cells report the fetch
+// failing on a build without pyodide/ (deps/fetch-pyodide.sh) rather than
+// dragging the rest down; the JavaScript one needs nothing at all, which is half
+// of what the comparison is about.
 //
 // The rate is end-to-end: samples the filter has produced divided by the time
 // the flowgraph has been running. Both numbers come from a single diagnostics
@@ -102,6 +104,58 @@ class blk(gr.sync_block):
         return n
 `;
 
+/**
+ * The JavaScript Block's row: the same FIR filter, convolved in JavaScript.
+ *
+ * The comparison with the row above it is the point. Both are the user's own
+ * work() in a scripting language; what differs is everything around it. The
+ * Python block hops to a Pyodide worker and back on every call and copies the
+ * input and the output between two WebAssembly memories, because two memories
+ * cannot alias. The JavaScript block's work() is a synchronous call on the
+ * block's own scheduler thread, reading and writing GNU Radio's buffers through
+ * typed-array views -- nothing copied, nothing proxied. So this row measures a
+ * plain time-domain convolution in a JIT against gr-fft's C++, with no runtime
+ * overhead worth the name in between.
+ *
+ * A direct convolution rather than an FFT one, deliberately: JavaScript has no
+ * FFT in the standard library, and shipping one here would measure that
+ * implementation rather than the block. It is O(ntaps) per sample, so at 10001
+ * taps this row is honestly, visibly slow -- which is itself the answer to "can
+ * I just write my filter in JavaScript?".
+ *
+ * `history: ntaps` is what gives work() the ntaps-1 samples of overlap the C++
+ * FIR filters get from their own history, exactly as set_history() does above.
+ */
+const JS_FIR_SOURCE = `gr.export({
+  label: 'JS FIR filter',
+  inputs: ['complex'],
+  outputs: ['complex'],
+  params: { ntaps: 101 },
+  history: NTAPS,
+  start() {
+    // Per-instance, in start(): this file is evaluated once per thread, so a
+    // top-level array would be shared and rebuilt in ways a block cannot see.
+    this.taps = new Float32Array(NTAPS).fill(1e-4);
+  },
+  work(nout, input, output) {
+    const x = input[0], y = output[0], taps = this.taps, n = taps.length;
+    for (let i = 0; i < nout; i++) {
+      let re = 0, im = 0;
+      // input[] carries history's overlap ahead of the current sample, so the
+      // window is [i, i + n) with no bounds check needed.
+      for (let k = 0; k < n; k++) {
+        const t = taps[k], base = (i + k) * 2;
+        re += x[base] * t;
+        im += x[base + 1] * t;
+      }
+      y[i * 2] = re;
+      y[i * 2 + 1] = im;
+    }
+    return nout;
+  },
+});
+`;
+
 // Every filter is complex in, complex out, real taps, decimation 1. Tap *values*
 // do not affect the cost of any of them, so they are short constants that keep
 // the URL small at 10001 taps.
@@ -129,6 +183,18 @@ const FILTERS: FilterCase[] = [
     // through, and it is a three-block chain, which MIN_RUN_SECONDS says is
     // within a few percent of its sustained rate well before a second.
     runSeconds: MIN_RUN_SECONDS / 2,
+  },
+  {
+    key: 'js',
+    label: 'Null Source -> JS Block (direct convolution) -> Null Sink',
+    id: 'wasm_js_block',
+    // `history` has to be a literal in the source: it is read from the
+    // descriptor on the main thread, before any parameter is applied, because GR
+    // sizes buffers from it at construction. Substituting it here is what lets
+    // one source serve all three tap counts.
+    params: taps => ({
+      _source_code: JSON.stringify(JS_FIR_SOURCE.replace(/NTAPS/g, String(taps))),
+    }),
   },
 ];
 

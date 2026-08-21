@@ -20,6 +20,17 @@ because they are pristine checkouts rather than anything of ours.
 | browser-only metadata for one module's blocks | `blocks/overlays/<module>/metadata.yml` |
 | a headers-only stand-in for a host-only dependency | `blocks/overlays/gr-<m>/shims/` |
 | C++ rebuilt from an **out-of-tree** module's Python-only block | `blocks/overlays/gr-<m>/` |
+| a block whose `work()` is **JavaScript** rather than C++ | `blocks/js/<id>.js`, with `flags: [js]` in its `blocks/grc/<id>.block.yml` — see [docs/js-blocks.md](js-blocks.md) |
+
+A JS block is the one entry above that needs no C++ at all: its id binds to one
+generic factory through a generated table, and its source is fetched at run time
+rather than compiled in, so editing a shipped block is a file copy. Adding one
+still relinks, because that generated table is. `gen_registry.py` skips the
+generated-C++ path for it for free, because that path is gated on
+`"cpp" in flags`. The yml stays authoritative — it
+is what gives the block its palette entry, its parameters and its ports, and the
+generator fails the build if the descriptor's own port declaration disagrees
+with it.
 
 `blocks/overlays/gnuradio/` is the one directory holding metadata alone. The
 GNU Radio submodule is not one module but fifteen, so there is no single module

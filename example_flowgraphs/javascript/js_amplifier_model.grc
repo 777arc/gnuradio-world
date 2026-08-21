@@ -1,0 +1,342 @@
+options:
+    parameters:
+        author: Claude
+        comment: ''
+        copyright: ''
+        description: Arbitrary DSP in JavaScript -- a power-amplifier model written as a JS Block, its distortion driven live by sliders, followed by the repository's Complex Soft Clipper
+        generate_options: qt_gui
+        id: JavaScript_Block___Amplifier_Model
+        title: JavaScript Block - Amplifier Model
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: am_pm
+    id: variable_qtgui_range
+    parameters:
+        comment: ''
+        label: AM/PM conversion
+        min_len: '240'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '0'
+        step: '0.05'
+        stop: '2'
+        value: '0'
+        widget: counter_slider
+    states:
+        coordinate: [580, 10]
+        rotation: 0
+        state: enabled
+-   name: clip_threshold
+    id: variable_qtgui_range
+    parameters:
+        comment: ''
+        label: Clipper threshold
+        min_len: '240'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '0.1'
+        step: '0.05'
+        stop: '2'
+        value: '2'
+        widget: counter_slider
+    states:
+        coordinate: [840, 10]
+        rotation: 0
+        state: enabled
+-   name: drive
+    id: variable_qtgui_range
+    parameters:
+        comment: ''
+        label: Amplifier drive
+        min_len: '240'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '0.1'
+        step: '0.1'
+        stop: '8'
+        value: '1'
+        widget: counter_slider
+    states:
+        coordinate: [1090, 10]
+        rotation: 0
+        state: enabled
+-   name: samp_rate
+    id: variable
+    parameters:
+        comment: ''
+        value: '200000'
+    states:
+        coordinate: [1340, 10]
+        rotation: 0
+        state: enabled
+-   name: amplifier
+    id: wasm_js_block
+    parameters:
+        _js_io: '{"decim":1,"doc":"AM/AM compression and AM/PM conversion, the way a real PA distorts.","general":false,"hasStart":false,"hasStop":false,"history":1,"inputs":[{"dtype":"complex","vlen":1}],"interp":1,"label":"Amplifier Model","numericParams":["drive","am_pm"],"outputMultiple":0,"outputs":[{"dtype":"complex","vlen":1}],"overridesForecast":false,"params":[["drive",1],["am_pm",0]],"relativeRate":1}'
+        _js_source: ''
+        _source_code: "// An amplifier, modelled in JavaScript.\n//\n// A real power amplifier does two things to a complex signal as it is driven\n// harder: it compresses the magnitude (AM/AM) and it shifts the phase in\n// proportion to the input power (AM/PM). Neither is a stock GNU Radio block, and\n// the two together are what turn a clean tone into the spectral regrowth you can\n// see on the Frequency Sink downstream.\n//\n// Both parameters are driven live by the sliders in this flowgraph: every numeric\n// parameter of a JS block gets a setter, so a QT GUI Range drives one exactly as\n// it drives a C++ block's.\n//\n// Double-click this block to open the code editor. The block's ports, parameters\n// and label all follow whatever you write, as you write it.\ngr.export({\n  label: 'Amplifier Model',\n  doc: 'AM/AM compression and AM/PM conversion, the way a real PA distorts.',\n  inputs: ['complex'],\n  outputs: ['complex'],\n  params: { drive: 1.0, am_pm: 0.0 },\n\n  work(nout, input, output) {\n    const x = input[0], y = output[0];\n    const drive = this.drive, amPm = this.am_pm;\n    for (let i = 0; i < nout * 2; i += 2) {\n      const re = x[i] * drive, im = x[i + 1] * drive;\n      const power = re * re + im * im;\n      // Rapp-style soft compression: unity gain at low drive, rolling off to a\n      // magnitude of 1 as the input is pushed past it.\n      const gain = 1 / Math.sqrt(1 + power * power);\n      // AM/PM: the phase shift grows with the instantaneous power, which is what\n      // makes the distortion asymmetric about the carrier.\n      const shift = amPm * power;\n      const c = Math.cos(shift), s = Math.sin(shift);\n      y[i] = gain * (re * c - im * s);\n      y[i + 1] = gain * (re * s + im * c);\n    }\n    return nout;\n  },\n});\n"
+        am_pm: am_pm
+        drive: drive
+    states:
+        coordinate: [880, 260]
+        rotation: 0
+        state: enabled
+-   name: clipper
+    id: js_clip_cc
+    parameters:
+        comment: ''
+        knee: '0.5'
+        threshold: clip_threshold
+    states:
+        coordinate: [1160, 270]
+        rotation: 0
+        state: enabled
+-   name: constellation
+    id: qtgui_const_sink_x
+    parameters:
+        alpha1: '1'
+        alpha10: '1'
+        alpha2: '1'
+        alpha3: '1'
+        alpha4: '1'
+        alpha5: '1'
+        alpha6: '1'
+        alpha7: '1'
+        alpha8: '1'
+        alpha9: '1'
+        autoscale: 'False'
+        axislabels: 'True'
+        color1: '"blue"'
+        color10: '"dark blue"'
+        color2: '"red"'
+        color3: '"green"'
+        color4: '"black"'
+        color5: '"cyan"'
+        color6: '"magenta"'
+        color7: '"yellow"'
+        color8: '"dark red"'
+        color9: '"dark green"'
+        comment: ''
+        grid: 'True'
+        label1: Amplifier output
+        label10: ''
+        label2: ''
+        label3: ''
+        label4: ''
+        label5: ''
+        label6: ''
+        label7: ''
+        label8: ''
+        label9: ''
+        legend: 'True'
+        marker1: '0'
+        marker10: '0'
+        marker2: '0'
+        marker3: '0'
+        marker4: '0'
+        marker5: '0'
+        marker6: '0'
+        marker7: '0'
+        marker8: '0'
+        marker9: '0'
+        name: AM/AM and AM/PM
+        nconnections: '1'
+        size: '1024'
+        style1: '0'
+        style10: '0'
+        style2: '0'
+        style3: '0'
+        style4: '0'
+        style5: '0'
+        style6: '0'
+        style7: '0'
+        style8: '0'
+        style9: '0'
+        tr_chan: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_slope: qtgui.TRIG_SLOPE_POS
+        tr_tag: ''
+        update_time: '0.1'
+        width1: '1'
+        width10: '1'
+        width2: '1'
+        width3: '1'
+        width4: '1'
+        width5: '1'
+        width6: '1'
+        width7: '1'
+        width8: '1'
+        width9: '1'
+        xmax: '2'
+        xmin: '-2'
+        ymax: '2'
+        ymin: '-2'
+    states:
+        coordinate: [80, 540]
+        rotation: 0
+        state: enabled
+-   name: spectrum
+    id: qtgui_freq_sink_x
+    parameters:
+        alpha1: '1'
+        alpha10: '1'
+        alpha2: '1'
+        alpha3: '1'
+        alpha4: '1'
+        alpha5: '1'
+        alpha6: '1'
+        alpha7: '1'
+        alpha8: '1'
+        alpha9: '1'
+        autoscale: 'False'
+        average: '0.2'
+        axislabels: 'True'
+        color1: '"blue"'
+        color10: '"dark blue"'
+        color2: '"red"'
+        color3: '"green"'
+        color4: '"black"'
+        color5: '"cyan"'
+        color6: '"magenta"'
+        color7: '"yellow"'
+        color8: '"dark red"'
+        color9: '"dark green"'
+        comment: ''
+        ctrlpanel: 'False'
+        fc: '0'
+        fftsize: '2048'
+        freqhalf: 'True'
+        grid: 'True'
+        label1: Amplifier output
+        label10: ''
+        label2: ''
+        label3: ''
+        label4: ''
+        label5: ''
+        label6: ''
+        label7: ''
+        label8: ''
+        label9: ''
+        legend: 'True'
+        marker1: '-1'
+        marker10: '-1'
+        marker2: '-1'
+        marker3: '-1'
+        marker4: '-1'
+        marker5: '-1'
+        marker6: '-1'
+        marker7: '-1'
+        marker8: '-1'
+        marker9: '-1'
+        name: Spectral regrowth
+        nconnections: '1'
+        samp_rate: samp_rate
+        style1: '1'
+        style10: '1'
+        style2: '1'
+        style3: '1'
+        style4: '1'
+        style5: '1'
+        style6: '1'
+        style7: '1'
+        style8: '1'
+        style9: '1'
+        tr_chan: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_tag: ''
+        type: complex
+        update_time: '0.1'
+        width1: '1'
+        width10: '1'
+        width2: '1'
+        width3: '1'
+        width4: '1'
+        width5: '1'
+        width6: '1'
+        width7: '1'
+        width8: '1'
+        width9: '1'
+        ymax: '10'
+        ymin: '-90'
+    states:
+        coordinate: [80, 680]
+        rotation: 0
+        state: enabled
+-   name: throttle
+    id: blocks_throttle2
+    parameters:
+        comment: ''
+        ignoretag: 'True'
+        limit: time
+        maximum: '0.1'
+        samples_per_second: samp_rate
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [550, 250]
+        rotation: 0
+        state: enabled
+-   name: tone_a
+    id: analog_sig_source_x
+    parameters:
+        amplitude: '0.5'
+        comment: ''
+        frequency: '9000'
+        samp_rate: samp_rate
+        type: complex
+        waveform: analog.GR_COS_WAVE
+    states:
+        coordinate: [10, 240]
+        rotation: 0
+        state: enabled
+-   name: tone_b
+    id: analog_sig_source_x
+    parameters:
+        amplitude: '0.5'
+        comment: ''
+        frequency: '11000'
+        samp_rate: samp_rate
+        type: complex
+        waveform: analog.GR_COS_WAVE
+    states:
+        coordinate: [10, 380]
+        rotation: 0
+        state: enabled
+-   name: two_tone
+    id: blocks_add_xx
+    parameters:
+        comment: ''
+        num_inputs: '2'
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [310, 260]
+        rotation: 0
+        state: enabled
+-   name: wasm_gui_layout_0
+    id: wasm_gui_layout
+    parameters:
+        columns: '12'
+        comment: ''
+        layout: '{}'
+        row_height: '60'
+    states:
+        coordinate: [290, 10]
+        rotation: 0
+        state: enabled
+connections:
+- [amplifier, '0', clipper, '0']
+- [clipper, '0', constellation, '0']
+- [clipper, '0', spectrum, '0']
+- [throttle, '0', amplifier, '0']
+- [tone_a, '0', two_tone, '0']
+- [tone_b, '0', two_tone, '1']
+- [two_tone, '0', throttle, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0

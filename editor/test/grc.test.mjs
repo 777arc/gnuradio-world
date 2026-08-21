@@ -130,8 +130,8 @@ const { benchmarkTables, benchmarkCases } = await bundleModule('../src/benchmark
 const benchmarks = benchmarkCases();
 assert.deepEqual(benchmarkTables().map(table => table.key), ['filters', 'chain'],
   'filters are measured first, then the chains');
-assert.equal(benchmarks.length, 12,
-  'three filters at three tap counts, plus three chain lengths');
+assert.equal(benchmarks.length, 15,
+  'four filters at three tap counts, plus three chain lengths');
 assert.equal(new Set(benchmarks.map(benchmark => benchmark.key)).size, benchmarks.length,
   'case keys are unique');
 for (const benchmark of benchmarks) {
@@ -175,6 +175,20 @@ for (const benchmark of benchmarks) {
       assert.match(source, /^import numpy as np\n/, `${benchmark.key}: source starts intact`);
       assert.match(source, /fftconvolve\(input_items\[0\]/, `${benchmark.key}: work() survived`);
       assert.ok(source.endsWith('return n\n'), `${benchmark.key}: source ends intact`);
+    } else if (benchmark.key.startsWith('js:')) {
+      // The JavaScript row convolves directly. Its tap count is substituted into
+      // the source itself rather than passed as a parameter, because `history` is
+      // read from the descriptor before any parameter is applied -- GR sizes
+      // buffers from it at construction. Same one-escaped-line requirement as
+      // above: the source carries `//` comments a naive reader would truncate at.
+      assert.equal(dut.id, 'wasm_js_block', `${benchmark.key}: a JavaScript Block`);
+      const source = String(dut.parameters._source_code);
+      assert.match(source, /^gr\.export\(\{\n/, `${benchmark.key}: source starts intact`);
+      assert.match(source, new RegExp(`history: ${taps},`), `${benchmark.key}: tap count`);
+      assert.match(source, /new Float32Array\(\d+\)\.fill\(1e-4\)/,
+        `${benchmark.key}: every NTAPS was substituted`);
+      assert.doesNotMatch(source, /NTAPS/, `${benchmark.key}: no placeholder left behind`);
+      assert.ok(source.endsWith('});\n'), `${benchmark.key}: source ends intact`);
     } else {
       // Complex in, complex out, real taps, and no decimation.
       assert.equal(dut.parameters.type, 'ccf', `${benchmark.key}: complex I/O with real taps`);

@@ -1,0 +1,40 @@
+# Implemented in JavaScript: blocks/js/js_peak_hold_ff.js. See docs/js-blocks.md.
+id: js_peak_hold_ff
+label: Peak Hold (decimating)
+category: '[Core]/Peak Detectors'
+flags: [js]
+
+documentation: |-
+    Holds the largest of every 8 input samples and emits it, so the stream comes
+    out at an eighth of the rate with its envelope intact.
+
+    Decimating a float stream by dropping samples (Keep 1 in N) is exactly wrong
+    for anything measuring level: the sample that mattered is the one most likely
+    to be thrown away. This keeps the peak of each group instead, which is what a
+    level meter, a burst detector's front end, or a long Time Sink plot wants.
+
+    Absolute decides whether the peak is of the value or of its magnitude: leave
+    it at 1 for a bipolar waveform, set it to 0 for a stream that is already a
+    magnitude and whose sign is meaningful.
+
+    The decimation is fixed at 8 rather than being a parameter, because GNU Radio
+    sizes its buffers from it when the block is constructed.
+
+    Implemented in JavaScript -- it has no Python implementation, so a flowgraph
+    using it will not run in desktop GNU Radio.
+
+parameters:
+-   id: absolute
+    label: Absolute Value
+    dtype: int
+    default: '1'
+
+inputs:
+-   domain: stream
+    dtype: float
+
+outputs:
+-   domain: stream
+    dtype: float
+
+file_format: 1

@@ -25,6 +25,7 @@ full* before starting that kind of work:
 | [docs/double-mapped-buffer.md](docs/double-mapped-buffer.md) | working on the emulated vmcircbuf |
 | [docs/diagnostics.md](docs/diagnostics.md) | working on the runner's `__grstats` snapshot, the debug panel, or the Benchmark Tool |
 | [docs/embedded-python.md](docs/embedded-python.md) | touching the Embedded Python Block — Pyodide, the Python shim under `runner/src/pyodide/`, `blocks/src/python_block.hpp`, `editor/src/epy.ts`, or the Code field's CodeMirror in `editor/src/code-editor.ts` |
+| [docs/js-blocks.md](docs/js-blocks.md) | touching the JavaScript Block — `runner/src/js_runtime.js`, `blocks/src/js_block.hpp`, `editor/src/js-block.ts`, `editor/src/code-modal.ts`, or anything under `blocks/js/` |
 | [docs/ai-copilot.md](docs/ai-copilot.md) | touching Flowgraph Copilot — OpenRouter, structured graph tools, the agent loop, visible-run diagnostics, consent/key storage, or hardware authorization rows |
 
 ## Project overview
@@ -55,6 +56,10 @@ threaded Qt 6 for WebAssembly.
   of its own. Only a flowgraph containing one fetches it, and numpy and scipy are
   vendored beside the interpreter — scipy fetched only by a block whose source
   imports it. See [docs/embedded-python.md](docs/embedded-python.md).
+- `blocks/js/`: blocks whose `work()` is **JavaScript**, running on the block's own
+  GNU Radio scheduler thread against GNU Radio's own buffers — no worker, no copy,
+  no runtime to fetch. The same mechanism backs the inline JS Block a user writes
+  in the editor. See [docs/js-blocks.md](docs/js-blocks.md).
 - Vendored out-of-tree GNU Radio modules (e.g. gr-rds) compiled as on-demand WASM
   side modules.
 - `deps/`: dependency fetch/build scripts, and any patches needed. Built
@@ -140,6 +145,7 @@ node server.mjs 8090 "$PWD"
 | `blocks/` | everything a human wrote about blocks, as opposed to `runner/`, which is the app plus everything generated. See "Where a block's source lives" |
 | `blocks/grc/` | `.block.yml` for runner-only blocks with no upstream GNU Radio equivalent (`wasm_packet_rate_sink`, `wasm_text_sink`); read by *both* generators alongside GNU Radio's own yaml |
 | `blocks/src/` | hand-written block implementations not owned by any one vendored module — `browser_file_source.cpp` and the like |
+| `blocks/js/` | repo **JavaScript** blocks: one `.js` per `flags: [js]` block in `blocks/grc/`, fetched by id at run time rather than linked in — so *editing* one is a file copy. Adding one still relinks (its id is baked into the generated registrar). See [docs/js-blocks.md](docs/js-blocks.md) |
 | `blocks/overlays/<module>/` | one directory per module: `metadata.yml` (every browser-only addition to that module's blocks) plus, for an OOT module, its `shims/` and any C++ rebuilt from a Python-only block. This is why the submodules need no fork. `blocks/overlays/gnuradio/` is the in-tree equivalent, metadata only |
 | `runner/src/pyodide/` | the Embedded Python Block's worker and the Python shim a user's block runs against (`gnuradio.gr`'s base classes, `pmt`, the introspection and work driver). Copied to `runner/build/pyodide/` and served to both the runner and the editor |
 | `docs/` | the per-task docs listed at the top of this file |
@@ -204,6 +210,9 @@ Useful validation:
 node test/test_lazy_scenarios.mjs   # deferred category modules are fetched and dlopen'd
 node test/test_smoke.mjs            # blocks actually move samples, not merely that it links
 node scripts/run.mjs /runner/build/runner.html RUNNER_PASS
+node runner/test/js_runtime.test.mjs    # the JS Block harness, on plain Node in a second
+node test/test_js_block.mjs             # ... a flowgraph whose work() is JavaScript
+node test/test_js_block_editor.mjs      # ... and the editor deriving ports as you type
 python3 runner/test/test_grworld.py     # the Embedded Python Block's Python contract
 node test/test_python_block.mjs         # ... a flowgraph whose work() is Python
 node test/test_python_block_editor.mjs  # ... and the editor deriving ports from code
@@ -276,6 +285,7 @@ because they are pristine checkouts rather than anything of ours.
 | browser-only metadata for one module's blocks | `blocks/overlays/<module>/metadata.yml` |
 | a headers-only stand-in for a host-only dependency | `blocks/overlays/gr-<m>/shims/` |
 | C++ rebuilt from an **out-of-tree** module's Python-only block | `blocks/overlays/gr-<m>/` |
+| a block whose `work()` is **JavaScript** rather than C++ | `blocks/js/<id>.js`, with `flags: [js]` in its `blocks/grc/<id>.block.yml`. No C++ at all — see [docs/js-blocks.md](docs/js-blocks.md) for the add-a-block checklist |
 
 The factory *table* — every `block-id → factory` entry — lives in
 [`runner/src/registry.cpp`](runner/src/registry.cpp), and the line between it and
@@ -367,6 +377,29 @@ explanation lives in that doc — follow it before working in that area.
 - **Python-only blocks have no automatic C++ path** — a `gr.hier_block2`, a GUI
   QWidget, or a block resting on a host facility gets a hand-written rebuild or
   stays greyed out in the palette. See [docs/blocks.md](docs/blocks.md).
+- **A JS block's typed-array views must be re-derived on every `work()` call.**
+  On the `-pthread` shared heap, memory growth does *not* detach the old
+  `SharedArrayBuffer` — a stale view keeps reading and writing the same real
+  memory, correctly. What it cannot do is address memory that only exists *after*
+  the growth, so a cached `subarray` fails as a **silent out-of-range against a
+  buffer allocated later**, not as a crash or a zero read. Take views through
+  `GROWABLE_HEAP_*` every call and never stash one on `this`. See
+  [docs/js-blocks.md](docs/js-blocks.md).
+- **`MAIN_THREAD_EM_ASM` in a JS block's hot path would silently serialize the
+  whole flowgraph.** `EM_ASM` runs on the calling thread; `MAIN_THREAD_EM_ASM`
+  proxies to the browser main thread and blocks until it answers. Every *other*
+  JS-crossing helper in this tree uses the proxying form, because they all run
+  from constructors on the main thread — so copying one into
+  `blocks/src/js_block.hpp` compiles, runs, produces correct samples, and queues
+  every JS block behind Qt's event loop. `window` is undefined on a pthread for
+  the same reason; use `globalThis`. See [docs/js-blocks.md](docs/js-blocks.md).
+- **A JS block's source is evaluated twice, and its `work()` cannot be
+  interrupted.** Once on the main thread for its descriptor and once on the
+  block's own thread for its instance, so module-level side effects run twice and
+  per-instance state belongs in `start()` or on `this`. And a `work()` that never
+  returns wedges that scheduler thread until the tab is reloaded — there is no
+  worker to terminate, because the call is on the thread's own stack. See
+  [docs/js-blocks.md](docs/js-blocks.md).
 - **A block whose `work()` is not C++ blocks its own scheduler thread and nothing
   else.** Its constructor still cannot wait (the browser main thread cannot
   `Atomics.wait`), so anything needed at construction is settled in a prepare
