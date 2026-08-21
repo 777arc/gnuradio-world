@@ -284,6 +284,17 @@ to be obtained under a user gesture before the flowgraph starts, which is why th
 editor prompts on the Run click. Read [rtlsdr.md](rtlsdr.md) before touching any
 of it.
 
+### The two blocks that reach the sound card
+
+Audio Sink and Audio Source keep gr-audio's ids, parameters and ports over an
+entirely different device: gr-audio is not built (there is no ALSA, OSS or
+PortAudio in a tab), so `blocks/src/browser_audio.cpp` drives a Web Audio
+`AudioWorkletProcessor` through a ring in shared memory instead. Audio Sink is
+the flowgraph's clock, exactly as it is natively, by blocking on ring space —
+with a wall-clock fallback for the browser's autoplay policy, which can leave a
+context suspended until the page is clicked. Read [audio.md](audio.md) before
+touching either.
+
 ### The three blocks that read a file
 
 File Source, GR World Recording and Public HTTP Recording are all

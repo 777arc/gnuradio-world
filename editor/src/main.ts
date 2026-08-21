@@ -36,6 +36,11 @@ import {
 } from './block-defs';
 import type { Conn, GraphSnapshot, Inst, ValidationIssue } from './graph-model';
 import {
+  AUDIO_SOURCE_ID,
+  installAudioResumeRelay,
+  prepareAudioCapture,
+} from './audio';
+import {
   NAME_FIELD,
   VARIABLE_IDS,
   validateFlowgraph,
@@ -4474,6 +4479,18 @@ async function run(): Promise<string | null> {
     return null;
   }
 
+  // Microphone permission for Audio Source, for the same reason and under the
+  // same click, though with more slack than WebUSB: getUserMedia() does not
+  // consume the transient activation the prompt above may already have spent,
+  // it only wants the prompt to belong to something the reader did.
+  const audioProblem = await prepareAudioCapture(insts);
+  if (audioProblem) {
+    log(`cannot run: ${audioProblem}`);
+    const block = insts.find(i => i.id === AUDIO_SOURCE_ID && i.enabled && !i.bypassed);
+    if (block) select(block.uid);
+    return null;
+  }
+
   // Consent for JavaScript that did not come from this session. It sits here,
   // after the USB prompt (which must be first: it needs the user gesture) and
   // before anything is fetched or bound, so a "no" costs nothing.
@@ -4694,6 +4711,12 @@ function catMatches(node: Cat, q: string): boolean {
   return !q || node.blocks.some(b => matchesQ(b, q)) || [...node.subs.values()].some(s => catMatches(s, q));
 }
 
+// Passes the editor's own clicks down to a runner frame whose audio the
+// autoplay policy is holding shut -- the reader is far more likely to click
+// here than on the flowgraph window.
+const audioResume = installAudioResumeRelay(
+  () => el('runFrame') as HTMLIFrameElement, log);
+
 // Category side modules the runner has fetched this session. This state is shown
 // in Help > WebAssembly Modules & Debug Info, but deliberately not in the block
 // palette.
@@ -4729,6 +4752,19 @@ window.addEventListener('message', (e) => {
   }
   if (d.type === 'gr-info' && typeof d.message === 'string') {
     log(d.message);
+    return;
+  }
+  // An AudioContext the browser will not let start without a gesture. The
+  // flowgraph keeps running (Audio Sink paces itself by the wall clock while
+  // nothing is draining it); all that is missing is the sound, so this asks for
+  // a click rather than stopping anything. See docs/audio.md.
+  if (d.type === 'gr-audio-blocked') {
+    audioResume.blocked();
+    return;
+  }
+  if (d.type === 'gr-audio-running') {
+    audioResume.running();
+    log('audio started');
     return;
   }
   // Where the running flowgraph's widgets ended up, for the Arrange overlay.

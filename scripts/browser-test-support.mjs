@@ -9,6 +9,16 @@ const CHROME_ARGS = [
   '--use-gl=angle',
   '--use-angle=swiftshader',
   '--enable-unsafe-swiftshader',
+  // Audio Sink and Audio Source. A headless run has no gesture to offer, and
+  // the autoplay policy holds every AudioContext suspended without one --
+  // resume() then returns a promise that never settles. The fake device pair
+  // gives getUserMedia a microphone (a tone, not silence) and grants its
+  // permission without a prompt. Chrome still renders Web Audio in real time
+  // against a null output device, so the worklet, the ring and the futex
+  // handoff are all the real ones. See docs/audio.md.
+  '--autoplay-policy=no-user-gesture-required',
+  '--use-fake-device-for-media-stream',
+  '--use-fake-ui-for-media-stream',
 ];
 
 // Chrome's documented Linux/headless configuration for exercising WebGPU.

@@ -200,6 +200,26 @@ assert.deepEqual(validateFlowgraph([source, passthrough({ bypassed: true }), dra
   ])
     assert.ok(hackrfFields.has(field), `invalid HackRF ${field} must block the run`);
 
+  // Audio Sink's two limits are the browser's, not a device's: an AudioContext
+  // refuses a rate outside 3 kHz-384 kHz outright, and Web Audio caps a node at
+  // 32 channels. Both are cheaper to catch here than as a failed run.
+  const audioPorts = {
+    ...ports,
+    def: block => RUNNABLE[block.id],
+    portCount: () => 0,
+    portType: () => 'float',
+  };
+  const invalidAudio = inst('audio', 'audio_sink', 'audio', {
+    samp_rate: 1000, device_name: '', ok_to_block: 'True', num_inputs: 0,
+  });
+  const audioFields = new Set(validateFlowgraph(
+    [invalidAudio], [], audioPorts).map(issue => issue.field));
+  for (const field of ['samp_rate', 'num_inputs'])
+    assert.ok(audioFields.has(field), `invalid Audio Sink ${field} must block the run`);
+  assert.equal(validateFlowgraph([inst('audio', 'audio_sink', 'audio', {
+    samp_rate: 48000, device_name: '', ok_to_block: 'True', num_inputs: 2,
+  })], [], audioPorts).length, 0, 'a stereo 48 kHz Audio Sink is valid');
+
   // The flag is native's EvaluatedFlag, not a string: a `${ ... }` expression is
   // evaluated against the block's parameters and defaults to False — required —
   // when it cannot be. Reading the template text as truthy is what used to

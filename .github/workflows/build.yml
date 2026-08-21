@@ -264,6 +264,11 @@ jobs:
           npm ci
           node test/test_smoke.mjs           # flowgraphs run and produce samples
           node test/test_lazy_scenarios.mjs  # on-demand side modules still load
+          # Audio Sink and Audio Source's worklet: the ring handoff, the
+          # underrun/overrun counters and the resampling fallback, which no
+          # browser test can reach (it needs a browser that refuses the
+          # flowgraph's sample rate). No browser, one second.
+          node runner/test/audio_worklet.test.mjs
           # The JavaScript Block. Unlike the Python one there is no optional
           # runtime to skip over, so these gate the deploy outright -- and
           # test_smoke.mjs carries JS block cases of its own for the same reason.

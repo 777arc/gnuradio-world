@@ -364,3 +364,51 @@ digital_mpsk_snr_est_cc:
   - set_type(${type})
   - set_tag_nsample(${tag_nsamples})
   - set_alpha(${alpha})
+
+# gr-audio's two blocks reach the sound card through Web Audio here, so
+# upstream's ALSA advice ("plughw:0,0") describes a device layer that does not
+# exist in a tab. Everything else about them -- ids, parameters, ports -- is
+# upstream's. The C++ is blocks/src/browser_audio.cpp; see docs/audio.md.
+audio_sink:
+  parameter_labels:
+    device_name: Output Device
+  documentation: |-
+    Plays its input through the browser's audio output, at the given sample
+    rate. One input per channel: set Num Inputs to 2 for stereo.
+
+    The sample rate is what the flowgraph feeds this block, and the browser
+    resamples it to whatever the sound card runs at. Any rate from 3 kHz to
+    384 kHz is accepted.
+
+    Leave Output Device blank for the system default. A name here is matched
+    against the browser's audio output devices, by device id or by any part of
+    the device label; choosing an output device needs Chrome 110 or newer, and
+    device labels only become readable once the page has been granted
+    microphone permission.
+
+    Like the native block, this one is the flowgraph's clock: it blocks until
+    the sound card has taken the samples, which is what paces the graph in real
+    time. Turn OK to Block off to let it run free instead -- it then discards
+    whatever the device cannot take and paces the flowgraph by the wall clock.
+
+    Browsers do not allow sound to start until the page has been interacted
+    with. If the flowgraph starts before that, the audio is silent (and the
+    editor says so) until you click the page; the rest of the flowgraph keeps
+    running at its real rate meanwhile.
+
+audio_source:
+  parameter_labels:
+    device_name: Input Device
+  documentation: |-
+    Captures from the browser's audio input -- the microphone, or any input
+    device the browser can open -- at the given sample rate. One output per
+    channel: set Num Outputs to 2 for stereo. A mono device feeding a stereo
+    block gives both outputs the same samples.
+
+    Echo cancellation, noise suppression and automatic gain are all turned off:
+    this is a signal path, not a voice call.
+
+    The browser asks for microphone permission when the flowgraph is run, and
+    remembers the answer for this site. Leave Input Device blank for the system
+    default; a name here is matched against the browser's audio input devices,
+    by device id or by any part of the device label.

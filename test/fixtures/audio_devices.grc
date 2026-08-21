@@ -1,0 +1,77 @@
+options:
+    parameters:
+        id: audio_devices
+        title: Audio Sink and Audio Source
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+blocks:
+# A tone into the browser's audio output. Audio Sink is the flowgraph's clock
+# here exactly as it is natively: there is no Throttle, and the graph runs at the
+# rate the AudioContext takes samples from the block's ring. Headless Chrome
+# renders Web Audio against a null device in real time, so this is the real
+# worklet, the real ring and the real futex handoff -- see docs/audio.md.
+-   name: tone
+    id: analog_sig_source_x
+    parameters:
+        type: float
+        samp_rate: '48000'
+        waveform: analog.GR_COS_WAVE
+        frequency: '440'
+        amplitude: '0.2'
+        offset: '0'
+        phase: '0'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: speaker
+    id: audio_sink
+    parameters:
+        samp_rate: '48000'
+        device_name: ''
+        ok_to_block: 'True'
+        num_inputs: '1'
+    states:
+        coordinate: [200, 0]
+        rotation: 0
+        state: enabled
+# The capture direction, against Chrome's fake microphone
+# (--use-fake-device-for-media-stream in scripts/browser-test-support.mjs),
+# which delivers a real tone rather than silence.
+-   name: microphone
+    id: audio_source
+    parameters:
+        samp_rate: '48000'
+        device_name: ''
+        ok_to_block: 'True'
+        num_outputs: '1'
+    states:
+        coordinate: [0, 150]
+        rotation: 0
+        state: enabled
+-   name: level
+    id: blocks_rms_xx
+    parameters:
+        type: float
+        alpha: '0.0001'
+    states:
+        coordinate: [200, 150]
+        rotation: 0
+        state: enabled
+-   name: probe
+    id: blocks_probe_signal_x
+    parameters:
+        type: float
+    states:
+        coordinate: [400, 150]
+        rotation: 0
+        state: enabled
+connections:
+- [tone, '0', speaker, '0']
+- [microphone, '0', level, '0']
+- [level, '0', probe, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0

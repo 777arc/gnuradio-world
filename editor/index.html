@@ -137,8 +137,11 @@ html.click-to-load-pending #clickToLoad button:disabled { cursor:default; opacit
                same-origin frame would normally inherit it, but an editor
                embedded cross-origin (?embed=1) only gets what its host grants —
                and being explicit here is what makes that failure legible rather
-               than a NotFoundError from getDevices(). See docs/rtlsdr.md. -->
-          <iframe id="runFrame" title="GNU Radio QT GUI" allow="usb" hidden></iframe>
+               than a NotFoundError from getDevices(). See docs/rtlsdr.md.
+               allow="microphone" is Audio Source's half of the same story: the
+               permission is granted on the Run click in *this* document and the
+               frame's own getUserMedia() then inherits it. See docs/audio.md. -->
+          <iframe id="runFrame" title="GNU Radio QT GUI" allow="usb; microphone" hidden></iframe>
           <!-- Drawn over the iframe, in the editor's own DOM: the runner reports
                where its grid is on screen and this positions handles to match,
                so all the drag logic stays in TypeScript. -->

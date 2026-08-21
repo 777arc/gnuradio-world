@@ -26,12 +26,14 @@ never competes with the scheduler threads.
 3. **GNU Radio scheduler** — a new exported C function `gr_stats_json()` that
    snapshots counters and returns a JSON string, polled at ~3 Hz from the panel.
 
-Two reader-owned side channels sit beside them on `window`, published by the
+Three reader-owned side channels sit beside them on `window`, published by the
 workers that feed the source blocks rather than by `gr_stats_json()`:
 `__grFileStats` (one entry per File Source / recording reader: `bytesRead`,
-`maxChunkBytes`, `state`) and `__grUsbStats` (one per RTL-SDR, PlutoSDR or
+`maxChunkBytes`, `state`), `__grUsbStats` (one per RTL-SDR, PlutoSDR or
 HackRF worker: `serial`, `requestedRate`, `actualRate`, byte progress, loss
-counters and `state`).
+counters and `state`) and `__grAudioStats` (one per Audio Sink or Audio Source:
+`device`, `requestedRate`, `actualRate`, `channels` and `state` — see
+[audio.md](audio.md)).
 
 `__grUsbStats` is the only place the *hardware* side of a run is visible. The
 fields worth reading are `actualRate` — especially for an RTL2832U, whose clock

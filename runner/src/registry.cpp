@@ -1,6 +1,7 @@
 #include "registry.hpp"
 #include "registry_helpers.hpp"
 #include "browser_file_source.hpp"
+#include "browser_audio.hpp"
 #include "rtlsdr_source.hpp"
 #include "plutosdr_source.hpp"
 #include "plutosdr_sink.hpp"
@@ -2557,6 +2558,27 @@ static std::map<std::string, Factory>& registry_storage() {
              result.numeric_setters["bias_tee"] =
                  [block](double value) { block->set_bias_tee(value != 0.0); };
              return result;
+        }},
+        // gr-audio's Audio Sink and Audio Source. gr-audio itself is not built
+        // here -- there is no ALSA, OSS or PortAudio in a browser tab and the
+        // GNU Radio configure line turns the component off -- so upstream's two
+        // block ids are backed by Web Audio instead, keeping every parameter
+        // and port they have natively. See docs/audio.md.
+        {"audio_sink", [](const json& p) -> BuiltBlock {
+             return { BrowserAudioSink::make(
+                          number_from(p, "samp_rate", 48000.0),
+                          wasm_registry::text(p, "device_name"),
+                          bool_from(p, "ok_to_block", true),
+                          static_cast<int>(number_from(p, "num_inputs", 1.0))),
+                      nullptr };
+        }},
+        {"audio_source", [](const json& p) -> BuiltBlock {
+             return { BrowserAudioSource::make(
+                          number_from(p, "samp_rate", 48000.0),
+                          wasm_registry::text(p, "device_name"),
+                          bool_from(p, "ok_to_block", true),
+                          static_cast<int>(number_from(p, "num_outputs", 1.0))),
+                      nullptr };
         }},
         {"blocks_interleaved_short_to_complex", [](const json& p) -> BuiltBlock {
              return {

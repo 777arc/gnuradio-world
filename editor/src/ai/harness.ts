@@ -181,8 +181,10 @@ export function runFlowgraph(
       const report = runReport(first!, last!, lines);
       const radio = sideChannel(frame, token, '__grUsbStats');
       const files = sideChannel(frame, token, '__grFileStats');
+      const audio = sideChannel(frame, token, '__grAudioStats');
       if (radio !== undefined) report.radio = radio;
       if (files !== undefined) report.files = files;
+      if (audio !== undefined) report.audio = audio;
       return report;
     } finally { unsubscribe(); }
   };

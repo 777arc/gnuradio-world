@@ -209,6 +209,9 @@ async function main() {
 /runner/build/rtlsdr_reader.js
   Cache-Control: public, max-age=86400
 
+/runner/build/audio_worklet.js
+  Cache-Control: public, max-age=86400
+
 /runner/build/fosphor_webgpu.js
   Cache-Control: public, max-age=86400
 

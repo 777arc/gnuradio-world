@@ -17,6 +17,7 @@ full* before starting that kind of work:
 | [docs/recording-viewer.md](docs/recording-viewer.md) | touching the three source blocks that read a file (File Source, GR World Recording, Public HTTP Recording), the R2 recording bucket and its CORS policy, recording tabs, or the SigMF viewer under `editor/src/recording/` |
 | [docs/rtlsdr.md](docs/rtlsdr.md) | touching RTL-SDR Source — the WebUSB reader worker, the RTL2832U/tuner drivers, the device-permission flow, or anything that has to reach USB hardware from a tab |
 | [docs/plutosdr.md](docs/plutosdr.md) | touching PlutoSDR Source or Sink — stock-firmware USB IIOD, WebUSB transport, IIO discovery, 1R1T/2R2T, device permission, or Pluto hardware testing |
+| [docs/audio.md](docs/audio.md) | touching Audio Sink or Audio Source — the Web Audio worklet, the sound-card ring, microphone permission, or the browser's autoplay policy |
 | [docs/hackrf.md](docs/hackrf.md) | touching HackRF Source or Sink — the stock vendor-control protocol, signed 8-bit IQ streaming, half-duplex ownership, TX safety, or HackRF hardware testing |
 | [docs/editor-ui.md](docs/editor-ui.md) | working on block IDs, auto-arrange, the narrow-screen/touch layout, or the embedded layout another site frames (`?embed=1`) |
 | [docs/gui-layout.md](docs/gui-layout.md) | touching where QT GUI widgets go in the runner window — the GUI Layout block, `editor/src/gui-layout*.ts`, `runner/src/gui_layout.hpp`, or Arrange mode |
@@ -218,6 +219,7 @@ Useful validation:
 node test/test_lazy_scenarios.mjs   # deferred category modules are fetched and dlopen'd
 node test/test_smoke.mjs            # blocks actually move samples, not merely that it links
 node scripts/run.mjs /runner/build/runner.html RUNNER_PASS
+node runner/test/audio_worklet.test.mjs  # Audio Sink/Source's worklet, on plain Node
 node runner/test/js_runtime.test.mjs    # the JS Block harness, on plain Node in a second
 node test/test_js_block.mjs             # ... a flowgraph whose work() is JavaScript
 node test/test_js_block_editor.mjs      # ... and the editor deriving ports as you type
@@ -377,6 +379,16 @@ explanation lives in that doc — follow it before working in that area.
   session-bound), GR World Recording (an R2 key the runner's factory expands), and
   Public HTTP Recording (a URL the editor rewrites on the Run path). See
   [docs/recording-viewer.md](docs/recording-viewer.md).
+- **Two blocks reach the sound card, and the browser may refuse to start it.**
+  Audio Sink and Audio Source keep gr-audio's ids and parameters but none of its
+  code — gr-audio is not built — over an `AudioWorkletProcessor` and a ring in
+  shared memory. Audio Sink is the flowgraph's clock exactly as it is natively,
+  by blocking on ring space. But a browser will not start an `AudioContext`
+  until the page has been interacted with, and `resume()` **never settles** when
+  it is refused rather than rejecting — so nothing awaits it, and the sink falls
+  back to pacing by the wall clock and discarding, which keeps the graph (and
+  its plots) running at the right rate while it is silent. See
+  [docs/audio.md](docs/audio.md).
 - **One block reads a radio, and its permission is granted before the graph
   starts.** RTL-SDR Source reaches a dongle over WebUSB from a worker, through
   the same shared-memory ring and futex `BrowserFileSource` uses — but a live

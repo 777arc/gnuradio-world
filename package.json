@@ -6,7 +6,7 @@
   "author": "Marc Lichtman",
   "license": "GPL-3.0-or-later",
   "scripts": {
-    "test": "node test/test_smoke.mjs && node test/test_lazy_scenarios.mjs && node runner/test/js_runtime.test.mjs && node test/test_js_block.mjs && node test/test_js_block_editor.mjs && node test/test_python_block.mjs && node test/test_python_block_editor.mjs",
+    "test": "node test/test_smoke.mjs && node test/test_lazy_scenarios.mjs && node runner/test/audio_worklet.test.mjs && node runner/test/js_runtime.test.mjs && node test/test_js_block.mjs && node test/test_js_block_editor.mjs && node test/test_python_block.mjs && node test/test_python_block_editor.mjs",
     "test:block-capacity": "node test/test_block_capacity.mjs"
   },
   "dependencies": {

@@ -68,8 +68,9 @@ it must keep `script-src 'unsafe-eval'`**, or every JS block stops working — i
 the editor first, where ports would stop following the code, and then in the
 runner. See [docs/js-blocks.md](js-blocks.md).
 
-The same file must keep `Cache-Control` lines for `/runner/build/js_runtime.js`
-and `/runner/build/js/*`, which are fetched at run time rather than linked in.
+The same file must keep `Cache-Control` lines for `/runner/build/js_runtime.js`,
+`/runner/build/audio_worklet.js` and `/runner/build/js/*`, which are fetched at
+run time rather than linked in.
 `scripts/assemble-site.mjs` writes the deployed copy of `_headers`; the two are
 kept in step by hand.
 

@@ -179,6 +179,23 @@ export function validateFlowgraph(
       // on an active block blocks the run, so that would refuse a flowgraph
       // that works. The block's documentation covers direct sampling instead.
     }
+    // Mirror what BrowserAudio{Sink,Source}'s constructor and the browser's
+    // AudioContext will accept, so a rate no sound card can be opened at is
+    // caught on the canvas rather than as a failed run. Whether a *device*
+    // exists cannot be settled here — that needs an await and a permission, so
+    // the Run path prompts for it instead (prepareAudioCapture in ./audio).
+    if (block.id === 'audio_sink' || block.id === 'audio_source') {
+      const sampleRate = resolvedNumber(block.params.samp_rate, staticScope);
+      if (sampleRate !== null && !(sampleRate >= 3000 && sampleRate <= 384000))
+        add(block, 'samp_rate',
+          'Audio sample rate must be 3 kHz through 384 kHz, the range a browser ' +
+          'AudioContext accepts.');
+      const channelParam = block.id === 'audio_sink' ? 'num_inputs' : 'num_outputs';
+      const channels = resolvedNumber(block.params[channelParam], staticScope);
+      if (channels !== null && (!Number.isInteger(channels) || channels < 1 || channels > 32))
+        add(block, channelParam,
+          'Audio channel count must be a whole number from 1 through 32.');
+    }
     if (block.id === 'wasm_hackrf_source' || block.id === 'wasm_hackrf_sink') {
       const sampleRate = resolvedNumber(block.params.samp_rate, staticScope);
       if (sampleRate !== null &&

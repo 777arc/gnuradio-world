@@ -96,6 +96,19 @@ const CASES = [
       'HackRF Source: running at 2000000 S/s',
       'HackRF Sink: running at 2000000 S/s',
     ] },
+  // Audio Sink and Audio Source against Chrome's null audio device and fake
+  // microphone -- no sound card needed, but every other part is the real one:
+  // the AudioContext, the worklet, the ring in shared memory and the futex
+  // handoff. `expectLogs` covers what a "blocks moved items" pass cannot, which
+  // is that a device opened at the rate the flowgraph asked for; a graph whose
+  // audio never started would still move items, paced by the sink's wall-clock
+  // fallback. See docs/audio.md.
+  { name: 'Audio Sink and Audio Source (browser audio devices)',
+    grc: 'test/fixtures/audio_devices.grc',
+    expectLogs: [
+      'Audio Sink: running at 48000 Hz, 1 channel',
+      'Audio Source: running at 48000 Hz, 1 channel',
+    ] },
   // The PMT-valued blocks. `expectLogs` is what makes this case meaningful: a
   // PMT parameter that parsed into the *wrong* PMT still builds, still runs and
   // still moves items, so only what the tag and message debuggers print can tell

@@ -1,0 +1,260 @@
+options:
+    parameters:
+        author: Claude
+        comment: ''
+        copyright: ''
+        description: Live spectrum and waveform of whatever the computer's microphone hears
+        generate_options: qt_gui
+        id: Microphone_Spectrum
+        title: Microphone Spectrum
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: gain
+    id: variable_qtgui_range
+    parameters:
+        comment: ''
+        label: Input gain
+        min_len: '240'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '1'
+        step: '1'
+        stop: '100'
+        value: '10'
+        widget: counter_slider
+    states:
+        coordinate: [760, 10]
+        rotation: 0
+        state: enabled
+-   name: samp_rate
+    id: variable
+    parameters:
+        comment: ''
+        value: '24000'
+    states:
+        coordinate: [590, 10]
+        rotation: 0
+        state: enabled
+-   name: amplify
+    id: blocks_multiply_const_vxx
+    parameters:
+        comment: ''
+        const: gain
+        mode: scalar
+        type: float
+        vlen: '1'
+    states:
+        coordinate: [290, 250]
+        rotation: 0
+        state: enabled
+-   name: microphone
+    id: audio_source
+    parameters:
+        comment: ''
+        device_name: ''
+        num_outputs: '1'
+        ok_to_block: 'True'
+        samp_rate: samp_rate
+    states:
+        coordinate: [10, 250]
+        rotation: 0
+        state: enabled
+-   name: spectrum
+    id: qtgui_freq_sink_x
+    parameters:
+        alpha1: '1'
+        alpha10: '1'
+        alpha2: '1'
+        alpha3: '1'
+        alpha4: '1'
+        alpha5: '1'
+        alpha6: '1'
+        alpha7: '1'
+        alpha8: '1'
+        alpha9: '1'
+        autoscale: 'False'
+        average: '1.0'
+        axislabels: 'True'
+        color1: '"blue"'
+        color10: '"dark blue"'
+        color2: '"red"'
+        color3: '"green"'
+        color4: '"black"'
+        color5: '"cyan"'
+        color6: '"magenta"'
+        color7: '"yellow"'
+        color8: '"dark red"'
+        color9: '"dark green"'
+        comment: ''
+        ctrlpanel: 'False'
+        fc: '0'
+        fftsize: '2048'
+        freqhalf: 'False'
+        grid: 'True'
+        label1: Microphone
+        label10: ''
+        label2: ''
+        label3: ''
+        label4: ''
+        label5: ''
+        label6: ''
+        label7: ''
+        label8: ''
+        label9: ''
+        legend: 'False'
+        marker1: '-1'
+        marker10: '-1'
+        marker2: '-1'
+        marker3: '-1'
+        marker4: '-1'
+        marker5: '-1'
+        marker6: '-1'
+        marker7: '-1'
+        marker8: '-1'
+        marker9: '-1'
+        name: Microphone Spectrum
+        nconnections: '1'
+        samp_rate: samp_rate
+        style1: '1'
+        style10: '1'
+        style2: '1'
+        style3: '1'
+        style4: '1'
+        style5: '1'
+        style6: '1'
+        style7: '1'
+        style8: '1'
+        style9: '1'
+        tr_chan: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_tag: ''
+        type: float
+        update_time: '0.1'
+        width1: '1'
+        width10: '1'
+        width2: '1'
+        width3: '1'
+        width4: '1'
+        width5: '1'
+        width6: '1'
+        width7: '1'
+        width8: '1'
+        width9: '1'
+        ymax: '10'
+        ymin: '-100'
+    states:
+        coordinate: [710, 220]
+        rotation: 0
+        state: enabled
+-   name: wasm_gui_layout_0
+    id: wasm_gui_layout
+    parameters:
+        columns: '12'
+        comment: ''
+        layout: '{}'
+        row_height: '60'
+    states:
+        coordinate: [300, 10]
+        rotation: 0
+        state: enabled
+-   name: waveform
+    id: qtgui_time_sink_x
+    parameters:
+        alpha1: '1'
+        alpha10: '1'
+        alpha2: '1'
+        alpha3: '1'
+        alpha4: '1'
+        alpha5: '1'
+        alpha6: '1'
+        alpha7: '1'
+        alpha8: '1'
+        alpha9: '1'
+        autoscale: 'False'
+        axislabels: 'True'
+        color1: blue
+        color10: dark blue
+        color2: red
+        color3: green
+        color4: black
+        color5: cyan
+        color6: magenta
+        color7: yellow
+        color8: dark red
+        color9: dark green
+        comment: ''
+        ctrlpanel: 'False'
+        grid: 'True'
+        label1: Microphone
+        label10: Signal 10
+        label2: Signal 2
+        label3: Signal 3
+        label4: Signal 4
+        label5: Signal 5
+        label6: Signal 6
+        label7: Signal 7
+        label8: Signal 8
+        label9: Signal 9
+        legend: 'False'
+        marker1: '-1'
+        marker10: '-1'
+        marker2: '-1'
+        marker3: '-1'
+        marker4: '-1'
+        marker5: '-1'
+        marker6: '-1'
+        marker7: '-1'
+        marker8: '-1'
+        marker9: '-1'
+        name: Microphone Waveform
+        nconnections: '1'
+        samp_rate: samp_rate
+        size: '1024'
+        stemplot: 'False'
+        style1: '1'
+        style10: '1'
+        style2: '1'
+        style3: '1'
+        style4: '1'
+        style5: '1'
+        style6: '1'
+        style7: '1'
+        style8: '1'
+        style9: '1'
+        tr_chan: '0'
+        tr_delay: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_slope: qtgui.TRIG_SLOPE_POS
+        tr_tag: ''
+        type: float
+        update_time: '0.1'
+        width1: '1'
+        width10: '1'
+        width2: '1'
+        width3: '1'
+        width4: '1'
+        width5: '1'
+        width6: '1'
+        width7: '1'
+        width8: '1'
+        width9: '1'
+        ylabel: Amplitude
+        ymax: '10'
+        ymin: '-10'
+        yunit: ''
+    states:
+        coordinate: [710, 400]
+        rotation: 0
+        state: enabled
+connections:
+- [amplify, '0', spectrum, '0']
+- [amplify, '0', waveform, '0']
+- [microphone, '0', amplify, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0

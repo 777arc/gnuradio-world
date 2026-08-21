@@ -82,9 +82,10 @@ human has time to see the canvas change. The Stop control can abort the wait.
 The harness subscribes temporarily to `logLines()`, waits for
 `window.__grstats`, differences two snapshots, and reports per-block item rates,
 buffer fullness, realtime factor, Probe values, console errors, and the
-`__grUsbStats` / `__grFileStats` side channels. Message-only blocks are never
-called stalled merely because their item counter is zero. The graph is left
-running after observation. A later canvas edit marks the run bar as stale.
+`__grUsbStats` / `__grFileStats` / `__grAudioStats` side channels. Message-only
+blocks are never called stalled merely because their item counter is zero. The
+graph is left running after observation. A later canvas edit marks the run bar
+as stale.
 
 Hardware that lacks an existing WebUSB grant adds an Allow & Run row. Its click
 calls `run()` directly so `requestDevice()` retains transient activation. A

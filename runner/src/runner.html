@@ -451,6 +451,269 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
         if (stats && stats.state !== 'error') stats.state = 'cancelled';
       };
 
+      // Audio Sink and Audio Source: the browser's sound card, in place of
+      // gr-audio's ALSA/PortAudio devices. Both blocks proxy their start() here
+      // for the same reason the USB radios do -- an AudioContext,
+      // audioWorklet.addModule() and getUserMedia() are all main-thread work --
+      // and then talk to runner/src/audio_worklet.js through a ring in shared
+      // WASM memory and nothing else. See docs/audio.md.
+      const CONTROL_STATE = 2;      // struct Control's slots, from browser_audio.hpp
+      const CONTROL_ERROR_LENGTH = 3;
+      const AUDIO_ERROR = 2;
+      let nextAudioId = 30000;
+      const audioBlocks = new Map();
+      window.__grAudioStats = Object.create(null);
+
+      // One AudioContext per (rate, output device) rather than per block: a
+      // flowgraph that both captures and plays is then running on ONE audio
+      // clock, so its source and sink cannot drift apart over a long run. It
+      // also keeps well clear of the browser's limit on hardware contexts.
+      const audioContexts = new Map();
+
+      function acquireAudioContext(flowRate, sinkId) {
+        const key = `${flowRate}|${sinkId}`;
+        let entry = audioContexts.get(key);
+        if (!entry) {
+          let context;
+          try {
+            // Asking for the flowgraph's own rate is what normally makes the
+            // worklet's resampling path unnecessary; the browser resamples to
+            // whatever the hardware runs at, far better than we would.
+            context = new AudioContext({ sampleRate: flowRate, latencyHint: 'interactive' });
+          } catch (error) {
+            context = new AudioContext();
+          }
+          entry = {
+            key,
+            context,
+            users: 0,
+            // addModule() once per context, shared by every block on it.
+            module: null,
+            sinkId,
+          };
+          audioContexts.set(key, entry);
+        }
+        entry.users++;
+        return entry;
+      }
+
+      function releaseAudioContext(entry) {
+        if (!entry || --entry.users > 0) return;
+        audioContexts.delete(entry.key);
+        suspendedContexts.delete(entry.context);
+        entry.context.close().catch(() => {});
+      }
+
+      function audioWorkletModule(entry) {
+        if (!entry.module) {
+          const url = new URL('audio_worklet.js', location.href);
+          if (window.__grBuildStamp) url.searchParams.set('v', window.__grBuildStamp);
+          entry.module = entry.context.audioWorklet.addModule(url);
+        }
+        return entry.module;
+      }
+
+      // The autoplay policy. An AudioContext may only start once the page has
+      // been interacted with, and this frame's flowgraph starts from a click in
+      // the *editor* -- so the context can perfectly well come up suspended.
+      // resume() then returns a promise that simply never settles, which is why
+      // nothing here awaits it: the page listens for a gesture instead, in this
+      // frame and (relayed by the editor) in the one around it.
+      const suspendedContexts = new Set();
+      let announcedAudioBlocked = false;
+
+      const resumeSuspendedAudio = () => {
+        for (const context of suspendedContexts) context.resume().catch(() => {});
+      };
+      for (const type of ['pointerdown', 'keydown', 'touchend'])
+        window.addEventListener(type, resumeSuspendedAudio, true);
+      // The editor relays a gesture of its own, because the reader is far more
+      // likely to click there -- on the Run button, on the canvas -- than on
+      // the flowgraph window this frame draws.
+      window.addEventListener('message', event => {
+        if (event.source === window.parent && event.data &&
+            event.data.type === 'gr-audio-resume') resumeSuspendedAudio();
+      });
+
+      function requestAudioResume(context) {
+        if (context.state === 'running') return;
+        suspendedContexts.add(context);
+        context.addEventListener('statechange', () => {
+          if (context.state !== 'running') return;
+          suspendedContexts.delete(context);
+          if (!suspendedContexts.size && announcedAudioBlocked) {
+            announcedAudioBlocked = false;
+            postToEditor({ type: 'gr-audio-running' });
+          }
+        });
+        context.resume().catch(() => {});
+        // state does not move synchronously, so give the resume a moment before
+        // deciding it was refused.
+        setTimeout(() => {
+          if (context.state === 'running' || announcedAudioBlocked) return;
+          announcedAudioBlocked = true;
+          console.warn('Audio is waiting for a click: the browser blocks sound until the page is interacted with.');
+          postToEditor({ type: 'gr-audio-blocked' });
+        }, 500);
+      }
+
+      function postToEditor(message) {
+        if (window.parent && window.parent !== window)
+          window.parent.postMessage(message, '*');
+      }
+
+      function failAudio(id, memory, controlPointer, errorPointer, error) {
+        const message = String(error && error.message ? error.message : error);
+        const stats = window.__grAudioStats[id];
+        if (stats) { stats.state = 'error'; stats.error = message; }
+        const encoded = new TextEncoder().encode(message);
+        const length = Math.min(encoded.byteLength, 511);
+        new Uint8Array(memory.buffer, errorPointer, 512).fill(0);
+        new Uint8Array(memory.buffer, errorPointer, length)
+          .set(encoded.subarray(0, length));
+        const control = new Int32Array(memory.buffer, controlPointer, 8);
+        Atomics.store(control, CONTROL_ERROR_LENGTH, length);
+        Atomics.store(control, CONTROL_STATE, AUDIO_ERROR);
+        // Both, because the waiting block is on one of them and which one
+        // depends on its direction.
+        Atomics.notify(control, 0);
+        Atomics.notify(control, 1);
+        console.error(`${stats ? stats.label : 'Audio'}: ${message}`);
+      }
+
+      // gr-audio's Device Name, which upstream is an ALSA name. Here it names a
+      // browser media device, matched on its id or (case-insensitively) on any
+      // part of its label. Labels are only readable once the origin has been
+      // granted microphone permission, which is why the failure says so.
+      async function resolveAudioDevice(kind, name) {
+        if (!name) return '';
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const candidates = devices.filter(device => device.kind === kind);
+        const wanted = name.toLowerCase();
+        const match = candidates.find(device => device.deviceId === name) ||
+          candidates.find(device => (device.label || '').toLowerCase().includes(wanted));
+        if (match) return match.deviceId;
+        const labels = candidates.map(device => device.label).filter(Boolean);
+        throw new Error(labels.length
+          ? `no audio device matches "${name}" (available: ${labels.join(', ')})`
+          : `no audio device matches "${name}"; device names are only visible ` +
+            'once the page has been granted microphone permission');
+      }
+
+      async function startAudioBlock(id, block, options) {
+        const {
+          direction, device, memory, ringPointer, capacityFrames, channels,
+          controlPointer, flowRate,
+        } = options;
+        const stats = window.__grAudioStats[id];
+        const isInput = direction === 'input';
+
+        const sinkId = isInput ? '' : await resolveAudioDevice('audiooutput', device);
+        const entry = acquireAudioContext(flowRate, sinkId);
+        block.contextEntry = entry;
+        const context = entry.context;
+        if (sinkId && context.sinkId !== sinkId) {
+          if (typeof context.setSinkId !== 'function')
+            throw new Error('this browser cannot choose an audio output device; leave Device Name blank');
+          await context.setSinkId(sinkId);
+        }
+        await audioWorkletModule(entry);
+        stats.actualRate = context.sampleRate;
+
+        let stream = null;
+        if (isInput) {
+          const deviceId = await resolveAudioDevice('audioinput', device);
+          // Every processing default off: this is a signal path, not a voice
+          // call, and echo cancellation would gate and filter the samples the
+          // flowgraph is meant to see.
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              ...(deviceId ? { deviceId: { exact: deviceId } } : {}),
+              channelCount: channels,
+              echoCancellation: false,
+              noiseSuppression: false,
+              autoGainControl: false,
+            },
+          });
+          block.stream = stream;
+          if (block.stopped) throw new Error('stopped');
+        }
+
+        const node = new AudioWorkletNode(
+          context, isInput ? 'gr-audio-source' : 'gr-audio-sink', {
+            numberOfInputs: isInput ? 1 : 0,
+            numberOfOutputs: 1,
+            outputChannelCount: [isInput ? 1 : channels],
+            processorOptions: {
+              memory, ringPointer, controlPointer, capacityFrames, channels, flowRate,
+            },
+          });
+        block.node = node;
+        if (block.stopped) { node.disconnect(); return; }
+        if (isInput) {
+          context.createMediaStreamSource(stream).connect(node);
+          // A capture node produces nothing, but only a node the destination
+          // can reach is guaranteed to be pulled at all -- so it keeps one
+          // silent output and connects it.
+          node.connect(context.destination);
+          stats.deviceLabel = stream.getAudioTracks()[0]?.label || '';
+        } else {
+          node.connect(context.destination);
+        }
+        stats.state = 'running';
+        requestAudioResume(context);
+      }
+
+      window.__grStartAudio = (
+        direction, device, memory, ringPointer, capacityFrames, channels,
+        controlPointer, errorPointer, flowRate
+      ) => {
+        const id = nextAudioId++;
+        const label = direction === 'input' ? 'Audio Source' : 'Audio Sink';
+        const stats = {
+          label,
+          direction,
+          device: device || 'default',
+          requestedRate: flowRate,
+          actualRate: 0,
+          channels,
+          ringFrames: capacityFrames,
+          state: 'starting',
+        };
+        window.__grAudioStats[id] = stats;
+        const block = { stopped: false, node: null, stream: null, contextEntry: null };
+        audioBlocks.set(id, block);
+        // The block's start() cannot await any of this, so the whole opening
+        // sequence runs on afterwards and reports through the control block:
+        // the ring simply stays empty until the device is there.
+        startAudioBlock(id, block, {
+          direction, device, memory, ringPointer, capacityFrames, channels,
+          controlPointer, flowRate,
+        }).catch(error => {
+          if (block.stopped) return;    // a stop() that raced the open is not a failure
+          failAudio(id, memory, controlPointer, errorPointer, error);
+          window.__grStopAudio(id);
+        });
+        return id;
+      };
+
+      window.__grStopAudio = id => {
+        const block = audioBlocks.get(id);
+        if (!block) return;
+        audioBlocks.delete(id);
+        block.stopped = true;
+        if (block.node) {
+          // The CANCELLED state the block set before calling here is what ends
+          // the processor; this only saves it a render quantum of waiting.
+          try { block.node.port.postMessage({ type: 'stop' }); } catch (error) { /* closed */ }
+          block.node.disconnect();
+        }
+        if (block.stream) for (const track of block.stream.getTracks()) track.stop();
+        releaseAudioContext(block.contextEntry);
+        const stats = window.__grAudioStats[id];
+        if (stats && stats.state !== 'error') stats.state = 'cancelled';
+      };
+
       window.__grStopBrowserFileSource = id => {
         const worker = fileReaders.get(id);
         if (worker) worker.terminate();

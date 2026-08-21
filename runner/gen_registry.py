@@ -869,19 +869,21 @@ def load_blocks() -> list[dict[str, Any]]:
             block["__path"] = str(path.relative_to(base))
             block["__module"] = short
             blocks.append(block)
-    # gr-qtgui is read for its block *ids* alone. It is not a MODULE above and
-    # never will be: it is not a side module, and every one of its blocks the
-    # browser supports has a hand-written factory (the sinks need a QWidget, the
-    # controls are rebuilds of Python widgets), so there is nothing here to
-    # generate. Its overlays are real all the same, and without these ids
-    # validate() cannot tell one of them from a typo.
-    for path in sorted((GR / "gr-qtgui" / "grc").rglob("*.block.yml")):
-        try:
-            block = yaml.safe_load(path.read_text())
-        except Exception:
-            continue
-        if isinstance(block, dict) and "id" in block:
-            seen.setdefault(str(block["id"]), "qtgui")
+    # gr-qtgui and gr-audio are read for their block *ids* alone. Neither is a
+    # MODULE above and neither will be: they are not side modules, and every one
+    # of their blocks the browser supports has a hand-written factory (the qtgui
+    # sinks need a QWidget, the controls are rebuilds of Python widgets, and
+    # gr-audio's two blocks are rebuilt on Web Audio in blocks/src/browser_audio.cpp
+    # because the component is not built at all). Their overlays are real all the
+    # same, and without these ids validate() cannot tell one of them from a typo.
+    for component in ("gr-qtgui", "gr-audio"):
+        for path in sorted((GR / component / "grc").rglob("*.block.yml")):
+            try:
+                block = yaml.safe_load(path.read_text())
+            except Exception:
+                continue
+            if isinstance(block, dict) and "id" in block:
+                seen.setdefault(str(block["id"]), component[len("gr-"):])
     block_overrides.validate(BLOCK_OVERRIDES, seen)
     # Same typo trap block_overrides.validate() guards: an id that matches no
     # block would silently exclude nothing at all.
