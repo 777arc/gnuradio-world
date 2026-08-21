@@ -193,11 +193,16 @@ unreachable: they need a browser that refuses the flowgraph's sample rate. It
 drives the processors directly against a plain `ArrayBuffer` standing in for the
 shared heap, so it needs neither a browser nor cross-origin isolation.
 
-`example_flowgraphs/audio/` holds the two examples — a tone with live frequency
-and volume controls, and a microphone spectrum analyser — and both are run
-through the real editor (`node scripts/run_example.mjs audio/audio_tone.grc`),
-which is the only path that covers `prepareAudioCapture` and the iframe's
-`allow`.
+`example_flowgraphs/audio/` holds the three examples — a tone with live frequency
+and volume controls, a microphone spectrum analyser, and a broadcast FM receiver
+demodulating a hosted recording to the speakers — and all three are run through
+the real editor (`node scripts/run_example.mjs audio/audio_tone.grc`), which is
+the only path that covers `prepareAudioCapture` and the iframe's `allow`.
+
+The FM receiver reports a burst of Audio Sink underruns at start-up and none
+after: the ring is empty until the recording source's first HTTP range request
+lands, which is longer than a render quantum. A count that keeps *growing* is
+the real "not keeping up" this message is for.
 
 ### Still by hand
 
