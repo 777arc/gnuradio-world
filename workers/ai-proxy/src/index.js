@@ -279,6 +279,11 @@ async function handleCompletion(request, env, ctx, origin, cfg) {
 
   const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
   const estimate = estimateTokens(raw.length, cfg);
+  // The agent loop sends one request per tool round, so a request count says
+  // little about how much was actually asked for. A round that *begins* a turn
+  // is the one whose last message came from the human; every later round of the
+  // same turn ends with a tool result.
+  const turn = sanitized.body.messages.at(-1)?.role === 'user';
   const perIp = env.LIMITER.get(env.LIMITER.idFromName(`ip:${ip}`));
   const global = env.LIMITER.get(env.LIMITER.idFromName('global'));
 
@@ -287,6 +292,10 @@ async function handleCompletion(request, env, ctx, origin, cfg) {
 
   const ipReserve = await limiterCall(perIp, '/reserve', { estimate, ...ipWindow });
   if (!ipReserve.ok) {
+    // This return never reaches the global object, which is where the history
+    // lives — so the refusal is recorded there explicitly. A limit that is
+    // biting is precisely what the history should show.
+    ctx.waitUntil(limiterCall(global, '/count', { ip, turn, refused: true }));
     return json(errorBody(
       `The shared model's per-visitor limit is used up. Try again in ${ipReserve.retryAfter}s, ` +
       'or connect your own OpenRouter or OpenAI key for higher limits.',
@@ -297,7 +306,12 @@ async function handleCompletion(request, env, ctx, origin, cfg) {
     });
   }
 
-  const dayReserve = await limiterCall(global, '/reserve', { estimate, ...dayWindow });
+  // The global instance also keeps the usage history, on this call it had to
+  // make anyway. It hashes the IP under a salt it throws away daily; nothing
+  // that identifies a visitor is stored. See src/limiter.js.
+  const dayReserve = await limiterCall(global, '/reserve', {
+    estimate, ...dayWindow, stats: true, ip, turn,
+  });
   if (!dayReserve.ok) {
     // Give the per-IP window its estimate back; nothing was spent upstream.
     ctx.waitUntil(limiterCall(perIp, '/settle', {
@@ -314,20 +328,29 @@ async function handleCompletion(request, env, ctx, origin, cfg) {
     });
   }
 
-  const adjust = (delta) => (delta ? Promise.all([
-    limiterCall(perIp, '/settle', { delta, windowStart: ipReserve.windowStart, ...ipWindow }),
-    limiterCall(global, '/settle', { delta, windowStart: dayReserve.windowStart, ...dayWindow }),
-  ]) : Promise.resolve());
+  const adjust = (delta, stats) => Promise.all([
+    // Nothing to correct on the per-IP window when the estimate was exact.
+    delta
+      ? limiterCall(perIp, '/settle', { delta, windowStart: ipReserve.windowStart, ...ipWindow })
+      : Promise.resolve(),
+    // The global one is called either way, because it also records the outcome.
+    limiterCall(global, '/settle', {
+      delta, windowStart: dayReserve.windowStart, ...dayWindow, stats: true, ...stats,
+    }),
+  ]);
 
   /**
    * Charges the difference between the estimate and the truth, on both windows.
    * A stream that ended without a usage event — an aborted read, most often —
    * keeps its estimate rather than being refunded for tokens it did spend.
    */
-  const settle = (actual) => adjust((actual > 0 ? actual : estimate) - estimate);
+  const settle = (actual) => {
+    const spent = actual > 0 ? actual : estimate;
+    return adjust(spent - estimate, { spent });
+  };
 
   /** Hands the whole reservation back, for a request that never ran. */
-  const refund = () => adjust(-estimate);
+  const refund = () => adjust(-estimate, { spent: 0, failed: true });
 
   let upstream;
   try {
@@ -389,10 +412,37 @@ async function handleCompletion(request, env, ctx, origin, cfg) {
   });
 }
 
+/**
+ * The usage history, for the operator rather than the site. Authenticated with
+ * a bearer token and answered before the origin gate, because a `curl` sends no
+ * Origin at all — and deliberately outside CORS, so no page can read it.
+ */
+async function handleStats(request, env) {
+  if (request.method !== 'GET') {
+    return Response.json({ error: 'Use GET /stats' }, { status: 405, headers: { Allow: 'GET' } });
+  }
+  if (!env.STATS_TOKEN) {
+    console.error('Stats request rejected: STATS_TOKEN is not configured');
+    return Response.json({ error: 'Stats are not configured' }, { status: 503 });
+  }
+  if (request.headers.get('Authorization') !== `Bearer ${env.STATS_TOKEN}`) {
+    console.warn('Unauthorized stats request');
+    return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  const days = new URL(request.url).searchParams.get('days') || '30';
+  const global = env.LIMITER.get(env.LIMITER.idFromName('global'));
+  const response = await global.fetch(`https://limiter/stats?days=${encodeURIComponent(days)}`);
+  return Response.json(await response.json(), {
+    headers: { 'Cache-Control': 'no-store' },
+  });
+}
+
 export default {
   async fetch(request, env, ctx) {
     const origin = request.headers.get('Origin') || '';
     const cfg = config(env);
+
+    if (new URL(request.url).pathname === '/stats') return handleStats(request, env);
 
     if (!originAllowed(origin)) {
       // No CORS headers either: a disallowed page should fail at the browser.

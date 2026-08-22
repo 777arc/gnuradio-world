@@ -8,37 +8,35 @@ import worker, {
   originAllowed,
   sanitizeBody,
 } from '../src/index.js';
-import { applyReserve, applySettle } from '../src/limiter.js';
+import { TokenLimiter } from '../src/limiter.js';
+import { fakeStorage } from './storage.js';
 
 const ORIGIN = 'https://gnuradioworld.com';
 // pr-security-scan: allow new-outbound-host
 const PROXY = 'https://ai.gnuradioworld.com';
 
-/** An in-memory stand-in for the Durable Object namespace, on the real math. */
+/**
+ * An in-memory stand-in for the Durable Object namespace, backed by the real
+ * TokenLimiter class over fake storage — so these tests exercise the actual
+ * metering and stats code rather than a reimplementation of it.
+ */
 function fakeLimiters() {
-  const slots = new Map();
+  const objects = new Map();
+  const object = name => {
+    if (!objects.has(name)) objects.set(name, new TokenLimiter({ storage: fakeStorage() }));
+    return objects.get(name);
+  };
   const namespace = {
     idFromName: name => ({ name }),
-    get(id) {
-      if (!slots.has(id.name)) slots.set(id.name, { state: undefined });
-      const slot = slots.get(id.name);
-      return {
-        async fetch(url, init) {
-          const payload = JSON.parse(init.body);
-          const now = Date.now();
-          if (new URL(url).pathname === '/reserve') {
-            const applied = applyReserve(slot.state, { now, ...payload });
-            slot.state = applied.state;
-            return Response.json(applied.result);
-          }
-          slot.state = applySettle(slot.state, { now, ...payload });
-          return Response.json({ ok: true, used: slot.state.used });
-        },
-      };
-    },
+    // A stub takes (url, init); the runtime builds the Request the class sees.
+    get: id => ({ fetch: (url, init) => object(id.name).fetch(new Request(url, init)) }),
   };
-  namespace.used = name => slots.get(name)?.state?.used ?? 0;
-  namespace.charge = (name, used) => slots.set(name, { state: { windowStart: Date.now(), used } });
+  namespace.used = async name =>
+    (await object(name).ctx.storage.get('window'))?.used ?? 0;
+  namespace.charge = (name, used) =>
+    object(name).ctx.storage.put('window', { windowStart: Date.now(), used });
+  namespace.stats = async (name = 'global') =>
+    (await (await object(name).fetch(new Request('https://limiter/stats'))).json()).days;
   return namespace;
 }
 
@@ -221,9 +219,9 @@ test('a completion is proxied with the shared key and settled against real usage
   assert.match(text, /\[DONE\]/);
 
   await settled();
-  assert.equal(env.LIMITER.used('ip:unknown'), 10_000,
+  assert.equal(await env.LIMITER.used('ip:unknown'), 10_000,
     'the estimate is replaced by what the completion actually spent');
-  assert.equal(env.LIMITER.used('global'), 10_000);
+  assert.equal(await env.LIMITER.used('global'), 10_000);
 });
 
 test('a used-up per-IP window answers 429 with a retry and a way forward', async () => {
@@ -232,7 +230,7 @@ test('a used-up per-IP window answers 429 with a retry and a way forward', async
     LIMITER: fakeLimiters(),
     TOKENS_PER_MINUTE: '1000',
   };
-  env.LIMITER.charge('ip:1.2.3.4', 1000);
+  await env.LIMITER.charge('ip:1.2.3.4', 1000);
   const { ctx } = context();
   const { result, seen } = await withUpstream(
     () => { throw new Error('a rate-limited request must not reach OpenAI'); },
@@ -254,7 +252,7 @@ test('the global daily cap refuses everyone and refunds the per-IP window', asyn
     LIMITER: fakeLimiters(),
     DAILY_TOKEN_CAP: '1000',
   };
-  env.LIMITER.charge('global', 1000);
+  await env.LIMITER.charge('global', 1000);
   const { ctx, settled } = context();
   const { result, seen } = await withUpstream(
     () => { throw new Error('a capped request must not reach OpenAI'); },
@@ -263,7 +261,7 @@ test('the global daily cap refuses everyone and refunds the per-IP window', asyn
   assert.equal(seen.length, 0);
   assert.equal(result.status, 429);
   await settled();
-  assert.equal(env.LIMITER.used('ip:5.6.7.8'), 0,
+  assert.equal(await env.LIMITER.used('ip:5.6.7.8'), 0,
     'nothing was spent upstream, so the visitor keeps their minute');
 });
 
@@ -278,7 +276,7 @@ test('an oversized body is refused before any reservation', async () => {
   );
   assert.equal(seen.length, 0);
   assert.equal(result.status, 413);
-  assert.equal(env.LIMITER.used('ip:unknown'), 0);
+  assert.equal(await env.LIMITER.used('ip:unknown'), 0);
 });
 
 test('an upstream failure is reported without its body, and refunded', async () => {
@@ -295,8 +293,8 @@ test('an upstream failure is reported without its body, and refunded', async () 
   assert.doesNotMatch(payload.error.message, /sk-shared|org-secret/);
   await settled();
   // Nothing was generated, so the visitor's minute is handed back whole.
-  assert.equal(env.LIMITER.used('ip:unknown'), 0);
-  assert.equal(env.LIMITER.used('global'), 0);
+  assert.equal(await env.LIMITER.used('ip:unknown'), 0);
+  assert.equal(await env.LIMITER.used('global'), 0);
 });
 
 test('a stream that ends with no usage event keeps its estimate', async () => {
@@ -310,7 +308,7 @@ test('a stream that ends with no usage event keeps its estimate', async () => {
   await settled();
   // Tokens were spent upstream even though the count never arrived, so the
   // estimate stands rather than being refunded.
-  assert.ok(env.LIMITER.used('ip:unknown') > 0);
+  assert.ok(await env.LIMITER.used('ip:unknown') > 0);
 });
 
 test('an unconfigured deployment says so instead of failing upstream', async () => {
@@ -319,6 +317,84 @@ test('an unconfigured deployment says so instead of failing upstream', async () 
     completionRequest(CHAT), { LIMITER: fakeLimiters() }, ctx,
   );
   assert.equal(response.status, 503);
+});
+
+test('every metered request is counted, without keeping anything identifying', async () => {
+  const env = { OPENAI_API_KEY: 'sk-shared', LIMITER: fakeLimiters() };
+  const { ctx, settled } = context();
+  const usage = () => new Response(sse(
+    'data: {"choices":[],"usage":{"total_tokens":5000}}\n\n',
+  ), { status: 200 });
+
+  // One turn: a first round whose last message is the human's, then a second
+  // round carrying a tool result back.
+  await withUpstream(usage, async () => {
+    const first = await worker.fetch(
+      completionRequest(CHAT, { 'CF-Connecting-IP': '1.1.1.1' }), env, ctx);
+    await first.text();
+    const second = await worker.fetch(completionRequest({
+      ...CHAT,
+      messages: [...CHAT.messages, { role: 'tool', tool_call_id: 'x', content: '{}' }],
+    }, { 'CF-Connecting-IP': '1.1.1.1' }), env, ctx);
+    await second.text();
+    // A different visitor, same day.
+    const other = await worker.fetch(
+      completionRequest(CHAT, { 'CF-Connecting-IP': '2.2.2.2' }), env, ctx);
+    await other.text();
+  });
+  await settled();
+
+  const [today] = await env.LIMITER.stats();
+  assert.equal(today.requests, 3);
+  assert.equal(today.turns, 2, 'a tool round continues a turn rather than starting one');
+  assert.equal(today.visitors, 2, 'the same IP twice is one visitor');
+  assert.equal(today.tokens, 15_000);
+  assert.equal(today.refused, 0);
+  assert.equal(today.failed, 0);
+  // The report is counts only. A visitor hash must never leave the object.
+  assert.equal('visitors_capped' in today, true);
+  assert.doesNotMatch(JSON.stringify(today), /1\.1\.1\.1|2\.2\.2\.2/,
+    'no address, hashed or otherwise, appears in the report');
+});
+
+test('a refused request is counted as refused, not as spend', async () => {
+  const env = {
+    OPENAI_API_KEY: 'sk-shared', LIMITER: fakeLimiters(), TOKENS_PER_MINUTE: '1000',
+  };
+  await env.LIMITER.charge('ip:9.9.9.9', 1000);
+  const { ctx, settled } = context();
+  await withUpstream(
+    () => { throw new Error('unreachable'); },
+    () => worker.fetch(completionRequest(CHAT, { 'CF-Connecting-IP': '9.9.9.9' }), env, ctx),
+  );
+  await settled();
+  const [today] = await env.LIMITER.stats();
+  assert.equal(today.requests, 1);
+  assert.equal(today.refused, 1);
+  assert.equal(today.tokens, 0);
+  assert.equal(today.visitors, 1, 'a refused visitor is still a visitor');
+});
+
+test('stats need a token, and are answered outside CORS', async () => {
+  const env = { LIMITER: fakeLimiters(), STATS_TOKEN: 'operator-token' };
+  const statsRequest = headers =>
+    worker.fetch(new Request(`${PROXY}/stats`, { headers }), env, context().ctx);
+
+  // No Origin at all, because this is answered for a terminal rather than a page.
+  assert.equal((await statsRequest({})).status, 401);
+  assert.equal((await statsRequest({ Authorization: 'Bearer wrong' })).status, 401);
+
+  const ok = await statsRequest({ Authorization: 'Bearer operator-token' });
+  assert.equal(ok.status, 200);
+  assert.equal(ok.headers.get('Access-Control-Allow-Origin'), null,
+    'no page should ever be able to read the usage history');
+  assert.ok(Array.isArray((await ok.json()).days));
+
+  const unconfigured = await worker.fetch(
+    new Request(`${PROXY}/stats`, { headers: { Authorization: 'Bearer anything' } }),
+    { LIMITER: fakeLimiters() }, context().ctx,
+  );
+  assert.equal(unconfigured.status, 503);
 });
 
 test('the estimate covers the body plus assumed output', () => {

@@ -74,6 +74,11 @@ that constrain the editor are:
   the way forward. `AiRequestError` carries the status so the panel can add the
   one thing a user can act on — switching the provider select to a key of their
   own — and say it only where it applies.
+- **Usage is counted in the proxy, not the editor.** The global Durable Object
+  keeps one record per UTC day — requests, turns, tokens and distinct visitors,
+  the last as a hash under a salt thrown away daily — readable over an
+  authenticated `/stats`. Nothing is reported from the browser, and no analytics
+  script is involved.
 - **The proxy sets `prompt_cache_key` itself**, to one value for every visitor.
   All of them share the same system prefix, so a single key keeps one warm
   prefix upstream instead of establishing one per page. The editor's own

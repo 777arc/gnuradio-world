@@ -1,7 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { DAY_MS, MINUTE_MS, applyReserve, applySettle, rollWindow } from '../src/limiter.js';
+import {
+  DAY_MS,
+  MINUTE_MS,
+  TokenLimiter,
+  applyReserve,
+  applySettle,
+  countRequest,
+  dayOf,
+  dayReport,
+  emptyDay,
+  rollWindow,
+  visitorHash,
+} from '../src/limiter.js';
+import { fakeStorage } from './storage.js';
 
 const MINUTE = { limit: 1_000_000, windowMs: MINUTE_MS };
 
@@ -87,4 +100,84 @@ test('the same arithmetic serves the global daily window', () => {
   const refused = applyReserve(spent, { now: 2000, estimate: 1, ...day }).result;
   assert.equal(refused.ok, false);
   assert.equal(refused.retryAfter, 86_398);
+});
+
+// ---------------------------------------------------------------------------
+// Usage stats
+// ---------------------------------------------------------------------------
+
+test('a repeat visitor is counted once, and the cap is honest about it', () => {
+  const record = emptyDay('2026-08-22');
+  countRequest(record, { turn: true, hash: 'aaa' });
+  countRequest(record, { turn: false, hash: 'aaa' });
+  countRequest(record, { turn: true, hash: 'bbb' });
+  countRequest(record, { turn: false, refused: true, hash: 'bbb' });
+  assert.equal(record.requests, 4);
+  assert.equal(record.turns, 2);
+  assert.equal(record.refused, 1);
+  assert.equal(record.visitors.length, 2);
+  assert.equal(record.visitorsCapped, false);
+
+  for (let i = 0; i < 6000; i++) countRequest(record, { hash: `v${i}` });
+  assert.equal(record.visitors.length, 5000, 'the set stops growing');
+  assert.equal(record.visitorsCapped, true, 'and says the count is now a floor');
+});
+
+test('a report carries counts, never the hashes themselves', () => {
+  const record = emptyDay('2026-08-22');
+  countRequest(record, { hash: 'secret-hash' });
+  const report = dayReport(record);
+  assert.equal(report.visitors, 1);
+  assert.doesNotMatch(JSON.stringify(report), /secret-hash/);
+});
+
+test('the same visitor hashes differently under a different day salt', async () => {
+  const monday = await visitorHash('203.0.113.7', 'salt-one');
+  const tuesday = await visitorHash('203.0.113.7', 'salt-two');
+  assert.equal(monday, await visitorHash('203.0.113.7', 'salt-one'), 'stable within a day');
+  assert.notEqual(monday, tuesday, 'and unmatchable across days once the salt is gone');
+  assert.match(monday, /^[0-9a-f]{12}$/);
+});
+
+test('yesterday\'s hashes cannot be matched against today\'s', async () => {
+  const limiter = new TokenLimiter({ storage: fakeStorage() });
+  const call = (path, payload) => limiter.fetch(new Request(`https://limiter${path}`, {
+    method: 'POST', body: JSON.stringify(payload),
+  }));
+  const realNow = Date.now;
+  try {
+    Date.now = () => Date.parse('2026-08-22T12:00:00Z');
+    await call('/count', { ip: '198.51.100.4' });
+    Date.now = () => Date.parse('2026-08-23T12:00:00Z');
+    await call('/count', { ip: '198.51.100.4' });
+  } finally {
+    Date.now = realNow;
+  }
+  const first = await limiter.ctx.storage.get('day:2026-08-22');
+  const second = await limiter.ctx.storage.get('day:2026-08-23');
+  assert.equal(first.visitors.length, 1);
+  assert.equal(second.visitors.length, 1);
+  assert.notEqual(first.visitors[0], second.visitors[0],
+    'the salt rotated, so the same visitor leaves no trail between days');
+});
+
+test('the history is pruned to its retention window', async () => {
+  const limiter = new TokenLimiter({ storage: fakeStorage() });
+  await limiter.ctx.storage.put('day:2020-01-01', emptyDay('2020-01-01'));
+  const realNow = Date.now;
+  try {
+    Date.now = () => Date.parse('2026-08-22T12:00:00Z');
+    await limiter.fetch(new Request('https://limiter/count', {
+      method: 'POST', body: JSON.stringify({ ip: '1.2.3.4' }),
+    }));
+  } finally {
+    Date.now = realNow;
+  }
+  assert.equal(await limiter.ctx.storage.get('day:2020-01-01'), undefined);
+  assert.ok(await limiter.ctx.storage.get('day:2026-08-22'));
+});
+
+test('a day is a UTC day', () => {
+  assert.equal(dayOf(Date.parse('2026-08-22T23:59:59Z')), '2026-08-22');
+  assert.equal(dayOf(Date.parse('2026-08-23T00:00:01Z')), '2026-08-23');
 });

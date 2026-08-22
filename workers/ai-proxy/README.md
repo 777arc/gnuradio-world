@@ -67,6 +67,63 @@ Every response carries `X-RateLimit-Limit-Tokens`,
 `X-RateLimit-Remaining-Tokens` and `X-RateLimit-Reset-Seconds` for the caller's
 per-IP window.
 
+## Usage stats
+
+Every request already passes through the global Durable Object to be metered, so
+the usage history rides along on calls that had to happen anyway — no extra
+service, no extra request, and nothing to keep running.
+
+One record per UTC day:
+
+| field | meaning |
+|-------|---------|
+| `requests` | upstream completions attempted |
+| `turns` | requests that *began* a turn — see below |
+| `visitors` | distinct visitors that day |
+| `tokens` | tokens charged, estimate included where no usage event arrived |
+| `refused` | requests stopped by a rate limit |
+| `failed` | requests that reached no model, and were refunded |
+
+**`requests` is not a measure of use.** The agent loop sends one request per tool
+round, so a single thing a human asked for is roughly ten of them. `turns` is the
+honest number: a round that begins a turn is the one whose last message came from
+the user, where every later round of the same turn ends with a tool result.
+
+### How a visitor is counted without keeping one
+
+A visitor is a **hash of their IP under a salt that is regenerated every day and
+never kept**. Within a day the count is exact. Once the day turns over the salt
+is replaced, and the hashes it produced become permanently inert: yesterday's
+cannot be matched against today's, and none of them can be walked back to an
+address, because the input that produced them no longer exists anywhere. The raw
+IP is used to compute the hash and is never written to storage, and `/stats`
+reports counts only — a hash never leaves the object.
+
+Two constants in `src/limiter.js` bound it: `RETAIN_DAYS` (400) prunes old
+records on the first request of each day, and `MAX_VISITORS` (5,000) caps one
+day's hash set. Past that cap the day still counts every request and sets
+`visitors_capped`, so the visitor number reads as a floor rather than a lie.
+
+### Reading it
+
+Configure a token once:
+
+```bash
+npx wrangler secret put STATS_TOKEN
+```
+
+Then:
+
+```bash
+curl -s -H "Authorization: Bearer $STATS_TOKEN" \
+  'https://ai.gnuradioworld.com/stats?days=30' | jq
+```
+
+`/stats` is answered **before** the origin gate, because a terminal sends no
+`Origin` at all, and deliberately **outside CORS**, so no page can read it. An
+absent `STATS_TOKEN` gives 503 rather than an open endpoint; a wrong one gives
+401.
+
 ## Origins
 
 `Origin` is checked against the site, its Pages previews, and any local port —
@@ -102,14 +159,22 @@ for the Queue in `workers/sigmf-indexer`.
    printf '%s' "$OPENAI_KEY" | npm exec wrangler secret put OPENAI_API_KEY
    ```
 
-4. Run the tests and deploy:
+4. Store a token for the usage history (optional, but there is no way to add it
+   later without a redeploy of nothing — it is only a secret, so do it now):
+
+   ```bash
+   npx wrangler secret put STATS_TOKEN
+   ```
+
+5. Run the tests and deploy:
 
    ```bash
    npm test
    npm run deploy
    ```
 
-5. Stream diagnostics with `npm run tail`.
+6. Stream diagnostics with `npm run tail`, and read the history with `/stats`
+   as described under "Usage stats" above.
 
 Without `OPENAI_API_KEY` the Worker answers `503` and says the shared model is
 not configured, rather than failing at OpenAI.
@@ -135,6 +200,11 @@ else by name. Change both together.
 ## Tests
 
 `npm test` runs `node --test` against `test/`, on plain Node with no Wrangler,
-Worker runtime, or network involved. The window arithmetic is exported as pure
-functions, and the request path is exercised against an in-memory stand-in for
-the Durable Object namespace and a stubbed upstream.
+Worker runtime, or network involved. The window arithmetic and the stats folding
+are exported as pure functions, and the request path is exercised against the
+**real** `TokenLimiter` class over `test/storage.js`'s in-memory stand-in for
+Durable Object storage, with a stubbed upstream — so the metering and counting
+under test are the code that ships, not a reimplementation of it.
+
+Salt rotation is covered by stubbing `Date.now` across a day boundary and
+asserting that the same visitor leaves two unrelated hashes.
