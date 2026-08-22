@@ -191,11 +191,15 @@ test('a request naming no model gets the default rather than a refusal', () => {
   assert.equal(sanitized.body.model, 'gpt-5.4-mini', 'the first listed model is the default');
 });
 
-test('a model outside the allowlist is refused by name', () => {
+test('a model outside the allowlist is refused, naming every one it accepts', () => {
   const refused = sanitizeBody({ ...CHAT, model: 'gpt-5.4' }, config({}));
   assert.equal(refused.ok, false);
   assert.equal(refused.status, 400);
-  assert.match(refused.message, /limited to gpt-5\.4-mini/);
+  assert.match(refused.message,
+    /limited to gpt-5\.4-mini, gpt-5\.4-nano and gpt-5\.6-luna/);
+  // A one-model deployment must not read "limited to a and ".
+  assert.match(sanitizeBody({ ...CHAT, model: 'gpt-5.4' }, config({ MODELS: 'only-one' })).message,
+    /limited to only-one\./);
 });
 
 test('a request with no messages is refused', () => {

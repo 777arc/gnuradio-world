@@ -147,6 +147,11 @@ const json = (payload, status, origin, extra = {}) => Response.json(payload, {
 /** An OpenAI-shaped error, so the editor's existing parser reads the message. */
 const errorBody = (message, type) => ({ error: { message, type } });
 
+/** "a", "a and b", "a, b and c" — three models joined with two `and`s reads badly. */
+const nameList = (names) => names.length < 2
+  ? names.join('')
+  : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
+
 /**
  * Rebuilds the upstream request from a whitelist.
  *
@@ -165,7 +170,7 @@ export function sanitizeBody(raw, cfg) {
     return {
       ok: false,
       status: 400,
-      message: `The shared GNU Radio World key is limited to ${cfg.models.join(' and ')}. ` +
+      message: `The shared GNU Radio World key is limited to ${nameList(cfg.models)}. ` +
         'Connect your own OpenAI or OpenRouter key to use another model.',
     };
   }
