@@ -30,6 +30,13 @@ Other triggers: `workflow_dispatch` builds without deploying unless you tick
 scripts end to end. A weekly `schedule` run exists purely to keep the caches
 alive — GitHub evicts anything unused for 7 days, and it never deploys.
 
+**The two Cloudflare Workers are not part of any of this.**
+`workers/sigmf-indexer/` and `workers/ai-proxy/` deploy by hand with `wrangler`,
+each with its own tests and README, and no workflow touches them. A change to a
+Worker is therefore not live when the Pages deploy goes green — deploy it
+yourself. The editor's shared-key AI provider depends on `ai-proxy` being
+deployed and holding its `OPENAI_API_KEY` secret.
+
 ## Runner version-locking
 
 `assemble-site.mjs` version-locks the runner: `runner.js`, `runner.wasm` and the

@@ -16,6 +16,9 @@ const {
   AI_PROVIDERS,
   DEFAULT_OPENAI_MODEL,
   DEFAULT_OPENROUTER_MODEL,
+  DEFAULT_PROVIDER,
+  HOSTED_MODEL,
+  PROVIDER_IDS,
   forgetKey,
   keyIsRemembered,
   storeKey,
@@ -32,6 +35,22 @@ assert.equal(AI_PROVIDERS.openai.oauth, false, 'an OpenAI key is pasted, never O
 assert.notEqual(AI_PROVIDERS.openai.storage.key, AI_PROVIDERS.openrouter.storage.key,
   'each provider keeps its own key');
 assert.equal(GRAPH_PREVIEW_DELAY_MS, 1000);
+
+// The free shared-key provider leads the list and is what a first-time visitor
+// lands on. It is keyless by construction: no key page, no storage slot a key
+// could land in, and one model the proxy will accept.
+assert.deepEqual(PROVIDER_IDS, ['hosted', 'openrouter', 'openai']);
+assert.equal(DEFAULT_PROVIDER, 'hosted');
+// pr-security-scan: allow new-outbound-host
+assert.equal(AI_PROVIDERS.hosted.api, 'https://ai.gnuradioworld.com/v1');
+assert.equal(AI_PROVIDERS.hosted.keyless, true);
+assert.equal(AI_PROVIDERS.hosted.oauth, false);
+assert.equal(AI_PROVIDERS.hosted.storage.key, undefined,
+  'a keyless provider has nowhere to put a key');
+assert.equal(AI_PROVIDERS.hosted.storage.sessionKey, undefined);
+assert.deepEqual(AI_PROVIDERS.hosted.fixedModels.map(model => model.id), [HOSTED_MODEL]);
+assert.equal(AI_PROVIDERS.openrouter.keyless, false);
+assert.equal(AI_PROVIDERS.openai.keyless, false);
 
 const memoryStorage = () => {
   const values = new Map();
@@ -65,9 +84,15 @@ try {
   assert.equal(storedKey('openai'), 'openai-key');
   forgetKey('openai');
   assert.equal(storedKey('openai'), '');
-  assert.equal(storedProvider(), 'openrouter', 'OpenRouter stays the default provider');
+  assert.equal(storedProvider(), 'hosted', 'the free shared model is the default');
   storeProvider('openai');
   assert.equal(storedProvider(), 'openai');
+  // Storing a key against the keyless provider must be a no-op rather than
+  // finding some slot to write it to.
+  storeKey('hosted', 'sk-should-never-be-stored', true);
+  assert.equal(storedKey('hosted'), '');
+  assert.equal(keyIsRemembered('hosted'), false);
+  forgetKey('hosted');
 } finally {
   Object.defineProperty(globalThis, 'localStorage', {
     value: savedLocalStorage, configurable: true, writable: true,
@@ -246,6 +271,39 @@ assert.equal(openAiBody.prompt_cache_key, CACHE_KEY);
 
 assert.equal(routerBody.prompt_cache_key, undefined,
   'prompt_cache_key is OpenAI-only');
+
+// The shared proxy takes no key, so the request must carry no Authorization
+// header at all — there is nothing of the user's to send, and the proxy holds
+// the only key involved.
+let hostedRequest;
+const hostedAgent = new FlowgraphAgent({
+  provider: 'hosted', model: HOSTED_MODEL, systemPrompt: 'test', deps,
+  fetchImpl: async (url, init) => {
+    hostedRequest = { url, init };
+    return sse([{
+      model: HOSTED_MODEL, choices: [{ delta: { content: 'Ready.' } }],
+      usage: { prompt_tokens: 10, completion_tokens: 2, total_tokens: 12 },
+    }]);
+  },
+});
+assert.equal((await hostedAgent.turn('hello')).text, 'Ready.');
+// pr-security-scan: allow new-outbound-host
+assert.equal(hostedRequest.url, 'https://ai.gnuradioworld.com/v1/chat/completions');
+assert.equal(hostedRequest.init.headers.Authorization, undefined,
+  'a keyless provider sends no Authorization header');
+assert.equal(hostedRequest.init.headers['HTTP-Referer'], undefined);
+const hostedBody = JSON.parse(hostedRequest.init.body);
+assert.equal(hostedBody.model, HOSTED_MODEL);
+assert.deepEqual(hostedBody.stream_options, { include_usage: true });
+assert.equal(hostedBody.prompt_cache_key, undefined,
+  'the proxy sets one shared cache key for every visitor');
+
+// The one model comes from the descriptor; the picker never fetches a list.
+const hostedModels = await listModels({
+  provider: 'hosted',
+  fetchImpl: () => { throw new Error('a fixed model list must not be fetched'); },
+});
+assert.deepEqual(hostedModels.map(model => model.id), [HOSTED_MODEL]);
 
 // OpenAI's model list has no capability flags, so the chat families are picked
 // out of every model the account can see.

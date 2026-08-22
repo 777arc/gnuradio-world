@@ -6,7 +6,7 @@ import {
   exchangeOpenRouterCode,
   takeOpenRouterOAuthReturn,
 } from './openrouter';
-import { listModels, type AiModel } from './client';
+import { AiRequestError, listModels, type AiModel } from './client';
 import {
   PROVIDER_IDS,
   forgetKey,
@@ -125,7 +125,7 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
   const providerSelect = node('select', 'ai-provider') as HTMLSelectElement;
   providerSelect.setAttribute('aria-label', 'AI provider');
   for (const id of PROVIDER_IDS) {
-    const option = node('option', '', `${providerFor(id).label} API`) as HTMLOptionElement;
+    const option = node('option', '', providerFor(id).menuLabel) as HTMLOptionElement;
     option.value = id;
     providerSelect.appendChild(option);
   }
@@ -155,6 +155,14 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
   const modelCache = new Map<ProviderId, AiModel[]>();
   let models: AiModel[] = [];
   let key = hasConsent(providerId) ? storedKey(providerId) : '';
+  /**
+   * Whether the dock can send at all. The shared provider holds no key of the
+   * user's, so "connected" there means nothing more than having a model.
+   */
+  const ready = () => provider().keyless || !!key;
+  // Tracked apart from `modelSelect.disabled`, which is also how a fixed,
+  // single-model picker is locked — and a locked picker must not disable Send.
+  let modelsLoading = false;
   let spend = 0;
   // Totalled apart, because one number cannot distinguish cheap cached input
   // from full-price fresh input from output spent reasoning.
@@ -189,6 +197,11 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
   };
 
   const currentModel = () => modelSelect.value;
+  // The shared provider is two hops, and the line says so rather than naming
+  // only the host the browser happens to talk to.
+  const boundaryText = () => provider().keyless
+    ? `Copilot API: ${provider().host} → ${providerFor('openai').host} (shared key)`
+    : `Copilot API: ${provider().host} only`;
   const share = (part: number, whole: number) =>
     whole > 0 ? ` (${Math.round((part / whole) * 100)}%)` : '';
   // OpenRouter prices every request in its final usage event; OpenAI reports
@@ -211,10 +224,11 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
     ].join('\n') : headline;
   };
   const updateSend = () => {
-    send.disabled = !!controller || modelSelect.disabled || !key || !currentModel();
+    send.disabled = !!controller || modelsLoading || !ready() || !currentModel();
     prompt.disabled = !!controller;
-    disconnect.hidden = !key;
-    newChat.disabled = !!controller || !key;
+    // Nothing to disconnect where nothing of the user's was stored.
+    disconnect.hidden = provider().keyless || !key;
+    newChat.disabled = !!controller || !ready();
   };
 
   const toolRow = (name: string, payload: unknown) => {
@@ -315,9 +329,9 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
   };
 
   const rebuildAgent = () => {
-    agent = key && currentModel() ? new FlowgraphAgent({
+    agent = ready() && currentModel() ? new FlowgraphAgent({
       provider: providerId,
-      key,
+      key: key || undefined,
       model: currentModel(),
       systemPrompt: `${deps.systemPrompt.trim()}\n\nRunnable block index:\n${runnableIndex(deps.entries())}`,
       deps: fullToolDeps,
@@ -338,6 +352,27 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
   };
 
   const populateModels = () => {
+    const named = provider();
+    // One model and no choice: the shared key is only accepted for this id, so
+    // the picker states it and locks rather than offering a request that the
+    // proxy would refuse.
+    if (named.fixedModels) {
+      modelSelect.textContent = '';
+      for (const model of named.fixedModels) {
+        const option = node('option') as HTMLOptionElement;
+        option.value = model.id;
+        option.textContent = model.name;
+        modelSelect.appendChild(option);
+      }
+      modelSelect.value = named.fixedModels[0]?.id || '';
+      modelSelect.disabled = true;
+      modelSelect.title =
+        `${named.label} runs one model. Connect your own key to choose another.`;
+      rebuildAgent();
+      return;
+    }
+    modelSelect.disabled = false;
+    modelSelect.title = '';
     const fallback = provider().defaultModel;
     const saved = storedModel(providerId);
     const wanted = models.some(model => model.id === saved) ? saved : fallback;
@@ -360,6 +395,12 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
   };
 
   const loadModels = async () => {
+    // A fixed list is in the descriptor already; nothing is ever fetched.
+    if (provider().fixedModels) {
+      models = provider().fixedModels!.map(model => ({ ...model }));
+      populateModels();
+      return;
+    }
     const cached = modelCache.get(providerId);
     if (cached?.length) { models = cached; populateModels(); return; }
     // OpenAI's list is authenticated; there is nothing to fetch before connecting.
@@ -373,6 +414,7 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
     modelSelect.textContent = '';
     modelSelect.appendChild(modelStatus('Loading models…'));
     modelSelect.disabled = true;
+    modelsLoading = true;
     try {
       const listed = await listModels({ provider: requested, key });
       modelCache.set(requested, listed);
@@ -386,7 +428,7 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
       modelSelect.textContent = '';
       modelSelect.appendChild(modelStatus('Could not load models'));
       bubble('status', error instanceof Error ? error.message : String(error));
-    } finally { modelSelect.disabled = false; updateSend(); }
+    } finally { modelsLoading = false; modelSelect.disabled = false; updateSend(); }
   };
 
   /** Points the dock at one provider's key, model list, and data boundary. */
@@ -394,16 +436,21 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
     providerId = id;
     storeProvider(id);
     providerSelect.value = id;
-    boundary.textContent = `Copilot API: ${provider().host} only`;
+    boundary.textContent = boundaryText();
     key = hasConsent(id) ? storedKey(id) : '';
     models = modelCache.get(id) || [];
     modelSelect.textContent = '';
-    modelSelect.appendChild(modelStatus(key ? 'Loading models…' : `Connect ${provider().label}…`));
+    modelSelect.disabled = false;
+    modelSelect.appendChild(modelStatus(
+      ready() ? 'Loading models…' : `Connect ${provider().label}…`));
     clearUsage();
     showSpend();
-    if (announce) resetConversation(`Using the ${provider().label} API.`);
-    else rebuildAgent();
-    if (key) void loadModels();
+    if (announce) {
+      resetConversation(provider().keyless
+        ? `Using the free ${provider().label} model, shared by everyone on the site.`
+        : `Using the ${provider().label} API.`);
+    } else rebuildAgent();
+    if (ready()) void loadModels();
     else updateSend();
   };
 
@@ -421,6 +468,8 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
     let keyLabelText!: Text;
     let choice!: HTMLSelectElement;
     let keyCopy!: HTMLElement;
+    let trustHeading!: Text;
+    let rememberLabel!: HTMLElement;
     let sentCopy!: HTMLElement;
     let consentText!: Text;
     let limited!: HTMLAnchorElement;
@@ -439,10 +488,13 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
 
       const trust = node('section', 'ai-trust');
       keyCopy = node('p', '', '');
+      trustHeading = document.createTextNode('');
+      const trustTitle = node('strong');
+      trustTitle.appendChild(trustHeading);
       trust.append(
-        node('strong', '', 'Your key stays on this device'),
+        trustTitle,
         keyCopy,
-        node('p', '', 'The key is never placed in a flowgraph, share link, URL, console message, or runner message.'),
+        node('p', '', 'A key is never placed in a flowgraph, share link, URL, console message, or runner message.'),
       );
       const sent = node('section', 'ai-data-boundary');
       sentCopy = node('p', '', '');
@@ -460,7 +512,7 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
 
       remember = node('input') as HTMLInputElement;
       remember.type = 'checkbox';
-      const rememberLabel = node('label', 'ai-consent');
+      rememberLabel = node('label', 'ai-consent');
       rememberLabel.append(remember,
         document.createTextNode(' Remember the key on this device. Leave unchecked to keep it only for this browser tab.'));
 
@@ -492,29 +544,47 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
     const applyDialogProvider = () => {
       const chosen = providerFor(dialogProvider);
       const connected = hasConsent(dialogProvider) ? storedKey(dialogProvider) : '';
-      keyCopy.textContent = 'GNU Radio World is a static, open-source application. It has no ' +
-        'application server that receives your key. Your browser sends the key only to ' +
-        `${chosen.host} over HTTPS when Copilot makes a request.`;
+      trustHeading.nodeValue = chosen.keyless
+        ? 'No API key needed'
+        : 'Your key stays on this device';
+      keyCopy.textContent = chosen.keyless
+        ? 'GNU Radio World is a static, open-source application. This model runs on one ' +
+          `OpenAI key the project shares with every visitor, held by a Cloudflare Worker at ` +
+          `${chosen.host} — nothing of yours is stored, and you have nothing to disconnect. ` +
+          'Use is limited per visitor and against a daily budget for the whole site, so a busy ' +
+          'day can run it out. Connect your own key for limits of your own.'
+        : 'GNU Radio World is a static, open-source application. It has no ' +
+          'application server that receives your key. Your browser sends the key only to ' +
+          `${chosen.host} over HTTPS when Copilot makes a request.`;
       sentCopy.textContent = chosen.sends;
       limited.href = chosen.keysUrl;
+      limited.textContent = chosen.keysLabel;
       privacy.href = chosen.privacyUrl;
       privacy.textContent = chosen.privacyLabel;
-      consentText.nodeValue = chosen.oauth
-        ? ` I understand what is sent to ${chosen.label} and the selected model provider.`
-        : ` I understand what is sent to ${chosen.label}.`;
+      consentText.nodeValue = chosen.keyless
+        ? ' I understand my prompt and flowgraph are sent to the GNU Radio World proxy and on ' +
+          'to OpenAI.'
+        : chosen.oauth
+          ? ` I understand what is sent to ${chosen.label} and the selected model provider.`
+          : ` I understand what is sent to ${chosen.label}.`;
       remember.checked = keyIsRemembered(dialogProvider);
       consent.checked = hasConsent(dialogProvider);
       keyLabelText.nodeValue = `${chosen.label} API key`;
       keyInput.value = '';
       keyInput.placeholder = connected ? 'Enter a replacement key' : chosen.keyPlaceholder;
       connectStatus.textContent = '';
-      // Only OpenRouter has a browser authorization flow; an OpenAI key is pasted.
+      // Only OpenRouter has a browser authorization flow; an OpenAI key is
+      // pasted; the shared proxy takes no key at all.
       connect.hidden = !chosen.oauth;
       connect.disabled = false;
       connect.textContent = `Connect with ${chosen.label}`;
       manualSummary.hidden = !chosen.oauth;
-      manual.open = !chosen.oauth;
-      save.textContent = chosen.oauth ? 'Use pasted key' : `Use ${chosen.label} key`;
+      manual.hidden = chosen.keyless;
+      manual.open = !chosen.oauth && !chosen.keyless;
+      rememberLabel.hidden = chosen.keyless;
+      save.textContent = chosen.keyless
+        ? 'Use the free shared model'
+        : chosen.oauth ? 'Use pasted key' : `Use ${chosen.label} key`;
     };
 
     choice.onchange = () => {
@@ -535,8 +605,16 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
       }
     };
     save.onclick = () => {
-      if (!keyInput.value.trim()) { manual.open = true; keyInput.focus(); return; }
       if (!consent.checked) { consent.focus(); return; }
+      if (providerFor(dialogProvider).keyless) {
+        // Consent is the whole of connecting here; there is no key to store.
+        storeConsent(dialogProvider);
+        overlay.remove();
+        if (dialogProvider !== providerId) applyProvider(dialogProvider, true);
+        else { rebuildAgent(); void loadModels(); }
+        return;
+      }
+      if (!keyInput.value.trim()) { manual.open = true; keyInput.focus(); return; }
       const entered = keyInput.value.trim();
       storeKey(dialogProvider, entered, remember.checked);
       storeConsent(dialogProvider);
@@ -553,7 +631,7 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
     };
     applyDialogProvider();
     overlay.querySelector('.dlgfoot')?.prepend(connect, save);
-    (connect.hidden ? keyInput : connect).focus();
+    (connect.hidden ? (manual.hidden ? save : keyInput) : connect).focus();
   };
 
   const attachDiff = (before: GraphSnapshot, after: GraphSnapshot) => {
@@ -590,7 +668,10 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
     event.preventDefault();
     const text = prompt.value.trim();
     if (!text || controller) return;
-    if (!key) { showConnect(); return; }
+    // Consent is what the first Send waits on. The dock is usable before it —
+    // the free shared model needs no connecting — but nothing leaves the
+    // browser until the dialog has said where it goes.
+    if (!hasConsent(providerId) || !ready()) { showConnect(); return; }
     if (!currentModel()) { modelSelect.focus(); return; }
     if (!agent) rebuildAgent();
     bubble('user', text);
@@ -603,8 +684,16 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
       await agent!.turn(text, controller.signal);
     } catch (error) {
       const aborted = error instanceof DOMException && error.name === 'AbortError';
-      if (!aborted) bubble('status', error instanceof Error ? error.message : String(error));
-      else bubble('status', 'Stopped.');
+      if (aborted) bubble('status', 'Stopped.');
+      else {
+        bubble('status', error instanceof Error ? error.message : String(error));
+        // The shared model's limits are the one failure a user can act on
+        // without leaving the page, so the way out is named alongside it.
+        if (error instanceof AiRequestError && error.rateLimited && provider().keyless) {
+          bubble('status', 'Switch the provider above to OpenRouter or OpenAI to use a key of ' +
+            'your own, which has limits of its own.');
+        }
+      }
     } finally {
       const after = deps.snapshot();
       if (!same(before, after)) {
@@ -617,7 +706,7 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
 
   stop.onclick = () => controller?.abort();
   newChat.onclick = () => {
-    if (!controller && key) resetConversation('New conversation started.');
+    if (!controller && ready()) resetConversation('New conversation started.');
   };
   settings.onclick = showConnect;
   disconnect.onclick = () => {
@@ -636,7 +725,7 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
     const chosen = providerFor(providerSelect.value).id;
     if (chosen === providerId) return;
     applyProvider(chosen, true);
-    if (!key) showConnect();
+    if (!ready()) showConnect();
   };
   modelSelect.onchange = () => {
     storeModel(providerId, currentModel());
@@ -671,11 +760,17 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
 
   app.classList.add('ai-hidden');
   providerSelect.value = providerId;
-  boundary.textContent = `Copilot API: ${provider().host} only`;
+  boundary.textContent = boundaryText();
   showSpend();
   modelSelect.appendChild(modelStatus('Open Copilot to load models…'));
-  if (!key) bubble('status',
-    `Connect ${provider().label} to start. No API key is bundled with GNU Radio World.`);
+  if (provider().keyless) {
+    bubble('status', `Free to use — ${provider().label} runs ${provider().defaultModel} on a ` +
+      'shared key, rate limited per visitor. Connect your own OpenRouter or OpenAI key above ' +
+      'for limits of your own.');
+  } else if (!key) {
+    bubble('status',
+      `Connect ${provider().label} to start. No API key is bundled with GNU Radio World.`);
+  }
   updateSend();
 
   if (oauthReturn) {
@@ -711,7 +806,9 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
 
   const openPanel = () => {
     app.classList.remove('ai-hidden');
-    if (!key) showConnect();
+    // A keyless provider has nothing to connect, so the dialog waits for the
+    // first Send rather than interrupting someone who only opened the dock.
+    if (!ready()) showConnect();
     else { void loadModels(); prompt.focus(); }
   };
 

@@ -1,0 +1,37 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "gnuradio-world-ai-proxy",
+  "main": "src/index.js",
+  "compatibility_date": "2026-07-31",
+  "routes": [
+    {
+      "pattern": "ai.gnuradioworld.com",
+      "custom_domain": true
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "LIMITER",
+        "class_name": "TokenLimiter"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["TokenLimiter"]
+    }
+  ],
+  "vars": {
+    "MODEL": "gpt-5.4-mini",
+    "TOKENS_PER_MINUTE": "1000000",
+    "DAILY_TOKEN_CAP": "5000000",
+    "MAX_BODY_BYTES": "1048576",
+    "MAX_COMPLETION_TOKENS": "16384",
+    "OUTPUT_ESTIMATE": "2000"
+  },
+  "observability": {
+    "enabled": true
+  }
+}

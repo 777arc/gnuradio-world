@@ -43,7 +43,8 @@ export interface AgentHooks {
 
 export interface AgentOptions {
   provider: ProviderId;
-  key: string;
+  /** Absent on a keyless provider, where the proxy holds the only key. */
+  key?: string;
   model: string;
   systemPrompt: string;
   deps: AiToolDeps;

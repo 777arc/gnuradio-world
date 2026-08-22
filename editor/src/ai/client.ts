@@ -1,8 +1,8 @@
 /**
  * The one request path Flowgraph Copilot uses, against whichever provider in
- * `providers.ts` is connected. Both providers speak OpenAI's chat-completions
- * wire format; the descriptor supplies the base URL, the headers each accepts,
- * and what its model list looks like.
+ * `providers.ts` is connected. All three providers speak OpenAI's
+ * chat-completions wire format; the descriptor supplies the base URL, the
+ * headers each accepts, and what its model list looks like.
  */
 import { providerFor, type AiProvider, type ProviderId } from './providers';
 
@@ -81,13 +81,38 @@ export const attributionHeaders = (): Record<string, string> => ({
 const providerHeaders = (provider: AiProvider): Record<string, string> =>
   provider.attribution ? attributionHeaders() : {};
 
-export function apiError(provider: AiProvider, status: number, body: string): Error {
+/**
+ * The key, where there is one. A keyless provider must send no Authorization
+ * header at all: the shared proxy holds the only key involved, and a stray
+ * header would only widen the request's CORS preflight.
+ */
+const authorization = (key?: string): Record<string, string> =>
+  key ? { Authorization: `Bearer ${key}` } : {};
+
+/**
+ * An API failure, carrying the status so a caller can tell a spent quota from
+ * a bad key. The shared proxy answers 429 with a message that already names
+ * the wait and the way forward, so it is surfaced as written.
+ */
+export class AiRequestError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+    this.name = 'AiRequestError';
+  }
+
+  /** True when waiting, or connecting a personal key, is what resolves it. */
+  get rateLimited(): boolean {
+    return this.status === 429;
+  }
+}
+
+export function apiError(provider: AiProvider, status: number, body: string): AiRequestError {
   try {
     const parsed = JSON.parse(body);
     const message = parsed?.error?.message || parsed?.message;
-    if (message) return new Error(`${provider.label}: ${message}`);
+    if (message) return new AiRequestError(`${provider.label}: ${message}`, status);
   } catch { /* return the status below */ }
-  return new Error(`${provider.label} request failed (${status})`);
+  return new AiRequestError(`${provider.label} request failed (${status})`, status);
 }
 
 // OpenAI's model list is every model of every kind, with no capability flags, so
@@ -117,7 +142,8 @@ const openRouterModels = (payload: any): AiModel[] =>
 
 /**
  * Lists the models a provider offers. OpenRouter publishes a tool-capable
- * filter and needs no key; OpenAI's list is authenticated and unfiltered.
+ * filter and needs no key; OpenAI's list is authenticated and unfiltered; the
+ * shared proxy offers exactly one model, which the descriptor already names.
  */
 export async function listModels(options: {
   provider: ProviderId;
@@ -126,12 +152,13 @@ export async function listModels(options: {
   fetchImpl?: typeof fetch;
 }): Promise<AiModel[]> {
   const provider = providerFor(options.provider);
+  if (provider.fixedModels) return provider.fixedModels.map(model => ({ ...model }));
   const fetcher = options.fetchImpl || fetch;
   const path = provider.id === 'openrouter' ? '/models?supported_parameters=tools' : '/models';
   const response = await fetcher(`${provider.api}${path}`, {
     headers: {
       ...providerHeaders(provider),
-      ...(options.key ? { Authorization: `Bearer ${options.key}` } : {}),
+      ...authorization(options.key),
     },
     signal: options.signal,
   });
@@ -146,7 +173,8 @@ export async function listModels(options: {
  */
 export async function chatCompletion(options: {
   provider: ProviderId;
-  key: string;
+  /** Absent on a keyless provider. */
+  key?: string;
   model: string;
   messages: ChatMessage[];
   tools: ToolDefinition[];
@@ -161,7 +189,7 @@ export async function chatCompletion(options: {
   const response = await fetcher(`${provider.api}/chat/completions`, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${options.key}`,
+      ...authorization(options.key),
       'Content-Type': 'application/json',
       ...providerHeaders(provider),
     },

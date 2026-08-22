@@ -1,0 +1,24 @@
+{
+  "name": "gnuradio-world-ai-proxy",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20.3.0"
+  },
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "tail": "wrangler tail",
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "wrangler": "4.86.0"
+  },
+  "overrides": {
+    "esbuild": "0.28.1",
+    "sharp": "0.35.3",
+    "undici": "7.29.0",
+    "ws": "8.21.1"
+  }
+}
