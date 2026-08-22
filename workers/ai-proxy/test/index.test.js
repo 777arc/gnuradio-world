@@ -184,6 +184,16 @@ test('an allowed model is passed through, with a cache key of its own', () => {
   assert.notEqual(cacheKeyFor(cfg, 'gpt-5.4-mini'), cacheKeyFor(cfg, 'gpt-5.4-nano'));
 });
 
+test('tools force reasoning off, which is what makes them work at all', () => {
+  // Not cosmetic: gpt-5.6-luna defaults to non-none reasoning and refuses every
+  // tool-carrying request without this, and every editor request carries tools.
+  const withTools = sanitizeBody({ ...CHAT, model: 'gpt-5.6-luna' }, config({}));
+  assert.equal(withTools.body.reasoning_effort, 'none');
+  // A plain completion is left alone, keeping the model's own default.
+  const { tools, ...noTools } = CHAT;
+  assert.equal('reasoning_effort' in sanitizeBody(noTools, config({})).body, false);
+});
+
 test('a request naming no model gets the default rather than a refusal', () => {
   const { model, ...noModel } = CHAT;
   const sanitized = sanitizeBody(noModel, config({}));

@@ -116,18 +116,26 @@ day's hash set. Past that cap the day still counts every request and sets
 
 ### Reading it
 
-Configure a token once:
+Configure a token once, and keep a copy — Cloudflare stores it write-only and
+will not hand it back, so a lost token means putting a new one:
 
 ```bash
-npx wrangler secret put STATS_TOKEN
+STATS_TOKEN=$(openssl rand -hex 32)
+printf '%s' "$STATS_TOKEN" | npx wrangler secret put STATS_TOKEN
 ```
 
-Then:
+Generating it into a shell variable is what makes the read below work in the
+same shell; `wrangler secret put` sends the value to Cloudflare and sets nothing
+locally, so prompting for it instead leaves `$STATS_TOKEN` empty and every read
+answers 401. Export it from your profile, or an ignored env file, to keep it
+across shells.
 
 ```bash
 curl -s -H "Authorization: Bearer $STATS_TOKEN" \
   'https://ai.gnuradioworld.com/stats?days=30' | jq
 ```
+
+`days` defaults to 30 and the newest day comes first.
 
 `/stats` is answered **before** the origin gate, because a terminal sends no
 `Origin` at all, and deliberately **outside CORS**, so no page can read it. An
@@ -169,11 +177,14 @@ for the Queue in `workers/sigmf-indexer`.
    printf '%s' "$OPENAI_KEY" | npm exec wrangler secret put OPENAI_API_KEY
    ```
 
-4. Store a token for the usage history (optional, but there is no way to add it
-   later without a redeploy of nothing — it is only a secret, so do it now):
+4. Store a token for the usage history. Optional, and it can be added at any
+   time — `wrangler secret put` redeploys the Worker but leaves the Durable
+   Object's records untouched, so days recorded before the token existed are
+   still readable once it does. Keep the copy it leaves in your shell:
 
    ```bash
-   npx wrangler secret put STATS_TOKEN
+   STATS_TOKEN=$(openssl rand -hex 32)
+   printf '%s' "$STATS_TOKEN" | npx wrangler secret put STATS_TOKEN
    ```
 
 5. Run the tests and deploy:

@@ -204,6 +204,14 @@ export function sanitizeBody(raw, cfg) {
       // Not negotiable: the token count in this event is what the limiter
       // settles against.
       stream_options: { include_usage: true },
+      // On /v1/chat/completions these models refuse function tools unless
+      // reasoning is off — "Function tools with reasoning_effort are not
+      // supported … use /v1/responses or set reasoning_effort to 'none'".
+      // Leaving it unset is not the same as 'none': a model whose own default
+      // is non-none (gpt-5.6-luna) rejects every tool-carrying request, which
+      // is every request the editor makes. Set explicitly, and only alongside
+      // tools, so a plain completion keeps whatever the model does by default.
+      ...(raw.tools ? { reasoning_effort: 'none' } : {}),
       max_completion_tokens: cfg.maxCompletionTokens,
       prompt_cache_key: cacheKeyFor(cfg, model),
     },
@@ -406,7 +414,13 @@ async function handleCompletion(request, env, ctx, origin, cfg) {
 
   if (!upstream.ok || !upstream.body) {
     // The upstream body can name the organization and the key's own limits, so
-    // the status is forwarded and the text is not.
+    // the status is forwarded to the caller and the text is not. It is also the
+    // only account of *why* a model refused, so it goes to the Worker's log,
+    // which only the operator can read (`wrangler tail`) — without it a model
+    // that rejects one field of the request is an opaque 400 forever.
+    const detail = await upstream.text().catch(() => '');
+    console.error(`upstream ${upstream.status} for ${sanitized.body.model}: ` +
+      detail.slice(0, 800).replace(/\s+/g, ' '));
     ctx.waitUntil(refund());
     const message = upstream.status === 429
       ? 'The shared model is rate limited upstream right now. Try again shortly, or connect ' +
