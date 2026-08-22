@@ -207,8 +207,9 @@ button:hover { filter:brightness(1.15); }
 .ai-boundary { color:#a9d8b4; font-size:12px; }
 .ai-boundary::before { content:'●'; margin-right:5px; color:#53c878; }
 .ai-disconnect { padding:3px 7px; color:#c4ccdd; background:transparent; font-size:12px; }
-.ai-model { width:100%; min-width:0; padding:7px; color:#e6e9f0; background:#262c3d;
+.ai-model, .ai-provider { width:100%; min-width:0; padding:7px; color:#e6e9f0; background:#262c3d;
     border:1px solid #46507a; border-radius:5px; }
+.ai-provider { margin-bottom:7px; }
 .ai-transcript { min-height:0; overflow:auto; padding:12px 10px; display:flex;
     flex-direction:column; gap:10px; }
 /* flex:none on every direct child .ai-transcript appends (message bubbles, tool

@@ -1,0 +1,40 @@
+options:
+    parameters:
+        id: sigmf_source_tags
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: source
+    id: wasm_sigmf_source
+    parameters:
+        file: /local-files/sigmf-test/tagged.sigmf-data
+        length: '0'
+        offset: '2'
+        repeat: 'False'
+        tags: 'True'
+        type: complex
+        use_samp_rate: 'True'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: tags
+    id: blocks_tag_debug
+    parameters:
+        display: 'True'
+        filter: '""'
+        name: sigmf
+        num_inputs: '1'
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+connections:
+- [source, '0', tags, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0

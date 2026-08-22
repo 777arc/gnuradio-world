@@ -14,7 +14,7 @@ full* before starting that kind of work:
 | [docs/blocks.md](docs/blocks.md) | implementing or rebuilding a block — the registry line, hand-written factories, Python hier/GUI rebuilds, QT GUI controls |
 | [docs/flowgraph-files.md](docs/flowgraph-files.md) | writing or editing a `.grc` by hand — anything in `example_flowgraphs/` or `test/fixtures/`, parameter dtypes, expressions, PMTs |
 | [docs/adding-modules.md](docs/adding-modules.md) | adding a GNU Radio component library or vendoring an out-of-tree module — a self-contained checklist for both, plus the gr-satellites rebuilds |
-| [docs/recording-viewer.md](docs/recording-viewer.md) | touching the three source blocks that read a file (File Source, GR World Recording, Public HTTP Recording), the R2 recording bucket and its CORS policy, recording tabs, or the SigMF viewer under `editor/src/recording/` |
+| [docs/recording-viewer.md](docs/recording-viewer.md) | touching the four source blocks that read a file (File Source, SigMF Source, GR World Recording, Public HTTP Recording), the one that writes one (SigMF Sink), the R2 recording bucket and its CORS policy, recording tabs, or the SigMF viewer under `editor/src/recording/` |
 | [docs/rtlsdr.md](docs/rtlsdr.md) | touching RTL-SDR Source — the WebUSB reader worker, the RTL2832U/tuner drivers, the device-permission flow, or anything that has to reach USB hardware from a tab |
 | [docs/plutosdr.md](docs/plutosdr.md) | touching PlutoSDR Source or Sink — stock-firmware USB IIOD, WebUSB transport, IIO discovery, 1R1T/2R2T, device permission, or Pluto hardware testing |
 | [docs/audio.md](docs/audio.md) | touching Audio Sink or Audio Source — the Web Audio worklet, the sound-card ring, microphone permission, or the browser's autoplay policy |
@@ -27,7 +27,7 @@ full* before starting that kind of work:
 | [docs/diagnostics.md](docs/diagnostics.md) | working on the runner's `__grstats` snapshot, the debug panel, or the Benchmark Tool |
 | [docs/embedded-python.md](docs/embedded-python.md) | touching the Embedded Python Block — Pyodide, the Python shim under `runner/src/pyodide/`, `blocks/src/python_block.hpp`, `editor/src/epy.ts`, or the Code field's CodeMirror in `editor/src/code-editor.ts` |
 | [docs/js-blocks.md](docs/js-blocks.md) | touching the JavaScript Block — `runner/src/js_runtime.js`, `blocks/src/js_block.hpp`, `editor/src/js-block.ts`, `editor/src/code-modal.ts`, or anything under `blocks/js/` |
-| [docs/ai-copilot.md](docs/ai-copilot.md) | touching Flowgraph Copilot — OpenRouter, structured graph tools, the agent loop, visible-run diagnostics, consent/key storage, or hardware authorization rows |
+| [docs/ai-copilot.md](docs/ai-copilot.md) | touching Flowgraph Copilot — the OpenRouter and OpenAI providers, structured graph tools, the agent loop, visible-run diagnostics, consent/key storage, or hardware authorization rows |
 
 ## Project overview
 
@@ -220,6 +220,7 @@ node test/test_lazy_scenarios.mjs   # deferred category modules are fetched and 
 node test/test_smoke.mjs            # blocks actually move samples, not merely that it links
 node scripts/run.mjs /runner/build/runner.html RUNNER_PASS
 node runner/test/audio_worklet.test.mjs  # Audio Sink/Source's worklet, on plain Node
+node runner/test/browser_file_writer.test.mjs  # SigMF Sink's writer worker, likewise
 node runner/test/js_runtime.test.mjs    # the JS Block harness, on plain Node in a second
 node test/test_js_block.mjs             # ... a flowgraph whose work() is JavaScript
 node test/test_js_block_editor.mjs      # ... and the editor deriving ports as you type
@@ -375,9 +376,22 @@ explanation lives in that doc — follow it before working in that area.
   still moves and publishes, the block keeps its construction-time value.
   Generated factories emit one per simple `callbacks:` entry in the yaml;
   hand-written ones must add theirs. See [docs/blocks.md](docs/blocks.md).
-- **Three blocks read a file, one per place a file can be** — File Source (local,
-  session-bound), GR World Recording (an R2 key the runner's factory expands), and
-  Public HTTP Recording (a URL the editor rewrites on the Run path). See
+- **Four blocks read a file, one per place a file can be** — File Source (local
+  raw samples, session-bound), SigMF Source (a local `.sigmf-data`/`.sigmf-meta`
+  pair, whose captures and annotations become stream tags), GR World Recording (an
+  R2 key the runner's factory expands), and Public HTTP Recording (a URL the
+  editor rewrites on the Run path). See
+  [docs/recording-viewer.md](docs/recording-viewer.md).
+- **One block writes a file, and stopping it is not free.** There is no File Sink
+  here — Emscripten's filesystem is in-memory — so SigMF Sink hands its input to a
+  worker that streams it into a folder the reader chose, or buffers and downloads
+  it where the File System Access API is absent. Either way, the editor's usual
+  way of stopping a flowgraph (unloading the runner iframe) would kill that worker
+  mid-recording, so a flowgraph containing one is brought down through
+  `gr_shutdown_flowgraph()` first and the frame unloaded only on the
+  acknowledgement. That entry point **signals and returns; it must never join** —
+  a block's `stop()` runs on its own thread and proxies to the browser main
+  thread, so waiting for it there deadlocks any flowgraph at all. See
   [docs/recording-viewer.md](docs/recording-viewer.md).
 - **Two blocks reach the sound card, and the browser may refuse to start it.**
   Audio Sink and Audio Source keep gr-audio's ids and parameters but none of its

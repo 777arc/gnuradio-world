@@ -1,0 +1,105 @@
+id: wasm_sigmf_sink
+label: SigMF Sink
+category: '[Core]/File Operators'
+flags: [cpp]
+
+documentation: |-
+    Writes a SigMF recording to a folder on this computer.
+
+    A SigMF recording is a pair of files sharing a base name, and this block
+    writes both: '<base>.sigmf-data' holding the samples exactly as they arrive,
+    and '<base>.sigmf-meta' holding the JSON description assembled while the
+    flowgraph runs. Recording is that base name, without either suffix.
+
+    Click "Choose folder..." to say where they go. The picker opens in Downloads
+    and remembers wherever you last pointed it, so this is normally a once-per-
+    browser thing.
+
+    One restriction is the browser's, not this block's: Chrome refuses the
+    Downloads folder *itself*, saying it "contains system files". A folder inside
+    Downloads is fine -- the picker's "New folder" button makes one -- and so is
+    anywhere else. The rule exists because handing a page your whole Downloads
+    folder exposes far more than you meant to; a single file saved into it is
+    still allowed, which is why ordinary downloads are unaffected.
+
+    Where the browser has no File System Access API at all (Firefox and Safari
+    today), there is no folder to choose: the recording is held in memory instead
+    and both files are downloaded when the flowgraph stops, which caps how long a
+    run can be. Chromium streams straight to disk and has no such limit.
+
+    Stream Type is the item type on the input, and decides the 'core:datatype'
+    written out -- complex is cf32_le, float is rf32_le, short is ri16_le and
+    byte is ri8. To write an interleaved-integer recording (ci16_le), the same
+    convention GNU Radio uses, feed a short stream through Complex To IShort.
+
+    Sample Rate, Center Frequency, Author, Description and Hardware Info become
+    'core:sample_rate', the first capture segment's 'core:frequency', and
+    'core:author' / 'core:description' / 'core:hw'.
+
+    Turn tags into annotations records what the flowgraph found:
+
+    * A 'sigmf:annotation' tag -- what SigMF Source emits -- is written back as
+      an annotation unchanged, so a recording round-trips through a flowgraph
+      with its annotations intact.
+    * An 'rx_freq' or 'rx_time' tag opens a new capture segment, so a retuned
+      source is recorded as the series of captures it actually was.
+    * Any other tag becomes an annotation labelled with the tag's key, carrying
+      its value under 'gnuradio:value'. Attach anything that tags a stream --
+      a correlator, a burst detector, a decoder -- and its findings land in the
+      metadata.
+
+    This block exists only in the WebAssembly runner -- it has no Python
+    implementation, so a flowgraph using it will not run in desktop GNU Radio.
+
+parameters:
+# A browser-only dtype: the Properties dialog renders it as a base-name field
+# plus a folder picker. The .grc keeps only the base name -- never a directory
+# handle -- so the folder is chosen once per session, like File Source's file.
+-   id: file
+    label: Recording
+    dtype: sigmf_file_save
+    default: ''
+-   id: type
+    label: Stream Type
+    dtype: enum
+    default: complex
+    options: [complex, float, int, short, byte]
+    option_attributes:
+        size: [gr.sizeof_gr_complex, gr.sizeof_float, gr.sizeof_int, gr.sizeof_short, gr.sizeof_char]
+        datatype: [cf32_le, rf32_le, ri32_le, ri16_le, ri8]
+    hide: part
+-   id: sample_rate
+    label: Sample Rate
+    dtype: float
+    default: samp_rate
+-   id: center_freq
+    label: Center Frequency
+    dtype: float
+    default: '0'
+-   id: annotate_tags
+    label: Turn tags into annotations
+    dtype: enum
+    default: 'True'
+    options: ['True', 'False']
+    option_labels: ['Yes', 'No']
+-   id: author
+    label: Author
+    dtype: string
+    default: ''
+    hide: part
+-   id: description
+    label: Description
+    dtype: string
+    default: ''
+    hide: part
+-   id: hw_info
+    label: Hardware Info
+    dtype: string
+    default: ''
+    hide: part
+
+inputs:
+-   domain: stream
+    dtype: ${ type }
+
+file_format: 1

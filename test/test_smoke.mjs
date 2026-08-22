@@ -41,6 +41,8 @@ const OFFSET_LOCAL_PATH = '/local-files/offset-test/fm_rds_250k_1Msamples.sigmf-
 const OFFSET_RECORDING_BASE64 =
   'dMG5PFtRrb3Awd88U7GpvUWBojxmwbK9gAHAOGlBtL3DgWG8WAGsvXFBuLxLsaW9/4H/vEAhoL064Ry9PBGevQ==';
 const OFFSET_SAMPLE = 3;
+// SigMF Source's binding, whose .sigmf-meta rides beside the samples.
+const SIGMF_LOCAL_PATH = '/local-files/sigmf-test/tagged.sigmf-data';
 const rangeRequests = [];
 
 function expectedPoolTier(grc) {
@@ -602,6 +604,110 @@ for (const result of caseResults) {
   console.log(`   selected: ${selectedName}  luma: ${probe?.value ?? '(no probe)'}  ` +
               `announced: ${announced.trim() || '(nothing)'}`);
   if (!ok && logs.length) console.log('   logs: ' + logs.slice(-8).join('\n         '));
+}
+
+// SigMF Source: the recording's own metadata reaching the flowgraph as stream
+// tags. This is what the block exists for -- reading the samples is the same
+// BrowserFileSource every other file-reading block uses -- so it is asserted
+// through what a Tag Debug prints rather than through item counts, which cannot
+// see a tag at all. The Offset of 2 is deliberate: tag offsets are pass-relative,
+// so the capture at sample 0 is dropped and the annotation at sample 5 lands on
+// sample 3.
+{
+  const test = {
+    name: 'SigMF Source turns captures and annotations into stream tags',
+    grc: 'test/fixtures/sigmf_source_tags.grc',
+  };
+  const page = await browser.newPage();
+  const logs = [];
+  page.on('console', m => logs.push(m.text()));
+  page.on('pageerror', e => logs.push('PAGEERROR ' + e.message));
+
+  const grc = readFileSync(join(ROOT, test.grc), 'utf8');
+  const meta = JSON.stringify({
+    global: {
+      'core:datatype': 'cf32_le',
+      'core:version': '1.0.0',
+      'core:sample_rate': 250000,
+    },
+    captures: [
+      { 'core:sample_start': 0, 'core:frequency': 100000000 },
+      { 'core:sample_start': 4, 'core:frequency': 101000000 },
+    ],
+    annotations: [
+      { 'core:sample_start': 5, 'core:sample_count': 2, 'core:label': 'burst' },
+    ],
+  });
+
+  await page.goto(`http://localhost:${PORT}/__recording_test__`,
+                  { waitUntil: 'load', timeout: 30000 });
+  await page.evaluate(({ grc, recordingBase64, recordingPath, meta }) => {
+    const binary = atob(recordingBase64);
+    const bytes = Uint8Array.from(binary, char => char.charCodeAt(0));
+    window.__grTakeRecordingFiles = token => token === 'sigmf-test'
+      ? [{ kind: 'local', path: recordingPath, file: new Blob([bytes]), meta }]
+      : [];
+    const frame = document.createElement('iframe');
+    frame.id = 'runner';
+    frame.src = '/runner/build/runner.html?recordingToken=sigmf-test#' +
+      encodeURIComponent(grc);
+    document.body.appendChild(frame);
+  }, {
+    grc,
+    recordingBase64: OFFSET_RECORDING_BASE64,
+    recordingPath: SIGMF_LOCAL_PATH,
+    meta,
+  });
+
+  let verdict = '(no #result)';
+  try {
+    await page.waitForFunction(() => {
+      const frame = document.getElementById('runner');
+      const result = frame?.contentDocument?.getElementById('result');
+      return result && result.dataset.status !== 'pending';
+    }, { timeout: 60000, polling: 200 });
+    verdict = await page.evaluate(() =>
+      document.getElementById('runner').contentDocument.getElementById('result').textContent);
+    // Tag Debug prints on its own schedule, so wait for the last tag rather
+    // than racing it. Polled here rather than in the page: the lines arrive as
+    // console messages from the runner frame, which only this side sees.
+    const deadline = Date.now() + 15000;
+    while (Date.now() < deadline &&
+           !logs.some(line => line.includes('sigmf:annotation')))
+      await new Promise(resolve => setTimeout(resolve, 100));
+  } catch { /* report the captured state below */ }
+
+  const printed = logs.join('\n');
+  const tagLines = printed.split('\n').filter(line => /Key:/.test(line));
+  const tagAt = (offset, key) => tagLines.some(line =>
+    new RegExp(`Offset:\\s*${offset}\\s`).test(line) &&
+    new RegExp(`Key:\\s*${key}(\\s|$)`).test(line));
+  // The capture at sample 0 is before the Offset and must not appear at all; the
+  // one at sample 4 must, shifted to sample 2, and the annotation at sample 5 to
+  // sample 3. rx_freq/rx_rate are the conventional names other GNU Radio blocks
+  // look for; the dictionaries carry everything else the recording said.
+  const checks = {
+    'rx_freq at the shifted capture': tagAt(2, 'rx_freq'),
+    'rx_rate at the shifted capture': tagAt(2, 'rx_rate'),
+    'sigmf:capture at the shifted capture': tagAt(2, 'sigmf:capture'),
+    'sigmf:annotation at the shifted annotation': tagAt(3, 'sigmf:annotation'),
+    'the annotation carries its label': /burst/.test(printed),
+    'the pre-Offset capture is dropped':
+      tagLines.filter(line => /Key:\s*rx_freq/.test(line))
+        .every(line => /Offset:\s*2\s/.test(line)),
+  };
+  const failed = Object.entries(checks).filter(([, pass]) => !pass).map(([name]) => name);
+  const ok = verdict.includes('RUNNER_PASS') && failed.length === 0;
+  allOk = allOk && ok;
+  console.log(`\n[${ok ? 'OK' : 'FAIL'}] ${test.name}  (${test.grc})`);
+  console.log(`   ${verdict.trim()}`);
+  console.log(`   tag checks: ${Object.keys(checks).length - failed.length}/` +
+              `${Object.keys(checks).length} passed`);
+  if (failed.length) console.log(`   failed: ${failed.join(', ')}`);
+  if (!ok) console.log('   tag output: ' +
+    printed.split('\n').filter(line => /Offset:|rx_|sigmf:/.test(line)).slice(0, 20)
+      .join('\n                '));
+  await page.close();
 }
 
 await browser.close();

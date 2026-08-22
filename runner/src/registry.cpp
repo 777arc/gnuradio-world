@@ -1,6 +1,9 @@
 #include "registry.hpp"
 #include "registry_helpers.hpp"
+#include "sigmf_meta.hpp"
 #include "browser_file_source.hpp"
+#include "browser_file_sink.hpp"
+#include "sigmf_sink.hpp"
 #include "browser_audio.hpp"
 #include "rtlsdr_source.hpp"
 #include "plutosdr_source.hpp"
@@ -132,6 +135,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <limits>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <random>
@@ -2373,6 +2377,101 @@ static std::map<std::string, Factory>& registry_storage() {
                                                offset,
                                                length),
                       nullptr };
+        }},
+        // A SigMF recording on this computer: the same browser reader again, plus
+        // the recording's own metadata turned into stream tags. The editor binds
+        // the .sigmf-data under a /local-files/... path and the .sigmf-meta text
+        // beside it, so the tag plan is built here rather than shipped in the
+        // .grc -- a binding is session-only, and a .grc keeps only a file name.
+        {"wasm_sigmf_source", [](const json& p) -> BuiltBlock {
+             const auto path = p.value("file", std::string());
+             if (path.empty())
+                 throw std::runtime_error(
+                     "SigMF Source: no recording chosen -- pick both .sigmf-data "
+                     "and .sigmf-meta with Browse");
+             // A recording is a stream of scalar samples, and its item type is
+             // the one core:datatype dictates; the editor sets that parameter
+             // when the files are picked and shows it read-only.
+             const auto item_size = static_cast<std::size_t>(itemsize_of(p));
+             const auto offset = static_cast<std::uint64_t>(
+                 std::max(0.0, number_from(p, "offset", 0.0)));
+             const auto length = static_cast<std::uint64_t>(
+                 std::max(0.0, number_from(p, "length", 0.0)));
+             auto block = BrowserFileSource::make(item_size,
+                                                  path,
+                                                  bool_from(p, "repeat", false),
+                                                  offset,
+                                                  length);
+
+             if (bool_from(p, "tags", true)) {
+                 // The .sigmf-meta text the editor bound for this run. A factory
+                 // runs on the browser main thread while the graph is built, so
+                 // proxying costs nothing here -- but the same call inside work()
+                 // would queue the whole flowgraph behind Qt's event loop. See
+                 // docs/js-blocks.md for what that trap looks like.
+                 char* raw = reinterpret_cast<char*>(MAIN_THREAD_EM_ASM_PTR({
+                     const source =
+                         window.__grInputSources && window.__grInputSources[UTF8ToString($0)];
+                     return source && typeof source.meta === 'string'
+                         ? stringToNewUTF8(source.meta) : 0;
+                 }, path.c_str()));
+                 if (raw) {
+                     std::string meta_text(raw);
+                     std::free(raw);
+                     try {
+                         block->set_tag_plan(sigmf::build_tag_plan(
+                             nlohmann::json::parse(meta_text), offset, length));
+                     } catch (const std::exception& error) {
+                         // Named rather than swallowed: the editor already
+                         // parsed this file to derive Output Type, so metadata
+                         // that will not parse here means the two disagree, and
+                         // a recording read with the wrong layout is worse than
+                         // one that refuses to run.
+                         throw std::runtime_error(
+                             std::string("SigMF Source: could not read the "
+                                         ".sigmf-meta: ") + error.what());
+                     }
+                 }
+             }
+             return { block, nullptr };
+        }},
+        // Writing a recording to this computer. Emscripten's filesystem is
+        // in-memory, so there is no File Sink here at all: this block hands its
+        // input to a worker that streams it to a file the reader chose, or (with
+        // no File System Access API) buffers it and downloads it at the end. The
+        // editor binds that destination under a /local-output/... path.
+        {"wasm_sigmf_sink", [](const json& p) -> BuiltBlock {
+             const auto path = p.value("file", std::string());
+             if (path.empty())
+                 throw std::runtime_error(
+                     "SigMF Sink: no output bound -- open its properties and give "
+                     "it a name, and a folder where the browser offers one");
+             const auto type = type_from(p, "complex");
+             const auto item_size = static_cast<std::size_t>(itemsize_of(p));
+             // The datatype the recording declares, from the item type on the
+             // input. An interleaved-integer recording (ci16_le) is written by
+             // feeding a short stream through Complex To IShort, exactly as in
+             // native GNU Radio, so a short input is ri16_le here.
+             static const std::map<std::string, std::string> datatypes = {
+                 { "complex", "cf32_le" }, { "float", "rf32_le" },
+                 { "int", "ri32_le" },     { "short", "ri16_le" },
+                 { "byte", "ri8" },
+             };
+             const auto datatype = datatypes.find(type);
+             if (datatype == datatypes.end())
+                 throw std::runtime_error("SigMF Sink: unsupported stream type: " + type);
+
+             auto block = SigmfSink::make(item_size,
+                                          path,
+                                          datatype->second,
+                                          number_from(p, "sample_rate", 0.0),
+                                          number_from(p, "center_freq", 0.0),
+                                          wasm_registry::text(p, "author"),
+                                          wasm_registry::text(p, "description"),
+                                          wasm_registry::text(p, "hw_info"),
+                                          bool_from(p, "annotate_tags", true));
+             BuiltBlock result{ block };
+             return result;
         }},
         // A file at any public URL. The editor probes its size and registers it
         // under the '/recordings/external/...' path it rewrites this parameter

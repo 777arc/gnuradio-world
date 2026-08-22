@@ -246,7 +246,7 @@ assert.match(source, /if \(params\[id\] === undefined\)\n\s*params\[id\] = def/,
   'applyJsIo must give every newly derived parameter its default');
 
 // The introspection sandbox: an opaque origin, so a source from a link cannot
-// reach the editor's localStorage (which holds the OpenRouter key) or make a
+// reach the editor's localStorage (which holds the Copilot API keys) or make a
 // credentialed same-origin fetch.
 const jsBlockSource = await readFile(new URL('../src/js-block.ts', import.meta.url), 'utf8');
 assert.match(jsBlockSource, /setAttribute\('sandbox', 'allow-scripts'\)/,

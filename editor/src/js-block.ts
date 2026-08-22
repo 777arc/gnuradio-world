@@ -180,7 +180,7 @@ export function jsSourceOf(params: Record<string, any>): string {
 // A .grc arriving from a link can carry arbitrary JavaScript, and deriving its
 // ports means running it. So it runs inside an <iframe sandbox="allow-scripts"
 // srcdoc=…>: an opaque origin, with no reach into the editor's localStorage
-// (which holds the OpenRouter key Flowgraph Copilot uses) and no credentialed
+// (which holds the API keys Flowgraph Copilot uses) and no credentialed
 // same-origin fetch. The descriptor comes back as JSON over postMessage.
 //
 // The iframe cannot fetch js_runtime.js for itself -- an opaque origin has no

@@ -167,6 +167,18 @@ EXCLUDED_BLOCKS: dict[str, str] = {
     "satellites_sat_3cat_1_deframer":
         "too computationally intensive for the browser runtime: it saturates "
         "the main thread and stops the page responding",
+    # Upstream's two SigMF blocks are Python, and both are flagged deprecated
+    # there. The source is a File Source whose documentation tells you to open
+    # the .sigmf-meta in a text editor and set the datatype by hand; the browser
+    # blocks below read it for themselves and turn its captures and annotations
+    # into stream tags. Excluding these keeps them visible and greyed out with
+    # this reason on hover, rather than looking merely broken.
+    "blocks_sigmf_source_minimal":
+        "use SigMF Source instead: it reads the .sigmf-meta for itself and "
+        "turns the recording's captures and annotations into stream tags",
+    "blocks_sigmf_sink_minimal":
+        "use SigMF Sink instead: it writes both halves of the recording and "
+        "turns the flowgraph's stream tags into annotations",
 }
 
 

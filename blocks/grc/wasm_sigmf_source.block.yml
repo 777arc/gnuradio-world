@@ -1,0 +1,104 @@
+id: wasm_sigmf_source
+label: SigMF Source
+category: '[Core]/File Operators'
+flags: [cpp]
+
+documentation: |-
+    Streams a SigMF recording stored on this computer, metadata and all.
+
+    A SigMF recording is a pair of files sharing a base name -- '<base>.sigmf-data'
+    holding the samples and '<base>.sigmf-meta' holding a JSON description of
+    them. Click Browse and select BOTH files in one go; this block reads the
+    metadata for itself, so unlike File Source it needs nothing described by
+    hand.
+
+    For a recording hosted by GNU Radio World rather than one on this computer,
+    use GR World Recording instead. The two blocks are kept separate on purpose,
+    so a glance at the canvas says where a flowgraph's samples come from.
+
+    Output Type follows the recording's 'core:datatype' -- it is shown in this
+    dialog but not editable, since reading a recording as anything else would
+    only mis-read it. A cf32_le recording is complex, and an interleaved-integer
+    recording (ci16_le) is a short stream, which is the same convention GNU Radio
+    uses for such files; choosing one adds an IShort To Complex after this block
+    for you, unless its output already goes somewhere.
+
+    Use as samp_rate writes the recording's 'core:sample_rate' into the
+    flowgraph's samp_rate variable when the files are chosen, so every block
+    already written in terms of samp_rate follows the recording. Turn it off to
+    keep the samp_rate you have.
+
+    Emit metadata as tags turns the recording's metadata into stream tags:
+
+    * Each capture segment tags its first sample with 'rx_freq'
+      ('core:frequency'), 'rx_rate' ('core:sample_rate') and 'rx_time'
+      ('core:datetime'), which are the names GNU Radio blocks already look for,
+      plus a 'sigmf:capture' dictionary holding the whole segment.
+    * Each annotation tags its first sample with a 'sigmf:annotation' dictionary
+      holding all of its keys -- 'core:label', 'core:freq_lower_edge' and so on.
+
+    Attach a Tag Debug to see them. Offset and Length select part of the
+    recording, in samples, exactly as File Source's do, and tags are shifted to
+    match; dragging a time selection in this block's recording tab writes them
+    back here.
+
+    The recording is read on demand in bounded byte ranges while the flowgraph
+    runs, so a multi-gigabyte capture costs no more memory than a small one.
+
+    This block exists only in the WebAssembly runner -- it has no Python
+    implementation, so a flowgraph using it will not run in desktop GNU Radio.
+
+parameters:
+# A browser-only dtype: the Properties dialog renders it as a picker that takes
+# both halves of the pair at once and reads the metadata out of the .sigmf-meta.
+# The .grc keeps only this base name -- never a browser File handle -- so a
+# binding lasts for the session, exactly as File Source's does.
+-   id: file
+    label: Recording
+    dtype: sigmf_file_open
+    default: ''
+# Not a choice: the recording's SigMF datatype says how its samples are laid
+# out, so the editor sets this when the files are picked and shows it read-only.
+-   id: type
+    label: Output Type
+    dtype: enum
+    default: complex
+    options: [complex, float, int, short, byte]
+    option_attributes:
+        size: [gr.sizeof_gr_complex, gr.sizeof_float, gr.sizeof_int, gr.sizeof_short, gr.sizeof_char]
+    hide: part
+-   id: use_samp_rate
+    label: Use as samp_rate
+    dtype: enum
+    default: 'True'
+    options: ['True', 'False']
+    option_labels: ['Yes', 'No']
+-   id: tags
+    label: Emit metadata as tags
+    dtype: enum
+    default: 'True'
+    options: ['True', 'False']
+    option_labels: ['Yes', 'No']
+-   id: repeat
+    label: Repeat
+    dtype: enum
+    default: 'False'
+    options: ['True', 'False']
+    option_labels: ['Yes', 'No']
+-   id: offset
+    label: Offset (samples)
+    dtype: int
+    default: '0'
+    hide: part
+-   id: length
+    label: Length (samples)
+    dtype: int
+    default: '0'
+    hide: part
+
+# A recording is a stream of scalar samples; there is no vector length to set.
+outputs:
+-   domain: stream
+    dtype: ${ type }
+
+file_format: 1

@@ -101,6 +101,7 @@ qt_add_executable(runner
   src/runner.cpp
   src/registry.cpp
   ${BLOCKS}/src/browser_file_source.cpp
+  ${BLOCKS}/src/browser_file_sink.cpp
   ${BLOCKS}/src/browser_audio.cpp
   ${BLOCKS}/src/rtlsdr_source.cpp
   ${BLOCKS}/src/plutosdr_common.cpp
@@ -168,7 +169,7 @@ target_link_options(runner PRIVATE
   # EXPORT_ALL covers functions but not Emscripten's special exception-handling
   # data globals, which category side modules import as GOT.mem entries. Export
   # them (and the registry shim) explicitly so side-module relocation resolves.
-  -sEXPORTED_FUNCTIONS=_main,_gr_run_json,_gr_apply_gui_layout,_gr_finish_worker_preload,_gr_finish_pyodide_prepare,_gr_finish_js_sources,_gr_fosphor_webgpu_frequency,_free,_malloc,_wasm_registry_add
+  -sEXPORTED_FUNCTIONS=_main,_gr_run_json,_gr_apply_gui_layout,_gr_shutdown_flowgraph,_gr_finish_worker_preload,_gr_finish_pyodide_prepare,_gr_finish_js_sources,_gr_fosphor_webgpu_frequency,_free,_malloc,_wasm_registry_add
   # The remaining symbols side modules import from main (libc++abi/compiler-rt:
   # __cxa_pure_virtual, std type-info vtables, the thread_local exception globals,
   # …) are exported via the generated response file appended at the end of this
@@ -221,6 +222,9 @@ add_custom_command(TARGET runner POST_BUILD
           ${CMAKE_CURRENT_SOURCE_DIR}/src/browser_file_reader.js
           ${CMAKE_CURRENT_BINARY_DIR}/browser_file_reader.js
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/browser_file_writer.js
+          ${CMAKE_CURRENT_BINARY_DIR}/browser_file_writer.js
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
           ${CMAKE_CURRENT_SOURCE_DIR}/src/audio_worklet.js
           ${CMAKE_CURRENT_BINARY_DIR}/audio_worklet.js
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
@@ -249,6 +253,7 @@ set_property(TARGET runner APPEND PROPERTY LINK_DEPENDS
   ${CMAKE_CURRENT_SOURCE_DIR}/src/runner.html
   ${CMAKE_CURRENT_SOURCE_DIR}/src/gnuradio_world_logo.svg
   ${CMAKE_CURRENT_SOURCE_DIR}/src/browser_file_reader.js
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/browser_file_writer.js
   ${CMAKE_CURRENT_SOURCE_DIR}/src/audio_worklet.js
   ${CMAKE_CURRENT_SOURCE_DIR}/src/rtlsdr_reader.js
   ${CMAKE_CURRENT_SOURCE_DIR}/src/plutosdr_worker.js

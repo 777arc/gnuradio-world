@@ -7,16 +7,29 @@ const {
   MAX_TOOL_ROUNDS,
 } = await bundleModule('../src/ai/agent.ts');
 const {
-  DEFAULT_OPENROUTER_MODEL,
   exchangeOpenRouterCode,
+  openRouterAuthorizationUrl,
+} = await bundleModule('../src/ai/openrouter.ts');
+const { listModels } = await bundleModule('../src/ai/client.ts');
+const {
+  AI_PROVIDERS,
+  DEFAULT_OPENAI_MODEL,
+  DEFAULT_OPENROUTER_MODEL,
   forgetKey,
   keyIsRemembered,
-  openRouterAuthorizationUrl,
   storeKey,
+  storeProvider,
   storedKey,
-} = await bundleModule('../src/ai/openrouter.ts');
+  storedProvider,
+} = await bundleModule('../src/ai/providers.ts');
 
 assert.equal(DEFAULT_OPENROUTER_MODEL, 'google/gemini-3.7-flash');
+assert.equal(DEFAULT_OPENAI_MODEL, 'gpt-5.4-mini');
+// pr-security-scan: allow new-outbound-host
+assert.equal(AI_PROVIDERS.openai.api, 'https://api.openai.com/v1');
+assert.equal(AI_PROVIDERS.openai.oauth, false, 'an OpenAI key is pasted, never OAuth');
+assert.notEqual(AI_PROVIDERS.openai.storage.key, AI_PROVIDERS.openrouter.storage.key,
+  'each provider keeps its own key');
 assert.equal(GRAPH_PREVIEW_DELAY_MS, 1000);
 
 const memoryStorage = () => {
@@ -36,14 +49,24 @@ try {
   Object.defineProperty(globalThis, 'sessionStorage', {
     value: memoryStorage(), configurable: true, writable: true,
   });
-  storeKey('session-key');
-  assert.equal(storedKey(), 'session-key');
-  assert.equal(keyIsRemembered(), false, 'keys are session-only by default');
-  storeKey('remembered-key', true);
-  assert.equal(storedKey(), 'remembered-key');
-  assert.equal(keyIsRemembered(), true);
-  forgetKey();
-  assert.equal(storedKey(), '');
+  storeKey('openrouter', 'session-key');
+  assert.equal(storedKey('openrouter'), 'session-key');
+  assert.equal(keyIsRemembered('openrouter'), false, 'keys are session-only by default');
+  storeKey('openrouter', 'remembered-key', true);
+  assert.equal(storedKey('openrouter'), 'remembered-key');
+  assert.equal(keyIsRemembered('openrouter'), true);
+  // The two providers' keys never see each other.
+  storeKey('openai', 'openai-key', true);
+  assert.equal(storedKey('openai'), 'openai-key');
+  assert.equal(storedKey('openrouter'), 'remembered-key');
+  forgetKey('openrouter');
+  assert.equal(storedKey('openrouter'), '');
+  assert.equal(storedKey('openai'), 'openai-key');
+  forgetKey('openai');
+  assert.equal(storedKey('openai'), '');
+  assert.equal(storedProvider(), 'openrouter', 'OpenRouter stays the default provider');
+  storeProvider('openai');
+  assert.equal(storedProvider(), 'openai');
 } finally {
   Object.defineProperty(globalThis, 'localStorage', {
     value: savedLocalStorage, configurable: true, writable: true,
@@ -104,7 +127,7 @@ const fetchImpl = async (_url, init) => {
 
 const events = [];
 const agent = new FlowgraphAgent({
-  key: 'test', model: 'stub/model', systemPrompt: 'test', deps, fetchImpl,
+  provider: 'openrouter', key: 'test', model: 'stub/model', systemPrompt: 'test', deps, fetchImpl,
   hooks: {
     toolStarted: name => events.push(`start:${name}`),
     toolFinished: name => events.push(`finish:${name}`),
@@ -136,7 +159,7 @@ const previewDeps = {
   },
 };
 const previewAgent = new FlowgraphAgent({
-  key: 'test', model: 'stub/model', systemPrompt: 'test', deps: previewDeps,
+  provider: 'openrouter', key: 'test', model: 'stub/model', systemPrompt: 'test', deps: previewDeps,
   graphPreviewDelayMs: 30,
   fetchImpl: async () => {
     previewRequest++;
@@ -156,7 +179,7 @@ assert.ok(runTime - editTime >= 25,
 
 let loops = 0;
 const looping = new FlowgraphAgent({
-  key: 'test', model: 'stub/model', systemPrompt: 'test', deps,
+  provider: 'openrouter', key: 'test', model: 'stub/model', systemPrompt: 'test', deps,
   fetchImpl: async () => {
     loops++;
     return sse([{ choices: [{ delta: { tool_calls: [{
@@ -168,5 +191,62 @@ const looping = new FlowgraphAgent({
 const capped = await looping.turn('loop');
 assert.equal(loops, MAX_TOOL_ROUNDS);
 assert.match(capped.text, /Stopped after 50 tool rounds/);
+
+// The OpenAI provider reaches OpenAI's own endpoint with the same OpenAI-format
+// body, no OpenRouter attribution headers, and an explicit request for usage.
+let openAiRequest;
+const openAiAgent = new FlowgraphAgent({
+  provider: 'openai', key: 'sk-test', model: 'gpt-5.4-mini', systemPrompt: 'test', deps,
+  fetchImpl: async (url, init) => {
+    openAiRequest = { url, init };
+    return sse([{
+      model: 'gpt-5.4-mini', choices: [{ delta: { content: 'Ready.' } }],
+      usage: { prompt_tokens: 12, completion_tokens: 5, total_tokens: 17 },
+    }]);
+  },
+});
+const openAiTurn = await openAiAgent.turn('hello');
+assert.equal(openAiTurn.text, 'Ready.');
+assert.equal(openAiTurn.cost, 0, 'OpenAI prices nothing in its usage event');
+// pr-security-scan: allow new-outbound-host
+assert.equal(openAiRequest.url, 'https://api.openai.com/v1/chat/completions');
+assert.equal(openAiRequest.init.headers.Authorization, 'Bearer sk-test');
+assert.equal(openAiRequest.init.headers['HTTP-Referer'], undefined,
+  'OpenAI rejects OpenRouter attribution headers in preflight');
+const openAiBody = JSON.parse(openAiRequest.init.body);
+assert.equal(openAiBody.model, 'gpt-5.4-mini');
+assert.deepEqual(openAiBody.stream_options, { include_usage: true });
+assert.ok(openAiBody.tools.length, 'the graph tools go to either provider');
+
+// OpenAI's model list has no capability flags, so the chat families are picked
+// out of every model the account can see.
+const openAiModels = await listModels({
+  provider: 'openai', key: 'sk-test',
+  fetchImpl: async (url, init) => {
+    // pr-security-scan: allow new-outbound-host
+    assert.equal(url, 'https://api.openai.com/v1/models');
+    assert.equal(init.headers.Authorization, 'Bearer sk-test');
+    return new Response(JSON.stringify({ data: [
+      { id: 'gpt-5.4-mini' }, { id: 'gpt-4o-audio-preview' }, { id: 'o3' },
+      { id: 'text-embedding-3-large' }, { id: 'dall-e-3' }, { id: 'whisper-1' },
+      { id: 'gpt-3.5-turbo-instruct' }, { id: 'omni-moderation-latest' },
+    ] }), { status: 200 });
+  },
+});
+assert.deepEqual(openAiModels.map(model => model.id), ['gpt-5.4-mini', 'o3']);
+assert.equal(openAiModels[0].contextLength, 0, 'OpenAI publishes no context length');
+
+// OpenRouter keeps its public, tool-filtered list.
+const routerModels = await listModels({
+  provider: 'openrouter',
+  fetchImpl: async url => {
+    assert.match(url, /^https:\/\/openrouter\.ai\/api\/v1\/models\?/);
+    return new Response(JSON.stringify({ data: [
+      { id: 'a/b', name: 'A B', context_length: 128000, supported_parameters: ['tools'] },
+      { id: 'c/d', name: 'C D', context_length: 8000, supported_parameters: [] },
+    ] }), { status: 200 });
+  },
+});
+assert.deepEqual(routerModels.map(model => model.id), ['a/b']);
 
 console.log('ai-agent.test.mjs: ok');

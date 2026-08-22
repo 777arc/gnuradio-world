@@ -206,6 +206,9 @@ async function main() {
 /runner/build/browser_file_reader.js
   Cache-Control: public, max-age=86400
 
+/runner/build/browser_file_writer.js
+  Cache-Control: public, max-age=86400
+
 /runner/build/rtlsdr_reader.js
   Cache-Control: public, max-age=86400
 

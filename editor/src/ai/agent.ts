@@ -1,4 +1,5 @@
-import { chatCompletion, type ChatMessage, type OpenRouterUsage } from './openrouter';
+import { chatCompletion, type ChatMessage, type AiUsage } from './client';
+import type { ProviderId } from './providers';
 import { AI_TOOLS, dispatchAiTool, type AiToolDeps } from './tools';
 
 export const MAX_TOOL_ROUNDS = 50;
@@ -27,10 +28,11 @@ export interface AgentHooks {
   assistantFinished?(text: string): void;
   toolStarted?(name: string, args: unknown): void;
   toolFinished?(name: string, result: unknown, error?: string): void;
-  usage?(usage: OpenRouterUsage, totalCost: number): void;
+  usage?(usage: AiUsage, totalCost: number): void;
 }
 
 export interface AgentOptions {
+  provider: ProviderId;
   key: string;
   model: string;
   systemPrompt: string;
@@ -78,6 +80,7 @@ export class FlowgraphAgent {
       this.options.hooks?.assistantStarted?.();
       let streamed = '';
       const response = await chatCompletion({
+        provider: this.options.provider,
         key: this.options.key,
         model: this.options.model,
         messages: this.messages,

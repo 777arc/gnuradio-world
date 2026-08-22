@@ -90,6 +90,21 @@ BrowserFileSource::BrowserFileSource(std::size_t item_size,
 
 BrowserFileSource::~BrowserFileSource() { stop(); }
 
+void BrowserFileSource::set_tag_plan(std::vector<sigmf::TagPlanEntry> plan)
+{
+    d_tag_plan = std::move(plan);
+    // Emission walks the plan with a cursor rather than searching it, so the
+    // order is a precondition rather than a convenience. Sorting here as well
+    // costs nothing on a plan already sorted and makes the class safe to call
+    // from anywhere.
+    std::stable_sort(d_tag_plan.begin(),
+                     d_tag_plan.end(),
+                     [](const sigmf::TagPlanEntry& a, const sigmf::TagPlanEntry& b) {
+                         return a.offset < b.offset;
+                     });
+    d_tag_cursor = 0;
+}
+
 std::int32_t BrowserFileSource::load(const std::int32_t* value) const
 {
     return __atomic_load_n(value, __ATOMIC_ACQUIRE);
@@ -113,6 +128,7 @@ bool BrowserFileSource::start()
     store(&d_control.state, INITIAL);
     d_items_into_pass = 0;
     d_repeat_count = 0;
+    d_tag_cursor = 0;
 
     // top_block::run() invokes start() from a pthread. Proxy only this short
     // worker-launch operation to the browser main thread; work() never proxies.
@@ -220,6 +236,22 @@ int BrowserFileSource::work(int noutput_items,
               pass_remaining,
               static_cast<std::uint64_t>(until_wrap) }));
 
+        // The recording's own metadata, on the samples about to be produced. The
+        // plan is sorted and the cursor only moves forward, so a recording whose
+        // tags are all behind us costs one comparison per call.
+        while (d_tag_cursor < d_tag_plan.size() &&
+               d_tag_plan[d_tag_cursor].offset < d_items_into_pass + take) {
+            const auto& entry = d_tag_plan[d_tag_cursor++];
+            const std::uint64_t into = entry.offset > d_items_into_pass
+                                           ? entry.offset - d_items_into_pass
+                                           : 0;
+            add_item_tag(0,
+                         nitems_written(0) + produced + into,
+                         entry.key,
+                         entry.value,
+                         d_tag_source);
+        }
+
         std::memcpy(output + static_cast<std::size_t>(produced) * d_item_size,
                     d_ring.data() + static_cast<std::size_t>(read_pos) * d_item_size,
                     take * d_item_size);
@@ -234,6 +266,7 @@ int BrowserFileSource::work(int noutput_items,
 
         if (d_items_into_pass == d_length_items) {
             d_items_into_pass = 0;
+            d_tag_cursor = 0;   // a repeat pass re-emits the whole plan
             ++d_repeat_count;
         }
     }

@@ -77,6 +77,26 @@ import {
   type RecordingDirectory,
 } from './recording-catalog';
 import {
+  canPickOutputDirectory,
+  pairSigmfFiles,
+  pickOutputDirectory,
+  parseSigmfMeta,
+  sanitizeSigmfBase,
+  sigmfSinkFileNames,
+  sigmfStreamFormat,
+  SIGMF_ACCEPT,
+  SIGMF_DATA_SUFFIX,
+  SIGMF_FILE_PARAM,
+  SIGMF_META_SUFFIX,
+  SIGMF_OPEN_DTYPE,
+  SIGMF_OUTPUT_PICKER_HELP,
+  SIGMF_OUTPUT_PREFIX,
+  SIGMF_SAVE_DTYPE,
+  SIGMF_SINK_ID,
+  SIGMF_SOURCE_ID,
+  type SigmfBinding,
+} from './sigmf-blocks';
+import {
   buildExampleTree,
   encodeExamplePath,
   exampleFileName,
@@ -246,13 +266,100 @@ const HTTP_RECORDING_PREFIX = '/recordings/external/';
 const RUN_BOUND_PARAMS: Record<string, string> = {
   ...LOCAL_FILE_PARAMS,
   [HTTP_RECORDING_ID]: HTTP_RECORDING_PARAM,
+  // SigMF Source reads the .sigmf-data of a bound pair, through the same
+  // /local-files/... path a File Source's file resolves through.
+  [SIGMF_SOURCE_ID]: SIGMF_FILE_PARAM,
+  // SigMF Sink is the one block whose path is an *output*: /local-output/...,
+  // kept distinct so the runner's two binding maps cannot be confused.
+  [SIGMF_SINK_ID]: SIGMF_FILE_PARAM,
 };
 
 const localFilesByToken = new Map<string, File>();
+// A SigMF Source's two files and the metadata read out of them, and a SigMF
+// Sink's chosen output folder. Both keyed by the same per-instance
+// `localFileToken`, and both session-only for the same reason a File Source's
+// file is: a .grc keeps a name, never a handle.
+const sigmfBindingsByToken = new Map<string, SigmfBinding>();
+const sigmfOutputDirsByToken = new Map<string, FileSystemDirectoryHandle>();
 function newLocalFileToken(): string {
   return typeof crypto.randomUUID === 'function'
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+// Publish a recording's sample rate as the flowgraph's samp_rate -- what SigMF
+// Source's "Use as samp_rate" toggle is for. Reports whether anything changed;
+// the caller owns the redraw and the history entry, so picking a recording and
+// the rate it brought with it are one undo step rather than two.
+//
+// A native GRC flowgraph is born with a samp_rate variable (makeSampRateInst(),
+// matching upstream's default_flow_graph.grc), which is why upstream flowgraphs
+// refer to it as though it were always there -- but it is an ordinary Variable
+// once placed, so it can have been renamed or deleted. Say so rather than
+// conjuring one back: a flowgraph without a samp_rate has not asked for one.
+function applySampRateFromSigmf(rate: number, source: string): boolean {
+  const variable = insts.find(i => i.id === 'variable' && i.name === 'samp_rate');
+  if (!variable) {
+    log(`note: "${source}" is ${displaySi(rate, 'Hz')}, but this flowgraph has no ` +
+        `samp_rate variable to write it to`);
+    return false;
+  }
+  const value = String(rate);
+  if (String(variable.params.value) === value) return false;
+  variable.params.value = value;
+  log(`samp_rate ← ${displaySi(rate, 'Hz')} from "${source}"`);
+  return true;
+}
+
+// The rate a SigMF Source's committed state asks to publish, if any. Read on the
+// way out of the Properties dialog rather than as the reader clicks, so that
+// Cancel cancels this too -- and so that switching the toggle on with a
+// recording already bound publishes it, not just re-picking the files.
+function sigmfSampRateToPublish(
+  id: string, params: Record<string, any>, token: string | undefined,
+): { rate: number; source: string } | null {
+  if (id !== SIGMF_SOURCE_ID || String(params.use_samp_rate) !== 'True') return null;
+  const bound = token ? sigmfBindingsByToken.get(token) : undefined;
+  return bound?.sampleRate ? { rate: bound.sampleRate, source: bound.base } : null;
+}
+
+const ISHORT_TO_COMPLEX_ID = 'blocks_interleaved_short_to_complex';
+
+// An interleaved 16-bit recording is a *short* stream, which is GNU Radio's own
+// convention for such a file and not something anyone wants for its own sake:
+// what they want is complex samples, one IShort To Complex away. The Recordings
+// palette already drops that block alongside a GR World Recording for a ci16
+// card (addRecordingBlock), so picking a ci16 recording for a SigMF Source does
+// the same rather than leaving the reader to notice the hint and wire it up.
+//
+// Only ever *adds*: an output that already goes somewhere is a flowgraph the
+// reader built, and a second converter appearing beside it would be an edit
+// nobody asked for. Returns whether it added one, so the caller can log it.
+function attachIShortToComplex(block: Inst): boolean {
+  if (conns.some(c => c.from === block.uid)) return false;
+  if (!RUNNABLE[ISHORT_TO_COMPLEX_ID]) {
+    log('note: IShort To Complex is not available, so this recording’s short ' +
+        'stream has to be converted by hand');
+    return false;
+  }
+  const converter = addBlock(
+    ISHORT_TO_COMPLEX_ID,
+    block.x + geom(block).w + 80,
+    block.y,
+    { vector_input: 'False', scale_factor: 32767.0 },
+    false,
+  );
+  if (!converter) return false;
+  conns.push({ from: block.uid, fp: 0, to: converter.uid, tp: 0 });
+  return true;
+}
+
+// Whether a SigMF Source's committed state describes an interleaved-integer
+// recording, which is the case that needs the converter above.
+function sigmfNeedsIShortToComplex(id: string, token: string | undefined): boolean {
+  if (id !== SIGMF_SOURCE_ID) return false;
+  const bound = token ? sigmfBindingsByToken.get(token) : undefined;
+  return !!bound && isCi16Datatype(bound.datatype);
 }
 
 const graphHistory: GraphSnapshot[] = [];
@@ -748,6 +855,16 @@ function validateGraph(blocks: Inst[] = insts, connections: Conn[] = conns): Val
       issues.push({ uid: block.uid,
                     field: block.id === JS_BLOCK_ID ? JS_SOURCE_PARAM : EPY_SOURCE_PARAM,
                     message, blocking: block.enabled && !block.bypassed });
+
+    // A SigMF Sink's name is the stem of two real files, so an empty one has
+    // nothing to write to. Unlike a source's missing binding -- which is a
+    // session fact and belongs on the Run path -- this is wrong in the .grc
+    // itself, so it is a validation error and shows on the block.
+    if (block.id === SIGMF_SINK_ID &&
+        !sanitizeSigmfBase(String(block.params[SIGMF_FILE_PARAM] || '')))
+      issues.push({ uid: block.uid, field: SIGMF_FILE_PARAM,
+                    message: 'Give the recording a name; both files take it as their stem.',
+                    blocking: block.enabled && !block.bypassed });
   }
   return issues;
 }
@@ -2305,16 +2422,21 @@ function showPropsDialog(inst: Inst) {
         s.appendChild(opt);
       });
       s.value = String(tmp.params[p.id]);
-      // GR World Recording's Output Type is the recording's SigMF datatype, set
-      // by the chooser below. It is shown so the reader can see how the samples
-      // are being read, and disabled because reading them as anything else would
-      // only mis-read them.
-      s.disabled = inst.id === RECORDING_ID && p.id === 'type';
+      // Output Type is the recording's SigMF datatype for both blocks that read
+      // one -- GR World Recording from the bucket index, SigMF Source from the
+      // .sigmf-meta beside the samples. It is shown so the reader can see how
+      // the samples are being read, and disabled because reading them as
+      // anything else would only mis-read them. SigMF *Sink* is the opposite
+      // case: there its Stream Type is chosen and the datatype follows.
+      s.disabled = (inst.id === RECORDING_ID || inst.id === SIGMF_SOURCE_ID) &&
+        p.id === 'type';
       s.onchange = () => { tmp.params[p.id] = s.value; refreshVisibility(); refreshValidation(); };
       addField(p.category || 'General', `${p.label}  (${p.id})`, s, p.id);
       if (s.disabled) {
         const hint = document.createElement('small'); hint.className = 'field-hint';
-        hint.textContent = 'Set from the SigMF datatype of the recording above.';
+        hint.textContent = inst.id === SIGMF_SOURCE_ID
+          ? 'Set from core:datatype in the recording’s .sigmf-meta.'
+          : 'Set from the SigMF datatype of the recording above.';
         s.closest('.field-control')?.appendChild(hint);
       }
       if (p.showWhen) conditionalRows.push({ param: p, row: s.closest('.dlgrow') as HTMLElement });
@@ -2512,6 +2634,183 @@ function showPropsDialog(inst: Inst) {
 
       picker.append(select, typed, detail);
       addField(p.category || 'General', `${p.label}  (${p.id})`, picker, p.id, select);
+      describe();
+      if (p.showWhen) conditionalRows.push({ param: p, row: picker.closest('.dlgrow') as HTMLElement });
+    } else if (p.dtype === SIGMF_OPEN_DTYPE) {
+      // SigMF Source's recording: both halves at once. A browser cannot derive a
+      // sibling file from a picked File, so the .sigmf-data and the .sigmf-meta
+      // have to come out of the same dialog -- and the metadata is read here and
+      // now, because Output Type follows from it and the samp_rate toggle
+      // publishes from it.
+      const picker = document.createElement('div'); picker.className = 'file-picker';
+      const inp = document.createElement('input'); inp.value = String(tmp.params[p.id] ?? '');
+      inp.placeholder = 'choose a .sigmf-data and its .sigmf-meta';
+      const choose = document.createElement('button'); choose.type = 'button';
+      choose.textContent = 'Browse…';
+      const native = document.createElement('input'); native.type = 'file';
+      native.className = 'file-picker-native'; native.tabIndex = -1;
+      native.multiple = true;
+      native.accept = SIGMF_ACCEPT;
+      const detail = document.createElement('small'); detail.className = 'file-picker-detail';
+
+      const describe = (problem?: string) => {
+        if (problem) { detail.textContent = problem; return; }
+        const bound = tmp.localFileToken
+          ? sigmfBindingsByToken.get(tmp.localFileToken) : undefined;
+        if (!bound) {
+          detail.textContent = String(tmp.params[p.id] ?? '')
+            ? `"${tmp.params[p.id]}" is not open in this browser session — choose ` +
+              `its two files again with Browse.`
+            : 'No recording selected for this browser session.';
+          return;
+        }
+        const parts = [
+          bound.datatype,
+          bound.sampleRate ? displaySi(bound.sampleRate, 'Hz') : 'sample rate unknown',
+          displayBytes(bound.data.size),
+          `${bound.captures} capture${bound.captures === 1 ? '' : 's'}`,
+          `${bound.annotations} annotation${bound.annotations === 1 ? '' : 's'}`,
+        ];
+        // Not "feed IShort To Complex", the way GR World Recording's chooser
+        // puts it: here the block is already on the canvas, so committing this
+        // dialog wires the converter up. Say what will happen, or not, rather
+        // than leaving the reader to guess which.
+        const converter = !isCi16Datatype(bound.datatype) ? ''
+          : conns.some(c => c.from === inst.uid)
+            ? ' · interleaved 16-bit I/Q: this is a short stream, so it needs an ' +
+              'IShort To Complex'
+            : ' · interleaved 16-bit I/Q: an IShort To Complex will be added after ' +
+              'this block';
+        detail.textContent = parts.join(' · ') + converter;
+      };
+
+      // Output Type is derived and disabled, so picking a recording is what sets
+      // it -- the same arrangement GR World Recording has, for the same reason.
+      const applyDatatype = (datatype: string) => {
+        const format = sigmfStreamFormat(datatype);
+        if (!format) return;
+        tmp.params.type = format.type;
+        const node = controls.get('type')?.node;
+        if (node instanceof HTMLSelectElement) node.value = format.type;
+      };
+
+      inp.oninput = () => {
+        // Typing a name cannot open a file, so it drops the binding rather than
+        // leaving the field describing one recording and the block reading
+        // another. Same rule as File Source's field.
+        tmp.params[p.id] = inp.value;
+        if (tmp.localFileToken) sigmfBindingsByToken.delete(tmp.localFileToken);
+        tmp.localFileToken = undefined;
+        describe(); refreshVisibility(); refreshValidation();
+      };
+      choose.onclick = () => native.click();
+      native.onchange = async () => {
+        const picked = [...(native.files || [])];
+        native.value = '';           // so re-picking the same files still fires
+        const pair = pairSigmfFiles(picked);
+        if ('error' in pair) { describe(pair.error); return; }
+
+        const metaText = await pair.meta.text();
+        const meta = parseSigmfMeta(metaText);
+        if ('error' in meta) { describe(meta.error); return; }
+        if (!sigmfStreamFormat(meta.datatype)) {
+          describe(`${meta.datatype} has no stream type here, so this block ` +
+                   `could not read it. Open it on its own from the Recordings tab.`);
+          return;
+        }
+        if (pair.data.size === 0) {
+          describe(`${pair.base}${SIGMF_DATA_SUFFIX} is empty.`);
+          return;
+        }
+
+        const token = newLocalFileToken();
+        sigmfBindingsByToken.set(token, {
+          base: pair.base, data: pair.data, meta: pair.meta, metaText,
+          datatype: meta.datatype, sampleRate: meta.sampleRate,
+          captures: meta.captures, annotations: meta.annotations,
+        });
+        tmp.localFileToken = token;
+        tmp.params[p.id] = pair.base;
+        inp.value = pair.base;
+        applyDatatype(meta.datatype);
+        describe(); refreshVisibility(); refreshValidation();
+        // "Use as samp_rate" publishes on the way out of this dialog, not here,
+        // so Cancel cancels it too. See sigmfSampRateToPublish().
+      };
+      picker.append(inp, choose, native, detail);
+      addField(p.category || 'General', `${p.label}  (${p.id})`, picker, p.id, inp);
+      describe();
+      if (p.showWhen) conditionalRows.push({ param: p, row: picker.closest('.dlgrow') as HTMLElement });
+    } else if (p.dtype === SIGMF_SAVE_DTYPE) {
+      // SigMF Sink's destination: a base name the reader types, plus a folder to
+      // put the pair in. The folder is a File System Access handle, bound for the
+      // session like a File; where the API does not exist there is no folder to
+      // choose at all and the runner buffers and downloads instead.
+      const picker = document.createElement('div'); picker.className = 'file-picker';
+      const inp = document.createElement('input'); inp.value = String(tmp.params[p.id] ?? '');
+      inp.placeholder = 'recording name, without a suffix';
+      const choose = document.createElement('button'); choose.type = 'button';
+      choose.textContent = 'Choose folder…';
+      const detail = document.createElement('small'); detail.className = 'file-picker-detail';
+      const streaming = canPickOutputDirectory();
+      choose.hidden = !streaming;
+
+      const describe = (problem?: string) => {
+        if (problem) { detail.textContent = problem; return; }
+        const base = sanitizeSigmfBase(String(tmp.params[p.id] ?? ''));
+        const dir = tmp.localFileToken
+          ? sigmfOutputDirsByToken.get(tmp.localFileToken) : undefined;
+        if (!base) {
+          // The name is what is missing, so it leads -- but a folder just chosen
+          // has to be acknowledged here too, or picking one looks like it failed.
+          detail.textContent = 'Give the recording a name — both files take it as their stem.' +
+            (dir ? ` They will go into "${dir.name}".` : '');
+          return;
+        }
+        const files = sigmfSinkFileNames(base).join(' + ');
+        if (!streaming) {
+          detail.textContent = `${files} — downloaded when the flowgraph stops. ` +
+            `This browser has no File System Access API, so the recording is held ` +
+            `in memory until then; a Chromium browser streams it straight to disk.`;
+          return;
+        }
+        detail.textContent = dir
+          ? `${files} — written into "${dir.name}".`
+          : `${files} — no folder chosen yet; you will be asked for one when you press Run. ` +
+            SIGMF_OUTPUT_PICKER_HELP;
+      };
+
+      inp.oninput = () => {
+        tmp.params[p.id] = inp.value;
+        describe(); refreshVisibility(); refreshValidation();
+      };
+      inp.onblur = () => {
+        // Normalized on the way out, not on every keystroke: the reader is
+        // typing a filename stem, and a cursor that jumps mid-word is worse than
+        // a name tidied once.
+        const base = sanitizeSigmfBase(inp.value);
+        if (base === inp.value) return;
+        inp.value = base; tmp.params[p.id] = base;
+        describe(); refreshValidation();
+      };
+      choose.onclick = async () => {
+        try {
+          // A click in this dialog is its own user gesture, so a reader who
+          // configures the block up front is never prompted again at Run.
+          const dir = await pickOutputDirectory();
+          const token = tmp.localFileToken || newLocalFileToken();
+          tmp.localFileToken = token;
+          sigmfOutputDirsByToken.set(token, dir);
+          describe(); refreshValidation();
+        } catch {
+          // Dismissed -- or a blocked folder was chosen and then dismissed,
+          // which throws identically. Say what the restriction is rather than
+          // leaving the field looking as though nothing happened.
+          describe(`No folder chosen. ${SIGMF_OUTPUT_PICKER_HELP}`);
+        }
+      };
+      picker.append(inp, choose, detail);
+      addField(p.category || 'General', `${p.label}  (${p.id})`, picker, p.id, inp);
       describe();
       if (p.showWhen) conditionalRows.push({ param: p, row: picker.closest('.dlgrow') as HTMLElement });
     } else if (p.dtype === LAYOUT_DTYPE) {
@@ -2765,6 +3064,16 @@ function showPropsDialog(inst: Inst) {
     remapConnectionsForPortChange(inst, tmp.params);
     inst.params = { ...tmp.params };
     inst.localFileToken = tmp.localFileToken;
+    const publish = sigmfSampRateToPublish(inst.id, inst.params, inst.localFileToken);
+    if (publish) applySampRateFromSigmf(publish.rate, publish.source);
+    // Both of these are the *recording's* consequences rather than the reader's
+    // edits, so they land here where the dialog commits: Cancel cancels them,
+    // and the single recordHistory() below makes picking a recording one undo
+    // step rather than three.
+    if (sigmfNeedsIShortToComplex(inst.id, inst.localFileToken) &&
+        attachIShortToComplex(inst))
+      log(`added IShort To Complex after "${inst.name}": an interleaved 16-bit ` +
+          `recording is a short stream`);
     select(inst.uid);
     recordHistory();
   };
@@ -3247,9 +3556,16 @@ svg.addEventListener('contextmenu', e => {
 });
 
 // ---- Workspace tabs and embedded WASM runner ----
+// The bindings handed to one run: files a source reads, and the destinations a
+// sink writes. `meta` is a SigMF Source's .sigmf-meta text, carried beside the
+// samples so the runner's factory can build its tag plan without any of it
+// reaching the .grc. An 'output' has no File and no size -- a folder handle to
+// stream into, or nothing at all, in which case the runner buffers and
+// downloads at the end.
 type RunnerInputFile =
-  | { kind: 'local'; path: string; file: File }
-  | { kind: 'http'; path: string; url: string; size: number };
+  | { kind: 'local'; path: string; file: File; meta?: string }
+  | { kind: 'http'; path: string; url: string; size: number; meta?: string }
+  | { kind: 'output'; path: string; base: string; dir: FileSystemDirectoryHandle | null };
 const pendingRunnerRecordings = new Map<string, RunnerInputFile[]>();
 let pendingRunnerToken: string | null = null;
 
@@ -3688,6 +4004,11 @@ interface RecordingSource {
   token?: string;         // local: key into localFilesByToken
   datatype?: string;      // local: SigMF datatype inferred from the block
   sampleRate?: number;    // local: samp_rate from the flowgraph, when numeric
+  // A SigMF Source's real .sigmf-meta. The only local source that has one --
+  // everything else local gets synthesizedSigmfMeta(), which infers a datatype
+  // and a rate and has no captures or annotations to offer at all.
+  metaText?: string;
+  file?: File;            // local: the samples, when the block holds them itself
   offset: number;         // the block's sample selection
   length: number;
 }
@@ -3748,9 +4069,10 @@ function fileSourceSelection(block: Inst): { offset: number; length: number } {
   return { offset: samples(resolved.offset), length: samples(resolved.length) };
 }
 
-// The two blocks that can have a recording behind them: File Source, for a file
-// on this computer, and GR World Recording, for a hosted one.
-const RECORDING_BLOCK_IDS = new Set(['blocks_file_source', RECORDING_ID]);
+// The three blocks that can have a recording behind them: File Source, for raw
+// samples in a file on this computer; SigMF Source, for a SigMF recording on
+// this computer; and GR World Recording, for a hosted one.
+const RECORDING_BLOCK_IDS = new Set(['blocks_file_source', SIGMF_SOURCE_ID, RECORDING_ID]);
 
 function recordingSourceFor(block: Inst): RecordingSource | null {
   const selection = fileSourceSelection(block);
@@ -3768,6 +4090,27 @@ function recordingSourceFor(block: Inst): RecordingSource | null {
     };
   }
   if (!block.localFileToken) return null;
+
+  // A SigMF Source is the one local block whose recording describes itself, so
+  // its tab is driven by the real .sigmf-meta rather than one inferred from the
+  // block's parameters -- which is what puts the recording's own annotations on
+  // the spectrogram.
+  if (block.id === SIGMF_SOURCE_ID) {
+    const bound = sigmfBindingsByToken.get(block.localFileToken);
+    if (!bound) return null;   // picked in a previous session; the Files are gone
+    const name = bound.base + SIGMF_DATA_SUFFIX;
+    return {
+      key: 'sigmf:' + block.localFileToken,
+      label: bound.base, title: name, name,
+      kind: 'local', path: name, token: block.localFileToken,
+      datatype: bound.datatype,
+      sampleRate: bound.sampleRate ?? undefined,
+      metaText: bound.metaText,
+      file: bound.data,
+      ...selection,
+    };
+  }
+
   const file = localFilesByToken.get(block.localFileToken);
   if (!file) return null;      // picked in a previous session; the File is gone
   const rate = Number(varScope['samp_rate']);
@@ -3777,6 +4120,7 @@ function recordingSourceFor(block: Inst): RecordingSource | null {
     kind: 'local', path: String(block.params.file || ''), token: block.localFileToken,
     datatype: localRecordingDatatype(block),
     sampleRate: Number.isFinite(rate) && rate > 0 ? rate : undefined,
+    file,
     ...selection,
   };
 }
@@ -4026,22 +4370,29 @@ async function openRecordingPane(key: string) {
       metaUrl = recording.metadataUrl;
       dataUrl = new URL(recording.downloadUrl, location.href).href;
     } else {
-      const file = localFilesByToken.get(tab.source.token!);
+      const file = tab.source.file;
       if (!file) {
-        recordingPaneMessage(tab, 'Choose the local file for this File Source again.');
+        recordingPaneMessage(tab, tab.source.metaText !== undefined
+          ? 'Choose this SigMF Source’s two files again.'
+          : 'Choose the local file for this File Source again.');
         return;
       }
       // Blob URLs, not a copy of the file: the viewer reads them with the same
       // ranged requests it uses for an HTTP recording.
       dataUrl = URL.createObjectURL(file);
-      metaUrl = URL.createObjectURL(
-        new Blob([synthesizedSigmfMeta(tab.source, file)], { type: 'application/json' }));
+      // A SigMF Source brought its own metadata; everything else local gets one
+      // inferred from the block, and is told so.
+      metaUrl = URL.createObjectURL(new Blob(
+        [tab.source.metaText ?? synthesizedSigmfMeta(tab.source, file)],
+        { type: 'application/json' }));
       tab.blobUrls.push(dataUrl, metaUrl);
-      const note = document.createElement('div'); note.className = 'rec-pane-note';
-      note.textContent = `Metadata inferred from the File Source: ${tab.source.datatype}` +
-        (tab.source.sampleRate ? ` at ${displaySi(tab.source.sampleRate, 'Hz')}` : ', sample rate unknown') +
-        '. A local file carries no SigMF metadata.';
-      tab.entry.panel.insertBefore(note, tab.status);
+      if (tab.source.metaText === undefined) {
+        const note = document.createElement('div'); note.className = 'rec-pane-note';
+        note.textContent = `Metadata inferred from the File Source: ${tab.source.datatype}` +
+          (tab.source.sampleRate ? ` at ${displaySi(tab.source.sampleRate, 'Hz')}` : ', sample rate unknown') +
+          '. A local file carries no SigMF metadata.';
+        tab.entry.panel.insertBefore(note, tab.status);
+      }
     }
 
     const frame = document.createElement('iframe');
@@ -4479,6 +4830,42 @@ async function run(): Promise<string | null> {
     return null;
   }
 
+  // Where a SigMF Sink writes, for the same reason: showDirectoryPicker() needs
+  // a user gesture, and the runner has none. Only for a sink with no folder
+  // bound yet -- a reader who chose one in the block's own Properties dialog is
+  // never asked twice, and where the browser has no such API there is nothing to
+  // ask for and the recording is downloaded at the end instead.
+  for (const block of insts) {
+    if (block.id !== SIGMF_SINK_ID || !block.enabled || block.bypassed) continue;
+    if (!canPickOutputDirectory()) continue;
+    const bound = block.localFileToken
+      ? sigmfOutputDirsByToken.get(block.localFileToken) : undefined;
+    if (bound) {
+      // A handle from earlier in the session can have lost its permission.
+      const state = await (bound as any).queryPermission?.({ mode: 'readwrite' });
+      if (state === 'granted') continue;
+      const granted = await (bound as any).requestPermission?.({ mode: 'readwrite' });
+      if (granted === 'granted') continue;
+      sigmfOutputDirsByToken.delete(block.localFileToken!);
+    }
+    try {
+      const dir = await pickOutputDirectory();
+      const token = block.localFileToken || newLocalFileToken();
+      block.localFileToken = token;
+      sigmfOutputDirsByToken.set(token, dir);
+    } catch {
+      // Dismissed; a blocked folder chosen and then dismissed, which throws
+      // identically; or -- with a WebUSB prompt already having spent this
+      // click's transient activation -- refused outright. The block's own dialog
+      // has a folder button carrying its own gesture, which covers the last.
+      log(`cannot run: choose a folder for "${block.name}". ` +
+          `${SIGMF_OUTPUT_PICKER_HELP} You can also set it ahead of time in the ` +
+          `block's properties with "Choose folder…".`);
+      select(block.uid);
+      return null;
+    }
+  }
+
   // Microphone permission for Audio Source, for the same reason and under the
   // same click, though with more slack than WebUSB: getUserMedia() does not
   // consume the transient activation the prompt above may already have spent,
@@ -4550,6 +4937,61 @@ async function run(): Promise<string | null> {
         recordingFiles.push({ kind: 'http', path, url, size });
         addedPaths.add(path);
       }
+      continue;
+    }
+
+    // A SigMF recording on this computer: the .sigmf-data reads through the same
+    // /local-files/... path a File Source's file does, with the .sigmf-meta text
+    // riding alongside it so the runner can turn the recording's captures and
+    // annotations into stream tags.
+    if (block.id === SIGMF_SOURCE_ID) {
+      const bound = block.localFileToken
+        ? sigmfBindingsByToken.get(block.localFileToken) : undefined;
+      if (!bound) {
+        const saved = String(block.params[SIGMF_FILE_PARAM] || '');
+        log(saved
+          ? `cannot run: "${saved}" is not open in this session; open "${block.name}" ` +
+            `and choose ${saved}${SIGMF_DATA_SUFFIX} and ${saved}${SIGMF_META_SUFFIX} ` +
+            `again with Browse`
+          : `cannot run: choose a recording for "${block.name}" with Browse`);
+        select(block.uid);
+        return null;
+      }
+      const path = `/local-files/${block.localFileToken}/` +
+        `${encodeURIComponent(bound.base)}${SIGMF_DATA_SUFFIX}`;
+      fileOverrides.set(block.name, path);
+      if (!addedPaths.has(path)) {
+        recordingFiles.push({
+          kind: 'local', path, file: bound.data, meta: bound.metaText,
+        });
+        addedPaths.add(path);
+      }
+      continue;
+    }
+
+    // Writing a recording. The destination is a folder handle where the browser
+    // has one and nothing at all where it does not; the runner's writer worker
+    // buffers and downloads in the second case, which is why an unbound sink is
+    // not an error here the way an unbound source is.
+    if (block.id === SIGMF_SINK_ID) {
+      const base = sanitizeSigmfBase(String(block.params[SIGMF_FILE_PARAM] || ''));
+      if (!base) {
+        log(`cannot run: give "${block.name}" a recording name`);
+        select(block.uid);
+        return null;
+      }
+      const token = block.localFileToken || block.uid;
+      const dir = block.localFileToken
+        ? sigmfOutputDirsByToken.get(block.localFileToken) ?? null : null;
+      const path = `${SIGMF_OUTPUT_PREFIX}${token}/${encodeURIComponent(base)}`;
+      fileOverrides.set(block.name, path);
+      if (!addedPaths.has(path)) {
+        recordingFiles.push({ kind: 'output', path, base, dir });
+        addedPaths.add(path);
+      }
+      if (!dir)
+        log(`note: "${block.name}" will download ${sigmfSinkFileNames(base).join(' and ')} ` +
+            `when the flowgraph stops; the recording is held in memory until then`);
       continue;
     }
 
@@ -4629,6 +5071,9 @@ async function run(): Promise<string | null> {
   frame.hidden = false;
   setRunnerRunning(true);
   activateWorkspaceTab('qtgui');
+  // Claims the frame: a previous stop() still finishing a recording will see
+  // this and leave the new run alone.
+  ++runGeneration;
   frame.src = url;
   const doc = buildGrcDoc();
   log('▶ running ' + doc.blocks.length + ' blocks, ' + doc.connections.length + ' connections');
@@ -4636,18 +5081,80 @@ async function run(): Promise<string | null> {
   return token;
 }
 
+// A flowgraph that writes a recording has to be brought down before its frame
+// is unloaded. Unloading kills the writer worker with the tail of the capture
+// still in shared memory -- and, where the browser buffers rather than streams,
+// with the whole of it -- so the runner is asked to stop the flowgraph properly
+// and given a bounded time to say it has. Everything else stops the way it
+// always has, instantly.
+const SHUTDOWN_TIMEOUT_MS = 20000;
+
+function runnerNeedsGracefulStop(): boolean {
+  return insts.some(i => i.id === SIGMF_SINK_ID && i.enabled && !i.bypassed);
+}
+
+function requestRunnerShutdown(frame: HTMLIFrameElement): Promise<void> {
+  const target = frame.contentWindow;
+  if (!target) return Promise.resolve();
+  return new Promise<void>(resolve => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      window.removeEventListener('message', onMessage);
+      clearTimeout(timer);
+      resolve();
+    };
+    const onMessage = (event: MessageEvent) => {
+      if (event.source !== target || event.origin !== location.origin) return;
+      if (event.data?.type === 'gr-shutdown-done') finish();
+    };
+    window.addEventListener('message', onMessage);
+    const timer = setTimeout(() => {
+      log('note: the flowgraph did not stop cleanly; the recording may be truncated');
+      finish();
+    }, SHUTDOWN_TIMEOUT_MS);
+    target.postMessage({ type: 'gr-shutdown' }, location.origin);
+  });
+}
+
+// Which run the frame is showing. Only the deferred unload below needs it: a
+// reader who presses Run again while a recording is still being finished must
+// not have the *new* run's frame blanked out from under them.
+let runGeneration = 0;
+
 function stop() {
+  const frame = el('runFrame') as HTMLIFrameElement;
+  // Started before anything else, because it reads `insts` -- and one caller
+  // (loadFlowgraphAnimated) replaces the canvas the moment this returns.
+  const finishing = runnerNeedsGracefulStop() ? requestRunnerShutdown(frame) : null;
+  const generation = runGeneration;
+
   if (pendingRunnerToken) {
     pendingRunnerRecordings.delete(pendingRunnerToken);
     pendingRunnerToken = null;
   }
-  const frame = el('runFrame') as HTMLIFrameElement;
-  frame.src = 'about:blank'; // unloading the iframe stops its WASM workers
+  // The UI returns to the editor at once either way. loadFlowgraphAnimated
+  // depends on that being synchronous: its fly-in cannot measure a hidden canvas.
   frame.hidden = true;
   el('runEmpty').hidden = false;
   setRunnerRunning(false);
   activateWorkspaceTab('editor');
-  log('■ flowgraph stopped');
+
+  const unload = () => {
+    // Only if this is still the run we were asked to stop.
+    if (generation !== runGeneration) return;
+    frame.src = 'about:blank';   // unloading the iframe stops its WASM workers
+    log('■ flowgraph stopped');
+  };
+  if (finishing) {
+    // Hidden, but still running: the writer worker needs the frame alive to
+    // flush the tail of the recording and write the .sigmf-meta.
+    log('■ finishing the recording…');
+    void finishing.then(unload);
+  } else {
+    unload();
+  }
 }
 
 // ---- Palette ----

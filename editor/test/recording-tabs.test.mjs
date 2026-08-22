@@ -1,5 +1,5 @@
 // Recording tabs: one workspace tab per block with a recording behind it -- a GR
-// World Recording, or a File Source bound to a local file -- each holding the
+// World Recording, a SigMF Source, or a File Source bound to a local file -- each holding the
 // built-in recording view for whatever that block reads. The properties worth pinning are
 // the ones a browser test would take minutes to notice and a reader would take
 // even longer: that drawing the tabs never touches the network, that the iframe
@@ -29,8 +29,10 @@ assert.match(source, /updateCanvasExtent\(\);\s*\n\s*syncRecordingTabs\(\);/,
 const sources = between('function recordingSources()', '\nfunction createRecordingTab');
 assert.match(sources, /!RECORDING_BLOCK_IDS\.has\(block\.id\)/,
   'recording tabs come from the blocks that can have a recording behind them');
-assert.match(source, /const RECORDING_BLOCK_IDS = new Set\(\['blocks_file_source', RECORDING_ID\]\)/,
-  'those blocks are File Source (a local file) and GR World Recording (a hosted one)');
+assert.match(source,
+  /const RECORDING_BLOCK_IDS = new Set\(\['blocks_file_source', SIGMF_SOURCE_ID, RECORDING_ID\]\)/,
+  'those blocks are File Source (raw local samples), SigMF Source (a local SigMF ' +
+  'recording) and GR World Recording (a hosted one)');
 assert.match(sources, /seen\.has\(source\.key\)/,
   'two blocks reading the same recording share one tab');
 
@@ -43,6 +45,19 @@ assert.match(sourceFor, /path = recordingDataPath\(String\(block\.params\[RECORD
   "a remote tab is keyed from the block's own recording key, so drawing it needs no index fetch");
 assert.match(sourceFor, /catch \{ return null; \}/,
   'a GR World Recording with no recording chosen yet gets no tab');
+
+// A SigMF Source is the one local block whose recording describes itself, so its
+// tab is driven by the real .sigmf-meta instead of synthesizedSigmfMeta() --
+// which is what puts the recording's own annotations on the spectrogram.
+assert.match(sourceFor, /if \(block\.id === SIGMF_SOURCE_ID\) \{[\s\S]*?metaText: bound\.metaText,/,
+  "a SigMF Source's tab carries the recording's own metadata");
+assert.match(sourceFor, /const bound = sigmfBindingsByToken\.get\(block\.localFileToken\);\s*\n\s*if \(!bound\) return null;/,
+  'a SigMF recording picked in a previous session gets no tab: the Files are gone');
+assert.match(source,
+  /\[tab\.source\.metaText \?\? synthesizedSigmfMeta\(tab\.source, file\)\]/,
+  'real metadata wins over inferred metadata; everything else local still infers');
+assert.match(source, /if \(tab\.source\.metaText === undefined\) \{[\s\S]*?Metadata inferred from the File Source/,
+  'only an inferred tab says its metadata was inferred');
 
 // ---- ...except a pinned tab, which no block on the canvas owns --------------
 // The Recordings palette's View control and the #recording= link both open a

@@ -127,8 +127,9 @@ assert.match(main, /p\.dtype === RECORDING_DTYPE/,
 // Output Type is the recording's datatype, not a choice: the chooser writes it,
 // the dialog shows it disabled, and a datatype with no stream type of its own is
 // never offered, since it could not be corrected by hand.
-assert.match(main, /s\.disabled = inst\.id === RECORDING_ID && p\.id === 'type'/,
-  "GR World Recording's Output Type is shown but not editable");
+assert.match(main,
+  /s\.disabled = \(inst\.id === RECORDING_ID \|\| inst\.id === SIGMF_SOURCE_ID\) &&\s*\n\s*p\.id === 'type'/,
+  "the Output Type of a block that reads a recording is shown but not editable");
 assert.match(main, /tmp\.params\.type = format\.type;[\s\S]*?node instanceof HTMLSelectElement\) node\.value = format\.type/,
   'choosing a recording writes Output Type and updates the field showing it');
 assert.match(main, /recordings\.filter\(recording => sigmfFileSourceFormat\(recording\.datatype\)\)/,
@@ -150,3 +151,146 @@ for (const id of ['wasm_gr_world_recording', 'wasm_public_http_recording']) {
 }
 
 console.log('checked recording catalog, formats, and streaming integration');
+
+// ---- SigMF Source and SigMF Sink: local recordings, metadata and all --------
+// Deliberately separate blocks from GR World Recording rather than a mode of it:
+// the block title on the canvas is what tells a reader whether a flowgraph's
+// samples come from this computer or from the internet.
+const sigmf = await bundleModule('../src/sigmf-blocks.ts', {
+  define: { 'import.meta.env': JSON.stringify({}) },
+});
+
+const file = (name, bytes = 8) => new File([new Uint8Array(bytes)], name);
+
+// A recording is two files, and a browser cannot derive one from the other -- so
+// both come out of one picker, and picking half of it says which half is missing
+// rather than failing vaguely.
+const pair = sigmf.pairSigmfFiles([file('capture.sigmf-meta'), file('capture.sigmf-data')]);
+assert.equal(pair.base, 'capture');
+assert.equal(pair.data.name, 'capture.sigmf-data');
+assert.equal(pair.meta.name, 'capture.sigmf-meta');
+assert.match(sigmf.pairSigmfFiles([file('capture.sigmf-data')]).error,
+  /Also select capture\.sigmf-meta/,
+  'picking one half names the other, which is the mistake everyone makes first');
+assert.match(sigmf.pairSigmfFiles([file('a.sigmf-data'), file('a.sigmf-meta'),
+                                   file('b.sigmf-data'), file('b.sigmf-meta')]).error,
+  /Choose one recording/, 'two complete recordings is ambiguous, not a silent pick');
+assert.match(sigmf.pairSigmfFiles([file('notes.txt')]).error, /not part of a SigMF recording/);
+assert.match(sigmf.pairSigmfFiles([]).error, /No files selected/);
+
+// The metadata decides Output Type and feeds the samp_rate toggle, so a document
+// that cannot supply either is refused here rather than half-configuring a block.
+const meta = sigmf.parseSigmfMeta(JSON.stringify({
+  global: { 'core:datatype': 'ci16_le', 'core:sample_rate': 2e6 },
+  captures: [{ 'core:sample_start': 0, 'core:frequency': 100e6 }],
+  annotations: [{ 'core:sample_start': 10 }, { 'core:sample_start': 20 }],
+}));
+assert.equal(meta.datatype, 'ci16_le');
+assert.equal(meta.sampleRate, 2e6);
+assert.equal(meta.captures, 1);
+assert.equal(meta.annotations, 2);
+assert.match(sigmf.parseSigmfMeta('{oops').error, /not valid JSON/);
+assert.match(sigmf.parseSigmfMeta('{}').error, /no "global" object/);
+assert.match(sigmf.parseSigmfMeta('{"global":{}}').error, /does not say its core:datatype/);
+// A rate that is absent, zero or nonsense is "unknown", never published as one.
+assert.equal(sigmf.parseSigmfMeta(
+  '{"global":{"core:datatype":"cf32_le","core:sample_rate":0}}').sampleRate, null);
+
+// Output Type is derived and disabled, so a datatype with no stream type here
+// could not be corrected by hand -- the same rule GR World Recording applies.
+assert.equal(sigmf.sigmfStreamFormat('cf32_le').type, 'complex');
+assert.equal(sigmf.sigmfStreamFormat('ci16_le').type, 'short');
+assert.equal(sigmf.sigmfStreamFormat('cf32_be'), null, 'big-endian has no stream type here');
+
+// The sink's name becomes the stem of two real files in a folder the reader
+// chose, so a path separator has to go before getFileHandle() ever sees it.
+assert.equal(sigmf.sanitizeSigmfBase('  capture  '), 'capture');
+assert.equal(sigmf.sanitizeSigmfBase('take.sigmf-data'), 'take',
+  'a suffix typed by hand is not doubled up');
+assert.equal(sigmf.sanitizeSigmfBase('../etc/passwd'), '_etc_passwd');
+assert.equal(sigmf.sanitizeSigmfBase(''), '');
+assert.deepEqual(sigmf.sigmfSinkFileNames('take'), ['take.sigmf-data', 'take.sigmf-meta']);
+
+// Both blocks reach the runner, and their browser-only dtypes match what the
+// Properties dialog renders -- the palette and main.ts have to agree on spelling.
+for (const id of ['wasm_sigmf_source', 'wasm_sigmf_sink']) {
+  assert.equal(blockById(id)?.runnable, true, `${id} is runnable in the palette`);
+  assert.ok(supported.has(id), `${id} has a runner factory`);
+}
+assert.equal(blockById('wasm_sigmf_source')?.params.find(p => p.id === 'file')?.dtype,
+  'sigmf_file_open');
+assert.equal(blockById('wasm_sigmf_sink')?.params.find(p => p.id === 'file')?.dtype,
+  'sigmf_file_save');
+assert.match(main, /p\.dtype === SIGMF_OPEN_DTYPE/,
+  'the dialog renders the source dtype as a picker that takes both files at once');
+assert.match(main, /p\.dtype === SIGMF_SAVE_DTYPE/,
+  'the dialog renders the sink dtype as a name plus a folder picker');
+assert.match(main, /native\.multiple = true;/,
+  'one dialog takes both halves of a recording');
+assert.ok(!blockById('wasm_sigmf_source').params.some(p => p.id === 'vlen'),
+  'a recording is a stream of scalar samples: no vector length to set');
+
+// Upstream's own SigMF blocks are Python and deprecated there. They stay visible
+// and greyed out, with a reason that names the block to use instead.
+for (const id of ['blocks_sigmf_source_minimal', 'blocks_sigmf_sink_minimal']) {
+  assert.equal(blockById(id)?.runnable, false);
+  assert.match(blockById(id)?.unavailable_reason ?? '', /use SigMF (Source|Sink) instead/,
+    `${id} points at its replacement rather than looking merely broken`);
+}
+
+// "Use as samp_rate" publishes on the way out of the dialog, not as the reader
+// clicks: Cancel has to cancel it, and switching the toggle on with a recording
+// already bound has to publish too -- not only re-picking the files.
+assert.match(main, /function sigmfSampRateToPublish\([\s\S]*?String\(params\.use_samp_rate\) !== 'True'\) return null;/,
+  'the toggle is read from committed state');
+assert.match(main, /const publish = sigmfSampRateToPublish\(inst\.id, inst\.params, inst\.localFileToken\);\s*\n\s*if \(publish\) applySampRateFromSigmf/,
+  'the dialog applies it where it commits, so it is one undo step with the pick');
+assert.match(main, /const variable = insts\.find\(i => i\.id === 'variable' && i\.name === 'samp_rate'\);[\s\S]*?if \(!variable\) \{/,
+  'a flowgraph whose samp_rate variable was renamed or deleted is told, not given one back');
+
+// An interleaved 16-bit recording is a short stream -- GNU Radio's own
+// convention -- and nobody wants one for its own sake. The Recordings palette
+// already drops an IShort To Complex beside a ci16 GR World Recording; picking a
+// ci16 recording for a SigMF Source does the same, rather than leaving the
+// reader to read the hint and wire it up.
+assert.match(main, /function attachIShortToComplex\(block: Inst\): boolean \{\s*\n\s*if \(conns\.some\(c => c\.from === block\.uid\)\) return false;/,
+  'an output that already goes somewhere is left alone: this only ever adds');
+assert.match(main, /conns\.push\(\{ from: block\.uid, fp: 0, to: converter\.uid, tp: 0 \}\);/,
+  'the converter arrives already connected');
+assert.match(main, /function sigmfNeedsIShortToComplex[\s\S]*?isCi16Datatype\(bound\.datatype\)/,
+  'only an interleaved-integer recording gets one');
+assert.match(main, /if \(sigmfNeedsIShortToComplex\(inst\.id, inst\.localFileToken\) &&\s*\n\s*attachIShortToComplex\(inst\)\)/,
+  'it happens where the dialog commits, so Cancel cancels it and it is one undo step');
+assert.match(blockById('wasm_sigmf_source')?.documentation ?? '',
+  /adds an IShort To Complex after this block/,
+  "the block's own documentation says so");
+
+// Chrome's File System Access blocklist refuses the Downloads folder *itself*
+// (kDontBlockChildren: the folder cannot be a directory handle, everything inside
+// it can), and says it "contains system files" -- which reads like a bug in this
+// app. One place opens the picker, and it carries the options that make that a
+// non-event.
+assert.match(main, /const dir = await pickOutputDirectory\(\);/g,
+  'both call sites go through the one picker helper');
+assert.equal((main.match(/\)\.showDirectoryPicker\(/g) || []).length, 0,
+  'and nothing calls showDirectoryPicker directly, so the options cannot drift');
+assert.match(sigmf.pickOutputDirectory.toString(), /startIn/,
+  'the picker opens in Downloads, one "New folder" click from a usable choice');
+assert.match(sigmf.pickOutputDirectory.toString(), /id:/,
+  'and a stable id makes Chrome reopen the last folder, so this is once per browser');
+assert.match(sigmf.SIGMF_OUTPUT_PICKER_HELP, /Downloads folder itself/,
+  'a dismissed picker names the restriction rather than looking like nothing happened');
+assert.match(blockById('wasm_sigmf_sink')?.documentation ?? '',
+  /contains system files/,
+  "the block's own documentation explains the message Chrome shows");
+
+// Stopping a flowgraph that writes a recording has to let it finish: unloading
+// the frame kills the writer worker with the tail of the capture still in shared
+// memory, and with the whole of it where the browser buffers rather than streams.
+assert.match(main, /function runnerNeedsGracefulStop\(\)[\s\S]*?i\.id === SIGMF_SINK_ID/);
+assert.match(main, /const finishing = runnerNeedsGracefulStop\(\) \? requestRunnerShutdown\(frame\) : null;/,
+  'stop() stays synchronous -- loadFlowgraphAnimated needs the tab switch immediately');
+assert.match(main, /if \(generation !== runGeneration\) return;/,
+  'a Run pressed while a recording is still finishing keeps its own frame');
+
+console.log('checked SigMF Source/Sink pairing, metadata, samp_rate and shutdown');

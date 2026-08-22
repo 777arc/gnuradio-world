@@ -49,8 +49,16 @@ assert.match(source,
 assert.match(source, /createAiPanel\([\s\S]*commitHistory: recordHistory[\s\S]*restoreSnapshot: restoreAiSnapshot/,
   'the dock uses the editor history boundary for per-turn undo and revert');
 assert.match(source,
-  /newChat\.setAttribute\('aria-label', 'New chat'\)[\s\S]*const resetConversation[\s\S]*transcript\.textContent = ''[\s\S]*cost\.textContent = '\$0\.0000'[\s\S]*rebuildAgent\(\)/,
-  'New chat clears the transcript and cost and rebuilds the agent conversation');
+  /newChat\.setAttribute\('aria-label', 'New chat'\)[\s\S]*const resetConversation[\s\S]*transcript\.textContent = ''[\s\S]*spend = tokens = 0;\s*showSpend\(\);[\s\S]*rebuildAgent\(\)/,
+  'New chat clears the transcript and spend and rebuilds the agent conversation');
+// One dock, two API boundaries: the provider chosen there decides which host the
+// key, the model list, and every request belong to.
+assert.match(source, /providerSelect\.onchange = \(\) => \{[\s\S]*applyProvider\(chosen, true\)/,
+  'switching provider re-points the dock at that provider stored key and models');
+assert.match(source, /boundary\.textContent = `Copilot API: \$\{provider\(\)\.host\} only`/,
+  'the disclosed data boundary names the connected provider host');
+assert.match(source, /new FlowgraphAgent\(\{\s*provider: providerId,/,
+  'the agent talks to the provider the dock is connected to');
 assert.match(source, /newChat\.disabled = !!controller \|\| !key/,
   'New chat cannot interrupt an active turn or run without a connection');
 

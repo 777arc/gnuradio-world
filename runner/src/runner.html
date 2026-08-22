@@ -91,18 +91,42 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
       window.__grFlowgraphBlockCount = flowgraphBlockCount();
       window.__grPoolTier = poolTierForBlockCount(window.__grFlowgraphBlockCount);
 
-      function inputSourcesForRun() {
+      // The one-time payload the editor hands over: files a source reads, and
+      // the destinations a sink writes. Both arrive in the same array, keyed by
+      // the paths the blocks resolve their bindings through.
+      function bindingsForRun() {
         const token = new URLSearchParams(location.search).get('recordingToken');
-        if (!token) return [];
+        if (!token) return { inputs: [], outputs: [] };
         if (window.parent === window ||
             typeof window.parent.__grTakeRecordingFiles !== 'function')
           throw new Error('browser file bindings are unavailable');
 
-        const descriptors = window.parent.__grTakeRecordingFiles(token);
-        return descriptors.map(descriptor => {
-          if (typeof descriptor.path !== 'string' ||
-              (!descriptor.path.startsWith('/recordings/') &&
-               !descriptor.path.startsWith('/local-files/')))
+        const inputs = [];
+        const outputs = [];
+        for (const descriptor of window.parent.__grTakeRecordingFiles(token)) {
+          if (typeof descriptor.path !== 'string')
+            throw new Error('invalid browser file path');
+
+          // A SigMF Sink's destination: a folder handle to stream into, or
+          // nothing at all, in which case the writer buffers and downloads.
+          if (descriptor.kind === 'output') {
+            if (!descriptor.path.startsWith('/local-output/'))
+              throw new Error('invalid browser output path');
+            if (typeof descriptor.base !== 'string' || !descriptor.base)
+              throw new Error('invalid browser output name');
+            const streaming = !!descriptor.dir &&
+              typeof descriptor.dir.getFileHandle === 'function';
+            outputs.push({
+              kind: streaming ? 'fsaccess' : 'download',
+              path: descriptor.path,
+              base: descriptor.base,
+              dir: streaming ? descriptor.dir : null,
+            });
+            continue;
+          }
+
+          if (!descriptor.path.startsWith('/recordings/') &&
+              !descriptor.path.startsWith('/local-files/'))
             throw new Error('invalid browser file path');
           // Accept the old {blob} shape during local development so an editor
           // and runner rebuilt in either order fail gracefully.
@@ -111,21 +135,30 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
             if (!file || typeof file.slice !== 'function' ||
                 !Number.isSafeInteger(file.size))
               throw new Error('invalid local browser file');
-            return { kind: 'local', path: descriptor.path, file, size: file.size };
+            inputs.push({
+              kind: 'local', path: descriptor.path, file, size: file.size,
+              // SigMF Source binds the .sigmf-meta text beside the samples; the
+              // block's factory reads it from here to build its tag plan.
+              meta: typeof descriptor.meta === 'string' ? descriptor.meta : undefined,
+            });
+            continue;
           }
           if (descriptor.kind === 'http') {
             if (typeof descriptor.url !== 'string' ||
                 !Number.isSafeInteger(descriptor.size) || descriptor.size < 0)
               throw new Error('invalid remote browser file');
-            return {
+            inputs.push({
               kind: 'http',
               path: descriptor.path,
               url: new URL(descriptor.url, location.href).href,
               size: descriptor.size,
-            };
+              meta: typeof descriptor.meta === 'string' ? descriptor.meta : undefined,
+            });
+            continue;
           }
           throw new Error('unknown browser file source');
-        });
+        }
+        return { inputs, outputs };
       }
 
       // BrowserFileSource.start() is called from GNU Radio's scheduler-launch
@@ -723,6 +756,101 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
           stats.state = 'cancelled';
       };
 
+      // BrowserFileSink's half of the same arrangement: start() proxies here
+      // from a scheduler pthread only to create the writer worker, and the block
+      // and worker then talk exclusively through atomics in the shared ring.
+      // Emscripten's filesystem is in-memory, so this worker is the only way a
+      // recording reaches the reader's disk.
+      let nextFileWriterId = 1;
+      const fileWriters = new Map();
+      window.__grSinkStats = Object.create(null);
+
+      // A recording buffered in memory (no File System Access API) comes back as
+      // two blobs to hand to the browser's downloader. Same-origin and
+      // un-sandboxed, so a programmatic click is allowed here.
+      const downloadBlob = (blob, filename) => {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        link.rel = 'noopener';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        // Long enough for the download to have been handed off; revoking
+        // immediately cancels it in some builds.
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+      };
+
+      window.__grStartBrowserFileSink = (
+        path, memory, ringPointer, capacityItems, itemSize, controlPointer, errorPointer
+      ) => {
+        const sink = window.__grOutputSinks && window.__grOutputSinks[path];
+        if (!sink) throw new Error(`no output is bound in this session: ${path}`);
+        const id = nextFileWriterId++;
+        const workerUrl = new URL('browser_file_writer.js', location.href);
+        if (window.__grBuildStamp) workerUrl.searchParams.set('v', window.__grBuildStamp);
+        const worker = new Worker(workerUrl);
+        const stats = {
+          path, base: sink.base, mode: sink.kind, bytesWritten: 0, state: 'starting',
+        };
+        window.__grSinkStats[id] = stats;
+        fileWriters.set(id, worker);
+        worker.onmessage = event => {
+          const message = event.data || {};
+          if (Number.isFinite(message.bytesWritten)) stats.bytesWritten = message.bytesWritten;
+          if (message.type) stats.state = message.type;
+          if (message.type === 'error')
+            console.error(`SigMF Sink ${path}: ${message.message}`);
+          if (message.type === 'done' && message.mode === 'download') {
+            downloadBlob(message.data, `${message.base}.sigmf-data`);
+            downloadBlob(
+              new Blob([message.meta || ''], { type: 'application/json' }),
+              `${message.base}.sigmf-meta`);
+          }
+          if (message.type === 'done' || message.type === 'cancelled' ||
+              message.type === 'error')
+            fileWriters.delete(id);
+        };
+        worker.onerror = event => {
+          stats.state = 'error';
+          console.error(`SigMF Sink worker ${path}: ${event.message || 'worker error'}`);
+          fileWriters.delete(id);
+        };
+        worker.postMessage({
+          sink, memory, ringPointer, capacityItems, itemSize,
+          controlPointer, errorPointer, errorCapacity: 512,
+        });
+        stats.state = 'running';
+        return id;
+      };
+
+      // The trailing .sigmf-meta, which cannot exist until the flowgraph stops
+      // and the samples are counted. Posted separately from the FINISHING state
+      // the block sets; the worker waits for both before closing the file.
+      window.__grFinishBrowserFileSink = (id, payload) => {
+        const worker = fileWriters.get(id);
+        if (worker) worker.postMessage({ type: 'finish', payload });
+      };
+
+      window.__grStopBrowserFileSink = id => {
+        const worker = fileWriters.get(id);
+        if (!worker) return;   // already finished and cleaned itself up
+        // Deferred by one turn, unlike the reader's. On the normal path the
+        // worker has already closed itself and posted its result -- which for a
+        // buffered recording *carries the blobs* -- and that message is still
+        // sitting in this frame's task queue when the block's stop() gets here.
+        // Terminating now would be racing it.
+        setTimeout(() => {
+          if (fileWriters.get(id) !== worker) return;   // the message landed
+          worker.terminate();
+          fileWriters.delete(id);
+          const stats = window.__grSinkStats[id];
+          if (stats && stats.state !== 'done' && stats.state !== 'error')
+            stats.state = 'cancelled';
+        }, 0);
+      };
+
       // Repo JavaScript Blocks: the source fetch.
       //
       // A JS block's factory reads its descriptor synchronously, so it needs the
@@ -1083,6 +1211,53 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
       // place: the plots keep plotting, nothing is rebuilt, and the flowgraph
       // never restarts. The editor owns the packing rules (one implementation,
       // in editor/src/gui-layout.ts) and this end only renders what it is sent.
+      // Stop, gracefully. The editor unloads this frame to stop a flowgraph,
+      // which is fine for everything that only reads -- and wrong for a SigMF
+      // Sink, whose writer worker dies with the tail of the recording still in
+      // shared memory. A flowgraph that writes one asks here first and waits for
+      // the acknowledgement below before unloading.
+      window.addEventListener('message', event => {
+        const data = event.data;
+        if (!data || data.type !== 'gr-shutdown') return;
+        if (event.source !== window.parent) return;
+        const ack = () => window.parent.postMessage(
+          { type: 'gr-shutdown-done' }, location.origin);
+        const instance = window.__grRunnerInstance;
+        if (!instance || typeof instance._gr_shutdown_flowgraph !== 'function') {
+          ack();     // never started, or an older build: nothing to bring down
+          return;
+        }
+        try {
+          // Signals and returns. It must not join -- see the comment on
+          // gr_shutdown_flowgraph() in runner.cpp: this thread has to stay free
+          // to service the proxied calls each block's stop() makes on its way
+          // down, and blocking here deadlocks against exactly those.
+          instance._gr_shutdown_flowgraph();
+        } catch (error) {
+          console.error('flowgraph shutdown failed:', error);
+          ack();
+          return;
+        }
+        // What the editor is actually waiting for is the recordings being
+        // finished, not the scheduler threads joining -- that is the only part
+        // of a shutdown unloading this frame would lose. A flowgraph with no
+        // writer at all acknowledges on the first poll.
+        const deadline = performance.now() + 20000;
+        const stillWriting = () => Object.values(window.__grSinkStats || {}).some(
+          stats => stats.state !== 'done' && stats.state !== 'error' &&
+                   stats.state !== 'cancelled');
+        const poll = () => {
+          if (!stillWriting()) { ack(); return; }
+          if (performance.now() > deadline) {
+            console.error('SigMF Sink: gave up waiting for the recording to finish');
+            ack();
+            return;
+          }
+          setTimeout(poll, 50);
+        };
+        poll();
+      });
+
       window.addEventListener('message', event => {
         const data = event.data;
         if (!data || data.type !== 'gr-set-layout') return;
@@ -1122,16 +1297,19 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
         try {
           showUi(spinner);
           status.textContent = 'Loading…';
-          const inputSources = inputSourcesForRun();
+          const bindings = bindingsForRun();
           if (flowgraphUsesFosphorSink()) {
             status.textContent = 'Initializing WebGPU…';
             await window.__grFosphorWebGpu.prepare();
           }
           status.textContent = 'Loading…';
           window.__grInputSources = Object.create(null);
-          for (const source of inputSources)
+          for (const source of bindings.inputs)
             window.__grInputSources[source.path] = source;
-          window.__grMountedRecordings = inputSources.map(source => source.path);
+          window.__grMountedRecordings = bindings.inputs.map(source => source.path);
+          window.__grOutputSinks = Object.create(null);
+          for (const sink of bindings.outputs)
+            window.__grOutputSinks[sink.path] = sink;
 
           const instance = await qtLoad({
             // runner.js and runner.wasm are one indivisible build: emcc bakes

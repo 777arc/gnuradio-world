@@ -1,7 +1,7 @@
 import type { RunnableDef, ResolvedPort } from '../block-defs';
 import type { Conn, Inst, ValidationIssue } from '../graph-model';
 import { describeBlock, nonDefaultParams, searchCatalog, type CatalogEntry } from './catalog';
-import type { ToolDefinition } from './openrouter';
+import type { ToolDefinition } from './client';
 
 export interface AiToolDeps {
   blocks(): Inst[];

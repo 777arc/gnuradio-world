@@ -2,21 +2,26 @@ import type { GraphSnapshot, Inst } from '../graph-model';
 import { runnableIndex, type CatalogEntry } from './catalog';
 import { FlowgraphAgent, type AgentHooks } from './agent';
 import {
-  DEFAULT_OPENROUTER_MODEL,
   beginOpenRouterOAuth,
   exchangeOpenRouterCode,
+  takeOpenRouterOAuthReturn,
+} from './openrouter';
+import { listModels, type AiModel } from './client';
+import {
+  PROVIDER_IDS,
   forgetKey,
   hasConsent,
   keyIsRemembered,
-  listModels,
+  providerFor,
   storeConsent,
-  storedKey,
-  storedModel,
   storeKey,
   storeModel,
-  takeOpenRouterOAuthReturn,
-  type OpenRouterModel,
-} from './openrouter';
+  storeProvider,
+  storedKey,
+  storedModel,
+  storedProvider,
+  type ProviderId,
+} from './providers';
 import { runFlowgraph, type HarnessDeps, type RunAuthorization } from './harness';
 import type { AiToolDeps } from './tools';
 
@@ -106,20 +111,27 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
   newChat.type = 'button'; newChat.title = 'New chat';
   newChat.setAttribute('aria-label', 'New chat');
   const settings = node('button', 'ai-icon', '⚙');
-  settings.type = 'button'; settings.title = 'OpenRouter key and model';
+  settings.type = 'button'; settings.title = 'API key and model';
   const close = node('button', 'ai-icon', '×');
   close.type = 'button'; close.title = 'Close Flowgraph Copilot';
   header.append(heading, cost, newChat, settings, close);
 
   const controls = node('div', 'ai-controls');
   const connection = node('div', 'ai-connection');
-  const boundary = node('span', 'ai-boundary', 'Copilot API: openrouter.ai only');
+  const boundary = node('span', 'ai-boundary', '');
   const disconnect = node('button', 'ai-disconnect', 'Disconnect') as HTMLButtonElement;
   disconnect.type = 'button';
   connection.append(boundary, disconnect);
+  const providerSelect = node('select', 'ai-provider') as HTMLSelectElement;
+  providerSelect.setAttribute('aria-label', 'AI provider');
+  for (const id of PROVIDER_IDS) {
+    const option = node('option', '', `${providerFor(id).label} API`) as HTMLOptionElement;
+    option.value = id;
+    providerSelect.appendChild(option);
+  }
   const modelSelect = node('select', 'ai-model') as HTMLSelectElement;
-  modelSelect.setAttribute('aria-label', 'OpenRouter model');
-  controls.append(connection, modelSelect);
+  modelSelect.setAttribute('aria-label', 'Model');
+  controls.append(connection, providerSelect, modelSelect);
   const transcript = node('div', 'ai-transcript');
   transcript.setAttribute('role', 'log');
   transcript.setAttribute('aria-live', 'polite');
@@ -137,8 +149,14 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
   dock.append(header, controls, transcript, form);
   app.append(splitter, dock);
 
-  let models: OpenRouterModel[] = [];
-  let key = hasConsent() ? storedKey() : '';
+  let providerId: ProviderId = storedProvider();
+  const provider = () => providerFor(providerId);
+  // Each provider keeps its own list; switching back must not refetch.
+  const modelCache = new Map<ProviderId, AiModel[]>();
+  let models: AiModel[] = [];
+  let key = hasConsent(providerId) ? storedKey(providerId) : '';
+  let spend = 0;
+  let tokens = 0;
   let agent: FlowgraphAgent | null = null;
   let controller: AbortController | null = null;
   let activeAssistant: HTMLElement | null = null;
@@ -164,6 +182,16 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
   };
 
   const currentModel = () => modelSelect.value;
+  // OpenRouter prices every request in its final usage event; OpenAI reports
+  // token counts only, so that is what the header shows there.
+  const showSpend = () => {
+    cost.textContent = provider().reportsCost
+      ? `$${spend.toFixed(4)}`
+      : `${tokens.toLocaleString()} tokens`;
+    cost.title = provider().reportsCost
+      ? 'Spend on this conversation'
+      : `Tokens used in this conversation (${provider().label} reports no cost)`;
+  };
   const updateSend = () => {
     send.disabled = !!controller || modelSelect.disabled || !key || !currentModel();
     prompt.disabled = !!controller;
@@ -203,7 +231,12 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
       currentTool = null;
       scrollDown();
     },
-    usage: (_usage, total) => { cost.textContent = `$${total.toFixed(4)}`; },
+    usage: (used, total) => {
+      spend = total;
+      tokens += Number(used.total_tokens ||
+        (Number(used.prompt_tokens || 0) + Number(used.completion_tokens || 0)));
+      showSpend();
+    },
   };
 
   const askAuthorization = (
@@ -250,6 +283,7 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
 
   const rebuildAgent = () => {
     agent = key && currentModel() ? new FlowgraphAgent({
+      provider: providerId,
       key,
       model: currentModel(),
       systemPrompt: `${deps.systemPrompt.trim()}\n\nRunnable block index:\n${runnableIndex(deps.entries())}`,
@@ -262,7 +296,8 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
   const resetConversation = (announcement: string) => {
     transcript.textContent = '';
     prompt.value = '';
-    cost.textContent = '$0.0000';
+    spend = tokens = 0;
+    showSpend();
     activeAssistant = activeAssistantText = currentTool = null;
     rebuildAgent();
     bubble('status', announcement);
@@ -270,10 +305,9 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
   };
 
   const populateModels = () => {
-    const saved = storedModel();
-    const wanted = models.some(model => model.id === saved)
-      ? saved
-      : DEFAULT_OPENROUTER_MODEL;
+    const fallback = provider().defaultModel;
+    const saved = storedModel(providerId);
+    const wanted = models.some(model => model.id === saved) ? saved : fallback;
     modelSelect.textContent = '';
     const placeholder = node('option', '', 'Choose a tool-capable model…') as HTMLOptionElement;
     placeholder.value = '';
@@ -281,8 +315,11 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
     for (const model of models) {
       const option = node('option') as HTMLOptionElement;
       option.value = model.id;
-      option.textContent = `${model.name} · ${(model.contextLength / 1000).toFixed(0)}k` +
-        (model.id === DEFAULT_OPENROUTER_MODEL ? ' · default' : '');
+      // OpenAI publishes no context length with its list, so it is named only
+      // where the provider actually reports one.
+      option.textContent = model.name +
+        (model.contextLength ? ` · ${(model.contextLength / 1000).toFixed(0)}k` : '') +
+        (model.id === fallback ? ' · default' : '');
       modelSelect.appendChild(option);
     }
     if (wanted && models.some(model => model.id === wanted)) modelSelect.value = wanted;
@@ -290,85 +327,173 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
   };
 
   const loadModels = async () => {
-    if (models.length) return;
+    const cached = modelCache.get(providerId);
+    if (cached?.length) { models = cached; populateModels(); return; }
+    // OpenAI's list is authenticated; there is nothing to fetch before connecting.
+    if (provider().modelsNeedKey && !key) {
+      modelSelect.textContent = '';
+      modelSelect.appendChild(modelStatus(`Connect ${provider().label} to load models…`));
+      updateSend();
+      return;
+    }
+    const requested = providerId;
     modelSelect.textContent = '';
     modelSelect.appendChild(modelStatus('Loading models…'));
     modelSelect.disabled = true;
-    try { models = await listModels(); populateModels(); }
+    try {
+      const listed = await listModels({ provider: requested, key });
+      modelCache.set(requested, listed);
+      // The user may have switched providers while this was in flight.
+      if (requested !== providerId) return;
+      models = listed;
+      populateModels();
+    }
     catch (error) {
+      if (requested !== providerId) return;
       modelSelect.textContent = '';
       modelSelect.appendChild(modelStatus('Could not load models'));
       bubble('status', error instanceof Error ? error.message : String(error));
     } finally { modelSelect.disabled = false; updateSend(); }
   };
 
+  /** Points the dock at one provider's key, model list, and data boundary. */
+  const applyProvider = (id: ProviderId, announce: boolean) => {
+    providerId = id;
+    storeProvider(id);
+    providerSelect.value = id;
+    boundary.textContent = `Copilot API: ${provider().host} only`;
+    key = hasConsent(id) ? storedKey(id) : '';
+    models = modelCache.get(id) || [];
+    modelSelect.textContent = '';
+    modelSelect.appendChild(modelStatus(key ? 'Loading models…' : `Connect ${provider().label}…`));
+    spend = tokens = 0;
+    showSpend();
+    if (announce) resetConversation(`Using the ${provider().label} API.`);
+    else rebuildAgent();
+    if (key) void loadModels();
+    else updateSend();
+  };
+
   const showConnect = () => {
+    // The dialog can switch providers, so its provider-specific copy, links,
+    // and buttons are (re)written by applyDialogProvider below.
+    let dialogProvider = providerId;
     let keyInput!: HTMLInputElement;
     let consent!: HTMLInputElement;
     let remember!: HTMLInputElement;
     let connectStatus!: HTMLElement;
     let manual!: HTMLDetailsElement;
-    const overlay = deps.openDialog('Connect OpenRouter', body => {
+    let manualSummary!: HTMLElement;
+    let keyLabel!: HTMLElement;
+    let keyLabelText!: Text;
+    let choice!: HTMLSelectElement;
+    let keyCopy!: HTMLElement;
+    let sentCopy!: HTMLElement;
+    let consentText!: Text;
+    let limited!: HTMLAnchorElement;
+    let privacy!: HTMLAnchorElement;
+    const overlay = deps.openDialog('Connect an AI provider', body => {
+      const pick = node('label', 'ai-key-label', 'AI provider');
+      choice = node('select', 'ai-model') as HTMLSelectElement;
+      for (const id of PROVIDER_IDS) {
+        const option = node('option', '', providerFor(id).label) as HTMLOptionElement;
+        option.value = id;
+        choice.appendChild(option);
+      }
+      choice.value = dialogProvider;
+      pick.appendChild(choice);
+      body.appendChild(pick);
+
       const trust = node('section', 'ai-trust');
+      keyCopy = node('p', '', '');
       trust.append(
         node('strong', '', 'Your key stays on this device'),
-        node('p', '', 'GNU Radio World is a static, open-source application. It has no application server that receives your key. Your browser sends the key only to openrouter.ai over HTTPS when Copilot makes a request.'),
+        keyCopy,
         node('p', '', 'The key is never placed in a flowgraph, share link, URL, console message, or runner message.'),
       );
       const sent = node('section', 'ai-data-boundary');
-      sent.append(
-        node('strong', '', 'What the AI receives'),
-        node('p', '', 'Your prompt, current flowgraph, relevant block metadata, tool results, and console output captured while diagnosing a run. OpenRouter sends that content—not your OpenRouter key—to the selected model provider.'),
-      );
+      sentCopy = node('p', '', '');
+      sent.append(node('strong', '', 'What the AI receives'), sentCopy);
       const links = node('div', 'ai-trust-links');
-      // This is the same disclosed API boundary, linked so the user can cap it.
-      // pr-security-scan: allow new-outbound-host
-      const openRouterSite = 'https://openrouter.ai';
-      const limited = node('a', '', 'Create a dedicated, limited key');
-      limited.href = `${openRouterSite}/settings/keys`;
+      limited = node('a', '', 'Create a dedicated, limited key');
       limited.target = '_blank'; limited.rel = 'noopener noreferrer';
       const source = node('a', '', 'Inspect the source');
-      source.href = 'https://github.com/777arc/gnuradio-world/blob/main/editor/src/ai/openrouter.ts';
+      source.href = 'https://github.com/777arc/gnuradio-world/blob/main/editor/src/ai/client.ts';
       source.target = '_blank'; source.rel = 'noopener noreferrer';
-      const privacy = node('a', '', 'OpenRouter privacy controls');
-      privacy.href = `${openRouterSite}/docs/guides/privacy/data-collection`;
+      privacy = node('a', '', '');
       privacy.target = '_blank'; privacy.rel = 'noopener noreferrer';
       links.append(limited, source, privacy);
       body.append(trust, sent, links);
 
       remember = node('input') as HTMLInputElement;
-      remember.type = 'checkbox'; remember.checked = keyIsRemembered();
+      remember.type = 'checkbox';
       const rememberLabel = node('label', 'ai-consent');
       rememberLabel.append(remember,
         document.createTextNode(' Remember the key on this device. Leave unchecked to keep it only for this browser tab.'));
 
       consent = node('input') as HTMLInputElement;
-      consent.type = 'checkbox'; consent.checked = hasConsent();
+      consent.type = 'checkbox';
       const consentLabel = node('label', 'ai-consent');
-      consentLabel.append(consent, document.createTextNode(
-        ' I understand what is sent to OpenRouter and the selected model provider.'));
+      consentText = document.createTextNode('');
+      consentLabel.append(consent, consentText);
       body.append(rememberLabel, consentLabel);
 
       connectStatus = node('p', 'ai-connect-status');
       body.appendChild(connectStatus);
 
       manual = node('details', 'ai-manual-key');
-      const summary = node('summary', '', 'Paste an API key instead');
-      const label = node('label', 'ai-key-label', 'OpenRouter API key');
+      manualSummary = node('summary', '', 'Paste an API key instead');
+      keyLabel = node('label', 'ai-key-label');
+      keyLabelText = document.createTextNode('');
       keyInput = node('input', 'ai-key') as HTMLInputElement;
       keyInput.type = 'password'; keyInput.autocomplete = 'off';
-      keyInput.placeholder = key ? 'Enter a replacement key' : 'sk-or-v1-…';
-      label.appendChild(keyInput);
-      manual.append(summary, label);
+      keyLabel.append(keyLabelText, keyInput);
+      manual.append(manualSummary, keyLabel);
       body.appendChild(manual);
     });
     const connect = node('button', 'run', 'Connect with OpenRouter') as HTMLButtonElement;
     connect.type = 'button';
+    const save = node('button', '', 'Use pasted key') as HTMLButtonElement;
+    save.type = 'button';
+
+    const applyDialogProvider = () => {
+      const chosen = providerFor(dialogProvider);
+      const connected = hasConsent(dialogProvider) ? storedKey(dialogProvider) : '';
+      keyCopy.textContent = 'GNU Radio World is a static, open-source application. It has no ' +
+        'application server that receives your key. Your browser sends the key only to ' +
+        `${chosen.host} over HTTPS when Copilot makes a request.`;
+      sentCopy.textContent = chosen.sends;
+      limited.href = chosen.keysUrl;
+      privacy.href = chosen.privacyUrl;
+      privacy.textContent = chosen.privacyLabel;
+      consentText.nodeValue = chosen.oauth
+        ? ` I understand what is sent to ${chosen.label} and the selected model provider.`
+        : ` I understand what is sent to ${chosen.label}.`;
+      remember.checked = keyIsRemembered(dialogProvider);
+      consent.checked = hasConsent(dialogProvider);
+      keyLabelText.nodeValue = `${chosen.label} API key`;
+      keyInput.value = '';
+      keyInput.placeholder = connected ? 'Enter a replacement key' : chosen.keyPlaceholder;
+      connectStatus.textContent = '';
+      // Only OpenRouter has a browser authorization flow; an OpenAI key is pasted.
+      connect.hidden = !chosen.oauth;
+      connect.disabled = false;
+      connect.textContent = `Connect with ${chosen.label}`;
+      manualSummary.hidden = !chosen.oauth;
+      manual.open = !chosen.oauth;
+      save.textContent = chosen.oauth ? 'Use pasted key' : `Use ${chosen.label} key`;
+    };
+
+    choice.onchange = () => {
+      dialogProvider = providerFor(choice.value).id;
+      applyDialogProvider();
+    };
     connect.onclick = async () => {
       if (!consent.checked) { consent.focus(); return; }
       connect.disabled = true;
       connectStatus.textContent = 'Opening OpenRouter…';
-      storeConsent();
+      storeConsent('openrouter');
+      storeProvider('openrouter');
       try {
         await beginOpenRouterOAuth(JSON.stringify(deps.snapshot()), remember.checked);
       } catch (error) {
@@ -376,19 +501,26 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
         connectStatus.textContent = error instanceof Error ? error.message : String(error);
       }
     };
-    const save = node('button', '', 'Use pasted key') as HTMLButtonElement;
-    save.type = 'button';
     save.onclick = () => {
       if (!keyInput.value.trim()) { manual.open = true; keyInput.focus(); return; }
       if (!consent.checked) { consent.focus(); return; }
-      key = keyInput.value.trim();
-      storeKey(key, remember.checked); storeConsent();
+      const entered = keyInput.value.trim();
+      storeKey(dialogProvider, entered, remember.checked);
+      storeConsent(dialogProvider);
       overlay.remove();
-      rebuildAgent();
-      void loadModels();
+      if (dialogProvider !== providerId) {
+        // Picks the stored key up along with the rest of that provider's state,
+        // and says which API the conversation now runs against.
+        applyProvider(dialogProvider, true);
+      } else {
+        key = entered;
+        rebuildAgent();
+        void loadModels();
+      }
     };
+    applyDialogProvider();
     overlay.querySelector('.dlgfoot')?.prepend(connect, save);
-    connect.focus();
+    (connect.hidden ? keyInput : connect).focus();
   };
 
   const attachDiff = (before: GraphSnapshot, after: GraphSnapshot) => {
@@ -452,15 +584,25 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
   };
   settings.onclick = showConnect;
   disconnect.onclick = () => {
-    forgetKey();
+    const label = provider().label;
+    forgetKey(providerId);
     key = '';
     agent = null;
-    bubble('status', 'OpenRouter disconnected and its key was removed from this browser.');
+    // An authenticated list belongs to the key that read it.
+    if (provider().modelsNeedKey) modelCache.delete(providerId);
+    bubble('status', `${label} disconnected and its key was removed from this browser.`);
     updateSend();
   };
   close.onclick = () => app.classList.add('ai-hidden');
+  providerSelect.onchange = () => {
+    if (controller) { providerSelect.value = providerId; return; }
+    const chosen = providerFor(providerSelect.value).id;
+    if (chosen === providerId) return;
+    applyProvider(chosen, true);
+    if (!key) showConnect();
+  };
   modelSelect.onchange = () => {
-    storeModel(currentModel());
+    storeModel(providerId, currentModel());
     if (currentModel()) resetConversation(`New conversation using ${currentModel()}.`);
     else rebuildAgent();
   };
@@ -491,8 +633,12 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
   splitter.addEventListener('pointercancel', finishResize);
 
   app.classList.add('ai-hidden');
+  providerSelect.value = providerId;
+  boundary.textContent = `Copilot API: ${provider().host} only`;
+  showSpend();
   modelSelect.appendChild(modelStatus('Open Copilot to load models…'));
-  if (!key) bubble('status', 'Connect OpenRouter to start. No API key is bundled with GNU Radio World.');
+  if (!key) bubble('status',
+    `Connect ${provider().label} to start. No API key is bundled with GNU Radio World.`);
   updateSend();
 
   if (oauthReturn) {
@@ -508,9 +654,12 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
       try {
         if (!oauthReturn.code || !oauthReturn.verifier)
           throw new Error('OpenRouter returned without a complete authorization code');
-        key = await exchangeOpenRouterCode(oauthReturn.code, oauthReturn.verifier);
-        storeKey(key, oauthReturn.remember);
-        storeConsent();
+        const granted = await exchangeOpenRouterCode(oauthReturn.code, oauthReturn.verifier);
+        storeKey('openrouter', granted, oauthReturn.remember);
+        storeConsent('openrouter');
+        // The redirect can land on a session that had switched to OpenAI.
+        if (providerId !== 'openrouter') applyProvider('openrouter', false);
+        key = granted;
         rebuildAgent();
         void loadModels();
         bubble('status', oauthReturn.remember

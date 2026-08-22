@@ -320,6 +320,34 @@ extern "C" EMSCRIPTEN_KEEPALIVE void gr_apply_gui_layout(const char* tiles_json,
     publish_gui_layout(true);
 }
 
+// Ask the flowgraph to finish, so a block with something to finish gets to.
+//
+// SigMF Sink is why this exists. Pressing Stop in the editor unloads this frame,
+// and unloading it kills the writer worker with the tail of the recording still
+// in shared memory -- or, where the browser has no File System Access API and the
+// recording is buffered rather than streamed, with the whole of it. The editor
+// asks for this first, for a flowgraph that needs it, and waits for the
+// acknowledgement runner.html posts back.
+//
+// **This signals and returns; it must not join.** The browser main thread calls
+// it, and every block's stop() runs on that block's own scheduler thread -- where
+// BrowserFileSink's makes a proxied MAIN_THREAD_EM_ASM call to reach its writer.
+// Blocking here (top_block::wait(), the way run_now() tears down for a re-run)
+// deadlocks outright: the block waits for the main thread to run its JS, and the
+// main thread waits for the block to exit. What runner.html waits for instead is
+// the writers reporting their files closed, which is the only part of a shutdown
+// that unloading the frame would actually lose.
+extern "C" EMSCRIPTEN_KEEPALIVE void gr_shutdown_flowgraph() {
+    if (!g_tb)
+        return;
+    try {
+        g_tb->stop();
+    } catch (...) {
+        // Nothing useful is left to do about a block that throws on the way
+        // down, and the caller is about to discard this frame regardless.
+    }
+}
+
 // Mirror a message to the editor (parent frame), which logs it next to the Run
 // that produced it.
 static void post_error_to_editor(const std::string& msg) {

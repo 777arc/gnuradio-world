@@ -1,5 +1,7 @@
 #pragma once
 
+#include "sigmf_tags.hpp"
+
 #include <gnuradio/sync_block.h>
 #include <pmt/pmt.h>
 #include <cstddef>
@@ -24,6 +26,14 @@ public:
                      pmt::pmt_t begin_tag = pmt::PMT_NIL);
 
     ~BrowserFileSource() override;
+
+    // Tags to emit as the file is read, at offsets counted from the first sample
+    // of a pass. SigMF Source is what sets one: its recording's capture segments
+    // and annotations become tags here rather than in a block of its own,
+    // because everything else about reading the file is already this class's
+    // job. Entries must be sorted by offset; runner/src/sigmf_meta.hpp builds
+    // them that way. Call before start().
+    void set_tag_plan(std::vector<sigmf::TagPlanEntry> plan);
 
     bool start() override;
     bool stop() override;
@@ -66,6 +76,8 @@ private:
     std::uint64_t d_repeat_count = 0;
     pmt::pmt_t d_begin_tag;
     pmt::pmt_t d_tag_source;
+    std::vector<sigmf::TagPlanEntry> d_tag_plan;
+    std::size_t d_tag_cursor = 0;   // next plan entry not yet emitted this pass
 
     std::size_t d_capacity_items;
     std::vector<unsigned char> d_ring;

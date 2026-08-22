@@ -1,7 +1,8 @@
 # Recordings: the source blocks, R2, and the recording viewer
 
-Three connected things: the browser-backed source blocks that read bytes, the R2
-bucket those bytes come from, and the recording tabs that display them.
+Four connected things: the browser-backed source blocks that read bytes, the one
+sink block that writes them, the R2 bucket the hosted recordings come from, and
+the recording tabs that display them.
 
 `editor/src/recording/` is a focused viewer adapted from IQEngine — the SigMF
 URL/blob reader, spectrogram, Time/Frequency/IQ plots, settings, annotations and
@@ -15,23 +16,27 @@ at `/recording/` — there is no separate IQEngine checkout or build step.
 pin most of what follows. Neither runs a browser, so a change here also wants the
 manual pass described in AGENTS.md's "Run and test".
 
-## The three source blocks
+## The four source blocks
 
 The WASM registry replaces GNU Radio's POSIX-backed `blocks_file_source` with
 `blocks/src/browser_file_source.cpp`, which reads a *path the browser resolves a
-binding through* rather than a file on a filesystem. Three blocks are that same
-class over three kinds of binding, and which one a flowgraph wants is decided by
+binding through* rather than a file on a filesystem. Four blocks are that same
+class over four kinds of binding, and which one a flowgraph wants is decided by
 where its samples are:
 
 | block | parameter | the path it reads | who produces that path |
 |-------|-----------|-------------------|------------------------|
 | **File Source** (`blocks_file_source`) | `file` — a plain name, as native GNU Radio | `/local-files/<token>/<name>` | the editor's Run path, from the `File` picked with Properties → Browse |
+| **SigMF Source** (`wasm_sigmf_source`) | `file` — a base name, no suffix | `/local-files/<token>/<base>.sigmf-data` | the editor's Run path, from the *pair* picked with Properties → Browse |
 | **GR World Recording** (`wasm_gr_world_recording`) | `recording` — a bucket base key, `estevez/by701` | `/recordings/<key>.sigmf-data` | the *runner's factory*, from the key itself |
 | **Public HTTP Recording** (`wasm_public_http_recording`) | `url` — any public http(s) URL | `/recordings/external/<encoded url>` | the editor's Run path, after probing the URL's size |
 
 File Source is deliberately the native block and nothing more: it has no path
 into the bucket and no URL of its own, so a flowgraph that reads a file this
-project hosts, or one anybody hosts, says which by the block it uses.
+project hosts, or one anybody hosts, says which by the block it uses. **SigMF
+Source is kept separate from GR World Recording for the same reason** — both read
+a SigMF recording, and the block title on the canvas is what says whether it came
+from this computer or from the internet. Merging them would take that away.
 
 GR World Recording's **Output Type is derived, not chosen**: the recording's
 SigMF datatype says how its samples are laid out, so picking a recording writes
@@ -65,6 +70,139 @@ refuses the Run rather than letting the reader fail later.
 file larger than 4 GiB through the actual editor and reads beyond the 32-bit
 boundary; its HTTP case runs a GR World Recording against an endpoint that
 refuses non-Range requests and verifies the exact range consumed.
+
+## SigMF Source: metadata as stream tags
+
+SigMF Source is the only local source that reads a recording's *metadata*. A
+File Source pointed at a `.sigmf-data` gets `synthesizedSigmfMeta()`, which
+infers a datatype from the block's own parameters and has no captures or
+annotations to offer; SigMF Source reads the real `.sigmf-meta` beside the
+samples.
+
+Three things follow from that, and each is somewhere different:
+
+- **Both files are picked at once.** A browser cannot derive a sibling file from
+  a picked `File`, so the dialog's picker is `multiple` and
+  [`editor/src/sigmf-blocks.ts`](../editor/src/sigmf-blocks.ts) pairs them by
+  base name. Picking one half names the other rather than failing vaguely. The
+  pair, and the metadata text read out of it, are bound for the session under the
+  block's `localFileToken` in `sigmfBindingsByToken` — a `.grc` keeps the base
+  name and nothing else, exactly as File Source keeps a file name.
+- **Output Type is derived and disabled**, the same as GR World Recording's, from
+  `core:datatype`. A datatype with no stream type here is refused at pick time
+  rather than half-configuring the block, because the field could not then be
+  corrected by hand. A `ci16_le` recording is a *short* stream — GNU Radio's own
+  convention for an interleaved-integer file — so committing the dialog also
+  drops an **IShort To Complex** on the canvas already connected to the block's
+  output, exactly as the Recordings palette does for a ci16 card
+  (`attachIShortToComplex`). It only ever adds: an output that already goes
+  somewhere is a flowgraph the reader built, and the dialog's detail line says
+  which of the two it is about to do.
+- **The tags are built in the runner, not the editor.** The editor ships the
+  `.sigmf-meta` *text* alongside the samples (the `meta` field on a local input
+  binding); the factory parses it and hands `BrowserFileSource::set_tag_plan()` a
+  sorted list of `(pass-relative offset, key, value)`. Keeping it C++-side is what
+  lets one specification serve both directions — see below.
+
+The mapping itself lives in two files that share their names and keys:
+
+| file | what it holds |
+|------|---------------|
+| [`blocks/src/sigmf_tags.hpp`](../blocks/src/sigmf_tags.hpp) | the tag names, the metadata keys, `pmt_to_json()`, the ISO-8601 conversions, and `MetaBuilder` — the *sink* direction. Plain C++ and pmt, no nlohmann, per AGENTS.md's placement rule |
+| [`runner/src/sigmf_meta.hpp`](../runner/src/sigmf_meta.hpp) | `json_to_pmt()` and `build_tag_plan()` — the *source* direction, which has to walk a parsed JSON document, so it is factory-side |
+
+Each capture segment emits `rx_freq`, `rx_rate` and `rx_time` — the conventional
+names other GNU Radio blocks already look for — plus a `sigmf:capture` dictionary
+carrying the whole segment. Each annotation emits one `sigmf:annotation`
+dictionary. **Tag offsets are pass-relative**: the block's `offset` parameter is
+subtracted and anything before the selection is dropped, so a trimmed selection
+tags the right samples and a `repeat` pass re-emits the plan from the top
+(`d_tag_cursor` resets where `d_items_into_pass` does).
+
+`test/test_smoke.mjs` runs the whole chain against a Tag Debug, asserting that a
+capture past the Offset lands shifted, that an annotation carries its label, and
+that a capture *before* the Offset is dropped.
+
+## SigMF Sink: the only block that writes
+
+There is no File Sink in this runner at all — Emscripten's filesystem is
+in-memory, so anything written through it dies with the tab. SigMF Sink is the
+one block whose bytes leave WASM, and it is the mirror image of the source: a
+16 MiB ring in shared memory, the same `Control` struct and futex protocol, and
+a worker on the other end.
+
+- [`blocks/src/browser_file_sink.cpp`](../blocks/src/browser_file_sink.cpp) is
+  the ring half. **A full ring blocks rather than drops** — the opposite of
+  RTL-SDR Source, and correct here: a sink owns its scheduler pthread, so
+  stalling it backpressures the flowgraph instead of losing samples, and losing
+  samples is the one thing a recording must not do.
+- [`blocks/src/sigmf_sink.hpp`](../blocks/src/sigmf_sink.hpp) adds the metadata.
+  `on_written()` is called with the range actually accepted, while
+  `nitems_read(0)` still addresses it, so `get_tags_in_range()` sees exactly those
+  tags. `finish_payload()` builds the `.sigmf-meta` at stop, when the samples are
+  finally counted.
+- [`runner/src/browser_file_writer.js`](../runner/src/browser_file_writer.js) is
+  the worker, with two modes. With the File System Access API it streams into a
+  `FileSystemDirectoryHandle` the reader chose, and a recording is bounded only by
+  the disk. Without one (Firefox, Safari) it buffers and hands both files back as
+  blobs to download, bounded by `MAX_DOWNLOAD_BYTES` — **exceeding which fails the
+  run** through the ring's error channel, because a recording silently missing its
+  end is the worst outcome available.
+
+**Chrome refuses the Downloads folder itself**, and will say it "contains system
+files" — which reads like a bug in this app and is not one. Downloads is on
+Chromium's File System Access blocklist as `kDontBlockChildren`, so the folder
+cannot be taken as a directory handle while *everything inside it* can: a
+subfolder works, and a single file saved into Downloads (an ordinary download) is
+unaffected. `pickOutputDirectory()` in
+[`editor/src/sigmf-blocks.ts`](../editor/src/sigmf-blocks.ts) is the one place
+that opens the picker, and it carries the two options that make this a non-event:
+`startIn: 'downloads'` (so the reader is already where they wanted to be, one
+"New folder" click from done) and a stable `id` (so Chrome reopens wherever this
+app was last pointed, making the choice once per browser rather than once per
+run). The picker throws the same `AbortError` whether it was dismissed or a
+blocked folder was chosen and then dismissed, so both call sites report
+`SIGMF_OUTPUT_PICKER_HELP` rather than guessing which happened.
+
+Three traps worth keeping straight:
+
+- **Stop must be graceful, and the shutdown must not join.** The editor stops a
+  flowgraph by unloading the runner iframe, which would kill the writer worker
+  with the tail of the capture still in shared memory — and, in buffered mode,
+  with the whole of it. So `stop()` posts `gr-shutdown`, `runner.html` calls the
+  exported `gr_shutdown_flowgraph()`, and only the acknowledgement unloads the
+  frame.
+
+  `gr_shutdown_flowgraph()` calls `g_tb->stop()` and **returns immediately**. It
+  must not do what `run_now()` does for a re-run (`stop()` then `wait()`): the
+  browser main thread calls it, every block's `stop()` runs on that block's own
+  scheduler thread, and `BrowserFileSink::stop()` makes a proxied
+  `MAIN_THREAD_EM_ASM` call from there. Joining on the main thread deadlocks
+  outright — the block waits for the main thread to run its JS, the main thread
+  waits for the block to exit — and it does so for *any* flowgraph, not just one
+  with a sink. What `runner.html` waits for instead is `__grSinkStats` reporting
+  every writer's file closed, which is the only part of a shutdown that unloading
+  the frame would actually lose; a flowgraph with no writer acknowledges on the
+  first poll. The main thread never blocks, so the tab stays responsive while the
+  recording finishes.
+
+  On the editor side `stop()` stays *synchronous* — `loadFlowgraphAnimated()`
+  needs the tab switch immediately — and only the unload is deferred, guarded by a
+  `runGeneration` counter so a late unload cannot blank a newer run's frame.
+- **The finish handshake is two messages.** `FINISHING` (an atomic) and the
+  `.sigmf-meta` (a `postMessage`) are sent separately and either can land first,
+  so the worker closes the file only once it has both. For the same reason the
+  worker polls an empty ring with `await sleep()` rather than `Atomics.wait()`,
+  which would block its event loop and never deliver that message.
+- **`__grStopBrowserFileSink` defers its `terminate()` by a turn.** On the normal
+  path the worker has already closed itself and posted its result — which in
+  buffered mode *carries the blobs* — and that message is still queued when the
+  block's `stop()` reaches the main thread.
+
+Both output paths are covered on plain Node by
+`runner/test/browser_file_writer.test.mjs`; neither is reachable from a headless
+browser, since `showDirectoryPicker()` needs a real user gesture and a download
+is not observable. The C++ half wants the manual pass in AGENTS.md.
 
 ## R2 recording source of truth
 
@@ -169,6 +307,11 @@ working:
   its spectrogram off the window it is in; it would come back sized for nothing.
   Panels are also never re-inserted into the DOM when tabs reorder — moving an
   iframe reloads the document inside it — so only the buttons are reordered.
+- **A SigMF Source's tab uses the recording's real metadata.** It is the only
+  local source that has any, so its tab is handed the actual `.sigmf-meta` text
+  rather than a synthesized one, and shows the recording's genuine sample rate,
+  centre frequency and — uniquely — its own annotation boxes on the spectrogram.
+  Everything below applies to a File Source, which has no metadata to show.
 - **A local file has no SigMF metadata**, so `synthesizedSigmfMeta()` writes a
   minimal one from the File Source: datatype from its `type` param (a `short`
   or `byte` source whose only sink is an interleaved-to-complex converter is
