@@ -204,14 +204,34 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
     : `Copilot API: ${provider().host} only`;
   const share = (part: number, whole: number) =>
     whole > 0 ? ` (${Math.round((part / whole) * 100)}%)` : '';
+  /**
+   * Short enough for the header, which has about twenty monospace characters.
+   * Exact below 10k, then one decimal that is dropped when it is zero — and M
+   * above a million, which a long conversation on the shared model reaches
+   * well inside one day's budget.
+   */
+  const compact = (value: number) => {
+    if (value < 10_000) return value.toLocaleString();
+    const [scaled, suffix] = value < 1_000_000
+      ? [value / 1000, 'k'] : [value / 1_000_000, 'M'];
+    const digits = scaled < 100 ? scaled.toFixed(1).replace(/\.0$/, '') : String(Math.round(scaled));
+    return `${digits}${suffix}`;
+  };
   // OpenRouter prices every request in its final usage event; OpenAI reports
   // token counts only, so that is what the header shows there. Either headline
-  // hides the split that decides the bill, so the breakdown is on hover.
+  // is shown split into ↑ input and ↓ output, because one total hides the ratio
+  // that decides the bill — input dominates here, since every round resends the
+  // flowgraph and the block index. The finer split of input into cached and
+  // output into reasoning stays on hover; four numbers do not fit.
   const showSpend = () => {
     const named = provider();
-    cost.textContent = named.reportsCost
-      ? `$${spend.toFixed(4)}`
-      : `${usageTotals.total.toLocaleString()} tokens`;
+    const split = `↑${compact(usageTotals.prompt)} ↓${compact(usageTotals.completion)}`;
+    const money = `$${spend.toFixed(4)}`;
+    // Before anything is spent there is no split worth showing, and "↑0 ↓0"
+    // reads as a broken counter rather than an idle one.
+    cost.textContent = !usageTotals.total ? (named.reportsCost ? money : '0 tokens')
+      : named.reportsCost ? `${money} ${split}`
+      : split;
     const headline = named.reportsCost
       ? 'Spend on this conversation'
       : `Tokens used in this conversation (${named.label} reports no cost)`;
@@ -221,7 +241,13 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
         `${usageTotals.cached.toLocaleString()} cached${share(usageTotals.cached, usageTotals.prompt)}`,
       `Output ${usageTotals.completion.toLocaleString()} · ` +
         `${usageTotals.reasoning.toLocaleString()} reasoning${share(usageTotals.reasoning, usageTotals.completion)}`,
+      `Total ${usageTotals.total.toLocaleString()}`,
     ].join('\n') : headline;
+    // ↑ and ↓ are shape, not speech, so the spoken label says which is which.
+    cost.setAttribute('aria-label', usageTotals.total
+      ? `${headline}. Input ${usageTotals.prompt.toLocaleString()} tokens, ` +
+        `output ${usageTotals.completion.toLocaleString()} tokens.`
+      : headline);
   };
   const updateSend = () => {
     send.disabled = !!controller || modelsLoading || !ready() || !currentModel();

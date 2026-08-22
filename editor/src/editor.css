@@ -198,8 +198,12 @@ button:hover { filter:brightness(1.15); }
     background:#1d2130; border-left:1px solid #333a4d; overflow:hidden; }
 .ai-head { display:flex; align-items:center; gap:8px; min-width:0; padding:10px 10px 8px;
     border-bottom:1px solid #333a4d; }
-.ai-head strong { flex:1; white-space:nowrap; }
-.ai-cost { color:#9eabc8; font:12px/1.2 ui-monospace,monospace; cursor:help; }
+/* Truncates rather than shoving the token counts out of the header when the
+   dock is dragged narrow; the numbers matter more than the full title. */
+.ai-head strong { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis;
+    white-space:nowrap; }
+.ai-cost { color:#9eabc8; font:12px/1.2 ui-monospace,monospace; cursor:help;
+    white-space:nowrap; }
 .ai-icon { width:30px; height:30px; padding:0; font-size:18px; line-height:1; }
 .ai-controls { padding:8px 10px; border-bottom:1px solid #303548; }
 .ai-connection { display:flex; align-items:center; justify-content:space-between; gap:8px;
