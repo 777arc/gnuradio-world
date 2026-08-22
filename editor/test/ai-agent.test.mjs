@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { bundleModule } from './bundle-module.mjs';
 
 const {
+  CACHE_KEY,
   FlowgraphAgent,
   GRAPH_PREVIEW_DELAY_MS,
   MAX_TOOL_ROUNDS,
@@ -106,8 +107,9 @@ const deps = {
 };
 
 let request = 0;
+let routerBody;
 const fetchImpl = async (_url, init) => {
-  const body = JSON.parse(init.body);
+  const body = routerBody = JSON.parse(init.body);
   request++;
   if (request === 1) {
     assert.equal(body.messages.at(-1).role, 'user');
@@ -129,6 +131,7 @@ const events = [];
 const agent = new FlowgraphAgent({
   provider: 'openrouter', key: 'test', model: 'stub/model', systemPrompt: 'test', deps, fetchImpl,
   hooks: {
+    assistantStarted: () => events.push('assistant'),
     toolStarted: name => events.push(`start:${name}`),
     toolFinished: name => events.push(`finish:${name}`),
   },
@@ -137,7 +140,10 @@ const result = await agent.turn('validate this');
 assert.equal(result.text, 'The flowgraph is valid.');
 assert.equal(result.rounds, 2);
 assert.equal(result.cost, 0.003);
-assert.deepEqual(events, ['start:validate', 'finish:validate']);
+// One assistant segment per round, opened before that round's tool calls: the
+// panel hangs each round's prose below the tools it followed, and can only do
+// that if every round is announced.
+assert.deepEqual(events, ['assistant', 'start:validate', 'finish:validate', 'assistant']);
 assert.deepEqual(agent.transcript().map(message => message.role),
   ['system', 'user', 'assistant', 'tool', 'assistant']);
 
@@ -195,19 +201,31 @@ assert.match(capped.text, /Stopped after 50 tool rounds/);
 // The OpenAI provider reaches OpenAI's own endpoint with the same OpenAI-format
 // body, no OpenRouter attribution headers, and an explicit request for usage.
 let openAiRequest;
+let openAiUsage;
 const openAiAgent = new FlowgraphAgent({
   provider: 'openai', key: 'sk-test', model: 'gpt-5.4-mini', systemPrompt: 'test', deps,
+  hooks: { usage: used => { openAiUsage = used; } },
   fetchImpl: async (url, init) => {
     openAiRequest = { url, init };
     return sse([{
       model: 'gpt-5.4-mini', choices: [{ delta: { content: 'Ready.' } }],
-      usage: { prompt_tokens: 12, completion_tokens: 5, total_tokens: 17 },
+      usage: {
+        prompt_tokens: 12, completion_tokens: 5, total_tokens: 17,
+        prompt_tokens_details: { cached_tokens: 9 },
+        completion_tokens_details: { reasoning_tokens: 4 },
+      },
     }]);
   },
 });
 const openAiTurn = await openAiAgent.turn('hello');
 assert.equal(openAiTurn.text, 'Ready.');
 assert.equal(openAiTurn.cost, 0, 'OpenAI prices nothing in its usage event');
+// A single token total cannot separate cheap cached input from full-price fresh
+// input from output spent reasoning, and both providers nest those a level down.
+assert.equal(openAiUsage.cached_tokens, 9);
+assert.equal(openAiUsage.reasoning_tokens, 4);
+assert.equal(openAiUsage.prompt_tokens, 12);
+assert.equal(openAiUsage.completion_tokens, 5);
 // pr-security-scan: allow new-outbound-host
 assert.equal(openAiRequest.url, 'https://api.openai.com/v1/chat/completions');
 assert.equal(openAiRequest.init.headers.Authorization, 'Bearer sk-test');
@@ -217,6 +235,17 @@ const openAiBody = JSON.parse(openAiRequest.init.body);
 assert.equal(openAiBody.model, 'gpt-5.4-mini');
 assert.deepEqual(openAiBody.stream_options, { include_usage: true });
 assert.ok(openAiBody.tools.length, 'the graph tools go to either provider');
+// gpt-5.4-mini rejects reasoning_effort alongside function tools on
+// /v1/chat/completions unless it is 'none', and every request here carries the
+// graph tools, so the field stays unset on this path.
+assert.equal(openAiBody.reasoning_effort, undefined);
+assert.ok(openAiBody.tools.length, 'which is only a constraint because tools are always sent');
+// Routes the request at the machine holding this prefix's cache.
+assert.match(openAiBody.prompt_cache_key, /^grw-/);
+assert.equal(openAiBody.prompt_cache_key, CACHE_KEY);
+
+assert.equal(routerBody.prompt_cache_key, undefined,
+  'prompt_cache_key is OpenAI-only');
 
 // OpenAI's model list has no capability flags, so the chat families are picked
 // out of every model the account can see.

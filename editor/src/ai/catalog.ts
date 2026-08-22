@@ -13,8 +13,21 @@ export interface CatalogDeps {
   ports(id: string, kind: 'in' | 'out'): ResolvedPort[];
 }
 
+/**
+ * The whole runnable catalog as system-prompt text, grouped so each category is
+ * named once rather than restated on all of its blocks. Same ids, labels and
+ * categories as one line each; about a quarter fewer tokens, resent every round.
+ */
 export function runnableIndex(entries: CatalogEntry[]): string {
-  return entries.map(entry => `${entry.id} | ${entry.label} | ${entry.category}`).join('\n');
+  const byCategory = new Map<string, CatalogEntry[]>();
+  for (const entry of entries) {
+    const list = byCategory.get(entry.category);
+    if (list) list.push(entry);
+    else byCategory.set(entry.category, [entry]);
+  }
+  return [...byCategory.keys()].sort().map(category =>
+    `${category}:\n${byCategory.get(category)!
+      .map(entry => `  ${entry.id} | ${entry.label}`).join('\n')}`).join('\n');
 }
 
 function score(entry: CatalogEntry, words: string[]): number {
@@ -42,7 +55,24 @@ export function searchCatalog(entries: CatalogEntry[], query: string, limit = 20
     .slice(0, limit).map(item => item.entry);
 }
 
-export function describeBlock(deps: CatalogDeps, id: string): Record<string, unknown> {
+/**
+ * A few blocks carry many kilobytes of doxygen prose — `variable_constellation`
+ * alone is 8.7 KB — and every tool result stays in the transcript for the rest
+ * of the turn. Truncate to the part that describes what the block does, and say
+ * inline how to ask for the rest.
+ */
+export const API_DOC_LIMIT = 1000;
+
+function clampApiDocs(text: string, full: boolean): string {
+  if (full || text.length <= API_DOC_LIMIT) return text;
+  const cut = text.lastIndexOf('\n', API_DOC_LIMIT);
+  const kept = text.slice(0, cut > API_DOC_LIMIT * 0.6 ? cut : API_DOC_LIMIT);
+  return `${kept}\n… ${text.length - kept.length} more characters; call describe_block again with full_docs: true to read all of it`;
+}
+
+export function describeBlock(
+  deps: CatalogDeps, id: string, fullDocs = false,
+): Record<string, unknown> {
   const def = deps.definition(id);
   if (!def) throw new Error(`block "${id}" is not runnable in this WebAssembly build`);
   const params = def.params.map(param => ({
@@ -69,7 +99,7 @@ export function describeBlock(deps: CatalogDeps, id: string): Record<string, unk
     inputs: ports('in'),
     outputs: ports('out'),
     documentation: def.documentation || '',
-    api_documentation: def.apiDocumentation || '',
+    api_documentation: clampApiDocs(def.apiDocumentation || '', fullDocs),
     wiki_url: def.wikiUrl || '',
   };
 }

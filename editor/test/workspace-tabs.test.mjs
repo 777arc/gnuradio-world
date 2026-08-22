@@ -49,7 +49,7 @@ assert.match(source,
 assert.match(source, /createAiPanel\([\s\S]*commitHistory: recordHistory[\s\S]*restoreSnapshot: restoreAiSnapshot/,
   'the dock uses the editor history boundary for per-turn undo and revert');
 assert.match(source,
-  /newChat\.setAttribute\('aria-label', 'New chat'\)[\s\S]*const resetConversation[\s\S]*transcript\.textContent = ''[\s\S]*spend = tokens = 0;\s*showSpend\(\);[\s\S]*rebuildAgent\(\)/,
+  /newChat\.setAttribute\('aria-label', 'New chat'\)[\s\S]*const resetConversation[\s\S]*transcript\.textContent = ''[\s\S]*clearUsage\(\);\s*showSpend\(\);[\s\S]*rebuildAgent\(\)/,
   'New chat clears the transcript and spend and rebuilds the agent conversation');
 // One dock, two API boundaries: the provider chosen there decides which host the
 // key, the model list, and every request belong to.

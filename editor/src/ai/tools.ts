@@ -36,7 +36,10 @@ const tool = (name: string, description: string, parameters: Record<string, unkn
 export const AI_TOOLS: ToolDefinition[] = [
   tool('get_flowgraph', 'Return the current canvas as compact JSON, including validation issues.', object({})),
   tool('search_blocks', 'Fuzzy-search runnable WebAssembly blocks by id, label, or category.', object({ query: text }, ['query'])),
-  tool('describe_block', 'Return the exact editor-enforced parameters, ports, defaults, options, and documentation for one runnable block.', object({ id: text }, ['id'])),
+  tool('describe_block', 'Return the exact editor-enforced parameters, ports, defaults, options, and documentation for one runnable block. Long API documentation is truncated unless full_docs is set.', object({
+    id: text,
+    full_docs: { type: 'boolean', description: 'Return the complete API documentation instead of the truncated head.' },
+  }, ['id'])),
   tool('list_examples', 'List example flowgraph paths available in this site.', object({})),
   tool('read_example', 'Read one example .grc file by its listed path.', object({ path: text }, ['path'])),
   tool('add_block', 'Add a runnable block with a unique name. Optionally request a specific unused instance name.', object({ id: text, name: text }, ['id'])),
@@ -61,10 +64,26 @@ const issueJson = (deps: AiToolDeps) => deps.validate().map(issue => {
   };
 });
 
-const mutation = (deps: AiToolDeps, result: unknown) => ({
-  mutated: true,
-  value: { result, validation: issueJson(deps) },
-});
+/**
+ * Every edit reports validation, and mid-build a graph can carry dozens of
+ * non-blocking issues that would otherwise be restated after each of them and
+ * then resent on every later round. Blocking issues are what an edit has to
+ * act on, so those go back in full and the rest go back as a count; `validate`
+ * still returns all of them.
+ */
+const mutation = (deps: AiToolDeps, result: unknown) => {
+  const issues = issueJson(deps);
+  const blocking = issues.filter(issue => issue.blocking)
+    .map(issue => ({ block: issue.block, field: issue.field, message: issue.message }));
+  const nonBlocking = issues.length - blocking.length;
+  return {
+    mutated: true,
+    value: {
+      result,
+      validation: { blocking, ...(nonBlocking ? { non_blocking: nonBlocking } : {}) },
+    },
+  };
+};
 
 export interface DispatchResult { mutated: boolean; value: unknown }
 
@@ -107,7 +126,7 @@ export async function dispatchAiTool(
       entries: deps.entries,
       definition: id => deps.definition(id),
       ports: (id, kind) => deps.ports(id, kind),
-    }, String(args.id)) };
+    }, String(args.id), !!args.full_docs) };
     case 'list_examples': return { mutated: false, value: await deps.listExamples() };
     case 'read_example': {
       const paths = await deps.listExamples();

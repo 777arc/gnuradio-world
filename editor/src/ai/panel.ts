@@ -156,7 +156,14 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
   let models: AiModel[] = [];
   let key = hasConsent(providerId) ? storedKey(providerId) : '';
   let spend = 0;
-  let tokens = 0;
+  // Totalled apart, because one number cannot distinguish cheap cached input
+  // from full-price fresh input from output spent reasoning.
+  const usageTotals = { prompt: 0, completion: 0, cached: 0, reasoning: 0, total: 0 };
+  const clearUsage = () => {
+    spend = 0;
+    usageTotals.prompt = usageTotals.completion = 0;
+    usageTotals.cached = usageTotals.reasoning = usageTotals.total = 0;
+  };
   let agent: FlowgraphAgent | null = null;
   let controller: AbortController | null = null;
   let activeAssistant: HTMLElement | null = null;
@@ -182,15 +189,26 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
   };
 
   const currentModel = () => modelSelect.value;
+  const share = (part: number, whole: number) =>
+    whole > 0 ? ` (${Math.round((part / whole) * 100)}%)` : '';
   // OpenRouter prices every request in its final usage event; OpenAI reports
-  // token counts only, so that is what the header shows there.
+  // token counts only, so that is what the header shows there. Either headline
+  // hides the split that decides the bill, so the breakdown is on hover.
   const showSpend = () => {
-    cost.textContent = provider().reportsCost
+    const named = provider();
+    cost.textContent = named.reportsCost
       ? `$${spend.toFixed(4)}`
-      : `${tokens.toLocaleString()} tokens`;
-    cost.title = provider().reportsCost
+      : `${usageTotals.total.toLocaleString()} tokens`;
+    const headline = named.reportsCost
       ? 'Spend on this conversation'
-      : `Tokens used in this conversation (${provider().label} reports no cost)`;
+      : `Tokens used in this conversation (${named.label} reports no cost)`;
+    cost.title = usageTotals.total ? [
+      headline,
+      `Input ${usageTotals.prompt.toLocaleString()} · ` +
+        `${usageTotals.cached.toLocaleString()} cached${share(usageTotals.cached, usageTotals.prompt)}`,
+      `Output ${usageTotals.completion.toLocaleString()} · ` +
+        `${usageTotals.reasoning.toLocaleString()} reasoning${share(usageTotals.reasoning, usageTotals.completion)}`,
+    ].join('\n') : headline;
   };
   const updateSend = () => {
     send.disabled = !!controller || modelSelect.disabled || !key || !currentModel();
@@ -211,14 +229,24 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
   };
   let currentTool: HTMLElement | null = null;
 
+  const ensureAssistant = (): HTMLElement => {
+    if (activeAssistant) return activeAssistant;
+    const created = bubble('assistant', '');
+    activeAssistant = created.item;
+    activeAssistantText = created.body;
+    return created.item;
+  };
+
   const hooks: AgentHooks = {
-    assistantStarted: () => {
-      if (activeAssistant) return;
-      const created = bubble('assistant', '');
-      activeAssistant = created.item;
-      activeAssistantText = created.body;
-    },
+    // A round's prose belongs below the tool calls it followed, so a round only
+    // clears the previous bubble and the first token creates the next one, at
+    // the bottom of the transcript as it stands then. Creating it up front
+    // instead put a turn's closing answer above every tool call of every round
+    // after the first, off screen, and left an empty bubble behind whenever a
+    // round called tools and said nothing.
+    assistantStarted: () => { activeAssistant = activeAssistantText = null; },
     assistantDelta: chunk => {
+      ensureAssistant();
       activeAssistantText?.appendChild(document.createTextNode(chunk));
       scrollDown();
     },
@@ -233,8 +261,13 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
     },
     usage: (used, total) => {
       spend = total;
-      tokens += Number(used.total_tokens ||
-        (Number(used.prompt_tokens || 0) + Number(used.completion_tokens || 0)));
+      const prompt = Number(used.prompt_tokens || 0);
+      const completion = Number(used.completion_tokens || 0);
+      usageTotals.prompt += prompt;
+      usageTotals.completion += completion;
+      usageTotals.cached += Number(used.cached_tokens || 0);
+      usageTotals.reasoning += Number(used.reasoning_tokens || 0);
+      usageTotals.total += Number(used.total_tokens || prompt + completion);
       showSpend();
     },
   };
@@ -296,7 +329,7 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
   const resetConversation = (announcement: string) => {
     transcript.textContent = '';
     prompt.value = '';
-    spend = tokens = 0;
+    clearUsage();
     showSpend();
     activeAssistant = activeAssistantText = currentTool = null;
     rebuildAgent();
@@ -366,7 +399,7 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
     models = modelCache.get(id) || [];
     modelSelect.textContent = '';
     modelSelect.appendChild(modelStatus(key ? 'Loading models…' : `Connect ${provider().label}…`));
-    spend = tokens = 0;
+    clearUsage();
     showSpend();
     if (announce) resetConversation(`Using the ${provider().label} API.`);
     else rebuildAgent();
@@ -524,7 +557,10 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
   };
 
   const attachDiff = (before: GraphSnapshot, after: GraphSnapshot) => {
-    if (!activeAssistant || same(before, after)) return;
+    if (same(before, after)) return;
+    // A turn that edited the canvas and ended without prose still needs
+    // somewhere to hang Revert.
+    const host = ensureAssistant();
     const lines = graphDiff(before, after);
     const details = node('details', 'ai-diff');
     const summary = node('summary', '', `Canvas changes · ${lines.length}`);
@@ -538,7 +574,8 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
       revert.textContent = 'Reverted';
     };
     details.append(summary, list, revert);
-    activeAssistant.appendChild(details);
+    host.appendChild(details);
+    scrollDown();
   };
 
   const finishBusy = () => {

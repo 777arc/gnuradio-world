@@ -32,6 +32,24 @@ export interface AiProvider {
   attribution: boolean;
   /** Whether usage has to be requested with `stream_options`. */
   requestUsage: boolean;
+  /**
+   * Reasoning effort, as OpenAI's top-level `reasoning_effort`.
+   *
+   * Unset everywhere at the moment, and both providers reject it for their own
+   * reason. OpenRouter nests the same idea under `reasoning`. OpenAI accepts
+   * the field, but **not together with function tools on
+   * `/v1/chat/completions`** — `gpt-5.4-mini` answers "Function tools with
+   * reasoning_effort are not supported … use /v1/responses or set
+   * reasoning_effort to 'none'". Since every request this dock makes carries
+   * the graph tools, the only values reachable from this request path are
+   * unset and `'none'`, and anything in between needs the Responses API.
+   */
+  reasoningEffort?: 'none' | 'minimal' | 'low' | 'medium' | 'high';
+  /**
+   * Whether to send `prompt_cache_key`, which routes a request to the machine
+   * already holding this prefix's cache. OpenAI-only.
+   */
+  promptCacheKey: boolean;
   storage: {
     key: string;
     sessionKey: string;
@@ -68,6 +86,7 @@ export const AI_PROVIDERS: Record<ProviderId, AiProvider> = {
     modelsNeedKey: false,
     attribution: true,
     requestUsage: false,
+    promptCacheKey: false,
     storage: {
       key: 'gnuradio-world.openrouter-key',
       sessionKey: 'gnuradio-world.openrouter-session-key',
@@ -96,6 +115,7 @@ export const AI_PROVIDERS: Record<ProviderId, AiProvider> = {
     modelsNeedKey: true,
     attribution: false,
     requestUsage: true,
+    promptCacheKey: true,
     storage: {
       key: 'gnuradio-world.openai-key',
       sessionKey: 'gnuradio-world.openai-session-key',

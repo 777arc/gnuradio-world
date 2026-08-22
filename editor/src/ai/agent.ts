@@ -3,6 +3,16 @@ import type { ProviderId } from './providers';
 import { AI_TOOLS, dispatchAiTool, type AiToolDeps } from './tools';
 
 export const MAX_TOOL_ROUNDS = 50;
+
+/**
+ * Cache-routing key for providers that accept `prompt_cache_key`. Deliberately
+ * one per page rather than one per conversation: every conversation in this
+ * build shares the same system prefix — the prompt plus the runnable block
+ * index — so routing them all at the machine already holding that prefix lets
+ * a New chat begin against a warm cache instead of paying for it again.
+ */
+export const CACHE_KEY = `grw-${globalThis.crypto?.randomUUID?.() ||
+  Math.random().toString(36).slice(2)}`;
 export const GRAPH_PREVIEW_DELAY_MS = 1000;
 
 const waitForGraphPreview = (ms: number, signal?: AbortSignal) =>
@@ -85,6 +95,7 @@ export class FlowgraphAgent {
         model: this.options.model,
         messages: this.messages,
         tools: AI_TOOLS,
+        cacheKey: CACHE_KEY,
         signal,
         fetchImpl: this.options.fetchImpl,
         onText: chunk => {

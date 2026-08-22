@@ -41,9 +41,28 @@ export interface AiUsage {
   prompt_tokens?: number;
   completion_tokens?: number;
   total_tokens?: number;
+  /** Input served from the provider's prompt cache, at a fraction of the rate. */
+  cached_tokens?: number;
+  /** Output spent thinking: billed at the output rate and never cached. */
+  reasoning_tokens?: number;
   /** OpenRouter only; OpenAI reports tokens and no price. */
   cost?: number;
 }
+
+/**
+ * Both providers nest the two numbers that decide what a turn actually cost —
+ * how much input came from cache, and how much output went on reasoning — a
+ * level down from the totals. Flattened here so a caller totalling usage across
+ * a conversation never has to know that.
+ */
+const usageFrom = (raw: any): AiUsage => ({
+  prompt_tokens: Number(raw.prompt_tokens || 0),
+  completion_tokens: Number(raw.completion_tokens || 0),
+  total_tokens: Number(raw.total_tokens || 0),
+  cached_tokens: Number(raw.prompt_tokens_details?.cached_tokens || 0),
+  reasoning_tokens: Number(raw.completion_tokens_details?.reasoning_tokens || 0),
+  ...(raw.cost === undefined ? {} : { cost: Number(raw.cost) }),
+});
 
 export interface CompletionResult {
   message: ChatMessage;
@@ -131,6 +150,8 @@ export async function chatCompletion(options: {
   model: string;
   messages: ChatMessage[];
   tools: ToolDefinition[];
+  /** Cache-routing hint, sent only where the provider accepts one. */
+  cacheKey?: string;
   signal?: AbortSignal;
   onText?: (text: string) => void;
   fetchImpl?: typeof fetch;
@@ -151,6 +172,9 @@ export async function chatCompletion(options: {
       stream: true,
       // OpenRouter appends usage itself; OpenAI omits it from a stream unless asked.
       ...(provider.requestUsage ? { stream_options: { include_usage: true } } : {}),
+      ...(provider.reasoningEffort ? { reasoning_effort: provider.reasoningEffort } : {}),
+      ...(provider.promptCacheKey && options.cacheKey
+        ? { prompt_cache_key: options.cacheKey } : {}),
     }),
     signal: options.signal,
   });
@@ -172,7 +196,7 @@ export async function chatCompletion(options: {
     let chunk: any;
     try { chunk = JSON.parse(value); } catch { return; }
     if (chunk.error) throw new Error(`${provider.label}: ${chunk.error.message || 'stream failed'}`);
-    if (chunk.usage) usage = chunk.usage;
+    if (chunk.usage) usage = usageFrom(chunk.usage);
     if (chunk.model) model = String(chunk.model);
     const delta = chunk.choices?.[0]?.delta;
     if (!delta) return;
