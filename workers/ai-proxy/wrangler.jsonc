@@ -26,7 +26,7 @@
   "vars": {
     "MODEL": "gpt-5.4-mini",
     "TOKENS_PER_MINUTE": "1000000",
-    "DAILY_TOKEN_CAP": "5000000",
+    "DAILY_TOKEN_CAP": "2500000",
     "MAX_BODY_BYTES": "1048576",
     "MAX_COMPLETION_TOKENS": "16384",
     "OUTPUT_ESTIMATE": "2000"

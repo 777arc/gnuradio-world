@@ -68,8 +68,9 @@ that constrain the editor are:
   would be refused. `HOSTED_MODEL` in `providers.ts` and `MODEL` in the Worker
   are the same value in two places and change together.
 - **Two windows.** 1,000,000 tokens per minute per visitor IP, under a
-  site-wide daily cap. The per-IP window is the abuse ceiling; the daily cap is
-  what bounds the bill.
+  site-wide cap of 2,500,000 tokens per **UTC calendar day**, resetting at 00:00
+  UTC on the same boundary the usage records are keyed by. The per-IP window is
+  the abuse ceiling; the daily cap is what bounds the bill.
 - **A spent budget arrives as a 429** whose message already names the wait and
   the way forward. `AiRequestError` carries the status so the panel can add the
   one thing a user can act on — switching the provider select to a key of their

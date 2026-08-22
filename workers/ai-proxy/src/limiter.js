@@ -2,9 +2,10 @@
  * Token accounting for the shared-key proxy.
  *
  * Two instances of one Durable Object class do the whole job: one per client
- * IP over a 60-second window, and one named `global` over a 24-hour window.
- * The window length arrives with each request rather than being baked into the
- * class, so the same code serves both.
+ * IP over a rolling 60-second window, and one named `global` over the UTC day.
+ * The window length — and whether it is anchored to the epoch or to its first
+ * request — arrives with each request rather than being baked into the class,
+ * so the same code serves both.
  *
  * The global instance additionally keeps the usage history behind `/stats`,
  * because every request already passes through it to be metered — the counters
@@ -19,20 +20,38 @@
 export const MINUTE_MS = 60_000;
 export const DAY_MS = 86_400_000;
 
-/** Fresh window state. */
-const emptyWindow = (now) => ({ windowStart: now, used: 0 });
+/**
+ * Start of the aligned window a timestamp falls in. Windows are aligned to the
+ * epoch, which is itself midnight UTC — so a `DAY_MS` window aligned this way
+ * is exactly the UTC calendar day the stats records are already keyed by.
+ */
+export const alignedStart = (now, windowMs) => Math.floor(now / windowMs) * windowMs;
+
+/** Fresh window state, anchored to `now` or to the enclosing aligned window. */
+const emptyWindow = (now, windowMs, aligned) =>
+  ({ windowStart: aligned ? alignedStart(now, windowMs) : now, used: 0 });
 
 /**
  * Returns `state` if its window is still current, or a fresh window if it has
  * expired (or never existed).
+ *
+ * An aligned window compares its start against the enclosing boundary rather
+ * than measuring elapsed time, so a state left behind by an unaligned window —
+ * anything stored before this instance became aligned — rolls at once instead
+ * of holding its arbitrary anchor for one more period.
  */
-export function rollWindow(state, now, windowMs) {
+export function rollWindow(state, now, windowMs, aligned = false) {
   if (!state || !Number.isFinite(state.windowStart) || !Number.isFinite(state.used)) {
-    return emptyWindow(now);
+    return emptyWindow(now, windowMs, aligned);
   }
   // A clock that moved backwards would otherwise hold a window open forever.
-  if (now < state.windowStart) return emptyWindow(now);
-  return now - state.windowStart >= windowMs ? emptyWindow(now) : state;
+  if (now < state.windowStart) return emptyWindow(now, windowMs, aligned);
+  if (aligned) {
+    return state.windowStart === alignedStart(now, windowMs)
+      ? state
+      : emptyWindow(now, windowMs, aligned);
+  }
+  return now - state.windowStart >= windowMs ? emptyWindow(now, windowMs, aligned) : state;
 }
 
 /**
@@ -44,8 +63,8 @@ export function rollWindow(state, now, windowMs) {
  * is the friendlier failure for a legitimate user and costs at most one
  * request's worth of tokens.
  */
-export function applyReserve(state, { now, estimate, limit, windowMs }) {
-  const rolled = rollWindow(state, now, windowMs);
+export function applyReserve(state, { now, estimate, limit, windowMs, aligned }) {
+  const rolled = rollWindow(state, now, windowMs, aligned);
   const resetIn = Math.max(0, Math.ceil((rolled.windowStart + windowMs - now) / 1000));
   if (rolled.used >= limit) {
     return {
@@ -86,8 +105,8 @@ export function applyReserve(state, { now, estimate, limit, windowMs }) {
  * after its window has rolled belongs to a minute that is already over, and
  * must not be charged against — or refunded from — the new one.
  */
-export function applySettle(state, { now, delta, windowStart, windowMs }) {
-  const rolled = rollWindow(state, now, windowMs);
+export function applySettle(state, { now, delta, windowStart, windowMs, aligned }) {
+  const rolled = rollWindow(state, now, windowMs, aligned);
   if (rolled.windowStart !== windowStart) return rolled;
   return {
     windowStart: rolled.windowStart,
@@ -248,6 +267,7 @@ export class TokenLimiter {
     }
     const now = Date.now();
     const windowMs = Number(payload.windowMs) || MINUTE_MS;
+    const aligned = !!payload.aligned;
     const state = await this.ctx.storage.get(STATE_KEY);
 
     if (url.pathname === '/reserve') {
@@ -256,6 +276,7 @@ export class TokenLimiter {
         estimate: Number(payload.estimate) || 0,
         limit: Number(payload.limit) || 0,
         windowMs,
+        aligned,
       });
       await this.ctx.storage.put(STATE_KEY, next);
       // Only the global instance keeps the history; a per-IP one would hold a
@@ -278,6 +299,7 @@ export class TokenLimiter {
         delta: Number(payload.delta) || 0,
         windowStart: Number(payload.windowStart),
         windowMs,
+        aligned,
       });
       await this.ctx.storage.put(STATE_KEY, next);
       if (payload.stats) {

@@ -8,7 +8,7 @@ import worker, {
   originAllowed,
   sanitizeBody,
 } from '../src/index.js';
-import { TokenLimiter } from '../src/limiter.js';
+import { DAY_MS, TokenLimiter, alignedStart } from '../src/limiter.js';
 import { fakeStorage } from './storage.js';
 
 const ORIGIN = 'https://gnuradioworld.com';
@@ -33,8 +33,12 @@ function fakeLimiters() {
   };
   namespace.used = async name =>
     (await object(name).ctx.storage.get('window'))?.used ?? 0;
-  namespace.charge = (name, used) =>
-    object(name).ctx.storage.put('window', { windowStart: Date.now(), used });
+  // The global object's window is aligned to the UTC day, so a charge planted
+  // there has to sit on today's boundary or the next roll discards it.
+  namespace.charge = (name, used) => object(name).ctx.storage.put('window', {
+    windowStart: name === 'global' ? alignedStart(Date.now(), DAY_MS) : Date.now(),
+    used,
+  });
   namespace.stats = async (name = 'global') =>
     (await (await object(name).fetch(new Request('https://limiter/stats'))).json()).days;
   return namespace;

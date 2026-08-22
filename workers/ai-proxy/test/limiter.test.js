@@ -5,6 +5,7 @@ import {
   DAY_MS,
   MINUTE_MS,
   TokenLimiter,
+  alignedStart,
   applyReserve,
   applySettle,
   countRequest,
@@ -92,14 +93,63 @@ test('a settle arriving after its window rolled leaves the new window alone', ()
   assert.equal(settled.windowStart, 2 * MINUTE_MS);
 });
 
+const DAY = { limit: 2_500_000, windowMs: DAY_MS, aligned: true };
+const at = iso => Date.parse(iso);
+
 test('the same arithmetic serves the global daily window', () => {
-  const day = { limit: 5_000_000, windowMs: DAY_MS };
-  const { state } = applyReserve(undefined, { now: 0, estimate: 4_999_999, ...day });
-  assert.equal(applyReserve(state, { now: 1000, estimate: 1, ...day }).result.ok, true);
-  const spent = applySettle(state, { now: 1000, delta: 2, windowStart: 0, ...day });
-  const refused = applyReserve(spent, { now: 2000, estimate: 1, ...day }).result;
+  const { state } = applyReserve(undefined, { now: 0, estimate: 2_499_999, ...DAY });
+  assert.equal(applyReserve(state, { now: 1000, estimate: 1, ...DAY }).result.ok, true);
+  const spent = applySettle(state, { now: 1000, delta: 2, windowStart: 0, ...DAY });
+  const refused = applyReserve(spent, { now: 2000, estimate: 1, ...DAY }).result;
   assert.equal(refused.ok, false);
   assert.equal(refused.retryAfter, 86_398);
+});
+
+test('the daily window is the UTC day, whenever its first request landed', () => {
+  // First request of the day at 18:00: the window still starts at midnight,
+  // so it has six hours left rather than a fresh twenty-four.
+  const { state, result } = applyReserve(undefined, {
+    now: at('2026-08-22T18:00:00Z'), estimate: 10, ...DAY,
+  });
+  assert.equal(state.windowStart, at('2026-08-22T00:00:00Z'));
+  assert.equal(result.resetIn, 6 * 3600);
+});
+
+test('the daily budget resets at 00:00 UTC, not 24 hours after it opened', () => {
+  const opened = at('2026-08-22T18:00:00Z');
+  const state = { windowStart: alignedStart(opened, DAY_MS), used: DAY.limit };
+
+  const justBefore = applyReserve(state, {
+    now: at('2026-08-22T23:59:59Z'), estimate: 10, ...DAY,
+  });
+  assert.equal(justBefore.result.ok, false, 'still the same UTC day');
+  assert.equal(justBefore.result.retryAfter, 1);
+
+  const justAfter = applyReserve(state, {
+    now: at('2026-08-23T00:00:01Z'), estimate: 10, ...DAY,
+  });
+  assert.equal(justAfter.result.ok, true, 'midnight UTC opened a new day');
+  assert.equal(justAfter.state.windowStart, at('2026-08-23T00:00:00Z'));
+  assert.equal(justAfter.state.used, 10, 'yesterday is not carried over');
+});
+
+test('a window left behind by an unaligned daily cap rolls at once', () => {
+  // What a deploy inherits: a used-up window anchored to some arbitrary moment
+  // by the previous rolling-24h cap. It must not hold today's budget hostage.
+  const stale = { windowStart: at('2026-08-22T07:13:42Z'), used: 5_000_000 };
+  const rolled = rollWindow(stale, at('2026-08-22T09:00:00Z'), DAY_MS, true);
+  assert.equal(rolled.windowStart, at('2026-08-22T00:00:00Z'));
+  assert.equal(rolled.used, 0);
+});
+
+test('a settle from before midnight is not charged against the new day', () => {
+  const yesterday = at('2026-08-22T00:00:00Z');
+  const state = { windowStart: yesterday, used: 900_000 };
+  const settled = applySettle(state, {
+    now: at('2026-08-23T00:00:03Z'), delta: 400_000, windowStart: yesterday, ...DAY,
+  });
+  assert.equal(settled.windowStart, at('2026-08-23T00:00:00Z'));
+  assert.equal(settled.used, 0);
 });
 
 // ---------------------------------------------------------------------------

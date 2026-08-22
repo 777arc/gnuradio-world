@@ -39,19 +39,29 @@ account's model catalog is not exposed either.
 Two instances of one Durable Object class, `TokenLimiter`, using the same
 arithmetic over different windows:
 
-- **per client IP**, `TOKENS_PER_MINUTE` over 60 seconds (1,000,000 by default)
-- **globally**, `DAILY_TOKEN_CAP` over 24 hours
+- **per client IP**, `TOKENS_PER_MINUTE` over a rolling 60 seconds (1,000,000
+  by default)
+- **globally**, `DAILY_TOKEN_CAP` over the **UTC calendar day** (2,500,000 by
+  default)
 
 The per-IP limit is the abuse ceiling. The **daily cap is what bounds the
 bill** — a rotating-IP client never trips the per-IP window, and 1M tokens per
 minute is not a small budget. Set it against what you are willing to spend.
+
+The daily window is anchored to the epoch rather than to its first request, and
+the epoch is itself midnight UTC — so the site's budget resets at **00:00 UTC**
+for everyone at once, on the same boundary the usage records are keyed by,
+instead of 24 hours after whichever request happened to open the period. A
+window state left behind by an unaligned anchor rolls on the next request
+rather than holding that anchor for one more day, so changing this needs no
+migration.
 
 A completion's token count is only known once its stream has ended, so a request
 **reserves** an estimate (`body bytes ÷ 4`, plus `OUTPUT_ESTIMATE` for the
 answer) before it is forwarded, and **settles** the difference when the usage
 event arrives. A settle carries the `windowStart` of its reservation, so one
 that lands after its window has rolled is discarded rather than charged against
-the next minute.
+the next minute — or, for the daily window, against tomorrow.
 
 Reservation is deliberately **admit-if-under-limit**: a request is allowed
 whenever the window still has budget, even when its estimate would carry it
@@ -188,7 +198,7 @@ same values as `DEFAULTS` so the tests need no environment.
 |-----|---------|-----------------|
 | `MODEL` | `gpt-5.4-mini` | the only model the shared key is accepted for |
 | `TOKENS_PER_MINUTE` | `1000000` | per-IP ceiling |
-| `DAILY_TOKEN_CAP` | `5000000` | site-wide daily ceiling — the bill's bound |
+| `DAILY_TOKEN_CAP` | `2500000` | site-wide ceiling per UTC day — the bill's bound |
 | `MAX_BODY_BYTES` | `1048576` | largest accepted request |
 | `MAX_COMPLETION_TOKENS` | `16384` | ceiling on one completion, reasoning included |
 | `OUTPUT_ESTIMATE` | `2000` | assumed output when reserving |

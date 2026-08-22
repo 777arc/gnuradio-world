@@ -552,7 +552,8 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
           `OpenAI key the project shares with every visitor, held by a Cloudflare Worker at ` +
           `${chosen.host} — nothing of yours is stored, and you have nothing to disconnect. ` +
           'Use is limited per visitor and against a daily budget for the whole site, so a busy ' +
-          'day can run it out. Connect your own key for limits of your own.'
+          'day can run it out until it resets at 00:00 UTC. Connect your own key for limits of ' +
+          'your own.'
         : 'GNU Radio World is a static, open-source application. It has no ' +
           'application server that receives your key. Your browser sends the key only to ' +
           `${chosen.host} over HTTPS when Copilot makes a request.`;

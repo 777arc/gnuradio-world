@@ -3,13 +3,18 @@
  *
  * The editor's third AI provider ("GNU Radio World") has no API key of its own.
  * It talks to this Worker, which holds one OpenAI key for everybody and meters
- * it: 1,000,000 tokens per minute per client IP, under a global daily ceiling.
+ * it: 1,000,000 tokens per minute per client IP, under a global ceiling for the
+ * UTC day.
  *
  * Nothing here is a passthrough. The upstream request body is rebuilt from a
  * whitelist, so a caller cannot select a different model, suppress the usage
  * reporting the metering depends on, or attach account-level fields. The key
  * never leaves the Worker and upstream error bodies — which can name the
  * organization — are never returned verbatim.
+ *
+ * The daily ceiling is a UTC calendar day: it resets at 00:00 UTC for everyone
+ * at once, rather than a rolling 24 hours from whenever the first request of a
+ * period happened to land.
  *
  * See ../README.md for deployment and tunables, and ../../docs/ai-copilot.md
  * for how the editor uses it.
@@ -25,7 +30,8 @@ export const DEFAULTS = {
   /** The only model the shared key may be used with. */
   model: 'gpt-5.4-mini',
   tokensPerMinute: 1_000_000,
-  dailyTokenCap: 5_000_000,
+  /** Site-wide, per UTC calendar day. Resets at 00:00 UTC. */
+  dailyTokenCap: 2_500_000,
   maxBodyBytes: 1_048_576,
   /** Ceiling on one completion, reasoning included. Bounds the output bill. */
   maxCompletionTokens: 16_384,
@@ -288,7 +294,10 @@ async function handleCompletion(request, env, ctx, origin, cfg) {
   const global = env.LIMITER.get(env.LIMITER.idFromName('global'));
 
   const ipWindow = { limit: cfg.tokensPerMinute, windowMs: MINUTE_MS };
-  const dayWindow = { limit: cfg.dailyTokenCap, windowMs: DAY_MS };
+  // `aligned` anchors the window to the epoch, which is itself midnight UTC —
+  // so the day's budget resets at 00:00 UTC rather than 24 hours after the
+  // request that happened to open it.
+  const dayWindow = { limit: cfg.dailyTokenCap, windowMs: DAY_MS, aligned: true };
 
   const ipReserve = await limiterCall(perIp, '/reserve', { estimate, ...ipWindow });
   if (!ipReserve.ok) {
@@ -318,9 +327,9 @@ async function handleCompletion(request, env, ctx, origin, cfg) {
       delta: -estimate, windowStart: ipReserve.windowStart, ...ipWindow,
     }));
     return json(errorBody(
-      "The shared model's daily budget for all visitors is used up. It resets in " +
-      `${Math.ceil(dayReserve.retryAfter / 3600)}h — connect your own OpenRouter or OpenAI key ` +
-      'to keep working now.',
+      "The shared model's daily budget for all visitors is used up. It resets at " +
+      `00:00 UTC, in ${Math.ceil(dayReserve.retryAfter / 3600)}h — connect your own OpenRouter ` +
+      'or OpenAI key to keep working now.',
       'rate_limit_exceeded',
     ), 429, origin, {
       'Retry-After': String(dayReserve.retryAfter),
