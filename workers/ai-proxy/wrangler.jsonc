@@ -24,7 +24,7 @@
     }
   ],
   "vars": {
-    "MODEL": "gpt-5.4-mini",
+    "MODELS": "gpt-5.4-mini,gpt-5.4-nano,gpt-5.6-luna",
     "TOKENS_PER_MINUTE": "1000000",
     "DAILY_TOKEN_CAP": "2500000",
     "MAX_BODY_BYTES": "1048576",

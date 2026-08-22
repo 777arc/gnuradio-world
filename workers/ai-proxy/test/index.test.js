@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import worker, {
   UsageScanner,
+  cacheKeyFor,
   config,
   estimateTokens,
   originAllowed,
@@ -133,17 +134,18 @@ test('another site gets no CORS headers at all', async () => {
   assert.equal(response.headers.get('Access-Control-Allow-Origin'), null);
 });
 
-test('the model list is one fixed id and never reaches OpenAI', async () => {
+test('the model list is the fixed allowlist and never reaches OpenAI', async () => {
   const { result, seen } = await withUpstream(
     () => { throw new Error('the model list must not call upstream'); },
     () => worker.fetch(
       new Request(`${PROXY}/v1/models`, { headers: { Origin: ORIGIN } }),
-      { MODEL: 'gpt-5.4-mini' }, context().ctx,
+      { MODELS: 'gpt-5.4-mini,gpt-5.4-nano,gpt-5.6-luna' }, context().ctx,
     ),
   );
   assert.equal(seen.length, 0);
   const payload = await result.json();
-  assert.deepEqual(payload.data.map(model => model.id), ['gpt-5.4-mini']);
+  assert.deepEqual(payload.data.map(model => model.id),
+    ['gpt-5.4-mini', 'gpt-5.4-nano', 'gpt-5.6-luna']);
 });
 
 test('the upstream body is rebuilt, not forwarded', () => {
@@ -162,14 +164,34 @@ test('the upstream body is rebuilt, not forwarded', () => {
   assert.equal(body.stream, true, 'metering depends on a stream');
   assert.deepEqual(body.stream_options, { include_usage: true },
     'metering depends on the usage event the caller tried to suppress');
-  assert.equal(body.prompt_cache_key, cfg.cacheKey, 'one shared warm prefix for everyone');
+  assert.equal(body.prompt_cache_key, cacheKeyFor(cfg, cfg.model),
+    'one shared warm prefix for everyone on this model');
   assert.equal(body.max_completion_tokens, cfg.maxCompletionTokens, 'the output ceiling is ours');
   for (const dropped of ['user', 'store', 'metadata']) {
     assert.equal(dropped in body, false, `${dropped} must not reach the account`);
   }
 });
 
-test('a different model is refused by name', () => {
+test('an allowed model is passed through, with a cache key of its own', () => {
+  const cfg = config({});
+  for (const model of ['gpt-5.4-mini', 'gpt-5.4-nano', 'gpt-5.6-luna']) {
+    const sanitized = sanitizeBody({ ...CHAT, model }, cfg);
+    assert.equal(sanitized.ok, true);
+    assert.equal(sanitized.body.model, model);
+    assert.equal(sanitized.body.prompt_cache_key, cacheKeyFor(cfg, model));
+  }
+  // One model's warm prefix is useless to the other, so they never share a key.
+  assert.notEqual(cacheKeyFor(cfg, 'gpt-5.4-mini'), cacheKeyFor(cfg, 'gpt-5.4-nano'));
+});
+
+test('a request naming no model gets the default rather than a refusal', () => {
+  const { model, ...noModel } = CHAT;
+  const sanitized = sanitizeBody(noModel, config({}));
+  assert.equal(sanitized.ok, true);
+  assert.equal(sanitized.body.model, 'gpt-5.4-mini', 'the first listed model is the default');
+});
+
+test('a model outside the allowlist is refused by name', () => {
   const refused = sanitizeBody({ ...CHAT, model: 'gpt-5.4' }, config({}));
   assert.equal(refused.ok, false);
   assert.equal(refused.status, 400);

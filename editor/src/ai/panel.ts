@@ -353,21 +353,30 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
 
   const populateModels = () => {
     const named = provider();
-    // One model and no choice: the shared key is only accepted for this id, so
-    // the picker states it and locks rather than offering a request that the
-    // proxy would refuse.
-    if (named.fixedModels) {
+    // A short list the descriptor already names, because the shared key is
+    // accepted for these ids and nothing else — so the picker offers exactly
+    // them rather than a request the proxy would refuse, and locks only when
+    // there is one and no choice to make.
+    const fixed = named.fixedModels;
+    if (fixed) {
+      const locked = fixed.length < 2;
       modelSelect.textContent = '';
-      for (const model of named.fixedModels) {
+      for (const model of fixed) {
         const option = node('option') as HTMLOptionElement;
         option.value = model.id;
-        option.textContent = model.name;
+        option.textContent = model.name +
+          (!locked && model.id === named.defaultModel ? ' · default' : '');
         modelSelect.appendChild(option);
       }
-      modelSelect.value = named.fixedModels[0]?.id || '';
-      modelSelect.disabled = true;
-      modelSelect.title =
-        `${named.label} runs one model. Connect your own key to choose another.`;
+      const saved = storedModel(providerId);
+      const has = (id: string) => fixed.some(model => model.id === id);
+      modelSelect.value = has(saved) ? saved
+        : has(named.defaultModel) ? named.defaultModel
+        : fixed[0]?.id || '';
+      modelSelect.disabled = locked;
+      modelSelect.title = locked
+        ? `${named.label} runs one model. Connect your own key to choose another.`
+        : `${named.label} runs a fixed set of models. Connect your own key to choose another.`;
       rebuildAgent();
       return;
     }

@@ -27,8 +27,13 @@ export { TokenLimiter };
 const OPENAI_COMPLETIONS = 'https://api.openai.com/v1/chat/completions';
 
 export const DEFAULTS = {
-  /** The only model the shared key may be used with. */
-  model: 'gpt-5.4-mini',
+  /**
+   * The models the shared key may be used with. The first is the default, used
+   * when a request names none; anything outside the list is refused by name.
+   * Every one of them is billed against the same token budget, so a cheaper
+   * entry buys more work per dollar but not more tokens per day.
+   */
+  models: ['gpt-5.4-mini', 'gpt-5.4-nano', 'gpt-5.6-luna'],
   tokensPerMinute: 1_000_000,
   /** Site-wide, per UTC calendar day. Resets at 00:00 UTC. */
   dailyTokenCap: 2_500_000,
@@ -45,9 +50,16 @@ export const DEFAULTS = {
    * prefix warm on a single upstream machine instead of paying to establish it
    * per user. Split this per client only if the traffic ever outgrows what one
    * cache key is documented to carry.
+   *
+   * Suffixed with the model, because the key is a routing hint and a cache
+   * belongs to one model: pointing two models at one machine would send half
+   * the requests to a host holding a prefix they cannot use.
    */
   cacheKey: 'grw-shared',
 };
+
+/** The cache key for one model. See `DEFAULTS.cacheKey`. */
+export const cacheKeyFor = (cfg, model) => `${cfg.cacheKey}-${model}`;
 
 /** Reads the tunables, all of which are plain `vars` in wrangler.jsonc. */
 export function config(env = {}) {
@@ -55,8 +67,15 @@ export function config(env = {}) {
     const parsed = Number(value);
     return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
   };
+  // Comma-separated, first entry the default. `MODEL` is accepted as the
+  // one-model spelling of the same thing.
+  const listed = String(env.MODELS || env.MODEL || '')
+    .split(',').map(name => name.trim()).filter(Boolean);
+  const models = listed.length ? listed : DEFAULTS.models;
   return {
-    model: env.MODEL || DEFAULTS.model,
+    models,
+    /** The model a request that names none is sent to. */
+    model: models[0],
     tokensPerMinute: number(env.TOKENS_PER_MINUTE, DEFAULTS.tokensPerMinute),
     dailyTokenCap: number(env.DAILY_TOKEN_CAP, DEFAULTS.dailyTokenCap),
     maxBodyBytes: number(env.MAX_BODY_BYTES, DEFAULTS.maxBodyBytes),
@@ -139,11 +158,14 @@ export function sanitizeBody(raw, cfg) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
     return { ok: false, status: 400, message: 'Request body must be a JSON object.' };
   }
-  if (raw.model !== undefined && raw.model !== cfg.model) {
+  // A request naming no model gets the default rather than being refused; the
+  // editor always names one.
+  const model = raw.model === undefined ? cfg.model : String(raw.model);
+  if (!cfg.models.includes(model)) {
     return {
       ok: false,
       status: 400,
-      message: `The shared GNU Radio World key is limited to ${cfg.model}. ` +
+      message: `The shared GNU Radio World key is limited to ${cfg.models.join(' and ')}. ` +
         'Connect your own OpenAI or OpenRouter key to use another model.',
     };
   }
@@ -169,7 +191,7 @@ export function sanitizeBody(raw, cfg) {
   return {
     ok: true,
     body: {
-      model: cfg.model,
+      model,
       messages: raw.messages,
       ...(raw.tools ? { tools: raw.tools } : {}),
       ...(raw.tool_choice ? { tool_choice: raw.tool_choice } : {}),
@@ -178,7 +200,7 @@ export function sanitizeBody(raw, cfg) {
       // settles against.
       stream_options: { include_usage: true },
       max_completion_tokens: cfg.maxCompletionTokens,
-      prompt_cache_key: cfg.cacheKey,
+      prompt_cache_key: cacheKeyFor(cfg, model),
     },
   };
 }
@@ -247,7 +269,7 @@ const limiterCall = async (stub, path, payload) => {
 
 const modelList = (cfg) => ({
   object: 'list',
-  data: [{ id: cfg.model, object: 'model', created: 0, owned_by: 'gnuradio-world' }],
+  data: cfg.models.map(id => ({ id, object: 'model', created: 0, owned_by: 'gnuradio-world' })),
 });
 
 const rateHeaders = (reserve) => ({

@@ -63,10 +63,14 @@ to a Cloudflare Worker in [`workers/ai-proxy/`](../workers/ai-proxy/README.md) a
 visitor. Read that README before changing anything about the proxy; the parts
 that constrain the editor are:
 
-- **One model.** The proxy accepts `gpt-5.4-mini` and refuses anything else by
-  name, so `fixedModels` locks the picker rather than offering a request that
-  would be refused. `HOSTED_MODEL` in `providers.ts` and `MODEL` in the Worker
-  are the same value in two places and change together.
+- **A fixed model list.** The proxy accepts `gpt-5.4-mini` (the default),
+  `gpt-5.4-nano` and `gpt-5.6-luna`, and refuses anything else by name — so
+  `fixedModels` populates the picker from the descriptor rather than fetching a
+  catalog or offering a request that would be refused. It locks the picker only
+  when that list holds one model. `HOSTED_MODELS` in `providers.ts` and `MODELS`
+  in the Worker are the same list in two places and change together. Every one
+  of them spends the same token budget, so a cheaper entry buys more work per
+  dollar, not a second allowance.
 - **Two windows.** 1,000,000 tokens per minute per visitor IP, under a
   site-wide cap of 2,500,000 tokens per **UTC calendar day**, resetting at 00:00
   UTC on the same boundary the usage records are keyed by. The per-IP window is

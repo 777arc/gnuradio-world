@@ -36,8 +36,10 @@ export interface AiProvider {
    */
   keyless: boolean;
   /**
-   * A fixed model list, where the provider offers no choice. Present means the
-   * picker is populated from here and locked, and no list is ever fetched.
+   * A fixed model list, where the provider publishes no catalog to fetch.
+   * Present means the picker is populated from here and no list is ever
+   * requested; it is locked only when the list holds a single model, because
+   * then there is genuinely nothing to choose.
    */
   fixedModels?: AiModel[];
   /** Whether the final usage event carries a dollar cost. */
@@ -87,8 +89,17 @@ export const HOSTED_ORIGIN = 'https://ai.gnuradioworld.com';
 
 export const DEFAULT_OPENROUTER_MODEL = 'google/gemini-3.7-flash';
 export const DEFAULT_OPENAI_MODEL = 'gpt-5.4-mini';
-/** The one model the shared key may be used with; the proxy refuses any other. */
-export const HOSTED_MODEL = 'gpt-5.4-mini';
+/**
+ * The models the shared key may be used with; the proxy refuses any other by
+ * name. Kept in step with `MODELS` in workers/ai-proxy/wrangler.jsonc — the
+ * same list in two places, changed together.
+ *
+ * Both are billed against one token budget, so nano is the one to pick when
+ * the shared day is running short, not a separate allowance.
+ */
+export const HOSTED_MODELS = ['gpt-5.4-mini', 'gpt-5.4-nano', 'gpt-5.6-luna'];
+/** The one a browser with nothing stored starts on. */
+export const HOSTED_MODEL = HOSTED_MODELS[0];
 
 export const AI_PROVIDERS: Record<ProviderId, AiProvider> = {
   hosted: {
@@ -111,13 +122,13 @@ export const AI_PROVIDERS: Record<ProviderId, AiProvider> = {
       'rate limited per visitor, and a busy day can use the shared budget up.',
     oauth: false,
     keyless: true,
-    fixedModels: [{
-      id: HOSTED_MODEL,
-      name: HOSTED_MODEL,
+    fixedModels: HOSTED_MODELS.map(id => ({
+      id,
+      name: id,
       contextLength: 0,
       promptPrice: 0,
       completionPrice: 0,
-    }],
+    })),
     reportsCost: false,
     modelsNeedKey: false,
     attribution: false,

@@ -143,7 +143,7 @@ const openRouterModels = (payload: any): AiModel[] =>
 /**
  * Lists the models a provider offers. OpenRouter publishes a tool-capable
  * filter and needs no key; OpenAI's list is authenticated and unfiltered; the
- * shared proxy offers exactly one model, which the descriptor already names.
+ * shared proxy offers a short fixed list the descriptor already names.
  */
 export async function listModels(options: {
   provider: ProviderId;

@@ -18,6 +18,7 @@ const {
   DEFAULT_OPENROUTER_MODEL,
   DEFAULT_PROVIDER,
   HOSTED_MODEL,
+  HOSTED_MODELS,
   PROVIDER_IDS,
   forgetKey,
   keyIsRemembered,
@@ -38,7 +39,7 @@ assert.equal(GRAPH_PREVIEW_DELAY_MS, 1000);
 
 // The free shared-key provider leads the list and is what a first-time visitor
 // lands on. It is keyless by construction: no key page, no storage slot a key
-// could land in, and one model the proxy will accept.
+// could land in, and a fixed short list of models the proxy will accept.
 assert.deepEqual(PROVIDER_IDS, ['hosted', 'openrouter', 'openai']);
 assert.equal(DEFAULT_PROVIDER, 'hosted');
 // pr-security-scan: allow new-outbound-host
@@ -48,7 +49,12 @@ assert.equal(AI_PROVIDERS.hosted.oauth, false);
 assert.equal(AI_PROVIDERS.hosted.storage.key, undefined,
   'a keyless provider has nowhere to put a key');
 assert.equal(AI_PROVIDERS.hosted.storage.sessionKey, undefined);
-assert.deepEqual(AI_PROVIDERS.hosted.fixedModels.map(model => model.id), [HOSTED_MODEL]);
+assert.deepEqual(AI_PROVIDERS.hosted.fixedModels.map(model => model.id), HOSTED_MODELS);
+// Kept in step with MODELS in workers/ai-proxy/wrangler.jsonc; the proxy
+// refuses anything outside this list by name.
+assert.deepEqual(HOSTED_MODELS, ['gpt-5.4-mini', 'gpt-5.4-nano', 'gpt-5.6-luna']);
+assert.equal(HOSTED_MODEL, 'gpt-5.4-mini', 'the first listed model is the default');
+assert.equal(AI_PROVIDERS.hosted.defaultModel, HOSTED_MODEL);
 assert.equal(AI_PROVIDERS.openrouter.keyless, false);
 assert.equal(AI_PROVIDERS.openai.keyless, false);
 
@@ -303,7 +309,7 @@ const hostedModels = await listModels({
   provider: 'hosted',
   fetchImpl: () => { throw new Error('a fixed model list must not be fetched'); },
 });
-assert.deepEqual(hostedModels.map(model => model.id), [HOSTED_MODEL]);
+assert.deepEqual(hostedModels.map(model => model.id), HOSTED_MODELS);
 
 // OpenAI's model list has no capability flags, so the chat families are picked
 // out of every model the account can see.

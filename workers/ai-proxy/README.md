@@ -19,11 +19,11 @@ into a general-purpose OpenAI proxy:
 
 | field | treatment |
 |-------|-----------|
-| `model` | must equal `MODEL`, or the request is refused by name |
+| `model` | must be one of `MODELS`, or the request is refused by name; absent means the first |
 | `stream` | forced on |
 | `stream_options.include_usage` | forced on — the metering settles against this event |
 | `max_completion_tokens` | replaced with `MAX_COMPLETION_TOKENS`, a ceiling on one completion |
-| `prompt_cache_key` | replaced with one shared key, so every visitor warms the same prefix |
+| `prompt_cache_key` | replaced with one shared key per model, so every visitor warms the same prefix |
 | `messages`, `tools`, `tool_choice` | passed through, within size limits |
 | anything else (`user`, `store`, `metadata`, …) | dropped |
 
@@ -31,7 +31,7 @@ The key never leaves the Worker: a caller's own `Authorization` header is
 discarded, and an upstream error body — which can name the organization and the
 key — is replaced with a sanitized message rather than forwarded.
 
-`GET /v1/models` answers from `MODEL` alone and never calls OpenAI, so the
+`GET /v1/models` answers from `MODELS` alone and never calls OpenAI, so the
 account's model catalog is not exposed either.
 
 ## Rate limiting
@@ -196,16 +196,20 @@ same values as `DEFAULTS` so the tests need no environment.
 
 | var | default | what it decides |
 |-----|---------|-----------------|
-| `MODEL` | `gpt-5.4-mini` | the only model the shared key is accepted for |
+| `MODELS` | `gpt-5.4-mini,gpt-5.4-nano,gpt-5.6-luna` | the models the shared key is accepted for, comma-separated; the first is the default |
 | `TOKENS_PER_MINUTE` | `1000000` | per-IP ceiling |
 | `DAILY_TOKEN_CAP` | `2500000` | site-wide ceiling per UTC day — the bill's bound |
 | `MAX_BODY_BYTES` | `1048576` | largest accepted request |
 | `MAX_COMPLETION_TOKENS` | `16384` | ceiling on one completion, reasoning included |
 | `OUTPUT_ESTIMATE` | `2000` | assumed output when reserving |
 
-Changing `MODEL` alone is not enough: the editor's picker is locked to
-`HOSTED_MODEL` in `editor/src/ai/providers.ts`, and the proxy refuses anything
+Changing `MODELS` alone is not enough: the editor's picker is populated from
+`HOSTED_MODELS` in `editor/src/ai/providers.ts`, and the proxy refuses anything
 else by name. Change both together.
+
+Every listed model is metered against the same token windows, which count
+tokens rather than dollars — so adding a cheaper model buys more work out of
+the same daily budget, not a larger one.
 
 ## Tests
 
