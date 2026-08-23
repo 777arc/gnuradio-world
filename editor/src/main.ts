@@ -120,7 +120,7 @@ import {
 import {
   JS_BLOCK_ID, JS_CODE_DTYPE, JS_IO_PARAM, JS_LOCAL_SOURCE_PARAM, JS_SOURCE_PARAM,
   acceptJsSource, generateBlockYml, isJsSourceAccepted, jsDefForCache, jsIntrospector,
-  jsSourceError, jsSourceOf, jsSourceParamOf, listLocalJsBlocks, parseJsIo,
+  jsSourceError, jsSourceOf, listLocalJsBlocks, parseJsIo,
   sanitizeBlockId, saveLocalJsBlock, serializeJsIo, setJsSourceError,
   type JsBlockIo, type LocalJsBlock,
 } from './js-block';
@@ -1204,32 +1204,6 @@ function openJsCodeModal(options: JsCodeModalOptions) {
     onSave: source => { options.apply(source, null); options.onSave(source); },
     onSaveAsBlock: (source, io) => saveJsBlockAs(source, io),
   })).catch(error => log(describeImportFailure(error, 'the code editor')));
-}
-
-/**
- * Double-clicking a JS Block opens its code rather than its Properties. Unlike
- * the dialog's field this edits the instance directly, which is what lets the
- * block's ports on the canvas follow the code as it is typed.
- */
-function openJsBlockCode(inst: Inst) {
-  const sourceParam = jsSourceParamOf(inst.params);
-  openJsCodeModal({
-    title: `Code: ${inst.name}`,
-    source: jsSourceOf(inst.params),
-    uid: inst.uid,
-    apply: (source, io) => {
-      inst.params[sourceParam] = source;
-      if (io) applyJsIo(inst.params, io);
-    },
-    onSave: () => {
-      recordHistory();
-      const io = parseJsIo(inst.params[JS_IO_PARAM]);
-      if (io)
-        log(`${inst.name}: "${io.label}" — ${io.params.length} parameter(s), ` +
-            `${io.inputs.length} input(s), ${io.outputs.length} output(s)`);
-    },
-    render: () => {},
-  });
 }
 
 // ---- block operations (used by the context menu and shortcuts) ----
@@ -2962,8 +2936,9 @@ function showPropsDialog(inst: Inst) {
       const status = document.createElement('small'); status.className = 'code-status';
       const popout = document.createElement('button');
       popout.type = 'button'; popout.className = 'code-reload';
-      popout.textContent = 'Edit Code ⤢';
-      popout.title = 'Open the large code editor with a live view of the derived block';
+      popout.textContent = 'Expand Editor ⤢';
+      popout.title = 'Open this code in a large resizable editor, ' +
+                     'with a live view of the block it derives';
       popout.onclick = () => {
         // Seeded from the dialog's working copy and written back to it, so
         // Cancel still discards everything the popup did.
@@ -3487,11 +3462,7 @@ function startDrag(e: PointerEvent, inst: Inst) {
   if (lastMouseDown && lastMouseDown.uid === inst.uid && now - lastMouseDown.t < 350) {
     lastMouseDown = null; drag = null;
     select(inst.uid);
-    // A JS Block's code is the thing you came to edit, so double-click opens the
-    // popup editor rather than Properties; its parameters are still one
-    // right-click away.
-    if (inst.id === JS_BLOCK_ID) openJsBlockCode(inst);
-    else showPropsDialog(inst);   // same dialog as right-click → Properties
+    showPropsDialog(inst);        // same dialog as right-click → Properties
     return;
   }
   lastMouseDown = { uid: inst.uid, t: now };

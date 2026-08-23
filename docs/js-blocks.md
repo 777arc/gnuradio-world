@@ -297,12 +297,15 @@ for byte unchanged.
 
 ### The popup editor
 
-Double-clicking a JS block (or "Edit Code ⤢" in Properties) opens a large
-resizable modal: CodeMirror with `javascript()` on the left, and a live panel on
-the right showing the derived label, ports, parameters and any error. The footer
-carries *Save as Block…*, *Revert*, *Close* and *Save & Close*. The Properties
-dialog keeps the smaller inline field, so a JS block and a Python block still look
-like siblings.
+A JS block double-clicks to Properties like every other block, and its Code field
+there is the same small inline one a Python block has, so the two still look like
+siblings in the form. Beside it, *Expand Editor ⤢* opens the same source in a
+large resizable modal: CodeMirror with `javascript()` on the left, and a live
+panel on the right showing the derived label, ports, parameters and any error.
+The footer carries *Save as Block…*, *Revert*, *Close* and *Save & Close*. It is
+seeded from the dialog's working copy and written back to it, so Cancel still
+discards everything the modal did; Save & Close commits and reopens the dialog,
+because the parameter and port set it was drawn from may have just changed.
 
 [editor/src/code-editor.ts](../editor/src/code-editor.ts) keeps its two existing
 invariants — mounted over the textarea, which stays the field's value;

@@ -710,18 +710,39 @@ svg text { user-select:none; -webkit-user-select:none; -moz-user-select:none; }
    on the left, and on the right what the code currently *means*. Wide, tall and
    resizable, because it is the surface a block is actually written in — the
    Properties dialog keeps the smaller inline field so a JS Block and a Python
-   Block still look like siblings in the form. */
-.modal.code-modal .code-modal-dlg { width:min(1240px,97vw); }
+   Block still look like siblings in the form.
+
+   The *dialog* takes the drag handle, which is why nothing inside it is sized in
+   vh any more: an inner box with a height of its own would leave empty space in a
+   dialog dragged taller, which is what made the old inner `resize:vertical` the
+   only resize here. Everything from .dlgbody down fills the height the dialog has
+   been given, and only the two scroll boxes overflow. code-modal.ts remembers the
+   dragged size; the min/max below are what clamp it back into a smaller viewport,
+   so it needs no arithmetic of its own.
+
+   These selectors are deliberately single-class, so the narrow-layout rules
+   further down this file — which are written against `.dlg` — still win on source
+   order rather than needing a copy of the bottom-sheet geometry here. */
+.code-modal-dlg { width:min(1240px,97vw); height:min(78vh,760px);
+    min-width:560px; min-height:360px; max-width:97vw; max-height:94vh; resize:both; }
+.code-modal-dlg .dlgbody { flex:1 1 auto; min-height:0; overflow:hidden; }
+/* The resize grip is drawn in the dialog's bottom-right corner, which is exactly
+   where .dlgfoot's justify-content:flex-end puts "Save & Close". Leave it room. */
+.code-modal-dlg .dlgfoot { padding-right:28px; }
 .code-modal-body { display:grid; grid-template-columns:minmax(0,1fr) 300px; gap:14px;
-    align-items:start; }
+    align-items:stretch; height:100%; min-height:0; }
 .code-modal-body textarea.code-modal-area { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
     font-size:14px; line-height:1.45; tab-size:2; white-space:pre; overflow:auto;
-    width:100%; height:min(62vh,600px); min-height:280px; resize:vertical;
+    width:100%; height:100%; min-height:0; resize:none;
     background:#171a24; color:#e6e9f0; border:1px solid #3a4366; border-radius:5px;
     padding:8px; }
+/* CodeMirror, once code-editor.ts has mounted it over that textarea. It arrives
+   carrying the fixed height .code-cm gives the Properties dialog's inline field;
+   in here it fills instead. */
+.code-modal-body .code-cm { height:100%; min-height:0; resize:none; }
 .code-modal-panel { display:grid; gap:8px; align-content:start; font-size:13px;
     border:1px solid #3a4366; border-radius:5px; padding:12px; background:#1b1f2c;
-    max-height:min(62vh,600px); overflow:auto; }
+    height:100%; min-height:0; overflow:auto; }
 .code-modal-panel.has-error { border-color:#7a3b3b; }
 .code-modal-label { font-size:15px; font-weight:600; color:#e6e9f0; }
 .code-modal-ports { color:#9aa7c6; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
@@ -731,9 +752,19 @@ svg text { user-select:none; -webkit-user-select:none; -moz-user-select:none; }
 .code-modal-notes { color:#8b949e; }
 .code-modal-error { color:#ff9a9a; white-space:pre-wrap; margin:0; font-size:12px;
     overflow-wrap:anywhere; }
-@media (max-width:820px) {
-  .code-modal-body { grid-template-columns:1fr; }
-  .code-modal-panel { max-height:none; }
+/* Narrow layout: the dialog is one of the bottom sheets further down this file,
+   and a drag grip is unreachable on a touch screen anyway — so the fill-the-
+   dialog sizing above comes off and the inner boxes get heights of their own
+   back. code-modal.ts drops any remembered size while this matches; it repeats
+   this query verbatim, as main.ts's NARROW_LAYOUT does. */
+@media (max-width:820px), (max-width:1000px) and (max-height:500px) {
+  .code-modal-dlg { min-width:0; height:auto; resize:none; }
+  .code-modal-dlg .dlgbody { overflow:auto; }
+  .code-modal-dlg .dlgfoot { padding-right:18px; }
+  .code-modal-body { grid-template-columns:1fr; align-items:start; height:auto; }
+  .code-modal-body textarea.code-modal-area, .code-modal-body .code-cm {
+      height:min(48dvh,420px); min-height:220px; }
+  .code-modal-panel { height:auto; }
 }
 /* The Run-consent prompt: JavaScript that arrived from a link, shown before it is
    allowed to run in this tab. */

@@ -4,8 +4,9 @@
 // Python Block still look like siblings in the form. This is the other surface:
 // a large resizable modal with CodeMirror on the left and, on the right, what the
 // code currently *means* — the derived label, ports and parameters, or the error
-// that stopped them being derived. Double-clicking a JS Block opens it, and so
-// does "Edit Code ⤢" in Properties.
+// that stopped them being derived. "Expand Editor ⤢" beside the Properties
+// dialog's Code field opens it; a JS Block double-clicks to Properties like
+// every other block.
 //
 // Derivation is a few milliseconds in a disposable sandbox (editor/src/
 // js-block.ts), so it can run on a keystroke debounce: the panel and the block's
@@ -31,6 +32,27 @@ export interface CodeModalOptions {
 }
 
 const DEBOUNCE_MS = 220;
+
+// ---- remembered dialog size ----
+// The dialog carries `resize:both` (editor.css), so the browser writes the
+// dragged size straight onto the element as inline width/height. All this does is
+// carry that across sessions the way a window manager would. Nothing is clamped
+// here: the same rule that draws the grip also sets min-width/min-height and
+// max-width/max-height in viewport units, and those still cap an inline width, so
+// a size stored on a large monitor is already usable on a small one.
+const SIZE_KEY = 'gnuradio_world_code_modal_size';
+// Verbatim from editor.css, and the same query main.ts's NARROW_LAYOUT repeats.
+// There the dialog is a bottom sheet with no grip, so a remembered size would
+// only fight the sheet's own geometry.
+const NARROW_LAYOUT = '(max-width:820px), (max-width:1000px) and (max-height:500px)';
+
+function storedSize(): { w: number; h: number } | null {
+  try {
+    const raw = JSON.parse(localStorage.getItem(SIZE_KEY) || 'null');
+    if (raw && Number.isFinite(raw.w) && Number.isFinite(raw.h)) return raw;
+  } catch { /* unreadable or unparseable: open at the stylesheet's size */ }
+  return null;
+}
 
 const portSummary = (io: JsBlockIo) => {
   const side = (ports: { dtype: string; vlen: number }[]) =>
@@ -95,9 +117,11 @@ export function openCodeModal(options: CodeModalOptions): void {
   let latestIo: JsBlockIo | null = null;
   let timer: number | undefined;
   let editor: CodeEditorHandle | null = null;
+  const disposers: (() => void)[] = [];
 
   const close = () => {
     clearTimeout(timer);
+    for (const dispose of disposers) dispose();
     editor?.destroy();
     overlay.remove();
   };
@@ -183,6 +207,42 @@ export function openCodeModal(options: CodeModalOptions): void {
   headClose.onclick = close;
   dlg.append(head, body, foot);
   overlay.appendChild(dlg);
+
+  // Before the first paint, so the dialog never appears at one size and jumps.
+  const narrow = window.matchMedia(NARROW_LAYOUT);
+  const remembered = narrow.matches ? null : storedSize();
+  if (remembered) {
+    dlg.style.width = `${remembered.w}px`;
+    dlg.style.height = `${remembered.h}px`;
+  }
+  // Turning a phone sideways can cross into the bottom-sheet layout with the
+  // dialog open. An inline size outranks every stylesheet rule, so hand the
+  // geometry back rather than leaving a sheet stuck at a desktop width.
+  const onLayoutChange = () => {
+    if (!narrow.matches) return;
+    dlg.style.width = '';
+    dlg.style.height = '';
+  };
+  narrow.addEventListener('change', onLayoutChange);
+  disposers.push(() => narrow.removeEventListener('change', onLayoutChange));
+
+  // The grip is part of the dialog's own box, and the head/body/foot cover the
+  // rest of it — so a pointerdown that lands on .dlg itself is a drag of the
+  // grip, and the only thing worth remembering. A size that only ever came from
+  // the stylesheet stays in the stylesheet, free to keep following the viewport.
+  let dragged = false;
+  dlg.addEventListener('pointerdown', event => {
+    if (event.target === dlg) dragged = true;
+  });
+  const sizeObserver = new ResizeObserver(() => {
+    if (!dragged || narrow.matches) return;
+    const w = Math.round(dlg.offsetWidth), h = Math.round(dlg.offsetHeight);
+    try { localStorage.setItem(SIZE_KEY, JSON.stringify({ w, h })); }
+    catch { /* full or blocked: the size is still applied, just not kept */ }
+  });
+  sizeObserver.observe(dlg);
+  disposers.push(() => sizeObserver.disconnect());
+
   document.body.appendChild(overlay);
   // Deliberately no backdrop-click close: this holds unsaved code.
   overlay.addEventListener('keydown', event => {

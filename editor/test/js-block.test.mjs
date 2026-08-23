@@ -230,8 +230,12 @@ assert.match(source, /import\('\.\/code-modal'\)/,
   'the popup code editor must be imported on demand, not into the main bundle');
 assert.doesNotMatch(source, /^import .*['"]\.\/code-modal/m,
   'main.ts must not import the code modal statically');
-assert.match(source, /if \(inst\.id === JS_BLOCK_ID\) openJsBlockCode\(inst\);/,
-  'double-clicking a JS Block opens its code');
+// A JS Block double-clicks to Properties like every other block; the popup is
+// reached from "Expand Editor" beside the dialog's Code field.
+assert.doesNotMatch(source, /openJsBlockCode/,
+  'double-clicking a JS Block must open Properties, not the popup editor');
+assert.match(source, /popout\.textContent = 'Expand Editor/,
+  'the Properties Code field must offer the popup editor');
 // Unlike the Python Block there is no re-read button and no Apply gate: deriving
 // is milliseconds in a disposable sandbox, so ports follow the code as it is
 // typed. This is the assertion that would catch that being quietly undone.
