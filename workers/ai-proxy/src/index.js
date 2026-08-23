@@ -1,10 +1,17 @@
 /**
  * Flowgraph Copilot's shared-key proxy.
  *
- * The editor's third AI provider ("GNU Radio World") has no API key of its own.
- * It talks to this Worker, which holds one OpenAI key for everybody and meters
- * it: 1,000,000 tokens per minute per client IP, under a global ceiling for the
+ * The editor's two keyless AI providers ("OpenAI Free Tier" and "OpenRouter
+ * Free Tier") have no API key of their own. They talk to this Worker,
+ * which holds one key per upstream for everybody and meters each of them
+ * separately: a rolling per-client-IP window under a site-wide ceiling for the
  * UTC day.
+ *
+ * **Which upstream a request reaches is decided by its path, and by nothing
+ * else the caller sends.** `/v1/…` is OpenAI on the shared OpenAI key;
+ * `/openrouter/v1/…` is OpenRouter's free tier on the shared OpenRouter key.
+ * Each has its own model allowlist, its own two limiter windows, and its own
+ * usage history, so one running out leaves the other untouched.
  *
  * Nothing here is a passthrough. The upstream request body is rebuilt from a
  * whitelist, so a caller cannot select a different model, suppress the usage
@@ -23,20 +30,132 @@ import { TokenLimiter, MINUTE_MS, DAY_MS } from './limiter.js';
 
 export { TokenLimiter };
 
-// The account's own API, reached with the shared key held in a Worker secret.
-const OPENAI_COMPLETIONS = 'https://api.openai.com/v1/chat/completions';
+/**
+ * The two APIs this Worker fronts, each on a shared key of its own.
+ *
+ * Everything an upstream is allowed to differ in lives here, so a third one is
+ * another entry rather than a branch in the request path below. `prefix` is
+ * the whole of the routing: a caller selects an upstream by the URL it posts
+ * to, never by a field in the body.
+ */
+export const UPSTREAMS = {
+  openai: {
+    id: 'openai',
+    label: 'OpenAI',
+    /** The path on this Worker that selects it. */
+    prefix: '/v1',
+    // pr-security-scan: allow new-outbound-host
+    url: 'https://api.openai.com/v1/chat/completions',
+    /** The Worker secret holding this upstream's shared key. */
+    keyVar: 'OPENAI_API_KEY',
+    /**
+     * Durable Object name prefix. Each upstream meters into instances of its
+     * own, so its windows and its usage history are independent of the
+     * other's — the original upstream keeps the unprefixed names it has always
+     * used.
+     */
+    scope: '',
+    /**
+     * What the windows count. Tokens, because this key is billed by them and
+     * the daily cap is a bill.
+     */
+    meter: 'tokens',
+    /** The field this API takes an output ceiling in. */
+    maxTokensField: 'max_completion_tokens',
+    /** Only OpenAI routes on a cache key. */
+    promptCacheKey: true,
+    /**
+     * On /v1/chat/completions these models refuse function tools unless
+     * reasoning is off — "Function tools with reasoning_effort are not
+     * supported … use /v1/responses or set reasoning_effort to 'none'".
+     * Leaving it unset is not the same as 'none': a model whose own default is
+     * non-none (gpt-5.6-luna) rejects every tool-carrying request, which is
+     * every request the editor makes.
+     */
+    reasoningEffort: 'none',
+    /** OpenRouter's ranking headers; OpenAI rejects them. */
+    attribution: false,
+    modelsVar: 'MODELS',
+    /**
+     * The models the shared key may be used with. The first is the default,
+     * used when a request names none; anything outside the list is refused by
+     * name. One entry today: every model here would be billed against the same
+     * token budget, so a second buys more work per dollar rather than a second
+     * allowance. A list rather than a single name so that stays a one-line
+     * change, here and in `HOSTED_MODELS` on the editor side.
+     */
+    models: ['gpt-5.6-luna'],
+    perIpVar: 'TOKENS_PER_MINUTE',
+    perIp: 1_000_000,
+    dailyVar: 'DAILY_TOKEN_CAP',
+    /** Site-wide, per UTC calendar day. Resets at 00:00 UTC. */
+    daily: 2_500_000,
+  },
+  openrouter: {
+    id: 'openrouter',
+    label: 'OpenRouter',
+    prefix: '/openrouter/v1',
+    // pr-security-scan: allow new-outbound-host
+    url: 'https://openrouter.ai/api/v1/chat/completions',
+    keyVar: 'OPENROUTER_API_KEY',
+    scope: 'or:',
+    /**
+     * Requests, not tokens. A `:free` model costs nothing per token, so there
+     * is no bill for a token budget to bound; what actually runs out is
+     * OpenRouter's free-tier **request** allowance for the whole account, so
+     * that is the unit both windows count. One reserved unit is one request,
+     * and there is nothing to settle afterwards — only the history's token
+     * count is, which is why a free upstream still reports tokens.
+     */
+    meter: 'requests',
+    /** OpenRouter's own spelling; `max_completion_tokens` is not its field. */
+    maxTokensField: 'max_tokens',
+    promptCacheKey: false,
+    /**
+     * This loop spends most of its rounds mechanically threading one tool
+     * result into the next tool call, and reasoning tokens are output tokens —
+     * slower rounds against a free endpoint the whole site shares. The free
+     * model here lists `reasoning_effort` among its supported parameters, so
+     * unlike the OpenAI path a graduated value is reachable; OpenRouter drops
+     * the field for a model that cannot take it.
+     */
+    reasoningEffort: 'low',
+    attribution: true,
+    modelsVar: 'OPENROUTER_MODELS',
+    /**
+     * Free variants only. The `:free` suffix is what pins a model to the
+     * endpoints that cost nothing — the same id without it is a paid model,
+     * and this key must never reach one.
+     */
+    models: ['nvidia/nemotron-3-ultra-550b-a55b:free'],
+    perIpVar: 'OPENROUTER_REQUESTS_PER_MINUTE',
+    /**
+     * Under OpenRouter's own free-tier ceiling of 20 requests a minute, which
+     * it applies to the whole account rather than per caller — so no per-IP
+     * value can stop two visitors contending, but one set *above* 20 would
+     * only guarantee the upstream refuses instead. A round is one request and
+     * rounds are sequential, so a single conversation does not approach this.
+     */
+    perIp: 15,
+    dailyVar: 'OPENROUTER_DAILY_REQUEST_CAP',
+    /**
+     * Site-wide, per UTC day, and it must stay **under the free-tier allowance
+     * on the account itself**: OpenRouter allows a free key 50 requests a day,
+     * or 1000 once the account has bought at least 10 credits. This default
+     * assumes the larger one. A cap above the real allowance only moves the
+     * refusal upstream, where it reads as a broken model rather than as a
+     * spent budget.
+     */
+    daily: 900,
+  },
+};
 
 export const DEFAULTS = {
-  /**
-   * The models the shared key may be used with. The first is the default, used
-   * when a request names none; anything outside the list is refused by name.
-   * Every one of them is billed against the same token budget, so a cheaper
-   * entry buys more work per dollar but not more tokens per day.
-   */
-  models: ['gpt-5.4-mini', 'gpt-5.4-nano', 'gpt-5.6-luna'],
-  tokensPerMinute: 1_000_000,
-  /** Site-wide, per UTC calendar day. Resets at 00:00 UTC. */
-  dailyTokenCap: 2_500_000,
+  // The OpenAI upstream's, which is the one every existing caller reaches, so
+  // its tunables read the same as they always have.
+  models: UPSTREAMS.openai.models,
+  tokensPerMinute: UPSTREAMS.openai.perIp,
+  dailyTokenCap: UPSTREAMS.openai.daily,
   maxBodyBytes: 1_048_576,
   /** Ceiling on one completion, reasoning included. Bounds the output bill. */
   maxCompletionTokens: 16_384,
@@ -61,23 +180,41 @@ export const DEFAULTS = {
 /** The cache key for one model. See `DEFAULTS.cacheKey`. */
 export const cacheKeyFor = (cfg, model) => `${cfg.cacheKey}-${model}`;
 
-/** Reads the tunables, all of which are plain `vars` in wrangler.jsonc. */
-export function config(env = {}) {
+/** The upstream an incoming path selects, or null for anything else. */
+export function routeFor(pathname) {
+  for (const upstream of Object.values(UPSTREAMS)) {
+    if (pathname === `${upstream.prefix}/chat/completions`) {
+      return { upstream, endpoint: 'completions' };
+    }
+    if (pathname === `${upstream.prefix}/models`) return { upstream, endpoint: 'models' };
+  }
+  return null;
+}
+
+/**
+ * Reads the tunables for one upstream, all of which are plain `vars` in
+ * wrangler.jsonc. Anything not named per upstream is shared by both.
+ */
+export function config(env = {}, upstreamId = 'openai') {
+  const upstream = UPSTREAMS[upstreamId] || UPSTREAMS.openai;
   const number = (value, fallback) => {
     const parsed = Number(value);
     return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
   };
   // Comma-separated, first entry the default. `MODEL` is accepted as the
-  // one-model spelling of the same thing.
-  const listed = String(env.MODELS || env.MODEL || '')
-    .split(',').map(name => name.trim()).filter(Boolean);
-  const models = listed.length ? listed : DEFAULTS.models;
+  // one-model spelling of the same thing, on the original upstream.
+  const named = env[upstream.modelsVar] || (upstream.id === 'openai' ? env.MODEL : '') || '';
+  const listed = String(named).split(',').map(name => name.trim()).filter(Boolean);
+  const models = listed.length ? listed : upstream.models;
   return {
+    upstream,
     models,
     /** The model a request that names none is sent to. */
     model: models[0],
-    tokensPerMinute: number(env.TOKENS_PER_MINUTE, DEFAULTS.tokensPerMinute),
-    dailyTokenCap: number(env.DAILY_TOKEN_CAP, DEFAULTS.dailyTokenCap),
+    /** Per client IP, over a rolling minute, in `upstream.meter` units. */
+    perIpLimit: number(env[upstream.perIpVar], upstream.perIp),
+    /** Site-wide, over the UTC day, in the same units. */
+    dailyLimit: number(env[upstream.dailyVar], upstream.daily),
     maxBodyBytes: number(env.MAX_BODY_BYTES, DEFAULTS.maxBodyBytes),
     maxCompletionTokens: number(env.MAX_COMPLETION_TOKENS, DEFAULTS.maxCompletionTokens),
     outputEstimate: number(env.OUTPUT_ESTIMATE, DEFAULTS.outputEstimate),
@@ -116,9 +253,13 @@ export function originAllowed(origin) {
     : origin === allowed);
 }
 
+// Both units appear, because which one an upstream meters in is its own
+// business and a browser reads whichever arrives. See `rateHeaders`.
 const RATE_HEADERS = [
   'X-RateLimit-Limit-Tokens',
   'X-RateLimit-Remaining-Tokens',
+  'X-RateLimit-Limit-Requests',
+  'X-RateLimit-Remaining-Requests',
   'X-RateLimit-Reset-Seconds',
 ];
 
@@ -193,6 +334,7 @@ export function sanitizeBody(raw, cfg) {
     return { ok: false, status: 400, message: 'Invalid tools array.' };
   }
 
+  const { upstream } = cfg;
   return {
     ok: true,
     body: {
@@ -207,18 +349,17 @@ export function sanitizeBody(raw, cfg) {
       ...(raw.tools ? { parallel_tool_calls: true } : {}),
       stream: true,
       // Not negotiable: the token count in this event is what the limiter
-      // settles against.
+      // settles against, and what the day's history records either way.
       stream_options: { include_usage: true },
-      // On /v1/chat/completions these models refuse function tools unless
-      // reasoning is off — "Function tools with reasoning_effort are not
-      // supported … use /v1/responses or set reasoning_effort to 'none'".
-      // Leaving it unset is not the same as 'none': a model whose own default
-      // is non-none (gpt-5.6-luna) rejects every tool-carrying request, which
-      // is every request the editor makes. Set explicitly, and only alongside
-      // tools, so a plain completion keeps whatever the model does by default.
-      ...(raw.tools ? { reasoning_effort: 'none' } : {}),
-      max_completion_tokens: cfg.maxCompletionTokens,
-      prompt_cache_key: cacheKeyFor(cfg, model),
+      // Only alongside tools, so a plain completion keeps whatever the model
+      // does by default. Why each upstream asks for what it does is on
+      // `reasoningEffort` in UPSTREAMS.
+      ...(raw.tools && upstream.reasoningEffort
+        ? { reasoning_effort: upstream.reasoningEffort } : {}),
+      // The two APIs spell the output ceiling differently, and a field an API
+      // does not know is a field that does not bound anything.
+      [upstream.maxTokensField]: cfg.maxCompletionTokens,
+      ...(upstream.promptCacheKey ? { prompt_cache_key: cacheKeyFor(cfg, model) } : {}),
     },
   };
 }
@@ -290,11 +431,19 @@ const modelList = (cfg) => ({
   data: cfg.models.map(id => ({ id, object: 'model', created: 0, owned_by: 'gnuradio-world' })),
 });
 
-const rateHeaders = (reserve) => ({
-  'X-RateLimit-Limit-Tokens': String(reserve.limit),
-  'X-RateLimit-Remaining-Tokens': String(reserve.remaining),
-  'X-RateLimit-Reset-Seconds': String(reserve.resetIn),
-});
+/**
+ * The per-IP window, in the unit that window actually counts — a free upstream
+ * rations requests rather than tokens, and a header naming the wrong unit is
+ * worse than no header.
+ */
+const rateHeaders = (cfg, reserve) => {
+  const unit = cfg.upstream.meter === 'requests' ? 'Requests' : 'Tokens';
+  return {
+    [`X-RateLimit-Limit-${unit}`]: String(reserve.limit),
+    [`X-RateLimit-Remaining-${unit}`]: String(reserve.remaining),
+    'X-RateLimit-Reset-Seconds': String(reserve.resetIn),
+  };
+};
 
 async function handleCompletion(request, env, ctx, origin, cfg) {
   const raw = await request.text();
@@ -316,7 +465,8 @@ async function handleCompletion(request, env, ctx, origin, cfg) {
     return json(errorBody(sanitized.message, 'invalid_request_error'), sanitized.status, origin);
   }
 
-  if (!env.OPENAI_API_KEY) {
+  const apiKey = env[cfg.upstream.keyVar];
+  if (!apiKey) {
     return json(errorBody(
       'The shared model is not configured on this deployment.',
       'server_error',
@@ -324,20 +474,27 @@ async function handleCompletion(request, env, ctx, origin, cfg) {
   }
 
   const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
-  const estimate = estimateTokens(raw.length, cfg);
+  // What the windows are charged. A token-metered upstream reserves an
+  // estimate it settles later; a request-metered one reserves the single
+  // request it is, which is already exact and settles to nothing.
+  const requestMetered = cfg.upstream.meter === 'requests';
+  const estimate = requestMetered ? 1 : estimateTokens(raw.length, cfg);
   // The agent loop sends one request per tool round, so a request count says
   // little about how much was actually asked for. A round that *begins* a turn
   // is the one whose last message came from the human; every later round of the
   // same turn ends with a tool result.
   const turn = sanitized.body.messages.at(-1)?.role === 'user';
-  const perIp = env.LIMITER.get(env.LIMITER.idFromName(`ip:${ip}`));
-  const global = env.LIMITER.get(env.LIMITER.idFromName('global'));
+  // Scoped per upstream, so each one's windows and each one's history belong
+  // to it alone: the free tier running out must not touch the paid budget.
+  const { scope } = cfg.upstream;
+  const perIp = env.LIMITER.get(env.LIMITER.idFromName(`${scope}ip:${ip}`));
+  const global = env.LIMITER.get(env.LIMITER.idFromName(`${scope}global`));
 
-  const ipWindow = { limit: cfg.tokensPerMinute, windowMs: MINUTE_MS };
+  const ipWindow = { limit: cfg.perIpLimit, windowMs: MINUTE_MS };
   // `aligned` anchors the window to the epoch, which is itself midnight UTC —
   // so the day's budget resets at 00:00 UTC rather than 24 hours after the
   // request that happened to open it.
-  const dayWindow = { limit: cfg.dailyTokenCap, windowMs: DAY_MS, aligned: true };
+  const dayWindow = { limit: cfg.dailyLimit, windowMs: DAY_MS, aligned: true };
 
   const ipReserve = await limiterCall(perIp, '/reserve', { estimate, ...ipWindow });
   if (!ipReserve.ok) {
@@ -351,7 +508,7 @@ async function handleCompletion(request, env, ctx, origin, cfg) {
       'rate_limit_exceeded',
     ), 429, origin, {
       'Retry-After': String(ipReserve.retryAfter),
-      ...rateHeaders(ipReserve),
+      ...rateHeaders(cfg, ipReserve),
     });
   }
 
@@ -373,7 +530,7 @@ async function handleCompletion(request, env, ctx, origin, cfg) {
       'rate_limit_exceeded',
     ), 429, origin, {
       'Retry-After': String(dayReserve.retryAfter),
-      ...rateHeaders(ipReserve),
+      ...rateHeaders(cfg, ipReserve),
     });
   }
 
@@ -392,10 +549,14 @@ async function handleCompletion(request, env, ctx, origin, cfg) {
    * Charges the difference between the estimate and the truth, on both windows.
    * A stream that ended without a usage event — an aborted read, most often —
    * keeps its estimate rather than being refunded for tokens it did spend.
+   *
+   * A request-metered window has nothing to correct: the one request it
+   * reserved is the one request that happened. Its usage event is still read,
+   * because the day's history counts tokens whether or not they cost anything.
    */
   const settle = (actual) => {
-    const spent = actual > 0 ? actual : estimate;
-    return adjust(spent - estimate, { spent });
+    const tokens = actual > 0 ? actual : (requestMetered ? 0 : estimate);
+    return adjust(requestMetered ? 0 : tokens - estimate, { spent: tokens });
   };
 
   /** Hands the whole reservation back, for a request that never ran. */
@@ -403,11 +564,18 @@ async function handleCompletion(request, env, ctx, origin, cfg) {
 
   let upstream;
   try {
-    upstream = await fetch(OPENAI_COMPLETIONS, {
+    upstream = await fetch(cfg.upstream.url, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${env.OPENAI_API_KEY}`,
+        Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
+        // Attribution is the Worker's to send, not the browser's: the editor
+        // talks to this origin, so its own headers would name nothing useful
+        // and would widen the preflight for it.
+        ...(cfg.upstream.attribution ? {
+          'HTTP-Referer': 'https://gnuradioworld.com',
+          'X-Title': 'GNU Radio World Flowgraph Copilot',
+        } : {}),
       },
       body: JSON.stringify(sanitized.body),
     });
@@ -462,7 +630,7 @@ async function handleCompletion(request, env, ctx, origin, cfg) {
       ...corsHeaders(origin),
       'Content-Type': 'text/event-stream; charset=utf-8',
       'Cache-Control': 'no-store',
-      ...rateHeaders(ipReserve),
+      ...rateHeaders(cfg, ipReserve),
     },
   });
 }
@@ -484,8 +652,18 @@ async function handleStats(request, env) {
     console.warn('Unauthorized stats request');
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
-  const days = new URL(request.url).searchParams.get('days') || '30';
-  const global = env.LIMITER.get(env.LIMITER.idFromName('global'));
+  const params = new URL(request.url).searchParams;
+  const days = params.get('days') || '30';
+  // Each upstream keeps its own history, in the same object that meters it.
+  // Defaulting to the original one keeps every existing `curl` reading what it
+  // has always read.
+  const wanted = params.get('upstream') || 'openai';
+  if (!UPSTREAMS[wanted]) {
+    return Response.json({
+      error: `Unknown upstream. Try one of ${Object.keys(UPSTREAMS).join(', ')}.`,
+    }, { status: 400 });
+  }
+  const global = env.LIMITER.get(env.LIMITER.idFromName(`${UPSTREAMS[wanted].scope}global`));
   const response = await global.fetch(`https://limiter/stats?days=${encodeURIComponent(days)}`);
   return Response.json(await response.json(), {
     headers: { 'Cache-Control': 'no-store' },
@@ -495,7 +673,6 @@ async function handleStats(request, env) {
 export default {
   async fetch(request, env, ctx) {
     const origin = request.headers.get('Origin') || '';
-    const cfg = config(env);
 
     if (new URL(request.url).pathname === '/stats') return handleStats(request, env);
 
@@ -511,11 +688,16 @@ export default {
       return new Response(null, { status: 204, headers: corsHeaders(origin) });
     }
 
-    const url = new URL(request.url);
-    if (request.method === 'GET' && url.pathname === '/v1/models') {
+    // The path is the whole of the upstream selection: `/v1/…` is the shared
+    // OpenAI key, `/openrouter/v1/…` the shared OpenRouter one. Nothing in the
+    // body can move a request from one to the other.
+    const route = routeFor(new URL(request.url).pathname);
+    if (!route) return json(errorBody('Not found.', 'not_found'), 404, origin);
+    const cfg = config(env, route.upstream.id);
+    if (request.method === 'GET' && route.endpoint === 'models') {
       return json(modelList(cfg), 200, origin);
     }
-    if (request.method === 'POST' && url.pathname === '/v1/chat/completions') {
+    if (request.method === 'POST' && route.endpoint === 'completions') {
       return handleCompletion(request, env, ctx, origin, cfg);
     }
     return json(errorBody('Not found.', 'not_found'), 404, origin);

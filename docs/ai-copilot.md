@@ -12,35 +12,42 @@ dock collapsed by default. The header's New chat control clears the transcript
 and accumulated spend and creates a fresh agent conversation without changing the
 canvas, connection, or selected model; it is disabled while a turn is running.
 
-## Three providers, one request path
+## Four providers, one request path
 
-The dock talks to the project's own **shared-key proxy**, to **OpenRouter**, or
-to **OpenAI's own API**, chosen in the provider select above the model picker and
-remembered in `localStorage['gnuradio-world.ai-provider']`; the shared proxy is
-the default, and the only one that needs nothing from the user. All three speak
-the OpenAI chat-completions wire format, so `editor/src/ai/client.ts` holds the
-single streaming request path and model-list call for all of them, and
+The dock talks to the project's own **shared-key proxy** — under either of two
+free providers — to **OpenRouter**, or to **OpenAI's own API**, chosen in the
+provider select above the model picker and remembered in
+`localStorage['gnuradio-world.ai-provider']`; the first shared provider is the
+default, and the two shared ones are what need nothing from the user. All four
+speak the OpenAI chat-completions wire format, so `editor/src/ai/client.ts`
+holds the single streaming request path and model-list call for all of them, and
 `editor/src/ai/providers.ts` holds everything that differs — base URL, default
 model, key storage keys, dialog copy, and the capability flags below.
-`editor/src/ai/openrouter.ts` is now only OpenRouter's OAuth flow, which neither
+`editor/src/ai/openrouter.ts` is now only OpenRouter's OAuth flow, which none
 of the others has an equivalent of.
 
-Everything a provider is allowed to differ in is a descriptor field, so a fourth
+Everything a provider is allowed to differ in is a descriptor field, so a fifth
 provider is a new entry in `AI_PROVIDERS` rather than a branch in the panel:
 
-| difference | GNU Radio World | OpenRouter | OpenAI |
-|------------|-----------------|-----------|--------|
-| connect | nothing to connect — consent only (`keyless`) | OAuth PKCE, or a pasted key | a pasted key only (`oauth`) |
-| model list | one fixed id in the descriptor, never fetched (`fixedModels`) | public, filtered to `supported_parameters=tools` | authenticated, and unfiltered — the chat families are picked out of every model of every kind the account can see (`modelsNeedKey`) |
-| default model | `gpt-5.4-mini`, and no other | `google/gemini-3.7-flash` | `gpt-5.4-mini` |
-| attribution | none | `HTTP-Referer` and `X-Title` | none — OpenAI rejects them in preflight (`attribution`) |
-| usage | as OpenAI, and priced nowhere | appended to the stream automatically, with a cost | only when asked with `stream_options.include_usage`, and priced nowhere (`requestUsage`, `reportsCost`) |
-| reasoning effort | unset | nested under `reasoning`, so nothing is sent | top-level `reasoning_effort`, but unreachable with tools — see below (`reasoningEffort`) |
-| cache routing | one shared key, set by the proxy | prefix hashing only | `prompt_cache_key` per page (`promptCacheKey`) |
+| difference | OpenAI Free Tier | OpenRouter Free Tier | OpenRouter | OpenAI |
+|------------|------------------|----------------------|-----------|--------|
+| connect | nothing to connect — consent only (`keyless`) | the same | OAuth PKCE, or a pasted key | a pasted key only (`oauth`) |
+| model list | one fixed id in the descriptor, never fetched, so the picker locks (`fixedModels`) | the same | public, filtered to `supported_parameters=tools` | authenticated, and unfiltered — the chat families are picked out of every model of every kind the account can see (`modelsNeedKey`) |
+| default model | `gpt-5.6-luna`, and no other | `nvidia/nemotron-3-ultra-550b-a55b:free`, and no other | `google/gemini-3.7-flash` | `gpt-5.4-mini` |
+| second hop | `api.openai.com`, named in the boundary line (`upstream`) | `openrouter.ai`, likewise | none | none |
+| attribution | none | none — the proxy sends OpenRouter's headers itself | `HTTP-Referer` and `X-Title` | none — OpenAI rejects them in preflight (`attribution`) |
+| usage | as OpenAI, and priced nowhere | the same, and free anyway | appended to the stream automatically, with a cost | only when asked with `stream_options.include_usage`, and priced nowhere (`requestUsage`, `reportsCost`) |
+| reasoning effort | unset — the proxy sets `'none'` upstream | unset — the proxy sets `'low'` upstream | nested under `reasoning`, so nothing is sent | top-level `reasoning_effort`, but unreachable with tools — see below (`reasoningEffort`) |
+| cache routing | one shared key, set by the proxy | none; free endpoints cache nothing for us | prefix hashing only | `prompt_cache_key` per page (`promptCacheKey`) |
 
 **A keyless provider must send no `Authorization` header at all.** `client.ts`
 emits one only when a key is present; the proxy holds the only key involved, and
 a stray header would widen the request's CORS preflight for nothing.
+
+**Which upstream a shared request reaches is decided by the `api` path, and by
+nothing else.** `…/v1` is the proxy's OpenAI upstream and `…/openrouter/v1` its
+OpenRouter one; the browser sends the same body either way, and no field in it
+can move a request from one key to the other.
 
 Because OpenAI prices nothing in its usage event, the header shows accumulated
 tokens there and a dollar figure on OpenRouter. Either headline hides the split
@@ -60,40 +67,65 @@ Each provider's saved model selection always takes precedence over the default.
 If the wanted model is absent from the live catalog, the picker requires an
 explicit replacement instead of submitting an invalid model.
 
-## The shared model
+## The shared models
 
-The default provider costs the user nothing and stores nothing. Its requests go
-to a Cloudflare Worker in [`workers/ai-proxy/`](../workers/ai-proxy/README.md) at
-`ai.gnuradioworld.com`, which forwards them to OpenAI on one key shared by every
-visitor. Read that README before changing anything about the proxy; the parts
-that constrain the editor are:
+Two providers cost the user nothing and store nothing. Both send their requests
+to one Cloudflare Worker in [`workers/ai-proxy/`](../workers/ai-proxy/README.md)
+at `ai.gnuradioworld.com`, which forwards them to **OpenAI** on one shared
+OpenAI key, or to **OpenRouter's free tier** on one shared OpenRouter key,
+according to the path. Read that README before changing anything about the
+proxy; the parts that constrain the editor are:
 
-- **A fixed model list.** The proxy accepts `gpt-5.4-mini` (the default),
-  `gpt-5.4-nano` and `gpt-5.6-luna`, and refuses anything else by name — so
-  `fixedModels` populates the picker from the descriptor rather than fetching a
-  catalog or offering a request that would be refused. It locks the picker only
-  when that list holds one model. `HOSTED_MODELS` in `providers.ts` and `MODELS`
-  in the Worker are the same list in two places and change together. Every one
-  of them spends the same token budget, so a cheaper entry buys more work per
-  dollar, not a second allowance.
-- **Two windows.** 1,000,000 tokens per minute per visitor IP, under a
-  site-wide cap of 2,500,000 tokens per **UTC calendar day**, resetting at 00:00
-  UTC on the same boundary the usage records are keyed by. The per-IP window is
-  the abuse ceiling; the daily cap is what bounds the bill.
+- **One model per upstream, and the pickers say which.** The OpenAI path
+  accepts `gpt-5.6-luna`; the OpenRouter path accepts
+  `nvidia/nemotron-3-ultra-550b-a55b:free`. Either way anything else is refused
+  by name — so `fixedModels` populates the picker from the descriptor rather
+  than fetching a catalog or offering a request that would be refused, and
+  locks it, since a one-entry list is no choice. Both are still *lists*:
+  `HOSTED_MODELS` / `HOSTED_OPENROUTER_MODELS` in `providers.ts` and `MODELS` /
+  `OPENROUTER_MODELS` in the Worker are the same lists in two places, they
+  change together, and adding an entry unlocks the picker on its own.
+  **The `:free` suffix is load-bearing**: the same id without it is a paid
+  model, and the shared key must never reach one.
+- **Each provider is named for the model that answers**, not for the site —
+  `OpenAI Free Tier (gpt-5.6-luna)` and
+  `OpenRouter Free Tier (nemotron-3-ultra)`. Both are GNU Radio World's own
+  proxy on the same host, so the API behind them is the only thing that tells
+  them apart, and both the dock's select and the connection dialog's show
+  `menuLabel` so they read identically.
+- **Two windows each, and the two upstreams share nothing.** OpenAI is metered
+  in tokens — 1,000,000 per minute per visitor IP, under a site-wide cap of
+  2,500,000 per **UTC calendar day**. OpenRouter's free tier costs nothing per
+  token, so what actually runs out there is a *request* allowance on the
+  account, and its windows count requests instead: 15 a minute per visitor IP,
+  under a site-wide 900 a day — both under OpenRouter's own free-tier ceilings,
+  which are 20 a minute and 1000 a day for an account holding credit. Both reset at 00:00 UTC on the same boundary the
+  usage records are keyed by, each upstream keeps its own limiter objects and
+  its own usage history, and one running out leaves the other working. The
+  per-IP window is the abuse ceiling; the daily cap is what bounds the bill, or
+  rations the free tier.
 - **A spent budget arrives as a 429** whose message already names the wait and
   the way forward. `AiRequestError` carries the status so the panel can add the
-  one thing a user can act on — switching the provider select to a key of their
-  own — and say it only where it applies.
+  things a user can act on — switching the provider select to the *other* free
+  provider, whose budget is separate, or to a key of their own — and say it only
+  where it applies.
 - **Usage is counted in the proxy, not the editor.** The global Durable Object
   keeps one record per UTC day — requests, turns, tokens and distinct visitors,
   the last as a hash under a salt thrown away daily — readable over an
   authenticated `/stats`. Nothing is reported from the browser, and no analytics
   script is involved.
-- **The proxy sets `prompt_cache_key` itself**, to one value for every visitor.
-  All of them share the same system prefix, so a single key keeps one warm
-  prefix upstream instead of establishing one per page. The editor's own
-  `CACHE_KEY` is dropped there, which is why `promptCacheKey` is false on this
-  provider and true on OpenAI.
+- **The proxy sets `prompt_cache_key` itself** on the OpenAI upstream, to one
+  value for every visitor. All of them share the same system prefix, so a single
+  key keeps one warm prefix upstream instead of establishing one per page. The
+  editor's own `CACHE_KEY` is dropped there, which is why `promptCacheKey` is
+  false on both shared providers and true on OpenAI. The OpenRouter upstream
+  sends no cache key at all, and takes its output ceiling in `max_tokens` rather
+  than `max_completion_tokens` — a field an API does not know bounds nothing.
+- **The proxy is where a shared request's reasoning effort is decided.** The
+  OpenAI upstream must send `'none'` or its models refuse function tools
+  outright; the free model lists `reasoning_effort` among its supported
+  parameters, so that upstream sends `'low'` — reasoning tokens are output
+  tokens, and this loop mostly threads one tool result into the next.
 
 **Consent, not a key, is what the first Send waits on.** The dock is fully
 usable before it — there is nothing to connect — but `form.onsubmit` opens the
@@ -107,17 +139,20 @@ already recorded.
 
 GNU Radio World is static, so the browser calls `https://ai.gnuradioworld.com`,
 `https://openrouter.ai` or `https://api.openai.com` directly — never more than
-one, and the dock's boundary line names the one connected. The shared provider
-is the only two-hop path, and its line says so: `ai.gnuradioworld.com →
-api.openai.com (shared key)`.
+one, and the dock's boundary line names the one connected. The two shared
+providers are the two-hop paths, and their line says so, naming the second hop
+from the descriptor's `upstream` rather than assuming it: `ai.gnuradioworld.com
+→ api.openai.com (shared key)`, or `→ openrouter.ai (shared key)`.
 
 The connection dialog says exactly what crosses that boundary, rewriting its
-copy, links, and buttons for the provider chosen in it. OpenRouter receives the
-API key plus the request, and the selected model provider receives the prompt,
-flowgraph, runnable block metadata, tool results, and console output captured
-during an observed run, but not the OpenRouter key; on OpenAI the one host
-receives both; on the shared proxy the request reaches OpenAI with no key of the
-user's involved at all. The dialog links to the exact client source, that
+copy, links, and buttons for the provider chosen in it — including which
+upstream it names, and how that provider's shared budget runs out
+(`upstream`, `limitsNote`). OpenRouter receives the API key plus the request,
+and the selected model provider receives the prompt, flowgraph, runnable block
+metadata, tool results, and console output captured during an observed run, but
+not the OpenRouter key; on OpenAI the one host receives both; on either shared
+provider the request reaches OpenAI or OpenRouter with no key of the user's
+involved at all. The dialog links to the exact client source, that
 provider's privacy or data controls, and its key page — replaced on the shared
 provider, which has no key page, by the proxy's own README (`keysLabel`).
 
@@ -130,9 +165,11 @@ if it had since moved to OpenAI. Manual key entry remains available, and is the
 whole of the OpenAI path.
 
 **Each provider stores its own key, consent, and model, and never sees the
-other's.** The shared provider has no key storage at all — `storage.key` and
+others'.** A shared provider has no key storage at all — `storage.key` and
 `storage.sessionKey` are absent from its descriptor, and `storeKey`/`forgetKey`
-are no-ops there rather than inventing a slot a key could land in.
+are no-ops there rather than inventing a slot a key could land in. The two of
+them still keep separate consent and model slots, so choosing a free model under
+one is not a choice made for the other.
 
 Keys are session-only by default in
 `sessionStorage['gnuradio-world.<provider>-session-key']`. The explicit Remember
@@ -146,8 +183,9 @@ untrusted.
 
 All three API origins are declared in `providers.ts` with a
 `pr-security-scan: allow new-outbound-host` line, which is what keeps the PR
-security gate's new-host rule from blocking on them; a further provider needs the
-same. Streaming tool-call fragments are joined by their index, and aborting the
+security gate's new-host rule from blocking on them; a provider reaching a new
+host needs the same. A shared provider adds none of its own — it reaches the
+proxy's origin, and the second hop is the Worker's outbound call. Streaming tool-call fragments are joined by their index, and aborting the
 dock's Stop control aborts the fetch.
 
 ## Graph editing and history
@@ -336,8 +374,10 @@ covered with an SSE-producing fetch stub; neither needs a key or network. The
 same stub covers the provider split — that an OpenAI turn reaches
 `api.openai.com` with no attribution headers and an explicit usage request, that
 a shared-proxy turn reaches `ai.gnuradioworld.com` with **no** `Authorization`
-header and stores no key, that each provider's stored key is independent, and
-that the model lists are parsed the way each provider actually returns them. Radio
+header and stores no key, that the second shared provider reaches the
+`/openrouter/v1` path on that same host under the same rules, that each
+provider's stored key is independent, and that the model lists are parsed the
+way each provider actually returns them. Radio
 gesture checks belong in the existing radio suites. The normal editor check must
 pass with no stored key:
 

@@ -1,52 +1,105 @@
 # Flowgraph Copilot shared-key proxy
 
 This Cloudflare Worker is what makes Flowgraph Copilot usable without an API
-key. The editor's default provider — "GNU Radio World (free)" — sends its
-chat-completion requests here, and this Worker forwards them to OpenAI using one
-key held for every visitor, metering that key so no single visitor, and no
-single day, can drain it.
+key. The editor's two free providers — "OpenAI Free Tier (gpt-5.6-luna)" and
+"OpenRouter Free Tier (nemotron-3-ultra)" — send their chat-completion requests here,
+and this Worker forwards them upstream using a key held for every visitor,
+metering that key so no single visitor, and no single day, can drain it.
 
 It answers on `ai.gnuradioworld.com` and speaks the OpenAI chat-completions wire
 format, so the editor's one request path in `editor/src/ai/client.ts` reaches it
 unchanged. See [docs/ai-copilot.md](../../docs/ai-copilot.md) for the editor
 side.
 
+## Two upstreams, selected by path
+
+| path | upstream | key | models | metered in |
+|------|----------|-----|--------|-----------|
+| `/v1/…` | `api.openai.com` | `OPENAI_API_KEY` | `MODELS` | tokens |
+| `/openrouter/v1/…` | `openrouter.ai` | `OPENROUTER_API_KEY` | `OPENROUTER_MODELS` | requests |
+
+**The path is the whole of the routing.** Nothing in the request body can move a
+request from one key to the other: each upstream has its own model allowlist and
+refuses the other's ids by name. Everything an upstream differs in — its URL,
+its key variable, its allowlist, its two window limits, the field it takes an
+output ceiling in, whether it gets a cache key, what reasoning effort it is
+sent, and whether the Worker attributes the request — is a field of `UPSTREAMS`
+in `src/index.js`, so a third one is another entry rather than a branch.
+
+The OpenRouter upstream exists to offer a large open-weights model at no cost,
+and it serves **`:free` model ids only**. That suffix is what pins a request to
+the endpoints that charge nothing; the same id without it is a paid model, and
+the shared key must never reach one. `npm test` asserts the allowlist keeps the
+suffix.
+
+Each upstream also meters into Durable Objects of its own (the OpenRouter ones
+under an `or:` name prefix), so their windows, their refusals and their usage
+histories are independent — the free tier running out is not the site losing its
+Copilot, and neither is the paid budget running out.
+
 ## What it is not
 
 It is not a passthrough. The upstream request body is rebuilt from a whitelist
-in `sanitizeBody()`, which is what keeps a caller from turning the shared key
-into a general-purpose OpenAI proxy:
+in `sanitizeBody()`, which is what keeps a caller from turning a shared key
+into a general-purpose proxy:
 
 | field | treatment |
 |-------|-----------|
-| `model` | must be one of `MODELS`, or the request is refused by name; absent means the first |
+| `model` | must be one of that upstream's allowlist, or the request is refused by name; absent means the first |
 | `stream` | forced on |
-| `stream_options.include_usage` | forced on — the metering settles against this event |
-| `max_completion_tokens` | replaced with `MAX_COMPLETION_TOKENS`, a ceiling on one completion |
-| `prompt_cache_key` | replaced with one shared key per model, so every visitor warms the same prefix |
+| `stream_options.include_usage` | forced on — the metering settles against this event, and the history counts tokens from it either way |
+| the output ceiling | replaced with `MAX_COMPLETION_TOKENS`, under the name that upstream knows it by — `max_completion_tokens` on OpenAI, `max_tokens` on OpenRouter |
+| `reasoning_effort` | set by the upstream, never accepted: `'none'` on OpenAI, whose models otherwise refuse function tools, and `'low'` on the free model, where reasoning is just slower output |
+| `prompt_cache_key` | OpenAI only, replaced with one shared key per model so every visitor warms the same prefix; dropped entirely on OpenRouter |
 | `messages`, `tools`, `tool_choice` | passed through, within size limits |
 | anything else (`user`, `store`, `metadata`, …) | dropped |
+
+OpenRouter's ranking headers (`HTTP-Referer`, `X-Title`) are added by the Worker
+on that upstream. They are not the browser's to send: the editor only ever talks
+to this origin, so its own headers would name the wrong thing and widen its
+preflight for nothing.
 
 The key never leaves the Worker: a caller's own `Authorization` header is
 discarded, and an upstream error body — which can name the organization and the
 key — is replaced with a sanitized message rather than forwarded.
 
-`GET /v1/models` answers from `MODELS` alone and never calls OpenAI, so the
-account's model catalog is not exposed either.
+`GET /v1/models` and `GET /openrouter/v1/models` answer from their upstream's
+allowlist alone and never call it, so neither account's model catalog is
+exposed either.
 
 ## Rate limiting
 
-Two instances of one Durable Object class, `TokenLimiter`, using the same
-arithmetic over different windows:
+Two instances of one Durable Object class, `TokenLimiter`, per upstream, using
+the same arithmetic over different windows:
 
-- **per client IP**, `TOKENS_PER_MINUTE` over a rolling 60 seconds (1,000,000
-  by default)
-- **globally**, `DAILY_TOKEN_CAP` over the **UTC calendar day** (2,500,000 by
-  default)
+- **per client IP**, over a rolling 60 seconds
+- **globally**, over the **UTC calendar day**
 
 The per-IP limit is the abuse ceiling. The **daily cap is what bounds the
 bill** — a rotating-IP client never trips the per-IP window, and 1M tokens per
 minute is not a small budget. Set it against what you are willing to spend.
+
+What those windows *count* is the upstream's own unit:
+
+| upstream | per IP, per minute | site-wide, per UTC day |
+|----------|--------------------|------------------------|
+| OpenAI | `TOKENS_PER_MINUTE` tokens (1,000,000) | `DAILY_TOKEN_CAP` tokens (2,500,000) |
+| OpenRouter | `OPENROUTER_REQUESTS_PER_MINUTE` requests (15) | `OPENROUTER_DAILY_REQUEST_CAP` requests (900) |
+
+**A free model has no bill for a token budget to bound.** What runs out on the
+OpenRouter path is the free-tier *request* allowance OpenRouter grants the
+account itself: **20 requests a minute, and 50 a day — or 1000 a day once the
+account has bought at least 10 credits.** Requests are therefore what those
+windows ration, and both defaults are set under those ceilings, the daily one
+assuming the 1000 tier. Check which allowance the account actually has and set
+`OPENROUTER_DAILY_REQUEST_CAP` below it; a cap set above it only moves the
+refusal upstream, where it reads as a broken model rather than a spent budget.
+Note that OpenRouter's minute limit is per *account*, not per caller, so the
+per-IP window cannot stop two visitors contending for it — it only stops one
+visitor from being the reason. A request-metered
+reservation is exact from the start — one request is one unit — so it reserves
+one and settles nothing; the usage event is still read, because the day's
+history counts tokens whether or not they cost anything.
 
 The daily window is anchored to the epoch rather than to its first request, and
 the epoch is itself midnight UTC — so the site's budget resets at **00:00 UTC**
@@ -73,17 +126,18 @@ A refused request answers `429` with `Retry-After`, a `rate_limit_exceeded`
 error in OpenAI's shape, and a message naming the wait and the way forward. The
 editor shows that message and offers to switch to a personal key.
 
-Every response carries `X-RateLimit-Limit-Tokens`,
-`X-RateLimit-Remaining-Tokens` and `X-RateLimit-Reset-Seconds` for the caller's
-per-IP window.
+Every response carries `X-RateLimit-Reset-Seconds` and a limit/remaining pair
+for the caller's per-IP window, named for what that window counts —
+`X-RateLimit-Limit-Tokens` and `-Remaining-Tokens` on the OpenAI path,
+`-Limit-Requests` and `-Remaining-Requests` on the free one.
 
 ## Usage stats
 
-Every request already passes through the global Durable Object to be metered, so
-the usage history rides along on calls that had to happen anyway — no extra
-service, no extra request, and nothing to keep running.
+Every request already passes through its upstream's global Durable Object to be
+metered, so the usage history rides along on calls that had to happen anyway —
+no extra service, no extra request, and nothing to keep running.
 
-One record per UTC day:
+One record per UTC day, per upstream:
 
 | field | meaning |
 |-------|---------|
@@ -133,9 +187,14 @@ across shells.
 ```bash
 curl -s -H "Authorization: Bearer $STATS_TOKEN" \
   'https://ai.gnuradioworld.com/stats?days=30' | jq
+curl -s -H "Authorization: Bearer $STATS_TOKEN" \
+  'https://ai.gnuradioworld.com/stats?days=30&upstream=openrouter' | jq
 ```
 
-`days` defaults to 30 and the newest day comes first.
+`days` defaults to 30 and the newest day comes first. `upstream` defaults to
+`openai`, so an existing read keeps reading what it always did; each upstream
+has a history of its own, and there is no combined view. On the free upstream
+`tokens` is a measure of work rather than of money — nothing there is billed.
 
 `/stats` is answered **before** the origin gate, because a terminal sends no
 `Origin` at all, and deliberately **outside CORS**, so no page can read it. An
@@ -170,12 +229,26 @@ for the Queue in `workers/sigmf-indexer`.
    `wrangler.jsonc` creates the DNS record on first deploy, provided the zone is
    on this Cloudflare account.
 
-3. Store the shared OpenAI key. Create a dedicated key with a **hard monthly
+3. Store the shared keys. Create a dedicated OpenAI key with a **hard monthly
    spend limit** on it — that limit is the last line of defense:
 
    ```bash
    printf '%s' "$OPENAI_KEY" | npm exec wrangler secret put OPENAI_API_KEY
    ```
+
+   Then a dedicated OpenRouter key for the free upstream. Nothing it can reach
+   costs money — the allowlist is `:free` ids only — but its free-tier request
+   allowance is 50 a day until the account has bought 10 credits, and 1000 a day
+   after that. Check which one applies and set `OPENROUTER_DAILY_REQUEST_CAP`
+   below it; the default of 900 assumes the larger:
+
+   ```bash
+   printf '%s' "$OPENROUTER_KEY" | npm exec wrangler secret put OPENROUTER_API_KEY
+   ```
+
+   Each upstream is optional and independent: without its key that path answers
+   `503` and the other keeps working, so the OpenAI upstream can be deployed
+   alone exactly as before.
 
 4. Store a token for the usage history. Optional, and it can be added at any
    time — `wrangler secret put` redeploys the Worker but leaves the Durable
@@ -197,8 +270,9 @@ for the Queue in `workers/sigmf-indexer`.
 6. Stream diagnostics with `npm run tail`, and read the history with `/stats`
    as described under "Usage stats" above.
 
-Without `OPENAI_API_KEY` the Worker answers `503` and says the shared model is
-not configured, rather than failing at OpenAI.
+Without an upstream's key the Worker answers `503` on that path and says the
+shared model is not configured, rather than failing upstream. The other path is
+unaffected.
 
 ## Tunables
 
@@ -207,20 +281,26 @@ same values as `DEFAULTS` so the tests need no environment.
 
 | var | default | what it decides |
 |-----|---------|-----------------|
-| `MODELS` | `gpt-5.4-mini,gpt-5.4-nano,gpt-5.6-luna` | the models the shared key is accepted for, comma-separated; the first is the default |
-| `TOKENS_PER_MINUTE` | `1000000` | per-IP ceiling |
+| `MODELS` | `gpt-5.6-luna` | the models the shared OpenAI key is accepted for, comma-separated; the first is the default |
+| `TOKENS_PER_MINUTE` | `1000000` | per-IP ceiling, OpenAI upstream |
 | `DAILY_TOKEN_CAP` | `2500000` | site-wide ceiling per UTC day — the bill's bound |
-| `MAX_BODY_BYTES` | `1048576` | largest accepted request |
+| `OPENROUTER_MODELS` | `nvidia/nemotron-3-ultra-550b-a55b:free` | the models the shared OpenRouter key is accepted for; `:free` ids only |
+| `OPENROUTER_REQUESTS_PER_MINUTE` | `30` | per-IP ceiling, free upstream |
+| `OPENROUTER_DAILY_REQUEST_CAP` | `900` | site-wide requests per UTC day — keep it under the account's own free-tier allowance |
+| `MAX_BODY_BYTES` | `1048576` | largest accepted request, both upstreams |
 | `MAX_COMPLETION_TOKENS` | `16384` | ceiling on one completion, reasoning included |
-| `OUTPUT_ESTIMATE` | `2000` | assumed output when reserving |
+| `OUTPUT_ESTIMATE` | `2000` | assumed output when reserving on the token-metered upstream |
 
-Changing `MODELS` alone is not enough: the editor's picker is populated from
-`HOSTED_MODELS` in `editor/src/ai/providers.ts`, and the proxy refuses anything
-else by name. Change both together.
+Changing a model list alone is not enough: the editor's pickers are populated
+from `HOSTED_MODELS` and `HOSTED_OPENROUTER_MODELS` in
+`editor/src/ai/providers.ts`, and the proxy refuses anything else by name.
+Change both together.
 
-Every listed model is metered against the same token windows, which count
-tokens rather than dollars — so adding a cheaper model buys more work out of
-the same daily budget, not a larger one.
+Every model on the OpenAI upstream is metered against the same token windows,
+which count tokens rather than dollars — so adding a cheaper model buys more
+work out of the same daily budget, not a larger one. That is why both lists
+ship with a single entry: a second model is a choice for the user to make, not
+an allowance, and a one-entry list locks the editor's picker.
 
 ## Tests
 

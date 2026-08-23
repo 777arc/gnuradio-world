@@ -51,16 +51,18 @@ assert.match(source, /createAiPanel\([\s\S]*commitHistory: recordHistory[\s\S]*r
 assert.match(source,
   /newChat\.setAttribute\('aria-label', 'New chat'\)[\s\S]*const resetConversation[\s\S]*transcript\.textContent = ''[\s\S]*clearUsage\(\);\s*showSpend\(\);[\s\S]*rebuildAgent\(\)/,
   'New chat clears the transcript and spend and rebuilds the agent conversation');
-// One dock, three API boundaries: the provider chosen there decides which host
+// One dock, four API boundaries: the provider chosen there decides which host
 // the key, the model list, and every request belong to.
 assert.match(source, /providerSelect\.onchange = \(\) => \{[\s\S]*applyProvider\(chosen, true\)/,
   'switching provider re-points the dock at that provider stored key and models');
-assert.match(source, /`Copilot API: \$\{provider\(\)\.host\} only`/,
+assert.match(source, /`Copilot API: \$\{host\} only`/,
   'the disclosed data boundary names the connected provider host');
-// The free provider is two hops — the project's proxy, then OpenAI — and the
-// line names both rather than only the host the browser opens a socket to.
+// A free provider is two hops — the project's proxy, then whichever API it
+// holds a shared key for — and the line names both rather than only the host
+// the browser opens a socket to. Which second hop it is comes from the
+// descriptor, because there is now more than one.
 assert.match(source,
-  /provider\(\)\.keyless\s*\?\s*`Copilot API: \$\{provider\(\)\.host\} → \$\{providerFor\('openai'\)\.host\} \(shared key\)`/,
+  /upstream\s*\?\s*`Copilot API: \$\{host\} → \$\{upstream\.host\} \(shared key\)`/,
   'the shared-key boundary names the proxy and where it forwards to');
 assert.match(source, /new FlowgraphAgent\(\{\s*provider: providerId,/,
   'the agent talks to the provider the dock is connected to');

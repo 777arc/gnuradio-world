@@ -19,6 +19,8 @@ const {
   DEFAULT_PROVIDER,
   HOSTED_MODEL,
   HOSTED_MODELS,
+  HOSTED_OPENROUTER_MODEL,
+  HOSTED_OPENROUTER_MODELS,
   PROVIDER_IDS,
   forgetKey,
   keyIsRemembered,
@@ -40,7 +42,7 @@ assert.equal(GRAPH_PREVIEW_DELAY_MS, 1000);
 // The free shared-key provider leads the list and is what a first-time visitor
 // lands on. It is keyless by construction: no key page, no storage slot a key
 // could land in, and a fixed short list of models the proxy will accept.
-assert.deepEqual(PROVIDER_IDS, ['hosted', 'openrouter', 'openai']);
+assert.deepEqual(PROVIDER_IDS, ['hosted', 'hosted-openrouter', 'openrouter', 'openai']);
 assert.equal(DEFAULT_PROVIDER, 'hosted');
 // pr-security-scan: allow new-outbound-host
 assert.equal(AI_PROVIDERS.hosted.api, 'https://ai.gnuradioworld.com/v1');
@@ -52,11 +54,60 @@ assert.equal(AI_PROVIDERS.hosted.storage.sessionKey, undefined);
 assert.deepEqual(AI_PROVIDERS.hosted.fixedModels.map(model => model.id), HOSTED_MODELS);
 // Kept in step with MODELS in workers/ai-proxy/wrangler.jsonc; the proxy
 // refuses anything outside this list by name.
-assert.deepEqual(HOSTED_MODELS, ['gpt-5.4-mini', 'gpt-5.4-nano', 'gpt-5.6-luna']);
-assert.equal(HOSTED_MODEL, 'gpt-5.4-mini', 'the first listed model is the default');
+assert.deepEqual(HOSTED_MODELS, ['gpt-5.6-luna']);
+assert.equal(HOSTED_MODEL, 'gpt-5.6-luna', 'the first listed model is the default');
 assert.equal(AI_PROVIDERS.hosted.defaultModel, HOSTED_MODEL);
+// Both free providers run one model, so both pickers lock and each names the
+// model it runs in the select — they front the same site and are told apart by
+// nothing else.
+for (const id of ['hosted', 'hosted-openrouter']) {
+  const free = AI_PROVIDERS[id];
+  assert.equal(free.fixedModels.length, 1, `${id} locks its picker`);
+  assert.match(free.menuLabel, /Free Tier \(/, `${id} names its model in the select`);
+  assert.ok(free.menuLabel.includes(free.upstream.label),
+    `${id} names the API behind it`);
+}
+assert.equal(AI_PROVIDERS.hosted.menuLabel, 'OpenAI Free Tier (gpt-5.6-luna)');
+assert.equal(AI_PROVIDERS['hosted-openrouter'].menuLabel,
+  'OpenRouter Free Tier (nemotron-3-ultra)');
+// The four labels have to stay distinct: they are what the connection dialog's
+// own provider select shows, and two of them are the same site's proxy.
+assert.equal(new Set(PROVIDER_IDS.map(id => AI_PROVIDERS[id].label)).size, PROVIDER_IDS.length);
+assert.equal(new Set(PROVIDER_IDS.map(id => AI_PROVIDERS[id].menuLabel)).size, PROVIDER_IDS.length);
 assert.equal(AI_PROVIDERS.openrouter.keyless, false);
 assert.equal(AI_PROVIDERS.openai.keyless, false);
+
+// The second keyless provider is the same proxy on a second shared key. Its
+// path is the whole of what selects the OpenRouter upstream, so it is asserted
+// rather than assumed, and it stores no key for exactly the same reason.
+const freeRouter = AI_PROVIDERS['hosted-openrouter'];
+// pr-security-scan: allow new-outbound-host
+assert.equal(freeRouter.api, 'https://ai.gnuradioworld.com/openrouter/v1');
+assert.equal(freeRouter.keyless, true);
+assert.equal(freeRouter.oauth, false);
+assert.equal(freeRouter.storage.key, undefined);
+assert.equal(freeRouter.storage.sessionKey, undefined);
+// Each provider's consent and model live in slots of their own; a free model
+// chosen here must not become the paid provider's saved model.
+for (const slot of ['consent', 'model']) {
+  assert.notEqual(freeRouter.storage[slot], AI_PROVIDERS.hosted.storage[slot]);
+}
+// Kept in step with OPENROUTER_MODELS in workers/ai-proxy/wrangler.jsonc.
+assert.deepEqual(HOSTED_OPENROUTER_MODELS, ['nvidia/nemotron-3-ultra-550b-a55b:free']);
+assert.equal(freeRouter.defaultModel, HOSTED_OPENROUTER_MODEL);
+assert.deepEqual(freeRouter.fixedModels.map(model => model.id), HOSTED_OPENROUTER_MODELS);
+for (const model of HOSTED_OPENROUTER_MODELS) {
+  assert.match(model, /:free$/, 'only a :free id stays on the endpoints that cost nothing');
+}
+// The dock's boundary line and the connection dialog name the second hop, and
+// the two keyless providers do not have the same one.
+assert.equal(AI_PROVIDERS.hosted.upstream.host, 'api.openai.com');
+assert.equal(freeRouter.upstream.host, 'openrouter.ai');
+assert.equal(freeRouter.upstream.label, 'OpenRouter');
+assert.ok(freeRouter.limitsNote, 'a shared budget has to say how it runs out');
+// The proxy attributes the request itself; a header from the browser would
+// only widen the preflight to a host that never sees it.
+assert.equal(freeRouter.attribution, false);
 
 const memoryStorage = () => {
   const values = new Map();
@@ -338,6 +389,38 @@ const hostedModels = await listModels({
   fetchImpl: () => { throw new Error('a fixed model list must not be fetched'); },
 });
 assert.deepEqual(hostedModels.map(model => model.id), HOSTED_MODELS);
+
+// The second keyless provider takes the same path, with its own model, its own
+// storage, and — like the first — no Authorization header of any kind.
+let freeRouterRequest;
+const freeRouterAgent = new FlowgraphAgent({
+  provider: 'hosted-openrouter', model: HOSTED_OPENROUTER_MODEL, systemPrompt: 'test', deps,
+  fetchImpl: async (url, init) => {
+    freeRouterRequest = { url, init };
+    return sse([{
+      model: HOSTED_OPENROUTER_MODEL, choices: [{ delta: { content: 'Ready.' } }],
+      usage: { prompt_tokens: 10, completion_tokens: 2, total_tokens: 12 },
+    }]);
+  },
+});
+assert.equal((await freeRouterAgent.turn('hello')).text, 'Ready.');
+// The path is what routes it to OpenRouter; the browser never talks to
+// openrouter.ai on this provider, and holds no key that would let it.
+// pr-security-scan: allow new-outbound-host
+assert.equal(freeRouterRequest.url, 'https://ai.gnuradioworld.com/openrouter/v1/chat/completions');
+assert.equal(freeRouterRequest.init.headers.Authorization, undefined,
+  'a keyless provider sends no Authorization header');
+assert.equal(freeRouterRequest.init.headers['HTTP-Referer'], undefined,
+  'the proxy attributes the request, not the browser');
+const freeRouterBody = JSON.parse(freeRouterRequest.init.body);
+assert.equal(freeRouterBody.model, HOSTED_OPENROUTER_MODEL);
+assert.equal(freeRouterBody.prompt_cache_key, undefined);
+
+const freeRouterModels = await listModels({
+  provider: 'hosted-openrouter',
+  fetchImpl: () => { throw new Error('a fixed model list must not be fetched'); },
+});
+assert.deepEqual(freeRouterModels.map(model => model.id), HOSTED_OPENROUTER_MODELS);
 
 // OpenAI's model list has no capability flags, so the chat families are picked
 // out of every model the account can see.

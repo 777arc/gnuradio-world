@@ -1,11 +1,15 @@
 /**
- * The AI providers Flowgraph Copilot can talk to. All three speak the OpenAI
+ * The AI providers Flowgraph Copilot can talk to. All four speak the OpenAI
  * chat-completions wire format, so only these descriptors and the key storage
  * differ; `client.ts` holds the one request path they share.
+ *
+ * Two of them are keyless: the project's own proxy fronts one OpenAI key and
+ * one OpenRouter key, and which upstream a request reaches is decided by the
+ * path in `api` rather than by anything the browser sends.
  */
 import type { AiModel } from './client';
 
-export type ProviderId = 'hosted' | 'openrouter' | 'openai';
+export type ProviderId = 'hosted' | 'hosted-openrouter' | 'openrouter' | 'openai';
 
 export interface AiProvider {
   id: ProviderId;
@@ -35,6 +39,20 @@ export interface AiProvider {
    * is sent, and there is nothing to disconnect — only consent to record.
    */
   keyless: boolean;
+  /**
+   * Keyless only: the API the proxy forwards to on the user's behalf. It is
+   * the second hop of a two-hop path, so the dock's boundary line and the
+   * connection dialog both name it — the browser talks to `host`, but the
+   * prompt ends up here.
+   */
+  upstream?: { label: string; host: string };
+  /**
+   * Keyless only: the sentence in the connection dialog saying what bounds a
+   * shared budget. The two keyless providers run out in different ways — one
+   * against a daily token budget the project pays for, the other against a
+   * free tier's request allowance — so neither can state the other's.
+   */
+  limitsNote?: string;
   /**
    * A fixed model list, where the provider publishes no catalog to fetch.
    * Present means the picker is populated from here and no list is ever
@@ -90,29 +108,45 @@ export const HOSTED_ORIGIN = 'https://ai.gnuradioworld.com';
 export const DEFAULT_OPENROUTER_MODEL = 'google/gemini-3.7-flash';
 export const DEFAULT_OPENAI_MODEL = 'gpt-5.4-mini';
 /**
- * The models the shared key may be used with; the proxy refuses any other by
- * name. Kept in step with `MODELS` in workers/ai-proxy/wrangler.jsonc — the
- * same list in two places, changed together.
+ * The models the shared OpenAI key may be used with; the proxy refuses any
+ * other by name. Kept in step with `MODELS` in workers/ai-proxy/wrangler.jsonc
+ * — the same list in two places, changed together.
  *
- * Both are billed against one token budget, so nano is the one to pick when
- * the shared day is running short, not a separate allowance.
+ * One model, so the picker locks: every entry here would spend the same token
+ * budget anyway, and a second one buys more work per dollar rather than a
+ * second allowance. Listed rather than named singly so adding one back is a
+ * one-line change on both sides.
  */
-export const HOSTED_MODELS = ['gpt-5.4-mini', 'gpt-5.4-nano', 'gpt-5.6-luna'];
+export const HOSTED_MODELS = ['gpt-5.6-luna'];
 /** The one a browser with nothing stored starts on. */
 export const HOSTED_MODEL = HOSTED_MODELS[0];
+
+/**
+ * The second keyless provider: the same proxy, forwarding to OpenRouter's free
+ * tier on a shared OpenRouter key instead of to OpenAI on a shared OpenAI one.
+ * A `:free` suffix is what pins a model to the endpoints that cost nothing, so
+ * it is part of the id and not decoration.
+ *
+ * Kept in step with `OPENROUTER_MODELS` in workers/ai-proxy/wrangler.jsonc,
+ * exactly as HOSTED_MODELS is with `MODELS`.
+ */
+export const HOSTED_OPENROUTER_MODELS = ['nvidia/nemotron-3-ultra-550b-a55b:free'];
+export const HOSTED_OPENROUTER_MODEL = HOSTED_OPENROUTER_MODELS[0];
 
 export const AI_PROVIDERS: Record<ProviderId, AiProvider> = {
   hosted: {
     id: 'hosted',
-    label: 'GNU Radio World',
-    menuLabel: 'GNU Radio World (free)',
+    // Named for the model rather than for the site: both free providers are
+    // GNU Radio World's, and what tells them apart is what answers.
+    label: 'OpenAI Free Tier',
+    menuLabel: 'OpenAI Free Tier (gpt-5.6-luna)',
     host: 'ai.gnuradioworld.com',
     api: `${HOSTED_ORIGIN}/v1`,
     defaultModel: HOSTED_MODEL,
     keyPlaceholder: '',
     // There is no key page to send anyone to, so the link explains the proxy.
     keysUrl: 'https://github.com/777arc/gnuradio-world/blob/main/workers/ai-proxy/README.md',
-    keysLabel: 'How the shared model works',
+    keysLabel: 'How the shared models work',
     // The prompt ends up at OpenAI either way, so their data controls apply.
     privacyUrl: 'https://platform.openai.com/docs/guides/your-data',
     privacyLabel: 'OpenAI data controls',
@@ -122,6 +156,9 @@ export const AI_PROVIDERS: Record<ProviderId, AiProvider> = {
       'rate limited per visitor, and a busy day can use the shared budget up.',
     oauth: false,
     keyless: true,
+    upstream: { label: 'OpenAI', host: 'api.openai.com' },
+    limitsNote: 'Use is limited per visitor and against a daily token budget for the whole ' +
+      'site, so a busy day can run it out until it resets at 00:00 UTC.',
     fixedModels: HOSTED_MODELS.map(id => ({
       id,
       name: id,
@@ -140,6 +177,52 @@ export const AI_PROVIDERS: Record<ProviderId, AiProvider> = {
     storage: {
       consent: 'gnuradio-world.hosted-consent',
       model: 'gnuradio-world.hosted-model',
+    },
+  },
+  'hosted-openrouter': {
+    id: 'hosted-openrouter',
+    label: 'OpenRouter Free Tier',
+    menuLabel: 'OpenRouter Free Tier (nemotron-3-ultra)',
+    host: 'ai.gnuradioworld.com',
+    // The upstream is chosen by this path, not by anything the browser sends:
+    // the proxy holds one key per upstream and routes on the prefix alone.
+    api: `${HOSTED_ORIGIN}/openrouter/v1`,
+    defaultModel: HOSTED_OPENROUTER_MODEL,
+    keyPlaceholder: '',
+    keysUrl: 'https://github.com/777arc/gnuradio-world/blob/main/workers/ai-proxy/README.md',
+    keysLabel: 'How the shared models work',
+    privacyUrl: `${OPENROUTER_ORIGIN}/docs/guides/privacy/data-collection`,
+    privacyLabel: 'OpenRouter privacy controls',
+    sends: 'Your prompt, current flowgraph, relevant block metadata, tool results, and console ' +
+      "output captured while diagnosing a run. That content goes to GNU Radio World's proxy, " +
+      'which forwards it to OpenRouter using a key shared by everyone who uses the site, and ' +
+      'OpenRouter sends it on to whichever provider serves the free model. Free-tier requests ' +
+      'are limited per visitor and for the whole site.',
+    oauth: false,
+    keyless: true,
+    upstream: { label: 'OpenRouter', host: 'openrouter.ai' },
+    limitsNote: "It runs on OpenRouter's free tier, which allows the whole site a fixed number " +
+      'of requests per day, so a busy day can run it out — and a free endpoint can be busy ' +
+      'upstream regardless.',
+    fixedModels: HOSTED_OPENROUTER_MODELS.map(id => ({
+      id,
+      name: id,
+      contextLength: 0,
+      promptPrice: 0,
+      completionPrice: 0,
+    })),
+    // A free model prices every request at zero, which is a headline saying
+    // nothing; tokens are what distinguishes a cheap turn from a wasteful one.
+    reportsCost: false,
+    modelsNeedKey: false,
+    // The proxy attributes the request itself. Sending these from the browser
+    // would only widen the preflight to a host that ignores them.
+    attribution: false,
+    requestUsage: true,
+    promptCacheKey: false,
+    storage: {
+      consent: 'gnuradio-world.hosted-openrouter-consent',
+      model: 'gnuradio-world.hosted-openrouter-model',
     },
   },
   openrouter: {
@@ -205,7 +288,8 @@ export const AI_PROVIDERS: Record<ProviderId, AiProvider> = {
   },
 };
 
-export const PROVIDER_IDS: ProviderId[] = ['hosted', 'openrouter', 'openai'];
+export const PROVIDER_IDS: ProviderId[] =
+  ['hosted', 'hosted-openrouter', 'openrouter', 'openai'];
 
 /** The provider a browser with nothing stored starts on. */
 export const DEFAULT_PROVIDER: ProviderId = 'hosted';

@@ -2,11 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import worker, {
+  UPSTREAMS,
   UsageScanner,
   cacheKeyFor,
   config,
   estimateTokens,
   originAllowed,
+  routeFor,
   sanitizeBody,
 } from '../src/index.js';
 import { DAY_MS, TokenLimiter, alignedStart } from '../src/limiter.js';
@@ -34,10 +36,11 @@ function fakeLimiters() {
   };
   namespace.used = async name =>
     (await object(name).ctx.storage.get('window'))?.used ?? 0;
-  // The global object's window is aligned to the UTC day, so a charge planted
-  // there has to sit on today's boundary or the next roll discards it.
+  // A global object's window is aligned to the UTC day, so a charge planted
+  // there has to sit on today's boundary or the next roll discards it. Each
+  // upstream has one, under a scope prefix of its own.
   namespace.charge = (name, used) => object(name).ctx.storage.put('window', {
-    windowStart: name === 'global' ? alignedStart(Date.now(), DAY_MS) : Date.now(),
+    windowStart: name.endsWith('global') ? alignedStart(Date.now(), DAY_MS) : Date.now(),
     used,
   });
   namespace.stats = async (name = 'global') =>
@@ -71,7 +74,7 @@ const completionRequest = (body, headers = {}) => new Request(
 );
 
 const CHAT = {
-  model: 'gpt-5.4-mini',
+  model: 'gpt-5.6-luna',
   messages: [{ role: 'user', content: 'add a signal source' }],
   tools: [{ type: 'function', function: { name: 'validate' } }],
   stream: true,
@@ -134,7 +137,7 @@ test('another site gets no CORS headers at all', async () => {
   assert.equal(response.headers.get('Access-Control-Allow-Origin'), null);
 });
 
-test('the model list is the fixed allowlist and never reaches OpenAI', async () => {
+test('the model list is the configured allowlist and never reaches OpenAI', async () => {
   const { result, seen } = await withUpstream(
     () => { throw new Error('the model list must not call upstream'); },
     () => worker.fetch(
@@ -173,7 +176,9 @@ test('the upstream body is rebuilt, not forwarded', () => {
 });
 
 test('an allowed model is passed through, with a cache key of its own', () => {
-  const cfg = config({});
+  // Configured with more than one, because the cache key is per model and the
+  // default allowlist holding a single entry is a setting, not a constraint.
+  const cfg = config({ MODELS: 'gpt-5.4-mini,gpt-5.4-nano,gpt-5.6-luna' });
   for (const model of ['gpt-5.4-mini', 'gpt-5.4-nano', 'gpt-5.6-luna']) {
     const sanitized = sanitizeBody({ ...CHAT, model }, cfg);
     assert.equal(sanitized.ok, true);
@@ -182,6 +187,10 @@ test('an allowed model is passed through, with a cache key of its own', () => {
   }
   // One model's warm prefix is useless to the other, so they never share a key.
   assert.notEqual(cacheKeyFor(cfg, 'gpt-5.4-mini'), cacheKeyFor(cfg, 'gpt-5.4-nano'));
+  // What the deployment actually ships with is one model, and the editor's
+  // picker locks to it. HOSTED_MODELS in editor/src/ai/providers.ts is the
+  // same list, and the two change together.
+  assert.deepEqual(config({}).models, ['gpt-5.6-luna']);
 });
 
 test('tools force reasoning off, which is what makes them work at all', () => {
@@ -209,22 +218,23 @@ test('a request naming no model gets the default rather than a refusal', () => {
   const { model, ...noModel } = CHAT;
   const sanitized = sanitizeBody(noModel, config({}));
   assert.equal(sanitized.ok, true);
-  assert.equal(sanitized.body.model, 'gpt-5.4-mini', 'the first listed model is the default');
+  assert.equal(sanitized.body.model, 'gpt-5.6-luna', 'the first listed model is the default');
 });
 
 test('a model outside the allowlist is refused, naming every one it accepts', () => {
-  const refused = sanitizeBody({ ...CHAT, model: 'gpt-5.4' }, config({}));
+  const refused = sanitizeBody({ ...CHAT, model: 'gpt-5.4' },
+    config({ MODELS: 'gpt-5.4-mini,gpt-5.4-nano,gpt-5.6-luna' }));
   assert.equal(refused.ok, false);
   assert.equal(refused.status, 400);
   assert.match(refused.message,
     /limited to gpt-5\.4-mini, gpt-5\.4-nano and gpt-5\.6-luna/);
-  // A one-model deployment must not read "limited to a and ".
-  assert.match(sanitizeBody({ ...CHAT, model: 'gpt-5.4' }, config({ MODELS: 'only-one' })).message,
-    /limited to only-one\./);
+  // The shipped deployment is one model, which must not read "limited to a and ".
+  assert.match(sanitizeBody({ ...CHAT, model: 'gpt-5.4' }, config({})).message,
+    /limited to gpt-5\.6-luna\./);
 });
 
 test('a request with no messages is refused', () => {
-  assert.equal(sanitizeBody({ model: 'gpt-5.4-mini', messages: [] }, config({})).ok, false);
+  assert.equal(sanitizeBody({ model: 'gpt-5.6-luna', messages: [] }, config({})).ok, false);
   assert.equal(sanitizeBody('nope', config({})).ok, false);
 });
 
@@ -451,4 +461,214 @@ test('stats need a token, and are answered outside CORS', async () => {
 test('the estimate covers the body plus assumed output', () => {
   const cfg = config({ OUTPUT_ESTIMATE: '2000' });
   assert.equal(estimateTokens(4000, cfg), 3000);
+});
+
+// ---------------------------------------------------------------------------
+// The free OpenRouter upstream
+//
+// Same Worker, same metering class, a second shared key — reached by path and
+// by nothing else. What differs is the unit its windows count: a `:free` model
+// costs nothing per token, so what runs out is OpenRouter's request allowance.
+// ---------------------------------------------------------------------------
+
+const FREE_MODEL = UPSTREAMS.openrouter.models[0];
+
+const freeRequest = (body, headers = {}) => new Request(
+  `${PROXY}/openrouter/v1/chat/completions`,
+  {
+    method: 'POST',
+    headers: { Origin: ORIGIN, 'Content-Type': 'application/json', ...headers },
+    body: JSON.stringify(body),
+  },
+);
+
+const FREE_CHAT = { ...CHAT, model: FREE_MODEL };
+
+const freeEnv = (extra = {}) => ({
+  OPENAI_API_KEY: 'sk-shared',
+  OPENROUTER_API_KEY: 'sk-or-shared',
+  LIMITER: fakeLimiters(),
+  ...extra,
+});
+
+const usageStream = (total = 10_000) => new Response(sse(
+  'data: {"choices":[{"delta":{"content":"ok"}}]}\n\n',
+  `data: {"choices":[],"usage":{"prompt_tokens":${total - 1000},` +
+    `"completion_tokens":1000,"total_tokens":${total}}}\n\n`,
+  'data: [DONE]\n\n',
+), { status: 200 });
+
+test('the path picks the upstream, and the body cannot move a request between them', () => {
+  assert.deepEqual(routeFor('/v1/chat/completions'),
+    { upstream: UPSTREAMS.openai, endpoint: 'completions' });
+  assert.deepEqual(routeFor('/openrouter/v1/chat/completions'),
+    { upstream: UPSTREAMS.openrouter, endpoint: 'completions' });
+  assert.deepEqual(routeFor('/openrouter/v1/models'),
+    { upstream: UPSTREAMS.openrouter, endpoint: 'models' });
+  for (const path of ['/', '/v1', '/v1/responses', '/openrouter/chat/completions', '/v1/models/x']) {
+    assert.equal(routeFor(path), null, path);
+  }
+  // Each upstream's allowlist holds only its own models, so naming the other's
+  // is refused rather than routed.
+  assert.equal(sanitizeBody({ ...CHAT, model: FREE_MODEL }, config({})).ok, false);
+  assert.equal(sanitizeBody(CHAT, config({}, 'openrouter')).ok, false);
+});
+
+test('only free variants are accepted, so the shared key never reaches a paid one', () => {
+  const cfg = config({}, 'openrouter');
+  for (const model of cfg.models) {
+    assert.match(model, /:free$/, 'a paid id here would spend real money on a shared key');
+  }
+  // The same model without the suffix routes to paid endpoints, and is refused.
+  const paid = sanitizeBody({ ...FREE_CHAT, model: FREE_MODEL.replace(':free', '') }, cfg);
+  assert.equal(paid.ok, false);
+  assert.match(paid.message, /limited to/);
+});
+
+test('the free upstream is sent its own dialect of the same request', () => {
+  const cfg = config({}, 'openrouter');
+  const { ok, body } = sanitizeBody({
+    ...FREE_CHAT,
+    stream: false,
+    max_tokens: 999_999,
+    prompt_cache_key: 'caller-supplied',
+    user: 'someone',
+  }, cfg);
+  assert.equal(ok, true);
+  assert.equal(body.stream, true);
+  assert.deepEqual(body.stream_options, { include_usage: true });
+  // OpenRouter's spelling of the output ceiling; OpenAI's would bound nothing.
+  assert.equal(body.max_tokens, cfg.maxCompletionTokens);
+  assert.equal('max_completion_tokens' in body, false);
+  // Cache routing is OpenAI's alone, and the caller's attempt is dropped.
+  assert.equal('prompt_cache_key' in body, false);
+  assert.equal('user' in body, false);
+  // A graduated effort is reachable here, unlike the OpenAI path where tools
+  // leave only 'none'. Cheap rounds are the point: reasoning is output tokens.
+  assert.equal(body.reasoning_effort, 'low');
+  assert.equal(body.parallel_tool_calls, true);
+});
+
+test('a free completion is proxied with the OpenRouter key, attributed by the Worker', async () => {
+  const env = freeEnv();
+  const { ctx, settled } = context();
+  const { result, seen } = await withUpstream(() => usageStream(), () => worker.fetch(
+    freeRequest(FREE_CHAT, { Authorization: 'Bearer sk-callers-own-key' }), env, ctx,
+  ));
+
+  assert.equal(result.status, 200);
+  const [call] = seen;
+  assert.equal(call.url, 'https://openrouter.ai/api/v1/chat/completions');
+  assert.equal(call.init.headers.Authorization, 'Bearer sk-or-shared',
+    'the OpenAI key must not reach OpenRouter, nor the caller\'s own key either one');
+  // Attribution belongs to the Worker: the browser only ever talks to this
+  // origin, so its headers would name the wrong thing and widen the preflight.
+  assert.equal(call.init.headers['X-Title'], 'GNU Radio World Flowgraph Copilot');
+  assert.match(call.init.headers['HTTP-Referer'], /gnuradioworld\.com/);
+  assert.equal(JSON.parse(call.init.body).model, FREE_MODEL);
+  await result.text();
+  await settled();
+});
+
+test('the free tier is rationed in requests, and the paid budget is untouched', async () => {
+  const env = freeEnv();
+  const { ctx, settled } = context();
+  const { result } = await withUpstream(() => usageStream(10_000), () => worker.fetch(
+    freeRequest(FREE_CHAT, { 'CF-Connecting-IP': '9.9.9.9' }), env, ctx,
+  ));
+  // The header names requests, because that is what this window counts.
+  assert.equal(result.headers.get('X-RateLimit-Limit-Requests'),
+    String(UPSTREAMS.openrouter.perIp));
+  assert.equal(result.headers.get('X-RateLimit-Limit-Tokens'), null);
+  await result.text();
+  await settled();
+
+  assert.equal(await env.LIMITER.used('or:ip:9.9.9.9'), 1,
+    'one request is one unit, exact from the start and settled to nothing');
+  assert.equal(await env.LIMITER.used('or:global'), 1);
+  // The upstream that costs money never saw any of it.
+  assert.equal(await env.LIMITER.used('ip:9.9.9.9'), 0);
+  assert.equal(await env.LIMITER.used('global'), 0);
+  // Tokens are still counted, because the history reports them either way.
+  const [today] = await env.LIMITER.stats('or:global');
+  assert.equal(today.tokens, 10_000);
+  assert.equal(today.requests, 1);
+  assert.equal(today.turns, 1);
+  assert.deepEqual(await env.LIMITER.stats('global'), [],
+    "each upstream's history is its own");
+});
+
+test('a spent free allowance refuses without touching the paid one', async () => {
+  const env = freeEnv({ OPENROUTER_DAILY_REQUEST_CAP: '2' });
+  await env.LIMITER.charge('or:global', 2);
+  const { ctx, settled } = context();
+  const { result, seen } = await withUpstream(
+    () => { throw new Error('a capped request must not reach OpenRouter'); },
+    () => worker.fetch(freeRequest(FREE_CHAT, { 'CF-Connecting-IP': '4.4.4.4' }), env, ctx),
+  );
+  assert.equal(seen.length, 0);
+  assert.equal(result.status, 429);
+  await settled();
+  assert.equal(await env.LIMITER.used('or:ip:4.4.4.4'), 0,
+    'nothing was spent upstream, so the visitor keeps their minute');
+
+  // The paid upstream is still open, which is the whole point of separate
+  // windows: one free model running out is not the site losing its Copilot.
+  const { result: paid } = await withUpstream(() => usageStream(50), () => worker.fetch(
+    completionRequest(CHAT, { 'CF-Connecting-IP': '4.4.4.4' }), env, context().ctx,
+  ));
+  assert.equal(paid.status, 200);
+  await paid.text();
+});
+
+test('the free model list is fixed too, and never reaches OpenRouter', async () => {
+  const { result, seen } = await withUpstream(
+    () => { throw new Error('the model list must not call upstream'); },
+    () => worker.fetch(
+      new Request(`${PROXY}/openrouter/v1/models`, { headers: { Origin: ORIGIN } }),
+      {}, context().ctx,
+    ),
+  );
+  assert.equal(seen.length, 0);
+  assert.deepEqual((await result.json()).data.map(model => model.id), [FREE_MODEL]);
+});
+
+test('an upstream with no key configured says so, and the other still answers', async () => {
+  const env = { OPENAI_API_KEY: 'sk-shared', LIMITER: fakeLimiters() };
+  const { ctx } = context();
+  const { result, seen } = await withUpstream(
+    () => { throw new Error('an unconfigured upstream must not be called'); },
+    () => worker.fetch(freeRequest(FREE_CHAT), env, ctx),
+  );
+  assert.equal(seen.length, 0);
+  assert.equal(result.status, 503);
+
+  const { result: paid } = await withUpstream(() => usageStream(50), () => worker.fetch(
+    completionRequest(CHAT), env, context().ctx,
+  ));
+  assert.equal(paid.status, 200);
+  await paid.text();
+});
+
+test('stats read one upstream at a time, defaulting to the one they always did', async () => {
+  const env = freeEnv({ STATS_TOKEN: 'secret' });
+  const { ctx, settled } = context();
+  await withUpstream(() => usageStream(7000), async () => {
+    const response = await worker.fetch(freeRequest(FREE_CHAT), env, ctx);
+    await response.text();
+  });
+  await settled();
+
+  const read = (query) => worker.fetch(new Request(`${PROXY}/stats${query}`, {
+    headers: { Authorization: 'Bearer secret' },
+  }), env);
+
+  assert.deepEqual((await (await read('')).json()).days, [],
+    'the default is the OpenAI upstream, which nothing here charged');
+  const free = (await (await read('?upstream=openrouter')).json()).days;
+  assert.equal(free.length, 1);
+  assert.equal(free[0].tokens, 7000);
+
+  const unknown = await read('?upstream=nowhere');
+  assert.equal(unknown.status, 400);
 });

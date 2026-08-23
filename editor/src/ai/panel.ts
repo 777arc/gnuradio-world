@@ -204,11 +204,16 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
   };
 
   const currentModel = () => modelSelect.value;
-  // The shared provider is two hops, and the line says so rather than naming
-  // only the host the browser happens to talk to.
-  const boundaryText = () => provider().keyless
-    ? `Copilot API: ${provider().host} → ${providerFor('openai').host} (shared key)`
-    : `Copilot API: ${provider().host} only`;
+  // A shared provider is two hops, and the line says so rather than naming
+  // only the host the browser happens to talk to. Which second hop it is comes
+  // from the descriptor: the proxy fronts one OpenAI key and one OpenRouter
+  // key, and the path decides which of them a request reaches.
+  const boundaryText = () => {
+    const { host, upstream } = provider();
+    return upstream
+      ? `Copilot API: ${host} → ${upstream.host} (shared key)`
+      : `Copilot API: ${host} only`;
+  };
   const share = (part: number, whole: number) =>
     whole > 0 ? ` (${Math.round((part / whole) * 100)}%)` : '';
   const plural = (count: number, word: string) =>
@@ -505,7 +510,7 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
     showSpend();
     if (announce) {
       resetConversation(provider().keyless
-        ? `Using the free ${provider().label} model, shared by everyone on the site.`
+        ? `Using ${provider().label}, shared by everyone on the site.`
         : `Using the ${provider().label} API.`);
     } else rebuildAgent();
     if (ready()) void loadModels();
@@ -536,7 +541,9 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
       const pick = node('label', 'ai-key-label', 'AI provider');
       choice = node('select', 'ai-model') as HTMLSelectElement;
       for (const id of PROVIDER_IDS) {
-        const option = node('option', '', providerFor(id).label) as HTMLOptionElement;
+        // The same wording as the dock's own select: two of these providers
+        // front the same site and are told apart by the model that answers.
+        const option = node('option', '', providerFor(id).menuLabel) as HTMLOptionElement;
         option.value = id;
         choice.appendChild(option);
       }
@@ -607,10 +614,9 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
         : 'Your key stays on this device';
       keyCopy.textContent = chosen.keyless
         ? 'GNU Radio World is a static, open-source application. This model runs on one ' +
-          `OpenAI key the project shares with every visitor, held by a Cloudflare Worker at ` +
-          `${chosen.host} — nothing of yours is stored, and you have nothing to disconnect. ` +
-          'Use is limited per visitor and against a daily budget for the whole site, so a busy ' +
-          'day can run it out until it resets at 00:00 UTC. Connect your own key for limits of ' +
+          `${chosen.upstream?.label} key the project shares with every visitor, held by a ` +
+          `Cloudflare Worker at ${chosen.host} — nothing of yours is stored, and you have ` +
+          `nothing to disconnect. ${chosen.limitsNote} Connect your own key for limits of ` +
           'your own.'
         : 'GNU Radio World is a static, open-source application. It has no ' +
           'application server that receives your key. Your browser sends the key only to ' +
@@ -622,7 +628,7 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
       privacy.textContent = chosen.privacyLabel;
       consentText.nodeValue = chosen.keyless
         ? ' I understand my prompt and flowgraph are sent to the GNU Radio World proxy and on ' +
-          'to OpenAI.'
+          `to ${chosen.upstream?.label}.`
         : chosen.oauth
           ? ` I understand what is sent to ${chosen.label} and the selected model provider.`
           : ` I understand what is sent to ${chosen.label}.`;
@@ -642,7 +648,7 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
       manual.open = !chosen.oauth && !chosen.keyless;
       rememberLabel.hidden = chosen.keyless;
       save.textContent = chosen.keyless
-        ? 'Use the free shared model'
+        ? 'Use this free shared model'
         : chosen.oauth ? 'Use pasted key' : `Use ${chosen.label} key`;
     };
 
@@ -752,11 +758,19 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
       if (aborted) bubble('status', 'Stopped.');
       else {
         bubble('status', error instanceof Error ? error.message : String(error));
-        // The shared model's limits are the one failure a user can act on
-        // without leaving the page, so the way out is named alongside it.
+        // A shared model's limits are the one failure a user can act on
+        // without leaving the page, so the way out is named alongside it —
+        // starting with the other free provider, whose budget is its own and
+        // costs nothing to try.
         if (error instanceof AiRequestError && error.rateLimited && provider().keyless) {
-          bubble('status', 'Switch the provider above to OpenRouter or OpenAI to use a key of ' +
-            'your own, which has limits of its own.');
+          const free = PROVIDER_IDS
+            .filter(id => id !== providerId && providerFor(id).keyless)
+            .map(id => providerFor(id).label);
+          bubble('status', (free.length
+            ? `Switch the provider above to ${free.join(' or ')} — a separate free budget — or ` +
+              'connect a key of your own, which has limits of its own.'
+            : 'Switch the provider above to OpenRouter or OpenAI to use a key of your own, ' +
+              'which has limits of its own.'));
         }
       }
     } finally {
