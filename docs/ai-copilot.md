@@ -37,7 +37,7 @@ provider is a new entry in `AI_PROVIDERS` rather than a branch in the panel:
 | second hop | `api.openai.com`, named in the boundary line (`upstream`) | `openrouter.ai`, likewise | none | none |
 | attribution | none | none — the proxy sends OpenRouter's headers itself | `HTTP-Referer` and `X-Title` | none — OpenAI rejects them in preflight (`attribution`) |
 | usage | as OpenAI, and priced nowhere | the same, and free anyway | appended to the stream automatically, with a cost | only when asked with `stream_options.include_usage`, and priced nowhere (`requestUsage`, `reportsCost`) |
-| reasoning effort | unset — the proxy sets `'none'` upstream | unset — the proxy sets `'low'` upstream | nested under `reasoning`, so nothing is sent | top-level `reasoning_effort`, but unreachable with tools — see below (`reasoningEffort`) |
+| reasoning effort | unset — the proxy sets `'none'` upstream | unset — the proxy sets `'low'` upstream | nested under `reasoning`, so nothing is sent | top-level `reasoning_effort: 'none'`, on a reasoning model only — see below (`reasoningEffort`) |
 | cache routing | one shared key, set by the proxy | none; free endpoints cache nothing for us | prefix hashing only | `prompt_cache_key` per page (`promptCacheKey`) |
 
 **A keyless provider must send no `Authorization` header at all.** `client.ts`
@@ -338,22 +338,31 @@ the two OpenAI-only request fields are:
 - **`prompt_cache_key`** (`CACHE_KEY` in `agent.ts`), one per page rather than
   one per conversation, because every conversation shares the same system
   prefix and a New chat should start against a warm cache.
-- **`reasoning_effort` — currently unset, and not by choice.** Reasoning tokens
-  bill at the output rate and are never served from cache, and a turn spends
-  most of its up-to-50 rounds mechanically threading one tool result into the
-  next tool call, so a low effort is exactly what this loop wants. But
-  `gpt-5.4-mini` refuses the field alongside function tools on
-  `/v1/chat/completions`:
+- **`reasoning_effort: 'none'` — all-or-nothing, and not by choice.** Reasoning
+  tokens bill at the output rate and are never served from cache, and a turn
+  spends most of its up-to-50 rounds mechanically threading one tool result into
+  the next tool call, so a low effort is exactly what this loop wants. But
+  `/v1/chat/completions` refuses the graph tools alongside any effort above
+  `'none'`:
 
   > Function tools with reasoning_effort are not supported for gpt-5.4-mini in
   > /v1/chat/completions. To use function tools, use /v1/responses or set
   > reasoning_effort to 'none'.
 
-  Every request this dock makes carries the graph tools, so on this request
-  path the only reachable values are unset and `'none'` — all-or-nothing, with
-  no way to ask for *less* reasoning rather than none. `AI_PROVIDERS.openai`
-  therefore sends nothing, and `reasoningEffort` stays in the descriptor as the
-  one-word switch if `'none'` is measured to be worth its quality cost.
+  Every request this dock makes carries those tools, so on this request path the
+  only reachable values are unset and `'none'` — with no way to ask for *less*
+  reasoning rather than none.
+
+  **And unset is not `'none'`.** An absent field means the model's own default,
+  which for `gpt-5.6-luna` is non-none — so on the user's own key that model
+  answered the refusal above to *every* prompt until `AI_PROVIDERS.openai`
+  started pinning `'none'`, the same pin `UPSTREAMS.openai` has always applied
+  to the shared key. The field goes out only alongside tools and only to a model
+  matching `REASONING_MODEL` in `client.ts` (the gpt-5 line and the o-series):
+  the OpenAI picker is unfiltered, and a chat-only model such as `gpt-4o`
+  answers "Unrecognized request argument supplied: reasoning_effort" rather than
+  reasoning less. A new reasoning family needs adding to that pattern, or its
+  first tool-carrying request fails the same way.
 
   Graduated effort needs `/v1/responses`, which would also let reasoning items
   survive between tool rounds instead of being re-derived on each of them. That

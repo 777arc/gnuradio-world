@@ -2255,9 +2255,17 @@ document.addEventListener('keydown', e => {
   // editable surface is a contenteditable <div>, not a form control, so without
   // isContentEditable, typing `d` into the Embedded Python Block's source
   // disabled the block instead.
-  const active = document.activeElement as HTMLElement | null;
-  if (active && (['INPUT', 'SELECT', 'TEXTAREA'].includes(active.tagName) ||
-                 active.isContentEditable)) return;
+  //
+  // The event's target, not activeElement: a handler nearer the field can move
+  // focus before this one runs. Enter in the AI dock's prompt submits, and the
+  // submit handler disables the textarea while the turn is in flight, which
+  // blurs it — so by the time the event bubbles to document, activeElement is
+  // <body> and Enter opened the selected block's properties dialog as well.
+  const typing = (node: EventTarget | null) => {
+    const el = node as HTMLElement | null;
+    return !!el && (['INPUT', 'SELECT', 'TEXTAREA'].includes(el.tagName) || el.isContentEditable);
+  };
+  if (typing(e.target) || typing(document.activeElement)) return;
 
   if (ctrl && key === 'z') { consume(e); e.shiftKey ? redo() : undo(); }
   else if (ctrl && key === 'y') { consume(e); redo(); }

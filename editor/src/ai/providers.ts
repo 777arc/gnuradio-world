@@ -69,16 +69,21 @@ export interface AiProvider {
   /** Whether usage has to be requested with `stream_options`. */
   requestUsage: boolean;
   /**
-   * Reasoning effort, as OpenAI's top-level `reasoning_effort`.
+   * Reasoning effort, as OpenAI's top-level `reasoning_effort`, sent only
+   * alongside tools and only to a model with a reasoning knob at all
+   * (`REASONING_MODEL` in client.ts — gpt-4o and friends reject the field as an
+   * unknown argument).
    *
-   * Unset everywhere at the moment, and both providers reject it for their own
-   * reason. OpenRouter nests the same idea under `reasoning`. OpenAI accepts
-   * the field, but **not together with function tools on
-   * `/v1/chat/completions`** — `gpt-5.4-mini` answers "Function tools with
-   * reasoning_effort are not supported … use /v1/responses or set
-   * reasoning_effort to 'none'". Since every request this dock makes carries
-   * the graph tools, the only values reachable from this request path are
-   * unset and `'none'`, and anything in between needs the Responses API.
+   * `/v1/chat/completions` refuses function tools together with any effort
+   * above `'none'` — "Function tools with reasoning_effort are not supported …
+   * use /v1/responses or set reasoning_effort to 'none'" — and **unset is not
+   * the same as `'none'`**: a model whose own default is non-none, such as
+   * gpt-5.6-luna, refuses every tool-carrying request when the field is
+   * absent, which is every request this dock makes. So `'none'` here is what
+   * makes a reasoning model usable on this path at all, exactly as it is for
+   * the shared key in `UPSTREAMS.openai`; anything in between needs the
+   * Responses API. OpenRouter nests the same idea under `reasoning`, so
+   * nothing is sent there.
    */
   reasoningEffort?: 'none' | 'minimal' | 'low' | 'medium' | 'high';
   /**
@@ -278,6 +283,10 @@ export const AI_PROVIDERS: Record<ProviderId, AiProvider> = {
     modelsNeedKey: true,
     attribution: false,
     requestUsage: true,
+    // The user's own key on the same endpoint the shared one uses, so it needs
+    // the same pin: without it a reasoning model whose default effort is not
+    // 'none' refuses every tool-carrying request. See `reasoningEffort`.
+    reasoningEffort: 'none',
     promptCacheKey: true,
     storage: {
       key: 'gnuradio-world.openai-key',

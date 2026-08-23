@@ -58,6 +58,13 @@ assert.match(html, /id="menus"/);
 // second half of this test, typing `d` into a block's Python source disabled the
 // block.
 assert.match(source,
-  /\['INPUT', 'SELECT', 'TEXTAREA'\]\.includes\(active\.tagName\) \|\|\s*active\.isContentEditable\)\) return;/,
+  /\['INPUT', 'SELECT', 'TEXTAREA'\]\.includes\(el\.tagName\) \|\| el\.isContentEditable\)/,
   'bare-key shortcuts must yield to a focused code editor as well as to form fields');
+// ... and the field the key was typed into is the event's target, which a nearer
+// handler cannot take away. Enter in the AI dock submits and the submit handler
+// disables the prompt, blurring it, so an activeElement-only guard let the same
+// Enter open the selected block's properties dialog.
+assert.match(source,
+  /if \(typing\(e\.target\) \|\| typing\(document\.activeElement\)\) return;/,
+  'the typing guard must test the event target, not only the current activeElement');
 console.log(`checked ${Object.keys(bindings).length} native shortcut groups`);

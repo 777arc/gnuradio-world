@@ -120,6 +120,12 @@ export function apiError(provider: AiProvider, status: number, body: string): Ai
 // ones filtered back out.
 const OPENAI_CHAT_MODEL = /^(gpt-|chatgpt-|o\d)/;
 const OPENAI_NOT_CHAT = /embed|audio|tts|whisper|image|dall-e|moderation|realtime|transcribe|speech|instruct|search|sora/;
+// The families that have a reasoning knob to turn off: the gpt-5 line and the
+// o-series. That list is every model in the picker that accepts
+// `reasoning_effort` — a chat-only model such as gpt-4o answers "Unrecognized
+// request argument supplied: reasoning_effort" — so the provider's effort is
+// sent through this gate rather than to whatever the user picked.
+const REASONING_MODEL = /^(gpt-5|o\d)/;
 
 const openAiModels = (payload: any): AiModel[] =>
   (Array.isArray(payload?.data) ? payload.data : [])
@@ -206,7 +212,13 @@ export async function chatCompletion(options: {
       stream: true,
       // OpenRouter appends usage itself; OpenAI omits it from a stream unless asked.
       ...(provider.requestUsage ? { stream_options: { include_usage: true } } : {}),
-      ...(provider.reasoningEffort ? { reasoning_effort: provider.reasoningEffort } : {}),
+      // Only alongside tools, the only shape an effort is constrained in, and
+      // only for a model with reasoning to constrain. Unset is not 'none':
+      // gpt-5.6-luna's own default is non-none, so leaving the field off made
+      // it refuse every tool-carrying request with "Function tools with
+      // reasoning_effort are not supported … set reasoning_effort to 'none'".
+      ...(provider.reasoningEffort && options.tools.length && REASONING_MODEL.test(options.model)
+        ? { reasoning_effort: provider.reasoningEffort } : {}),
       ...(provider.promptCacheKey && options.cacheKey
         ? { prompt_cache_key: options.cacheKey } : {}),
     }),

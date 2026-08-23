@@ -345,10 +345,12 @@ assert.ok(openAiBody.tools.length, 'the graph tools go to either provider');
 // than left to whatever the model or the routed provider defaults to.
 assert.equal(openAiBody.parallel_tool_calls, true);
 assert.equal(routerBody.parallel_tool_calls, true);
-// gpt-5.4-mini rejects reasoning_effort alongside function tools on
-// /v1/chat/completions unless it is 'none', and every request here carries the
-// graph tools, so the field stays unset on this path.
-assert.equal(openAiBody.reasoning_effort, undefined);
+// /v1/chat/completions rejects function tools alongside any reasoning effort
+// above 'none', and an absent field is not 'none' — a model whose own default
+// is non-none (gpt-5.6-luna) refused every request the dock made on the user's
+// own key until this was pinned, exactly as the proxy pins it for the shared
+// one.
+assert.equal(openAiBody.reasoning_effort, 'none');
 assert.ok(openAiBody.tools.length, 'which is only a constraint because tools are always sent');
 // Routes the request at the machine holding this prefix's cache.
 assert.match(openAiBody.prompt_cache_key, /^grw-/);
@@ -356,6 +358,22 @@ assert.equal(openAiBody.prompt_cache_key, CACHE_KEY);
 
 assert.equal(routerBody.prompt_cache_key, undefined,
   'prompt_cache_key is OpenAI-only');
+
+// ... but only to a model that has reasoning to turn off. The same picker lists
+// gpt-4o, which answers "Unrecognized request argument supplied:
+// reasoning_effort" rather than reasoning less.
+let chatOnlyRequest;
+const chatOnlyAgent = new FlowgraphAgent({
+  provider: 'openai', key: 'sk-test', model: 'gpt-4o', systemPrompt: 'test', deps,
+  fetchImpl: async (url, init) => {
+    chatOnlyRequest = { url, init };
+    return sse([{ choices: [{ delta: { content: 'Ready.' } }] }]);
+  },
+});
+await chatOnlyAgent.turn('hello');
+const chatOnlyBody = JSON.parse(chatOnlyRequest.init.body);
+assert.equal(chatOnlyBody.reasoning_effort, undefined);
+assert.ok(chatOnlyBody.tools.length, 'the tools go either way');
 
 // The shared proxy takes no key, so the request must carry no Authorization
 // header at all — there is nothing of the user's to send, and the proxy holds
