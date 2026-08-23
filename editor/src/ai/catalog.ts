@@ -104,6 +104,17 @@ export function describeBlock(
   };
 }
 
+/**
+ * `describe_block` without the prose, for the block types already on the canvas:
+ * those go into every user message, and the parameter contract is the part a
+ * turn needs before it can edit or explain anything. Derived from the same
+ * function rather than a parallel one, so a field added there appears here.
+ */
+export function briefBlock(deps: CatalogDeps, id: string): Record<string, unknown> {
+  const { documentation, api_documentation, wiki_url, ...brief } = describeBlock(deps, id);
+  return brief;
+}
+
 export function nonDefaultParams(inst: Inst, def: RunnableDef): Record<string, unknown> {
   return Object.fromEntries(def.params
     .filter(param => JSON.stringify(inst.params[param.id]) !== JSON.stringify(param.def))

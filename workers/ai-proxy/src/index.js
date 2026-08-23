@@ -200,6 +200,11 @@ export function sanitizeBody(raw, cfg) {
       messages: raw.messages,
       ...(raw.tools ? { tools: raw.tools } : {}),
       ...(raw.tool_choice ? { tool_choice: raw.tool_choice } : {}),
+      // Set, not accepted, like the fields below it: a batch of
+      // independent calls answered in one round is one billed request instead
+      // of several, each of which would resend the whole transcript. Only
+      // alongside tools, which is the only shape OpenAI accepts it in.
+      ...(raw.tools ? { parallel_tool_calls: true } : {}),
       stream: true,
       // Not negotiable: the token count in this event is what the limiter
       // settles against.

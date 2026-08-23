@@ -197,6 +197,12 @@ export async function chatCompletion(options: {
       model: options.model,
       messages: options.messages,
       tools: options.tools,
+      // One HTTP request per tool round, with the whole transcript resent each
+      // time, so a turn's cost is set by how many rounds it takes. Independent
+      // calls belong in one round. OpenAI defaults this on and OpenRouter
+      // leaves it to the model, so it is stated rather than assumed — but only
+      // alongside tools, which is the only shape OpenAI accepts it in.
+      ...(options.tools.length ? { parallel_tool_calls: true } : {}),
       stream: true,
       // OpenRouter appends usage itself; OpenAI omits it from a stream unless asked.
       ...(provider.requestUsage ? { stream_options: { include_usage: true } } : {}),

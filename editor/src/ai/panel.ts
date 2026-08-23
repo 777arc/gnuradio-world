@@ -23,7 +23,7 @@ import {
   type ProviderId,
 } from './providers';
 import { runFlowgraph, type HarnessDeps, type RunAuthorization } from './harness';
-import type { AiToolDeps } from './tools';
+import { canvasContext, type AiToolDeps } from './tools';
 
 export interface AiPanelDeps {
   openDialog(title: string, build: (body: HTMLElement) => void, wide?: boolean): HTMLElement;
@@ -167,10 +167,17 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
   // Totalled apart, because one number cannot distinguish cheap cached input
   // from full-price fresh input from output spent reasoning.
   const usageTotals = { prompt: 0, completion: 0, cached: 0, reasoning: 0, total: 0 };
+  // One request per tool round, and every one of them resends the transcript,
+  // so how many rounds a message takes is the other half of what it cost.
+  // Counted against messages sent rather than shown alone, because the number
+  // that means anything is rounds per message.
+  let requests = 0;
+  let turns = 0;
   const clearUsage = () => {
     spend = 0;
     usageTotals.prompt = usageTotals.completion = 0;
     usageTotals.cached = usageTotals.reasoning = usageTotals.total = 0;
+    requests = turns = 0;
   };
   let agent: FlowgraphAgent | null = null;
   let controller: AbortController | null = null;
@@ -204,6 +211,11 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
     : `Copilot API: ${provider().host} only`;
   const share = (part: number, whole: number) =>
     whole > 0 ? ` (${Math.round((part / whole) * 100)}%)` : '';
+  const plural = (count: number, word: string) =>
+    `${count.toLocaleString()} ${word}${count === 1 ? '' : 's'}`;
+  const requestLine = () =>
+    `${plural(requests, 'request')} across ${plural(turns, 'message')}` +
+    (turns > 0 ? ` (${(requests / turns).toFixed(1)} each)` : '');
   /**
    * Short enough for the header, which has about twenty monospace characters.
    * Exact below 10k, then one decimal that is dropped when it is zero — and M
@@ -235,18 +247,22 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
     const headline = named.reportsCost
       ? 'Spend on this conversation'
       : `Tokens used in this conversation (${named.label} reports no cost)`;
-    cost.title = usageTotals.total ? [
+    // A request that failed before its usage event still cost a round-trip, so
+    // the detail appears once either counter has moved rather than only once
+    // tokens have been reported.
+    cost.title = usageTotals.total || requests ? [
       headline,
       `Input ${usageTotals.prompt.toLocaleString()} · ` +
         `${usageTotals.cached.toLocaleString()} cached${share(usageTotals.cached, usageTotals.prompt)}`,
       `Output ${usageTotals.completion.toLocaleString()} · ` +
         `${usageTotals.reasoning.toLocaleString()} reasoning${share(usageTotals.reasoning, usageTotals.completion)}`,
       `Total ${usageTotals.total.toLocaleString()}`,
+      requestLine(),
     ].join('\n') : headline;
     // ↑ and ↓ are shape, not speech, so the spoken label says which is which.
     cost.setAttribute('aria-label', usageTotals.total
       ? `${headline}. Input ${usageTotals.prompt.toLocaleString()} tokens, ` +
-        `output ${usageTotals.completion.toLocaleString()} tokens.`
+        `output ${usageTotals.completion.toLocaleString()} tokens. ${requestLine()}.`
       : headline);
   };
   const updateSend = () => {
@@ -259,7 +275,13 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
 
   const toolRow = (name: string, payload: unknown) => {
     const details = node('details', 'ai-tool');
-    const summary = node('summary', '', `Tool · ${name}`);
+    // A batch is one row, so its size belongs in the collapsed summary — the
+    // difference between one edit and twenty is otherwise invisible until the
+    // row is opened.
+    const batch = (payload as { edits?: unknown[] } | null)?.edits;
+    const summary = node('summary', '', Array.isArray(batch)
+      ? `Tool · ${name} · ${plural(batch.length, 'edit')}`
+      : `Tool · ${name}`);
     const request = node('pre', 'ai-tool-payload');
     request.textContent = JSON.stringify(payload, null, 2);
     details.append(summary, request);
@@ -290,6 +312,7 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
       activeAssistantText?.appendChild(document.createTextNode(chunk));
       scrollDown();
     },
+    requestStarted: () => { requests++; showSpend(); },
     toolStarted: (name, args) => { currentTool = toolRow(name, args); },
     toolFinished: (_name, result, error) => {
       if (!currentTool) return;
@@ -711,13 +734,19 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
     if (!currentModel()) { modelSelect.focus(); return; }
     if (!agent) rebuildAgent();
     bubble('user', text);
+    turns++;
     prompt.value = '';
+    // What the user typed is what the transcript shows; what the model receives
+    // is that plus the canvas it would otherwise have spent its first round or
+    // two asking for. Seeded per message rather than in the system prompt: the
+    // canvas changes and the prefix must not.
+    const seeded = `${canvasContext(deps.toolDeps)}\n\n[message]\n${text}`;
     const before = deps.snapshot();
     controller = new AbortController();
     stop.hidden = false;
     updateSend();
     try {
-      await agent!.turn(text, controller.signal);
+      await agent!.turn(seeded, controller.signal);
     } catch (error) {
       const aborted = error instanceof DOMException && error.name === 'AbortError';
       if (aborted) bubble('status', 'Stopped.');

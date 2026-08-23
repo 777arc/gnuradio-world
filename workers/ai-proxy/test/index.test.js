@@ -194,6 +194,17 @@ test('tools force reasoning off, which is what makes them work at all', () => {
   assert.equal('reasoning_effort' in sanitizeBody(noTools, config({})).body, false);
 });
 
+test('tool calls are batched, so one round is one billed request', () => {
+  // Every round resends the whole transcript, so calls the model could have
+  // answered together cost the shared budget twice. The caller does not get to
+  // turn that off.
+  const withTools = sanitizeBody({ ...CHAT, parallel_tool_calls: false }, config({}));
+  assert.equal(withTools.body.parallel_tool_calls, true);
+  // OpenAI rejects the field without tools to go with it.
+  const { tools, ...noTools } = CHAT;
+  assert.equal('parallel_tool_calls' in sanitizeBody(noTools, config({})).body, false);
+});
+
 test('a request naming no model gets the default rather than a refusal', () => {
   const { model, ...noModel } = CHAT;
   const sanitized = sanitizeBody(noModel, config({}));

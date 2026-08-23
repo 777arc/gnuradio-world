@@ -178,6 +178,29 @@ assert.deepEqual(events, ['assistant', 'start:validate', 'finish:validate', 'ass
 assert.deepEqual(agent.transcript().map(message => message.role),
   ['system', 'user', 'assistant', 'tool', 'assistant']);
 
+// The header's hover breakdown counts requests, and one round is one request.
+// Counted where the request is issued, so a round that dies mid-stream — which
+// still spent a round-trip and, on the shared proxy, still spent budget —
+// counts exactly like one that returned usage.
+let issued = 0;
+let failingRequest = 0;
+const failingAgent = new FlowgraphAgent({
+  provider: 'openrouter', key: 'test', model: 'stub/model', systemPrompt: 'test', deps,
+  hooks: { requestStarted: () => { issued++; } },
+  fetchImpl: async () => {
+    failingRequest++;
+    if (failingRequest === 1) {
+      return sse([{ model: 'stub/model', choices: [{ delta: { tool_calls: [{
+        index: 0, id: 'call_1', type: 'function',
+        function: { name: 'validate', arguments: '{}' },
+      }] } }] }]);
+    }
+    return sse([{ error: { message: 'upstream fell over' } }]);
+  },
+});
+await assert.rejects(failingAgent.turn('validate this'), /upstream fell over/);
+assert.equal(issued, 2, 'a request that failed mid-stream still cost a round-trip');
+
 let editTime = 0;
 let runTime = 0;
 let previewRequest = 0;
@@ -266,6 +289,11 @@ const openAiBody = JSON.parse(openAiRequest.init.body);
 assert.equal(openAiBody.model, 'gpt-5.4-mini');
 assert.deepEqual(openAiBody.stream_options, { include_usage: true });
 assert.ok(openAiBody.tools.length, 'the graph tools go to either provider');
+// A turn's cost is set by its round count, because every round resends the
+// whole transcript — so independent calls are asked for in one round rather
+// than left to whatever the model or the routed provider defaults to.
+assert.equal(openAiBody.parallel_tool_calls, true);
+assert.equal(routerBody.parallel_tool_calls, true);
 // gpt-5.4-mini rejects reasoning_effort alongside function tools on
 // /v1/chat/completions unless it is 'none', and every request here carries the
 // graph tools, so the field stays unset on this path.

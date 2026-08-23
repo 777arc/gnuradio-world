@@ -47,7 +47,12 @@ tokens there and a dollar figure on OpenRouter. Either headline hides the split
 that decides the bill, so hovering it breaks the conversation down into input
 against cached input and output against reasoning — `client.ts` flattens both
 out of the nested `prompt_tokens_details` / `completion_tokens_details` that
-each provider reports them in. Model lists are cached per
+each provider reports them in — and closes with the conversation's **request
+count against the messages sent**, since rounds per message is the multiplier
+behind the input total. That count comes from the agent's `requestStarted`
+hook, fired where the request is issued rather than derived from usage events,
+so a round that fails or is aborted mid-stream still counts as the round-trip
+it was. Model lists are cached per
 provider, an authenticated one is dropped on Disconnect, and a list that arrives
 after the user has switched providers is discarded rather than shown.
 
@@ -147,9 +152,25 @@ dock's Stop control aborts the fetch.
 
 ## Graph editing and history
 
-`tools.ts` exposes granular edits. Parameter names are checked against the
-instance's `defFor(inst)` definition before a mutation; an unknown id is a tool
-error that lists valid ids. Port labels and message ports resolve through the
+`tools.ts` exposes granular edits, and `apply_edits` carries an ordered batch of
+them in one call. The edit operations live in one `EDITS` table: a single-edit
+tool is one entry reported on its own, a batch is the same entries with one
+validation pass at the end, so the two can never drift apart. `EDIT_OPS` is that
+table's key set, which is also the `op` enum in the batch tool's schema — adding
+an operation to the table adds it to both paths and to the schema at once.
+
+A batch **stops at the first failing entry** and reports `{index, op, error,
+not_applied}`; everything before it stays applied. Rolling back would be the
+wrong instinct: a turn is snapshotted once in the panel and Ctrl+Z reverses the
+whole of it, so a half-applied batch is already undoable, and unwinding it would
+throw away edits the model should be told to build on. Its report is
+deliberately not one entry per edit — `applied` as a count, `added` mapping only
+the names the editor assigned back to their block ids, and the one failure. An
+edit that did exactly what it was told tells the model nothing it does not
+already know, and a per-edit echo would be resent on every later round.
+
+Parameter names are checked against the instance's `defFor(inst)` definition
+before a mutation; an unknown id is a tool error that lists valid ids. Port labels and message ports resolve through the
 same expanded port metadata the canvas uses. Each mutation returns the fresh
 validation state, slimmed: `validation.blocking` in full, `non_blocking` as a
 count. Only `validate` returns every issue — see "Token discipline" below.
@@ -219,6 +240,55 @@ anything from the model:
 Prefer this shape for anything new: full detail on demand through an explicit
 argument or a dedicated tool, a truncation the model can see and act on, and
 never a payload whose size grows with the graph when a count would do.
+
+**Every user message is seeded with the canvas**, by `canvasContext()` in
+`tools.ts`, called from the panel's submit handler — the `get_flowgraph` result
+plus the `describe_block` results, minus documentation, for the block types
+placed on it. Nearly every turn used to open by asking for exactly those two
+things, which is two round-trips spent on what the editor already had in hand.
+It is seeded into the *message*, never the system prompt: the canvas changes
+between turns and the cached prefix must not. The transcript bubble still shows
+only what the user typed.
+
+That payload rides along on every round of the turn, so it is capped and the
+caps are load-bearing. `qtgui_time_sink_x` alone describes ten traces in six
+styling parameters each and runs to 7.7 KB; two GUI sinks would have put 13 KB
+into every message. `SEED_TYPE_BYTES` keeps a head of each type's parameters —
+GRC orders what a block *does* before per-trace styling, so the head is the
+useful part — and names the remainder for `describe_block`. `SEED_GRAPH_LIMIT`
+turns an oversized canvas into a one-line summary, `SEED_DEFINITION_LIMIT` and
+`SEED_DEFINITION_BYTES` bound the definitions, and each degradation names the
+tool that reads what it left out. An ordinary eight-block canvas with two GUI
+sinks seeds about 10 KB against roughly 18 KB uncapped, and saves two rounds
+that would each have resent the whole prefix.
+
+`canvasContext()` is also the one payload built on the *submit* path rather than
+inside the agent loop, where a throw would swallow the user's message instead of
+becoming a tool error — so it catches, falls back to a line naming
+`get_flowgraph`, and lets the turn proceed.
+
+**Round count is the other multiplier, and it is the model's to spend.** One
+HTTP request per round, the whole transcript resent in each, so a turn that
+takes twenty rounds pays for its own history twenty times — the same work in
+five rounds is a quarter of the input tokens and a quarter of the requests
+against the proxy's per-IP window. `agent.turn()` has always executed every
+tool call in a round together, so nothing but the model decides how many arrive
+at once. Four things ask it for more: the seeded canvas above removes the
+opening read entirely, `apply_edits` raises the ceiling on what one call can be
+— a graph built from scratch is one call rather than one per block, parameter
+and wire — `parallel_tool_calls` is stated in
+`client.ts` rather than left to the provider's default (OpenAI's is on,
+OpenRouter's is the routed model's, and the proxy sets it upstream itself since
+its whitelist would otherwise drop the caller's), and the system prompt names
+batching as a rule with the case that is easy to get wrong — a batch dispatches
+in order, so an `add_block` that names its block explicitly can be followed by
+the `set_params` and `connect` entries using that name in the same batch. Only a
+call whose arguments are not knowable until an earlier result arrives has to
+wait for the next round. The prompt also names the pairing that costs a round
+every debugging iteration: `run_flowgraph` placed after the `apply_edits` it
+tests, in the same batch, which the graph-preview delay was already written to
+handle. The request field is sent alongside tools only, which
+is the only shape OpenAI accepts it in.
 
 Those three are all input-side, which is where OpenRouter's cost sits. **On
 OpenAI the input side is largely already discounted** — it caches prompt

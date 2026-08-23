@@ -33,6 +33,13 @@ const waitForGraphPreview = (ms: number, signal?: AbortSignal) =>
   });
 
 export interface AgentHooks {
+  /**
+   * One round is one HTTP request, and the whole transcript goes up in each of
+   * them — so this, not the turn count, is what a conversation is billed by.
+   * Fired where the request is actually issued rather than derived from a
+   * usage event, so a round that fails or is aborted mid-stream still counts.
+   */
+  requestStarted?(): void;
   assistantStarted?(): void;
   assistantDelta?(text: string): void;
   assistantFinished?(text: string): void;
@@ -88,6 +95,7 @@ export class FlowgraphAgent {
 
     while (rounds < MAX_TOOL_ROUNDS) {
       rounds++;
+      this.options.hooks?.requestStarted?.();
       this.options.hooks?.assistantStarted?.();
       let streamed = '';
       const response = await chatCompletion({
