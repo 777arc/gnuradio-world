@@ -24,11 +24,25 @@ blocks:
     parameters:
         type: byte
     states:
-        coordinate: [330, 80]
+        coordinate: [520, 80]
+        rotation: 0
+        state: enabled
+-   name: throttle
+    id: blocks_throttle2
+    parameters:
+        ignoretag: 'True'
+        limit: time
+        maximum: '0.02'
+        samples_per_second: '32000'
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [300, 80]
         rotation: 0
         state: enabled
 connections:
-- [image, '0', probe, '0']
+- [image, '0', throttle, '0']
+- [throttle, '0', probe, '0']
 metadata:
     file_format: 1
     grc_version: 3.11.0.0
