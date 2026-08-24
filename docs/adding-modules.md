@@ -55,7 +55,8 @@ the always-loaded core or an on-demand side module. To add one (say `gr-foo`):
    (cd editor && npm run build)
    ```
    The editor palette picks up the new blocks automatically: `gen_blocklib.py`
-   stamps each block with its `module`.
+   stamps each block with its runtime `module`. In-tree modules keep the native
+   GRC category tree and do not get a source-provenance subtitle on the canvas.
 
 5. **Test lazy loading** with `node test/test_lazy_scenarios.mjs`.
 
@@ -103,6 +104,16 @@ and bumping it is a plain `fetch` + `checkout` with nothing to rebase. Of all th
 vendored modules only gr-dvbs2 is a fork, and it is upstream plus exactly one
 commit: a WASM buffer-wrap fix that had to go in its `lib/`. Do not create a fork
 to hold yaml or a generated header.
+
+The checkout location also supplies the editor's OOT provenance. Every block
+discovered from a world-repo `gr-<m>` checkout (including a nested
+`source_roots` module) is emitted with `oot_module: gr-<m>`. The palette replaces
+the first segment of upstream's category with that package name while preserving
+the rest (`[Satellites]/Deframers` becomes `gr-satellites/Deframers`), and the
+canvas shows the same `gr-<m>` beneath the block title. This is deliberately not
+derived from the runtime `module`: an unavailable OOT block, or one backed by a
+hand-written core factory, can legitimately have `module: core` and still come
+from an OOT.
 
 **2. Triage the blocks** — which have a C++ path, and what they depend on:
 ```bash
@@ -321,7 +332,8 @@ Two more gr-satellites specifics:
   `components/demodulators`, `hier`, `ccsds`, `usp`, `core`, …), which is why
   `gen_registry.py` and `gen_blocklib.py` both walk `grc/` recursively. It ships
   no `.tree.yml`; every block carries an explicit `category: '[Satellites]/...'`,
-  so the palette categories come for free.
+  so those useful subcategories survive beneath the generated `gr-satellites`
+  palette root.
 - Its rebuilt hierarchies wrap their message ports with
   `gr::pdu::{pdu_to_tagged_stream,tagged_stream_to_pdu}`, hence
   `"module_deps": {"satellites": ["pdu"]}` in `runner/modules.json` — see

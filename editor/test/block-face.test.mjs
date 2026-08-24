@@ -1,9 +1,13 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { bundleModule } from './bundle-module.mjs';
 import { editorSource as source, markupSource as html } from './editor-contract-source.mjs';
 
 const library = JSON.parse(await readFile(
   new URL('../public/blocks.json', import.meta.url), 'utf8'));
+const { installGeneratedBlocks, RUNNABLE } =
+  await bundleModule('./_library-entry.ts');
+installGeneratedBlocks(library.blocks || []);
 const multiply = (library.blocks || []).find(block => block.id === 'blocks_multiply_xx');
 
 assert.equal(multiply?.params?.find(param => param.id === 'type')?.hide, 'part',
@@ -74,13 +78,18 @@ assert.match(source,
 assert.match(source,
   /if \(!rows\.length && !thumb\) titleAttrs\['dominant-baseline'\] = 'central'/,
   'the GUI Layout thumbnail must use the same title baseline as parameter rows');
-// The Embedded Python and JavaScript Blocks are the blocks whose name, parameters
-// and ports come from source the user wrote, so their faces say which language
-// that is. The measured size and the drawn one are two declarations of one thing,
-// as with the title and parameter rows above.
+// OOT blocks say which gr-* package supplied them. The Embedded Python and
+// JavaScript Blocks keep the language subtitles that already explained where
+// their instance-specific definitions came from.
+assert.equal(RUNNABLE.ham_varicode_rx?.ootModule, 'gr-ham',
+  'generated source provenance must reach the canvas definition');
+assert.equal(RUNNABLE.blocks_multiply_xx?.ootModule, undefined,
+  'an in-tree block must not acquire an OOT subtitle');
+assert.match(source, /existing\.ootModule = ootModule/,
+  'generated provenance must also merge into a hand-written definition');
 assert.match(source,
-  /const subtitleFor = \(inst: Inst\) =>\s*\n?\s*inst\.id === EPY_BLOCK_ID \? 'Python' : inst\.id === JS_BLOCK_ID \? 'JavaScript' : '';/,
-  'the Python and JS Blocks are the blocks that carry a subtitle');
+  /const subtitleFor = \(inst: Inst, d: RunnableDef\) => d\.ootModule \|\|[\s\S]*?EPY_BLOCK_ID \? 'Python'[\s\S]*?JS_BLOCK_ID \? 'JavaScript'/,
+  'an OOT subtitle must take precedence while Python and JS retain theirs');
 assert.match(source, /const headH = TITLE_H \+ \(subtitle \? SUBTITLE_H : 0\)/,
   'a subtitle must lengthen the title bar, or it collides with the first parameter row');
 assert.match(source, /rowsTop\(h, rows\.length, headH\)/,
@@ -91,7 +100,7 @@ assert.match(html, /\.blk text\.subtitle \{[^}]*font-size:12px/,
   'the subtitle must be drawn at the size main.ts measures it at');
 assert.doesNotMatch(html, /\.blk text\.subtitle \{[^}]*font-style:italic/,
   'the subtitle is set apart by size and colour, not by italics');
-assert.match(source, /const SUBTITLE_FONT_SIZE = 12, SUBTITLE_H = 12, SUBTITLE_GAP = 12;/,
+assert.match(source, /const SUBTITLE_FONT_SIZE = 12, SUBTITLE_H = 14, SUBTITLE_GAP = 14;/,
   'the subtitle must be measured at the size editor.css draws it at');
 assert.match(source,
   /if \(rows\.length > MAX_FACE_ROWS\) {[\s\S]*?rows\.length = MAX_FACE_ROWS - 1;[\s\S]*?more parameters/,

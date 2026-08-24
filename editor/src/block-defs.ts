@@ -40,6 +40,9 @@ export interface ResolvedPort {
 export interface RunnableDef {
   label: string; inputs: number; outputs: number; params: ParamDef[];
   documentation?: string; apiDocumentation?: string; wikiUrl?: string;
+  // The vendored out-of-tree package this definition came from. This is source
+  // provenance ("gr-ham"), not the runner's downloadable module name ("ham").
+  ootModule?: string;
   // Native GRC's implicit `id` parameter is `hide: all` unless the block's yaml
   // carries the `show_id` flag (Variable, QT GUI Range, Probe Signal, …), in
   // which case it is `hide: none` and appears both on the block face and in the

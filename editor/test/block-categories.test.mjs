@@ -3,12 +3,38 @@ import { readFile } from 'node:fs/promises';
 
 const library = JSON.parse(await readFile(
   new URL('../public/blocks.json', import.meta.url), 'utf8'));
+const modules = JSON.parse(await readFile(
+  new URL('../../runner/modules.json', import.meta.url), 'utf8'));
 const blocks = library.blocks || [];
 const byId = new Map(blocks.map(block => [block.id, block]));
 
 assert.ok(blocks.length > 0, 'generated block library is empty');
 assert.ok(blocks.every(block => Array.isArray(block.category)),
   'block categories must be path-segment arrays');
+
+// Source provenance is not the same thing as the runner chunk: unsupported OOT
+// blocks and hand-written factories can both report `module: core`. Every
+// top-level vendored gr-* checkout still gets one stable palette root.
+const ootBlocks = blocks.filter(block => block.oot_module);
+const expectedOots = modules.deferred
+  .filter(module => !modules.in_tree_deferred.includes(module))
+  .map(module => `gr-${module}`)
+  .sort();
+assert.deepEqual([...new Set(ootBlocks.map(block => block.oot_module))].sort(), expectedOots,
+  'every configured OOT must contribute source provenance to the block catalog');
+for (const block of ootBlocks) {
+  assert.equal(block.category[0], block.oot_module,
+    `${block.id} must live under its source OOT at the palette root`);
+}
+assert.deepEqual(byId.get('ham_chu_decode')?.category, ['gr-ham']);
+assert.deepEqual(byId.get('satellites_aalto1_deframer')?.category,
+  ['gr-satellites', 'Deframers'], 'an OOT must retain useful nested categories');
+assert.deepEqual(byId.get('dvbs2rx_ldpc_decoder_cb')?.category,
+  ['gr-dvbs2rx', 'DVB-S2 RX'], 'an overlay may still supply the category tail');
+assert.equal(byId.get('ham_dstar_rx')?.runnable, false);
+assert.equal(byId.get('ham_dstar_rx')?.module, 'core');
+assert.equal(byId.get('ham_dstar_rx')?.oot_module, 'gr-ham',
+  'an unavailable block must not lose the OOT it came from');
 assert.deepEqual(byId.get('iio_device_source')?.category,
   ['Core', 'Industrial I/O', 'Generic']);
 assert.deepEqual(byId.get('iio_fmcomms2_source')?.category,
@@ -21,6 +47,9 @@ assert.equal(byId.get('fosphor_qt_sink_c')?.runnable, true,
   'the embedded Qt fosphor sink must stay runnable');
 assert.equal(byId.get('fosphor_qt_sink_c')?.label, 'Fosphor Sink',
   'the browser exposes the remaining fosphor implementation as Fosphor Sink');
+assert.deepEqual(byId.get('fosphor_qt_sink_c')?.category,
+  ['gr-fosphor', 'Instrumentation', 'QT'],
+  'an OOT formerly filed under Core must keep its useful category tail');
 
 const supportedSdrBlocks = new Map([
   ['wasm_rtlsdr_source', '👂 RTL-SDR Source'],

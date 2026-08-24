@@ -19,6 +19,7 @@ MODULE_SOURCE_ROOTS = {
 # Mirror native GRC's block search. A direct world-repo OOT module overrides a
 # same-named gitlink in an older GNU Radio revision during the migration.
 module_dirs = {"grc": os.path.join(GR, "grc", "blocks")}
+oot_modules = set()
 for path in sorted(glob.glob(os.path.join(GR, "gr-*", "grc"))):
     module = os.path.basename(os.path.dirname(path))
     if module != "gr-heir":
@@ -27,8 +28,13 @@ for path in sorted(glob.glob(os.path.join(WORLD, "gr-*", "grc"))):
     module = os.path.basename(os.path.dirname(path))
     if module != "gr-heir":
         module_dirs[module] = path
+        oot_modules.add(module)
 for module, root in sorted(MODULE_SOURCE_ROOTS.items()):
     module_dirs[module] = os.path.join(root, "grc")
+    oot_modules.add(module)
+OOT_MODULE_BY_DIR = {
+    module_dirs[module]: module for module in oot_modules
+}
 MODULES = [module_dirs["grc"]] + [
     module_dirs[module] for module in sorted(module_dirs) if module != "grc"
 ] + [
@@ -410,6 +416,11 @@ def main(out_path):
     block_module = manifest.get("block_module", {})
     blocks_by_id = {}
     for mod in MODULES:
+        # Source provenance is deliberately separate from `block_module` above:
+        # the latter names a downloadable WASM chunk and therefore says "core"
+        # for an unavailable OOT block. The source directory still tells us that
+        # block belongs to (say) gr-ham, whether or not it has a runnable factory.
+        oot_module = OOT_MODULE_BY_DIR.get(mod)
         # Recursive: gr-satellites groups its block metadata into grc/
         # subdirectories (components/deframers, hier, ccsds, ...); every other
         # module keeps grc/ flat, so the recursive walk costs nothing there.
@@ -430,8 +441,8 @@ def main(out_path):
             # A module's .tree.yml normally decides the category, as in native
             # GRC. An overlay `category` is the exception: it is a deliberate
             # browser-only recategorization, so it outranks the tree as well as
-            # the block's own yaml (gr-fosphor's tree files its blocks under the
-            # in-tree Core categories).
+            # the block's own yaml (gr-dvbs2rx uses one to retain a concise
+            # DVB-S2 RX subcategory beneath the generated OOT root).
             if override and "category" in override:
                 block_category = normalize_category(d.get("category"))
             else:
@@ -442,6 +453,12 @@ def main(out_path):
             # small fallback so runnable blocks never disappear from the web UI.
             if not block_category:
                 block_category = ["Core", "Other"]
+            # An OOT's upstream category is often a domain name unrelated to the
+            # package a user must install. Keep useful subcategories, but make the
+            # package itself the stable palette root: Ham -> gr-ham, and
+            # Satellites/Deframers -> gr-satellites/Deframers.
+            if oot_module:
+                block_category[0] = oot_module
             params = []
             param_categories = {}
             for p in d.get("parameters", []) or []:
@@ -494,6 +511,9 @@ def main(out_path):
                 # Which downloadable chunk supplies this block's code; "core" is
                 # always present, others are fetched on first use.
                 "module": block_module.get(block_id, "core"),
+                # The vendored source package, independent of runtime support.
+                # In-tree and browser-owned blocks carry null here.
+                "oot_module": oot_module,
                 # Native GRC shows the YAML prose followed by the Python binding
                 # docstring. The latter comes from C++ Doxygen or a Python
                 # hierarchy/widget docstring, so keep the sources separate.

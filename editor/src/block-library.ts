@@ -118,6 +118,7 @@ export function installGeneratedBlocks(blocks: any[]) {
     const documentation = String(block.documentation || '').trim();
     const apiDocumentation = String(block.api_documentation || '').trim();
     const wikiUrl = String(block.wiki_url || '').trim();
+    const ootModule = String(block.oot_module || '').trim() || undefined;
     const params: ParamDef[] = (block.params || []).map((p: any) => ({
       id: String(p.id), label: String(p.label || p.id),
       type: p.dtype === 'enum' || p.dtype === 'bool' ? 'enum' :
@@ -197,6 +198,7 @@ export function installGeneratedBlocks(blocks: any[]) {
       existing.documentation = documentation;
       existing.apiDocumentation = apiDocumentation;
       existing.wikiUrl = wikiUrl;
+      existing.ootModule = ootModule;
       existing.showId = existing.showId || showId;
       const streamInputs = inputs.filter(p => p.domain === 'stream');
       const streamOutputs = outputs.filter(p => p.domain === 'stream');
@@ -214,7 +216,7 @@ export function installGeneratedBlocks(blocks: any[]) {
     }
     RUNNABLE[block.id] = {
       label: String(block.label || block.id), params, documentation, apiDocumentation, wikiUrl,
-      showId,
+      ootModule, showId,
       inputs: inputs.length, outputs: outputs.length,
       inTypes: inputs.map(p => p.dtype), outTypes: outputs.map(p => p.dtype),
       inDomains: inputs.map(p => p.domain), outDomains: outputs.map(p => p.domain),

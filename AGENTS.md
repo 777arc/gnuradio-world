@@ -199,6 +199,20 @@ and `npm test` there runs it first, so the editor suite always reads a fresh
 palette. `npm run build` and `npm run dev` fail with a clear message rather than
 shipping an editor with an empty palette if the generators have not been run.
 
+**Rebuild before handing off every browser-visible editor change.** The
+repository server serves `editor/dist/` at `/`; it does not hot-reload files from
+`editor/src/`. After the final edit to editor TypeScript, CSS, HTML, assets, the
+recording viewer, or generated metadata that changes the palette/UI, run:
+
+```bash
+(cd editor && npm run build)
+```
+
+`npm run check` also satisfies this because its final step is that production
+build. A build or test run from before the last UI edit does not count. Do not
+report the task complete until the post-edit build succeeds, so the user can
+refresh the already-running page and immediately see the change.
+
 ## Run and test
 
 Always serve the site through the repository server, because WASM pthreads and

@@ -438,17 +438,15 @@ const TITLE_H = 26, ROW_H = 20, PAD = 8, PORT_H = 17;
 // Baselines within the title bar and within a parameter row: PAD under the top
 // edge for the title, and the row's own text sitting on the same rhythm.
 const TITLE_BASELINE = 21, ROW_BASELINE = 15;
-// A subtitle under the title, which only the Embedded Python Block has: its name,
-// parameters and ports come from source the user wrote, and no other block on the
-// canvas works that way, so the face says which language that source is in. Size
-// and colour are what set it apart from the title; SUBTITLE_GAP is deliberately
-// tight — a subtitle rather than a second line of the name — and SUBTITLE_H is
-// the height it adds to the title bar, chosen so the
-// commonest Python Block (one parameter, one port a side) comes out exactly as
-// tall as it did without one: the line fits in slack the block already had.
-const SUBTITLE_FONT_SIZE = 12, SUBTITLE_H = 12, SUBTITLE_GAP = 12;
-const subtitleFor = (inst: Inst) =>
-  inst.id === EPY_BLOCK_ID ? 'Python' : inst.id === JS_BLOCK_ID ? 'JavaScript' : '';
+// A subtitle under the title says where a non-core block came from (gr-ham), or
+// which language supplies an inline block's source (Python/JavaScript). Source
+// provenance wins if an OOT eventually ships a non-C++ block: the package a user
+// needs is the promise this label makes. Size and colour set it apart from the
+// title; SUBTITLE_GAP is deliberately tight — a subtitle rather than a second
+// line of the name — and SUBTITLE_H is the height it adds to the title bar.
+const SUBTITLE_FONT_SIZE = 12, SUBTITLE_H = 14, SUBTITLE_GAP = 14;
+const subtitleFor = (inst: Inst, d: RunnableDef) => d.ootModule ||
+  (inst.id === EPY_BLOCK_ID ? 'Python' : inst.id === JS_BLOCK_ID ? 'JavaScript' : '');
 // Ports sit three grid cells apart, which is what gives a multi-port block room
 // to breathe between its tabs. Block heights stay rounded to *two* cells, not to
 // the pitch: that keeps the group's midpoint on the grid and, unlike rounding to
@@ -1013,7 +1011,7 @@ function geom(inst: Inst) {
   const bodyH = Math.max(rows.length * ROW_H + PAD, nports * PORT_PITCH + PAD, ROW_H);
   // Two grid cells keep the centered port group's midpoint on the grid. Width is
   // one-cell aligned so right-edge ports align as well.
-  const subtitle = subtitleFor(inst);
+  const subtitle = subtitleFor(inst, d);
   const headH = TITLE_H + (subtitle ? SUBTITLE_H : 0);
   const h = ceilToGrid(headH + bodyH, BLOCK_H_STEP);
   let w = Math.max(textW(d.label, TITLE_FONT_SIZE, true),

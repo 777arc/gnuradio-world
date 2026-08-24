@@ -8,12 +8,11 @@
 # itself stays pristine.
 #
 # Upstream's fosphor.tree.yml files both blocks inside the in-tree '[Core]' tree
-# (Instrumentation/QT and Stream Operators), which leaves them indistinguishable
-# from built-in blocks in the palette. Every other vendored module gets a root
-# category of its own, so these categories put gr-fosphor under one too.
+# (Instrumentation/QT and Stream Operators). The palette generator replaces that
+# root with this checkout's OOT provenance, gr-fosphor, while retaining those
+# useful subcategories; no per-block category override is needed here.
 
 overlap_cc:
-    category: '[Fosphor]'
     flags: [python, cpp]
     cpp_templates:
         includes: ['#include <gnuradio/fosphor/overlap_cc.h>']
@@ -23,7 +22,6 @@ overlap_cc:
 
 fosphor_qt_sink_c:
     gui: true
-    category: '[Fosphor]'
     label: Fosphor Sink
     flags: [python, cpp]
     documentation: |-
