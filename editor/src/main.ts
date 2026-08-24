@@ -135,6 +135,11 @@ import type { CatalogEntry } from './ai/catalog';
 import type { AiToolDeps } from './ai/tools';
 import type { HarnessDeps, RunAuthorization } from './ai/harness';
 import { createAiPanel, type AiPanel } from './ai/panel';
+import {
+  dismissUnpacedRunWarning,
+  shouldWarnAboutUnpacedRun,
+  unpacedRunWarningDismissed,
+} from './run-pacing';
 import aiSystemPrompt from './ai/system-prompt.md?raw';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
@@ -4775,6 +4780,76 @@ function askToRunJavaScript(pending: { block: Inst; source: string }[]): Promise
   });
 }
 
+// GNU Radio marks both explicit Throttle blocks and naturally paced I/O such as
+// audio and SDRs with the `throttle` flag. Read that metadata rather than
+// maintaining another hardware list here, so a future paced block automatically
+// participates in this check when its block definition is added.
+function rateLimiterIds(): Set<string> {
+  return new Set((LIB.blocks || [])
+    .filter((block: any) => blockFlags(block.flags).includes('throttle'))
+    .map((block: any) => String(block.id)));
+}
+
+function askToRunUnpacedFlowgraph(): Promise<boolean> {
+  if (unpacedRunWarningDismissed() ||
+      !shouldWarnAboutUnpacedRun(insts, rateLimiterIds()))
+    return Promise.resolve(true);
+
+  return new Promise(resolve => {
+    let settled = false;
+    const finish = (runAnyway: boolean) => {
+      if (settled) return;
+      settled = true;
+      window.removeEventListener('keydown', onKeyDown, true);
+      if (runAnyway && dontRemind.checked) dismissUnpacedRunWarning();
+      overlay.remove();
+      resolve(runAnyway);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') finish(false);
+    };
+
+    const overlay = document.createElement('div');
+    overlay.className = 'modal unpaced-run-warning';
+    const dlg = document.createElement('div'); dlg.className = 'dlg';
+    const head = document.createElement('div'); head.className = 'dlghead';
+    head.textContent = 'Run without a rate limit?';
+    const body = document.createElement('div'); body.className = 'dlgbody';
+    const lead = document.createElement('p');
+    lead.textContent =
+      'This flowgraph has no enabled Throttle or naturally paced hardware block ' +
+      '(such as an SDR or audio device). A configured sample rate does not pace ' +
+      'GNU Radio by itself, so the flowgraph may run as fast as your CPU allows.';
+    const advice = document.createElement('p');
+    advice.textContent =
+      'For real-time simulation or playback, you probably want to add one ' +
+      'Throttle block at the highest sample rate in the flowgraph.';
+    const reminder = document.createElement('label');
+    reminder.className = 'unpaced-run-reminder';
+    const dontRemind = document.createElement('input');
+    dontRemind.type = 'checkbox';
+    reminder.append(dontRemind, document.createTextNode('Don\'t remind me again'));
+    body.append(lead, advice, reminder);
+
+    const foot = document.createElement('div'); foot.className = 'dlgfoot';
+    const cancel = document.createElement('button');
+    cancel.type = 'button'; cancel.textContent = 'Cancel';
+    cancel.onclick = () => finish(false);
+    const runAnyway = document.createElement('button');
+    runAnyway.type = 'button'; runAnyway.className = 'run';
+    runAnyway.textContent = 'Run anyway';
+    runAnyway.onclick = () => finish(true);
+    foot.append(cancel, runAnyway);
+    dlg.append(head, body, foot); overlay.appendChild(dlg);
+    document.body.appendChild(overlay);
+    overlay.addEventListener('pointerdown', event => {
+      if (event.target === overlay) finish(false);
+    });
+    window.addEventListener('keydown', onKeyDown, true);
+    cancel.focus();
+  });
+}
+
 async function run(): Promise<string | null> {
   const errors = validateGraph().filter(issue => issue.blocking);
   if (errors.length) {
@@ -4791,6 +4866,10 @@ async function run(): Promise<string | null> {
   // the reader put on the canvas to run.
   if (!insts.some(i => i.id !== OPTIONS_ID && i.id !== LAYOUT_ID)) {
     log('nothing to run — add some blocks'); return null;
+  }
+  if (!await askToRunUnpacedFlowgraph()) {
+    log('cancelled: the flowgraph has no rate limit');
+    return null;
   }
   // The one thing that must happen under the Run click itself: WebUSB's
   // requestDevice() needs a user gesture, and neither the runner's constructor

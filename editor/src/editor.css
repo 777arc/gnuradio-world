@@ -818,6 +818,10 @@ svg text { user-select:none; -webkit-user-select:none; -moz-user-select:none; }
 .field-error[hidden] { display:none; }
 .field-invalid { border-color:#ff4d5e !important; box-shadow:0 0 0 1px #ff4d5e66; }
 .dlgfoot { padding:12px 18px; display:flex; gap:10px; justify-content:flex-end; border-top:1px solid #333a4d; }
+.unpaced-run-warning .dlgbody p { color:#c5cce0; font-size:16px; line-height:1.5; }
+.unpaced-run-reminder { display:flex; align-items:center; gap:7px; margin-top:18px;
+    color:#dce3f5; font-size:16px; cursor:pointer; }
+.unpaced-run-reminder input { width:18px; height:18px; margin:0; accent-color:#58a6ff; }
 .shortcut-dlg { width:min(900px,92vw); }
 .shortcut-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 28px; }
 .shortcut-row { display:grid; grid-template-columns:180px 1fr; gap:12px; padding:6px 0;

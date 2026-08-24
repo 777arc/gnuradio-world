@@ -9,11 +9,51 @@ const { validateFlowgraph, NAME_FIELD, BLOCK_FIELD, VARIABLE_CONTROL_IDS } =
 // the null sink) come from block-defs, which is where validateFlowgraph's
 // injected `def` accessor reads them from in the editor too.
 const { RUNNABLE: DEFS } = await bundleModule('../src/block-defs.ts');
+const {
+  dismissUnpacedRunWarning,
+  hasActiveRateLimiter,
+  shouldWarnAboutUnpacedRun,
+  unpacedRunWarningDismissed,
+} = await bundleModule('../src/run-pacing.ts');
 
 const inst = (uid, id, name, params = {}, extra = {}) => ({
   uid, id, name, params, x: 0, y: 0, enabled: true, rotation: 0,
   bypassed: false, ...extra,
 });
+
+// Run-time pacing is a warning rather than a validation error: only an enabled,
+// non-bypassed block carrying GNU Radio's `throttle` flag suppresses it.
+const rateLimiters = new Set(['blocks_throttle2', 'audio_sink', 'wasm_rtlsdr_source']);
+const sourceOnly = [inst('src', 'analog_sig_source_x', 'src')];
+assert.equal(shouldWarnAboutUnpacedRun(sourceOnly, rateLimiters), true);
+assert.equal(hasActiveRateLimiter([
+  ...sourceOnly, inst('thr', 'blocks_throttle2', 'thr'),
+], rateLimiters), true);
+assert.equal(shouldWarnAboutUnpacedRun([
+  ...sourceOnly, inst('audio', 'audio_sink', 'audio'),
+], rateLimiters), false, 'naturally paced audio counts like a Throttle block');
+assert.equal(shouldWarnAboutUnpacedRun([
+  ...sourceOnly, inst('radio', 'wasm_rtlsdr_source', 'radio', {}, { enabled: false }),
+], rateLimiters), true, 'disabled hardware does not pace the running graph');
+assert.equal(shouldWarnAboutUnpacedRun([
+  ...sourceOnly, inst('thr', 'blocks_throttle2', 'thr', {}, { bypassed: true }),
+], rateLimiters), true, 'a bypassed Throttle does not pace the running graph');
+
+const stored = new Map();
+const storage = {
+  getItem: key => stored.get(key) ?? null,
+  setItem: (key, value) => stored.set(key, value),
+};
+assert.equal(unpacedRunWarningDismissed(storage), false);
+dismissUnpacedRunWarning(storage);
+assert.equal(unpacedRunWarningDismissed(storage), true,
+  'the do-not-remind choice persists for later runs');
+assert.match(main,
+  /if \(!await askToRunUnpacedFlowgraph\(\)\)[\s\S]*?flowgraph has no rate limit/,
+  'the visible Run path must await the unpaced-flowgraph confirmation');
+assert.match(main,
+  /blockFlags\(block\.flags\)\.includes\('throttle'\)/,
+  'the warning must use GNU Radio metadata for Throttle, SDR, and audio blocks');
 // Port counts per block id, as [inputs, outputs]. `blocks_complex_to_float`
 // stands in for the optional-port case: native GRC marks its `im` output
 // optional, so leaving it dangling is legal.
