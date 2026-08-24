@@ -303,7 +303,7 @@ cross-module calls need no thought. Two cases do:
   in, never defined, never exported, and the side module fails at `dlopen` with
   `bad export type for '<mangled name>': undefined`. Add the edge to
   `module_deps` in [`runner/modules.json`](../runner/modules.json) instead —
-  gr-satellites' rebuilt hierarchies use `gr::pdu`, hence
+  gr-satellites' rebuilt deframers use `gr::pdu`, hence
   `"module_deps": {"satellites": ["pdu"]}`.
 
 ## gr-satellites: the largest rebuild
@@ -314,9 +314,11 @@ upstream, so they live in
 (`hier/` scramblers, `sync_to_pdu*`, `rms_agc`, `ccsds_viterbi`, and the AFSK /
 FSK / BPSK demodulator components) and
 [`blocks/overlays/gr-satellites/satellites_deframers.cpp`](../blocks/overlays/gr-satellites/satellites_deframers.cpp)
-(`hdlc_deframer` plus ~29 deframer components). Each class mirrors the block set
-and connection order of the Python file named in its comment, so the two stay
-diffable; syncwords and packet lengths are copied verbatim. The GRC `options`
+(`hdlc_deframer` plus ~29 deframer components). Each stream hierarchy mirrors
+the block set and connection order of the Python file named in its comment, so
+the two stay diffable; the three packet-local scramblers are direct message
+blocks because `pdu_to_tagged_stream` is not scheduled reliably in this runtime.
+Syncwords and packet lengths are copied verbatim. The GRC `options`
 parameter is an argparse command line for the `gr_satellites` tool — nothing in
 the browser supplies one, so the rebuilds hard-code the defaults those parsers
 declare (collected as named constants at the top of the hier file).
@@ -334,7 +336,7 @@ Two more gr-satellites specifics:
   no `.tree.yml`; every block carries an explicit `category: '[Satellites]/...'`,
   so those useful subcategories survive beneath the generated `gr-satellites`
   palette root.
-- Its rebuilt hierarchies wrap their message ports with
+- Its rebuilt deframers wrap some message ports with
   `gr::pdu::{pdu_to_tagged_stream,tagged_stream_to_pdu}`, hence
   `"module_deps": {"satellites": ["pdu"]}` in `runner/modules.json` — see
   "Symbols across the core/side-module boundary" above.

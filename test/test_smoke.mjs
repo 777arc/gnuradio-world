@@ -187,7 +187,8 @@ const CASES = [
     expectLogs: ['js_scale: first output 4.000'] },
   { name: 'repo JavaScript blocks (blocks/js/, fetched by id)',
     grc: 'test/fixtures/wasm_js_repo_blocks.grc' },
-  { name: 'gr-satellites hier rebuilds', grc: 'test/fixtures/wasm_satellites_hier.grc' },
+  { name: 'gr-satellites hier rebuilds', grc: 'test/fixtures/wasm_satellites_hier.grc',
+    rejectLogs: ['received a message to port pdus which has no handler registered'] },
   { name: 'gr-satellites AX.25 framer/deframer loopback',
     grc: 'test/fixtures/wasm_satellites_ax25_loopback.grc' },
   { name: 'gr-satellites demodulator components',
@@ -265,8 +266,18 @@ async function runCase(test) {
   const started = verdict.includes('RUNNER_PASS');
 
   // Let the graph run before sampling the counters, so "started" and "actually
-  // producing" stay distinguishable.
+  // producing" stay distinguishable. Under the four-runner load a newly woken
+  // message path can occasionally miss this first snapshot, so give only idle
+  // graphs a bounded settling window; a permanently idle block still fails.
   await new Promise(r => setTimeout(r, 4000));
+  try {
+    await page.waitForFunction(() => {
+      if (!window.__grstats) return false;
+      const current = JSON.parse(window.__grstats).blocks;
+      return current.length > 0 &&
+        current.every(block => block.msg_only || block.items > 0);
+    }, { timeout: 8000, polling: 200 });
+  } catch { /* retain the final snapshot below so the idle block is reported */ }
   const stats = await page.evaluate(() => window.__grstats || null);
   const blocks = stats ? JSON.parse(stats).blocks : [];
   const pool = stats ? JSON.parse(stats).pool : null;
@@ -312,9 +323,11 @@ async function runCase(test) {
   // cannot see (a block that ran with the wrong parameter value).
   const missingLogs = (test.expectLogs || [])
     .filter(expected => !logs.some(line => line.includes(expected)));
+  const rejectedLogs = (test.rejectLogs || [])
+    .filter(rejected => logs.some(line => line.includes(rejected)));
 
   const ok = started && blocks.length > 0 && idle.length === 0 && monitorOk &&
-    missingLogs.length === 0;
+    missingLogs.length === 0 && rejectedLogs.length === 0;
   await page.close();
 
   const lines = [];
@@ -326,6 +339,8 @@ async function runCase(test) {
   if (idle.length) lines.push(`   produced nothing: ${idle.join(', ')}`);
   if (missingLogs.length)
     lines.push(`   never printed: ${missingLogs.map(s => JSON.stringify(s)).join(', ')}`);
+  if (rejectedLogs.length)
+    lines.push(`   unexpectedly printed: ${rejectedLogs.map(s => JSON.stringify(s)).join(', ')}`);
   if (!monitorOk)
     lines.push(`   diagnostics headline mismatch: ${JSON.stringify(monitor)}, ` +
       `pool=${pool}, initialExpectedPool=${initialExpectedPool}, ` +

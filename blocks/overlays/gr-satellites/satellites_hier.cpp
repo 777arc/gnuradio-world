@@ -10,21 +10,17 @@
 #include <gnuradio/blocks/divide.h>
 #include <gnuradio/blocks/float_to_complex.h>
 #include <gnuradio/blocks/multiply_const.h>
-#include <gnuradio/blocks/pack_k_bits_bb.h>
 #include <gnuradio/blocks/rms_cf.h>
 #include <gnuradio/blocks/rms_ff.h>
-#include <gnuradio/blocks/tagged_stream_multiply_length.h>
-#include <gnuradio/blocks/unpacked_to_packed.h>
 #include <gnuradio/blocks/float_to_uchar.h>
-#include <gnuradio/digital/additive_scrambler.h>
 #include <gnuradio/digital/correlate_access_code_tag_bb.h>
 #include <gnuradio/digital/correlate_access_code_tag_ff.h>
 #include <gnuradio/fec/cc_decoder.h>
 #include <gnuradio/fec/decoder.h>
+#include <gnuradio/block.h>
+#include <gnuradio/digital/lfsr.h>
 #include <gnuradio/hier_block2.h>
 #include <gnuradio/io_signature.h>
-#include <gnuradio/pdu/pdu_to_tagged_stream.h>
-#include <gnuradio/pdu/tagged_stream_to_pdu.h>
 #include <gnuradio/types.h>
 #include <pmt/pmt.h>
 #include <gnuradio/analog/quadrature_demod_cf.h>
@@ -42,55 +38,98 @@
 #include <satellites/manchester_sync.h>
 #include <satellites/fixedlen_to_pdu.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
+#include <iostream>
 #include <stdexcept>
 
 namespace wasm_satellites {
 namespace {
 
-// A message-in / message-out hierarchy: no stream ports, one "in" and one "out"
-// message port, matching gr-satellites' scrambler hierarchies.
-class MessageHier : public gr::hier_block2
+// The three Python scrambler hierarchies convert each PDU to a tagged stream,
+// run an additive scrambler, then convert it back. pdu_to_tagged_stream polls
+// its port instead of installing a handler and is not scheduled reliably in
+// the browser runtime, so perform the identical packet-local operation in one
+// message block. This also preserves legacy PMT_NIL metadata.
+class PduScrambler : public gr::block
 {
 public:
-    explicit MessageHier(const char* name)
-        : gr::hier_block2(name,
-                          gr::io_signature::make(0, 0, 0),
-                          gr::io_signature::make(0, 0, 0))
+    using sptr = std::shared_ptr<PduScrambler>;
+
+    static sptr make(const char* name,
+                     std::uint64_t mask,
+                     std::uint64_t seed,
+                     std::uint8_t register_length,
+                     std::uint8_t bits_per_byte,
+                     bool pack_bits)
     {
-        message_port_register_hier_in(pmt::mp("in"));
-        message_port_register_hier_out(pmt::mp("out"));
+        return gnuradio::make_block_sptr<PduScrambler>(
+            name, mask, seed, register_length, bits_per_byte, pack_bits);
     }
-};
 
-// python/hier/ccsds_descrambler.py
-class CcsdsDescrambler : public MessageHier
-{
-public:
-    using sptr = std::shared_ptr<CcsdsDescrambler>;
-    static sptr make() { return gnuradio::make_block_sptr<CcsdsDescrambler>(); }
-
-    CcsdsDescrambler() : MessageHier("ccsds_descrambler")
+    PduScrambler(const char* name,
+                 std::uint64_t mask,
+                 std::uint64_t seed,
+                 std::uint8_t register_length,
+                 std::uint8_t bits_per_byte,
+                 bool pack_bits)
+        : gr::block(name,
+                    gr::io_signature::make(0, 0, 0),
+                    gr::io_signature::make(0, 0, 0)),
+          d_mask(mask),
+          d_seed(seed),
+          d_register_length(register_length),
+          d_bits_per_byte(bits_per_byte),
+          d_pack_bits(pack_bits)
     {
-        auto scrambler = gr::digital::additive_scrambler_bb::make(
-            0xA9, 0xFF, 7, 0, 1, "packet_len");
-        auto unpacked_to_packed = gr::blocks::unpacked_to_packed_bb::make(
-            1, gr::GR_MSB_FIRST);
-        auto to_pdu = gr::pdu::tagged_stream_to_pdu::make(gr::types::byte_t,
-                                                          "packet_len");
-        auto multiply_length = gr::blocks::tagged_stream_multiply_length::make(
-            sizeof(char) * 1, "packet_len", 1 / 8.0);
-        auto from_pdu = gr::pdu::pdu_to_tagged_stream::make(gr::types::byte_t,
-                                                            "packet_len");
-
-        msg_connect(to_pdu, "pdus", self(), "out");
-        msg_connect(self(), "in", from_pdu, "pdus");
-        connect(from_pdu, 0, scrambler, 0);
-        connect(multiply_length, 0, to_pdu, 0);
-        connect(unpacked_to_packed, 0, multiply_length, 0);
-        connect(scrambler, 0, unpacked_to_packed, 0);
+        const auto input = pmt::mp("in");
+        message_port_register_in(input);
+        message_port_register_out(pmt::mp("out"));
+        set_msg_handler(input, [this](const pmt::pmt_t& message) { handle(message); });
     }
+
+private:
+    void handle(const pmt::pmt_t& message)
+    {
+        if (!pmt::is_pair(message) || !pmt::is_u8vector(pmt::cdr(message))) {
+            std::cerr << "[gr-satellites] expected a byte-vector PDU\n";
+            return;
+        }
+
+        const auto input = pmt::u8vector_elements(pmt::cdr(message));
+        std::vector<std::uint8_t> scrambled(input.size());
+        gr::digital::lfsr lfsr(d_mask, d_seed, d_register_length);
+        for (std::size_t i = 0; i < input.size(); ++i) {
+            std::uint8_t mask = 0;
+            for (std::uint8_t bit = 0; bit < d_bits_per_byte; ++bit)
+                mask |= static_cast<std::uint8_t>(lfsr.next_bit() << bit);
+            scrambled[i] = input[i] ^ mask;
+        }
+
+        if (d_pack_bits) {
+            std::vector<std::uint8_t> packed(scrambled.size() / 8);
+            for (std::size_t byte = 0; byte < packed.size(); ++byte) {
+                for (std::size_t bit = 0; bit < 8; ++bit)
+                    packed[byte] |= static_cast<std::uint8_t>(
+                        (scrambled[byte * 8 + bit] & 1U) << (7 - bit));
+            }
+            message_port_pub(
+                pmt::mp("out"),
+                pmt::cons(pmt::car(message), pmt::init_u8vector(packed.size(), packed)));
+        } else {
+            message_port_pub(pmt::mp("out"),
+                             pmt::cons(pmt::car(message),
+                                       pmt::init_u8vector(scrambled.size(), scrambled)));
+        }
+    }
+
+    std::uint64_t d_mask;
+    std::uint64_t d_seed;
+    std::uint8_t d_register_length;
+    std::uint8_t d_bits_per_byte;
+    bool d_pack_bits;
 };
 
 // python/hier/ccsds_viterbi.py -- a rate-1/2 K=7 Viterbi decoder wrapped in
@@ -138,57 +177,6 @@ public:
         connect(self(), 0, to_uchar, 0);
         connect(to_uchar, 0, fec_decoder, 0);
         connect(fec_decoder, 0, self(), 0);
-    }
-};
-
-// python/hier/pn9_scrambler.py
-class Pn9Scrambler : public MessageHier
-{
-public:
-    using sptr = std::shared_ptr<Pn9Scrambler>;
-    static sptr make() { return gnuradio::make_block_sptr<Pn9Scrambler>(); }
-
-    Pn9Scrambler() : MessageHier("pn9_scrambler")
-    {
-        auto scrambler = gr::digital::additive_scrambler_bb::make(
-            0x21, 0x1FF, 8, 0, 8, "packet_len");
-        auto to_pdu = gr::pdu::tagged_stream_to_pdu::make(gr::types::byte_t,
-                                                          "packet_len");
-        auto from_pdu = gr::pdu::pdu_to_tagged_stream::make(gr::types::byte_t,
-                                                            "packet_len");
-
-        msg_connect(to_pdu, "pdus", self(), "out");
-        msg_connect(self(), "in", from_pdu, "pdus");
-        connect(from_pdu, 0, scrambler, 0);
-        connect(scrambler, 0, to_pdu, 0);
-    }
-};
-
-// python/hier/si4463_scrambler.py
-class Si4463Scrambler : public MessageHier
-{
-public:
-    using sptr = std::shared_ptr<Si4463Scrambler>;
-    static sptr make() { return gnuradio::make_block_sptr<Si4463Scrambler>(); }
-
-    Si4463Scrambler() : MessageHier("si4463_scrambler")
-    {
-        auto scrambler = gr::digital::additive_scrambler_bb::make(
-            0x21, 0x1e1, 8, 0, 1, "packet_len");
-        auto to_pdu = gr::pdu::tagged_stream_to_pdu::make(gr::types::byte_t,
-                                                          "packet_len");
-        auto multiply_length = gr::blocks::tagged_stream_multiply_length::make(
-            sizeof(char) * 1, "packet_len", 1.0 / 8);
-        auto from_pdu = gr::pdu::pdu_to_tagged_stream::make(gr::types::byte_t,
-                                                            "packet_len");
-        auto pack = gr::blocks::pack_k_bits_bb::make(8);
-
-        msg_connect(to_pdu, "pdus", self(), "out");
-        msg_connect(self(), "in", from_pdu, "pdus");
-        connect(pack, 0, multiply_length, 0);
-        connect(from_pdu, 0, scrambler, 0);
-        connect(multiply_length, 0, to_pdu, 0);
-        connect(scrambler, 0, pack, 0);
     }
 };
 
@@ -601,7 +589,10 @@ public:
 
 } // namespace
 
-gr::basic_block_sptr make_ccsds_descrambler() { return CcsdsDescrambler::make(); }
+gr::basic_block_sptr make_ccsds_descrambler()
+{
+    return PduScrambler::make("ccsds_descrambler", 0xA9, 0xFF, 7, 1, true);
+}
 
 gr::basic_block_sptr
 make_fsk_demodulator(double baudrate, double samp_rate, bool iq, bool subaudio)
@@ -635,9 +626,15 @@ gr::basic_block_sptr make_ccsds_viterbi(const std::string& code)
     return CcsdsViterbi::make(code);
 }
 
-gr::basic_block_sptr make_pn9_scrambler() { return Pn9Scrambler::make(); }
+gr::basic_block_sptr make_pn9_scrambler()
+{
+    return PduScrambler::make("pn9_scrambler", 0x21, 0x1FF, 8, 8, false);
+}
 
-gr::basic_block_sptr make_si4463_scrambler() { return Si4463Scrambler::make(); }
+gr::basic_block_sptr make_si4463_scrambler()
+{
+    return PduScrambler::make("si4463_scrambler", 0x21, 0x1e1, 8, 1, true);
+}
 
 gr::basic_block_sptr make_rms_agc(double alpha, double reference)
 {
