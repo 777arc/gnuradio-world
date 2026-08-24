@@ -596,6 +596,7 @@ svg text { user-select:none; -webkit-user-select:none; -moz-user-select:none; }
 .blk text.param { fill:#111; font-size:16px; font-family:'DejaVu Sans',Verdana,sans-serif; }
 .blk .plabel { font-weight:700; }
 .blk text.pval { fill:#1a63c4; }
+.blk text.pexpr { fill:#6b3fa0; font-style:italic; }
 .blk text.param.pmore { fill:#6b6b6b; font-style:italic; }
 .blk text.param.invalid, .blk text.param.invalid .pval { fill:#d1242f; font-weight:700; }
 .blk text.comment { fill:#444; font:14px 'DejaVu Sans',Verdana,sans-serif; pointer-events:none; }
@@ -613,6 +614,11 @@ svg text { user-select:none; -webkit-user-select:none; -moz-user-select:none; }
 .port:hover { stroke:#1a63c4; stroke-width:2; }
 .port-label { fill:#111; font:14px 'DejaVu Sans',Verdana,sans-serif;
     pointer-events:none; }
+/* Native's auto-hide preference reveals a label while its compact port tab is
+   hovered. main.ts expands the tab geometry at the same time; these rules own
+   only the label visibility. */
+#canvasWrap.auto-hide-port-labels .port-label { opacity:0; }
+#canvasWrap.auto-hide-port-labels .port:hover + .port-label { opacity:1; }
 .wire { stroke:#2a2a2a; stroke-width:2; fill:none; pointer-events:none; }
 .wire.sel { stroke:#00b8c8; stroke-width:3; }
 .wire.invalid { stroke:#d1242f; stroke-width:3; }
@@ -673,6 +679,12 @@ svg text { user-select:none; -webkit-user-select:none; -moz-user-select:none; }
 .dlgrow label { font-size:16px; color:#9aa7c6; text-align:right; }
 .dlgrow input, .dlgrow select, .dlgrow textarea { background:#171a24; color:#e6e9f0; border:1px solid #3a4366;
     border-radius:5px; padding:7px 10px; font-size:16px; width:100%; }
+/* View ▸ Show Properties Field Colors: native GRC's dtype palette. Apply it to
+   the actual editable descendant so compound file/options/code controls follow
+   the same rule as ordinary inputs. */
+.dlgrow.dtype-field input, .dlgrow.dtype-field select, .dlgrow.dtype-field textarea {
+    background:var(--dtype-field-color); color:#111; border-color:#252525; }
+.dlgrow.dtype-field input::placeholder, .dlgrow.dtype-field textarea::placeholder { color:#333; }
 /* Prose fields (the Note block's text) span several lines; keep the label
    pinned to the top of the box instead of centred against it. */
 .dlgrow:has(textarea) { align-items:start; }

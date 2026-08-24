@@ -44,6 +44,28 @@ letter, `default` when the Title is empty. That keeps the `.grc` valid for deskt
 GRC without an extra field to maintain. `editor/test/grc.test.mjs` re-implements
 the derivation and asserts every example's title still yields a legal id.
 
+## View display toggles
+
+The native canvas display preferences in View are browser-side state: they do
+not alter history or the serialized `.grc`.
+
+- **Show parameter expressions in block** replaces an evaluated value with its
+  italic raw expression. **Show parameter value in block** is on by default and,
+  while expressions are shown, produces `expression=value`; turning it off
+  leaves the expression alone. This pairing follows native GRC — the value
+  toggle has no visible effect while expressions themselves are hidden.
+- **Hide Variables** removes plain Variable blocks and the QT GUI variable
+  controls in `VARIABLE_IDS` from the canvas, along with wires attached to those
+  controls. They remain editable through Show Variable Editor and remain in the
+  saved and running flowgraph.
+- **Auto-Hide Port Labels** hides label text until the pointer is over its port.
+  The coloured tab and its wire endpoint contract to native GRC's 10px hidden
+  width, expand to their labelled width on hover, and contract again when the
+  pointer leaves or a connection gesture finishes.
+- **Show Properties Field Colors** applies native GRC's dtype background palette
+  to fields in block Properties and the Variable Editor. It affects dialogs
+  opened after the toggle is changed.
+
 ## Auto-arrange (Edit ▸ Auto-Arrange Blocks)
 
 Rewrites every block coordinate so the flowgraph reads as a left-to-right

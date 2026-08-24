@@ -197,6 +197,15 @@ const CONNECT_CLICK_SLOP = 4;   // px of movement still treated as a click, not 
 let autoScrollLog = true;
 let zoom = 1;
 let hideDisabled = false;
+// Native GRC's canvas display preferences. These affect only presentation: the
+// underlying blocks and their raw parameter expressions still serialize and run
+// exactly as before.
+let hideVariables = false;
+let showParameterExpressions = false;
+let showParameterValues = true;
+let autoHidePortLabels = false;
+let hoveredPortKey: string | null = null;
+let showPropertiesFieldColors = false;
 // Unlike desktop GRC's historical preference default, the WASM editor starts
 // with snapping enabled so newly opened sessions get aligned movement.
 let snapToGrid = true;
@@ -213,6 +222,10 @@ let showBlockComments = true;
 // and into every Properties dialog.
 let showAllBlockIds = false;
 let paletteSearch: HTMLInputElement | null = null;
+
+function canvasBlockHidden(inst: Inst): boolean {
+  return (hideDisabled && !inst.enabled) || (hideVariables && VARIABLE_IDS.has(inst.id));
+}
 
 // Whether this block exposes its instance ID, as native GRC decides it: the
 // block's `show_id` flag, or the global override. The Options block is the one
@@ -468,6 +481,10 @@ const TEXT_PAD_L = 8, TEXT_PAD_R = 8;
 // tab has to stay inside the 20px port pitch, and "in0"/"out0" is a legend for
 // the tab rather than something read as prose.
 const PORT_FONT_SIZE = 14, PORT_LABEL_PAD = 6, PORT_MIN_W = 20;
+// Native GRC's PORT_LABEL_HIDDEN_WIDTH: compact enough to read as a connector
+// tab rather than an empty labelled box, while still landing on this editor's
+// 10px grid.
+const PORT_HIDDEN_W = 10;
 // A face with dozens of parameters (dvbs2_bbheader_source has 37) grows into a
 // wall that dwarfs everything else on the canvas, so it is cut to this many
 // lines with the last one saying how many are missing. Properties still shows
@@ -745,6 +762,8 @@ function portLabel(inst: Inst, kind: 'in' | 'out', i: number): string {
 }
 
 function portWidth(inst: Inst, kind: 'in' | 'out', i: number): number {
+  if (autoHidePortLabels && hoveredPortKey !== `${inst.uid}:${kind}:${i}`)
+    return PORT_HIDDEN_W;
   return ceilToGrid(Math.max(PORT_MIN_W,
     Math.ceil(textW(portLabel(inst, kind, i), PORT_FONT_SIZE)) + 2 * PORT_LABEL_PAD));
 }
@@ -781,27 +800,48 @@ function truncateValue(label: string, s: string, style = 0): string {
 // are evaluated against the variable scope; anything that can't be resolved
 // (a filename, an unshimmed call, a bad expression) falls back to the raw text.
 // Native GRC keeps the tail of a path visible and the head of a long vector.
-function paramDisplay(p: ParamDef, raw: any): string {
+interface ParamDisplay {
+  expression?: string;
+  value: string;
+}
+
+function paramDisplay(p: ParamDef, raw: any): ParamDisplay {
   const cut = (s: string, style = 0) => truncateValue(p.label, s, style);
   const fileStyle = p.dtype === 'file_open' || p.dtype === 'file_save' ? -1 : 0;
   // A radio's device is the one parameter whose empty value means something
   // ("first available"), so it resolves to the radio it will actually open
   // rather than drawing an empty row. See UsbRadio.display().
   const radio = radioForDtype(p.dtype);
-  if (radio) return cut(radio.display(String(raw ?? '')));
-  if (p.type !== 'number') {
+  if (radio) return { value: cut(radio.display(String(raw ?? ''))) };
+  if (p.type !== 'number' && !p.raw) {
     const optionIndex = p.options?.indexOf(String(raw)) ?? -1;
     const display = optionIndex >= 0 ? p.optionLabels?.[optionIndex] ?? raw : raw;
-    return cut(fmtVal(display), fileStyle);
+    return { value: cut(fmtVal(display), fileStyle) };
   }
-  if (typeof raw === 'number') return cut(fmtVal(raw));
+  if (typeof raw === 'number') return { value: cut(fmtVal(raw)) };
   const s = String(raw ?? '').trim();
-  if (!s) return '';
+  if (!s) return { value: '' };
   const r = evalExpr(s, varScope);
-  if (!r.ok) return cut(fmtVal(raw), fileStyle);
-  if (typeof r.value === 'number') return cut(fmtVal(r.value));
-  return cut(fmtExprVal(r.value), Array.isArray(r.value) ? 1 : 0);
+  if (!r.ok) return { value: cut(fmtVal(raw), fileStyle) };
+  const value = typeof r.value === 'number'
+    ? cut(fmtVal(r.value))
+    : cut(fmtExprVal(r.value), Array.isArray(r.value) ? 1 : 0);
+  // Native only treats text as an expression when evaluation changes what is
+  // displayed. A literal remains an ordinary value even with the expression
+  // toggle enabled.
+  const evaluated = s !== String(r.value);
+  if (evaluated && showParameterExpressions) {
+    return {
+      expression: cut(s, p.raw && Array.isArray(r.value) ? 1 : fileStyle),
+      value: showParameterValues ? value : '',
+    };
+  }
+  return { value };
 }
+
+interface FaceRow { id: string; l: string; v: string; expression?: string }
+const faceRowText = (row: FaceRow) =>
+  (row.expression || '') + (row.expression && row.v ? '=' : '') + row.v;
 
 // The red message drawn under an invalid block, at `.blk text.validation-error`
 // in editor.css: line pitch, and the average glyph width the wrap column is
@@ -927,7 +967,7 @@ function noteGeom(inst: Inst, d: RunnableDef) {
   const lines = text.trim() ? wrapNoteText(text, s => textW(s, NOTE_FONT_SIZE)) : [];
   // The text goes in the value tspan, not the label one: `.plabel` is bold, and a
   // note's prose is body text, not a parameter name.
-  const rows = lines.map(line => ({ id: 'note', l: '', v: line }));
+  const rows: FaceRow[] = lines.map(line => ({ id: 'note', l: '', v: line }));
   let w = textW(d.label, TITLE_FONT_SIZE, true);
   for (const line of lines) w = Math.max(w, textW(line, NOTE_FONT_SIZE));
   return {
@@ -980,7 +1020,7 @@ function layoutGeom(inst: Inst, d: RunnableDef) {
   // sides of the grid rather than BODY_SLACK underneath it, which would leave
   // the block padded at the bottom and not at the top.
   return {
-    d, rows: [] as { id: string; l: string; v: string }[], subtitle: '', headH: TITLE_H,
+    d, rows: [] as FaceRow[], subtitle: '', headH: TITLE_H,
     h: TITLE_H + PAD + thumbH + PAD,
     w: Math.max(BLOCK_MIN_W, LAYOUT_THUMB_W + TEXT_PAD_L + TEXT_PAD_R),
     thumb, thumbH, thumbTop: TITLE_H + PAD,
@@ -993,13 +1033,17 @@ function geom(inst: Inst) {
   if (inst.id === LAYOUT_ID) return layoutGeom(inst, d);
   // Categorized parameters belong in the modal notebook. Native GRC also keeps
   // parameters marked `hide: part` or `hide: all` off the block face.
-  const rows = d.params
+  const rows: FaceRow[] = d.params
     .filter(p => {
       const hide = parameterHideValue(p.hide, inst.params);
       return !p.category && hide !== 'part' && hide !== 'all' &&
         !(p.hideIfEmpty && !String(inst.params[p.id] ?? '').trim());
     })
-    .map(p => ({ id: p.id, l: p.label + ': ', v: paramDisplay(p, inst.params[p.id]) }));
+    .map(p => {
+      const display = paramDisplay(p, inst.params[p.id]);
+      return { id: p.id, l: p.label + ': ', v: display.value,
+        expression: display.expression };
+    });
   // A block's identifier is its instance name rather than a regular parameter.
   // Native GRC only draws it for the `show_id` blocks — Variable, QT GUI Range
   // and friends, whose ID *is* the name other blocks reference — or when the
@@ -1022,7 +1066,8 @@ function geom(inst: Inst) {
   let w = Math.max(textW(d.label, TITLE_FONT_SIZE, true),
                    textW(subtitle, SUBTITLE_FONT_SIZE));
   for (const r of rows)
-    w = Math.max(w, textW(r.l, PARAM_FONT_SIZE, true) + textW(r.v, PARAM_FONT_SIZE));
+    w = Math.max(w, textW(r.l, PARAM_FONT_SIZE, true) +
+      textW(faceRowText(r), PARAM_FONT_SIZE));
   w = ceilToGrid(Math.max(BLOCK_MIN_W, Math.ceil(w) + TEXT_PAD_L + TEXT_PAD_R));
   return { d, rows, h, w, subtitle, headH };
 }
@@ -1411,7 +1456,7 @@ function applyCenterFromUrl() {
 function zoomToFit() {
   let right = 0, bottom = 0;
   for (const inst of insts) {
-    if (hideDisabled && !inst.enabled) continue;
+    if (canvasBlockHidden(inst)) continue;
     const { w, h } = geom(inst);
     const comment = blockCommentGeometry(inst);
     right = Math.max(right, inst.x + Math.max(w, comment.width));
@@ -2044,6 +2089,27 @@ function optionCombo(param: ParamDef, value: string, commit: (value: string) => 
 function usesOptionCombo(param: ParamDef): boolean {
   return param.type !== 'enum' && !param.multiline && !!param.options?.length;
 }
+
+// Native GRC colors editable property fields by parameter dtype. Keep this map
+// separate from stream-port colors: these are the brighter GTK property-entry
+// colors, not the palette used for port tabs.
+const PROPERTY_FIELD_COLORS: Record<string, string> = {
+  complex: '#3399FF', real: '#FF8C69', float: '#FF8C69', int: '#00FF99',
+  complex_vector: '#3399AA', real_vector: '#CC8C69', float_vector: '#CC8C69',
+  int_vector: '#00CC99', bool: '#00FF99', hex: '#00FF99', string: '#CC66CC',
+  id: '#DDDDDD', stream_id: '#DDDDDD', raw: '#DDDDDD',
+};
+function propertyFieldDtype(param: ParamDef): string {
+  return param.dtype || (param.type === 'number' ? 'real' : param.type);
+}
+function colorPropertyRow(row: HTMLElement, dtype: string): void {
+  if (!showPropertiesFieldColors) return;
+  const color = PROPERTY_FIELD_COLORS[dtype];
+  if (!color) return;
+  row.classList.add('dtype-field');
+  row.style.setProperty('--dtype-field-color', color);
+}
+
 function showVariableEditor() {
   closeMenu(); document.querySelector('.modal')?.remove();
   const variables = insts.filter(i => i.id === 'variable' || i.id.startsWith('variable_'));
@@ -2064,18 +2130,19 @@ function showVariableEditor() {
     const title = document.createElement('div'); title.className = 'dlghead'; title.textContent = d.label;
     body.appendChild(title);
     const add = (label: string, node: HTMLElement, field: string,
-                 validationNode: HTMLElement = node) => {
+                 validationNode: HTMLElement = node, dtype = '') => {
       const row = document.createElement('div'); row.className = 'dlgrow';
       const l = document.createElement('label'); l.textContent = label;
       const control = document.createElement('div'); control.className = 'field-control';
       const error = document.createElement('small'); error.className = 'field-error'; error.hidden = true;
       control.append(node, error); row.append(l, control); body.appendChild(row);
+      colorPropertyRow(row, dtype);
       controls.push({ uid: variable.uid, field, node: validationNode, error });
     };
     const name = document.createElement('input'); name.value = variable.name;
     name.oninput = () => { variable.name = name.value.replace(/\s+/g, '_'); render(); refreshValidation(); };
     name.onchange = recordHistory;
-    add('ID', name, NAME_FIELD);
+    add('ID', name, NAME_FIELD, name, 'id');
     for (const param of d.params) {
       const set = (value: string) => {
         variable.params[param.id] = param.type === 'number' ? numericOrExpression(value) : value;
@@ -2087,7 +2154,7 @@ function showVariableEditor() {
         // to switch into custom mode.
         combo.select.addEventListener('change', recordHistory);
         combo.input.addEventListener('change', recordHistory);
-        add(param.label, combo.wrap, param.id, combo.select);
+        add(param.label, combo.wrap, param.id, combo.select, propertyFieldDtype(param));
         continue;
       }
       let input: HTMLInputElement | HTMLSelectElement;
@@ -2100,7 +2167,7 @@ function showVariableEditor() {
       }
       input.oninput = () => set(input.value);
       input.onchange = recordHistory;
-      add(param.label, input, param.id);
+      add(param.label, input, param.id, input, propertyFieldDtype(param));
     }
   }
   const foot = document.createElement('div'); foot.className = 'dlgfoot';
@@ -2200,7 +2267,9 @@ function consume(e: KeyboardEvent) { e.preventDefault(); e.stopPropagation(); }
 document.addEventListener('keydown', e => {
   const ctrl = e.ctrlKey || e.metaKey, key = e.key.toLowerCase();
   if (e.key === 'Escape') {
-    closeMenu(); closeMenus(); cancelConnect(); document.querySelector('.modal')?.remove();
+    closeMenu(); closeMenus();
+    if (cancelConnect()) render();
+    document.querySelector('.modal')?.remove();
     if (document.activeElement === paletteSearch && paletteSearch) {
       paletteSearch.value = ''; paletteSearch.dispatchEvent(new Event('input')); paletteSearch.blur();
     }
@@ -2223,7 +2292,7 @@ document.addEventListener('keydown', e => {
   if (ctrl && (e.key === '-' || e.key === '_' || e.code === 'NumpadSubtract')) { consume(e); setZoom(zoom / ZOOM_STEP); return; }
   if (ctrl && key === '9') { consume(e); zoomToFit(); return; }
   if (ctrl && key === '0') { consume(e); setZoom(1); return; }
-  if (ctrl && key === 'd') { consume(e); hideDisabled = !hideDisabled; render(); return; }
+  if (ctrl && key === 'd') { consume(e); toggleHideDisabled(); return; }
   if (ctrl && key === 'e') { consume(e); showVariableEditor(); return; }
   if (ctrl && key === 'r') { consume(e); toggleConsole(); return; }
   if (ctrl && key === 'b') { consume(e); togglePalette(); return; }
@@ -2375,12 +2444,14 @@ function showPropsDialog(inst: Inst) {
     node: HTMLElement,
     field: string,
     validationNode: HTMLElement = node,
+    dtype = '',
   ) => {
     const row = document.createElement('div'); row.className = 'dlgrow';
     const l = document.createElement('label'); l.textContent = label;
     const control = document.createElement('div'); control.className = 'field-control';
     const error = document.createElement('small'); error.className = 'field-error'; error.hidden = true;
     control.append(node, error); row.append(l, control); panels.get(category)!.appendChild(row);
+    colorPropertyRow(row, dtype);
     controls.set(field, { node: validationNode, error });
     return node;
   };
@@ -2388,7 +2459,8 @@ function showPropsDialog(inst: Inst) {
   // the `show_id` flag, so the dialog has no ID field for them; the block ID is
   // generated and left alone unless View ▸ Show All Block IDs is on.
   if (blockIdVisible(inst)) {
-    const nameI = addField('General', 'ID', document.createElement('input'), NAME_FIELD) as HTMLInputElement;
+    const nameInput = document.createElement('input');
+    const nameI = addField('General', 'ID', nameInput, NAME_FIELD, nameInput, 'id') as HTMLInputElement;
     nameI.value = tmp.name;
     nameI.oninput = () => { tmp.name = nameI.value.replace(/\s+/g, '_'); refreshValidation(); };
   }
@@ -2416,7 +2488,7 @@ function showPropsDialog(inst: Inst) {
       s.disabled = (inst.id === RECORDING_ID || inst.id === SIGMF_SOURCE_ID) &&
         p.id === 'type';
       s.onchange = () => { tmp.params[p.id] = s.value; refreshVisibility(); refreshValidation(); };
-      addField(p.category || 'General', `${p.label}  (${p.id})`, s, p.id);
+      addField(p.category || 'General', `${p.label}  (${p.id})`, s, p.id, s, propertyFieldDtype(p));
       if (s.disabled) {
         const hint = document.createElement('small'); hint.className = 'field-hint';
         hint.textContent = inst.id === SIGMF_SOURCE_ID
@@ -2459,7 +2531,7 @@ function showPropsDialog(inst: Inst) {
         refreshDetail(); refreshVisibility(); refreshValidation();
       };
       picker.append(inp, choose, native, detail);
-      addField(p.category || 'General', `${p.label}  (${p.id})`, picker, p.id, inp);
+      addField(p.category || 'General', `${p.label}  (${p.id})`, picker, p.id, inp, propertyFieldDtype(p));
       refreshDetail();
       if (p.showWhen) conditionalRows.push({ param: p, row: picker.closest('.dlgrow') as HTMLElement });
     } else if (radioForDtype(p.dtype)) {
@@ -2529,7 +2601,7 @@ function showPropsDialog(inst: Inst) {
       };
       typed.value = String(tmp.params[p.id] ?? '');
       picker.append(select, typed, choose, detail);
-      addField(p.category || 'General', `${p.label}  (${p.id})`, picker, p.id, select);
+      addField(p.category || 'General', `${p.label}  (${p.id})`, picker, p.id, select, propertyFieldDtype(p));
       paint();                  // synchronously, before the device list resolves
       void refreshDevices();
       if (p.showWhen) conditionalRows.push({ param: p, row: picker.closest('.dlgrow') as HTMLElement });
@@ -2618,7 +2690,7 @@ function showPropsDialog(inst: Inst) {
         });
 
       picker.append(select, typed, detail);
-      addField(p.category || 'General', `${p.label}  (${p.id})`, picker, p.id, select);
+      addField(p.category || 'General', `${p.label}  (${p.id})`, picker, p.id, select, propertyFieldDtype(p));
       describe();
       if (p.showWhen) conditionalRows.push({ param: p, row: picker.closest('.dlgrow') as HTMLElement });
     } else if (p.dtype === SIGMF_OPEN_DTYPE) {
@@ -2723,7 +2795,7 @@ function showPropsDialog(inst: Inst) {
         // so Cancel cancels it too. See sigmfSampRateToPublish().
       };
       picker.append(inp, choose, native, detail);
-      addField(p.category || 'General', `${p.label}  (${p.id})`, picker, p.id, inp);
+      addField(p.category || 'General', `${p.label}  (${p.id})`, picker, p.id, inp, propertyFieldDtype(p));
       describe();
       if (p.showWhen) conditionalRows.push({ param: p, row: picker.closest('.dlgrow') as HTMLElement });
     } else if (p.dtype === SIGMF_SAVE_DTYPE) {
@@ -2795,7 +2867,7 @@ function showPropsDialog(inst: Inst) {
         }
       };
       picker.append(inp, choose, detail);
-      addField(p.category || 'General', `${p.label}  (${p.id})`, picker, p.id, inp);
+      addField(p.category || 'General', `${p.label}  (${p.id})`, picker, p.id, inp, propertyFieldDtype(p));
       describe();
       if (p.showWhen) conditionalRows.push({ param: p, row: picker.closest('.dlgrow') as HTMLElement });
     } else if (p.dtype === LAYOUT_DTYPE) {
@@ -2823,7 +2895,7 @@ function showPropsDialog(inst: Inst) {
           layoutDesigner.dispose = () => handle.destroy();
         })
         .catch(error => { fallback.textContent = `Layout designer failed to load: ${error}`; });
-      addField(p.category || 'General', p.label, mount, p.id);
+      addField(p.category || 'General', p.label, mount, p.id, mount, propertyFieldDtype(p));
     } else if (p.dtype === EPY_CODE_DTYPE) {
       // The Embedded Python Block's source. Native GRC hands this parameter to an
       // external editor and re-reads the block every time the file is saved
@@ -2891,7 +2963,7 @@ function showPropsDialog(inst: Inst) {
       const controlsRow = document.createElement('div'); controlsRow.className = 'code-controls';
       controlsRow.append(reload, status);
       field.append(area, controlsRow);
-      addField(p.category || 'General', p.label, field, p.id, area);
+      addField(p.category || 'General', p.label, field, p.id, area, propertyFieldDtype(p));
       code.refresh = () => {
         if (!overlay.isConnected && overlay.parentNode !== null) return;
         const state = pythonRuntime.state;
@@ -2989,7 +3061,7 @@ function showPropsDialog(inst: Inst) {
       const controlsRow = document.createElement('div'); controlsRow.className = 'code-controls';
       controlsRow.append(popout, status);
       field.append(area, controlsRow);
-      addField(p.category || 'General', p.label, field, p.id, area);
+      addField(p.category || 'General', p.label, field, p.id, area, propertyFieldDtype(p));
       code.refresh = () => {
         if (!overlay.isConnected && overlay.parentNode !== null) return;
         const io = parseJsIo(tmp.params[JS_IO_PARAM]);
@@ -3014,7 +3086,8 @@ function showPropsDialog(inst: Inst) {
         tmp.params[p.id] = p.type === 'number' ? numericOrExpression(value) : value;
         refreshVisibility(); refreshValidation();
       });
-      addField(p.category || 'General', `${p.label}  (${p.id})`, combo.wrap, p.id, combo.select);
+      addField(p.category || 'General', `${p.label}  (${p.id})`, combo.wrap, p.id,
+        combo.select, propertyFieldDtype(p));
       if (p.showWhen) conditionalRows.push({ param: p, row: combo.wrap.closest('.dlgrow') as HTMLElement });
     } else {
       // Prose params (the Note block) get a textarea so the text can contain the
@@ -3027,7 +3100,7 @@ function showPropsDialog(inst: Inst) {
         tmp.params[p.id] = p.type === 'number' ? numericOrExpression(inp.value) : inp.value;
         refreshVisibility(); refreshValidation();
       };
-      addField(p.category || 'General', `${p.label}  (${p.id})`, inp, p.id);
+      addField(p.category || 'General', `${p.label}  (${p.id})`, inp, p.id, inp, propertyFieldDtype(p));
       if (p.showWhen) conditionalRows.push({ param: p, row: inp.closest('.dlgrow') as HTMLElement });
     }
   }
@@ -3140,7 +3213,8 @@ function render() {
   const G = (uid: string) => insts.find(i => i.uid === uid)!;
   // wires (from output right-edge to input left-edge, GRC-style curves)
   for (const c of conns) {
-    const a = G(c.from), b = G(c.to); if (!a || !b || (hideDisabled && (!a.enabled || !b.enabled))) continue;
+    const a = G(c.from), b = G(c.to);
+    if (!a || !b || canvasBlockHidden(a) || canvasBlockHidden(b)) continue;
     if (portMeta(a, 'out', c.fp).hidden || portMeta(b, 'in', c.tp).hidden) continue;
     const pa = portPos(a, 'out', c.fp), pb = portPos(b, 'in', c.tp);
     const x1 = a.x + pa.x, y1 = a.y + pa.y, x2 = b.x + pb.x, y2 = b.y + pb.y;
@@ -3176,7 +3250,7 @@ function render() {
   }
   // blocks
   for (const inst of insts) {
-    if (hideDisabled && !inst.enabled) continue;
+    if (canvasBlockHidden(inst)) continue;
     const { d, rows, h, w, subtitle, headH, thumb, thumbH, thumbTop } = geom(inst) as
       ReturnType<typeof geom> &
       { thumb?: LayoutThumbTile[]; thumbH?: number; thumbTop?: number };
@@ -3214,8 +3288,17 @@ function render() {
       const tx = svgEl('text', { class: 'param' + (fieldIssue(blockIssues, inst.uid, r.id) ? ' invalid' : '') +
         (r.id === MORE_ROW_ID ? ' pmore' : ''), x: String(TEXT_PAD_L), y: String(y) });
       const l = document.createElementNS(SVGNS, 'tspan'); l.setAttribute('class', 'plabel'); l.textContent = r.l;
+      if (r.expression !== undefined) {
+        const expression = document.createElementNS(SVGNS, 'tspan');
+        expression.setAttribute('class', 'pexpr'); expression.textContent = r.expression;
+        tx.appendChild(l); tx.appendChild(expression);
+        if (r.v) {
+          const equals = document.createElementNS(SVGNS, 'tspan'); equals.textContent = '=';
+          tx.appendChild(equals);
+        }
+      } else tx.appendChild(l);
       const v = document.createElementNS(SVGNS, 'tspan'); v.setAttribute('class', 'pval'); v.textContent = r.v;
-      tx.appendChild(l); tx.appendChild(v); g.appendChild(tx);
+      tx.appendChild(v); g.appendChild(tx);
     });
     // The GUI Layout block's miniature runner window: the grid outline plus one
     // labelled rectangle per widget, in the position it will occupy.
@@ -3295,7 +3378,7 @@ const CANVAS_MARGIN = 60;   // room for port tabs, validation labels and drop sp
 function updateCanvasExtent() {
   let right = 0, bottom = 0;
   for (const inst of insts) {
-    if (hideDisabled && !inst.enabled) continue;
+    if (canvasBlockHidden(inst)) continue;
     const { w, h } = geom(inst);
     const comment = blockCommentGeometry(inst);
     right = Math.max(right, inst.x + Math.max(w, comment.width));
@@ -3307,7 +3390,10 @@ function updateCanvasExtent() {
 
 function addPort(g: SVGGElement, inst: Inst, kind: 'in' | 'out', idx: number, color: string) {
   // Native GRC ports are typed, colored tabs whose width follows their centered
-  // label. The connection attaches to the tab's outer edge.
+  // label. Auto-hide reduces that to PORT_HIDDEN_W until hover; because
+  // portPos() reads the same width, the connection remains attached to the
+  // tab's moving outer edge just as it does natively.
+  const hoverKey = `${inst.uid}:${kind}:${idx}`;
   const p = portPos(inst, kind, idx);
   const label = portLabel(inst, kind, idx);
   const pw = portWidth(inst, kind, idx);
@@ -3324,6 +3410,18 @@ function addPort(g: SVGGElement, inst: Inst, kind: 'in' | 'out', idx: number, co
   if (p.edge === 'T' || p.edge === 'B')
     text.setAttribute('transform', `rotate(-90 ${cx} ${cy})`);
   text.textContent = label;
+  r.addEventListener('pointerenter', () => {
+    if (!autoHidePortLabels || connecting || hoveredPortKey === hoverKey) return;
+    hoveredPortKey = hoverKey;
+    render();
+  });
+  r.addEventListener('pointerleave', () => {
+    // Keep the source expanded while a wire is armed or being dragged. The
+    // connection completion/cancellation path collapses it and redraws once.
+    if (!autoHidePortLabels || connecting || hoveredPortKey !== hoverKey) return;
+    hoveredPortKey = null;
+    render();
+  });
   // Two ways to wire ports (GRC-style): left-drag from a port and release on a
   // compatible one, or click a port then click the other. Works from either an
   // output or an input.
@@ -3354,7 +3452,8 @@ function addPort(g: SVGGElement, inst: Inst, kind: 'in' | 'out', idx: number, co
     // drag that went nowhere, so abandon it.
     if (connecting.uid === inst.uid && connecting.port === idx && connecting.kind === kind) {
       const dp = connectDownPt;
-      if (dp && Math.hypot(e.clientX - dp.x, e.clientY - dp.y) > CONNECT_CLICK_SLOP) cancelConnect();
+      if (dp && Math.hypot(e.clientX - dp.x, e.clientY - dp.y) > CONNECT_CLICK_SLOP &&
+          cancelConnect()) render();
       return;
     }
     completeConnect(inst, kind, idx);
@@ -3368,7 +3467,7 @@ const G0 = (uid: string) => insts.find(i => i.uid === uid)!;
 function updateConnectPreview(pt: { x: number; y: number }) {
   if (!connecting) return;
   const inst = G0(connecting.uid);
-  if (!inst) { cancelConnect(); return; }
+  if (!inst) { if (cancelConnect()) render(); return; }
   const pp = portPos(inst, connecting.kind, connecting.port);
   const x1 = inst.x + pp.x, y1 = inst.y + pp.y;
   const [c1x, c1y] = ctrl(pp.edge, x1, y1, 42);
@@ -3379,8 +3478,11 @@ function updateConnectPreview(pt: { x: number; y: number }) {
   } else connectPreview.setAttribute('d', d);
 }
 function cancelConnect() {
+  const collapsedPort = autoHidePortLabels && hoveredPortKey !== null;
   connecting = null; connectDownPt = null;
+  hoveredPortKey = null;
   if (connectPreview) { connectPreview.remove(); connectPreview = null; }
+  return collapsedPort;
 }
 // Finish a drag on the given port, orienting the connection output→input.
 function completeConnect(inst: Inst, kind: 'in' | 'out', idx: number) {
@@ -3390,8 +3492,8 @@ function completeConnect(inst: Inst, kind: 'in' | 'out', idx: number) {
     out = { uid: connecting.uid, port: connecting.port }; sink = { uid: inst.uid, port: idx };
   } else if (connecting.kind === 'in' && kind === 'out') {
     out = { uid: inst.uid, port: idx }; sink = { uid: connecting.uid, port: connecting.port };
-  } else { cancelConnect(); return; }   // same direction (out→out / in→in): no connection
-  if (out.uid === sink.uid) { cancelConnect(); return; }  // don't connect a block to itself
+  } else { if (cancelConnect()) render(); return; }   // same direction (out→out / in→in): no connection
+  if (out.uid === sink.uid) { if (cancelConnect()) render(); return; }  // don't connect a block to itself
   if (selectedConnection && selectedConnection.to === sink.uid && selectedConnection.tp === sink.port)
     selectedConnection = null;
   conns = conns.filter(cn => !(cn.to === sink.uid && cn.tp === sink.port));  // one wire per input
@@ -3433,7 +3535,7 @@ function updateMarquee(point: Point) {
   const next = new Set(marquee.initial);
   const hits: string[] = [];
   for (const inst of insts) {
-    if (hideDisabled && !inst.enabled) continue;
+    if (canvasBlockHidden(inst)) continue;
     const { w, h } = geom(inst);
     if (boundsIntersect(box, { x: inst.x, y: inst.y, width: w, height: h })) {
       next.add(inst.uid);
@@ -3494,9 +3596,10 @@ window.addEventListener('pointermove', e => {
 });
 const endPointerGesture = (e: PointerEvent) => {
   if (svg.hasPointerCapture(e.pointerId)) svg.releasePointerCapture(e.pointerId);
-  if (connecting) cancelConnect();   // released away from a port: abandon the wire
+  const collapsedPort = connecting ? cancelConnect() : false; // released away: abandon the wire
   if (drag?.moved) recordHistory(); drag = null;
   if (marquee) { marquee.rect.remove(); marquee = null; }
+  if (collapsedPort) render();
 };
 window.addEventListener('pointerup', endPointerGesture);
 // The browser takes the gesture over when it decides a touch is a scroll (or the
@@ -6096,7 +6199,6 @@ async function buildRecordings(panel: HTMLElement) {
 // Reasons shown when hovering an action that is unavailable in the WASM build.
 const R_QUIT = "A browser tab can't quit the application — just close the tab instead.";
 const R_XML = "GRC no longer uses XML flowgraphs, so there are no XML parser errors to display.";
-const R_TODO = "This display option isn't implemented in the browser editor yet.";
 
 // ---- hover tooltip (explains why an action is unavailable) ----
 let wasmTipEl: HTMLDivElement | null = null;
@@ -6149,6 +6251,34 @@ function syncConsoleToggle() {
 function toggleScrollLock() { autoScrollLog = !autoScrollLog; log(`console autoscroll ${autoScrollLog ? 'on' : 'off'}`); }
 function clearConsole() { el('log').textContent = ''; }
 function toggleHideDisabled() { hideDisabled = !hideDisabled; render(); }
+function toggleHideVariables() {
+  hideVariables = !hideVariables;
+  if (hideVariables) {
+    const hidden = new Set(insts.filter(inst => VARIABLE_IDS.has(inst.id)).map(inst => inst.uid));
+    selectedBlocks = new Set([...selectedBlocks].filter(uid => !hidden.has(uid)));
+    if (selected && hidden.has(selected)) selected = [...selectedBlocks].pop() || null;
+    if (selectedConnection && (hidden.has(selectedConnection.from) || hidden.has(selectedConnection.to)))
+      selectedConnection = null;
+  }
+  render();
+}
+function toggleShowParameterExpressions() {
+  showParameterExpressions = !showParameterExpressions;
+  render();
+}
+function toggleShowParameterValues() {
+  showParameterValues = !showParameterValues;
+  render();
+}
+function toggleAutoHidePortLabels() {
+  autoHidePortLabels = !autoHidePortLabels;
+  hoveredPortKey = null;
+  el('canvasWrap').classList.toggle('auto-hide-port-labels', autoHidePortLabels);
+  render();
+}
+function toggleShowPropertiesFieldColors() {
+  showPropertiesFieldColors = !showPropertiesFieldColors;
+}
 function toggleShowBlockComments() {
   showBlockComments = !showBlockComments;
   render();
@@ -6386,17 +6516,21 @@ const MENUS: TopMenu[] = [
     { label: 'Clear Console', key: 'Ctrl+L', run: clearConsole },
     'sep',
     { label: 'Show Variable Editor', key: 'Ctrl+E', run: showVariableEditor },
-    { label: 'Show parameter expressions in block', reason: R_TODO },
-    { label: 'Show parameter value in block', reason: R_TODO },
+    { label: 'Show parameter expressions in block', run: toggleShowParameterExpressions,
+      check: () => showParameterExpressions },
+    { label: 'Show parameter value in block', run: toggleShowParameterValues,
+      check: () => showParameterValues },
     'sep',
-    { label: 'Hide Variables', reason: R_TODO },
+    { label: 'Hide Variables', run: toggleHideVariables, check: () => hideVariables },
     { label: 'Hide Disabled Blocks', key: 'Ctrl+D', run: toggleHideDisabled, check: () => hideDisabled },
-    { label: 'Auto-Hide Port Labels', reason: R_TODO },
+    { label: 'Auto-Hide Port Labels', run: toggleAutoHidePortLabels,
+      check: () => autoHidePortLabels },
     { label: 'Show Grid', key: 'G', run: toggleShowGrid, check: () => showGrid },
     { label: 'Snap to Grid', run: toggleSnapToGrid, check: () => snapToGrid },
     { label: 'Show Block Comments', run: toggleShowBlockComments, check: () => showBlockComments },
     { label: 'Show All Block IDs', run: toggleShowAllBlockIds, check: () => showAllBlockIds },
-    { label: 'Show Properties Field Colors', reason: R_TODO },
+    { label: 'Show Properties Field Colors', run: toggleShowPropertiesFieldColors,
+      check: () => showPropertiesFieldColors },
     'sep',
     { label: 'Zoom In', key: 'Ctrl++', run: () => setZoom(zoom * ZOOM_STEP) },
     { label: 'Zoom Out', key: 'Ctrl+-', run: () => setZoom(zoom / ZOOM_STEP) },

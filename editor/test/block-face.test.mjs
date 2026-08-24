@@ -51,7 +51,7 @@ assert.match(source,
   /function portWidth[\s\S]*?return ceilToGrid\(/,
   'port widths must keep their outer wire attachment edge on the grid');
 assert.match(source,
-  /textW\(r\.l, PARAM_FONT_SIZE, true\) \+ textW\(r\.v, PARAM_FONT_SIZE\)/,
+  /textW\(r\.l, PARAM_FONT_SIZE, true\) \+[\s\S]*?textW\(faceRowText\(r\), PARAM_FONT_SIZE\)/,
   'block width must account for bold parameter labels');
 // The measured sizes and the drawn ones are two declarations of the same thing;
 // a block face is only laid out correctly while they agree.
@@ -154,5 +154,47 @@ assert.match(html, /\.blk text\.comment \{[^}]*fill:#444;[^}]*font:14px[^}]*poin
   'enabled comments must use native-style gray, ordinary text that is not part of block hit testing');
 assert.match(html, /\.blk\.disabled text\.comment \{\s*fill:#888;\s*}/,
   'disabled block comments must use native\'s lighter gray');
+
+// The remaining native View display preferences are live toggles rather than
+// disabled menu placeholders.
+for (const [label, toggle, state] of [
+  ['Show parameter expressions in block', 'toggleShowParameterExpressions', 'showParameterExpressions'],
+  ['Show parameter value in block', 'toggleShowParameterValues', 'showParameterValues'],
+  ['Hide Variables', 'toggleHideVariables', 'hideVariables'],
+  ['Auto-Hide Port Labels', 'toggleAutoHidePortLabels', 'autoHidePortLabels'],
+  ['Show Properties Field Colors', 'toggleShowPropertiesFieldColors', 'showPropertiesFieldColors'],
+]) {
+  assert.match(source,
+    new RegExp(`label: '${label}', run: ${toggle},[\\s\\S]*?check: \\(\\) => ${state}`),
+    `${label} must be implemented and expose its current state`);
+}
+assert.doesNotMatch(source, /const R_TODO|reason: R_TODO/,
+  'no View display preference may remain on the unimplemented path');
+assert.match(source,
+  /evaluated && showParameterExpressions[\s\S]*?expression:[\s\S]*?showParameterValues \? value : ''/,
+  'an evaluated expression must support expression-only and expression=value display modes');
+assert.match(source, /expression\.setAttribute\('class', 'pexpr'\)/,
+  'a displayed raw expression must have its own block-face style');
+assert.match(html, /\.blk text\.pexpr \{[^}]*font-style:italic/,
+  'raw expressions must be italic like native GRC');
+assert.match(source,
+  /function canvasBlockHidden\(inst: Inst\)[\s\S]*?hideVariables && VARIABLE_IDS\.has\(inst\.id\)/,
+  'Hide Variables must remove native variable/control blocks from the canvas');
+assert.match(html,
+  /#canvasWrap\.auto-hide-port-labels \.port-label \{ opacity:0; \}[\s\S]*?#canvasWrap\.auto-hide-port-labels \.port:hover \+ \.port-label \{ opacity:1; \}/,
+  'auto-hidden port labels must return while their port is hovered');
+assert.match(source, /const PORT_HIDDEN_W = 10;/,
+  'auto-hidden ports must contract to native GRC\'s compact width');
+assert.match(source,
+  /function portWidth[\s\S]*?autoHidePortLabels && hoveredPortKey !== `\$\{inst\.uid\}:\$\{kind\}:\$\{i\}`[\s\S]*?return PORT_HIDDEN_W/,
+  'port geometry and therefore its wire endpoint must use the compact width');
+assert.match(source,
+  /r\.addEventListener\('pointerenter'[\s\S]*?hoveredPortKey = hoverKey;[\s\S]*?r\.addEventListener\('pointerleave'[\s\S]*?hoveredPortKey = null;/,
+  'hovering a compact port must expand it and leaving must contract it');
+assert.match(source,
+  /const PROPERTY_FIELD_COLORS:[\s\S]*?complex: '#3399FF'[\s\S]*?string: '#CC66CC'[\s\S]*?raw: '#DDDDDD'/,
+  'property fields must use native GRC\'s dtype color palette');
+assert.match(html, /\.dlgrow\.dtype-field input,[\s\S]*?background:var\(--dtype-field-color\)/,
+  'the dtype color must reach editable property controls');
 
 console.log('checked native block-face parameter visibility and typography');
