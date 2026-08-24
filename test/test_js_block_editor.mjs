@@ -13,10 +13,12 @@
 // Block: a JS Block whose editor-side ports do not match its code produces a
 // flowgraph that is wired one way and built another.
 //
-// So: place a JS Block, retype its source to change its ports and parameters, and
-// check the canvas followed *without* anything being clicked. Then check that a
-// broken source reddens the block, and that the popup editor shows the derived
-// interface. Needs a built editor and a built runner (the sandbox evaluates
+// So: place a JS Block, check the canvas drew the default source's ports without
+// evaluating anything, open the popup editor through Properties ▸ Expand Editor,
+// and retype the source to change its ports and parameters -- the live panel has
+// to follow on its own. Then check that a broken source is reported in the
+// runtime's own words, and that Save & Close carries the derived interface onto
+// the block. Needs a built editor and a built runner (the sandbox evaluates
 // runner/build/js_runtime.js, so the editor and the runner cannot disagree).
 import http from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
@@ -107,8 +109,9 @@ const probe = () => page.evaluate(PROBE);
 
 // Two real clicks: select()/drag rebuild a block's DOM node on every press, so
 // the editor does its own double-press detection on pointerdown (see startDrag in
-// main.ts) and a synthetic 'dblclick' reaches nothing. On a JS Block this opens
-// the popup code editor rather than Properties.
+// main.ts) and a synthetic 'dblclick' reaches nothing. A JS Block opens Properties
+// like every other block; its popup code editor is one button further, beside
+// that dialog's Code field.
 //
 // The point is chosen by hit-testing rather than taken as the centre of the
 // block's box: a freshly placed block can be drawn under the Options block on an
@@ -135,19 +138,37 @@ const doubleClickBlock = async () => {
 // between the two presses, so a press that lands during a re-render is dropped and
 // the pair reads as two singles. Retry rather than fail: what is under test is the
 // modal, not the input plumbing.
-const openCodeModal = async () => {
+const openPropsDialog = async () => {
   for (let attempt = 0; attempt < 4; attempt++) {
     await doubleClickBlock();
     try {
-      await page.waitForSelector('.modal.code-modal textarea.code-modal-area',
+      await page.waitForSelector('.modal.props .code-field textarea.code-editor',
                                  { timeout: 8000 });
       return;
     } catch {
-      // A missed pair may have opened Properties instead; close it and try again.
+      // A missed pair usually leaves nothing open, but close whatever did open
+      // before pressing again: an overlay would swallow the next click.
       await page.evaluate(() => document.querySelector('.modal.props .dlgclose')?.click());
     }
   }
-  throw new Error('the code editor never opened');
+  throw new Error('the Properties dialog never opened');
+};
+
+// "Expand Editor ⤢" beside the dialog's Code field. The modal is seeded from the
+// dialog's working copy and written back to it -- which is why it is reached
+// through the dialog rather than straight from the canvas.
+const openCodeModal = async () => {
+  await openPropsDialog();
+  const opened = await page.evaluate(() => {
+    const button = [...document.querySelectorAll('.modal.props .code-controls button')]
+      .find(node => /Expand Editor/.test(node.textContent || ''));
+    if (!button) return false;
+    button.click();
+    return true;
+  });
+  if (!opened) throw new Error('the Properties dialog has no Expand Editor button');
+  await page.waitForSelector('.modal.code-modal textarea.code-modal-area',
+                             { timeout: 15000 });
 };
 
 const setSource = source => page.evaluate((text, selector) => {
@@ -243,7 +264,7 @@ const modal = await page.evaluate(() => {
   };
 });
 check(modal.monospace && modal.gutter && modal.areaHidden && modal.shown,
-      'double-clicking a JS Block opens a mounted code editor', JSON.stringify(modal));
+      'Expand Editor opens a mounted code editor', JSON.stringify(modal));
 check(modal.highlighted, 'the source is highlighted as JavaScript');
 check(/in: complex.*out: complex/.test(modal.ports),
       'the live panel names the derived ports', modal.ports);
@@ -253,24 +274,29 @@ check(/start\(\)/.test(modal.notes), 'and the optional hooks it defines', modal.
 check(!modal.reread.some(label => /read/i.test(label)),
       'nothing has to be pressed to read the code', JSON.stringify(modal.reread));
 
-// Retype the source. Nothing is clicked: the ports must follow on their own.
+// Retype the source. Nothing is clicked: the derived interface must follow on its
+// own. It follows in the *panel*: the modal edits the Properties dialog's working
+// copy, which Cancel still discards, so the block face follows only when Save &
+// Close commits it -- checked at the end.
 await setSource(EDITED_SOURCE);
-await page.waitForFunction(`(${PROBE})?.inputs === 2`, { timeout: 20000, polling: 100 });
+await page.waitForFunction(
+  () => (document.querySelector('.code-modal-label')?.textContent || '').trim() ===
+        'Weighted Sum',
+  { timeout: 20000, polling: 100 });
 
-const after = await probe();
 const panel = await page.evaluate(() => ({
   label: document.querySelector('.code-modal-label')?.textContent || '',
   ports: document.querySelector('.code-modal-ports')?.textContent || '',
   params: document.querySelector('.code-modal-params')?.textContent || '',
 }));
-check(after.title === 'Weighted Sum', "the label follows the descriptor's label", after.title);
-check(after.inputs === 2 && after.outputs === 1,
-      'the ports follow the code as it is typed, with nothing pressed',
-      JSON.stringify([after.inputs, after.outputs]));
-check(after.rows.some(row => row.includes('Left')) && after.rows.some(row => row.includes('Right')),
-      'the derived parameters appear on the block face', JSON.stringify(after.rows));
-check(panel.label === 'Weighted Sum' && /in: float, float/.test(panel.ports),
-      'and the live panel agrees with them', JSON.stringify(panel));
+check(panel.label.trim() === 'Weighted Sum', "the label follows the descriptor's label",
+      panel.label);
+check(/in: float, float/.test(panel.ports) && /out: float/.test(panel.ports),
+      'the ports follow the code as it is typed, with nothing pressed', panel.ports);
+check(/left/.test(panel.params) && /right/.test(panel.params),
+      'and the derived parameters follow with them', panel.params);
+check((await probe())?.inputs === 1,
+      'the canvas holds its committed interface while the popup is open');
 
 // A broken source must say so, and redden the block rather than fail silently.
 await setSource('gr.export({ inputs: ["nonsense"], outputs: [], work() {} });');
@@ -283,13 +309,18 @@ const broken = await page.evaluate(() => ({
 }));
 check(broken.flagged && /unknown port type/i.test(broken.message),
       'a descriptor the runtime rejects is reported, in its own words', broken.message);
-// The block keeps the last interface that *did* read, rather than losing its
-// ports and its connections to a half-typed line -- the same thing a Python
-// Block does with a source it could not read. The block face carries the error
-// too, but not checkably here: this block has three unconnected ports, and the
-// face shows only the first five wrapped lines of a block's issues.
-check((await probe())?.inputs === 2,
-      'and the last interface that did read still stands, ports and all');
+// The panel keeps the last interface that *did* read, rather than losing the
+// ports to a half-typed line -- the same thing a Python Block does with a source
+// it could not read. The block face carries the error too, but not checkably
+// here: this block has unconnected ports, and the face shows only the first five
+// wrapped lines of a block's issues.
+const stillStands = await page.evaluate(() => ({
+  label: (document.querySelector('.code-modal-label')?.textContent || '').trim(),
+  ports: document.querySelector('.code-modal-ports')?.textContent || '',
+}));
+check(stillStands.label === 'Weighted Sum' && /in: float, float/.test(stillStands.ports),
+      'and the last interface that did read still stands, ports and all',
+      JSON.stringify(stillStands));
 
 // A source that never registers itself gets a real error, not a mystery.
 await setSource('const x = 1;');
@@ -313,6 +344,17 @@ await page.waitForFunction(() => !document.querySelector('.modal.code-modal'),
 const saved = await probe();
 check(saved.title === 'Weighted Sum' && saved.inputs === 2 && saved.outputs === 1,
       'Save & Close commits the source and its derived interface', JSON.stringify(saved));
+check(saved.rows.some(row => row.includes('Left')) && saved.rows.some(row => row.includes('Right')),
+      'the derived parameters appear on the block face', JSON.stringify(saved.rows));
+
+// It reopens the dialog it was launched from, on the committed source: the
+// parameter and port set that dialog was drawn from has just changed.
+const reopened = await page.evaluate(() => {
+  const area = document.querySelector('.modal.props .code-field textarea.code-editor');
+  return { open: !!area, seeded: /Weighted Sum/.test(area?.value || '') };
+});
+check(reopened.open && reopened.seeded,
+      'and reopens Properties on the committed source', JSON.stringify(reopened));
 
 await browser.close();
 server.close();
