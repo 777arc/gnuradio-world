@@ -14,6 +14,7 @@ blocks:
 -   name: samp_rate
     id: variable
     parameters:
+        comment: ''
         value: '48000'
     states:
         coordinate: [610, 10]
@@ -22,11 +23,16 @@ blocks:
 -   name: bpsk_demod
     id: satellites_bpsk_demodulator
     parameters:
+        affinity: ''
+        alias: ''
         baudrate: '9600'
+        comment: ''
         differential: 'False'
         f_offset: '12000'
         iq: 'False'
         manchester: 'False'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         options: '""'
         samp_rate: samp_rate
     states:
@@ -36,8 +42,13 @@ blocks:
 -   name: by701_deframer
     id: satellites_ccsds_concatenated_deframer
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         convolutional: '"CCSDS"'
         frame_size: '114'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         options: '""'
         precoding: '"differential"'
         rs_basis: '"conventional"'
@@ -51,6 +62,9 @@ blocks:
 -   name: by701_frames
     id: blocks_message_debug
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         en_uvec: 'True'
         log_level: info
     states:
@@ -60,6 +74,9 @@ blocks:
 -   name: by701_note
     id: note
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         note: 'Upstream example: BY70-1, 9k6 BPSK, differential precoding, 114-byte frames. It decodes nothing in this runtime, though every block in it is proven working elsewhere.'
     states:
         coordinate: [780, 10]
@@ -68,7 +85,12 @@ blocks:
 -   name: by701_recording
     id: wasm_gr_world_recording
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         length: '0'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         offset: '0'
         recording: estevez/by701
         repeat: 'False'
@@ -80,6 +102,11 @@ blocks:
 -   name: by701_recording_to_float
     id: blocks_short_to_float
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         scale: '32767'
         vlen: '1'
     states:
@@ -89,8 +116,13 @@ blocks:
 -   name: fsk_demod
     id: satellites_fsk_demodulator
     parameters:
+        affinity: ''
+        alias: ''
         baudrate: '9766'
+        comment: ''
         iq: 'False'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         options: '""'
         samp_rate: samp_rate
         subaudio: 'False'
@@ -101,8 +133,13 @@ blocks:
 -   name: trisat_deframer
     id: satellites_ccsds_concatenated_deframer
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         convolutional: '"NASA-DSN"'
         frame_size: '223'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         options: '""'
         precoding: None
         rs_basis: '"dual"'
@@ -116,6 +153,9 @@ blocks:
 -   name: trisat_frames
     id: blocks_message_debug
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         en_uvec: 'True'
         log_level: info
     states:
@@ -125,6 +165,9 @@ blocks:
 -   name: trisat_note
     id: note
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         note: 'Same deframer block, TRISAT: 9766 baud FSK, NASA-DSN convolutional, dual-basis Reed-Solomon, 223-byte frames.'
     states:
         coordinate: [1200, 10]
@@ -133,7 +176,12 @@ blocks:
 -   name: trisat_recording
     id: wasm_gr_world_recording
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         length: '0'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         offset: '0'
         recording: estevez/trisat
         repeat: 'False'
@@ -145,6 +193,11 @@ blocks:
 -   name: trisat_recording_to_float
     id: blocks_short_to_float
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         scale: '32767'
         vlen: '1'
     states:

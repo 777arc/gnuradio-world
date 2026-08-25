@@ -1,10 +1,18 @@
 export interface ExampleRecording {
   name: string;
+  title: string;
   dataFile: string;
   metaFile: string;
   datatype: string | null;
   sampleRate: number | null;
   author: string | null;
+  description: string | null;
+  frequency: number | null;
+  annotationCount: number;
+  annotationLabels: string[];
+  captureDatetime: string | null;
+  category: string | null;
+  tags: string[];
   sampleCount: number | null;
   byteLength: number;
   downloadUrl: string;
@@ -16,6 +24,14 @@ export interface R2RecordingIndexEntry {
   datatype?: unknown;
   sample_rate?: unknown;
   author?: unknown;
+  description?: unknown;
+  frequency?: unknown;
+  number_of_annotations?: unknown;
+  annotation_labels?: unknown;
+  capture_datetime?: unknown;
+  title?: unknown;
+  category?: unknown;
+  tags?: unknown;
   byte_length?: unknown;
   number_of_samples?: unknown;
 }
@@ -68,6 +84,17 @@ export function finiteNumber(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
+function optionalString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function stringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value
+    .filter((item): item is string => typeof item === 'string')
+    .map(item => item.trim()).filter(Boolean))];
+}
+
 export function indexBytesPerSample(datatype: string | null): number | null {
   const match = datatype?.match(/^([rc])[fiu](\d+)(?:_(?:le|be))?$/i);
   if (!match) return null;
@@ -91,13 +118,22 @@ export function recordingFromR2Index(raw: R2RecordingIndexEntry): ExampleRecordi
 
   const dataFile = name + '.sigmf-data';
   const metaFile = name + '.sigmf-meta';
+  const basename = segments[segments.length - 1];
   return {
     name,
+    title: optionalString(raw.title) ?? basename,
     dataFile,
     metaFile,
     datatype,
     sampleRate: finiteNumber(raw.sample_rate),
-    author: typeof raw.author === 'string' ? raw.author : null,
+    author: optionalString(raw.author),
+    description: optionalString(raw.description),
+    frequency: finiteNumber(raw.frequency),
+    annotationCount: Math.max(0, Math.floor(finiteNumber(raw.number_of_annotations) ?? 0)),
+    annotationLabels: stringList(raw.annotation_labels),
+    captureDatetime: optionalString(raw.capture_datetime),
+    category: optionalString(raw.category),
+    tags: stringList(raw.tags),
     sampleCount,
     byteLength,
     downloadUrl: recordingsBucketUrl(dataFile),
@@ -165,6 +201,63 @@ export const displayBytes = (bytes: number): string => {
   while (value >= 1024 && unit < units.length - 1) { value /= 1024; unit++; }
   return `${value.toFixed(unit ? 1 : 0)} ${units[unit]}`;
 };
+
+export const recordingDuration = (recording: ExampleRecording): number | null =>
+  recording.sampleCount !== null && recording.sampleRate !== null && recording.sampleRate > 0
+    ? recording.sampleCount / recording.sampleRate
+    : null;
+
+export const displayDuration = (seconds: number | null): string => {
+  if (seconds === null || !Number.isFinite(seconds) || seconds < 0) return '—';
+  if (seconds < 1) return `${Number((seconds * 1000).toPrecision(3))} ms`;
+  if (seconds < 60) return `${Number(seconds.toPrecision(3))} s`;
+  const minutes = Math.floor(seconds / 60);
+  const remainder = Math.round(seconds % 60);
+  if (minutes < 60) return `${minutes}m ${remainder}s`;
+  const hours = Math.floor(minutes / 60);
+  return `${hours}h ${minutes % 60}m`;
+};
+
+// Broad ITU-style spectrum bands make recordings discoverable without asking
+// publishers to repeat information already present in the first SigMF capture.
+export function recordingBand(frequency: number | null): string {
+  if (frequency === null || !Number.isFinite(frequency) || frequency <= 0) return 'Baseband / unknown';
+  if (frequency < 300e3) return 'LF and below';
+  if (frequency < 3e6) return 'MF';
+  if (frequency < 30e6) return 'HF';
+  if (frequency < 300e6) return 'VHF';
+  if (frequency < 3e9) return 'UHF';
+  if (frequency < 30e9) return 'SHF';
+  return 'EHF and above';
+}
+
+export function recordingBandLabel(band: string): string {
+  const ranges: Record<string, string> = {
+    'LF and below': '< 300 kHz',
+    MF: '300 kHz–3 MHz',
+    HF: '3–30 MHz',
+    VHF: '30–300 MHz',
+    UHF: '300 MHz–3 GHz',
+    SHF: '3–30 GHz',
+    'EHF and above': '≥ 30 GHz',
+    'Baseband / unknown': 'No center frequency',
+  };
+  return ranges[band] ? `${ranges[band]} (${band})` : band;
+}
+
+export function compareRecordingBands(a: string, b: string): number {
+  const order = ['LF and below', 'MF', 'HF', 'VHF', 'UHF', 'SHF', 'EHF and above',
+    'Baseband / unknown'];
+  const aIndex = order.indexOf(a), bIndex = order.indexOf(b);
+  if (aIndex !== -1 || bIndex !== -1)
+    return (aIndex === -1 ? order.length : aIndex) - (bIndex === -1 ? order.length : bIndex);
+  return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+}
+
+export function recordingCollection(recording: ExampleRecording): string {
+  const parts = recording.name.split('/');
+  return parts.length > 1 ? parts[0] : 'Uncollected';
+}
 
 // GR World Recording exposes integer recordings as scalar component streams, matching
 // GNU Radio's normal interleaved-I/Q convention. For example, ci16_le becomes

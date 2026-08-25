@@ -1,5 +1,5 @@
-import { RUNNABLE, type ResolvedPort, type RunnableDef } from './block-defs';
-import { buildScope, evaluate as evalExpr, type Scope } from './expr';
+import { RUNNABLE, type ParamDef, type ResolvedPort, type RunnableDef } from './block-defs';
+import { buildScope, evaluate as evalExpr, undefinedNames, type Scope } from './expr';
 import type { Conn, Inst, ValidationIssue } from './graph-model';
 
 export interface GraphPortAccess {
@@ -11,6 +11,28 @@ export interface GraphPortAccess {
   // else here is already per instance, so the parameter checks below must be too.
   def(block: Inst): RunnableDef | undefined;
 }
+
+// GRC lets a parameter's dtype depend on another parameter: `fir_filter_xxx`
+// declares `taps` as `${ type.taps }`, which resolves through the `type` param's
+// option_attributes to `real_vector` or `complex_vector`. Resolve that here so
+// the caller sees the concrete dtype rather than the template.
+export function effectiveDtype(inst: Inst, def: RunnableDef, p: ParamDef): string {
+  const dtype = String(p.dtype ?? '');
+  const match = dtype.match(/^\$\{\s*([A-Za-z_]\w*)(?:\.([A-Za-z_]\w*))?\s*\}$/);
+  if (!match) return dtype;
+  const value = String(inst.params[match[1]] ?? '');
+  if (!match[2]) return value;
+  const source = def.params.find((q: ParamDef) => q.id === match[1]);
+  const index = source?.options?.indexOf(value) ?? -1;
+  return index >= 0 ? String(source?.optionAttributes?.[match[2]]?.[index] ?? '') : '';
+}
+
+// Parameters whose value is a Python expression rather than a literal, and so
+// have to be evaluated before the runner sees them.
+export const EVALUATED_DTYPES = new Set([
+  'int', 'real', 'float', 'hex', 'raw',
+  'int_vector', 'real_vector', 'float_vector', 'complex_vector',
+]);
 
 export const NAME_FIELD = '__name';
 export const BLOCK_FIELD = '__block';
@@ -97,6 +119,14 @@ export function validateFlowgraph(
   const activeBlocks = blocks.filter(active);
   const staticScope = buildScope(activeBlocks.filter(block => block.id === 'variable'));
   const fullScope = buildScope(activeBlocks);
+  // Every name the flowgraph publishes. `fullScope` holds only what evaluates to
+  // a value, which leaves out the variable blocks that carry an object rather
+  // than a number -- a Constellation Object, a Tag Object -- so add every block
+  // name beside it. Used to tell a genuinely undefined reference from a valid
+  // one this evaluator cannot compute.
+  const publishedNames: Scope = { ...fullScope };
+  for (const name of activeNames.keys())
+    if (!(name in publishedNames)) publishedNames[name] = 0;
   const evaluates = (value: any, scope: Scope) =>
     typeof value === 'string' && !!value.trim() && evalExpr(value.trim(), scope).ok;
   // The concrete number an expression resolves to, or null when it isn't one.
@@ -142,6 +172,19 @@ export function validateFlowgraph(
       } else if (param.type === 'enum' && param.options?.length &&
                  !param.options.some(option => sameChoice(option, value))) {
         add(block, param.id, `${param.label} has unsupported value "${String(value)}".`);
+      } else if (typeof value === 'string' && value.trim() && !param.options?.length &&
+                 (param.raw || EVALUATED_DTYPES.has(effectiveDtype(block, def, param)))) {
+        // An expression parameter that is not a plain number: native GRC
+        // evaluates these against the flowgraph's own namespace, so a bare name
+        // it does not define is an error there. Report the same thing rather
+        // than passing the text through to the runner, which would coerce an
+        // unresolved `samp_rate` to zero without a word. Only bare references
+        // count -- see undefinedNames. A `raw` parameter that declares options
+        // is an enum in disguise (analog_sig_source_x's `waveform`, whose values
+        // are `analog.GR_*` constants), never an expression.
+        for (const missing of undefinedNames(value.trim(), publishedNames))
+          add(block, param.id,
+            `${param.label} references "${missing}", which is not defined in this flowgraph.`);
       }
     }
 

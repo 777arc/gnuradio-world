@@ -14,6 +14,7 @@ blocks:
 -   name: psk_offset
     id: variable
     parameters:
+        comment: ''
         value: '132'
     states:
         coordinate: [600, 10]
@@ -22,6 +23,7 @@ blocks:
 -   name: samp_rate
     id: variable
     parameters:
+        comment: ''
         value: '8000'
     states:
         coordinate: [770, 10]
@@ -30,6 +32,7 @@ blocks:
 -   name: symbol_rate
     id: variable
     parameters:
+        comment: ''
         value: '500'
     states:
         coordinate: [940, 10]
@@ -38,8 +41,13 @@ blocks:
 -   name: agc
     id: analog_agc_xx
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         gain: '1'
         max_gain: '65536'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         rate: '0.001'
         reference: '0.1'
         type: complex
@@ -50,9 +58,12 @@ blocks:
 -   name: band_waterfall
     id: qtgui_waterfall_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         axislabels: 'True'
         color1: '0'
+        comment: ''
         fc: '7071000'
         fftsize: '2048'
         grid: 'False'
@@ -60,6 +71,8 @@ blocks:
         int_min: '-120'
         label1: ''
         legend: 'True'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         name: 7071 kHz PSK31 watering hole
         samp_rate: samp_rate
         update_time: '0.1'
@@ -70,6 +83,11 @@ blocks:
 -   name: carrier
     id: digital_costas_loop_cc
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         order: '2'
         use_snr: 'False'
         w: 5*math.pi/100
@@ -80,10 +98,13 @@ blocks:
 -   name: constellation
     id: qtgui_const_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         autoscale: 'False'
         axislabels: 'True'
         color1: '"blue"'
+        comment: ''
         grid: 'True'
         label1: ''
         legend: 'True'
@@ -109,6 +130,11 @@ blocks:
 -   name: differential
     id: digital_diff_phasor_cc
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
     states:
         coordinate: [940, 560]
         rotation: 0
@@ -116,6 +142,9 @@ blocks:
 -   name: intro
     id: note
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         note: KC3FL (Florida) working XE2BVM (Mexico), 31.25 baud BPSK
     states:
         coordinate: [1120, 10]
@@ -124,6 +153,11 @@ blocks:
 -   name: real_part
     id: blocks_complex_to_real
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         vlen: '1'
     states:
         coordinate: [1320, 560]
@@ -132,6 +166,11 @@ blocks:
 -   name: slicer
     id: digital_binary_slicer_fb
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
     states:
         coordinate: [80, 820]
         rotation: 0
@@ -139,7 +178,12 @@ blocks:
 -   name: source19
     id: wasm_gr_world_recording
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         length: '0'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         offset: '0'
         recording: ham_psk31_7071kHz
         repeat: 'False'
@@ -151,6 +195,9 @@ blocks:
 -   name: text
     id: wasm_text_sink
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         max_line: '72'
         prefix: '"PSK31: "'
     states:
@@ -160,9 +207,14 @@ blocks:
 -   name: throttle
     id: blocks_throttle2
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         ignoretag: 'True'
         limit: auto
         maximum: '0.1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samples_per_second: samp_rate*10
         type: complex
         vlen: '1'
@@ -173,8 +225,13 @@ blocks:
 -   name: timing
     id: digital_clock_recovery_mm_xx
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         gain_mu: '0.175'
         gain_omega: 0.25*0.175*0.175
+        maxoutbuf: '0'
+        minoutbuf: '0'
         mu: '0.5'
         omega: symbol_rate/31.25
         omega_relative_limit: '0.005'
@@ -186,8 +243,13 @@ blocks:
 -   name: tune
     id: freq_xlating_fir_filter_xxx
     parameters:
+        affinity: ''
+        alias: ''
         center_freq: psk_offset
+        comment: ''
         decim: '16'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samp_rate: samp_rate
         taps: firdes.low_pass(1, samp_rate, 100, 100)
         type: ccf
@@ -198,6 +260,11 @@ blocks:
 -   name: varicode
     id: ham_varicode_rx
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
     states:
         coordinate: [330, 820]
         rotation: 0

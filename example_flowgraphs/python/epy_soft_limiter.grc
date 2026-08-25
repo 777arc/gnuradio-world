@@ -14,6 +14,7 @@ blocks:
 -   name: gain
     id: variable_qtgui_range
     parameters:
+        comment: ''
         label: Limiter gain
         min_len: '240'
         orient: QtCore.Qt.Horizontal
@@ -30,6 +31,7 @@ blocks:
 -   name: samp_rate
     id: variable
     parameters:
+        comment: ''
         value: '48000'
     states:
         coordinate: [830, 10]
@@ -38,6 +40,8 @@ blocks:
 -   name: scope
     id: qtgui_time_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         alpha10: '1'
         alpha2: '1'
@@ -60,6 +64,7 @@ blocks:
         color7: yellow
         color8: dark red
         color9: dark green
+        comment: ''
         ctrlpanel: 'False'
         grid: 'True'
         label1: limited
@@ -129,6 +134,9 @@ blocks:
     parameters:
         _io_cache: '{"block_type":"sync","callbacks":["gain"],"cls":"blk","decim":1,"doc":"Soft limiter: y = tanh(gain * x)","history":1,"interp":1,"itemsizes_in":[4],"itemsizes_out":[4],"label":"Soft Limiter","max_noutput_items":0,"min_output_buffer":0,"msg_ports_in":[],"msg_ports_out":[],"output_multiple":0,"overrides_forecast":false,"params":[["gain","1.0"]],"relative_rate":1.0,"sinks":[["0","float",1]],"sources":[["0","float",1]],"tag_propagation_policy":1}'
         _source_code: "\"\"\"\nEmbedded Python Block: a soft limiter.\n\nThe gain below is driven live by the QT GUI Range control in this flowgraph, so\nraising the slider past 1.0 turns the sine into a flat-topped, clipped wave --\na shape no stock GNU Radio block produces.\n\nEdit this code in the block's Properties dialog, press the button under it to\nre-read it, and the block's parameters and ports follow whatever you wrote.\n\"\"\"\n\nimport numpy as np\nfrom gnuradio import gr\n\n\nclass blk(gr.sync_block):\n    \"\"\"Soft limiter: y = tanh(gain * x)\"\"\"\n\n    def __init__(self, gain=1.0):\n        gr.sync_block.__init__(\n            self,\n            name='Soft Limiter',\n            in_sig=[np.float32],\n            out_sig=[np.float32])\n        self.gain = gain\n\n    def work(self, input_items, output_items):\n        np.tanh(self.gain * input_items[0], out=output_items[0])\n        return len(output_items[0])\n"
+        affinity: ''
+        alias: ''
+        comment: ''
         gain: gain
     states:
         coordinate: [620, 230]
@@ -137,9 +145,14 @@ blocks:
 -   name: throttle
     id: blocks_throttle2
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         ignoretag: 'True'
         limit: time
         maximum: '0.1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samples_per_second: samp_rate
         type: float
         vlen: '1'
@@ -150,8 +163,13 @@ blocks:
 -   name: tone
     id: analog_sig_source_x
     parameters:
+        affinity: ''
+        alias: ''
         amplitude: '1'
+        comment: ''
         frequency: '1000'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samp_rate: samp_rate
         type: float
         waveform: analog.GR_COS_WAVE

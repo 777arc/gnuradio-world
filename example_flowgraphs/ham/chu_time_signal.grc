@@ -14,6 +14,7 @@ blocks:
 -   name: channel_rate
     id: variable
     parameters:
+        comment: ''
         value: '4800'
     states:
         coordinate: [600, 10]
@@ -22,6 +23,7 @@ blocks:
 -   name: mark_tone
     id: variable
     parameters:
+        comment: ''
         value: '2225'
     states:
         coordinate: [790, 10]
@@ -30,6 +32,7 @@ blocks:
 -   name: samp_rate
     id: variable
     parameters:
+        comment: ''
         value: '48000'
     states:
         coordinate: [960, 10]
@@ -38,6 +41,7 @@ blocks:
 -   name: space_tone
     id: variable
     parameters:
+        comment: ''
         value: '2025'
     states:
         coordinate: [1130, 10]
@@ -46,6 +50,9 @@ blocks:
 -   name: chu_decoder
     id: ham_chu_decode
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
     states:
         coordinate: [760, 370]
         rotation: 0
@@ -53,6 +60,11 @@ blocks:
 -   name: complex17
     id: blocks_interleaved_short_to_complex
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         scale_factor: '32767'
         swap: 'False'
         vector_input: 'False'
@@ -63,7 +75,12 @@ blocks:
 -   name: discriminator
     id: analog_quadrature_demod_cf
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         gain: channel_rate/(math.pi*(mark_tone - space_tone))
+        maxoutbuf: '0'
+        minoutbuf: '0'
     states:
         coordinate: [80, 370]
         rotation: 0
@@ -71,6 +88,9 @@ blocks:
 -   name: intro
     id: note
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         note: 300 baud AFSK on the Bell 103 tones; burst arrives 21 s in
     states:
         coordinate: [1300, 10]
@@ -79,6 +99,11 @@ blocks:
 -   name: slicer
     id: digital_binary_slicer_fb
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
     states:
         coordinate: [450, 370]
         rotation: 0
@@ -86,7 +111,12 @@ blocks:
 -   name: source16
     id: wasm_gr_world_recording
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         length: '0'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         offset: '0'
         recording: ham_chu_14670kHz
         repeat: 'True'
@@ -98,12 +128,15 @@ blocks:
 -   name: symbols
     id: qtgui_time_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         alpha2: '1'
         autoscale: 'False'
         axislabels: 'True'
         color1: blue
         color2: red
+        comment: ''
         ctrlpanel: 'False'
         grid: 'True'
         label1: Discriminator
@@ -138,9 +171,14 @@ blocks:
 -   name: throttle
     id: blocks_throttle2
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         ignoretag: 'True'
         limit: auto
         maximum: '0.1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samples_per_second: samp_rate*10
         type: complex
         vlen: '1'
@@ -151,8 +189,13 @@ blocks:
 -   name: tone_channel
     id: freq_xlating_fir_filter_xxx
     parameters:
+        affinity: ''
+        alias: ''
         center_freq: (mark_tone + space_tone)/2
+        comment: ''
         decim: '10'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samp_rate: samp_rate
         taps: firdes.low_pass(1, samp_rate, 250, 500)
         type: ccf
@@ -163,9 +206,12 @@ blocks:
 -   name: waterfall
     id: qtgui_waterfall_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         axislabels: 'True'
         color1: '0'
+        comment: ''
         fc: 14670000 + (mark_tone + space_tone)/2
         fftsize: '1024'
         grid: 'False'
@@ -173,6 +219,8 @@ blocks:
         int_min: '-110'
         label1: ''
         legend: 'True'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         name: CHU tone channel
         samp_rate: channel_rate
         update_time: '0.1'

@@ -14,6 +14,7 @@ blocks:
 -   name: samp_rate
     id: variable
     parameters:
+        comment: ''
         value: '20000000'
     states:
         coordinate: [600, 10]
@@ -22,6 +23,7 @@ blocks:
 -   name: sync_length
     id: variable
     parameters:
+        comment: ''
         value: '320'
     states:
         coordinate: [770, 10]
@@ -30,6 +32,7 @@ blocks:
 -   name: window_size
     id: variable
     parameters:
+        comment: ''
         value: '48'
     states:
         coordinate: [950, 10]
@@ -38,8 +41,13 @@ blocks:
 -   name: average_corr
     id: blocks_moving_average_xx
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         length: window_size
         max_iter: '4000'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         scale: '1'
         type: complex
         vlen: '1'
@@ -50,8 +58,13 @@ blocks:
 -   name: average_power
     id: blocks_moving_average_xx
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         length: window_size + 16
         max_iter: '4000'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         scale: '1'
         type: float
         vlen: '1'
@@ -62,6 +75,11 @@ blocks:
 -   name: conjugate
     id: blocks_conjugate_cc
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
     states:
         coordinate: [1040, 260]
         rotation: 0
@@ -69,6 +87,11 @@ blocks:
 -   name: corr_mag
     id: blocks_complex_to_mag
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
     states:
         coordinate: [390, 570]
         rotation: 0
@@ -76,6 +99,11 @@ blocks:
 -   name: correlate
     id: blocks_multiply_xx
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         num_inputs: '2'
         type: complex
         vlen: '1'
@@ -86,8 +114,13 @@ blocks:
 -   name: decode_mac
     id: ieee802_11_decode_mac
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         debug: 'False'
         log: 'False'
+        maxoutbuf: '0'
+        minoutbuf: '0'
     states:
         coordinate: [1430, 850]
         rotation: 0
@@ -95,7 +128,12 @@ blocks:
 -   name: delay_ltf
     id: blocks_delay
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         delay: sync_length
+        maxoutbuf: '0'
+        minoutbuf: '0'
         type: complex
     states:
         coordinate: [1230, 570]
@@ -104,7 +142,12 @@ blocks:
 -   name: delay_stf
     id: blocks_delay
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         delay: '16'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         type: complex
     states:
         coordinate: [700, 260]
@@ -113,11 +156,16 @@ blocks:
 -   name: equalizer
     id: ieee802_11_frame_equalizer
     parameters:
+        affinity: ''
         algo: ieee802_11.LS
+        alias: ''
         bw: samp_rate
+        comment: ''
         debug: 'False'
         freq: '5320000000'
         log: 'False'
+        maxoutbuf: '0'
+        minoutbuf: '0'
     states:
         coordinate: [1060, 830]
         rotation: 0
@@ -125,8 +173,13 @@ blocks:
 -   name: fft
     id: fft_vxx
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         fft_size: '64'
         forward: 'True'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         nthreads: '1'
         shift: 'True'
         type: complex
@@ -138,6 +191,9 @@ blocks:
 -   name: intro
     id: note
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         note: A 20 MS/s recording of 802.11a frames at BPSK 1/2 (6 Mbit/s), about 15 dB SNR. Short training sequence detection, long training sequence alignment, a 64-point FFT and the frame equalizer recover the OFDM symbols; WiFi Decode MAC runs the Viterbi decoder and checks the CRC, and WiFi Parse MAC prints each header to the console below.
     states:
         coordinate: [1130, 10]
@@ -146,6 +202,11 @@ blocks:
 -   name: normalize
     id: blocks_divide_xx
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         num_inputs: '2'
         type: float
         vlen: '1'
@@ -156,8 +217,13 @@ blocks:
 -   name: parse_mac
     id: ieee802_11_parse_mac
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         debug: 'True'
         log: 'False'
+        maxoutbuf: '0'
+        minoutbuf: '0'
     states:
         coordinate: [80, 1010]
         rotation: 0
@@ -165,6 +231,11 @@ blocks:
 -   name: power
     id: blocks_complex_to_mag_squared
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
     states:
         coordinate: [80, 690]
         rotation: 0
@@ -172,7 +243,12 @@ blocks:
 -   name: recording
     id: wasm_gr_world_recording
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         length: '0'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         offset: '0'
         recording: wifi_80211a_bpsk12_20M
         repeat: 'True'
@@ -184,8 +260,13 @@ blocks:
 -   name: sync_long
     id: ieee802_11_sync_long
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         debug: 'False'
         log: 'False'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         sync_length: sync_length
     states:
         coordinate: [140, 850]
@@ -194,9 +275,14 @@ blocks:
 -   name: sync_short
     id: ieee802_11_sync_short
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         debug: 'False'
         log: 'False'
+        maxoutbuf: '0'
         min_plateau: '2'
+        minoutbuf: '0'
         threshold: '0.56'
     states:
         coordinate: [950, 540]
@@ -205,9 +291,14 @@ blocks:
 -   name: throttle
     id: blocks_throttle2
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         ignoretag: 'True'
         limit: time
         maximum: '0.1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samples_per_second: samp_rate
         type: complex
         vlen: '1'
@@ -218,6 +309,11 @@ blocks:
 -   name: to_symbols
     id: blocks_stream_to_vector
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         num_items: '64'
         type: complex
         vlen: '1'
@@ -228,9 +324,12 @@ blocks:
 -   name: waterfall
     id: qtgui_waterfall_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         axislabels: 'True'
         color1: '0'
+        comment: ''
         fc: '0'
         fftsize: '1024'
         grid: 'False'
@@ -238,6 +337,8 @@ blocks:
         int_min: '-40'
         label1: ''
         legend: 'True'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         name: '"802.11a bursts"'
         samp_rate: samp_rate
         update_time: '0.1'

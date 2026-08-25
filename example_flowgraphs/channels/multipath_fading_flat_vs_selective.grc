@@ -59,6 +59,8 @@ blocks:
 -   name: freq_sink
     id: qtgui_freq_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         alpha10: '1'
         alpha2: '1'
@@ -109,6 +111,8 @@ blocks:
         marker7: '-1'
         marker8: '-1'
         marker9: '-1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         name: 'Wideband: notches move across the band'
         nconnections: '1'
         samp_rate: samp_rate
@@ -147,6 +151,8 @@ blocks:
 -   name: note_flat
     id: note
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
         note: 'Slide the bar to emulate the speed of movement in the system.  The wireless channel is emulated using three equal-strength rays at 0, 3 and 7 samples of delay. That spread puts about seven notch periods inside the band, so the spectrum is deeply scalloped rather than flat, showing frequency-selective fading. Raise the Doppler slider and the notches wash out: once the channel decorrelates faster than the sinks average, there is nothing steady left to draw'
     states:
@@ -159,10 +165,14 @@ blocks:
         K: '4'
         LOS: 'False'
         N: '8'
+        affinity: ''
+        alias: ''
         comment: ''
         delays: delays
         fDTs: fDTs
         mags: mags
+        maxoutbuf: '0'
+        minoutbuf: '0'
         ntaps: '16'
         seed: '0'
     states:
@@ -172,10 +182,14 @@ blocks:
 -   name: throttle_wb
     id: blocks_throttle2
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
         ignoretag: 'True'
         limit: auto
         maximum: '0.1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samples_per_second: samp_rate
         type: complex
         vlen: '1'
@@ -186,6 +200,8 @@ blocks:
 -   name: wasm_gui_layout_0
     id: wasm_gui_layout
     parameters:
+        affinity: ''
+        alias: ''
         columns: '12'
         comment: ''
         layout: '{"fDTs":[2,0,8,1],"freq_sink":[0,1,12,4],"waterfall_sink":[0,5,12,4]}'
@@ -197,6 +213,8 @@ blocks:
 -   name: waterfall_sink
     id: qtgui_waterfall_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         alpha10: '1'
         alpha2: '1'
@@ -236,6 +254,8 @@ blocks:
         label8: ''
         label9: ''
         legend: 'True'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         name: Notches drifting over time
         nconnections: '1'
         samp_rate: samp_rate
@@ -247,8 +267,12 @@ blocks:
 -   name: wideband_src
     id: analog_noise_source_x
     parameters:
+        affinity: ''
+        alias: ''
         amplitude: '1'
         comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         seed: '0'
         type: complex
     states:

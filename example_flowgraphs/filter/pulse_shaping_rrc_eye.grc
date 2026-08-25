@@ -84,9 +84,13 @@ blocks:
 -   name: bits_to_bpsk
     id: digital_chunks_to_symbols_xx
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
         dimension: '1'
         in_type: byte
+        maxoutbuf: '0'
+        minoutbuf: '0'
         num_ports: '1'
         out_type: complex
         symbol_table: '[-1+0j, 1+0j]'
@@ -97,7 +101,11 @@ blocks:
 -   name: blocks_complex_to_float_0
     id: blocks_complex_to_float
     parameters:
+        affinity: ''
+        alias: ''
         comment: BPSK, so we can ignore Q
+        maxoutbuf: '0'
+        minoutbuf: '0'
     states:
         coordinate: [850, 710]
         rotation: 0
@@ -105,10 +113,14 @@ blocks:
 -   name: channel
     id: channels_channel_model
     parameters:
+        affinity: ''
+        alias: ''
         block_tags: 'False'
         comment: ''
         epsilon: '1'
         freq_offset: '0'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         noise_voltage: noise_volt
         seed: '0'
         taps: '[1.0]'
@@ -119,6 +131,8 @@ blocks:
 -   name: const_sink
     id: qtgui_const_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         alpha10: '1'
         alpha2: '1'
@@ -204,8 +218,12 @@ blocks:
 -   name: delay
     id: blocks_delay
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
         delay: timing_offset
+        maxoutbuf: '0'
+        minoutbuf: '0'
         type: complex
     states:
         coordinate: [820, 590]
@@ -214,6 +232,8 @@ blocks:
 -   name: eye_sink
     id: qtgui_eye_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         alpha10: '1'
         alpha2: '1'
@@ -305,6 +325,8 @@ blocks:
 -   name: freq_sink
     id: qtgui_freq_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         alpha10: '1'
         alpha2: '1'
@@ -355,6 +377,8 @@ blocks:
         marker7: '-1'
         marker8: '-1'
         marker9: '-1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         name: Pulse-shaped spectrum
         nconnections: '1'
         samp_rate: samp_rate
@@ -393,6 +417,8 @@ blocks:
 -   name: note_eye
     id: note
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
         note: "The eye diagram overlays symbol periods. Raise beta and the eye opens wider in time; raise the noise and it closes vertically\n\nSampling instant slides where the decimator takes its one sample in eight. At 0 it sits in the middle of the eye; walk it away and the constellation smears\n\nRandom bits become BPSK symbols, one every 8 samples, then an RRC filter spreads each symbol over 11 symbol periods"
     states:
@@ -402,9 +428,13 @@ blocks:
 -   name: random_bits
     id: analog_random_uniform_source_x
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
         maximum: '2'
+        maxoutbuf: '0'
         minimum: '0'
+        minoutbuf: '0'
         seed: '0'
         type: byte
     states:
@@ -414,11 +444,15 @@ blocks:
 -   name: rrc_rx
     id: root_raised_cosine_filter
     parameters:
+        affinity: ''
+        alias: ''
         alpha: beta
         comment: ''
         decim: '1'
         gain: '1'
         interp: '1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         ntaps: 11*sps
         samp_rate: samp_rate
         sym_rate: samp_rate/sps
@@ -430,11 +464,15 @@ blocks:
 -   name: rrc_tx
     id: root_raised_cosine_filter
     parameters:
+        affinity: ''
+        alias: ''
         alpha: beta
         comment: ''
         decim: '1'
         gain: sps
         interp: sps
+        maxoutbuf: '0'
+        minoutbuf: '0'
         ntaps: 11*sps
         samp_rate: samp_rate
         sym_rate: samp_rate/sps
@@ -446,7 +484,11 @@ blocks:
 -   name: symbol_decim
     id: blocks_keep_one_in_n
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         n: sps
         type: complex
         vlen: '1'
@@ -457,10 +499,14 @@ blocks:
 -   name: throttle
     id: blocks_throttle2
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
         ignoretag: 'True'
         limit: auto
         maximum: '0.1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samples_per_second: samp_rate
         type: complex
         vlen: '1'
@@ -471,6 +517,8 @@ blocks:
 -   name: wasm_gui_layout_0
     id: wasm_gui_layout
     parameters:
+        affinity: ''
+        alias: ''
         columns: '12'
         comment: ''
         layout: '{"beta":[0,0,4,1],"const_sink":[0,2,3,3],"eye_sink":[4,2,8,3],"freq_sink":[0,5,12,3],"noise_volt":[0,1,12,1],"timing_offset":[8,0,4,1]}'

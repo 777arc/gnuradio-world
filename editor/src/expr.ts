@@ -702,3 +702,47 @@ export function buildScope(blocks: VarBlock[]): Scope {
   }
   return scope;
 }
+
+// Bare variable references in `src` that the flowgraph does not define.
+//
+// Native GRC evaluates every parameter against a namespace built from the
+// flowgraph, so a value of `samp_rate` with no `samp_rate` variable is a hard
+// error there ("name 'samp_rate' is not defined"). The editor evaluates only
+// the parameters it has to (see resolveParamsForRun), so without this check an
+// undefined name in a `raw` or vector parameter reaches the runner as literal
+// text and is silently coerced to zero.
+//
+// Only a *bare* name counts. The base of an attribute access or a call —
+// `analog.GR_COS_WAVE`, `digital.constellation_bpsk()` — names a module this
+// evaluator does not model rather than a flowgraph variable, and reporting
+// those would refuse flowgraphs that run.
+export function undefinedNames(src: string, scope: Scope = {}): string[] {
+  let ast: Node;
+  try { ast = new Parser(lex(src)).parse(); } catch { return []; }
+  const found = new Set<string>();
+  const known = (id: string) => id in scope || id in NAMESPACES || id in BUILTINS ||
+    id === 'True' || id === 'False' || id === 'None' || id === 'pi' || id === 'e';
+  const walk = (n: Node): void => {
+    switch (n.k) {
+      case 'name': if (!known(n.v)) found.add(n.v); return;
+      // A namespace-looking base is left alone, whether or not it resolves.
+      case 'attr': if (n.e.k !== 'name') walk(n.e); return;
+      case 'call':
+        if (n.fn.k !== 'name') walk(n.fn);
+        n.args.forEach(walk);
+        return;
+      case 'list': case 'tuple': n.items.forEach(walk); return;
+      case 'unary': walk(n.e); return;
+      case 'bin': walk(n.a); walk(n.b); return;
+      case 'index':
+        walk(n.e);
+        if (n.idx) walk(n.idx);
+        if (n.slice?.lo) walk(n.slice.lo);
+        if (n.slice?.hi) walk(n.slice.hi);
+        return;
+      default: return;
+    }
+  };
+  walk(ast);
+  return [...found];
+}

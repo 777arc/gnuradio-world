@@ -34,7 +34,14 @@ const harness = await readFile(new URL('../../scripts/run_example.mjs', import.m
 assert.match(server, /await findExampleFlowgraphs\(dir\)/);
 assert.match(assembler, /const grcFiles = await findExampleFlowgraphs\(fgDir\)/);
 assert.match(assembler, /await mkdir\(dirname\(destination\), \{ recursive: true \}\)/);
-assert.match(examples, /details\.className = 'rec-directory ex-directory'/);
+// The folder rows own their styling; they used to borrow the recordings tab's
+// classes, which vanished when that tab became a flat catalog and left the
+// folder head an unstyled inline run of name and count.
+assert.match(examples, /details\.className = 'ex-directory'/);
+assert.doesNotMatch(examples, /rec-directory/);
+for (const rule of ['.ex-directory-head', '.ex-directory-name', '.ex-directory-count',
+  '.ex-directory-contents'])
+  assert.ok(css.includes(rule), `no ${rule} rule for the example folder rows`);
 assert.match(examples, /if \(\(f \|\| q\) && hasVisibleChild\) details\.open = true/);
 assert.ok(css.includes('.ex-directory[hidden]'));
 assert.doesNotMatch(harness, /target\.replace\(\/\^\.\*\\\//);

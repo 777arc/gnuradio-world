@@ -14,6 +14,7 @@ blocks:
 -   name: modulation_depth
     id: variable_qtgui_range
     parameters:
+        comment: ''
         label: Modulation depth
         min_len: '240'
         orient: QtCore.Qt.Horizontal
@@ -30,11 +31,14 @@ blocks:
 -   name: am_spectrum
     id: qtgui_freq_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         autoscale: 'False'
         average: '0.2'
         axislabels: 'True'
         color1: '"blue"'
+        comment: ''
         ctrlpanel: 'False'
         fc: '0'
         fftsize: '2048'
@@ -42,6 +46,8 @@ blocks:
         label1: AM signal
         legend: 'True'
         marker1: '-1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         name: AM Spectrum - Carrier and Sidebands
         samp_rate: '48000'
         style1: '1'
@@ -60,12 +66,15 @@ blocks:
 -   name: am_waveform
     id: qtgui_time_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         alpha2: '1'
         autoscale: 'False'
         axislabels: 'True'
         color1: blue
         color2: red
+        comment: ''
         ctrlpanel: 'False'
         grid: 'True'
         label1: In-phase
@@ -100,8 +109,13 @@ blocks:
 -   name: audio_tone
     id: analog_sig_source_x
     parameters:
+        affinity: ''
+        alias: ''
         amplitude: modulation_depth
+        comment: ''
         frequency: '1000'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samp_rate: '48000'
         type: float
         waveform: analog.GR_COS_WAVE
@@ -112,8 +126,13 @@ blocks:
 -   name: carrier
     id: analog_sig_source_x
     parameters:
+        affinity: ''
+        alias: ''
         amplitude: '1'
+        comment: ''
         frequency: '10000'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samp_rate: '48000'
         type: complex
         waveform: analog.GR_COS_WAVE
@@ -124,7 +143,12 @@ blocks:
 -   name: carrier_level
     id: analog_const_source_x
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         const: '1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         type: float
     states:
         coordinate: [10, 350]
@@ -133,6 +157,11 @@ blocks:
 -   name: envelope
     id: blocks_add_xx
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         num_inputs: '2'
         type: float
         vlen: '1'
@@ -143,6 +172,11 @@ blocks:
 -   name: envelope_to_complex
     id: blocks_float_to_complex
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
     states:
         coordinate: [550, 240]
         rotation: 0
@@ -150,6 +184,11 @@ blocks:
 -   name: modulator
     id: blocks_multiply_xx
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         num_inputs: '2'
         type: complex
         vlen: '1'
@@ -160,9 +199,14 @@ blocks:
 -   name: throttle
     id: blocks_throttle2
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         ignoretag: 'True'
         limit: auto
         maximum: '0.1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samples_per_second: '48000'
         type: complex
         vlen: '1'

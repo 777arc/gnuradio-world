@@ -102,11 +102,15 @@ blocks:
 -   name: agc
     id: analog_agc2_xx
     parameters:
+        affinity: ''
+        alias: ''
         attack_rate: '0.06'
         comment: ''
         decay_rate: '0.001'
         gain: '1'
         max_gain: '65536'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         reference: '1'
         type: complex
     states:
@@ -116,6 +120,8 @@ blocks:
 -   name: bpsk
     id: variable_constellation
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
         const_points: '[-1, 1]'
         dims: '1'
@@ -133,11 +139,15 @@ blocks:
 -   name: bpsk_mod
     id: digital_constellation_modulator
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
         constellation: bpsk
         differential: 'False'
         excess_bw: '0.35'
         log: 'False'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samples_per_symbol: sps
         truncate: 'False'
         verbose: 'False'
@@ -148,10 +158,14 @@ blocks:
 -   name: channel
     id: channels_channel_model
     parameters:
+        affinity: ''
+        alias: ''
         block_tags: 'False'
         comment: ''
         epsilon: time_offset
         freq_offset: freq_offset
+        maxoutbuf: '0'
+        minoutbuf: '0'
         noise_voltage: noise_volt
         seed: '0'
         taps: '[1.0]'
@@ -162,11 +176,15 @@ blocks:
 -   name: clock_sync
     id: digital_pfb_clock_sync_xxx
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
         filter_size: nfilts
         init_phase: '8'
         loop_bw: '0.0628'
         max_dev: '1.5'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         osps: '1'
         sps: sps
         taps: rrc_taps
@@ -178,6 +196,8 @@ blocks:
 -   name: const_rx
     id: qtgui_const_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         alpha10: '1'
         alpha2: '1'
@@ -263,6 +283,8 @@ blocks:
 -   name: const_synced
     id: qtgui_const_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         alpha10: '1'
         alpha2: '1'
@@ -348,6 +370,8 @@ blocks:
 -   name: const_timed
     id: qtgui_const_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         alpha10: '1'
         alpha2: '1'
@@ -433,7 +457,11 @@ blocks:
 -   name: costas
     id: digital_costas_loop_cc
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         order: '2'
         use_snr: 'False'
         w: '0.0628'
@@ -444,6 +472,8 @@ blocks:
 -   name: note_rx
     id: note
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
         note: "Receiver: the same steps the chapter writes by hand in Python\n\nTransmitter: random bits -> BPSK -> RRC pulse shaping\n\nChannel: noise + carrier frequency offset + sample clock offset\n\nTry adding more noise or more frequency offset"
     states:
@@ -453,9 +483,13 @@ blocks:
 -   name: random_bits
     id: analog_random_uniform_source_x
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
         maximum: '256'
+        maxoutbuf: '0'
         minimum: '0'
+        minoutbuf: '0'
         seed: '0'
         type: byte
     states:
@@ -465,10 +499,14 @@ blocks:
 -   name: throttle
     id: blocks_throttle2
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
         ignoretag: 'True'
         limit: auto
         maximum: '0.1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samples_per_second: samp_rate
         type: complex
         vlen: '1'
@@ -479,6 +517,8 @@ blocks:
 -   name: time_symbols
     id: qtgui_time_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         alpha10: '1'
         alpha2: '1'
@@ -569,6 +609,8 @@ blocks:
 -   name: wasm_gui_layout_0
     id: wasm_gui_layout
     parameters:
+        affinity: ''
+        alias: ''
         columns: '12'
         comment: ''
         layout: '{"const_rx":[0,2,4,3],"const_synced":[8,2,4,3],"const_timed":[4,2,4,3],"freq_offset":[0,0,5,1],"noise_volt":[0,1,12,1],"time_offset":[7,0,5,1],"time_symbols":[0,5,12,3]}'

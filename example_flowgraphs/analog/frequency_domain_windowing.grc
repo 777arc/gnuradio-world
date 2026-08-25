@@ -92,7 +92,11 @@ blocks:
 -   name: add
     id: blocks_add_xx
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         num_inputs: '3'
         type: complex
         vlen: '1'
@@ -103,6 +107,8 @@ blocks:
 -   name: freq_sink
     id: qtgui_freq_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         alpha10: '1'
         alpha2: '1'
@@ -152,6 +158,8 @@ blocks:
         marker7: '-1'
         marker8: '-1'
         marker9: '-1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         name: Spectrum
         nconnections: '1'
         samp_rate: samp_rate
@@ -189,8 +197,12 @@ blocks:
 -   name: noise
     id: analog_noise_source_x
     parameters:
+        affinity: ''
+        alias: ''
         amplitude: noise_amp
         comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         seed: '0'
         type: complex
     states:
@@ -200,6 +212,8 @@ blocks:
 -   name: note_two
     id: note
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
         note: "Two tones, one of them much weaker. Slide them together and watch the point where the FFT stops resolving them as two\n\nThe sidelobes of the strong tone's window are what buries the weak one. Raise the FFT Size on the Frequency Sink to narrow each bin and the two separate sooner"
     states:
@@ -209,9 +223,13 @@ blocks:
 -   name: strong_tone
     id: analog_sig_source_x
     parameters:
+        affinity: ''
+        alias: ''
         amplitude: '1'
         comment: ''
         frequency: strong_freq
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samp_rate: samp_rate
         type: complex
         waveform: analog.GR_COS_WAVE
@@ -222,10 +240,14 @@ blocks:
 -   name: throttle
     id: blocks_throttle2
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
         ignoretag: 'True'
         limit: auto
         maximum: '0.1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samples_per_second: samp_rate
         type: complex
         vlen: '1'
@@ -236,6 +258,8 @@ blocks:
 -   name: wasm_gui_layout_0
     id: wasm_gui_layout
     parameters:
+        affinity: ''
+        alias: ''
         columns: '12'
         comment: ''
         layout: '{"freq_sink":[0,3,12,4],"noise_amp":[0,0,12,1],"strong_freq":[0,1,12,1],"waterfall_sink":[0,7,12,4],"weak_amp":[6,2,6,1],"weak_freq":[0,2,6,1]}'
@@ -247,6 +271,8 @@ blocks:
 -   name: waterfall_sink
     id: qtgui_waterfall_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         alpha10: '1'
         alpha2: '1'
@@ -285,6 +311,8 @@ blocks:
         label8: ''
         label9: ''
         legend: 'True'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         name: Waterfall
         nconnections: '1'
         samp_rate: samp_rate
@@ -296,9 +324,13 @@ blocks:
 -   name: weak_tone
     id: analog_sig_source_x
     parameters:
+        affinity: ''
+        alias: ''
         amplitude: weak_amp
         comment: ''
         frequency: weak_freq
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samp_rate: samp_rate
         type: complex
         waveform: analog.GR_COS_WAVE

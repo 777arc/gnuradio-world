@@ -10,11 +10,20 @@ is included only when the bucket contains both `<base>.sigmf-data` and
 
 `base_filename` is the full object key without the SigMF suffix, including any
 collection prefix (for example `estevez/ao73`). The other fields come from the
-SigMF global metadata and first capture with a frequency. `number_of_samples`
-is calculated from the `.sigmf-data` object's size and `core:datatype` without
-reading the data object; `byte_length` carries that R2 object size for streaming
-clients. The sample count is `null` for an unknown datatype or a byte count that
-is not an exact number of samples.
+SigMF global metadata, the first capture with a frequency or datetime, and the
+annotations' `core:label` values. `number_of_samples` is calculated from the
+`.sigmf-data` object's size and `core:datatype` without reading the data object;
+`byte_length` carries that R2 object size for streaming clients. The sample count
+is `null` for an unknown datatype or a byte count that is not an exact number of
+samples.
+
+For catalog presentation the Worker also recognizes optional `grworld:title`,
+`grworld:category`, and string-array `grworld:tags` properties in the SigMF
+global object. Metadata using them should declare the optional `grworld` 1.0.0
+extension in `core:extensions`. These fields stay with the recording so
+`index.json` remains generated cache rather than a second catalog to maintain.
+The editor falls back to the base filename and an Uncategorized group when they
+are absent.
 
 The Worker paginates the complete R2 listing. It does not write anything until
 all matched metadata has been read and parsed, so an unsuccessful refresh keeps

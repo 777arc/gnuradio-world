@@ -36,7 +36,7 @@ import type { Conn, GraphSnapshot, Inst, ValidationIssue } from './graph-model';
 import {
   installAudioResumeRelay,
 } from './audio';
-import { VARIABLE_IDS, validateFlowgraph } from './validation';
+import { EVALUATED_DTYPES, VARIABLE_IDS, effectiveDtype, validateFlowgraph } from './validation';
 import {
   type UsbPreparationProblem,
   type UsbRadio,
@@ -1642,6 +1642,32 @@ function grcParams(params: Record<string, any>): Record<string, GrcScalar> {
   }
   return out;
 }
+// Native GRC writes every block's implicit parameters whether or not they hold
+// anything -- `comment` on all of them, plus `alias`/`affinity` and the output
+// buffer bounds on a block with ports (grc/core/blocks/block.py `export_data`,
+// and any .grc desktop GRC saves). A block whose own parameters are all
+// defaults would otherwise serialize as a bare `parameters:` key, which reads
+// back as YAML null and makes native GRC fail at `parameters.items()`. Match
+// native so a file written here loads there.
+function withImplicitParams(inst: Inst, params: Record<string, GrcScalar>): Record<string, GrcScalar> {
+  // A variable or GUI control has no ports, and native gives it `comment` only;
+  // the output buffer bounds exist only on a block that has an output to size.
+  // Native counts a declared output port of either domain, visible or not
+  // (qtgui_freq_sink_x's hidden `freq` message port earns it the pair, while
+  // qtgui_time_sink_x, which declares none, does not), so read the schema
+  // rather than the live port count.
+  const def = defFor(inst);
+  const hasOutput = (def?.outputTemplates?.length ?? def?.outputs ?? 0) > 0;
+  const implicit: Record<string, GrcScalar> = VARIABLE_IDS.has(inst.id)
+    ? { comment: '' }
+    : hasOutput
+      ? { affinity: '', alias: '', comment: '', maxoutbuf: '0', minoutbuf: '0' }
+      : { affinity: '', alias: '', comment: '' };
+  const merged: Record<string, GrcScalar> = { ...params };
+  for (const [key, value] of Object.entries(implicit))
+    if (!(key in merged)) merged[key] = value;
+  return Object.fromEntries(Object.keys(merged).sort().map(k => [k, merged[k]]));
+}
 function grcStates(inst: Inst): Record<string, any> {
   return { coordinate: [Math.round(inst.x), Math.round(inst.y)], rotation: inst.rotation, state: grcState(inst) };
 }
@@ -1675,33 +1701,8 @@ function grcConnectionKey(c: GrcScalar[] | Record<string, GrcScalar>): string {
 function buildRunScope(): Scope {
   return buildScope(state.insts.filter(i => i.id === 'variable'));
 }
-// GRC lets a parameter's dtype depend on another parameter: `fir_filter_xxx`
-// declares `taps` as `${ type.taps }`, which resolves through the `type` param's
-// option_attributes to `real_vector` or `complex_vector`. Resolve that here so
-// the caller sees the concrete dtype rather than the template.
-function effectiveDtype(inst: Inst, def: RunnableDef, p: ParamDef): string {
-  const dtype = String(p.dtype ?? '');
-  const match = dtype.match(/^\$\{\s*([A-Za-z_]\w*)(?:\.([A-Za-z_]\w*))?\s*\}$/);
-  if (!match) return dtype;
-  const value = String(inst.params[match[1]] ?? '');
-  if (!match[2]) return value;
-  const source = def.params.find((q: ParamDef) => q.id === match[1]);
-  const index = source?.options?.indexOf(value) ?? -1;
-  return index >= 0 ? String(source?.optionAttributes?.[match[2]]?.[index] ?? '') : '';
-}
-
-// Parameters whose value is a Python expression rather than a literal, and so
-// have to be evaluated before the runner (which parses JSON-ish scalars and
-// vectors, not Python) sees them.
-// Deliberately not here: the browser-only `pmt` dtype (Message Strobe's message,
-// a Tag Object's key/value). Those are Python too, but they evaluate to a PMT
-// rather than a number, so expr.ts has nothing to say about them and the runner
-// parses the constructor call itself -- see wasm_registry::pmt_value().
-const EVALUATED_DTYPES = new Set([
-  'int', 'real', 'float', 'hex', 'raw',
-  'int_vector', 'real_vector', 'float_vector', 'complex_vector',
-]);
-
+// The Run path's parameter values: every expression parameter evaluated against
+// the flowgraph's variables, so the runner receives concrete numbers and taps.
 function resolveParamsForRun(inst: Inst, scope: Scope): Record<string, any> {
   const def = defFor(inst);
   const out: Record<string, any> = { ...inst.params };
@@ -1743,7 +1744,8 @@ function buildGrcDoc(resolve = false): GrcDoc {
   const blocks = state.insts.filter(i => i.id !== OPTIONS_ID)
     .sort((a, b) => (Number(!isVar(a)) - Number(!isVar(b))) ||
       (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
-    .map(i => ({ name: i.name, id: i.id, parameters: paramsOf(i), states: grcStates(i) }));
+    .map(i => ({ name: i.name, id: i.id,
+      parameters: withImplicitParams(i, paramsOf(i)), states: grcStates(i) }));
 
   // connections: 4-tuples for streams, dicts (file_format 2) for message ports.
   const connections: Array<GrcScalar[] | Record<string, GrcScalar>> = [];

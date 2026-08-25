@@ -106,6 +106,31 @@ assert.ok(invalid.some(issue => issue.message.includes('is used more than once')
 assert.ok(invalid.some(issue => issue.message.includes('must be a number')));
 assert.ok(invalid.some(issue => issue.message.includes('unsupported value')));
 
+// An expression parameter that is not numeric -- filter taps, a raw vector --
+// is evaluated by native GRC against the flowgraph's namespace, so a bare name
+// the flowgraph does not define is an error there. Without this the text would
+// reach the runner and be coerced to zero silently. Module access and names the
+// flowgraph does publish stay legal.
+{
+  const taps = inst('lpf', 'blocks_complex_to_mag_squared', 'lpf', {});
+  // Only the parameter issues matter here; the stub block is unconnected, which
+  // raises connectivity issues of its own.
+  const withValue = params => { taps.params = params; return validateFlowgraph(
+    [variable, taps], [], { ...ports, def: () => ({
+      label: 'x', inputs: 1, outputs: 1,
+      params: [{ id: 'taps', label: 'Taps', type: 'string', dtype: 'real_vector', def: '' }],
+    }) }).filter(issue => issue.field === 'taps'); };
+
+  const undefinedRef = withValue({ taps: 'firdes.low_pass(1, sample_rate, 1e3, 1e3)' });
+  assert.ok(undefinedRef.some(issue => issue.message.includes('references "sample_rate"')),
+    'an undefined name in an expression parameter is reported');
+
+  assert.deepEqual(withValue({ taps: 'firdes.low_pass(1, samp_rate, 1e3, 1e3)' }), [],
+    'a name the flowgraph defines is not reported');
+  assert.deepEqual(withValue({ taps: 'digital.constellation_bpsk().points()' }), [],
+    'module access this evaluator does not model is not a missing variable');
+}
+
 const live = inst('range', 'variable_qtgui_range', 'freq', {
   label: '', rangeType: 'float', value: 10, start: 20, stop: 10, step: 0,
   widget: 'slider', orient: 'QtCore.Qt.Horizontal', min_len: 0,

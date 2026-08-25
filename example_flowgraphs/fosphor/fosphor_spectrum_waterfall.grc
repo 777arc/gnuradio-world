@@ -14,6 +14,7 @@ blocks:
 -   name: samp_rate
     id: variable
     parameters:
+        comment: ''
         value: int(1e6)
     states:
         coordinate: [580, 10]
@@ -22,6 +23,11 @@ blocks:
 -   name: complex10
     id: blocks_interleaved_short_to_complex
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         scale_factor: '32767'
         swap: 'False'
         vector_input: 'False'
@@ -32,9 +38,14 @@ blocks:
 -   name: fosphor
     id: fosphor_qt_sink_c
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         freq_center: '0'
         freq_span: samp_rate
         gui_hint: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         wintype: window.WIN_BLACKMAN_hARRIS
     states:
         coordinate: [1010, 160]
@@ -43,7 +54,12 @@ blocks:
 -   name: source9
     id: wasm_gr_world_recording
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         length: '0'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         offset: '0'
         recording: cellular_downlink_880MHz
         repeat: 'False'
@@ -55,9 +71,14 @@ blocks:
 -   name: throttle
     id: blocks_throttle2
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         ignoretag: 'True'
         limit: time
         maximum: '0.05'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samples_per_second: samp_rate
         type: complex
         vlen: '1'

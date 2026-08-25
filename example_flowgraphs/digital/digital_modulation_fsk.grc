@@ -50,8 +50,12 @@ blocks:
 -   name: deviation
     id: blocks_multiply_const_xx
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
         constant: delta_f
+        maxoutbuf: '0'
+        minoutbuf: '0'
         type: float
     states:
         coordinate: [1130, 270]
@@ -60,7 +64,11 @@ blocks:
 -   name: fm_mod
     id: analog_frequency_modulator_fc
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         sensitivity: math.pi/samp_rate
     states:
         coordinate: [1400, 270]
@@ -69,6 +77,8 @@ blocks:
 -   name: freq_sink
     id: qtgui_freq_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         alpha10: '1'
         alpha2: '1'
@@ -119,6 +129,8 @@ blocks:
         marker7: '-1'
         marker8: '-1'
         marker9: '-1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         name: Four tones, delta f apart
         nconnections: '1'
         samp_rate: samp_rate
@@ -157,8 +169,12 @@ blocks:
 -   name: hold_symbol
     id: blocks_repeat
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
         interp: sps
+        maxoutbuf: '0'
+        minoutbuf: '0'
         type: float
         vlen: '1'
     states:
@@ -168,6 +184,8 @@ blocks:
 -   name: note_dev
     id: note
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
         note: "Random 2-bit symbols map to the four levels -3, -1, 1, 3 and each is held for 100 samples, so the symbol rate is 2 kBd\n\nFrequency modulating those levels puts four tones on the air, spaced delta f apart. Slide it and watch the tones separate in the spectrum and the waterfall"
     states:
@@ -177,9 +195,13 @@ blocks:
 -   name: random_symbols
     id: analog_random_uniform_source_x
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
         maximum: '4'
+        maxoutbuf: '0'
         minimum: '0'
+        minoutbuf: '0'
         seed: '0'
         type: byte
     states:
@@ -189,9 +211,13 @@ blocks:
 -   name: symbol_map
     id: digital_chunks_to_symbols_xx
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
         dimension: '1'
         in_type: byte
+        maxoutbuf: '0'
+        minoutbuf: '0'
         num_ports: '1'
         out_type: float
         symbol_table: '[-3, -1, 1, 3]'
@@ -202,10 +228,14 @@ blocks:
 -   name: throttle
     id: blocks_throttle2
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
         ignoretag: 'True'
         limit: auto
         maximum: '0.1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samples_per_second: samp_rate
         type: complex
         vlen: '1'
@@ -216,6 +246,8 @@ blocks:
 -   name: wasm_gui_layout_0
     id: wasm_gui_layout
     parameters:
+        affinity: ''
+        alias: ''
         columns: '12'
         comment: ''
         layout: '{"delta_f":[0,0,12,1],"freq_sink":[0,1,12,3],"waterfall_sink":[0,4,12,3]}'
@@ -227,6 +259,8 @@ blocks:
 -   name: waterfall_sink
     id: qtgui_waterfall_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         alpha10: '1'
         alpha2: '1'
@@ -266,6 +300,8 @@ blocks:
         label8: ''
         label9: ''
         legend: 'True'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         name: Symbols over time
         nconnections: '1'
         samp_rate: samp_rate

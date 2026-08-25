@@ -32,10 +32,14 @@ blocks:
 -   name: mod7
     id: digital_psk_mod
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
         constellation_points: '8'
         differential: 'True'
         excess_bw: '0.35'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         mod_code: '"gray"'
         samples_per_symbol: '2'
     states:
@@ -45,10 +49,14 @@ blocks:
 -   name: throttle4
     id: blocks_throttle2
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
         ignoretag: 'True'
         limit: auto
         maximum: '0.1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samples_per_second: '32000'
         type: complex
         vlen: '1'
@@ -59,6 +67,8 @@ blocks:
 -   name: wasm_gui_layout_0
     id: wasm_gui_layout
     parameters:
+        affinity: ''
+        alias: ''
         columns: '12'
         comment: ''
         layout: '{}'
@@ -70,8 +80,12 @@ blocks:
 -   name: x2
     id: analog_noise_source_x
     parameters:
+        affinity: ''
+        alias: ''
         amplitude: noise
         comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         seed: '0'
         type: complex
     states:
@@ -81,9 +95,13 @@ blocks:
 -   name: x8
     id: analog_random_source_x
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
         max: '2'
+        maxoutbuf: '0'
         min: '0'
+        minoutbuf: '0'
         num_samps: '1000'
         repeat: 'True'
         type: byte
@@ -94,6 +112,8 @@ blocks:
 -   name: x9
     id: qtgui_const_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         alpha10: '1'
         alpha2: '1'
@@ -179,7 +199,11 @@ blocks:
 -   name: xx3
     id: blocks_add_xx
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         num_inputs: '2'
         type: complex
         vlen: '1'

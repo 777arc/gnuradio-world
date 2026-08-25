@@ -14,6 +14,7 @@ blocks:
 -   name: baudrate
     id: variable
     parameters:
+        comment: ''
         value: samp_rate/samp_per_sym
     states:
         coordinate: [600, 10]
@@ -22,6 +23,7 @@ blocks:
 -   name: samp_per_sym
     id: variable
     parameters:
+        comment: ''
         value: '8'
     states:
         coordinate: [770, 10]
@@ -30,6 +32,7 @@ blocks:
 -   name: samp_rate
     id: variable
     parameters:
+        comment: ''
         value: '9600'
     states:
         coordinate: [970, 10]
@@ -38,13 +41,16 @@ blocks:
 -   name: bpsk_const
     id: variable_constellation
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         const_points: '[]'
         dims: '1'
         normalization: digital.constellation.AMPLITUDE_NORMALIZATION
         npwr: '1'
         precision: '8'
         rot_sym: '2'
-        soft_dec_lut: auto
+        soft_dec_lut: '"auto"'
         sym_map: '[]'
         type: bpsk
     states:
@@ -54,11 +60,16 @@ blocks:
 -   name: bpsk_demod
     id: satellites_bpsk_demodulator
     parameters:
+        affinity: ''
+        alias: ''
         baudrate: baudrate
+        comment: ''
         differential: 'False'
         f_offset: '0'
         iq: 'True'
         manchester: 'False'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         options: '""'
         samp_rate: samp_rate
     states:
@@ -68,7 +79,12 @@ blocks:
 -   name: frame_tagger
     id: blocks_stream_to_tagged_stream
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         len_tag_key: packet_len
+        maxoutbuf: '0'
+        minoutbuf: '0'
         packet_len: '31'
         type: byte
         vlen: '1'
@@ -79,8 +95,13 @@ blocks:
 -   name: framed_bits
     id: pdu_pdu_to_stream_x
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         depth: '4096'
         early_behavior: pdu.EARLY_BURST_APPEND
+        maxoutbuf: '0'
+        minoutbuf: '0'
         type: byte
     states:
         coordinate: [100, 460]
@@ -89,6 +110,9 @@ blocks:
 -   name: frames
     id: blocks_message_debug
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         en_uvec: 'True'
         log_level: info
     states:
@@ -98,8 +122,13 @@ blocks:
 -   name: hdlc_deframer
     id: satellites_hdlc_deframer
     parameters:
+        affinity: ''
+        alias: ''
         check_fcs: 'True'
+        comment: ''
         max_length: '10000'
+        maxoutbuf: '0'
+        minoutbuf: '0'
     states:
         coordinate: [690, 860]
         rotation: 0
@@ -107,6 +136,11 @@ blocks:
 -   name: hdlc_framer
     id: satellites_hdlc_framer
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         postamble_bytes: '7'
         preamble_bytes: '50'
     states:
@@ -116,10 +150,15 @@ blocks:
 -   name: modulator
     id: digital_constellation_modulator
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         constellation: bpsk_const
         differential: 'False'
         excess_bw: '0.35'
         log: 'False'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samples_per_symbol: samp_per_sym
         truncate: 'False'
         verbose: 'False'
@@ -130,6 +169,11 @@ blocks:
 -   name: nrzi_decode
     id: satellites_nrzi_decode
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
     states:
         coordinate: [440, 860]
         rotation: 0
@@ -137,6 +181,11 @@ blocks:
 -   name: nrzi_encode
     id: satellites_nrzi_encode
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
     states:
         coordinate: [430, 460]
         rotation: 0
@@ -144,8 +193,13 @@ blocks:
 -   name: pack
     id: blocks_unpacked_to_packed_xx
     parameters:
+        affinity: ''
+        alias: ''
         bits_per_chunk: '1'
+        comment: ''
         endianness: gr.GR_MSB_FIRST
+        maxoutbuf: '0'
+        minoutbuf: '0'
         num_ports: '1'
         type: byte
     states:
@@ -155,6 +209,11 @@ blocks:
 -   name: payload
     id: blocks_vector_source_x
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         repeat: 'True'
         tags: '[]'
         type: byte
@@ -167,9 +226,14 @@ blocks:
 -   name: payload_throttle
     id: blocks_throttle2
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         ignoretag: 'True'
         limit: auto
         maximum: '0.1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samples_per_second: samp_rate
         type: byte
         vlen: '1'
@@ -180,6 +244,11 @@ blocks:
 -   name: slicer
     id: digital_binary_slicer_fb
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
     states:
         coordinate: [80, 860]
         rotation: 0
@@ -187,11 +256,14 @@ blocks:
 -   name: spectrum
     id: qtgui_freq_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         autoscale: 'False'
         average: '0.2'
         axislabels: 'True'
         color1: '"blue"'
+        comment: ''
         ctrlpanel: 'False'
         fc: '0'
         fftsize: '2048'
@@ -199,6 +271,8 @@ blocks:
         label1: BPSK signal
         legend: 'True'
         marker1: '-1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         name: Transmitted BPSK spectrum
         samp_rate: samp_rate
         style1: '1'
@@ -217,12 +291,15 @@ blocks:
 -   name: symbol_scope
     id: qtgui_time_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         alpha2: '1'
         autoscale: 'True'
         axislabels: 'True'
         color1: blue
         color2: red
+        comment: ''
         ctrlpanel: 'False'
         grid: 'False'
         label1: Signal 1
@@ -257,6 +334,11 @@ blocks:
 -   name: to_pdu
     id: pdu_tagged_stream_to_pdu
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         tag: packet_len
         type: byte
     states:

@@ -14,6 +14,7 @@ blocks:
 -   name: baudrate
     id: variable
     parameters:
+        comment: ''
         value: samp_rate/samp_per_sym
     states:
         coordinate: [600, 10]
@@ -22,6 +23,7 @@ blocks:
 -   name: samp_per_sym
     id: variable
     parameters:
+        comment: ''
         value: '40'
     states:
         coordinate: [770, 10]
@@ -30,6 +32,7 @@ blocks:
 -   name: samp_rate
     id: variable
     parameters:
+        comment: ''
         value: '48000'
     states:
         coordinate: [970, 10]
@@ -38,8 +41,13 @@ blocks:
 -   name: af_carrier
     id: analog_sig_source_x
     parameters:
+        affinity: ''
+        alias: ''
         amplitude: '1'
+        comment: ''
         frequency: '1200'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samp_rate: samp_rate
         type: complex
         waveform: analog.GR_SIN_WAVE
@@ -50,7 +58,12 @@ blocks:
 -   name: analytic
     id: hilbert_fc
     parameters:
+        affinity: ''
+        alias: ''
         beta: '6.76'
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         num_taps: '65'
         win: window.WIN_HAMMING
     states:
@@ -60,12 +73,15 @@ blocks:
 -   name: audio_scope
     id: qtgui_time_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         alpha2: '1'
         autoscale: 'False'
         axislabels: 'True'
         color1: blue
         color2: red
+        comment: ''
         ctrlpanel: 'False'
         grid: 'False'
         label1: Signal 1
@@ -100,6 +116,11 @@ blocks:
 -   name: bits_to_float
     id: blocks_char_to_float
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         scale: '1'
         vlen: '1'
     states:
@@ -109,6 +130,11 @@ blocks:
 -   name: downmix
     id: blocks_multiply_xx
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         num_inputs: '2'
         type: complex
         vlen: '1'
@@ -119,6 +145,11 @@ blocks:
 -   name: fm_modulator
     id: analog_frequency_modulator_fc
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         sensitivity: 2*math.pi*1000/samp_rate
     states:
         coordinate: [1200, 490]
@@ -127,7 +158,12 @@ blocks:
 -   name: frame_tagger
     id: blocks_stream_to_tagged_stream
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         len_tag_key: packet_len
+        maxoutbuf: '0'
+        minoutbuf: '0'
         packet_len: '32'
         type: byte
         vlen: '1'
@@ -138,8 +174,13 @@ blocks:
 -   name: framed_bits
     id: pdu_pdu_to_stream_x
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         depth: '4096'
         early_behavior: pdu.EARLY_BURST_APPEND
+        maxoutbuf: '0'
+        minoutbuf: '0'
         type: byte
     states:
         coordinate: [100, 350]
@@ -148,6 +189,9 @@ blocks:
 -   name: frames
     id: blocks_message_debug
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         en_uvec: 'True'
         log_level: info
     states:
@@ -157,8 +201,13 @@ blocks:
 -   name: hdlc_deframer
     id: satellites_hdlc_deframer
     parameters:
+        affinity: ''
+        alias: ''
         check_fcs: 'True'
+        comment: ''
         max_length: '10000'
+        maxoutbuf: '0'
+        minoutbuf: '0'
     states:
         coordinate: [80, 1410]
         rotation: 0
@@ -166,6 +215,11 @@ blocks:
 -   name: hdlc_framer
     id: satellites_hdlc_framer
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         postamble_bytes: '7'
         preamble_bytes: '50'
     states:
@@ -175,8 +229,13 @@ blocks:
 -   name: lo
     id: analog_sig_source_x
     parameters:
+        affinity: ''
+        alias: ''
         amplitude: '1'
+        comment: ''
         frequency: '-1700'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samp_rate: samp_rate
         type: complex
         waveform: analog.GR_COS_WAVE
@@ -187,7 +246,12 @@ blocks:
 -   name: matched_filter
     id: fir_filter_xxx
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         decim: '1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samp_delay: '0'
         taps: '[1/samp_per_sym] * samp_per_sym'
         type: fff
@@ -198,6 +262,11 @@ blocks:
 -   name: nrzi_decode
     id: satellites_nrzi_decode
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
     states:
         coordinate: [1480, 1060]
         rotation: 0
@@ -205,6 +274,11 @@ blocks:
 -   name: nrzi_encode
     id: satellites_nrzi_encode
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
     states:
         coordinate: [430, 350]
         rotation: 0
@@ -212,6 +286,11 @@ blocks:
 -   name: payload
     id: blocks_vector_source_x
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         repeat: 'True'
         tags: '[]'
         type: byte
@@ -224,9 +303,14 @@ blocks:
 -   name: payload_throttle
     id: blocks_throttle2
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         ignoretag: 'True'
         limit: auto
         maximum: '0.1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samples_per_second: samp_rate
         type: byte
         vlen: '1'
@@ -237,7 +321,12 @@ blocks:
 -   name: quad_demod
     id: analog_quadrature_demod_cf
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         gain: samp_rate/(2*math.pi*500)
+        maxoutbuf: '0'
+        minoutbuf: '0'
     states:
         coordinate: [1220, 640]
         rotation: 0
@@ -245,7 +334,12 @@ blocks:
 -   name: repeat
     id: blocks_repeat
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         interp: samp_per_sym
+        maxoutbuf: '0'
+        minoutbuf: '0'
         type: byte
         vlen: '1'
     states:
@@ -255,6 +349,11 @@ blocks:
 -   name: slicer
     id: digital_binary_slicer_fb
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
     states:
         coordinate: [1120, 1060]
         rotation: 0
@@ -262,12 +361,15 @@ blocks:
 -   name: symbol_scope
     id: qtgui_time_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         alpha2: '1'
         autoscale: 'True'
         axislabels: 'True'
         color1: blue
         color2: red
+        comment: ''
         ctrlpanel: 'False'
         grid: 'False'
         label1: Signal 1
@@ -302,10 +404,15 @@ blocks:
 -   name: symbol_sync
     id: digital_symbol_sync_xx
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         constellation: digital.constellation_bpsk().base()
         damping: '1'
         loop_bw: '0.03'
         max_dev: '0.1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         nfilters: '128'
         osps: '1'
         pfb_mf_taps: '[]'
@@ -321,6 +428,11 @@ blocks:
 -   name: to_audio
     id: blocks_complex_to_real
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         vlen: '1'
     states:
         coordinate: [330, 620]
@@ -329,6 +441,11 @@ blocks:
 -   name: to_pdu
     id: pdu_tagged_stream_to_pdu
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         tag: packet_len
         type: byte
     states:
@@ -338,6 +455,11 @@ blocks:
 -   name: upmix
     id: blocks_multiply_xx
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         num_inputs: '2'
         type: complex
         vlen: '1'

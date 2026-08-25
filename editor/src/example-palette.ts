@@ -106,7 +106,7 @@ export function createExamplePalette(deps: ExamplePaletteDeps) {
       // disclosure; clearing the query leaves the user's open state alone.
       const directories = [...list.querySelectorAll<HTMLDetailsElement>('.ex-directory')].reverse();
       for (const details of directories) {
-        const contents = details.querySelector<HTMLElement>(':scope > .rec-directory-contents');
+        const contents = details.querySelector<HTMLElement>(':scope > .ex-directory-contents');
         const hasVisibleChild = !!contents && [...contents.children]
           .some(child => !(child as HTMLElement).hidden);
         details.hidden = !hasVisibleChild;
@@ -194,15 +194,15 @@ export function createExamplePalette(deps: ExamplePaletteDeps) {
       const byName = (a: string, b: string) => a.localeCompare(b, undefined, { numeric: true });
       for (const child of [...directory.directories.values()].sort((a, b) => byName(a.name, b.name))) {
         const details = document.createElement('details');
-        details.className = 'rec-directory ex-directory';
-        const summary = document.createElement('summary'); summary.className = 'rec-directory-head';
-        const name = document.createElement('span'); name.className = 'rec-directory-name';
+        details.className = 'ex-directory';
+        const summary = document.createElement('summary'); summary.className = 'ex-directory-head';
+        const name = document.createElement('span'); name.className = 'ex-directory-name';
         name.textContent = child.name;
-        const count = document.createElement('span'); count.className = 'rec-directory-count';
+        const count = document.createElement('span'); count.className = 'ex-directory-count';
         const total = exampleTreeCount(child);
         count.textContent = `${total} example${total === 1 ? '' : 's'}`;
         summary.append(name, count);
-        const contents = document.createElement('div'); contents.className = 'rec-directory-contents';
+        const contents = document.createElement('div'); contents.className = 'ex-directory-contents';
         renderDirectory(child, contents);
         details.append(summary, contents);
         container.append(details);

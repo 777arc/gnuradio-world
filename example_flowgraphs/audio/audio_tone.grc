@@ -58,6 +58,8 @@ blocks:
 -   name: speakers
     id: audio_sink
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
         device_name: ''
         num_inputs: '1'
@@ -70,9 +72,13 @@ blocks:
 -   name: tone
     id: analog_sig_source_x
     parameters:
+        affinity: ''
+        alias: ''
         amplitude: volume
         comment: ''
         frequency: tone_frequency
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samp_rate: samp_rate
         type: float
         waveform: analog.GR_COS_WAVE
@@ -83,6 +89,8 @@ blocks:
 -   name: wasm_gui_layout_0
     id: wasm_gui_layout
     parameters:
+        affinity: ''
+        alias: ''
         columns: '12'
         comment: ''
         layout: '{}'
@@ -94,6 +102,8 @@ blocks:
 -   name: waveform
     id: qtgui_time_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         alpha10: '1'
         alpha2: '1'

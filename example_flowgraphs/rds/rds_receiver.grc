@@ -14,6 +14,7 @@ blocks:
 -   name: rds_carrier
     id: variable
     parameters:
+        comment: ''
         value: '57000'
     states:
         coordinate: [590, 10]
@@ -22,6 +23,7 @@ blocks:
 -   name: rds_samp_rate
     id: variable
     parameters:
+        comment: ''
         value: '19000'
     states:
         coordinate: [760, 10]
@@ -30,6 +32,7 @@ blocks:
 -   name: samp_rate
     id: variable
     parameters:
+        comment: ''
         value: '250000'
     states:
         coordinate: [960, 10]
@@ -38,8 +41,13 @@ blocks:
 -   name: agc
     id: analog_agc_xx
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         gain: '53'
         max_gain: '1000'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         rate: '0.002'
         reference: '0.585'
         type: complex
@@ -50,7 +58,12 @@ blocks:
 -   name: biphase_delay
     id: blocks_delay
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         delay: '8'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         type: complex
     states:
         coordinate: [1080, 560]
@@ -59,6 +72,11 @@ blocks:
 -   name: biphase_sub
     id: blocks_sub_xx
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         num_inputs: '2'
         type: complex
         vlen: '1'
@@ -69,10 +87,15 @@ blocks:
 -   name: constellation_receiver
     id: digital_constellation_receiver_cb
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         constellation: digital.constellation_bpsk().base()
         fmax: '0.002'
         fmin: '-0.002'
         loop_bw: 2*math.pi/100
+        maxoutbuf: '0'
+        minoutbuf: '0'
         showports: 'False'
     states:
         coordinate: [1010, 740]
@@ -81,10 +104,13 @@ blocks:
 -   name: constellation_sink
     id: qtgui_const_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         autoscale: 'False'
         axislabels: 'True'
         color1: '"blue"'
+        comment: ''
         grid: 'False'
         label1: ''
         legend: 'True'
@@ -110,7 +136,12 @@ blocks:
 -   name: diff_decoder
     id: digital_diff_decoder_bb
     parameters:
+        affinity: ''
+        alias: ''
         coding: digital.DIFF_DIFFERENTIAL
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         modulus: '2'
     states:
         coordinate: [80, 1060]
@@ -119,6 +150,9 @@ blocks:
 -   name: discard_error
     id: blocks_null_sink
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         type: float
     states:
         coordinate: [80, 1300]
@@ -127,6 +161,9 @@ blocks:
 -   name: discard_freq
     id: blocks_null_sink
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         type: float
     states:
         coordinate: [80, 1400]
@@ -135,6 +172,9 @@ blocks:
 -   name: discard_phase
     id: blocks_null_sink
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         type: float
     states:
         coordinate: [80, 1500]
@@ -143,6 +183,11 @@ blocks:
 -   name: mpx_to_complex
     id: blocks_float_to_complex
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
     states:
         coordinate: [1050, 220]
         rotation: 0
@@ -150,7 +195,12 @@ blocks:
 -   name: quad_demod
     id: analog_quadrature_demod_cf
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         gain: samp_rate/(2*math.pi*75e3)
+        maxoutbuf: '0'
+        minoutbuf: '0'
     states:
         coordinate: [700, 220]
         rotation: 0
@@ -158,8 +208,13 @@ blocks:
 -   name: rds_decoder
     id: rds_decoder
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         debug: 'False'
         log: 'False'
+        maxoutbuf: '0'
+        minoutbuf: '0'
     states:
         coordinate: [460, 1060]
         rotation: 0
@@ -167,8 +222,13 @@ blocks:
 -   name: rds_lo
     id: analog_sig_source_x
     parameters:
+        affinity: ''
+        alias: ''
         amplitude: '1'
+        comment: ''
         frequency: -rds_carrier
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samp_rate: samp_rate
         type: complex
         waveform: analog.GR_COS_WAVE
@@ -179,11 +239,16 @@ blocks:
 -   name: rds_lpf
     id: low_pass_filter
     parameters:
+        affinity: ''
+        alias: ''
         beta: '6.76'
+        comment: ''
         cutoff_freq: '3000'
         decim: '5'
         gain: '1'
         interp: '1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samp_rate: samp_rate
         type: fir_filter_ccf
         width: '2000'
@@ -195,6 +260,11 @@ blocks:
 -   name: rds_mixer
     id: blocks_multiply_xx
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         num_inputs: '2'
         type: complex
         vlen: '1'
@@ -205,6 +275,9 @@ blocks:
 -   name: rds_panel
     id: rds_panel
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         freq: '100000000'
         gui_hint: ''
     states:
@@ -214,8 +287,13 @@ blocks:
 -   name: rds_parser
     id: rds_parser
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         debug: 'False'
         log: 'False'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         pty_locale: '0'
         reset: '0'
     states:
@@ -225,7 +303,12 @@ blocks:
 -   name: recording
     id: wasm_gr_world_recording
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         length: '0'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         offset: '0'
         recording: fm_rds_250k_1Msamples
         repeat: 'True'
@@ -237,9 +320,14 @@ blocks:
 -   name: resample_19k
     id: rational_resampler_xxx
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         decim: '50'
         fbw: '0'
         interp: '19'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         taps: '[]'
         type: ccc
     states:
@@ -249,10 +337,15 @@ blocks:
 -   name: rrc_filter
     id: root_raised_cosine_filter
     parameters:
+        affinity: ''
+        alias: ''
         alpha: '1'
+        comment: ''
         decim: '1'
         gain: '1'
         interp: '1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         ntaps: '151'
         samp_rate: rds_samp_rate
         sym_rate: rds_samp_rate/8
@@ -264,10 +357,15 @@ blocks:
 -   name: symbol_sync
     id: digital_symbol_sync_xx
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         constellation: digital.constellation_bpsk().base()
         damping: '1'
         loop_bw: '0.01'
         max_dev: '0.1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         nfilters: '128'
         osps: '1'
         pfb_mf_taps: '[]'
@@ -283,9 +381,14 @@ blocks:
 -   name: throttle
     id: blocks_throttle2
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         ignoretag: 'True'
         limit: auto
         maximum: '0.1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samples_per_second: samp_rate
         type: complex
         vlen: '1'

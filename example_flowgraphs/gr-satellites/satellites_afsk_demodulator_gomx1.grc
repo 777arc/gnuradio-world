@@ -14,6 +14,7 @@ blocks:
 -   name: samp_rate
     id: variable
     parameters:
+        comment: ''
         value: '48000'
     states:
         coordinate: [600, 10]
@@ -23,9 +24,14 @@ blocks:
     id: satellites_afsk_demodulator
     parameters:
         af_carrier: '3600'
+        affinity: ''
+        alias: ''
         baudrate: '4800'
+        comment: ''
         deviation: '-1200'
         iq: 'False'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         options: '""'
         samp_rate: samp_rate
     states:
@@ -35,6 +41,11 @@ blocks:
 -   name: head
     id: blocks_head
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         num_items: '8000'
         type: float
     states:
@@ -44,7 +55,12 @@ blocks:
 -   name: recording
     id: wasm_gr_world_recording
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         length: '0'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         offset: '0'
         recording: estevez/gomx_1
         repeat: 'False'
@@ -56,12 +72,15 @@ blocks:
 -   name: soft_symbols
     id: qtgui_time_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         alpha2: '1'
         autoscale: 'False'
         axislabels: 'True'
         color1: blue
         color2: red
+        comment: ''
         ctrlpanel: 'False'
         grid: 'False'
         label1: Signal 1
@@ -96,6 +115,11 @@ blocks:
 -   name: to_float
     id: blocks_short_to_float
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         scale: '32767'
         vlen: '1'
     states:

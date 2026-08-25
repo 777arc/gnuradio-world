@@ -26,7 +26,7 @@ assert.match(html, /\.palsearch-bar \{[^}]*background:#[0-9a-f]{6}[^}]*\}/,
 for (const [placeholder, append] of [
   ['Search blocks…', /blocksPanel\.append\(searchBar, tree\)/],
   ['Search examples…', /panel\.append\(searchBar, bar, list, noMatch\)/],
-  ['Search recordings…', /panel\.append\(searchBar, list, noMatch\)/],
+  ['Search recordings…', /panel\.append\(searchBar, list, noMatch, moreResults\)/],
 ]) {
   assert.ok(source.includes(placeholder), `no search box placeholder "${placeholder}"`);
   assert.match(source, append, `the search box goes at the top of the panel (${placeholder})`);
@@ -61,25 +61,32 @@ assert.match(source, /noMatch\.hidden = \(!f && !q\) \|\| shown > 0 \|\| pending
 
 // ---- SigMF Recordings -------------------------------------------------------
 // The index carries everything the box matches, so nothing waits on a fetch.
-assert.match(source, /function recordingSearchText[\s\S]*?\[recording\.name, recording\.author, recording\.datatype\][\s\S]*?\.toLowerCase\(\)/,
-  'a recording is searchable by its full key, author and datatype');
-assert.match(source, /entries\.push\(\{ item, text: recordingSearchText\(recording\) \}\)/,
-  'every rendered recording card must be registered with the search');
-assert.match(source, /const hit = terms\.every\(t => entry\.text\.includes\(t\)\);\s*entry\.item\.hidden = !hit;/,
+assert.match(source, /function recordingSearchText[\s\S]*?recording\.title[\s\S]*?recording\.description[\s\S]*?\.\.\.recording\.tags[\s\S]*?\.\.\.recording\.annotationLabels[\s\S]*?recordingBand\(recording\.frequency\)[\s\S]*?\.toLowerCase\(\)/,
+  'recording search covers human metadata, catalog tags, annotations and RF band');
+assert.match(source, /terms\.every\(term => recordingSearchText\(recording\)\.includes\(term\)\)/,
   'a recording matches only when every search term is found');
-assert.match(source, /noMatch\.textContent = `No SigMF recording matches/,
+assert.match(source, /noMatch\.textContent = query[\s\S]*?No SigMF recording matches/,
   'a recording search that matches nothing must say so');
-// Collections are collapsed <details>; a hit inside one has to be reachable.
-assert.match(source, /querySelectorAll<HTMLDetailsElement>\('\.rec-directory'\)\]\.reverse\(\)/,
-  'directory visibility is decided innermost-first, so a parent sees its children');
-assert.match(source, /details\.hidden = !hasVisibleChild;\s*if \(q && hasVisibleChild\) details\.open = true;/,
-  'a search must hide empty collections and open the ones holding a match');
-assert.match(html, /\.rec-item\[hidden\], \.rec-directory\[hidden\] \{ display:none; \}/,
-  'filtered-out recordings and collections must actually disappear');
+assert.match(source, /facetOptions\([\s\S]*?'All categories'[\s\S]*?'All bands'[\s\S]*?'All collections'[\s\S]*?'All formats'/,
+  'the catalog has category, band, collection and format facets');
+assert.match(source, /'All bands',[\s\S]*?compareRecordingBands, recordingBandLabel/,
+  'band choices include their numeric frequency ranges in frequency order');
+assert.match(source, /checkControl\('Annotated'\)/,
+  'annotation filtering is available without a search expression');
+assert.doesNotMatch(source, /checkControl\('Runnable'\)/,
+  'recordings are expected to be runnable, so runner support is not a discovery facet');
+assert.match(source, /function recordingCollection[\s\S]*?Uncollected[\s\S]*?const byCollection[\s\S]*?a === 'Uncollected'[\s\S]*?return -1/,
+  'uncollected recordings sort before named collections');
+assert.match(source, /const PAGE_SIZE = 50;[\s\S]*?filtered\.slice\(0, visibleLimit\)/,
+  'only a bounded batch of matching recording rows is rendered');
+assert.match(source, /groupName\(recording, groupValue\)[\s\S]*?className = 'rec-group-title'/,
+  'matching recordings can be grouped by their catalog category or stable collection');
+assert.match(html, /\.rec-details\[hidden\] \{ display:none; \}/,
+  'full recording metadata is collapsed until requested');
 
 // Escape is a cheap way out of a query that hides everything, on both list tabs.
-const escapes = source.match(/if \(e\.key === 'Escape' && search\.value\) \{[^}]*search\.value = ''; onQuery\(\);/g);
-assert.equal(escapes?.length, 2, 'Escape must clear both the example and recording search boxes');
+assert.match(source, /if \(event\.key === 'Escape' && search\.value\)[\s\S]*?search\.value = ''; filterChanged\(\);/,
+  'Escape clears the recording query and redraws the catalog');
 
 // End-to-end sanity on real data: the fields the search reads are actually
 // present in the shipped examples, so a search over them can match something.

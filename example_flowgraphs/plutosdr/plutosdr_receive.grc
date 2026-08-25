@@ -14,6 +14,7 @@ blocks:
 -   name: center_freq
     id: variable_qtgui_range
     parameters:
+        comment: ''
         label: RF Frequency
         min_len: '200'
         orient: QtCore.Qt.Horizontal
@@ -30,6 +31,7 @@ blocks:
 -   name: rx_gain
     id: variable_qtgui_range
     parameters:
+        comment: ''
         label: RX Gain
         min_len: '200'
         orient: QtCore.Qt.Horizontal
@@ -46,6 +48,7 @@ blocks:
 -   name: samp_rate
     id: variable_qtgui_chooser
     parameters:
+        comment: ''
         label: Sample Rate
         labels: '["2.4 MHz", "2.5 MHz", "3.2 MHz", "3.84 MHz", "4 MHz", "5 MHz", "6 MHz", "7.68 MHz", "8 MHz", "10 MHz", "12 MHz", "15.36 MHz", "16 MHz", "20 MHz", "24 MHz", "25 MHz", "30.72 MHz", "32 MHz", "40 MHz", "50 MHz", "56 MHz"]'
         options: '[2400000, 2500000, 3200000, 3840000, 4000000, 5000000, 6000000, 7680000, 8000000, 10000000, 12000000, 15360000, 16000000, 20000000, 24000000, 25000000, 30720000, 32000000, 40000000, 50000000, 56000000]'
@@ -59,6 +62,8 @@ blocks:
 -   name: qtgui_freq_sink_x_0
     id: qtgui_freq_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         alpha10: '1'
         alpha2: '1'
@@ -82,6 +87,7 @@ blocks:
         color7: '"yellow"'
         color8: '"dark red"'
         color9: '"dark green"'
+        comment: ''
         ctrlpanel: 'False'
         fc: center_freq
         fftsize: '2048'
@@ -107,6 +113,8 @@ blocks:
         marker7: '-1'
         marker8: '-1'
         marker9: '-1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         name: Spectrum
         nconnections: '1'
         samp_rate: samp_rate
@@ -144,6 +152,8 @@ blocks:
 -   name: qtgui_waterfall_sink_x_0
     id: qtgui_waterfall_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         alpha10: '1'
         alpha2: '1'
@@ -165,6 +175,7 @@ blocks:
         color7: '0'
         color8: '0'
         color9: '0'
+        comment: ''
         fc: center_freq
         fftsize: '1024'
         grid: 'False'
@@ -181,6 +192,8 @@ blocks:
         label8: ''
         label9: ''
         legend: 'True'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         name: Waterfall
         nconnections: '1'
         samp_rate: samp_rate
@@ -192,7 +205,10 @@ blocks:
 -   name: wasm_gui_layout_0
     id: wasm_gui_layout
     parameters:
+        affinity: ''
+        alias: ''
         columns: '12'
+        comment: ''
         layout: '{"center_freq":[0,0,5,1],"rx_gain":[5,0,4,1],"samp_rate":[9,0,3,1],"qtgui_freq_sink_x_0":[0,1,12,3],"qtgui_waterfall_sink_x_0":[0,4,12,6]}'
         row_height: '60'
     states:
@@ -202,16 +218,21 @@ blocks:
 -   name: wasm_plutosdr_source_0
     id: wasm_plutosdr_source
     parameters:
+        affinity: ''
+        alias: ''
         bandwidth: samp_rate
         bb_dc: 'True'
         buffer_size: '32768'
         center_freq: center_freq
         channels: '1'
+        comment: ''
         device: ''
         gain1: rx_gain
         gain2: '30'
         gain_mode1: manual
         gain_mode2: slow_attack
+        maxoutbuf: '0'
+        minoutbuf: '0'
         quadrature: 'True'
         rf_dc: 'True'
         samp_rate: samp_rate

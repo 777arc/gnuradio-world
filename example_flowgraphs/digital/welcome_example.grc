@@ -14,6 +14,7 @@ blocks:
 -   name: freq
     id: variable_qtgui_range
     parameters:
+        comment: ''
         label: Frequency of Tone
         min_len: '200'
         orient: QtCore.Qt.Horizontal
@@ -30,6 +31,7 @@ blocks:
 -   name: noise
     id: variable_qtgui_range
     parameters:
+        comment: ''
         label: Mag of Noise
         min_len: '200'
         orient: QtCore.Qt.Horizontal
@@ -46,6 +48,7 @@ blocks:
 -   name: samp_rate
     id: variable
     parameters:
+        comment: ''
         value: '200000'
     states:
         coordinate: [660, 20]
@@ -54,6 +57,7 @@ blocks:
 -   name: tone_mag
     id: variable_qtgui_range
     parameters:
+        comment: ''
         label: Mag of Tone
         min_len: '200'
         orient: QtCore.Qt.Horizontal
@@ -70,8 +74,13 @@ blocks:
 -   name: analog_sig_source_x_0
     id: analog_sig_source_x
     parameters:
+        affinity: ''
+        alias: ''
         amplitude: tone_mag
+        comment: ''
         frequency: freq
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samp_rate: samp_rate
         type: complex
         waveform: analog.GR_COS_WAVE
@@ -82,6 +91,8 @@ blocks:
 -   name: constellation
     id: qtgui_const_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         alpha10: '1'
         alpha2: '1'
@@ -104,6 +115,7 @@ blocks:
         color7: '"yellow"'
         color8: '"dark red"'
         color9: '"dark green"'
+        comment: ''
         grid: 'False'
         label1: ''
         label10: ''
@@ -166,9 +178,14 @@ blocks:
 -   name: mod7
     id: digital_psk_mod
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         constellation_points: '8'
         differential: 'True'
         excess_bw: '0.35'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         mod_code: '"gray"'
         samples_per_symbol: '2'
     states:
@@ -178,6 +195,9 @@ blocks:
 -   name: note_0
     id: note
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         note: Welcome to GNU Radio World!
     states:
         coordinate: [730, 160]
@@ -186,6 +206,8 @@ blocks:
 -   name: qtgui_freq_sink_x_1
     id: qtgui_freq_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         alpha10: '1'
         alpha2: '1'
@@ -209,6 +231,7 @@ blocks:
         color7: '"yellow"'
         color8: '"dark red"'
         color9: '"dark green"'
+        comment: ''
         ctrlpanel: 'False'
         fc: '0'
         fftsize: '1024'
@@ -234,6 +257,8 @@ blocks:
         marker7: '-1'
         marker8: '-1'
         marker9: '-1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         name: Spectrum
         nconnections: '1'
         samp_rate: samp_rate
@@ -271,9 +296,14 @@ blocks:
 -   name: throttle4
     id: blocks_throttle2
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         ignoretag: 'True'
         limit: auto
         maximum: '0.1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samples_per_second: samp_rate
         type: complex
         vlen: '1'
@@ -284,7 +314,10 @@ blocks:
 -   name: wasm_gui_layout_0
     id: wasm_gui_layout
     parameters:
+        affinity: ''
+        alias: ''
         columns: '12'
+        comment: ''
         layout: '{"constellation":[0,2,5,4],"freq":[0,0,6,1],"noise":[0,1,12,1],"qtgui_freq_sink_x_1":[5,2,7,4],"tone_mag":[6,0,6,1]}'
         row_height: '60'
     states:
@@ -294,7 +327,12 @@ blocks:
 -   name: x2
     id: analog_noise_source_x
     parameters:
+        affinity: ''
+        alias: ''
         amplitude: noise
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         seed: '0'
         type: complex
     states:
@@ -304,8 +342,13 @@ blocks:
 -   name: x8
     id: analog_random_source_x
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         max: '2'
+        maxoutbuf: '0'
         min: '0'
+        minoutbuf: '0'
         num_samps: '1000'
         repeat: 'True'
         type: byte
@@ -316,6 +359,11 @@ blocks:
 -   name: xx3
     id: blocks_add_xx
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         num_inputs: '3'
         type: complex
         vlen: '1'

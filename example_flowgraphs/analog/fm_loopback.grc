@@ -14,6 +14,7 @@ blocks:
 -   name: noise_amplitude
     id: variable_qtgui_range
     parameters:
+        comment: ''
         label: Channel noise
         min_len: '240'
         orient: QtCore.Qt.Horizontal
@@ -30,6 +31,7 @@ blocks:
 -   name: tone_frequency
     id: variable_qtgui_range
     parameters:
+        comment: ''
         label: Message tone frequency
         min_len: '240'
         orient: QtCore.Qt.Horizontal
@@ -46,7 +48,12 @@ blocks:
 -   name: channel_noise
     id: analog_noise_source_x
     parameters:
+        affinity: ''
+        alias: ''
         amplitude: noise_amplitude
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         seed: '7'
         type: complex
     states:
@@ -56,7 +63,12 @@ blocks:
 -   name: fm_demodulator
     id: analog_quadrature_demod_cf
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         gain: '1.5278874537'
+        maxoutbuf: '0'
+        minoutbuf: '0'
     states:
         coordinate: [1220, 250]
         rotation: 0
@@ -64,6 +76,11 @@ blocks:
 -   name: fm_modulator
     id: analog_frequency_modulator_fc
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         sensitivity: '0.6544984695'
     states:
         coordinate: [290, 240]
@@ -72,11 +89,14 @@ blocks:
 -   name: fm_spectrum
     id: qtgui_freq_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         autoscale: 'False'
         average: '0.2'
         axislabels: 'True'
         color1: '"blue"'
+        comment: ''
         ctrlpanel: 'False'
         fc: '0'
         fftsize: '2048'
@@ -84,6 +104,8 @@ blocks:
         label1: Noisy FM signal
         legend: 'True'
         marker1: '-1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         name: FM Channel Spectrum
         samp_rate: '48000'
         style1: '1'
@@ -102,8 +124,13 @@ blocks:
 -   name: message_tone
     id: analog_sig_source_x
     parameters:
+        affinity: ''
+        alias: ''
         amplitude: '1'
+        comment: ''
         frequency: tone_frequency
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samp_rate: '48000'
         type: float
         waveform: analog.GR_COS_WAVE
@@ -114,6 +141,11 @@ blocks:
 -   name: noisy_channel
     id: blocks_add_xx
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         num_inputs: '2'
         type: complex
         vlen: '1'
@@ -124,12 +156,15 @@ blocks:
 -   name: recovered_message
     id: qtgui_time_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         alpha2: '1'
         autoscale: 'False'
         axislabels: 'True'
         color1: blue
         color2: red
+        comment: ''
         ctrlpanel: 'False'
         grid: 'True'
         label1: Recovered tone
@@ -164,9 +199,14 @@ blocks:
 -   name: throttle
     id: blocks_throttle2
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         ignoretag: 'True'
         limit: auto
         maximum: '0.1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samples_per_second: '48000'
         type: complex
         vlen: '1'

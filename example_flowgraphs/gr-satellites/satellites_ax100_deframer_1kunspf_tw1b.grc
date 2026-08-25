@@ -14,6 +14,7 @@ blocks:
 -   name: samp_rate
     id: variable
     parameters:
+        comment: ''
         value: '48000'
     states:
         coordinate: [610, 10]
@@ -22,6 +23,11 @@ blocks:
 -   name: asm_deframer
     id: satellites_ax100_deframer
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         mode: '"ASM"'
         options: '""'
         scrambler: '"CCSDS"'
@@ -33,8 +39,13 @@ blocks:
 -   name: asm_demod
     id: satellites_fsk_demodulator
     parameters:
+        affinity: ''
+        alias: ''
         baudrate: '1200'
+        comment: ''
         iq: 'False'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         options: '""'
         samp_rate: samp_rate
         subaudio: 'False'
@@ -45,6 +56,9 @@ blocks:
 -   name: asm_frames
     id: blocks_message_debug
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         en_uvec: 'True'
         log_level: info
     states:
@@ -54,6 +68,9 @@ blocks:
 -   name: asm_note
     id: note
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         note: ASM+Golay mode
     states:
         coordinate: [780, 10]
@@ -62,7 +79,12 @@ blocks:
 -   name: asm_recording
     id: wasm_gr_world_recording
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         length: '0'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         offset: '0'
         recording: estevez/1kuns_pf
         repeat: 'False'
@@ -74,6 +96,11 @@ blocks:
 -   name: asm_recording_to_float
     id: blocks_short_to_float
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         scale: '32767'
         vlen: '1'
     states:
@@ -83,6 +110,11 @@ blocks:
 -   name: rs_deframer
     id: satellites_ax100_deframer
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         mode: '"RS"'
         options: '""'
         scrambler: '"CCSDS"'
@@ -94,8 +126,13 @@ blocks:
 -   name: rs_demod
     id: satellites_fsk_demodulator
     parameters:
+        affinity: ''
+        alias: ''
         baudrate: '4800'
+        comment: ''
         iq: 'False'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         options: '""'
         samp_rate: samp_rate
         subaudio: 'False'
@@ -106,6 +143,9 @@ blocks:
 -   name: rs_frames
     id: blocks_message_debug
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         en_uvec: 'True'
         log_level: info
     states:
@@ -115,6 +155,9 @@ blocks:
 -   name: rs_note
     id: note
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         note: Reed-Solomon mode
     states:
         coordinate: [970, 10]
@@ -123,7 +166,12 @@ blocks:
 -   name: rs_recording
     id: wasm_gr_world_recording
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         length: '0'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         offset: '0'
         recording: estevez/tw_1b
         repeat: 'False'
@@ -135,6 +183,11 @@ blocks:
 -   name: rs_recording_to_float
     id: blocks_short_to_float
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         scale: '32767'
         vlen: '1'
     states:

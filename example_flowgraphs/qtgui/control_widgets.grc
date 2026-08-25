@@ -14,6 +14,7 @@ blocks:
 -   name: burst
     id: variable_qtgui_toggle_button_msg
     parameters:
+        comment: ''
         gui_hint: ''
         initPressed: 'False'
         label: Burst
@@ -33,6 +34,7 @@ blocks:
 -   name: level
     id: variable_qtgui_dial_control
     parameters:
+        comment: ''
         gui_hint: ''
         label: Level
         maximum: '10'
@@ -52,6 +54,7 @@ blocks:
     id: variable_qtgui_toggle_switch
     parameters:
         cellalignment: '1'
+        comment: ''
         gui_hint: ''
         initPressed: 'True'
         label: Mode
@@ -72,6 +75,7 @@ blocks:
     id: variable_qtgui_msgcheckbox
     parameters:
         cellalignment: '1'
+        comment: ''
         gui_hint: ''
         initPressed: 'False'
         label: Mute
@@ -88,6 +92,7 @@ blocks:
 -   name: ping
     id: variable_qtgui_msg_push_button
     parameters:
+        comment: ''
         gui_hint: ''
         label: Ping
         msgName: ping
@@ -103,6 +108,7 @@ blocks:
     id: qtgui_msgdigitalnumbercontrol
     parameters:
         ThousandsSeparator: ','
+        comment: ''
         gui_hint: ''
         lbl: Receive frequency
         maxFreqHz: '1700'
@@ -119,6 +125,7 @@ blocks:
 -   name: readout
     id: variable_qtgui_label
     parameters:
+        comment: ''
         formatter: None
         gui_hint: ''
         label: Tone now
@@ -131,6 +138,7 @@ blocks:
 -   name: samp_rate
     id: variable
     parameters:
+        comment: ''
         value: '32000'
     states:
         coordinate: [300, 10]
@@ -139,6 +147,7 @@ blocks:
 -   name: tone
     id: variable_qtgui_numeric_entry
     parameters:
+        comment: ''
         description: The tone the signal chain generates.
         enabled: 'True'
         gui_hint: ''
@@ -156,7 +165,12 @@ blocks:
 -   name: gain
     id: blocks_multiply_const_xx
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         constant: level
+        maxoutbuf: '0'
+        minoutbuf: '0'
         type: complex
     states:
         coordinate: [580, 220]
@@ -165,6 +179,9 @@ blocks:
 -   name: message_debug
     id: blocks_message_debug
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         en_uvec: 'True'
         log_level: info
     states:
@@ -174,11 +191,16 @@ blocks:
 -   name: note
     id: qtgui_edit_box_msg
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         gui_hint: ''
         is_pair: 'True'
         is_static: 'True'
         key: note
         label: Note
+        maxoutbuf: '0'
+        minoutbuf: '0'
         type: string
         value: hello
     states:
@@ -188,6 +210,8 @@ blocks:
 -   name: scope
     id: qtgui_time_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         alpha10: '1'
         alpha2: '1'
@@ -210,6 +234,7 @@ blocks:
         color7: yellow
         color8: dark red
         color9: dark green
+        comment: ''
         ctrlpanel: 'False'
         grid: 'False'
         label1: Signal 1
@@ -277,8 +302,13 @@ blocks:
 -   name: source
     id: analog_sig_source_x
     parameters:
+        affinity: ''
+        alias: ''
         amplitude: '1'
+        comment: ''
         frequency: tone
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samp_rate: samp_rate
         type: complex
         waveform: analog.GR_COS_WAVE
@@ -289,9 +319,14 @@ blocks:
 -   name: throttle
     id: blocks_throttle2
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         ignoretag: 'True'
         limit: auto
         maximum: '0.1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samples_per_second: samp_rate
         type: complex
         vlen: '1'
@@ -302,7 +337,10 @@ blocks:
 -   name: wasm_gui_layout_0
     id: wasm_gui_layout
     parameters:
+        affinity: ''
+        alias: ''
         columns: '12'
+        comment: ''
         layout: '{"burst":[6,2,6,1],"level":[0,1,6,2],"mode":[6,1,6,1],"mute":[0,3,6,1],"note":[6,4,6,2],"ping":[6,3,6,1],"radio":[0,4,6,2],"readout":[6,0,6,1],"scope":[0,6,12,3],"tone":[0,0,6,1]}'
         row_height: '60'
     states:

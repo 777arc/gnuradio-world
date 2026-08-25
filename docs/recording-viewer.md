@@ -222,15 +222,48 @@ UTC daily cron provides a fallback, and its authenticated `POST /rebuild`
 endpoint performs the same job on demand.
 
 The editor fetches that live index with `cache: no-store`, then constructs both
-object URLs from each base key. Each card in the palette offers three things: the
-card itself drops a GR World Recording (plus an IShort To Complex for `ci16`) on
-the canvas, **View** opens the recording view alone, and 🔗 copies
-`#recording=<base key>` — the same base key the index calls `base_filename`, and
-the same one the block stores, so a link is readable and survives a re-index.
-View and 🔗 are offered even when the datatype has no block representation, since
-that recording is otherwise not viewable here at all. `server.mjs`,
+object URLs from each base key. The Recordings palette is a compact faceted
+catalog: its search covers the title, full key, description, author, datatype,
+catalog tags, annotation labels, frequency and derived RF band. Category, band,
+collection, format and annotation filters compose with that search; results can
+be grouped by category or collection and sorted without
+another fetch. Only 50 matching rows are initially rendered. A row's **View**
+action opens the recording alone, **Add** drops a GR World Recording (plus an
+IShort To Complex for `ci16`) on the canvas, and **More** reveals the permanent
+key, full metadata, downloads and the copy-link action.
+
+The copied URL uses `#recording=<base key>` — the same base key the index calls
+`base_filename`, and the same one the block stores, so a link is readable and
+survives a re-index. View and Link remain available when the datatype has no
+block representation; only Add is disabled. `server.mjs`,
 `scripts/assemble-site.mjs`, and Cloudflare Pages never build or serve a
 recording manifest, and no recording is ever checked into this repository.
+
+The indexer uses standard SigMF fields wherever they exist: `core:description`,
+`core:author`, `core:sample_rate`, the first capture's `core:frequency` and
+`core:datetime`, and annotation `core:label` values. It additionally recognizes
+this optional catalog extension in the global object:
+
+```json
+{
+  "core:extensions": [
+    { "name": "grworld", "version": "1.0.0", "optional": true }
+  ],
+  "grworld:title": "AO-73 telemetry pass",
+  "grworld:category": "Satellite",
+  "grworld:tags": ["BPSK", "telemetry", "amateur-radio"]
+}
+```
+
+`grworld:title` is the display title (the basename is its fallback),
+`grworld:category` is one primary browse group, and `grworld:tags` is the
+many-valued discovery vocabulary. All three are optional, the indexer removes
+empty and duplicate tags, and older metadata remains fully usable. Prefer a
+small, consistent vocabulary over spelling variants; category and tag values
+are deliberately data rather than object paths so a recording can be
+reclassified without breaking a `.grc` or shared recording URL. Recordings with
+no collection prefix appear in **Uncollected**, which is always ordered before
+named collections.
 
 To publish a recording, upload both matching objects directly to R2 using the
 dashboard, the S3-compatible API, rclone, or another R2 client. The event batch

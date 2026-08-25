@@ -450,6 +450,22 @@ button:hover { filter:brightness(1.15); }
 /* the classes set display:block, which would otherwise beat the UA [hidden] rule */
 .ex-item[hidden], .ex-row[hidden] { display:none; }
 .ex-directory[hidden] { display:none; }
+/* Collapsible example folder. Its own rules since the recordings tab, which
+   these once shared, is a flat grouped catalog now. */
+.ex-directory { background:#202535; border:1px solid #333a4d; border-radius:6px;
+    overflow:hidden; }
+.ex-directory-head { display:flex; align-items:center; gap:8px; padding:6px 11px;
+    color:#c3cbe0; cursor:pointer; user-select:none; list-style:none; }
+.ex-directory-head::-webkit-details-marker { display:none; }
+.ex-directory-head::before { content:'\25B8'; width:15px; color:#95a2c2;
+    font-size:17px; line-height:1; }
+.ex-directory[open] > .ex-directory-head::before { content:'\25BE'; }
+.ex-directory-head:hover { background:#2a2f42; color:#e6e9f0; }
+.ex-directory-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis;
+    white-space:nowrap; font-size:16px; font-weight:600; }
+.ex-directory-count { flex:none; color:#7f8bab; font-size:16px; font-weight:400; }
+.ex-directory-contents { display:flex; flex-direction:column; gap:7px; padding:1px 10px 8px 22px;
+    border-left:1px solid #333a4d; }
 /* faint until the row is hovered, but never invisible — it is the only place
    the per-example link is offered */
 .ex-link { position:absolute; top:6px; right:6px; padding:3px 5px; font-size:14px; line-height:1;
@@ -470,50 +486,72 @@ button:hover { filter:brightness(1.15); }
 .ex-filter-clear { flex:none; font-size:16px; padding:5px 10px; border-radius:4px;
     background:#2f4d3a; color:#e6f2ea; border:1px solid #3fae63; cursor:pointer; }
 .ex-filter-clear:hover { background:#3a6048; filter:none; }
-/* SigMF recording list */
-.rec-list { padding:10px; display:flex; flex-direction:column; gap:7px; }
-.rec-directory { background:#202535; border:1px solid #333a4d; border-radius:6px;
-    overflow:hidden; }
-.rec-directory-head { display:flex; align-items:center; gap:8px; padding:6px 11px;
-    color:#c3cbe0; cursor:pointer; user-select:none; list-style:none; }
-.rec-directory-head::-webkit-details-marker { display:none; }
-.rec-directory-head::before { content:'\25B8'; width:15px; color:#95a2c2;
-    font-size:17px; line-height:1; }
-.rec-directory[open] > .rec-directory-head::before { content:'\25BE'; }
-.rec-directory-head:hover { background:#2a2f42; color:#e6e9f0; }
-.rec-directory-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis;
-    white-space:nowrap; font-size:16px; font-weight:600; }
-.rec-directory-count { flex:none; color:#7f8bab; font-size:16px; font-weight:400; }
-.rec-directory-contents { display:flex; flex-direction:column; gap:7px; padding:1px 10px 8px 22px;
-    border-left:1px solid #333a4d; }
-.rec-item { background:#242a3b; border:1px solid #333a4d; border-radius:6px;
-    padding:9px 13px; color:#dce3f5; cursor:pointer; outline:none; }
-.rec-item:hover, .rec-item:focus-visible { background:#2c3448; border-color:#46507a; }
-/* filtered out by the recordings search */
-.rec-item[hidden], .rec-directory[hidden] { display:none; }
-.rec-head { display:flex; align-items:flex-start; gap:10px; margin-bottom:5px; }
-/* The two card actions that do not touch the flowgraph: open the recording view,
-   and copy a #recording= link to it. One pill treatment, so they read as a pair
-   against the card body, which is what adds the recording to the canvas. */
-.rec-view, .rec-link { flex:none; font-size:16px; line-height:1.5; padding:3px 9px;
-    border-radius:999px; color:#8fb6ff; background:#242a3b; border:1px solid #46507a;
+/* SigMF recording catalog. Its sticky header owns discovery controls while only
+   compact rows scroll; full metadata and downloads stay behind More. */
+.rec-controls { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px 8px;
+    margin-top:8px; }
+.rec-control { display:flex; flex-direction:column; gap:2px; min-width:0; color:#7f8bab;
+    font-size:13px; }
+.rec-control select { width:100%; min-width:0; padding:5px 7px; background:#171a24; color:#dce3f5;
+    border:1px solid #3a4366; border-radius:4px; font-size:14px; outline:none; }
+.rec-check { display:flex; align-items:center; gap:6px; padding:5px 7px; color:#c3cbe0;
+    grid-column:1/-1; border:1px solid #333a4d; border-radius:4px; font-size:14px;
     cursor:pointer; }
-.rec-view:hover, .rec-link:hover, .rec-view:focus-visible, .rec-link:focus-visible {
-    color:#dbe7ff; border-color:#8fb6ff; background:#2c3448; filter:none; }
-.rec-title { flex:1; min-width:0; font-size:16px; font-weight:600; color:#e6e9f0;
+.rec-check input { margin:0; accent-color:#58a6ff; }
+.rec-catalog-status { display:flex; align-items:center; justify-content:space-between; gap:8px;
+    margin-top:8px; color:#7f8bab; font-size:13px; }
+.rec-clear { padding:0; color:#8fb6ff; background:transparent; border:0; font-size:13px;
+    cursor:pointer; }
+.rec-clear:hover { color:#b9d1ff; filter:none; }
+.rec-clear[hidden] { display:none; }
+.rec-list { padding:10px; display:flex; flex-direction:column; gap:12px; }
+.rec-group { display:flex; flex-direction:column; gap:6px; min-width:0; }
+.rec-group-title { display:flex; align-items:baseline; justify-content:space-between; gap:8px;
+    margin:0; padding:0 3px 3px; color:#c3cbe0; border-bottom:1px solid #333a4d;
+    font-size:15px; font-weight:600; }
+.rec-group-title span { color:#7f8bab; font-size:13px; font-weight:400; }
+.rec-item { background:#242a3b; border:1px solid #333a4d; border-radius:6px;
+    padding:8px 10px; color:#dce3f5; }
+.rec-item:hover { background:#282f42; border-color:#46507a; }
+.rec-head { display:flex; align-items:flex-start; gap:9px; }
+.rec-identity { flex:1; min-width:0; }
+.rec-title { min-width:0; color:#e6e9f0; font-size:15px; font-weight:600;
     overflow-wrap:anywhere; }
-/* Says one thing only: that File Source cannot represent this datatype. */
-.rec-badge { flex:none; font-size:16px; color:#8b96b5; border:1px solid #46507a;
-    border-radius:999px; padding:3px 8px; white-space:nowrap; }
-.rec-props { display:grid; grid-template-columns:max-content minmax(0,1fr); gap:2px 12px;
-    margin:0; font-size:16px; line-height:1.35; }
+.rec-summary { margin-top:2px; color:#9aa7c6; font-size:13px; line-height:1.35;
+    font-variant-numeric:tabular-nums; }
+.rec-tags { display:flex; flex-wrap:wrap; gap:4px; margin-top:5px; }
+.rec-tag { max-width:100%; padding:1px 6px; overflow:hidden; text-overflow:ellipsis;
+    white-space:nowrap; color:#9eacd0; background:#202535; border:1px solid #3a4366;
+    border-radius:999px; font-size:12px; }
+.rec-tag.rec-annotated { color:#b9d1ff; border-color:#4d6ba8; }
+.rec-actions { flex:none; display:flex; flex-wrap:wrap; justify-content:flex-end; gap:4px;
+    max-width:150px; }
+.rec-action { padding:3px 7px; color:#8fb6ff; background:#242a3b; border:1px solid #46507a;
+    border-radius:4px; font-size:13px; cursor:pointer; }
+.rec-action:hover, .rec-action:focus-visible { color:#dbe7ff; border-color:#8fb6ff;
+    background:#2c3448; filter:none; }
+.rec-action.rec-add { color:#bfe3c9; border-color:#3f7650; }
+.rec-action.rec-add:hover { color:#e0f4e6; border-color:#5cab73; }
+.rec-action:disabled { color:#687083; border-color:#3a4052; background:#222634;
+    cursor:not-allowed; }
+.rec-details { margin-top:8px; padding-top:8px; border-top:1px solid #333a4d; }
+.rec-details[hidden] { display:none; }
+.rec-description { margin:0 0 7px; color:#c3cbe0; font-size:14px; line-height:1.4; }
+.rec-props { display:grid; grid-template-columns:max-content minmax(0,1fr); gap:2px 10px;
+    margin:0; font-size:13px; line-height:1.4; }
 .rec-props dt { color:#7f8bab; }
 .rec-props dd { color:#c3cbe0; margin:0; overflow-wrap:anywhere; font-variant-numeric:tabular-nums; }
-.rec-props dd.rec-size { display:flex; flex-wrap:wrap; align-items:baseline; gap:5px 10px; }
+.rec-detail-actions { display:flex; flex-wrap:wrap; gap:8px 12px; margin-top:8px; font-size:13px; }
+.rec-detail-link { padding:0; color:#8fb6ff; background:transparent; border:0; font-size:13px;
+    cursor:pointer; }
+.rec-detail-link:hover { color:#b9d1ff; filter:none; }
 .rec-dl { color:#8fb6ff; text-decoration:none; border-bottom:1px dotted #4d6ba8; }
 .rec-dl:hover { color:#b9d1ff; border-bottom-color:#b9d1ff; }
-.rec-progress { margin-top:7px; color:#8b96b5; font-size:16px; line-height:1.4; }
-.rec-progress[hidden] { display:none; }
+.rec-show-more { align-self:center; margin:0 10px 12px; padding:7px 14px; color:#c3cbe0;
+    background:#242a3b; border:1px solid #46507a; border-radius:5px; font-size:14px;
+    cursor:pointer; }
+.rec-show-more:hover { color:#fff; background:#2c3448; filter:none; }
+.rec-show-more[hidden] { display:none; }
 /* Search box, shared by all three palette tabs. It sticks to the top of
    .paltab-panel (the scroll container) so the query stays reachable however far
    down the list you are: hence flex:none, and hence the opaque bar around the

@@ -76,6 +76,8 @@ blocks:
 -   name: audio_spectrum
     id: qtgui_freq_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         alpha10: '1'
         alpha2: '1'
@@ -126,6 +128,8 @@ blocks:
         marker7: '-1'
         marker8: '-1'
         marker9: '-1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         name: Demodulated audio (19 kHz stereo pilot visible)
         nconnections: '1'
         samp_rate: audio_rate
@@ -164,10 +168,14 @@ blocks:
 -   name: resample_to_quad
     id: rational_resampler_xxx
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
         decim: '25'
         fbw: '0'
         interp: '24'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         taps: '[]'
         type: ccc
     states:
@@ -177,6 +185,8 @@ blocks:
 -   name: rf_spectrum
     id: qtgui_freq_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         alpha10: '1'
         alpha2: '1'
@@ -227,6 +237,8 @@ blocks:
         marker7: '-1'
         marker8: '-1'
         marker9: '-1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         name: RF spectrum
         nconnections: '1'
         samp_rate: samp_rate
@@ -265,6 +277,8 @@ blocks:
 -   name: speakers
     id: audio_sink
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
         device_name: ''
         num_inputs: '1'
@@ -277,8 +291,12 @@ blocks:
 -   name: volume_gain
     id: blocks_multiply_const_vxx
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
         const: volume
+        maxoutbuf: '0'
+        minoutbuf: '0'
         mode: scalar
         type: float
         vlen: '1'
@@ -289,6 +307,8 @@ blocks:
 -   name: wasm_gui_layout_0
     id: wasm_gui_layout
     parameters:
+        affinity: ''
+        alias: ''
         columns: '12'
         comment: ''
         layout: '{"audio_spectrum":[0,1,12,4],"center_freq":[0,0,6,1],"rf_spectrum":[0,5,12,4],"volume":[6,0,6,1]}'
@@ -300,6 +320,8 @@ blocks:
 -   name: wasm_rtlsdr_source_0
     id: wasm_rtlsdr_source
     parameters:
+        affinity: ''
+        alias: ''
         bias_tee: 'False'
         bufflen: '262144'
         center_freq: center_freq
@@ -309,6 +331,8 @@ blocks:
         freq_correction: '0'
         gain: '30'
         gain_mode: 'True'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samp_rate: samp_rate
         type: complex
     states:
@@ -318,9 +342,13 @@ blocks:
 -   name: wbfm_demod
     id: analog_wfm_rcv
     parameters:
+        affinity: ''
+        alias: ''
         audio_decimation: '5'
         comment: ''
         deemph_tau: '0.000075'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         quad_rate: quad_rate
     states:
         coordinate: [740, 240]

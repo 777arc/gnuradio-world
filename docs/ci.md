@@ -34,9 +34,13 @@ The native GNU Radio compatibility check is separate from that build. The
 `Native GNU Radio Examples` workflow (`native-gnuradio.yml`) has only a
 `workflow_dispatch` trigger: it never runs for a push, pull request, schedule,
 or deploy. A manual run builds `native-gnuradio-validation/Dockerfile`, installs
-Ubuntu 26.04's packaged GNU Radio, replaces GUI sinks in temporary flowgraph
-copies, and validates the examples. Dispatch inputs control the runtime window,
-worker count, and generation-only mode.
+Ubuntu 26.04's packaged GNU Radio, and validates the examples through temporary
+native-only copies — GUI sinks replaced, the GUI Layout block dropped, and the
+`import` blocks native GRC evaluates parameters against added. A flowgraph
+built on blocks that installation does not have (a vendored out-of-tree module,
+or one of GNU Radio World's own browser-only blocks) is **skipped** rather than
+failed, so a failure is always a real incompatibility. Dispatch inputs control
+the runtime window, worker count, and generation-only mode.
 
 **The two Cloudflare Workers are not part of any of this.**
 `workers/sigmf-indexer/` and `workers/ai-proxy/` deploy by hand with `wrangler`,

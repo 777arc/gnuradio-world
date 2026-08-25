@@ -50,7 +50,11 @@ blocks:
 -   name: add
     id: blocks_add_xx
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         num_inputs: '2'
         type: complex
         vlen: '1'
@@ -61,8 +65,12 @@ blocks:
 -   name: dc_offset
     id: blocks_add_const_vxx
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
         const: dc_amp
+        maxoutbuf: '0'
+        minoutbuf: '0'
         type: complex
         vlen: '1'
     states:
@@ -72,6 +80,8 @@ blocks:
 -   name: freq_raw
     id: qtgui_freq_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         alpha10: '1'
         alpha2: '1'
@@ -122,6 +132,8 @@ blocks:
         marker7: '-1'
         marker8: '-1'
         marker9: '-1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         name: 'Raw: signal at +250 kHz, DC spike at 0'
         nconnections: '1'
         samp_rate: samp_rate
@@ -160,6 +172,8 @@ blocks:
 -   name: freq_tuned
     id: qtgui_freq_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         alpha10: '1'
         alpha2: '1'
@@ -210,6 +224,8 @@ blocks:
         marker7: '-1'
         marker8: '-1'
         marker9: '-1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         name: 'Tuned: signal at 0, DC spike pushed to -250 kHz'
         nconnections: '1'
         samp_rate: samp_rate
@@ -248,9 +264,13 @@ blocks:
 -   name: lo_shift
     id: analog_sig_source_x
     parameters:
+        affinity: ''
+        alias: ''
         amplitude: '1'
         comment: ''
         frequency: soi_offset
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samp_rate: samp_rate
         type: complex
         waveform: analog.GR_COS_WAVE
@@ -261,8 +281,12 @@ blocks:
 -   name: noise_floor
     id: analog_noise_source_x
     parameters:
+        affinity: ''
+        alias: ''
         amplitude: '0.02'
         comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         seed: '1'
         type: complex
     states:
@@ -272,6 +296,8 @@ blocks:
 -   name: note_tune
     id: note
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
         note: "A direct-conversion receiver leaks its own LO into the mixer, and the result is a constant added to every sample. Turn dc_amp up and a spike grows at 0 Hz\n\nOffset tuning is the fix: park the signal 250 kHz off centre, then shift it back digitally. The DC spike moves with the shift and lands outside the band of interest"
     states:
@@ -281,9 +307,13 @@ blocks:
 -   name: offset_tune
     id: freq_xlating_fir_filter_xxx
     parameters:
+        affinity: ''
+        alias: ''
         center_freq: soi_offset
         comment: ''
         decim: '1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samp_rate: samp_rate
         taps: firdes.low_pass(1, samp_rate, 150e3, 50e3)
         type: ccf
@@ -294,7 +324,11 @@ blocks:
 -   name: shift_up
     id: blocks_multiply_xx
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         num_inputs: '2'
         type: complex
         vlen: '1'
@@ -305,8 +339,12 @@ blocks:
 -   name: soi_noise
     id: analog_noise_source_x
     parameters:
+        affinity: ''
+        alias: ''
         amplitude: '0.5'
         comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         seed: '0'
         type: complex
     states:
@@ -316,12 +354,16 @@ blocks:
 -   name: soi_shape
     id: low_pass_filter
     parameters:
+        affinity: ''
+        alias: ''
         beta: '6.76'
         comment: ''
         cutoff_freq: '100000'
         decim: '1'
         gain: '2'
         interp: '1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samp_rate: samp_rate
         type: fir_filter_ccf
         width: '50000'
@@ -333,10 +375,14 @@ blocks:
 -   name: throttle
     id: blocks_throttle2
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
         ignoretag: 'True'
         limit: auto
         maximum: '0.1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samples_per_second: samp_rate
         type: complex
         vlen: '1'
@@ -347,6 +393,8 @@ blocks:
 -   name: wasm_gui_layout_0
     id: wasm_gui_layout
     parameters:
+        affinity: ''
+        alias: ''
         columns: '12'
         comment: ''
         layout: '{}'

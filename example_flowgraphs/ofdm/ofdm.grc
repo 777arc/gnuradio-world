@@ -14,6 +14,7 @@ blocks:
 -   name: noise_amplitude
     id: variable_qtgui_range
     parameters:
+        comment: ''
         label: Noise amplitude
         min_len: '200'
         orient: QtCore.Qt.Horizontal
@@ -30,6 +31,11 @@ blocks:
 -   name: add_noise
     id: blocks_add_xx
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         num_inputs: '2'
         type: complex
         vlen: '1'
@@ -40,6 +46,8 @@ blocks:
 -   name: bit_error_display
     id: qtgui_number_sink
     parameters:
+        affinity: ''
+        alias: ''
         autoscale: 'False'
         avg: '0'
         color1: ("black", "black")
@@ -52,6 +60,7 @@ blocks:
         color7: ''
         color8: ''
         color9: ''
+        comment: ''
         factor1: '1'
         factor10: ''
         factor2: ''
@@ -97,6 +106,11 @@ blocks:
 -   name: byte_errors
     id: blocks_xor_xx
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         num_inputs: '2'
         type: byte
     states:
@@ -106,7 +120,12 @@ blocks:
 -   name: channel_noise
     id: analog_noise_source_x
     parameters:
+        affinity: ''
+        alias: ''
         amplitude: noise_amplitude
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         seed: '0'
         type: complex
     states:
@@ -116,7 +135,12 @@ blocks:
 -   name: error_bits
     id: blocks_unpack_k_bits_bb
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         k: '8'
+        maxoutbuf: '0'
+        minoutbuf: '0'
     states:
         coordinate: [1370, 830]
         rotation: 0
@@ -124,6 +148,11 @@ blocks:
 -   name: error_inject
     id: blocks_xor_xx
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         num_inputs: '2'
         type: byte
     states:
@@ -133,6 +162,11 @@ blocks:
 -   name: error_pattern
     id: blocks_vector_source_x
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         repeat: 'True'
         tags: '[]'
         type: byte
@@ -145,6 +179,11 @@ blocks:
 -   name: errors_as_float
     id: blocks_uchar_to_float
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
     states:
         coordinate: [80, 1320]
         rotation: 0
@@ -152,7 +191,12 @@ blocks:
 -   name: errors_per_packet
     id: blocks_integrate_xx
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         decim: '768'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         type: float
         vlen: '1'
     states:
@@ -162,6 +206,9 @@ blocks:
 -   name: packet_rate_display
     id: wasm_packet_rate_sink
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         items_per_packet: '96'
         label: '"Packets decoded"'
         name: '"OFDM Link Rate"'
@@ -175,7 +222,12 @@ blocks:
 -   name: packet_tagger
     id: blocks_stream_to_tagged_stream
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         len_tag_key: length
+        maxoutbuf: '0'
+        minoutbuf: '0'
         packet_len: '96'
         type: byte
         vlen: '1'
@@ -186,6 +238,11 @@ blocks:
 -   name: payload
     id: blocks_vector_source_x
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         repeat: 'True'
         tags: '[]'
         type: byte
@@ -198,10 +255,15 @@ blocks:
 -   name: receiver
     id: digital_ofdm_rx
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         cp_len: '16'
         fft_len: '64'
         header_mod: '"BPSK"'
         log: 'False'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         occupied_carriers: ()
         packet_len_key: '"length"'
         payload_mod: '"BPSK"'
@@ -217,6 +279,11 @@ blocks:
 -   name: reference_payload
     id: blocks_vector_source_x
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         repeat: 'True'
         tags: '[]'
         type: byte
@@ -229,6 +296,11 @@ blocks:
 -   name: strip_tx_tags
     id: blocks_tag_gate
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         propagate_tags: 'False'
         single_key: '""'
         type: complex
@@ -240,9 +312,14 @@ blocks:
 -   name: throttle
     id: blocks_throttle2
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         ignoretag: 'True'
         limit: auto
         maximum: '0.1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samples_per_second: '192000'
         type: complex
         vlen: '1'
@@ -253,10 +330,15 @@ blocks:
 -   name: transmitter
     id: digital_ofdm_tx
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         cp_len: '16'
         fft_len: '64'
         header_mod: '"BPSK"'
         log: 'False'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         occupied_carriers: ()
         packet_len_key: length
         payload_mod: '"BPSK"'
@@ -273,12 +355,15 @@ blocks:
 -   name: x16
     id: qtgui_time_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         alpha2: '1'
         autoscale: 'False'
         axislabels: 'True'
         color1: blue
         color2: red
+        comment: ''
         ctrlpanel: 'False'
         grid: 'False'
         label1: Signal 1

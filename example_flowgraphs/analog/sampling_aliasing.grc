@@ -41,6 +41,8 @@ blocks:
 -   name: freq_sink
     id: qtgui_freq_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         alpha10: '1'
         alpha2: '1'
@@ -91,6 +93,8 @@ blocks:
         marker7: '-1'
         marker8: '-1'
         marker9: '-1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         name: '"Where the tone appears"'
         nconnections: '1'
         samp_rate: samp_rate
@@ -129,6 +133,8 @@ blocks:
 -   name: note_nyq
     id: note
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
         note: Fs = 100 kHz, so Nyquist is 50 kHz. Sweep the tone past 50 kHz and watch the peak fold back
     states:
@@ -138,10 +144,14 @@ blocks:
 -   name: throttle
     id: blocks_throttle2
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
         ignoretag: 'True'
         limit: auto
         maximum: '0.1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samples_per_second: samp_rate
         type: float
         vlen: '1'
@@ -152,6 +162,8 @@ blocks:
 -   name: time_sink
     id: qtgui_time_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         alpha10: '1'
         alpha2: '1'
@@ -242,9 +254,13 @@ blocks:
 -   name: tone
     id: analog_sig_source_x
     parameters:
+        affinity: ''
+        alias: ''
         amplitude: '1'
         comment: ''
         frequency: tone_freq
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samp_rate: samp_rate
         type: float
         waveform: analog.GR_COS_WAVE
@@ -255,6 +271,8 @@ blocks:
 -   name: wasm_gui_layout_0
     id: wasm_gui_layout
     parameters:
+        affinity: ''
+        alias: ''
         columns: '12'
         comment: ''
         layout: '{}'

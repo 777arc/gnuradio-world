@@ -70,9 +70,16 @@ test('paginates, pairs files, extracts metadata, sorts, and replaces index.json'
         'core:sample_rate': 250000,
         'core:author': 'Marc',
         'core:description': 'RDS burst',
+        'grworld:title': 'Broadcast RDS burst',
+        'grworld:category': 'Broadcast',
+        'grworld:tags': ['RDS', 'FM', 'RDS'],
       },
-      captures: [{ 'core:sample_start': 0, 'core:frequency': 100000000 }],
-      annotations: [{}, {}],
+      captures: [{
+        'core:sample_start': 0,
+        'core:frequency': 100000000,
+        'core:datetime': '2026-08-25T12:00:00Z',
+      }],
+      annotations: [{ 'core:label': 'station id' }, { 'core:label': 'station id' }],
     })],
     ['collection/alpha.sigmf-meta', JSON.stringify({
       global: {
@@ -94,9 +101,14 @@ test('paginates, pairs files, extracts metadata, sorts, and replaces index.json'
       author: null,
       description: null,
       frequency: null,
+      capture_datetime: null,
+      title: null,
+      category: null,
+      tags: [],
       byte_length: 12,
       number_of_samples: 6,
       number_of_annotations: 0,
+      annotation_labels: [],
     },
     {
       base_filename: 'zulu',
@@ -105,9 +117,14 @@ test('paginates, pairs files, extracts metadata, sorts, and replaces index.json'
       author: 'Marc',
       description: 'RDS burst',
       frequency: 100000000,
+      capture_datetime: '2026-08-25T12:00:00Z',
+      title: 'Broadcast RDS burst',
+      category: 'Broadcast',
+      tags: ['RDS', 'FM'],
       byte_length: 80,
       number_of_samples: 10,
       number_of_annotations: 2,
+      annotation_labels: ['station id'],
     },
   ]);
   assert.equal(bucket.puts.length, 1);

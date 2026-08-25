@@ -14,6 +14,9 @@ blocks:
 -   name: decode
     id: noaa_hrpt_decoder
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         output: 'False'
         verbose: 'True'
     states:
@@ -23,6 +26,11 @@ blocks:
 -   name: deframe
     id: noaa_hrpt_deframer
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
     states:
         coordinate: [370, 160]
         rotation: 0
@@ -30,7 +38,10 @@ blocks:
 -   name: image
     id: hrpt_image_sink
     parameters:
+        affinity: ''
+        alias: ''
         channel: '2'
+        comment: ''
         image_width: '2048'
         invert: 'False'
         max_lines: '200'
@@ -44,7 +55,12 @@ blocks:
 -   name: src
     id: wasm_public_http_recording
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         length: '0'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         offset: '0'
         repeat: 'False'
         type: byte

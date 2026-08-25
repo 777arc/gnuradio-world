@@ -14,6 +14,7 @@ blocks:
 -   name: samp_rate
     id: variable
     parameters:
+        comment: ''
         value: '32000'
     states:
         coordinate: [590, 10]
@@ -22,6 +23,9 @@ blocks:
 -   name: blocks_message_debug_0
     id: blocks_message_debug
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         en_uvec: 'True'
         log_level: info
     states:
@@ -31,6 +35,9 @@ blocks:
 -   name: blocks_message_debug_0_0
     id: blocks_message_debug
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         en_uvec: 'True'
         log_level: info
     states:
@@ -40,6 +47,9 @@ blocks:
 -   name: blocks_tag_debug_0
     id: blocks_tag_debug
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         display: 'True'
         filter: '"packet_len"'
         name: Float
@@ -53,6 +63,9 @@ blocks:
 -   name: blocks_tag_debug_0_0
     id: blocks_tag_debug
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         display: 'True'
         filter: '"packet_len"'
         name: Complex
@@ -66,9 +79,14 @@ blocks:
 -   name: blocks_throttle2_0
     id: blocks_throttle2
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         ignoretag: 'False'
         limit: time
         maximum: '0.1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samples_per_second: samp_rate
         type: float
         vlen: '1'
@@ -79,9 +97,14 @@ blocks:
 -   name: blocks_throttle2_0_0
     id: blocks_throttle2
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         ignoretag: 'False'
         limit: time
         maximum: '0.1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samples_per_second: samp_rate
         type: complex
         vlen: '1'
@@ -92,6 +115,11 @@ blocks:
 -   name: blocks_vector_source_x_0
     id: blocks_vector_source_x
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         repeat: 'True'
         tags: '[]'
         type: complex
@@ -104,6 +132,11 @@ blocks:
 -   name: blocks_vector_source_x_0_0
     id: blocks_vector_source_x
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         repeat: 'True'
         tags: '[]'
         type: float
@@ -116,8 +149,13 @@ blocks:
 -   name: digital_burst_shaper_xx_0
     id: digital_burst_shaper_xx
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         insert_phasing: 'False'
         length_tag_name: '"packet_len"'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         post_padding: '5'
         pre_padding: '5'
         type: float
@@ -129,8 +167,13 @@ blocks:
 -   name: digital_burst_shaper_xx_0_0
     id: digital_burst_shaper_xx
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         insert_phasing: 'False'
         length_tag_name: '"packet_len"'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         post_padding: '5'
         pre_padding: '5'
         type: complex
@@ -142,6 +185,11 @@ blocks:
 -   name: pdu_tagged_stream_to_pdu_0
     id: pdu_tagged_stream_to_pdu
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         tag: packet_len
         type: float
     states:
@@ -151,6 +199,11 @@ blocks:
 -   name: pdu_tagged_stream_to_pdu_1
     id: pdu_tagged_stream_to_pdu
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         tag: packet_len
         type: complex
     states:
@@ -160,7 +213,12 @@ blocks:
 -   name: tagger_c
     id: blocks_stream_to_tagged_stream
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         len_tag_key: '"packet_len"'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         packet_len: '30'
         type: complex
         vlen: '1'
@@ -171,7 +229,12 @@ blocks:
 -   name: tagger_f
     id: blocks_stream_to_tagged_stream
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         len_tag_key: '"packet_len"'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         packet_len: '30'
         type: float
         vlen: '1'

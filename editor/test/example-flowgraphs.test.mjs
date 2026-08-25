@@ -22,7 +22,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { exampleFiles as files, exampleFilePath } from './example-files.mjs';
-import { mainSource } from './editor-contract-source.mjs';
+import { editorSource } from './editor-contract-source.mjs';
 
 // expr.ts/grc.ts are TypeScript; bundle them to importable mjs (as expr.test.mjs does).
 const out = join(tmpdir(), `examples-test-${process.pid}.mjs`);
@@ -58,16 +58,40 @@ function effectiveDtype(block, def, param) {
   return index >= 0 ? String(source?.option_attributes?.[match[2]]?.[index] ?? '') : '';
 }
 
-// Fail loudly if main.ts's set and this one stop agreeing.
+// Fail loudly if the editor's set and this one stop agreeing. The declaration
+// lives in validation.ts, which the Run path and the flowgraph checks share.
 {
-  const block = mainSource.match(/const EVALUATED_DTYPES = new Set\(\[([\s\S]*?)\]\)/);
-  assert.ok(block, 'main.ts no longer defines EVALUATED_DTYPES');
+  const block = editorSource.match(/const EVALUATED_DTYPES = new Set\(\[([\s\S]*?)\]\)/);
+  assert.ok(block, 'the editor no longer defines EVALUATED_DTYPES');
   const theirs = new Set([...block[1].matchAll(/'([a-z_]+)'/g)].map(m => m[1]));
   assert.deepEqual([...theirs].sort(), [...EVALUATED_DTYPES].sort(),
-    'EVALUATED_DTYPES in main.ts and this test have drifted apart');
+    'EVALUATED_DTYPES in the editor and this test have drifted apart');
 }
 
 assert.ok(files.length > 0, 'no example flowgraphs found');
+
+// Native GRC writes every block's implicit parameters, so `parameters:` is
+// never a bare key -- a bare one reads back as YAML null and makes native GRC
+// fail at `parameters.items()`. withImplicitParams() in main.ts keeps what the
+// editor writes in step; these files have to match it, since the native
+// validator reads them straight off disk.
+{
+  assert.match(editorSource, /function withImplicitParams\(/,
+    'the editor no longer fills in native GRC implicit parameters');
+  // Which implicit parameters a block gets varies with what its definition
+  // declares (affinity/alias on anything with ports, the output-buffer bounds
+  // only where there is an output to size), and desktop GRC's own files differ
+  // block by block. The invariant that has to hold everywhere is that the
+  // mapping is never empty, since a bare key reads back as null.
+  for (const file of files) {
+    const doc = parseGrc(await readFile(exampleFilePath(file), 'utf8'));
+    for (const block of doc.blocks || [])
+      assert.ok(block.parameters && typeof block.parameters === 'object' &&
+        Object.keys(block.parameters).length > 0,
+        `${file}: block "${block.name}" serializes a bare \`parameters:\` key, ` +
+        'which native GNU Radio reads as null and fails to load');
+  }
+}
 
 let checked = 0;
 for (const file of files) {

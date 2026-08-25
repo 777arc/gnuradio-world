@@ -14,6 +14,7 @@ blocks:
 -   name: center_freq
     id: variable_qtgui_range
     parameters:
+        comment: ''
         label: RF Frequency
         min_len: '200'
         orient: QtCore.Qt.Horizontal
@@ -30,6 +31,7 @@ blocks:
 -   name: gain
     id: variable_qtgui_range
     parameters:
+        comment: ''
         label: Gain
         min_len: '200'
         orient: QtCore.Qt.Horizontal
@@ -46,6 +48,7 @@ blocks:
 -   name: samp_rate
     id: variable
     parameters:
+        comment: ''
         value: '2048000'
     states:
         coordinate: [80, 130]
@@ -54,6 +57,8 @@ blocks:
 -   name: qtgui_freq_sink_x_0
     id: qtgui_freq_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         alpha10: '1'
         alpha2: '1'
@@ -77,6 +82,7 @@ blocks:
         color7: '"yellow"'
         color8: '"dark red"'
         color9: '"dark green"'
+        comment: ''
         ctrlpanel: 'False'
         fc: center_freq
         fftsize: '2048'
@@ -102,6 +108,8 @@ blocks:
         marker7: '-1'
         marker8: '-1'
         marker9: '-1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         name: Spectrum
         nconnections: '1'
         samp_rate: samp_rate
@@ -139,6 +147,8 @@ blocks:
 -   name: qtgui_waterfall_sink_x_0
     id: qtgui_waterfall_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         alpha10: '1'
         alpha2: '1'
@@ -160,6 +170,7 @@ blocks:
         color7: '0'
         color8: '0'
         color9: '0'
+        comment: ''
         fc: center_freq
         fftsize: '1024'
         grid: 'False'
@@ -176,6 +187,8 @@ blocks:
         label8: ''
         label9: ''
         legend: 'True'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         name: Waterfall
         nconnections: '1'
         samp_rate: samp_rate
@@ -187,7 +200,10 @@ blocks:
 -   name: wasm_gui_layout_0
     id: wasm_gui_layout
     parameters:
+        affinity: ''
+        alias: ''
         columns: '12'
+        comment: ''
         layout: '{"center_freq":[0,0,7,1],"gain":[8,0,4,1],"qtgui_freq_sink_x_0":[0,1,12,3],"qtgui_waterfall_sink_x_0":[0,4,12,6]}'
         row_height: '60'
     states:
@@ -197,14 +213,19 @@ blocks:
 -   name: wasm_rtlsdr_source_0
     id: wasm_rtlsdr_source
     parameters:
+        affinity: ''
+        alias: ''
         bias_tee: 'False'
         bufflen: '262144'
         center_freq: center_freq
+        comment: ''
         device: ''
         direct_samp: '0'
         freq_correction: '0'
         gain: gain
         gain_mode: 'False'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samp_rate: samp_rate
         type: complex
     states:

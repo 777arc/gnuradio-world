@@ -58,7 +58,11 @@ blocks:
 -   name: add
     id: blocks_add_xx
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         num_inputs: '2'
         type: complex
         vlen: '1'
@@ -69,6 +73,8 @@ blocks:
 -   name: freq_sink
     id: qtgui_freq_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         alpha10: '1'
         alpha2: '1'
@@ -119,6 +125,8 @@ blocks:
         marker7: '-1'
         marker8: '-1'
         marker9: '-1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         name: '"Power spectral density"'
         nconnections: '1'
         samp_rate: samp_rate
@@ -158,6 +166,8 @@ blocks:
     id: qtgui_histogram_sink_x
     parameters:
         accum: 'False'
+        affinity: ''
+        alias: ''
         alpha1: '1'
         alpha10: '1.0'
         alpha2: '1.0'
@@ -239,8 +249,12 @@ blocks:
 -   name: noise
     id: analog_noise_source_x
     parameters:
+        affinity: ''
+        alias: ''
         amplitude: noise_amp
         comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         seed: '0'
         type: complex
     states:
@@ -250,6 +264,8 @@ blocks:
 -   name: note_psd
     id: note
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
         note: "Slide the two amplitudes against each other to change SNR\n\nPSD looks like grass until you turn on averaging in the sink control panel"
     states:
@@ -259,10 +275,14 @@ blocks:
 -   name: throttle
     id: blocks_throttle2
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
         ignoretag: 'True'
         limit: auto
         maximum: '0.1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samples_per_second: samp_rate
         type: complex
         vlen: '1'
@@ -273,6 +293,8 @@ blocks:
 -   name: time_sink
     id: qtgui_time_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         alpha10: '1'
         alpha2: '1'
@@ -363,7 +385,11 @@ blocks:
 -   name: to_real
     id: blocks_complex_to_real
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         vlen: '1'
     states:
         coordinate: [890, 330]
@@ -372,9 +398,13 @@ blocks:
 -   name: tone
     id: analog_sig_source_x
     parameters:
+        affinity: ''
+        alias: ''
         amplitude: tone_amp
         comment: ''
         frequency: '10000'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samp_rate: samp_rate
         type: complex
         waveform: analog.GR_COS_WAVE
@@ -385,6 +415,8 @@ blocks:
 -   name: wasm_gui_layout_0
     id: wasm_gui_layout
     parameters:
+        affinity: ''
+        alias: ''
         columns: '12'
         comment: ''
         layout: '{"freq_sink":[0,1,6,4],"hist_sink":[0,5,12,4],"noise_amp":[0,0,5,1],"time_sink":[6,1,6,4],"tone_amp":[7,0,5,1]}'

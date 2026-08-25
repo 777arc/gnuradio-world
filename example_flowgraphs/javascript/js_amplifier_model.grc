@@ -78,7 +78,10 @@ blocks:
         _js_io: '{"decim":1,"doc":"AM/AM compression and AM/PM conversion, the way a real PA distorts.","general":false,"hasStart":false,"hasStop":false,"history":1,"inputs":[{"dtype":"complex","vlen":1}],"interp":1,"label":"Amplifier Model","numericParams":["drive","am_pm"],"outputMultiple":0,"outputs":[{"dtype":"complex","vlen":1}],"overridesForecast":false,"params":[["drive",1],["am_pm",0]],"relativeRate":1}'
         _js_source: ''
         _source_code: "// An amplifier, modelled in JavaScript.\n//\n// A real power amplifier does two things to a complex signal as it is driven\n// harder: it compresses the magnitude (AM/AM) and it shifts the phase in\n// proportion to the input power (AM/PM). Neither is a stock GNU Radio block, and\n// the two together are what turn a clean tone into the spectral regrowth you can\n// see on the Frequency Sink downstream.\n//\n// Both parameters are driven live by the sliders in this flowgraph: every numeric\n// parameter of a JS block gets a setter, so a QT GUI Range drives one exactly as\n// it drives a C++ block's.\n//\n// Double-click this block to open the code editor. The block's ports, parameters\n// and label all follow whatever you write, as you write it.\ngr.export({\n  label: 'Amplifier Model',\n  doc: 'AM/AM compression and AM/PM conversion, the way a real PA distorts.',\n  inputs: ['complex'],\n  outputs: ['complex'],\n  params: { drive: 1.0, am_pm: 0.0 },\n\n  work(nout, input, output) {\n    const x = input[0], y = output[0];\n    const drive = this.drive, amPm = this.am_pm;\n    for (let i = 0; i < nout * 2; i += 2) {\n      const re = x[i] * drive, im = x[i + 1] * drive;\n      const power = re * re + im * im;\n      // Rapp-style soft compression: unity gain at low drive, rolling off to a\n      // magnitude of 1 as the input is pushed past it.\n      const gain = 1 / Math.sqrt(1 + power * power);\n      // AM/PM: the phase shift grows with the instantaneous power, which is what\n      // makes the distortion asymmetric about the carrier.\n      const shift = amPm * power;\n      const c = Math.cos(shift), s = Math.sin(shift);\n      y[i] = gain * (re * c - im * s);\n      y[i + 1] = gain * (re * s + im * c);\n    }\n    return nout;\n  },\n});\n"
+        affinity: ''
+        alias: ''
         am_pm: am_pm
+        comment: ''
         drive: drive
     states:
         coordinate: [880, 260]
@@ -87,8 +90,12 @@ blocks:
 -   name: clipper
     id: js_clip_cc
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
         knee: '0.5'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         threshold: clip_threshold
     states:
         coordinate: [1160, 270]
@@ -97,6 +104,8 @@ blocks:
 -   name: constellation
     id: qtgui_const_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         alpha10: '1'
         alpha2: '1'
@@ -182,6 +191,8 @@ blocks:
 -   name: spectrum
     id: qtgui_freq_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         alpha10: '1'
         alpha2: '1'
@@ -232,6 +243,8 @@ blocks:
         marker7: '-1'
         marker8: '-1'
         marker9: '-1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         name: Spectral regrowth
         nconnections: '1'
         samp_rate: samp_rate
@@ -270,10 +283,14 @@ blocks:
 -   name: throttle
     id: blocks_throttle2
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
         ignoretag: 'True'
         limit: time
         maximum: '0.1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samples_per_second: samp_rate
         type: complex
         vlen: '1'
@@ -284,9 +301,13 @@ blocks:
 -   name: tone_a
     id: analog_sig_source_x
     parameters:
+        affinity: ''
+        alias: ''
         amplitude: '0.5'
         comment: ''
         frequency: '9000'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samp_rate: samp_rate
         type: complex
         waveform: analog.GR_COS_WAVE
@@ -297,9 +318,13 @@ blocks:
 -   name: tone_b
     id: analog_sig_source_x
     parameters:
+        affinity: ''
+        alias: ''
         amplitude: '0.5'
         comment: ''
         frequency: '11000'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samp_rate: samp_rate
         type: complex
         waveform: analog.GR_COS_WAVE
@@ -310,7 +335,11 @@ blocks:
 -   name: two_tone
     id: blocks_add_xx
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         num_inputs: '2'
         type: complex
         vlen: '1'
@@ -321,6 +350,8 @@ blocks:
 -   name: wasm_gui_layout_0
     id: wasm_gui_layout
     parameters:
+        affinity: ''
+        alias: ''
         columns: '12'
         comment: ''
         layout: '{}'

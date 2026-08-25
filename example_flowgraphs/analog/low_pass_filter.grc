@@ -14,11 +14,16 @@ blocks:
 -   name: low_pass
     id: low_pass_filter
     parameters:
+        affinity: ''
+        alias: ''
         beta: '6.76'
+        comment: ''
         cutoff_freq: '5000'
         decim: '1'
         gain: '1'
         interp: '1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samp_rate: '48000'
         type: fir_filter_ccf
         width: '2000'
@@ -30,8 +35,13 @@ blocks:
 -   name: passband_tone
     id: analog_sig_source_x
     parameters:
+        affinity: ''
+        alias: ''
         amplitude: '1'
+        comment: ''
         frequency: '2000'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samp_rate: '48000'
         type: complex
         waveform: analog.GR_COS_WAVE
@@ -42,11 +52,14 @@ blocks:
 -   name: spectrum_after
     id: qtgui_freq_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         autoscale: 'False'
         average: '0.2'
         axislabels: 'True'
         color1: '"green"'
+        comment: ''
         ctrlpanel: 'False'
         fc: '0'
         fftsize: '2048'
@@ -54,6 +67,8 @@ blocks:
         label1: Filtered
         legend: 'True'
         marker1: '-1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         name: After Filter - 12 kHz Rejected
         samp_rate: '48000'
         style1: '1'
@@ -72,11 +87,14 @@ blocks:
 -   name: spectrum_before
     id: qtgui_freq_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         autoscale: 'False'
         average: '0.2'
         axislabels: 'True'
         color1: '"blue"'
+        comment: ''
         ctrlpanel: 'False'
         fc: '0'
         fftsize: '2048'
@@ -84,6 +102,8 @@ blocks:
         label1: Unfiltered
         legend: 'True'
         marker1: '-1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         name: Before Filter - 2 kHz and 12 kHz
         samp_rate: '48000'
         style1: '1'
@@ -102,8 +122,13 @@ blocks:
 -   name: stopband_tone
     id: analog_sig_source_x
     parameters:
+        affinity: ''
+        alias: ''
         amplitude: '1'
+        comment: ''
         frequency: '12000'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samp_rate: '48000'
         type: complex
         waveform: analog.GR_COS_WAVE
@@ -114,9 +139,14 @@ blocks:
 -   name: throttle
     id: blocks_throttle2
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         ignoretag: 'True'
         limit: auto
         maximum: '0.1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samples_per_second: '48000'
         type: complex
         vlen: '1'
@@ -127,6 +157,11 @@ blocks:
 -   name: two_tones
     id: blocks_add_xx
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         num_inputs: '2'
         type: complex
         vlen: '1'

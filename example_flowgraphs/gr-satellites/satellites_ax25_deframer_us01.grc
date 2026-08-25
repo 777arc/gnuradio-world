@@ -14,6 +14,7 @@ blocks:
 -   name: samp_rate
     id: variable
     parameters:
+        comment: ''
         value: '48000'
     states:
         coordinate: [600, 10]
@@ -22,7 +23,12 @@ blocks:
 -   name: deframer
     id: satellites_ax25_deframer
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         g3ruh_scrambler: 'True'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         options: '""'
     states:
         coordinate: [930, 220]
@@ -31,6 +37,9 @@ blocks:
 -   name: frames
     id: blocks_message_debug
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         en_uvec: 'True'
         log_level: info
     states:
@@ -40,8 +49,13 @@ blocks:
 -   name: fsk_demod
     id: satellites_fsk_demodulator
     parameters:
+        affinity: ''
+        alias: ''
         baudrate: '9600'
+        comment: ''
         iq: 'False'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         options: '""'
         samp_rate: samp_rate
         subaudio: 'False'
@@ -52,7 +66,12 @@ blocks:
 -   name: recording
     id: wasm_gr_world_recording
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         length: '0'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         offset: '0'
         recording: estevez/us01
         repeat: 'False'
@@ -64,6 +83,11 @@ blocks:
 -   name: to_float
     id: blocks_short_to_float
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         scale: '32767'
         vlen: '1'
     states:

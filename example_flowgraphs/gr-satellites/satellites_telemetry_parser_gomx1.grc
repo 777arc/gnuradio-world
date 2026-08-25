@@ -14,6 +14,7 @@ blocks:
 -   name: samp_rate
     id: variable
     parameters:
+        comment: ''
         value: '48000'
     states:
         coordinate: [600, 10]
@@ -23,9 +24,14 @@ blocks:
     id: satellites_afsk_demodulator
     parameters:
         af_carrier: '3600'
+        affinity: ''
+        alias: ''
         baudrate: '4800'
+        comment: ''
         deviation: '-1200'
         iq: 'False'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         options: '""'
         samp_rate: samp_rate
     states:
@@ -35,6 +41,9 @@ blocks:
 -   name: csp_header
     id: satellites_print_header
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
     states:
         coordinate: [130, 350]
         rotation: 0
@@ -42,6 +51,11 @@ blocks:
 -   name: deframer
     id: satellites_u482c_deframer
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         options: '""'
         threshold: '4'
     states:
@@ -51,6 +65,9 @@ blocks:
 -   name: frames
     id: blocks_message_debug
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         en_uvec: 'True'
         log_level: info
     states:
@@ -60,6 +77,9 @@ blocks:
 -   name: parser_note
     id: note
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         note: Upstream ends in Telemetry Parser, a Python block with no C++ path. Print CSP Header dissects the same frames; Message Debug shows the payload bytes the parser would decode.
     states:
         coordinate: [770, 10]
@@ -68,7 +88,12 @@ blocks:
 -   name: recording
     id: wasm_gr_world_recording
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         length: '0'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         offset: '0'
         recording: estevez/gomx_1
         repeat: 'False'
@@ -80,6 +105,11 @@ blocks:
 -   name: to_float
     id: blocks_short_to_float
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         scale: '32767'
         vlen: '1'
     states:

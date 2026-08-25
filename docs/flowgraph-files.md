@@ -121,6 +121,20 @@ in a browser, that is the right trade.
 
 ## Hand-written `.grc` fixtures
 
+- A block's `parameters:` mapping is **never empty**. Native GRC writes every
+  block's implicit parameters whether or not they hold anything — `comment` on
+  all of them, `affinity`/`alias` alongside it on a block with ports, and
+  `maxoutbuf`/`minoutbuf` where the block's definition declares an output — so a
+  bare `parameters:` key never occurs in a file GRC wrote. A bare one parses as
+  YAML **null**, and native GRC then fails at `parameters.items()` while loading,
+  which is what `withImplicitParams()` in `editor/src/main.ts` exists to prevent
+  on the editor's Save path. Write at least `comment: ''` by hand.
+- An expression parameter may only reference names the flowgraph **defines**.
+  Native GRC evaluates parameters against a namespace built from the flowgraph's
+  own `import` and variable blocks, so a value of `samp_rate` with no `samp_rate`
+  variable is a hard error there — and the editor now reports the same thing
+  rather than passing the text through to the runner, which would coerce it to
+  zero silently.
 - Stream connections are arrays: `[block, port, block, port]`.
 - Message connections are objects with `src_blk_id`, `src_port_id`,
   `snk_blk_id`, and `snk_port_id` (see `grc_lower.hpp`) — written as a *block*

@@ -14,6 +14,7 @@ blocks:
 -   name: baud_rate
     id: variable
     parameters:
+        comment: ''
         value: '31.25'
     states:
         coordinate: [600, 10]
@@ -22,9 +23,14 @@ blocks:
 -   name: baud_clock
     id: blocks_throttle2
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         ignoretag: 'True'
         limit: time
         maximum: '0.1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samples_per_second: baud_rate
         type: byte
         vlen: '1'
@@ -35,12 +41,15 @@ blocks:
 -   name: bits
     id: qtgui_time_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         alpha2: '1'
         autoscale: 'False'
         axislabels: 'True'
         color1: blue
         color2: red
+        comment: ''
         ctrlpanel: 'False'
         grid: 'True'
         label1: Varicode bit
@@ -75,6 +84,11 @@ blocks:
 -   name: decoder
     id: ham_varicode_rx
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
     states:
         coordinate: [990, 250]
         rotation: 0
@@ -82,6 +96,11 @@ blocks:
 -   name: encoder
     id: ham_varicode_tx
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
     states:
         coordinate: [360, 150]
         rotation: 0
@@ -89,6 +108,9 @@ blocks:
 -   name: intro
     id: note
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         note: Varicode is self-synchronising - "00" ends every character
     states:
         coordinate: [770, 10]
@@ -97,6 +119,11 @@ blocks:
 -   name: message
     id: blocks_vector_source_x
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         repeat: 'True'
         tags: '[]'
         type: byte
@@ -109,6 +136,9 @@ blocks:
 -   name: text
     id: wasm_text_sink
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         max_line: '40'
         prefix: '"loopback: "'
     states:
@@ -118,6 +148,11 @@ blocks:
 -   name: to_float
     id: blocks_char_to_float
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         scale: '1'
         vlen: '1'
     states:

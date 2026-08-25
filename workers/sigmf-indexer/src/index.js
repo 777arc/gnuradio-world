@@ -21,11 +21,18 @@ export function sigmfBytesPerSample(datatype) {
 }
 
 function optionalString(value) {
-  return typeof value === 'string' ? value : null;
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
 function optionalNumber(value) {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function stringList(value) {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value
+    .filter(item => typeof item === 'string')
+    .map(item => item.trim()).filter(Boolean))];
 }
 
 function recordingFromMetadata(baseFilename, dataSize, metadata) {
@@ -37,6 +44,10 @@ function recordingFromMetadata(baseFilename, dataSize, metadata) {
     capture && typeof capture === 'object' &&
     typeof capture['core:frequency'] === 'number' &&
     Number.isFinite(capture['core:frequency']));
+  const firstCaptureWithDatetime = captures.find(capture =>
+    capture && typeof capture === 'object' &&
+    typeof capture['core:datetime'] === 'string' && capture['core:datetime'].trim());
+  const annotations = Array.isArray(metadata?.annotations) ? metadata.annotations : [];
 
   const datatype = optionalString(global['core:datatype']);
   const bytesPerSample = sigmfBytesPerSample(datatype);
@@ -53,11 +64,21 @@ function recordingFromMetadata(baseFilename, dataSize, metadata) {
     frequency: firstCaptureWithFrequency
       ? firstCaptureWithFrequency['core:frequency']
       : null,
+    capture_datetime: firstCaptureWithDatetime
+      ? firstCaptureWithDatetime['core:datetime'].trim()
+      : null,
+    // Optional catalog fields live in the recording's metadata so the generated
+    // index remains a cache, not a second source of truth. Publishers using them
+    // should declare the corresponding grworld SigMF extension.
+    title: optionalString(global['grworld:title']),
+    category: optionalString(global['grworld:category']),
+    tags: stringList(global['grworld:tags']),
     byte_length: dataSize,
     number_of_samples: numberOfSamples,
-    number_of_annotations: Array.isArray(metadata?.annotations)
-      ? metadata.annotations.length
-      : 0,
+    number_of_annotations: annotations.length,
+    annotation_labels: [...new Set(annotations
+      .map(annotation => optionalString(annotation?.['core:label']))
+      .filter(Boolean))],
   };
 }
 

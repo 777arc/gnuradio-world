@@ -14,6 +14,11 @@ blocks:
 -   name: complex5
     id: blocks_interleaved_short_to_complex
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         scale_factor: '32767'
         swap: 'False'
         vector_input: 'False'
@@ -24,7 +29,12 @@ blocks:
 -   name: source4
     id: wasm_gr_world_recording
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         length: '0'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         offset: '0'
         recording: cellular_downlink_880MHz
         repeat: 'False'
@@ -36,9 +46,14 @@ blocks:
 -   name: throttle23
     id: blocks_throttle2
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         ignoretag: 'True'
         limit: auto
         maximum: '0.1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samples_per_second: '100000'
         type: complex
         vlen: '1'
@@ -49,9 +64,12 @@ blocks:
 -   name: x2
     id: qtgui_waterfall_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         axislabels: 'True'
         color1: '0'
+        comment: ''
         fc: '0'
         fftsize: '1024'
         grid: 'False'
@@ -59,6 +77,8 @@ blocks:
         int_min: '-140'
         label1: ''
         legend: 'True'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         name: Waterfall
         samp_rate: '32000'
         update_time: '0.1'

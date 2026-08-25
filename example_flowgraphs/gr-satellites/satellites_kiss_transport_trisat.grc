@@ -14,6 +14,7 @@ blocks:
 -   name: samp_rate
     id: variable
     parameters:
+        comment: ''
         value: '48000'
     states:
         coordinate: [590, 10]
@@ -22,8 +23,13 @@ blocks:
 -   name: deframer
     id: satellites_ccsds_concatenated_deframer
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         convolutional: '"NASA-DSN"'
         frame_size: '223'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         options: '""'
         precoding: None
         rs_basis: '"dual"'
@@ -37,6 +43,9 @@ blocks:
 -   name: frames
     id: blocks_message_debug
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         en_uvec: 'True'
         log_level: info
     states:
@@ -46,8 +55,13 @@ blocks:
 -   name: fsk_demod
     id: satellites_fsk_demodulator
     parameters:
+        affinity: ''
+        alias: ''
         baudrate: '9766'
+        comment: ''
         iq: 'False'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         options: '""'
         samp_rate: samp_rate
         subaudio: 'False'
@@ -58,7 +72,12 @@ blocks:
 -   name: recording
     id: wasm_gr_world_recording
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         length: '0'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         offset: '0'
         recording: estevez/trisat
         repeat: 'False'
@@ -70,8 +89,13 @@ blocks:
 -   name: timestamp
     id: satellites_print_timestamp
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         count: 'True'
         fmt: '%Y-%m-%d %H:%M:%S'
+        maxoutbuf: '0'
+        minoutbuf: '0'
     states:
         coordinate: [1370, 280]
         rotation: 0
@@ -79,6 +103,11 @@ blocks:
 -   name: to_float
     id: blocks_short_to_float
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         scale: '32767'
         vlen: '1'
     states:
@@ -88,6 +117,9 @@ blocks:
 -   name: transport_note
     id: note
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         note: 'Upstream sends these frames to a KISS TCP client through satellites_kiss_transport, a Python block: no C++ path, and no TCP sockets in the browser. Print timestamp + Message Debug is the log a KISS client would have printed. Upstream reads BY70-1 here, which does not decode in this runtime, so this uses TRISAT.'
     states:
         coordinate: [760, 10]

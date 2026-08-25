@@ -14,6 +14,7 @@ blocks:
 -   name: samp_rate
     id: variable
     parameters:
+        comment: ''
         value: '163840'
     states:
         coordinate: [600, 10]
@@ -22,11 +23,16 @@ blocks:
 -   name: image
     id: paint_image_source
     parameters:
+        affinity: ''
+        alias: ''
         autocontrast: '0'
         bt709_map: '1'
+        comment: ''
         image_file: /example_images/gnuradio_logo.png
         image_flip: '0'
         image_invert: '0'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         repeatmode: '1'
     states:
         coordinate: [10, 130]
@@ -35,7 +41,12 @@ blocks:
 -   name: painter
     id: paint_paint_bc
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         equalization: EQUALIZATION_OFF
+        maxoutbuf: '0'
+        minoutbuf: '0'
         randomsrc: INTERNAL
         repeats: '4'
         width: '288'
@@ -46,9 +57,14 @@ blocks:
 -   name: throttle
     id: blocks_throttle2
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         ignoretag: 'True'
         limit: time
         maximum: '0.02'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samples_per_second: samp_rate
         type: complex
         vlen: '1'
@@ -59,9 +75,12 @@ blocks:
 -   name: waterfall
     id: qtgui_waterfall_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         axislabels: 'True'
         color1: '0'
+        comment: ''
         fc: '0'
         fftsize: '4096'
         grid: 'False'
@@ -69,6 +88,8 @@ blocks:
         int_min: '-83'
         label1: ''
         legend: 'True'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         name: Painted Spectrum
         samp_rate: samp_rate
         update_time: '0.025'

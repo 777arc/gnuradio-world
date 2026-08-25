@@ -18,10 +18,28 @@ assert.equal(catalog.indexBytesPerSample('bad'), null);
 
 const recording = catalog.recordingFromR2Index({
   base_filename: 'collection/capture one', datatype: 'ci16_le',
-  sample_rate: 2_000_000, number_of_samples: 100, author: 'GNU Radio',
+  sample_rate: 2_000_000, number_of_samples: 4_000_000, author: 'GNU Radio',
+  description: 'A tagged telemetry capture', frequency: 145_900_000,
+  number_of_annotations: 2, annotation_labels: ['packet', ' packet '],
+  capture_datetime: '2026-08-25T12:00:00Z', title: 'AO-73 telemetry',
+  category: 'Satellite', tags: ['BPSK', 'telemetry', 'BPSK'],
 });
 assert.ok(recording);
-assert.equal(recording.byteLength, 400, 'byte length is derived when the index omits it');
+assert.equal(recording.byteLength, 16_000_000, 'byte length is derived when the index omits it');
+assert.equal(recording.title, 'AO-73 telemetry');
+assert.deepEqual(recording.tags, ['BPSK', 'telemetry']);
+assert.deepEqual(recording.annotationLabels, ['packet']);
+assert.equal(recording.annotationCount, 2);
+assert.equal(catalog.recordingBand(recording.frequency), 'VHF');
+assert.equal(catalog.recordingBandLabel('VHF'), '30–300 MHz (VHF)');
+assert.equal(catalog.recordingBandLabel('UHF'), '300 MHz–3 GHz (UHF)');
+assert.deepEqual(['Baseband / unknown', 'UHF', 'HF', 'VHF', 'MF', 'EHF and above',
+  'LF and below', 'SHF'].sort(catalog.compareRecordingBands),
+['LF and below', 'MF', 'HF', 'VHF', 'UHF', 'SHF', 'EHF and above',
+  'Baseband / unknown']);
+assert.equal(catalog.recordingCollection(recording), 'collection');
+assert.equal(catalog.recordingDuration(recording), 2);
+assert.equal(catalog.displayDuration(2), '2 s');
 assert.equal(recording.downloadUrl,
   'https://recordings.example.test/collection/capture%20one.sigmf-data');
 assert.equal(recording.metadataUrl,
@@ -63,17 +81,21 @@ const readerWorker = await readFile(
 // View and the copy-link button are built before the unsupported-datatype early
 // return, so a recording GR World Recording cannot represent is still viewable.
 const card = recordingPaletteSource.slice(recordingPaletteSource.indexOf('function makeRecordingItem'),
-  recordingPaletteSource.indexOf('function renderDirectory'));
+  recordingPaletteSource.indexOf('async function buildRecordings'));
 const viewControl = card.indexOf("view.onclick");
-const unsupported = card.indexOf("badge.textContent = 'Unsupported'");
+const unsupported = card.indexOf('add.disabled = true');
 assert.ok(viewControl !== -1 && unsupported !== -1 && viewControl < unsupported,
   'the View control is offered even for a datatype GR World Recording cannot represent');
-assert.match(card, /view\.onclick = event => \{ event\.stopPropagation\(\); openRecordingPreview\(recording\); \}/,
+assert.match(card, /view\.onclick = \(\) => openRecordingPreview\(recording\)/,
   'View opens the recording view without dropping a block on the canvas');
-assert.match(card, /link\.onclick = event => \{ event\.stopPropagation\(\); void copyRecordingUrl\(recording\.name\); \}/,
+assert.match(card, /link\.onclick = \(\) => \{ void copyRecordingUrl\(recording\.name\); \}/,
   'the copy-link button hands out a #recording= link rather than adding the recording');
-assert.match(card, /closest\('a,button'\)/,
-  'keyboard activation of the card ignores its own links and buttons');
+assert.match(card, /add\.onclick = \(\) =>[\s\S]*?addRecordingBlock\(recording, sourceFormat\)/,
+  'adding a recording is an explicit compact-row action');
+assert.match(card, /details\.hidden = !details\.hidden/,
+  'full metadata and downloads expand without making every catalog row tall');
+assert.match(card, /const facts = \[\s*recording\.author,\s*displaySi\(recording\.frequency, 'Hz'\)/,
+  'the compact facts put the author first');
 
 assert.match(main, /converterId = 'blocks_interleaved_short_to_complex'/);
 assert.match(main, /scale_factor: 32767\.0/);

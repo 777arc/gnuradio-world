@@ -14,6 +14,7 @@ blocks:
 -   name: samp_rate
     id: variable
     parameters:
+        comment: ''
         value: '48000'
     states:
         coordinate: [600, 10]
@@ -22,6 +23,9 @@ blocks:
 -   name: decoder_note
     id: note
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         note: 'Satellite Decoder and the AAUSAT-4 deframer are both Python-only, so the deframer is built here from the blocks it uses: soft syncword search, FSM removal, terminated r=1/2 K=7 Viterbi, CCSDS descrambling and Reed-Solomon. Only the long-frame branch is wired: the short one needs PDU To Tagged Stream, which this runtime does not schedule.'
     states:
         coordinate: [770, 10]
@@ -30,6 +34,11 @@ blocks:
 -   name: descrambler
     id: satellites_ccsds_descrambler
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
     states:
         coordinate: [410, 580]
         rotation: 0
@@ -37,6 +46,9 @@ blocks:
 -   name: frames
     id: blocks_message_debug
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         en_uvec: 'True'
         log_level: info
     states:
@@ -46,8 +58,13 @@ blocks:
 -   name: fsk_demod
     id: satellites_fsk_demodulator
     parameters:
+        affinity: ''
+        alias: ''
         baudrate: '2400'
+        comment: ''
         iq: 'False'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         options: '""'
         samp_rate: samp_rate
         subaudio: 'False'
@@ -58,6 +75,11 @@ blocks:
 -   name: fsm
     id: satellites_aausat4_check_fsm
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
     states:
         coordinate: [1320, 330]
         rotation: 0
@@ -65,7 +87,12 @@ blocks:
 -   name: recording
     id: wasm_gr_world_recording
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         length: '0'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         offset: '0'
         recording: estevez/aausat_4
         repeat: 'False'
@@ -77,8 +104,13 @@ blocks:
 -   name: reed_solomon
     id: satellites_decode_rs_ccsds
     parameters:
+        affinity: ''
+        alias: ''
         basis: 'False'
+        comment: ''
         interleave: '1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
     states:
         coordinate: [730, 580]
         rotation: 0
@@ -86,6 +118,11 @@ blocks:
 -   name: syncword
     id: satellites_sync_to_pdu_soft
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         packlen: '2004'
         sync: '"010011110101101000110100010000110101010101000010"'
         threshold: '8'
@@ -96,6 +133,11 @@ blocks:
 -   name: to_float
     id: blocks_short_to_float
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         scale: '32767'
         vlen: '1'
     states:
@@ -105,7 +147,12 @@ blocks:
 -   name: viterbi
     id: fec_async_decoder
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         decoder: viterbi_def
+        maxoutbuf: '0'
+        minoutbuf: '0'
         mtu: '249'
         packed: 'False'
         rev_pack: 'False'
@@ -116,6 +163,9 @@ blocks:
 -   name: viterbi_def
     id: variable_cc_decoder_def
     parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
         dim1: '1'
         dim2: '1'
         framebits: '1996'

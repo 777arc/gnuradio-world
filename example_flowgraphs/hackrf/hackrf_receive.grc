@@ -14,6 +14,7 @@ blocks:
 -   name: center_freq
     id: variable_qtgui_range
     parameters:
+        comment: ''
         label: RF Frequency
         min_len: '200'
         orient: QtCore.Qt.Horizontal
@@ -30,6 +31,7 @@ blocks:
 -   name: lna_gain
     id: variable_qtgui_range
     parameters:
+        comment: ''
         label: RX IF Gain
         min_len: '160'
         orient: QtCore.Qt.Horizontal
@@ -46,6 +48,7 @@ blocks:
 -   name: vga_gain
     id: variable_qtgui_range
     parameters:
+        comment: ''
         label: RX Baseband Gain
         min_len: '180'
         orient: QtCore.Qt.Horizontal
@@ -62,6 +65,7 @@ blocks:
 -   name: samp_rate
     id: variable_qtgui_chooser
     parameters:
+        comment: ''
         label: Sample Rate
         labels: '["2 MHz", "2.5 MHz", "4 MHz", "5 MHz", "8 MHz", "10 MHz", "12.5 MHz", "16 MHz", "20 MHz"]'
         options: '[2000000, 2500000, 4000000, 5000000, 8000000, 10000000, 12500000, 16000000, 20000000]'
@@ -75,6 +79,8 @@ blocks:
 -   name: qtgui_freq_sink_x_0
     id: qtgui_freq_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         alpha10: '1'
         alpha2: '1'
@@ -98,6 +104,7 @@ blocks:
         color7: '"yellow"'
         color8: '"dark red"'
         color9: '"dark green"'
+        comment: ''
         ctrlpanel: 'False'
         fc: center_freq
         fftsize: '2048'
@@ -123,6 +130,8 @@ blocks:
         marker7: '-1'
         marker8: '-1'
         marker9: '-1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         name: Spectrum
         nconnections: '1'
         samp_rate: samp_rate
@@ -160,6 +169,8 @@ blocks:
 -   name: qtgui_waterfall_sink_x_0
     id: qtgui_waterfall_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         alpha10: '1'
         alpha2: '1'
@@ -181,6 +192,7 @@ blocks:
         color7: '0'
         color8: '0'
         color9: '0'
+        comment: ''
         fc: center_freq
         fftsize: '1024'
         grid: 'False'
@@ -197,6 +209,8 @@ blocks:
         label8: ''
         label9: ''
         legend: 'True'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         name: Waterfall
         nconnections: '1'
         samp_rate: samp_rate
@@ -208,7 +222,10 @@ blocks:
 -   name: wasm_gui_layout_0
     id: wasm_gui_layout
     parameters:
+        affinity: ''
+        alias: ''
         columns: '12'
+        comment: ''
         layout: '{"center_freq":[0,0,4,1],"lna_gain":[4,0,2,1],"vga_gain":[6,0,3,1],"samp_rate":[9,0,3,1],"qtgui_freq_sink_x_0":[0,1,12,3],"qtgui_waterfall_sink_x_0":[0,4,12,6]}'
         row_height: '60'
     states:
@@ -218,12 +235,17 @@ blocks:
 -   name: wasm_hackrf_source_0
     id: wasm_hackrf_source
     parameters:
+        affinity: ''
+        alias: ''
         amp: 'False'
         bandwidth: '0'
         bias_tee: 'False'
         center_freq: center_freq
+        comment: ''
         device: ''
         lna_gain: lna_gain
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samp_rate: samp_rate
         transfer_size: '262144'
         vga_gain: vga_gain

@@ -58,7 +58,11 @@ blocks:
 -   name: add
     id: blocks_add_xx
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         num_inputs: '3'
         type: complex
         vlen: '1'
@@ -69,6 +73,8 @@ blocks:
 -   name: freq_sink
     id: qtgui_freq_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         alpha10: '1'
         alpha2: '1'
@@ -119,6 +125,8 @@ blocks:
         marker7: '-1'
         marker8: '-1'
         marker9: '-1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         name: Before vs after filtering
         nconnections: '2'
         samp_rate: samp_rate
@@ -157,9 +165,13 @@ blocks:
 -   name: interferer
     id: analog_sig_source_x
     parameters:
+        affinity: ''
+        alias: ''
         amplitude: '0.3'
         comment: ''
         frequency: '10000'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samp_rate: samp_rate
         type: complex
         waveform: analog.GR_COS_WAVE
@@ -170,8 +182,12 @@ blocks:
 -   name: noise_floor
     id: analog_noise_source_x
     parameters:
+        affinity: ''
+        alias: ''
         amplitude: '0.02'
         comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         seed: '1'
         type: complex
     states:
@@ -181,6 +197,8 @@ blocks:
 -   name: note_sig
     id: note
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
         note: "Signal of interest: band-limited noise at 0 Hz\n\nInterferer at +10 kHz, plus a noise floor\n\nDrag cutoff below 10 kHz: the interferer drops below the old noise floor. Narrowing the transition width sharpens the edge, at the cost of more filter taps"
     states:
@@ -190,8 +208,12 @@ blocks:
 -   name: soi_noise
     id: analog_noise_source_x
     parameters:
+        affinity: ''
+        alias: ''
         amplitude: '0.7'
         comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         seed: '0'
         type: complex
     states:
@@ -201,12 +223,16 @@ blocks:
 -   name: soi_shape
     id: low_pass_filter
     parameters:
+        affinity: ''
+        alias: ''
         beta: '6.76'
         comment: ''
         cutoff_freq: '2500'
         decim: '1'
         gain: '3'
         interp: '1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samp_rate: samp_rate
         type: fir_filter_ccf
         width: '500'
@@ -218,10 +244,14 @@ blocks:
 -   name: throttle
     id: blocks_throttle2
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
         ignoretag: 'True'
         limit: auto
         maximum: '0.1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samples_per_second: samp_rate
         type: complex
         vlen: '1'
@@ -232,12 +262,16 @@ blocks:
 -   name: user_lpf
     id: low_pass_filter
     parameters:
+        affinity: ''
+        alias: ''
         beta: '6.76'
         comment: ''
         cutoff_freq: cutoff
         decim: '1'
         gain: '1'
         interp: '1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         samp_rate: samp_rate
         type: fir_filter_ccf
         width: transition
@@ -249,6 +283,8 @@ blocks:
 -   name: wasm_gui_layout_0
     id: wasm_gui_layout
     parameters:
+        affinity: ''
+        alias: ''
         columns: '12'
         comment: ''
         layout: '{"cutoff":[0,0,5,1],"freq_sink":[0,1,12,4],"transition":[7,0,5,1]}'

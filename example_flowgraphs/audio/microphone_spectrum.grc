@@ -41,8 +41,12 @@ blocks:
 -   name: amplify
     id: blocks_multiply_const_vxx
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
         const: gain
+        maxoutbuf: '0'
+        minoutbuf: '0'
         mode: scalar
         type: float
         vlen: '1'
@@ -53,8 +57,12 @@ blocks:
 -   name: microphone
     id: audio_source
     parameters:
+        affinity: ''
+        alias: ''
         comment: ''
         device_name: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
         num_outputs: '1'
         ok_to_block: 'True'
         samp_rate: samp_rate
@@ -65,6 +73,8 @@ blocks:
 -   name: spectrum
     id: qtgui_freq_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         alpha10: '1'
         alpha2: '1'
@@ -115,6 +125,8 @@ blocks:
         marker7: '-1'
         marker8: '-1'
         marker9: '-1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
         name: Microphone Spectrum
         nconnections: '1'
         samp_rate: samp_rate
@@ -153,6 +165,8 @@ blocks:
 -   name: wasm_gui_layout_0
     id: wasm_gui_layout
     parameters:
+        affinity: ''
+        alias: ''
         columns: '12'
         comment: ''
         layout: '{}'
@@ -164,6 +178,8 @@ blocks:
 -   name: waveform
     id: qtgui_time_sink_x
     parameters:
+        affinity: ''
+        alias: ''
         alpha1: '1'
         alpha10: '1'
         alpha2: '1'
