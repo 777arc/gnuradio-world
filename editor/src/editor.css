@@ -581,6 +581,8 @@ svg text { user-select:none; -webkit-user-select:none; -moz-user-select:none; }
 .blk { cursor:move; }
 .blk rect.body { fill:#f1ecff; stroke:#616161; stroke-width:1; }
 .blk.sel rect.body { fill:#e3f0ff; stroke:#1a63c4; stroke-width:2; }
+.blk.training-snap rect.body { fill:#e9f8ee; stroke:#2f8f4e; stroke-width:3; }
+.blk.training-snap { cursor:grabbing; }
 /* native MISSING_BLOCK_BACKGROUND_COLOR / MISSING_BLOCK_BORDER_COLOR */
 .blk.invalid rect.body { fill:#fff2f2; stroke:#ff0000; stroke-width:2; }
 .blk.invalid text.title { fill:#a40e26 !important; }
@@ -623,6 +625,20 @@ svg text { user-select:none; -webkit-user-select:none; -moz-user-select:none; }
 .wire.sel { stroke:#00b8c8; stroke-width:3; }
 .wire.invalid { stroke:#d1242f; stroke-width:3; }
 .wire.connecting { stroke:#1a63c4; stroke-width:2; stroke-dasharray:6 4; pointer-events:none; }
+.training-wire { stroke:#8a8f98; stroke-width:2; stroke-dasharray:8 6;
+    fill:none; pointer-events:none; }
+.training-ghost { pointer-events:none; }
+.training-ghost .body { fill:none; stroke:#858b95; stroke-width:2;
+    stroke-dasharray:8 6; }
+.training-ghost .title { fill:#6f747c; font:700 18px 'DejaVu Sans',Verdana,sans-serif; }
+.training-ghost .port { fill:#d9dce1; stroke:#858b95; stroke-width:1;
+    stroke-dasharray:3 2; }
+.training-ghost .port-label { fill:#777c84; font:14px 'DejaVu Sans',Verdana,sans-serif; }
+.training-status { position:absolute; top:12px; right:18px; z-index:5; pointer-events:none;
+    padding:8px 12px; border:1px solid #818897; border-radius:6px;
+    background:#fffffff0; color:#414650; box-shadow:0 2px 8px #0002;
+    font-size:14px; font-weight:600; }
+.training-status.complete { border-color:#2f8f4e; color:#246f3d; background:#effaf2f2; }
 .wire-hit { stroke:transparent; stroke-width:12; fill:none; cursor:pointer; pointer-events:stroke; }
 .selection-box { fill:#1a63c426; stroke:#1a63c4; stroke-width:1; stroke-dasharray:4 3;
     vector-effect:non-scaling-stroke; pointer-events:none; }
@@ -638,6 +654,11 @@ svg text { user-select:none; -webkit-user-select:none; -moz-user-select:none; }
 .blk.bypassed text.title { fill:#16283a; }
 .blk.disabled.invalid rect.body, .blk.bypassed.invalid rect.body { fill:#fff2f2; stroke:#ff0000; }
 .blk.disabled.invalid text.title, .blk.bypassed.invalid text.title { fill:#a40e26; }
+/* A magnetic training match is the release cue, so it deliberately wins over
+   the ordinary "unconnected port" validation red shown during construction. */
+.blk.training-snap rect.body, .blk.training-snap.invalid rect.body {
+    fill:#e9f8ee; stroke:#2f8f4e; stroke-width:3; stroke-dasharray:none; }
+.blk.training-snap.invalid text.title { fill:#174e29 !important; }
 /* right-click context menu */
 .ctxmenu { position:fixed; z-index:200; background:#272c3d; border:1px solid #46507a;
     border-radius:6px; padding:5px 0; min-width:194px; box-shadow:0 8px 26px #000a; font-size:16px; }

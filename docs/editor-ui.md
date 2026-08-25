@@ -161,6 +161,30 @@ origin. `applyCenterFromUrl()` runs right after `applyZoomFromUrl()` in
 anything that does not parse as `"x,y"` is ignored with a console line, the same
 way a bad `?zoom=` is.
 
+## Opening an example as training (`?training=`)
+
+`?training=digital/welcome_example` opens an example as a lesson rather than as
+a completed canvas. The Options and GUI Layout singletons remain real because
+the editor owns them; every other example block is an outline with no fill, and
+every example connection is a dashed grey guide. The query value follows the
+same normalization and path-safety rules as `#example=` and may include or omit
+`.grc`.
+
+A real block fills an outline only when the same block type is dragged close to
+it. The block magnetically moves to the exact target while the pointer is still
+held, turns green to say that releasing will place it, and detaches again when
+the pointer moves away. Release copies the example's instance name, parameters,
+rotation and enabled/bypassed state. The target connection guide disappears only
+after the learner connects the assigned real blocks through the exact ports.
+Deleting either object restores its guide; the assignment is part of editor
+history, so undo and redo do the same.
+
+The Run path refuses an incomplete lesson before ordinary flowgraph validation.
+Ghosts never enter `insts`/`conns`, `.grc` output, shared links, validation or the
+runner. Opening or creating another flowgraph exits training and removes the
+query. `training` wins over `embed`, because the embedded layout has no block
+palette and therefore cannot complete a lesson.
+
 ## Embedding a flowgraph in another page (`?embed=1`)
 
 `https://gnuradioworld.com/?embed=1#example=digital/welcome_example` in an

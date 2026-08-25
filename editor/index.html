@@ -116,9 +116,11 @@ html.click-to-load-pending #clickToLoad button:disabled { cursor:default; opacit
                   <path d="M0,0 L10,5 L0,10 z" fill="#d1242f"/>
                 </marker>
               </defs>
-              <g id="wires"></g><g id="nodes"></g><g id="selectionOverlay"></g>
+              <g id="trainingWires"></g><g id="wires"></g>
+              <g id="trainingNodes"></g><g id="nodes"></g><g id="selectionOverlay"></g>
             </svg>
           </div>
+          <div id="trainingStatus" class="training-status" hidden></div>
         </div>
       </div>
       <section id="runPane" class="workspace-panel" role="tabpanel" aria-labelledby="tabQtGui" hidden>

@@ -135,6 +135,7 @@ import type { CatalogEntry } from './ai/catalog';
 import type { AiToolDeps } from './ai/tools';
 import type { HarnessDeps, RunAuthorization } from './ai/harness';
 import { createAiPanel, type AiPanel } from './ai/panel';
+import { TrainingSession, type TrainingProgress } from './training';
 import {
   dismissUnpacedRunWarning,
   shouldWarnAboutUnpacedRun,
@@ -152,10 +153,18 @@ const el = (id: string) => document.getElementById(id)!;
 const USB_RADIOS: UsbRadio[] = [RTLSDR_RADIO, PLUTOSDR_RADIO, HACKRF_RADIO];
 const radioForDtype = (dtype?: string): UsbRadio | undefined =>
   USB_RADIOS.find(radio => radio.dtype === dtype);
+// ?training=<example path> opens that example as a lesson template rather than
+// putting its real blocks on the canvas. It wins over `embed`: an embedded
+// layout has no palette, so it would be impossible to complete the lesson.
+const TRAINING_EXAMPLE = (() => {
+  const value = new URLSearchParams(location.search).get('training');
+  return value?.trim() || null;
+})();
 // ?embed=1 — the layout another site frames. Declared up here rather than beside
 // the rest of the embed wiring further down because the history functions, which
 // are declared before it, keep its "open in GNU Radio World" link current.
 const EMBEDDED = (() => {
+  if (TRAINING_EXAMPLE) return false;
   const value = new URLSearchParams(location.search).get('embed');
   return value !== null && value !== '0' && value.toLowerCase() !== 'false';
 })();
@@ -175,6 +184,7 @@ const embedOpen = el('embedOpen') as HTMLAnchorElement;
 const embedZoom = el('embedZoom');
 const embedPlayBlock = el('embedPlayBlock') as HTMLButtonElement;
 const embedOpenBlock = el('embedOpenBlock') as HTMLAnchorElement;
+const trainingNodesG = el('trainingNodes'), trainingWiresG = el('trainingWires');
 const nodesG = el('nodes'), wiresG = el('wires'), selectionG = el('selectionOverlay');
 const svg = el('svg') as unknown as SVGSVGElement;
 
@@ -184,6 +194,7 @@ let selected: string | null = null;
 let selectedBlocks = new Set<string>();
 let selectedConnection: Conn | null = null;
 let counter = 0;
+let trainingSession: TrainingSession | null = null;
 // In-progress connection: a rubber-band wire from a port (either an output or an
 // input, GRC-style). Two ways to complete it: drag from one port and release on
 // another, or click one port then click the other. `connectPreview` is the live
@@ -380,11 +391,15 @@ function sigmfNeedsIShortToComplex(id: string, token: string | undefined): boole
   return !!bound && isCi16Datatype(bound.datatype);
 }
 
-const graphHistory: GraphSnapshot[] = [];
+type EditorSnapshot = GraphSnapshot & { training?: TrainingProgress };
+const graphHistory: EditorSnapshot[] = [];
 let historyIndex = -1;
 let historyReady = false;
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
-function snapshot(): GraphSnapshot { return clone({ insts, conns, counter }); }
+function snapshot(): EditorSnapshot {
+  return clone({ insts, conns, counter,
+    ...(trainingSession ? { training: trainingSession.capture() } : {}) });
+}
 // The three places the canvas changes as a whole are also the three that decide
 // where an embed's "open in GNU Radio World" link points: an untouched flowgraph
 // links to itself by name, an edited one carries the edit.
@@ -407,6 +422,7 @@ function restoreHistory(index: number) {
   void refreshEmbedOpen();
   const state = clone(graphHistory[index]);
   insts = state.insts; conns = state.conns; counter = state.counter;
+  trainingSession?.restore(state.training);
   selected = null; selectedBlocks.clear(); selectedConnection = null; cancelConnect();
   render();
   updateRunningCanvasState();
@@ -1141,13 +1157,31 @@ function wireShape(ea: Edge, eb: Edge, x1: number, y1: number, x2: number, y2: n
   return { k: Math.max(CTRL_FLAT, Math.min(CTRL_MAX, Math.abs(span) * CTRL_FRAC)), bowA: bow, bowB: -bow };
 }
 
+function connectionPath(a: Inst, fp: number, b: Inst, tp: number): string {
+  const pa = portPos(a, 'out', fp), pb = portPos(b, 'in', tp);
+  const x1 = a.x + pa.x, y1 = a.y + pa.y, x2 = b.x + pb.x, y2 = b.y + pb.y;
+  const { k, bowA, bowB } = wireShape(pa.edge, pb.edge, x1, y1, x2, y2);
+  const [sx, sy] = ctrl(pa.edge, x1, y1, 15);
+  const [c1x, c1y] = ctrl(pa.edge, x1, y1, k, bowA);
+  const [c2x, c2y] = ctrl(pb.edge, x2, y2, k, bowB);
+  const [ex, ey] = ctrl(pb.edge, x2, y2, 15);
+  return `M${x1},${y1} L${sx},${sy} C${c1x},${c1y} ${c2x},${c2y} ${ex},${ey} L${x2},${y2}`;
+}
+
 // Block instance names follow native GRC's `_get_unique_id`
 // (grc/gui_qt/components/canvas/flowgraph.py): the first free `<base>_<n>`
 // counting from 0, where the base is the block key for a newly placed block and
 // the name being copied for a paste or duplicate. Deriving it from the names in
 // use rather than from a running counter is what makes a collision impossible —
 // undo, paste and a loaded flowgraph all feed the same set.
-function uniqueBlockName(base: string, taken: Set<string> = new Set(insts.map(i => i.name))): string {
+function namesInUse(): Set<string> {
+  return new Set([
+    ...insts.map(inst => inst.name),
+    ...(trainingSession ? trainingSession.reservedNames(insts) : []),
+  ]);
+}
+
+function uniqueBlockName(base: string, taken: Set<string> = namesInUse()): string {
   for (let n = 0; ; ++n) {
     const candidate = `${base}_${n}`;
     if (!taken.has(candidate)) return candidate;
@@ -1592,7 +1626,17 @@ function setCurrentFileName(file: string | null) {
   currentFileName = file ? exampleFileName(file) : null;   // name only, always .grc
 }
 
+function exitTrainingMode(stripQuery = true) {
+  if (!trainingSession) return;
+  trainingSession = null;
+  if (!stripQuery) return;
+  const url = new URL(location.href);
+  url.searchParams.delete('training');
+  history.replaceState(null, '', url.pathname + url.search + url.hash);
+}
+
 function clearFlowgraph(record = true) {
+  exitTrainingMode();
   insts = []; conns = []; counter = 0; selected = null; selectedBlocks.clear();
   insts.push(makeSampRateInst());   // the default flowgraph's one variable
   selectedConnection = null; cancelConnect();
@@ -1832,6 +1876,7 @@ function portIndex(inst: Inst, kind: 'in' | 'out', token: string): number {
 function loadFlowgraph(doc: any, record = true) {
   if (!doc || !Array.isArray(doc.blocks))
     throw new Error('not a GNU Radio .grc flowgraph');
+  exitTrainingMode();
   insts = []; conns = []; counter = 0;
   // Whatever was on the canvas is gone, and with it the file Save writes to; the
   // callers that do know a name (an example, an opened .grc) set it back after.
@@ -1893,6 +1938,35 @@ function loadFlowgraph(doc: any, record = true) {
   ensureLayoutBlock();
   selected = null; selectedBlocks.clear(); selectedConnection = null; cancelConnect();
   render(); if (record) recordHistory(); log(`opened ${insts.length} blocks`);
+}
+
+function startTrainingFlowgraph(doc: any, file: string, title: string) {
+  const unavailable = [...new Set((doc.blocks || [])
+    .map((block: any) => String(block?.id || ''))
+    .filter((id: string) => !RUNNABLE[id] || PALETTE_HIDDEN.has(id)))];
+  if (unavailable.length)
+    throw new Error(`lesson requires unavailable palette block${unavailable.length === 1 ? '' : 's'}: ` +
+      unavailable.join(', '));
+
+  // Use the ordinary importer once, while the application is still hidden on
+  // startup, so legacy parameters, dynamic ports and generated definitions are
+  // normalized exactly as they are for a normal example. The resulting graph
+  // becomes the immutable lesson; only the two editor-managed singletons remain
+  // real on the learner's canvas.
+  loadFlowgraph(doc, false);
+  const template: GraphSnapshot = clone({ insts, conns, counter });
+  trainingSession = new TrainingSession(template, [OPTIONS_ID, LAYOUT_ID]);
+  insts = clone(template.insts.filter(block => block.id === OPTIONS_ID || block.id === LAYOUT_ID));
+  conns = [];
+  counter = template.counter;
+  selected = null; selectedBlocks.clear(); selectedConnection = null; cancelConnect();
+  setExampleHash(null);
+  setCurrentFileName(file);
+  render();
+  resetHistory();
+  const counts = trainingSession.counts(insts, conns);
+  log(`started training example "${title}": ${counts.totalBlocks} block${counts.totalBlocks === 1 ? '' : 's'} ` +
+      `and ${counts.totalConnections} connection${counts.totalConnections === 1 ? '' : 's'} to complete`);
 }
 // Fly-in / fly-out transition used when opening an example flowgraph: the blocks
 // already on the canvas scatter off-screen in random directions while the
@@ -1962,7 +2036,10 @@ function duplicateFlowgraph() {
   const token = `grc-duplicate-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   try {
     localStorage.setItem(token, grcText());
-    const duplicate = window.open(`${location.href.split('#')[0]}#duplicate=${encodeURIComponent(token)}`, '_blank');
+    const duplicateUrl = new URL(location.href);
+    duplicateUrl.searchParams.delete('training');
+    duplicateUrl.hash = `duplicate=${encodeURIComponent(token)}`;
+    const duplicate = window.open(duplicateUrl.toString(), '_blank');
     if (duplicate) { log('duplicated flowgraph in a new tab'); return; }
     localStorage.removeItem(token);
   } catch { /* fall through to an in-canvas copy if storage or popups are unavailable */ }
@@ -3202,31 +3279,93 @@ const svgEl = <K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<strin
   return e;
 };
 
+function addTrainingPort(g: SVGGElement, inst: Inst, kind: 'in' | 'out', idx: number) {
+  const p = portPos(inst, kind, idx);
+  const pw = portWidth(inst, kind, idx);
+  let x: number, y: number, w: number, h: number;
+  if (p.edge === 'L') { w = pw; h = PORT_H; x = p.x; y = p.y - PORT_H / 2; }
+  else if (p.edge === 'R') { w = pw; h = PORT_H; x = p.x - pw; y = p.y - PORT_H / 2; }
+  else if (p.edge === 'T') { w = PORT_H; h = pw; x = p.x - PORT_H / 2; y = p.y; }
+  else { w = PORT_H; h = pw; x = p.x - PORT_H / 2; y = p.y - pw; }
+  g.appendChild(svgEl('rect', { class: 'port', x: String(x), y: String(y),
+    width: String(w), height: String(h) }));
+  const cx = x + w / 2, cy = y + h / 2;
+  const label = svgEl('text', { class: 'port-label', x: String(cx), y: String(cy),
+    'text-anchor': 'middle', 'dominant-baseline': 'central' });
+  if (p.edge === 'T' || p.edge === 'B')
+    label.setAttribute('transform', `rotate(-90 ${cx} ${cy})`);
+  label.textContent = portLabel(inst, kind, idx);
+  g.appendChild(label);
+}
+
+function renderTrainingGuides() {
+  const status = el('trainingStatus');
+  if (!trainingSession) {
+    status.hidden = true;
+    status.classList.remove('complete');
+    document.querySelectorAll<HTMLButtonElement>('[data-tool="Execute"]')
+      .forEach(button => button.disabled = false);
+    return;
+  }
+
+  for (const guide of trainingSession.connectionGuides(insts, conns)) {
+    if (portMeta(guide.from, 'out', guide.connection.fp).hidden ||
+        portMeta(guide.to, 'in', guide.connection.tp).hidden) continue;
+    trainingWiresG.appendChild(svgEl('path', { class: 'training-wire',
+      d: connectionPath(guide.from, guide.connection.fp, guide.to, guide.connection.tp) }));
+  }
+
+  for (const target of trainingSession.unfilledBlocks(insts)) {
+    const { d, h, w } = geom(target);
+    const g = svgEl('g', { class: 'training-ghost',
+      transform: `translate(${target.x},${target.y})` });
+    g.appendChild(svgEl('rect', { class: 'body', width: String(w), height: String(h), rx: '2' }));
+    const title = svgEl('text', { class: 'title', x: String(w / 2), y: String(h / 2),
+      'text-anchor': 'middle', 'dominant-baseline': 'central' });
+    title.textContent = d.label;
+    g.appendChild(title);
+    for (const i of visiblePortIndices(target, 'in')) addTrainingPort(g, target, 'in', i);
+    for (const i of visiblePortIndices(target, 'out')) addTrainingPort(g, target, 'out', i);
+    trainingNodesG.appendChild(g);
+  }
+
+  const counts = trainingSession.counts(insts, conns);
+  const complete = trainingSession.complete(insts, conns);
+  status.hidden = false;
+  status.classList.toggle('complete', complete);
+  status.textContent = complete
+    ? `Training complete — ready to run`
+    : `${counts.filledBlocks}/${counts.totalBlocks} blocks · ` +
+      `${counts.filledConnections}/${counts.totalConnections} connections`;
+  document.querySelectorAll<HTMLButtonElement>('[data-tool="Execute"]')
+    .forEach(button => {
+      button.disabled = !complete;
+      button.title = complete ? 'Execute (F6)' : 'Complete the training flowgraph before running';
+    });
+}
+
 function render() {
   rebuildScope();
+  trainingNodesG.textContent = ''; trainingWiresG.textContent = '';
   nodesG.textContent = ''; wiresG.textContent = '';
+  trainingNodesG.setAttribute('transform', `scale(${zoom})`);
+  trainingWiresG.setAttribute('transform', `scale(${zoom})`);
   nodesG.setAttribute('transform', `scale(${zoom})`);
   wiresG.setAttribute('transform', `scale(${zoom})`);
   selectionG.setAttribute('transform', `scale(${zoom})`);
   const validation = validateGraph();
   const invalidConnections = new Set(validation.flatMap(issue => issue.connection ? [issue.connection] : []));
   const G = (uid: string) => insts.find(i => i.uid === uid)!;
+  renderTrainingGuides();
   // wires (from output right-edge to input left-edge, GRC-style curves)
   for (const c of conns) {
     const a = G(c.from), b = G(c.to);
     if (!a || !b || canvasBlockHidden(a) || canvasBlockHidden(b)) continue;
     if (portMeta(a, 'out', c.fp).hidden || portMeta(b, 'in', c.tp).hidden) continue;
-    const pa = portPos(a, 'out', c.fp), pb = portPos(b, 'in', c.tp);
-    const x1 = a.x + pa.x, y1 = a.y + pa.y, x2 = b.x + pb.x, y2 = b.y + pb.y;
     // As in native GRC: a straight 15px run out of each port, a cubic bezier,
     // then a straight approach in. Control points 50px out, except on a wire
     // that has to double back on itself — see wireShape().
-    const { k, bowA, bowB } = wireShape(pa.edge, pb.edge, x1, y1, x2, y2);
-    const [sx, sy] = ctrl(pa.edge, x1, y1, 15);
-    const [c1x, c1y] = ctrl(pa.edge, x1, y1, k, bowA);
-    const [c2x, c2y] = ctrl(pb.edge, x2, y2, k, bowB);
-    const [ex, ey] = ctrl(pb.edge, x2, y2, 15);
-    const d = `M${x1},${y1} L${sx},${sy} C${c1x},${c1y} ${c2x},${c2y} ${ex},${ey} L${x2},${y2}`;
+    const d = connectionPath(a, c.fp, b, c.tp);
     const isSelected = c === selectedConnection || (insts.length > 0 && selectedBlocks.size === insts.length);
     const isInvalid = invalidConnections.has(c);
     const wire = svgEl('g', { class: 'wire-group' });
@@ -3257,6 +3396,7 @@ function render() {
     const comment = blockCommentGeometry(inst);
     const blockIssues = validation.filter(issue => issue.uid === inst.uid);
     const g = svgEl('g', { class: 'blk' + (selectedBlocks.has(inst.uid) ? ' sel' : '') +
+      (trainingSession?.snapTargetForActual(inst.uid) ? ' training-snap' : '') +
       (inst.enabled ? '' : ' disabled') + (inst.bypassed ? ' bypassed' : '') +
       (blockIssues.length ? ' invalid' : ''),
       transform: `translate(${inst.x},${inst.y})` });
@@ -3377,7 +3517,8 @@ function render() {
 const CANVAS_MARGIN = 60;   // room for port tabs, validation labels and drop space
 function updateCanvasExtent() {
   let right = 0, bottom = 0;
-  for (const inst of insts) {
+  const blocks = [...insts, ...(trainingSession?.unfilledBlocks(insts) || [])];
+  for (const inst of blocks) {
     if (canvasBlockHidden(inst)) continue;
     const { w, h } = geom(inst);
     const comment = blockCommentGeometry(inst);
@@ -3502,7 +3643,8 @@ function completeConnect(inst: Inst, kind: 'in' | 'out', idx: number) {
   cancelConnect(); render(); recordHistory();
 }
 
-let drag: { inst: Inst; ox: number; oy: number; starts: Map<string, { x: number; y: number }>; moved: boolean } | null = null;
+let drag: { inst: Inst; ox: number; oy: number; starts: Map<string, { x: number; y: number }>;
+  natural: { x: number; y: number }; moved: boolean } | null = null;
 interface Marquee {
   start: Point;
   initial: Set<string>;
@@ -3573,17 +3715,25 @@ function startDrag(e: PointerEvent, inst: Inst) {
   lastMouseDown = { uid: inst.uid, t: now };
   select(inst.uid, e.shiftKey);
   if (!selectedBlocks.has(inst.uid)) return;
+  trainingSession?.clearSnapCandidate();
   captureCanvasPointer(e);
   const p = svgPoint(e);
   drag = { inst, ox: p.x - inst.x, oy: p.y - inst.y,
-    starts: new Map(insts.filter(i => selectedBlocks.has(i.uid)).map(i => [i.uid, { x: i.x, y: i.y }])), moved: false };
+    starts: new Map(insts.filter(i => selectedBlocks.has(i.uid)).map(i => [i.uid, { x: i.x, y: i.y }])),
+    natural: { x: inst.x, y: inst.y }, moved: false };
 }
 window.addEventListener('pointermove', e => {
   if (connecting) { updateConnectPreview(svgPoint(e)); return; }
   if (marquee) { updateMarquee(svgPoint(e)); return; }
   if (!drag) return; const p = svgPoint(e);
   const primary = drag.starts.get(drag.inst.uid)!;
-  const target = constrainBlockPosition(p.x - drag.ox, p.y - drag.oy, snapToGrid);
+  const natural = constrainBlockPosition(p.x - drag.ox, p.y - drag.oy, snapToGrid);
+  drag.natural = natural;
+  const snapTarget = selectedBlocks.size === 1
+    ? trainingSession?.updateSnapCandidate(drag.inst, natural.x, natural.y, insts)
+    : undefined;
+  if (selectedBlocks.size !== 1) trainingSession?.clearSnapCandidate();
+  const target = snapTarget ? { x: snapTarget.x, y: snapTarget.y } : natural;
   const dx = target.x - primary.x, dy = target.y - primary.y;
   let moved = false;
   for (const inst of insts) {
@@ -3594,12 +3744,43 @@ window.addEventListener('pointermove', e => {
   }
   drag.moved ||= moved; render();
 });
+
+function adoptTrainingTarget(actual: Inst, target: Inst) {
+  remapConnectionsForPortChange(actual, target.params);
+  actual.name = target.name;
+  actual.x = target.x;
+  actual.y = target.y;
+  actual.params = clone(target.params);
+  actual.enabled = target.enabled;
+  actual.rotation = target.rotation;
+  actual.bypassed = target.bypassed;
+  delete actual.localFileToken;
+  log(`placed ${defFor(actual).label} as ${target.name}`);
+}
+
 const endPointerGesture = (e: PointerEvent) => {
   if (svg.hasPointerCapture(e.pointerId)) svg.releasePointerCapture(e.pointerId);
   const collapsedPort = connecting ? cancelConnect() : false; // released away: abandon the wire
-  if (drag?.moved) recordHistory(); drag = null;
+  let redraw = false;
+  if (drag) {
+    const target = e.type === 'pointerup'
+      ? trainingSession?.commitSnap(drag.inst.uid) : undefined;
+    if (target) {
+      adoptTrainingTarget(drag.inst, target);
+      redraw = true;
+    } else if (trainingSession?.snapTargetForActual(drag.inst.uid)) {
+      // A cancelled pointer stream must not strand the uncommitted preview at
+      // the target. Only one selected block can magnetically snap.
+      drag.inst.x = drag.natural.x;
+      drag.inst.y = drag.natural.y;
+      redraw = true;
+    }
+    trainingSession?.clearSnapCandidate();
+    if (drag.moved || target) recordHistory();
+  }
+  drag = null;
   if (marquee) { marquee.rect.remove(); marquee = null; }
-  if (collapsedPort) render();
+  if (collapsedPort || redraw) render();
 };
 window.addEventListener('pointerup', endPointerGesture);
 // The browser takes the gesture over when it decides a touch is a scroll (or the
@@ -4954,6 +5135,14 @@ function askToRunUnpacedFlowgraph(): Promise<boolean> {
 }
 
 async function run(): Promise<string | null> {
+  if (trainingSession && !trainingSession.complete(insts, conns)) {
+    const counts = trainingSession.counts(insts, conns);
+    const blocks = counts.totalBlocks - counts.filledBlocks;
+    const connections = counts.totalConnections - counts.filledConnections;
+    log(`cannot run training flowgraph: ${blocks} block${blocks === 1 ? '' : 's'} and ` +
+        `${connections} connection${connections === 1 ? '' : 's'} still to complete`);
+    return null;
+  }
   const errors = validateGraph().filter(issue => issue.blocking);
   if (errors.length) {
     const first = errors[0];
@@ -5708,6 +5897,17 @@ async function loadExampleByName(name: string, updateHash = true) {
   if (updateHash) setExampleHash(file); // normalizes e.g. a link written with .grc
   setCurrentFileName(file);           // Save writes the example back under its own name
   log(`loaded example "${title}" from link`);
+  void bindFlowgraphRecordings(fg, title);
+}
+
+async function loadTrainingByName(name: string) {
+  const file = normalizeExamplePath(name);
+  const res = await fetch('/example_flowgraphs/' + encodeExamplePath(file));
+  if (!res.ok) throw new Error(`${file}: HTTP ${res.status}`);
+  const fg = parseGrc(await res.text());
+  const title = String(fg.options?.parameters?.title || file);
+  trustExampleJavaScript(fg);
+  startTrainingFlowgraph(fg, file, title);
   void bindFlowgraphRecordings(fg, title);
 }
 
@@ -6891,6 +7091,13 @@ async function loadFlowgraphFromUrl(): Promise<boolean> {
   // Drops the one-shot keys (#fg=, #duplicate=) while leaving #recording= alone:
   // a recording opened beside the flowgraph outlives whatever loaded the canvas.
   const cleanUrl = () => setUrlFragment({});
+  if (TRAINING_EXAMPLE) {
+    try { await loadTrainingByName(TRAINING_EXAMPLE); }
+    catch (error) { log(`could not start training example "${TRAINING_EXAMPLE}": ${error}`); }
+    // The query explicitly claimed the canvas. Even a bad lesson should not be
+    // silently replaced by the welcome example, which would hide the mistake.
+    return true;
+  }
   const token = hash.get('duplicate');
   if (token) {
     try {
