@@ -140,7 +140,7 @@ node server.mjs 8090 "$PWD"
 | `gr/` | out-of-tree build of the GNU Radio C++ modules (generated; git-ignored) |
 | `qtgui/` | Qt6 build of the gr-qtgui sink chain |
 | `runner/` | the JSON-driven WASM flowgraph runner, generated C++ registry, support manifest, and shared side-module topology in `modules.json`; vendored headers under `third_party/` |
-| `editor/` | the TypeScript flowgraph editor; `main.ts` owns browser orchestration while block schemas, validation, generated-library installation, and example/recording catalogs live in focused modules beside it |
+| `editor/` | the TypeScript flowgraph editor; `main.ts` is the composition root and owns core document operations, while graph state, canvas rendering/gestures, Properties, palettes, workspace/recording tabs, and run sessions live in focused controllers beside it. Block schemas, validation, generated-library installation, and catalogs are separate modules too |
 | `editor/gen/` | build-time generators: `gen_blocklib.py` (the palette) and `gen_versions.mjs`, which scrapes every dependency pin into the `virtual:versions` module behind Help ▸ Software Versions — see [docs/building.md](docs/building.md) |
 | `tools/` | `block_overrides.py`, the browser-only block-metadata overlay loader/merger shared by `gen_registry.py` and `gen_blocklib.py` |
 | `blocks/` | everything a human wrote about blocks, as opposed to `runner/`, which is the app plus everything generated. See "Where a block's source lives" |

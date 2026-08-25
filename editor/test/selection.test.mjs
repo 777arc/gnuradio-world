@@ -33,7 +33,7 @@ assert.match(source, /pointerType === 'touch'/,
   'a touch on empty canvas must pan rather than rubber-band');
 assert.match(source, /window\.addEventListener\('pointermove'[\s\S]*updateMarquee/,
   'pointer movement must update marquee selection');
-assert.match(source, /e\.shiftKey \|\| e\.ctrlKey \|\| e\.metaKey/,
+assert.match(source, /event\.shiftKey \|\| event\.ctrlKey \|\| event\.metaKey/,
   'modifier-drag must preserve the existing selection');
 assert.match(html, /class: 'selection-box'|\.selection-box/,
   'the marquee must have a visible canvas style');

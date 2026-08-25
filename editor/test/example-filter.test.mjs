@@ -16,7 +16,7 @@ assert.match(source, /item\('Show Examples', \(\) => showExamplesFor\(inst\.id, 
 
 // It has to switch tabs, and the examples tab is built lazily on first visit, so
 // the filter must be set before activation and applied after it.
-assert.match(source, /function showExamplesFor\(id: string, label: string\) \{[\s\S]*?exampleFilter = \{ id, label \};[\s\S]*?activatePaletteTab\?\.\('examples'\);[\s\S]*?applyExampleFilter\?\.\(\);/,
+assert.match(source, /function showExamplesFor\(id: string, label: string\) \{[\s\S]*?exampleFilter = \{ id, label \};[\s\S]*?deps\.activateExamplesTab\(\);[\s\S]*?applyExampleFilter\?\.\(\);/,
   'showExamplesFor must set the filter, switch to the examples tab, then apply it');
 assert.match(source, /activatePaletteTab = activate;/,
   'buildPalette must expose its tab activator');

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { bundleModule } from './bundle-module.mjs';
-import { mainSource as main, cssSource as css } from './editor-contract-source.mjs';
+import { editorSource as main, cssSource as css } from './editor-contract-source.mjs';
 
 const { validateFlowgraph, NAME_FIELD, BLOCK_FIELD, VARIABLE_CONTROL_IDS } =
   await bundleModule('../src/validation.ts');

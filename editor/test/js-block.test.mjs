@@ -273,7 +273,7 @@ assert.match(source, /acceptJsSource\(source\);\s*\/\/ typed here/,
 // block's label -- the palette search and every browser test match on that. The
 // tooltip is where the same fact is said in words.
 assert.match(source,
-  /js: !!b\.localJs \|\| b\.id === JS_BLOCK_ID \|\| blockFlags\(b\.flags\)\.includes\('js'\)/,
+  /isJavaScript: block => !!block\.localJs \|\| block\.id === JS_BLOCK_ID \|\|\s*blockFlags\(block\.flags\)\.includes\('js'\)/,
   'all three kinds of JavaScript block are badged: repo, inline and locally saved');
 assert.match(source, /\(b\.js \? ' pal-js' : ''\)/,
   'the badge is a class on the row, not text appended to it');

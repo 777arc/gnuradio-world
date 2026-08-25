@@ -186,10 +186,10 @@ assert.match(html,
 assert.match(source, /const PORT_HIDDEN_W = 10;/,
   'auto-hidden ports must contract to native GRC\'s compact width');
 assert.match(source,
-  /function portWidth[\s\S]*?autoHidePortLabels && hoveredPortKey !== `\$\{inst\.uid\}:\$\{kind\}:\$\{i\}`[\s\S]*?return PORT_HIDDEN_W/,
+  /function portWidth[\s\S]*?connectionController\.portLabelHidden\(`\$\{inst\.uid\}:\$\{kind\}:\$\{i\}`\)[\s\S]*?return PORT_HIDDEN_W/,
   'port geometry and therefore its wire endpoint must use the compact width');
 assert.match(source,
-  /r\.addEventListener\('pointerenter'[\s\S]*?hoveredPortKey = hoverKey;[\s\S]*?r\.addEventListener\('pointerleave'[\s\S]*?hoveredPortKey = null;/,
+  /rect\.addEventListener\('pointerenter'[\s\S]*?this\.hoveredPortKey = hoverKey;[\s\S]*?rect\.addEventListener\('pointerleave'[\s\S]*?this\.hoveredPortKey = null;/,
   'hovering a compact port must expand it and leaving must contract it');
 assert.match(source,
   /const PROPERTY_FIELD_COLORS:[\s\S]*?complex: '#3399FF'[\s\S]*?string: '#CC66CC'[\s\S]*?raw: '#DDDDDD'/,

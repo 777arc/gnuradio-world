@@ -104,7 +104,8 @@ carry it, and each has a reason it is where it is:
   anyone measuring the header's height. Anything that puts something on the
   canvas — a block, an example, a recording — calls `closePaletteDrawer()`,
   because otherwise the drawer is covering the thing it just added.
-- **Canvas gestures are pointer events**, so one set of handlers serves a mouse
+- **Canvas gestures are pointer events**, owned by
+  `editor/src/canvas-gestures.ts`, so one set of handlers serves a mouse
   and a finger. Two consequences worth knowing before touching them: a drag is
   captured on the `<svg>` root, because `render()` replaces a dragged block's own
   node on every frame and events aimed at a detached node reach no window

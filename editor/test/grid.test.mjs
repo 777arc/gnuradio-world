@@ -63,7 +63,7 @@ assert.match(source, /let snapToGrid = true;/,
   'snap to grid is enabled by default');
 assert.match(source, /label: 'Snap to Grid', run: toggleSnapToGrid, check: \(\) => snapToGrid/,
   'the View menu exposes a checked snap-to-grid toggle');
-assert.match(source, /constrainBlockPosition\(p\.x - drag\.ox, p\.y - drag\.oy, snapToGrid\)/,
+assert.match(source, /constrainBlockPosition\([\s\S]*?point\.x - this\.drag\.ox,[\s\S]*?point\.y - this\.drag\.oy,[\s\S]*?this\.deps\.snapToGrid\(\),[\s\S]*?\)/,
   'block dragging applies the snap preference');
 assert.match(source,
   /function addBlock[\s\S]*?const position = constrainBlockPosition\(x, y, snapToGrid\)/,

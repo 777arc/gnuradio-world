@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { exampleFiles as files } from './example-files.mjs';
 import { bundleModule } from './bundle-module.mjs';
-import { mainSource as main, cssSource as css } from './editor-contract-source.mjs';
+import { editorSource as main, cssSource as css } from './editor-contract-source.mjs';
 
 const examples = await bundleModule('../src/example-catalog.ts');
 assert.equal(examples.normalizeExamplePath('digital\\psk_constellation'),

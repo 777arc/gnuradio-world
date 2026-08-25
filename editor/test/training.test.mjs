@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { bundleModule } from './bundle-module.mjs';
-import { mainSource as main, htmlSource as html, cssSource as css } from './editor-contract-source.mjs';
+import { editorSource as main, htmlSource as html, cssSource as css } from './editor-contract-source.mjs';
 
 const {
   TrainingSession,

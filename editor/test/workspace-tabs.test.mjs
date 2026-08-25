@@ -23,15 +23,15 @@ assert.match(html, /\.paltab \{[^}]*flex:none;[^}]*padding:9px 12px/,
   'palette tabs must hug their text instead of sharing the full pane width');
 
 assert.match(source,
-  /function activateWorkspaceTab[\s\S]*editorPane'\)\.hidden[\s\S]*runPane'\)\.hidden/,
+  /activate\(tab: WorkspaceTab\)[\s\S]*this\.deps\.editorPane\.hidden[\s\S]*this\.deps\.runnerPane\.hidden/,
   'workspace tab activation swaps the editor and QT GUI panels');
 assert.match(source,
-  /setRunnerRunning\(true\);\s*activateWorkspaceTab\('qtgui'\);/,
+  /deps\.setRunnerRunning\(true\);\s*deps\.activateWorkspaceTab\('qtgui'\);/,
   'executing a flowgraph selects the QT GUI tab and marks it running');
 assert.match(source, /qtTab\.setAttribute\('aria-label', qtLabel\)/,
   'the QT GUI running state is also exposed to assistive technology');
 assert.match(source,
-  /function stop\(\)[\s\S]*setRunnerRunning\(false\);\s*activateWorkspaceTab\('editor'\);/,
+  /function stopFlowgraph[\s\S]*deps\.setRunnerRunning\(false\);\s*deps\.activateWorkspaceTab\('editor'\);/,
   'stopping a flowgraph clears the QT GUI running state and returns to the editor');
 assert.match(source,
   /d\.type === 'gr-error'[\s\S]*setRunnerRunning\(false, 'Flowgraph failed'\)/,

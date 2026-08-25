@@ -4,8 +4,8 @@ Flowgraph Copilot is the editor's AI assistant — free to use on a key the
 project shares, or on one of your own. It can inspect and edit the canvas
 through validated structured operations, run the graph in the normal visible QT
 GUI tab, and read the runner's diagnostics snapshot. Its code
-lives under `editor/src/ai/`; `editor/src/main.ts` supplies the narrow dependency
-bundle that is allowed to touch editor state.
+lives under `editor/src/ai/`; `editor/src/main.ts`, as the composition root,
+supplies the narrow dependency bundle that is allowed to touch editor state.
 
 The feature is public and discoverable from the toolbar and Tools menu, with its
 dock collapsed by default. The header's New chat control clears the transcript
@@ -231,7 +231,8 @@ schema — especially hand-written block definitions — is authoritative.
 
 ## Visible runs and evidence
 
-`run_flowgraph` calls `main.ts`'s `run()` and never constructs a second iframe.
+`run_flowgraph` calls `main.ts`'s `run()` wrapper and never constructs a second
+iframe; the session lifecycle itself lives in `editor/src/run-session.ts`.
 `run()` returns the unique `recordingToken` embedded in the runner query string.
 Every cross-frame read verifies that query string first and is wrapped for the
 mid-navigation case, so stats from an older run cannot be attributed to a newer

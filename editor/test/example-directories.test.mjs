@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { findExampleFlowgraphs } from '../../scripts/example-flowgraphs.mjs';
 import { bundleModule } from './bundle-module.mjs';
-import { mainSource as main, cssSource as css } from './editor-contract-source.mjs';
+import { examplePaletteSource as examples, cssSource as css } from './editor-contract-source.mjs';
 
 const fixture = await mkdtemp(join(tmpdir(), 'example-flowgraphs-'));
 try {
@@ -34,8 +34,8 @@ const harness = await readFile(new URL('../../scripts/run_example.mjs', import.m
 assert.match(server, /await findExampleFlowgraphs\(dir\)/);
 assert.match(assembler, /const grcFiles = await findExampleFlowgraphs\(fgDir\)/);
 assert.match(assembler, /await mkdir\(dirname\(destination\), \{ recursive: true \}\)/);
-assert.match(main, /details\.className = 'rec-directory ex-directory'/);
-assert.match(main, /if \(\(f \|\| q\) && hasVisibleChild\) details\.open = true/);
+assert.match(examples, /details\.className = 'rec-directory ex-directory'/);
+assert.match(examples, /if \(\(f \|\| q\) && hasVisibleChild\) details\.open = true/);
 assert.ok(css.includes('.ex-directory[hidden]'));
 assert.doesNotMatch(harness, /target\.replace\(\/\^\.\*\\\//);
 assert.match(harness, /if \(parent instanceof HTMLDetailsElement\) parent\.open = true/);

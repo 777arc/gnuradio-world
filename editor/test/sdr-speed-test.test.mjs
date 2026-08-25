@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { bundleModule } from './bundle-module.mjs';
-import { mainSource, cssSource } from './editor-contract-source.mjs';
+import { editorSource as mainSource, cssSource } from './editor-contract-source.mjs';
 
 const speedTestSource = await readFile(
   new URL('../src/sdr-speed-test.ts', import.meta.url), 'utf8');

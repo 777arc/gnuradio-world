@@ -7,7 +7,18 @@
 // URLs with it.
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { editorSource as source, markupSource as html } from './editor-contract-source.mjs';
+import {
+  mainSource,
+  recordingTabsSource,
+  canvasRendererSource,
+  workspaceTabsSource,
+  markupSource as html,
+} from './editor-contract-source.mjs';
+
+// Put the controller first so the ordered `between()` checks stay scoped to
+// its implementation; append the integration modules for cross-boundary wiring.
+const recordingController = recordingTabsSource.replace(/^  /gm, '');
+const source = [recordingController, mainSource, canvasRendererSource, workspaceTabsSource].join('\n');
 
 const timeSelector = await readFile(new URL(
   '../src/recording/pages/recording-view/components/time-selector.tsx', import.meta.url), 'utf8');
@@ -85,9 +96,9 @@ assert.match(source, /function recordingKeyOf[\s\S]*?tab\.source\.kind === 'remo
 // another is invalid, and the × has to be clickable and hidable on its own.
 assert.match(source, /class="workspace-tab-group"|className = 'workspace-tab-group'/,
   'a recording tab is a group of its button and a sibling close button');
-assert.match(source, /const tabContainer = \(entry: WorkspaceTabEntry\): HTMLElement =>/,
+assert.match(source, /export function tabContainer\(entry: WorkspaceTabEntry\): HTMLElement/,
   'the tab bar orders and removes containers, so a grouped tab moves with its close button');
-assert.match(source, /if \(event\.key === 'Delete' \|\| event\.key === 'Backspace'\)[\s\S]*?closeRecordingTab\(tab\)/,
+assert.match(source, /if \(event\.key === 'Delete' \|\| event\.key === 'Backspace'\)[\s\S]*?this\.deps\.closeRecording\(this\.deps\.recordingKey\(entry\.id\)\)/,
   'the close button is out of the tab order, so Delete on the focused tab closes it');
 
 // ---- deep link: #recording=<base key>, alongside #example= ------------------
@@ -114,7 +125,7 @@ for (const forbidden of ['fetch(', 'iframe', 'createObjectURL', 'await']) {
 const create = between('function createRecordingTab', '\nfunction destroyRecordingTab');
 assert.ok(!code(create).includes('iframe'),
   'creating a tab must not create its iframe: that is what defers the viewer download');
-assert.match(source, /if \(isRecordingTabId\(tab\)\) void openRecordingPane\(recordingTabKey\(tab\)\)/,
+assert.match(source, /if \(this\.deps\.isRecordingTab\(tab\)\)\s*void this\.deps\.openRecording\(this\.deps\.recordingKey\(tab\)\)/,
   'the iframe is built when the tab is activated, not before');
 
 const open = between('async function openRecordingPane', '\n// ---- Vertical splitter');
@@ -146,7 +157,9 @@ assert.match(selection, /render\(\);\s*recordHistory\(\);/,
 
 assert.match(source, /type: 'gr-file-source-selection', offset, length/,
   'the editor must send File Source selection parameters into the recording view');
-assert.match(source, /d\.type === 'gr-recording-ready'[\s\S]*?postFileSourceSelection\(tab\)/,
+assert.match(source, /d\.type === 'gr-recording-ready'[\s\S]*?recordingTabsController\.handleReady/,
+  'the editor must delegate recording-view readiness to the tab controller');
+assert.match(source, /handleReady\(event: MessageEvent\)[\s\S]*?postFileSourceSelection\(tab\)/,
   'the editor must initialize the cursor after the recording view is ready');
 assert.match(source, /tab\.viewerOffset !== source\.offset \|\| tab\.viewerLength !== source\.length/,
   'later File Source parameter edits must be synchronized into an open recording view');
@@ -191,9 +204,9 @@ assert.match(destroy, /tab\.entry\.panel\.remove\(\)/,
   'removing the panel drops the iframe, and with it the viewer and its fetches');
 assert.match(destroy, /recordingHashKey\(\) === recordingKeyOf\(tab\)[\s\S]*?setUrlFragment\(\{ recording: null \}\)/,
   'the URL must stop naming a recording whose tab is gone');
-assert.match(destroy, /if \(activeWorkspaceTab === tab\.entry\.id\) activateWorkspaceTab\('editor'\)/,
+assert.match(destroy, /if \(workspaceTabController\.active === tab\.entry\.id\) activateWorkspaceTab\('editor'\)/,
   'closing the tab in view falls back to the Editor');
-assert.match(sync, /if \(!workspaceTabs\.some\(entry => entry\.id === activeWorkspaceTab\)\)\s*\n?\s*activateWorkspaceTab\('editor'\)/,
+assert.match(sync, /if \(!workspaceTabs\.some\(entry => entry\.id === workspaceTabController\.active\)\)\s*\n?\s*activateWorkspaceTab\('editor'\)/,
   'deleting the block of the tab in view falls back to the Editor');
 assert.match(sync, /Only the tab buttons are reordered/,
   'panels are never re-inserted: moving an iframe in the DOM reloads the document inside it');

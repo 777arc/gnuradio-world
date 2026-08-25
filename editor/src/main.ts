@@ -5,14 +5,12 @@
 
 import './editor.css';
 import { dumpGrc, parseGrc, type GrcDoc, type GrcScalar } from './grc';
-import { boundsBetween, boundsIntersect, type Point } from './selection';
 import { ceilToGrid, centeredPortSlot, constrainBlockPosition, SNAP_GRID_SIZE } from './grid';
 import { arrangeFlowgraph, type LayoutNode } from './layout';
 import { evaluate as evalExpr, buildScope, formatValue as fmtExprVal, serializeForRunner, type Scope, type Value } from './expr';
 import { wrapNoteText, NOTE_FONT_SIZE } from './note';
 import {
   layoutColumns,
-  layoutRowHeight,
   packLayout,
   parseTiles,
   placeTile,
@@ -36,28 +34,17 @@ import {
 } from './block-defs';
 import type { Conn, GraphSnapshot, Inst, ValidationIssue } from './graph-model';
 import {
-  AUDIO_SOURCE_ID,
   installAudioResumeRelay,
-  prepareAudioCapture,
 } from './audio';
+import { VARIABLE_IDS, validateFlowgraph } from './validation';
 import {
-  NAME_FIELD,
-  VARIABLE_IDS,
-  validateFlowgraph,
-} from './validation';
-import {
-  type UsbLike,
   type UsbPreparationProblem,
   type UsbRadio,
-  usbApi,
 } from './usb-radio';
 import { RTLSDR_RADIO } from './rtlsdr';
 import { PLUTOSDR_RADIO } from './plutosdr';
 import { HACKRF_RADIO } from './hackrf';
 import {
-  buildRecordingTree,
-  displayBytes,
-  displayRecordingValue,
   displaySi,
   encodeRecordingPath,
   isCi16Datatype,
@@ -66,44 +53,24 @@ import {
   RECORDING_PARAM,
   recordingDataPath,
   recordingFromR2Index,
-  recordingTreeCount,
   recordingUrl,
-  recordingViewUrl,
   recordingsBucketUrl,
-  sigmfFileSourceFormat,
   type ExampleRecording,
   type FileSourceFormat,
   type R2RecordingIndexEntry,
-  type RecordingDirectory,
 } from './recording-catalog';
 import {
-  canPickOutputDirectory,
-  pairSigmfFiles,
-  pickOutputDirectory,
-  parseSigmfMeta,
   sanitizeSigmfBase,
-  sigmfSinkFileNames,
-  sigmfStreamFormat,
-  SIGMF_ACCEPT,
-  SIGMF_DATA_SUFFIX,
   SIGMF_FILE_PARAM,
-  SIGMF_META_SUFFIX,
-  SIGMF_OPEN_DTYPE,
-  SIGMF_OUTPUT_PICKER_HELP,
-  SIGMF_OUTPUT_PREFIX,
-  SIGMF_SAVE_DTYPE,
   SIGMF_SINK_ID,
   SIGMF_SOURCE_ID,
   type SigmfBinding,
 } from './sigmf-blocks';
 import {
-  buildExampleTree,
   encodeExamplePath,
   exampleFileName,
-  exampleTreeCount,
   exampleUrl,
   normalizeExamplePath,
-  type ExampleDirectory,
 } from './example-catalog';
 import {
   BLOCK_COMMENT_ID,
@@ -114,13 +81,13 @@ import {
   portOptional,
 } from './block-library';
 import {
-  EPY_BLOCK_ID, EPY_CODE_DTYPE, EPY_IO_CACHE_PARAM, EPY_SOURCE_PARAM, epyDefForCache,
-  epySourceError, isForeignIoCache, pythonRuntime, setEpySourceError,
+  EPY_BLOCK_ID, EPY_IO_CACHE_PARAM, EPY_SOURCE_PARAM, epyDefForCache,
+  epySourceError, isForeignIoCache, pythonRuntime,
 } from './epy';
 import {
-  JS_BLOCK_ID, JS_CODE_DTYPE, JS_IO_PARAM, JS_LOCAL_SOURCE_PARAM, JS_SOURCE_PARAM,
-  acceptJsSource, generateBlockYml, isJsSourceAccepted, jsDefForCache, jsIntrospector,
-  jsSourceError, jsSourceOf, listLocalJsBlocks, parseJsIo,
+  JS_BLOCK_ID, JS_IO_PARAM, JS_LOCAL_SOURCE_PARAM, JS_SOURCE_PARAM,
+  acceptJsSource, generateBlockYml, isJsSourceAccepted, jsDefForCache,
+  jsSourceError, jsSourceOf, listLocalJsBlocks,
   sanitizeBlockId, saveLocalJsBlock, serializeJsIo, setJsSourceError,
   type JsBlockIo, type LocalJsBlock,
 } from './js-block';
@@ -142,6 +109,45 @@ import {
   unpacedRunWarningDismissed,
 } from './run-pacing';
 import aiSystemPrompt from './ai/system-prompt.md?raw';
+import {
+  buildMenuBar,
+  buildToolbar,
+  closeMenus,
+  installMenuDismissal,
+  type Tool,
+  type TopMenu,
+} from './app-chrome';
+import {
+  makePaletteSearch,
+  renderPaletteTree,
+  type LibraryBlock,
+} from './palette-tree';
+import { EditorGraphState } from './editor-state';
+import { showVariableEditor as openVariableEditor } from './variable-editor';
+import {
+  showPropertiesDialog,
+  type PropertiesDialogDeps,
+} from './properties-dialog';
+import { renderCanvas } from './canvas-renderer';
+import { CanvasConnectionController } from './canvas-connections';
+import { CanvasGestureController } from './canvas-gestures';
+import {
+  WorkspaceTabsController,
+  type WorkspaceTab,
+  type WorkspaceTabEntry,
+} from './workspace-tabs';
+import {
+  runFlowgraph,
+  stopFlowgraph,
+  takeRecordingFiles,
+  updateRunningCanvasState as updateRunCanvasState,
+  type RunSessionDeps,
+  type RunSessionState,
+  type RunnerInputFile,
+} from './run-session';
+import { createRecordingTabs } from './recording-tabs';
+import { createExamplePalette } from './example-palette';
+import { createRecordingPalette } from './recording-palette';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const el = (id: string) => document.getElementById(id)!;
@@ -188,23 +194,8 @@ const trainingNodesG = el('trainingNodes'), trainingWiresG = el('trainingWires')
 const nodesG = el('nodes'), wiresG = el('wires'), selectionG = el('selectionOverlay');
 const svg = el('svg') as unknown as SVGSVGElement;
 
-let insts: Inst[] = [];
-let conns: Conn[] = [];
-let selected: string | null = null;
-let selectedBlocks = new Set<string>();
-let selectedConnection: Conn | null = null;
-let counter = 0;
+const state = new EditorGraphState();
 let trainingSession: TrainingSession | null = null;
-// In-progress connection: a rubber-band wire from a port (either an output or an
-// input, GRC-style). Two ways to complete it: drag from one port and release on
-// another, or click one port then click the other. `connectPreview` is the live
-// SVG path. `connectDownPt` is the screen point where the source port was
-// pressed; a press-release on the same port that barely moved reads as a click
-// (which arms click-to-connect) rather than an aborted drag.
-let connecting: { uid: string; port: number; kind: 'in' | 'out' } | null = null;
-let connectPreview: SVGPathElement | null = null;
-let connectDownPt: { x: number; y: number } | null = null;
-const CONNECT_CLICK_SLOP = 4;   // px of movement still treated as a click, not a drag
 let autoScrollLog = true;
 let zoom = 1;
 let hideDisabled = false;
@@ -215,7 +206,6 @@ let hideVariables = false;
 let showParameterExpressions = false;
 let showParameterValues = true;
 let autoHidePortLabels = false;
-let hoveredPortKey: string | null = null;
 let showPropertiesFieldColors = false;
 // Unlike desktop GRC's historical preference default, the WASM editor starts
 // with snapping enabled so newly opened sessions get aligned movement.
@@ -327,7 +317,7 @@ function newLocalFileToken(): string {
 // once placed, so it can have been renamed or deleted. Say so rather than
 // conjuring one back: a flowgraph without a samp_rate has not asked for one.
 function applySampRateFromSigmf(rate: number, source: string): boolean {
-  const variable = insts.find(i => i.id === 'variable' && i.name === 'samp_rate');
+  const variable = state.insts.find(i => i.id === 'variable' && i.name === 'samp_rate');
   if (!variable) {
     log(`note: "${source}" is ${displaySi(rate, 'Hz')}, but this flowgraph has no ` +
         `samp_rate variable to write it to`);
@@ -365,7 +355,7 @@ const ISHORT_TO_COMPLEX_ID = 'blocks_interleaved_short_to_complex';
 // reader built, and a second converter appearing beside it would be an edit
 // nobody asked for. Returns whether it added one, so the caller can log it.
 function attachIShortToComplex(block: Inst): boolean {
-  if (conns.some(c => c.from === block.uid)) return false;
+  if (state.conns.some(c => c.from === block.uid)) return false;
   if (!RUNNABLE[ISHORT_TO_COMPLEX_ID]) {
     log('note: IShort To Complex is not available, so this recording’s short ' +
         'stream has to be converted by hand');
@@ -379,7 +369,7 @@ function attachIShortToComplex(block: Inst): boolean {
     false,
   );
   if (!converter) return false;
-  conns.push({ from: block.uid, fp: 0, to: converter.uid, tp: 0 });
+  state.conns.push({ from: block.uid, fp: 0, to: converter.uid, tp: 0 });
   return true;
 }
 
@@ -397,7 +387,7 @@ let historyIndex = -1;
 let historyReady = false;
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
 function snapshot(): EditorSnapshot {
-  return clone({ insts, conns, counter,
+  return clone({ insts: state.insts, conns: state.conns, counter: state.counter,
     ...(trainingSession ? { training: trainingSession.capture() } : {}) });
 }
 // The three places the canvas changes as a whole are also the three that decide
@@ -420,10 +410,10 @@ function restoreHistory(index: number) {
   if (index < 0 || index >= graphHistory.length) return;
   historyIndex = index;
   void refreshEmbedOpen();
-  const state = clone(graphHistory[index]);
-  insts = state.insts; conns = state.conns; counter = state.counter;
-  trainingSession?.restore(state.training);
-  selected = null; selectedBlocks.clear(); selectedConnection = null; cancelConnect();
+  const restored = clone(graphHistory[index]);
+  state.insts = restored.insts; state.conns = restored.conns; state.counter = restored.counter;
+  trainingSession?.restore(restored.training);
+  state.clearSelection(); cancelConnect();
   render();
   updateRunningCanvasState();
 }
@@ -715,7 +705,7 @@ function remapConnectionsForPortChange(inst: Inst, nextParams: Record<string, an
     return oldPorts.map(port => newByKey.get(portKey(port)) ?? -1);
   };
   const inputs = mappings('in'), outputs = mappings('out');
-  conns = conns.flatMap(connection => {
+  state.conns = state.conns.flatMap(connection => {
     if (connection.to === inst.uid) {
       const nextPort = inputs[connection.tp] ?? -1;
       if (nextPort < 0) return [];
@@ -778,7 +768,7 @@ function portLabel(inst: Inst, kind: 'in' | 'out', i: number): string {
 }
 
 function portWidth(inst: Inst, kind: 'in' | 'out', i: number): number {
-  if (autoHidePortLabels && hoveredPortKey !== `${inst.uid}:${kind}:${i}`)
+  if (connectionController.portLabelHidden(`${inst.uid}:${kind}:${i}`))
     return PORT_HIDDEN_W;
   return ceilToGrid(Math.max(PORT_MIN_W,
     Math.ceil(textW(portLabel(inst, kind, i), PORT_FONT_SIZE)) + 2 * PORT_LABEL_PAD));
@@ -797,7 +787,7 @@ function fmtVal(v: any): string {
 // parameter expression (like native GRC), while the stored value keeps the raw
 // expression (visible/editable in the Properties dialog).
 let varScope: Scope = {};
-function rebuildScope() { varScope = buildScope(insts); }
+function rebuildScope() { varScope = buildScope(state.insts); }
 
 // What bounds a block's width in native GRC: every parameter value drawn on the
 // block face is truncated to `max(27 - len(label), 3)` characters, so no single
@@ -898,7 +888,7 @@ function wrapValidationMessage(message: string, maxCharacters: number): string[]
   return lines;
 }
 
-function validateGraph(blocks: Inst[] = insts, connections: Conn[] = conns): ValidationIssue[] {
+function validateGraph(blocks: Inst[] = state.insts, connections: Conn[] = state.conns): ValidationIssue[] {
   const issues = validateFlowgraph(blocks, connections,
                                    { portCount, portMeta, portType, def: defFor });
   // A Python or JS Block whose source could not be read is invalid, the way it is
@@ -926,18 +916,6 @@ function validateGraph(blocks: Inst[] = insts, connections: Conn[] = conns): Val
                     blocking: block.enabled && !block.bypassed });
   }
   return issues;
-}
-
-function fieldIssue(issues: ValidationIssue[], uid: string, field: string): string {
-  return issues.find(issue => issue.uid === uid && issue.field === field)?.message || '';
-}
-
-function setFieldError(node: HTMLElement, errorNode: HTMLElement, message: string) {
-  node.classList.toggle('field-invalid', !!message);
-  node.setAttribute('aria-invalid', String(!!message));
-  if (message) node.setAttribute('title', message); else node.removeAttribute('title');
-  errorNode.textContent = message;
-  errorNode.hidden = !message;
 }
 
 // Real glyph metrics: the old per-character estimate under-measured wide text
@@ -1176,8 +1154,8 @@ function connectionPath(a: Inst, fp: number, b: Inst, tp: number): string {
 // undo, paste and a loaded flowgraph all feed the same set.
 function namesInUse(): Set<string> {
   return new Set([
-    ...insts.map(inst => inst.name),
-    ...(trainingSession ? trainingSession.reservedNames(insts) : []),
+    ...state.insts.map(inst => inst.name),
+    ...(trainingSession ? trainingSession.reservedNames(state.insts) : []),
   ]);
 }
 
@@ -1188,17 +1166,17 @@ function uniqueBlockName(base: string, taken: Set<string> = namesInUse()): strin
   }
 }
 
-function addBlock(id: string, x = 60 + (counter % 5) * 30, y = 60 + (counter % 7) * 24,
+function addBlock(id: string, x = 60 + (state.counter % 5) * 30, y = 60 + (state.counter % 7) * 24,
                   paramOverrides: Record<string, any> = {}, record = true): Inst | null {
   const d = RUNNABLE[id]; if (!d) { log('block "' + id + '" is not runnable yet'); return null; }
   if (id === OPTIONS_ID || id === LAYOUT_ID) {
-    const existing = insts.find(i => i.id === id);
+    const existing = state.insts.find(i => i.id === id);
     if (existing) {
       log(`only one ${d.label} block is allowed per flowgraph`);
       select(existing.uid); return existing;
     }
   }
-  const uid = 'b' + (++counter);
+  const uid = 'b' + (++state.counter);
   const params: Record<string, any> = {};
   d.params.forEach(p => params[p.id] = p.def);
   Object.assign(params, paramOverrides);
@@ -1208,7 +1186,7 @@ function addBlock(id: string, x = 60 + (counter % 5) * 30, y = 60 + (counter % 7
     x: position.x, y: position.y, params,
     enabled: true, rotation: 0, bypassed: false,
   };
-  insts.push(inst);
+  state.insts.push(inst);
   select(uid);
   if (record) recordHistory();
   return inst;
@@ -1289,27 +1267,27 @@ function openJsCodeModal(options: JsCodeModalOptions) {
 }
 
 // ---- block operations (used by the context menu and shortcuts) ----
-function deleteBlocks(uids = selectedBlocks, record = true) {
+function deleteBlocks(uids = state.selectedBlocks, record = true) {
   if (!uids.size) return;
   // Options and GUI Layout are required singletons and cannot be deleted.
-  insts = insts.filter(i => !uids.has(i.uid) || i.id === OPTIONS_ID || i.id === LAYOUT_ID);
-  conns = conns.filter(c => !uids.has(c.from) && !uids.has(c.to));
-  selectedBlocks.clear(); selected = null; selectedConnection = null;
+  state.insts = state.insts.filter(i => !uids.has(i.uid) || i.id === OPTIONS_ID || i.id === LAYOUT_ID);
+  state.conns = state.conns.filter(c => !uids.has(c.from) && !uids.has(c.to));
+  state.selectedBlocks.clear(); state.selected = null; state.selectedConnection = null;
   render(); if (record) recordHistory();
 }
 function deleteConnection(conn: Conn) {
-  conns = conns.filter(c => c !== conn);
-  if (selectedConnection === conn) selectedConnection = null;
+  state.conns = state.conns.filter(c => c !== conn);
+  if (state.selectedConnection === conn) state.selectedConnection = null;
   render(); recordHistory();
 }
 function duplicateBlock(uid: string) {
-  const s = insts.find(i => i.uid === uid); if (!s) return;
+  const s = state.insts.find(i => i.uid === uid); if (!s) return;
   if (s.id === OPTIONS_ID || s.id === LAYOUT_ID) {
     log(`only one ${defFor(s).label} block is allowed per flowgraph`); return;
   }
-  const nu = 'b' + (++counter);
+  const nu = 'b' + (++state.counter);
   const position = constrainBlockPosition(s.x + 24, s.y + 24, snapToGrid);
-  insts.push({ uid: nu, id: s.id, name: uniqueBlockName(s.name),
+  state.insts.push({ uid: nu, id: s.id, name: uniqueBlockName(s.name),
     x: position.x, y: position.y, params: { ...s.params }, enabled: s.enabled,
     rotation: s.rotation, bypassed: s.bypassed });
   select(nu); recordHistory();
@@ -1318,15 +1296,15 @@ function duplicateBlock(uid: string) {
 interface GraphClipboard { blocks: Inst[]; connections: Conn[] }
 let clipboard: GraphClipboard | null = null;
 function copyBlock(uid: string) {
-  copyBlocks(selectedBlocks.has(uid) ? selectedBlocks : new Set([uid]));
+  copyBlocks(state.selectedBlocks.has(uid) ? state.selectedBlocks : new Set([uid]));
 }
-function copyBlocks(uids = selectedBlocks) {
+function copyBlocks(uids = state.selectedBlocks) {
   // Options and GUI Layout are singletons; never copy them (so paste can't
   // duplicate one).
-  const blocks = insts.filter(i =>
+  const blocks = state.insts.filter(i =>
     uids.has(i.uid) && i.id !== OPTIONS_ID && i.id !== LAYOUT_ID);
   if (!blocks.length) return;
-  clipboard = clone({ blocks, connections: conns.filter(c => uids.has(c.from) && uids.has(c.to)) });
+  clipboard = clone({ blocks, connections: state.conns.filter(c => uids.has(c.from) && uids.has(c.to)) });
   log(`copied ${blocks.length} block${blocks.length === 1 ? '' : 's'}`);
 }
 function pasteBlock(x = 80, y = 80) {
@@ -1337,22 +1315,22 @@ function pasteBlock(x = 80, y = 80) {
   // As in native GRC, a pasted block keeps its own ID when nothing else holds it
   // and is renamed off that ID otherwise, so `x_0` pasted beside itself becomes
   // `x_0_0`. The set grows as blocks land so one paste cannot collide with itself.
-  const taken = new Set(insts.map(i => i.name));
+  const taken = new Set(state.insts.map(i => i.name));
   const added: Inst[] = clipboard.blocks.map(source => {
-    const uid = 'b' + (++counter); remap.set(source.uid, uid);
+    const uid = 'b' + (++state.counter); remap.set(source.uid, uid);
     const position = constrainBlockPosition(
       x + source.x - minX, y + source.y - minY, snapToGrid);
     const name = taken.has(source.name) ? uniqueBlockName(source.name, taken) : source.name;
     taken.add(name);
     return { ...clone(source), uid, name, x: position.x, y: position.y };
   });
-  insts.push(...added);
-  conns.push(...clipboard.connections.map(c => ({ ...c, from: remap.get(c.from)!, to: remap.get(c.to)! })));
-  selectedBlocks = new Set(added.map(i => i.uid)); selected = added.length ? added[added.length - 1].uid : null;
-  selectedConnection = null; render(); recordHistory();
+  state.insts.push(...added);
+  state.conns.push(...clipboard.connections.map(c => ({ ...c, from: remap.get(c.from)!, to: remap.get(c.to)! })));
+  state.selectedBlocks = new Set(added.map(i => i.uid)); state.selected = added.length ? added[added.length - 1].uid : null;
+  state.selectedConnection = null; render(); recordHistory();
 }
 
-function selectedInsts(): Inst[] { return insts.filter(i => selectedBlocks.has(i.uid)); }
+function selectedInsts(): Inst[] { return state.insts.filter(i => state.selectedBlocks.has(i.uid)); }
 function setSelectedEnabled(enabled: boolean) {
   const blocks = selectedInsts(); if (!blocks.length) return;
   blocks.forEach(i => i.enabled = enabled); render(); recordHistory();
@@ -1376,12 +1354,12 @@ function bypassSelected() {
 // measured here — box size, how far the port tabs stick out on each side, and
 // the y offset of every port — so `layout.ts` stays DOM-free and unit testable.
 function autoArrangeBlocks(record = true) {
-  if (!insts.length) return;
+  if (!state.insts.length) return;
   // Ports have to face the way the layout flows, so a hand-rotated block is
   // straightened first: a 90° block's ports sit on its top and bottom edges, and
   // no left-to-right wire into one of those can ever come out straight.
-  for (const inst of insts) inst.rotation = 0;
-  const nodes: LayoutNode[] = insts.map(inst => {
+  for (const inst of state.insts) inst.rotation = 0;
+  const nodes: LayoutNode[] = state.insts.map(inst => {
     const { w, h } = geom(inst);
     const offsets = (kind: 'in' | 'out') =>
       Array.from({ length: portCount(inst, kind) }, (_, i) => portPos(inst, kind, i).y);
@@ -1395,14 +1373,14 @@ function autoArrangeBlocks(record = true) {
       pinned: inst.id === OPTIONS_ID || inst.id === LAYOUT_ID,
     };
   });
-  const byUid = new Map(insts.map(inst => [inst.uid, inst]));
-  for (const at of arrangeFlowgraph(nodes, conns)) {
+  const byUid = new Map(state.insts.map(inst => [inst.uid, inst]));
+  for (const at of arrangeFlowgraph(nodes, state.conns)) {
     const inst = byUid.get(at.uid)!;
     const position = constrainBlockPosition(at.x, at.y, snapToGrid);
     inst.x = position.x; inst.y = position.y;
   }
   render(); if (record) recordHistory();
-  log(`arranged ${insts.length} block${insts.length === 1 ? '' : 's'}`);
+  log(`arranged ${state.insts.length} block${state.insts.length === 1 ? '' : 's'}`);
 }
 function cycleBlockType(direction: number) {
   const blocks = selectedInsts(); let changed = false;
@@ -1489,7 +1467,7 @@ function applyCenterFromUrl() {
 // than fitting it at any cost.
 function zoomToFit() {
   let right = 0, bottom = 0;
-  for (const inst of insts) {
+  for (const inst of state.insts) {
     if (canvasBlockHidden(inst)) continue;
     const { w, h } = geom(inst);
     const comment = blockCommentGeometry(inst);
@@ -1512,12 +1490,12 @@ function makeOptionsInst(): Inst {
   RUNNABLE[OPTIONS_ID].params.forEach(p => params[p.id] = p.def);
   // Its instance name is internal — the .grc gets the derived flowgraph id, and
   // nothing displays this — but it still has to be a legal, unique block ID.
-  return { uid: 'b' + (++counter), id: OPTIONS_ID, name: OPTIONS_ID,
+  return { uid: 'b' + (++state.counter), id: OPTIONS_ID, name: OPTIONS_ID,
     x: 10, y: 10, params, enabled: true, rotation: 0, bypassed: false };
 }
 // Guarantee the current flowgraph has an Options block (loaded/legacy files may lack one).
 function ensureOptionsBlock() {
-  if (!insts.some(i => i.id === OPTIONS_ID)) insts.unshift(makeOptionsInst());
+  if (!state.insts.some(i => i.id === OPTIONS_ID)) state.insts.unshift(makeOptionsInst());
 }
 
 // ---- GUI Layout block: the other required singleton ----
@@ -1532,7 +1510,7 @@ const LAYOUT_DTYPE = 'gui_layout';
 function makeLayoutInst(): Inst {
   const params: Record<string, any> = {};
   RUNNABLE[LAYOUT_ID].params.forEach(p => params[p.id] = p.def);
-  return { uid: 'b' + (++counter), id: LAYOUT_ID, name: uniqueBlockName(LAYOUT_ID),
+  return { uid: 'b' + (++state.counter), id: LAYOUT_ID, name: uniqueBlockName(LAYOUT_ID),
     x: 10, y: 120, params, enabled: true, rotation: 0, bypassed: false };
 }
 // Clearance kept around the block that is being dropped in, so it neither
@@ -1547,10 +1525,10 @@ const LAYOUT_DROP_GAP = SNAP_GRID_SIZE * 3;
 // terminates because below the lowest block everything is free.
 function placeLayoutInst(inst: Inst) {
   const box = (i: Inst) => { const { w, h } = geom(i); return { x: i.x, y: i.y, w, h }; };
-  const boxes = insts.filter(i => i !== inst).map(box);
+  const boxes = state.insts.filter(i => i !== inst).map(box);
   if (!boxes.length) return;
   const self = geom(inst);
-  const header = insts.find(i => i.id === OPTIONS_ID) ?? insts[0];
+  const header = state.insts.find(i => i.id === OPTIONS_ID) ?? state.insts[0];
   const headerBox = box(header);
   // The header band is the row Options sits in; the block goes after whatever
   // else is already in that row rather than on top of the first one of them.
@@ -1567,18 +1545,18 @@ function ensureLayoutBlock() {
   // A build with no generated library yet (the very first paint) has no schema
   // to build one from; the next load settles it.
   if (!RUNNABLE[LAYOUT_ID]) return;
-  if (insts.some(i => i.id === LAYOUT_ID)) return;
+  if (state.insts.some(i => i.id === LAYOUT_ID)) return;
   const inst = makeLayoutInst();
   placeLayoutInst(inst);
-  insts.push(inst);
+  state.insts.push(inst);
 }
-const layoutInst = (): Inst | undefined => insts.find(i => i.id === LAYOUT_ID);
+const layoutInst = (): Inst | undefined => state.insts.find(i => i.id === LAYOUT_ID);
 // The blocks that take a tile: those whose factory builds a QWidget. Only the
 // C++ knows which those are, so the answer comes from the generated library's
 // `gui` flag, which each block declares for itself as `gui: true`. Disabled
 // blocks are left out because the runner never builds them.
 function guiWidgets(): WidgetRef[] {
-  return insts.filter(i => i.enabled && !i.bypassed && GUI_BLOCK_IDS.has(i.id))
+  return state.insts.filter(i => i.enabled && !i.bypassed && GUI_BLOCK_IDS.has(i.id))
     .map(i => ({ name: i.name, id: i.id }));
 }
 function layoutTilesFor(inst: Inst | undefined = layoutInst()): TileMap {
@@ -1612,7 +1590,7 @@ function makeSampRateInst(): Inst {
   const params: Record<string, any> = {};
   RUNNABLE['variable'].params.forEach(p => params[p.id] = p.def);
   params.value = DEFAULT_SAMP_RATE;
-  return { uid: 'b' + (++counter), id: 'variable', name: 'samp_rate',
+  return { uid: 'b' + (++state.counter), id: 'variable', name: 'samp_rate',
     x: 200, y: 10, params, enabled: true, rotation: 0, bypassed: false };
 }
 
@@ -1637,9 +1615,9 @@ function exitTrainingMode(stripQuery = true) {
 
 function clearFlowgraph(record = true) {
   exitTrainingMode();
-  insts = []; conns = []; counter = 0; selected = null; selectedBlocks.clear();
-  insts.push(makeSampRateInst());   // the default flowgraph's one variable
-  selectedConnection = null; cancelConnect();
+  state.insts = []; state.conns = []; state.counter = 0; state.selected = null; state.selectedBlocks.clear();
+  state.insts.push(makeSampRateInst());   // the default flowgraph's one variable
+  state.selectedConnection = null; cancelConnect();
   ensureOptionsBlock(); ensureLayoutBlock(); render();
   setExampleHash(null);   // the canvas is empty; any #example= in the URL is stale
   setCurrentFileName(null);
@@ -1674,7 +1652,7 @@ function grcStates(inst: Inst): Record<string, any> {
 // becomes an underscore, and a title that does not begin with a letter gets a
 // prefix, since a leading digit or underscore is not a legal id there.
 function flowgraphId(): string {
-  const opt = insts.find(i => i.id === OPTIONS_ID);
+  const opt = state.insts.find(i => i.id === OPTIONS_ID);
   const id = String(opt?.params.title || '').trim().replace(/[^A-Za-z0-9_]/g, '_');
   if (!id) return DEFAULT_FLOWGRAPH_ID;
   return /^[A-Za-z]/.test(id) ? id : `fg_${id}`;
@@ -1695,7 +1673,7 @@ function grcConnectionKey(c: GrcScalar[] | Record<string, GrcScalar>): string {
 // fails static evaluation and is left as raw text, so the runner still wires it
 // to the live block instead of freezing it at the control's initial value.
 function buildRunScope(): Scope {
-  return buildScope(insts.filter(i => i.id === 'variable'));
+  return buildScope(state.insts.filter(i => i.id === 'variable'));
 }
 // GRC lets a parameter's dtype depend on another parameter: `fir_filter_xxx`
 // declares `taps` as `${ type.taps }`, which resolves through the `type` param's
@@ -1752,9 +1730,9 @@ function resolveParamsForRun(inst: Inst, scope: Scope): Record<string, any> {
 function buildGrcDoc(resolve = false): GrcDoc {
   const runScope = resolve ? buildRunScope() : {};
   const paramsOf = (i: Inst) => grcParams(resolve ? resolveParamsForRun(i, runScope) : i.params);
-  const byUid = (u: string) => insts.find(i => i.uid === u);
+  const byUid = (u: string) => state.insts.find(i => i.uid === u);
   // options: a top-level block (not in `blocks`), carrying flowgraph metadata.
-  const opt = insts.find(i => i.id === OPTIONS_ID);
+  const opt = state.insts.find(i => i.id === OPTIONS_ID);
   const optionParams: Record<string, GrcScalar> = { generate_options: 'qt_gui', id: flowgraphId() };
   if (opt) for (const [k, v] of Object.entries(opt.params)) optionParams[k] = String(v);
   const options = { parameters: grcParams(optionParams),
@@ -1762,14 +1740,14 @@ function buildGrcDoc(resolve = false): GrcDoc {
 
   // blocks: everything except options, GRC order (variables first, then by name).
   const isVar = (i: Inst) => VARIABLE_IDS.has(i.id);
-  const blocks = insts.filter(i => i.id !== OPTIONS_ID)
+  const blocks = state.insts.filter(i => i.id !== OPTIONS_ID)
     .sort((a, b) => (Number(!isVar(a)) - Number(!isVar(b))) ||
       (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
     .map(i => ({ name: i.name, id: i.id, parameters: paramsOf(i), states: grcStates(i) }));
 
   // connections: 4-tuples for streams, dicts (file_format 2) for message ports.
   const connections: Array<GrcScalar[] | Record<string, GrcScalar>> = [];
-  for (const c of conns) {
+  for (const c of state.conns) {
     const src = byUid(c.from), snk = byUid(c.to);
     if (!src || !snk) continue;
     const sourcePort = portMeta(src, 'out', c.fp);
@@ -1807,7 +1785,7 @@ function downloadBlob(contents: BlobPart, type: string, filename: string) {
 function saveFlowgraph() {
   const file = currentFileName || 'flowgraph.grc';
   downloadBlob(grcText(), 'application/x-yaml', file);
-  log(`saved ${insts.length} blocks to ${file}`);
+  log(`saved ${state.insts.length} blocks to ${file}`);
 }
 
 // ---- .grc import (parsed GrcDoc tree -> editor model) ----
@@ -1877,7 +1855,7 @@ function loadFlowgraph(doc: any, record = true) {
   if (!doc || !Array.isArray(doc.blocks))
     throw new Error('not a GNU Radio .grc flowgraph');
   exitTrainingMode();
-  insts = []; conns = []; counter = 0;
+  state.insts = []; state.conns = []; state.counter = 0;
   // Whatever was on the canvas is gone, and with it the file Save writes to; the
   // callers that do know a name (an example, an opened .grc) set it back after.
   setCurrentFileName(null);
@@ -1887,7 +1865,7 @@ function loadFlowgraph(doc: any, record = true) {
   const optCoord = Array.isArray(optRaw.states?.coordinate) ? optRaw.states.coordinate : [10, 10];
   // The file's `id` is not carried into the model: it is derived from the Title
   // again on save, so there is nowhere for a loaded one to live.
-  insts.push({ uid: 'b' + (++counter), id: OPTIONS_ID, name: OPTIONS_ID,
+  state.insts.push({ uid: 'b' + (++state.counter), id: OPTIONS_ID, name: OPTIONS_ID,
     x: Number(optCoord[0]) || 10, y: Number(optCoord[1]) || 10,
     params: importParams(RUNNABLE[OPTIONS_ID], optRaw.parameters || {}),
     enabled: optFlags.enabled, rotation: Number(optRaw.states?.rotation) || 0, bypassed: optFlags.bypassed });
@@ -1912,9 +1890,9 @@ function loadFlowgraph(doc: any, record = true) {
     const coord = Array.isArray(b.states?.coordinate) ? b.states.coordinate
       : [60 + (index % 4) * 190, 60 + Math.floor(index / 4) * 130];
     const flags = stateToFlags(b.states?.state);
-    const uid = 'b' + (++counter), name = String(b.name || b.id);
+    const uid = 'b' + (++state.counter), name = String(b.name || b.id);
     nameToUid.set(name, uid);
-    insts.push({ uid, id: b.id, name, x: Number(coord[0]) || 0, y: Number(coord[1]) || 0,
+    state.insts.push({ uid, id: b.id, name, x: Number(coord[0]) || 0, y: Number(coord[1]) || 0,
       params: importParams(def, b.parameters || {}, b.id), enabled: flags.enabled,
       rotation: Number(b.states?.rotation) || 0, bypassed: flags.bypassed });
   });
@@ -1928,7 +1906,7 @@ function loadFlowgraph(doc: any, record = true) {
       sp = String(c.src_port_id); tp = String(c.snk_port_id);
     } else continue;
     if (!from || !to) continue;
-    conns.push({ from, fp: portIndex(G0(from), 'out', sp), to, tp: portIndex(G0(to), 'in', tp) });
+    state.conns.push({ from, fp: portIndex(G0(from), 'out', sp), to, tp: portIndex(G0(to), 'in', tp) });
   }
   ensureOptionsBlock();
   // A .grc written before this block existed -- every upstream example, and
@@ -1936,8 +1914,8 @@ function loadFlowgraph(doc: any, record = true) {
   // the reader having to add anything. Its tiles start empty, which is the
   // vertical stack such a flowgraph has always been rendered as.
   ensureLayoutBlock();
-  selected = null; selectedBlocks.clear(); selectedConnection = null; cancelConnect();
-  render(); if (record) recordHistory(); log(`opened ${insts.length} blocks`);
+  state.selected = null; state.selectedBlocks.clear(); state.selectedConnection = null; cancelConnect();
+  render(); if (record) recordHistory(); log(`opened ${state.insts.length} blocks`);
 }
 
 function startTrainingFlowgraph(doc: any, file: string, title: string) {
@@ -1954,17 +1932,21 @@ function startTrainingFlowgraph(doc: any, file: string, title: string) {
   // becomes the immutable lesson; only the two editor-managed singletons remain
   // real on the learner's canvas.
   loadFlowgraph(doc, false);
-  const template: GraphSnapshot = clone({ insts, conns, counter });
+  const template: GraphSnapshot = clone({
+    insts: state.insts,
+    conns: state.conns,
+    counter: state.counter,
+  });
   trainingSession = new TrainingSession(template, [OPTIONS_ID, LAYOUT_ID]);
-  insts = clone(template.insts.filter(block => block.id === OPTIONS_ID || block.id === LAYOUT_ID));
-  conns = [];
-  counter = template.counter;
-  selected = null; selectedBlocks.clear(); selectedConnection = null; cancelConnect();
+  state.insts = clone(template.insts.filter(block => block.id === OPTIONS_ID || block.id === LAYOUT_ID));
+  state.conns = [];
+  state.counter = template.counter;
+  state.selected = null; state.selectedBlocks.clear(); state.selectedConnection = null; cancelConnect();
   setExampleHash(null);
   setCurrentFileName(file);
   render();
   resetHistory();
-  const counts = trainingSession.counts(insts, conns);
+  const counts = trainingSession.counts(state.insts, state.conns);
   log(`started training example "${title}": ${counts.totalBlocks} block${counts.totalBlocks === 1 ? '' : 's'} ` +
       `and ${counts.totalConnections} connection${counts.totalConnections === 1 ? '' : 's'} to complete`);
 }
@@ -2032,7 +2014,7 @@ function loadFlowgraphAnimated(doc: any) {
   setTimeout(() => flyG.remove(), OUT + 120);
 }
 function duplicateFlowgraph() {
-  if (!insts.length) return;
+  if (!state.insts.length) return;
   const token = `grc-duplicate-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   try {
     localStorage.setItem(token, grcText());
@@ -2043,8 +2025,8 @@ function duplicateFlowgraph() {
     if (duplicate) { log('duplicated flowgraph in a new tab'); return; }
     localStorage.removeItem(token);
   } catch { /* fall through to an in-canvas copy if storage or popups are unavailable */ }
-  const ids = new Set(insts.map(i => i.uid)); copyBlocks(ids);
-  const minX = Math.min(...insts.map(i => i.x)), minY = Math.min(...insts.map(i => i.y));
+  const ids = new Set(state.insts.map(i => i.uid)); copyBlocks(ids);
+  const minX = Math.min(...state.insts.map(i => i.x)), minY = Math.min(...state.insts.map(i => i.y));
   pasteBlock(minX + 30, minY + 30); log('popup blocked; duplicated flowgraph on the canvas');
 }
 function saveScreenshot() {
@@ -2134,124 +2116,15 @@ async function copyFlowgraphUrl() {
 // What works is a real select carrying the options *plus* whatever value the
 // flowgraph holds, and a "Custom value…" entry that swaps in a text field for an
 // expression or a variable name.
-const CUSTOM_OPTION = '__grw_custom_value__';   // no GRC option can collide with it
-function optionCombo(param: ParamDef, value: string, commit: (value: string) => void) {
-  const wrap = document.createElement('div'); wrap.className = 'opt-combo';
-  const select = document.createElement('select');
-  const input = document.createElement('input');
-  const hint = document.createElement('small'); hint.className = 'field-hint';
-  hint.textContent = 'Custom value — reopen this dialog to choose from the list again.';
-  input.hidden = hint.hidden = true;
-  const labelOf = new Map((param.options || []).map(
-    (option, index) => [option, param.optionLabels?.[index] ?? option]));
-  // A stored value the list does not have leads it, so a variable or an
-  // expression is shown as what it is rather than quietly replaced.
-  const values = labelOf.has(value) ? [...labelOf.keys()] : [value, ...labelOf.keys()];
-  for (const option of values) select.appendChild(new Option(labelOf.get(option) ?? option, option));
-  select.appendChild(new Option('Custom value…', CUSTOM_OPTION));
-  select.value = value;
-  let current = value;
-  select.onchange = () => {
-    if (select.value !== CUSTOM_OPTION) { current = select.value; commit(current); return; }
-    // The sentinel is a mode, never a value: the field keeps what it had, and
-    // selects it, so typing replaces the option rather than appending to it.
-    input.value = current;
-    select.hidden = true; input.hidden = hint.hidden = false;
-    input.focus(); input.select();
-  };
-  input.oninput = () => { current = input.value; commit(current); };
-  wrap.append(select, input, hint);
-  return { wrap, select, input };
-}
-function usesOptionCombo(param: ParamDef): boolean {
-  return param.type !== 'enum' && !param.multiline && !!param.options?.length;
-}
-
-// Native GRC colors editable property fields by parameter dtype. Keep this map
-// separate from stream-port colors: these are the brighter GTK property-entry
-// colors, not the palette used for port tabs.
-const PROPERTY_FIELD_COLORS: Record<string, string> = {
-  complex: '#3399FF', real: '#FF8C69', float: '#FF8C69', int: '#00FF99',
-  complex_vector: '#3399AA', real_vector: '#CC8C69', float_vector: '#CC8C69',
-  int_vector: '#00CC99', bool: '#00FF99', hex: '#00FF99', string: '#CC66CC',
-  id: '#DDDDDD', stream_id: '#DDDDDD', raw: '#DDDDDD',
-};
-function propertyFieldDtype(param: ParamDef): string {
-  return param.dtype || (param.type === 'number' ? 'real' : param.type);
-}
-function colorPropertyRow(row: HTMLElement, dtype: string): void {
-  if (!showPropertiesFieldColors) return;
-  const color = PROPERTY_FIELD_COLORS[dtype];
-  if (!color) return;
-  row.classList.add('dtype-field');
-  row.style.setProperty('--dtype-field-color', color);
-}
-
 function showVariableEditor() {
-  closeMenu(); document.querySelector('.modal')?.remove();
-  const variables = insts.filter(i => i.id === 'variable' || i.id.startsWith('variable_'));
-  const overlay = document.createElement('div'); overlay.className = 'modal variables';
-  const dlg = document.createElement('div'); dlg.className = 'dlg';
-  const head = document.createElement('div'); head.className = 'dlghead'; head.textContent = 'Variable Editor';
-  const body = document.createElement('div'); body.className = 'dlgbody';
-  const controls: { uid: string; field: string; node: HTMLElement; error: HTMLElement }[] = [];
-  const refreshValidation = () => {
-    const issues = validateGraph();
-    controls.forEach(control => setFieldError(control.node, control.error,
-      fieldIssue(issues, control.uid, control.field)));
-  };
-  if (!variables.length) {
-    body.textContent = 'No variable blocks are present in this flowgraph.';
-  } else for (const variable of variables) {
-    const d = RUNNABLE[variable.id];
-    const title = document.createElement('div'); title.className = 'dlghead'; title.textContent = d.label;
-    body.appendChild(title);
-    const add = (label: string, node: HTMLElement, field: string,
-                 validationNode: HTMLElement = node, dtype = '') => {
-      const row = document.createElement('div'); row.className = 'dlgrow';
-      const l = document.createElement('label'); l.textContent = label;
-      const control = document.createElement('div'); control.className = 'field-control';
-      const error = document.createElement('small'); error.className = 'field-error'; error.hidden = true;
-      control.append(node, error); row.append(l, control); body.appendChild(row);
-      colorPropertyRow(row, dtype);
-      controls.push({ uid: variable.uid, field, node: validationNode, error });
-    };
-    const name = document.createElement('input'); name.value = variable.name;
-    name.oninput = () => { variable.name = name.value.replace(/\s+/g, '_'); render(); refreshValidation(); };
-    name.onchange = recordHistory;
-    add('ID', name, NAME_FIELD, name, 'id');
-    for (const param of d.params) {
-      const set = (value: string) => {
-        variable.params[param.id] = param.type === 'number' ? numericOrExpression(value) : value;
-        render(); refreshValidation();
-      };
-      if (usesOptionCombo(param)) {
-        const combo = optionCombo(param, String(variable.params[param.id]), set);
-        // addEventListener, not onchange: the combo needs its own change handler
-        // to switch into custom mode.
-        combo.select.addEventListener('change', recordHistory);
-        combo.input.addEventListener('change', recordHistory);
-        add(param.label, combo.wrap, param.id, combo.select, propertyFieldDtype(param));
-        continue;
-      }
-      let input: HTMLInputElement | HTMLSelectElement;
-      if (param.type === 'enum') {
-        input = document.createElement('select');
-        (param.options || []).forEach(option => input.appendChild(new Option(option, option)));
-        input.value = String(variable.params[param.id]);
-      } else {
-        input = document.createElement('input'); input.value = String(variable.params[param.id]);
-      }
-      input.oninput = () => set(input.value);
-      input.onchange = recordHistory;
-      add(param.label, input, param.id, input, propertyFieldDtype(param));
-    }
-  }
-  const foot = document.createElement('div'); foot.className = 'dlgfoot';
-  const close = document.createElement('button'); close.textContent = 'Close'; close.onclick = () => overlay.remove(); foot.appendChild(close);
-  dlg.append(head, body, foot); overlay.appendChild(dlg); document.body.appendChild(overlay);
-  overlay.addEventListener('pointerdown', e => { if (e.target === overlay) overlay.remove(); });
-  refreshValidation(); close.focus();
+  openVariableEditor({
+    state,
+    closeContextMenu: closeMenu,
+    render,
+    recordHistory,
+    validateGraph,
+    showFieldColors: () => showPropertiesFieldColors,
+  });
 }
 
 // ---- right-click context menu (GRC-style) ----
@@ -2273,7 +2146,7 @@ function showMenu(x: number, y: number, inst: Inst) {
   // tab, filtered to the examples that use this block type.
   item('Show Examples', () => showExamplesFor(inst.id, RUNNABLE[inst.id]?.label || inst.id));
   sep();
-  item('Cut', () => { copyBlock(inst.uid); deleteBlocks(selectedBlocks.has(inst.uid) ? selectedBlocks : new Set([inst.uid])); });
+  item('Cut', () => { copyBlock(inst.uid); deleteBlocks(state.selectedBlocks.has(inst.uid) ? state.selectedBlocks : new Set([inst.uid])); });
   item('Copy', () => copyBlock(inst.uid));
   item('Paste', () => pasteBlock(inst.x + 30, inst.y + 30));
   item('Duplicate', () => duplicateBlock(inst.uid));
@@ -2283,7 +2156,7 @@ function showMenu(x: number, y: number, inst: Inst) {
   item(inst.enabled ? 'Disable' : 'Enable', () => setSelectedEnabled(!inst.enabled));
   item(inst.bypassed ? 'Un-Bypass' : 'Bypass', () => bypassSelected());
   sep();
-  item('Delete', () => deleteBlocks(selectedBlocks.has(inst.uid) ? selectedBlocks : new Set([inst.uid])), true);
+  item('Delete', () => deleteBlocks(state.selectedBlocks.has(inst.uid) ? state.selectedBlocks : new Set([inst.uid])), true);
   document.body.appendChild(m);
   m.style.left = Math.min(x, window.innerWidth - m.offsetWidth - 6) + 'px';
   m.style.top = Math.min(y, window.innerHeight - m.offsetHeight - 6) + 'px';
@@ -2393,20 +2266,20 @@ document.addEventListener('keydown', e => {
   if (ctrl && key === 'z') { consume(e); e.shiftKey ? redo() : undo(); }
   else if (ctrl && key === 'y') { consume(e); redo(); }
   else if (ctrl && key === 'a') {
-    consume(e); selectedBlocks = new Set(insts.map(i => i.uid)); selected = insts.length ? insts[insts.length - 1].uid : null;
-    selectedConnection = null; render();
+    consume(e); state.selectedBlocks = new Set(state.insts.map(i => i.uid)); state.selected = state.insts.length ? state.insts[state.insts.length - 1].uid : null;
+    state.selectedConnection = null; render();
   }
-  else if (e.key === 'Delete' && (selectedConnection || selectedBlocks.size)) {
-    consume(e); if (selectedConnection) deleteConnection(selectedConnection); else deleteBlocks();
+  else if (e.key === 'Delete' && (state.selectedConnection || state.selectedBlocks.size)) {
+    consume(e); if (state.selectedConnection) deleteConnection(state.selectedConnection); else deleteBlocks();
   }
-  else if (ctrl && key === 'c' && selectedBlocks.size) { consume(e); copyBlocks(); }
-  else if (ctrl && key === 'x' && selectedBlocks.size) { consume(e); copyBlocks(); deleteBlocks(); }
+  else if (ctrl && key === 'c' && state.selectedBlocks.size) { consume(e); copyBlocks(); }
+  else if (ctrl && key === 'x' && state.selectedBlocks.size) { consume(e); copyBlocks(); deleteBlocks(); }
   else if (ctrl && key === 'v') { consume(e); pasteBlock(); }
-  else if (e.key === 'ArrowRight' && !ctrl && selectedBlocks.size) { consume(e); rotateSelected(90); }
-  else if (e.key === 'ArrowLeft' && !ctrl && selectedBlocks.size) { consume(e); rotateSelected(-90); }
-  else if (e.key === 'ArrowUp' && !ctrl && selectedBlocks.size) { consume(e); cycleBlockType(-1); }
-  else if (e.key === 'ArrowDown' && !ctrl && selectedBlocks.size) { consume(e); cycleBlockType(1); }
-  else if (e.key === 'Enter' && selected) { consume(e); showPropsDialog(G0(selected)); }
+  else if (e.key === 'ArrowRight' && !ctrl && state.selectedBlocks.size) { consume(e); rotateSelected(90); }
+  else if (e.key === 'ArrowLeft' && !ctrl && state.selectedBlocks.size) { consume(e); rotateSelected(-90); }
+  else if (e.key === 'ArrowUp' && !ctrl && state.selectedBlocks.size) { consume(e); cycleBlockType(-1); }
+  else if (e.key === 'ArrowDown' && !ctrl && state.selectedBlocks.size) { consume(e); cycleBlockType(1); }
+  else if (e.key === 'Enter' && state.selected) { consume(e); showPropsDialog(G0(state.selected)); }
   else if (!ctrl && !e.shiftKey && key === 'e') { consume(e); setSelectedEnabled(true); }
   else if (!ctrl && !e.shiftKey && key === 'd') { consume(e); setSelectedEnabled(false); }
   else if (!ctrl && !e.shiftKey && key === 'b') { consume(e); bypassSelected(); }
@@ -2417,845 +2290,50 @@ document.addEventListener('keydown', e => {
 });
 
 // ---- block Properties dialog (GRC-style modal) ----
+const propertiesDialogDeps: PropertiesDialogDeps = {
+  state,
+  closeMenu,
+  defFor,
+  blockIdVisible,
+  localFileParams: LOCAL_FILE_PARAMS,
+  localFileAccept: LOCAL_FILE_ACCEPT,
+  recordingDtype: RECORDING_DTYPE,
+  layoutDtype: LAYOUT_DTYPE,
+  newLocalFileToken,
+  loadExampleRecordings,
+  radioForDtype,
+  localFilesByToken,
+  sigmfBindingsByToken,
+  sigmfOutputDirsByToken,
+  log,
+  validateGraph,
+  remapConnectionsForPortChange,
+  render,
+  guiWidgets,
+  openJsCodeModal,
+  applyJsIo,
+  sigmfSampRateToPublish,
+  applySampRateFromSigmf,
+  sigmfNeedsIShortToComplex,
+  attachIShortToComplex,
+  select,
+  recordHistory,
+  showFieldColors: () => showPropertiesFieldColors,
+};
+
 function showPropsDialog(inst: Inst) {
-  closeMenu();
-  const d = defFor(inst); if (!d) return;
-  const tmp: { name: string; params: Record<string, any>; localFileToken?: string } = {
-    name: inst.name,
-    params: { ...inst.params },
-    localFileToken: inst.localFileToken,
-  };
-
-  const overlay = document.createElement('div'); overlay.className = 'modal props';
-  const dlg = document.createElement('div'); dlg.className = 'dlg';
-  if (inst.id === EPY_BLOCK_ID || inst.id === JS_BLOCK_ID) dlg.classList.add('dlg-code');
-  const head = document.createElement('div'); head.className = 'dlghead withclose';
-  const headTitle = document.createElement('span'); headTitle.textContent = 'Properties: ' + d.label;
-  const headClose = document.createElement('button'); headClose.className = 'dlgclose';
-  headClose.type = 'button'; headClose.title = 'Close'; headClose.setAttribute('aria-label', 'Close');
-  headClose.textContent = '×';
-  headClose.onclick = () => closeDialog();
-  head.append(headTitle, headClose);
-  const tabBar = document.createElement('div'); tabBar.className = 'dlgtabs'; tabBar.setAttribute('role', 'tablist');
-  const body = document.createElement('div'); body.className = 'dlgbody';
-
-  const categories = [
-    'General',
-    ...d.params.map(p => p.category || 'General')
-      .filter((cat, i, all) => cat !== 'General' && all.indexOf(cat) === i),
-    'Documentation',
-  ];
-  const panels = new Map<string, HTMLDivElement>();
-  const tabs: HTMLButtonElement[] = [];
-  const controls = new Map<string, { node: HTMLElement; error: HTMLElement }>();
-  const conditionalRows: { param: ParamDef; row: HTMLElement }[] = [];
-  let refreshValidation = () => {};
-  let refreshVisibility = () => {};
-  // The Embedded Python Block's Code field, when this dialog has one: `pending`
-  // is true while the source has been edited but not re-read by Python, which is
-  // what blocks Apply/OK. `dispose` tears the code editor down with the dialog.
-  // See the code-editor branch below.
-  const code: {
-    pending: boolean; busy: boolean; message: string;
-    refresh: () => void; dispose: () => void;
-  } = { pending: false, busy: false, message: '', refresh: () => {}, dispose: () => {} };
-  // Same, for the GUI Layout block's designer: it owns a ResizeObserver on a
-  // node that is about to be detached.
-  const layoutDesigner: { dispose: () => void } = { dispose: () => {} };
-  // Every way this dialog closes goes through here, so nothing leaks a mounted
-  // CodeMirror or a live observer on a detached node.
-  const closeDialog = () => { code.dispose(); layoutDesigner.dispose(); overlay.remove(); };
-  const activateTab = (category: string) => {
-    panels.forEach((panel, name) => panel.hidden = name !== category);
-    tabs.forEach(tab => {
-      const active = tab.dataset.category === category;
-      tab.classList.toggle('active', active);
-      tab.setAttribute('aria-selected', String(active));
-      tab.tabIndex = active ? 0 : -1;
-    });
-  };
-  for (const category of categories) {
-    const panel = document.createElement('div'); panel.className = 'dlgpanel'; panel.setAttribute('role', 'tabpanel');
-    panels.set(category, panel); body.appendChild(panel);
-    const tab = document.createElement('button'); tab.type = 'button'; tab.className = 'dlgtab';
-    tab.textContent = category; tab.dataset.category = category; tab.setAttribute('role', 'tab');
-    tab.onclick = () => activateTab(category);
-    tab.onkeydown = e => {
-      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-      e.preventDefault();
-      const offset = e.key === 'ArrowRight' ? 1 : -1;
-      const next = tabs[(tabs.indexOf(tab) + offset + tabs.length) % tabs.length];
-      activateTab(next.dataset.category!); next.focus();
-    };
-    tabs.push(tab); tabBar.appendChild(tab);
-  }
-
-  const docsPanel = panels.get('Documentation')!;
-  if (d.wikiUrl) {
-    const wikiLink = document.createElement('a'); wikiLink.className = 'props-wiki-link';
-    wikiLink.href = d.wikiUrl;
-    wikiLink.target = '_blank';
-    wikiLink.rel = 'noopener noreferrer';
-    wikiLink.textContent = 'Open Wiki Page for this Block';
-    docsPanel.appendChild(wikiLink);
-  }
-  const addDocs = (title: string, text: string | undefined) => {
-    if (!text) return;
-    const section = document.createElement('section'); section.className = 'props-doc-section';
-    const heading = document.createElement('h3'); heading.textContent = title;
-    const content = document.createElement('div'); content.className = 'props-doc-text';
-    content.textContent = text;
-    section.append(heading, content); docsPanel.appendChild(section);
-  };
-  addDocs('Block description', d.documentation);
-  addDocs('API documentation', d.apiDocumentation);
-  if (!d.documentation && !d.apiDocumentation) {
-    const empty = document.createElement('p'); empty.className = 'props-doc-empty';
-    empty.textContent = 'No documentation is available for this block.';
-    docsPanel.appendChild(empty);
-  }
-
-  const addField = (
-    category: string,
-    label: string,
-    node: HTMLElement,
-    field: string,
-    validationNode: HTMLElement = node,
-    dtype = '',
-  ) => {
-    const row = document.createElement('div'); row.className = 'dlgrow';
-    const l = document.createElement('label'); l.textContent = label;
-    const control = document.createElement('div'); control.className = 'field-control';
-    const error = document.createElement('small'); error.className = 'field-error'; error.hidden = true;
-    control.append(node, error); row.append(l, control); panels.get(category)!.appendChild(row);
-    colorPropertyRow(row, dtype);
-    controls.set(field, { node: validationNode, error });
-    return node;
-  };
-  // Native GRC builds the `id` parameter as `hide: all` for every block without
-  // the `show_id` flag, so the dialog has no ID field for them; the block ID is
-  // generated and left alone unless View ▸ Show All Block IDs is on.
-  if (blockIdVisible(inst)) {
-    const nameInput = document.createElement('input');
-    const nameI = addField('General', 'ID', nameInput, NAME_FIELD, nameInput, 'id') as HTMLInputElement;
-    nameI.value = tmp.name;
-    nameI.oninput = () => { tmp.name = nameI.value.replace(/\s+/g, '_'); refreshValidation(); };
-  }
-  for (const p of d.params) {
-    // The derived-interface caches are written by the code reader, never by hand,
-    // and are a JSON blob the length of a paragraph. Neither has a field, and
-    // neither does the inlined source a local JS block's instance carries.
-    if (p.id === EPY_IO_CACHE_PARAM || p.id === JS_IO_PARAM ||
-        p.id === JS_LOCAL_SOURCE_PARAM) continue;
-    if (p.type === 'enum') {
-      const s = document.createElement('select');
-      (p.options || []).forEach((o, index) => {
-        const opt = document.createElement('option');
-        opt.value = o;
-        opt.textContent = p.optionLabels?.[index] ?? o;
-        s.appendChild(opt);
-      });
-      s.value = String(tmp.params[p.id]);
-      // Output Type is the recording's SigMF datatype for both blocks that read
-      // one -- GR World Recording from the bucket index, SigMF Source from the
-      // .sigmf-meta beside the samples. It is shown so the reader can see how
-      // the samples are being read, and disabled because reading them as
-      // anything else would only mis-read them. SigMF *Sink* is the opposite
-      // case: there its Stream Type is chosen and the datatype follows.
-      s.disabled = (inst.id === RECORDING_ID || inst.id === SIGMF_SOURCE_ID) &&
-        p.id === 'type';
-      s.onchange = () => { tmp.params[p.id] = s.value; refreshVisibility(); refreshValidation(); };
-      addField(p.category || 'General', `${p.label}  (${p.id})`, s, p.id, s, propertyFieldDtype(p));
-      if (s.disabled) {
-        const hint = document.createElement('small'); hint.className = 'field-hint';
-        hint.textContent = inst.id === SIGMF_SOURCE_ID
-          ? 'Set from core:datatype in the recording’s .sigmf-meta.'
-          : 'Set from the SigMF datatype of the recording above.';
-        s.closest('.field-control')?.appendChild(hint);
-      }
-      if (p.showWhen) conditionalRows.push({ param: p, row: s.closest('.dlgrow') as HTMLElement });
-    } else if (LOCAL_FILE_PARAMS[inst.id] === p.id && p.dtype === 'file_open') {
-      const picker = document.createElement('div'); picker.className = 'file-picker';
-      const inp = document.createElement('input'); inp.value = String(tmp.params[p.id]);
-      const choose = document.createElement('button'); choose.type = 'button';
-      choose.textContent = 'Browse…';
-      const native = document.createElement('input'); native.type = 'file';
-      native.className = 'file-picker-native'; native.tabIndex = -1;
-      const accept = LOCAL_FILE_ACCEPT[inst.id];
-      if (accept) native.accept = accept;
-      const detail = document.createElement('small'); detail.className = 'file-picker-detail';
-      const refreshDetail = () => {
-        const file = tmp.localFileToken
-          ? localFilesByToken.get(tmp.localFileToken) : undefined;
-        detail.textContent = file
-          ? `Local file · ${file.name} · ${displayBytes(file.size)}`
-          : 'No local file selected for this browser session.';
-      };
-      inp.oninput = () => {
-        tmp.params[p.id] = inp.value;
-        tmp.localFileToken = undefined;
-        refreshDetail(); refreshVisibility(); refreshValidation();
-      };
-      choose.onclick = () => native.click();
-      native.onchange = () => {
-        const file = native.files?.[0];
-        if (!file) return;
-        const token = newLocalFileToken();
-        localFilesByToken.set(token, file);
-        tmp.localFileToken = token;
-        tmp.params[p.id] = file.name;
-        inp.value = file.name;
-        refreshDetail(); refreshVisibility(); refreshValidation();
-      };
-      picker.append(inp, choose, native, detail);
-      addField(p.category || 'General', `${p.label}  (${p.id})`, picker, p.id, inp, propertyFieldDtype(p));
-      refreshDetail();
-      if (p.showWhen) conditionalRows.push({ param: p, row: picker.closest('.dlgrow') as HTMLElement });
-    } else if (radioForDtype(p.dtype)) {
-      // A WebUSB radio. Unlike a local file this binds nothing for the
-      // session: the browser remembers the permission per origin, so all a .grc
-      // needs is the serial number, and the runner's worker finds the device
-      // again by itself. Degrades to a plain text field where WebUSB is absent,
-      // so a flowgraph authored in Firefox still round-trips.
-      const radio = radioForDtype(p.dtype)!;
-      const picker = document.createElement('div'); picker.className = 'file-picker';
-      const select = document.createElement('select');
-      // The fallback for a .grc naming a dongle that is not plugged in, and for
-      // a browser with no WebUSB at all: the value still round-trips.
-      const typed = document.createElement('input');
-      typed.hidden = true;
-      typed.placeholder = 'serial number, or blank for the first available';
-      const choose = document.createElement('button'); choose.type = 'button';
-      choose.textContent = 'Add…';
-      choose.title = `Grant this site access to another ${radio.name}`;
-      const detail = document.createElement('small'); detail.className = 'file-picker-detail';
-      let shared: UsbLike[] = [];
-
-      // What the field offers and what it says about the current value are both
-      // "which radio does this resolve to", so the radio modules own both the
-      // options and the block-face display. Only the DOM wiring is here.
-      const paint = () => {
-        const serial = String(tmp.params[p.id] ?? '').trim();
-        select.replaceChildren(...radio.options(serial, shared).map(o => {
-          const option = document.createElement('option');
-          option.value = o.value; option.textContent = o.label;
-          return option;
-        }));
-        select.value = serial;
-        detail.textContent = radio.describe(serial, shared);
-      };
-
-      // The same cache the block face draws from, so the dialog and the canvas
-      // cannot name different dongles for one flowgraph.
-      const refreshDevices = async () => {
-        shared = await radio.refresh();
-        if (!usbApi()) { select.hidden = true; typed.hidden = false; choose.disabled = true; }
-        paint(); render();
-      };
-      const commit = (serial: string) => {
-        tmp.params[p.id] = serial;
-        paint(); refreshVisibility(); refreshValidation();
-      };
-      select.onchange = () => commit(select.value);
-      typed.oninput = () => {
-        tmp.params[p.id] = typed.value.trim();
-        detail.textContent = radio.describe(typed.value.trim(), shared);
-        refreshValidation();
-      };
-      choose.onclick = async () => {
-        const usb = usbApi();
-        if (!usb) return;
-        try {
-          const device: UsbLike =
-            await usb.requestDevice({ filters: radio.filters });
-          shared = await radio.refresh();
-          // A radio with no serial cannot be named, so it can only ever be
-          // reached as "first available".
-          commit(device.serialNumber ?? '');
-        } catch {
-          await refreshDevices();   // the chooser was dismissed
-        }
-      };
-      typed.value = String(tmp.params[p.id] ?? '');
-      picker.append(select, typed, choose, detail);
-      addField(p.category || 'General', `${p.label}  (${p.id})`, picker, p.id, select, propertyFieldDtype(p));
-      paint();                  // synchronously, before the device list resolves
-      void refreshDevices();
-      if (p.showWhen) conditionalRows.push({ param: p, row: picker.closest('.dlgrow') as HTMLElement });
-    } else if (p.dtype === RECORDING_DTYPE) {
-      // GR World Recording's recording, chosen from the live bucket index — the
-      // same list the Recordings palette tab draws. The block stores the key
-      // alone, so a field that could only be a select degrades to a text input
-      // when the index cannot be read: the flowgraph still runs, and a key typed
-      // from a shared link still works.
-      const picker = document.createElement('div'); picker.className = 'file-picker';
-      const select = document.createElement('select');
-      const typed = document.createElement('input');
-      typed.hidden = true;
-      typed.placeholder = 'estevez/by701';
-      const detail = document.createElement('small'); detail.className = 'file-picker-detail';
-      let known = new Map<string, ExampleRecording>();
-
-      const describe = () => {
-        const key = String(tmp.params[p.id] ?? '');
-        const recording = known.get(key);
-        if (!recording) {
-          detail.textContent = key
-            ? `"${key}" — streamed from the recordings bucket.`
-            : 'No recording chosen. Pick one, or click a card in the Recordings tab.';
-          return;
-        }
-        const parts = [
-          recording.datatype || 'unknown datatype',
-          displaySi(recording.sampleRate, 'Hz'),
-          displayBytes(recording.byteLength),
-        ];
-        detail.textContent = parts.join(' · ') +
-          (isCi16Datatype(recording.datatype)
-            ? ' · interleaved 16-bit I/Q: feed IShort To Complex'
-            : '');
-      };
-      // A recording's SigMF datatype decides how its samples are read, so
-      // choosing one writes Output Type — the field the reader can see but not
-      // edit — rather than leaving the block reading them as something else.
-      const applyDatatype = (key: string) => {
-        const format = sigmfFileSourceFormat(known.get(key)?.datatype ?? null);
-        if (!format) return;
-        tmp.params.type = format.type;
-        const node = controls.get('type')?.node;
-        if (node instanceof HTMLSelectElement) node.value = format.type;
-      };
-      const choose = (key: string) => {
-        tmp.params[p.id] = key;
-        applyDatatype(key);
-        describe(); refreshVisibility(); refreshValidation();
-      };
-      select.onchange = () => choose(select.value);
-      typed.oninput = () => { tmp.params[p.id] = typed.value.trim(); describe(); refreshValidation(); };
-
-      const fill = (recordings: ExampleRecording[]) => {
-        select.replaceChildren();
-        const key = String(tmp.params[p.id] ?? '');
-        // Only what this block can read: Output Type follows the datatype and
-        // cannot be corrected by hand, so a datatype with no stream type of its
-        // own (the palette greys those cards out) would be a dead end here.
-        const keys = recordings.filter(recording => sigmfFileSourceFormat(recording.datatype))
-          .map(recording => recording.name).sort();
-        // The block's own recording is always offered, listed or not: a bucket
-        // that has since dropped it must not silently reselect the block.
-        if (!key || !keys.includes(key)) keys.unshift(key);
-        for (const name of keys) {
-          const option = document.createElement('option');
-          option.value = name;
-          option.textContent = name || '— choose a recording —';
-          select.appendChild(option);
-        }
-        select.value = key;
-      };
-      fill([]);
-      void loadExampleRecordings()
-        .then(recordings => {
-          known = new Map(recordings.map(recording => [recording.name, recording]));
-          fill(recordings);
-          describe();
-        })
-        .catch(error => {
-          select.hidden = true;
-          typed.hidden = false;
-          typed.value = String(tmp.params[p.id] ?? '');
-          detail.textContent = `Recordings index unavailable (${error}); type a recording key.`;
-        });
-
-      picker.append(select, typed, detail);
-      addField(p.category || 'General', `${p.label}  (${p.id})`, picker, p.id, select, propertyFieldDtype(p));
-      describe();
-      if (p.showWhen) conditionalRows.push({ param: p, row: picker.closest('.dlgrow') as HTMLElement });
-    } else if (p.dtype === SIGMF_OPEN_DTYPE) {
-      // SigMF Source's recording: both halves at once. A browser cannot derive a
-      // sibling file from a picked File, so the .sigmf-data and the .sigmf-meta
-      // have to come out of the same dialog -- and the metadata is read here and
-      // now, because Output Type follows from it and the samp_rate toggle
-      // publishes from it.
-      const picker = document.createElement('div'); picker.className = 'file-picker';
-      const inp = document.createElement('input'); inp.value = String(tmp.params[p.id] ?? '');
-      inp.placeholder = 'choose a .sigmf-data and its .sigmf-meta';
-      const choose = document.createElement('button'); choose.type = 'button';
-      choose.textContent = 'Browse…';
-      const native = document.createElement('input'); native.type = 'file';
-      native.className = 'file-picker-native'; native.tabIndex = -1;
-      native.multiple = true;
-      native.accept = SIGMF_ACCEPT;
-      const detail = document.createElement('small'); detail.className = 'file-picker-detail';
-
-      const describe = (problem?: string) => {
-        if (problem) { detail.textContent = problem; return; }
-        const bound = tmp.localFileToken
-          ? sigmfBindingsByToken.get(tmp.localFileToken) : undefined;
-        if (!bound) {
-          detail.textContent = String(tmp.params[p.id] ?? '')
-            ? `"${tmp.params[p.id]}" is not open in this browser session — choose ` +
-              `its two files again with Browse.`
-            : 'No recording selected for this browser session.';
-          return;
-        }
-        const parts = [
-          bound.datatype,
-          bound.sampleRate ? displaySi(bound.sampleRate, 'Hz') : 'sample rate unknown',
-          displayBytes(bound.data.size),
-          `${bound.captures} capture${bound.captures === 1 ? '' : 's'}`,
-          `${bound.annotations} annotation${bound.annotations === 1 ? '' : 's'}`,
-        ];
-        // Not "feed IShort To Complex", the way GR World Recording's chooser
-        // puts it: here the block is already on the canvas, so committing this
-        // dialog wires the converter up. Say what will happen, or not, rather
-        // than leaving the reader to guess which.
-        const converter = !isCi16Datatype(bound.datatype) ? ''
-          : conns.some(c => c.from === inst.uid)
-            ? ' · interleaved 16-bit I/Q: this is a short stream, so it needs an ' +
-              'IShort To Complex'
-            : ' · interleaved 16-bit I/Q: an IShort To Complex will be added after ' +
-              'this block';
-        detail.textContent = parts.join(' · ') + converter;
-      };
-
-      // Output Type is derived and disabled, so picking a recording is what sets
-      // it -- the same arrangement GR World Recording has, for the same reason.
-      const applyDatatype = (datatype: string) => {
-        const format = sigmfStreamFormat(datatype);
-        if (!format) return;
-        tmp.params.type = format.type;
-        const node = controls.get('type')?.node;
-        if (node instanceof HTMLSelectElement) node.value = format.type;
-      };
-
-      inp.oninput = () => {
-        // Typing a name cannot open a file, so it drops the binding rather than
-        // leaving the field describing one recording and the block reading
-        // another. Same rule as File Source's field.
-        tmp.params[p.id] = inp.value;
-        if (tmp.localFileToken) sigmfBindingsByToken.delete(tmp.localFileToken);
-        tmp.localFileToken = undefined;
-        describe(); refreshVisibility(); refreshValidation();
-      };
-      choose.onclick = () => native.click();
-      native.onchange = async () => {
-        const picked = [...(native.files || [])];
-        native.value = '';           // so re-picking the same files still fires
-        const pair = pairSigmfFiles(picked);
-        if ('error' in pair) { describe(pair.error); return; }
-
-        const metaText = await pair.meta.text();
-        const meta = parseSigmfMeta(metaText);
-        if ('error' in meta) { describe(meta.error); return; }
-        if (!sigmfStreamFormat(meta.datatype)) {
-          describe(`${meta.datatype} has no stream type here, so this block ` +
-                   `could not read it. Open it on its own from the Recordings tab.`);
-          return;
-        }
-        if (pair.data.size === 0) {
-          describe(`${pair.base}${SIGMF_DATA_SUFFIX} is empty.`);
-          return;
-        }
-
-        const token = newLocalFileToken();
-        sigmfBindingsByToken.set(token, {
-          base: pair.base, data: pair.data, meta: pair.meta, metaText,
-          datatype: meta.datatype, sampleRate: meta.sampleRate,
-          captures: meta.captures, annotations: meta.annotations,
-        });
-        tmp.localFileToken = token;
-        tmp.params[p.id] = pair.base;
-        inp.value = pair.base;
-        applyDatatype(meta.datatype);
-        describe(); refreshVisibility(); refreshValidation();
-        // "Use as samp_rate" publishes on the way out of this dialog, not here,
-        // so Cancel cancels it too. See sigmfSampRateToPublish().
-      };
-      picker.append(inp, choose, native, detail);
-      addField(p.category || 'General', `${p.label}  (${p.id})`, picker, p.id, inp, propertyFieldDtype(p));
-      describe();
-      if (p.showWhen) conditionalRows.push({ param: p, row: picker.closest('.dlgrow') as HTMLElement });
-    } else if (p.dtype === SIGMF_SAVE_DTYPE) {
-      // SigMF Sink's destination: a base name the reader types, plus a folder to
-      // put the pair in. The folder is a File System Access handle, bound for the
-      // session like a File; where the API does not exist there is no folder to
-      // choose at all and the runner buffers and downloads instead.
-      const picker = document.createElement('div'); picker.className = 'file-picker';
-      const inp = document.createElement('input'); inp.value = String(tmp.params[p.id] ?? '');
-      inp.placeholder = 'recording name, without a suffix';
-      const choose = document.createElement('button'); choose.type = 'button';
-      choose.textContent = 'Choose folder…';
-      const detail = document.createElement('small'); detail.className = 'file-picker-detail';
-      const streaming = canPickOutputDirectory();
-      choose.hidden = !streaming;
-
-      const describe = (problem?: string) => {
-        if (problem) { detail.textContent = problem; return; }
-        const base = sanitizeSigmfBase(String(tmp.params[p.id] ?? ''));
-        const dir = tmp.localFileToken
-          ? sigmfOutputDirsByToken.get(tmp.localFileToken) : undefined;
-        if (!base) {
-          // The name is what is missing, so it leads -- but a folder just chosen
-          // has to be acknowledged here too, or picking one looks like it failed.
-          detail.textContent = 'Give the recording a name — both files take it as their stem.' +
-            (dir ? ` They will go into "${dir.name}".` : '');
-          return;
-        }
-        const files = sigmfSinkFileNames(base).join(' + ');
-        if (!streaming) {
-          detail.textContent = `${files} — downloaded when the flowgraph stops. ` +
-            `This browser has no File System Access API, so the recording is held ` +
-            `in memory until then; a Chromium browser streams it straight to disk.`;
-          return;
-        }
-        detail.textContent = dir
-          ? `${files} — written into "${dir.name}".`
-          : `${files} — no folder chosen yet; you will be asked for one when you press Run. ` +
-            SIGMF_OUTPUT_PICKER_HELP;
-      };
-
-      inp.oninput = () => {
-        tmp.params[p.id] = inp.value;
-        describe(); refreshVisibility(); refreshValidation();
-      };
-      inp.onblur = () => {
-        // Normalized on the way out, not on every keystroke: the reader is
-        // typing a filename stem, and a cursor that jumps mid-word is worse than
-        // a name tidied once.
-        const base = sanitizeSigmfBase(inp.value);
-        if (base === inp.value) return;
-        inp.value = base; tmp.params[p.id] = base;
-        describe(); refreshValidation();
-      };
-      choose.onclick = async () => {
-        try {
-          // A click in this dialog is its own user gesture, so a reader who
-          // configures the block up front is never prompted again at Run.
-          const dir = await pickOutputDirectory();
-          const token = tmp.localFileToken || newLocalFileToken();
-          tmp.localFileToken = token;
-          sigmfOutputDirsByToken.set(token, dir);
-          describe(); refreshValidation();
-        } catch {
-          // Dismissed -- or a blocked folder was chosen and then dismissed,
-          // which throws identically. Say what the restriction is rather than
-          // leaving the field looking as though nothing happened.
-          describe(`No folder chosen. ${SIGMF_OUTPUT_PICKER_HELP}`);
-        }
-      };
-      picker.append(inp, choose, detail);
-      addField(p.category || 'General', `${p.label}  (${p.id})`, picker, p.id, inp, propertyFieldDtype(p));
-      describe();
-      if (p.showWhen) conditionalRows.push({ param: p, row: picker.closest('.dlgrow') as HTMLElement });
-    } else if (p.dtype === LAYOUT_DTYPE) {
-      // The GUI Layout block's grid. Editing the JSON by hand is possible and
-      // pointless, so the field is the arrangement itself: a drag-and-drop
-      // miniature of the runner window, fetched on demand like the code editor.
-      const mount = document.createElement('div');
-      mount.className = 'gui-designer-mount';
-      const fallback = document.createElement('small');
-      fallback.className = 'field-hint';
-      fallback.textContent = 'Loading the layout designer…';
-      mount.appendChild(fallback);
-      void import('./gui-layout-designer')
-        .then(({ mountLayoutDesigner }) => {
-          fallback.remove();
-          const handle = mountLayoutDesigner(mount, {
-            widgets: guiWidgets(),
-            tiles: parseTiles(String(tmp.params[p.id] ?? '{}')),
-            columns: layoutColumns(tmp.params.columns),
-            rowHeight: layoutRowHeight(tmp.params.row_height),
-            // Straight into the dialog's working copy, so OK saves the
-            // arrangement and Cancel discards it like any other field.
-            onChange: next => { tmp.params[p.id] = serializeTiles(next); },
-          });
-          layoutDesigner.dispose = () => handle.destroy();
-        })
-        .catch(error => { fallback.textContent = `Layout designer failed to load: ${error}`; });
-      addField(p.category || 'General', p.label, mount, p.id, mount, propertyFieldDtype(p));
-    } else if (p.dtype === EPY_CODE_DTYPE) {
-      // The Embedded Python Block's source. Native GRC hands this parameter to an
-      // external editor and re-reads the block every time the file is saved
-      // (grc/gui_qt/external_editor.py); the browser equivalent is a code area
-      // plus an explicit re-read, because re-reading means running the source in
-      // Pyodide and Pyodide is a ~16 MB opt-in download.
-      const area = document.createElement('textarea');
-      area.className = 'code-editor'; area.rows = 22; area.spellcheck = false;
-      area.value = String(tmp.params[p.id]);
-      const committed = area.value;
-      area.onkeydown = event => {
-        // Tab indents instead of leaving the field: this is a Python editor, and
-        // an accidental dedent is a syntax error rather than a cosmetic slip.
-        // CodeMirror's own indentWithTab does the same once it has mounted.
-        if (event.key !== 'Tab' || event.shiftKey) return;
-        event.preventDefault();
-        const start = area.selectionStart, end = area.selectionEnd;
-        area.setRangeText('    ', start, end, 'end');
-        tmp.params[p.id] = area.value;
-      };
-      // Syntax highlighting, line numbers and Python indentation, fetched on
-      // demand and mirrored back into the textarea above -- which stays the
-      // field's value either way. See editor/src/code-editor.ts.
-      void import('./code-editor').then(({ mountCodeEditor }) => mountCodeEditor(area))
-        .then(handle => { code.dispose = () => handle?.destroy(); })
-        .catch(() => {});
-      const status = document.createElement('small'); status.className = 'code-status';
-      const reload = document.createElement('button');
-      reload.type = 'button'; reload.className = 'code-reload';
-      const readSource = async () => {
-        code.busy = true; code.message = ''; code.refresh();
-        try {
-          const io = await pythonRuntime.introspect(String(tmp.params[p.id]));
-          // Sorted keys, so re-reading identical code leaves the .grc byte
-          // for byte unchanged (and matches the default in epy_block.block.yml).
-          tmp.params[EPY_IO_CACHE_PARAM] = JSON.stringify(Object.fromEntries(
-            Object.keys(io).sort().map(key => [key, (io as any)[key]])));
-          setEpySourceError(inst.uid, '');
-          code.pending = false; code.busy = false; code.message = '';
-          // The parameter and port set has just changed, so the dialog it is
-          // drawn from is stale. Commit and reopen -- the same effect as native
-          // GRC rebuilding the block when the external editor saves.
-          apply();
-          closeDialog();
-          log(`${inst.name}: read "${io.label}" — ${io.params.length} parameter(s), ` +
-              `${io.sinks.length} input(s), ${io.sources.length} output(s)`);
-          showPropsDialog(inst);
-        } catch (error) {
-          code.busy = false;
-          code.message = String((error as Error).message || error);
-          setEpySourceError(inst.uid, code.message.split('\n').slice(-1)[0].trim() ||
-                            'the block\'s source could not be read');
-          code.refresh();
-          render();
-        }
-      };
-      reload.onclick = () => { void readSource(); };
-      area.oninput = () => {
-        tmp.params[p.id] = area.value;
-        code.pending = area.value !== committed;
-        code.refresh();
-        refreshValidation();
-      };
-      const field = document.createElement('div'); field.className = 'code-field';
-      const controlsRow = document.createElement('div'); controlsRow.className = 'code-controls';
-      controlsRow.append(reload, status);
-      field.append(area, controlsRow);
-      addField(p.category || 'General', p.label, field, p.id, area, propertyFieldDtype(p));
-      code.refresh = () => {
-        if (!overlay.isConnected && overlay.parentNode !== null) return;
-        const state = pythonRuntime.state;
-        reload.disabled = code.busy || state === 'loading';
-        reload.textContent = code.busy ? 'Reading…'
-          : state === 'loading' ? 'Starting Python…'
-          : state === 'ready' ? 'Re-read this block from its code'
-          : 'Load Python and read this block  (~16 MB)';
-        status.textContent = code.message
-          ? code.message.split('\n').slice(-1)[0].trim()
-          : code.pending
-            ? 'The code has changed. Read it to update this block’s parameters and ports.'
-            : state === 'ready' ? 'Python is loaded.'
-            : state === 'loading' ? 'Downloading and starting CPython…'
-            : 'Parameters and ports below are from the last time this code was read.';
-        status.classList.toggle('code-error', !!code.message);
-      };
-      code.refresh();
-      pythonRuntime.onchange = () => code.refresh();
-      // Already loaded it once in an earlier session? Then the opt-in has been
-      // given and re-asking is just a click in the way. Nothing is fetched for a
-      // user who has never loaded it.
-      if (pythonRuntime.consented && pythonRuntime.state === 'absent')
-        void pythonRuntime.load();
-    } else if (p.dtype === JS_CODE_DTYPE) {
-      // The JavaScript Block's source. Unlike the Python Block's Code field
-      // there is no re-read button and no gating: deriving a JS block's
-      // interface means evaluating its descriptor in a disposable sandbox, which
-      // costs a few milliseconds and needs nothing downloaded. So it is
-      // debounced on every keystroke and the panel below the field says what the
-      // code currently means. See editor/src/js-block.ts.
-      const area = document.createElement('textarea');
-      area.className = 'code-editor'; area.rows = 18; area.spellcheck = false;
-      area.value = String(tmp.params[p.id]);
-      area.onkeydown = event => {
-        if (event.key !== 'Tab' || event.shiftKey) return;
-        event.preventDefault();
-        area.setRangeText('  ', area.selectionStart, area.selectionEnd, 'end');
-        tmp.params[p.id] = area.value;
-      };
-      void import('./code-editor')
-        .then(({ mountCodeEditor }) => mountCodeEditor(area, 'javascript'))
-        .then(handle => { code.dispose = () => handle?.destroy(); })
-        .catch(() => {});
-      const status = document.createElement('small'); status.className = 'code-status';
-      const popout = document.createElement('button');
-      popout.type = 'button'; popout.className = 'code-reload';
-      popout.textContent = 'Expand Editor ⤢';
-      popout.title = 'Open this code in a large resizable editor, ' +
-                     'with a live view of the block it derives';
-      popout.onclick = () => {
-        // Seeded from the dialog's working copy and written back to it, so
-        // Cancel still discards everything the popup did.
-        openJsCodeModal({
-          title: `Code: ${tmp.name}`,
-          source: String(tmp.params[p.id]),
-          apply: (source, io) => {
-            tmp.params[p.id] = source;
-            if (io) applyJsIo(tmp.params, io);
-          },
-          uid: inst.uid,
-          onSave: () => {
-            // The parameter and port set may have just changed, so the dialog
-            // drawn from it is stale. Commit and reopen -- the same effect the
-            // Python Block's re-read has.
-            apply(); closeDialog(); showPropsDialog(inst);
-          },
-          render: () => { area.value = String(tmp.params[p.id]); refreshValidation(); },
-        });
-      };
-      let deriveTimer: number | undefined;
-      const describe = () => {
-        const source = String(tmp.params[p.id]);
-        jsIntrospector.describe(source).then(io => {
-          if (!overlay.isConnected || String(tmp.params[p.id]) !== source) return;
-          applyJsIo(tmp.params, io);
-          acceptJsSource(source);   // typed here, so no Run consent for it
-          setJsSourceError(inst.uid, '');
-          code.message = '';
-          code.refresh(); refreshValidation(); render();
-        }).catch(error => {
-          if (!overlay.isConnected || String(tmp.params[p.id]) !== source) return;
-          code.message = String((error as Error)?.message || error);
-          setJsSourceError(inst.uid, code.message.split('\n')[0].trim() ||
-                           'the block\'s source could not be read');
-          code.refresh(); refreshValidation(); render();
-        });
-      };
-      area.oninput = () => {
-        tmp.params[p.id] = area.value;
-        clearTimeout(deriveTimer);
-        deriveTimer = setTimeout(describe, 220) as unknown as number;
-      };
-      const field = document.createElement('div'); field.className = 'code-field';
-      const controlsRow = document.createElement('div'); controlsRow.className = 'code-controls';
-      controlsRow.append(popout, status);
-      field.append(area, controlsRow);
-      addField(p.category || 'General', p.label, field, p.id, area, propertyFieldDtype(p));
-      code.refresh = () => {
-        if (!overlay.isConnected && overlay.parentNode !== null) return;
-        const io = parseJsIo(tmp.params[JS_IO_PARAM]);
-        status.textContent = code.message
-          ? code.message.split('\n')[0].trim()
-          : io
-            ? `${io.label} — ${io.inputs.length} input(s), ${io.outputs.length} ` +
-              `output(s), ${io.params.length} parameter(s). ` +
-              `Apply to update this block's fields.`
-            : 'This block has no interface yet.';
-        status.classList.toggle('code-error', !!code.message);
-      };
-      const previousDispose = code.dispose;
-      code.dispose = () => { clearTimeout(deriveTimer); previousDispose(); };
-      code.refresh();
-      describe();
-    } else if (usesOptionCombo(p)) {
-      // A parameter with an options list that is not `dtype: enum` — see
-      // optionCombo(): a dropdown of the options, still able to hold an
-      // expression or a variable.
-      const combo = optionCombo(p, String(tmp.params[p.id]), value => {
-        tmp.params[p.id] = p.type === 'number' ? numericOrExpression(value) : value;
-        refreshVisibility(); refreshValidation();
-      });
-      addField(p.category || 'General', `${p.label}  (${p.id})`, combo.wrap, p.id,
-        combo.select, propertyFieldDtype(p));
-      if (p.showWhen) conditionalRows.push({ param: p, row: combo.wrap.closest('.dlgrow') as HTMLElement });
-    } else {
-      // Prose params (the Note block) get a textarea so the text can contain the
-      // line breaks the block face honours; everything else stays a one-liner.
-      const inp = document.createElement(p.multiline ? 'textarea' : 'input') as
-        HTMLInputElement | HTMLTextAreaElement;
-      if (p.multiline) (inp as HTMLTextAreaElement).rows = 5;
-      inp.value = String(tmp.params[p.id]);
-      inp.oninput = () => {
-        tmp.params[p.id] = p.type === 'number' ? numericOrExpression(inp.value) : inp.value;
-        refreshVisibility(); refreshValidation();
-      };
-      addField(p.category || 'General', `${p.label}  (${p.id})`, inp, p.id, inp, propertyFieldDtype(p));
-      if (p.showWhen) conditionalRows.push({ param: p, row: inp.closest('.dlgrow') as HTMLElement });
-    }
-  }
-
-  refreshVisibility = () => {
-    conditionalRows.forEach(({ param, row }) => row.hidden = !param.showWhen!(tmp.params));
-  };
-  refreshVisibility();
-
-  refreshValidation = () => {
-    const candidate = { ...inst, name: tmp.name, params: tmp.params };
-    const issues = validateGraph(insts.map(block => block.uid === inst.uid ? candidate : block));
-    controls.forEach((control, field) =>
-      setFieldError(control.node, control.error, fieldIssue(issues, inst.uid, field)));
-  };
-
-  const foot = document.createElement('div'); foot.className = 'dlgfoot';
-  const apply = () => {
-    inst.name = tmp.name;
-    remapConnectionsForPortChange(inst, tmp.params);
-    inst.params = { ...tmp.params };
-    inst.localFileToken = tmp.localFileToken;
-    const publish = sigmfSampRateToPublish(inst.id, inst.params, inst.localFileToken);
-    if (publish) applySampRateFromSigmf(publish.rate, publish.source);
-    // Both of these are the *recording's* consequences rather than the reader's
-    // edits, so they land here where the dialog commits: Cancel cancels them,
-    // and the single recordHistory() below makes picking a recording one undo
-    // step rather than three.
-    if (sigmfNeedsIShortToComplex(inst.id, inst.localFileToken) &&
-        attachIShortToComplex(inst))
-      log(`added IShort To Complex after "${inst.name}": an interleaved 16-bit ` +
-          `recording is a short stream`);
-    select(inst.uid);
-    recordHistory();
-  };
-  const btn = (label: string, fn: () => void, cls = '') => {
-    const b = document.createElement('button'); b.textContent = label; if (cls) b.className = cls; b.onclick = fn; return b;
-  };
-  foot.appendChild(btn('Cancel', () => closeDialog()));
-  const applyButton = btn('Apply', apply);
-  const okButton = btn('OK', () => { apply(); closeDialog(); }, 'run');
-  foot.append(applyButton, okButton);
-  if (inst.id === EPY_BLOCK_ID) {
-    // Committing edited code without re-reading it would leave the block's
-    // parameters and ports describing the *previous* source: the flowgraph would
-    // then be wired one way and built another, and only the runner would notice.
-    // So the code has to be read before it can be applied.
-    const refreshCode = code.refresh;
-    code.refresh = () => {
-      refreshCode();
-      applyButton.disabled = okButton.disabled = code.pending || code.busy;
-      applyButton.title = okButton.title = code.pending
-        ? 'Read the code first, so this block’s parameters and ports match it' : '';
-    };
-    code.refresh();
-  }
-
-  activateTab('General');
-  dlg.append(head, tabBar, body, foot); overlay.appendChild(dlg); document.body.appendChild(overlay);
-  // Unlike the informational dialogs, this one holds unsaved edits: a stray click
-  // on the backdrop must not discard them. Only OK/Cancel/× close it.
-  refreshValidation();
-  // The ID field when the block has one, otherwise its first real parameter.
-  const first = panels.get('General')!.querySelector(
-    'input:not([hidden]), select:not([hidden]), textarea:not([hidden])') as HTMLElement | null;
-  first?.focus();
-  if (first instanceof HTMLInputElement) first.select();
+  showPropertiesDialog(inst, propertiesDialogDeps);
 }
 
 function select(uid: string | null, additive = false) {
-  if (uid === null) selectedBlocks.clear();
+  if (uid === null) state.selectedBlocks.clear();
   else if (additive) {
-    if (selectedBlocks.has(uid)) selectedBlocks.delete(uid); else selectedBlocks.add(uid);
-  } else if (!selectedBlocks.has(uid) || selectedBlocks.size === 1) {
-    selectedBlocks.clear(); selectedBlocks.add(uid);
+    if (state.selectedBlocks.has(uid)) state.selectedBlocks.delete(uid); else state.selectedBlocks.add(uid);
+  } else if (!state.selectedBlocks.has(uid) || state.selectedBlocks.size === 1) {
+    state.selectedBlocks.clear(); state.selectedBlocks.add(uid);
   }
-  selected = uid !== null && selectedBlocks.has(uid) ? uid : ([...selectedBlocks].pop() || null);
-  selectedConnection = null;
+  state.selected = uid !== null && state.selectedBlocks.has(uid) ? uid : ([...state.selectedBlocks].pop() || null);
+  state.selectedConnection = null;
   render();
 }
 
@@ -3263,14 +2341,30 @@ function selectConnection(conn: Conn) {
   // Give keyboard shortcuts back to the canvas if the palette/property editor
   // previously held focus. The SVG path itself is not a focusable element.
   (document.activeElement as HTMLElement | null)?.blur();
-  selected = null; selectedBlocks.clear();
-  selectedConnection = conn;
+  state.selected = null; state.selectedBlocks.clear();
+  state.selectedConnection = conn;
   render();
 }
 
 function svgPoint(evt: MouseEvent): { x: number; y: number } {
   const r = svg.getBoundingClientRect();
   return { x: (evt.clientX - r.left) / zoom, y: (evt.clientY - r.top) / zoom };
+}
+
+const connectionController = new CanvasConnectionController({
+  state,
+  wires: wiresG,
+  portPosition: portPos,
+  controlPoint: ctrl,
+  svgPoint,
+  autoHidePortLabels: () => autoHidePortLabels,
+  render,
+  recordHistory,
+  log,
+});
+
+function cancelConnect(): boolean {
+  return connectionController.cancel();
 }
 
 const svgEl = <K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string, string>): SVGElementTagNameMap[K] => {
@@ -3298,214 +2392,18 @@ function addTrainingPort(g: SVGGElement, inst: Inst, kind: 'in' | 'out', idx: nu
   g.appendChild(label);
 }
 
-function renderTrainingGuides() {
-  const status = el('trainingStatus');
-  if (!trainingSession) {
-    status.hidden = true;
-    status.classList.remove('complete');
-    document.querySelectorAll<HTMLButtonElement>('[data-tool="Execute"]')
-      .forEach(button => button.disabled = false);
-    return;
-  }
-
-  for (const guide of trainingSession.connectionGuides(insts, conns)) {
-    if (portMeta(guide.from, 'out', guide.connection.fp).hidden ||
-        portMeta(guide.to, 'in', guide.connection.tp).hidden) continue;
-    trainingWiresG.appendChild(svgEl('path', { class: 'training-wire',
-      d: connectionPath(guide.from, guide.connection.fp, guide.to, guide.connection.tp) }));
-  }
-
-  for (const target of trainingSession.unfilledBlocks(insts)) {
-    const { d, h, w } = geom(target);
-    const g = svgEl('g', { class: 'training-ghost',
-      transform: `translate(${target.x},${target.y})` });
-    g.appendChild(svgEl('rect', { class: 'body', width: String(w), height: String(h), rx: '2' }));
-    const title = svgEl('text', { class: 'title', x: String(w / 2), y: String(h / 2),
-      'text-anchor': 'middle', 'dominant-baseline': 'central' });
-    title.textContent = d.label;
-    g.appendChild(title);
-    for (const i of visiblePortIndices(target, 'in')) addTrainingPort(g, target, 'in', i);
-    for (const i of visiblePortIndices(target, 'out')) addTrainingPort(g, target, 'out', i);
-    trainingNodesG.appendChild(g);
-  }
-
-  const counts = trainingSession.counts(insts, conns);
-  const complete = trainingSession.complete(insts, conns);
-  status.hidden = false;
-  status.classList.toggle('complete', complete);
-  status.textContent = complete
-    ? `Training complete — ready to run`
-    : `${counts.filledBlocks}/${counts.totalBlocks} blocks · ` +
-      `${counts.filledConnections}/${counts.totalConnections} connections`;
-  document.querySelectorAll<HTMLButtonElement>('[data-tool="Execute"]')
-    .forEach(button => {
-      button.disabled = !complete;
-      button.title = complete ? 'Execute (F6)' : 'Complete the training flowgraph before running';
-    });
-}
-
 function render() {
-  rebuildScope();
-  trainingNodesG.textContent = ''; trainingWiresG.textContent = '';
-  nodesG.textContent = ''; wiresG.textContent = '';
-  trainingNodesG.setAttribute('transform', `scale(${zoom})`);
-  trainingWiresG.setAttribute('transform', `scale(${zoom})`);
-  nodesG.setAttribute('transform', `scale(${zoom})`);
-  wiresG.setAttribute('transform', `scale(${zoom})`);
-  selectionG.setAttribute('transform', `scale(${zoom})`);
-  const validation = validateGraph();
-  const invalidConnections = new Set(validation.flatMap(issue => issue.connection ? [issue.connection] : []));
-  const G = (uid: string) => insts.find(i => i.uid === uid)!;
-  renderTrainingGuides();
-  // wires (from output right-edge to input left-edge, GRC-style curves)
-  for (const c of conns) {
-    const a = G(c.from), b = G(c.to);
-    if (!a || !b || canvasBlockHidden(a) || canvasBlockHidden(b)) continue;
-    if (portMeta(a, 'out', c.fp).hidden || portMeta(b, 'in', c.tp).hidden) continue;
-    // As in native GRC: a straight 15px run out of each port, a cubic bezier,
-    // then a straight approach in. Control points 50px out, except on a wire
-    // that has to double back on itself — see wireShape().
-    const d = connectionPath(a, c.fp, b, c.tp);
-    const isSelected = c === selectedConnection || (insts.length > 0 && selectedBlocks.size === insts.length);
-    const isInvalid = invalidConnections.has(c);
-    const wire = svgEl('g', { class: 'wire-group' });
-    // The invalid stroke colour wins over the selected one (its CSS rule is later),
-    // so the arrowhead follows it too.
-    wire.appendChild(svgEl('path', { class: 'wire' + (isSelected ? ' sel' : '') +
-      (isInvalid ? ' invalid' : ''), d,
-      'marker-end': isInvalid ? 'url(#arrow-invalid)'
-        : isSelected ? 'url(#arrow-selected)' : 'url(#arrow)' }));
-    // Match the desktop GUI's forgiving line hit test without drawing a thick wire.
-    wire.appendChild(svgEl('path', { class: 'wire-hit', d }));
-    const activateConn = (e: MouseEvent) => {
-      e.preventDefault(); e.stopPropagation();
-      cancelConnect();
-      selectConnection(c);
-      showConnectionMenu(e.clientX, e.clientY, c);
-    };
-    wire.addEventListener('pointerdown', e => { if (e.button !== 0) return; activateConn(e); });
-    wire.addEventListener('contextmenu', activateConn);
-    wiresG.appendChild(wire);
-  }
-  // blocks
-  for (const inst of insts) {
-    if (canvasBlockHidden(inst)) continue;
-    const { d, rows, h, w, subtitle, headH, thumb, thumbH, thumbTop } = geom(inst) as
-      ReturnType<typeof geom> &
-      { thumb?: LayoutThumbTile[]; thumbH?: number; thumbTop?: number };
-    const comment = blockCommentGeometry(inst);
-    const blockIssues = validation.filter(issue => issue.uid === inst.uid);
-    const g = svgEl('g', { class: 'blk' + (selectedBlocks.has(inst.uid) ? ' sel' : '') +
-      (trainingSession?.snapTargetForActual(inst.uid) ? ' training-snap' : '') +
-      (inst.enabled ? '' : ' disabled') + (inst.bypassed ? ' bypassed' : '') +
-      (blockIssues.length ? ' invalid' : ''),
-      transform: `translate(${inst.x},${inst.y})` });
-    const rect = svgEl('rect', { class: 'body', width: String(w), height: String(h), rx: '2' });
-    g.appendChild(rect);
-    // Native GRC has no title separator. With no face parameters, center the
-    // title in the whole block instead of leaving it in an empty title row.
-    // With a subtitle it is the pair that gets centered, so the title rises by
-    // half the line the subtitle occupies.
-    const titleY = (rows.length || thumb) ? TITLE_BASELINE
-      : h / 2 - (subtitle ? SUBTITLE_H / 2 : 0);
-    const titleAttrs: Record<string, string> = {
-      class: 'title', x: String(w / 2), y: String(titleY), 'text-anchor': 'middle',
-    };
-    // A thumbnail is body content too: keep its title on the same alphabetic
-    // baseline as a block with parameter rows. Only a truly bodyless block
-    // centres its title vertically in the whole face.
-    if (!rows.length && !thumb) titleAttrs['dominant-baseline'] = 'central';
-    const t = svgEl('text', titleAttrs);
-    t.textContent = d.label; g.appendChild(t);
-    if (subtitle) {
-      const s = svgEl('text', { ...titleAttrs, class: 'subtitle',
-                                y: String(titleY + SUBTITLE_GAP) });
-      s.textContent = subtitle; g.appendChild(s);
-    }
-    // parameter rows: "label: value"
-    rows.forEach((r, i) => {
-      const y = rowsTop(h, rows.length, headH) + i * ROW_H + ROW_BASELINE;
-      const tx = svgEl('text', { class: 'param' + (fieldIssue(blockIssues, inst.uid, r.id) ? ' invalid' : '') +
-        (r.id === MORE_ROW_ID ? ' pmore' : ''), x: String(TEXT_PAD_L), y: String(y) });
-      const l = document.createElementNS(SVGNS, 'tspan'); l.setAttribute('class', 'plabel'); l.textContent = r.l;
-      if (r.expression !== undefined) {
-        const expression = document.createElementNS(SVGNS, 'tspan');
-        expression.setAttribute('class', 'pexpr'); expression.textContent = r.expression;
-        tx.appendChild(l); tx.appendChild(expression);
-        if (r.v) {
-          const equals = document.createElementNS(SVGNS, 'tspan'); equals.textContent = '=';
-          tx.appendChild(equals);
-        }
-      } else tx.appendChild(l);
-      const v = document.createElementNS(SVGNS, 'tspan'); v.setAttribute('class', 'pval'); v.textContent = r.v;
-      tx.appendChild(v); g.appendChild(tx);
-    });
-    // The GUI Layout block's miniature runner window: the grid outline plus one
-    // labelled rectangle per widget, in the position it will occupy.
-    if (thumb) {
-      const top = thumbTop ?? TITLE_H;
-      g.appendChild(svgEl('rect', { class: 'gui-thumb-frame', x: String(TEXT_PAD_L),
-        y: String(top), width: String(LAYOUT_THUMB_W), height: String(thumbH ?? 0) }));
-      for (const tile of thumb) {
-        g.appendChild(svgEl('rect', { class: 'gui-thumb-tile',
-          x: String(TEXT_PAD_L + tile.x + 1), y: String(top + tile.y + 1),
-          width: String(Math.max(1, tile.w - 2)), height: String(Math.max(1, tile.h - 2)),
-          rx: '1' }));
-        // Only label a tile with room for a legible word; a 1x1 control tile in
-        // a 12-column grid is 20px wide, where any text is noise.
-        if (tile.w < 34 || tile.h < 11) continue;
-        const label = svgEl('text', { class: 'gui-thumb-label',
-          x: String(TEXT_PAD_L + tile.x + tile.w / 2),
-          y: String(top + tile.y + tile.h / 2), 'text-anchor': 'middle',
-          'dominant-baseline': 'central' });
-        label.textContent = truncateToWidth(tile.name, tile.w - 6, LAYOUT_THUMB_FONT);
-        g.appendChild(label);
-      }
-    }
-    // Native GRC draws the comment as a separate text item below the body, not
-    // as another parameter row. It therefore neither changes the block/port
-    // geometry nor participates in block selection or dragging.
-    comment.lines.forEach((line, i) => {
-      const text = svgEl('text', { class: 'comment', x: '0',
-        y: String(h + COMMENT_GAP + COMMENT_BASELINE + i * COMMENT_LINE_H) });
-      text.textContent = line;
-      g.appendChild(text);
-    });
-    const messages = [...new Set(blockIssues.map(issue => issue.message))];
-    const wrapped = messages.flatMap(message => wrapValidationMessage(message, Math.max(22, Math.floor(w / ERROR_CHAR_W))));
-    wrapped.slice(0, 5).forEach((message, i) => {
-      const error = svgEl('text', { class: 'validation-error', x: '0',
-        y: String(h + comment.height + ERROR_LINE_H * (i + 1)) });
-      error.textContent = message; g.appendChild(error);
-    });
-    if (wrapped.length > 5) {
-      const more = svgEl('text', { class: 'validation-error', x: '0',
-        y: String(h + comment.height + ERROR_LINE_H * 6) });
-      more.textContent = `+${wrapped.length - 5} more lines`; g.appendChild(more);
-    }
-    // Drag from anywhere on the block; ports stopPropagation so they still connect.
-    g.addEventListener('pointerdown', e => startDrag(e, inst));
-    // Hold a touch that grabbed this block (or one of its ports, which are its
-    // children) so it drags or wires instead of panning the canvas out from
-    // under itself: without this the browser claims the gesture, the pointer
-    // stream ends in `pointercancel`, and the block stops two frames in.
-    // `touch-action:none` is the declarative form and cannot do the job — Blink
-    // applies the property to CSS boxes, and an SVG child element is not one.
-    // Cancelling the *move* rather than the touch start is what leaves a
-    // long-press free to raise the block's context menu.
-    // It has to be bound here, per block, rather than once on the canvas: touch
-    // events keep targeting the node the gesture began on even after render()
-    // has replaced it, and a detached node's events reach no ancestor.
-    g.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
-    g.addEventListener('contextmenu', e => { e.preventDefault(); e.stopPropagation(); if (!selectedBlocks.has(inst.uid)) select(inst.uid); showMenu(e.clientX, e.clientY, inst); });
-    for (const i of visiblePortIndices(inst, 'in'))
-      addPort(g, inst, 'in', i, portColor(inst, 'in', i));
-    for (const i of visiblePortIndices(inst, 'out'))
-      addPort(g, inst, 'out', i, portColor(inst, 'out', i));
-    nodesG.appendChild(g);
-  }
-  updateCanvasExtent();
-  syncRecordingTabs();   // one workspace tab per block with a recording behind it
+  renderCanvas({
+    state, zoom, trainingSession, trainingNodesG, trainingWiresG, nodesG, wiresG,
+    selectionG, rebuildScope, validateGraph, canvasBlockHidden, portMeta,
+    connectionPath, cancelConnect, selectConnection, showConnectionMenu, geom, rowsTop,
+    blockCommentGeometry, wrapValidationMessage, truncateToWidth, startDrag,
+    select, showMenu, visiblePortIndices, addTrainingPort, addPort, portColor,
+    updateCanvasExtent, syncRecordingTabs, TITLE_BASELINE, SUBTITLE_H, TITLE_H,
+    SUBTITLE_GAP, ROW_H, ROW_BASELINE, TEXT_PAD_L, MORE_ROW_ID, LAYOUT_THUMB_W,
+    LAYOUT_THUMB_FONT, COMMENT_GAP, COMMENT_BASELINE, COMMENT_LINE_H,
+    ERROR_LINE_H, ERROR_CHAR_W,
+  });
 }
 
 // Grow the drawing surface past the viewport when blocks sit outside it, so the
@@ -3517,7 +2415,7 @@ function render() {
 const CANVAS_MARGIN = 60;   // room for port tabs, validation labels and drop space
 function updateCanvasExtent() {
   let right = 0, bottom = 0;
-  const blocks = [...insts, ...(trainingSession?.unfilledBlocks(insts) || [])];
+  const blocks = [...state.insts, ...(trainingSession?.unfilledBlocks(state.insts) || [])];
   for (const inst of blocks) {
     if (canvasBlockHidden(inst)) continue;
     const { w, h } = geom(inst);
@@ -3534,7 +2432,6 @@ function addPort(g: SVGGElement, inst: Inst, kind: 'in' | 'out', idx: number, co
   // label. Auto-hide reduces that to PORT_HIDDEN_W until hover; because
   // portPos() reads the same width, the connection remains attached to the
   // tab's moving outer edge just as it does natively.
-  const hoverKey = `${inst.uid}:${kind}:${idx}`;
   const p = portPos(inst, kind, idx);
   const label = portLabel(inst, kind, idx);
   const pw = portWidth(inst, kind, idx);
@@ -3551,199 +2448,11 @@ function addPort(g: SVGGElement, inst: Inst, kind: 'in' | 'out', idx: number, co
   if (p.edge === 'T' || p.edge === 'B')
     text.setAttribute('transform', `rotate(-90 ${cx} ${cy})`);
   text.textContent = label;
-  r.addEventListener('pointerenter', () => {
-    if (!autoHidePortLabels || connecting || hoveredPortKey === hoverKey) return;
-    hoveredPortKey = hoverKey;
-    render();
-  });
-  r.addEventListener('pointerleave', () => {
-    // Keep the source expanded while a wire is armed or being dragged. The
-    // connection completion/cancellation path collapses it and redraws once.
-    if (!autoHidePortLabels || connecting || hoveredPortKey !== hoverKey) return;
-    hoveredPortKey = null;
-    render();
-  });
-  // Two ways to wire ports (GRC-style): left-drag from a port and release on a
-  // compatible one, or click a port then click the other. Works from either an
-  // output or an input.
-  r.addEventListener('pointerdown', e => {
-    if (e.button !== 0) return;
-    e.stopPropagation(); e.preventDefault();
-    // A touch is implicitly captured by the element it went down on, which would
-    // send the release to the source port however far the finger travelled;
-    // dropping the capture lets the port under the fingertip receive it, so a
-    // drag connects on a touch screen exactly as it does with a mouse.
-    if (r.hasPointerCapture(e.pointerId)) r.releasePointerCapture(e.pointerId);
-    // A source is already armed from a prior click and this is a different
-    // port: treat the press as the second click and complete the connection.
-    if (connecting && !(connecting.uid === inst.uid && connecting.port === idx && connecting.kind === kind)) {
-      completeConnect(inst, kind, idx);
-      return;
-    }
-    connecting = { uid: inst.uid, port: idx, kind };
-    connectDownPt = { x: e.clientX, y: e.clientY };
-    log('connect from ' + inst.name + ':' + idx + ' …');
-    updateConnectPreview(svgPoint(e));
-  });
-  r.addEventListener('pointerup', e => {
-    if (!connecting) return;
-    e.stopPropagation();   // keep the window handler from cancelling the wire
-    // Released on the source port itself: if the pointer barely moved this was a
-    // click, so leave the wire armed for click-to-connect; otherwise it was a
-    // drag that went nowhere, so abandon it.
-    if (connecting.uid === inst.uid && connecting.port === idx && connecting.kind === kind) {
-      const dp = connectDownPt;
-      if (dp && Math.hypot(e.clientX - dp.x, e.clientY - dp.y) > CONNECT_CLICK_SLOP &&
-          cancelConnect()) render();
-      return;
-    }
-    completeConnect(inst, kind, idx);
-  });
+  connectionController.bindPort(r, inst, kind, idx);
   g.appendChild(r);
   g.appendChild(text);
 }
-const G0 = (uid: string) => insts.find(i => i.uid === uid)!;
-
-// Live rubber-band wire from the source port to the cursor while connecting.
-function updateConnectPreview(pt: { x: number; y: number }) {
-  if (!connecting) return;
-  const inst = G0(connecting.uid);
-  if (!inst) { if (cancelConnect()) render(); return; }
-  const pp = portPos(inst, connecting.kind, connecting.port);
-  const x1 = inst.x + pp.x, y1 = inst.y + pp.y;
-  const [c1x, c1y] = ctrl(pp.edge, x1, y1, 42);
-  const d = `M${x1},${y1} C${c1x},${c1y} ${pt.x},${pt.y} ${pt.x},${pt.y}`;
-  if (!connectPreview) {
-    connectPreview = svgEl('path', { class: 'wire connecting', d });
-    wiresG.appendChild(connectPreview);
-  } else connectPreview.setAttribute('d', d);
-}
-function cancelConnect() {
-  const collapsedPort = autoHidePortLabels && hoveredPortKey !== null;
-  connecting = null; connectDownPt = null;
-  hoveredPortKey = null;
-  if (connectPreview) { connectPreview.remove(); connectPreview = null; }
-  return collapsedPort;
-}
-// Finish a drag on the given port, orienting the connection output→input.
-function completeConnect(inst: Inst, kind: 'in' | 'out', idx: number) {
-  if (!connecting) return;
-  let out: { uid: string; port: number }, sink: { uid: string; port: number };
-  if (connecting.kind === 'out' && kind === 'in') {
-    out = { uid: connecting.uid, port: connecting.port }; sink = { uid: inst.uid, port: idx };
-  } else if (connecting.kind === 'in' && kind === 'out') {
-    out = { uid: inst.uid, port: idx }; sink = { uid: connecting.uid, port: connecting.port };
-  } else { if (cancelConnect()) render(); return; }   // same direction (out→out / in→in): no connection
-  if (out.uid === sink.uid) { if (cancelConnect()) render(); return; }  // don't connect a block to itself
-  if (selectedConnection && selectedConnection.to === sink.uid && selectedConnection.tp === sink.port)
-    selectedConnection = null;
-  conns = conns.filter(cn => !(cn.to === sink.uid && cn.tp === sink.port));  // one wire per input
-  conns.push({ from: out.uid, fp: out.port, to: sink.uid, tp: sink.port });
-  log('  → ' + G0(out.uid).name + ':' + out.port + '  to  ' + G0(sink.uid).name + ':' + sink.port);
-  cancelConnect(); render(); recordHistory();
-}
-
-let drag: { inst: Inst; ox: number; oy: number; starts: Map<string, { x: number; y: number }>;
-  natural: { x: number; y: number }; moved: boolean } | null = null;
-interface Marquee {
-  start: Point;
-  initial: Set<string>;
-  initialPrimary: string | null;
-  rect: SVGRectElement;
-  moved: boolean;
-}
-let marquee: Marquee | null = null;
-const MARQUEE_SLOP = 3;
-
-function sameSelection(a: Set<string>, b: Set<string>): boolean {
-  return a.size === b.size && [...a].every(uid => b.has(uid));
-}
-
-function updateMarquee(point: Point) {
-  if (!marquee) return;
-  const box = boundsBetween(marquee.start, point);
-  const { x, y, width, height } = box;
-  if (!marquee.moved && Math.hypot(width, height) * zoom < MARQUEE_SLOP) return;
-  marquee.moved = true;
-  marquee.rect.setAttribute('x', String(x));
-  marquee.rect.setAttribute('y', String(y));
-  marquee.rect.setAttribute('width', String(width));
-  marquee.rect.setAttribute('height', String(height));
-  marquee.rect.removeAttribute('visibility');
-
-  // QGraphicsView's native rubber-band mode selects every item whose shape
-  // intersects the box. Use the block body here; ports and validation labels
-  // should not make a distant block feel selected.
-  const next = new Set(marquee.initial);
-  const hits: string[] = [];
-  for (const inst of insts) {
-    if (canvasBlockHidden(inst)) continue;
-    const { w, h } = geom(inst);
-    if (boundsIntersect(box, { x: inst.x, y: inst.y, width: w, height: h })) {
-      next.add(inst.uid);
-      hits.push(inst.uid);
-    }
-  }
-  if (sameSelection(next, selectedBlocks)) return;
-  selectedBlocks = next;
-  selected = hits[hits.length - 1] || (marquee.initialPrimary && next.has(marquee.initialPrimary)
-    ? marquee.initialPrimary : ([...next].pop() || null));
-  selectedConnection = null;
-  render();
-}
-
-// Manual double-click detection: select()/drag rebuild the block's DOM node on
-// every press, so the browser never sees two clicks on the same element and
-// its native 'dblclick' never fires. Track the last press ourselves instead.
-let lastMouseDown: { uid: string; t: number } | null = null;
-// Route the rest of a canvas gesture through the <svg> root. A touch is captured
-// by whatever element it went down on, and render() replaces that element on
-// every move — a dragged block's own <g> does not survive its first frame, and
-// events aimed at a detached node reach no window listener. The root is stable.
-function captureCanvasPointer(e: PointerEvent) { svg.setPointerCapture(e.pointerId); }
-function startDrag(e: PointerEvent, inst: Inst) {
-  e.stopPropagation();
-  if (e.button !== 0) return;   // right/middle click: let the context menu handle it
-  e.preventDefault();           // stop the browser from starting a text selection
-  const now = Date.now();
-  if (lastMouseDown && lastMouseDown.uid === inst.uid && now - lastMouseDown.t < 350) {
-    lastMouseDown = null; drag = null;
-    select(inst.uid);
-    showPropsDialog(inst);        // same dialog as right-click → Properties
-    return;
-  }
-  lastMouseDown = { uid: inst.uid, t: now };
-  select(inst.uid, e.shiftKey);
-  if (!selectedBlocks.has(inst.uid)) return;
-  trainingSession?.clearSnapCandidate();
-  captureCanvasPointer(e);
-  const p = svgPoint(e);
-  drag = { inst, ox: p.x - inst.x, oy: p.y - inst.y,
-    starts: new Map(insts.filter(i => selectedBlocks.has(i.uid)).map(i => [i.uid, { x: i.x, y: i.y }])),
-    natural: { x: inst.x, y: inst.y }, moved: false };
-}
-window.addEventListener('pointermove', e => {
-  if (connecting) { updateConnectPreview(svgPoint(e)); return; }
-  if (marquee) { updateMarquee(svgPoint(e)); return; }
-  if (!drag) return; const p = svgPoint(e);
-  const primary = drag.starts.get(drag.inst.uid)!;
-  const natural = constrainBlockPosition(p.x - drag.ox, p.y - drag.oy, snapToGrid);
-  drag.natural = natural;
-  const snapTarget = selectedBlocks.size === 1
-    ? trainingSession?.updateSnapCandidate(drag.inst, natural.x, natural.y, insts)
-    : undefined;
-  if (selectedBlocks.size !== 1) trainingSession?.clearSnapCandidate();
-  const target = snapTarget ? { x: snapTarget.x, y: snapTarget.y } : natural;
-  const dx = target.x - primary.x, dy = target.y - primary.y;
-  let moved = false;
-  for (const inst of insts) {
-    const start = drag.starts.get(inst.uid); if (!start) continue;
-    const position = constrainBlockPosition(start.x + dx, start.y + dy, snapToGrid);
-    moved ||= position.x !== inst.x || position.y !== inst.y;
-    inst.x = position.x; inst.y = position.y;
-  }
-  drag.moved ||= moved; render();
-});
+const G0 = (uid: string) => state.insts.find(i => i.uid === uid)!;
 
 function adoptTrainingTarget(actual: Inst, target: Inst) {
   remapConnectionsForPortChange(actual, target.params);
@@ -3758,57 +2467,28 @@ function adoptTrainingTarget(actual: Inst, target: Inst) {
   log(`placed ${defFor(actual).label} as ${target.name}`);
 }
 
-const endPointerGesture = (e: PointerEvent) => {
-  if (svg.hasPointerCapture(e.pointerId)) svg.releasePointerCapture(e.pointerId);
-  const collapsedPort = connecting ? cancelConnect() : false; // released away: abandon the wire
-  let redraw = false;
-  if (drag) {
-    const target = e.type === 'pointerup'
-      ? trainingSession?.commitSnap(drag.inst.uid) : undefined;
-    if (target) {
-      adoptTrainingTarget(drag.inst, target);
-      redraw = true;
-    } else if (trainingSession?.snapTargetForActual(drag.inst.uid)) {
-      // A cancelled pointer stream must not strand the uncommitted preview at
-      // the target. Only one selected block can magnetically snap.
-      drag.inst.x = drag.natural.x;
-      drag.inst.y = drag.natural.y;
-      redraw = true;
-    }
-    trainingSession?.clearSnapCandidate();
-    if (drag.moved || target) recordHistory();
-  }
-  drag = null;
-  if (marquee) { marquee.rect.remove(); marquee = null; }
-  if (collapsedPort || redraw) render();
-};
-window.addEventListener('pointerup', endPointerGesture);
-// The browser takes the gesture over when it decides a touch is a scroll (or the
-// system does, mid-gesture). Without this the rubber band would be left painted
-// on the canvas and a half-finished wire armed.
-window.addEventListener('pointercancel', endPointerGesture);
-svg.addEventListener('pointerdown', e => {
-  if (e.button !== 0) return;
-  e.preventDefault();
-  cancelConnect();
-  const additive = e.shiftKey || e.ctrlKey || e.metaKey;
-  const initial = additive ? new Set(selectedBlocks) : new Set<string>();
-  const initialPrimary = additive ? selected : null;
-  if (!additive) {
-    selectedBlocks.clear();
-    selected = null;
-  }
-  selectedConnection = null;
-  render();
-  // A finger on empty canvas pans it — that is the scroll container's gesture,
-  // and a rubber band would fight it for the same drag. Deselecting, above,
-  // still happens either way.
-  if (e.pointerType === 'touch') return;
-  captureCanvasPointer(e);
-  const rect = svgEl('rect', { class: 'selection-box', visibility: 'hidden' });
-  selectionG.appendChild(rect);
-  marquee = { start: svgPoint(e), initial, initialPrimary, rect, moved: false };
+const gestureController = new CanvasGestureController({
+  state,
+  svg,
+  selectionLayer: selectionG,
+  connections: connectionController,
+  zoom: () => zoom,
+  snapToGrid: () => snapToGrid,
+  trainingSession: () => trainingSession,
+  svgPoint,
+  canvasBlockHidden,
+  geom,
+  render,
+  select,
+  showProperties: showPropsDialog,
+  adoptTrainingTarget,
+  recordHistory,
 });
+
+function startDrag(event: PointerEvent, inst: Inst): void {
+  gestureController.startDrag(event, inst);
+}
+
 svg.addEventListener('contextmenu', e => {
   e.preventDefault(); closeMenu();
   const m = document.createElement('div'); m.className = 'ctxmenu';
@@ -3828,12 +2508,13 @@ svg.addEventListener('contextmenu', e => {
 // reaching the .grc. An 'output' has no File and no size -- a folder handle to
 // stream into, or nothing at all, in which case the runner buffers and
 // downloads at the end.
-type RunnerInputFile =
-  | { kind: 'local'; path: string; file: File; meta?: string }
-  | { kind: 'http'; path: string; url: string; size: number; meta?: string }
-  | { kind: 'output'; path: string; base: string; dir: FileSystemDirectoryHandle | null };
-const pendingRunnerRecordings = new Map<string, RunnerInputFile[]>();
-let pendingRunnerToken: string | null = null;
+const runSessionState: RunSessionState = {
+  pendingFiles: new Map<string, RunnerInputFile[]>(),
+  pendingToken: null,
+  generation: 0,
+  runningGraphSnapshot: null,
+  active: false,
+};
 
 // How big the file at a Public HTTP Recording's URL is. The reader needs the
 // length up front to bound its ranges, and there is no metadata to take it
@@ -3841,29 +2522,6 @@ let pendingRunnerToken: string | null = null;
 // serve ranges but not HEAD. Either answer also proves the URL is reachable
 // with this origin's CORS headers, which is what makes it worth doing before
 // the flowgraph starts rather than inside the reader worker.
-async function publicHttpFileSize(url: string): Promise<number | null> {
-  let parsed: URL;
-  try { parsed = new URL(url); } catch { return null; }
-  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
-
-  try {
-    const response = await fetch(parsed.href, {
-      method: 'HEAD', cache: 'no-store', mode: 'cors',
-    });
-    const size = Number(response.headers.get('Content-Length'));
-    if (response.ok && Number.isSafeInteger(size) && size > 0) return size;
-  } catch { /* Some range-capable hosts do not implement HEAD. */ }
-
-  try {
-    const response = await fetch(parsed.href, {
-      headers: { Range: 'bytes=0-0' }, cache: 'no-store', mode: 'cors',
-    });
-    const match = /^bytes\s+0-0\/(\d+)$/i.exec(response.headers.get('Content-Range') || '');
-    await response.body?.cancel();
-    const size = Number(match?.[1]);
-    return response.status === 206 && Number.isSafeInteger(size) && size > 0 ? size : null;
-  } catch { return null; }
-}
 
 // ---- embedded mode (?embed=1) ----------------------------------------------
 // What another site frames to show one flowgraph: editor.css drops everything
@@ -3906,71 +2564,33 @@ async function refreshEmbedOpen() {
 // bar is a registry rather than the pair of buttons it used to be.
 // `container` is what the bar orders and holds: a recording tab is a group of
 // the tab button plus its close button, because a button cannot contain one.
-type WorkspaceTab = 'editor' | 'qtgui' | string;
-interface WorkspaceTabEntry {
-  id: WorkspaceTab; button: HTMLButtonElement; panel: HTMLElement; container?: HTMLElement;
-}
-const tabContainer = (entry: WorkspaceTabEntry): HTMLElement => entry.container || entry.button;
-const workspaceTabs: WorkspaceTabEntry[] = [
-  { id: 'editor', button: el('tabEditor') as HTMLButtonElement, panel: el('editorPane') },
-  { id: 'qtgui', button: el('tabQtGui') as HTMLButtonElement, panel: el('runPane') },
-];
-let activeWorkspaceTab: WorkspaceTab = 'editor';
+const workspaceTabController = new WorkspaceTabsController({
+  editorPane: el('editorPane'),
+  runnerPane: el('runPane'),
+  isRecordingTab: id => isRecordingTabId(id),
+  recordingKey: id => recordingTabKey(id),
+  openRecording: key => openRecordingPane(key),
+  closeRecording: key => recordingTabsController.close(key),
+},
+{ id: 'editor', button: el('tabEditor') as HTMLButtonElement, panel: el('editorPane') },
+{ id: 'qtgui', button: el('tabQtGui') as HTMLButtonElement, panel: el('runPane') });
+const workspaceTabs = workspaceTabController.entries;
 
-function activateWorkspaceTab(tab: WorkspaceTab) {
-  if (!workspaceTabs.some(entry => entry.id === tab)) tab = 'editor';
-  activeWorkspaceTab = tab;
-  const editorActive = tab === 'editor';
-  el('editorPane').hidden = !editorActive;
-  el('runPane').hidden = tab !== 'qtgui';
-  for (const entry of workspaceTabs) {
-    const active = entry.id === tab;
-    entry.button.classList.toggle('active', active);
-    entry.button.setAttribute('aria-selected', String(active));
-    entry.button.tabIndex = active ? 0 : -1;
-    if (isRecordingTabId(entry.id)) entry.panel.classList.toggle('active', active);
-  }
-  // Nothing of the recording view — neither its bundle nor the recording's
-  // samples — is fetched until the tab showing it is opened for the first time.
-  if (isRecordingTabId(tab)) void openRecordingPane(recordingTabKey(tab));
+function activateWorkspaceTab(tab: WorkspaceTab): void {
+  workspaceTabController.activate(tab);
 }
 
-function wireWorkspaceTab(entry: WorkspaceTabEntry) {
-  entry.button.addEventListener('click', () => activateWorkspaceTab(entry.id));
-  entry.button.addEventListener('keydown', event => {
-    const index = workspaceTabs.indexOf(entry);
-    if (index < 0) return;
-    // The close button stays out of the tab order — a tablist is one stop, moved
-    // through with the arrow keys — so Delete on the focused tab is what closes a
-    // recording nothing on the canvas owns.
-    if (event.key === 'Delete' || event.key === 'Backspace') {
-      const tab = isRecordingTabId(entry.id)
-        ? recordingTabs.get(recordingTabKey(entry.id)) : undefined;
-      if (!tab || tab.close.hidden) return;
-      closeRecordingTab(tab);
-      event.preventDefault();
-      return;
-    }
-    let next = index;
-    if (event.key === 'ArrowLeft') next = (index + workspaceTabs.length - 1) % workspaceTabs.length;
-    else if (event.key === 'ArrowRight') next = (index + 1) % workspaceTabs.length;
-    else if (event.key === 'Home') next = 0;
-    else if (event.key === 'End') next = workspaceTabs.length - 1;
-    else return;
-    const target = workspaceTabs[next];
-    activateWorkspaceTab(target.id);
-    target.button.focus();
-    event.preventDefault();
-  });
+function wireWorkspaceTab(entry: WorkspaceTabEntry): void {
+  workspaceTabController.wire(entry);
 }
-workspaceTabs.forEach(wireWorkspaceTab);
 
 let runnerRunning = false;
-let runningGraphSnapshot: string | null = null;
 
 function updateRunningCanvasState(): void {
-  if (!runnerRunning || !runningGraphSnapshot) return;
-  const stale = JSON.stringify(snapshot()) !== runningGraphSnapshot;
+  updateRunCanvasState(runSessionDeps, runSessionState);
+}
+
+function markRunningCanvasStale(stale: boolean): void {
   el('runStatus').textContent = stale
     ? 'Running flowgraph — canvas has changed since'
     : 'Running flowgraph…';
@@ -4003,7 +2623,8 @@ function setRunnerRunning(running: boolean, status?: string) {
   updateEmbedRun();
   el('workspace').classList.toggle('running', running);
   if (!running) {
-    runningGraphSnapshot = null;
+    runSessionState.active = false;
+    runSessionState.runningGraphSnapshot = null;
     el('workspace').classList.remove('run-stale');
   }
   el('runStatus').textContent = status || (running ? 'Running flowgraph…' : 'No flowgraph running');
@@ -4237,10 +2858,7 @@ function applyRunnerLayoutReport(payload: string) {
 // starts. Descriptors retain either a browser File reference or a remote URL;
 // the runner reads bounded slices/ranges instead of materializing whole files.
 (window as any).__grTakeRecordingFiles = (token: string): RunnerInputFile[] => {
-  const files = pendingRunnerRecordings.get(token) || [];
-  pendingRunnerRecordings.delete(token);
-  if (pendingRunnerToken === token) pendingRunnerToken = null;
-  return files;
+  return takeRecordingFiles(runSessionState, token);
 };
 
 // ---- Recording tabs (an embedded recording view per recording) --------------
@@ -4260,421 +2878,52 @@ function applyRunnerLayoutReport(payload: string) {
 // and carry a close button instead. Both origins key a tab by the same
 // '/recordings/...' path a GR World Recording would produce, so adding the block
 // for a previewed recording adopts its tab rather than opening a second one.
-interface RecordingSource {
-  key: string;            // '/recordings/<path>' or 'local:<token>'
-  label: string;          // tab text
-  title: string;          // tooltip: the recording key or file name
-  name: string;           // display name handed to the recording view
-  kind: 'remote' | 'local';
-  path: string;           // remote: the /recordings/... path this resolves through
-  token?: string;         // local: key into localFilesByToken
-  datatype?: string;      // local: SigMF datatype inferred from the block
-  sampleRate?: number;    // local: samp_rate from the flowgraph, when numeric
-  // A SigMF Source's real .sigmf-meta. The only local source that has one --
-  // everything else local gets synthesizedSigmfMeta(), which infers a datatype
-  // and a rate and has no captures or annotations to offer at all.
-  metaText?: string;
-  file?: File;            // local: the samples, when the block holds them itself
-  offset: number;         // the block's sample selection
-  length: number;
+const recordingTabsController = createRecordingTabs({
+  state,
+  workspaceTabs,
+  workspaceController: workspaceTabController,
+  workspaceContent: el('workspaceContent'),
+  workspaceTabsElement: el('workspaceTabs'),
+  wireWorkspaceTab,
+  activateWorkspaceTab,
+  localFilesByToken,
+  sigmfBindingsByToken,
+  scope: () => varScope,
+  resolveParamsForRun,
+  bindRemoteRecording,
+  setUrlFragment,
+  closePaletteDrawer,
+  resolveRemoteRecording,
+  render,
+  recordHistory,
+});
+
+function isRecordingTabId(id: WorkspaceTab): boolean {
+  return recordingTabsController.isRecordingTabId(id);
 }
 
-interface RecordingTab {
-  source: RecordingSource;
-  entry: WorkspaceTabEntry;
-  label: HTMLElement;
-  close: HTMLButtonElement;
-  status: HTMLElement;
-  frame: HTMLIFrameElement | null;
-  opening: boolean;
-  ready: boolean;
-  pinned: boolean;        // opened without a block behind it; survives sync
-  viewerOffset: number | null;
-  viewerLength: number | null;
-  blobUrls: string[];
+function recordingTabKey(id: WorkspaceTab): string {
+  return recordingTabsController.recordingTabKey(id);
 }
 
-const recordingTabs = new Map<string, RecordingTab>();
-let recordingTabCounter = 0;
-
-const isRecordingTabId = (id: WorkspaceTab): boolean => id.startsWith('rec:');
-const recordingTabKey = (id: WorkspaceTab): string => id.slice(4);
-
-// A local file has no SigMF metadata, so the datatype is inferred from the File
-// Source itself. GNU Radio reads interleaved I/Q integers as a scalar stream fed
-// into a converter, so a short/byte source whose only sink is that converter is
-// a complex recording — the same shape addRecordingBlock() builds for ci16.
-const FILE_SOURCE_DATATYPES: Record<string, string> = {
-  complex: 'cf32_le', float: 'rf32_le', int: 'ri32_le', short: 'ri16_le', byte: 'ri8',
-};
-const INTERLEAVED_CONVERTERS: Record<string, { from: string; datatype: string }> = {
-  blocks_interleaved_short_to_complex: { from: 'short', datatype: 'ci16_le' },
-  blocks_interleaved_char_to_complex: { from: 'byte', datatype: 'ci8' },
-};
-const SIGMF_SAMPLE_BYTES: Record<string, number> = {
-  cf32_le: 8, rf32_le: 4, ri32_le: 4, ci16_le: 4, ri16_le: 2, ci8: 2, ri8: 1,
-};
-
-function localRecordingDatatype(block: Inst): string {
-  const type = String(block.params.type || 'complex');
-  const scalar = FILE_SOURCE_DATATYPES[type] || 'cf32_le';
-  if (Number(block.params.vlen ?? 1) > 1) return scalar;
-  const sinks = conns.filter(c => c.from === block.uid)
-    .map(c => insts.find(i => i.uid === c.to)?.id || '');
-  if (sinks.length !== 1) return scalar;
-  const converter = INTERLEAVED_CONVERTERS[sinks[0]];
-  return converter && converter.from === type ? converter.datatype : scalar;
-}
-
-function fileSourceSelection(block: Inst): { offset: number; length: number } {
-  const resolved = resolveParamsForRun(block, varScope);
-  const samples = (value: any): number => {
-    const number = Number(value);
-    return Number.isSafeInteger(number) && number > 0 ? number : 0;
-  };
-  return { offset: samples(resolved.offset), length: samples(resolved.length) };
-}
-
-// The three blocks that can have a recording behind them: File Source, for raw
-// samples in a file on this computer; SigMF Source, for a SigMF recording on
-// this computer; and GR World Recording, for a hosted one.
-const RECORDING_BLOCK_IDS = new Set(['blocks_file_source', SIGMF_SOURCE_ID, RECORDING_ID]);
-
-function recordingSourceFor(block: Inst): RecordingSource | null {
-  const selection = fileSourceSelection(block);
-  if (block.id === RECORDING_ID) {
-    let path: string;
-    try { path = recordingDataPath(String(block.params[RECORDING_PARAM] || '')); }
-    catch { return null; }     // no recording chosen yet, or an unusable key
-    // The label comes from the key, not from the recordings index, so drawing
-    // the tab never has to wait on (or trigger) a fetch.
-    const name = String(block.params[RECORDING_PARAM]);
-    return {
-      key: path, label: name.split('/').pop() || name, title: name, name,
-      kind: 'remote', path,
-      ...selection,
-    };
-  }
-  if (!block.localFileToken) return null;
-
-  // A SigMF Source is the one local block whose recording describes itself, so
-  // its tab is driven by the real .sigmf-meta rather than one inferred from the
-  // block's parameters -- which is what puts the recording's own annotations on
-  // the spectrogram.
-  if (block.id === SIGMF_SOURCE_ID) {
-    const bound = sigmfBindingsByToken.get(block.localFileToken);
-    if (!bound) return null;   // picked in a previous session; the Files are gone
-    const name = bound.base + SIGMF_DATA_SUFFIX;
-    return {
-      key: 'sigmf:' + block.localFileToken,
-      label: bound.base, title: name, name,
-      kind: 'local', path: name, token: block.localFileToken,
-      datatype: bound.datatype,
-      sampleRate: bound.sampleRate ?? undefined,
-      metaText: bound.metaText,
-      file: bound.data,
-      ...selection,
-    };
-  }
-
-  const file = localFilesByToken.get(block.localFileToken);
-  if (!file) return null;      // picked in a previous session; the File is gone
-  const rate = Number(varScope['samp_rate']);
-  return {
-    key: 'local:' + block.localFileToken,
-    label: file.name, title: file.name, name: file.name,
-    kind: 'local', path: String(block.params.file || ''), token: block.localFileToken,
-    datatype: localRecordingDatatype(block),
-    sampleRate: Number.isFinite(rate) && rate > 0 ? rate : undefined,
-    file,
-    ...selection,
-  };
-}
-
-function recordingSources(): RecordingSource[] {
-  const sources: RecordingSource[] = [];
-  const seen = new Set<string>();
-  for (const block of insts) {
-    if (!RECORDING_BLOCK_IDS.has(block.id)) continue;
-    const source = recordingSourceFor(block);
-    if (!source || seen.has(source.key)) continue;   // two blocks, one tab
-    seen.add(source.key);
-    sources.push(source);
-  }
-  return sources;
-}
-
-function createRecordingTab(source: RecordingSource): RecordingTab {
-  const id = ++recordingTabCounter;
-  // The button and its close control are siblings inside a group styled as one
-  // tab: nesting a button inside a button is invalid, and the close control has
-  // to be separately clickable and focusable.
-  const group = document.createElement('div'); group.className = 'workspace-tab-group';
-  const button = document.createElement('button');
-  button.type = 'button'; button.className = 'workspace-tab'; button.id = `tabRecording${id}`;
-  button.setAttribute('role', 'tab'); button.setAttribute('aria-selected', 'false');
-  button.tabIndex = -1;
-  const label = document.createElement('span'); label.className = 'workspace-tab-label';
-  button.appendChild(label);
-  const close = document.createElement('button');
-  close.type = 'button'; close.className = 'workspace-tab-close'; close.textContent = '×';
-  close.tabIndex = -1; close.hidden = true;
-  group.append(button, close);
-
-  const panel = document.createElement('section');
-  panel.className = 'workspace-panel recording-pane'; panel.id = `recordingPane${id}`;
-  panel.setAttribute('role', 'tabpanel'); panel.setAttribute('aria-labelledby', button.id);
-  button.setAttribute('aria-controls', panel.id);
-  const status = document.createElement('div'); status.className = 'rec-pane-status';
-  status.textContent = 'Open this tab to load the recording view.';
-  panel.appendChild(status);
-  el('workspaceContent').appendChild(panel);
-
-  const entry: WorkspaceTabEntry = { id: 'rec:' + source.key, button, panel, container: group };
-  wireWorkspaceTab(entry);
-  workspaceTabs.push(entry);
-  el('workspaceTabs').appendChild(group);
-  const tab: RecordingTab = {
-    source, entry, label, close, status, frame: null, opening: false, ready: false,
-    pinned: false, viewerOffset: null, viewerLength: null, blobUrls: [],
-  };
-  close.onclick = event => { event.stopPropagation(); closeRecordingTab(tab); };
-  return tab;
-}
-
-function destroyRecordingTab(tab: RecordingTab) {
-  for (const url of tab.blobUrls) URL.revokeObjectURL(url);
-  tabContainer(tab.entry).remove();
-  tab.entry.panel.remove();   // drops the iframe, and with it the viewer's fetches
-  const index = workspaceTabs.indexOf(tab.entry);
-  if (index >= 0) workspaceTabs.splice(index, 1);
-  recordingTabs.delete(tab.source.key);
-  // As with #example=, the URL must not go on claiming what is no longer open.
-  if (recordingHashKey() === recordingKeyOf(tab)) setUrlFragment({ recording: null });
-  if (activeWorkspaceTab === tab.entry.id) activateWorkspaceTab('editor');
-}
-
-// The linkable form of what a tab shows: the recording's base key. A locally
-// picked file has none — it exists only for this session — so it is not linkable.
-function recordingKeyOf(tab: RecordingTab): string | null {
-  return tab.source.kind === 'remote' ? tab.source.name : null;
-}
 const recordingHashKey = (): string | null =>
   new URLSearchParams(location.hash.slice(1)).get('recording');
 
-// Only a pinned tab has a close button, so a block still owning this
-// recording cannot be closed out from under the canvas.
-function closeRecordingTab(tab: RecordingTab) {
-  tab.pinned = false;
-  if (recordingSources().some(source => source.key === tab.source.key)) {
-    syncRecordingTabs();   // the canvas owns it after all: keep it, drop the ×
-    return;
-  }
-  destroyRecordingTab(tab);
+function syncRecordingTabs(): void {
+  recordingTabsController.syncRecordingTabs();
 }
 
-function describeRecordingTab(tab: RecordingTab, source: RecordingSource) {
-  tab.source = source;
-  tab.label.textContent = source.label;
-  tab.entry.button.title = source.title;
-  tab.entry.button.setAttribute('aria-label', `Recording ${source.title}`);
-  tab.close.title = `Close the recording view of ${source.title} (Delete)`;
-  tab.close.setAttribute('aria-label', `Close the recording view of ${source.title}`);
+function openRecordingPreview(recording: ExampleRecording): void {
+  recordingTabsController.openRecordingPreview(recording);
 }
 
-// Called from render(), so it must stay synchronous and free of network calls.
-function syncRecordingTabs() {
-  const sources = recordingSources();
-  const wanted = new Set(sources.map(source => source.key));
-  for (const tab of [...recordingTabs.values()])
-    if (!wanted.has(tab.source.key) && !tab.pinned) destroyRecordingTab(tab);
-
-  for (const source of sources) {
-    let tab = recordingTabs.get(source.key);
-    if (!tab) { tab = createRecordingTab(source); recordingTabs.set(source.key, tab); }
-    describeRecordingTab(tab, source);
-    if (tab.ready &&
-        (tab.viewerOffset !== source.offset || tab.viewerLength !== source.length))
-      postFileSourceSelection(tab);
-  }
-
-  // A pinned tab is closable exactly while no block owns its recording;
-  // once one does, the canvas is what decides whether the tab exists.
-  for (const tab of recordingTabs.values())
-    tab.close.hidden = !tab.pinned || wanted.has(tab.source.key);
-
-  // Keep the bar in canvas order, with tabs the canvas does not own after them.
-  // Only the tab buttons are reordered: re-inserting a panel would re-insert its
-  // iframe, which reloads the document inside it.
-  const order = [workspaceTabs[0], workspaceTabs[1],
-    ...sources.map(source => recordingTabs.get(source.key)!.entry),
-    ...[...recordingTabs.values()]
-      .filter(tab => !wanted.has(tab.source.key)).map(tab => tab.entry)];
-  workspaceTabs.length = 0; workspaceTabs.push(...order);
-  const bar = el('workspaceTabs');
-  if (order.some((entry, index) => bar.children[index] !== tabContainer(entry)))
-    for (const entry of order) bar.appendChild(tabContainer(entry));
-
-  if (!workspaceTabs.some(entry => entry.id === activeWorkspaceTab))
-    activateWorkspaceTab('editor');
+function openRecordingPane(key: string): Promise<void> {
+  return recordingTabsController.openRecordingPane(key);
 }
 
-// Opens the recording view for a recording nothing on the canvas refers to —
-// the Recordings palette's View control and the #recording= link. The tab is
-// keyed by the same '/recordings/...' path a GR World Recording would produce, so a
-// recording already showing (either way) is revealed rather than duplicated.
-function openRecordingPreview(recording: ExampleRecording) {
-  const path = bindRemoteRecording(recording);
-  const name = recording.name;
-  let tab = recordingTabs.get(path);
-  if (!tab) {
-    const source: RecordingSource = {
-      key: path, label: name.split('/').pop() || name, title: name, name,
-      kind: 'remote', path, offset: 0, length: 0,
-    };
-    tab = createRecordingTab(source);
-    recordingTabs.set(path, tab);
-    describeRecordingTab(tab, source);
-  }
-  tab.pinned = true;
-  syncRecordingTabs();          // places the tab in the bar and shows its ×
-  activateWorkspaceTab(tab.entry.id);   // builds the iframe on first activation
-  closePaletteDrawer();         // the drawer would be covering the tab it opened
-  // Point the address bar at what is on screen, exactly as loading an example
-  // does, so the link can be copied straight out of it and reloaded.
-  setUrlFragment({ recording: normalizeRecordingKey(name) });
+function recordingSourceFor(block: Inst) {
+  return recordingTabsController.recordingSourceFor(block);
 }
-
-// A local file is a bare stream of samples: no sample rate, no datatype, nothing
-// the recording view can read. Synthesize the smallest SigMF that describes it
-// from what the flowgraph already says, and label the result as inferred.
-function synthesizedSigmfMeta(source: RecordingSource, file: File): string {
-  const datatype = source.datatype || 'cf32_le';
-  const global: Record<string, any> = {
-    'core:datatype': datatype,
-    'core:version': '1.0.0',
-    'core:description':
-      'Synthesized by GNU Radio World from the File Source parameters; this file carries no SigMF metadata.',
-    // Supplying the sample count spares the viewer a HEAD request, which a
-    // blob: URL does not reliably answer.
-    'traceability:sample_length': Math.floor(file.size / (SIGMF_SAMPLE_BYTES[datatype] || 8)),
-  };
-  if (source.sampleRate) global['core:sample_rate'] = source.sampleRate;
-  return JSON.stringify({ global, captures: [{ 'core:sample_start': 0 }], annotations: [] });
-}
-
-function recordingPaneMessage(tab: RecordingTab, message: string) {
-  tab.status.textContent = message;
-  tab.status.hidden = false;
-}
-
-function recordingTabForMessage(event: MessageEvent): RecordingTab | null {
-  if (event.origin !== location.origin) return null;
-  return [...recordingTabs.values()].find(candidate =>
-    candidate.frame?.contentWindow === event.source) || null;
-}
-
-function postFileSourceSelection(tab: RecordingTab) {
-  if (!tab.ready || !tab.frame?.contentWindow) return;
-  const { offset, length } = tab.source;
-  tab.frame.contentWindow.postMessage(
-    { type: 'gr-file-source-selection', offset, length }, location.origin);
-  tab.viewerOffset = offset;
-  tab.viewerLength = length;
-}
-
-function applyRecordingSelection(event: MessageEvent, data: any): boolean {
-  const tab = recordingTabForMessage(event);
-  if (!tab) return false;
-
-  const offset = Number(data.offset);
-  const length = Number(data.length);
-  if (!Number.isSafeInteger(offset) || offset < 0 ||
-      !Number.isSafeInteger(length) || length < 0) return false;
-
-  // Remember what the viewer already shows before render() synchronizes the
-  // tabs, so the resulting block edit is not immediately echoed back.
-  tab.viewerOffset = offset;
-  tab.viewerLength = length;
-
-  let changed = false;
-  for (const block of insts) {
-    if (!RECORDING_BLOCK_IDS.has(block.id) ||
-        recordingSourceFor(block)?.key !== tab.source.key) continue;
-    const current = fileSourceSelection(block);
-    if (current.offset === offset && current.length === length) continue;
-    block.params.offset = offset;
-    block.params.length = length;
-    changed = true;
-  }
-  if (changed) {
-    render();
-    recordHistory();
-  }
-  return changed;
-}
-
-async function openRecordingPane(key: string) {
-  const tab = recordingTabs.get(key);
-  if (!tab || tab.frame || tab.opening) return;
-  tab.opening = true;
-  try {
-    recordingPaneMessage(tab, 'Loading the recording view…');
-
-    // The block can be deleted while the bucket index fetch below is in
-    // flight; anything created past this point would never be cleaned up.
-    if (recordingTabs.get(key) !== tab) return;
-
-    let metaUrl: string, dataUrl: string;
-    if (tab.source.kind === 'remote') {
-      const recording = await resolveRemoteRecording(tab.source.path);
-      if (recordingTabs.get(key) !== tab) return;
-      if (!recording) {
-        recordingPaneMessage(tab, `The recording "${tab.source.title}" is not available.`);
-        return;
-      }
-      metaUrl = recording.metadataUrl;
-      dataUrl = new URL(recording.downloadUrl, location.href).href;
-    } else {
-      const file = tab.source.file;
-      if (!file) {
-        recordingPaneMessage(tab, tab.source.metaText !== undefined
-          ? 'Choose this SigMF Source’s two files again.'
-          : 'Choose the local file for this File Source again.');
-        return;
-      }
-      // Blob URLs, not a copy of the file: the viewer reads them with the same
-      // ranged requests it uses for an HTTP recording.
-      dataUrl = URL.createObjectURL(file);
-      // A SigMF Source brought its own metadata; everything else local gets one
-      // inferred from the block, and is told so.
-      metaUrl = URL.createObjectURL(new Blob(
-        [tab.source.metaText ?? synthesizedSigmfMeta(tab.source, file)],
-        { type: 'application/json' }));
-      tab.blobUrls.push(dataUrl, metaUrl);
-      if (tab.source.metaText === undefined) {
-        const note = document.createElement('div'); note.className = 'rec-pane-note';
-        note.textContent = `Metadata inferred from the File Source: ${tab.source.datatype}` +
-          (tab.source.sampleRate ? ` at ${displaySi(tab.source.sampleRate, 'Hz')}` : ', sample rate unknown') +
-          '. A local file carries no SigMF metadata.';
-        tab.entry.panel.insertBefore(note, tab.status);
-      }
-    }
-
-    const frame = document.createElement('iframe');
-    frame.className = 'rec-pane-frame';
-    frame.title = `Recording view — ${tab.source.name}`;
-    frame.addEventListener('load', () => { tab.status.hidden = true; });
-    tab.entry.panel.appendChild(frame);
-    tab.frame = frame;
-    frame.src = recordingViewUrl(metaUrl, dataUrl, tab.source.name);
-  } catch (error) {
-    recordingPaneMessage(tab, `The recording view could not be opened: ${error}`);
-  } finally {
-    tab.opening = false;
-  }
-}
-
 // ---- Narrow-layout palette drawer ----
 // When this matches, editor.css lays the palette over the canvas as a drawer
 // instead of beside it — narrow screens, plus the short-and-wide one a phone
@@ -5002,7 +3251,7 @@ const shippedJsDefault = () => String(
 function unacceptedJsSources(): { block: Inst; source: string }[] {
   const out: { block: Inst; source: string }[] = [];
   const seen = new Set<string>();
-  for (const block of insts) {
+  for (const block of state.insts) {
     if (block.id !== JS_BLOCK_ID || !block.enabled || block.bypassed) continue;
     const source = jsSourceOf(block.params);
     // The palette's own default ships with the app and went through review, so a
@@ -5076,7 +3325,7 @@ function rateLimiterIds(): Set<string> {
 
 function askToRunUnpacedFlowgraph(): Promise<boolean> {
   if (unpacedRunWarningDismissed() ||
-      !shouldWarnAboutUnpacedRun(insts, rateLimiterIds()))
+      !shouldWarnAboutUnpacedRun(state.insts, rateLimiterIds()))
     return Promise.resolve(true);
 
   return new Promise(resolve => {
@@ -5134,399 +3383,55 @@ function askToRunUnpacedFlowgraph(): Promise<boolean> {
   });
 }
 
+const runSessionDeps: RunSessionDeps = {
+  state,
+  trainingSession: () => trainingSession,
+  log,
+  validateGraph,
+  select,
+  askToRunUnpacedFlowgraph,
+  usbRadios: USB_RADIOS,
+  showUsbPreparationProblem,
+  sigmfOutputDirsByToken,
+  newLocalFileToken,
+  unacceptedJsSources,
+  askToRunJavaScript,
+  resolveRemoteRecording,
+  localFilesByToken,
+  sigmfBindingsByToken,
+  recordingPathForBlock: block => recordingSourceFor(block)?.path || null,
+  grcTextForRun,
+  buildGrcDoc,
+  snapshot,
+  localFileParams: LOCAL_FILE_PARAMS,
+  optionsId: OPTIONS_ID,
+  layoutId: LAYOUT_ID,
+  httpRecordingId: HTTP_RECORDING_ID,
+  httpRecordingParam: HTTP_RECORDING_PARAM,
+  httpRecordingPrefix: HTTP_RECORDING_PREFIX,
+  frame: el('runFrame') as HTMLIFrameElement,
+  runEmpty: el('runEmpty'),
+  setRunnerRunning,
+  activateWorkspaceTab,
+  markCanvasStale: markRunningCanvasStale,
+};
+
 async function run(): Promise<string | null> {
-  if (trainingSession && !trainingSession.complete(insts, conns)) {
-    const counts = trainingSession.counts(insts, conns);
-    const blocks = counts.totalBlocks - counts.filledBlocks;
-    const connections = counts.totalConnections - counts.filledConnections;
-    log(`cannot run training flowgraph: ${blocks} block${blocks === 1 ? '' : 's'} and ` +
-        `${connections} connection${connections === 1 ? '' : 's'} still to complete`);
-    return null;
-  }
-  const errors = validateGraph().filter(issue => issue.blocking);
-  if (errors.length) {
-    const first = errors[0];
-    log(`cannot run: ${errors.length} validation error${errors.length === 1 ? '' : 's'}`);
-    for (const issue of errors) {
-      const block = insts.find(inst => inst.uid === issue.uid);
-      log(`  ${block?.name || block?.id || issue.uid}: ${issue.message}`);
-    }
-    select(first.uid);
-    return null;
-  }
-  // Both singletons are placed automatically, so neither counts as something
-  // the reader put on the canvas to run.
-  if (!insts.some(i => i.id !== OPTIONS_ID && i.id !== LAYOUT_ID)) {
-    log('nothing to run — add some blocks'); return null;
-  }
-  if (!await askToRunUnpacedFlowgraph()) {
-    log('cancelled: the flowgraph has no rate limit');
-    return null;
-  }
-  // The one thing that must happen under the Run click itself: WebUSB's
-  // requestDevice() needs a user gesture, and neither the runner's constructor
-  // nor its worker has one. Everything below this point may await freely; this
-  // may not, so it comes before the first await that is not part of the prompt.
-  for (const radio of USB_RADIOS) {
-    const problem = await radio.prepare(insts);
-    if (!problem) continue;
-    const message = typeof problem === 'string' ? problem : problem.message;
-    log(`cannot run: ${message}`);
-    if (typeof problem !== 'string') showUsbPreparationProblem(problem);
-    const block = insts.find(i => radio.owns(i) && i.enabled && !i.bypassed);
-    if (block) select(block.uid);
-    return null;
-  }
-
-  // Where a SigMF Sink writes, for the same reason: showDirectoryPicker() needs
-  // a user gesture, and the runner has none. Only for a sink with no folder
-  // bound yet -- a reader who chose one in the block's own Properties dialog is
-  // never asked twice, and where the browser has no such API there is nothing to
-  // ask for and the recording is downloaded at the end instead.
-  for (const block of insts) {
-    if (block.id !== SIGMF_SINK_ID || !block.enabled || block.bypassed) continue;
-    if (!canPickOutputDirectory()) continue;
-    const bound = block.localFileToken
-      ? sigmfOutputDirsByToken.get(block.localFileToken) : undefined;
-    if (bound) {
-      // A handle from earlier in the session can have lost its permission.
-      const state = await (bound as any).queryPermission?.({ mode: 'readwrite' });
-      if (state === 'granted') continue;
-      const granted = await (bound as any).requestPermission?.({ mode: 'readwrite' });
-      if (granted === 'granted') continue;
-      sigmfOutputDirsByToken.delete(block.localFileToken!);
-    }
-    try {
-      const dir = await pickOutputDirectory();
-      const token = block.localFileToken || newLocalFileToken();
-      block.localFileToken = token;
-      sigmfOutputDirsByToken.set(token, dir);
-    } catch {
-      // Dismissed; a blocked folder chosen and then dismissed, which throws
-      // identically; or -- with a WebUSB prompt already having spent this
-      // click's transient activation -- refused outright. The block's own dialog
-      // has a folder button carrying its own gesture, which covers the last.
-      log(`cannot run: choose a folder for "${block.name}". ` +
-          `${SIGMF_OUTPUT_PICKER_HELP} You can also set it ahead of time in the ` +
-          `block's properties with "Choose folder…".`);
-      select(block.uid);
-      return null;
-    }
-  }
-
-  // Microphone permission for Audio Source, for the same reason and under the
-  // same click, though with more slack than WebUSB: getUserMedia() does not
-  // consume the transient activation the prompt above may already have spent,
-  // it only wants the prompt to belong to something the reader did.
-  const audioProblem = await prepareAudioCapture(insts);
-  if (audioProblem) {
-    log(`cannot run: ${audioProblem}`);
-    const block = insts.find(i => i.id === AUDIO_SOURCE_ID && i.enabled && !i.bypassed);
-    if (block) select(block.uid);
-    return null;
-  }
-
-  // Consent for JavaScript that did not come from this session. It sits here,
-  // after the USB prompt (which must be first: it needs the user gesture) and
-  // before anything is fetched or bound, so a "no" costs nothing.
-  const pendingJs = unacceptedJsSources();
-  if (pendingJs.length && !await askToRunJavaScript(pendingJs)) {
-    log('cancelled: the flowgraph’s JavaScript was not accepted');
-    select(pendingJs[0].block.uid);
-    return null;
-  }
-
-  const recordingFiles: RunnerInputFile[] = [];
-  const fileOverrides = new Map<string, string>();
-  const addedPaths = new Set<string>();
-  for (const block of insts) {
-    if (!block.enabled || block.bypassed) continue;
-
-    // A hosted recording: the runner's factory derives '/recordings/<key>.sigmf-data'
-    // from the block's own parameter, so all the editor owes it is the URL and
-    // size to read that path through. Nothing is rewritten in the .grc.
-    if (block.id === RECORDING_ID) {
-      const key = String(block.params[RECORDING_PARAM] || '');
-      const recording = key ? await resolveRemoteRecording(recordingDataPath(key)) : undefined;
-      if (!recording) {
-        log(key
-          ? `cannot run: recording "${key}" for "${block.name}" is unavailable`
-          : `cannot run: choose a recording for "${block.name}"`);
-        select(block.uid);
-        return null;
-      }
-      const path = recordingDataPath(key);
-      if (!addedPaths.has(path)) {
-        recordingFiles.push({
-          kind: 'http', path, url: recording.downloadUrl, size: recording.byteLength,
-        });
-        addedPaths.add(path);
-      }
-      continue;
-    }
-
-    // A file on another origin: the browser reads it directly, so its size —
-    // and with it whether the host answers ranges to this origin at all — is
-    // settled here rather than in the reader worker.
-    if (block.id === HTTP_RECORDING_ID) {
-      const url = String(block.params[HTTP_RECORDING_PARAM] || '').trim();
-      const size = url ? await publicHttpFileSize(url) : null;
-      if (size === null) {
-        log(url
-          ? `cannot run: "${url}" for "${block.name}" is not a readable public ` +
-            `HTTP(S) file (it must answer range requests and allow this origin)`
-          : `cannot run: give "${block.name}" a URL`);
-        select(block.uid);
-        return null;
-      }
-      const path = HTTP_RECORDING_PREFIX + encodeURIComponent(url);
-      fileOverrides.set(block.name, path);
-      if (!addedPaths.has(path)) {
-        recordingFiles.push({ kind: 'http', path, url, size });
-        addedPaths.add(path);
-      }
-      continue;
-    }
-
-    // A SigMF recording on this computer: the .sigmf-data reads through the same
-    // /local-files/... path a File Source's file does, with the .sigmf-meta text
-    // riding alongside it so the runner can turn the recording's captures and
-    // annotations into stream tags.
-    if (block.id === SIGMF_SOURCE_ID) {
-      const bound = block.localFileToken
-        ? sigmfBindingsByToken.get(block.localFileToken) : undefined;
-      if (!bound) {
-        const saved = String(block.params[SIGMF_FILE_PARAM] || '');
-        log(saved
-          ? `cannot run: "${saved}" is not open in this session; open "${block.name}" ` +
-            `and choose ${saved}${SIGMF_DATA_SUFFIX} and ${saved}${SIGMF_META_SUFFIX} ` +
-            `again with Browse`
-          : `cannot run: choose a recording for "${block.name}" with Browse`);
-        select(block.uid);
-        return null;
-      }
-      const path = `/local-files/${block.localFileToken}/` +
-        `${encodeURIComponent(bound.base)}${SIGMF_DATA_SUFFIX}`;
-      fileOverrides.set(block.name, path);
-      if (!addedPaths.has(path)) {
-        recordingFiles.push({
-          kind: 'local', path, file: bound.data, meta: bound.metaText,
-        });
-        addedPaths.add(path);
-      }
-      continue;
-    }
-
-    // Writing a recording. The destination is a folder handle where the browser
-    // has one and nothing at all where it does not; the runner's writer worker
-    // buffers and downloads in the second case, which is why an unbound sink is
-    // not an error here the way an unbound source is.
-    if (block.id === SIGMF_SINK_ID) {
-      const base = sanitizeSigmfBase(String(block.params[SIGMF_FILE_PARAM] || ''));
-      if (!base) {
-        log(`cannot run: give "${block.name}" a recording name`);
-        select(block.uid);
-        return null;
-      }
-      const token = block.localFileToken || block.uid;
-      const dir = block.localFileToken
-        ? sigmfOutputDirsByToken.get(block.localFileToken) ?? null : null;
-      const path = `${SIGMF_OUTPUT_PREFIX}${token}/${encodeURIComponent(base)}`;
-      fileOverrides.set(block.name, path);
-      if (!addedPaths.has(path)) {
-        recordingFiles.push({ kind: 'output', path, base, dir });
-        addedPaths.add(path);
-      }
-      if (!dir)
-        log(`note: "${block.name}" will download ${sigmfSinkFileNames(base).join(' and ')} ` +
-            `when the flowgraph stops; the recording is held in memory until then`);
-      continue;
-    }
-
-    const fileParam = LOCAL_FILE_PARAMS[block.id];
-    if (!fileParam) continue;
-    const savedPath = String(block.params[fileParam] || '');
-    if (block.localFileToken) {
-      const file = localFilesByToken.get(block.localFileToken);
-      if (!file) {
-        log(`cannot run: choose the local file for "${block.name}" again`);
-        select(block.uid);
-        return null;
-      }
-      const path = `/local-files/${block.localFileToken}/${encodeURIComponent(file.name)}`;
-      fileOverrides.set(block.name, path);
-      if (!addedPaths.has(path)) {
-        recordingFiles.push({ kind: 'local', path, file });
-        addedPaths.add(path);
-      }
-      continue;
-    }
-
-    // An Image File Source with no local picture names a URL the runner fetches
-    // for itself, so there is nothing to bind — only an empty field to catch.
-    if (block.id === 'paint_image_source') {
-      if (!savedPath) {
-        log(`cannot run: choose an image for "${block.name}" with Browse, or type a URL`);
-        select(block.uid);
-        return null;
-      }
-      continue;
-    }
-
-    // File Source opens a file on this computer and nothing else, exactly as
-    // native GNU Radio's does; a .grc keeps only the file's name, so a session
-    // that has not picked it has nothing to open. Hosted recordings are GR
-    // World Recording's job.
-    if (!savedPath) {
-      log(`cannot run: choose a file for "${block.name}" with Browse`);
-    } else {
-      log(`cannot run: no local file is bound to "${block.name}"; ` +
-          `open its properties and choose "${savedPath}" with Browse, ` +
-          `or use GR World Recording for a hosted recording`);
-    }
-    select(block.uid);
-    return null;
-  }
-  for (const file of recordingFiles) {
-    if (file.kind === 'local' && file.file.size === 0) {
-      const block = insts.find(item => fileOverrides.get(item.name) === file.path);
-      log(`cannot run: local file for "${block?.name || 'File Source'}" is empty`);
-      if (block) select(block.uid);
-      return null;
-    }
-    if (file.kind === 'http' && file.size === 0) {
-      const block = insts.find(item => item.id === RECORDING_ID &&
-        recordingSourceFor(item)?.path === file.path);
-      log(`cannot run: recording for "${block?.name || 'GR World Recording'}" is empty`);
-      if (block) select(block.uid);
-      return null;
-    }
-  }
-  // The runner parses native .grc directly (it lowers disabled/bypassed blocks
-  // and variables itself). We hand it a *resolved* doc — parameter expressions
-  // evaluated to concrete values — since the runner can't evaluate expressions;
-  // the saved/shared .grc keeps the raw expressions.
-  if (pendingRunnerToken) pendingRunnerRecordings.delete(pendingRunnerToken);
-  const token = typeof crypto.randomUUID === 'function'
-    ? crypto.randomUUID()
-    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  pendingRunnerToken = token;
-  pendingRunnerRecordings.set(token, recordingFiles);
-  const url = '/runner/build/runner.html?recordingToken=' + encodeURIComponent(token) +
-    '#' + encodeURIComponent(grcTextForRun(fileOverrides));
-  const frame = el('runFrame') as HTMLIFrameElement;
-  el('runEmpty').hidden = true;
-  frame.hidden = false;
-  setRunnerRunning(true);
-  activateWorkspaceTab('qtgui');
-  // Claims the frame: a previous stop() still finishing a recording will see
-  // this and leave the new run alone.
-  ++runGeneration;
-  frame.src = url;
-  const doc = buildGrcDoc();
-  log('▶ running ' + doc.blocks.length + ' blocks, ' + doc.connections.length + ' connections');
-  runningGraphSnapshot = JSON.stringify(snapshot());
-  return token;
+  return runFlowgraph(runSessionDeps, runSessionState);
 }
 
-// A flowgraph that writes a recording has to be brought down before its frame
-// is unloaded. Unloading kills the writer worker with the tail of the capture
-// still in shared memory -- and, where the browser buffers rather than streams,
-// with the whole of it -- so the runner is asked to stop the flowgraph properly
-// and given a bounded time to say it has. Everything else stops the way it
-// always has, instantly.
-const SHUTDOWN_TIMEOUT_MS = 20000;
-
-function runnerNeedsGracefulStop(): boolean {
-  return insts.some(i => i.id === SIGMF_SINK_ID && i.enabled && !i.bypassed);
-}
-
-function requestRunnerShutdown(frame: HTMLIFrameElement): Promise<void> {
-  const target = frame.contentWindow;
-  if (!target) return Promise.resolve();
-  return new Promise<void>(resolve => {
-    let settled = false;
-    const finish = () => {
-      if (settled) return;
-      settled = true;
-      window.removeEventListener('message', onMessage);
-      clearTimeout(timer);
-      resolve();
-    };
-    const onMessage = (event: MessageEvent) => {
-      if (event.source !== target || event.origin !== location.origin) return;
-      if (event.data?.type === 'gr-shutdown-done') finish();
-    };
-    window.addEventListener('message', onMessage);
-    const timer = setTimeout(() => {
-      log('note: the flowgraph did not stop cleanly; the recording may be truncated');
-      finish();
-    }, SHUTDOWN_TIMEOUT_MS);
-    target.postMessage({ type: 'gr-shutdown' }, location.origin);
-  });
-}
-
-// Which run the frame is showing. Only the deferred unload below needs it: a
-// reader who presses Run again while a recording is still being finished must
-// not have the *new* run's frame blanked out from under them.
-let runGeneration = 0;
-
-function stop() {
-  const frame = el('runFrame') as HTMLIFrameElement;
-  // Started before anything else, because it reads `insts` -- and one caller
-  // (loadFlowgraphAnimated) replaces the canvas the moment this returns.
-  const finishing = runnerNeedsGracefulStop() ? requestRunnerShutdown(frame) : null;
-  const generation = runGeneration;
-
-  if (pendingRunnerToken) {
-    pendingRunnerRecordings.delete(pendingRunnerToken);
-    pendingRunnerToken = null;
-  }
-  // The UI returns to the editor at once either way. loadFlowgraphAnimated
-  // depends on that being synchronous: its fly-in cannot measure a hidden canvas.
-  frame.hidden = true;
-  el('runEmpty').hidden = false;
-  setRunnerRunning(false);
-  activateWorkspaceTab('editor');
-
-  const unload = () => {
-    // Only if this is still the run we were asked to stop.
-    if (generation !== runGeneration) return;
-    frame.src = 'about:blank';   // unloading the iframe stops its WASM workers
-    log('■ flowgraph stopped');
-  };
-  if (finishing) {
-    // Hidden, but still running: the writer worker needs the frame alive to
-    // flush the tail of the recording and write the .sigmf-meta.
-    log('■ finishing the recording…');
-    void finishing.then(unload);
-  } else {
-    unload();
-  }
+function stop(): void {
+  stopFlowgraph(runSessionDeps, runSessionState);
 }
 
 // ---- Palette ----
 // ---- GRC-style block tree (collapsible categories + search) ----
-interface LibraryBlock {
-  id: string; label: string; runnable: boolean; unavailableReason?: string; module: string;
-  // Its work() is JavaScript rather than C++ — a repo block carrying `flags: [js]`,
-  // the inline JS Block, or one saved into this browser's library. The palette
-  // badges these, because "I could read and change this one" is a real difference
-  // to a user and nothing else on the row conveys it.
-  js?: boolean;
-  // A JS block saved in this browser (editor/src/js-block.ts). Its instances are
-  // ordinary wasm_js_block instances carrying the source inline, so a flowgraph
-  // shared as a link works for someone who does not have this library.
-  localJs?: LocalJsBlock;
-}
 // Blocks whose factory builds a QWidget, and so take a tile in the runner
 // window's GUI Layout grid. Filled from the generated library's `gui` flag,
 // which each block declares as `gui: true` in its overlay (or, for a runner-only
 // block, its own yml) -- the C++ decides this, and the editor has no way to work
 // it out for itself.
 const GUI_BLOCK_IDS = new Set<string>();
-interface Cat { name: string; subs: Map<string, Cat>; blocks: LibraryBlock[] }
-
 // Blocks that stay loadable and runnable but are not offered in the palette:
 // upstream deprecated them in favour of a replacement listed right beside them,
 // and showing both only invites picking the wrong one. A .grc that already uses
@@ -5534,37 +3439,6 @@ interface Cat { name: string; subs: Map<string, Cat>; blocks: LibraryBlock[] }
 const PALETTE_HIDDEN = new Set([
   'blocks_throttle',   // "Throttle (old)" — superseded by blocks_throttle2
 ]);
-
-function buildTree(blocks: any[]): Cat {
-  const root: Cat = { name: '', subs: new Map(), blocks: [] };
-  for (const b of blocks) {
-    if (PALETTE_HIDDEN.has(b.id)) continue;
-    // Generated metadata uses an array so a literal slash in a native category
-    // name (for example "Industrial I/O") is not mistaken for tree nesting.
-    // Accept the old string form as well for compatibility with stale metadata.
-    const category = b.category || ['Other'];
-    const parts = (Array.isArray(category) ? category : String(category).split('/'))
-      .map(String).filter(Boolean);
-    let node = root;
-    for (const part of parts) {
-      let sub = node.subs.get(part);
-      if (!sub) { sub = { name: part, subs: new Map(), blocks: [] }; node.subs.set(part, sub); }
-      node = sub;
-    }
-    node.blocks.push({
-      id: b.id, label: b.label || b.id, runnable: !!b.runnable,
-      unavailableReason: b.unavailable_reason || undefined,
-      module: b.module || 'core',
-      localJs: b.localJs,
-      js: !!b.localJs || b.id === JS_BLOCK_ID || blockFlags(b.flags).includes('js'),
-    });
-  }
-  return root;
-}
-const matchesQ = (b: { id: string; label: string }, q: string) => !q || (b.label + ' ' + b.id).toLowerCase().includes(q);
-function catMatches(node: Cat, q: string): boolean {
-  return !q || node.blocks.some(b => matchesQ(b, q)) || [...node.subs.values()].some(s => catMatches(s, q));
-}
 
 // Passes the editor's own clicks down to a runner frame whose audio the
 // autoplay policy is holding shut -- the reader is far more likely to click
@@ -5587,15 +3461,11 @@ window.addEventListener('message', (e) => {
   if (isBenchmarkFrameSource(e as MessageEvent) ||
       isSdrSpeedTestFrameSource(e as MessageEvent)) return;
   if (d.type === 'gr-recording-ready') {
-    const tab = recordingTabForMessage(e as MessageEvent);
-    if (tab) {
-      tab.ready = true;
-      postFileSourceSelection(tab);
-    }
+    recordingTabsController.handleReady(e as MessageEvent);
     return;
   }
   if (d.type === 'gr-recording-selection') {
-    applyRecordingSelection(e as MessageEvent, d);
+    recordingTabsController.applyRecordingSelection(e as MessageEvent, d);
     return;
   }
   // A flowgraph that fails to build shows an error in the runner pane; mirror it
@@ -5684,63 +3554,9 @@ function showPaletteMenu(x: number, y: number, b: LibraryBlock) {
   m.style.top = Math.min(y, window.innerHeight - m.offsetHeight - 6) + 'px';
   menuEl = m;
 }
-function makeCatRow(name: string, container: HTMLElement, open: boolean, bold = false,
-                    indent = 6): HTMLElement {
-  const row = document.createElement('div'); row.className = 'cat-row'; row.style.paddingLeft = indent + 'px';
-  const tri = document.createElement('span'); tri.className = 'tri';
-  const nm = document.createElement('span'); nm.className = 'cat-name';
-  nm.textContent = name; if (bold) nm.style.fontWeight = '600';
-  row.append(tri, nm);
-  const kids = document.createElement('div');
-  tri.textContent = open ? '▾' : '▸'; kids.style.display = open ? 'block' : 'none';
-  row.onclick = () => {
-    const isOpen = kids.style.display !== 'none';
-    kids.style.display = isOpen ? 'none' : 'block'; tri.textContent = isOpen ? '▸' : '▾';
-  };
-  container.append(row, kids);
-  return kids;
-}
-// One level of block-tree indent, and the extra a leaf carries so it lines up
-// past its category's `.tri` (22px wide plus the row's 4px gap).
-const TREE_INDENT = 16;
-const TOP_PALETTE_CATEGORY = 'Supported SDRs';
-function comparePaletteCategories(a: Cat, b: Cat, depth: number): number {
-  if (depth === 0) {
-    if (a.name === TOP_PALETTE_CATEGORY) return -1;
-    if (b.name === TOP_PALETTE_CATEGORY) return 1;
-  }
-  return a.name.localeCompare(b.name);
-}
-function renderTree(node: Cat, container: HTMLElement, depth: number, q: string) {
-  for (const s of [...node.subs.values()].sort(
-    (a, b) => comparePaletteCategories(a, b, depth))) {
-    if (!catMatches(s, q)) continue;
-    const kids = makeCatRow(s.name, container, !!q || (depth === 0 && s.name === 'Core'),
-                            false, 6 + depth * TREE_INDENT);
-    renderTree(s, kids, depth + 1, q);
-  }
-  for (const b of [...node.blocks].filter(b => matchesQ(b, q)).sort((a, b) => a.label.localeCompare(b.label)))
-    container.appendChild(makeBlockItem(b, 6 + depth * TREE_INDENT + 20));
-}
-
 let LIB: any = { blocks: [] };
 let activatePaletteTab: ((which: 'blocks' | 'examples' | 'recordings') => void) | null = null;
 
-// Every palette tab's search box: the input plus the sticky bar that keeps it
-// pinned to the top of the panel while the list under it scrolls. The bar is a
-// separate element rather than a sticky input because it has to carry the panel
-// background — an input's own margin is transparent, so rows would scroll
-// through the gap around it. `.paltab-panel` is the scroll container, so
-// `top:0` is measured against the tab's own viewport.
-function makePaletteSearch(placeholder: string, ariaLabel: string):
-    { bar: HTMLElement; input: HTMLInputElement } {
-  const bar = document.createElement('div'); bar.className = 'palsearch-bar';
-  const input = document.createElement('input');
-  input.className = 'palsearch'; input.placeholder = placeholder;
-  input.setAttribute('aria-label', ariaLabel);
-  bar.append(input);
-  return { bar, input };
-}
 async function buildPalette() {
   const pal = el('palette');
   // ---- tab bar: Blocks | Example Flowgraphs | SigMF Recordings ----
@@ -5787,11 +3603,15 @@ async function buildPalette() {
   // console pane a running flowgraph's output goes to.
   pythonRuntime.onprint = line => log(line);
   const draw = (q: string) => {
-    tree.textContent = '';
     // The browser-local JS blocks join the generated library rather than living
     // in a tab of their own: a block someone wrote should be findable exactly
     // where every other block is.
-    renderTree(buildTree([...(LIB.blocks || []), ...localJsPaletteEntries()]), tree, 0, q);
+    renderPaletteTree([...(LIB.blocks || []), ...localJsPaletteEntries()], tree, q, {
+      hidden: PALETTE_HIDDEN,
+      isJavaScript: block => !!block.localJs || block.id === JS_BLOCK_ID ||
+        blockFlags(block.flags).includes('js'),
+      makeBlockItem,
+    });
   };
   redrawPalette = () => draw(search.value.trim().toLowerCase());
   draw('');
@@ -5812,17 +3632,22 @@ async function buildPalette() {
 // `text` is what the search box matches against: the file name plus the title,
 // author and description out of the .grc, lowercased. It starts as the file name
 // alone, because that is all that is known before the .grc arrives.
-interface ExampleEntry { file: string; item: HTMLElement; blockIds: Set<string> | null; text: string }
-const exampleEntries: ExampleEntry[] = [];
-let exampleFilter: { id: string; label: string } | null = null;
-let applyExampleFilter: (() => void) | null = null;
+const examplePaletteController = createExamplePalette({
+  activateExamplesTab: () => activatePaletteTab?.('examples'),
+  log,
+  copyExampleUrl,
+  closePaletteDrawer,
+  trustExampleJavaScript,
+  loadFlowgraphAnimated,
+  setExampleHash,
+  setCurrentFileName,
+  bindFlowgraphRecordings,
+});
 
-function showExamplesFor(id: string, label: string) {
-  exampleFilter = { id, label };
-  activatePaletteTab?.('examples');   // builds the tab on first visit
-  applyExampleFilter?.();             // ...which is why this comes after
-  log(`showing example flowgraphs that use "${label}"`);
+function showExamplesFor(id: string, label: string): void {
+  examplePaletteController.showExamplesFor(id, label);
 }
+
 
 // ---- deep links to an example (#example=<name>) ----------------------------
 // Every example in the palette hands out a link to itself. Unlike the #fg= share
@@ -5911,167 +3736,8 @@ async function loadTrainingByName(name: string) {
   void bindFlowgraphRecordings(fg, title);
 }
 
-async function buildExamples(panel: HTMLElement) {
-  const list = document.createElement('div'); list.className = 'ex-list';
-  const status = document.createElement('div'); status.className = 'ex-empty'; status.textContent = 'Loading examples…';
-  panel.append(status);
-  let files: string[] = [];
-  try {
-    files = await (await fetch('/example_flowgraphs')).json();
-  } catch (e) {
-    status.textContent = 'Could not load example flowgraphs.';
-    log('example flowgraphs not loaded: ' + e); return;
-  }
-  if (!files.length) { status.textContent = 'No example flowgraphs found.'; return; }
-
-  // Search box: matches every whitespace-separated term against the entry's
-  // title/author/description/file name, so "estevez afsk" narrows by both. It is
-  // independent of the block filter below — both apply at once.
-  const { bar: searchBar, input: search } =
-    makePaletteSearch('Search examples…', 'Search example flowgraphs');
-  let terms: string[] = [];
-  const onQuery = () => {
-    terms = search.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
-    refresh();
-  };
-  search.oninput = onQuery;
-  search.onkeydown = e => {
-    if (e.key === 'Escape' && search.value) { e.stopPropagation(); search.value = ''; onQuery(); }
-  };
-
-  // Filter banner: only visible while a block filter is active, and its button
-  // is the way back to the full list.
-  const bar = document.createElement('div'); bar.className = 'ex-filter'; bar.hidden = true;
-  const barText = document.createElement('div'); barText.className = 'ex-filter-text';
-  const clear = document.createElement('button'); clear.className = 'ex-filter-clear';
-  clear.textContent = 'Show all';
-  clear.onclick = () => { exampleFilter = null; refresh(); log('showing all example flowgraphs'); };
-  bar.append(barText, clear);
-  const noMatch = document.createElement('div'); noMatch.className = 'ex-empty'; noMatch.hidden = true;
-
-  const refresh = () => {
-    const f = exampleFilter;
-    const q = terms.join(' ');
-    bar.hidden = !f;
-    let shown = 0, pending = 0;
-    for (const entry of exampleEntries) {
-      const hit = terms.every(t => entry.text.includes(t));
-      if (!f) { entry.item.hidden = !hit; if (hit) shown++; continue; }
-      if (!entry.blockIds) { entry.item.hidden = true; pending++; continue; }
-      const match = entry.blockIds.has(f.id) && hit;
-      entry.item.hidden = !match;
-      if (match) shown++;
-    }
-    // A directory stays visible when any descendant is visible. Filtering and
-    // searching expand matching paths so the result is not hidden in a closed
-    // disclosure; clearing the query leaves the user's open state alone.
-    const directories = [...list.querySelectorAll<HTMLDetailsElement>('.ex-directory')].reverse();
-    for (const details of directories) {
-      const contents = details.querySelector<HTMLElement>(':scope > .rec-directory-contents');
-      const hasVisibleChild = !!contents && [...contents.children]
-        .some(child => !(child as HTMLElement).hidden);
-      details.hidden = !hasVisibleChild;
-      if ((f || q) && hasVisibleChild) details.open = true;
-    }
-    if (f) {
-      barText.textContent =
-        `Filtered: ${shown} of ${exampleEntries.length} examples use “${f.label}”` +
-        (q ? ` and match “${q}”` : '') +
-        (pending ? ' (still loading…)' : '');
-      noMatch.textContent = pending ? '' : `No example flowgraph uses “${f.label}”${q ? ` and matches “${q}”` : ''}.`;
-    } else if (q) {
-      noMatch.textContent = `No example flowgraph matches “${q}”.`;
-    }
-    noMatch.hidden = (!f && !q) || shown > 0 || pending > 0;
-  };
-  applyExampleFilter = refresh;
-
-  status.remove(); panel.append(searchBar, bar, list, noMatch);
-  exampleEntries.length = 0;
-  const addExample = (file: string, container: HTMLElement) => {
-    // A row, not just the button, because the copy-link button sits on top of it
-    // and a button cannot contain another button.
-    const row = document.createElement('div'); row.className = 'ex-row';
-    const item = document.createElement('button'); item.className = 'ex-item';
-    const title = document.createElement('div'); title.className = 'ex-title';
-    title.textContent = exampleFileName(file).replace(/\.grc$/, '');
-    item.append(title);
-    const link = document.createElement('button'); link.className = 'ex-link';
-    link.textContent = '🔗'; link.title = `Copy a link to this example (${exampleUrl(file)})`;
-    link.setAttribute('aria-label', `Copy a link to ${file}`);
-    link.onclick = e => { e.stopPropagation(); void copyExampleUrl(file); };
-    row.append(item, link);
-    container.append(row);
-    const entry: ExampleEntry = { file, item: row, blockIds: null, text: file.toLowerCase() };
-    exampleEntries.push(entry);
-    // Fetch the file to show its title/description and load it on click.
-    fetch('/example_flowgraphs/' + encodeExamplePath(file)).then(r => {
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      return r.text();
-    }).then(text => {
-      const fg = parseGrc(text);
-      const params = fg.options?.parameters || {};
-      const fgTitle = params.title || params.id;
-      const fgAuthor = params.author;
-      const fgDesc = params.description || params.comment;
-      entry.text = [file, fgTitle, fgAuthor, fgDesc].filter(Boolean).join(' ').toLowerCase();
-      if (fgTitle) title.textContent = String(fgTitle);
-      if (fgAuthor) {
-        const author = document.createElement('div'); author.className = 'ex-author';
-        author.textContent = `by ${String(fgAuthor)}`; item.append(author);
-      }
-      if (fgDesc) {
-        const desc = document.createElement('div'); desc.className = 'ex-desc';
-        desc.textContent = String(fgDesc); item.append(desc);
-      }
-      const blocks = Array.isArray(fg.blocks) ? fg.blocks : [];
-      const n = blocks.length;
-      entry.blockIds = new Set(blocks.map((b: any) => String(b?.id)));
-      refresh();
-      const meta = document.createElement('div'); meta.className = 'ex-meta';
-      meta.textContent = `${file} · ${n} block${n === 1 ? '' : 's'}`;
-      item.append(meta);
-      item.onclick = () => {
-        try {
-          closePaletteDrawer();
-          trustExampleJavaScript(fg);
-          loadFlowgraphAnimated(fg);
-          setExampleHash(file);
-          setCurrentFileName(file);
-          log(`loaded example "${fgTitle || file}"`);
-          void bindFlowgraphRecordings(fg, String(fgTitle || file));
-        } catch (err) { log(`failed to load example "${file}": ${err}`); }
-      };
-    }).catch(err => {
-      // An unparseable example can never match a block filter, but it must stop
-      // counting as pending or the banner claims it is still loading forever.
-      entry.blockIds = new Set(); refresh();
-      item.disabled = true; title.textContent = `${file} (failed to load)`;
-      log(`example "${file}" not loaded: ${err}`);
-    });
-  };
-
-  const renderDirectory = (directory: ExampleDirectory, container: HTMLElement) => {
-    const byName = (a: string, b: string) => a.localeCompare(b, undefined, { numeric: true });
-    for (const child of [...directory.directories.values()].sort((a, b) => byName(a.name, b.name))) {
-      const details = document.createElement('details');
-      details.className = 'rec-directory ex-directory';
-      const summary = document.createElement('summary'); summary.className = 'rec-directory-head';
-      const name = document.createElement('span'); name.className = 'rec-directory-name';
-      name.textContent = child.name;
-      const count = document.createElement('span'); count.className = 'rec-directory-count';
-      const total = exampleTreeCount(child);
-      count.textContent = `${total} example${total === 1 ? '' : 's'}`;
-      summary.append(name, count);
-      const contents = document.createElement('div'); contents.className = 'rec-directory-contents';
-      renderDirectory(child, contents);
-      details.append(summary, contents);
-      container.append(details);
-    }
-    for (const file of [...directory.files].sort(byName)) addExample(file, container);
-  };
-  renderDirectory(buildExampleTree(files), list);
-  refresh();
+function buildExamples(panel: HTMLElement): Promise<void> {
+  return examplePaletteController.buildExamples(panel);
 }
 
 // ---- Recordings tab -------------------------------------------------------
@@ -6191,10 +3857,10 @@ async function addRecordingBlock(recording: ExampleRecording, format: FileSource
       { vector_input: 'False', scale_factor: 32767.0 },
       false,
     )!;
-    conns.push({ from: block.uid, fp: 0, to: converter.uid, tp: 0 });
-    selectedBlocks = new Set([block.uid, converter.uid]);
-    selected = converter.uid;
-    selectedConnection = null;
+    state.conns.push({ from: block.uid, fp: 0, to: converter.uid, tp: 0 });
+    state.selectedBlocks = new Set([block.uid, converter.uid]);
+    state.selected = converter.uid;
+    state.selectedConnection = null;
     render();
     recordHistory();
     log(`added streaming GR World Recording and IShort To Complex for "${recording.name}"`);
@@ -6206,91 +3872,6 @@ async function addRecordingBlock(recording: ExampleRecording, format: FileSource
   log(`added streaming GR World Recording for "${recording.name}"`);
 }
 
-function makeRecordingItem(recording: ExampleRecording): HTMLElement {
-  const item = document.createElement('article'); item.className = 'rec-item';
-  item.tabIndex = 0; item.setAttribute('role', 'button');
-  const head = document.createElement('div'); head.className = 'rec-head';
-  const title = document.createElement('div'); title.className = 'rec-title';
-  // The containing directory rows already show the relative path. Keep the
-  // card itself to the recording's basename instead of repeating that path.
-  title.textContent = recording.name.split('/').filter(Boolean).pop() || recording.name;
-  // View and the copy-link button open the recording view without touching the
-  // canvas, so they are offered even for a datatype GR World Recording cannot
-  // represent — that recording is otherwise not viewable here at all. Both stop
-  // propagation: clicking one must not also drop a block on the canvas.
-  const view = document.createElement('button'); view.className = 'rec-view';
-  view.type = 'button'; view.textContent = 'View';
-  view.title = `Open the recording view of "${recording.name}" without adding it to the flowgraph`;
-  view.setAttribute('aria-label', `View recording ${recording.name}`);
-  view.onclick = event => { event.stopPropagation(); openRecordingPreview(recording); };
-  // A word rather than the examples tab's 🔗: a color emoji ignores `color`, and
-  // these two read as a pair only if they are the same blue.
-  const link = document.createElement('button'); link.className = 'rec-link';
-  link.type = 'button'; link.textContent = 'Link';
-  link.title = `Copy a link to this recording (${recordingUrl(recording.name)})`;
-  link.setAttribute('aria-label', `Copy a link to recording ${recording.name}`);
-  link.onclick = event => { event.stopPropagation(); void copyRecordingUrl(recording.name); };
-  head.append(title, view, link);
-  const props = document.createElement('dl'); props.className = 'rec-props';
-  const addProperty = (label: string, value: string | number | null) => {
-    const key = document.createElement('dt'); key.textContent = label;
-    const val = document.createElement('dd'); val.textContent = displayRecordingValue(value);
-    props.append(key, val);
-  };
-  addProperty('Data Type', recording.datatype);
-  addProperty('Sample Rate', displaySi(recording.sampleRate, 'Hz'));
-  addProperty('Author', recording.author);
-  addProperty('Samples', displaySi(recording.sampleCount, ''));
-  // Both files and the index come directly from the recording bucket.
-  const sizeKey = document.createElement('dt'); sizeKey.textContent = 'Size';
-  const sizeVal = document.createElement('dd'); sizeVal.className = 'rec-size';
-  sizeVal.append(displayBytes(recording.byteLength));
-  const addDownloadLink = (label: string, url: string, fileName: string) => {
-    const link = document.createElement('a'); link.className = 'rec-dl';
-    // download= is a file name, not a path: a recording in a collection
-    // sub-directory still saves under its own base name.
-    link.href = url; link.download = fileName.split('/').pop()!; link.rel = 'noopener';
-    link.textContent = label;
-    // Clicking a link must not also drop a block on the canvas.
-    link.onclick = event => event.stopPropagation();
-    sizeVal.append(link);
-  };
-  addDownloadLink('data file', recording.downloadUrl, recording.dataFile);
-  addDownloadLink('meta file', recording.metadataUrl, recording.metaFile);
-  props.append(sizeKey, sizeVal);
-  const streamNote = document.createElement('div'); streamNote.className = 'rec-progress';
-  streamNote.textContent = 'Read on demand in bounded byte ranges while the flowgraph runs.';
-  item.append(head, props, streamNote);
-
-  const format = sigmfFileSourceFormat(recording.datatype);
-  if (!format) {
-    // The only badge left: what the card cannot do. That clicking it adds the
-    // recording to the flowgraph needs no label.
-    const badge = document.createElement('span'); badge.className = 'rec-badge';
-    badge.textContent = 'Unsupported';
-    head.append(badge);
-    item.setAttribute('aria-disabled', 'true');
-    item.title = `GR World Recording cannot directly represent ${recording.datatype || 'this datatype'}`;
-    return item;
-  }
-
-  const useRecording = async () => {
-    try {
-      closePaletteDrawer();
-      await addRecordingBlock(recording, format);
-    } catch (error) {
-      log(`recording "${recording.name}" could not be added: ${error}`);
-    }
-  };
-  item.onclick = () => { void useRecording(); };
-  item.onkeydown = event => {
-    if (event.key !== 'Enter' && event.key !== ' ') return;
-    // The download links and the View / copy-link buttons act for themselves.
-    if ((event.target as HTMLElement)?.closest('a,button')) return;
-    event.preventDefault(); void useRecording();
-  };
-  return item;
-}
 
 
 // One searchable row of the recordings tab. `text` is everything the search box
@@ -6298,96 +3879,21 @@ function makeRecordingItem(recording: ExampleRecording): HTMLElement {
 // "estevez/" narrows by itself), plus the author and datatype shown on the card.
 // Unlike an example, all of it is known from the index up front — nothing here
 // has to wait on a fetch.
-interface RecordingEntry { item: HTMLElement; text: string }
+const recordingPaletteController = createRecordingPalette({
+  loadExampleRecordings,
+  openRecordingPreview,
+  copyRecordingUrl,
+  addRecordingBlock,
+  closePaletteDrawer,
+  log,
+});
 
-function recordingSearchText(recording: ExampleRecording): string {
-  return [recording.name, recording.author, recording.datatype]
-    .filter(Boolean).join(' ').toLowerCase();
+function buildRecordings(panel: HTMLElement): Promise<void> {
+  return recordingPaletteController.buildRecordings(panel);
 }
 
-function renderRecordingTree(directory: RecordingDirectory, container: HTMLElement,
-                             entries: RecordingEntry[]) {
-  const byName = (a: string, b: string) => a.localeCompare(b, undefined, { numeric: true });
-  for (const child of [...directory.directories.values()].sort((a, b) => byName(a.name, b.name))) {
-    const details = document.createElement('details'); details.className = 'rec-directory';
-    // Deliberately do not set details.open: every directory, including nested
-    // ones, starts collapsed and the browser supplies keyboard disclosure.
-    const summary = document.createElement('summary'); summary.className = 'rec-directory-head';
-    const name = document.createElement('span'); name.className = 'rec-directory-name';
-    name.textContent = child.name;
-    const count = document.createElement('span'); count.className = 'rec-directory-count';
-    const total = recordingTreeCount(child);
-    count.textContent = `${total} recording${total === 1 ? '' : 's'}`;
-    summary.append(name, count);
-    const contents = document.createElement('div'); contents.className = 'rec-directory-contents';
-    renderRecordingTree(child, contents, entries);
-    details.append(summary, contents);
-    container.append(details);
-  }
-  for (const recording of [...directory.recordings].sort((a, b) => byName(a.name, b.name))) {
-    const item = makeRecordingItem(recording);
-    container.append(item);
-    entries.push({ item, text: recordingSearchText(recording) });
-  }
-}
 
-async function buildRecordings(panel: HTMLElement) {
-  const list = document.createElement('div'); list.className = 'rec-list';
-  const status = document.createElement('div'); status.className = 'ex-empty';
-  status.textContent = 'Loading recordings…'; panel.append(status);
-  let recordings: ExampleRecording[] = [];
-  try {
-    recordings = await loadExampleRecordings();
-  } catch (e) {
-    status.textContent = 'Could not load recordings.';
-    log('recordings not loaded: ' + e); return;
-  }
-  if (!recordings.length) { status.textContent = 'No SigMF recordings found.'; return; }
 
-  // Search box, matching the Blocks and Example Flowgraphs tabs: every
-  // whitespace-separated term has to be found, so "estevez ci16" narrows by
-  // collection and datatype at once.
-  const { bar: searchBar, input: search } =
-    makePaletteSearch('Search recordings…', 'Search SigMF recordings');
-  const noMatch = document.createElement('div'); noMatch.className = 'ex-empty'; noMatch.hidden = true;
-  const entries: RecordingEntry[] = [];
-  let terms: string[] = [];
-
-  const refresh = () => {
-    const q = terms.join(' ');
-    let shown = 0;
-    for (const entry of entries) {
-      const hit = terms.every(t => entry.text.includes(t));
-      entry.item.hidden = !hit;
-      if (hit) shown++;
-    }
-    // A directory stays visible when any descendant is visible, and a search
-    // opens the matching paths so a hit is never buried in a collapsed one.
-    // Innermost first, so an outer directory sees its children's final state.
-    const directories = [...list.querySelectorAll<HTMLDetailsElement>('.rec-directory')].reverse();
-    for (const details of directories) {
-      const contents = details.querySelector<HTMLElement>(':scope > .rec-directory-contents');
-      const hasVisibleChild = !!contents && [...contents.children]
-        .some(child => !(child as HTMLElement).hidden);
-      details.hidden = !hasVisibleChild;
-      if (q && hasVisibleChild) details.open = true;
-    }
-    if (q) noMatch.textContent = `No SigMF recording matches “${q}”.`;
-    noMatch.hidden = !q || shown > 0;
-  };
-  const onQuery = () => {
-    terms = search.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
-    refresh();
-  };
-  search.oninput = onQuery;
-  search.onkeydown = e => {
-    if (e.key === 'Escape' && search.value) { e.stopPropagation(); search.value = ''; onQuery(); }
-  };
-
-  status.remove(); panel.append(searchBar, list, noMatch);
-  renderRecordingTree(buildRecordingTree(recordings), list, entries);
-  refresh();
-}
 
 // ---- GRC-style menu bar + toolbar ----------------------------------------
 // These mirror grc/gui/Bars.py (MENU_BAR_LIST / TOOLBAR_LIST). Actions that
@@ -6400,39 +3906,16 @@ async function buildRecordings(panel: HTMLElement) {
 const R_QUIT = "A browser tab can't quit the application — just close the tab instead.";
 const R_XML = "GRC no longer uses XML flowgraphs, so there are no XML parser errors to display.";
 
-// ---- hover tooltip (explains why an action is unavailable) ----
-let wasmTipEl: HTMLDivElement | null = null;
-function ensureTip(): HTMLDivElement {
-  if (!wasmTipEl) {
-    wasmTipEl = document.createElement('div'); wasmTipEl.id = 'wasmTip'; wasmTipEl.hidden = true;
-    document.body.appendChild(wasmTipEl);
-  }
-  return wasmTipEl;
-}
-function positionTip(node: HTMLElement) {
-  const t = ensureTip(), r = node.getBoundingClientRect();
-  let left = r.right + 8, top = r.top;
-  if (left + t.offsetWidth > window.innerWidth - 8) left = r.left - t.offsetWidth - 8;
-  if (top + t.offsetHeight > window.innerHeight - 8) top = window.innerHeight - t.offsetHeight - 8;
-  t.style.left = Math.max(8, left) + 'px'; t.style.top = Math.max(8, top) + 'px';
-}
-function attachTip(node: HTMLElement, text: string) {
-  node.addEventListener('mouseenter', () => { const t = ensureTip(); t.textContent = text; t.hidden = false; positionTip(node); });
-  node.addEventListener('mousemove', () => positionTip(node));
-  node.addEventListener('mouseleave', hideTip);
-}
-function hideTip() { if (wasmTipEl) wasmTipEl.hidden = true; }
-
 // ---- action helpers that the menu/toolbar wire into ----
 function openFileDialog() { (el('fileOpen') as HTMLInputElement).click(); }
-function cutSelected() { if (!selectedBlocks.size) return; copyBlocks(); deleteBlocks(); }
-function deleteSelection() { if (selectedConnection) deleteConnection(selectedConnection); else deleteBlocks(); }
+function cutSelected() { if (!state.selectedBlocks.size) return; copyBlocks(); deleteBlocks(); }
+function deleteSelection() { if (state.selectedConnection) deleteConnection(state.selectedConnection); else deleteBlocks(); }
 function selectAll() {
-  selectedBlocks = new Set(insts.map(i => i.uid));
-  selected = insts.length ? insts[insts.length - 1].uid : null;
-  selectedConnection = null; render();
+  state.selectedBlocks = new Set(state.insts.map(i => i.uid));
+  state.selected = state.insts.length ? state.insts[state.insts.length - 1].uid : null;
+  state.selectedConnection = null; render();
 }
-function openPropsForSelected() { if (selected) showPropsDialog(G0(selected)); }
+function openPropsForSelected() { if (state.selected) showPropsDialog(G0(state.selected)); }
 function toggleConsole() {
   el('workspace').classList.toggle('console-hidden');
   syncConsoleToggle();
@@ -6454,11 +3937,11 @@ function toggleHideDisabled() { hideDisabled = !hideDisabled; render(); }
 function toggleHideVariables() {
   hideVariables = !hideVariables;
   if (hideVariables) {
-    const hidden = new Set(insts.filter(inst => VARIABLE_IDS.has(inst.id)).map(inst => inst.uid));
-    selectedBlocks = new Set([...selectedBlocks].filter(uid => !hidden.has(uid)));
-    if (selected && hidden.has(selected)) selected = [...selectedBlocks].pop() || null;
-    if (selectedConnection && (hidden.has(selectedConnection.from) || hidden.has(selectedConnection.to)))
-      selectedConnection = null;
+    const hidden = new Set(state.insts.filter(inst => VARIABLE_IDS.has(inst.id)).map(inst => inst.uid));
+    state.selectedBlocks = new Set([...state.selectedBlocks].filter(uid => !hidden.has(uid)));
+    if (state.selected && hidden.has(state.selected)) state.selected = [...state.selectedBlocks].pop() || null;
+    if (state.selectedConnection && (hidden.has(state.selectedConnection.from) || hidden.has(state.selectedConnection.to)))
+      state.selectedConnection = null;
   }
   render();
 }
@@ -6472,7 +3955,7 @@ function toggleShowParameterValues() {
 }
 function toggleAutoHidePortLabels() {
   autoHidePortLabels = !autoHidePortLabels;
-  hoveredPortKey = null;
+  connectionController.resetHover();
   el('canvasWrap').classList.toggle('auto-hide-port-labels', autoHidePortLabels);
   render();
 }
@@ -6508,12 +3991,12 @@ function toggleAiPanel() {
 }
 
 // ---- enable/state predicates (evaluated each time a menu opens) ----
-function hasSel() { return selectedBlocks.size > 0; }
-function hasSelOrConn() { return selectedBlocks.size > 0 || !!selectedConnection; }
+function hasSel() { return state.selectedBlocks.size > 0; }
+function hasSelOrConn() { return state.selectedBlocks.size > 0 || !!state.selectedConnection; }
 function canUndo() { return historyIndex > 0; }
 function canRedo() { return historyIndex < graphHistory.length - 1; }
 function canPaste() { return !!clipboard; }
-function hasBlocks() { return insts.length > 0; }
+function hasBlocks() { return state.insts.length > 0; }
 
 // ---- simple info dialogs (reuse the existing .modal/.dlg styling) ----
 function openDialog(title: string, build: (body: HTMLElement) => void, wide = false): HTMLElement {
@@ -6558,7 +4041,7 @@ function showErrorsDialog() {
     const issues = validateGraph();
     if (!issues.length) { body.textContent = 'No errors — the flowgraph is valid.'; return; }
     for (const issue of issues) {
-      const b = insts.find(i => i.uid === issue.uid);
+      const b = state.insts.find(i => i.uid === issue.uid);
       const row = document.createElement('div'); row.className = 'err-row';
       row.textContent = `${b?.name || b?.id || issue.uid}: ${issue.message}`;
       body.appendChild(row);
@@ -6581,7 +4064,7 @@ function showAboutDialog() {
 // The Options block's title is the only human name a flowgraph carries; without
 // one the dialog opens on the generic fallback for the contributor to replace.
 function suggestedExampleName(): string {
-  const opt = insts.find(i => i.id === OPTIONS_ID);
+  const opt = state.insts.find(i => i.id === OPTIONS_ID);
   return sanitizeExampleName(String(opt?.params.title || '').trim());
 }
 function contributeExample() {
@@ -6663,11 +4146,6 @@ function contributeExample() {
 }
 
 // ---- menu model + builder ----
-type MenuItem =
-  | { label: string; key?: string; run?: () => void; reason?: string;
-      enabled?: () => boolean; check?: () => boolean; danger?: boolean };
-interface TopMenu { label: string; items: (MenuItem | 'sep')[] }
-
 const MENUS: TopMenu[] = [
   { label: 'File', items: [
     { label: 'About GNU Radio World', run: showAboutDialog },
@@ -6703,7 +4181,7 @@ const MENUS: TopMenu[] = [
     { label: 'Disable', key: 'D', run: () => setSelectedEnabled(false), enabled: hasSel },
     { label: 'Bypass', key: 'B', run: bypassSelected, enabled: hasSel },
     'sep',
-    { label: 'Properties', key: 'Return', run: openPropsForSelected, enabled: () => !!selected },
+    { label: 'Properties', key: 'Return', run: openPropsForSelected, enabled: () => !!state.selected },
   ] },
   { label: 'View', items: [
     { label: 'Show Block Tree Panel', key: 'Ctrl+B', run: togglePalette,
@@ -6771,61 +4249,7 @@ const MENUS: TopMenu[] = [
   ] },
 ];
 
-function buildMenuDrop(items: (MenuItem | 'sep')[]): HTMLElement {
-  const drop = document.createElement('div');
-  drop.className = 'menu-drop';
-  drop.setAttribute('role', 'menu');
-  for (const it of items) {
-    if (it === 'sep') { drop.appendChild(Object.assign(document.createElement('div'), { className: 'menu-sep' })); continue; }
-    const row = document.createElement('div');
-    row.className = 'menuitem' + (it.danger ? ' danger' : '');
-    row.setAttribute('role', 'menuitem');
-    const check = document.createElement('span'); check.className = 'mi-check';
-    check.textContent = it.check && it.check() ? '✓' : '';
-    const label = document.createElement('span'); label.className = 'mi-label'; label.textContent = it.label;
-    row.append(check, label);
-    const key = document.createElement('span'); key.className = 'mi-key'; key.textContent = it.key || '';
-    row.appendChild(key);
-    if (it.reason) { row.classList.add('disabled'); attachTip(row, it.reason); }
-    else if (it.enabled && !it.enabled()) { row.classList.add('disabled'); }
-    else row.addEventListener('click', e => { e.stopPropagation(); closeMenus(); it.run && it.run(); });
-    drop.appendChild(row);
-  }
-  return drop;
-}
-function closeMenus() {
-  document.querySelectorAll('#menus .menu-top.open').forEach(t => {
-    t.classList.remove('open'); t.querySelector('.menu-drop')?.remove();
-  });
-  hideTip();
-}
-function openTop(top: HTMLElement, items: (MenuItem | 'sep')[]) {
-  closeMenus();
-  top.appendChild(buildMenuDrop(items));
-  top.classList.add('open');
-}
-function buildMenuBar() {
-  const menus = el('menus'); menus.textContent = '';
-  for (const m of MENUS) {
-    const top = document.createElement('div'); top.className = 'menu-top';
-    top.setAttribute('role', 'menuitem'); top.tabIndex = 0;
-    const lbl = document.createElement('span'); lbl.textContent = m.label; top.appendChild(lbl);
-    top.addEventListener('click', e => {
-      e.stopPropagation();
-      if (top.classList.contains('open')) closeMenus(); else openTop(top, m.items);
-    });
-    top.addEventListener('mouseenter', () => {
-      if (menus.querySelector('.menu-top.open') && !top.classList.contains('open')) openTop(top, m.items);
-    });
-    menus.appendChild(top);
-  }
-}
-document.addEventListener('pointerdown', e => {
-  if (!(e.target as HTMLElement).closest('#menus')) closeMenus();
-});
-
 // ---- icon toolbar (mirrors TOOLBAR_LIST) ----
-interface Tool { icon: string; label: string; key?: string; run?: () => void; reason?: string }
 const TOOLBAR: (Tool | 'sep')[] = [
   { icon: '📄', label: 'New', key: 'Ctrl+N', run: () => clearFlowgraph() },
   { icon: '📂', label: 'Open', key: 'Ctrl+O', run: openFileDialog },
@@ -6859,21 +4283,6 @@ const TOOLBAR: (Tool | 'sep')[] = [
   { icon: '🔍−', label: 'Zoom Out', key: 'Ctrl+-', run: () => setZoom(zoom / ZOOM_STEP) },
   { icon: '✨', label: 'Flowgraph Copilot', run: toggleAiPanel },
 ];
-function buildToolbar() {
-  const bar = el('toolbar'); bar.textContent = '';
-  for (const t of TOOLBAR) {
-    if (t === 'sep') { bar.appendChild(Object.assign(document.createElement('div'), { className: 'tsep' })); continue; }
-    const b = document.createElement('button'); b.className = 'tbtn'; b.textContent = t.icon;
-    b.setAttribute('aria-label', t.label);
-    // What the narrow layout orders the bar by: too many tools to fit a phone,
-    // so editor.css pulls Execute and Kill to the front of the scroll.
-    b.dataset.tool = t.label;
-    if (t.reason) { b.classList.add('disabled'); b.setAttribute('aria-disabled', 'true'); attachTip(b, t.reason); }
-    else { b.title = t.label + (t.key ? ` (${t.key})` : ''); b.onclick = () => t.run && t.run(); }
-    bar.appendChild(b);
-  }
-}
-
 function aiCatalogEntries(): CatalogEntry[] {
   const generated = new Map<string, CatalogEntry>();
   for (const block of LIB.blocks || []) {
@@ -6912,7 +4321,7 @@ function aiPorts(instOrId: Inst | string, kind: 'in' | 'out'): ResolvedPort[] {
 }
 
 function aiBlock(name: string): Inst {
-  const block = insts.find(item => item.name === name);
+  const block = state.insts.find(item => item.name === name);
   if (!block) throw new Error(`no block named "${name}"`);
   return block;
 }
@@ -6930,17 +4339,17 @@ function aiPortIndex(block: Inst, kind: 'in' | 'out', token: string | number): n
   return index;
 }
 
-function restoreAiSnapshot(state: GraphSnapshot, record: boolean): void {
-  insts = clone(state.insts);
-  conns = clone(state.conns);
-  counter = state.counter;
-  selected = null; selectedBlocks.clear(); selectedConnection = null; cancelConnect();
+function restoreAiSnapshot(snapshotState: GraphSnapshot, record: boolean): void {
+  state.insts = clone(snapshotState.insts);
+  state.conns = clone(snapshotState.conns);
+  state.counter = snapshotState.counter;
+  state.clearSelection(); cancelConnect();
   render();
   if (record) recordHistory();
 }
 
 function aiAuthorization(): Promise<RunAuthorization | null> {
-  const tx = insts.find(block => block.enabled && !block.bypassed &&
+  const tx = state.insts.find(block => block.enabled && !block.bypassed &&
     (block.id === 'wasm_hackrf_sink' || block.id === 'wasm_plutosdr_sink'));
   if (tx) {
     const frequency = tx.params.center_freq ?? tx.params.frequency ?? 'unknown';
@@ -6953,7 +4362,7 @@ function aiAuthorization(): Promise<RunAuthorization | null> {
   }
   return (async () => {
     for (const radio of USB_RADIOS) {
-      if (!await radio.needsGesture(insts)) continue;
+      if (!await radio.needsGesture(state.insts)) continue;
       return {
         title: `This flowgraph opens a ${radio.name}.`,
         detail: 'The browser needs a hardware permission click before the visible run can start.',
@@ -6966,8 +4375,8 @@ function aiAuthorization(): Promise<RunAuthorization | null> {
 
 function aiToolDependencies(): Omit<AiToolDeps, 'runFlowgraph'> {
   return {
-    blocks: () => insts,
-    connections: () => conns,
+    blocks: () => state.insts,
+    connections: () => state.conns,
     entries: aiCatalogEntries,
     definition: value => typeof value === 'string' ? RUNNABLE[value] : defFor(value),
     ports: aiPorts,
@@ -6978,8 +4387,8 @@ function aiToolDependencies(): Omit<AiToolDeps, 'runFlowgraph'> {
       const block = addBlock(id, undefined, undefined, {}, false);
       if (!block) throw new Error(`could not add block "${id}"`);
       if (requestedName) {
-        if (insts.some(item => item !== block && item.name === requestedName)) {
-          insts = insts.filter(item => item !== block);
+        if (state.insts.some(item => item !== block && item.name === requestedName)) {
+          state.insts = state.insts.filter(item => item !== block);
           throw new Error(`a block named "${requestedName}" already exists`);
         }
         block.name = requestedName;
@@ -7007,17 +4416,17 @@ function aiToolDependencies(): Omit<AiToolDeps, 'runFlowgraph'> {
       const source = aiPorts(from, 'out')[fp], sink = aiPorts(to, 'in')[tp];
       if (source.domain !== sink.domain)
         throw new Error(`cannot connect ${source.domain} output to ${sink.domain} input`);
-      conns = conns.filter(connection => !(connection.to === to.uid && connection.tp === tp));
-      conns.push({ from: from.uid, fp, to: to.uid, tp });
+      state.conns = state.conns.filter(connection => !(connection.to === to.uid && connection.tp === tp));
+      state.conns.push({ from: from.uid, fp, to: to.uid, tp });
       render();
     },
     disconnect: (fromName, output, toName, input) => {
       const from = aiBlock(fromName), to = aiBlock(toName);
       const fp = aiPortIndex(from, 'out', output), tp = aiPortIndex(to, 'in', input);
-      const length = conns.length;
-      conns = conns.filter(connection => !(connection.from === from.uid &&
+      const length = state.conns.length;
+      state.conns = state.conns.filter(connection => !(connection.from === from.uid &&
         connection.fp === fp && connection.to === to.uid && connection.tp === tp));
-      if (conns.length === length) throw new Error('that connection does not exist');
+      if (state.conns.length === length) throw new Error('that connection does not exist');
       render();
     },
     setEnabled: (name, state) => {
@@ -7048,7 +4457,7 @@ function initializeAiPanel(): void {
   const harness: Omit<HarnessDeps, 'requestAuthorization'> = {
     run,
     frame: () => el('runFrame') as HTMLIFrameElement,
-    blocks: () => insts,
+    blocks: () => state.insts,
     authorization: aiAuthorization,
     subscribeLogs: subscriber => {
       logSubscribers.add(subscriber);
@@ -7065,8 +4474,9 @@ function initializeAiPanel(): void {
   if (openAiWhenReady) { openAiWhenReady = false; aiPanel.open(); }
 }
 
-buildMenuBar();
-buildToolbar();
+buildMenuBar(MENUS, el('menus'));
+buildToolbar(TOOLBAR, el('toolbar'));
+installMenuDismissal();
 el('btnStop').addEventListener('click', stop);
 initArrangeOverlay();
 (el('fileOpen') as HTMLInputElement).addEventListener('change', async event => {

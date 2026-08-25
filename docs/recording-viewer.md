@@ -272,11 +272,13 @@ Public HTTP Recording gets none: raw bytes at a URL are not a SigMF recording,
 and nothing here knows how to describe them. A recording can also be viewed *without* being put on the canvas at all,
 which is the one kind of tab no block owns. Each tab is an `<iframe>` on the
 viewer at `/recording/`, driven through its base64url URL route
-(`recordingViewUrl()` in `editor/src/main.ts` builds it). The rules that keep it
+(`recordingViewUrl()` in `editor/src/recording-catalog.ts` builds it). The tab
+state and lazy viewer lifecycle live in `editor/src/recording-tabs.ts`; the
+palette cards live separately in `editor/src/recording-palette.ts`. The rules that keep it
 working:
 
-- **The tab set is derived state.** `syncRecordingTabs()` rebuilds it from
-  `insts` at the end of every `render()`, so no mutation path has to remember to
+- **The tab set is derived state.** `syncRecordingTabs()` rebuilds it from the
+  editor graph state at the end of every canvas render, so no mutation path has to remember to
   update it, and nothing about a tab reaches the `.grc`. It must stay synchronous
   and network-free: a remote tab's label comes from the block's own recording
   key, not from the R2 recording index.

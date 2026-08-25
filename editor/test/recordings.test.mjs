@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { bundleModule } from './bundle-module.mjs';
-import { mainSource as main } from './editor-contract-source.mjs';
+import { editorSource as main, recordingPaletteSource } from './editor-contract-source.mjs';
 
 const catalog = await bundleModule('../src/recording-catalog.ts', {
   define: { 'import.meta.env': JSON.stringify({
@@ -62,8 +62,8 @@ const readerWorker = await readFile(
   new URL('../../runner/src/browser_file_reader.js', import.meta.url), 'utf8');
 // View and the copy-link button are built before the unsupported-datatype early
 // return, so a recording GR World Recording cannot represent is still viewable.
-const card = main.slice(main.indexOf('function makeRecordingItem'),
-  main.indexOf('interface RecordingEntry'));
+const card = recordingPaletteSource.slice(recordingPaletteSource.indexOf('function makeRecordingItem'),
+  recordingPaletteSource.indexOf('function renderDirectory'));
 const viewControl = card.indexOf("view.onclick");
 const unsupported = card.indexOf("badge.textContent = 'Unsupported'");
 assert.ok(viewControl !== -1 && unsupported !== -1 && viewControl < unsupported,
@@ -245,7 +245,7 @@ assert.match(main, /function sigmfSampRateToPublish\([\s\S]*?String\(params\.use
   'the toggle is read from committed state');
 assert.match(main, /const publish = sigmfSampRateToPublish\(inst\.id, inst\.params, inst\.localFileToken\);\s*\n\s*if \(publish\) applySampRateFromSigmf/,
   'the dialog applies it where it commits, so it is one undo step with the pick');
-assert.match(main, /const variable = insts\.find\(i => i\.id === 'variable' && i\.name === 'samp_rate'\);[\s\S]*?if \(!variable\) \{/,
+assert.match(main, /const variable = state\.insts\.find\(i => i\.id === 'variable' && i\.name === 'samp_rate'\);[\s\S]*?if \(!variable\) \{/,
   'a flowgraph whose samp_rate variable was renamed or deleted is told, not given one back');
 
 // An interleaved 16-bit recording is a short stream -- GNU Radio's own
@@ -253,9 +253,9 @@ assert.match(main, /const variable = insts\.find\(i => i\.id === 'variable' && i
 // already drops an IShort To Complex beside a ci16 GR World Recording; picking a
 // ci16 recording for a SigMF Source does the same, rather than leaving the
 // reader to read the hint and wire it up.
-assert.match(main, /function attachIShortToComplex\(block: Inst\): boolean \{\s*\n\s*if \(conns\.some\(c => c\.from === block\.uid\)\) return false;/,
+assert.match(main, /function attachIShortToComplex\(block: Inst\): boolean \{\s*\n\s*if \(state\.conns\.some\(c => c\.from === block\.uid\)\) return false;/,
   'an output that already goes somewhere is left alone: this only ever adds');
-assert.match(main, /conns\.push\(\{ from: block\.uid, fp: 0, to: converter\.uid, tp: 0 \}\);/,
+assert.match(main, /state\.conns\.push\(\{ from: block\.uid, fp: 0, to: converter\.uid, tp: 0 \}\);/,
   'the converter arrives already connected');
 assert.match(main, /function sigmfNeedsIShortToComplex[\s\S]*?isCi16Datatype\(bound\.datatype\)/,
   'only an interleaved-integer recording gets one');
@@ -287,10 +287,10 @@ assert.match(blockById('wasm_sigmf_sink')?.documentation ?? '',
 // Stopping a flowgraph that writes a recording has to let it finish: unloading
 // the frame kills the writer worker with the tail of the capture still in shared
 // memory, and with the whole of it where the browser buffers rather than streams.
-assert.match(main, /function runnerNeedsGracefulStop\(\)[\s\S]*?i\.id === SIGMF_SINK_ID/);
-assert.match(main, /const finishing = runnerNeedsGracefulStop\(\) \? requestRunnerShutdown\(frame\) : null;/,
+assert.match(main, /function runnerNeedsGracefulStop\(deps: RunSessionDeps\)[\s\S]*?i\.id === SIGMF_SINK_ID/);
+assert.match(main, /const finishing = runnerNeedsGracefulStop\(deps\) \? requestRunnerShutdown\(deps, frame\) : null;/,
   'stop() stays synchronous -- loadFlowgraphAnimated needs the tab switch immediately');
-assert.match(main, /if \(generation !== runGeneration\) return;/,
+assert.match(main, /if \(generation !== session\.generation\) return;/,
   'a Run pressed while a recording is still finishing keeps its own frame');
 
 console.log('checked SigMF Source/Sink pairing, metadata, samp_rate and shutdown');
