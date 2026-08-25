@@ -6,20 +6,22 @@ html,body { margin:0; height:100%; font-family:system-ui,Arial,sans-serif; color
 /* dvh, not vh: a phone's vh is the *largest* viewport, so the console pane would
    sit under the browser's own toolbar until the reader scrolled it away. */
 #app { --palette-width:460px; --palette-splitter-width:7px; --ai-width:420px;
-    --ai-splitter-width:7px; display:grid;
+    --ai-splitter-width:7px; --ai-toggle-width:40px; display:grid;
     grid-template-columns:var(--palette-width) var(--palette-splitter-width) minmax(0,1fr)
-      var(--ai-splitter-width) var(--ai-width);
+      var(--ai-splitter-width) var(--ai-width) var(--ai-toggle-width);
     grid-template-rows:auto 1fr; height:100vh; height:100dvh; position:relative; }
 /* The narrow layout's drawer affordances; inert in the side-by-side layout. */
 #paletteToggle, #paletteScrim { display:none; }
-/* !important so hiding still wins over the inline width set by the splitter drag */
+/* !important so hiding still wins over inline widths set by splitter drags. */
 #app.hide-palette { --palette-width:0px !important; --palette-splitter-width:0px !important; }
 #app.hide-palette #palette { visibility:hidden; overflow:hidden; }
 #app.hide-palette #paletteSplitter { visibility:hidden; }
 #app.resizing-palette { cursor:col-resize; }
 #app.resizing-palette iframe { pointer-events:none; }
-#app.ai-hidden { --ai-width:0px; --ai-splitter-width:0px; }
+#app.ai-hidden { --ai-width:0px !important; --ai-splitter-width:0px !important; }
 #app.ai-hidden .ai-dock, #app.ai-hidden .ai-splitter { visibility:hidden; overflow:hidden; }
+#app:not(.ai-hidden) { --ai-toggle-width:0px; }
+#app:not(.ai-hidden) .ai-toggle { display:none; }
 #app.resizing-ai { cursor:col-resize; }
 #app.resizing-ai iframe { pointer-events:none; }
 /* One row: the logo, then the two bars stacked beside it. The bars are the
@@ -66,7 +68,6 @@ button:hover { filter:brightness(1.15); }
 .tbtn.disabled { color:#4b5266; cursor:not-allowed; }
 .tbtn.disabled:hover { background:transparent; border-color:transparent; }
 .tsep { width:1px; min-width:1px; height:24px; background:#333a4d; margin:0 5px; }
-.tbtn[data-tool="Flowgraph Copilot"] { margin-left:auto; }
 /* ---- hover tooltip explaining WASM-unavailable actions ---- */
 #wasmTip { position:fixed; z-index:500; max-width:340px; background:#11141d; color:#dbe2f2;
     border:1px solid #46507a; border-radius:6px; padding:8px 12px; font:16px/1.45 system-ui,Arial,sans-serif;
@@ -187,7 +188,7 @@ button:hover { filter:brightness(1.15); }
 @media (prefers-reduced-motion:reduce) {
   .sdr-gauge-needle, .sdr-speed-progress-fill { transition:none; }
 }
-/* ---- Flowgraph Copilot dock -------------------------------------------- */
+/* ---- Graham dock ------------------------------------------------------- */
 .ai-splitter { min-width:0; position:relative; z-index:20; cursor:col-resize;
     touch-action:none; background:#262b3b; border-left:1px solid #11141d;
     border-right:1px solid #333a4d; outline:none; }
@@ -196,12 +197,20 @@ button:hover { filter:brightness(1.15); }
 .ai-splitter:hover, .ai-splitter:focus-visible { background:#343b52; }
 .ai-dock { min-width:0; min-height:0; display:grid; grid-template-rows:auto auto minmax(0,1fr) auto;
     background:#1d2130; border-left:1px solid #333a4d; overflow:hidden; }
+.ai-toggle { grid-row:2; grid-column:-2/-1; min-width:0; width:100%; height:100%; padding:0;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;
+    color:#b9c5df; background:#262b3b; border:0; border-left:1px solid #3a4258;
+    border-radius:0; font-size:14px; font-weight:700; letter-spacing:.05em; }
+.ai-toggle:hover, .ai-toggle:focus-visible { color:#fff; background:#343b52; filter:none; }
+.ai-toggle-label { writing-mode:vertical-rl; transform:rotate(180deg); }
+.ai-toggle-icon { font-size:17px; line-height:1; }
 .ai-head { display:flex; align-items:center; gap:8px; min-width:0; padding:10px 10px 8px;
     border-bottom:1px solid #333a4d; }
 /* Truncates rather than shoving the token counts out of the header when the
    dock is dragged narrow; the numbers matter more than the full title. */
-.ai-head strong { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis;
-    white-space:nowrap; }
+.ai-title { flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
+.ai-title > strong { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ai-name-expansion { display:block; color:#9eabc8; font-size:11px; line-height:1.3; }
 .ai-cost { color:#9eabc8; font:12px/1.2 ui-monospace,monospace; cursor:help;
     white-space:nowrap; }
 .ai-icon { width:30px; height:30px; padding:0; font-size:18px; line-height:1; }
@@ -347,7 +356,8 @@ button:hover { filter:brightness(1.15); }
 #app.embedded header, #app.embedded #palette, #app.embedded #paletteSplitter,
 #app.embedded #paletteScrim, #app.embedded #paletteToggle, #app.embedded #workspaceTabs,
 #app.embedded #consoleSplitter, #app.embedded #consoleToggle, #app.embedded #log,
-#app.embedded #runBar, #app.embedded .ai-splitter, #app.embedded .ai-dock { display:none; }
+#app.embedded #runBar, #app.embedded .ai-splitter, #app.embedded .ai-dock,
+#app.embedded .ai-toggle { display:none; }
 #app.embedded { grid-template-columns:minmax(0,1fr); grid-template-rows:minmax(0,1fr); }
 #app.embedded #workspace { grid-template-rows:minmax(0,1fr); }
 /* ?no_scroll=1: a host that would rather clip an oversized flowgraph at the
@@ -975,8 +985,11 @@ svg text { user-select:none; -webkit-user-select:none; -moz-user-select:none; }
      covers the canvas has no width worth tuning by hand anyway. */
   #paletteSplitter { display:none; }
   .ai-splitter { display:none; }
-  .ai-dock { position:absolute; grid-row:2; grid-column:1; top:0; bottom:0; right:0;
-      width:min(94vw,440px); z-index:140; box-shadow:-8px 0 34px #000a; }
+  .ai-toggle { position:absolute; grid-row:2; grid-column:1; top:0; bottom:0; right:0;
+      width:var(--ai-toggle-width); height:auto; z-index:150; }
+  .ai-dock { position:absolute; grid-row:2; grid-column:1; top:0; bottom:0;
+      right:var(--ai-toggle-width); width:min(calc(94vw - var(--ai-toggle-width)),400px);
+      z-index:140; box-shadow:-8px 0 34px #000a; }
   #app.ai-hidden .ai-dock { display:none; }
 
   /* ---- header: one scrollable row of menus, one of tools ---- */

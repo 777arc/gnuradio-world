@@ -125,10 +125,10 @@ assert.match(runBinding, /log\(`cannot run: choose a file for "\$\{block\.name\}
 assert.doesNotMatch(main, /new Blob\(chunks/);
 assert.match(main, /fetch\(recordingsBucketUrl\('index\.json'\), \{ cache: 'no-store' \}\)/);
 assert.match(main, /listRecordings: loadExampleRecordings/,
-  'Copilot discovers recordings from the same live index as the palette');
+  'Graham discovers recordings from the same live index as the palette');
 assert.match(main,
   /readRecordingMetadata:[\s\S]*?find\(item => item\.name === key\)[\s\S]*?fetch\(recording\.metadataUrl, \{ cache: 'no-store' \}\)/,
-  'Copilot metadata reads resolve an indexed key before fetching its SigMF sidecar');
+  'Graham metadata reads resolve an indexed key before fetching its SigMF sidecar');
 assert.match(main, /const LOCAL_FILE_PARAMS[\s\S]*?paint_image_source: 'image_file'/);
 assert.match(main, /const RUN_BOUND_PARAMS[\s\S]*?\[HTTP_RECORDING_ID\]: HTTP_RECORDING_PARAM/,
   'a public URL is rewritten to its bound path the same way a local file is');

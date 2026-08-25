@@ -98,14 +98,18 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
   splitter.id = 'aiSplitter';
   splitter.tabIndex = 0;
   splitter.setAttribute('role', 'separator');
-  splitter.setAttribute('aria-label', 'Resize Flowgraph Copilot');
+  splitter.setAttribute('aria-label', 'Resize Graham');
   splitter.setAttribute('aria-orientation', 'vertical');
   const dock = node('aside', 'ai-dock');
   dock.id = 'aiDock';
-  dock.setAttribute('aria-label', 'Flowgraph Copilot');
+  dock.setAttribute('aria-label', 'Graham');
 
   const header = node('div', 'ai-head');
-  const heading = node('strong', '', 'Flowgraph Copilot');
+  const title = node('div', 'ai-title');
+  const heading = node('strong', '', 'Graham');
+  const expansion = node('span', 'ai-name-expansion',
+    'GNU Radio Assistant for Hams And Mortals');
+  title.append(heading, expansion);
   const cost = node('span', 'ai-cost', '$0.0000');
   const newChat = node('button', 'ai-icon', '＋');
   newChat.type = 'button'; newChat.title = 'New chat';
@@ -113,8 +117,9 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
   const settings = node('button', 'ai-icon', '⚙');
   settings.type = 'button'; settings.title = 'API key and model';
   const close = node('button', 'ai-icon', '×');
-  close.type = 'button'; close.title = 'Close Flowgraph Copilot';
-  header.append(heading, cost, newChat, settings, close);
+  close.type = 'button'; close.title = 'Close Graham';
+  close.setAttribute('aria-label', 'Close Graham');
+  header.append(title, cost, newChat, settings, close);
 
   const controls = node('div', 'ai-controls');
   const connection = node('div', 'ai-connection');
@@ -147,7 +152,15 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
   buttons.append(stop, send);
   form.append(prompt, buttons);
   dock.append(header, controls, transcript, form);
-  app.append(splitter, dock);
+  const toggle = node('button', 'ai-toggle') as HTMLButtonElement;
+  toggle.type = 'button';
+  toggle.setAttribute('aria-controls', dock.id);
+  const toggleIconBefore = node('span', 'ai-toggle-icon', '✨');
+  const toggleIconAfter = node('span', 'ai-toggle-icon', '✨');
+  toggleIconBefore.setAttribute('aria-hidden', 'true');
+  toggleIconAfter.setAttribute('aria-hidden', 'true');
+  toggle.append(toggleIconBefore, node('span', 'ai-toggle-label', 'Graham'), toggleIconAfter);
+  app.append(splitter, dock, toggle);
 
   let providerId: ProviderId = storedProvider();
   const provider = () => providerFor(providerId);
@@ -195,7 +208,7 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
   };
   const bubble = (role: 'user' | 'assistant' | 'status', text: string) => {
     const item = node('section', `ai-message ${role}`);
-    const label = node('div', 'ai-role', role === 'user' ? 'You' : role === 'assistant' ? 'Copilot' : 'Status');
+    const label = node('div', 'ai-role', role === 'user' ? 'You' : role === 'assistant' ? 'Graham' : 'Status');
     const body = node('div', 'ai-message-body', text);
     item.append(label, body);
     transcript.appendChild(item);
@@ -211,8 +224,8 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
   const boundaryText = () => {
     const { host, upstream } = provider();
     return upstream
-      ? `Copilot API: ${host} → ${upstream.host} (shared key)`
-      : `Copilot API: ${host} only`;
+      ? `Data sent to: ${host} → ${upstream.host} (shared key)`
+      : `Data sent to: ${host} only`;
   };
   const share = (part: number, whole: number) =>
     whole > 0 ? ` (${Math.round((part / whole) * 100)}%)` : '';
@@ -620,7 +633,7 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
           'your own.'
         : 'GNU Radio World is a static, open-source application. It has no ' +
           'application server that receives your key. Your browser sends the key only to ' +
-          `${chosen.host} over HTTPS when Copilot makes a request.`;
+          `${chosen.host} over HTTPS when Graham makes a request.`;
       sentCopy.textContent = chosen.sends;
       limited.href = chosen.keysUrl;
       limited.textContent = chosen.keysLabel;
@@ -798,7 +811,6 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
     bubble('status', `${label} disconnected and its key was removed from this browser.`);
     updateSend();
   };
-  close.onclick = () => app.classList.add('ai-hidden');
   providerSelect.onchange = () => {
     if (controller) { providerSelect.value = providerId; return; }
     const chosen = providerFor(providerSelect.value).id;
@@ -826,7 +838,8 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
   });
   splitter.addEventListener('pointermove', event => {
     if (!resizing) return;
-    width = Math.max(300, Math.min(760, window.innerWidth - event.clientX));
+    const right = app.getBoundingClientRect().right - toggle.getBoundingClientRect().width;
+    width = Math.max(300, Math.min(760, right - event.clientX));
     app.style.setProperty('--ai-width', `${width}px`);
   });
   const finishResize = (event: PointerEvent) => {
@@ -837,11 +850,18 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
   splitter.addEventListener('pointerup', finishResize);
   splitter.addEventListener('pointercancel', finishResize);
 
-  app.classList.add('ai-hidden');
+  const setPanelOpen = (open: boolean) => {
+    app.classList.toggle('ai-hidden', !open);
+    toggle.setAttribute('aria-expanded', String(open));
+    toggle.setAttribute('aria-label', open ? 'Close Graham' : 'Open Graham');
+    toggle.title = open ? 'Close Graham' : 'Open Graham';
+  };
+
+  setPanelOpen(false);
   providerSelect.value = providerId;
   boundary.textContent = boundaryText();
   showSpend();
-  modelSelect.appendChild(modelStatus('Open Copilot to load models…'));
+  modelSelect.appendChild(modelStatus('Open Graham to load models…'));
   if (provider().keyless) {
     bubble('status', `Free to use — ${provider().label} runs ${provider().defaultModel} on a ` +
       'shared key, rate limited per visitor. Connect your own OpenRouter or OpenAI key above ' +
@@ -853,7 +873,7 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
   updateSend();
 
   if (oauthReturn) {
-    app.classList.remove('ai-hidden');
+    setPanelOpen(true);
     bubble('status', 'Finishing the secure OpenRouter connection…');
     oauthRestore = (async () => {
       let state: GraphSnapshot | null = null;
@@ -884,17 +904,21 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
   }
 
   const openPanel = () => {
-    app.classList.remove('ai-hidden');
+    setPanelOpen(true);
     // A keyless provider has nothing to connect, so the dialog waits for the
     // first Send rather than interrupting someone who only opened the dock.
     if (!ready()) showConnect();
     else { void loadModels(); prompt.focus(); }
   };
+  const closePanel = () => setPanelOpen(false);
+  const togglePanel = () => app.classList.contains('ai-hidden') ? openPanel() : closePanel();
+  close.onclick = closePanel;
+  toggle.onclick = togglePanel;
 
   return {
     open: openPanel,
-    close: () => app.classList.add('ai-hidden'),
-    toggle: () => app.classList.contains('ai-hidden') ? openPanel() : app.classList.add('ai-hidden'),
+    close: closePanel,
+    toggle: togglePanel,
     isOpen: () => !app.classList.contains('ai-hidden'),
     isOAuthReturn: () => !!oauthReturn,
     oauthRestore: () => oauthRestore,

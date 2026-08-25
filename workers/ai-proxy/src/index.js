@@ -1,5 +1,5 @@
 /**
- * Flowgraph Copilot's shared-key proxy.
+ * Graham's shared-key proxy.
  *
  * The editor's two keyless AI providers ("OpenAI Free Tier" and "OpenRouter
  * Free Tier") have no API key of their own. They talk to this Worker,
@@ -23,7 +23,7 @@
  * at once, rather than a rolling 24 hours from whenever the first request of a
  * period happened to land.
  *
- * See ../README.md for deployment and tunables, and ../../docs/ai-copilot.md
+ * See ../README.md for deployment and tunables, and ../../docs/graham.md
  * for how the editor uses it.
  */
 import { TokenLimiter, MINUTE_MS, DAY_MS } from './limiter.js';
@@ -621,7 +621,7 @@ async function handleCompletion(request, env, ctx, origin, cfg) {
         // and would widen the preflight for it.
         ...(cfg.upstream.attribution ? {
           'HTTP-Referer': 'https://gnuradioworld.com',
-          'X-Title': 'GNU Radio World Flowgraph Copilot',
+          'X-Title': 'GNU Radio World Graham',
         } : {}),
       },
       body: JSON.stringify(sanitized.body),

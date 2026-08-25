@@ -37,15 +37,36 @@ assert.match(source,
   /d\.type === 'gr-error'[\s\S]*setRunnerRunning\(false, 'Flowgraph failed'\)/,
   'a runner startup failure also clears the running indicator');
 
-// ---- Flowgraph Copilot right dock -----------------------------------------
+// ---- Graham right dock ----------------------------------------------------
 assert.match(html,
-  /#app \{[^}]*--ai-width:420px;[^}]*grid-template-columns:[^}]*var\(--ai-splitter-width\) var\(--ai-width\)/,
-  'the desktop shell reserves a resizable right-hand Copilot column');
-assert.match(html, /#app\.ai-hidden \{ --ai-width:0px; --ai-splitter-width:0px; \}/,
-  'the Copilot dock is collapsed by default without leaving an empty grid track');
+  /#app \{[^}]*--ai-width:420px;[^}]*--ai-toggle-width:40px;[^}]*grid-template-columns:[^}]*var\(--ai-splitter-width\) var\(--ai-width\) var\(--ai-toggle-width\)/,
+  'the desktop shell reserves a resizable Graham dock and persistent right rail');
+assert.match(html,
+  /#app\.ai-hidden \{ --ai-width:0px !important; --ai-splitter-width:0px !important; \}/,
+  'closing a resized Graham dock overrides its inline width and leaves no empty grid track');
 assert.match(source,
   /const paletteReady = buildPalette\(\);\s*void paletteReady\.then\(initializeAiPanel\)/,
-  'Copilot initializes against the complete generated block catalog');
+  'Graham initializes against the complete generated block catalog');
+assert.match(source,
+  /const toggle = node\('button', 'ai-toggle'\)[\s\S]*aria-controls[\s\S]*setPanelOpen\(false\)[\s\S]*toggle\.onclick = togglePanel/,
+  'the right-side Graham rail starts collapsed and opens the dock directly');
+assert.match(source,
+  /toggleIconBefore = node\('span', 'ai-toggle-icon', '✨'\)[\s\S]*toggle\.append\(toggleIconBefore, node\('span', 'ai-toggle-label', 'Graham'\), toggleIconAfter\)/,
+  'sparkle icons flank Graham on the collapsed rail');
+assert.match(source,
+  /setPanelOpen[\s\S]*aria-expanded[\s\S]*open \? 'Close Graham' : 'Open Graham'/,
+  'the Graham rail exposes its current state and action to assistive technology');
+assert.match(source,
+  /const close = node\('button', 'ai-icon', '×'\)[\s\S]*close\.onclick = closePanel/,
+  'the expanded Graham dock closes from its header');
+assert.match(html,
+  /#app:not\(\.ai-hidden\) \{ --ai-toggle-width:0px; \}[\s\S]*#app:not\(\.ai-hidden\) \.ai-toggle \{ display:none; \}/,
+  'the vertical Graham rail and its grid column disappear while the dock is open');
+assert.match(source,
+  /const heading = node\('strong', '', 'Graham'\);[\s\S]*const expansion = node\('span', 'ai-name-expansion',\s*'GNU Radio Assistant for Hams And Mortals'\)/,
+  'the Graham header explains its name in plain text on the next line');
+assert.doesNotMatch(source, /ai-acronym|node\('strong', '', '[GRAHAM]'\)/,
+  'the Graham expansion has no separate acronym or bold initial letters');
 assert.match(source, /createAiPanel\([\s\S]*commitHistory: recordHistory[\s\S]*restoreSnapshot: restoreAiSnapshot/,
   'the dock uses the editor history boundary for per-turn undo and revert');
 assert.match(source,
@@ -55,14 +76,14 @@ assert.match(source,
 // the key, the model list, and every request belong to.
 assert.match(source, /providerSelect\.onchange = \(\) => \{[\s\S]*applyProvider\(chosen, true\)/,
   'switching provider re-points the dock at that provider stored key and models');
-assert.match(source, /`Copilot API: \$\{host\} only`/,
+assert.match(source, /`Data sent to: \$\{host\} only`/,
   'the disclosed data boundary names the connected provider host');
 // A free provider is two hops — the project's proxy, then whichever API it
 // holds a shared key for — and the line names both rather than only the host
 // the browser opens a socket to. Which second hop it is comes from the
 // descriptor, because there is now more than one.
 assert.match(source,
-  /upstream\s*\?\s*`Copilot API: \$\{host\} → \$\{upstream\.host\} \(shared key\)`/,
+  /upstream\s*\?\s*`Data sent to: \$\{host\} → \$\{upstream\.host\} \(shared key\)`/,
   'the shared-key boundary names the proxy and where it forwards to');
 assert.match(source, /new FlowgraphAgent\(\{\s*provider: providerId,/,
   'the agent talks to the provider the dock is connected to');
@@ -105,7 +126,9 @@ for (const part of ['header', '#palette', '#paletteSplitter', '#paletteToggle', 
     `the embedded layout drops ${part}`);
 assert.match(embeddedHidden[1], /#app\.embedded \.ai-splitter[\s,]/);
 assert.match(embeddedHidden[1], /#app\.embedded \.ai-dock[\s,]/,
-  'an embedded flowgraph does not expose the application Copilot dock');
+  'an embedded flowgraph does not expose the application Graham dock');
+assert.match(embeddedHidden[1], /#app\.embedded \.ai-toggle[\s,]/,
+  'an embedded flowgraph does not expose the Graham rail');
 assert.match(html, /\.embed-controls \{[^}]*position:absolute;[^}]*z-index:40/,
   'the embedded controls float over the panels rather than taking a bar of their own');
 

@@ -39,9 +39,10 @@ assert.doesNotMatch(source, /label: 'Generate'/);
 assert.doesNotMatch(source, /alignSelected/);
 assert.doesNotMatch(source, /label: 'Find Blocks'/);
 assert.doesNotMatch(source, /label: 'Reload Blocks'/);
-assert.match(source,
-  /label: 'Tools', items: \[\s*\{ label: 'Flowgraph Copilot', run: toggleAiPanel \}/,
-  'the one browser-specific Tools entry opens Flowgraph Copilot');
+assert.match(source, /label: 'Tools', items: \[\s*\{ label: 'Types', run: showTypesDialog \}/,
+  'the Tools menu starts with Types after removing the Graham launcher');
+assert.doesNotMatch(source, /label: 'Graham'|toggleAiPanel/,
+  'Graham is not launched from the menu or icon toolbar');
 assert.doesNotMatch(source, /label: 'Filter Design Tool'/);
 assert.doesNotMatch(source, /label: 'Set Default QT GUI Theme'/);
 assert.doesNotMatch(source, /label: 'Show Flowgraph Complexity'/);

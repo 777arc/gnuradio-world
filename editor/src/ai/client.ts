@@ -1,5 +1,5 @@
 /**
- * The one request path Flowgraph Copilot uses, against whichever provider in
+ * The one request path Graham uses, against whichever provider in
  * `providers.ts` is connected. All three providers speak OpenAI's
  * chat-completions wire format; the descriptor supplies the base URL, the
  * headers each accepts, and what its model list looks like.
@@ -74,7 +74,7 @@ export const attributionHeaders = (): Record<string, string> => ({
   'HTTP-Referer': typeof location === 'undefined'
     ? 'http://localhost/'
     : location.origin + location.pathname,
-  'X-Title': 'GNU Radio World Flowgraph Copilot',
+  'X-Title': 'GNU Radio World Graham',
 });
 
 /** Attribution headers only where the provider accepts them in preflight. */

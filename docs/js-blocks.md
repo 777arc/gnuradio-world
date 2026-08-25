@@ -258,7 +258,7 @@ carried across `work()` calls), and
 
 Introspection runs inside an `<iframe sandbox="allow-scripts" srcdoc=…>` — an
 opaque origin, with no reach into the editor's `localStorage` (which holds the
-API keys Flowgraph Copilot uses) and no credentialed same-origin fetch. The
+API keys Graham uses) and no credentialed same-origin fetch. The
 descriptor comes back as JSON over `postMessage`. It costs a few milliseconds, so
 it is debounced on every keystroke, and the Python block's whole ceremony — a
 re-read button, Apply and OK disabled until the runtime has answered — simply does

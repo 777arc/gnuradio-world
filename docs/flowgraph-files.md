@@ -63,7 +63,7 @@ specific console output, e.g. the hex of a frame you expect to decode.
 (every example parses, and every arithmetic parameter is one `expr.ts` can
 evaluate), but it does not run a browser, so it cannot see either failure above.
 
-Flowgraph Copilot's `list_examples` reads these same files and exposes their
+Graham's `list_examples` reads these same files and exposes their
 native Options metadata together with block and connection counts. Its summary
 uses `description`, falling back to the Options `comment` used by some upstream
 files, and uses the filename only when neither title nor flowgraph id is set.

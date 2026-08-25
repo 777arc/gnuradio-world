@@ -3986,11 +3986,6 @@ function toggleShowGrid() {
 function openLink(url: string) { window.open(url, '_blank', 'noopener'); }
 
 let aiPanel: AiPanel | null = null;
-let openAiWhenReady = false;
-function toggleAiPanel() {
-  if (aiPanel) aiPanel.toggle();
-  else openAiWhenReady = true;
-}
 
 // ---- enable/state predicates (evaluated each time a menu opens) ----
 function hasSel() { return state.selectedBlocks.size > 0; }
@@ -4224,8 +4219,6 @@ const MENUS: TopMenu[] = [
     { label: 'Kill', key: 'F7', run: stop },
   ] },
   { label: 'Tools', items: [
-    { label: 'Flowgraph Copilot', run: toggleAiPanel },
-    'sep',
     { label: 'Types', run: showTypesDialog },
     { label: 'WebAssembly Modules & Debug Info…',
       run: () => showDebugInfo({ openDialog, library: () => LIB, blocksUrl: BLOCKS_URL, loadedModules }) },
@@ -4283,7 +4276,6 @@ const TOOLBAR: (Tool | 'sep')[] = [
   'sep',
   { icon: '🔍+', label: 'Zoom In', key: 'Ctrl++', run: () => setZoom(zoom * ZOOM_STEP) },
   { icon: '🔍−', label: 'Zoom Out', key: 'Ctrl+-', run: () => setZoom(zoom / ZOOM_STEP) },
-  { icon: '✨', label: 'Flowgraph Copilot', run: toggleAiPanel },
 ];
 function aiCatalogEntries(): CatalogEntry[] {
   const generated = new Map<string, CatalogEntry>();
@@ -4503,7 +4495,6 @@ function initializeAiPanel(): void {
     commitHistory: recordHistory,
     restoreSnapshot: restoreAiSnapshot,
   });
-  if (openAiWhenReady) { openAiWhenReady = false; aiPanel.open(); }
 }
 
 buildMenuBar(MENUS, el('menus'));

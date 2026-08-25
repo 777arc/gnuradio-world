@@ -1,6 +1,6 @@
-# Flowgraph Copilot shared-key proxy
+# Graham shared-key proxy
 
-This Cloudflare Worker is what makes Flowgraph Copilot usable without an API
+This Cloudflare Worker is what makes Graham usable without an API
 key. The editor's two free providers — "OpenAI Free Tier (gpt-5.6-luna)" and
 "OpenRouter Free Tier (nemotron-3-ultra)" — send their chat-completion requests here,
 and this Worker forwards them upstream using a key held for every visitor,
@@ -8,7 +8,7 @@ metering that key so no single visitor, and no single day, can drain it.
 
 It answers on `ai.gnuradioworld.com` and speaks the OpenAI chat-completions wire
 format, so the editor's one request path in `editor/src/ai/client.ts` reaches it
-unchanged. See [docs/ai-copilot.md](../../docs/ai-copilot.md) for the editor
+unchanged. See [docs/graham.md](../../docs/graham.md) for the editor
 side.
 
 ## Two upstreams, selected by path
@@ -35,7 +35,7 @@ suffix.
 Each upstream also meters into Durable Objects of its own (the OpenRouter ones
 under an `or:` name prefix), so their windows, their refusals and their usage
 histories are independent — the free tier running out is not the site losing its
-Copilot, and neither is the paid budget running out.
+Graham, and neither is the paid budget running out.
 
 ## What it is not
 

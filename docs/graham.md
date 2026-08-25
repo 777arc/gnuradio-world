@@ -1,6 +1,7 @@
-# Flowgraph Copilot
+# Graham
 
-Flowgraph Copilot is the editor's AI assistant — free to use on a key the
+Graham — GNU Radio Assistant for Hams And Mortals — is the editor's AI assistant,
+free to use on a key the
 project shares, or on one of your own. It can inspect and edit the canvas
 through validated structured operations, run the graph in the normal visible QT
 GUI tab, and read the runner's diagnostics snapshot. Its code
@@ -215,7 +216,7 @@ same expanded port metadata the canvas uses. Each mutation returns the fresh
 validation state, slimmed: `validation.blocking` in full, `non_blocking` as a
 count. Only `validate` returns every issue — see "Token discipline" below.
 
-The editor's ordinary actions record history immediately, but Copilot operations
+The editor's ordinary actions record history immediately, but Graham operations
 use non-recording variants. The panel snapshots before a user turn, allows all
 tool calls to auto-apply and redraw, then calls `recordHistory()` exactly once if
 the snapshot changed. Ctrl+Z therefore reverses the entire turn. The message's
@@ -240,13 +241,13 @@ Radio version from the top-level metadata, and adds the number of blocks and
 connections. Search and pagination keep that catalog bounded; its default page
 is 50 examples and a call cannot return more than 100. `read_example`
 returns the same summary alongside the complete `.grc` when block parameters or
-wiring are needed. The browser caches the fetched texts inside the Copilot
+wiring are needed. The browser caches the fetched texts inside the Graham
 dependency bundle, so listing followed by reading an example does not download
 that file twice.
 
 ## Hosted SigMF recordings
 
-Copilot reads the same live R2 catalog as the Recordings palette rather than a
+Graham reads the same live R2 catalog as the Recordings palette rather than a
 recording list baked into its prompt. `list_recordings` reads `index.json`,
 supports bounded search/pagination, and returns the exact base key accepted by
 GR World Recording together with the index's catalog fields. The system prompt

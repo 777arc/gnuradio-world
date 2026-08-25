@@ -1,5 +1,5 @@
 /**
- * The AI providers Flowgraph Copilot can talk to. All four speak the OpenAI
+ * The AI providers Graham can talk to. All four speak the OpenAI
  * chat-completions wire format, so only these descriptors and the key storage
  * differ; `client.ts` holds the one request path they share.
  *

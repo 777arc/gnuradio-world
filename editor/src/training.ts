@@ -1,7 +1,7 @@
 // Training mode is an immutable example flowgraph plus a small amount of
 // progress: which real canvas block has filled each template slot. Ghosts are
 // deliberately not Inst/Conn objects in the live graph, so they never leak into
-// validation, Save, sharing, Copilot, or the runner.
+// validation, Save, sharing, Graham, or the runner.
 
 import type { Conn, GraphSnapshot, Inst } from './graph-model';
 

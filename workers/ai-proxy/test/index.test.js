@@ -612,7 +612,7 @@ test('a free completion is proxied with the OpenRouter key, attributed by the Wo
     'the OpenAI key must not reach OpenRouter, nor the caller\'s own key either one');
   // Attribution belongs to the Worker: the browser only ever talks to this
   // origin, so its headers would name the wrong thing and widen the preflight.
-  assert.equal(call.init.headers['X-Title'], 'GNU Radio World Flowgraph Copilot');
+  assert.equal(call.init.headers['X-Title'], 'GNU Radio World Graham');
   assert.match(call.init.headers['HTTP-Referer'], /gnuradioworld\.com/);
   assert.equal(JSON.parse(call.init.body).model, FREE_MODEL);
   await result.text();
@@ -663,7 +663,7 @@ test('a spent free allowance refuses without touching the paid one', async () =>
     'nothing was spent upstream, so the visitor keeps their minute');
 
   // The paid upstream is still open, which is the whole point of separate
-  // windows: one free model running out is not the site losing its Copilot.
+  // windows: one free model running out is not the site losing Graham.
   const { result: paid } = await withUpstream(() => usageStream(50), () => worker.fetch(
     completionRequest(CHAT, { 'CF-Connecting-IP': '4.4.4.4' }), env, context().ctx,
   ));
