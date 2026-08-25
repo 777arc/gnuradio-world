@@ -21,7 +21,7 @@ side.
 **The path is the whole of the routing.** Nothing in the request body can move a
 request from one key to the other: each upstream has its own model allowlist and
 refuses the other's ids by name. Everything an upstream differs in — its URL,
-its key variable, its allowlist, its two window limits, the field it takes an
+its key variable, its allowlist, its window limits, the field it takes an
 output ceiling in, whether it gets a cache key, what reasoning effort it is
 sent, and whether the Worker attributes the request — is a field of `UPSTREAMS`
 in `src/index.js`, so a third one is another entry rather than a branch.
@@ -69,22 +69,25 @@ exposed either.
 
 ## Rate limiting
 
-Two instances of one Durable Object class, `TokenLimiter`, per upstream, using
-the same arithmetic over different windows:
+Instances of one Durable Object class, `TokenLimiter`, use the same arithmetic
+over different windows:
 
 - **per client IP**, over a rolling 60 seconds
+- **per client IP**, over the **UTC calendar day**, on OpenAI
 - **globally**, over the **UTC calendar day**
 
-The per-IP limit is the abuse ceiling. The **daily cap is what bounds the
-bill** — a rotating-IP client never trips the per-IP window, and 1M tokens per
-minute is not a small budget. Set it against what you are willing to spend.
+The minute limit is the abuse ceiling. The per-user daily cap gives each
+visitor a fair share; because there is no account or login, a "user" here is a
+client IP. The **global daily cap is what bounds the bill** — a rotating-IP
+client can evade either visitor limit. Set it against what you are willing to
+spend.
 
 What those windows *count* is the upstream's own unit:
 
-| upstream | per IP, per minute | site-wide, per UTC day |
-|----------|--------------------|------------------------|
-| OpenAI | `TOKENS_PER_MINUTE` tokens (1,000,000) | `DAILY_TOKEN_CAP` tokens (2,500,000) |
-| OpenRouter | `OPENROUTER_REQUESTS_PER_MINUTE` requests (15) | `OPENROUTER_DAILY_REQUEST_CAP` requests (900) |
+| upstream | per IP, per minute | per IP, per UTC day | site-wide, per UTC day |
+|----------|--------------------|---------------------|------------------------|
+| OpenAI | `TOKENS_PER_MINUTE` tokens (1,000,000) | `PER_USER_DAILY_CAP` tokens (1,000,000) | `GLOBAL_DAILY_TOKEN_CAP` tokens (5,000,000) |
+| OpenRouter | `OPENROUTER_REQUESTS_PER_MINUTE` requests (15) | — | `OPENROUTER_DAILY_REQUEST_CAP` requests (900) |
 
 **A free model has no bill for a token budget to bound.** What runs out on the
 OpenRouter path is the free-tier *request* allowance OpenRouter grants the
@@ -101,13 +104,13 @@ reservation is exact from the start — one request is one unit — so it reserv
 one and settles nothing; the usage event is still read, because the day's
 history counts tokens whether or not they cost anything.
 
-The daily window is anchored to the epoch rather than to its first request, and
-the epoch is itself midnight UTC — so the site's budget resets at **00:00 UTC**
-for everyone at once, on the same boundary the usage records are keyed by,
-instead of 24 hours after whichever request happened to open the period. A
-window state left behind by an unaligned anchor rolls on the next request
-rather than holding that anchor for one more day, so changing this needs no
-migration.
+The daily windows are anchored to the epoch rather than to their first request,
+and the epoch is itself midnight UTC — so both visitor and site-wide budgets
+reset at **00:00 UTC** for everyone at once, on the same boundary the usage
+records are keyed by, instead of 24 hours after whichever request happened to
+open the period. A window state left behind by an unaligned anchor rolls on the
+next request rather than holding that anchor for one more day, so changing this
+needs no migration.
 
 A completion's token count is only known once its stream has ended, so a request
 **reserves** an estimate (`body bytes ÷ 4`, plus `OUTPUT_ESTIMATE` for the
@@ -117,10 +120,10 @@ that lands after its window has rolled is discarded rather than charged against
 the next minute — or, for the daily window, against tomorrow.
 
 Reservation is deliberately **admit-if-under-limit**: a request is allowed
-whenever the window still has budget, even when its estimate would carry it
-past. One large turn can therefore overshoot the ceiling, which is the friendly
-failure — the alternative refuses a legitimate long conversation outright — and
-it costs at most one request's worth of tokens.
+whenever every applicable window still has budget, even when its estimate would
+carry one past. One large turn can therefore overshoot a ceiling, which is the
+friendly failure — the alternative refuses a legitimate long conversation
+outright — and it costs at most one request's worth of tokens.
 
 A refused request answers `429` with `Retry-After`, a `rate_limit_exceeded`
 error in OpenAI's shape, and a message naming the wait and the way forward. The
@@ -207,8 +210,8 @@ absent `STATS_TOKEN` gives 503 rather than an open endpoint; a wrong one gives
 the same set `scripts/r2-cors.json` allows for the recordings bucket. **This is
 not a security boundary**: `Origin` is trivially forged outside a browser. It
 only stops another site's page from spending this key. The real floor is the
-per-IP limit, the daily cap, and a spend limit configured on the OpenAI key
-itself — configure that too.
+visitor limits, the global daily cap, and a spend limit configured on the
+OpenAI key itself — configure that too.
 
 `Access-Control-Max-Age` is a day, because a JSON `POST` is preflighted and
 without it every completion would cost two Worker requests instead of one.
@@ -283,9 +286,10 @@ same values as `DEFAULTS` so the tests need no environment.
 |-----|---------|-----------------|
 | `MODELS` | `gpt-5.6-luna` | the models the shared OpenAI key is accepted for, comma-separated; the first is the default |
 | `TOKENS_PER_MINUTE` | `1000000` | per-IP ceiling, OpenAI upstream |
-| `DAILY_TOKEN_CAP` | `2500000` | site-wide ceiling per UTC day — the bill's bound |
+| `PER_USER_DAILY_CAP` | `1000000` | per-IP ceiling per UTC day, OpenAI upstream |
+| `GLOBAL_DAILY_TOKEN_CAP` | `5000000` | site-wide ceiling per UTC day — the bill's bound |
 | `OPENROUTER_MODELS` | `nvidia/nemotron-3-ultra-550b-a55b:free` | the models the shared OpenRouter key is accepted for; `:free` ids only |
-| `OPENROUTER_REQUESTS_PER_MINUTE` | `30` | per-IP ceiling, free upstream |
+| `OPENROUTER_REQUESTS_PER_MINUTE` | `15` | per-IP ceiling, free upstream |
 | `OPENROUTER_DAILY_REQUEST_CAP` | `900` | site-wide requests per UTC day — keep it under the account's own free-tier allowance |
 | `MAX_BODY_BYTES` | `1048576` | largest accepted request, both upstreams |
 | `MAX_COMPLETION_TOKENS` | `16384` | ceiling on one completion, reasoning included |
@@ -298,9 +302,9 @@ Change both together.
 
 Every model on the OpenAI upstream is metered against the same token windows,
 which count tokens rather than dollars — so adding a cheaper model buys more
-work out of the same daily budget, not a larger one. That is why both lists
-ship with a single entry: a second model is a choice for the user to make, not
-an allowance, and a one-entry list locks the editor's picker.
+work out of the same budgets, not larger ones. That is why both lists ship with
+a single entry: a second model is a choice for the user to make, not an
+allowance, and a one-entry list locks the editor's picker.
 
 ## Tests
 

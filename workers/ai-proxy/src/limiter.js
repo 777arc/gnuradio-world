@@ -1,11 +1,12 @@
 /**
  * Token accounting for the shared-key proxy.
  *
- * Two instances of one Durable Object class do the whole job: one per client
- * IP over a rolling 60-second window, and one named `global` over the UTC day.
- * The window length — and whether it is anchored to the epoch or to its first
- * request — arrives with each request rather than being baked into the class,
- * so the same code serves both.
+ * Instances of one Durable Object class do the whole job: one per client IP
+ * over a rolling 60-second window, optionally another per client IP over the
+ * UTC day, and one named `global` over the UTC day. The window length — and
+ * whether it is anchored to the epoch or to its first request — arrives with
+ * each request rather than being baked into the class, so the same code serves
+ * every window.
  *
  * The global instance additionally keeps the usage history behind `/stats`,
  * because every request already passes through it to be metered — the counters
@@ -279,15 +280,15 @@ export class TokenLimiter {
         aligned,
       });
       await this.ctx.storage.put(STATE_KEY, next);
-      // Only the global instance keeps the history; a per-IP one would hold a
+      // Only the global instance keeps the history; a visitor one would hold a
       // near-duplicate copy of it for nothing.
       if (payload.stats) await this.#count(now, payload, !result.ok);
       return Response.json(result);
     }
 
-    // Recording with no reservation, for a request refused by the *per-IP*
-    // window — which never reaches the reserve above, and would otherwise be
-    // the one outcome the history could not see.
+    // Recording with no global reservation, for a request refused by a
+    // visitor window. It never reaches the global reserve above and would
+    // otherwise be the one outcome the history could not see.
     if (url.pathname === '/count') {
       await this.#count(now, payload, !!payload.refused);
       return Response.json({ ok: true });

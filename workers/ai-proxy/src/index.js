@@ -4,14 +4,14 @@
  * The editor's two keyless AI providers ("OpenAI Free Tier" and "OpenRouter
  * Free Tier") have no API key of their own. They talk to this Worker,
  * which holds one key per upstream for everybody and meters each of them
- * separately: a rolling per-client-IP window under a site-wide ceiling for the
- * UTC day.
+ * separately: a rolling per-client-IP window, an optional per-client-IP UTC
+ * day window, and a site-wide ceiling for the UTC day.
  *
  * **Which upstream a request reaches is decided by its path, and by nothing
  * else the caller sends.** `/v1/…` is OpenAI on the shared OpenAI key;
  * `/openrouter/v1/…` is OpenRouter's free tier on the shared OpenRouter key.
- * Each has its own model allowlist, its own two limiter windows, and its own
- * usage history, so one running out leaves the other untouched.
+ * Each has its own model allowlist, its own limiter windows, and its own usage
+ * history, so one running out leaves the other untouched.
  *
  * Nothing here is a passthrough. The upstream request body is rebuilt from a
  * whitelist, so a caller cannot select a different model, suppress the usage
@@ -87,9 +87,12 @@ export const UPSTREAMS = {
     models: ['gpt-5.6-luna'],
     perIpVar: 'TOKENS_PER_MINUTE',
     perIp: 1_000_000,
-    dailyVar: 'DAILY_TOKEN_CAP',
+    userDailyVar: 'PER_USER_DAILY_CAP',
+    /** Per client IP, per UTC calendar day. Resets at 00:00 UTC. */
+    userDaily: 1_000_000,
+    dailyVar: 'GLOBAL_DAILY_TOKEN_CAP',
     /** Site-wide, per UTC calendar day. Resets at 00:00 UTC. */
-    daily: 2_500_000,
+    daily: 5_000_000,
   },
   openrouter: {
     id: 'openrouter',
@@ -155,7 +158,8 @@ export const DEFAULTS = {
   // its tunables read the same as they always have.
   models: UPSTREAMS.openai.models,
   tokensPerMinute: UPSTREAMS.openai.perIp,
-  dailyTokenCap: UPSTREAMS.openai.daily,
+  perUserDailyCap: UPSTREAMS.openai.userDaily,
+  globalDailyTokenCap: UPSTREAMS.openai.daily,
   maxBodyBytes: 1_048_576,
   /** Ceiling on one completion, reasoning included. Bounds the output bill. */
   maxCompletionTokens: 16_384,
@@ -213,6 +217,10 @@ export function config(env = {}, upstreamId = 'openai') {
     model: models[0],
     /** Per client IP, over a rolling minute, in `upstream.meter` units. */
     perIpLimit: number(env[upstream.perIpVar], upstream.perIp),
+    /** Per client IP, over the UTC day, when that upstream defines one. */
+    userDailyLimit: upstream.userDailyVar
+      ? number(env[upstream.userDailyVar], upstream.userDaily)
+      : null,
     /** Site-wide, over the UTC day, in the same units. */
     dailyLimit: number(env[upstream.dailyVar], upstream.daily),
     maxBodyBytes: number(env.MAX_BODY_BYTES, DEFAULTS.maxBodyBytes),
@@ -228,7 +236,7 @@ export function config(env = {}, upstreamId = 'openai') {
 // any local port so the repository dev server works unconfigured. This is not a
 // security boundary — Origin is trivially forged outside a browser — it only
 // keeps another site's page from spending this key. The real floor is the
-// per-IP limit, the daily cap, and a spend limit on the key itself.
+// per-IP limits, the global daily cap, and a spend limit on the key itself.
 const ALLOWED_ORIGINS = [
   'https://gnuradioworld.com',
   'https://www.gnuradioworld.com',
@@ -488,13 +496,19 @@ async function handleCompletion(request, env, ctx, origin, cfg) {
   // to it alone: the free tier running out must not touch the paid budget.
   const { scope } = cfg.upstream;
   const perIp = env.LIMITER.get(env.LIMITER.idFromName(`${scope}ip:${ip}`));
+  const perUserDaily = cfg.userDailyLimit
+    ? env.LIMITER.get(env.LIMITER.idFromName(`${scope}user-day:${ip}`))
+    : null;
   const global = env.LIMITER.get(env.LIMITER.idFromName(`${scope}global`));
 
   const ipWindow = { limit: cfg.perIpLimit, windowMs: MINUTE_MS };
   // `aligned` anchors the window to the epoch, which is itself midnight UTC —
   // so the day's budget resets at 00:00 UTC rather than 24 hours after the
   // request that happened to open it.
-  const dayWindow = { limit: cfg.dailyLimit, windowMs: DAY_MS, aligned: true };
+  const userDayWindow = cfg.userDailyLimit
+    ? { limit: cfg.userDailyLimit, windowMs: DAY_MS, aligned: true }
+    : null;
+  const globalDayWindow = { limit: cfg.dailyLimit, windowMs: DAY_MS, aligned: true };
 
   const ipReserve = await limiterCall(perIp, '/reserve', { estimate, ...ipWindow });
   if (!ipReserve.ok) {
@@ -512,17 +526,45 @@ async function handleCompletion(request, env, ctx, origin, cfg) {
     });
   }
 
+  const userDayReserve = perUserDaily
+    ? await limiterCall(perUserDaily, '/reserve', { estimate, ...userDayWindow })
+    : null;
+  if (userDayReserve && !userDayReserve.ok) {
+    ctx.waitUntil(Promise.all([
+      limiterCall(perIp, '/settle', {
+        delta: -estimate, windowStart: ipReserve.windowStart, ...ipWindow,
+      }),
+      limiterCall(global, '/count', { ip, turn, refused: true }),
+    ]));
+    return json(errorBody(
+      "The shared model's daily budget for this visitor is used up. It resets at " +
+      `00:00 UTC, in ${Math.ceil(userDayReserve.retryAfter / 3600)}h — connect your own ` +
+      'OpenRouter or OpenAI key to keep working now.',
+      'rate_limit_exceeded',
+    ), 429, origin, {
+      'Retry-After': String(userDayReserve.retryAfter),
+      ...rateHeaders(cfg, userDayReserve),
+    });
+  }
+
   // The global instance also keeps the usage history, on this call it had to
   // make anyway. It hashes the IP under a salt it throws away daily; nothing
   // that identifies a visitor is stored. See src/limiter.js.
   const dayReserve = await limiterCall(global, '/reserve', {
-    estimate, ...dayWindow, stats: true, ip, turn,
+    estimate, ...globalDayWindow, stats: true, ip, turn,
   });
   if (!dayReserve.ok) {
-    // Give the per-IP window its estimate back; nothing was spent upstream.
-    ctx.waitUntil(limiterCall(perIp, '/settle', {
-      delta: -estimate, windowStart: ipReserve.windowStart, ...ipWindow,
-    }));
+    // Give both visitor windows their estimates back; nothing was spent upstream.
+    ctx.waitUntil(Promise.all([
+      limiterCall(perIp, '/settle', {
+        delta: -estimate, windowStart: ipReserve.windowStart, ...ipWindow,
+      }),
+      perUserDaily
+        ? limiterCall(perUserDaily, '/settle', {
+          delta: -estimate, windowStart: userDayReserve.windowStart, ...userDayWindow,
+        })
+        : Promise.resolve(),
+    ]));
     return json(errorBody(
       "The shared model's daily budget for all visitors is used up. It resets at " +
       `00:00 UTC, in ${Math.ceil(dayReserve.retryAfter / 3600)}h — connect your own OpenRouter ` +
@@ -539,14 +581,19 @@ async function handleCompletion(request, env, ctx, origin, cfg) {
     delta
       ? limiterCall(perIp, '/settle', { delta, windowStart: ipReserve.windowStart, ...ipWindow })
       : Promise.resolve(),
+    perUserDaily && delta
+      ? limiterCall(perUserDaily, '/settle', {
+        delta, windowStart: userDayReserve.windowStart, ...userDayWindow,
+      })
+      : Promise.resolve(),
     // The global one is called either way, because it also records the outcome.
     limiterCall(global, '/settle', {
-      delta, windowStart: dayReserve.windowStart, ...dayWindow, stats: true, ...stats,
+      delta, windowStart: dayReserve.windowStart, ...globalDayWindow, stats: true, ...stats,
     }),
   ]);
 
   /**
-   * Charges the difference between the estimate and the truth, on both windows.
+   * Charges the difference between the estimate and the truth on every window.
    * A stream that ended without a usage event — an aborted read, most often —
    * keeps its estimate rather than being refunded for tokens it did spend.
    *

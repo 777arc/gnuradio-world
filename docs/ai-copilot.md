@@ -93,17 +93,19 @@ proxy; the parts that constrain the editor are:
   proxy on the same host, so the API behind them is the only thing that tells
   them apart, and both the dock's select and the connection dialog's show
   `menuLabel` so they read identically.
-- **Two windows each, and the two upstreams share nothing.** OpenAI is metered
-  in tokens — 1,000,000 per minute per visitor IP, under a site-wide cap of
-  2,500,000 per **UTC calendar day**. OpenRouter's free tier costs nothing per
-  token, so what actually runs out there is a *request* allowance on the
-  account, and its windows count requests instead: 15 a minute per visitor IP,
-  under a site-wide 900 a day — both under OpenRouter's own free-tier ceilings,
-  which are 20 a minute and 1000 a day for an account holding credit. Both reset at 00:00 UTC on the same boundary the
+- **The two upstreams share no windows.** OpenAI is metered in tokens —
+  1,000,000 per minute per visitor IP, 1,000,000 per visitor IP per **UTC
+  calendar day**, and 5,000,000 site-wide per day. There is no login at the
+  proxy, so a "user" for that daily cap is an IP. OpenRouter's free tier costs
+  nothing per token, so what actually runs out there is a *request* allowance
+  on the account, and its two windows count requests instead: 15 a minute per
+  visitor IP, under a site-wide 900 a day — both under OpenRouter's own
+  free-tier ceilings, which are 20 a minute and 1000 a day for an account
+  holding credit. The daily windows reset at 00:00 UTC on the same boundary the
   usage records are keyed by, each upstream keeps its own limiter objects and
   its own usage history, and one running out leaves the other working. The
-  per-IP window is the abuse ceiling; the daily cap is what bounds the bill, or
-  rations the free tier.
+  minute window is the abuse ceiling; the per-user daily window gives visitors
+  a fair share; the global daily cap bounds the bill or rations the free tier.
 - **A spent budget arrives as a 429** whose message already names the wait and
   the way forward. `AiRequestError` carries the status so the panel can add the
   things a user can act on — switching the provider select to the *other* free

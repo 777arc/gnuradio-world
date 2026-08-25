@@ -27,7 +27,8 @@
     // The OpenAI upstream, at /v1 — billed by the token, so metered by it.
     "MODELS": "gpt-5.6-luna",
     "TOKENS_PER_MINUTE": "1000000",
-    "DAILY_TOKEN_CAP": "2500000",
+    "PER_USER_DAILY_CAP": "1000000",
+    "GLOBAL_DAILY_TOKEN_CAP": "5000000",
     // The OpenRouter upstream, at /openrouter/v1 — free models only, so what
     // runs out is a request allowance rather than a bill. Keep the daily cap
     // under the free-tier allowance on the OpenRouter account itself.

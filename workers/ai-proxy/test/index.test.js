@@ -36,11 +36,12 @@ function fakeLimiters() {
   };
   namespace.used = async name =>
     (await object(name).ctx.storage.get('window'))?.used ?? 0;
-  // A global object's window is aligned to the UTC day, so a charge planted
-  // there has to sit on today's boundary or the next roll discards it. Each
-  // upstream has one, under a scope prefix of its own.
+  // Daily windows are aligned to UTC, so a planted charge has to sit on
+  // today's boundary or the next roll discards it.
   namespace.charge = (name, used) => object(name).ctx.storage.put('window', {
-    windowStart: name.endsWith('global') ? alignedStart(Date.now(), DAY_MS) : Date.now(),
+    windowStart: name.endsWith('global') || name.includes('user-day:')
+      ? alignedStart(Date.now(), DAY_MS)
+      : Date.now(),
     used,
   });
   namespace.stats = async (name = 'global') =>
@@ -193,6 +194,21 @@ test('an allowed model is passed through, with a cache key of its own', () => {
   assert.deepEqual(config({}).models, ['gpt-5.6-luna']);
 });
 
+test('OpenAI has distinct per-user and global daily token caps', () => {
+  const defaults = config({});
+  assert.equal(defaults.userDailyLimit, 1_000_000);
+  assert.equal(defaults.dailyLimit, 5_000_000);
+
+  const configured = config({
+    PER_USER_DAILY_CAP: '750000',
+    GLOBAL_DAILY_TOKEN_CAP: '4000000',
+  });
+  assert.equal(configured.userDailyLimit, 750_000);
+  assert.equal(configured.dailyLimit, 4_000_000);
+  assert.equal(config({}, 'openrouter').userDailyLimit, null,
+    'the request-metered free upstream has no per-user daily token window');
+});
+
 test('tools force reasoning off, which is what makes them work at all', () => {
   // Not cosmetic: gpt-5.6-luna defaults to non-none reasoning and refuses every
   // tool-carrying request without this, and every editor request carries tools.
@@ -282,6 +298,7 @@ test('a completion is proxied with the shared key and settled against real usage
   await settled();
   assert.equal(await env.LIMITER.used('ip:unknown'), 10_000,
     'the estimate is replaced by what the completion actually spent');
+  assert.equal(await env.LIMITER.used('user-day:unknown'), 10_000);
   assert.equal(await env.LIMITER.used('global'), 10_000);
 });
 
@@ -307,11 +324,41 @@ test('a used-up per-IP window answers 429 with a retry and a way forward', async
   assert.match(payload.error.message, /your own OpenRouter or OpenAI key/);
 });
 
-test('the global daily cap refuses everyone and refunds the per-IP window', async () => {
+test('the per-user daily cap refuses that visitor and refunds their minute', async () => {
   const env = {
     OPENAI_API_KEY: 'sk-shared',
     LIMITER: fakeLimiters(),
-    DAILY_TOKEN_CAP: '1000',
+    PER_USER_DAILY_CAP: '1000',
+  };
+  await env.LIMITER.charge('user-day:5.6.7.8', 1000);
+  const { ctx, settled } = context();
+  const { result, seen } = await withUpstream(
+    () => { throw new Error('a capped request must not reach OpenAI'); },
+    () => worker.fetch(completionRequest(CHAT, { 'CF-Connecting-IP': '5.6.7.8' }), env, ctx),
+  );
+  assert.equal(seen.length, 0);
+  assert.equal(result.status, 429);
+  assert.match((await result.json()).error.message, /daily budget for this visitor/);
+  await settled();
+  assert.equal(await env.LIMITER.used('ip:5.6.7.8'), 0,
+    'nothing was spent upstream, so the visitor keeps their minute');
+  assert.equal(await env.LIMITER.used('global'), 0,
+    'the refusal is counted globally but does not reserve global spend');
+
+  const { ctx: otherCtx, settled: otherSettled } = context();
+  const { result: other } = await withUpstream(() => usageStream(50), () => worker.fetch(
+    completionRequest(CHAT, { 'CF-Connecting-IP': '8.8.8.8' }), env, otherCtx,
+  ));
+  assert.equal(other.status, 200, 'another visitor keeps their independent daily budget');
+  await other.text();
+  await otherSettled();
+});
+
+test('the global daily cap refuses everyone and refunds both visitor windows', async () => {
+  const env = {
+    OPENAI_API_KEY: 'sk-shared',
+    LIMITER: fakeLimiters(),
+    GLOBAL_DAILY_TOKEN_CAP: '1000',
   };
   await env.LIMITER.charge('global', 1000);
   const { ctx, settled } = context();
@@ -321,9 +368,11 @@ test('the global daily cap refuses everyone and refunds the per-IP window', asyn
   );
   assert.equal(seen.length, 0);
   assert.equal(result.status, 429);
+  assert.match((await result.json()).error.message, /daily budget for all visitors/);
   await settled();
-  assert.equal(await env.LIMITER.used('ip:5.6.7.8'), 0,
-    'nothing was spent upstream, so the visitor keeps their minute');
+  assert.equal(await env.LIMITER.used('ip:5.6.7.8'), 0);
+  assert.equal(await env.LIMITER.used('user-day:5.6.7.8'), 0,
+    'nothing was spent upstream, so the visitor keeps their daily budget');
 });
 
 test('an oversized body is refused before any reservation', async () => {
@@ -588,6 +637,7 @@ test('the free tier is rationed in requests, and the paid budget is untouched', 
   assert.equal(await env.LIMITER.used('or:global'), 1);
   // The upstream that costs money never saw any of it.
   assert.equal(await env.LIMITER.used('ip:9.9.9.9'), 0);
+  assert.equal(await env.LIMITER.used('user-day:9.9.9.9'), 0);
   assert.equal(await env.LIMITER.used('global'), 0);
   // Tokens are still counted, because the history reports them either way.
   const [today] = await env.LIMITER.stats('or:global');
