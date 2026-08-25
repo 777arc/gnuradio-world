@@ -231,6 +231,19 @@ bubble.
 Prefer granular operations for changes to an existing graph because the editor's
 schema — especially hand-written block definitions — is authoritative.
 
+## Example flowgraph catalog
+
+`list_examples` is the discovery view over the site's example `.grc` files. It
+parses the same native Options fields the Examples palette displays — flowgraph
+id, title, author, copyright and description — includes the file format and GNU
+Radio version from the top-level metadata, and adds the number of blocks and
+connections. Search and pagination keep that catalog bounded; its default page
+is 50 examples and a call cannot return more than 100. `read_example`
+returns the same summary alongside the complete `.grc` when block parameters or
+wiring are needed. The browser caches the fetched texts inside the Copilot
+dependency bundle, so listing followed by reading an example does not download
+that file twice.
+
 ## Hosted SigMF recordings
 
 Copilot reads the same live R2 catalog as the Recordings palette rather than a

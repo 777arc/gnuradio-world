@@ -4376,6 +4376,24 @@ function aiAuthorization(): Promise<RunAuthorization | null> {
 }
 
 function aiToolDependencies(): Omit<AiToolDeps, 'runFlowgraph'> {
+  // list_examples reads every small .grc once to expose its native Options
+  // metadata. Keep those texts for a later read_example call in the same dock,
+  // and drop only a failed read so a transient response can be retried.
+  const exampleTexts = new Map<string, Promise<string>>();
+  const readAiExample = (path: string): Promise<string> => {
+    const existing = exampleTexts.get(path);
+    if (existing) return existing;
+    const pending = (async () => {
+      const response = await fetch('/example_flowgraphs/' + encodeExamplePath(path));
+      if (!response.ok) throw new Error(`example "${path}" could not be read (${response.status})`);
+      return response.text();
+    })().catch(error => {
+      exampleTexts.delete(path);
+      throw error;
+    });
+    exampleTexts.set(path, pending);
+    return pending;
+  };
   return {
     blocks: () => state.insts,
     connections: () => state.conns,
@@ -4447,11 +4465,7 @@ function aiToolDependencies(): Omit<AiToolDeps, 'runFlowgraph'> {
       const files = await response.json();
       return Array.isArray(files) ? files.map(String).sort() : [];
     },
-    readExample: async path => {
-      const response = await fetch('/example_flowgraphs/' + encodeExamplePath(path));
-      if (!response.ok) throw new Error(`example "${path}" could not be read (${response.status})`);
-      return response.text();
-    },
+    readExample: readAiExample,
     listRecordings: loadExampleRecordings,
     readRecordingMetadata: async requested => {
       let key: string;

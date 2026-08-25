@@ -1,6 +1,8 @@
 import type { RunnableDef, ResolvedPort } from '../block-defs';
+import { summarizeExampleFlowgraph, type ExampleFlowgraphSummary } from '../example-catalog';
 import type { Conn, Inst, ValidationIssue } from '../graph-model';
 import type { ExampleRecording } from '../recording-catalog';
+import { parseGrc } from '../grc';
 import {
   briefBlock, describeBlock, nonDefaultParams, searchCatalog,
   type CatalogDeps, type CatalogEntry,
@@ -95,8 +97,12 @@ export const AI_TOOLS: ToolDefinition[] = [
     id: text,
     full_docs: { type: 'boolean', description: 'Return the complete API documentation instead of the truncated head.' },
   }, ['id'])),
-  tool('list_examples', 'List example flowgraph paths available in this site.', object({})),
-  tool('read_example', 'Read one example .grc file by its listed path.', object({ path: text }, ['path'])),
+  tool('list_examples', 'List example flowgraphs available in this site with native Options/file metadata and structural counts. Supports bounded search and pagination; use read_example for the full .grc.', object({
+    query: { type: 'string', description: 'Optional case-insensitive search across path, id, title, author, copyright, description, file format, and GNU Radio version. Every whitespace-separated term must match.' },
+    offset: { type: 'integer', minimum: 0, default: 0 },
+    limit: { type: 'integer', minimum: 1, maximum: 100, default: 50 },
+  })),
+  tool('read_example', 'Read one example .grc file by its listed path, together with its Options metadata and block/connection counts.', object({ path: text }, ['path'])),
   tool('list_recordings', 'List hosted example SigMF recordings from GNU Radio World\'s live recording index. Returns catalog metadata and the exact recording key used by GR World Recording; use get_recording_metadata for the complete SigMF global object and capture/annotation pages.', object({
     query: { type: 'string', description: 'Optional case-insensitive search across the recording key and catalog metadata. Every whitespace-separated term must match.' },
     offset: { type: 'integer', minimum: 0, default: 0 },
@@ -243,6 +249,54 @@ const boundedInteger = (
     throw new Error(`${name} must be an integer from ${minimum} to ${maximum}`);
   return number;
 };
+
+const exampleSummary = (summary: ExampleFlowgraphSummary): Record<string, unknown> => ({
+  path: summary.path,
+  id: summary.id,
+  title: summary.title,
+  author: summary.author,
+  copyright: summary.copyright,
+  description: summary.description,
+  file_format: summary.fileFormat,
+  grc_version: summary.grcVersion,
+  number_of_blocks: summary.blockCount,
+  number_of_connections: summary.connectionCount,
+});
+
+async function loadExampleSummaries(
+  deps: AiToolDeps, paths: string[],
+): Promise<ExampleFlowgraphSummary[]> {
+  return Promise.all(paths.map(async path => {
+    try {
+      return summarizeExampleFlowgraph(path, parseGrc(await deps.readExample(path)));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`example "${path}" could not be summarized: ${message}`);
+    }
+  }));
+}
+
+async function listExamples(deps: AiToolDeps, args: any): Promise<Record<string, unknown>> {
+  const paths = await deps.listExamples();
+  const summaries = await loadExampleSummaries(deps, paths);
+  const query = String(args.query || '').trim().toLowerCase();
+  const terms = query.split(/\s+/).filter(Boolean);
+  const matching = terms.length ? summaries.filter(summary => {
+    const haystack = JSON.stringify(exampleSummary(summary)).toLowerCase();
+    return terms.every(term => haystack.includes(term));
+  }) : summaries;
+  const offset = boundedInteger(args.offset, 0, 0, Number.MAX_SAFE_INTEGER, 'offset');
+  const limit = boundedInteger(args.limit, 50, 1, 100, 'limit');
+  const page = matching.slice(offset, offset + limit).map(exampleSummary);
+  return {
+    total: summaries.length,
+    matched: matching.length,
+    offset,
+    returned: page.length,
+    ...(offset + page.length < matching.length ? { next_offset: offset + page.length } : {}),
+    examples: page,
+  };
+}
 
 /** The useful index fields, named the way the SigMF index and block do. */
 function recordingSummary(recording: ExampleRecording): Record<string, unknown> {
@@ -462,11 +516,13 @@ export async function dispatchAiTool(
     case 'search_blocks': return { mutated: false, value: searchCatalog(deps.entries(), String(args.query || '')) };
     case 'describe_block': return { mutated: false, value:
       describeBlock(catalogDeps(deps), String(args.id), !!args.full_docs) };
-    case 'list_examples': return { mutated: false, value: await deps.listExamples() };
+    case 'list_examples': return { mutated: false, value: await listExamples(deps, args) };
     case 'read_example': {
       const paths = await deps.listExamples();
       const path = exactExamplePath(paths, String(args.path));
-      return { mutated: false, value: { path, grc: await deps.readExample(path) } };
+      const grc = await deps.readExample(path);
+      const summary = summarizeExampleFlowgraph(path, parseGrc(grc));
+      return { mutated: false, value: { ...exampleSummary(summary), grc } };
     }
     case 'list_recordings': return { mutated: false, value: await listRecordings(deps, args) };
     case 'get_recording_metadata': return {

@@ -63,6 +63,13 @@ specific console output, e.g. the hex of a frame you expect to decode.
 (every example parses, and every arithmetic parameter is one `expr.ts` can
 evaluate), but it does not run a browser, so it cannot see either failure above.
 
+Flowgraph Copilot's `list_examples` reads these same files and exposes their
+native Options metadata together with block and connection counts. Its summary
+uses `description`, falling back to the Options `comment` used by some upstream
+files, and uses the filename only when neither title nor flowgraph id is set.
+It also carries `file_format` and `grc_version` from the top-level metadata.
+`read_example` returns that summary again with the complete `.grc`.
+
 ### Arrange every new example before committing it
 
 Open it in the editor, run Edit ▸ Auto-Arrange Blocks, and save. Hand-placed

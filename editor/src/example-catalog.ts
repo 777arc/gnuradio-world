@@ -4,6 +4,19 @@ export interface ExampleDirectory {
   files: string[];
 }
 
+export interface ExampleFlowgraphSummary {
+  path: string;
+  id: string | null;
+  title: string;
+  author: string | null;
+  copyright: string | null;
+  description: string | null;
+  fileFormat: string | number | null;
+  grcVersion: string | number | null;
+  blockCount: number;
+  connectionCount: number;
+}
+
 // Preserve shared/bookmarked links from before the root examples were grouped
 // into category folders. New links always use the organized paths.
 const LEGACY_EXAMPLE_PATHS: Record<string, string> = {
@@ -23,6 +36,33 @@ export function normalizeExamplePath(name: string): string {
 
 export function exampleFileName(name: string): string {
   return normalizeExamplePath(name).split('/').pop()!;
+}
+
+const optionalText = (value: unknown): string | null =>
+  typeof value === 'string' && value.trim() ? value.trim() : null;
+
+const optionalScalar = (value: unknown): string | number | null => {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  return optionalText(value);
+};
+
+/** Native Options metadata plus structural counts used by both catalogs. */
+export function summarizeExampleFlowgraph(path: string, flowgraph: any): ExampleFlowgraphSummary {
+  const params = flowgraph?.options?.parameters || {};
+  const metadata = flowgraph?.metadata || {};
+  const id = optionalText(params.id);
+  return {
+    path,
+    id,
+    title: optionalText(params.title) ?? id ?? exampleFileName(path).replace(/\.grc$/, ''),
+    author: optionalText(params.author),
+    copyright: optionalText(params.copyright),
+    description: optionalText(params.description) ?? optionalText(params.comment),
+    fileFormat: optionalScalar(metadata.file_format),
+    grcVersion: optionalScalar(metadata.grc_version),
+    blockCount: Array.isArray(flowgraph?.blocks) ? flowgraph.blocks.length : 0,
+    connectionCount: Array.isArray(flowgraph?.connections) ? flowgraph.connections.length : 0,
+  };
 }
 
 export function encodeExamplePath(path: string): string {

@@ -5,6 +5,7 @@ import {
   exampleFileName,
   exampleTreeCount,
   exampleUrl,
+  summarizeExampleFlowgraph,
   type ExampleDirectory,
 } from './example-catalog';
 import { makePaletteSearch } from './palette-tree';
@@ -149,22 +150,22 @@ export function createExamplePalette(deps: ExamplePaletteDeps) {
         return r.text();
       }).then(text => {
         const fg = parseGrc(text);
-        const params = fg.options?.parameters || {};
-        const fgTitle = params.title || params.id;
-        const fgAuthor = params.author;
-        const fgDesc = params.description || params.comment;
+        const summary = summarizeExampleFlowgraph(file, fg);
+        const fgTitle = summary.title;
+        const fgAuthor = summary.author;
+        const fgDesc = summary.description;
         entry.text = [file, fgTitle, fgAuthor, fgDesc].filter(Boolean).join(' ').toLowerCase();
-        if (fgTitle) title.textContent = String(fgTitle);
+        title.textContent = fgTitle;
         if (fgAuthor) {
           const author = document.createElement('div'); author.className = 'ex-author';
-          author.textContent = `by ${String(fgAuthor)}`; item.append(author);
+          author.textContent = `by ${fgAuthor}`; item.append(author);
         }
         if (fgDesc) {
           const desc = document.createElement('div'); desc.className = 'ex-desc';
-          desc.textContent = String(fgDesc); item.append(desc);
+          desc.textContent = fgDesc; item.append(desc);
         }
         const blocks = Array.isArray(fg.blocks) ? fg.blocks : [];
-        const n = blocks.length;
+        const n = summary.blockCount;
         entry.blockIds = new Set(blocks.map((b: any) => String(b?.id)));
         refresh();
         const meta = document.createElement('div'); meta.className = 'ex-meta';
@@ -177,8 +178,8 @@ export function createExamplePalette(deps: ExamplePaletteDeps) {
             loadFlowgraphAnimated(fg);
             setExampleHash(file);
             setCurrentFileName(file);
-            log(`loaded example "${fgTitle || file}"`);
-            void bindFlowgraphRecordings(fg, String(fgTitle || file));
+            log(`loaded example "${fgTitle}"`);
+            void bindFlowgraphRecordings(fg, fgTitle);
           } catch (err) { log(`failed to load example "${file}": ${err}`); }
         };
       }).catch(err => {
@@ -214,4 +215,3 @@ export function createExamplePalette(deps: ExamplePaletteDeps) {
   }
   return { showExamplesFor, buildExamples };
 }
-

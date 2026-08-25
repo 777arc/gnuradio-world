@@ -13,6 +13,23 @@ assert.equal(examples.normalizeExamplePath('recording_waterfall_test'),
 assert.equal(examples.exampleFileName('digital/psk_constellation.grc'),
   'psk_constellation.grc');
 assert.equal(examples.encodeExamplePath('folder/a b.grc'), 'folder/a%20b.grc');
+assert.deepEqual(examples.summarizeExampleFlowgraph('folder/test.grc', {
+  options: { parameters: {
+    id: 'test_id', title: 'Test title', author: 'Grace Hopper',
+    copyright: 'Public domain', description: 'Tests the example summary.',
+  } },
+  metadata: { file_format: 1, grc_version: '3.10.12.0' },
+  blocks: [{ id: 'source' }, { id: 'sink' }],
+  connections: [['source', '0', 'sink', '0']],
+}), {
+  path: 'folder/test.grc', id: 'test_id', title: 'Test title', author: 'Grace Hopper',
+  copyright: 'Public domain', description: 'Tests the example summary.',
+  fileFormat: 1, grcVersion: '3.10.12.0',
+  blockCount: 2, connectionCount: 1,
+});
+assert.equal(examples.summarizeExampleFlowgraph('folder/untitled.grc', {
+  options: { parameters: { id: '', title: '', comment: 'Upstream comment' } },
+}).title, 'untitled');
 assert.equal(examples.exampleUrl('digital/psk_constellation.grc',
   'https://example.test/editor?old=1#fg=old'),
   'https://example.test/editor#example=digital%2Fpsk_constellation');

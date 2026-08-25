@@ -63,8 +63,38 @@ const deps = {
   },
   autoArrange() {},
   replaceFlowgraph() {},
-  listExamples: async () => ['test.grc'],
-  readExample: async () => 'options: {}',
+  listExamples: async () => ['digital/test.grc', 'radio/receiver.grc'],
+  readExample: async path => path === 'digital/test.grc' ? `
+options:
+  parameters:
+    id: test_graph
+    title: Test Modulator
+    author: Ada Lovelace
+    copyright: Public domain
+    description: Demonstrates digital modulation.
+blocks:
+- id: source
+  name: source
+- id: sink
+  name: sink
+connections:
+- [source, '0', sink, '0']
+metadata:
+  file_format: 1
+  grc_version: 3.10.12.0` : `
+options:
+  parameters:
+    id: receiver
+    title: Radio Receiver
+    author: Grace Hopper
+    description: Receives an analog radio signal.
+blocks:
+- id: source
+  name: source
+connections: []
+metadata:
+  file_format: 1
+  grc_version: 3.10.12.0`,
   listRecordings: async () => [{
     name: 'satellite/ao-73', title: 'AO-73 telemetry', dataFile: 'satellite/ao-73.sigmf-data',
     metaFile: 'satellite/ao-73.sigmf-meta', datatype: 'ci16_le', sampleRate: 2_000_000,
@@ -174,6 +204,25 @@ await assert.rejects(
 result = await dispatchAiTool(deps, 'describe_block', { id: 'source' });
 assert.equal(result.value.parameters[0].id, 'rate');
 assert.equal((await dispatchAiTool(deps, 'validate', {})).value.length, 0);
+
+// The example discovery tool exposes the Options metadata already shown in the
+// palette, plus structural counts, without making the model read every .grc.
+const exampleList = await dispatchAiTool(deps, 'list_examples', { query: 'ada modulation' });
+assert.equal(exampleList.mutated, false);
+assert.equal(exampleList.value.total, 2);
+assert.equal(exampleList.value.matched, 1);
+assert.deepEqual(exampleList.value.examples[0], {
+  path: 'digital/test.grc', id: 'test_graph', title: 'Test Modulator',
+  author: 'Ada Lovelace', copyright: 'Public domain',
+  description: 'Demonstrates digital modulation.', file_format: 1,
+  grc_version: '3.10.12.0', number_of_blocks: 2,
+  number_of_connections: 1,
+});
+await assert.rejects(dispatchAiTool(deps, 'list_examples', { limit: 101 }), /limit must be/);
+const fullExample = await dispatchAiTool(deps, 'read_example', { path: 'digital/test' });
+assert.equal(fullExample.value.number_of_blocks, 2);
+assert.equal(fullExample.value.author, 'Ada Lovelace');
+assert.match(fullExample.value.grc, /title: Test Modulator/);
 
 // Hosted SigMF examples are discovered from the live index, with a compact
 // searchable page rather than an unbounded payload in the system prompt.
