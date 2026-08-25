@@ -178,6 +178,7 @@ JavaScript sibling of `blocks/src/`.
 | `blocks/grc/<id>.block.yml` | its palette metadata, carrying `flags: [js]` |
 | [runner/gen_registry.py](../runner/gen_registry.py) | reads `flags: [js]`: emits `generated_js_blocks.cpp` (block id → source file, plus the registration of each id against the generic factory) and marks the ids supported |
 | [editor/src/js-block.ts](../editor/src/js-block.ts) | descriptor → `RunnableDef`, the sandboxed introspection client, the Run-consent record, and the browser-local block library |
+| [editor/src/js-block-analysis.ts](../editor/src/js-block-analysis.ts) | conservative source warnings for known JS Block traps, parsed with the JavaScript grammar already used by CodeMirror |
 | [editor/src/code-modal.ts](../editor/src/code-modal.ts) | the popup code editor |
 | [editor/src/code-editor.ts](../editor/src/code-editor.ts) | CodeMirror, with the language chosen from the field's dtype rather than hard-coded to Python |
 
@@ -357,6 +358,20 @@ the canvas and turns it into `RUNNER_FAIL: <message>` rather than an opaque
 
 That last part is only true because everything is compiled with `-fexceptions`. It
 already is; this design depends on it staying that way.
+
+The runtime prefixes a caught failure with the lifecycle phase that made the
+call: `descriptor`, `compile`, `start`, `forecast`, `work`, or `stop`.
+`JsBlockWasm` also exposes cheap atomic diagnostics — call count, the last
+requested/produced/consumed counts and the consecutive zero-progress count — in
+the normal `__grstats` block row. Graham's visible-run harness turns both into a
+bounded structured JavaScript report with a source-relative line and column.
+
+Before a live run, Graham can use `exercise_js_block`. It runs the same runtime
+entry points and heap-view code in a disposable Worker with bounded arrays,
+calls and output, with outbound APIs removed and a two-second termination
+timeout. This does not replace an end-to-end graph or authorize model-written
+source, but it makes the otherwise uninterruptible-work() risk testable before
+the scheduler owns the call.
 
 ### The hang
 

@@ -86,8 +86,9 @@ import {
 } from './epy';
 import {
   JS_BLOCK_ID, JS_IO_PARAM, JS_LOCAL_SOURCE_PARAM, JS_SOURCE_PARAM,
-  acceptJsSource, generateBlockYml, isJsSourceAccepted, jsDefForCache,
-  jsSourceError, jsSourceOf, listLocalJsBlocks,
+  acceptJsSource, exerciseJsSource, generateBlockYml, isJsSourceAccepted, jsDefForCache,
+  jsIntrospector, jsSourceError, jsSourceOf, jsSourceParamOf, listLocalJsBlocks,
+  parseJsIo, sourceHash,
   sanitizeBlockId, saveLocalJsBlock, serializeJsIo, setJsSourceError,
   type JsBlockIo, type LocalJsBlock,
 } from './js-block';
@@ -4286,11 +4287,13 @@ function aiCatalogEntries(): CatalogEntry[] {
       : String(block.category || 'Other');
     generated.set(block.id, {
       id: String(block.id), label: String(block.label || block.id), category,
+      javascript: block.id === JS_BLOCK_ID || blockFlags(block.flags).includes('js'),
     });
   }
   for (const [id, def] of Object.entries(RUNNABLE)) {
     if (PALETTE_HIDDEN.has(id) || generated.has(id)) continue;
-    generated.set(id, { id, label: def.label, category: 'Core / Editor' });
+    generated.set(id, { id, label: def.label, category: 'Core / Editor',
+      javascript: id === JS_BLOCK_ID });
   }
   return [...generated.values()].sort((a, b) => a.id.localeCompare(b.id));
 }
@@ -4386,6 +4389,150 @@ function aiToolDependencies(): Omit<AiToolDeps, 'runFlowgraph'> {
     exampleTexts.set(path, pending);
     return pending;
   };
+
+  const repoJsTexts = new Map<string, Promise<string>>();
+  const isRepoJsId = (id: string): boolean => {
+    const metadata = (LIB.blocks || []).find((block: any) => String(block.id) === id);
+    return !!metadata && blockFlags(metadata.flags).includes('js');
+  };
+  const readRepoJs = (id: string): Promise<string> => {
+    if (!isRepoJsId(id)) throw new Error(`block "${id}" is not implemented in repository JavaScript`);
+    const existing = repoJsTexts.get(id);
+    if (existing) return existing;
+    const pending = fetch(`/runner/build/js/${encodeURIComponent(id)}.js`).then(response => {
+      if (!response.ok) throw new Error(`JavaScript source for "${id}" is unavailable (${response.status})`);
+      return response.text();
+    }).catch(error => { repoJsTexts.delete(id); throw error; });
+    repoJsTexts.set(id, pending);
+    return pending;
+  };
+  const jsKind = (block: Inst): 'inline' | 'local' | 'repository' => {
+    if (block.id !== JS_BLOCK_ID) {
+      if (isRepoJsId(block.id)) return 'repository';
+      throw new Error(`"${block.name}" is not a JavaScript-backed block`);
+    }
+    return String(block.params[JS_LOCAL_SOURCE_PARAM] || '').trim() ? 'local' : 'inline';
+  };
+  const jsSource = async (block: Inst): Promise<string> =>
+    jsKind(block) === 'repository' ? readRepoJs(block.id) : jsSourceOf(block.params);
+  const analyzeJs = async (source: string) =>
+    (await import('./js-block-analysis')).analyzeJsSource(source);
+  const portJson = (block: Inst, kind: 'in' | 'out') => aiPorts(block, kind).map((port, index) => ({
+    index, id: port.id, label: port.name, domain: port.domain,
+    dtype: port.dtype, vlen: port.vlen, optional: port.optional,
+  }));
+  const connectionJson = (connection: Conn): Record<string, unknown> => {
+    const from = state.insts.find(block => block.uid === connection.from);
+    const to = state.insts.find(block => block.uid === connection.to);
+    return {
+      from: from?.name || connection.from,
+      output: from ? (aiPorts(from, 'out')[connection.fp]?.name || connection.fp) : connection.fp,
+      to: to?.name || connection.to,
+      input: to ? (aiPorts(to, 'in')[connection.tp]?.name || connection.tp) : connection.tp,
+    };
+  };
+  const currentJsParams = (block: Inst, io: JsBlockIo) => Object.fromEntries(
+    (io.params || []).map(([id, fallback]) =>
+      [id, block.params[id] === undefined ? fallback : block.params[id]]));
+  const inspectJs = async (block: Inst): Promise<Record<string, unknown>> => {
+    const kind = jsKind(block);
+    const source = await jsSource(block);
+    const io = await jsIntrospector.describe(source);
+    return {
+      name: block.name, id: block.id, implementation: kind,
+      source, source_hash: sourceHash(source), source_bytes: source.length,
+      descriptor: io,
+      parameters: currentJsParams(block, io),
+      inputs: portJson(block, 'in'), outputs: portJson(block, 'out'),
+      warnings: await analyzeJs(source),
+      editable: kind !== 'repository',
+      ...(kind === 'repository' ? { edit_hint: 'Call fork_js_block before changing this source.' } : {}),
+    };
+  };
+  const setJsSource = async (block: Inst, source: string): Promise<Record<string, unknown>> => {
+    if (jsKind(block) === 'repository')
+      throw new Error(`"${block.name}" is a shipped repository JS block; call fork_js_block first`);
+    const io = await jsIntrospector.describe(source); // validate before any mutation
+    const warnings = await analyzeJs(source);
+    const oldIo = parseJsIo(block.params[JS_IO_PARAM]);
+    const beforeConnections = new Map(state.conns
+      .filter(connection => connection.from === block.uid || connection.to === block.uid)
+      .map(connection => [connection, connectionJson(connection)]));
+    const next = { ...block.params };
+    next[jsSourceParamOf(next)] = source;
+    const nextIds = new Set((io.params || []).map(([id]) => id));
+    for (const [id] of oldIo?.params || []) if (!nextIds.has(id)) delete next[id];
+    applyJsIo(next, io);
+    remapConnectionsForPortChange(block, next);
+    block.params = next;
+    setJsSourceError(block.uid, '');
+    render();
+    const live = new Set(state.conns);
+    const dropped = [...beforeConnections.entries()]
+      .filter(([connection]) => !live.has(connection)).map(([, description]) => description);
+    return {
+      name: block.name, source_hash: sourceHash(source), descriptor: io, warnings,
+      interface_change: {
+        inputs: { before: oldIo?.inputs || [], after: io.inputs || [] },
+        outputs: { before: oldIo?.outputs || [], after: io.outputs || [] },
+        parameters: { before: (oldIo?.params || []).map(([id]) => id),
+          after: (io.params || []).map(([id]) => id) },
+      },
+      dropped_connections: dropped,
+      review_required_before_run: !isJsSourceAccepted(source),
+    };
+  };
+  const createJs = async (requestedName: string | undefined, source: string) => {
+    const io = await jsIntrospector.describe(source); // a failure leaves no block behind
+    const warnings = await analyzeJs(source);
+    if (requestedName && state.insts.some(block => block.name === requestedName))
+      throw new Error(`a block named "${requestedName}" already exists`);
+    const block = addBlock(JS_BLOCK_ID, undefined, undefined, {}, false);
+    if (!block) throw new Error('could not add an inline JS Block');
+    if (requestedName) block.name = requestedName;
+    block.params[JS_SOURCE_PARAM] = source;
+    applyJsIo(block.params, io);
+    setJsSourceError(block.uid, '');
+    render();
+    return { name: block.name, id: block.id, source_hash: sourceHash(source),
+      descriptor: io, warnings, review_required_before_run: !isJsSourceAccepted(source) };
+  };
+  const forkJs = async (block: Inst) => {
+    if (jsKind(block) !== 'repository')
+      throw new Error(`"${block.name}" is already an editable ${jsKind(block)} JS Block`);
+    const previousId = block.id;
+    const source = await readRepoJs(block.id);
+    const io = await jsIntrospector.describe(source);
+    const before = state.conns
+      .filter(connection => connection.from === block.uid || connection.to === block.uid)
+      .map(connection => ({ connection, description: connectionJson(connection) }));
+    const oldParams = { ...block.params };
+    const base = RUNNABLE[JS_BLOCK_ID];
+    const params = Object.fromEntries(base.params.map(param => [param.id, clone(param.def)]));
+    params[JS_SOURCE_PARAM] = source;
+    applyJsIo(params, io);
+    for (const param of base.params)
+      if (![JS_SOURCE_PARAM, JS_IO_PARAM, JS_LOCAL_SOURCE_PARAM].includes(param.id) &&
+          oldParams[param.id] !== undefined)
+        params[param.id] = oldParams[param.id];
+    for (const [id, fallback] of io.params || [])
+      params[id] = oldParams[id] === undefined ? fallback : oldParams[id];
+    block.id = JS_BLOCK_ID;
+    block.params = params;
+    const inCount = aiPorts(block, 'in').length, outCount = aiPorts(block, 'out').length;
+    const valid = new Set(state.conns.filter(connection =>
+      (connection.from !== block.uid || connection.fp < outCount) &&
+      (connection.to !== block.uid || connection.tp < inCount)));
+    state.conns = state.conns.filter(connection => valid.has(connection));
+    setJsSourceError(block.uid, '');
+    render();
+    return {
+      name: block.name, previous_id: previousId,
+      id: JS_BLOCK_ID, source_hash: sourceHash(source), descriptor: io,
+      dropped_connections: before.filter(item => !valid.has(item.connection)).map(item => item.description),
+      review_required_before_run: !isJsSourceAccepted(source),
+    };
+  };
   return {
     blocks: () => state.insts,
     connections: () => state.conns,
@@ -4473,6 +4620,50 @@ function aiToolDependencies(): Omit<AiToolDeps, 'runFlowgraph'> {
       if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata))
         throw new Error(`metadata for "${key}" is not a SigMF document`);
       return { recording, metadata: metadata as Record<string, unknown> };
+    },
+    inspectJsBlock: async name => inspectJs(aiBlock(name)),
+    createJsBlock: createJs,
+    setJsBlockSource: async (name, source) => setJsSource(aiBlock(name), source),
+    forkJsBlock: async name => forkJs(aiBlock(name)),
+    exerciseJsBlock: async args => {
+      const named = String(args.name || '').trim();
+      const explicit = args.source;
+      if ((!named && typeof explicit !== 'string') || (named && typeof explicit === 'string'))
+        throw new Error('exercise_js_block needs exactly one of name or source');
+      const source = typeof explicit === 'string' ? explicit : await jsSource(aiBlock(named));
+      const calls = Array.isArray(args.calls) ? args.calls.map((call: any) => ({
+        nout: call.nout,
+        inputs: call.inputs,
+        setParams: call.set_params,
+      })) : undefined;
+      const result = await exerciseJsSource(source, {
+        params: args.params as Record<string, unknown> | undefined,
+        calls,
+        forecastNout: args.forecast_nout === undefined ? undefined : Number(args.forecast_nout),
+      });
+      return { source_hash: sourceHash(source), warnings: await analyzeJs(source), ...result };
+    },
+    saveJsBlock: async (name, requestedId, requestedLabel, requestedCategory) => {
+      const block = aiBlock(name), source = await jsSource(block);
+      if (!isJsSourceAccepted(source))
+        throw new Error('review and authorize this JavaScript in a run before saving it to the trusted local library');
+      const io = await jsIntrospector.describe(source);
+      const id = sanitizeBlockId(requestedId);
+      if (RUNNABLE[id] && id !== block.id)
+        throw new Error(`block id "${id}" already exists in the runnable catalog`);
+      const saved: LocalJsBlock = {
+        id,
+        label: (requestedLabel || io.label || id).trim(),
+        category: (requestedCategory || '[Custom]/JavaScript').trim(),
+        source, io, saved: Date.now(),
+      };
+      await saveLocalJsBlock(saved);
+      await refreshLocalJsBlocks();
+      return { installed: true, id, label: saved.label, category: saved.category,
+        repository_files: {
+          [`blocks/js/${id}.js`]: source,
+          [`blocks/grc/${id}.block.yml`]: generateBlockYml(saved),
+        } };
     },
   };
 }

@@ -238,6 +238,11 @@
     stringToUTF8(message.slice(0, errCap - 1), errPtr, errCap);
   }
 
+  function phaseError(phase, e) {
+    var message = errorText(e);
+    return new Error('[' + phase + '] ' + message);
+  }
+
   var api = {
     // Shared with js_block.hpp so a layout change cannot be half-applied.
     WORDS: W_WORDS,
@@ -248,7 +253,7 @@
       try {
         return { ok: true, info: evaluate(source).info };
       } catch (e) {
-        return { ok: false, error: errorText(e) };
+        return { ok: false, error: errorText(phaseError('descriptor', e)) };
       }
     },
 
@@ -262,7 +267,7 @@
       try {
         return stringToNewUTF8(JSON.stringify(evaluate(UTF8ToString(srcPtr)).info));
       } catch (e) {
-        setError(errPtr, errCap, e);
+        setError(errPtr, errCap, phaseError('descriptor', e));
         return 0;
       }
     },
@@ -277,6 +282,7 @@
      * self.example_param in a Python block.
      */
     compile: function (handle, srcPtr, paramsPtr, errPtr, errCap) {
+      var phase = 'compile';
       try {
         var evaluated = evaluate(UTF8ToString(srcPtr));
         var d = evaluated.descriptor;
@@ -320,10 +326,13 @@
           if (block.log.length < 64) block.log.push(parts.join(' '));
         };
         blocks.set(handle, block);
-        if (typeof d.start === 'function') d.start.call(self);
+        if (typeof d.start === 'function') {
+          phase = 'start';
+          d.start.call(self);
+        }
         return 0;
       } catch (e) {
-        setError(errPtr, errCap, e);
+        setError(errPtr, errCap, phaseError(phase, e));
         return -1;
       }
     },
@@ -398,7 +407,7 @@
         }
         return 0;
       } catch (e) {
-        setError(errPtr, errCap, e);
+        setError(errPtr, errCap, phaseError('work', e));
         return -2;
       }
     },
@@ -419,7 +428,7 @@
           words[base + W_FORECAST + i] = Math.max(0, required[i] | 0);
         return 0;
       } catch (e) {
-        setError(errPtr, errCap, e);
+        setError(errPtr, errCap, phaseError('forecast', e));
         return -2;
       }
     },
@@ -432,7 +441,7 @@
         if (typeof block.d.stop === 'function') block.d.stop.call(block.self);
         return 0;
       } catch (e) {
-        setError(errPtr, errCap, e);
+        setError(errPtr, errCap, phaseError('stop', e));
         return -2;
       }
       // Deliberately not deleted here: the caller drains this.log() afterwards,

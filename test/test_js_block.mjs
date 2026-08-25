@@ -46,6 +46,7 @@ const CASES = [
     grc: 'test/fixtures/wasm_js_block.grc',
     expectProbes: { probe: 4.0 },
     expectPrint: 'js_scale: first output 4.000',
+    expectJsDiagnostics: 2,
   },
   {
     // Repo blocks (blocks/js/), whose sources the runner fetches by id before
@@ -55,6 +56,7 @@ const CASES = [
     name: 'repo JavaScript blocks, fetched by id',
     grc: 'test/fixtures/wasm_js_repo_blocks.grc',
     expectProbes: { probe_clip: 0.5, probe_peak: 3.0 },
+    expectJsDiagnostics: 3,
   },
 ];
 
@@ -110,8 +112,14 @@ for (const test of CASES) {
       wrong.push(`${name} = ${probe ? probe.value : '(absent)'}, expected ${expected}`);
   }
   const printOk = !test.expectPrint || logs.some(line => line.includes(test.expectPrint));
+  const jsDiagnostics = blocks.filter(block => block.javascript);
+  const diagnosticsOk = jsDiagnostics.length === test.expectJsDiagnostics &&
+    jsDiagnostics.every(block => block.javascript.work_calls > 0 &&
+      block.javascript.last_requested > 0 && block.javascript.last_produced >= 0 &&
+      block.javascript.zero_progress_calls >= 0);
 
-  const ok = started && blocks.length > 0 && idle.length === 0 && !wrong.length && printOk;
+  const ok = started && blocks.length > 0 && idle.length === 0 && !wrong.length &&
+    printOk && diagnosticsOk;
   allOk = allOk && ok;
   console.log(`\n[${ok ? 'OK' : 'FAIL'}] ${test.name}  (${test.grc})`);
   console.log(`   ${verdict.trim()}`);
@@ -119,6 +127,7 @@ for (const test of CASES) {
   if (idle.length) console.log(`   produced nothing: ${idle.join(', ')}`);
   for (const line of wrong) console.log(`   probe ${line}`);
   if (!printOk) console.log(`   never printed ${JSON.stringify(test.expectPrint)}`);
+  if (!diagnosticsOk) console.log(`   JS diagnostics: ${JSON.stringify(jsDiagnostics)}`);
   if (!ok && logs.length) console.log('   logs: ' + logs.slice(-12).join('\n         '));
   await page.close();
 }

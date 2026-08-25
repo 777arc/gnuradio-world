@@ -317,6 +317,7 @@ views.I32.fill(0, wordsPtr >> 2, (wordsPtr >> 2) + WORDS);
 setWord(W.NOUT, 4); setWord(W.NIN_PORTS, 1); setWord(W.NOUT_PORTS, 1);
 setWord(W.IN_PTR, inPtr); setWord(W.IN_AVAIL, 4); setWord(W.OUT_PTR, outPtr);
 assert.equal(gr.work(8, wordsPtr, errPtr, ERR_CAP), -2);
+assert.match(readError(), /\[work\]/, 'a runtime failure names its lifecycle phase');
 assert.match(readError(), /boom in work/, 'the message survives the crossing');
 assert.match(readError(), /at .*work/, 'and so does the stack');
 
@@ -325,6 +326,7 @@ assert.equal(gr.compile(9, cstr(`
 gr.export({ inputs: ['float'], outputs: ['float'],
   start() { throw new Error('boom in start'); }, work() { return 0; } });`),
   0, errPtr, ERR_CAP), -1);
+assert.match(readError(), /\[start\]/, 'a start failure is distinct from compile/work');
 assert.match(readError(), /boom in start/);
 
 // Calling work() on a handle that was never compiled is an error, not a crash.

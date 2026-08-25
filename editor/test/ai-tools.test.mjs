@@ -125,6 +125,12 @@ metadata:
       collection: { note: 'top-level extension data is retained' },
     } };
   },
+  inspectJsBlock: async name => ({ name, source: 'gr.export({})' }),
+  createJsBlock: async (name, source) => ({ name: name || 'wasm_js_block_0', source }),
+  setJsBlockSource: async (name, source) => ({ name, source_hash: String(source.length) }),
+  forkJsBlock: async name => ({ name, id: 'wasm_js_block' }),
+  exerciseJsBlock: async args => ({ source_hash: 'exercise', calls: args.calls || [] }),
+  saveJsBlock: async (name, id) => ({ installed: true, name, id }),
   runFlowgraph: async () => ({ started: true }),
 };
 
@@ -204,6 +210,36 @@ await assert.rejects(
 result = await dispatchAiTool(deps, 'describe_block', { id: 'source' });
 assert.equal(result.value.parameters[0].id, 'rate');
 assert.equal((await dispatchAiTool(deps, 'validate', {})).value.length, 0);
+
+// JavaScript source is an interface-changing artifact, not a generic string
+// parameter. Its tools stay transactional behind dedicated dependencies.
+assert.equal((await dispatchAiTool(deps, 'get_js_block_help', { topic: 'scheduling' }))
+  .value.topic, 'scheduling');
+assert.equal((await dispatchAiTool(deps, 'inspect_js_block', { name: 'custom' }))
+  .value.name, 'custom');
+assert.equal((await dispatchAiTool(deps, 'create_js_block', {
+  name: 'custom', source: 'gr.export({})',
+})).mutated, true);
+assert.equal((await dispatchAiTool(deps, 'set_js_block_source', {
+  name: 'custom', source: 'gr.export({})',
+})).value.result.source_hash, '13');
+assert.equal((await dispatchAiTool(deps, 'fork_js_block', { name: 'repo' })).mutated, true);
+assert.equal((await dispatchAiTool(deps, 'exercise_js_block', {
+  source: 'gr.export({})', calls: [{ nout: 4 }],
+})).mutated, false);
+assert.equal((await dispatchAiTool(deps, 'save_js_block', {
+  name: 'custom', id: 'saved_custom',
+})).value.installed, true);
+defs.wasm_js_block = { label: 'JS Block', inputs: 0, outputs: 0, params: [
+  { id: '_source_code', label: 'Code', type: 'string', def: '' },
+  { id: '_js_io', label: 'Interface', type: 'string', def: '' },
+] };
+await dispatchAiTool(deps, 'add_block', { id: 'wasm_js_block', name: 'js_dut' });
+await assert.rejects(dispatchAiTool(deps, 'set_params', {
+  name: 'js_dut', params: { _source_code: 'gr.export({})' },
+}), /use set_js_block_source/,
+'generic parameter editing must not desynchronize JS source and _js_io');
+await dispatchAiTool(deps, 'remove_block', { name: 'js_dut' });
 
 // The example discovery tool exposes the Options metadata already shown in the
 // palette, plus structural counts, without making the model read every .grc.
@@ -336,11 +372,11 @@ assert.match(canvasContext({ ...deps, blocks: () => [] }), /empty/);
 const index = runnableIndex([
   { id: 'a_one', label: 'One', category: 'Core / Math' },
   { id: 'b_two', label: 'Two', category: 'Core / Math' },
-  { id: 'c_three', label: 'Three', category: 'Core / Audio' },
+  { id: 'c_three', label: 'Three', category: 'Core / Audio', javascript: true },
 ]);
 assert.equal(index, [
   'Core / Audio:',
-  '  c_three | Three',
+  '  c_three | Three | JavaScript',
   'Core / Math:',
   '  a_one | One',
   '  b_two | Two',

@@ -40,6 +40,7 @@
 #include <gnuradio/io_signature.h>
 
 #include <algorithm>
+#include <atomic>
 #include <climits>
 #include <cstdio>
 #include <cstdint>
@@ -103,6 +104,15 @@ public:
         if (index < 0 || index >= static_cast<int>(d_config.numeric_params.size())) return;
         d_param_values[index] = value;
         __atomic_or_fetch(&d_dirty_mask, 1u << index, __ATOMIC_RELEASE);
+    }
+
+    std::uint64_t work_calls() const { return d_work_calls.load(std::memory_order_relaxed); }
+    int last_requested() const { return d_last_requested.load(std::memory_order_relaxed); }
+    int last_produced() const { return d_last_produced.load(std::memory_order_relaxed); }
+    int last_consumed() const { return d_last_consumed.load(std::memory_order_relaxed); }
+    std::uint64_t zero_progress_calls() const
+    {
+        return d_zero_progress_calls.load(std::memory_order_relaxed);
     }
 
     bool start() override
@@ -196,13 +206,28 @@ public:
 
         const int produced = d_words[kResult];
         const int consume_each_n = d_words[kConsumeEach];
+        int consumed_total = 0;
         if (consume_each_n >= 0) {
-            if (consume_each_n > 0) consume_each(consume_each_n);
+            if (consume_each_n > 0) {
+                consume_each(consume_each_n);
+                consumed_total = consume_each_n * nin;
+            }
         } else {
             // A generalWork() block called this.consume(port, n) itself.
             for (int i = 0; i < nin; ++i)
-                if (d_words[kConsume + i] > 0) consume(i, d_words[kConsume + i]);
+                if (d_words[kConsume + i] > 0) {
+                    consume(i, d_words[kConsume + i]);
+                    consumed_total += d_words[kConsume + i];
+                }
         }
+        d_last_requested.store(noutput_items, std::memory_order_relaxed);
+        d_last_produced.store(produced, std::memory_order_relaxed);
+        d_last_consumed.store(consumed_total, std::memory_order_relaxed);
+        d_work_calls.fetch_add(1, std::memory_order_relaxed);
+        if (produced > 0 || consumed_total > 0)
+            d_zero_progress_calls.store(0, std::memory_order_relaxed);
+        else
+            d_zero_progress_calls.fetch_add(1, std::memory_order_relaxed);
         return produced;
     }
 
@@ -326,6 +351,11 @@ private:
     std::vector<double> d_param_values;
     std::uint32_t d_dirty_mask = 0;
     bool d_compiled = false;
+    std::atomic<std::uint64_t> d_work_calls{ 0 };
+    std::atomic<int> d_last_requested{ 0 };
+    std::atomic<int> d_last_produced{ 0 };
+    std::atomic<int> d_last_consumed{ 0 };
+    std::atomic<std::uint64_t> d_zero_progress_calls{ 0 };
 };
 
 }  // namespace grworld

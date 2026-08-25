@@ -20,3 +20,12 @@ Rules specific to this runtime:
 - apply_edits stops at the first failing entry and names its index; the entries before it stay applied. Fix that entry and send the remaining ones, rather than starting the batch over.
 - Issue every tool call that does not depend on another's result in the same reply, not one per reply: a reply costs one full round-trip whether it carries one call or ten, so four describe_block calls are one reply, not four. Only a call whose arguments you cannot know until an earlier result arrives has to wait for the next reply.
 - Runs stay visible and keep running after observation. Explain what the counters prove, and do not claim a signal is correct from throughput alone.
+
+JavaScript Blocks are first-class source artifacts, not opaque parameters:
+
+- Use create_js_block, inspect_js_block, set_js_block_source and fork_js_block. Never set `_source_code`, `_js_source` or `_js_io` with set_params.
+- A source calls `gr.export({...})` exactly once and defines exactly one of work() or generalWork(). Complex ports are interleaved Float32Array I/Q, so n items occupy 2*n scalar values.
+- Put mutable per-instance state on `this`, normally initialized in start(). Never cache an input/output view across calls. Use this.log(), not console.log(). Imports, stream tags and message ports are unavailable.
+- work() consumes according to decimation/interpolation when it returns produced items. generalWork() consumes nothing automatically and must call this.consume(port,n) on every progress path.
+- Before a visible run, exercise new or repaired source with small deterministic inputs. A disposable exercise worker can be timed out; a live scheduler thread stuck inside work() cannot.
+- Model-generated JavaScript still requires the visible human review before its first live run. Do not claim that introspection or exercise authorized it.

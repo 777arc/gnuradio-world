@@ -86,6 +86,29 @@ const EDITED_SOURCE = `gr.export({
 });
 `;
 
+const GRAHAM_SOURCE = `gr.export({
+  label: 'Graham Gain',
+  inputs: ['float'],
+  outputs: ['float'],
+  params: { gain: 2 },
+  work(nout, input, output) {
+    for (let i = 0; i < nout; i++) output[0][i] = input[0][i] * this.gain;
+    return nout;
+  },
+});`;
+
+const GRAHAM_MODIFIED_SOURCE = `gr.export({
+  label: 'Graham Weighted Sum',
+  inputs: ['float', 'float'],
+  outputs: ['float'],
+  params: { left: 1, right: 1 },
+  work(nout, input, output) {
+    for (let i = 0; i < nout; i++)
+      output[0][i] = input[0][i] * this.left + input[1][i] * this.right;
+    return nout;
+  },
+});`;
+
 // The editor gives blocks no DOM identity, so every probe goes through this: the
 // JS Block is the *selected* one -- placing it selects it -- and its ports are
 // read off their labels, which is how a user tells them apart too.
@@ -185,11 +208,75 @@ const check = (ok, what, detail = '') => {
 
 const browser = await launchBrowser(ROOT);
 const page = await browser.newPage();
+let aiRequests = 0;
+await page.setRequestInterception(true);
+page.on('request', request => {
+  if (!request.url().includes('ai.gnuradioworld.com/v1/chat/completions')) {
+    void request.continue();
+    return;
+  }
+  const origin = `http://localhost:${PORT}`;
+  if (request.method() === 'OPTIONS') {
+    void request.respond({ status: 204, headers: {
+      'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'content-type',
+    } });
+    return;
+  }
+  aiRequests++;
+  const chunk = aiRequests === 1
+    ? { choices: [{ delta: { tool_calls: [
+      { index: 0, id: 'create_js', type: 'function', function: {
+        name: 'create_js_block', arguments: JSON.stringify({
+          name: 'graham_gain', source: GRAHAM_SOURCE,
+        }),
+      } },
+      { index: 1, id: 'exercise_js', type: 'function', function: {
+        name: 'exercise_js_block', arguments: JSON.stringify({
+          name: 'graham_gain', calls: [{ nout: 4, inputs: [[1, 2, 3, 4]],
+            set_params: { gain: 3 } }],
+        }),
+      } },
+    ] } }] }
+    : aiRequests === 3
+      ? { choices: [{ delta: { tool_calls: [
+        { index: 0, id: 'modify_js', type: 'function', function: {
+          name: 'set_js_block_source', arguments: JSON.stringify({
+            name: 'graham_gain', source: GRAHAM_MODIFIED_SOURCE,
+          }),
+        } },
+        { index: 1, id: 'exercise_modified_js', type: 'function', function: {
+          name: 'exercise_js_block', arguments: JSON.stringify({
+            name: 'graham_gain', calls: [{ nout: 2, inputs: [[1, 2], [3, 4]],
+              set_params: { left: 2, right: -1 } }],
+          }),
+        } },
+      ] } }] }
+      : aiRequests === 5
+        ? { choices: [{ delta: { tool_calls: [
+          { index: 0, id: 'fork_js', type: 'function', function: {
+            name: 'fork_js_block', arguments: JSON.stringify({
+              name: 'js_phase_unwrap_ff_0',
+            }),
+          } },
+        ] } }] }
+        : { choices: [{ delta: { content: aiRequests === 2
+          ? 'Created and exercised Graham Gain.'
+          : aiRequests === 4 ? 'Modified and exercised Graham Weighted Sum.'
+          : 'Forked Phase Unwrap into an editable inline block.' } }] };
+  void request.respond({ status: 200, contentType: 'text/event-stream', headers: {
+    'Access-Control-Allow-Origin': origin, 'Cache-Control': 'no-cache',
+  }, body: `data: ${JSON.stringify(chunk)}\n\ndata: [DONE]\n\n` });
+});
 const logs = [];
 page.on('console', m => logs.push(m.text()));
 page.on('pageerror', e => logs.push('PAGEERROR ' + e.message));
 await page.setViewport({ width: 1400, height: 900 });
 await suppressEditorWelcome(page);
+await page.evaluateOnNewDocument(() => {
+  localStorage.setItem('gnuradio-world.hosted-consent', 'yes');
+});
 await page.goto(`http://localhost:${PORT}/`, { waitUntil: 'load', timeout: 30000 });
 await page.waitForFunction(() =>
   !document.documentElement.classList.contains('app-bootstrapping'), { timeout: 30000 });
@@ -355,6 +442,86 @@ const reopened = await page.evaluate(() => {
 });
 check(reopened.open && reopened.seeded,
       'and reopens Properties on the committed source', JSON.stringify(reopened));
+
+// Graham's dedicated source path: a stub model creates a block and exercises
+// it in the same round. This reaches main.ts's real dependency bundle, the
+// sandboxed descriptor derivation and the disposable Worker; the plain Node
+// tool tests deliberately cannot reach any of those browser boundaries.
+await page.evaluate(() => document.querySelector('.modal.props .dlgclose')?.click());
+await page.evaluate(() => document.querySelector('.ai-toggle')?.click());
+await page.waitForSelector('.ai-prompt');
+await page.evaluate(() => {
+  const prompt = document.querySelector('.ai-prompt');
+  prompt.value = 'Create and test a float gain JS Block.';
+  prompt.closest('form').requestSubmit();
+});
+await page.waitForFunction(() =>
+  (document.querySelector('.ai-transcript')?.textContent || '')
+    .includes('Created and exercised Graham Gain.'),
+{ timeout: 30000, polling: 100 });
+const graham = await probe();
+check(graham?.title === 'Graham Gain' && graham.inputs === 1 && graham.outputs === 1,
+      'Graham creates a JS Block through descriptor-safe source tooling', JSON.stringify(graham));
+check(graham?.rows.some(row => /Gain/.test(row)),
+      'Graham’s derived numeric parameter reaches the canvas', JSON.stringify(graham?.rows));
+check(aiRequests === 2,
+      'create and exercise share one tool round before the final answer', String(aiRequests));
+const sourceWasTrusted = await page.evaluate(source => {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < source.length; i++) {
+    hash ^= source.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  const key = hash.toString(16).padStart(8, '0') + ':' + source.length;
+  return JSON.parse(localStorage.getItem('gnuradio-world.js-blocks-accepted') || '[]').includes(key);
+}, GRAHAM_SOURCE);
+check(!sourceWasTrusted,
+      'Graham-authored source still requires the normal human review before a live run');
+
+await page.evaluate(() => {
+  const prompt = document.querySelector('.ai-prompt');
+  prompt.value = 'Modify it into a tested weighted sum with two float inputs.';
+  prompt.closest('form').requestSubmit();
+});
+await page.waitForFunction(() =>
+  (document.querySelector('.ai-transcript')?.textContent || '')
+    .includes('Modified and exercised Graham Weighted Sum.'),
+{ timeout: 30000, polling: 100 });
+const modifiedByGraham = await probe();
+check(modifiedByGraham?.title === 'Graham Weighted Sum' &&
+      modifiedByGraham.inputs === 2 && modifiedByGraham.outputs === 1,
+      'Graham source modification atomically refreshes the derived interface',
+      JSON.stringify(modifiedByGraham));
+check(modifiedByGraham?.rows.some(row => /Left/.test(row)) &&
+      modifiedByGraham?.rows.some(row => /Right/.test(row)),
+      'newly derived parameters replace the prior source parameter set',
+      JSON.stringify(modifiedByGraham?.rows));
+check(aiRequests === 4,
+      'modify and exercise also share one tool round before the final answer', String(aiRequests));
+
+const placedRepoForFork = await page.evaluate(() => {
+  const item = [...document.querySelectorAll('.pal-item')]
+    .find(node => node.textContent.trim() === 'Phase Unwrap');
+  item?.click();
+  return !!item;
+});
+check(placedRepoForFork, 'a repository JS block is available for Graham to fork');
+await page.evaluate(() => {
+  const prompt = document.querySelector('.ai-prompt');
+  prompt.value = 'Fork the selected Phase Unwrap repository JS block so I can edit it.';
+  prompt.closest('form').requestSubmit();
+});
+await page.waitForFunction(() =>
+  (document.querySelector('.ai-transcript')?.textContent || '')
+    .includes('Forked Phase Unwrap into an editable inline block.'),
+{ timeout: 30000, polling: 100 });
+await page.evaluate(() => document.querySelector('.ai-toggle')?.click());
+await openPropsDialog();
+const forkedSource = await page.evaluate(() =>
+  document.querySelector('.modal.props .code-field textarea.code-editor')?.value || '');
+check(/Phase Unwrap/.test(forkedSource) && /gr\.export/.test(forkedSource),
+      'Graham can fork a shipped repository JS block into editable inline source');
+check(aiRequests === 6, 'forking completes in one tool round', String(aiRequests));
 
 await browser.close();
 server.close();

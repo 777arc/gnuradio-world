@@ -276,6 +276,49 @@ pages the arrays independently. A single call is capped at 100 entries from
 either array so an early tool result cannot make every later agent round
 unbounded.
 
+## JavaScript Block authoring and debugging
+
+JavaScript source is not a generic parameter in Graham's tool surface. Changing
+it changes the block's label, parameters, ports and scheduler contract, so
+`set_params` rejects `_source_code`, `_js_source` and `_js_io`. The dedicated
+path runs the same sandboxed `JsIntrospector` used by the Properties dialog and
+changes the canvas only after the descriptor succeeds:
+
+- `inspect_js_block` returns the complete source, implementation kind, source
+  hash, derived descriptor, live parameter values, ports and conservative
+  source warnings. Long source is omitted from the per-message canvas seed and
+  named for this tool instead.
+- `create_js_block` validates first and then creates one complete inline block;
+  a bad descriptor leaves no half-created block behind.
+- `set_js_block_source` atomically updates the source, `_js_io`, derived
+  parameter defaults and ports. Matching parameter values and port identities
+  survive; removed ports take their connections with them and the result names
+  every dropped wire.
+- `fork_js_block` turns a shipped `flags: [js]` block into an editable inline
+  block without changing its instance name or compatible connections.
+- `save_js_block` installs reviewed source in the browser-local library and
+  returns the generated `blocks/js/` + `blocks/grc/` repository pair. It refuses
+  source that has not crossed the normal human Run review boundary.
+
+`get_js_block_help` keeps the load-bearing authoring contract available by
+topic without putting the whole JS Block guide into the cached prompt. A small
+version stays in the prompt: complex buffers are interleaved, state belongs on
+`this`, views are never retained, `generalWork()` must consume, and
+`this.log()` is the visible logger.
+
+`exercise_js_block` drives up to eight bounded calls through the real
+`js_runtime.js` compile/work/forecast/log entry points in a disposable Worker.
+It accepts explicit per-port scalar arrays, construction parameters and numeric
+updates between calls, and reports produced/consumed counts plus bounded output
+heads. Outbound browser APIs are removed before source evaluation and a two
+second timeout terminates the Worker. This is the safe place to catch a loop
+that never returns: the corresponding live scheduler thread cannot be
+interrupted.
+
+Model-written source is deliberately **not** accepted by any edit or exercise
+tool. Its first visible run still shows the existing human JavaScript review;
+authoring assistance does not widen the code-execution boundary.
+
 ## Visible runs and evidence
 
 `run_flowgraph` calls `main.ts`'s `run()` wrapper and never constructs a second
@@ -297,6 +340,13 @@ buffer fullness, realtime factor, Probe values, console errors, and the
 blocks are never called stalled merely because their item counter is zero. The
 graph is left running after observation. A later canvas edit marks the run bar
 as stale.
+
+Every `JsBlockWasm` row also publishes its work-call count, last requested,
+produced and consumed counts, and consecutive zero-progress calls. JS runtime
+errors are phase-tagged (`descriptor`, `compile`, `start`, `forecast`, `work` or
+`stop`); the harness returns those as a bounded structured `javascript` section
+with block name and source-relative line/column rather than making Graham infer
+them from the first console lines.
 
 Hardware that lacks an existing WebUSB grant adds an Allow & Run row. Its click
 calls `run()` directly so `requestDevice()` retains transient activation. A
@@ -448,3 +498,19 @@ The proxy has a suite of its own, on plain Node with no Wrangler and no network:
 ```bash
 (cd workers/ai-proxy && npm test)
 ```
+
+Model quality itself has an opt-in, networked JS Block evaluation. It exercises
+creation, interface-preserving modification, a missing-`consume()` repair and
+state across work calls against deterministic arrays. It is intentionally not
+CI — it spends real API tokens — and uses a personal OpenAI key rather than the
+site's shared allowance:
+
+```bash
+OPENAI_API_KEY=... node scripts/eval_graham_js_blocks.mjs
+# optionally: GRAHAM_EVAL_MODEL=gpt-5.4-mini
+```
+
+The score is semantic output, not whether the model produced plausible prose;
+each candidate has to pass the same descriptor contract and the task's numeric
+or consume/state assertion. The script reports tool rounds alongside the score
+so a prompt/tool change that succeeds by looping excessively is visible too.

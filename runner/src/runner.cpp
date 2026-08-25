@@ -7,6 +7,7 @@
 #include "grc_yaml.hpp"
 #include "grc_lower.hpp"
 #include "gui_layout.hpp"
+#include "js_block.hpp"
 #include "flat_flowgraph.h"
 #include <gnuradio/blocks/probe_signal.h>
 #include <gnuradio/top_block.h>
@@ -1039,6 +1040,15 @@ static std::string build_stats_json() {
         b["work_total_s"] = sb.blk->pc_work_time_total() / 1e9;  // ns -> s
         b["in_full"] = vmax(sb.blk->pc_input_buffers_full());    // 0..1
         b["out_full"] = vmax(sb.blk->pc_output_buffers_full());  // 0..1
+        if (auto js = std::dynamic_pointer_cast<grworld::JsBlockWasm>(sb.blk)) {
+            b["javascript"] = {
+                { "work_calls", js->work_calls() },
+                { "last_requested", js->last_requested() },
+                { "last_produced", js->last_produced() },
+                { "last_consumed", js->last_consumed() },
+                { "zero_progress_calls", js->zero_progress_calls() },
+            };
+        }
         // Probe Signal is deliberately observable in the diagnostics snapshot.
         // Besides being useful in the debug panel, this lets browser tests verify
         // sample values after they have passed through the WASM scheduler.

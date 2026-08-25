@@ -31,6 +31,12 @@ export interface AiToolDeps {
     recording: ExampleRecording;
     metadata: Record<string, unknown>;
   }>;
+  inspectJsBlock(name: string): Promise<Record<string, unknown>>;
+  createJsBlock(name: string | undefined, source: string): Promise<Record<string, unknown>>;
+  setJsBlockSource(name: string, source: string): Promise<Record<string, unknown>>;
+  forkJsBlock(name: string): Promise<Record<string, unknown>>;
+  exerciseJsBlock(args: Record<string, unknown>): Promise<Record<string, unknown>>;
+  saveJsBlock(name: string, id: string, label?: string, category?: string): Promise<Record<string, unknown>>;
   runFlowgraph(seconds: number, signal?: AbortSignal): Promise<Record<string, unknown>>;
 }
 
@@ -57,6 +63,10 @@ const EDITS: Record<string, (deps: AiToolDeps, args: any) => unknown> = {
     const unknown = Object.keys(args.params || {}).filter(id => !valid.includes(id));
     if (unknown.length)
       throw new Error(`no such parameter ${unknown.map(id => `"${id}"`).join(', ')} on "${block.name}"; valid ids are ${valid.join(', ')}`);
+    const jsInternals = Object.keys(args.params || {}).filter(id =>
+      id === '_source_code' || id === '_js_io' || id === '_js_source');
+    if (block.id === 'wasm_js_block' && jsInternals.length)
+      throw new Error(`use set_js_block_source for "${block.name}"; generic set_params cannot keep ${jsInternals.join(', ')} and the derived ports synchronized`);
     deps.setParams(block.name, args.params || {});
     return { name: block.name, params: args.params || {} };
   },
@@ -115,6 +125,30 @@ export const AI_TOOLS: ToolDefinition[] = [
     annotation_offset: { type: 'integer', minimum: 0, default: 0 },
     annotation_limit: { type: 'integer', minimum: 0, maximum: 100, default: 10 },
   }, ['recording'])),
+  tool('get_js_block_help', 'Return the browser JS Block authoring contract or one focused topic. Use this before writing an unfamiliar work/generalWork block; inspect_js_block is for a particular instance.', object({
+    topic: { type: 'string', enum: ['overview', 'ports', 'scheduling', 'state', 'debugging', 'examples'], default: 'overview' },
+  })),
+  tool('inspect_js_block', 'Read one JavaScript-backed block instance: complete source, implementation kind, derived descriptor, current declared parameters and ports, source hash, and JS-specific warnings. Use this instead of reading _source_code through generic graph parameters.', object({ name: text }, ['name'])),
+  tool('create_js_block', 'Create an inline JS Block from source. The source is sandbox-introspected before the canvas changes, so syntax or descriptor failures leave no half-created block.', object({
+    name: { type: 'string', description: 'Optional unused instance name.' }, source: text,
+  }, ['source'])),
+  tool('set_js_block_source', 'Atomically replace an inline or browser-local JS Block source. Re-derives _js_io, parameters and ports, preserves matching parameter values and compatible wiring, and rejects invalid source without changing the graph. Repository JS blocks must first be forked.', object({ name: text, source: text }, ['name', 'source'])),
+  tool('fork_js_block', 'Turn a shipped repository JavaScript block into an editable inline JS Block, preserving its name, current declared parameter values and compatible connections.', object({ name: text }, ['name'])),
+  tool('exercise_js_block', 'Run bounded deterministic calls against a JS Block in a disposable Worker using the real JS runtime contract. Use before a visible run, especially for new or repaired code: unlike a live scheduler thread, this worker is terminated on a hang.', object({
+    name: { type: 'string', description: 'Existing JS-backed block instance. Supply name or source.' },
+    source: { type: 'string', description: 'Candidate source to exercise without applying it. Supply name or source.' },
+    params: { type: 'object', additionalProperties: true, description: 'Construction-time parameter overrides.' },
+    forecast_nout: { type: 'integer', minimum: 1, maximum: 4096 },
+    calls: { type: 'array', minItems: 1, maxItems: 8, items: object({
+      nout: { type: 'integer', minimum: 1, maximum: 4096, default: 8 },
+      inputs: { type: 'array', description: 'One finite-number array per input port. Omitted values are zero-filled.', items: { type: 'array', items: { type: 'number' } } },
+      set_params: { type: 'object', additionalProperties: { type: 'number' }, description: 'Numeric live updates applied immediately before this call.' },
+    }) },
+  })),
+  tool('save_js_block', 'Install an inline or browser-local JS Block into the browser-local library and return the generated repository file pair. This writes IndexedDB but does not bypass the human JavaScript review required for a run.', object({
+    name: text, id: text, label: text,
+    category: { type: 'string', description: 'GRC category, for example [Custom]/Filters.' },
+  }, ['name', 'id'])),
   tool('apply_edits', 'Apply an ordered batch of canvas edits in one call. Prefer this over the single-edit tools whenever a change needs more than one of them: the batch is one request instead of one per edit, and it runs in order, so an add_block that names its block explicitly can be followed by the set_params and connect entries using that name. Stops at the first failing edit and reports its index; everything before it stays applied.', object({
     edits: {
       type: 'array', minItems: 1, description: 'Edits applied in order.',
@@ -346,6 +380,22 @@ const pageInfo = (total: number, offset: number, returned: number) => ({
   ...(returned > 0 && offset + returned < total ? { next_offset: offset + returned } : {}),
 });
 
+const JS_HELP: Record<string, string> = {
+  overview: `A JS Block calls gr.export({...}) exactly once. The descriptor needs at least one input or output and exactly one of work(nout,input,output) or generalWork(nout,nin,input,output). Optional fields are label, doc, params, decimation, interpolation, history, outputMultiple, relativeRate, forecast, start and stop. Imports, stream tags and message ports are not supported. Use inspect_js_block, set_js_block_source and exercise_js_block rather than editing hidden cache parameters.`,
+  ports: `Ports are 'complex', 'float', 'int', 'short', 'byte', or {dtype,vlen}. complex and float are Float32Array; complex is interleaved I/Q and therefore has 2*nout*vlen scalar elements. int, short and byte use Int32Array, Int16Array and Int8Array. Never keep an input/output view after the current call returns.`,
+  scheduling: `work() is sync-like. It receives nout plus nout*decimation/interpolation input items and returning r consumes r*decimation/interpolation. generalWork() receives per-port nin and consumes nothing automatically: call this.consume(port,n) on every progress path. Return the number of output items produced, from 0 through nout. forecast(nout,required) fills one required count per input.`,
+  state: `The source is evaluated once on the main thread for its descriptor and again on the block's scheduler thread. Mutable per-instance state belongs on this, normally initialized in start(); mutable top-level state is wrong. Scalar params arrive on this. Numeric params can be updated between work calls by QT GUI Range controls.`,
+  debugging: `Use this.log(...) for the editor console; console.log from a scheduler worker reaches only devtools. Exercise candidate code with small deterministic arrays before a live run because a live work() that never returns cannot be interrupted. Throughput proves progress, not signal correctness: use known exercise outputs or a Probe in the visible graph.`,
+  examples: `Gain loop: for (let i=0;i<nout*2;i++) y[i]=x[i]*this.gain for complex, but only nout for float. Stateful transforms initialize this.previous in start(). A decimator reads x[i*decimation]. A general block computes n=Math.min(nout,...nin), writes n items, calls this.consume(0,n), and returns n. Repository examples include js_clip_cc, js_phase_unwrap_ff and js_peak_hold_ff; inspect or fork an instance to read the complete source.`,
+};
+
+function jsHelp(topic: unknown): Record<string, unknown> {
+  const key = String(topic || 'overview');
+  if (!JS_HELP[key]) throw new Error(`unknown JS help topic "${key}"`);
+  return { topic: key, contract: JS_HELP[key],
+    topics: Object.keys(JS_HELP).filter(item => item !== key) };
+}
+
 async function recordingMetadata(deps: AiToolDeps, args: any): Promise<Record<string, unknown>> {
   const captureOffset = boundedInteger(
     args.capture_offset, 0, 0, Number.MAX_SAFE_INTEGER, 'capture_offset');
@@ -380,10 +430,24 @@ function flowgraphJson(deps: AiReadDeps) {
       // parameters come from its own source, mid-edit — reports what it holds
       // rather than taking the canvas read down with it.
       const def = deps.definition(block);
+      const params = def ? nonDefaultParams(block, def) : { ...block.params };
+      let javascript: Record<string, unknown> | undefined;
+      if (block.id === 'wasm_js_block') {
+        const source = String(block.params._js_source || block.params._source_code || '');
+        delete params._source_code;
+        delete params._js_source;
+        delete params._js_io;
+        javascript = {
+          source_bytes: source.length,
+          source_hash: lightweightSourceHash(source),
+          source_omitted: 'call inspect_js_block with this instance name',
+        };
+      }
       return {
         name: block.name,
         id: block.id,
-        params: def ? nonDefaultParams(block, def) : { ...block.params },
+        params,
+        ...(javascript ? { javascript } : {}),
         enabled: block.enabled,
         bypassed: block.bypassed,
       };
@@ -400,6 +464,15 @@ function flowgraphJson(deps: AiReadDeps) {
     }),
     validation: issueJson(deps),
   };
+}
+
+function lightweightSourceHash(source: string): string {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < source.length; index++) {
+    hash ^= source.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash.toString(16).padStart(8, '0') + ':' + source.length;
 }
 
 /** Distinct block types whose parameters are worth seeding into a message. */
@@ -528,6 +601,19 @@ export async function dispatchAiTool(
     case 'get_recording_metadata': return {
       mutated: false, value: await recordingMetadata(deps, args),
     };
+    case 'get_js_block_help': return { mutated: false, value: jsHelp(args.topic) };
+    case 'inspect_js_block': return { mutated: false,
+      value: await deps.inspectJsBlock(String(args.name)) };
+    case 'create_js_block': return mutation(deps,
+      await deps.createJsBlock(args.name === undefined ? undefined : String(args.name), String(args.source)));
+    case 'set_js_block_source': return mutation(deps,
+      await deps.setJsBlockSource(String(args.name), String(args.source)));
+    case 'fork_js_block': return mutation(deps, await deps.forkJsBlock(String(args.name)));
+    case 'exercise_js_block': return { mutated: false,
+      value: await deps.exerciseJsBlock(args as Record<string, unknown>) };
+    case 'save_js_block': return { mutated: false, value: await deps.saveJsBlock(
+      String(args.name), String(args.id), args.label === undefined ? undefined : String(args.label),
+      args.category === undefined ? undefined : String(args.category)) };
     case 'apply_edits': return applyEdits(deps, args.edits);
     case 'replace_flowgraph': deps.replaceFlowgraph(String(args.grc)); return mutation(deps, { replaced: true });
     case 'validate': return { mutated: false, value: issueJson(deps) };

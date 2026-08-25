@@ -207,6 +207,211 @@ function loadRuntime(): Promise<string> {
   return runtimeText;
 }
 
+export interface JsExerciseCall {
+  nout?: number;
+  inputs?: number[][];
+  setParams?: Record<string, number>;
+}
+
+export interface JsExerciseRequest {
+  params?: Record<string, unknown>;
+  calls?: JsExerciseCall[];
+  forecastNout?: number;
+}
+
+const EXERCISE_TIMEOUT_MS = 2000;
+
+/**
+ * Execute a few bounded work() calls in a disposable Worker. Unlike a live GNU
+ * Radio scheduler thread, the Worker can be terminated if user code never
+ * returns. It runs the same js_runtime.js entry points and heap-view machinery
+ * as the runner, with outbound browser APIs removed before the source is read.
+ */
+export async function exerciseJsSource(
+  source: string, request: JsExerciseRequest = {},
+): Promise<Record<string, unknown>> {
+  const calls = request.calls?.length ? request.calls : [{ nout: 8 }];
+  if (calls.length > 8) throw new Error('exercise_js_block accepts at most 8 calls');
+  let scalars = 0;
+  for (const call of calls) {
+    const nout = Number(call.nout ?? 8);
+    if (!Number.isInteger(nout) || nout < 1 || nout > 4096)
+      throw new Error('each exercise call needs nout from 1 to 4096');
+    for (const input of call.inputs || []) {
+      if (!Array.isArray(input) || input.some(value => !Number.isFinite(Number(value))))
+        throw new Error('exercise inputs must be arrays of finite numbers');
+      scalars += input.length;
+    }
+  }
+  if (scalars > 65_536) throw new Error('exercise inputs are limited to 65,536 scalar values');
+  if (request.forecastNout !== undefined &&
+      (!Number.isInteger(request.forecastNout) || request.forecastNout < 1 ||
+       request.forecastNout > 4096))
+    throw new Error('forecastNout must be an integer from 1 to 4096');
+
+  const runtime = await loadRuntime();
+  const workerSource = `'use strict';
+// This worker is a computation sandbox, not a second browser runtime. Remove
+// outbound and worker-spawning APIs before evaluating any block source.
+self.fetch = undefined; self.XMLHttpRequest = undefined; self.WebSocket = undefined;
+self.EventSource = undefined; self.importScripts = undefined; self.Worker = undefined;
+var __buffer = new ArrayBuffer(16 * 1024 * 1024);
+var __next = 4096;
+var __enc = new TextEncoder(), __dec = new TextDecoder();
+function __alloc(bytes, alignment) {
+  alignment = alignment || 8;
+  __next = (__next + alignment - 1) & ~(alignment - 1);
+  var ptr = __next; __next += bytes;
+  if (__next >= __buffer.byteLength) throw new Error('the exercise exceeded its bounded heap');
+  return ptr;
+}
+function GROWABLE_HEAP_I8() { return new Int8Array(__buffer); }
+function GROWABLE_HEAP_I16() { return new Int16Array(__buffer); }
+function GROWABLE_HEAP_I32() { return new Int32Array(__buffer); }
+function GROWABLE_HEAP_F32() { return new Float32Array(__buffer); }
+function UTF8ToString(ptr) {
+  var heap = new Uint8Array(__buffer), end = ptr;
+  while (end < heap.length && heap[end]) end++;
+  return __dec.decode(heap.subarray(ptr, end));
+}
+function stringToUTF8(text, ptr, cap) {
+  var bytes = __enc.encode(String(text));
+  var n = Math.max(0, Math.min(bytes.length, cap - 1));
+  new Uint8Array(__buffer, ptr, n).set(bytes.subarray(0, n));
+  new Uint8Array(__buffer)[ptr + n] = 0;
+}
+function stringToNewUTF8(text) {
+  var bytes = __enc.encode(String(text)), ptr = __alloc(bytes.length + 1, 1);
+  stringToUTF8(text, ptr, bytes.length + 1); return ptr;
+}
+${runtime}
+var __types = {
+  complex: { C: Float32Array, elems: 2, bytes: 4 },
+  float: { C: Float32Array, elems: 1, bytes: 4 },
+  int: { C: Int32Array, elems: 1, bytes: 4 },
+  short: { C: Int16Array, elems: 1, bytes: 2 },
+  byte: { C: Int8Array, elems: 1, bytes: 1 }
+};
+function __writeText(text) {
+  var bytes = __enc.encode(String(text)), ptr = __alloc(bytes.length + 1, 1);
+  stringToUTF8(text, ptr, bytes.length + 1); return ptr;
+}
+function __error(ptr) { return UTF8ToString(ptr) || 'the JavaScript exercise failed'; }
+function __summary(values) {
+  var list = Array.from(values), head = list.slice(0, 128);
+  var min = list.length ? Math.min.apply(null, list) : null;
+  var max = list.length ? Math.max.apply(null, list) : null;
+  return { values: head, total_values: list.length,
+    truncated: list.length > head.length, min: min, max: max };
+}
+self.onmessage = function (event) {
+  try {
+    var payload = event.data || {}, described = __grJs.describeSource(payload.source);
+    if (!described.ok) throw new Error(described.error);
+    var info = described.info, err = __alloc(4096, 8), wordsPtr = __alloc(__grJs.WORDS * 4, 8);
+    var words = GROWABLE_HEAP_I32(), base = wordsPtr >> 2, handle = 1;
+    var srcPtr = __writeText(payload.source), paramsPtr = __writeText(JSON.stringify(payload.params || {}));
+    var rc = __grJs.compile(handle, srcPtr, paramsPtr, err, 4096);
+    if (rc) throw new Error(__error(err));
+    var forecast = null;
+    if (payload.forecastNout !== undefined) {
+      words[base] = payload.forecastNout | 0; words[base + 1] = info.inputs.length;
+      rc = __grJs.forecast(handle, wordsPtr, err, 4096);
+      if (rc) throw new Error(__error(err));
+      forecast = [];
+      var forecastBase = 8 + __grJs.MAX_PORTS * 4;
+      for (var fi = 0; fi < info.inputs.length; fi++) forecast.push(words[base + forecastBase + fi]);
+    }
+    var results = [];
+    for (var ci = 0; ci < payload.calls.length; ci++) {
+      var call = payload.calls[ci], nout = call.nout | 0, inputs = call.inputs || [];
+      Object.keys(call.setParams || {}).forEach(function (name) {
+        if (info.numericParams.indexOf(name) < 0)
+          throw new Error('no numeric live parameter named ' + name);
+        var namePtr = __writeText(name);
+        if (__grJs.setParam(handle, namePtr, Number(call.setParams[name])) < 0)
+          throw new Error('could not update parameter ' + name);
+      });
+      words = GROWABLE_HEAP_I32();
+      words[base] = nout; words[base + 1] = info.inputs.length;
+      words[base + 2] = info.outputs.length; words[base + 3] = 0; words[base + 4] = 0;
+      var inputPtrs = [], outputViews = [];
+      for (var ii = 0; ii < info.inputs.length; ii++) {
+        var ip = info.inputs[ii], its = __types[ip.dtype], raw = inputs[ii] || [];
+        var stride = its.elems * ip.vlen;
+        var neededItems = info.general ? Math.floor(raw.length / stride)
+          : Math.floor(nout * info.decim / info.interp);
+        var neededValues = neededItems * stride;
+        if (raw.length && raw.length < neededValues)
+          throw new Error('call ' + ci + ' input ' + ii + ' needs at least ' + neededValues + ' scalar values');
+        var inPtr = __alloc(Math.max(1, neededValues) * its.bytes, its.bytes);
+        var inView = new its.C(__buffer, inPtr, neededValues);
+        if (raw.length) inView.set(raw.slice(0, neededValues));
+        inputPtrs.push(inPtr);
+        words[base + 8 + ii] = inPtr;
+        words[base + 8 + __grJs.MAX_PORTS + ii] = neededItems;
+      }
+      for (var oi = 0; oi < info.outputs.length; oi++) {
+        var op = info.outputs[oi], ots = __types[op.dtype], count = nout * ots.elems * op.vlen;
+        var outPtr = __alloc(Math.max(1, count) * ots.bytes, ots.bytes);
+        outputViews.push(new ots.C(__buffer, outPtr, count));
+        words[base + 8 + __grJs.MAX_PORTS * 2 + oi] = outPtr;
+      }
+      rc = __grJs.work(handle, wordsPtr, err, 4096);
+      if (rc) throw new Error(__error(err));
+      words = GROWABLE_HEAP_I32();
+      var produced = words[base + 3], consumeEach = words[base + 4], consumed = [];
+      if (produced < 0 || produced > nout)
+        throw new Error('call ' + ci + ' returned ' + produced + ' produced items for nout=' + nout);
+      var consumeBase = 8 + __grJs.MAX_PORTS * 3;
+      for (var co = 0; co < info.inputs.length; co++) {
+        var amount = consumeEach >= 0 ? consumeEach : words[base + consumeBase + co];
+        var available = words[base + 8 + __grJs.MAX_PORTS + co];
+        if (amount < 0 || amount > available)
+          throw new Error('call ' + ci + ' consumed ' + amount + ' items from input ' + co +
+            ', which had ' + available);
+        consumed.push(amount);
+      }
+      var logPtr = __alloc(4096, 1), logged = __grJs.takeLog(handle, logPtr, 4096);
+      results.push({ produced: produced, consumed: consumed,
+        outputs: outputViews.map(__summary), log: logged ? UTF8ToString(logPtr).split('\\n') : [] });
+    }
+    rc = __grJs.stop(handle, err, 4096);
+    if (rc) throw new Error(__error(err));
+    __grJs.destroy(handle);
+    self.postMessage({ ok: true, info: info, forecast: forecast, calls: results });
+  } catch (error) {
+    self.postMessage({ ok: false, error: String(error && (error.stack || error.message) || error) });
+  }
+};`;
+
+  const blob = new Blob([workerSource], { type: 'text/javascript' });
+  const url = URL.createObjectURL(blob);
+  const worker = new Worker(url);
+  try {
+    return await new Promise<Record<string, unknown>>((resolve, reject) => {
+      let settled = false;
+      const finish = (fn: () => void) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        fn();
+      };
+      const timer = setTimeout(() => finish(() => reject(new Error(
+        'the JS Block exercise timed out — work() or another hook may not return'))),
+      EXERCISE_TIMEOUT_MS);
+      worker.onmessage = event => finish(() => event.data?.ok
+        ? resolve(event.data) : reject(new Error(event.data?.error || 'the exercise failed')));
+      worker.onerror = event => finish(() => reject(new Error(event.message || 'the exercise worker failed')));
+      worker.postMessage({ source, params: request.params || {}, calls,
+        forecastNout: request.forecastNout });
+    });
+  } finally {
+    worker.terminate();
+    URL.revokeObjectURL(url);
+  }
+}
+
 // The page the sandbox runs. It installs the stand-ins js_runtime.js needs at
 // call time -- only describeSource() is used here, and it touches none of the
 // heap accessors -- then answers one message with one descriptor.

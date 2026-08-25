@@ -16,6 +16,7 @@ import { bundleModule } from './bundle-module.mjs';
 import { editorSource as source, cssSource as css } from './editor-contract-source.mjs';
 
 const js = await bundleModule('../src/js-block.ts');
+const { analyzeJsSource } = await bundleModule('../src/js-block-analysis.ts');
 const {
   jsDef, jsDefForCache, parseJsIo, serializeJsIo, jsSourceOf, jsSourceParamOf,
   sanitizeBlockId, generateBlockYml, sourceHash,
@@ -261,6 +262,31 @@ assert.match(jsBlockSource, /INTROSPECT_TIMEOUT_MS = \d+/,
   'an infinite loop in a source must not wedge the editor while you are typing');
 assert.match(jsBlockSource, /RUNTIME_URL = '\/runner\/build\/js_runtime\.js'/,
   'the editor must validate descriptors with the runner’s own runtime, not a copy');
+
+const warnings = analyzeJsSource(`
+let shared = [];
+gr.export({
+  inputs: ['float'], outputs: ['float'],
+  generalWork(nout, nin, input, output) {
+    this.cached = input[0];
+    console.log(nout);
+    for (let i = 0; i < nout; i++) { const temporary = []; }
+    return nout;
+  },
+});`);
+const warningCodes = new Set(warnings.map(warning => warning.code));
+for (const code of ['top-level-state', 'cached-buffer-view', 'console-log',
+  'hot-allocation', 'missing-consume'])
+  assert.ok(warningCodes.has(code), `the JS analyzer should report ${code}`);
+assert.ok(warnings.every(warning => warning.line >= 1 && warning.column >= 1),
+  'warnings carry source locations Graham can act on');
+
+assert.match(source, /inspectJsBlock:/,
+  'Graham must have a dedicated complete-source inspection path');
+assert.match(source, /setJsBlockSource:/,
+  'Graham source edits must use the introspecting JS path');
+assert.match(source, /review_required_before_run/,
+  'a Graham source edit must preserve the human review boundary');
 
 // Run consent, on the Run click and before anything is fetched or bound.
 assert.match(source, /const pendingJs = unacceptedJsSources\(\);[\s\S]{0,200}?askToRunJavaScript\(pendingJs\)/,

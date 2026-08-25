@@ -12,6 +12,7 @@ const {
   openRouterAuthorizationUrl,
 } = await bundleModule('../src/ai/openrouter.ts');
 const { listModels } = await bundleModule('../src/ai/client.ts');
+const { javascriptErrors } = await bundleModule('../src/ai/harness.ts');
 const {
   AI_PROVIDERS,
   DEFAULT_OPENAI_MODEL,
@@ -41,6 +42,14 @@ assert.equal(AI_PROVIDERS.openai.oauth, false, 'an OpenAI key is pasted, never O
 assert.notEqual(AI_PROVIDERS.openai.storage.key, AI_PROVIDERS.openrouter.storage.key,
   'each provider keeps its own key');
 assert.equal(GRAPH_PREVIEW_DELAY_MS, 1000);
+
+assert.deepEqual(javascriptErrors([
+  "JS Block 'gain_0': Error: [work] Error: boom\n    at Object.work (eval at x, <anonymous>:8:11)",
+]), [{
+  block: 'gain_0', phase: 'work', message: 'Error: boom',
+  source_line: 5, source_column: 11,
+  stack: "JS Block 'gain_0': Error: [work] Error: boom\n    at Object.work (eval at x, <anonymous>:8:11)",
+}], 'Graham receives a structured JS phase and corrected source location');
 
 // The free shared-key provider leads the list and is what a first-time visitor
 // lands on. It is keyless by construction: no key page, no storage slot a key
@@ -209,6 +218,9 @@ const deps = {
   connect() {}, disconnect() {}, setEnabled() {}, autoArrange() {}, replaceFlowgraph() {},
   listExamples: async () => [], readExample: async () => '',
   listRecordings: async () => [], readRecordingMetadata: async () => ({ recording: {}, metadata: {} }),
+  inspectJsBlock: async () => ({}), createJsBlock: async () => ({}),
+  setJsBlockSource: async () => ({}), forkJsBlock: async () => ({}),
+  exerciseJsBlock: async () => ({}), saveJsBlock: async () => ({}),
   runFlowgraph: async () => ({ started: true }),
 };
 

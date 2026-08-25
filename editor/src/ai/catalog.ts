@@ -5,6 +5,7 @@ export interface CatalogEntry {
   id: string;
   label: string;
   category: string;
+  javascript?: boolean;
 }
 
 export interface CatalogDeps {
@@ -27,7 +28,7 @@ export function runnableIndex(entries: CatalogEntry[]): string {
   }
   return [...byCategory.keys()].sort().map(category =>
     `${category}:\n${byCategory.get(category)!
-      .map(entry => `  ${entry.id} | ${entry.label}`).join('\n')}`).join('\n');
+      .map(entry => `  ${entry.id} | ${entry.label}${entry.javascript ? ' | JavaScript' : ''}`).join('\n')}`).join('\n');
 }
 
 function score(entry: CatalogEntry, words: string[]): number {

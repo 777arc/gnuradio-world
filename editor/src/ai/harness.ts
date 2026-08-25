@@ -35,6 +35,33 @@ interface RawBlock {
   msg_only: boolean;
   ref: boolean;
   value?: unknown;
+  javascript?: {
+    work_calls: number;
+    last_requested: number;
+    last_produced: number;
+    last_consumed: number;
+    zero_progress_calls: number;
+  };
+}
+
+export function javascriptErrors(lines: string[]): Record<string, unknown>[] {
+  const found: Record<string, unknown>[] = [];
+  const seen = new Set<string>();
+  for (const text of lines) {
+    const match = text.match(/JS Block '([^']+)':\s*(?:Error:\s*)?\[(descriptor|compile|start|forecast|work|stop)\]\s*([^\n]*)/i);
+    if (!match) continue;
+    const key = `${match[1]}:${match[2]}:${match[3]}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const location = text.match(/<anonymous>:(\d+):(\d+)/);
+    found.push({
+      block: match[1], phase: match[2].toLowerCase(), message: match[3].trim(),
+      ...(location ? { source_line: Math.max(1, Number(location[1]) - 3),
+        source_column: Number(location[2]) } : {}),
+      stack: text.slice(0, 4000),
+    });
+  }
+  return found;
 }
 
 const sleep = (ms: number, signal?: AbortSignal) => new Promise<void>((resolve, reject) => {
@@ -108,6 +135,16 @@ function runReport(first: RawStats, last: RawStats, consoleLines: string[]): Rec
       msg_only: !!block.msg_only,
       stalled: !block.msg_only && Number(block.items || 0) === 0,
       ...(block.value === undefined ? {} : { value: block.value }),
+      ...(block.javascript ? { javascript: {
+        work_calls: Number(block.javascript.work_calls || 0),
+        calls_per_s: Math.round(Math.max(0,
+          Number(block.javascript.work_calls || 0) -
+          Number(previous?.javascript?.work_calls || 0)) / elapsed),
+        last_requested: Number(block.javascript.last_requested || 0),
+        last_produced: Number(block.javascript.last_produced || 0),
+        last_consumed: Number(block.javascript.last_consumed || 0),
+        zero_progress_calls: Number(block.javascript.zero_progress_calls || 0),
+      } } : {}),
     };
   });
   const ref = last.blocks.find(block => block.ref);
@@ -127,6 +164,10 @@ function runReport(first: RawStats, last: RawStats, consoleLines: string[]): Rec
     findings.push(`output buffers are ${(fullestOutput.out_full * 100).toFixed(0)}% full after ${fullestOutput.name}`);
   if (realtime !== null)
     findings.unshift(`realtime factor ${realtime.toFixed(2)}× at ${ref?.name || 'the reference block'}`);
+  const jsBlocks = blocks.filter(block => block.javascript).map(block => ({
+    name: block.name, id: block.id, ...block.javascript,
+  }));
+  const jsErrors = javascriptErrors(consoleLines);
   return {
     started: true,
     ran_seconds: elapsed,
@@ -135,6 +176,9 @@ function runReport(first: RawStats, last: RawStats, consoleLines: string[]): Rec
     findings,
     console: consoleLines.slice(0, 50),
     errors: consoleLines.filter(line => /(?:error|failed|cannot run)/i.test(line)).slice(0, 20),
+    ...(jsBlocks.length || jsErrors.length ? { javascript: {
+      blocks: jsBlocks, errors: jsErrors,
+    } } : {}),
     still_running: true,
   };
 }
@@ -168,7 +212,12 @@ export function runFlowgraph(
       for (;;) {
         await sleep(80, signal);
         const failure = readFailure(frame, token);
-        if (failure) return { started: false, error: failure, console: lines.slice(0, 50), still_running: false };
+        if (failure) {
+          const jsErrors = javascriptErrors([failure, ...lines]);
+          return { started: false, error: failure, console: lines.slice(0, 50),
+            ...(jsErrors.length ? { javascript: { blocks: [], errors: jsErrors } } : {}),
+            still_running: false };
+        }
         const reading = readStats(frame, token);
         if (reading) {
           if (!first && reading.uptime_s >= Math.min(1, seconds / 3)) first = reading;
