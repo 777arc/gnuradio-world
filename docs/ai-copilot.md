@@ -231,6 +231,24 @@ bubble.
 Prefer granular operations for changes to an existing graph because the editor's
 schema — especially hand-written block definitions — is authoritative.
 
+## Hosted SigMF recordings
+
+Copilot reads the same live R2 catalog as the Recordings palette rather than a
+recording list baked into its prompt. `list_recordings` reads `index.json`,
+supports bounded search/pagination, and returns the exact base key accepted by
+GR World Recording together with the index's catalog fields. The system prompt
+names the catalog and tools so the model knows these examples exist before one
+has been placed on the canvas.
+
+Full metadata remains in each recording's `.sigmf-meta` object.
+`get_recording_metadata` accepts an indexed base key (either SigMF suffix is
+also accepted), fetches that object, and returns its global and other top-level
+fields. Because SigMF permits unbounded capture and annotation arrays, the tool
+returns the first 10 of each by default, reports totals and next offsets, and
+pages the arrays independently. A single call is capped at 100 entries from
+either array so an early tool result cannot make every later agent round
+unbounded.
+
 ## Visible runs and evidence
 
 `run_flowgraph` calls `main.ts`'s `run()` wrapper and never constructs a second

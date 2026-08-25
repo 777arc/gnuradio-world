@@ -65,6 +65,36 @@ const deps = {
   replaceFlowgraph() {},
   listExamples: async () => ['test.grc'],
   readExample: async () => 'options: {}',
+  listRecordings: async () => [{
+    name: 'satellite/ao-73', title: 'AO-73 telemetry', dataFile: 'satellite/ao-73.sigmf-data',
+    metaFile: 'satellite/ao-73.sigmf-meta', datatype: 'ci16_le', sampleRate: 2_000_000,
+    author: 'GNU Radio', description: 'BPSK satellite packets', frequency: 145_935_000,
+    annotationCount: 13, annotationLabels: ['packet'], captureDatetime: '2026-08-25T12:00:00Z',
+    category: 'Satellite', tags: ['BPSK', 'telemetry'], sampleCount: 4_000_000,
+    byteLength: 16_000_000, downloadUrl: 'https://recordings.test/satellite/ao-73.sigmf-data',
+    metadataUrl: 'https://recordings.test/satellite/ao-73.sigmf-meta',
+  }, {
+    name: 'fm/broadcast', title: 'FM broadcast', dataFile: 'fm/broadcast.sigmf-data',
+    metaFile: 'fm/broadcast.sigmf-meta', datatype: 'cf32_le', sampleRate: 2_400_000,
+    author: null, description: null, frequency: 99_500_000, annotationCount: 0,
+    annotationLabels: [], captureDatetime: null, category: 'Broadcast', tags: ['FM'],
+    sampleCount: 1_000_000, byteLength: 8_000_000,
+    downloadUrl: 'https://recordings.test/fm/broadcast.sigmf-data',
+    metadataUrl: 'https://recordings.test/fm/broadcast.sigmf-meta',
+  }],
+  readRecordingMetadata: async name => {
+    if (!['satellite/ao-73', 'satellite/ao-73.sigmf-meta'].includes(name))
+      throw new Error(`no hosted recording named "${name}"; call list_recordings first`);
+    const recording = (await deps.listRecordings())[0];
+    return { recording, metadata: {
+      global: { 'core:datatype': 'ci16_le', 'core:sample_rate': 2_000_000 },
+      captures: Array.from({ length: 12 }, (_, index) => ({ 'core:sample_start': index * 100 })),
+      annotations: Array.from({ length: 13 }, (_, index) => ({
+        'core:sample_start': index * 10, 'core:label': `packet ${index}`,
+      })),
+      collection: { note: 'top-level extension data is retained' },
+    } };
+  },
   runFlowgraph: async () => ({ started: true }),
 };
 
@@ -144,6 +174,36 @@ await assert.rejects(
 result = await dispatchAiTool(deps, 'describe_block', { id: 'source' });
 assert.equal(result.value.parameters[0].id, 'rate');
 assert.equal((await dispatchAiTool(deps, 'validate', {})).value.length, 0);
+
+// Hosted SigMF examples are discovered from the live index, with a compact
+// searchable page rather than an unbounded payload in the system prompt.
+const recordingList = await dispatchAiTool(deps, 'list_recordings', { query: 'satellite BPSK' });
+assert.equal(recordingList.mutated, false);
+assert.equal(recordingList.value.total, 2);
+assert.equal(recordingList.value.matched, 1);
+assert.equal(recordingList.value.recordings[0].recording, 'satellite/ao-73');
+assert.equal(recordingList.value.recordings[0].sample_rate, 2_000_000);
+assert.equal(recordingList.value.recordings[0].metadataUrl, undefined,
+  'catalog results stay compact; metadata has a dedicated tool');
+await assert.rejects(dispatchAiTool(deps, 'list_recordings', { limit: 101 }), /limit must be/);
+
+// SigMF permits unlimited captures and annotations. Ten of each are enough for
+// the normal answer; totals and next offsets make the rest explicitly pageable.
+const recordingMeta = await dispatchAiTool(
+  deps, 'get_recording_metadata', { recording: 'satellite/ao-73' });
+assert.equal(recordingMeta.value.metadata.captures.length, 10);
+assert.equal(recordingMeta.value.metadata.annotations.length, 10);
+assert.equal(recordingMeta.value.metadata.collection.note, 'top-level extension data is retained');
+assert.deepEqual(recordingMeta.value.pages.captures,
+  { total: 12, offset: 0, returned: 10, next_offset: 10 });
+assert.deepEqual(recordingMeta.value.pages.annotations,
+  { total: 13, offset: 0, returned: 10, next_offset: 10 });
+const laterMeta = await dispatchAiTool(deps, 'get_recording_metadata', {
+  recording: 'satellite/ao-73.sigmf-meta', capture_offset: 10, capture_limit: 2,
+  annotation_offset: 11, annotation_limit: 2,
+});
+assert.equal(laterMeta.value.metadata.captures[0]['core:sample_start'], 1000);
+assert.equal(laterMeta.value.metadata.annotations[0]['core:label'], 'packet 11');
 
 // Long doxygen prose stays in the transcript for the rest of the turn, so it is
 // truncated to a head that names how to read the rest.

@@ -8,6 +8,7 @@ Rules specific to this runtime:
 - A byte stream that should be human-readable needs `wasm_text_sink`; File Sink cannot expose the in-memory browser filesystem.
 - Every flowgraph carries a `samp_rate` variable. Reuse it consistently for rate-bearing blocks and GUI axes.
 - Parameter expressions are resolved by the editor when run_flowgraph uses the visible Run path. Do not precompute useful variable references.
+- GNU Radio World hosts example SigMF recordings for use with GR World Recording. Call list_recordings to discover their exact recording keys and catalog metadata, then get_recording_metadata when captures, annotations, or other SigMF fields matter. That metadata tool returns only the first 10 captures and first 10 annotations by default; page either unlimited array with its offset and limit arguments.
 - Only blocks in the runnable index below can execute in this build. Call describe_block before setting unfamiliar parameters or ports.
 - Unknown parameter names are errors. Do not guess after an error: use describe_block and retry with the declared ID.
 - Message-only blocks legitimately report zero stream items. The run report marks them `msg_only`; never call those stalled.

@@ -232,6 +232,13 @@ action opens the recording alone, **Add** drops a GR World Recording (plus an
 IShort To Complex for `ci16`) on the canvas, and **More** reveals the permanent
 key, full metadata, downloads and the copy-link action.
 
+Flowgraph Copilot uses that same source of truth through `list_recordings` and
+fetches a selected recording's `.sigmf-meta` through
+`get_recording_metadata`. The latter pages captures and annotations separately,
+returning the first 10 of each by default, because neither SigMF array has a
+specified maximum length. See [docs/ai-copilot.md](ai-copilot.md) for the tool
+contract and token bounds.
+
 The copied URL uses `#recording=<base key>` — the same base key the index calls
 `base_filename`, and the same one the block stores, so a link is readable and
 survives a re-index. View and Link remain available when the datatype has no

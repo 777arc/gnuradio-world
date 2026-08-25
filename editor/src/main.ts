@@ -4452,6 +4452,22 @@ function aiToolDependencies(): Omit<AiToolDeps, 'runFlowgraph'> {
       if (!response.ok) throw new Error(`example "${path}" could not be read (${response.status})`);
       return response.text();
     },
+    listRecordings: loadExampleRecordings,
+    readRecordingMetadata: async requested => {
+      let key: string;
+      try { key = normalizeRecordingKey(requested); }
+      catch { throw new Error(`invalid recording key "${requested}"; call list_recordings first`); }
+      const recording = (await loadExampleRecordings()).find(item => item.name === key);
+      if (!recording)
+        throw new Error(`no hosted recording named "${requested}"; call list_recordings first`);
+      const response = await fetch(recording.metadataUrl, { cache: 'no-store' });
+      if (!response.ok)
+        throw new Error(`metadata for "${key}" could not be read (${response.status})`);
+      const metadata = await response.json();
+      if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata))
+        throw new Error(`metadata for "${key}" is not a SigMF document`);
+      return { recording, metadata: metadata as Record<string, unknown> };
+    },
   };
 }
 

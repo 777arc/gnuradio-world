@@ -185,6 +185,7 @@ const deps = {
   addBlock() { throw new Error('unused'); }, removeBlock() {}, setParams() {},
   connect() {}, disconnect() {}, setEnabled() {}, autoArrange() {}, replaceFlowgraph() {},
   listExamples: async () => [], readExample: async () => '',
+  listRecordings: async () => [], readRecordingMetadata: async () => ({ recording: {}, metadata: {} }),
   runFlowgraph: async () => ({ started: true }),
 };
 

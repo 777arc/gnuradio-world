@@ -1,5 +1,6 @@
 import type { RunnableDef, ResolvedPort } from '../block-defs';
 import type { Conn, Inst, ValidationIssue } from '../graph-model';
+import type { ExampleRecording } from '../recording-catalog';
 import {
   briefBlock, describeBlock, nonDefaultParams, searchCatalog,
   type CatalogDeps, type CatalogEntry,
@@ -23,6 +24,11 @@ export interface AiToolDeps {
   replaceFlowgraph(grc: string): void;
   listExamples(): Promise<string[]>;
   readExample(path: string): Promise<string>;
+  listRecordings(): Promise<ExampleRecording[]>;
+  readRecordingMetadata(name: string): Promise<{
+    recording: ExampleRecording;
+    metadata: Record<string, unknown>;
+  }>;
   runFlowgraph(seconds: number, signal?: AbortSignal): Promise<Record<string, unknown>>;
 }
 
@@ -91,6 +97,18 @@ export const AI_TOOLS: ToolDefinition[] = [
   }, ['id'])),
   tool('list_examples', 'List example flowgraph paths available in this site.', object({})),
   tool('read_example', 'Read one example .grc file by its listed path.', object({ path: text }, ['path'])),
+  tool('list_recordings', 'List hosted example SigMF recordings from GNU Radio World\'s live recording index. Returns catalog metadata and the exact recording key used by GR World Recording; use get_recording_metadata for the complete SigMF global object and capture/annotation pages.', object({
+    query: { type: 'string', description: 'Optional case-insensitive search across the recording key and catalog metadata. Every whitespace-separated term must match.' },
+    offset: { type: 'integer', minimum: 0, default: 0 },
+    limit: { type: 'integer', minimum: 1, maximum: 100, default: 50 },
+  })),
+  tool('get_recording_metadata', 'Fetch the SigMF metadata associated with one hosted recording key. The global object and other top-level fields are returned in full; captures and annotations default to the first 10 and are paged independently because either array can be unlimited.', object({
+    recording: { type: 'string', description: 'Exact recording key returned by list_recordings (the .sigmf-data or .sigmf-meta suffix is also accepted).' },
+    capture_offset: { type: 'integer', minimum: 0, default: 0 },
+    capture_limit: { type: 'integer', minimum: 0, maximum: 100, default: 10 },
+    annotation_offset: { type: 'integer', minimum: 0, default: 0 },
+    annotation_limit: { type: 'integer', minimum: 0, maximum: 100, default: 10 },
+  }, ['recording'])),
   tool('apply_edits', 'Apply an ordered batch of canvas edits in one call. Prefer this over the single-edit tools whenever a change needs more than one of them: the batch is one request instead of one per edit, and it runs in order, so an add_block that names its block explicitly can be followed by the set_params and connect entries using that name. Stops at the first failing edit and reports its index; everything before it stays applied.', object({
     edits: {
       type: 'array', minItems: 1, description: 'Edits applied in order.',
@@ -214,6 +232,86 @@ function exactExamplePath(paths: string[], requested: string): string {
   const match = paths.find(path => path.replace(/\.grc$/, '') === normalized);
   if (!match) throw new Error(`no example named "${requested}"; call list_examples first`);
   return match;
+}
+
+const boundedInteger = (
+  value: unknown, fallback: number, minimum: number, maximum: number, name: string,
+): number => {
+  if (value === undefined || value === null) return fallback;
+  const number = Number(value);
+  if (!Number.isInteger(number) || number < minimum || number > maximum)
+    throw new Error(`${name} must be an integer from ${minimum} to ${maximum}`);
+  return number;
+};
+
+/** The useful index fields, named the way the SigMF index and block do. */
+function recordingSummary(recording: ExampleRecording): Record<string, unknown> {
+  return {
+    recording: recording.name,
+    title: recording.title,
+    datatype: recording.datatype,
+    sample_rate: recording.sampleRate,
+    frequency: recording.frequency,
+    capture_datetime: recording.captureDatetime,
+    author: recording.author,
+    description: recording.description,
+    category: recording.category,
+    tags: recording.tags,
+    number_of_samples: recording.sampleCount,
+    byte_length: recording.byteLength,
+    number_of_annotations: recording.annotationCount,
+    annotation_labels: recording.annotationLabels,
+  };
+}
+
+async function listRecordings(deps: AiToolDeps, args: any): Promise<Record<string, unknown>> {
+  const recordings = await deps.listRecordings();
+  const query = String(args.query || '').trim().toLowerCase();
+  const terms = query.split(/\s+/).filter(Boolean);
+  const matching = terms.length ? recordings.filter(recording => {
+    const haystack = JSON.stringify(recordingSummary(recording)).toLowerCase();
+    return terms.every(term => haystack.includes(term));
+  }) : recordings;
+  const offset = boundedInteger(args.offset, 0, 0, Number.MAX_SAFE_INTEGER, 'offset');
+  const limit = boundedInteger(args.limit, 50, 1, 100, 'limit');
+  const page = matching.slice(offset, offset + limit).map(recordingSummary);
+  return {
+    total: recordings.length,
+    matched: matching.length,
+    offset,
+    returned: page.length,
+    ...(offset + page.length < matching.length ? { next_offset: offset + page.length } : {}),
+    recordings: page,
+  };
+}
+
+const pageInfo = (total: number, offset: number, returned: number) => ({
+  total,
+  offset,
+  returned,
+  ...(returned > 0 && offset + returned < total ? { next_offset: offset + returned } : {}),
+});
+
+async function recordingMetadata(deps: AiToolDeps, args: any): Promise<Record<string, unknown>> {
+  const captureOffset = boundedInteger(
+    args.capture_offset, 0, 0, Number.MAX_SAFE_INTEGER, 'capture_offset');
+  const captureLimit = boundedInteger(args.capture_limit, 10, 0, 100, 'capture_limit');
+  const annotationOffset = boundedInteger(
+    args.annotation_offset, 0, 0, Number.MAX_SAFE_INTEGER, 'annotation_offset');
+  const annotationLimit = boundedInteger(args.annotation_limit, 10, 0, 100, 'annotation_limit');
+  const { recording, metadata } = await deps.readRecordingMetadata(String(args.recording || ''));
+  const captures = Array.isArray(metadata.captures) ? metadata.captures : [];
+  const annotations = Array.isArray(metadata.annotations) ? metadata.annotations : [];
+  const capturePage = captures.slice(captureOffset, captureOffset + captureLimit);
+  const annotationPage = annotations.slice(annotationOffset, annotationOffset + annotationLimit);
+  return {
+    recording: recordingSummary(recording),
+    metadata: { ...metadata, captures: capturePage, annotations: annotationPage },
+    pages: {
+      captures: pageInfo(captures.length, captureOffset, capturePage.length),
+      annotations: pageInfo(annotations.length, annotationOffset, annotationPage.length),
+    },
+  };
 }
 
 /**
@@ -370,6 +468,10 @@ export async function dispatchAiTool(
       const path = exactExamplePath(paths, String(args.path));
       return { mutated: false, value: { path, grc: await deps.readExample(path) } };
     }
+    case 'list_recordings': return { mutated: false, value: await listRecordings(deps, args) };
+    case 'get_recording_metadata': return {
+      mutated: false, value: await recordingMetadata(deps, args),
+    };
     case 'apply_edits': return applyEdits(deps, args.edits);
     case 'replace_flowgraph': deps.replaceFlowgraph(String(args.grc)); return mutation(deps, { replaced: true });
     case 'validate': return { mutated: false, value: issueJson(deps) };
