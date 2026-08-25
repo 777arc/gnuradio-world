@@ -30,6 +30,14 @@ Other triggers: `workflow_dispatch` builds without deploying unless you tick
 scripts end to end. A weekly `schedule` run exists purely to keep the caches
 alive — GitHub evicts anything unused for 7 days, and it never deploys.
 
+The native GNU Radio compatibility check is separate from that build. The
+`Native GNU Radio Examples` workflow (`native-gnuradio.yml`) has only a
+`workflow_dispatch` trigger: it never runs for a push, pull request, schedule,
+or deploy. A manual run builds `native-gnuradio-validation/Dockerfile`, installs
+Ubuntu 26.04's packaged GNU Radio, replaces GUI sinks in temporary flowgraph
+copies, and validates the examples. Dispatch inputs control the runtime window,
+worker count, and generation-only mode.
+
 **The two Cloudflare Workers are not part of any of this.**
 `workers/sigmf-indexer/` and `workers/ai-proxy/` deploy by hand with `wrangler`,
 each with its own tests and README, and no workflow touches them. A change to a

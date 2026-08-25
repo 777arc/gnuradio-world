@@ -1,0 +1,55 @@
+name: Native GNU Radio Examples
+
+# Manual compatibility check against the GNU Radio package shipped by Ubuntu
+# 26.04. Deliberately no push, pull_request, schedule, or workflow_run trigger.
+on:
+  workflow_dispatch:
+    inputs:
+      run_seconds:
+        description: "Seconds each generated flowgraph must stay healthy"
+        required: true
+        default: "3"
+        type: string
+      jobs:
+        description: "Number of flowgraphs to validate concurrently"
+        required: true
+        default: "4"
+        type: string
+      generate_only:
+        description: "Only generate and syntax-check; do not execute flowgraphs"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-gnuradio-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Ubuntu 26.04 packaged GNU Radio
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Build the container and validate examples
+        env:
+          RUN_SECONDS: ${{ inputs.run_seconds }}
+          VALIDATOR_JOBS: ${{ inputs.jobs }}
+          GENERATE_ONLY: ${{ inputs.generate_only }}
+        run: |
+          set -euo pipefail
+          arguments=(
+            --run-seconds "$RUN_SECONDS"
+            --jobs "$VALIDATOR_JOBS"
+          )
+          if [ "$GENERATE_ONLY" = "true" ]; then
+            arguments+=(--generate-only)
+          fi
+          ./native-gnuradio-validation/run.sh "${arguments[@]}"
