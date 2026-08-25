@@ -3,11 +3,11 @@ project(gr_qtgui_timesink LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Port of gr-qtgui's sink chains to Qt6 for WASM. The source is very nearly
-# Qt6-clean; gr-qtgui's own CMake is Qt5, so we build the sinks we offer
-# standalone against Qt6. What is left out is what has no C++ upstream at all --
-# the gauges, the Number Sink and the rest of the Python QWidgets, which
-# blocks/src/ rebuilds instead.
+# Selective browser build of upstream's Qt6 gr-qtgui sink chains. GNU Radio's
+# integrated gr-qtgui target still requires Python libraries even when the
+# cross-build has ENABLE_PYTHON=OFF, and it also includes desktop-oriented
+# widgets that this runner replaces under blocks/src/, so keep the browser
+# archive standalone.
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets)
 set(CMAKE_AUTOMOC ON)
 
@@ -30,16 +30,11 @@ set(SYSROOT ${WASM_ROOT}/sysroot)
 # for the whole target, so the one Designer form in gr-qtgui does not impose a
 # scan of every other source.
 #
-# `--connections string` is not cosmetic. The form's <connections> name slots of
-# SpectrumDisplayForm, but the top-level widget's class in the .ui is plain
-# QWidget, so setupUi() takes a QWidget*. Qt6's uic defaults to pointer-to-member
-# connects, which then resolve against QWidget and fail to compile
-# ("no member named 'maxHoldCheckBox_toggled' in 'QWidget'"); the string syntax is
-# what Qt5's uic emitted, and it resolves through the meta-object at run time.
+# Upstream's Qt6 form declares its slots, so current uic selects valid
+# meta-object connections without the old Qt5 compatibility flag.
 add_custom_command(
   OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/spectrumdisplayform.ui.h
-  COMMAND Qt6::uic --connections string
-          -o ${CMAKE_CURRENT_BINARY_DIR}/spectrumdisplayform.ui.h
+  COMMAND Qt6::uic -o ${CMAKE_CURRENT_BINARY_DIR}/spectrumdisplayform.ui.h
           ${GRQ}/lib/spectrumdisplayform.ui
   DEPENDS ${GRQ}/lib/spectrumdisplayform.ui Qt6::uic
   COMMENT "uic spectrumdisplayform.ui -> spectrumdisplayform.ui.h")
@@ -107,8 +102,8 @@ add_library(gr_qtgui_ts STATIC
   ${GRQ}/lib/sink_f_impl.cc
   ${CMAKE_CURRENT_BINARY_DIR}/spectrumdisplayform.ui.h
   # message edit box -- the one GUI *control* upstream writes in C++ rather than
-  # in Python, so unlike the rest of GRC's GUI Widgets/QT family it needs no
-  # rebuild, only compiling for Qt6 (blocks/src/qtgui_controls.hpp has the rest).
+  # in Python, so unlike the rest of GRC's GUI Widgets/QT family it can join this
+  # archive directly (blocks/src/qtgui_controls.hpp has the rest).
   ${GRQ}/lib/edit_box_msg_impl.cc
   # Q_OBJECT headers listed so AUTOMOC generates their meta-object code
   # (multi-class headers like form_menus.h have no matching .cc).

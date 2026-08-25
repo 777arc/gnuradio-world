@@ -1,8 +1,9 @@
 #pragma once
 
-// Browser-only Qt sinks. Neither has an upstream C++ implementation in the
-// trimmed qtgui archive this build links, so they are written here against the
-// same block ids and display parameters.
+// Browser-only Qt sinks omitted from the selective qtgui archive. Number Sink
+// has a heavier desktop C++ form upstream, while Fast Auto-Correlator is a
+// Python hierarchy; these implementations preserve their block ids and useful
+// display parameters for the no-Python browser runtime.
 
 #include "hier_support.hpp"
 #include <gnuradio/blocks/complex_to_mag.h>

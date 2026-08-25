@@ -35,8 +35,8 @@ A GNU Radio Companion-style **flowgraph editor** and a **flowgraph runtime** tha
 run entirely in a browser tab — no Python, no server round-trips. The GNU Radio
 DSP C++ stack (gnuradio-runtime, gr-blocks, gr-fft, gr-filter, gr-analog,
 gr-digital, gr-fec, gr-dtv, gr-network, gr-pdu, gr-vocoder, gr-channels) and
-the gr-qtgui sinks are cross-compiled to WebAssembly with Emscripten and
-threaded Qt 6 for WebAssembly.
+the upstream Qt 6 gr-qtgui sinks are cross-compiled to WebAssembly with
+Emscripten and threaded Qt 6 for WebAssembly.
 
 - `editor/`: a Vite/TypeScript GRC-style flowgraph editor. It started as a 1:1
   port of the `gnuradio/grc/gui_qt` Python GUI but has been adapted since. If any
@@ -47,9 +47,9 @@ threaded Qt 6 for WebAssembly.
   creates blocks through a generated/custom registry, runs GNU Radio's
   thread-per-block scheduler, and embeds Qt GUI plots. It does things such as
   binding browser controls (Range widgets) to live block setters.
-- `qtgui/`: the GNU Radio Qt GUI sink chain ported to Qt6 WASM. There are a lot
-  of wasm-specific aspects to it, but it attempts to look just like the native
-  version.
+- `qtgui/`: a selective standalone build of GNU Radio's upstream Qt 6 GUI sink
+  chain for WASM. There are a lot of browser-specific aspects to it, but it
+  attempts to look just like the native version.
 - `gnuradio/`: submodule of the main GNU Radio repo.
 - `pyodide/`: CPython for WebAssembly, fetched (not committed) by
   `deps/fetch-pyodide.sh` and served same-origin. This is what makes GRC's
@@ -117,15 +117,12 @@ node server.mjs 8090 "$PWD"
   and message-port connections are both serialized by the editor. QT GUI Range
   controls can be referenced by ID from numeric block parameters and update those
   parameters while the graph is running.
-- **qtgui** (`qtgui/`): builds gr-qtgui's sink chains (Qt5 upstream) against Qt 6
-  for WebAssembly, as a static lib the runner links —
+- **qtgui** (`qtgui/`): builds selected upstream Qt 6 gr-qtgui sink chains for
+  WebAssembly as a static lib the runner links —
   time/frequency/constellation/waterfall, the eye/histogram/time-raster/vector/
   matrix/BER-curve sinks, and `sink_x`, the four-pane one. Only the last needs
-  `uic`, and its `.ui` file is why: see the `--connections string` comment in
-  `qtgui/CMakeLists.txt` and the `spectrumdisplayform.cc` entry in
-  [docs/gnuradio-patches.md](docs/gnuradio-patches.md). The sinks with no C++
-  upstream at all (Number Sink, and the gauges and other Python QWidgets) are
-  rebuilt in `blocks/src/` instead.
+  `uic` for its Designer form. Browser replacements for Number Sink and the
+  Python-only gauges and widgets live in `blocks/src/` instead.
 - **gr-fosphor** is a dual-backend GUI path: WebGPU compute (window, 1024-point
   FFT, waterfall and render, with no readback) when `runner.html` gets an adapter,
   falling back to the Qt6 CPU spectrum/waterfall hierarchy when any of adapter,

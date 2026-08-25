@@ -121,8 +121,9 @@ python3 editor/gen/gen_blocklib.py editor/public/blocks.json
 
 ## Build invariants to preserve
 
-- GNU Radio is built static, without Python or gr-audio/gr-qtgui. The qtgui
-  sinks are rebuilt against Qt 6 in `qtgui/`; gr-audio's two blocks are
+- GNU Radio is built static, without Python or gr-audio/gr-qtgui. The browser's
+  selected upstream Qt 6 sinks are built separately in `qtgui/` because the
+  integrated gr-qtgui target still requires Python libraries; gr-audio's two blocks are
   rebuilt on Web Audio in `blocks/src/browser_audio.cpp` — see
   [audio.md](audio.md).
 - `ENABLE_DEFAULT=OFF` also disables the runtime, so `ENABLE_GNURADIO_RUNTIME=ON`

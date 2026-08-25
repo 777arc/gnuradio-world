@@ -138,11 +138,11 @@ const CASES = [
       '(freq . 42)',    // Digital Number Control: message in, message back out
       '(edit . hello)', // Message Edit Box: its default, published by start()
     ] },
-  // The seven gr-qtgui sinks the Qt6 port added after the original four. Only
-  // three of them have example flowgraphs, and an example is not run by this
-  // harness anyway; what a case here proves is that each sink's display chain
-  // is still in the qtgui archive and still constructs, which is the half of
-  // the port that a CMake edit can silently undo. The Bercurve Sink also has
+  // The seven gr-qtgui sinks added after the original four. Only three of them
+  // have example flowgraphs, and an example is not run by this harness anyway;
+  // what a case here proves is that each upstream Qt6 display chain is still in
+  // the selective qtgui archive and still constructs, which is the half that a
+  // CMake edit can silently undo. The Bercurve Sink also has
   // its log checked: it is fed a random stream against an alternating
   // reference, so it must reach a bit error rate near 0.5 (log10 -0.3) and say
   // so -- a sink that constructs but never pairs its two inputs prints nothing.

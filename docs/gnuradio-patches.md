@@ -31,8 +31,10 @@ true VM aliases. See [double-mapped-buffer.md](double-mapped-buffer.md).
 
 ## gr-qtgui
 
-Not built by `gr/build-gr` (`ENABLE_GR_QTGUI=OFF`) — `qtgui/` compiles its
-sources against Qt 6 instead — but they carry WASM guards too:
+Not built by `gr/build-gr` (`ENABLE_GR_QTGUI=OFF`) — upstream's integrated Qt 6
+target still requires Python libraries when this cross-build has
+`ENABLE_PYTHON=OFF`. `qtgui/` therefore builds the browser's selected upstream
+Qt 6 sources as a standalone archive. They carry these WASM guards:
 
 - `gr-qtgui/lib/displayform.cc`, `include/gnuradio/qtgui/form_menus.h` — the
   context menu and its dialogs use `popup()`/`open()` rather than `exec()`.
@@ -43,13 +45,6 @@ sources against Qt 6 instead — but they carry WASM guards too:
   queued update event before posting a new one, so a display that paints slower
   than the flowgraph produces shows the newest frame instead of accumulating
   latency.
-- `gr-qtgui/lib/spectrumdisplayform.cc` — QT GUI Sink's FFT Size selector,
-  reconnected under `QT_VERSION >= 6`. Its `.ui` file connects
-  `QComboBox::activated(const QString&)`, an overload Qt6 removed; the connection
-  is resolved by name at run time, so it costs one warning rather than a build
-  error and leaves the selector doing nothing. The replacement uses the `int`
-  overload both versions have. See also `qtgui/CMakeLists.txt`, where the same
-  file needs `uic --connections string`.
 - `gr-qtgui/lib/displayform.cc`, `lib/matrix_display.cc` — a plot's title is drawn
   *inside* its canvas, centered along the top, instead of in Qwt's title widget
   above it. A sink here is one tile of the runner's grid layout, so a title

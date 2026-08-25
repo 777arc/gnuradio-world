@@ -1,9 +1,9 @@
 #pragma once
 
 // Browser CPU fallback for gr-fosphor's embedded Qt sink. Upstream couples the
-// sink to OpenCL and desktop OpenGL. The WASM runner already carries Qt6 ports
-// of GNU Radio's
-// spectrum and waterfall sinks, so this hierarchy fans the native complex input
+// sink to OpenCL and desktop OpenGL. The WASM runner already builds GNU Radio's
+// upstream Qt6 spectrum and waterfall sinks, so this hierarchy fans the native
+// complex input
 // into those two processors and presents their widgets as one vertically split
 // display. It intentionally takes plain C++ arguments: JSON decoding remains in
 // runner/src/registry.cpp with the other factories.
