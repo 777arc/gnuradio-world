@@ -21,7 +21,10 @@ const {
   HOSTED_MODELS,
   HOSTED_OPENROUTER_MODEL,
   HOSTED_OPENROUTER_MODELS,
+  ALL_PROVIDER_IDS,
   PROVIDER_IDS,
+  ownKeyProviderLabels,
+  providerOffered,
   forgetKey,
   keyIsRemembered,
   storeKey,
@@ -42,7 +45,19 @@ assert.equal(GRAPH_PREVIEW_DELAY_MS, 1000);
 // The free shared-key provider leads the list and is what a first-time visitor
 // lands on. It is keyless by construction: no key page, no storage slot a key
 // could land in, and a fixed short list of models the proxy will accept.
-assert.deepEqual(PROVIDER_IDS, ['hosted', 'hosted-openrouter', 'openrouter', 'openai']);
+assert.deepEqual(ALL_PROVIDER_IDS, ['hosted', 'hosted-openrouter', 'openrouter', 'openai']);
+// Both OpenRouter providers are withdrawn for now: their descriptors, storage
+// and request path stay described here, but nothing offers them, so they are
+// absent from every list the UI builds. Restoring one means emptying
+// WITHDRAWN_PROVIDERS, and this assertion is what says so out loud.
+assert.deepEqual(PROVIDER_IDS, ['hosted', 'openai']);
+assert.equal(providerOffered('openrouter'), false);
+assert.equal(providerOffered('hosted-openrouter'), false);
+assert.equal(providerOffered('hosted'), true);
+// The dock names the own-key providers in its copy; withdrawing one must take
+// it out of that sentence too rather than pointing at a select entry that is
+// no longer there.
+assert.deepEqual(ownKeyProviderLabels(), ['OpenAI']);
 assert.equal(DEFAULT_PROVIDER, 'hosted');
 // pr-security-scan: allow new-outbound-host
 assert.equal(AI_PROVIDERS.hosted.api, 'https://ai.gnuradioworld.com/v1');
@@ -71,9 +86,13 @@ assert.equal(AI_PROVIDERS.hosted.menuLabel, 'OpenAI Free Tier (gpt-5.6-luna)');
 assert.equal(AI_PROVIDERS['hosted-openrouter'].menuLabel,
   'OpenRouter Free Tier (nemotron-3-ultra)');
 // The four labels have to stay distinct: they are what the connection dialog's
-// own provider select shows, and two of them are the same site's proxy.
-assert.equal(new Set(PROVIDER_IDS.map(id => AI_PROVIDERS[id].label)).size, PROVIDER_IDS.length);
-assert.equal(new Set(PROVIDER_IDS.map(id => AI_PROVIDERS[id].menuLabel)).size, PROVIDER_IDS.length);
+// own provider select shows, and two of them are the same site's proxy. Checked
+// over every descriptor, not only the offered ones, so a withdrawn provider
+// comes back to a label that is still unique.
+assert.equal(new Set(ALL_PROVIDER_IDS.map(id => AI_PROVIDERS[id].label)).size,
+  ALL_PROVIDER_IDS.length);
+assert.equal(new Set(ALL_PROVIDER_IDS.map(id => AI_PROVIDERS[id].menuLabel)).size,
+  ALL_PROVIDER_IDS.length);
 assert.equal(AI_PROVIDERS.openrouter.keyless, false);
 assert.equal(AI_PROVIDERS.openai.keyless, false);
 
@@ -144,6 +163,10 @@ try {
   assert.equal(storedProvider(), 'hosted', 'the free shared model is the default');
   storeProvider('openai');
   assert.equal(storedProvider(), 'openai');
+  // A browser still holding a withdrawn provider as its choice comes back on
+  // the default rather than on a provider nothing lists.
+  storeProvider('openrouter');
+  assert.equal(storedProvider(), 'hosted');
   // Storing a key against the keyless provider must be a no-op rather than
   // finding some slot to write it to.
   storeKey('hosted', 'sk-should-never-be-stored', true);

@@ -12,7 +12,9 @@ import {
   forgetKey,
   hasConsent,
   keyIsRemembered,
+  ownKeyProviderLabels,
   providerFor,
+  providerOffered,
   storeConsent,
   storeKey,
   storeModel,
@@ -197,7 +199,9 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
   let activeAssistant: HTMLElement | null = null;
   let activeAssistantText: HTMLElement | null = null;
   let width = 420;
-  const oauthReturn = takeOpenRouterOAuthReturn();
+  // A redirect can only land here while OpenRouter is offered; withdrawn, the
+  // pending state is left alone rather than reconnecting a hidden provider.
+  const oauthReturn = providerOffered('openrouter') ? takeOpenRouterOAuthReturn() : null;
   let oauthRestore: Promise<GraphSnapshot | null> = Promise.resolve(null);
 
   const scrollDown = () => { transcript.scrollTop = transcript.scrollHeight; };
@@ -779,10 +783,11 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
           const free = PROVIDER_IDS
             .filter(id => id !== providerId && providerFor(id).keyless)
             .map(id => providerFor(id).label);
+          const own = ownKeyProviderLabels();
           bubble('status', (free.length
             ? `Switch the provider above to ${free.join(' or ')} — a separate free budget — or ` +
               'connect a key of your own, which has limits of its own.'
-            : 'Switch the provider above to OpenRouter or OpenAI to use a key of your own, ' +
+            : `Switch the provider above to ${own.join(' or ')} to use a key of your own, ` +
               'which has limits of its own.'));
         }
       }
@@ -864,8 +869,8 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
   modelSelect.appendChild(modelStatus('Open Graham to load models…'));
   if (provider().keyless) {
     bubble('status', `Free to use — ${provider().label} runs ${provider().defaultModel} on a ` +
-      'shared key, rate limited per visitor. Connect your own OpenRouter or OpenAI key above ' +
-      'for limits of your own.');
+      'shared key, rate limited per visitor. Connect your own ' +
+      `${ownKeyProviderLabels().join(' or ')} key above for limits of your own.`);
   } else if (!key) {
     bubble('status',
       `Connect ${provider().label} to start. No API key is bundled with GNU Radio World.`);

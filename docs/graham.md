@@ -27,6 +27,19 @@ model, key storage keys, dialog copy, and the capability flags below.
 `editor/src/ai/openrouter.ts` is now only OpenRouter's OAuth flow, which none
 of the others has an equivalent of.
 
+**Two of the four are withdrawn from the UI at the moment.** Both OpenRouter
+providers — the free shared one and a key of the user's — are listed in
+`WITHDRAWN_PROVIDERS` in `providers.ts`, which is subtracted from
+`ALL_PROVIDER_IDS` to give the `PROVIDER_IDS` every list in the UI is built
+from. They are hidden, not deleted: the descriptors, the key storage, the OAuth
+flow, and everything below about them are all still here and still tested.
+Withdrawn means the dock's select and the connection dialog do not offer them,
+`storedProvider()` will not return one (a browser still holding it as its choice
+falls back to `DEFAULT_PROVIDER`), a pending OAuth redirect is left alone rather
+than reconnecting a hidden provider, and the copy naming own-key providers is
+built from the offered list (`ownKeyProviderLabels()`). Emptying
+`WITHDRAWN_PROVIDERS` is the whole of putting one back.
+
 Everything a provider is allowed to differ in is a descriptor field, so a fifth
 provider is a new entry in `AI_PROVIDERS` rather than a branch in the panel:
 

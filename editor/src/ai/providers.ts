@@ -262,7 +262,9 @@ export const AI_PROVIDERS: Record<ProviderId, AiProvider> = {
   openai: {
     id: 'openai',
     label: 'OpenAI',
-    menuLabel: 'OpenAI API',
+    // Spelled out, because what distinguishes it from the free tier above is
+    // not the API but whose key pays for it.
+    menuLabel: 'OpenAI - Use your own API key',
     host: 'api.openai.com',
     api: `${OPENAI_ORIGIN}/v1`,
     defaultModel: DEFAULT_OPENAI_MODEL,
@@ -297,8 +299,35 @@ export const AI_PROVIDERS: Record<ProviderId, AiProvider> = {
   },
 };
 
-export const PROVIDER_IDS: ProviderId[] =
+/** Every provider this file describes, in the order they are offered. */
+export const ALL_PROVIDER_IDS: ProviderId[] =
   ['hosted', 'hosted-openrouter', 'openrouter', 'openai'];
+
+/**
+ * Providers temporarily withdrawn from the UI. Their descriptors, key storage,
+ * OAuth flow and request path all stay in place — they are simply not offered,
+ * so nothing lists them, `storedProvider()` will not return one, and a browser
+ * still holding one as its choice falls back to `DEFAULT_PROVIDER`. Emptying
+ * this array is the whole of putting one back.
+ */
+const WITHDRAWN_PROVIDERS: ProviderId[] = ['hosted-openrouter', 'openrouter'];
+
+/** The providers actually offered: every list in the UI is built from this. */
+export const PROVIDER_IDS: ProviderId[] =
+  ALL_PROVIDER_IDS.filter(id => !WITHDRAWN_PROVIDERS.includes(id));
+
+/** Whether a provider is offered at all, for the paths that can arrive at one. */
+export const providerOffered = (id: ProviderId | string): boolean =>
+  PROVIDER_IDS.includes(id as ProviderId);
+
+/**
+ * The offered providers a user connects with a key of their own, named where
+ * the dock has to tell someone what to do about a shared model's limits. Read
+ * from the list rather than written out, so withdrawing one cannot leave the
+ * copy pointing at a provider that is no longer there.
+ */
+export const ownKeyProviderLabels = (): string[] =>
+  PROVIDER_IDS.filter(id => !AI_PROVIDERS[id].keyless).map(id => AI_PROVIDERS[id].label);
 
 /** The provider a browser with nothing stored starts on. */
 export const DEFAULT_PROVIDER: ProviderId = 'hosted';
