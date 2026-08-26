@@ -1658,7 +1658,8 @@ function withImplicitParams(inst: Inst, params: Record<string, GrcScalar>): Reco
   // qtgui_time_sink_x, which declares none, does not), so read the schema
   // rather than the live port count.
   const def = defFor(inst);
-  const hasOutput = (def?.outputTemplates?.length ?? def?.outputs ?? 0) > 0;
+  const hasOutput = def?.nativeOutputBuffers ??
+    ((def?.outputTemplates?.length ?? def?.outputs ?? 0) > 0);
   const implicit: Record<string, GrcScalar> = VARIABLE_IDS.has(inst.id)
     ? { comment: '' }
     : hasOutput

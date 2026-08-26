@@ -22,7 +22,7 @@ const doc = {
   options: { parameters: { id: 'top', generate_options: 'qt_gui', max_nouts: '0', run: 'True' },
              states: { coordinate: [10, 10], rotation: 0, state: 'enabled' } },
   blocks: [{ name: 'x1', id: 'analog_sig_source_x',
-    parameters: { samp_rate: '32000', waveform: 'analog.GR_COS_WAVE', type: 'complex', grid: 'False', mod_code: '"gray"', amplitude: '1' },
+    parameters: { samp_rate: '32000', waveform: 'analog.GR_COS_WAVE', type: 'complex', grid: 'False', mod_code: '"gray"', amplitude: '1', minoutbuf: '256', maxoutbuf: '1024' },
     states: { coordinate: [50, 70], rotation: 0, state: 'enabled' } }],
   connections: [['b1', '0', 'b2', '0']],
   metadata: { file_format: 1, grc_version: '3.11.0.0' },
@@ -47,6 +47,8 @@ blocks:
         grid: 'False'
         mod_code: '"gray"'
         amplitude: '1'
+        minoutbuf: '256'
+        maxoutbuf: '1024'
     states:
         coordinate: [50, 70]
         rotation: 0
@@ -76,6 +78,8 @@ const back = parseGrc(text);
 assert.equal(back.blocks[0].parameters.waveform, 'analog.GR_COS_WAVE');
 assert.equal(back.blocks[0].parameters.mod_code, '"gray"');
 assert.equal(back.blocks[0].parameters.samp_rate, '32000', 'quoted numerics parse back as strings');
+assert.equal(back.blocks[0].parameters.minoutbuf, '256', 'minimum output buffer round-trips');
+assert.equal(back.blocks[0].parameters.maxoutbuf, '1024', 'maximum output buffer round-trips');
 assert.deepEqual(back.blocks[0].states.coordinate, [50, 70], 'coordinate round-trips as numbers');
 assert.deepEqual(back.connections[0], ['b1', '0', 'b2', '0'], 'connections round-trip');
 assert.equal(dumpGrc(back), text, 'dump -> parse -> dump is a fixed point');

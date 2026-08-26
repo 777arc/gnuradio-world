@@ -253,7 +253,8 @@ assert.match(html, /id="arrangeOverlay"/);
   // the editor's only way of knowing which blocks need a tile.
   for (const id of ['qtgui_time_sink_x', 'qtgui_freq_sink_x', 'qtgui_waterfall_sink_x',
                     'qtgui_const_sink_x', 'qtgui_number_sink', 'variable_qtgui_range',
-                    'variable_qtgui_chooser', 'fosphor_qt_sink_c'])
+                    'variable_qtgui_chooser', 'fosphor_qt_sink_c',
+                    'wasm_musical_keyboard_source'])
     assert.equal(byId.get(id)?.gui, true, `${id} is flagged as a GUI widget`);
   // And nothing else is: a block with no widget must not appear in the designer.
   for (const id of ['blocks_throttle2', 'analog_sig_source_x', 'wasm_text_sink',
@@ -262,6 +263,13 @@ assert.match(html, /id="arrangeOverlay"/);
   // The layout block itself has to be runnable, or every flowgraph fails to run
   // the moment it is auto-inserted.
   assert.equal(byId.get('wasm_gui_layout')?.runnable, true);
+
+  // The keyboard is a stream source with a substantial face, not a numeric
+  // variable control, so an unarranged one receives the readable four-row tile.
+  assert.equal(isControlWidget('wasm_musical_keyboard_source'), false);
+  assert.equal(packLayout(
+    [{ name: 'keys', id: 'wasm_musical_keyboard_source' }], {}, 12,
+  ).keys.h, SINK_ROWS);
 }
 
 console.log('gui-layout tests passed');

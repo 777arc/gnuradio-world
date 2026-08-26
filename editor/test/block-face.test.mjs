@@ -28,7 +28,7 @@ assert.match(source,
 // editor hand-writes, so it carries the flag itself; the rest come from the yaml.
 assert.match(source, /label: 'Variable', inputs: 0, outputs: 0, showId: true/,
   "the hand-written Variable schema must keep native GRC's show_id flag");
-assert.match(source, /const showId = blockFlags\(block\.flags\)\.includes\('show_id'\)/,
+assert.match(source, /const flags = blockFlags\(block\.flags\);\s*const showId = flags\.includes\('show_id'\)/,
   'generated blocks must take ID visibility from their native flags');
 {
   const flagged = (library.blocks || [])
@@ -125,15 +125,51 @@ assert.doesNotMatch(source, /title \+ underline|GRC draws a rule under/,
 assert.doesNotMatch(source, /svgEl\('line',\s*{\s*x1: '0',\s*y1: String\(TITLE_H\)/,
   'the block title separator must not be drawn');
 
-// Comment is a native base parameter, not metadata repeated in every block
-// YAML. It belongs on Advanced, saves with every block, and is drawn below the
-// body without changing port geometry.
+// Output buffer limits and Comment are native base parameters, not metadata
+// repeated in every block YAML. Buffer controls belong at the top of Advanced
+// only for DSP blocks with a declared output; Comment is last for every block.
+{
+  const advanced = id => RUNNABLE[id].params.filter(p => p.category === 'Advanced');
+  const sourceAdvanced = advanced('analog_sig_source_x');
+  assert.deepEqual(sourceAdvanced.slice(0, 2).map(p => p.id), ['minoutbuf', 'maxoutbuf'],
+    'a stream source must expose native Min/Max Output Buffer first on Advanced');
+  for (const [index, id, label] of [
+    [0, 'minoutbuf', 'Min Output Buffer'],
+    [1, 'maxoutbuf', 'Max Output Buffer'],
+  ]) {
+    const param = sourceAdvanced[index];
+    assert.equal(param.id, id);
+    assert.equal(param.label, label);
+    assert.equal(param.type, 'number');
+    assert.equal(param.dtype, 'int');
+    assert.equal(param.def, 0);
+    assert.equal(param.hide, 'part');
+  }
+  assert.equal(sourceAdvanced.at(-1).id, 'comment',
+    'Comment remains the last field on Advanced, matching native GRC');
+  assert.deepEqual(advanced('qtgui_freq_sink_x').slice(0, 2).map(p => p.id),
+    ['minoutbuf', 'maxoutbuf'],
+    'a declared message output earns the native controls even when hidden');
+  assert.deepEqual(advanced('wasm_musical_keyboard_source').slice(0, 2).map(p => p.id),
+    ['minoutbuf', 'maxoutbuf'],
+    'the SamSonic source must offer the same per-block controls');
+  assert.deepEqual(advanced('blocks_null_sink').map(p => p.id), ['comment'],
+    'an input-only sink has no output buffer to size');
+  assert.deepEqual(advanced('variable').map(p => p.id), ['comment'],
+    'native not-DSP variables have no output-buffer controls');
+}
+assert.match(source,
+  /const MIN_OUTPUT_BUFFER_PARAM: ParamDef = \{[\s\S]*?label: 'Min Output Buffer'[\s\S]*?category: 'Advanced'[\s\S]*?hide: 'part'/,
+  'Min Output Buffer must use native GRC\'s name and Advanced placement');
+assert.match(source,
+  /const MAX_OUTPUT_BUFFER_PARAM: ParamDef = \{[\s\S]*?label: 'Max Output Buffer'[\s\S]*?category: 'Advanced'[\s\S]*?hide: 'part'/,
+  'Max Output Buffer must use native GRC\'s name and Advanced placement');
 assert.match(source,
   /const BLOCK_COMMENT_PARAM: ParamDef = \{[\s\S]*?id: BLOCK_COMMENT_ID,[\s\S]*?label: 'Comment',[\s\S]*?category: 'Advanced',[\s\S]*?hide: 'part',[\s\S]*?multiline: true/,
   'every block must receive native GRC\'s multiline Advanced Comment parameter');
 assert.match(source,
-  /function installNativeBlockParams\(\)[\s\S]*?def\.params = \[\.\.\.def\.params, \{ \.\.\.BLOCK_COMMENT_PARAM }\]/,
-  'the Comment base parameter must be appended to hand-written and generated block schemas');
+  /function installNativeBlockParams\(\)[\s\S]*?def\.params = \[\.\.\.outputBuffers, \.\.\.own, \{ \.\.\.BLOCK_COMMENT_PARAM }\]/,
+  'native base parameters must be installed on hand-written and generated block schemas');
 assert.ok(source.indexOf('installNativeBlockParams();') < source.indexOf('function addBlock('),
   'base parameters must be installed before the first block instance is created');
 assert.match(source,

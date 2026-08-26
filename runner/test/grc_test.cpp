@@ -51,6 +51,8 @@ blocks:
         samp_rate: rate
         frequency: freq
         waveform: analog.GR_COS_WAVE
+        minoutbuf: '256'
+        maxoutbuf: '1024'
         name: MULTI-SOURCE
     states:
         coordinate: [50, 70]
@@ -157,6 +159,8 @@ int main() {
     assert(x1->at("params").at("samp_rate") == 32000);   // inlined variable -> number
     assert(x1->at("params").at("frequency") == "freq");  // control ref preserved
     assert(x1->at("params").at("waveform") == "analog.GR_COS_WAVE");
+    assert(x1->at("params").at("minoutbuf") == 256);
+    assert(x1->at("params").at("maxoutbuf") == 1024);
     assert(x1->at("params").at("name") == "MULTI-SOURCE"); // non-numeric text stays string
 
     // Connections: x2->xx3 dropped (disabled); xx3->thr->snk hopped to xx3->snk;

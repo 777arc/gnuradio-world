@@ -15,14 +15,38 @@ const BLOCK_COMMENT_PARAM: ParamDef = {
   hide: 'part',
   multiline: true,
 };
+const MIN_OUTPUT_BUFFER_PARAM: ParamDef = {
+  id: 'minoutbuf',
+  label: 'Min Output Buffer',
+  type: 'number',
+  dtype: 'int',
+  def: 0,
+  category: 'Advanced',
+  hide: 'part',
+};
+const MAX_OUTPUT_BUFFER_PARAM: ParamDef = {
+  id: 'maxoutbuf',
+  label: 'Max Output Buffer',
+  type: 'number',
+  dtype: 'int',
+  def: 0,
+  category: 'Advanced',
+  hide: 'part',
+};
 
-/** Add native GRC's implicit Comment parameter to every definition present. */
+/** Add the native GRC parameters that are not repeated in each block's YAML. */
 export function installNativeBlockParams() {
   for (const def of Object.values(RUNNABLE)) {
-    if (def.params.some(param => param.id === BLOCK_COMMENT_ID)) continue;
-    // A fresh object per definition: generated/hand-written schema merging is
-    // allowed to replace parameter metadata without coupling unrelated blocks.
-    def.params = [...def.params, { ...BLOCK_COMMENT_PARAM }];
+    // Rebuild the base-parameter portion so a definition first seen before
+    // blocks.json was loaded gains its buffer fields once its native output
+    // metadata is known. Native orders these before block-specific parameters
+    // and appends Comment last, which is also their order in the Advanced tab.
+    const own = def.params.filter(param =>
+      param.id !== BLOCK_COMMENT_ID && param.id !== 'minoutbuf' && param.id !== 'maxoutbuf');
+    const outputBuffers = def.nativeOutputBuffers
+      ? [{ ...MIN_OUTPUT_BUFFER_PARAM }, { ...MAX_OUTPUT_BUFFER_PARAM }]
+      : [];
+    def.params = [...outputBuffers, ...own, { ...BLOCK_COMMENT_PARAM }];
   }
 }
 
@@ -114,7 +138,14 @@ export function installGeneratedBlocks(blocks: any[]) {
     if (!block.runnable) continue;
     // `show_id` is what makes native GRC expose a block's instance ID as a
     // parameter; every other block hides it (`hide: all`).
-    const showId = blockFlags(block.flags).includes('show_id');
+    const flags = blockFlags(block.flags);
+    const showId = flags.includes('show_id');
+    // `_build.py` marks options, variable* and virtual* blocks not-DSP even
+    // when their YAML omits the flag, then gives the output-buffer parameters
+    // to every other block with a declared output of either domain.
+    const nativeNotDsp = flags.includes('not_dsp') || block.id === 'options' ||
+      String(block.id).startsWith('variable') || String(block.id).startsWith('virtual');
+    const nativeOutputBuffers = !nativeNotDsp && (block.outputs || []).length > 0;
     const documentation = String(block.documentation || '').trim();
     const apiDocumentation = String(block.api_documentation || '').trim();
     const wikiUrl = String(block.wiki_url || '').trim();
@@ -200,6 +231,7 @@ export function installGeneratedBlocks(blocks: any[]) {
       existing.wikiUrl = wikiUrl;
       existing.ootModule = ootModule;
       existing.showId = existing.showId || showId;
+      existing.nativeOutputBuffers = nativeOutputBuffers;
       const streamInputs = inputs.filter(p => p.domain === 'stream');
       const streamOutputs = outputs.filter(p => p.domain === 'stream');
       existing.inLabels = streamInputs.slice(0, existing.inputs).map(p => p.name);
@@ -216,7 +248,7 @@ export function installGeneratedBlocks(blocks: any[]) {
     }
     RUNNABLE[block.id] = {
       label: String(block.label || block.id), params, documentation, apiDocumentation, wikiUrl,
-      ootModule, showId,
+      ootModule, showId, nativeOutputBuffers,
       inputs: inputs.length, outputs: outputs.length,
       inTypes: inputs.map(p => p.dtype), outTypes: outputs.map(p => p.dtype),
       inDomains: inputs.map(p => p.domain), outDomains: outputs.map(p => p.domain),

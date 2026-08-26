@@ -48,6 +48,11 @@ export interface RunnableDef {
   // which case it is `hide: none` and appears both on the block face and in the
   // Properties dialog. See grc/core/blocks/_build.py `build_params`.
   showId?: boolean;
+  // Native GRC adds minoutbuf/maxoutbuf to every DSP block definition that
+  // declares at least one output port (stream or message). This is recorded
+  // from blocks.json rather than inferred from the hand-written stream-port
+  // counts, which intentionally omit some optional message ports.
+  nativeOutputBuffers?: boolean;
   dtype?: string; inTypes?: string[]; outTypes?: string[];
   inDomains?: string[]; outDomains?: string[]; inIds?: string[]; outIds?: string[];
   inLabels?: string[]; outLabels?: string[];

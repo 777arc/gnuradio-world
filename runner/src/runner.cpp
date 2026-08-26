@@ -12,6 +12,7 @@
 #include <gnuradio/blocks/probe_signal.h>
 #include <gnuradio/top_block.h>
 #include <gnuradio/block.h>
+#include <gnuradio/hier_block2.h>
 #include <gnuradio/logger.h>
 #include <gnuradio/prefs.h>
 #include <QApplication>
@@ -30,12 +31,14 @@
 #include <dlfcn.h>
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstdlib>
 #include <functional>
 #include <cstdio>
 #include <map>
 #include <memory>
 #include <mutex>
+#include <limits>
 #include <set>
 #include <string>
 #include <thread>
@@ -75,6 +78,71 @@ struct VariableControl {
 // Variable controls (Range/Chooser/Button) are built once up front so their
 // value is resolvable regardless of graph order. (Definition in grc_lower.hpp.)
 using grc_lower::is_variable_control;
+
+// GRC's implicit minoutbuf/maxoutbuf parameters are item counts, not bytes.
+// Its generated Python applies only positive values, after construction and
+// before the graph is connected. Do the same here so GNU Radio's normal buffer
+// allocator sees the requests when top_block::start() flattens the graph.
+static long positive_output_buffer_limit(const nlohmann::json& params,
+                                         const char* key)
+{
+    auto it = params.find(key);
+    if (it == params.end())
+        return 0;
+
+    long value = 0;
+    if (it->is_number_integer()) {
+        value = it->get<long>();
+    } else if (it->is_number_float()) {
+        const double number = it->get<double>();
+        if (!std::isfinite(number) || std::trunc(number) != number ||
+            number > static_cast<double>(std::numeric_limits<long>::max()) ||
+            number < static_cast<double>(std::numeric_limits<long>::min()))
+            throw std::runtime_error(std::string(key) + " must be an integer");
+        value = static_cast<long>(number);
+    } else if (it->is_string()) {
+        const std::string text = it->get<std::string>();
+        std::size_t used = 0;
+        try {
+            value = std::stol(text, &used);
+        } catch (const std::exception&) {
+            throw std::runtime_error(std::string(key) + " must be an integer");
+        }
+        if (used != text.size())
+            throw std::runtime_error(std::string(key) + " must be an integer");
+    } else {
+        throw std::runtime_error(std::string(key) + " must be an integer");
+    }
+    return value > 0 ? value : 0;
+}
+
+static void apply_output_buffer_limits(const gr::basic_block_sptr& basic,
+                                       const nlohmann::json& params)
+{
+    if (!basic)
+        return;
+    const long minimum = positive_output_buffer_limit(params, "minoutbuf");
+    const long maximum = positive_output_buffer_limit(params, "maxoutbuf");
+    if (minimum == 0 && maximum == 0)
+        return;
+
+    if (auto block = std::dynamic_pointer_cast<gr::block>(basic)) {
+        if (minimum > 0)
+            block->set_min_output_buffer(minimum);
+        if (maximum > 0)
+            block->set_max_output_buffer(maximum);
+        return;
+    }
+    if (auto hierarchy = std::dynamic_pointer_cast<gr::hier_block2>(basic)) {
+        if (minimum > std::numeric_limits<int>::max() ||
+            maximum > std::numeric_limits<int>::max())
+            throw std::runtime_error("hierarchical output buffer limit is too large");
+        if (minimum > 0)
+            hierarchy->set_min_output_buffer(static_cast<int>(minimum));
+        if (maximum > 0)
+            hierarchy->set_max_output_buffer(static_cast<int>(maximum));
+    }
+}
 
 static bool is_runtime_object(const std::string& id)
 {
@@ -589,6 +657,7 @@ static void run_now(const std::string& json_source) {
             } else {
                 bb = it->second(params);
             }
+            apply_output_buffer_limits(bb.block, params);
             if (bb.block)
                 byname[name] = bb.block;
             ++nblocks;

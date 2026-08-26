@@ -26,6 +26,11 @@ place every other browser-backed block lives:
 | an ALSA device name (`plughw:0,0`) | a browser media-device label or id |
 | device rate ≠ requested rate → error | the worklet resamples, and says so |
 
+The shared ring is sized for 50 ms at the flowgraph rate, with a floor of four
+128-frame render quanta. Audio Sink normally keeps it full, so its depth is also
+the steady-state device-queue latency. Inter-block `minoutbuf`/`maxoutbuf`
+settings are separate GNU Radio buffers upstream of this ring.
+
 Within the repository the direct template is the pair
 [`BrowserFileSource`](../blocks/src/browser_file_source.cpp) and
 [`RtlSdrSource`](../blocks/src/rtlsdr_source.cpp): a producer or consumer living
@@ -162,7 +167,7 @@ block prints the device's own count when it differs.
 - **Audio Sink dropping** — only ever in the paced fallback above (`ok_to_block`
   off, or nothing draining the ring), counted in `lost_frames`.
 
-`window.__grAudioStats` carries the running totals, one entry per block; see
+`window.__grAudioStats` carries the running totals and `ringFrames`, one entry per block; see
 [diagnostics.md](diagnostics.md).
 
 ## Testing
@@ -193,11 +198,12 @@ unreachable: they need a browser that refuses the flowgraph's sample rate. It
 drives the processors directly against a plain `ArrayBuffer` standing in for the
 shared heap, so it needs neither a browser nor cross-origin isolation.
 
-`example_flowgraphs/audio/` holds the three examples — a tone with live frequency
-and volume controls, a microphone spectrum analyser, and a broadcast FM receiver
-demodulating a hosted recording to the speakers — and all three are run through
-the real editor (`node scripts/run_example.mjs audio/audio_tone.grc`), which is
-the only path that covers `prepareAudioCapture` and the iframe's `allow`.
+`example_flowgraphs/audio/` holds four examples — a tone with live frequency and
+volume controls, a microphone spectrum analyser, a SamSonic keyboard synth, and
+a broadcast FM receiver demodulating a hosted recording to the speakers — and
+all four are run through the real editor
+(`node scripts/run_example.mjs audio/audio_tone.grc`), which is the only path
+that covers `prepareAudioCapture` and the iframe's `allow`.
 
 The FM receiver reports a burst of Audio Sink underruns at start-up and none
 after: the ring is empty until the recording source's first HTTP range request

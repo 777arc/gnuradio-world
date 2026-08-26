@@ -24,6 +24,7 @@
 #include "js_block.hpp"
 #include "qtgui_controls.hpp"
 #include "qtgui_sinks.hpp"
+#include "musical_keyboard_source.hpp"
 #include "text_sink.hpp"
 #include "hrpt_image_sink.hpp"
 #include "gui_layout.hpp"
@@ -2146,6 +2147,79 @@ static std::map<std::string, Factory>& registry_storage() {
              return BuiltBlock{ b, b->qwidget() };
          }},
         // ---- sources ----
+        // A runner-only float source and QWidget in one block. The widget's
+        // main-thread note state is handed to the scheduler-side synthesizer in
+        // musical_keyboard_source.hpp; returning it here is what lets GUI
+        // Layout place the SamSonic keyboard alongside ordinary QT GUI sinks.
+        {"wasm_musical_keyboard_source", [](const json& p) -> BuiltBlock {
+             const auto waveform = wasm_registry::choice<grworld::KeyboardWaveform>(
+                 p,
+                 "waveform",
+                 {
+                     { "sine", grworld::KeyboardWaveform::Sine },
+                     { "triangle", grworld::KeyboardWaveform::Triangle },
+                     { "saw", grworld::KeyboardWaveform::Saw },
+                     { "square", grworld::KeyboardWaveform::Square },
+                 },
+                 grworld::KeyboardWaveform::Saw);
+             const auto chord = wasm_registry::choice<grworld::KeyboardChord>(
+                 p,
+                 "default_chord",
+                 {
+                     { "none", grworld::KeyboardChord::None },
+                     { "major_triad", grworld::KeyboardChord::MajorTriad },
+                     { "minor_triad", grworld::KeyboardChord::MinorTriad },
+                     { "tritone", grworld::KeyboardChord::Tritone },
+                     { "major_seventh", grworld::KeyboardChord::MajorSeventh },
+                     { "minor_seventh", grworld::KeyboardChord::MinorSeventh },
+                     { "fully_diminished_seventh",
+                       grworld::KeyboardChord::FullyDiminishedSeventh },
+                 },
+                 grworld::KeyboardChord::None);
+             auto block = grworld::MusicalKeyboardSource::make(
+                 number_from(p, "samp_rate", 48000.0),
+                 number_from(p, "amplitude", 0.18),
+                 waveform,
+                 static_cast<int>(number_from(p, "first_note", 48)),
+                 static_cast<int>(number_from(p, "octaves", 2)),
+                 number_from(p, "tuning_hz", 440.0),
+                 number_from(p, "attack_ms", 5.0),
+                 number_from(p, "decay_ms", 180.0),
+                 number_from(p, "sustain_level", 0.6),
+                 number_from(p, "release_ms", 120.0),
+                 static_cast<int>(number_from(p, "unison_voices", 2)),
+                 number_from(p, "unison_detune_cents", 9.0),
+                 number_from(p, "filter_cutoff_hz", 700.0),
+                 number_from(p, "filter_resonance", 0.25),
+                 number_from(p, "filter_envelope_octaves", 3.0),
+                 number_from(p, "saturation_drive", 1.0),
+                 chord);
+             BuiltBlock result{ block, block->qwidget() };
+             result.numeric_setters = {
+                 { "amplitude", [block](double value) { block->set_amplitude(value); } },
+                 { "tuning_hz", [block](double value) { block->set_tuning_hz(value); } },
+                 { "attack_ms", [block](double value) { block->set_attack_ms(value); } },
+                 { "decay_ms", [block](double value) { block->set_decay_ms(value); } },
+                 { "sustain_level",
+                   [block](double value) { block->set_sustain_level(value); } },
+                 { "release_ms", [block](double value) { block->set_release_ms(value); } },
+                 { "unison_voices",
+                   [block](double value) { block->set_unison_voices(value); } },
+                 { "unison_detune_cents",
+                   [block](double value) { block->set_unison_detune_cents(value); } },
+                 { "filter_cutoff_hz",
+                   [block](double value) { block->set_filter_cutoff_hz(value); } },
+                 { "filter_resonance",
+                   [block](double value) { block->set_filter_resonance(value); } },
+                 { "filter_envelope_octaves",
+                   [block](double value) {
+                       block->set_filter_envelope_octaves(value);
+                   } },
+                 { "saturation_drive",
+                   [block](double value) { block->set_saturation_drive(value); } },
+             };
+             return result;
+         }},
         {"analog_sig_source_x", [](const json& p) -> BuiltBlock {
              double sr = p.value("samp_rate", 32000.0);
              auto wf = waveform_from(p.value("waveform", std::string("cos")));

@@ -107,10 +107,18 @@ const CASES = [
   // fallback. See docs/audio.md.
   { name: 'Audio Sink and Audio Source (browser audio devices)',
     grc: 'test/fixtures/audio_devices.grc',
+    expectedAudioRingFrames: 2400,
     expectLogs: [
       'Audio Sink: running at 48000 Hz, 1 channel',
       'Audio Source: running at 48000 Hz, 1 channel',
     ] },
+  // The SamSonic keyboard is a QWidget and a stream source in one block. No
+  // synthetic input event is needed here: before its first keypress it emits
+  // exact digital silence continuously, so this case proves that idle source
+  // contract still schedules and moves samples through the graph.
+  { name: 'SamSonic Musical Keyboard Source (idle digital silence)',
+    grc: 'test/fixtures/wasm_musical_keyboard_source.grc',
+    rejectLogs: ['max output buffer set'] },
   // The PMT-valued blocks. `expectLogs` is what makes this case meaningful: a
   // PMT parameter that parsed into the *wrong* PMT still builds, still runs and
   // still moves items, so only what the tag and message debuggers print can tell
@@ -289,6 +297,9 @@ async function runCase(test) {
     threads: document.getElementById('d-thr')?.textContent?.trim() || '',
     tierBoundaries: [0, 7, 8, 15, 16, 31, 32].map(window.__grPoolTierForBlockCount),
     workerStats: window.__grWorkerStats ? { ...window.__grWorkerStats } : null,
+    audio: Object.values(window.__grAudioStats || {}).map(stats => ({
+      direction: stats.direction, ringFrames: stats.ringFrames,
+    })),
   }));
   const workerLogOk = logs.some(line =>
     line.includes('workers: calc_used_blocks() = ') &&
@@ -315,6 +326,9 @@ async function runCase(test) {
     monitor.threads === `dsp threads ${dspThreads}` &&
     (test.exactWorkers === undefined || dspThreads === test.exactWorkers) &&
     workerLogOk && preloadLogOk && correctedPoolOk;
+  const audioRingOk = test.expectedAudioRingFrames === undefined ||
+    (monitor.audio.length > 0 && monitor.audio.every(
+      audio => audio.ringFrames === test.expectedAudioRingFrames));
   // Message-only blocks carry no item counter (see msg_only in the runner's
   // snapshot), so requiring items > 0 of them would fail every PDU chain.
   const idle = blocks.filter(b => !b.msg_only && !(b.items > 0))
@@ -326,7 +340,7 @@ async function runCase(test) {
   const rejectedLogs = (test.rejectLogs || [])
     .filter(rejected => logs.some(line => line.includes(rejected)));
 
-  const ok = started && blocks.length > 0 && idle.length === 0 && monitorOk &&
+  const ok = started && blocks.length > 0 && idle.length === 0 && monitorOk && audioRingOk &&
     missingLogs.length === 0 && rejectedLogs.length === 0;
   await page.close();
 
@@ -345,6 +359,9 @@ async function runCase(test) {
     lines.push(`   diagnostics headline mismatch: ${JSON.stringify(monitor)}, ` +
       `pool=${pool}, initialExpectedPool=${initialExpectedPool}, ` +
       `expectedPool=${test.expectedPool ?? 'any corrected tier'}`);
+  if (!audioRingOk)
+    lines.push(`   audio ring mismatch: ${JSON.stringify(monitor.audio)}, ` +
+      `expected ${test.expectedAudioRingFrames} frames`);
   if (!ok && logs.length) lines.push('   logs: ' + logs.slice(-4).join('\n         '));
   return { ok, lines };
 }

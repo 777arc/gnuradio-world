@@ -90,6 +90,22 @@ constellation variables for Constellation Modulator, and gr-fec's CC Decoder
 Definition (`variable_cc_decoder_def`), which `fec_async_decoder` and
 `fec_extended_decoder` look up by name.
 
+### Native output-buffer controls
+
+The editor mirrors GRC's implicit **Min Output Buffer** (`minoutbuf`) and
+**Max Output Buffer** (`maxoutbuf`) fields at the top of a block's Advanced tab.
+They appear on every DSP block whose definition declares an output port,
+including a message output, and do not appear on variables, virtual blocks, or
+input-only sinks. Values are counts of output items, not bytes; `0` retains GNU
+Radio's allocator default.
+
+The runner applies positive values through `set_min_output_buffer()` and
+`set_max_output_buffer()` immediately after constructing each primitive or
+hierarchical block, before connecting and starting the flowgraph. Keep that
+timing: the scheduler allocates stream buffers while the graph is flattened at
+start. These settings size the buffers between blocks; they are distinct from
+`set_max_noutput_items()`, which limits a scheduler work call.
+
 ### Live setters come from the yaml's callbacks
 
 GRC's own generator re-emits a block's `callbacks:` whenever a parameter's
@@ -185,6 +201,26 @@ ASCII, so `registry.cpp` rebuilds it as a message-sink block whose handler recor
 the parser's `(type, text)` tuples and whose QTimer paints them (message handlers
 run on GR threads; widgets are main-thread only). See
 `example_flowgraphs/rds/rds_receiver.grc`.
+
+### The musical keyboard is a source and a widget
+
+`wasm_musical_keyboard_source` combines the SamSonic piano widget with a
+hand-written polyphonic source in
+[`blocks/src/musical_keyboard_source.hpp`](../blocks/src/musical_keyboard_source.hpp).
+The QWidget records pressed roots and chord choices in a mutex-protected note
+snapshot; the block's scheduler thread reads that snapshot and emits a mono
+float stream. With no active or releasing notes, every emitted sample is exact
+zero so the source continues to schedule like any other signal source.
+
+The Qt-free engine in
+[`blocks/src/musical_keyboard_synth.hpp`](../blocks/src/musical_keyboard_synth.hpp)
+is a small subtractive synth: up to three detuned oscillators per note, PolyBLEP
+anti-aliasing for saw and square, an ADSR envelope, a per-note topology-preserving
+resonant low-pass filter whose cutoff follows that envelope, and soft saturation
+after the polyphonic mix. Its numeric sound controls have matching
+`numeric_setters` in the hand-written factory so QT GUI Range blocks can change
+them while the graph is running. The waveform and initial chord remain
+construction-time choices; the running widget owns subsequent chord changes.
 
 ### Python blocks whose dependency is a browser capability
 

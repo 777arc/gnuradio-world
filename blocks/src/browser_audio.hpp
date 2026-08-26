@@ -44,12 +44,13 @@ struct alignas(4) Control {
 static_assert(sizeof(Control) == 8 * sizeof(std::int32_t),
               "audio worklet control ABI changed");
 
-// About 200 ms. With the sink blocking on ring space the ring runs full in the
+// About 50 ms. With the sink blocking on ring space the ring runs full in the
 // steady state, so this is also the output latency -- the same trade a native
-// audio sink makes with its device buffer. Shallower clicks on any scheduler
-// hiccup; deeper only delays the sound.
-constexpr double RING_SECONDS = 0.2;
-constexpr std::size_t MIN_RING_FRAMES = 4096;
+// audio sink makes with its device buffer. Four 128-frame render quanta is the
+// floor: enough scheduling headroom at low rates without bringing the old
+// 200 ms fixed delay back at normal audio rates.
+constexpr double RING_SECONDS = 0.05;
+constexpr std::size_t MIN_RING_FRAMES = 512;
 constexpr std::size_t MAX_RING_FRAMES = 1 << 20;
 constexpr std::size_t ERROR_BYTES = 512;
 

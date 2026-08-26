@@ -1,0 +1,131 @@
+id: wasm_musical_keyboard_source
+label: Musical Keyboard Source
+category: '[Core]/GUI Widgets/QT'
+flags: [cpp]
+
+# The factory in registry.cpp builds the SamSonic QWidget, so this block takes a
+# tile in the runner window's GUI Layout grid.
+gui: true
+
+documentation: |-
+    A polyphonic SamSonic subtractive synthesizer whose audio is emitted as a
+    mono float stream. Play it with the pointer, touch, or the computer keys
+    A W S E D F T G Y H U J K.
+
+    Each note can stack one to three detuned oscillators. Sawtooth and square
+    use PolyBLEP anti-aliasing, then each note passes through an ADSR-controlled
+    resonant low-pass filter and amplitude envelope. Saturation Drive adds a
+    gentle soft-clipped finish to the mixed signal. Set Unison Voices to 1,
+    Filter Envelope to 0, and Saturation Drive to 0 for a simpler tone.
+
+    The Chord menu in the running widget turns every pressed key into the root
+    of a major or minor triad, tritone, major or minor seventh, or fully
+    diminished seventh. A held chord keeps the shape it had when it was pressed,
+    even if the menu changes before the key is released.
+
+    Before a key is pressed, and after every release envelope ends, the source
+    continuously emits exact 0.0 samples. Connect it to Audio Sink for audible
+    real-time playback. When no real-time sink provides backpressure, add one
+    Throttle block at this sample rate.
+
+    This block exists only in the WebAssembly runner and does not run in desktop
+    GNU Radio.
+
+parameters:
+-   id: samp_rate
+    label: Sample Rate
+    dtype: real
+    default: '48000'
+-   id: amplitude
+    label: Amplitude
+    dtype: real
+    default: '0.18'
+-   id: waveform
+    label: Waveform
+    dtype: enum
+    default: saw
+    options: [sine, triangle, saw, square]
+    option_labels: [Sine, Triangle, Sawtooth, Square]
+-   id: first_note
+    label: First MIDI Note
+    dtype: int
+    default: '48'
+-   id: octaves
+    label: Octaves
+    dtype: int
+    default: '2'
+-   id: tuning_hz
+    label: A4 Tuning (Hz)
+    dtype: real
+    default: '440'
+-   id: attack_ms
+    label: Attack (ms)
+    dtype: real
+    default: '5'
+-   id: decay_ms
+    label: Decay (ms)
+    dtype: real
+    default: '180'
+-   id: sustain_level
+    label: Sustain Level
+    dtype: real
+    default: '0.6'
+-   id: release_ms
+    label: Release (ms)
+    dtype: real
+    default: '120'
+-   id: unison_voices
+    label: Unison Voices
+    dtype: int
+    default: '2'
+-   id: unison_detune_cents
+    label: Unison Detune (cents)
+    dtype: real
+    default: '9'
+-   id: filter_cutoff_hz
+    label: Filter Cutoff (Hz)
+    dtype: real
+    default: '700'
+-   id: filter_resonance
+    label: Filter Resonance
+    dtype: real
+    default: '0.25'
+-   id: filter_envelope_octaves
+    label: Filter Envelope (octaves)
+    dtype: real
+    default: '3'
+-   id: saturation_drive
+    label: Saturation Drive
+    dtype: real
+    default: '1'
+-   id: default_chord
+    label: Default Chord
+    dtype: enum
+    default: none
+    options: [none, major_triad, minor_triad, tritone, major_seventh,
+        minor_seventh, fully_diminished_seventh]
+    option_labels: [None, Major triad, Minor triad, Tritone, Major 7th,
+        Minor 7th, Fully diminished 7th]
+
+outputs:
+-   domain: stream
+    dtype: float
+
+asserts:
+- ${ samp_rate > 0 }
+- ${ amplitude >= 0 and amplitude <= 1 }
+- ${ first_note >= 0 and first_note <= 120 }
+- ${ octaves >= 1 and octaves <= 5 }
+- ${ tuning_hz > 0 }
+- ${ attack_ms >= 0 }
+- ${ decay_ms >= 0 }
+- ${ sustain_level >= 0 and sustain_level <= 1 }
+- ${ release_ms >= 0 }
+- ${ unison_voices >= 1 and unison_voices <= 3 }
+- ${ unison_detune_cents >= 0 }
+- ${ filter_cutoff_hz > 0 }
+- ${ filter_resonance >= 0 and filter_resonance <= 1 }
+- ${ filter_envelope_octaves >= 0 }
+- ${ saturation_drive >= 0 }
+
+file_format: 1

@@ -27,7 +27,10 @@ build can see is a change that has to be justified upstream instead.
 native double-mapped scheduler and pointer behavior, then synchronizes completed
 writes before publishing them to readers. It uses twice the physical buffer
 memory and one mirror copy per produced byte, because WebAssembly cannot create
-true VM aliases. See [double-mapped-buffer.md](double-mapped-buffer.md).
+true VM aliases. Under Emscripten its factory reports byte granularity rather
+than the 64 KiB WASM page size: ordinary contiguous storage needs no virtual-map
+alignment, and page rounding would impose a 16,384-item minimum on float buffers.
+See [double-mapped-buffer.md](double-mapped-buffer.md).
 
 ## gr-qtgui
 

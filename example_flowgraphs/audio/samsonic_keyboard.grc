@@ -1,0 +1,297 @@
+options:
+    parameters:
+        author: Marc
+        comment: ''
+        copyright: ''
+        description: Play synth notes and chords on the SamSonic musical keyboard
+        generate_options: qt_gui
+        id: SamSonic_Musical_Keyboard
+        title: SamSonic Musical Keyboard
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: samp_rate
+    id: variable
+    parameters:
+        comment: ''
+        value: '48000'
+    states:
+        coordinate: [740, 10]
+        rotation: 0
+        state: enabled
+-   name: blocks_keep_one_in_n_0
+    id: blocks_keep_one_in_n
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '16'
+        minoutbuf: '0'
+        n: '1'
+        type: float
+        vlen: '1'
+    states:
+        coordinate: [440, 230]
+        rotation: 0
+        state: enabled
+-   name: keyboard
+    id: wasm_musical_keyboard_source
+    parameters:
+        affinity: ''
+        alias: ''
+        amplitude: '0.18'
+        attack_ms: '5'
+        comment: ''
+        decay_ms: '180'
+        default_chord: none
+        filter_cutoff_hz: '700'
+        filter_envelope_octaves: '3'
+        filter_resonance: '0.25'
+        first_note: '48'
+        maxoutbuf: '16'
+        minoutbuf: '0'
+        octaves: '3'
+        release_ms: '120'
+        samp_rate: samp_rate
+        saturation_drive: '1'
+        sustain_level: '0.6'
+        tuning_hz: '440'
+        unison_detune_cents: '9'
+        unison_voices: '2'
+        waveform: saw
+    states:
+        coordinate: [20, 160]
+        rotation: 0
+        state: enabled
+-   name: note_0
+    id: note
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        note: Enjoy! You can also play notes using the keyboard!  Try selection a chord for more fun.
+    states:
+        coordinate: [300, 20]
+        rotation: 0
+        state: enabled
+-   name: qtgui_time_sink_x_0
+    id: qtgui_time_sink_x
+    parameters:
+        affinity: ''
+        alias: ''
+        alpha1: '1'
+        alpha10: '1'
+        alpha2: '1'
+        alpha3: '1'
+        alpha4: '1'
+        alpha5: '1'
+        alpha6: '1'
+        alpha7: '1'
+        alpha8: '1'
+        alpha9: '1'
+        autoscale: 'False'
+        axislabels: 'True'
+        color1: blue
+        color10: dark blue
+        color2: red
+        color3: green
+        color4: black
+        color5: cyan
+        color6: magenta
+        color7: yellow
+        color8: dark red
+        color9: dark green
+        comment: ''
+        ctrlpanel: 'False'
+        grid: 'False'
+        label1: Signal 1
+        label10: Signal 10
+        label2: Signal 2
+        label3: Signal 3
+        label4: Signal 4
+        label5: Signal 5
+        label6: Signal 6
+        label7: Signal 7
+        label8: Signal 8
+        label9: Signal 9
+        legend: 'True'
+        marker1: '-1'
+        marker10: '-1'
+        marker2: '-1'
+        marker3: '-1'
+        marker4: '-1'
+        marker5: '-1'
+        marker6: '-1'
+        marker7: '-1'
+        marker8: '-1'
+        marker9: '-1'
+        name: Scope
+        nconnections: '1'
+        samp_rate: samp_rate
+        size: '1024'
+        stemplot: 'False'
+        style1: '1'
+        style10: '1'
+        style2: '1'
+        style3: '1'
+        style4: '1'
+        style5: '1'
+        style6: '1'
+        style7: '1'
+        style8: '1'
+        style9: '1'
+        tr_chan: '0'
+        tr_delay: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_slope: qtgui.TRIG_SLOPE_POS
+        tr_tag: ''
+        type: float
+        update_time: '0.1'
+        width1: '1'
+        width10: '1'
+        width2: '1'
+        width3: '1'
+        width4: '1'
+        width5: '1'
+        width6: '1'
+        width7: '1'
+        width8: '1'
+        width9: '1'
+        ylabel: Amplitude
+        ymax: '0.3'
+        ymin: '-0.3'
+        yunit: ''
+    states:
+        coordinate: [720, 310]
+        rotation: 0
+        state: enabled
+-   name: speakers
+    id: audio_sink
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        device_name: ''
+        num_inputs: '1'
+        ok_to_block: 'True'
+        samp_rate: samp_rate
+    states:
+        coordinate: [440, 380]
+        rotation: 0
+        state: enabled
+-   name: spectrum
+    id: qtgui_freq_sink_x
+    parameters:
+        affinity: ''
+        alias: ''
+        alpha1: '1'
+        alpha10: '1'
+        alpha2: '1'
+        alpha3: '1'
+        alpha4: '1'
+        alpha5: '1'
+        alpha6: '1'
+        alpha7: '1'
+        alpha8: '1'
+        alpha9: '1'
+        autoscale: 'False'
+        average: '1.0'
+        axislabels: 'True'
+        color1: '"blue"'
+        color10: '"dark blue"'
+        color2: '"red"'
+        color3: '"green"'
+        color4: '"black"'
+        color5: '"cyan"'
+        color6: '"magenta"'
+        color7: '"yellow"'
+        color8: '"dark red"'
+        color9: '"dark green"'
+        comment: ''
+        ctrlpanel: 'False'
+        fc: '0'
+        fftsize: '2048'
+        freqhalf: 'False'
+        grid: 'True'
+        label1: SamSonic output
+        label10: ''
+        label2: ''
+        label3: ''
+        label4: ''
+        label5: ''
+        label6: ''
+        label7: ''
+        label8: ''
+        label9: ''
+        legend: 'False'
+        marker1: '-1'
+        marker10: '-1'
+        marker2: '-1'
+        marker3: '-1'
+        marker4: '-1'
+        marker5: '-1'
+        marker6: '-1'
+        marker7: '-1'
+        marker8: '-1'
+        marker9: '-1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        name: SamSonic Spectrum
+        nconnections: '1'
+        samp_rate: samp_rate/4
+        style1: '1'
+        style10: '1'
+        style2: '1'
+        style3: '1'
+        style4: '1'
+        style5: '1'
+        style6: '1'
+        style7: '1'
+        style8: '1'
+        style9: '1'
+        tr_chan: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_tag: ''
+        type: float
+        update_time: '0.1'
+        width1: '1'
+        width10: '1'
+        width2: '1'
+        width3: '1'
+        width4: '1'
+        width5: '1'
+        width6: '1'
+        width7: '1'
+        width8: '1'
+        width9: '1'
+        ymax: '-20'
+        ymin: '-100'
+    states:
+        coordinate: [690, 110]
+        rotation: 0
+        state: enabled
+-   name: wasm_gui_layout_0
+    id: wasm_gui_layout
+    parameters:
+        affinity: ''
+        alias: ''
+        columns: '12'
+        comment: ''
+        layout: '{"keyboard":[0,0,12,4],"qtgui_time_sink_x_0":[6,4,6,4],"spectrum":[0,4,6,4]}'
+        row_height: '60'
+    states:
+        coordinate: [970, 10]
+        rotation: 0
+        state: enabled
+connections:
+- [blocks_keep_one_in_n_0, '0', qtgui_time_sink_x_0, '0']
+- [blocks_keep_one_in_n_0, '0', spectrum, '0']
+- [keyboard, '0', blocks_keep_one_in_n_0, '0']
+- [keyboard, '0', speakers, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0

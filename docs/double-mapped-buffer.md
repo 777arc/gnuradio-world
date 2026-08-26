@@ -24,6 +24,12 @@ Readers cannot observe the new item count until synchronization is complete. Nat
 `vmcircbuf` implementations use the same commit hook, but it is a no-op because their
 virtual aliases are already coherent.
 
+The emulated factory reports an allocation granularity of one byte under
+Emscripten. Its storage is an ordinary `new[]` allocation, so it has none of the
+page-alignment constraint imposed by a true double virtual mapping. Reporting
+WebAssembly's 64 KiB page size here would round a float buffer to at least 16,384
+items and defeat a block's smaller `maxoutbuf` request.
+
 ## Tradeoffs
 
 - Stream buffers use 2N physical bytes instead of N.

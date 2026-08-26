@@ -1,0 +1,56 @@
+options:
+    parameters:
+        id: wasm_musical_keyboard_source
+        title: Musical Keyboard Source smoke test
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: keyboard
+    id: wasm_musical_keyboard_source
+    parameters:
+        amplitude: '0.2'
+        attack_ms: '5'
+        default_chord: major_seventh
+        first_note: '48'
+        maxoutbuf: '16'
+        minoutbuf: '0'
+        octaves: '2'
+        release_ms: '50'
+        samp_rate: '48000'
+        tuning_hz: '440'
+        waveform: sine
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: throttle
+    id: blocks_throttle2
+    parameters:
+        ignoretag: 'True'
+        limit: time
+        maximum: '0.01'
+        samples_per_second: '48000'
+        type: float
+        vlen: '1'
+    states:
+        coordinate: [250, 0]
+        rotation: 0
+        state: enabled
+-   name: sink
+    id: blocks_null_sink
+    parameters:
+        num_inputs: '1'
+        type: float
+        vlen: '1'
+    states:
+        coordinate: [500, 0]
+        rotation: 0
+        state: enabled
+connections:
+- [keyboard, '0', throttle, '0']
+- [throttle, '0', sink, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0
