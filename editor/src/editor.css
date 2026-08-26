@@ -109,6 +109,7 @@ button:hover { filter:brightness(1.15); }
 .debug-table .state-loaded { color:#4fc3d6; }
 .debug-table .state-pending { color:#c9903a; }
 .debug-totals { margin-top:10px; font-size:16px; color:#aeb8d0; }
+.debug-totals + .debug-note { margin-top:6px; }
 /* Software Versions dialog (shares the debug dialog's section/table styling) */
 .debug-note { color:#8b93ab; font-size:15px; margin:0 0 8px; }
 .debug-table a { color:#7fb4ff; text-decoration:none; }

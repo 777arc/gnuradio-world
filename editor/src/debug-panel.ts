@@ -31,6 +31,33 @@ async function headSize(url: string): Promise<number | null> {
     return len ? parseInt(len, 10) : null;
   } catch { return null; }
 }
+// ...which measures nothing on the deployed site, and never the number that
+// matters. Cloudflare Pages answers HEAD with no Content-Length at all, and a
+// browser GET (always Accept-Encoding: br) is streamed brotli-compressed with no
+// length either -- so every Size cell was blank in production while working fine
+// against server.mjs. Both numbers are knowable when the site is assembled, so
+// scripts/assemble-site.mjs writes them to /asset-sizes.json: `bytes` on disk and
+// `br`, what the visitor actually pulls over the wire.
+//
+// The HEAD stays as the dev fallback. There is no manifest in a dev tree, and
+// server.mjs serves every file identity-encoded, so its Content-Length *is* that
+// server's transfer size -- reported as both.
+const SIZES_URL = '/asset-sizes.json';
+interface AssetSize { bytes: number | null; br: number | null; }
+let sizeManifest: Promise<Record<string, { bytes: number, br: number }>> | null = null;
+function assetSizes(): Promise<Record<string, { bytes: number, br: number }>> {
+  if (!sizeManifest)
+    sizeManifest = fetch(SIZES_URL, { cache: 'no-store' })
+      .then(r => (r.ok ? r.json() : {}))
+      .catch(() => ({}));
+  return sizeManifest;
+}
+async function assetSize(url: string): Promise<AssetSize> {
+  const e = (await assetSizes())[url];
+  if (e && typeof e.bytes === 'number') return { bytes: e.bytes, br: typeof e.br === 'number' ? e.br : null };
+  const n = await headSize(url);
+  return { bytes: n, br: n };
+}
 function dbgHeading(text: string): HTMLElement {
   const h = document.createElement('div'); h.className = 'debug-h'; h.textContent = text; return h;
 }
@@ -62,10 +89,11 @@ export function showDebugInfo(deps: DebugInfoDeps): void {
     const tbl = document.createElement('table'); tbl.className = 'debug-table';
     const thead = document.createElement('thead');
     thead.innerHTML = '<tr><th>File</th><th>Category</th><th class="num">Blocks</th>' +
-                      '<th class="num">Size</th><th>State</th></tr>';
+                      '<th class="num">Transfer</th><th class="num">Uncompressed</th>' +
+                      '<th>State</th></tr>';
     const tbody = document.createElement('tbody');
     const loading = document.createElement('tr');
-    const td = document.createElement('td'); td.colSpan = 5; td.textContent = 'measuring…'; loading.appendChild(td);
+    const td = document.createElement('td'); td.colSpan = 6; td.textContent = 'measuring…'; loading.appendChild(td);
     tbody.appendChild(loading);
     tbl.append(thead, tbody); sec.appendChild(tbl);
     const totals = document.createElement('div'); totals.className = 'debug-totals'; sec.appendChild(totals);
@@ -85,20 +113,22 @@ export function showDebugInfo(deps: DebugInfoDeps): void {
         a === 'core' ? -1 : b === 'core' ? 1 : a.localeCompare(b));
 
       tbody.textContent = '';
+      // Totals are in transfer bytes: what a visit costs is the question the
+      // table is here to answer.
       let coreBytes = 0, deferredBytes = 0, downloadedBytes = 0;
       for (const m of mods) {
         const core = m === 'core';
         const file = core ? 'runner.wasm' : `${m}.wasm`;
-        const size = await headSize(WASM_BASE + file);
+        const size = await assetSize(WASM_BASE + file);
         const loaded = core || loadedModules.has(m);
-        if (size != null) {
-          if (core) coreBytes += size;
-          else { deferredBytes += size; if (loaded) downloadedBytes += size; }
+        if (size.br != null) {
+          if (core) coreBytes += size.br;
+          else { deferredBytes += size.br; if (loaded) downloadedBytes += size.br; }
         }
         const tr = document.createElement('tr');
         const cells: [string, string][] = [
           [file, 'mono'], [core ? 'core' : m, ''], [String(counts[m]), 'num'],
-          [fmtBytes(size), 'num'],
+          [fmtBytes(size.br), 'num'], [fmtBytes(size.bytes), 'num'],
           [core ? 'always loaded' : loaded ? 'downloaded' : 'on demand',
            core ? 'state-core' : loaded ? 'state-loaded' : 'state-pending'],
         ];
@@ -109,13 +139,19 @@ export function showDebugInfo(deps: DebugInfoDeps): void {
         tbody.appendChild(tr);
       }
       totals.textContent =
-        `Core (always downloaded): ${fmtBytes(coreBytes)}   •   ` +
+        `Transferred — core (always downloaded): ${fmtBytes(coreBytes)}   •   ` +
         `Deferred total: ${fmtBytes(deferredBytes)}   •   ` +
         `Downloaded this session: ${fmtBytes(downloadedBytes)}`;
+      const note = document.createElement('div'); note.className = 'debug-note';
+      note.textContent = (await assetSizes())[WASM_BASE + 'runner.wasm']
+        ? 'Transfer is brotli, as the CDN serves it; the browser expands it to Uncompressed.'
+        : 'This dev server sends everything uncompressed, so transfer equals file size here.';
+      sec.appendChild(note);
 
       // block-library metadata size
+      const blocksSize = await assetSize(blocksUrl);
       extra.appendChild(dbgKV('blocks.json (palette metadata)',
-        fmtBytes(await headSize(blocksUrl))));
+        `${fmtBytes(blocksSize.br)} transferred, ${fmtBytes(blocksSize.bytes)} uncompressed`));
       extra.appendChild(dbgKV('Block definitions', `${blocks.length} total, ${blocks.filter(b => b.runnable).length} runnable`));
 
       // live runner stats, if the runner iframe is active (same-origin)

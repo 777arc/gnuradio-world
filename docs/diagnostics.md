@@ -206,6 +206,31 @@ so the bottleneck lights up without reading numbers.
   single-poll item diffs alias (a `▁█▁█` sparkline). The panel smooths
   throughput/CPU over a ~2 s (6-sample) window.
 
+- **Module sizes cannot be measured over HTTP in production.** Help ▸ WebAssembly
+  Modules & Debug Info ([`editor/src/debug-panel.ts`](../editor/src/debug-panel.ts))
+  originally sized each `.wasm` with a HEAD request and `Content-Length`, which
+  `server.mjs` answers and Cloudflare Pages does not — its HEAD carries no
+  `Content-Length` at all, and a browser GET (always `Accept-Encoding: br`) is
+  streamed brotli-compressed with no length either, so the whole Size column read
+  as em dashes on gnuradioworld.com while looking fine locally. Range requests do
+  not help: Pages ignores `Range` and answers 200 with the entire file. Nothing
+  over HTTP can report these, so `scripts/assemble-site.mjs` writes them down at
+  assembly time into `/asset-sizes.json` — `{bytes, br}` per `runner/build/*.wasm`
+  plus `blocks.json` — and the panel consults it first.
+- **The transfer column is brotli quality 4, and that is a measurement, not a
+  guess.** Pages compresses on the fly; comparing what the deployed site returns
+  under `Accept-Encoding: br` against node's `brotliCompressSync` over the same
+  bytes puts q4 within 0.3% on every module tried, while q5 and above understate
+  the transfer by 5–10%. So the manifest's `br` is the real download (~6.8 MB for
+  a 21 MB `runner.wasm`), and the totals line is in those bytes, since what a
+  visit costs is the question the table exists to answer. Compressing the whole
+  ~30 MB of wasm at q4 adds about a second to assembly.
+- **The dev fallback reports one number twice, correctly.** With no manifest the
+  panel falls back to the HEAD, and `server.mjs` serves everything
+  identity-encoded — so its `Content-Length` *is* that server's transfer size, and
+  both columns showing it is accurate rather than a stand-in. The note under the
+  table says which case is on screen.
+
 Verified headless: a `src → multiply_const → throttle → null_sink` graph reports
 `realtime 0.92×`, correct per-block throughput (~29.5k/s at samp_rate 32k),
 `sleep` for the throttle, `bottleneck none`, and smooth sparklines.

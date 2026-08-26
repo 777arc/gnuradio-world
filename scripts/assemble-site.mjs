@@ -14,6 +14,7 @@ import { readdir, readFile, stat, rm, mkdir, cp } from 'node:fs/promises';
 import { join, extname, dirname, relative } from 'node:path';
 import { writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
+import { brotliCompressSync, constants } from 'node:zlib';
 import { findExampleFlowgraphs } from './example-flowgraphs.mjs';
 
 const SCRIPT_DIR = new URL('.', import.meta.url).pathname;
@@ -264,6 +265,36 @@ async function main() {
 </body>
 </html>
 `);
+
+  // 6. Asset size manifest for Help > WebAssembly Modules & Debug Info.
+  //    That dialog measured each module with a HEAD request and Content-Length,
+  //    which server.mjs answers but Pages does not: its HEAD carries no
+  //    Content-Length at all, and a browser GET (always Accept-Encoding: br) is
+  //    streamed compressed with no length either, so every Size cell was blank
+  //    on the deployed site. `Range` is no help -- Pages ignores it and answers
+  //    200 with the whole file. Nothing over HTTP can report these, so write
+  //    them down here, where both numbers are knowable.
+  //
+  //    `br` is what the visitor actually downloads. Pages compresses on the fly
+  //    at brotli quality 4 -- measured against the deployed site, node's q4 lands
+  //    within 0.3% of what Cloudflare returns on every module tried, while q5+
+  //    understates it by 5-10% -- so q4 here is the transfer size, not an
+  //    estimate of it. It costs about a second for the whole ~30 MB of wasm.
+  const BROTLI_Q4 = size => ({ params: {
+    [constants.BROTLI_PARAM_QUALITY]: 4,
+    [constants.BROTLI_PARAM_SIZE_HINT]: size,
+  } });
+  const sizes = {};
+  const measure = async (file, url) => {
+    const buf = await readFile(file);
+    sizes[url] = { bytes: buf.length, br: brotliCompressSync(buf, BROTLI_Q4(buf.length)).length };
+  };
+  for (const f of await walkRuntimeFiles(join(OUT, 'runner', 'build')))
+    if (extname(f) === '.wasm') await measure(f, '/' + relative(OUT, f));
+  if (await stat(join(OUT, 'blocks.json')).catch(() => null))
+    await measure(join(OUT, 'blocks.json'), '/blocks.json');
+  await writeFile(join(OUT, 'asset-sizes.json'), JSON.stringify(sizes));
+  console.log(`asset-sizes.json: ${Object.keys(sizes).length} entries`);
 
   console.log(`\nAssembled site -> ${OUT}`);
 }
