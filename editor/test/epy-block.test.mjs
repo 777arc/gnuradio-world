@@ -27,8 +27,8 @@ const generated = (library.blocks || []).find(block => block.id === EPY_BLOCK_ID
 
 assert.ok(generated, 'epy_block must be in the generated block library');
 assert.equal(generated.runnable, true, 'the Python Block must not be greyed out');
-assert.deepEqual(generated.category, ['Core', 'Misc'],
-  "the Python Block belongs where native GRC's tree puts it");
+assert.deepEqual(generated.category, ['GNU Radio World'],
+  'the browser-backed Python Block belongs with the other GNU Radio World blocks');
 assert.deepEqual((generated.inputs || []), [],
   'epy_block declares no ports in yaml: they come from the block source');
 const yamlParams = new Map(generated.params.map(p => [p.id, p]));

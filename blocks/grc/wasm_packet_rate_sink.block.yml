@@ -1,6 +1,6 @@
 id: wasm_packet_rate_sink
 label: WASM Packet Rate Sink
-category: '[Wasm]'
+category: '[GNU Radio World]'
 flags: [cpp]
 
 # The factory in registry.cpp builds a QWidget, so this block takes a tile in

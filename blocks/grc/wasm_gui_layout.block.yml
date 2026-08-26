@@ -1,6 +1,6 @@
 id: wasm_gui_layout
 label: GUI Layout
-category: '[Core]/GUI Widgets/QT'
+category: '[GNU Radio World]'
 flags: [cpp]
 
 documentation: |-

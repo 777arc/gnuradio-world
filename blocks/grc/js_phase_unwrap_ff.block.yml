@@ -1,7 +1,7 @@
 # Implemented in JavaScript: blocks/js/js_phase_unwrap_ff.js. See docs/js-blocks.md.
 id: js_phase_unwrap_ff
 label: Phase Unwrap
-category: '[Core]/Math Operators'
+category: '[GNU Radio World]'
 flags: [js]
 
 documentation: |-

@@ -1,7 +1,7 @@
 # Implemented in JavaScript: blocks/js/js_peak_hold_ff.js. See docs/js-blocks.md.
 id: js_peak_hold_ff
 label: Peak Hold (decimating)
-category: '[Core]/Peak Detectors'
+category: '[GNU Radio World]'
 flags: [js]
 
 documentation: |-

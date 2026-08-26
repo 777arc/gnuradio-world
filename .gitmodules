@@ -46,3 +46,7 @@
 	path = gr-hrpt
 	url = https://github.com/777arc/gr-hrpt.git
 	branch = wasm-support
+[submodule "gr-lora_sdr"]
+	path = gr-lora_sdr
+	url = https://github.com/tapparelj/gr-lora_sdr.git
+	branch = master

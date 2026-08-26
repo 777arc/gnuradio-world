@@ -37,8 +37,15 @@ assert.match(source, /search\.oninput = \(\) => draw\(search\.value\.trim\(\)\.t
   'typing in the block search must redraw the tree');
 assert.match(source, /TOP_PALETTE_CATEGORY = 'Supported SDRs'/,
   'Supported SDRs must have explicit root-category priority');
-assert.match(source, /if \(depth === 0\)[\s\S]*?a\.name === TOP_PALETTE_CATEGORY[\s\S]*?return -1/,
+assert.match(source, /if \(depth === 0\)[\s\S]*?a === TOP_PALETTE_CATEGORY[\s\S]*?return -1/,
   'Supported SDRs must sort above Core at the root of the block tree');
+assert.match(source, /CORE_PALETTE_CATEGORY = 'Core'/,
+  'Core must have explicit root-category priority');
+assert.match(source, /AFTER_CORE_PALETTE_CATEGORY = 'GNU Radio World'/,
+  'GNU Radio World must have explicit after-Core priority');
+assert.match(source,
+  /a === CORE_PALETTE_CATEGORY[\s\S]*?return -1[\s\S]*?a === AFTER_CORE_PALETTE_CATEGORY[\s\S]*?return -1/,
+  'GNU Radio World must sort immediately after Core at the root of the block tree');
 
 // ---- Example Flowgraphs -----------------------------------------------------
 // What it matches: every whitespace-separated term, against one lowercased blob.

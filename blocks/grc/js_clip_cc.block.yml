@@ -7,7 +7,7 @@
 # checks.
 id: js_clip_cc
 label: Complex Soft Clipper
-category: '[Core]/Level Controllers'
+category: '[GNU Radio World]'
 flags: [js]
 
 documentation: |-

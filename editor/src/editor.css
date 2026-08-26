@@ -660,7 +660,7 @@ svg text { user-select:none; -webkit-user-select:none; -moz-user-select:none; }
     font-family:'DejaVu Sans',Verdana,sans-serif; }
 .blk.invalid text.subtitle { fill:#a40e26; }
 .blk.disabled text.subtitle { fill:#666; }
-.blk.bypassed text.subtitle { fill:#3a4c5e; }
+.blk.bypassed text.subtitle { fill:#5c5a2e; }
 .blk text.param { fill:#111; font-size:16px; font-family:'DejaVu Sans',Verdana,sans-serif; }
 .blk .plabel { font-weight:700; }
 .blk text.pval { fill:#1a63c4; }
@@ -714,10 +714,17 @@ svg text { user-select:none; -webkit-user-select:none; -moz-user-select:none; }
 .blk.disabled text.title, .blk.disabled text.param, .blk.disabled text.pval { fill:#4a4a4a; }
 .blk.disabled .port { opacity:.35; }
 .blk.disabled .port-label { fill:#777; }
-/* bypassed block: native BLOCK_BYPASSED_COLOR (light steel blue), kept dashed so
-   it stays distinguishable from a disabled one at a glance */
-.blk.bypassed rect.body { fill:#b0c4de; stroke:#616161; stroke-dasharray:6 3; }
-.blk.bypassed text.title { fill:#16283a; }
+/* bypassed block: what gui_qt's canvas/block.py paints, but deliberately the
+   *older* BLOCK_BYPASSED_COLOR. Upstream swapped this yellow-green for a light
+   steel blue (#b0c4de) in Sept 2025 -- gtk c2c539134, qt d6e67177c, both citing
+   issue #7914's confusion with the red error and orange deprecated states. This
+   build keeps the yellow, which is what most people still picture a bypassed
+   block as; the border, the plain black label and everything else stay as
+   current gui_qt draws them. Solid, not dashed: native reserves no dash for any
+   block state, and the yellow already separates it from the grey disabled body
+   at a glance. Ports keep their type colors here as they do natively, where only
+   `not enabled` greys them and a bypassed block is still enabled. */
+.blk.bypassed rect.body { fill:#f4ff81; stroke:#616161; }
 .blk.disabled.invalid rect.body, .blk.bypassed.invalid rect.body { fill:#fff2f2; stroke:#ff0000; }
 .blk.disabled.invalid text.title, .blk.bypassed.invalid text.title { fill:#a40e26; }
 /* A magnetic training match is the release cue, so it deliberately wins over

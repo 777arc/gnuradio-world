@@ -32,8 +32,8 @@ const generated = (library.blocks || []).find(block => block.id === JS_BLOCK_ID)
 
 assert.ok(generated, 'wasm_js_block must be in the generated block library');
 assert.equal(generated.runnable, true, 'the JS Block must not be greyed out');
-assert.deepEqual(generated.category, ['Core', 'Misc'],
-  'the JS Block sits beside the Python Block');
+assert.deepEqual(generated.category, ['GNU Radio World'],
+  'the JS Block sits beside the Python Block under GNU Radio World');
 assert.deepEqual((generated.inputs || []), [],
   'wasm_js_block declares no ports in yaml: they come from the block source');
 const yamlParams = new Map(generated.params.map(p => [p.id, p]));

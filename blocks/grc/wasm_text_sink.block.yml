@@ -1,6 +1,6 @@
 id: wasm_text_sink
 label: Text Sink
-category: '[Core]/Debug Tools'
+category: '[GNU Radio World]'
 flags: [cpp]
 
 documentation: |-

@@ -86,19 +86,26 @@ function makeCategoryRow(name: string, container: HTMLElement, open: boolean,
 
 const TREE_INDENT = 16;
 const TOP_PALETTE_CATEGORY = 'Supported SDRs';
+const CORE_PALETTE_CATEGORY = 'Core';
+const AFTER_CORE_PALETTE_CATEGORY = 'GNU Radio World';
 
-function compareCategories(a: Category, b: Category, depth: number): number {
+export function comparePaletteCategoryNames(a: string, b: string, depth: number): number {
   if (depth === 0) {
-    if (a.name === TOP_PALETTE_CATEGORY) return -1;
-    if (b.name === TOP_PALETTE_CATEGORY) return 1;
+    if (a === b) return 0;
+    if (a === TOP_PALETTE_CATEGORY) return -1;
+    if (b === TOP_PALETTE_CATEGORY) return 1;
+    if (a === CORE_PALETTE_CATEGORY) return -1;
+    if (b === CORE_PALETTE_CATEGORY) return 1;
+    if (a === AFTER_CORE_PALETTE_CATEGORY) return -1;
+    if (b === AFTER_CORE_PALETTE_CATEGORY) return 1;
   }
-  return a.name.localeCompare(b.name);
+  return a.localeCompare(b);
 }
 
 function renderCategory(node: Category, container: HTMLElement, depth: number,
                         query: string, options: PaletteTreeOptions): void {
   for (const child of [...node.subs.values()].sort(
-    (a, b) => compareCategories(a, b, depth))) {
+    (a, b) => comparePaletteCategoryNames(a.name, b.name, depth))) {
     if (!categoryMatches(child, query)) continue;
     const children = makeCategoryRow(
       child.name,

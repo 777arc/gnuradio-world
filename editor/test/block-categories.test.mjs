@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { bundleModule } from './bundle-module.mjs';
+
+const { comparePaletteCategoryNames } =
+  await bundleModule('../src/palette-tree.ts');
 
 const library = JSON.parse(await readFile(
   new URL('../public/blocks.json', import.meta.url), 'utf8'));
@@ -65,6 +69,36 @@ for (const [id, label] of supportedSdrBlocks) {
   assert.equal(byId.get(id)?.label, label,
     `${id} must show whether it receives or transmits`);
 }
+
+const worldBlocks = new Map([
+  ['epy_block', ['GNU Radio World']],
+  ['hrpt_image_sink', ['GNU Radio World']],
+  ['js_clip_cc', ['GNU Radio World']],
+  ['js_peak_hold_ff', ['GNU Radio World']],
+  ['js_phase_unwrap_ff', ['GNU Radio World']],
+  ['wasm_gr_world_recording', ['GNU Radio World']],
+  ['wasm_gui_layout', ['GNU Radio World']],
+  ['wasm_js_block', ['GNU Radio World']],
+  ['wasm_musical_keyboard_source', ['GNU Radio World']],
+  ['wasm_packet_rate_sink', ['GNU Radio World']],
+  ['wasm_public_http_recording', ['GNU Radio World']],
+  ['wasm_sigmf_sink', ['GNU Radio World']],
+  ['wasm_sigmf_source', ['GNU Radio World']],
+  ['wasm_text_sink', ['GNU Radio World']],
+]);
+for (const [id, category] of worldBlocks)
+  assert.deepEqual(byId.get(id)?.category, category,
+    `${id} must appear beneath the GNU Radio World palette root`);
+for (const id of supportedSdrBlocks.keys())
+  assert.notEqual(byId.get(id)?.category?.[0], 'GNU Radio World',
+    `${id} is hardware and must remain outside GNU Radio World`);
+
+const paletteRoots = [...new Set(blocks.map(block => block.category[0]))]
+  .sort((a, b) => comparePaletteCategoryNames(a, b, 0));
+assert.equal(paletteRoots[0], 'Supported SDRs',
+  'Supported SDRs must remain the first palette category');
+assert.equal(paletteRoots[paletteRoots.indexOf('Core') + 1], 'GNU Radio World',
+  'GNU Radio World must immediately follow Core in the palette');
 
 const addedWasmBlocks = [
   'blocks_correctiq',

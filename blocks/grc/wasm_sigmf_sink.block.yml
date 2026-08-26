@@ -1,6 +1,6 @@
 id: wasm_sigmf_sink
 label: SigMF Sink
-category: '[Core]/File Operators'
+category: '[GNU Radio World]'
 flags: [cpp]
 
 documentation: |-

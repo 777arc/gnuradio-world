@@ -1,6 +1,6 @@
 id: wasm_public_http_recording
 label: Public HTTP Recording
-category: '[Core]/File Operators'
+category: '[GNU Radio World]'
 flags: [cpp]
 
 documentation: |-

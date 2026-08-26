@@ -1,6 +1,6 @@
 id: wasm_musical_keyboard_source
 label: Musical Keyboard Source
-category: '[Core]/GUI Widgets/QT'
+category: '[GNU Radio World]'
 flags: [cpp]
 
 # The factory in registry.cpp builds the SamSonic QWidget, so this block takes a

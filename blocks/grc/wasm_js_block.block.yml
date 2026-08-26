@@ -9,7 +9,7 @@
 # its gr.export() descriptor declares. See docs/js-blocks.md.
 id: wasm_js_block
 label: JS Block
-category: '[Core]/Misc'
+category: '[GNU Radio World]'
 flags: [cpp]
 
 documentation: |-

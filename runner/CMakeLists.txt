@@ -81,6 +81,7 @@ set(GR_INCLUDE_DIRS
   ${WORLD}/gr-droneid/gnuradio/gr-droneid/include
   ${WORLD}/gr-ieee802_11/include
   ${WORLD}/gr-hrpt/include
+  ${WORLD}/gr-lora_sdr/include
   ${BUILDGR}/gnuradio-runtime/include ${SYSROOT}/include)
 
 # ---------------------------------------------------------------------------
@@ -762,6 +763,74 @@ add_custom_command(
   VERBATIM)
 list(APPEND SIDE_MODULE_OUTPUTS ${hrpt_out})
 list(APPEND SIDE_MODULE_NAMES hrpt)
+
+# gr-lora_sdr (tapparelj/EPFL-TCL): a complete LoRa PHY -- whitening, header,
+# CRC, Hamming, interleaver, gray (de)mapping, chirp modulator, and the
+# frame_sync/fft_demod receiver front end. Every grc/ block except the lora_tx /
+# lora_rx hierarchies has a C++ impl, so this is the ordinary OOT case, with one
+# wrinkle: its bundled kiss_fft is C, and add_custom_command would invoke em++
+# on it regardless of extension, mangling the symbols fft_demod_impl.cc calls
+# through kiss_fft.h's `extern "C"` block -- a dlopen-time "bad export type for
+# 'kiss_fft_alloc': undefined" rather than a compile error. Same reasoning as
+# gr-hrpt's viterbi_lib and gr-satellites' libfec: build through an OBJECT
+# library so CMake picks emcc for .c and em++ for .cc, then link the objects in.
+# Its own CMake generates an empty config.h that every impl includes
+# unconditionally, hence the runner-owned shim.
+set(LORA_SDR_LIB ${WORLD}/gr-lora_sdr/lib)
+set(LORA_SDR_WASM_SHIMS ${BLOCKS}/overlays/gr-lora_sdr/shims)
+set(LORA_SDR_SOURCES
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/generated_registry_lora_sdr.cpp
+  ${BLOCKS}/overlays/gr-lora_sdr/lora_sdr_hier.cpp
+  ${LORA_SDR_LIB}/RH_RF95_header_impl.cc
+  ${LORA_SDR_LIB}/add_crc_impl.cc
+  ${LORA_SDR_LIB}/crc_verif_impl.cc
+  ${LORA_SDR_LIB}/data_source_impl.cc
+  ${LORA_SDR_LIB}/deinterleaver_impl.cc
+  ${LORA_SDR_LIB}/dewhitening_impl.cc
+  ${LORA_SDR_LIB}/fft_demod_impl.cc
+  ${LORA_SDR_LIB}/frame_sync_impl.cc
+  ${LORA_SDR_LIB}/gray_demap_impl.cc
+  ${LORA_SDR_LIB}/gray_mapping_impl.cc
+  ${LORA_SDR_LIB}/hamming_dec_impl.cc
+  ${LORA_SDR_LIB}/hamming_enc_impl.cc
+  ${LORA_SDR_LIB}/header_decoder_impl.cc
+  ${LORA_SDR_LIB}/header_impl.cc
+  ${LORA_SDR_LIB}/interleaver_impl.cc
+  ${LORA_SDR_LIB}/kiss_fft.c
+  ${LORA_SDR_LIB}/modulate_impl.cc
+  ${LORA_SDR_LIB}/payload_id_inc_impl.cc
+  ${LORA_SDR_LIB}/whitening_impl.cc)
+add_library(lora_sdr_side_objects OBJECT EXCLUDE_FROM_ALL ${LORA_SDR_SOURCES})
+set_target_properties(lora_sdr_side_objects PROPERTIES
+  C_STANDARD 11
+  C_STANDARD_REQUIRED ON)
+target_include_directories(lora_sdr_side_objects PRIVATE
+  ${LORA_SDR_WASM_SHIMS}
+  ${LORA_SDR_LIB}
+  ${GR_INCLUDE_DIRS})
+target_compile_options(lora_sdr_side_objects PRIVATE
+  -pthread -fPIC -Oz
+  $<$<COMPILE_LANGUAGE:CXX>:-fexceptions>)
+set(lora_sdr_out ${CMAKE_CURRENT_BINARY_DIR}/lora_sdr.wasm)
+add_custom_command(
+  OUTPUT ${lora_sdr_out}
+  COMMAND ${CMAKE_CXX_COMPILER}
+    -sSIDE_MODULE=1 -pthread -fPIC -Oz -std=c++17
+    -sNO_DISABLE_EXCEPTION_CATCHING
+    -sWASM_BIGINT=1
+    $<TARGET_OBJECTS:lora_sdr_side_objects>
+    -o ${lora_sdr_out}
+  DEPENDS lora_sdr_side_objects
+          ${LORA_SDR_SOURCES}
+          ${LORA_SDR_WASM_SHIMS}/config.h
+          ${BLOCKS}/overlays/gr-lora_sdr/lora_sdr_hier.hpp
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/registry_helpers.hpp
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/registry.hpp
+  COMMENT "Building category side module lora_sdr.wasm (out-of-tree gr-lora_sdr sources)"
+  COMMAND_EXPAND_LISTS
+  VERBATIM)
+list(APPEND SIDE_MODULE_OUTPUTS ${lora_sdr_out})
+list(APPEND SIDE_MODULE_NAMES lora_sdr)
 
 # Fail at configure time if modules.json names a deferred category that has no
 # build rule here, or if a build rule was added without registering its topology.

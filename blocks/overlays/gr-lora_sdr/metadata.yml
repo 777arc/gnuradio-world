@@ -1,0 +1,216 @@
+# Browser-only metadata for gr-lora_sdr (tapparelj), the EPFL/TCL LoRa PHY:
+# a complete LoRa transmitter and receiver chain built from small stream blocks.
+#
+# Every block in its grc/ except lora_tx/lora_rx has a plain C++ impl in
+# gr-lora_sdr/lib, so all of them get a generated factory from the
+# cpp_templates below. Upstream's headers live under include/gnuradio/lora_sdr/,
+# hence the `<gnuradio/lora_sdr/...>` include spellings (upstream's own
+# frame_sync cpp_templates entry says `"frame_sync.h"`, which only resolves
+# inside its lib/ -- replaced here).
+#
+# lora_tx and lora_rx are gr.hier_block2 compositions in
+# python/lora_sdr/lora_sdr_lora_{tx,rx}.py with no C++ path upstream; they are
+# rebuilt as real hier_block2s in lora_sdr_hier.cpp beside this file.
+
+lora_sdr_RH_RF95_header:
+  flags: [python, cpp]
+  category: '[LoRa]/Transmitter'
+  cpp_templates:
+    includes: ['#include <gnuradio/lora_sdr/RH_RF95_header.h>']
+    declarations: 'lora_sdr::RH_RF95_header::sptr ${id};'
+    make: 'this->${id} = lora_sdr::RH_RF95_header::make(${_to}, ${_from}, ${_id}, ${_flags});'
+
+lora_sdr_add_crc:
+  flags: [python, cpp]
+  category: '[LoRa]/Transmitter'
+  cpp_templates:
+    includes: ['#include <gnuradio/lora_sdr/add_crc.h>']
+    declarations: 'lora_sdr::add_crc::sptr ${id};'
+    make: 'this->${id} = lora_sdr::add_crc::make(${has_crc});'
+
+lora_sdr_crc_verif:
+  flags: [python, cpp]
+  category: '[LoRa]/Receiver'
+  cpp_templates:
+    includes: ['#include <gnuradio/lora_sdr/crc_verif.h>']
+    declarations: 'lora_sdr::crc_verif::sptr ${id};'
+    make: 'this->${id} = lora_sdr::crc_verif::make(${print_rx_msg}, ${output_crc_check});'
+
+lora_sdr_data_source:
+  flags: [python, cpp]
+  category: '[LoRa]/Transmitter'
+  cpp_templates:
+    includes: ['#include <gnuradio/lora_sdr/data_source.h>']
+    declarations: 'lora_sdr::data_source::sptr ${id};'
+    make: 'this->${id} = lora_sdr::data_source::make(${pay_len}, ${n_frames});'
+
+lora_sdr_deinterleaver:
+  flags: [python, cpp]
+  category: '[LoRa]/Receiver'
+  cpp_templates:
+    includes: ['#include <gnuradio/lora_sdr/deinterleaver.h>']
+    declarations: 'lora_sdr::deinterleaver::sptr ${id};'
+    make: 'this->${id} = lora_sdr::deinterleaver::make(${soft_decoding});'
+
+lora_sdr_dewhitening:
+  flags: [python, cpp]
+  category: '[LoRa]/Receiver'
+  cpp_templates:
+    includes: ['#include <gnuradio/lora_sdr/dewhitening.h>']
+    declarations: 'lora_sdr::dewhitening::sptr ${id};'
+    make: 'this->${id} = lora_sdr::dewhitening::make();'
+
+lora_sdr_fft_demod:
+  flags: [python, cpp]
+  category: '[LoRa]/Receiver'
+  cpp_templates:
+    includes: ['#include <gnuradio/lora_sdr/fft_demod.h>']
+    declarations: 'lora_sdr::fft_demod::sptr ${id};'
+    make: 'this->${id} = lora_sdr::fft_demod::make(${soft_decoding}, ${max_log_approx});'
+
+# sync_word is an int_vector whose upstream default is the bare scalar `0x12`.
+# The editor evaluates a vector parameter before handing the .grc to the runner,
+# so a scalar arrives as the number 18 and wasm_registry::vector() rejects it as
+# "not a vector" -- hence the list-spelled default. The argument is read
+# directly rather than through ${sync_word} because make() wants
+# std::vector<uint16_t> (the generator would produce std::vector<int>) and
+# because a .grc omitting the parameter should still get upstream's 0x12 rather
+# than an empty vector.
+lora_sdr_frame_sync:
+  flags: [python, cpp]
+  category: '[LoRa]/Receiver'
+  parameter_defaults:
+    sync_word: '[0x12]'
+  cpp_templates:
+    includes: ['#include <gnuradio/lora_sdr/frame_sync.h>']
+    declarations: 'lora_sdr::frame_sync::sptr ${id};'
+    make: 'this->${id} = lora_sdr::frame_sync::make(${center_freq}, ${bandwidth}, ${sf}, ${impl_head}, wasm_registry::vector<std::uint16_t>(p, "sync_word", {0x12}), ${os_factor}, ${preamb_len});'
+
+lora_sdr_gray_demap:
+  flags: [python, cpp]
+  category: '[LoRa]/Transmitter'
+  cpp_templates:
+    includes: ['#include <gnuradio/lora_sdr/gray_demap.h>']
+    declarations: 'lora_sdr::gray_demap::sptr ${id};'
+    make: 'this->${id} = lora_sdr::gray_demap::make(${sf});'
+
+lora_sdr_gray_mapping:
+  flags: [python, cpp]
+  category: '[LoRa]/Receiver'
+  cpp_templates:
+    includes: ['#include <gnuradio/lora_sdr/gray_mapping.h>']
+    declarations: 'lora_sdr::gray_mapping::sptr ${id};'
+    make: 'this->${id} = lora_sdr::gray_mapping::make(${soft_decoding});'
+
+lora_sdr_hamming_dec:
+  flags: [python, cpp]
+  category: '[LoRa]/Receiver'
+  cpp_templates:
+    includes: ['#include <gnuradio/lora_sdr/hamming_dec.h>']
+    declarations: 'lora_sdr::hamming_dec::sptr ${id};'
+    make: 'this->${id} = lora_sdr::hamming_dec::make(${soft_decoding});'
+
+lora_sdr_hamming_enc:
+  flags: [python, cpp]
+  category: '[LoRa]/Transmitter'
+  cpp_templates:
+    includes: ['#include <gnuradio/lora_sdr/hamming_enc.h>']
+    declarations: 'lora_sdr::hamming_enc::sptr ${id};'
+    make: 'this->${id} = lora_sdr::hamming_enc::make(${cr}, ${sf});'
+
+lora_sdr_header:
+  flags: [python, cpp]
+  category: '[LoRa]/Transmitter'
+  cpp_templates:
+    includes: ['#include <gnuradio/lora_sdr/header.h>']
+    declarations: 'lora_sdr::header::sptr ${id};'
+    make: 'this->${id} = lora_sdr::header::make(${impl_head}, ${has_crc}, ${cr});'
+
+lora_sdr_header_decoder:
+  flags: [python, cpp]
+  category: '[LoRa]/Receiver'
+  cpp_templates:
+    includes: ['#include <gnuradio/lora_sdr/header_decoder.h>']
+    declarations: 'lora_sdr::header_decoder::sptr ${id};'
+    make: 'this->${id} = lora_sdr::header_decoder::make(${impl_head}, ${cr}, ${pay_len}, ${has_crc}, ${ldro}, ${print_header});'
+
+lora_sdr_interleaver:
+  flags: [python, cpp]
+  category: '[LoRa]/Transmitter'
+  cpp_templates:
+    includes: ['#include <gnuradio/lora_sdr/interleaver.h>']
+    declarations: 'lora_sdr::interleaver::sptr ${id};'
+    make: 'this->${id} = lora_sdr::interleaver::make(${cr}, ${sf}, ${ldro}, ${bw});'
+
+# sync_words: same int_vector story as frame_sync above.
+lora_sdr_modulate:
+  flags: [python, cpp]
+  category: '[LoRa]/Transmitter'
+  parameter_defaults:
+    sync_words: '[0x12]'
+  cpp_templates:
+    includes: ['#include <gnuradio/lora_sdr/modulate.h>']
+    declarations: 'lora_sdr::modulate::sptr ${id};'
+    make: 'this->${id} = lora_sdr::modulate::make(${sf}, ${samp_rate}, ${bw}, wasm_registry::vector<std::uint16_t>(p, "sync_words", {0x12}), ${frame_zero_padd}, ${preamb_len});'
+
+lora_sdr_payload_id_inc:
+  flags: [python, cpp]
+  category: '[LoRa]/Transmitter'
+  cpp_templates:
+    includes: ['#include <gnuradio/lora_sdr/payload_id_inc.h>']
+    declarations: 'lora_sdr::payload_id_inc::sptr ${id};'
+    make: 'this->${id} = lora_sdr::payload_id_inc::make(${separator});'
+
+# separator and length_tag_name are upstream `raw` parameters holding quoted
+# Python literals (`','`, `'packet_len'`), which the generator cannot type -- the
+# whole block would be skipped. Retyped as plain strings, the same fix gr-foo's
+# burst_tagger uses. separator is a `char` in C++, so the template takes the
+# first character of the string and falls back to ',' when it is empty.
+lora_sdr_whitening:
+  flags: [python, cpp]
+  category: '[LoRa]/Transmitter'
+  parameter_dtypes:
+    separator: string
+    length_tag_name: string
+  parameter_defaults:
+    separator: ','
+    length_tag_name: packet_len
+  cpp_templates:
+    includes: ['#include <gnuradio/lora_sdr/whitening.h>']
+    declarations: 'lora_sdr::whitening::sptr ${id};'
+    make: 'this->${id} = lora_sdr::whitening::make(${is_hex}, ${use_length_tag}, (${separator} + ",")[0], ${length_tag_name});'
+
+# The two hierarchies, rebuilt in lora_sdr_hier.cpp beside this file.
+#
+# Both carry parameters upstream leaves untyped (`raw`), because GRC evaluates
+# them in Python and never needed a dtype: sync_word is a list literal and
+# frame_zero_padd a plain integer expression, and an untyped `raw` makes the
+# generator skip the whole block. print_rx is upstream's `[print_header,
+# print_payload]` pair, whose enum *options* are themselves list literals with no
+# C++ spelling, so it is read as the text it is written as and parsed in the
+# rebuild.
+#
+# `callbacks: []` because these hier_block2s expose none of the setters the
+# Python classes do -- set_cr/set_sf there re-drive the member blocks, which the
+# rebuild does not track.
+lora_tx:
+  flags: [python, cpp]
+  category: '[LoRa]/Transmitter'
+  callbacks: []
+  parameter_dtypes:
+    sync_word: int_vector
+    frame_zero_padd: int
+  cpp_templates:
+    includes: ['#include "lora_sdr_hier.hpp"']
+    make: 'this->${id} = wasm_lora_sdr::make_lora_tx(${samp_rate}, ${bw}, ${sf}, ${impl_head}, ${cr}, ${has_crc}, ${ldro}, wasm_registry::vector<std::uint16_t>(p, "sync_word", {0x12}), ${frame_zero_padd});'
+
+lora_rx:
+  flags: [python, cpp]
+  category: '[LoRa]/Receiver'
+  callbacks: []
+  parameter_dtypes:
+    sync_word: int_vector
+    print_rx: string
+  cpp_templates:
+    includes: ['#include "lora_sdr_hier.hpp"']
+    make: 'this->${id} = wasm_lora_sdr::make_lora_rx(${samp_rate}, ${bw}, ${sf}, ${impl_head}, ${cr}, ${has_crc}, ${pay_len}, ${soft_decoding}, ${ldro}, wasm_registry::vector<std::uint16_t>(p, "sync_word", {0x12}), ${print_rx});'

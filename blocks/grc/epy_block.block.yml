@@ -12,7 +12,7 @@
 # in_sig/out_sig say.
 id: epy_block
 label: Python Block
-category: '[Core]/Misc'
+category: '[GNU Radio World]'
 flags: [cpp]
 
 documentation: |-

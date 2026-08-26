@@ -113,7 +113,8 @@ node server.mjs 8090 "$PWD"
   from gr-blocks, gr-analog, gr-fft, gr-filter, gr-digital, gr-dtv, gr-network,
   gr-pdu, gr-vocoder, gr-channels and gr-qtgui, plus the vendored out-of-tree modules
   (including but not limited to gr-rds, gr-foo, gr-dvbs2, gr-dvbs2rx,
-  gr-satellites, gr-paint, gr-fosphor, gr-droneid, gr-ham, gr-ieee802-11). Stream
+  gr-satellites, gr-paint, gr-fosphor, gr-droneid, gr-ham, gr-ieee802-11,
+  gr-hrpt, gr-lora_sdr). Stream
   and message-port connections are both serialized by the editor. QT GUI Range
   controls can be referenced by ID from numeric block parameters and update those
   parameters while the graph is running.

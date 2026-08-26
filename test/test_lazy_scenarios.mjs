@@ -313,6 +313,34 @@ const scenarios = [
         ['deframe',0,'decode',0], ['deframe',0,'image',0],
       ] },
     expectFetch: ['digital.wasm', 'hrpt.wasm'] },
+  { name: 'gr-lora_sdr TX/RX hierarchies (OOT deferred)',
+    fg: { blocks:[
+      { name:'payload', id:'blocks_message_strobe',
+        params:{ msg:'pmt.intern("lora")', period:500 } },
+      { name:'tx', id:'lora_tx',
+        params:{ samp_rate:500000, bw:125000, sf:7, impl_head:'False', cr:1,
+                 has_crc:'True', ldro:2, sync_word:'[18]', frame_zero_padd:1280 } },
+      { name:'thr', id:'blocks_throttle2',
+        params:{ type:'complex', samples_per_second:500000, vlen:1,
+                 ignoretag:'True', limit:'auto', maximum:0.1 } },
+      { name:'rx', id:'lora_rx',
+        params:{ samp_rate:500000, bw:125000, sf:7, impl_head:'False', cr:1,
+                 has_crc:'True', pay_len:255, soft_decoding:'False', ldro:2,
+                 sync_word:'[18]', print_rx:'[True,True]' } },
+      { name:'snk', id:'blocks_null_sink', params:{ type:'byte' } },
+      // The hierarchies cover every stream block in the module between them;
+      // these three are message-only, so construct them unconnected to reach
+      // their factories too.
+      { name:'radiohead', id:'lora_sdr_RH_RF95_header',
+        params:{ _to:255, _from:255, _id:0, _flags:0 } },
+      { name:'random', id:'lora_sdr_data_source', params:{ pay_len:16, n_frames:10 } },
+      { name:'increment', id:'lora_sdr_payload_id_inc', params:{ separator:':' } } ],
+      connections:[
+        ['tx',0,'thr',0], ['thr',0,'rx',0], ['rx',0,'snk',0],
+        { src_blk_id:'payload', src_port_id:'strobe',
+          snk_blk_id:'tx', snk_port_id:'in' },
+      ] },
+    expectFetch: ['lora_sdr.wasm'] },
 ];
 
 // The runner consumes native .grc; wrap these {blocks,connections} fixtures in

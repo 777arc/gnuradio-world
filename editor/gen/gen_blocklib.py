@@ -35,11 +35,12 @@ for module, root in sorted(MODULE_SOURCE_ROOTS.items()):
 OOT_MODULE_BY_DIR = {
     module_dirs[module]: module for module in oot_modules
 }
+WORLD_BLOCKS = os.path.join(WORLD, "blocks", "grc")
 MODULES = [module_dirs["grc"]] + [
     module_dirs[module] for module in sorted(module_dirs) if module != "grc"
 ] + [
     # Runner-only blocks: browser-specific sinks with no upstream definition.
-    os.path.join(WORLD, "blocks", "grc")
+    WORLD_BLOCKS
 ]
 MANIFEST = os.path.join(WORLD, "runner", "generated_blocks.json")
 WIKI_BLOCK_DOCS_URL_PREFIX = "https://wiki.gnuradio.org/index.php/"
@@ -439,11 +440,13 @@ def main(out_path):
                 if override.get("hidden"):
                     continue
             # A module's .tree.yml normally decides the category, as in native
-            # GRC. An overlay `category` is the exception: it is a deliberate
-            # browser-only recategorization, so it outranks the tree as well as
-            # the block's own yaml (gr-dvbs2rx uses one to retain a concise
-            # DVB-S2 RX subcategory beneath the generated OOT root).
-            if override and "category" in override:
+            # GRC. An overlay `category` is a deliberate browser-only
+            # recategorization, and a runner-owned definition has no upstream
+            # tree of its own, so either one outranks a coincidentally matching
+            # native tree entry (notably the synthesized epy_block). gr-dvbs2rx
+            # uses the overlay case to retain a concise DVB-S2 RX subcategory
+            # beneath the generated OOT root.
+            if (override and "category" in override) or mod == WORLD_BLOCKS:
                 block_category = normalize_category(d.get("category"))
             else:
                 block_category = normalize_category(

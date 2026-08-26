@@ -1,6 +1,6 @@
 id: hrpt_image_sink
 label: HRPT Image Sink
-category: '[HRPT]/Image'
+category: '[GNU Radio World]'
 flags: [cpp]
 
 # The factory in registry.cpp builds a QWidget, so this block takes a tile in
