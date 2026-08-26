@@ -15,6 +15,12 @@
       "migrations_dir": "migrations"
     }
   ],
+  "send_email": [
+    {
+      "name": "EMAIL",
+      "allowed_sender_addresses": ["credits@gnuradioworld.com"]
+    }
+  ],
   "triggers": {
     "crons": ["* * * * *", "17 8 * * *"]
   },
@@ -29,7 +35,9 @@
     "MAX_COMPLETION_TOKENS": "16384",
     "HOLD_TTL_SECONDS": "900",
     "PURCHASE_RATE_LIMIT_PER_HOUR": "10",
-    "ABSORBED_ALERT_BPS": "200"
+    "ABSORBED_ALERT_BPS": "200",
+    "EMAIL_FROM": "credits@gnuradioworld.com",
+    "SUPPORT_EMAIL": "support@gnuradioworld.com"
   },
   "observability": { "enabled": true },
   "env": {

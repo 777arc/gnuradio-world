@@ -1,5 +1,6 @@
 export interface Env {
   DB: D1Database;
+  EMAIL?: SendEmail;
   BETTER_AUTH_SECRET: string;
   BETTER_AUTH_URL: string;
   GOOGLE_CLIENT_ID: string;
@@ -23,6 +24,8 @@ export interface Env {
   PROVIDER_SPEND_URL?: string;
   PROVIDER_SPEND_TOKEN?: string;
   ABSORBED_ALERT_BPS?: string;
+  EMAIL_FROM?: string;
+  SUPPORT_EMAIL?: string;
   LOCAL_INSECURE_COOKIES?: string;
 }
 

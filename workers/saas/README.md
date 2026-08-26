@@ -20,7 +20,7 @@ Cloudflare secrets, never committed files or Wrangler vars:
 - `GOOGLE_CLIENT_SECRET` and `GITHUB_CLIENT_SECRET`
 - `POLAR_ACCESS_TOKEN` and `POLAR_WEBHOOK_SECRET`
 - `OPENAI_API_KEY`
-- optional `PROVIDER_SPEND_TOKEN`, `ALERT_WEBHOOK_URL`, and
+- optional `PROVIDER_SPEND_TOKEN`, `ALERT_WEBHOOK_URL`, and legacy
   `EMAIL_WEBHOOK_URL`
 
 OAuth client IDs, Polar product IDs, public prices, routes, and D1 database IDs
@@ -120,8 +120,12 @@ npx wrangler secret put OPENAI_API_KEY --env sandbox
 ```
 
 Client IDs are not secret, but storing all OAuth environment values this way is
-consistent. Optional HTTPS JSON hooks are `ALERT_WEBHOOK_URL` for loud reports,
-`EMAIL_WEBHOOK_URL` for low-balance mail delivery, and
+consistent. Production uses Cloudflare Email Service through the `EMAIL` send
+binding for low-balance messages and reconciliation alerts. The sending domain
+must be onboarded in Cloudflare Email Service before deployment. `EMAIL_FROM`
+and `SUPPORT_EMAIL` select the sender and reply/alert address. For deployments
+without that binding, optional HTTPS JSON hooks are `ALERT_WEBHOOK_URL` for loud
+reports, `EMAIL_WEBHOOK_URL` for low-balance mail delivery, and
 `PROVIDER_SPEND_URL`/`PROVIDER_SPEND_TOKEN` for a daily
 `{"spend_micros": integer}` total. Without the spend source, the absorbed-cost
 identity is reported as skipped; the other reconciliations still run.

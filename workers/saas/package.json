@@ -8,7 +8,7 @@
   },
   "scripts": {
     "check": "tsc --noEmit",
-    "deploy": "wrangler deploy",
+    "deploy": "wrangler deploy --env=\"\"",
     "dev": "wrangler dev --env sandbox --var BETTER_AUTH_URL:http://localhost:8787 --var LOCAL_INSECURE_COOKIES:true",
     "test": "tsx --test test/*.test.ts",
     "types": "wrangler types"

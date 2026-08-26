@@ -14,6 +14,28 @@ async function emit(url: string | undefined, payload: JsonRecord): Promise<void>
   if (!response.ok) throw new Error(`Notification endpoint failed (${response.status})`);
 }
 
+const emailFrom = (env: Env): EmailAddress => ({
+  name: 'GNU Radio World Credits',
+  email: env.EMAIL_FROM || 'credits@gnuradioworld.com',
+});
+
+const supportEmail = (env: Env): string => env.SUPPORT_EMAIL || 'support@gnuradioworld.com';
+
+async function sendEmail(env: Env, to: string, subject: string, text: string): Promise<void> {
+  if (!env.EMAIL) return;
+  await env.EMAIL.send({
+    from: emailFrom(env),
+    to,
+    replyTo: supportEmail(env),
+    subject,
+    text,
+  });
+}
+
+function dollars(micros: number): string {
+  return (micros / 1_000_000).toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
+}
+
 export async function reapExpiredHolds(env: Env, now = Math.floor(Date.now() / 1000)): Promise<number> {
   const rows = await env.DB.prepare(
     "SELECT * FROM holds WHERE status = 'active' AND expires_at <= ? ORDER BY expires_at LIMIT 500",
@@ -73,8 +95,8 @@ async function expireCredits(env: Env, now: number): Promise<number> {
   return count;
 }
 
-async function sendLowBalanceEmails(env: Env, now: number): Promise<number> {
-  if (!env.EMAIL_WEBHOOK_URL) return 0;
+export async function sendLowBalanceEmails(env: Env, now: number): Promise<number> {
+  if (!env.EMAIL && !env.EMAIL_WEBHOOK_URL) return 0;
   const rows = await env.DB.prepare(
     `SELECT w.user_id, u.email, w.balance_micros - w.held_micros AS available,
             w.last_purchase_micros, w.low_balance_notice
@@ -87,10 +109,18 @@ async function sendLowBalanceEmails(env: Env, now: number): Promise<number> {
   for (const row of rows.results) {
     const threshold = row.available * 100 <= row.last_purchase_micros * 5 ? 5 : 20;
     if (row.low_balance_notice !== 0 && row.low_balance_notice <= threshold) continue;
-    await emit(env.EMAIL_WEBHOOK_URL, {
-      type: 'low_balance', email: row.email, user_id: row.user_id,
-      threshold_percent: threshold, available_micros: row.available,
-    });
+    if (env.EMAIL) {
+      await sendEmail(env, row.email, 'Your GNU Radio World credit balance is low',
+        `Your GNU Radio World Credits balance has fallen below ${threshold}% of your last purchase.\n\n` +
+        `Available balance: $${dollars(row.available)}\n\n` +
+        `Buy more credits or review your usage at https://gnuradioworld.com/.\n\n` +
+        `Questions? Reply to this email or contact ${supportEmail(env)}.`);
+    } else {
+      await emit(env.EMAIL_WEBHOOK_URL, {
+        type: 'low_balance', email: row.email, user_id: row.user_id,
+        threshold_percent: threshold, available_micros: row.available,
+      });
+    }
     await env.DB.prepare('UPDATE wallets SET low_balance_notice = ?, updated_at = ? WHERE user_id = ?')
       .bind(threshold, now, row.user_id).run();
     sent++;
@@ -226,7 +256,15 @@ export async function reconcile(env: Env, cfg: RuntimeConfig,
     (Array.isArray(polarMismatch.missing_polar) && polarMismatch.missing_polar.length > 0) ||
     (residual !== null && Math.abs(residual) > 10) || absorbedBps >= cfg.absorbedAlertBps;
   console[loud ? 'error' : 'log'](JSON.stringify(report));
-  if (loud) await emit(env.ALERT_WEBHOOK_URL, report);
+  if (loud) {
+    await Promise.all([
+      env.EMAIL
+        ? sendEmail(env, supportEmail(env), 'GNU Radio World billing reconciliation alert',
+            `The daily billing reconciliation found a condition requiring attention.\n\n${JSON.stringify(report, null, 2)}`)
+        : Promise.resolve(),
+      emit(env.ALERT_WEBHOOK_URL, report),
+    ]);
+  }
   return report;
 }
 
