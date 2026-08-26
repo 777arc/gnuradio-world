@@ -130,51 +130,15 @@ const PROBE = `(() => {
 })()`;
 const probe = () => page.evaluate(PROBE);
 
-// Two real clicks: select()/drag rebuild a block's DOM node on every press, so
-// the editor does its own double-press detection on pointerdown (see startDrag in
-// main.ts) and a synthetic 'dblclick' reaches nothing. A JS Block opens Properties
-// like every other block; its popup code editor is one button further, beside
-// that dialog's Code field.
-//
-// The point is chosen by hit-testing rather than taken as the centre of the
-// block's box: a freshly placed block can be drawn under the Options block on an
-// otherwise empty canvas, and a click at its centre would then land on that one
-// instead — silently opening the wrong dialog.
-const doubleClickBlock = async () => {
-  const point = await page.evaluate(() => {
-    const block = document.querySelector('#nodes .blk.sel');
-    if (!block) return null;
-    const box = block.getBoundingClientRect();
-    for (let x = box.left + 6; x < box.right - 6; x += 4)
-      for (const y of [box.top + 8, box.top + 14]) {
-        const hit = document.elementFromPoint(x, y);
-        if (hit && hit.closest('.blk') === block) return { x, y };
-      }
-    return null;
-  });
-  if (!point) throw new Error('the selected block is completely covered');
-  await page.mouse.click(point.x, point.y);
-  await page.mouse.click(point.x, point.y);
-};
-
-// The double-press window is 350 ms wide and the editor rebuilds the block's node
-// between the two presses, so a press that lands during a re-render is dropped and
-// the pair reads as two singles. Retry rather than fail: what is under test is the
-// modal, not the input plumbing.
+// Return is the editor's Properties shortcut for the selected block. Use that
+// supported path here instead of the canvas's 350 ms double-press gesture: a
+// click rebuilds the SVG, and a loaded CI runner can spend longer than that
+// between the two events even though nothing is wrong with the dialog under test.
 const openPropsDialog = async () => {
-  for (let attempt = 0; attempt < 4; attempt++) {
-    await doubleClickBlock();
-    try {
-      await page.waitForSelector('.modal.props .code-field textarea.code-editor',
-                                 { timeout: 8000 });
-      return;
-    } catch {
-      // A missed pair usually leaves nothing open, but close whatever did open
-      // before pressing again: an overlay would swallow the next click.
-      await page.evaluate(() => document.querySelector('.modal.props .dlgclose')?.click());
-    }
-  }
-  throw new Error('the Properties dialog never opened');
+  await page.evaluate(() => document.activeElement?.blur());
+  await page.keyboard.press('Enter');
+  await page.waitForSelector('.modal.props .code-field textarea.code-editor',
+                             { timeout: 15000 });
 };
 
 // "Expand Editor ⤢" beside the dialog's Code field. The modal is seeded from the
