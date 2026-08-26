@@ -32,3 +32,5 @@ JavaScript Blocks are first-class source artifacts, not opaque parameters:
 
 Misc guidelines:
 - Avoid adding unnecessary intermediates such as `blocks_copy`.
+- Don't include a hardware SDR unless the user specifically mentions one.
+- If you need functionality that does not exist in any blocks that ship with GNU Radio World, ask the user if they would like you to create a new custom JS Block (JavaScript Block).

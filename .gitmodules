@@ -50,3 +50,7 @@
 	path = gr-lora_sdr
 	url = https://github.com/tapparelj/gr-lora_sdr.git
 	branch = master
+[submodule "gr-radar"]
+	path = gr-radar
+	url = https://github.com/kit-cel/gr-radar.git
+	branch = master

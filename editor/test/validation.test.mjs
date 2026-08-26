@@ -131,6 +131,32 @@ assert.ok(invalid.some(issue => issue.message.includes('unsupported value')));
     'module access this evaluator does not model is not a missing variable');
 }
 
+// A vector parameter may name a live control, but only on its own -- the runner
+// binds a control to a parameter by matching the whole value against the
+// control's ID. Wrapping it in a list, which is how a one-element vector reads
+// to anyone writing one by hand, silently reaches the runner as literal text.
+{
+  const control = inst('ctl', 'variable_qtgui_range', 'target_range', {
+    label: '', rangeType: 'float', value: 200, start: 50, stop: 500, step: 1,
+    widget: 'counter_slider', orient: 'QtCore.Qt.Horizontal', min_len: 200,
+  });
+  const sim = inst('sim', 'blocks_complex_to_mag_squared', 'sim', {});
+  const withRange = value => { sim.params = { range: value }; return validateFlowgraph(
+    [control, variable, sim], [], { ...ports, def: block => block.id === 'variable_qtgui_range'
+      ? DEFS[block.id]
+      : ({ label: 'x', inputs: 1, outputs: 1,
+           params: [{ id: 'range', label: 'Range', type: 'string',
+                      dtype: 'real_vector', def: '' }] }) })
+    .filter(issue => issue.field === 'range'); };
+
+  assert.ok(withRange('[target_range]').some(issue => issue.message.includes('only on its own')),
+    'a live control wrapped in a list literal is reported');
+  assert.deepEqual(withRange('target_range'), [],
+    "GRC's own spelling -- the control on its own -- is accepted");
+  assert.deepEqual(withRange('[samp_rate]'), [],
+    'a plain variable inside a list literal stays legal');
+}
+
 const live = inst('range', 'variable_qtgui_range', 'freq', {
   label: '', rangeType: 'float', value: 10, start: 20, stop: 10, step: 0,
   widget: 'slider', orient: 'QtCore.Qt.Horizontal', min_len: 0,

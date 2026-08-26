@@ -86,6 +86,23 @@ T number(const nlohmann::json& params, const char* key, T fallback)
     throw std::runtime_error(std::string(key) + " must be numeric");
 }
 
+// Store the value a live control just published into a callback's parameter.
+// A vector parameter takes it as the one-element vector native GRC would have
+// written -- its `_lisitify_flag` listifies a `*_vector` whose expression
+// evaluates to a scalar, and a Range publishes a scalar -- which is what makes
+// "a Range drives this vector parameter" mean anything at all.
+template <typename T>
+void assign_numeric(T& target, double value)
+{
+    target = static_cast<T>(value);
+}
+
+template <typename T>
+void assign_numeric(std::vector<T>& target, double value)
+{
+    target.assign(1, static_cast<T>(value));
+}
+
 template <typename State, typename Value, typename Apply>
 void add_numeric_setter(BuiltBlock& built,
                         const std::string& parameter,
@@ -95,7 +112,7 @@ void add_numeric_setter(BuiltBlock& built,
 {
     built.numeric_setters[parameter] =
         [state = std::move(state), field, apply = std::move(apply)](double value) {
-            state.get()->*field = static_cast<Value>(value);
+            assign_numeric(state.get()->*field, value);
             apply();
         };
 }
@@ -163,6 +180,15 @@ std::vector<T> vector(const nlohmann::json& params,
             throw std::runtime_error(std::string(key) + " must be a JSON-style vector");
         }
     }
+    // A lone scalar is a one-element vector. This is native GRC's own rule, not
+    // a convenience: `param.py` sets `_lisitify_flag` when a `*_vector` value
+    // evaluates to something that is not a sequence and emits `[value]`. It is
+    // what lets a QT GUI Range drive a vector parameter at all -- GRC's usual
+    // spelling for one target is `range: value_range`, naming the control
+    // directly, which reaches a factory here as the number the runner resolved
+    // it to. Without this that flowgraph dies at construction.
+    if (values.is_number())
+        values = nlohmann::json::array({ values });
     if (!values.is_array())
         throw std::runtime_error(std::string(key) + " must be a vector");
     std::vector<T> result;
@@ -178,6 +204,54 @@ std::vector<T> vector(const nlohmann::json& params,
         } else {
             result.push_back(value.get<T>());
         }
+    }
+    return result;
+}
+
+// A Python sequence of quoted names, as a parameter typed `string_vector` by an
+// overlay carries it: `('range','velocity')`, `["range"]`, or a bare `range`.
+// vector<std::string> above cannot read these -- it parses the text as JSON,
+// which rejects single quotes and the trailing comma Python needs to spell a
+// one-element tuple, and both are what GRC itself writes. Keeping the value in
+// its Python spelling is what lets the .grc round-trip to native GRC unchanged,
+// so the runner does the small amount of parsing instead.
+inline std::vector<std::string> string_vector(const nlohmann::json& params,
+                                              const char* key,
+                                              std::vector<std::string> fallback = {})
+{
+    auto item = params.find(key);
+    if (item == params.end() || item->is_null())
+        return fallback;
+    if (item->is_array()) {
+        std::vector<std::string> result;
+        for (const auto& value : *item)
+            result.push_back(value.is_string() ? value.get<std::string>() : value.dump());
+        return result;
+    }
+    std::string source = item->is_string() ? item->get<std::string>() : item->dump();
+    // Trim the enclosing bracket, if any; a lone name is a one-element sequence.
+    std::size_t begin = source.find_first_not_of(" \t\r\n");
+    std::size_t end = source.find_last_not_of(" \t\r\n");
+    if (begin == std::string::npos)
+        return fallback;
+    source = source.substr(begin, end - begin + 1);
+    if (source.size() >= 2 && (source.front() == '(' || source.front() == '[') &&
+        (source.back() == ')' || source.back() == ']'))
+        source = source.substr(1, source.size() - 2);
+
+    std::vector<std::string> result;
+    std::size_t position = 0;
+    while (position <= source.size()) {
+        const std::size_t comma = source.find(',', position);
+        std::string entry = source.substr(
+            position, comma == std::string::npos ? std::string::npos : comma - position);
+        const std::size_t first = entry.find_first_not_of(" \t\r\n");
+        const std::size_t last = entry.find_last_not_of(" \t\r\n");
+        if (first != std::string::npos)
+            result.push_back(strip_quotes(entry.substr(first, last - first + 1)));
+        if (comma == std::string::npos)
+            break;
+        position = comma + 1;
     }
     return result;
 }

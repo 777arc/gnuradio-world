@@ -7,6 +7,9 @@ through validated structured operations, run the graph in the normal visible QT
 GUI tab, and read the runner's diagnostics snapshot. Its code
 lives under `editor/src/ai/`; `editor/src/main.ts`, as the composition root,
 supplies the narrow dependency bundle that is allowed to touch editor state.
+Its system prompt is `editor/src/ai/system-prompt.md`, symlinked at the
+repository root as `system-prompt.md` because it is edited so often — edit
+either path, they are the same file.
 
 The feature is public and discoverable from the toolbar and Tools menu, with its
 dock collapsed by default. The header's New chat control clears the transcript

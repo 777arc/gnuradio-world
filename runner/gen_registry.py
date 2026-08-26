@@ -422,6 +422,14 @@ def param_arg(block_id: str, param: dict[str, Any], namespace: dict[str, Any]) -
     # wasm_registry::pmt_value() parses the constructor grammar.
     if dtype == "pmt":
         return Arg(pmt_argument(pid, default))
+    # `string_vector` is a browser-only dtype, set by an overlay on a parameter
+    # upstream types `raw` because it holds a Python sequence of quoted names --
+    # gr-radar's message keys, `('range','velocity')`. Nothing evaluates it on
+    # the way here, so the runner parses the sequence itself rather than through
+    # the JSON vector reader, which would choke on the single quotes and the
+    # one-element tuple's trailing comma.
+    if dtype == "string_vector":
+        return Arg(f"wasm_registry::string_vector(p, {quoted_id})")
     item_type = vector_type(dtype)
     if item_type:
         if block_id == "blocks_blockinterleaver_xx" and pid == "interleaver_indices":
@@ -505,7 +513,7 @@ CALLBACK_SETTER = re.compile(
     r"^\s*(set_\w+)\(\s*\$\{\s*(\w+)\s*\}\s*\)\s*;?\s*$"
 )
 CALLBACK_METHOD = re.compile(
-    r"^\s*(?:(?:set|update)_\w+|reset)\s*\(.*\)\s*;?\s*(?:#.*)?$",
+    r"^\s*(?:(?:set|setup|update)_\w+|reset)\s*\(.*\)\s*;?\s*(?:#.*)?$",
     re.DOTALL,
 )
 CALLBACK_EXPRESSION = re.compile(r"\$\{([^}]*)\}")
@@ -520,6 +528,33 @@ SETTER_CASTS = {
     "real": "double",
     "float": "double",
 }
+
+
+def compound_setter_cast(dtype: str) -> str | None:
+    """The C++ type a live control's `double` is stored as, for one member of a
+    compound callback's parameter group.
+
+    Vector dtypes are allowed *here only*. Native GRC lets a Range drive a
+    `*_vector` parameter -- an expression that evaluates to a scalar is listified
+    (`_lisitify_flag` in grc/core/params/param.py) and a control publishes a
+    scalar -- and gr-radar's Static Target Simulator is the worked example:
+    upstream's own examples wire a Range straight to its `range`/`velocity`, one
+    argument of the `setup_targets(...)` group. wasm_registry::assign_numeric()
+    does the listifying on the way in.
+
+    The plain `set_x(${x})` path above deliberately does not get this. A
+    compound callback re-applies a *group* of parameters whose current values
+    the factory has to hold anyway, so a vector among them is stored state that
+    can equally well be driven; a standalone vector setter -- a filter's `taps`,
+    an FFT's `window`, Multiply Const's `const` -- is not something anyone points
+    a slider at, and generating a binding that would replace a whole tap set with
+    one number is a worse answer than leaving it alone.
+    """
+    direct = SETTER_CASTS.get(dtype)
+    if direct:
+        return direct
+    item = vector_type(dtype)
+    return f"std::vector<{item}>" if item else None
 
 
 def callback_setters(block: dict[str, Any], namespace: dict[str, Any],
@@ -578,7 +613,7 @@ def callback_setters(block: dict[str, Any], namespace: dict[str, Any],
                 for expression in expressions
             ):
                 continue
-            cast = SETTER_CASTS.get(
+            cast = compound_setter_cast(
                 resolve_dtype(str(param.get("dtype", "raw")), namespace)
             )
             if cast is None:
@@ -825,7 +860,8 @@ def render_block(block: dict[str, Any]) -> tuple[list[str], str]:
                 lines.append(
                     f'{indent}built.numeric_setters[{json.dumps(pid)}] = '
                     f'[{", ".join(captures)}](double value) {{')
-                lines.append(f"{indent}    live->{field} = static_cast<{cast}>(value);")
+                lines.append(
+                    f"{indent}    wasm_registry::assign_numeric(live->{field}, value);")
                 if pid in simple:
                     method, direct_cast = simple[pid]
                     lines.append(

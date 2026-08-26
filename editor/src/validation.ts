@@ -185,6 +185,17 @@ export function validateFlowgraph(
         for (const missing of undefinedNames(value.trim(), publishedNames))
           add(block, param.id,
             `${param.label} references "${missing}", which is not defined in this flowgraph.`);
+        // The same live-control rule the numeric branch enforces above, which a
+        // vector parameter needs just as much: the runner wires a control into a
+        // parameter only when the parameter is exactly the control's ID. Writing
+        // a one-target vector as `[target_range]` rather than GRC's own
+        // `target_range` reads as obviously equivalent and is not -- it reaches
+        // the runner as that literal text and kills the flowgraph at
+        // construction, which is a long way from where the mistake is.
+        if (!activeVariables.has(value.trim()) &&
+            !evaluates(value, staticScope) && evaluates(value, fullScope))
+          add(block, param.id,
+            `${param.label} may reference a live control only on its own, not inside an expression.`);
       }
     }
 

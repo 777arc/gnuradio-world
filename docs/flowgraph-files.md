@@ -199,6 +199,16 @@ in a browser, that is the right trade.
   Python spelling, so it still round-trips to desktop GRC. Note the parser is the
   *parameter* path only — a PMT crossing into the Embedded Python Block's worker
   is a separate, unbuilt bridge (see [embedded-python.md](embedded-python.md)).
+- **A list of names is parsed, not evaluated, either.** gr-radar keys its
+  estimate messages by symbol and takes the list of them as a Python sequence
+  (`('range','velocity')`), which upstream types `raw`. `expr.ts` cannot
+  evaluate that and `wasm_registry::vector<std::string>` cannot read it — it
+  parses its input as JSON, which rejects both the single quotes and the
+  trailing comma a one-element Python tuple needs. So such a parameter is
+  retyped to the browser-only `string_vector` dtype in
+  `blocks/overlays/<module>/metadata.yml` and reaches the runner as its own
+  source text, which `wasm_registry::string_vector()` parses. As with `pmt`,
+  the .grc keeps the Python spelling and still round-trips to desktop GRC.
 - **Tag Object is a variable, not a block.** `variable_tag_object` builds one
   `gr::tag_t` into `wasm_registry::runtime_tag_objects()` before any block is
   constructed — the same pre-pass `variable_constellation` uses, listed in

@@ -62,6 +62,11 @@ Supported keys, all optional except where an entry would otherwise do nothing:
     browser-only dtype the generator renders as
     ``wasm_registry::pmt_value()`` -- which parses the Python constructor call
     (``pmt.intern("TEST")``, ``pmt.cons(...)``) that GRC would have evaluated.
+    ``string_vector`` is the other browser-only dtype, for a ``raw`` parameter
+    holding a Python sequence of names (gr-radar's message keys,
+    ``('range','velocity')``); the generator renders it as
+    ``wasm_registry::string_vector()``, which parses that sequence rather than
+    the JSON the ordinary vector reader wants.
     Keeping the value in its Python spelling is what lets the .grc round-trip to
     native GRC unchanged.  Relabelling is for a parameter the browser build gives
     a different meaning: gr-paint's Image File Source names a URL, not a local

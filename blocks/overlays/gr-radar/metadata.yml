@@ -1,0 +1,281 @@
+# Browser-only block metadata for the vendored out-of-tree module gr-radar
+# (kit-cel/gr-radar, the Communications Engineering Lab at KIT).
+#
+# Keeping these overlays here instead of in the submodule's own .block.yml is what
+# lets that submodule stay pinned to a pristine upstream commit: nothing in the
+# checkout has to be edited, rebased, or pushed to a fork to add a block. See
+# tools/block_overrides.py for the supported keys, and docs/adding-modules.md
+# for the out-of-tree checklist this file is step 3 of.
+#
+# Every gr-radar block has a C++ impl, so all but five are ordinary generated
+# factories in the deferred `radar` side module. The five that are not:
+#
+#   radar_qtgui_time_plot / _scatter_plot / _spectrogram_plot
+#       Qwt QWidgets declaring Q_OBJECT, and the runner build has no moc pass.
+#       They are also the only thing in a gr-radar flowgraph that ever displays
+#       an estimate, so they are rebuilt in blocks/overlays/gr-radar/radar_plots.*
+#       against the Qwt already linked into the main module, with hand-written
+#       factories in runner/src/registry.cpp. All they declare here is that the
+#       factory builds a widget, and so takes a tile in the GUI Layout grid.
+#   radar_usrp_echotimer_cc
+#       The transmit/receive pair for a real USRP, built on UHD, which is not in
+#       the WASM sysroot and has no browser equivalent. No entry: it stays
+#       Python-only and greyed out, like every other host-radio block here.
+#   radar_trigger_command
+#       Runs a shell command (std::system) when an estimate crosses a threshold.
+#       A tab has no shell -- Emscripten's system() is a stub that fails -- so
+#       rather than offer a block that silently never fires, no entry.
+#
+# The other browser-side notes are on the blocks they belong to, below.
+
+# --- Generators -------------------------------------------------------------
+
+radar_signal_generator_cw_c:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <radar/signal_generator_cw_c.h>']
+    declarations: 'radar::signal_generator_cw_c::sptr ${id};'
+    make: 'this->${id} = radar::signal_generator_cw_c::make(${packet_len}, ${samp_rate}, ${frequency}, ${amplitude}, ${len_key});'
+    link: [gnuradio-radar]
+
+radar_signal_generator_fmcw_c:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <radar/signal_generator_fmcw_c.h>']
+    declarations: 'radar::signal_generator_fmcw_c::sptr ${id};'
+    # Argument order is the make() signature's, not the dialog's: upstream's own
+    # Python template passes samp_up/samp_down before samp_cw too.
+    make: 'this->${id} = radar::signal_generator_fmcw_c::make(${samp_rate}, ${samp_up}, ${samp_down}, ${samp_cw}, ${freq_cw}, ${freq_sweep}, ${amplitude}, ${len_key});'
+    link: [gnuradio-radar]
+
+radar_signal_generator_fsk_c:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <radar/signal_generator_fsk_c.h>']
+    declarations: 'radar::signal_generator_fsk_c::sptr ${id};'
+    make: 'this->${id} = radar::signal_generator_fsk_c::make(${samp_rate}, ${samp_per_freq}, ${blocks_per_tag}, ${freq_low}, ${freq_high}, ${amplitude}, ${len_key});'
+    link: [gnuradio-radar]
+
+radar_signal_generator_sync_pulse_c:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <radar/signal_generator_sync_pulse_c.h>']
+    declarations: 'radar::signal_generator_sync_pulse_c::sptr ${id};'
+    make: 'this->${id} = radar::signal_generator_sync_pulse_c::make(${packet_len}, ${pulse_len}, ${pulse_pause}, ${pulse_amplitude}, ${len_key});'
+    link: [gnuradio-radar]
+
+# --- RADAR ------------------------------------------------------------------
+
+radar_static_target_simulator_cc:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <radar/static_target_simulator_cc.h>']
+    declarations: 'radar::static_target_simulator_cc::sptr ${id};'
+    make: 'this->${id} = radar::static_target_simulator_cc::make(${range}, ${velocity}, ${rcs}, ${azimuth}, ${position_rx}, ${samp_rate}, ${center_freq}, ${self_coupling_db}, ${rndm_phaseshift}, ${self_coupling}, ${len_key});'
+    link: [gnuradio-radar]
+
+radar_ofdm_cyclic_prefix_remover_cvc:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <radar/ofdm_cyclic_prefix_remover_cvc.h>']
+    declarations: 'radar::ofdm_cyclic_prefix_remover_cvc::sptr ${id};'
+    make: 'this->${id} = radar::ofdm_cyclic_prefix_remover_cvc::make(${fft_len}, ${cp_len}, ${len_key});'
+    link: [gnuradio-radar]
+
+radar_ofdm_divide_vcvc:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <radar/ofdm_divide_vcvc.h>']
+    declarations: 'radar::ofdm_divide_vcvc::sptr ${id};'
+    make: 'this->${id} = radar::ofdm_divide_vcvc::make(${vlen_in}, ${vlen_out}, ${discarded_carriers}, ${num_sync_words}, ${len_key});'
+    link: [gnuradio-radar]
+
+radar_os_cfar_c:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <radar/os_cfar_c.h>']
+    declarations: 'radar::os_cfar_c::sptr ${id};'
+    make: 'this->${id} = radar::os_cfar_c::make(${samp_rate}, ${samp_compare}, ${samp_protect}, ${rel_threshold}, ${mult_threshold}, ${merge_consecutive}, ${len_key});'
+    link: [gnuradio-radar]
+
+radar_os_cfar_2d_vc:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <radar/os_cfar_2d_vc.h>']
+    declarations: 'radar::os_cfar_2d_vc::sptr ${id};'
+    make: 'this->${id} = radar::os_cfar_2d_vc::make(${vlen}, ${samp_compare}, ${samp_protect}, ${rel_threshold}, ${mult_threshold}, ${len_key});'
+    link: [gnuradio-radar]
+
+radar_tracking_singletarget:
+  flags: [python, cpp]
+  # Upstream leaves Filter a free-text field with no default, and the impl only
+  # recognizes the two spellings below -- anything else (including the empty
+  # default) silently tracks nothing at all. Name them, and start on one.
+  documentation: |-
+    Tracks a single target's range and velocity across measurements, smoothing
+    the per-measurement estimates into a track.
+
+    Filter selects the estimator: "kalman" for a two-state Kalman filter over
+    range and velocity, or "particle" for a particle filter with Particle
+    number samples. No other value does anything.
+  parameter_defaults:
+    filter: kalman
+  cpp_templates:
+    includes: ['#include <radar/tracking_singletarget.h>']
+    declarations: 'radar::tracking_singletarget::sptr ${id};'
+    make: 'this->${id} = radar::tracking_singletarget::make(${num_particle}, ${std_range_meas}, ${std_velocity_meas}, ${std_accel_sys}, ${threshold_track}, ${threshold_lost}, ${filter});'
+    link: [gnuradio-radar]
+
+# --- Estimators -------------------------------------------------------------
+
+radar_estimator_cw:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <radar/estimator_cw.h>']
+    declarations: 'radar::estimator_cw::sptr ${id};'
+    make: 'this->${id} = radar::estimator_cw::make(${center_freq});'
+    link: [gnuradio-radar]
+
+radar_estimator_fmcw:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <radar/estimator_fmcw.h>']
+    declarations: 'radar::estimator_fmcw::sptr ${id};'
+    make: 'this->${id} = radar::estimator_fmcw::make(${samp_rate}, ${center_freq}, ${sweep_freq}, ${samp_up}, ${samp_down}, ${push_power});'
+    link: [gnuradio-radar]
+
+radar_estimator_fsk:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <radar/estimator_fsk.h>']
+    declarations: 'radar::estimator_fsk::sptr ${id};'
+    make: 'this->${id} = radar::estimator_fsk::make(${center_freq}, ${delta_freq}, ${push_power});'
+    link: [gnuradio-radar]
+
+radar_estimator_ofdm:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <radar/estimator_ofdm.h>']
+    declarations: 'radar::estimator_ofdm::sptr ${id};'
+    make: 'this->${id} = radar::estimator_ofdm::make(${symbol_x}, ${len_x}, ${axis_x}, ${symbol_y}, ${len_y}, ${axis_y}, ${merge_consecutive});'
+    link: [gnuradio-radar]
+
+radar_estimator_rcs:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <radar/estimator_rcs.h>']
+    declarations: 'radar::estimator_rcs::sptr ${id};'
+    make: 'this->${id} = radar::estimator_rcs::make(${num_mean}, ${center_freq}, ${antenna_gain_tx}, ${antenna_gain_rx}, ${usrp_gain_rx}, ${power_tx}, ${corr_factor}, ${exponent});'
+    link: [gnuradio-radar]
+
+radar_estimator_sync_pulse_c:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <radar/estimator_sync_pulse_c.h>']
+    declarations: 'radar::estimator_sync_pulse_c::sptr ${id};'
+    make: 'this->${id} = radar::estimator_sync_pulse_c::make(${num_xcorr}, ${len_key});'
+    link: [gnuradio-radar]
+
+# --- Tools ------------------------------------------------------------------
+
+radar_crop_matrix_vcvc:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <radar/crop_matrix_vcvc.h>']
+    declarations: 'radar::crop_matrix_vcvc::sptr ${id};'
+    make: 'this->${id} = radar::crop_matrix_vcvc::make(${vlen}, ${crop_x}, ${crop_y}, ${len_key});'
+    link: [gnuradio-radar]
+
+radar_transpose_matrix_vcvc:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <radar/transpose_matrix_vcvc.h>']
+    declarations: 'radar::transpose_matrix_vcvc::sptr ${id};'
+    make: 'this->${id} = radar::transpose_matrix_vcvc::make(${vlen_in}, ${vlen_out}, ${len_key});'
+    link: [gnuradio-radar]
+
+radar_find_max_peak_c:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <radar/find_max_peak_c.h>']
+    declarations: 'radar::find_max_peak_c::sptr ${id};'
+    make: 'this->${id} = radar::find_max_peak_c::make(${samp_rate}, ${threshold}, ${samp_protect}, ${max_freq}, ${cut_max_freq}, ${len_key});'
+    link: [gnuradio-radar]
+
+radar_msg_gate:
+  flags: [python, cpp]
+  # Upstream types the key list `raw` because it holds a Python sequence of
+  # symbol names -- `('range','velocity')`. Nothing on the way to the runner
+  # evaluates it, so type it as the sequence of strings it is and let
+  # wasm_registry::string_vector() parse the Python spelling. Same for
+  # msg_manipulator's `symbols` below.
+  parameter_dtypes:
+    msg_keys: string_vector
+  cpp_templates:
+    includes: ['#include <radar/msg_gate.h>']
+    declarations: 'radar::msg_gate::sptr ${id};'
+    make: 'this->${id} = radar::msg_gate::make(${msg_keys}, ${val_min}, ${val_max});'
+    link: [gnuradio-radar]
+
+radar_msg_manipulator:
+  flags: [python, cpp]
+  parameter_dtypes:
+    symbols: string_vector
+  cpp_templates:
+    includes: ['#include <radar/msg_manipulator.h>']
+    declarations: 'radar::msg_manipulator::sptr ${id};'
+    make: 'this->${id} = radar::msg_manipulator::make(${symbols}, ${const_add}, ${const_mult});'
+    link: [gnuradio-radar]
+
+radar_print_results:
+  flags: [python, cpp]
+  # Leave "Store messages" off: that mode writes the estimates to a file, and
+  # Emscripten's filesystem is in-memory, so nothing can read one back. The
+  # default mode prints each estimate, which reaches the editor's console pane
+  # like any other block's output.
+  cpp_templates:
+    includes: ['#include <radar/print_results.h>']
+    declarations: 'radar::print_results::sptr ${id};'
+    make: 'this->${id} = radar::print_results::make(${store_msg}, ${filename});'
+    link: [gnuradio-radar]
+
+radar_split_cc:
+  flags: [python, cpp]
+  # Upstream's yaml says real_vector, but split_cc::make() takes
+  # std::vector<int> -- the parts are sample counts. The Python generator never
+  # had to agree with the C++ signature; this one does.
+  parameter_dtypes:
+    packet_parts: int_vector
+  cpp_templates:
+    includes: ['#include <radar/split_cc.h>']
+    declarations: 'radar::split_cc::sptr ${id};'
+    make: 'this->${id} = radar::split_cc::make(${packet_num}, ${packet_parts}, ${len_key});'
+    link: [gnuradio-radar]
+
+radar_split_fsk_cc:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <radar/split_fsk_cc.h>']
+    declarations: 'radar::split_fsk_cc::sptr ${id};'
+    make: 'this->${id} = radar::split_fsk_cc::make(${samp_per_freq}, ${samp_discard}, ${len_key});'
+    link: [gnuradio-radar]
+
+radar_ts_fft_cc:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <radar/ts_fft_cc.h>']
+    declarations: 'radar::ts_fft_cc::sptr ${id};'
+    make: 'this->${id} = radar::ts_fft_cc::make(${packet_len}, ${len_key});'
+    link: [gnuradio-radar]
+
+# --- GUI --------------------------------------------------------------------
+# Rebuilt in radar_plots.hpp/.cpp beside this file; see the header of this file.
+
+radar_qtgui_time_plot:
+  gui: true
+
+radar_qtgui_scatter_plot:
+  gui: true
+
+radar_qtgui_spectrogram_plot:
+  gui: true

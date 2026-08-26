@@ -12,6 +12,7 @@
 #include "hackrf_sink.hpp"
 #include "paint_image_source.hpp"
 #include "rds_panel.hpp"
+#include "radar_plots.hpp"
 #include "fosphor_sink.hpp"
 #include "fosphor_webgpu_sink.hpp"
 #include "analog_hier.hpp"
@@ -3692,6 +3693,44 @@ static std::map<std::string, Factory>& registry_storage() {
              result.numeric_setters["freq"] =
                  [block](double value) { block->set_frequency(value); };
              return result;
+         }},
+        // gr-radar's three Qt GUI sinks are Qwt QWidgets declaring Q_OBJECT, and
+        // written against Qwt 6.1's axis constants; the runner has no moc pass
+        // and a Qwt 6.3 sysroot, so they are rebuilt in
+        // blocks/overlays/gr-radar/radar_plots.cpp. Without them a gr-radar
+        // flowgraph runs and displays nothing at all.
+        {"radar_qtgui_time_plot", [](const json& p) -> BuiltBlock {
+             auto block = RadarTimePlotWasm::make(
+                 wasm_registry::number<int>(p, "interval", 30),
+                 wasm_registry::text(p, "label_y", "range"),
+                 wasm_registry::vector<float>(p, "axis_y"),
+                 static_cast<float>(wasm_registry::number<double>(p, "range_time", 10.0)),
+                 wasm_registry::text(p, "label", ""));
+             return { block, block->qwidget() };
+         }},
+        {"radar_qtgui_scatter_plot", [](const json& p) -> BuiltBlock {
+             auto block = RadarScatterPlotWasm::make(
+                 wasm_registry::number<int>(p, "interval", 30),
+                 wasm_registry::text(p, "label_x", "range"),
+                 wasm_registry::text(p, "label_y", "velocity"),
+                 wasm_registry::vector<float>(p, "axis_x"),
+                 wasm_registry::vector<float>(p, "axis_y"),
+                 wasm_registry::text(p, "label", ""));
+             return { block, block->qwidget() };
+         }},
+        {"radar_qtgui_spectrogram_plot", [](const json& p) -> BuiltBlock {
+             auto block = RadarSpectrogramPlotWasm::make(
+                 wasm_registry::number<int>(p, "vlen", 1),
+                 wasm_registry::number<int>(p, "interval", 30),
+                 wasm_registry::text(p, "xlabel", ""),
+                 wasm_registry::text(p, "ylabel", ""),
+                 wasm_registry::text(p, "label", ""),
+                 wasm_registry::vector<float>(p, "axis_x"),
+                 wasm_registry::vector<float>(p, "axis_y"),
+                 wasm_registry::vector<float>(p, "axis_z"),
+                 wasm_registry::boolean(p, "autoscale_z", true),
+                 wasm_registry::text(p, "len_key", "packet_len"));
+             return { block, block->qwidget() };
          }},
         // Upstream fosphor's Qt sink requires OpenCL and desktop OpenGL. The
         // browser keeps its embedded-widget contract with WebGPU plus a Qt6 CPU

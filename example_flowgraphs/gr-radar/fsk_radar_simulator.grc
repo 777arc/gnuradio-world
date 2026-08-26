@@ -1,0 +1,465 @@
+options:
+    parameters:
+        author: Communications Engineering Lab, KIT
+        comment: ''
+        copyright: ''
+        description: 'An FSK radar measuring one simulated target: two alternating tones bounce off something 200 m away closing at 20 m/s, and the range and velocity that come back out are plotted live. Move the target with the two sliders and watch the measurement follow it. Adapted from gr-radar''s own examples/simulation/simulator_fsk.grc.'
+        generate_options: qt_gui
+        id: FSK_radar_simulator
+        title: FSK radar simulator
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: R_max
+    id: variable
+    parameters:
+        comment: Unambiguous range, metres
+        value: 3e8/2/delta_freq
+    states:
+        coordinate: [1420, 20]
+        rotation: 0
+        state: enabled
+-   name: blocks_per_tag
+    id: variable
+    parameters:
+        comment: Tone pairs per measurement
+        value: '16384'
+    states:
+        coordinate: [890, 20]
+        rotation: 0
+        state: enabled
+-   name: center_freq
+    id: variable
+    parameters:
+        comment: "Carrier the Doppler shift\nis measured against"
+        value: '2400000000'
+    states:
+        coordinate: [490, 20]
+        rotation: 0
+        state: enabled
+-   name: cfar_mult
+    id: variable_qtgui_range
+    parameters:
+        comment: Raises the detector's threshold above the noise floor
+        label: CFAR threshold multiplier
+        min_len: '200'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '1'
+        step: '1'
+        stop: '60'
+        value: '45'
+        widget: counter_slider
+    states:
+        coordinate: [1100, 170]
+        rotation: 0
+        state: enabled
+-   name: delta_freq
+    id: variable
+    parameters:
+        comment: "Tone spacing; range comes from\nthe phase difference between the two"
+        value: samp_rate/4
+    states:
+        coordinate: [1130, 20]
+        rotation: 0
+        state: enabled
+-   name: freq_res
+    id: variable
+    parameters:
+        comment: ''
+        value: samp_rate/2/blocks_per_tag
+    states:
+        coordinate: [10, 150]
+        rotation: 0
+        state: enabled
+-   name: min_output_buffer
+    id: variable
+    parameters:
+        comment: "Two packets, so every\ntagged-stream block has\nroom for one"
+        value: 4*blocks_per_tag*samp_per_freq
+    states:
+        coordinate: [1410, 170]
+        rotation: 0
+        state: enabled
+-   name: samp_per_freq
+    id: variable
+    parameters:
+        comment: ''
+        value: '1'
+    states:
+        coordinate: [680, 20]
+        rotation: 0
+        state: enabled
+-   name: samp_rate
+    id: variable
+    parameters:
+        comment: ''
+        value: '1000000'
+    states:
+        coordinate: [320, 20]
+        rotation: 0
+        state: enabled
+-   name: target_range
+    id: variable_qtgui_range
+    parameters:
+        comment: ''
+        label: Target Range [m]
+        min_len: '200'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '50'
+        step: '1'
+        stop: '500'
+        value: '200'
+        widget: counter_slider
+    states:
+        coordinate: [500, 150]
+        rotation: 0
+        state: enabled
+-   name: target_velocity
+    id: variable_qtgui_range
+    parameters:
+        comment: ''
+        label: Target Velocity [m/s]
+        min_len: '200'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '5'
+        step: '1'
+        stop: '50'
+        value: '20'
+        widget: counter_slider
+    states:
+        coordinate: [790, 160]
+        rotation: 0
+        state: enabled
+-   name: v_res
+    id: variable
+    parameters:
+        comment: Velocity resolution, m/s
+        value: freq_res*3e8/2/center_freq
+    states:
+        coordinate: [240, 150]
+        rotation: 0
+        state: enabled
+-   name: add
+    id: blocks_add_xx
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: Echo plus receiver noise
+        maxoutbuf: '0'
+        minoutbuf: min_output_buffer
+        num_inputs: '2'
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [1100, 410]
+        rotation: 0
+        state: enabled
+-   name: cfar
+    id: radar_os_cfar_c
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: Constant-false-alarm-rate peak detector
+        len_key: '"packet_len"'
+        maxoutbuf: '0'
+        merge_consecutive: 'True'
+        minoutbuf: min_output_buffer
+        mult_threshold: cfar_mult
+        rel_threshold: '0.78'
+        samp_compare: '15'
+        samp_protect: '0'
+        samp_rate: samp_rate//2
+    states:
+        coordinate: [110, 1140]
+        rotation: 0
+        state: enabled
+-   name: cross
+    id: blocks_multiply_conjugate_cc
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: Phase difference between the two tones' spectra
+        maxoutbuf: '0'
+        minoutbuf: min_output_buffer
+        vlen: '1'
+    states:
+        coordinate: [1090, 900]
+        rotation: 0
+        state: enabled
+-   name: dechirp
+    id: blocks_multiply_conjugate_cc
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: Mixes the echo down against the transmitted signal
+        maxoutbuf: '0'
+        minoutbuf: min_output_buffer
+        vlen: '1'
+    states:
+        coordinate: [1360, 480]
+        rotation: 0
+        state: enabled
+-   name: estimator
+    id: radar_estimator_fsk
+    parameters:
+        affinity: ''
+        alias: ''
+        center_freq: center_freq
+        comment: Peak position gives velocity, peak phase gives range
+        delta_freq: delta_freq
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        push_power: 'False'
+    states:
+        coordinate: [570, 1180]
+        rotation: 0
+        state: enabled
+-   name: fft_high
+    id: radar_ts_fft_cc
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        len_key: '"packet_len"'
+        maxoutbuf: '0'
+        minoutbuf: min_output_buffer
+        packet_len: blocks_per_tag*samp_per_freq
+    states:
+        coordinate: [630, 980]
+        rotation: 0
+        state: enabled
+-   name: fft_low
+    id: radar_ts_fft_cc
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        len_key: '"packet_len"'
+        maxoutbuf: '0'
+        minoutbuf: min_output_buffer
+        packet_len: blocks_per_tag*samp_per_freq
+    states:
+        coordinate: [630, 870]
+        rotation: 0
+        state: enabled
+-   name: fsk_gen
+    id: radar_signal_generator_fsk_c
+    parameters:
+        affinity: ''
+        alias: ''
+        amplitude: '1'
+        blocks_per_tag: blocks_per_tag
+        comment: ''
+        freq_high: delta_freq/2
+        freq_low: -delta_freq/2
+        len_key: '"packet_len"'
+        maxoutbuf: '0'
+        minoutbuf: min_output_buffer
+        samp_per_freq: samp_per_freq
+        samp_rate: samp_rate
+    states:
+        coordinate: [20, 450]
+        rotation: 0
+        state: enabled
+-   name: gate
+    id: radar_msg_gate
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: "Drops detections outside the\nplotted velocity range -- chiefly\nthe residual of the tone step itself,\nwhich lands near -delta_freq"
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        msg_keys: ('velocity',)
+        val_max: '[60]'
+        val_min: '[-60]'
+    states:
+        coordinate: [1080, 1180]
+        rotation: 0
+        state: enabled
+-   name: noise
+    id: analog_noise_source_x
+    parameters:
+        affinity: ''
+        alias: ''
+        amplitude: '0.5'
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: min_output_buffer
+        seed: '0'
+        type: complex
+    states:
+        coordinate: [810, 410]
+        rotation: 0
+        state: enabled
+-   name: range_plot
+    id: radar_qtgui_time_plot
+    parameters:
+        affinity: ''
+        alias: ''
+        axis_y: '[0, 550]'
+        comment: ''
+        interval: '100'
+        label: ''
+        label_y: '''range'''
+        range_time: '10'
+    states:
+        coordinate: [1580, 920]
+        rotation: 0
+        state: enabled
+-   name: results
+    id: radar_print_results
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        filename: '""'
+        store_msg: 'False'
+    states:
+        coordinate: [1580, 820]
+        rotation: 0
+        state: enabled
+-   name: scatter
+    id: radar_qtgui_scatter_plot
+    parameters:
+        affinity: ''
+        alias: ''
+        axis_x: '[0, 550]'
+        axis_y: '[-10, 60]'
+        comment: ''
+        interval: '250'
+        label: ''
+        label_x: '''range'''
+        label_y: '''velocity'''
+    states:
+        coordinate: [1580, 1280]
+        rotation: 0
+        state: enabled
+-   name: split
+    id: radar_split_fsk_cc
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: One stream per tone
+        len_key: '"packet_len"'
+        maxoutbuf: '0'
+        minoutbuf: min_output_buffer
+        samp_discard: '0'
+        samp_per_freq: samp_per_freq
+    states:
+        coordinate: [100, 890]
+        rotation: 0
+        state: enabled
+-   name: target
+    id: radar_static_target_simulator_cc
+    parameters:
+        affinity: ''
+        alias: ''
+        azimuth: '[0]'
+        center_freq: center_freq
+        comment: Delays and Doppler-shifts the transmitted tones
+        len_key: '"packet_len"'
+        maxoutbuf: '0'
+        minoutbuf: min_output_buffer
+        position_rx: '[0]'
+        range: target_range
+        rcs: '[1e16]'
+        rndm_phaseshift: 'True'
+        samp_rate: samp_rate
+        self_coupling: 'False'
+        self_coupling_db: '-10'
+        velocity: target_velocity
+    states:
+        coordinate: [750, 580]
+        rotation: 0
+        state: enabled
+-   name: throttle
+    id: blocks_throttle2
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        ignoretag: 'True'
+        limit: auto
+        maximum: '0.1'
+        maxoutbuf: '0'
+        minoutbuf: min_output_buffer
+        samples_per_second: samp_rate
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [470, 490]
+        rotation: 0
+        state: enabled
+-   name: velocity_plot
+    id: radar_qtgui_time_plot
+    parameters:
+        affinity: ''
+        alias: ''
+        axis_y: '[-10, 60]'
+        comment: ''
+        interval: '100'
+        label: ''
+        label_y: '''velocity'''
+        range_time: '10'
+    states:
+        coordinate: [1580, 1100]
+        rotation: 0
+        state: enabled
+-   name: wasm_gui_layout_0
+    id: wasm_gui_layout
+    parameters:
+        affinity: ''
+        alias: ''
+        columns: '12'
+        comment: ''
+        layout: '{"cfar_mult":[3,1,6,1],"range_plot":[0,2,6,6],"scatter":[0,8,12,6],"target_range":[0,0,6,1],"target_velocity":[6,0,6,1],"velocity_plot":[6,2,6,6]}'
+        row_height: '60'
+    states:
+        coordinate: [1670, 40]
+        rotation: 0
+        state: enabled
+connections:
+- [add, '0', dechirp, '0']
+-   src_blk_id: cfar
+    src_port_id: Msg out
+    snk_blk_id: estimator
+    snk_port_id: Msg in
+- [cross, '0', cfar, '0']
+- [dechirp, '0', split, '0']
+-   src_blk_id: estimator
+    src_port_id: Msg out
+    snk_blk_id: gate
+    snk_port_id: Msg in
+- [fft_high, '0', cross, '0']
+- [fft_low, '0', cross, '1']
+- [fsk_gen, '0', throttle, '0']
+-   src_blk_id: gate
+    src_port_id: Msg out
+    snk_blk_id: range_plot
+    snk_port_id: Msg in
+-   src_blk_id: gate
+    src_port_id: Msg out
+    snk_blk_id: results
+    snk_port_id: Msg in
+-   src_blk_id: gate
+    src_port_id: Msg out
+    snk_blk_id: scatter
+    snk_port_id: Msg in
+-   src_blk_id: gate
+    src_port_id: Msg out
+    snk_blk_id: velocity_plot
+    snk_port_id: Msg in
+- [noise, '0', add, '0']
+- [split, '0', fft_low, '0']
+- [split, '1', fft_high, '0']
+- [target, '0', add, '1']
+- [throttle, '0', dechirp, '1']
+- [throttle, '0', target, '0']
+metadata:
+    file_format: 2
+    grc_version: 3.11.0.0

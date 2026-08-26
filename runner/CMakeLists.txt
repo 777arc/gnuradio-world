@@ -82,6 +82,7 @@ set(GR_INCLUDE_DIRS
   ${WORLD}/gr-ieee802_11/include
   ${WORLD}/gr-hrpt/include
   ${WORLD}/gr-lora_sdr/include
+  ${WORLD}/gr-radar/include
   ${BUILDGR}/gnuradio-runtime/include ${SYSROOT}/include)
 
 # ---------------------------------------------------------------------------
@@ -113,6 +114,7 @@ qt_add_executable(runner
   ${BLOCKS}/src/hackrf_sink.cpp
   ${BLOCKS}/overlays/gr-paint/paint_image_source.cpp
   ${BLOCKS}/overlays/gr-fosphor/fosphor_webgpu_sink.cpp
+  ${BLOCKS}/overlays/gr-radar/radar_plots.cpp
   src/generated_registry.cpp
   src/generated_modules.cpp
   src/generated_js_blocks.cpp)
@@ -831,6 +833,51 @@ add_custom_command(
   VERBATIM)
 list(APPEND SIDE_MODULE_OUTPUTS ${lora_sdr_out})
 list(APPEND SIDE_MODULE_NAMES lora_sdr)
+
+# gr-radar (kit-cel, the Communications Engineering Lab at KIT): CW / FMCW / FSK
+# / OFDM / sync-pulse radar -- signal generators, a static target simulator, the
+# matching estimators, OS-CFAR and a particle-filter tracker. Every block has a
+# C++ impl, so this is the ordinary OOT case; its config.h include is behind
+# `#ifdef HAVE_CONFIG_H`, which nothing defines, so like gr-paint it needs no
+# shim. Three sources are left out of this list:
+#   * usrp_echotimer_cc_impl.cc  -- UHD, which is not in the WASM sysroot.
+#   * trigger_command_impl.cc    -- runs a shell command; a tab has no shell.
+#   * qtgui_*_impl.cc plus their {time,scatter,spectrogram}_plot.cc widgets --
+#     Q_OBJECT Qwt widgets, and there is no moc pass here. They are rebuilt in
+#     blocks/overlays/gr-radar/radar_plots.cpp and, having hand-written
+#     factories, register from the main module rather than from here.
+# The first two also have no metadata.yml entry, so they stay greyed out.
+set(RADAR_LIB ${WORLD}/gr-radar/lib)
+set(RADAR_SOURCES
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/generated_registry_radar.cpp
+  ${RADAR_LIB}/crop_matrix_vcvc_impl.cc
+  ${RADAR_LIB}/estimator_cw_impl.cc
+  ${RADAR_LIB}/estimator_fmcw_impl.cc
+  ${RADAR_LIB}/estimator_fsk_impl.cc
+  ${RADAR_LIB}/estimator_ofdm_impl.cc
+  ${RADAR_LIB}/estimator_rcs_impl.cc
+  ${RADAR_LIB}/estimator_sync_pulse_c_impl.cc
+  ${RADAR_LIB}/find_max_peak_c_impl.cc
+  ${RADAR_LIB}/msg_gate_impl.cc
+  ${RADAR_LIB}/msg_manipulator_impl.cc
+  ${RADAR_LIB}/ofdm_cyclic_prefix_remover_cvc_impl.cc
+  ${RADAR_LIB}/ofdm_divide_vcvc_impl.cc
+  ${RADAR_LIB}/os_cfar_2d_vc_impl.cc
+  ${RADAR_LIB}/os_cfar_c_impl.cc
+  ${RADAR_LIB}/print_results_impl.cc
+  ${RADAR_LIB}/signal_generator_cw_c_impl.cc
+  ${RADAR_LIB}/signal_generator_fmcw_c_impl.cc
+  ${RADAR_LIB}/signal_generator_fsk_c_impl.cc
+  ${RADAR_LIB}/signal_generator_sync_pulse_c_impl.cc
+  ${RADAR_LIB}/split_cc_impl.cc
+  ${RADAR_LIB}/split_fsk_cc_impl.cc
+  ${RADAR_LIB}/static_target_simulator_cc_impl.cc
+  ${RADAR_LIB}/tracking_singletarget_impl.cc
+  ${RADAR_LIB}/transpose_matrix_vcvc_impl.cc
+  ${RADAR_LIB}/ts_fft_cc_impl.cc)
+add_side_module(radar
+  SOURCES ${RADAR_SOURCES}
+  INCLUDE_DIRS ${RADAR_LIB})
 
 # Fail at configure time if modules.json names a deferred category that has no
 # build rule here, or if a build rule was added without registering its topology.
