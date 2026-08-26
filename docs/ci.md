@@ -42,9 +42,10 @@ or one of GNU Radio World's own browser-only blocks) is **skipped** rather than
 failed, so a failure is always a real incompatibility. Dispatch inputs control
 the runtime window, worker count, and generation-only mode.
 
-**The two Cloudflare Workers are not part of any of this.**
-`workers/sigmf-indexer/` and `workers/ai-proxy/` deploy by hand with `wrangler`,
-each with its own tests and README, and no workflow touches them. A change to a
+**The three Cloudflare Workers are not part of any of this.**
+`workers/sigmf-indexer/`, `workers/ai-proxy/`, and `workers/saas/` deploy by hand
+with `wrangler`, each with its own tests and README, and no workflow touches
+them. A change to a
 Worker is therefore not live when the Pages deploy goes green — deploy it
 yourself. The editor's shared-key AI provider depends on `ai-proxy` being
 deployed and holding its `OPENAI_API_KEY` secret.

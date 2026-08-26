@@ -1,0 +1,36 @@
+{
+  "name": "gnuradio-world-saas",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20.3.0"
+  },
+  "scripts": {
+    "check": "tsc --noEmit",
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev --env sandbox --var BETTER_AUTH_URL:http://localhost:8787 --var LOCAL_INSECURE_COOKIES:true",
+    "test": "tsx --test test/*.test.ts",
+    "types": "wrangler types"
+  },
+  "dependencies": {
+    "@polar-sh/better-auth": "1.8.4",
+    "@polar-sh/sdk": "0.47.1",
+    "better-auth": "1.7.1",
+    "hono": "4.13.5",
+    "zod": "4.1.12"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "4.20260702.1",
+    "miniflare": "4.20260426.0",
+    "tsx": "4.20.6",
+    "typescript": "5.9.3",
+    "wrangler": "4.86.0"
+  },
+  "overrides": {
+    "esbuild": "0.28.1",
+    "sharp": "0.35.3",
+    "undici": "7.29.0",
+    "ws": "8.21.1"
+  }
+}

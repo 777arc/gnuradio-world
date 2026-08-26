@@ -6,6 +6,9 @@
 /chrome-headless-shell
 /node_modules/
 /workers/*/node_modules/
+/workers/*/.wrangler/
+/workers/*/.dev.vars
+/workers/*/.dev.vars.*
 /editor/node_modules/
 /editor/dist/
 /qtgui/build/

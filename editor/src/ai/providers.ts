@@ -9,7 +9,7 @@
  */
 import type { AiModel } from './client';
 
-export type ProviderId = 'hosted' | 'hosted-openrouter' | 'openrouter' | 'openai';
+export type ProviderId = 'hosted' | 'hosted-openrouter' | 'credits' | 'openrouter' | 'openai';
 
 export interface AiProvider {
   id: ProviderId;
@@ -39,6 +39,8 @@ export interface AiProvider {
    * is sent, and there is nothing to disconnect — only consent to record.
    */
   keyless: boolean;
+  /** Uses the SaaS session cookie rather than a browser-held API key. */
+  accountAuth?: boolean;
   /**
    * Keyless only: the API the proxy forwards to on the user's behalf. It is
    * the second hop of a two-hop path, so the dock's boundary line and the
@@ -109,6 +111,13 @@ export const OPENAI_ORIGIN = 'https://api.openai.com';
 // OpenAI key for every visitor and meters it per IP.
 // pr-security-scan: allow new-outbound-host
 export const HOSTED_ORIGIN = 'https://ai.gnuradioworld.com';
+// Authenticated prepaid-credit API. Its secrets remain in the Worker. Local
+// editor builds use the local Wrangler Worker so OAuth cookies stay same-site.
+// pr-security-scan: allow new-outbound-host
+export const CREDITS_ORIGIN = typeof location !== 'undefined' &&
+  (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+  ? 'http://localhost:8787'
+  : 'https://credits.gnuradioworld.com';
 
 export const DEFAULT_OPENROUTER_MODEL = 'google/gemini-3.7-flash';
 export const DEFAULT_OPENAI_MODEL = 'gpt-5.4-mini';
@@ -230,6 +239,37 @@ export const AI_PROVIDERS: Record<ProviderId, AiProvider> = {
       model: 'gnuradio-world.hosted-openrouter-model',
     },
   },
+  credits: {
+    id: 'credits',
+    label: 'GNU Radio World Credits',
+    menuLabel: 'GNU Radio World Credits (prepaid)',
+    host: 'credits.gnuradioworld.com',
+    api: `${CREDITS_ORIGIN}/api`,
+    defaultModel: '',
+    keyPlaceholder: '',
+    keysUrl: 'https://github.com/777arc/gnuradio-world/blob/main/workers/saas/README.md',
+    keysLabel: 'How prepaid credits work',
+    privacyUrl: 'https://platform.openai.com/docs/guides/your-data',
+    privacyLabel: 'Model-provider data controls',
+    sends: 'Your prompt, current flowgraph, relevant block metadata, tool results, and console ' +
+      "output captured while diagnosing a run. GNU Radio World's billing Worker reserves and " +
+      'settles prepaid credits, then sends the bounded request to OpenAI. Neither the Polar ' +
+      'token nor the upstream provider key is sent to your browser.',
+    oauth: false,
+    keyless: false,
+    accountAuth: true,
+    upstream: { label: 'OpenAI', host: 'api.openai.com' },
+    reportsCost: false,
+    modelsNeedKey: false,
+    attribution: false,
+    requestUsage: true,
+    promptCacheKey: false,
+    reasoningEffort: 'none',
+    storage: {
+      consent: 'gnuradio-world.credits-consent',
+      model: 'gnuradio-world.credits-model',
+    },
+  },
   openrouter: {
     id: 'openrouter',
     label: 'OpenRouter',
@@ -301,7 +341,7 @@ export const AI_PROVIDERS: Record<ProviderId, AiProvider> = {
 
 /** Every provider this file describes, in the order they are offered. */
 export const ALL_PROVIDER_IDS: ProviderId[] =
-  ['hosted', 'hosted-openrouter', 'openrouter', 'openai'];
+  ['hosted', 'hosted-openrouter', 'credits', 'openrouter', 'openai'];
 
 /**
  * Providers temporarily withdrawn from the UI. Their descriptors, key storage,
@@ -327,7 +367,8 @@ export const providerOffered = (id: ProviderId | string): boolean =>
  * copy pointing at a provider that is no longer there.
  */
 export const ownKeyProviderLabels = (): string[] =>
-  PROVIDER_IDS.filter(id => !AI_PROVIDERS[id].keyless).map(id => AI_PROVIDERS[id].label);
+  PROVIDER_IDS.filter(id => !AI_PROVIDERS[id].keyless && !AI_PROVIDERS[id].accountAuth)
+    .map(id => AI_PROVIDERS[id].label);
 
 /** The provider a browser with nothing stored starts on. */
 export const DEFAULT_PROVIDER: ProviderId = 'hosted';

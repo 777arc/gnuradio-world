@@ -13,13 +13,14 @@ dock collapsed by default. The header's New chat control clears the transcript
 and accumulated spend and creates a fresh agent conversation without changing the
 canvas, connection, or selected model; it is disabled while a turn is running.
 
-## Four providers, one request path
+## Five providers, one request path
 
 The dock talks to the project's own **shared-key proxy** — under either of two
-free providers — to **OpenRouter**, or to **OpenAI's own API**, chosen in the
+free providers — to the authenticated **GNU Radio World Credits** service, to
+**OpenRouter**, or to **OpenAI's own API**, chosen in the
 provider select above the model picker and remembered in
 `localStorage['gnuradio-world.ai-provider']`; the first shared provider is the
-default, and the two shared ones are what need nothing from the user. All four
+default, and the two shared ones are what need nothing from the user. All five
 speak the OpenAI chat-completions wire format, so `editor/src/ai/client.ts`
 holds the single streaming request path and model-list call for all of them, and
 `editor/src/ai/providers.ts` holds everything that differs — base URL, default
@@ -27,7 +28,7 @@ model, key storage keys, dialog copy, and the capability flags below.
 `editor/src/ai/openrouter.ts` is now only OpenRouter's OAuth flow, which none
 of the others has an equivalent of.
 
-**Two of the four are withdrawn from the UI at the moment.** Both OpenRouter
+**Two of the five are withdrawn from the UI at the moment.** Both OpenRouter
 providers — the free shared one and a key of the user's — are listed in
 `WITHDRAWN_PROVIDERS` in `providers.ts`, which is subtracted from
 `ALL_PROVIDER_IDS` to give the `PROVIDER_IDS` every list in the UI is built
@@ -40,8 +41,8 @@ than reconnecting a hidden provider, and the copy naming own-key providers is
 built from the offered list (`ownKeyProviderLabels()`). Emptying
 `WITHDRAWN_PROVIDERS` is the whole of putting one back.
 
-Everything a provider is allowed to differ in is a descriptor field, so a fifth
-provider is a new entry in `AI_PROVIDERS` rather than a branch in the panel:
+Everything a provider is allowed to differ in is a descriptor field, so a new
+provider is an entry in `AI_PROVIDERS` rather than a branch in the request path:
 
 | difference | OpenAI Free Tier | OpenRouter Free Tier | OpenRouter | OpenAI |
 |------------|------------------|----------------------|-----------|--------|
@@ -53,6 +54,14 @@ provider is a new entry in `AI_PROVIDERS` rather than a branch in the panel:
 | usage | as OpenAI, and priced nowhere | the same, and free anyway | appended to the stream automatically, with a cost | only when asked with `stream_options.include_usage`, and priced nowhere (`requestUsage`, `reportsCost`) |
 | reasoning effort | unset — the proxy sets `'none'` upstream | unset — the proxy sets `'low'` upstream | nested under `reasoning`, so nothing is sent | top-level `reasoning_effort: 'none'`, on a reasoning model only — see below (`reasoningEffort`) |
 | cache routing | one shared key, set by the proxy | none; free endpoints cache nothing for us | prefix hashing only | `prompt_cache_key` per page (`promptCacheKey`) |
+
+The fifth provider, **GNU Radio World Credits**, authenticates with a secure
+Better Auth session cookie rather than an API key. Its bounded `/api/chat` path
+in [`workers/saas/`](../workers/saas/README.md) reserves and settles a prepaid
+D1 balance, then streams directly from OpenAI. Its model catalog and user-facing
+prices come from versioned D1 rate rows. Polar creates the customer and hosts
+checkout, receipts, and refunds; signed paid-order webhooks are the only path
+that grants credits.
 
 **A keyless provider must send no `Authorization` header at all.** `client.ts`
 emits one only when a key is present; the proxy holds the only key involved, and
@@ -153,12 +162,15 @@ already recorded.
 
 ## Data and key boundary
 
-GNU Radio World is static, so the browser calls `https://ai.gnuradioworld.com`,
-`https://openrouter.ai` or `https://api.openai.com` directly — never more than
+GNU Radio World's editor is static, so the browser calls `https://ai.gnuradioworld.com`,
+`https://credits.gnuradioworld.com`, `https://openrouter.ai` or
+`https://api.openai.com` directly — never more than
 one, and the dock's boundary line names the one connected. The two shared
-providers are the two-hop paths, and their line says so, naming the second hop
-from the descriptor's `upstream` rather than assuming it: `ai.gnuradioworld.com
-→ api.openai.com (shared key)`, or `→ openrouter.ai (shared key)`.
+providers and the prepaid-credit provider are two-hop paths, and their line says
+so, naming the second hop from the descriptor's `upstream` rather than assuming
+it: `ai.gnuradioworld.com → api.openai.com (shared key)`,
+`→ openrouter.ai (shared key)`, or
+`credits.gnuradioworld.com → api.openai.com (prepaid credits)`.
 
 The connection dialog says exactly what crosses that boundary, rewriting its
 copy, links, and buttons for the provider chosen in it — including which
@@ -497,6 +509,7 @@ The proxy has a suite of its own, on plain Node with no Wrangler and no network:
 
 ```bash
 (cd workers/ai-proxy && npm test)
+(cd workers/saas && npm test && npm run check)
 ```
 
 Model quality itself has an opt-in, networked JS Block evaluation. It exercises

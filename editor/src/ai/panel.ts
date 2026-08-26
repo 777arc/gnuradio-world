@@ -8,6 +8,15 @@ import {
 } from './openrouter';
 import { AiRequestError, listModels, type AiModel } from './client';
 import {
+  CREDIT_PACKS,
+  beginCreditCheckout,
+  beginCreditSignIn,
+  creditAccount,
+  openCreditPortal,
+  signOutCredits,
+  type CreditAccount,
+} from './credits';
+import {
   PROVIDER_IDS,
   forgetKey,
   hasConsent,
@@ -112,6 +121,8 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
   const expansion = node('span', 'ai-name-expansion',
     'GNU Radio Assistant for Hams And Mortals');
   title.append(heading, expansion);
+  const balance = node('span', 'ai-balance');
+  balance.hidden = true;
   const cost = node('span', 'ai-cost', '$0.0000');
   const newChat = node('button', 'ai-icon', '＋');
   newChat.type = 'button'; newChat.title = 'New chat';
@@ -121,7 +132,7 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
   const close = node('button', 'ai-icon', '×');
   close.type = 'button'; close.title = 'Close Graham';
   close.setAttribute('aria-label', 'Close Graham');
-  header.append(title, cost, newChat, settings, close);
+  header.append(title, balance, cost, newChat, settings, close);
 
   const controls = node('div', 'ai-controls');
   const connection = node('div', 'ai-connection');
@@ -170,11 +181,23 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
   const modelCache = new Map<ProviderId, AiModel[]>();
   let models: AiModel[] = [];
   let key = hasConsent(providerId) ? storedKey(providerId) : '';
+  let creditsAccount: CreditAccount | null = null;
+  const showBalance = () => {
+    const account = provider().accountAuth ? creditsAccount : null;
+    balance.hidden = !account;
+    balance.textContent = account
+      ? `$${(account.wallet.available_micros / 1_000_000).toFixed(2)}` : '';
+    balance.title = account
+      ? `Prepaid credits available for ${account.user.email}: ` +
+        `$${(account.wallet.available_micros / 1_000_000).toFixed(6)}` : '';
+    balance.setAttribute('aria-label', account
+      ? `Prepaid credit balance: ${balance.textContent} available` : '');
+  };
   /**
    * Whether the dock can send at all. The shared provider holds no key of the
    * user's, so "connected" there means nothing more than having a model.
    */
-  const ready = () => provider().keyless || !!key;
+  const ready = () => provider().accountAuth ? !!creditsAccount : provider().keyless || !!key;
   // Tracked apart from `modelSelect.disabled`, which is also how a fixed,
   // single-model picker is locked — and a locked picker must not disable Send.
   let modelsLoading = false;
@@ -228,7 +251,8 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
   const boundaryText = () => {
     const { host, upstream } = provider();
     return upstream
-      ? `Data sent to: ${host} → ${upstream.host} (shared key)`
+      ? `Data sent to: ${host} → ${upstream.host} ` +
+        (provider().accountAuth ? '(prepaid credits)' : '(shared key)')
       : `Data sent to: ${host} only`;
   };
   const share = (part: number, whole: number) =>
@@ -288,10 +312,12 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
       : headline);
   };
   const updateSend = () => {
+    showBalance();
     send.disabled = !!controller || modelsLoading || !ready() || !currentModel();
     prompt.disabled = !!controller;
     // Nothing to disconnect where nothing of the user's was stored.
-    disconnect.hidden = provider().keyless || !key;
+    disconnect.textContent = provider().accountAuth ? 'Sign out' : 'Disconnect';
+    disconnect.hidden = provider().accountAuth ? !creditsAccount : provider().keyless || !key;
     newChat.disabled = !!controller || !ready();
   };
 
@@ -511,6 +537,22 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
     } finally { modelsLoading = false; modelSelect.disabled = false; updateSend(); }
   };
 
+  const refreshCreditsAccount = async (announce = false) => {
+    if (!provider().accountAuth) return;
+    try {
+      creditsAccount = await creditAccount();
+      if (creditsAccount && announce) {
+        bubble('status', `Signed in as ${creditsAccount.user.email}. ` +
+          `$${(creditsAccount.wallet.available_micros / 1_000_000).toFixed(2)} available.`);
+      }
+    } catch (error) {
+      creditsAccount = null;
+      if (announce) bubble('status', error instanceof Error ? error.message : String(error));
+    }
+    updateSend();
+    if (creditsAccount) void loadModels();
+  };
+
   /** Points the dock at one provider's key, model list, and data boundary. */
   const applyProvider = (id: ProviderId, announce: boolean) => {
     providerId = id;
@@ -518,6 +560,7 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
     providerSelect.value = id;
     boundary.textContent = boundaryText();
     key = hasConsent(id) ? storedKey(id) : '';
+    creditsAccount = null;
     models = modelCache.get(id) || [];
     modelSelect.textContent = '';
     modelSelect.disabled = false;
@@ -526,11 +569,14 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
     clearUsage();
     showSpend();
     if (announce) {
-      resetConversation(provider().keyless
+      resetConversation(provider().accountAuth
+        ? `Using ${provider().label}. Sign in to spend prepaid credits.`
+        : provider().keyless
         ? `Using ${provider().label}, shared by everyone on the site.`
         : `Using the ${provider().label} API.`);
     } else rebuildAgent();
-    if (ready()) void loadModels();
+    if (provider().accountAuth) void refreshCreditsAccount(announce);
+    else if (ready()) void loadModels();
     else updateSend();
   };
 
@@ -554,6 +600,7 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
     let consentText!: Text;
     let limited!: HTMLAnchorElement;
     let privacy!: HTMLAnchorElement;
+    let creditActions!: HTMLElement;
     const overlay = deps.openDialog('Connect an AI provider', body => {
       const pick = node('label', 'ai-key-label', 'AI provider');
       choice = node('select', 'ai-model') as HTMLSelectElement;
@@ -608,6 +655,9 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
       connectStatus = node('p', 'ai-connect-status');
       body.appendChild(connectStatus);
 
+      creditActions = node('div', 'ai-credit-actions');
+      body.appendChild(creditActions);
+
       manual = node('details', 'ai-manual-key');
       manualSummary = node('summary', '', 'Paste an API key instead');
       keyLabel = node('label', 'ai-key-label');
@@ -626,10 +676,19 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
     const applyDialogProvider = () => {
       const chosen = providerFor(dialogProvider);
       const connected = hasConsent(dialogProvider) ? storedKey(dialogProvider) : '';
-      trustHeading.nodeValue = chosen.keyless
+      trustHeading.nodeValue = chosen.accountAuth
+        ? 'Your account and prepaid credits'
+        : chosen.keyless
         ? 'No API key needed'
         : 'Your key stays on this device';
-      keyCopy.textContent = chosen.keyless
+      keyCopy.textContent = chosen.accountAuth
+        ? creditsAccount
+          ? `Signed in as ${creditsAccount.user.email}. Available balance: ` +
+            `$${(creditsAccount.wallet.available_micros / 1_000_000).toFixed(2)}. ` +
+            'Credits expire 12 months after purchase; unused credits are refundable through Polar within 14 days.'
+          : 'Sign in with Google or GitHub. Polar handles card payments, receipts, refunds, and tax; ' +
+            "GNU Radio World's Worker keeps the credit ledger and never sends its Polar or model-provider secrets to this browser."
+        : chosen.keyless
         ? 'GNU Radio World is a static, open-source application. This model runs on one ' +
           `${chosen.upstream?.label} key the project shares with every visitor, held by a ` +
           `Cloudflare Worker at ${chosen.host} — nothing of yours is stored, and you have ` +
@@ -643,7 +702,9 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
       limited.textContent = chosen.keysLabel;
       privacy.href = chosen.privacyUrl;
       privacy.textContent = chosen.privacyLabel;
-      consentText.nodeValue = chosen.keyless
+      consentText.nodeValue = chosen.accountAuth
+        ? ' I understand what is sent to the GNU Radio World billing service and OpenAI.'
+        : chosen.keyless
         ? ' I understand my prompt and flowgraph are sent to the GNU Radio World proxy and on ' +
           `to ${chosen.upstream?.label}.`
         : chosen.oauth
@@ -657,16 +718,38 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
       connectStatus.textContent = '';
       // Only OpenRouter has a browser authorization flow; an OpenAI key is
       // pasted; the shared proxy takes no key at all.
-      connect.hidden = !chosen.oauth;
+      connect.hidden = chosen.accountAuth ? !!creditsAccount : !chosen.oauth;
       connect.disabled = false;
-      connect.textContent = `Connect with ${chosen.label}`;
+      connect.textContent = chosen.accountAuth ? 'Sign in with Google' : `Connect with ${chosen.label}`;
       manualSummary.hidden = !chosen.oauth;
-      manual.hidden = chosen.keyless;
+      manual.hidden = chosen.keyless || !!chosen.accountAuth;
       manual.open = !chosen.oauth && !chosen.keyless;
-      rememberLabel.hidden = chosen.keyless;
-      save.textContent = chosen.keyless
+      rememberLabel.hidden = chosen.keyless || !!chosen.accountAuth;
+      save.hidden = !!chosen.accountAuth && !!creditsAccount;
+      save.textContent = chosen.accountAuth
+        ? 'Sign in with GitHub'
+        : chosen.keyless
         ? 'Use this free shared model'
         : chosen.oauth ? 'Use pasted key' : `Use ${chosen.label} key`;
+      creditActions.textContent = '';
+      creditActions.hidden = !chosen.accountAuth || !creditsAccount;
+      if (chosen.accountAuth && creditsAccount) {
+        const packs = node('div', 'ai-credit-packs');
+        for (const pack of CREDIT_PACKS) {
+          const buy = node('button', '', `Buy $${pack.dollars}`) as HTMLButtonElement;
+          buy.type = 'button';
+          buy.onclick = () => void beginCreditCheckout(pack.slug).catch(error => {
+            connectStatus.textContent = error instanceof Error ? error.message : String(error);
+          });
+          packs.appendChild(buy);
+        }
+        const portalButton = node('button', '', 'Receipts and refunds') as HTMLButtonElement;
+        portalButton.type = 'button';
+        portalButton.onclick = () => void openCreditPortal().catch(error => {
+          connectStatus.textContent = error instanceof Error ? error.message : String(error);
+        });
+        creditActions.append(node('strong', '', 'Add prepaid credits'), packs, portalButton);
+      }
     };
 
     choice.onchange = () => {
@@ -675,6 +758,18 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
     };
     connect.onclick = async () => {
       if (!consent.checked) { consent.focus(); return; }
+      if (providerFor(dialogProvider).accountAuth) {
+        storeConsent(dialogProvider);
+        storeProvider(dialogProvider);
+        connect.disabled = true;
+        connectStatus.textContent = 'Opening Google…';
+        try { await beginCreditSignIn('google'); }
+        catch (error) {
+          connect.disabled = false;
+          connectStatus.textContent = error instanceof Error ? error.message : String(error);
+        }
+        return;
+      }
       connect.disabled = true;
       connectStatus.textContent = 'Opening OpenRouter…';
       storeConsent('openrouter');
@@ -688,6 +783,15 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
     };
     save.onclick = () => {
       if (!consent.checked) { consent.focus(); return; }
+      if (providerFor(dialogProvider).accountAuth) {
+        storeConsent(dialogProvider);
+        storeProvider(dialogProvider);
+        connectStatus.textContent = 'Opening GitHub…';
+        void beginCreditSignIn('github').catch(error => {
+          connectStatus.textContent = error instanceof Error ? error.message : String(error);
+        });
+        return;
+      }
       if (providerFor(dialogProvider).keyless) {
         // Consent is the whole of connecting here; there is no key to store.
         storeConsent(dialogProvider);
@@ -712,6 +816,9 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
       }
     };
     applyDialogProvider();
+    if (providerFor(dialogProvider).accountAuth) {
+      void refreshCreditsAccount().then(applyDialogProvider);
+    }
     overlay.querySelector('.dlgfoot')?.prepend(connect, save);
     (connect.hidden ? (manual.hidden ? save : keyInput) : connect).focus();
   };
@@ -798,6 +905,10 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
         attachDiff(before, after);
       }
       finishBusy();
+      // The usage event closes the upstream stream just before waitUntil
+      // settles the debit. Refresh shortly afterward so the persistent badge
+      // follows the ledger without making every streamed token poll /api/me.
+      if (provider().accountAuth) window.setTimeout(() => void refreshCreditsAccount(), 400);
     }
   };
 
@@ -806,8 +917,21 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
     if (!controller && ready()) resetConversation('New conversation started.');
   };
   settings.onclick = showConnect;
-  disconnect.onclick = () => {
+  disconnect.onclick = async () => {
     const label = provider().label;
+    if (provider().accountAuth) {
+      try {
+        await signOutCredits();
+        creditsAccount = null;
+        agent = null;
+        modelCache.delete(providerId);
+        bubble('status', `${label} signed out. Your credits remain on your account.`);
+      } catch (error) {
+        bubble('status', error instanceof Error ? error.message : String(error));
+      }
+      updateSend();
+      return;
+    }
     forgetKey(providerId);
     key = '';
     agent = null;
@@ -867,7 +991,10 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
   boundary.textContent = boundaryText();
   showSpend();
   modelSelect.appendChild(modelStatus('Open Graham to load models…'));
-  if (provider().keyless) {
+  if (provider().accountAuth) {
+    bubble('status', `Sign in to ${provider().label} to buy and spend prepaid credits.`);
+    void refreshCreditsAccount(true);
+  } else if (provider().keyless) {
     bubble('status', `Free to use — ${provider().label} runs ${provider().defaultModel} on a ` +
       'shared key, rate limited per visitor. Connect your own ' +
       `${ownKeyProviderLabels().join(' or ')} key above for limits of your own.`);

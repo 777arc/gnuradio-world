@@ -12,6 +12,7 @@ const {
   openRouterAuthorizationUrl,
 } = await bundleModule('../src/ai/openrouter.ts');
 const { listModels } = await bundleModule('../src/ai/client.ts');
+const { signOutCredits } = await bundleModule('../src/ai/credits.ts');
 const { javascriptErrors } = await bundleModule('../src/ai/harness.ts');
 const {
   AI_PROVIDERS,
@@ -54,12 +55,12 @@ assert.deepEqual(javascriptErrors([
 // The free shared-key provider leads the list and is what a first-time visitor
 // lands on. It is keyless by construction: no key page, no storage slot a key
 // could land in, and a fixed short list of models the proxy will accept.
-assert.deepEqual(ALL_PROVIDER_IDS, ['hosted', 'hosted-openrouter', 'openrouter', 'openai']);
+assert.deepEqual(ALL_PROVIDER_IDS, ['hosted', 'hosted-openrouter', 'credits', 'openrouter', 'openai']);
 // Both OpenRouter providers are withdrawn for now: their descriptors, storage
 // and request path stay described here, but nothing offers them, so they are
 // absent from every list the UI builds. Restoring one means emptying
 // WITHDRAWN_PROVIDERS, and this assertion is what says so out loud.
-assert.deepEqual(PROVIDER_IDS, ['hosted', 'openai']);
+assert.deepEqual(PROVIDER_IDS, ['hosted', 'credits', 'openai']);
 assert.equal(providerOffered('openrouter'), false);
 assert.equal(providerOffered('hosted-openrouter'), false);
 assert.equal(providerOffered('hosted'), true);
@@ -104,6 +105,13 @@ assert.equal(new Set(ALL_PROVIDER_IDS.map(id => AI_PROVIDERS[id].menuLabel)).siz
   ALL_PROVIDER_IDS.length);
 assert.equal(AI_PROVIDERS.openrouter.keyless, false);
 assert.equal(AI_PROVIDERS.openai.keyless, false);
+assert.equal(AI_PROVIDERS.credits.keyless, false);
+assert.equal(AI_PROVIDERS.credits.accountAuth, true);
+assert.equal(AI_PROVIDERS.credits.storage.key, undefined,
+  'the prepaid provider authenticates with a session cookie, never a browser-held key');
+assert.deepEqual(AI_PROVIDERS.credits.upstream,
+  { label: 'OpenAI', host: 'api.openai.com' },
+  'the prepaid provider discloses its direct OpenAI second hop');
 
 // The second keyless provider is the same proxy on a second shared key. Its
 // path is the whole of what selects the OpenRouter upstream, so it is asserted
@@ -443,6 +451,55 @@ const hostedModels = await listModels({
   fetchImpl: () => { throw new Error('a fixed model list must not be fetched'); },
 });
 assert.deepEqual(hostedModels.map(model => model.id), HOSTED_MODELS);
+
+// The prepaid provider uses a credentialed same-site session, its bounded
+// /api/chat endpoint, and the server's configured rate catalog.
+let creditsRequest;
+const creditsAgent = new FlowgraphAgent({
+  provider: 'credits', model: 'vendor/model', systemPrompt: 'test', deps,
+  fetchImpl: async (url, init) => {
+    creditsRequest = { url, init };
+    return sse([{
+      model: 'vendor/model', choices: [{ delta: { content: 'Paid answer.' } }],
+      usage: { prompt_tokens: 3, completion_tokens: 2, total_tokens: 5 },
+    }]);
+  },
+});
+assert.equal((await creditsAgent.turn('hello')).text, 'Paid answer.');
+// pr-security-scan: allow new-outbound-host
+assert.equal(creditsRequest.url, 'https://credits.gnuradioworld.com/api/chat');
+assert.equal(creditsRequest.init.credentials, 'include');
+assert.equal(creditsRequest.init.headers.Authorization, undefined);
+const creditModels = await listModels({
+  provider: 'credits',
+  fetchImpl: async (url, init) => {
+    // pr-security-scan: allow new-outbound-host
+    assert.equal(url, 'https://credits.gnuradioworld.com/api/models');
+    assert.equal(init.credentials, 'include');
+    return new Response(JSON.stringify({ data: [{
+      id: 'vendor/model', name: 'Vendor Model',
+      pricing_micros_per_million: { input: 1_500_000, output: 3_000_000 },
+    }] }), { status: 200 });
+  },
+});
+assert.deepEqual(creditModels.map(model => model.id), ['vendor/model']);
+
+let signOutRequest;
+const realFetch = globalThis.fetch;
+try {
+  globalThis.fetch = async (url, init) => {
+    signOutRequest = { url, init };
+    return new Response(null, { status: 200 });
+  };
+  await signOutCredits();
+} finally {
+  globalThis.fetch = realFetch;
+}
+assert.equal(signOutRequest.url, 'https://credits.gnuradioworld.com/api/auth/sign-out');
+assert.equal(signOutRequest.init.method, 'POST');
+assert.deepEqual(signOutRequest.init.headers, { 'Content-Type': 'application/json' });
+assert.equal(signOutRequest.init.body, '{}');
+assert.equal(signOutRequest.init.credentials, 'include');
 
 // The second keyless provider takes the same path, with its own model, its own
 // storage, and — like the first — no Authorization header of any kind.

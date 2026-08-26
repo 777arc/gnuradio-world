@@ -1,0 +1,63 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "gnuradio-world-saas",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-05-03",
+  "compatibility_flags": ["nodejs_compat"],
+  "routes": [
+    { "pattern": "credits.gnuradioworld.com", "custom_domain": true }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "gnuradio-world-saas-production",
+      "database_id": "1c91bc63-11a1-46ca-b8c9-026189fcddfe",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "triggers": {
+    "crons": ["* * * * *", "17 8 * * *"]
+  },
+  "vars": {
+    "ENVIRONMENT": "production",
+    "APP_URL": "https://gnuradioworld.com",
+    "BETTER_AUTH_URL": "https://credits.gnuradioworld.com",
+    "POLAR_SERVER": "production",
+    "TRUSTED_ORIGINS": "https://gnuradioworld.com,https://www.gnuradioworld.com,https://gnuradio-wasm.pages.dev,https://*.gnuradio-world-previews.pages.dev",
+    "CREDIT_PRODUCTS": "{\"credits-5\":{\"productId\":\"da73d865-9593-4ce5-ae90-49e6b53a03f3\",\"creditsMicros\":5000000}}",
+    "MAX_CHAT_BODY_BYTES": "200000",
+    "MAX_COMPLETION_TOKENS": "16384",
+    "HOLD_TTL_SECONDS": "900",
+    "PURCHASE_RATE_LIMIT_PER_HOUR": "10",
+    "ABSORBED_ALERT_BPS": "200"
+  },
+  "observability": { "enabled": true },
+  "env": {
+    "sandbox": {
+      "name": "gnuradio-world-saas-sandbox",
+      "workers_dev": true,
+      "routes": [],
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "gnuradio-world-saas-sandbox",
+          "database_id": "702d9c62-1e5b-4ce3-9c77-86a7f1074a00",
+          "migrations_dir": "migrations"
+        }
+      ],
+      "vars": {
+        "ENVIRONMENT": "sandbox",
+        "APP_URL": "http://localhost:8090",
+        "BETTER_AUTH_URL": "https://gnuradio-world-saas-sandbox.marcll.workers.dev",
+        "POLAR_SERVER": "sandbox",
+        "TRUSTED_ORIGINS": "http://localhost:8090,http://localhost:8787",
+        "CREDIT_PRODUCTS": "{\"credits-5\":{\"productId\":\"de218f09-7b0d-4be0-a308-8bdd994a0457\",\"creditsMicros\":5000000}}",
+        "MAX_CHAT_BODY_BYTES": "200000",
+        "MAX_COMPLETION_TOKENS": "16384",
+        "HOLD_TTL_SECONDS": "900",
+        "PURCHASE_RATE_LIMIT_PER_HOUR": "10",
+        "ABSORBED_ALERT_BPS": "200"
+      }
+    }
+  }
+}

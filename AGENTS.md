@@ -27,7 +27,7 @@ full* before starting that kind of work:
 | [docs/diagnostics.md](docs/diagnostics.md) | working on the runner's `__grstats` snapshot, the debug panel, or the Benchmark Tool |
 | [docs/embedded-python.md](docs/embedded-python.md) | touching the Embedded Python Block — Pyodide, the Python shim under `runner/src/pyodide/`, `blocks/src/python_block.hpp`, `editor/src/epy.ts`, or the Code field's CodeMirror in `editor/src/code-editor.ts` |
 | [docs/js-blocks.md](docs/js-blocks.md) | touching the JavaScript Block — `runner/src/js_runtime.js`, `blocks/src/js_block.hpp`, `editor/src/js-block.ts`, `editor/src/code-modal.ts`, or anything under `blocks/js/` |
-| [docs/graham.md](docs/graham.md) | touching Graham — the two-upstream shared-key proxy in `workers/ai-proxy/`, any of the four providers, structured graph tools, the agent loop, visible-run diagnostics, consent/key storage, or hardware authorization rows |
+| [docs/graham.md](docs/graham.md) | touching Graham — the two-upstream shared-key proxy in `workers/ai-proxy/`, the prepaid service in `workers/saas/`, any AI provider, structured graph tools, the agent loop, visible-run diagnostics, consent/key storage, or hardware authorization rows |
 
 ## Project overview
 
@@ -149,7 +149,8 @@ node server.mjs 8090 "$PWD"
 | `docs/` | the per-task docs listed at the top of this file |
 | `example_flowgraphs/` | the `.grc` files the editor's "Example Flowgraphs" palette tab lists recursively (nested directories appear as collapsible folders); several are also smoke-test cases. Each is linkable as `#example=<relative path without .grc>`. Test changes with `scripts/run_example.mjs` — see [docs/flowgraph-files.md](docs/flowgraph-files.md) |
 | `workers/sigmf-indexer/` | Cloudflare Queue consumer that rebuilds the recordings bucket's `index.json` — see [docs/recording-viewer.md](docs/recording-viewer.md) |
-| `workers/ai-proxy/` | Cloudflare Worker holding one OpenAI key and one OpenRouter key for every visitor, each metered per IP and per day, behind Graham's two free providers — see [docs/graham.md](docs/graham.md). Both Workers deploy by hand with `wrangler`; no CI deploys them |
+| `workers/ai-proxy/` | Cloudflare Worker holding one OpenAI key and one OpenRouter key for every visitor, each metered per IP and per day, behind Graham's two free providers — see [docs/graham.md](docs/graham.md). It and the prepaid service deploy by hand with `wrangler`; no CI deploys them |
+| `workers/saas/` | Better Auth + Polar + D1 prepaid-credit Worker for Graham's authenticated paid provider; owns wallets, immutable ledger, holds, streaming settlement, webhooks, expiry, and reconciliation |
 | `server.mjs` | COOP/COEP static dev server (needed for SharedArrayBuffer / pthreads); serves the repo root, falls back to `editor/dist/` for `/`, and synthesizes the `/example_flowgraphs` listing. Recording discovery and objects always come directly from R2 |
 | `test/` | `test_smoke.mjs` and `test_lazy_scenarios.mjs` plus the `fixtures/` `.grc` they load; CI gates the deploy on both. `test_pr_security_scan.mjs` covers the PR security gate's diff scan and runs in that gate's own workflow. `editor/test/` and `runner/test/` hold their own suites |
 | `scripts/` | `assemble-site.mjs` (assembles the static site CI deploys to Pages), `serve_site.mjs` (serves it the way Pages does), `run.mjs` (headless-Chromium harness, waits on a page `#result`), `run_example.mjs` (opens an example in the real editor and presses Run), `arrange_example.mjs` (auto-arranges examples through that same editor), `pr-security-scan.mjs` + `sarif-gate.mjs` (the PR security gate — see [docs/ci.md](docs/ci.md)), `r2-cors.json` |

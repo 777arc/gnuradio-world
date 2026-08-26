@@ -67,6 +67,14 @@ assert.match(source,
   'the Graham header explains its name in plain text on the next line');
 assert.doesNotMatch(source, /ai-acronym|node\('strong', '', '[GRAHAM]'\)/,
   'the Graham expansion has no separate acronym or bold initial letters');
+assert.match(source,
+  /const balance = node\('span', 'ai-balance'\)[\s\S]*header\.append\(title, balance, cost, newChat, settings, close\)/,
+  'a signed-in prepaid balance remains visible in Graham’s persistent header');
+assert.match(source,
+  /showBalance[\s\S]*available_micros[\s\S]*updateSend = \(\) => \{\s*showBalance\(\)/,
+  'the header balance follows every credits-account state refresh');
+assert.match(html, /\.ai-balance \{[^}]*white-space:nowrap;[^}]*cursor:help;/,
+  'the compact balance badge stays readable without expanding the header');
 assert.match(source, /createAiPanel\([\s\S]*commitHistory: recordHistory[\s\S]*restoreSnapshot: restoreAiSnapshot/,
   'the dock uses the editor history boundary for per-turn undo and revert');
 assert.match(source,
@@ -83,7 +91,7 @@ assert.match(source, /`Data sent to: \$\{host\} only`/,
 // the browser opens a socket to. Which second hop it is comes from the
 // descriptor, because there is now more than one.
 assert.match(source,
-  /upstream\s*\?\s*`Data sent to: \$\{host\} → \$\{upstream\.host\} \(shared key\)`/,
+  /upstream\s*\?\s*`Data sent to: \$\{host\} → \$\{upstream\.host\} `[\s\S]*provider\(\)\.accountAuth[\s\S]*'\(shared key\)'/,
   'the shared-key boundary names the proxy and where it forwards to');
 assert.match(source, /new FlowgraphAgent\(\{\s*provider: providerId,/,
   'the agent talks to the provider the dock is connected to');

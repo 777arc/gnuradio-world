@@ -146,6 +146,15 @@ const openRouterModels = (payload: any): AiModel[] =>
       completionPrice: Number(model.pricing?.completion || 0),
     }));
 
+const creditModels = (payload: any): AiModel[] =>
+  (Array.isArray(payload?.data) ? payload.data : []).map((model: any) => ({
+    id: String(model.id),
+    name: String(model.name || model.id),
+    contextLength: 0,
+    promptPrice: Number(model.pricing_micros_per_million?.input || 0) / 1_000_000_000_000,
+    completionPrice: Number(model.pricing_micros_per_million?.output || 0) / 1_000_000_000_000,
+  }));
+
 /**
  * Lists the models a provider offers. OpenRouter publishes a tool-capable
  * filter and needs no key; OpenAI's list is authenticated and unfiltered; the
@@ -167,10 +176,12 @@ export async function listModels(options: {
       ...authorization(options.key),
     },
     signal: options.signal,
+    credentials: provider.accountAuth ? 'include' : 'omit',
   });
   if (!response.ok) throw apiError(provider, response.status, await response.text());
   const payload = await response.json();
-  return provider.id === 'openrouter' ? openRouterModels(payload) : openAiModels(payload);
+  return provider.id === 'openrouter' ? openRouterModels(payload)
+    : provider.accountAuth ? creditModels(payload) : openAiModels(payload);
 }
 
 /**
@@ -192,7 +203,7 @@ export async function chatCompletion(options: {
 }): Promise<CompletionResult> {
   const provider = providerFor(options.provider);
   const fetcher = options.fetchImpl || fetch;
-  const response = await fetcher(`${provider.api}/chat/completions`, {
+  const response = await fetcher(`${provider.api}${provider.accountAuth ? '/chat' : '/chat/completions'}`, {
     method: 'POST',
     headers: {
       ...authorization(options.key),
@@ -223,6 +234,7 @@ export async function chatCompletion(options: {
         ? { prompt_cache_key: options.cacheKey } : {}),
     }),
     signal: options.signal,
+    credentials: provider.accountAuth ? 'include' : 'omit',
   });
   if (!response.ok) throw apiError(provider, response.status, await response.text());
   if (!response.body) throw new Error(`${provider.label} returned no response body`);
