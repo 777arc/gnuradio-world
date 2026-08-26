@@ -1,6 +1,7 @@
 options:
     parameters:
         author: Marc
+        comment: ''
         copyright: ''
         description: 8PSK with added noise, adjustable via range widget
         generate_options: qt_gui
@@ -25,7 +26,7 @@ blocks:
         value: '0'
         widget: counter_slider
     states:
-        coordinate: [100, 480]
+        coordinate: [70, 480]
         rotation: 0
         state: enabled
 -   name: noise
@@ -42,7 +43,7 @@ blocks:
         value: '0.01'
         widget: counter_slider
     states:
-        coordinate: [120, 120]
+        coordinate: [320, 10]
         rotation: 0
         state: enabled
 -   name: samp_rate
@@ -51,7 +52,7 @@ blocks:
         comment: ''
         value: '200000'
     states:
-        coordinate: [660, 20]
+        coordinate: [60, 140]
         rotation: 0
         state: enabled
 -   name: tone_mag
@@ -200,7 +201,7 @@ blocks:
         comment: ''
         note: Welcome to GNU Radio World!
     states:
-        coordinate: [730, 160]
+        coordinate: [640, 190]
         rotation: 0
         state: enabled
 -   name: qtgui_freq_sink_x_1
@@ -235,6 +236,7 @@ blocks:
         ctrlpanel: 'False'
         fc: '0'
         fftsize: '1024'
+        freqhalf: 'True'
         grid: 'True'
         label1: ''
         label10: ''
@@ -276,6 +278,7 @@ blocks:
         tr_level: '0'
         tr_mode: qtgui.TRIG_MODE_FREE
         tr_tag: ''
+        type: complex
         update_time: '0.1'
         width1: '1'
         width10: '1'
@@ -290,7 +293,7 @@ blocks:
         ymax: '0'
         ymin: '-90'
     states:
-        coordinate: [1260, 250]
+        coordinate: [1260, 230]
         rotation: 0
         state: enabled
 -   name: throttle4
@@ -321,7 +324,7 @@ blocks:
         layout: '{"constellation":[0,2,5,4],"freq":[0,0,6,1],"noise":[0,1,12,1],"qtgui_freq_sink_x_1":[5,2,7,4],"tone_mag":[6,0,6,1]}'
         row_height: '60'
     states:
-        coordinate: [380, 10]
+        coordinate: [630, 30]
         rotation: 0
         state: enabled
 -   name: x2
