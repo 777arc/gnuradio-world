@@ -147,7 +147,7 @@ export const AI_TOOLS: ToolDefinition[] = [
   })),
   tool('save_js_block', 'Install an inline or browser-local JS Block into the browser-local library and return the generated repository file pair. This writes IndexedDB but does not bypass the human JavaScript review required for a run.', object({
     name: text, id: text, label: text,
-    category: { type: 'string', description: 'GRC category, for example [Custom]/Filters.' },
+    category: { type: 'string', description: 'GRC category, for example [Custom JS Blocks]/Filters.' },
   }, ['name', 'id'])),
   tool('apply_edits', 'Apply an ordered batch of canvas edits in one call. Prefer this over the single-edit tools whenever a change needs more than one of them: the batch is one request instead of one per edit, and it runs in order, so an add_block that names its block explicitly can be followed by the set_params and connect entries using that name. Stops at the first failing edit and reports its index; everything before it stays applied.', object({
     edits: {

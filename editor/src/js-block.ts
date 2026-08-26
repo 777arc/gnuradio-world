@@ -578,7 +578,7 @@ export function acceptJsSource(source: string) {
 export interface LocalJsBlock {
   id: string;
   label: string;
-  category: string;      // e.g. '[Custom]/Filters'
+  category: string;      // e.g. '[Custom JS Blocks]/Filters'
   source: string;
   io: JsBlockIo;
   saved: number;         // epoch ms

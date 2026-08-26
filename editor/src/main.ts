@@ -3096,7 +3096,7 @@ function localJsPaletteEntries(): any[] {
     id: block.id,
     label: block.label,
     runnable: true,
-    category: (block.category || '[Custom]').replace(/^\[|\]$/g, '')
+    category: (block.category || '[Custom JS Blocks]').replace(/^\[|\]$/g, '')
       .split('/').map(s => s.trim()).filter(Boolean),
     localJs: block,
   }));
@@ -3156,7 +3156,7 @@ function saveJsBlockAs(source: string, io: JsBlockIo | null) {
     };
     labelInput = row('Label', io.label, 'JS Gain');
     idInput = row('Block ID', sanitizeBlockId(io.label), 'js_gain');
-    categoryInput = row('Category', '[Custom]', '[Custom]/Filters');
+    categoryInput = row('Category', '[Custom JS Blocks]', '[Custom JS Blocks]/Filters');
     note = document.createElement('small'); note.className = 'code-status';
     body.appendChild(note);
     labelInput.oninput = () => {
@@ -3173,7 +3173,7 @@ function saveJsBlockAs(source: string, io: JsBlockIo | null) {
     const block: LocalJsBlock = {
       id: currentId(),
       label: labelInput.value.trim() || io.label,
-      category: categoryInput.value.trim() || '[Custom]',
+      category: categoryInput.value.trim() || '[Custom JS Blocks]',
       source, io, saved: Date.now(),
     };
     try {
@@ -4659,7 +4659,7 @@ function aiToolDependencies(): Omit<AiToolDeps, 'runFlowgraph'> {
       const saved: LocalJsBlock = {
         id,
         label: (requestedLabel || io.label || id).trim(),
-        category: (requestedCategory || '[Custom]/JavaScript').trim(),
+        category: (requestedCategory || '[Custom JS Blocks]').trim(),
         source, io, saved: Date.now(),
       };
       await saveLocalJsBlock(saved);
