@@ -71,6 +71,21 @@ assert.match(source,
   /const balance = node\('span', 'ai-balance'\)[\s\S]*header\.append\(title, balance, cost, newChat, settings, close\)/,
   'a signed-in prepaid balance remains visible in Graham’s persistent header');
 assert.match(source,
+  /How would you like to use Graham\?[\s\S]*Use the free shared option[\s\S]*Bring your own OpenAI API key[\s\S]*Pay through GNU Radio World/,
+  'first-use onboarding explains Graham’s three payment methods');
+assert.match(source,
+  /A few million tokens per day are shared across everyone using GNU Radio World, so this option is likely to be unavailable\./,
+  'the free option clearly warns that its site-wide allowance may be exhausted');
+assert.match(source,
+  /let onboardingPending = localGet\(ONBOARDING_STORAGE\) !== 'yes'[\s\S]*controls\.hidden = transcript\.hidden = form\.hidden = show[\s\S]*localSet\(ONBOARDING_STORAGE, 'yes'\)/,
+  'the chooser replaces everything below the header until a choice is remembered');
+assert.match(source,
+  /chooseHosted\.onclick = \(\) => chooseOnboardingProvider\('hosted'\)[\s\S]*chooseOpenAi\.onclick = \(\) => chooseOnboardingProvider\('openai'\)[\s\S]*chooseCredits\.onclick = \(\) => chooseOnboardingProvider\('credits'\)/,
+  'each onboarding choice enters its existing provider flow');
+assert.match(html,
+  /\.ai-onboarding \{[^}]*grid-row:2 \/ -1;[^}]*overflow:auto;[\s\S]*\.ai-onboarding-choice \{[^}]*width:100%;[^}]*flex-direction:column/,
+  'the first-use chooser fills the dock below its persistent header');
+assert.match(source,
   /showBalance[\s\S]*available_micros[\s\S]*updateSend = \(\) => \{\s*showBalance\(\)/,
   'the header balance follows every credits-account state refresh');
 assert.match(html, /\.ai-balance \{[^}]*white-space:nowrap;[^}]*cursor:help;/,
@@ -95,7 +110,7 @@ assert.match(source,
   'the shared-key boundary names the proxy and where it forwards to');
 assert.match(source, /new FlowgraphAgent\(\{\s*provider: providerId,/,
   'the agent talks to the provider the dock is connected to');
-assert.match(source, /newChat\.disabled = !!controller \|\| !ready\(\)/,
+assert.match(source, /newChat\.disabled = onboardingPending \|\| !!controller \|\| !ready\(\)/,
   'New chat cannot interrupt an active turn or run without a connection');
 // Consent, not a key, is what the first Send waits on: the free provider needs
 // no connecting, but nothing leaves the browser before the dialog has said
@@ -103,6 +118,14 @@ assert.match(source, /newChat\.disabled = !!controller \|\| !ready\(\)/,
 assert.match(source,
   /if \(!hasConsent\(providerId\) \|\| !ready\(\)\) \{ showConnect\(\); return; \}/,
   'the first Send gates on consent for every provider');
+assert.match(source,
+  /const requireConsent = \(\): boolean => \{[\s\S]*Check the consent box above to continue\.[\s\S]*consent\.focus\(\)[\s\S]*if \(!requireConsent\(\)\) return;/,
+  'provider sign-in explains missing consent instead of silently doing nothing');
+assert.match(source,
+  /rememberLabel\.hidden = chosen\.keyless \|\| !!chosen\.accountAuth/,
+  'keyless and account providers hide the irrelevant remember-key row');
+assert.match(html, /\.ai-consent\[hidden\] \{ display:none; \}/,
+  'the consent flex layout cannot override the remember-key row hidden state');
 
 // ---- embedded layout (?embed=1) --------------------------------------------
 // What another page frames is #workspaceContent and nothing else, with one

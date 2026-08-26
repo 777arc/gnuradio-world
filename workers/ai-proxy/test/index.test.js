@@ -154,6 +154,7 @@ test('the model list is the configured allowlist and never reaches OpenAI', asyn
 
 test('the upstream body is rebuilt, not forwarded', () => {
   const cfg = config({});
+  assert.equal(cfg.maxCompletionTokens, 50_000, 'the hosted completion ceiling is 50k');
   const { ok, body } = sanitizeBody({
     ...CHAT,
     stream: false,

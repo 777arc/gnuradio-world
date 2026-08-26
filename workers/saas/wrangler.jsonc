@@ -32,7 +32,7 @@
     "TRUSTED_ORIGINS": "https://gnuradioworld.com,https://www.gnuradioworld.com,https://gnuradio-wasm.pages.dev,https://*.gnuradio-world-previews.pages.dev",
     "CREDIT_PRODUCTS": "{\"credits-5\":{\"productId\":\"da73d865-9593-4ce5-ae90-49e6b53a03f3\",\"creditsMicros\":5000000},\"credits-10\":{\"productId\":\"ba55f812-779b-43ba-9606-f393e50dc876\",\"creditsMicros\":10000000},\"credits-25\":{\"productId\":\"654387d1-0bbd-4c5a-b5c9-4ba4a3264755\",\"creditsMicros\":25000000},\"credits-50\":{\"productId\":\"788134b9-38ab-4cc5-a1a5-8103eba7ac35\",\"creditsMicros\":50000000},\"credits-100\":{\"productId\":\"4d773c58-14d0-4ae5-880c-1b713a3e3bcd\",\"creditsMicros\":100000000}}",
     "MAX_CHAT_BODY_BYTES": "200000",
-    "MAX_COMPLETION_TOKENS": "16384",
+    "MAX_COMPLETION_TOKENS": "50000",
     "HOLD_TTL_SECONDS": "900",
     "PURCHASE_RATE_LIMIT_PER_HOUR": "10",
     "ABSORBED_ALERT_BPS": "200",
@@ -61,7 +61,7 @@
         "TRUSTED_ORIGINS": "http://localhost:8090,http://localhost:8787",
         "CREDIT_PRODUCTS": "{\"credits-5\":{\"productId\":\"de218f09-7b0d-4be0-a308-8bdd994a0457\",\"creditsMicros\":5000000}}",
         "MAX_CHAT_BODY_BYTES": "200000",
-        "MAX_COMPLETION_TOKENS": "16384",
+        "MAX_COMPLETION_TOKENS": "50000",
         "HOLD_TTL_SECONDS": "900",
         "PURCHASE_RATE_LIMIT_PER_HOUR": "10",
         "ABSORBED_ALERT_BPS": "200"

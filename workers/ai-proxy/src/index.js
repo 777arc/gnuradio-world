@@ -162,7 +162,7 @@ export const DEFAULTS = {
   globalDailyTokenCap: UPSTREAMS.openai.daily,
   maxBodyBytes: 1_048_576,
   /** Ceiling on one completion, reasoning included. Bounds the output bill. */
-  maxCompletionTokens: 16_384,
+  maxCompletionTokens: 50_000,
   /** Assumed output when reserving, before the real count is known. */
   outputEstimate: 2_000,
   maxMessages: 600,

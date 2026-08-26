@@ -12,7 +12,7 @@ const {
   openRouterAuthorizationUrl,
 } = await bundleModule('../src/ai/openrouter.ts');
 const { listModels } = await bundleModule('../src/ai/client.ts');
-const { signOutCredits } = await bundleModule('../src/ai/credits.ts');
+const { beginCreditSignIn, signOutCredits } = await bundleModule('../src/ai/credits.ts');
 const { javascriptErrors } = await bundleModule('../src/ai/harness.ts');
 const {
   AI_PROVIDERS,
@@ -484,8 +484,41 @@ const creditModels = await listModels({
 });
 assert.deepEqual(creditModels.map(model => model.id), ['vendor/model']);
 
-let signOutRequest;
 const realFetch = globalThis.fetch;
+let signInRequest;
+let assignedSignInUrl = '';
+const savedLocation = globalThis.location;
+try {
+  Object.defineProperty(globalThis, 'location', {
+    configurable: true,
+    value: {
+      origin: 'https://gnuradioworld.com', pathname: '/', hash: '#example=test',
+      assign: url => { assignedSignInUrl = url; },
+    },
+  });
+  globalThis.fetch = async (url, init) => {
+    signInRequest = { url, init };
+    return new Response(JSON.stringify({
+      url: 'https://accounts.google.com/o/oauth2/v2/auth?state=test', redirect: false,
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  };
+  await beginCreditSignIn('google');
+} finally {
+  globalThis.fetch = realFetch;
+  if (savedLocation === undefined) delete globalThis.location;
+  else Object.defineProperty(globalThis, 'location', { configurable: true, value: savedLocation });
+}
+assert.equal(signInRequest.url,
+  'https://credits.gnuradioworld.com/api/auth/sign-in/social');
+assert.deepEqual(JSON.parse(signInRequest.init.body), {
+  provider: 'google',
+  callbackURL: 'https://gnuradioworld.com/#example=test',
+  disableRedirect: true,
+});
+assert.equal(assignedSignInUrl,
+  'https://accounts.google.com/o/oauth2/v2/auth?state=test');
+
+let signOutRequest;
 try {
   globalThis.fetch = async (url, init) => {
     signOutRequest = { url, init };

@@ -86,7 +86,7 @@ export function runtimeConfig(env: Env): RuntimeConfig {
     productCredits: new Map(Object.values(products).map(product =>
       [product.productId, product.creditsMicros])),
     maxChatBodyBytes: positiveInteger(env.MAX_CHAT_BODY_BYTES, 200_000),
-    maxCompletionTokens: positiveInteger(env.MAX_COMPLETION_TOKENS, 16_384),
+    maxCompletionTokens: positiveInteger(env.MAX_COMPLETION_TOKENS, 50_000),
     holdTtlSeconds: positiveInteger(env.HOLD_TTL_SECONDS, 900),
     purchaseRateLimitPerHour: positiveInteger(env.PURCHASE_RATE_LIMIT_PER_HOUR, 10),
     absorbedAlertBps: positiveInteger(env.ABSORBED_ALERT_BPS, 200),

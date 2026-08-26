@@ -13,6 +13,14 @@ dock collapsed by default. The header's New chat control clears the transcript
 and accumulated spend and creates a fresh agent conversation without changing the
 canvas, connection, or selected model; it is disabled while a turn is running.
 
+The first time the dock is opened, everything below its header is a three-way
+onboarding choice: try the small site-wide free allowance, bring an OpenAI API
+key, or sign in for prepaid GNU Radio World Credits. The choice is remembered
+locally and opens the normal dock on later visits; closing without choosing keeps
+the onboarding screen for the next open. The own-key and credits choices continue
+directly into their normal connection dialogs, while the free choice reveals the
+composer and leaves the existing first-Send consent gate in place.
+
 ## Five providers, one request path
 
 The dock talks to the project's own **shared-key proxy** — under either of two

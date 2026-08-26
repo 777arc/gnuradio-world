@@ -292,7 +292,7 @@ same values as `DEFAULTS` so the tests need no environment.
 | `OPENROUTER_REQUESTS_PER_MINUTE` | `15` | per-IP ceiling, free upstream |
 | `OPENROUTER_DAILY_REQUEST_CAP` | `900` | site-wide requests per UTC day — keep it under the account's own free-tier allowance |
 | `MAX_BODY_BYTES` | `1048576` | largest accepted request, both upstreams |
-| `MAX_COMPLETION_TOKENS` | `16384` | ceiling on one completion, reasoning included |
+| `MAX_COMPLETION_TOKENS` | `50000` | ceiling on one completion, reasoning included |
 | `OUTPUT_ESTIMATE` | `2000` | assumed output when reserving on the token-metered upstream |
 
 Changing a model list alone is not enough: the editor's pickers are populated

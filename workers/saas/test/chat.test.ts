@@ -15,6 +15,7 @@ const request = (maxTokens = 100) => new Request('https://credits.gnuradioworld.
 });
 
 test('zero balance returns 402 without making an upstream call', async () => {
+  assert.equal(cfg().maxCompletionTokens, 50_000, 'the prepaid completion ceiling is 50k');
   const t = await testDatabase(); databases.push(t);
   await seedUser(t.db, 'empty', 0); await seedRate(t.db);
   let calls = 0;

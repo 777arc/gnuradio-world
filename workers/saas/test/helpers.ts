@@ -75,7 +75,7 @@ export const cfg = (creditsMicros = 5_000_000): RuntimeConfig => ({
   products: { five: { productId: 'product-five', creditsMicros } },
   productCredits: new Map([['product-five', creditsMicros]]),
   maxChatBodyBytes: 1_048_576,
-  maxCompletionTokens: 16_384,
+  maxCompletionTokens: 50_000,
   holdTtlSeconds: 900,
   purchaseRateLimitPerHour: 10,
   absorbedAlertBps: 200,

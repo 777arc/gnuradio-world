@@ -19,6 +19,19 @@ async function api(path: string, init: RequestInit = {}): Promise<Response> {
   return fetch(`${CREDITS_ORIGIN}${path}`, { ...init, credentials: 'include' });
 }
 
+interface RedirectPayload { url?: string; error?: { message?: string } }
+
+async function redirectUrl(response: Response, fallback: string): Promise<string> {
+  let payload: RedirectPayload;
+  try {
+    payload = await response.json() as RedirectPayload;
+  } catch {
+    throw new Error(`${fallback} (the credits service returned an empty or invalid response)`);
+  }
+  if (!response.ok || !payload.url) throw new Error(payload.error?.message || fallback);
+  return payload.url;
+}
+
 export async function creditAccount(): Promise<CreditAccount | null> {
   const response = await api('/api/me');
   if (response.status === 401) return null;
@@ -30,13 +43,13 @@ export async function beginCreditSignIn(provider: 'google' | 'github'): Promise<
   const callbackURL = location.origin + location.pathname + location.hash;
   const response = await api('/api/auth/sign-in/social', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ provider, callbackURL }),
+    // Better Auth otherwise adds a Location header. fetch() follows it to the
+    // OAuth provider, where the cross-origin response body is unavailable for
+    // this code to read. Ask for the authorization URL as JSON and navigate
+    // the top-level page ourselves.
+    body: JSON.stringify({ provider, callbackURL, disableRedirect: true }),
   });
-  const payload = await response.json() as { url?: string; error?: { message?: string } };
-  if (!response.ok || !payload.url) {
-    throw new Error(payload.error?.message || `Could not start ${provider} sign-in`);
-  }
-  location.assign(payload.url);
+  location.assign(await redirectUrl(response, `Could not start ${provider} sign-in`));
 }
 
 export async function beginCreditCheckout(slug: string): Promise<void> {
@@ -44,9 +57,7 @@ export async function beginCreditCheckout(slug: string): Promise<void> {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ slug }),
   });
-  const payload = await response.json() as { url?: string; error?: { message?: string } };
-  if (!response.ok || !payload.url) throw new Error(payload.error?.message || 'Could not start checkout');
-  location.assign(payload.url);
+  location.assign(await redirectUrl(response, 'Could not start checkout'));
 }
 
 export async function openCreditPortal(): Promise<void> {
@@ -54,9 +65,7 @@ export async function openCreditPortal(): Promise<void> {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ redirect: true }),
   });
-  const payload = await response.json() as { url?: string; error?: { message?: string } };
-  if (!response.ok || !payload.url) throw new Error(payload.error?.message || 'Could not open customer portal');
-  location.assign(payload.url);
+  location.assign(await redirectUrl(response, 'Could not open customer portal'));
 }
 
 export async function signOutCredits(): Promise<void> {

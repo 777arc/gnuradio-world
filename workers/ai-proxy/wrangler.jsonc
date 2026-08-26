@@ -37,7 +37,7 @@
     "OPENROUTER_DAILY_REQUEST_CAP": "900",
     // Shared by both.
     "MAX_BODY_BYTES": "1048576",
-    "MAX_COMPLETION_TOKENS": "16384",
+    "MAX_COMPLETION_TOKENS": "50000",
     "OUTPUT_ESTIMATE": "2000"
   },
   "observability": {

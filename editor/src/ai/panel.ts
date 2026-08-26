@@ -21,6 +21,8 @@ import {
   forgetKey,
   hasConsent,
   keyIsRemembered,
+  localGet,
+  localSet,
   ownKeyProviderLabels,
   providerFor,
   providerOffered,
@@ -59,6 +61,7 @@ export interface AiPanel {
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+const ONBOARDING_STORAGE = 'gnuradio-world.graham-onboarded';
 
 function node<K extends keyof HTMLElementTagNameMap>(tag: K, className = '', text = ''):
     HTMLElementTagNameMap[K] {
@@ -134,6 +137,45 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
   close.setAttribute('aria-label', 'Close Graham');
   header.append(title, balance, cost, newChat, settings, close);
 
+  const onboarding = node('section', 'ai-onboarding');
+  onboarding.setAttribute('aria-labelledby', 'aiOnboardingTitle');
+  const onboardingTitle = node('h2', '', 'How would you like to use Graham?');
+  onboardingTitle.id = 'aiOnboardingTitle';
+  const onboardingIntro = node('p', '',
+    'Choose one way to cover the AI usage behind your conversations. You can switch later.');
+  const onboardingChoices = node('div', 'ai-onboarding-choices');
+  const onboardingChoice = (
+    label: string,
+    description: string,
+    action: string,
+  ) => {
+    const button = node('button', 'ai-onboarding-choice') as HTMLButtonElement;
+    button.type = 'button';
+    button.append(
+      node('strong', '', label),
+      node('span', '', description),
+      node('span', 'ai-onboarding-action', action),
+    );
+    onboardingChoices.appendChild(button);
+    return button;
+  };
+  const chooseHosted = onboardingChoice(
+    'Use the free shared option',
+    'A few million tokens per day are shared across everyone using GNU Radio World, so this option is likely to be unavailable.',
+    'Try free access',
+  );
+  const chooseOpenAi = onboardingChoice(
+    'Bring your own OpenAI API key',
+    'Your browser sends requests directly to OpenAI. Usage is billed to your OpenAI account and follows its limits.',
+    'Use my OpenAI key',
+  );
+  const chooseCredits = onboardingChoice(
+    'Pay through GNU Radio World',
+    'Sign in (through Google or GitHub) and buy prepaid credits directly through GNU Radio World.',
+    'Use GNU Radio World credits',
+  );
+  onboarding.append(onboardingTitle, onboardingIntro, onboardingChoices);
+
   const controls = node('div', 'ai-controls');
   const connection = node('div', 'ai-connection');
   const boundary = node('span', 'ai-boundary', '');
@@ -164,7 +206,7 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
   stop.type = 'button'; stop.hidden = true;
   buttons.append(stop, send);
   form.append(prompt, buttons);
-  dock.append(header, controls, transcript, form);
+  dock.append(header, onboarding, controls, transcript, form);
   const toggle = node('button', 'ai-toggle') as HTMLButtonElement;
   toggle.type = 'button';
   toggle.setAttribute('aria-controls', dock.id);
@@ -176,6 +218,7 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
   app.append(splitter, dock, toggle);
 
   let providerId: ProviderId = storedProvider();
+  let onboardingPending = localGet(ONBOARDING_STORAGE) !== 'yes';
   const provider = () => providerFor(providerId);
   // Each provider keeps its own list; switching back must not refetch.
   const modelCache = new Map<ProviderId, AiModel[]>();
@@ -318,7 +361,19 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
     // Nothing to disconnect where nothing of the user's was stored.
     disconnect.textContent = provider().accountAuth ? 'Sign out' : 'Disconnect';
     disconnect.hidden = provider().accountAuth ? !creditsAccount : provider().keyless || !key;
-    newChat.disabled = !!controller || !ready();
+    newChat.disabled = onboardingPending || !!controller || !ready();
+  };
+
+  const showOnboarding = (show: boolean) => {
+    onboarding.hidden = !show;
+    controls.hidden = transcript.hidden = form.hidden = show;
+  };
+
+  const completeOnboarding = () => {
+    onboardingPending = false;
+    localSet(ONBOARDING_STORAGE, 'yes');
+    showOnboarding(false);
+    updateSend();
   };
 
   const toolRow = (name: string, payload: unknown) => {
@@ -653,6 +708,7 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
       body.append(rememberLabel, consentLabel);
 
       connectStatus = node('p', 'ai-connect-status');
+      connectStatus.setAttribute('role', 'status');
       body.appendChild(connectStatus);
 
       creditActions = node('div', 'ai-credit-actions');
@@ -755,8 +811,19 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
       dialogProvider = providerFor(choice.value).id;
       applyDialogProvider();
     };
+    const requireConsent = (): boolean => {
+      if (consent.checked) return true;
+      connectStatus.textContent = 'Check the consent box above to continue.';
+      consent.focus();
+      return false;
+    };
+    consent.onchange = () => {
+      if (consent.checked && connectStatus.textContent === 'Check the consent box above to continue.') {
+        connectStatus.textContent = '';
+      }
+    };
     connect.onclick = async () => {
-      if (!consent.checked) { consent.focus(); return; }
+      if (!requireConsent()) return;
       if (providerFor(dialogProvider).accountAuth) {
         storeConsent(dialogProvider);
         storeProvider(dialogProvider);
@@ -781,7 +848,7 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
       }
     };
     save.onclick = () => {
-      if (!consent.checked) { consent.focus(); return; }
+      if (!requireConsent()) return;
       if (providerFor(dialogProvider).accountAuth) {
         storeConsent(dialogProvider);
         storeProvider(dialogProvider);
@@ -821,6 +888,16 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
     overlay.querySelector('.dlgfoot')?.prepend(connect, save);
     (connect.hidden ? (manual.hidden ? save : keyInput) : connect).focus();
   };
+
+  const chooseOnboardingProvider = (id: ProviderId) => {
+    completeOnboarding();
+    applyProvider(id, true);
+    if (!ready()) showConnect();
+    else prompt.focus();
+  };
+  chooseHosted.onclick = () => chooseOnboardingProvider('hosted');
+  chooseOpenAi.onclick = () => chooseOnboardingProvider('openai');
+  chooseCredits.onclick = () => chooseOnboardingProvider('credits');
 
   const attachDiff = (before: GraphSnapshot, after: GraphSnapshot) => {
     if (same(before, after)) return;
@@ -986,6 +1063,7 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
   };
 
   setPanelOpen(false);
+  showOnboarding(onboardingPending);
   providerSelect.value = providerId;
   boundary.textContent = boundaryText();
   showSpend();
@@ -1036,6 +1114,11 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
 
   const openPanel = () => {
     setPanelOpen(true);
+    if (onboardingPending) {
+      showOnboarding(true);
+      chooseHosted.focus();
+      return;
+    }
     // A keyless provider has nothing to connect, so the dialog waits for the
     // first Send rather than interrupting someone who only opened the dock.
     if (!ready()) showConnect();
