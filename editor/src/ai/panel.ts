@@ -623,7 +623,7 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
       trust.append(
         trustTitle,
         keyCopy,
-        node('p', '', 'A key is never placed in a flowgraph, share link, URL, console message, or runner message.'),
+        node('p', '', 'An API key is never placed in a flowgraph, share link, URL, console message, or runner message.'),
       );
       const sent = node('section', 'ai-data-boundary');
       sentCopy = node('p', '', '');
@@ -686,8 +686,7 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
           ? `Signed in as ${creditsAccount.user.email}. Available balance: ` +
             `$${(creditsAccount.wallet.available_micros / 1_000_000).toFixed(2)}. ` +
             'Credits expire 12 months after purchase; unused credits are refundable through Polar within 14 days.'
-          : 'Sign in with Google or GitHub. Polar handles card payments, receipts, refunds, and tax; ' +
-            "GNU Radio World's Worker keeps the credit ledger and never sends its Polar or model-provider secrets to this browser."
+          : 'Sign in with Google or GitHub. Polar handles card payments, receipts, refunds, and tax.'
         : chosen.keyless
         ? 'GNU Radio World is a static, open-source application. This model runs on one ' +
           `${chosen.upstream?.label} key the project shares with every visitor, held by a ` +
