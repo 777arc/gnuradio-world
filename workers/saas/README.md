@@ -151,8 +151,14 @@ The catalog is exactly the set of models with an open rate version: `/api/models
 lists them for the editor's picker and `/api/chat` refuses anything else, so
 offering another model is one more rate row and no code change.
 `0005_gpt56_terra.sql` adds `gpt-5.6-terra` that way, copying whatever rate is
-open for `gpt-5.6-luna` so the migration carries no private numbers; give terra
-its own version once its upstream cost is known.
+open for `gpt-5.6-luna` so the migration carries no private numbers. That copy
+is a placeholder and it undercharges for any costlier model, so a migration can
+open a catalog entry but never price one: close the copied row and insert the
+model's own version by hand, the same way luna's row was set, keeping the rates
+out of this repository.
+
+`queries/` holds read-only `SELECT`s for inspecting any of this — the catalog at
+customer-facing prices, per-model margin, balances, and outstanding holds. See its README for example commands.
 
 Close a rate with `ends_at` and insert a new row; never update old pricing.
 Size markup using Polar's actual merchant-of-record fee, upstream cost, and
