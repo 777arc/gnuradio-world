@@ -45,9 +45,6 @@ button:hover { filter:brightness(1.15); }
     color:#c3cbe0; border-radius:5px; }
 .github-link:hover { background:#2a2f42; color:#fff; }
 .github-link svg { width:22px; height:22px; fill:currentColor; }
-.legal-links { display:flex; align-items:center; gap:10px; margin-left:8px; font-size:13px; }
-.legal-links a { color:#9ca8c5; text-decoration:none; white-space:nowrap; }
-.legal-links a:hover, .legal-links a:focus-visible { color:#fff; text-decoration:underline; }
 .menu-drop { position:absolute; top:100%; left:0; z-index:300; min-width:320px; background:#272c3d;
     border:1px solid #46507a; border-radius:6px; padding:4px 0; box-shadow:0 10px 30px #000a; }
 .menuitem { display:flex; align-items:center; gap:12px; padding:7px 14px 7px 10px; font-size:16px;
@@ -1026,7 +1023,6 @@ svg text { user-select:none; -webkit-user-select:none; -moz-user-select:none; }
   #app:not(.hide-palette) #paletteToggle { background:#2a2f42; color:#fff; border-color:#3a4366; }
   .menu-top { padding:13px 11px; }
   .github-link { width:40px; height:40px; }
-  .legal-links { gap:8px; margin-left:4px; font-size:12px; }
   #toolbar { height:54px; padding:4px 6px; scrollbar-width:none;
       -webkit-overflow-scrolling:touch; }
   #toolbar::-webkit-scrollbar { display:none; }

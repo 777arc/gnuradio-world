@@ -4242,6 +4242,10 @@ const MENUS: TopMenu[] = [
     { label: 'Keyboard Shortcuts', key: 'Ctrl+K', run: showShortcutHelp },
     'sep',
     { label: 'Get Involved', run: () => openLink('https://www.gnuradio.org/get-involved/') },
+    'sep',
+    { label: 'Privacy Policy', run: () => openLink('/privacy.html') },
+    { label: 'Terms of Service', run: () => openLink('/terms.html') },
+    'sep',
     { label: 'About', run: showAboutDialog },
   ] },
 ];

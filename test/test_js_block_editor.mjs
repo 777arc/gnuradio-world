@@ -413,7 +413,13 @@ check(reopened.open && reopened.seeded,
 // tool tests deliberately cannot reach any of those browser boundaries.
 await page.evaluate(() => document.querySelector('.modal.props .dlgclose')?.click());
 await page.evaluate(() => document.querySelector('.ai-toggle')?.click());
-await page.waitForSelector('.ai-prompt');
+// A first-time visitor meets the payment chooser before anything else in the
+// dock; take the free shared provider, which is what the stub above stands in
+// for. Until that choice is made the prompt form is hidden and Send does
+// nothing.
+await page.waitForSelector('.ai-onboarding-choice');
+await page.evaluate(() => document.querySelector('.ai-onboarding-choice')?.click());
+await page.waitForSelector('.ai-prompt', { visible: true });
 await page.evaluate(() => {
   const prompt = document.querySelector('.ai-prompt');
   prompt.value = 'Create and test a float gain JS Block.';
