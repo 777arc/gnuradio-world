@@ -16,6 +16,7 @@ const { beginCreditSignIn, signOutCredits } = await bundleModule('../src/ai/cred
 const { javascriptErrors } = await bundleModule('../src/ai/harness.ts');
 const {
   AI_PROVIDERS,
+  DEFAULT_CREDITS_MODEL,
   DEFAULT_OPENAI_MODEL,
   DEFAULT_OPENROUTER_MODEL,
   DEFAULT_PROVIDER,
@@ -112,6 +113,19 @@ assert.equal(AI_PROVIDERS.credits.storage.key, undefined,
 assert.deepEqual(AI_PROVIDERS.credits.upstream,
   { label: 'OpenAI', host: 'api.openai.com' },
   'the prepaid provider discloses its direct OpenAI second hop');
+// The prepaid catalog is fetched from D1, so the descriptor names no model list
+// — but it does name which fetched id a browser with nothing stored opens on.
+// An empty default left the picker on its placeholder with Send disabled until
+// the user chose, which is not what a first paid turn should ask of anyone.
+assert.equal(DEFAULT_CREDITS_MODEL, 'gpt-5.6-luna');
+assert.equal(AI_PROVIDERS.credits.defaultModel, DEFAULT_CREDITS_MODEL);
+assert.equal(AI_PROVIDERS.credits.fixedModels, undefined,
+  'the prepaid model list is fetched, never named here');
+// The catalog publishes a price per million tokens per model, which is not the
+// comparison someone picking between the two is making; the note is.
+assert.deepEqual(AI_PROVIDERS.credits.modelNotes, { 'gpt-5.6-terra': '10x cost of luna' });
+assert.equal(AI_PROVIDERS.credits.modelNotes[DEFAULT_CREDITS_MODEL], undefined,
+  'the model a note compares against carries no note of its own');
 
 // The second keyless provider is the same proxy on a second shared key. Its
 // path is the whole of what selects the OpenRouter upstream, so it is asserted

@@ -67,7 +67,10 @@ The fifth provider, **GNU Radio World Credits**, authenticates with a secure
 Better Auth session cookie rather than an API key. Its bounded `/api/chat` path
 in [`workers/saas/`](../workers/saas/README.md) reserves and settles a prepaid
 D1 balance, then streams directly from OpenAI. Its model catalog and user-facing
-prices come from versioned D1 rate rows. Polar creates the customer and hosts
+prices come from versioned D1 rate rows. Because the catalog is fetched rather
+than named in the descriptor, `DEFAULT_CREDITS_MODEL` (`gpt-5.6-luna`) is only
+which of the fetched ids a browser with nothing stored opens on — an id without
+an open rate version would leave the picker on its placeholder instead. Polar creates the customer and hosts
 checkout, receipts, and refunds; signed paid-order webhooks are the only path
 that grants credits.
 
@@ -97,6 +100,14 @@ after the user has switched providers is discarded rather than shown.
 Each provider's saved model selection always takes precedence over the default.
 If the wanted model is absent from the live catalog, the picker requires an
 explicit replacement instead of submitting an invalid model.
+
+A descriptor may also attach a short parenthetical to one model id
+(`modelNotes`), shown beside that id in the picker. It exists for what a fetched
+catalog cannot say about itself: the credits list publishes a price per million
+tokens for each model, which is not the comparison someone choosing between two
+of them is making, so `gpt-5.6-terra` is labelled `(10x cost of luna)`. Keep the
+note in step with the rate rows — it is prose beside a price, not derived from
+one.
 
 ## The shared models
 

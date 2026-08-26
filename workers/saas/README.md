@@ -157,6 +157,16 @@ open a catalog entry but never price one: close the copied row and insert the
 model's own version by hand, the same way luna's row was set, keeping the rates
 out of this repository.
 
+`0006_terra_10x.sql` then does in SQL what was done by hand to the deployed
+catalog — terra at ten times luna — because a *multiple* is not a rate: it
+derives all four components from luna's open row and still names no number, so
+the invariant above holds. It exists because a database built from these
+migrations alone billed terra at the placeholder while production billed ten
+times it, and the editor's picker labels terra `(10x cost of luna)` from
+`modelNotes` in `editor/src/ai/providers.ts` — prose beside a price, so the two
+are kept in step by hand. Wherever terra is already ten times luna the migration
+is a no-op and the hand-set row its ledger entries cite is left alone.
+
 `queries/` holds read-only `SELECT`s for inspecting any of this — the catalog at
 customer-facing prices, per-model margin, balances, and outstanding holds. See its README for example commands.
 

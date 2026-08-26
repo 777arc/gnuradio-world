@@ -62,6 +62,14 @@ export interface AiProvider {
    * then there is genuinely nothing to choose.
    */
   fixedModels?: AiModel[];
+  /**
+   * Short parenthetical shown beside one model id in the picker, keyed by id.
+   * For a catalog fetched at run time it is the only place the UI can say
+   * something the catalog itself does not carry — the credits list publishes a
+   * price per million tokens, which is not what a user choosing between two
+   * models wants to compare. An id with no entry is labelled as before.
+   */
+  modelNotes?: Record<string, string>;
   /** Whether the final usage event carries a dollar cost. */
   reportsCost: boolean;
   /** Whether the model list is public or has to be read with the key. */
@@ -121,6 +129,14 @@ export const CREDITS_ORIGIN = typeof location !== 'undefined' &&
 
 export const DEFAULT_OPENROUTER_MODEL = 'google/gemini-3.7-flash';
 export const DEFAULT_OPENAI_MODEL = 'gpt-5.4-mini';
+/**
+ * The credits catalog is versioned D1 rate rows rather than a list named here,
+ * so this is not what the provider offers — only which of the fetched ids a
+ * browser with nothing stored starts on, marked `· default` in the picker like
+ * any other provider's. It has to be an id with an open rate version, or the
+ * picker opens on the placeholder again and `/api/chat` would refuse it.
+ */
+export const DEFAULT_CREDITS_MODEL = 'gpt-5.6-luna';
 /**
  * The models the shared OpenAI key may be used with; the proxy refuses any
  * other by name. Kept in step with `MODELS` in workers/ai-proxy/wrangler.jsonc
@@ -245,7 +261,10 @@ export const AI_PROVIDERS: Record<ProviderId, AiProvider> = {
     menuLabel: 'GNU Radio World Credits (prepaid)',
     host: 'credits.gnuradioworld.com',
     api: `${CREDITS_ORIGIN}/api`,
-    defaultModel: '',
+    defaultModel: DEFAULT_CREDITS_MODEL,
+    // Both catalog models are priced per million tokens, which says nothing
+    // about which one to pick; what distinguishes them is the multiple.
+    modelNotes: { 'gpt-5.6-terra': '10x cost of luna' },
     keyPlaceholder: '',
     keysUrl: 'https://github.com/777arc/gnuradio-world/blob/main/workers/saas/README.md',
     keysLabel: 'How prepaid credits work',

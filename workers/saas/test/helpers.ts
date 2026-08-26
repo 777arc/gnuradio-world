@@ -22,6 +22,7 @@ export async function testDatabase(): Promise<TestDatabase> {
     'migrations/0003_direct_openai.sql',
     'migrations/0004_gpt56_pricing.sql',
     'migrations/0005_gpt56_terra.sql',
+    'migrations/0006_terra_10x.sql',
   ]) {
     const sql = (await readFile(fileURLToPath(new URL(file, root)), 'utf8'))
       .replace(/^\s*--.*$/gm, '')

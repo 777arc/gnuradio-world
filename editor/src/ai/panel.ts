@@ -505,6 +505,12 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
 
   const populateModels = () => {
     const named = provider();
+    // Parenthetical the descriptor attaches to one id — what the fetched
+    // catalog cannot say about itself. Empty for every id without one.
+    const note = (id: string) => {
+      const text = named.modelNotes?.[id];
+      return text ? ` (${text})` : '';
+    };
     // A short list the descriptor already names, because the shared key is
     // accepted for these ids and nothing else — so the picker offers exactly
     // them rather than a request the proxy would refuse, and locks only when
@@ -516,7 +522,7 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
       for (const model of fixed) {
         const option = node('option') as HTMLOptionElement;
         option.value = model.id;
-        option.textContent = model.name +
+        option.textContent = model.name + note(model.id) +
           (!locked && model.id === named.defaultModel ? ' · default' : '');
         modelSelect.appendChild(option);
       }
@@ -546,7 +552,7 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
       option.value = model.id;
       // OpenAI publishes no context length with its list, so it is named only
       // where the provider actually reports one.
-      option.textContent = model.name +
+      option.textContent = model.name + note(model.id) +
         (model.contextLength ? ` · ${(model.contextLength / 1000).toFixed(0)}k` : '') +
         (model.id === fallback ? ' · default' : '');
       modelSelect.appendChild(option);
