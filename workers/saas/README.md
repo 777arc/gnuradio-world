@@ -147,6 +147,13 @@ INSERT INTO model_rates (
 );
 ```
 
+The catalog is exactly the set of models with an open rate version: `/api/models`
+lists them for the editor's picker and `/api/chat` refuses anything else, so
+offering another model is one more rate row and no code change.
+`0005_gpt56_terra.sql` adds `gpt-5.6-terra` that way, copying whatever rate is
+open for `gpt-5.6-luna` so the migration carries no private numbers; give terra
+its own version once its upstream cost is known.
+
 Close a rate with `ends_at` and insert a new row; never update old pricing.
 Size markup using Polar's actual merchant-of-record fee, upstream cost, and
 risk. The example uses a 50% sandbox markup, not a production recommendation.
