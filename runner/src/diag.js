@@ -255,8 +255,11 @@
       if (botCpu < 1) botName = 'none';
     }
 
-    // headline: realtime factor at the reference block
-    var rt = (isFinite(refThru) && st && st.ref_samp_rate > 0) ? refThru / st.ref_samp_rate : NaN;
+    // headline: realtime factor at the reference block. ref_item_rate is what
+    // that same block moves per second when the graph is exactly keeping up, so
+    // this is a like-for-like ratio -- see the reference-point choice in
+    // runner.cpp for what "that same block" has to satisfy.
+    var rt = (isFinite(refThru) && st && st.ref_item_rate > 0) ? refThru / st.ref_item_rate : NaN;
     var color = !isFinite(rt) ? '#8a97ad' : rt >= 0.98 ? '#54d18c' : rt >= 0.8 ? '#e0b34a' : '#e04a4a';
     el['d-dot'].style.background = color;
     el['d-rt'].innerHTML = '<span class="k">realtime</span> ' +

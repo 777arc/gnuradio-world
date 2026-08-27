@@ -62,9 +62,31 @@ the JSON the panel renders. Poll rate 3 Hz, 60 s rolling history for sparklines.
 
 Everything else is diagnosis; these two are the verdict:
 
-- **Realtime factor** = (items/sec actually flowing at a reference point, e.g. a
-  sink input) ÷ (configured `samp_rate`). `1.0` = keeping up, `<1.0` = falling
-  behind, `>1.0` = running ahead of a throttle. This is the headline gauge.
+- **Realtime factor** = (items/sec actually flowing at the *reference block*) ÷
+  (`ref_item_rate`, what that same block moves per second when the graph is
+  exactly keeping up). `1.0` = keeping up, `<1.0` = falling behind, `>1.0` =
+  running ahead of a throttle. This is the headline gauge.
+
+  Both halves come from **one** block, and that is the whole trick. The
+  reference block is picked in `run_now()` (`runner/src/runner.cpp`) after the
+  connections are made: a GUI sink if there is one, else a throttle, else
+  whichever block declares the highest rate — but only among blocks that carry a
+  stream port *and* declare a rate of their own, breaking ties on the highest
+  rate rather than on file order. `ref_item_rate` is then that block's declared
+  `samp_rate` (or a throttle's `samples_per_second`) divided by its `vlen`,
+  because the item counters count items and an item on a vector port is `vlen`
+  samples.
+
+  Taking the denominator from anywhere else is how this metric goes wrong, and
+  each of these was a real bug: a graph decimating 960 kS/s to a 48 kS/s sink
+  read as `0.05×` while perfectly keeping up (denominator from a graph-wide
+  maximum), a vector sink read as `0.001×` (items ÷ samples), a throttle-paced
+  graph reported nothing at all (rate looked for under the wrong parameter
+  name), and a QT GUI *control* — a widget with a `gr::block` but no item
+  counter — could be picked as the reference and pin the factor at `0.00×`,
+  decided by nothing more than block name ordering. When no block qualifies,
+  `ref_item_rate` is 0 and both readers report no factor rather than `0.00×`,
+  which would read as "stalled".
 - **Buffer occupancy** (per block, from the counters above). The pattern says
   *why*:
   - buffers full **upstream** of a block → that block is the bottleneck

@@ -186,10 +186,21 @@ struct StatBlock {
     bool has_out = false;  // appears as a source in some connection
     bool has_in = false;   // appears as a sink in some connection
     bool is_ref = false;   // the reference point for the realtime factor
+    bool is_widget = false;  // grew a QWidget: a GUI sink, or a QT GUI control
+    // Items per second this block moves when the graph is exactly keeping up,
+    // read at construction from the block's *own* parameters -- see
+    // declared_item_rate(). 0 means it declares no rate, which is what makes it
+    // ineligible to be the reference point.
+    double item_rate = 0.0;
 };
 static std::vector<StatBlock> g_stats;
 static int g_scheduler_workers = 0;
-static double g_ref_samp_rate = 0.0;
+// Expected item rate at the reference block -- the realtime factor's
+// denominator. Deliberately *not* a graph-wide maximum sample rate: the
+// numerator is measured at one block, so the denominator has to come from that
+// same block or a decimated/vector-port graph reads as far behind while it is
+// keeping up perfectly.
+static double g_ref_item_rate = 0.0;
 static std::chrono::steady_clock::time_point g_run_start;
 
 // Show an error inside the flowgraph window. Without this a failure is invisible:
@@ -610,6 +621,50 @@ static void preload_workers_then_start(int target, unsigned int generation) {
     }, target, generation);
 }
 
+// A parameter that is meant to be a number but may arrive as anything (a string
+// expression a flowgraph handed straight to runner.html never had evaluated, a
+// null, an absent key). Returns 0 rather than throwing, which the
+// `params.value("samp_rate", 0.0)` this replaced did not: a rate arriving as a
+// string took the whole flowgraph down with a json type error, and a
+// diagnostic must never be the thing that kills a run.
+static double numeric_param(const nlohmann::json& params, const char* key) {
+    auto item = params.find(key);
+    if (item == params.end() || !item->is_number())
+        return 0.0;
+    const double value = item->get<double>();
+    return std::isfinite(value) ? value : 0.0;
+}
+
+// The item rate a block moves when the graph is exactly keeping up, read from
+// the block's own parameters. Two conversions matter and both used to be
+// missing:
+//
+//   * a throttle keeps its rate in `samples_per_second`, not `samp_rate` -- so
+//     the one block that *defines* a graph's realtime rate was the one whose
+//     rate was never read, and a throttle-paced graph reported no factor at all;
+//   * the item counters count *items*, and an item on a vector port is `vlen`
+//     samples, so a `samp_rate` has to be divided by `vlen` to be comparable.
+//
+// The throttle is deliberately not divided, and its parameter name is a trap:
+// `samples_per_second` is already an *item* rate. throttle_impl::work() sleeps
+// until `d_start + d_sample_period * d_total_items`, and `d_total_items` counts
+// items -- so a throttle at 48000 with vlen 8 emits 48000 vectors a second,
+// which is 384000 samples. Dividing here would have it read as 8x realtime.
+//
+// 0 means "this block declares no rate", which is how a candidate excludes
+// itself from being the reference point.
+static double declared_item_rate(const nlohmann::json& params) {
+    if (const double paced = numeric_param(params, "samples_per_second"); paced > 0.0)
+        return paced;
+    const double rate = numeric_param(params, "samp_rate");
+    if (rate <= 0.0) return 0.0;
+    // GRC spells a vector length `vlen` almost everywhere and `num_items` on
+    // Stream to Vector; either way it is how many samples one item carries.
+    double vlen = numeric_param(params, "vlen");
+    if (vlen <= 0.0) vlen = numeric_param(params, "num_items");
+    return vlen > 0.0 ? rate / vlen : rate;
+}
+
 static void run_now(const std::string& json_source) {
     try {
         auto j = nlohmann::json::parse(json_source);
@@ -641,8 +696,7 @@ static void run_now(const std::string& json_source) {
         // Reset the diagnostics snapshot for this run.
         g_stats.clear();
         g_scheduler_workers = 0;
-        g_ref_samp_rate = 0.0;
-        std::string ref_widget_name, ref_throttle_name, ref_maxrate_name;
+        g_ref_item_rate = 0.0;
 
         // Construct controls first so references such as frequency="freq" can
         // be resolved regardless of where the control appears in the graph JSON.
@@ -726,16 +780,13 @@ static void run_now(const std::string& json_source) {
             }
 
             // Record a stats entry for any block that is a gr::block (all our
-            // registry blocks are). has_in/has_out are filled from connections.
+            // registry blocks are). has_in/has_out are filled from connections,
+            // and the reference point is chosen from these once they are.
             if (auto b = std::dynamic_pointer_cast<gr::block>(bb.block)) {
-                g_stats.push_back({ name, id, b, false, false, false });
-                if (bb.widget) ref_widget_name = name;         // prefer a GUI sink
-                if (id.find("throttle") != std::string::npos) ref_throttle_name = name;
-            }
-            // Track the highest configured samp_rate as the realtime reference rate.
-            if (params.contains("samp_rate")) {
-                double sr = params.value("samp_rate", 0.0);
-                if (sr > g_ref_samp_rate) { g_ref_samp_rate = sr; ref_maxrate_name = name; }
+                StatBlock entry{ name, id, b };
+                entry.is_widget = bb.widget != nullptr;
+                entry.item_rate = declared_item_rate(params);
+                g_stats.push_back(std::move(entry));
             }
         }
 
@@ -764,10 +815,43 @@ static void run_now(const std::string& json_source) {
         }
 
         // Reference point for the realtime factor: a GUI sink if present, else a
-        // throttle, else the block that set the highest samp_rate.
-        std::string ref = !ref_widget_name.empty() ? ref_widget_name
-                        : !ref_throttle_name.empty() ? ref_throttle_name : ref_maxrate_name;
-        for (auto& sb : g_stats) sb.is_ref = (sb.name == ref);
+        // throttle, else whichever block declares the highest rate. Chosen here
+        // rather than in the block loop because it needs has_in/has_out, which
+        // only the connections above can fill.
+        //
+        // Three requirements, each of which used to be missing and each of which
+        // made a healthy graph report as broken:
+        //
+        //   * the candidate must carry a stream port. A QT GUI *control* grows a
+        //     widget and a gr::block just as a sink does (Toggle Switch, Msg
+        //     Push Button, Edit Box, ...), but has no item counter at all, so
+        //     picking one pinned the factor at 0.00x. Which one got picked came
+        //     down to block *name* ordering, so renaming a text box could break
+        //     the gauge.
+        //   * the candidate must declare a rate of its own. The denominator is
+        //     read from the block the numerator is measured at, so a graph that
+        //     decimates 960k down to 48k no longer reads as 0.05x realtime.
+        //   * ties are broken by the highest declared rate rather than by
+        //     whichever block happened to be last in the file.
+        const StatBlock* ref = nullptr;
+        auto consider = [&ref](const StatBlock& sb) {
+            if (!ref || sb.item_rate > ref->item_rate) ref = &sb;
+        };
+        auto eligible = [](const StatBlock& sb) {
+            return sb.item_rate > 0.0 && (sb.has_in || sb.has_out);
+        };
+        for (const auto& sb : g_stats)
+            if (eligible(sb) && sb.is_widget) consider(sb);
+        if (!ref)
+            for (const auto& sb : g_stats)
+                if (eligible(sb) && sb.id.find("throttle") != std::string::npos)
+                    consider(sb);
+        if (!ref)
+            for (const auto& sb : g_stats)
+                if (eligible(sb)) consider(sb);
+        g_ref_item_rate = ref ? ref->item_rate : 0.0;
+        const std::string ref_name = ref ? ref->name : std::string();
+        for (auto& sb : g_stats) sb.is_ref = (!ref_name.empty() && sb.name == ref_name);
         // This is exactly the list scheduler_tpb uses to create its one thread
         // per primitive block. Unlike the URL-time estimate it recursively
         // expands every instantiated hierarchy with its actual parameters.
@@ -1103,7 +1187,12 @@ static std::string build_stats_json() {
     nlohmann::json out;
     out["uptime_s"] = std::chrono::duration<double>(
                           std::chrono::steady_clock::now() - g_run_start).count();
-    out["ref_samp_rate"] = g_ref_samp_rate;
+    // The realtime factor is items/s at the block flagged "ref" divided by
+    // this. Both consumers (diag.js, the editor's run report) do that one
+    // division and nothing else; everything that makes the two comparable --
+    // decimation, vector length, a throttle's parameter name -- is settled
+    // above, at the one place that knows the reference block's parameters.
+    out["ref_item_rate"] = g_ref_item_rate;
     // Host metrics gathered here (not from JS): Qt's WASM build drops most of
     // Emscripten's Module runtime symbols, and touching a non-exported one
     // (Module.PThread, Module.HEAP8, ...) aborts the whole runtime.

@@ -23,7 +23,8 @@ export interface HarnessDeps {
 
 interface RawStats {
   uptime_s: number;
-  ref_samp_rate: number;
+  /** Items/s the `ref` block moves when the graph is exactly keeping up. */
+  ref_item_rate: number;
   blocks: RawBlock[];
 }
 
@@ -150,10 +151,16 @@ function runReport(first: RawStats, last: RawStats, consoleLines: string[],
       } } : {}),
     };
   });
+  // The realtime factor, as a ratio between two rates at the *same* block: what
+  // it actually moved, over what it moves when the graph is exactly keeping up.
+  // Null unless both halves are there -- a graph with no block declaring a rate
+  // (or none flagged `ref`) has no realtime factor to report, and saying 0.00x
+  // would read as "completely stalled" for a graph that is running fine.
   const ref = last.blocks.find(block => block.ref);
-  const refRate = blocks.find(block => block.name === ref?.name)?.items_per_s || 0;
-  const sampleRate = Number(last.ref_samp_rate || 0);
-  const realtime = sampleRate > 0 ? refRate / sampleRate : null;
+  const measured = ref ? blocks.find(block => block.name === ref.name) : undefined;
+  const expectedRate = Number(last.ref_item_rate || 0);
+  const realtime = measured && expectedRate > 0
+    ? measured.items_per_s / expectedRate : null;
   const findings: string[] = [];
   for (const block of blocks) {
     if (block.stalled)
