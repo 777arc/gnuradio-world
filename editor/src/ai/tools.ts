@@ -17,13 +17,14 @@ export interface AiToolDeps {
   ports(instOrId: Inst | string, kind: 'in' | 'out'): ResolvedPort[];
   validate(): ValidationIssue[];
   addBlock(id: string, name?: string): Inst;
-  removeBlock(name: string): void;
+  removeBlock(name: string): { removed: boolean; reason?: string };
   setParams(name: string, params: Record<string, unknown>): void;
   connect(from: string, output: string | number, to: string, input: string | number): void;
   disconnect(from: string, output: string | number, to: string, input: string | number): void;
   setEnabled(name: string, state: 'enabled' | 'disabled' | 'bypassed'): void;
   autoArrange(): void;
   replaceFlowgraph(grc: string): void;
+  clearFlowgraph(): void;
   listExamples(): Promise<string[]>;
   readExample(path: string): Promise<string>;
   listRecordings(): Promise<ExampleRecording[]>;
@@ -52,8 +53,11 @@ const EDITS: Record<string, (deps: AiToolDeps, args: any) => unknown> = {
     return { name: block.name, id: block.id };
   },
   remove_block(deps, args) {
-    deps.removeBlock(String(args.name));
-    return { removed: args.name };
+    const result = deps.removeBlock(String(args.name));
+    // A required singleton is refused, not removed. Reported rather than
+    // thrown so the rest of the batch still runs -- see removeBlock in main.ts.
+    return result.removed ? { removed: args.name }
+      : { skipped: args.name, reason: result.reason };
   },
   set_params(deps, args) {
     const block = deps.blocks().find(item => item.name === String(args.name));
@@ -172,7 +176,8 @@ export const AI_TOOLS: ToolDefinition[] = [
   tool('disconnect', 'Disconnect one exact connection using names and port labels/indices.', object({ from: text, output: port, to: text, input: port }, ['from', 'output', 'to', 'input'])),
   tool('set_enabled', 'Set a block to enabled, disabled, or bypassed.', object({ name: text, state: { type: 'string', enum: ['enabled', 'disabled', 'bypassed'] } }, ['name', 'state'])),
   tool('auto_arrange', 'Lay out all blocks left-to-right so the edited canvas is readable.', object({})),
-  tool('replace_flowgraph', 'Replace the entire canvas from native .grc YAML. Prefer granular edits unless building from scratch.', object({ grc: text }, ['grc'])),
+  tool('new_flowgraph', 'Empty the canvas to a blank flowgraph (Options, GUI Layout and samp_rate only), discarding everything on it. Call this first whenever the request is to build something new rather than to modify or explain what is already there.', object({})),
+  tool('replace_flowgraph', 'Replace the entire canvas from native .grc YAML. Prefer granular edits unless building from scratch. Do not include the options block under `blocks:` -- it is the top-level `options:` key.', object({ grc: text }, ['grc'])),
   tool('validate', 'Return all current blocking and non-blocking validation issues.', object({})),
   tool('run_flowgraph', 'Run the current canvas visibly and observe diagnostics for 0.5–15 seconds. The graph remains running.', object({ seconds: { type: 'number', minimum: 0.5, maximum: 15, default: 3 } })),
 ];
@@ -615,6 +620,7 @@ export async function dispatchAiTool(
       String(args.name), String(args.id), args.label === undefined ? undefined : String(args.label),
       args.category === undefined ? undefined : String(args.category)) };
     case 'apply_edits': return applyEdits(deps, args.edits);
+    case 'new_flowgraph': deps.clearFlowgraph(); return mutation(deps, { cleared: true });
     case 'replace_flowgraph': deps.replaceFlowgraph(String(args.grc)); return mutation(deps, { replaced: true });
     case 'validate': return { mutated: false, value: issueJson(deps) };
     case 'run_flowgraph': return { mutated: false, value: await deps.runFlowgraph(Number(args.seconds || 3), signal) };

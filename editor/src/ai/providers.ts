@@ -128,7 +128,7 @@ export const CREDITS_ORIGIN = typeof location !== 'undefined' &&
   : 'https://credits.gnuradioworld.com';
 
 export const DEFAULT_OPENROUTER_MODEL = 'google/gemini-3.7-flash';
-export const DEFAULT_OPENAI_MODEL = 'gpt-5.4-mini';
+export const DEFAULT_OPENAI_MODEL = 'gpt-5.6-luna';
 /**
  * The credits catalog is versioned D1 rate rows rather than a list named here,
  * so this is not what the provider offers — only which of the fetched ids a

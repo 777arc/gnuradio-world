@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { bundleModule } from './bundle-module.mjs';
 
-const { dispatchAiTool, canvasContext, SEED_DEFINITION_LIMIT, SEED_DEFINITION_BYTES, SEED_GRAPH_LIMIT } =
+const { AI_TOOLS, dispatchAiTool, canvasContext, SEED_DEFINITION_LIMIT, SEED_DEFINITION_BYTES, SEED_GRAPH_LIMIT } =
   await bundleModule('../src/ai/tools.ts');
 const { runnableIndex, API_DOC_LIMIT } = await bundleModule('../src/ai/catalog.ts');
 
@@ -14,6 +14,9 @@ const defs = {
   ] },
   sink: { label: 'Sink', inputs: 1, outputs: 0, params: [
     { id: 'label', label: 'Label', type: 'string', def: '' },
+  ] },
+  radio: { label: 'Test Radio', inputs: 0, outputs: 1, params: [
+    { id: 'freq', label: 'Frequency', type: 'number', def: 100e6 },
   ] },
 };
 const port = (kind) => ({
@@ -30,7 +33,8 @@ const portIndex = (value) => Number(value) === 0 || value === 'out' || value ===
 const deps = {
   blocks: () => blocks,
   connections: () => connections,
-  entries: () => Object.entries(defs).map(([id, def]) => ({ id, label: def.label, category: 'Test' })),
+  entries: () => Object.entries(defs).map(([id, def]) => ({
+    id, label: def.label, category: 'Test', hardware: id === 'radio' })),
   definition: value => defs[typeof value === 'string' ? value : value.id],
   ports: (value, kind) => {
     const id = typeof value === 'string' ? value : value.id;
@@ -49,7 +53,13 @@ const deps = {
     blocks.push(block); return block;
   },
   removeBlock(name) {
-    const block = named(name); blocks.splice(blocks.indexOf(block), 1);
+    const block = named(name);
+    // Mirrors aiToolDependencies in main.ts: the last required singleton is
+    // refused rather than thrown for, so a batch survives asking for it.
+    if (block.id === 'options' && blocks.filter(item => item.id === 'options').length < 2)
+      return { removed: false, reason: `${name} is a required singleton and stays on the canvas` };
+    blocks.splice(blocks.indexOf(block), 1);
+    return { removed: true };
   },
   setParams(name, params) { Object.assign(named(name).params, params); },
   connect(from, output, to, input) {
@@ -63,6 +73,7 @@ const deps = {
   },
   autoArrange() {},
   replaceFlowgraph() {},
+  clearFlowgraph() { blocks.length = 0; connections.length = 0; },
   listExamples: async () => ['digital/test.grc', 'radio/receiver.grc'],
   readExample: async path => path === 'digital/test.grc' ? `
 options:
@@ -369,6 +380,17 @@ assert.match(canvasContext({ ...deps, blocks: () => [] }), /empty/);
 
 // The runnable index names each category once instead of on every one of its
 // blocks, which is a quarter of the system prompt it is resent inside.
+// A hardware block is marked wherever the model meets it -- in the catalog index
+// that sits in the cached system prefix, and in describe_block -- because a
+// prohibition living only in the system prompt loses to the prior that every FM
+// receiver starts with an SDR.
+const described = await dispatchAiTool(deps, 'describe_block', { id: 'radio' });
+assert.match(String(described.value.hardware), /physical device/,
+  'describe_block warns on a hardware block');
+const describedSoftware = await dispatchAiTool(deps, 'describe_block', { id: 'source' });
+assert.equal(describedSoftware.value.hardware, undefined,
+  'and says nothing about hardware for a block that is not');
+
 const index = runnableIndex([
   { id: 'a_one', label: 'One', category: 'Core / Math' },
   { id: 'b_two', label: 'Two', category: 'Core / Math' },
@@ -381,6 +403,46 @@ assert.equal(index, [
   '  a_one | One',
   '  b_two | Two',
 ].join('\n'));
+assert.match(
+  runnableIndex([{ id: 'wasm_rtlsdr_source', label: 'RTL-SDR Source',
+    category: 'Core / Sources', hardware: true }]),
+  /HARDWARE: only if the user asked/,
+  'the catalog index the model reads marks hardware inline');
 assert.equal(index.match(/Core \/ Math/g).length, 1, 'a category is named once');
+
+// new_flowgraph: the from-scratch path empties the canvas rather than layering a
+// new graph over whatever example the editor happened to open on.
+assert.ok(AI_TOOLS.some(entry => entry.function.name === 'new_flowgraph'),
+  'new_flowgraph is offered to the model');
+await dispatchAiTool(deps, 'add_block', { id: 'source', name: 'leftover' });
+assert.ok(blocks.length > 0);
+const cleared = await dispatchAiTool(deps, 'new_flowgraph', {});
+assert.equal(cleared.mutated, true, 'clearing the canvas is a mutation');
+assert.deepEqual(cleared.value.result, { cleared: true });
+assert.equal(blocks.length, 0, 'new_flowgraph emptied the canvas');
+
+// Removing the last required singleton is reported, not thrown -- so the rest
+// of a batch still runs. Before this, one such entry discarded every edit after
+// it, which is how a 39-edit batch lost its final 27.
+blocks.push({ uid: 'b-opt', id: 'options', name: 'options', x: 0, y: 0,
+  params: {}, enabled: true, bypassed: false, rotation: 0 });
+const skipped = await dispatchAiTool(deps, 'apply_edits', { edits: [
+  { op: 'add_block', id: 'source', name: 'first' },
+  { op: 'remove_block', name: 'options' },
+  { op: 'add_block', id: 'sink', name: 'after' },
+] });
+assert.equal(skipped.value.result.applied, 3, 'the singleton refusal did not stop the batch');
+assert.equal(skipped.value.result.failed, undefined, 'a refusal is not a batch failure');
+assert.ok(blocks.some(block => block.name === 'after'),
+  'the edit after the refused removal still ran');
+assert.ok(blocks.some(block => block.id === 'options'), 'the singleton stayed');
+
+// A duplicate, though, is removable: a canvas holding two fails validation on
+// the duplicate ID, so refusing every copy by id left no way back out.
+blocks.push({ uid: 'b-opt2', id: 'options', name: 'options_dup', x: 0, y: 0,
+  params: {}, enabled: true, bypassed: false, rotation: 0 });
+const removedDuplicate = await dispatchAiTool(deps, 'remove_block', { name: 'options_dup' });
+assert.deepEqual(removedDuplicate.value.result, { removed: 'options_dup' });
+assert.equal(blocks.filter(block => block.id === 'options').length, 1);
 
 console.log('ai-tools.test.mjs: ok');

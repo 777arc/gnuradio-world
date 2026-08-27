@@ -142,6 +142,15 @@ in a browser, that is the right trade.
   variable is a hard error there — and the editor now reports the same thing
   rather than passing the text through to the runner, which would coerce it to
   zero silently.
+- **The options block is the top-level `options:` key, never an entry under
+  `blocks:`.** Stating it in both places is the natural mistake when writing a
+  `.grc` from memory, and it used to load as *two* Options blocks — a state that
+  failed validation on the duplicate id and, because the editor refuses to
+  delete a required singleton, could not be repaired. `loadFlowgraph()` now
+  reconciles the two shapes (top-level wins; a `blocks:` entry is adopted only
+  when there is no top-level key), but write it once regardless. A second GUI
+  Layout is dropped with a log line for the same reason; that one does belong
+  under `blocks:`.
 - Stream connections are arrays: `[block, port, block, port]`.
 - Message connections are objects with `src_blk_id`, `src_port_id`,
   `snk_blk_id`, and `snk_port_id` (see `grc_lower.hpp`) — written as a *block*

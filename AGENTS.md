@@ -154,7 +154,7 @@ node server.mjs 8090 "$PWD"
 | `workers/saas/` | Better Auth + Polar + D1 prepaid-credit Worker for Graham's authenticated paid provider; owns wallets, immutable ledger, holds, streaming settlement, webhooks, expiry, and reconciliation |
 | `server.mjs` | COOP/COEP static dev server (needed for SharedArrayBuffer / pthreads); serves the repo root, falls back to `editor/dist/` for `/`, and synthesizes the `/example_flowgraphs` listing. Recording discovery and objects always come directly from R2 |
 | `test/` | `test_smoke.mjs` and `test_lazy_scenarios.mjs` plus the `fixtures/` `.grc` they load; CI gates the deploy on both. `test_pr_security_scan.mjs` covers the PR security gate's diff scan and runs in that gate's own workflow. `editor/test/` and `runner/test/` hold their own suites |
-| `scripts/` | `assemble-site.mjs` (assembles the static site CI deploys to Pages), `serve_site.mjs` (serves it the way Pages does), `run.mjs` (headless-Chromium harness, waits on a page `#result`), `run_example.mjs` (opens an example in the real editor and presses Run), `arrange_example.mjs` (auto-arranges examples through that same editor), `pr-security-scan.mjs` + `sarif-gate.mjs` (the PR security gate — see [docs/ci.md](docs/ci.md)), `make-favicons.mjs` and `make-og-image.mjs` (regenerate the icon set and the social card from `editor/public/favicon.svg` and the brand assets — run either after changing them), `r2-cors.json` |
+| `scripts/` | `assemble-site.mjs` (assembles the static site CI deploys to Pages), `serve_site.mjs` (serves it the way Pages does), `run.mjs` (headless-Chromium harness, waits on a page `#result`), `run_example.mjs` (opens an example in the real editor and presses Run), `arrange_example.mjs` (auto-arranges examples through that same editor), `eval_graham_suite.mjs` + `graham-prompts.mjs` (the Graham prompt suite — never automatic, run it only when asked) and `eval_graham_prompt.mjs` (its single-prompt driver — see [docs/graham.md](docs/graham.md)), `pr-security-scan.mjs` + `sarif-gate.mjs` (the PR security gate — see [docs/ci.md](docs/ci.md)), `make-favicons.mjs` and `make-og-image.mjs` (regenerate the icon set and the social card from `editor/public/favicon.svg` and the brand assets — run either after changing them), `r2-cors.json` |
 | `editor/src/recording/` | the SigMF recording viewer, emitted at `/recording/` by the normal editor build |
 
 ## Build
@@ -246,6 +246,50 @@ node test/test_python_block_editor.mjs  # ... and the editor deriving ports from
 node test/test_pr_security_scan.mjs     # the PR security gate's diff scan still detects
 node scripts/pr-security-scan.mjs --base origin/main --head HEAD   # ... over your own branch
 ```
+
+**Graham's evaluations are not tests, and never run on their own.** They call a
+real model on the user's own key and cost tokens, so none of them is in CI, in
+`npm test`, or in either smoke suite — **run them only when the user asks.** They
+answer "did the assistant do a good job", which no assertion states. Set
+`OPENAI_API_KEY`, and for the first two keep `server.mjs` running and the editor
+built:
+
+```bash
+node scripts/eval_graham_suite.mjs [case…] [--model=<id>] [--keep]
+node scripts/eval_graham_suite.mjs --list               # the cases, without running them
+node scripts/eval_graham_prompt.mjs "<prompt>" [--fresh] [--model=<id>]
+node scripts/eval_graham_js_blocks.mjs                  # the scored JS Block cases
+```
+
+`eval_graham_suite.mjs` is the curated set: the prompts Graham is expected to
+handle, in `scripts/graham-prompts.mjs`, each carrying what its run has to show
+for itself — which tools were called, what ended up on the canvas, whether the
+graph ran. That matters because "the turn finished and the graph ran" passes for
+answers that ignored half the request. Each case runs in its own browser through
+the single-prompt driver, so none can leave state for the next. **Add a case
+whenever a Graham behavior is worth keeping**, rather than re-typing a prompt by
+hand; the file's header documents the `expect` fields.
+
+`eval_graham_prompt.mjs` is the driver underneath it, and takes any prompt
+ad hoc. It drives the dock in a real browser, so the model reads the real block
+catalog, the editor really validates, and `run_flowgraph` really starts the
+runner. It prints the transcript, the
+resulting canvas, the console pane and the runner's verdict, and ends in
+`GRAHAM_OK`/`GRAHAM_FAIL`. Two things about it are load-bearing:
+
+- **Pass `--fresh` unless the welcome example is the point.** The editor opens on
+  `digital/welcome_example.grc`, *"PSK Tx with Constellation"* — so a prompt about
+  PSK, constellations or plots is otherwise graded against a canvas that already
+  half-answers it, and "create a new flowgraph" is ambiguous where one is loaded.
+- **Leave `--model` off to test what ships.** Unset means the dock's own default
+  (`DEFAULT_OPENAI_MODEL`), which is the configuration a user gets; pass it only
+  to compare one model against another.
+
+`eval_graham_js_blocks.mjs` is the narrow one: it drives `FlowgraphAgent` against
+a stub `AiToolDeps` whose catalog holds a single block, scoring generated
+`work()` code by executing it. No canvas, no validation, no runner — so a failure
+there is about the model's JavaScript, and a failure in the other is about
+anything in the whole path.
 
 The three Embedded Python tests: the two browser ones skip unless
 `deps/fetch-pyodide.sh` has been run, which is why the Python Block is not a case

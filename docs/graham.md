@@ -59,7 +59,7 @@ provider is an entry in `AI_PROVIDERS` rather than a branch in the request path:
 |------------|------------------|----------------------|-----------|--------|
 | connect | nothing to connect — consent only (`keyless`) | the same | OAuth PKCE, or a pasted key | a pasted key only (`oauth`) |
 | model list | one fixed id in the descriptor, never fetched, so the picker locks (`fixedModels`) | the same | public, filtered to `supported_parameters=tools` | authenticated, and unfiltered — the chat families are picked out of every model of every kind the account can see (`modelsNeedKey`) |
-| default model | `gpt-5.6-luna`, and no other | `nvidia/nemotron-3-ultra-550b-a55b:free`, and no other | `google/gemini-3.7-flash` | `gpt-5.4-mini` |
+| default model | `gpt-5.6-luna`, and no other | `nvidia/nemotron-3-ultra-550b-a55b:free`, and no other | `google/gemini-3.7-flash` | `gpt-5.6-luna` |
 | second hop | `api.openai.com`, named in the boundary line (`upstream`) | `openrouter.ai`, likewise | none | none |
 | attribution | none | none — the proxy sends OpenRouter's headers itself | `HTTP-Referer` and `X-Title` | none — OpenAI rejects them in preflight (`attribution`) |
 | usage | as OpenAI, and priced nowhere | the same, and free anyway | appended to the stream automatically, with a cost | only when asked with `stream_options.include_usage`, and priced nowhere (`requestUsage`, `reportsCost`) |
@@ -248,7 +248,14 @@ table's key set, which is also the `op` enum in the batch tool's schema — addi
 an operation to the table adds it to both paths and to the schema at once.
 
 A batch **stops at the first failing entry** and reports `{index, op, error,
-not_applied}`; everything before it stays applied. Rolling back would be the
+not_applied}`; everything before it stays applied. Which is why what counts as a
+failure matters: removing the last Options or GUI Layout is *refused* rather
+than raised, reported as `{skipped, reason}` so the batch runs on. Both are
+required singletons that stay on every canvas, and a model clearing a graph
+block by block will ask — one 39-edit batch lost its final 27 entries to exactly
+that before the guard stopped throwing. A duplicate of either, though, is
+removable: a canvas holding two fails validation on the duplicate id, so a guard
+that refused every copy by id left no way back out of that state. Rolling back would be the
 wrong instinct: a turn is snapshotted once in the panel and Ctrl+Z reverses the
 whole of it, so a half-applied batch is already undoable, and unwinding it would
 throw away edits the model should be told to build on. Its report is
@@ -274,10 +281,28 @@ opens — so a round's prose lands below the tool calls it followed instead of
 above every one of them, and a round that only calls tools leaves no empty
 bubble.
 
+`new_flowgraph` empties the canvas to Options, GUI Layout and `samp_rate`. It
+exists because the editor opens on `digital/welcome_example.grc` and never on
+nothing, so "build me an FM receiver" otherwise means *build it around whatever
+example is already loaded* — which is how a first BPSK graph came back carrying
+the welcome example's Note block. The system prompt makes the choice explicit
+rather than leaving it implied: build/create/make is a new flowgraph and calls
+this first, while modify/extend/fix/explain/run leaves the canvas alone.
+
 `replace_flowgraph` is the escape hatch for a new graph. It still goes through
 `parseGrc()` and `loadFlowgraph()` and returns the same editor validation result.
 Prefer granular operations for changes to an existing graph because the editor's
 schema — especially hand-written block definitions — is authoritative.
+
+**A `.grc` written by a model tends to state the options block twice** — once as
+the top-level `options:` key, where it belongs, and again as an entry under
+`blocks:`. `loadFlowgraph()` reconciles the two shapes rather than trusting
+either: the top-level key wins, a `blocks:` entry is adopted only when there is
+no top-level key to lose, and every `OPTIONS_ID` entry in the block loop is
+skipped. Before that it materialised both, and the second Options was
+undeletable, failed validation on its duplicate id, and left the flowgraph
+permanently unrunnable through the tools. A second GUI Layout is dropped the
+same way, with a log line, since that one legitimately lives under `blocks:`.
 
 ## Example flowgraph catalog
 
@@ -399,6 +424,21 @@ anything from the model:
   headers rather than restating a category on each of its blocks — same 539
   ids, labels and categories, 35 KB down to 26 KB, and it is in the prefix of
   every request.
+- **Hardware blocks are marked in that index**, as
+  `| HARDWARE: only if the user asked for this device`, and `describe_block`
+  returns a `hardware` field spelling out the consequence. The prohibition
+  already existed in the system prompt and lost anyway: asked for an FM
+  receiver, a model reaches for an RTL-SDR because every FM receiver it has
+  ever seen starts with one, and a rule sitting under "Misc guidelines" 30
+  lines below the JS Block section does not outweigh that. Two things fixed it
+  — the marker at the point of use, and replacing the bare prohibition with
+  somewhere else to go (`list_recordings`, or a simulated source). The flag
+  comes from `isHardwareBlockId()` in `main.ts`, which asks the same
+  `UsbRadio.owns` predicates and TX-sink ids that `aiAuthorization()` uses, so
+  what the model is warned about and what needs a human click cannot drift
+  apart. `wbfm-waterfall` in the prompt suite is the regression case: it asserts
+  no SDR block on the canvas *and* a real `RUNNER_PASS`, because a receiver
+  that cannot be run is not an answer to "build me a receiver".
 - **`describe_block`'s `api_documentation`** is truncated at `API_DOC_LIMIT`
   (`catalog.ts`) to a line boundary, ending in a note naming
   `full_docs: true` as the way to read the rest. Doxygen prose runs to 8.7 KB
@@ -534,11 +574,82 @@ The proxy has a suite of its own, on plain Node with no Wrangler and no network:
 (cd workers/saas && npm test && npm run check)
 ```
 
-Model quality itself has an opt-in, networked JS Block evaluation. It exercises
+Model quality itself has three opt-in, networked evaluations. All spend real API
+tokens on a personal OpenAI key rather than the site's shared allowance, so none
+is in CI, in `npm test`, or in either smoke suite — **they run when somebody asks
+for them and at no other time.**
+
+### The prompt suite
+
+`scripts/eval_graham_suite.mjs` runs the curated cases in
+`scripts/graham-prompts.mjs`: the prompts Graham is expected to handle, from
+building a graph from scratch to converting an example's modulation scheme to
+finding a recording to test against.
+
+```bash
+OPENAI_API_KEY=... node scripts/eval_graham_suite.mjs            # every case
+OPENAI_API_KEY=... node scripts/eval_graham_suite.mjs qpsk-sync  # one of them
+node scripts/eval_graham_suite.mjs --list                        # no model calls
+```
+
+A case is more than its prompt, because "the turn finished and the graph ran"
+passes for an answer that ignored half the request. Each carries an `expect`
+block naming what the run has to show for itself — which tools were called, what
+ended up on the canvas, whether the runner reached `RUNNER_PASS` — and the suite
+prints one line per case with what went unmet. Each runs in its own browser
+through the single-prompt driver below, so no case can leave state for the next.
+
+Two of the fields encode a distinction worth keeping. `clears` asserts whether
+`new_flowgraph` was called, in both directions: a from-scratch prompt that did
+not clear built its answer on top of the welcome example, and a prompt about the
+graph on screen that *did* clear threw away the thing being asked about.
+`notBefore` is the softer form, for a prompt naming an example to modify —
+reading that example and rebuilding it changed is a legitimate route, so what
+matters is only that nothing cleared the canvas *before* `read_example`.
+
+### End to end, through the dock
+
+`scripts/eval_graham_prompt.mjs` runs one prompt the way a user does — it is
+what the suite spawns per case, and takes any prompt ad hoc. It seeds
+the storage slots the panel reads — provider, consent, model, and the key in the
+same `sessionStorage` slot the dock itself writes, so the key never reaches a
+URL, a log line or the script's output — then opens Graham in a real browser,
+submits the prompt, and waits out the turn:
+
+```bash
+OPENAI_API_KEY=... node scripts/eval_graham_prompt.mjs "build an FM receiver" --fresh
+```
+
+It needs `server.mjs` running and the editor built, because it drives the built
+dock. What it reports is the whole path: every tool call with its arguments and
+result, the assistant's replies, the resulting canvas, the editor console, and
+the runner's own verdict from inside the iframe — ending in `GRAHAM_OK` or
+`GRAHAM_FAIL`. `--json=<path>` writes the same structured result, which is how
+two models are compared on one prompt.
+
+**`--fresh` is not cosmetic.** The editor opens on `digital/welcome_example.grc`,
+titled *"PSK Tx with Constellation"*, so a prompt about PSK, constellations or
+plots is otherwise scored against a canvas that already half-answers it — and a
+prompt saying "create a new flowgraph" is ambiguous where one is already loaded.
+`--fresh` clears it through the toolbar's own New button first.
+
+**Leave `--model` off unless comparing.** Unset clears the stored model slot so
+the dock falls back to `DEFAULT_OPENAI_MODEL`, which is what a user gets; pinning
+one tests a configuration nobody ships.
+
+This is the evaluation that sees anything the stub below cannot: the real block
+catalog the model reads through `describe_block`, the editor really refusing an
+invalid graph, and `run_flowgraph` really starting the runner.
+
+### The JS Block cases, against a stub
+
+The narrow one, `scripts/eval_graham_js_blocks.mjs`, drives `FlowgraphAgent`
+directly against an `AiToolDeps` whose catalog holds exactly one block and whose
+`run_flowgraph` returns a note. It exercises
 creation, interface-preserving modification, a missing-`consume()` repair and
-state across work calls against deterministic arrays. It is intentionally not
-CI — it spends real API tokens — and uses a personal OpenAI key rather than the
-site's shared allowance:
+state across work calls against deterministic arrays — so a failure here is
+about the model's JavaScript specifically, with no canvas, validation or runner
+in the way:
 
 ```bash
 OPENAI_API_KEY=... node scripts/eval_graham_js_blocks.mjs

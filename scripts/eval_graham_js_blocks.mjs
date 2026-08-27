@@ -15,7 +15,7 @@ if (!key) {
   console.error('Set OPENAI_API_KEY to run the opt-in Graham JS Block evaluation.');
   process.exit(2);
 }
-const model = process.env.GRAHAM_EVAL_MODEL || 'gpt-5.4-mini';
+const model = process.env.GRAHAM_EVAL_MODEL || 'gpt-5.6-luna';
 const { FlowgraphAgent } = await bundleModule('../editor/src/ai/agent.ts');
 const systemPrompt = await readFile(new URL('../editor/src/ai/system-prompt.md', import.meta.url), 'utf8');
 const runtime = await readFile(new URL('../runner/src/js_runtime.js', import.meta.url), 'utf8');
@@ -124,9 +124,10 @@ function makeDeps(initialSource = '') {
       ? { io: { inputs: [], outputs: [] } } : value, kind),
     validate: () => [],
     addBlock: (_id, name) => install(name || `wasm_js_block_${counter}`, `gr.export({outputs:['float'],work(n,out){out[0].fill(0);return n;}});`),
-    removeBlock: name => blocks.splice(blocks.indexOf(block(name)), 1),
+    removeBlock: name => { blocks.splice(blocks.indexOf(block(name)), 1); return { removed: true }; },
     setParams: (name, params) => Object.assign(block(name).params, params),
     connect() {}, disconnect() {}, setEnabled() {}, autoArrange() {}, replaceFlowgraph() {},
+    clearFlowgraph() { blocks.length = 0; },
     listExamples: async () => [], readExample: async () => '',
     listRecordings: async () => [],
     readRecordingMetadata: async () => ({ recording: {}, metadata: {} }),

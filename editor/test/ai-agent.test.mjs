@@ -37,7 +37,7 @@ const {
 } = await bundleModule('../src/ai/providers.ts');
 
 assert.equal(DEFAULT_OPENROUTER_MODEL, 'google/gemini-3.7-flash');
-assert.equal(DEFAULT_OPENAI_MODEL, 'gpt-5.4-mini');
+assert.equal(DEFAULT_OPENAI_MODEL, 'gpt-5.6-luna');
 // pr-security-scan: allow new-outbound-host
 assert.equal(AI_PROVIDERS.openai.api, 'https://api.openai.com/v1');
 assert.equal(AI_PROVIDERS.openai.oauth, false, 'an OpenAI key is pasted, never OAuth');

@@ -1270,8 +1270,23 @@ function openJsCodeModal(options: JsCodeModalOptions) {
 // ---- block operations (used by the context menu and shortcuts) ----
 function deleteBlocks(uids = state.selectedBlocks, record = true) {
   if (!uids.size) return;
-  // Options and GUI Layout are required singletons and cannot be deleted.
-  state.insts = state.insts.filter(i => !uids.has(i.uid) || i.id === OPTIONS_ID || i.id === LAYOUT_ID);
+  // Options and GUI Layout are required singletons, so the *last* of each
+  // stays -- but a duplicate is deletable, and has to be: a canvas holding two
+  // fails validation on the duplicate ID, and a guard that refused every copy
+  // by id left no way back out of that state.
+  const remaining = new Map<string, number>();
+  for (const i of state.insts)
+    if (i.id === OPTIONS_ID || i.id === LAYOUT_ID)
+      remaining.set(i.id, (remaining.get(i.id) || 0) + 1);
+  state.insts = state.insts.filter(i => {
+    if (!uids.has(i.uid)) return true;
+    if (i.id === OPTIONS_ID || i.id === LAYOUT_ID) {
+      const count = remaining.get(i.id) || 0;
+      if (count <= 1) return true;
+      remaining.set(i.id, count - 1);
+    }
+    return false;
+  });
   state.conns = state.conns.filter(c => !uids.has(c.from) && !uids.has(c.to));
   state.selectedBlocks.clear(); state.selected = null; state.selectedConnection = null;
   render(); if (record) recordHistory();
@@ -1892,7 +1907,15 @@ function loadFlowgraph(doc: any, record = true) {
   // callers that do know a name (an example, an opened .grc) set it back after.
   setCurrentFileName(null);
   // options: a top-level block in .grc; becomes the editor's singleton Options.
-  const optRaw = doc.options || {};
+  // A hand-written .grc -- which is what `replace_flowgraph` receives from a
+  // model -- often lists it under `blocks:` as well, or *only* there. Both
+  // shapes have to land on exactly one Options: a second one is undeletable
+  // and fails validation on its duplicate ID, leaving the flowgraph
+  // permanently unrunnable. So the top-level key wins, an entry under
+  // `blocks:` is adopted when there is no top-level key to lose, and the
+  // block loop below skips every OPTIONS_ID entry either way.
+  const optBlock = doc.blocks.find((b: any) => b?.id === OPTIONS_ID);
+  const optRaw = doc.options?.parameters || !optBlock ? (doc.options || {}) : optBlock;
   const optFlags = stateToFlags(optRaw.states?.state);
   const optCoord = Array.isArray(optRaw.states?.coordinate) ? optRaw.states.coordinate : [10, 10];
   // The file's `id` is not carried into the model: it is derived from the Title
@@ -1908,6 +1931,14 @@ function loadFlowgraph(doc: any, record = true) {
     // definition has to be built from the file's own cached interface before its
     // values can be imported -- importParams keeps only what the definition
     // declares, and the derived parameters would otherwise be dropped.
+    // Already placed above, from whichever of the two shapes carried it.
+    if (b.id === OPTIONS_ID) return;
+    // The GUI Layout singleton legitimately lives in `blocks:`, so here it is
+    // the second and later ones that are dropped rather than all of them.
+    if (b.id === LAYOUT_ID && state.insts.some(i => i.id === LAYOUT_ID)) {
+      log(`ignored a duplicate GUI Layout block "${b.name || b.id}"`);
+      return;
+    }
     const derive = DERIVED.get(b.id);
     const def = derive && RUNNABLE[b.id]
       ? derive(RUNNABLE[b.id], { params: b.parameters || {} } as Inst)
@@ -4311,6 +4342,20 @@ const TOOLBAR: (Tool | 'sep')[] = [
   { icon: '🔍+', label: 'Zoom In', key: 'Ctrl++', run: () => setZoom(zoom * ZOOM_STEP) },
   { icon: '🔍−', label: 'Zoom Out', key: 'Ctrl+-', run: () => setZoom(zoom / ZOOM_STEP) },
 ];
+/**
+ * The blocks that reach real hardware, from the same predicates the run
+ * authorization gate uses -- so what the model is warned about and what needs a
+ * human click cannot drift apart. Marked in the catalog rather than only named
+ * in the system prompt because a prohibition far from the point of use loses to
+ * the model's prior: every FM receiver it has ever seen starts with an RTL-SDR.
+ */
+const HARDWARE_TX_IDS = ['wasm_hackrf_sink', 'wasm_plutosdr_sink'];
+function isHardwareBlockId(id: string): boolean {
+  if (HARDWARE_TX_IDS.includes(id)) return true;
+  const probe = { id } as Inst;
+  return USB_RADIOS.some(radio => radio.owns(probe));
+}
+
 function aiCatalogEntries(): CatalogEntry[] {
   const generated = new Map<string, CatalogEntry>();
   for (const block of LIB.blocks || []) {
@@ -4321,12 +4366,13 @@ function aiCatalogEntries(): CatalogEntry[] {
     generated.set(block.id, {
       id: String(block.id), label: String(block.label || block.id), category,
       javascript: block.id === JS_BLOCK_ID || blockFlags(block.flags).includes('js'),
+      hardware: isHardwareBlockId(String(block.id)),
     });
   }
   for (const [id, def] of Object.entries(RUNNABLE)) {
     if (PALETTE_HIDDEN.has(id) || generated.has(id)) continue;
     generated.set(id, { id, label: def.label, category: 'Core / Editor',
-      javascript: id === JS_BLOCK_ID });
+      javascript: id === JS_BLOCK_ID, hardware: isHardwareBlockId(id) });
   }
   return [...generated.values()].sort((a, b) => a.id.localeCompare(b.id));
 }
@@ -4590,9 +4636,16 @@ function aiToolDependencies(): Omit<AiToolDeps, 'runFlowgraph'> {
     },
     removeBlock: name => {
       const block = aiBlock(name);
-      if (block.id === OPTIONS_ID || block.id === LAYOUT_ID)
-        throw new Error(`${block.name} is a required singleton and cannot be removed`);
+      // Refusing the last Options or GUI Layout is right, but throwing for it
+      // was not: apply_edits stops at the first failing entry, so one such
+      // request in a batch that clears a canvas block by block discarded every
+      // edit after it. Report it as a skip and let the rest of the batch run.
+      if ((block.id === OPTIONS_ID || block.id === LAYOUT_ID) &&
+          state.insts.filter(i => i.id === block.id).length < 2)
+        return { removed: false,
+                 reason: `${block.name} is a required singleton and stays on the canvas` };
       deleteBlocks(new Set([block.uid]), false);
+      return { removed: true };
     },
     setParams: (name, params) => {
       const block = aiBlock(name);
@@ -4631,6 +4684,7 @@ function aiToolDependencies(): Omit<AiToolDeps, 'runFlowgraph'> {
     },
     autoArrange: () => autoArrangeBlocks(false),
     replaceFlowgraph: grc => loadFlowgraph(parseGrc(grc), false),
+    clearFlowgraph: () => clearFlowgraph(false),
     listExamples: async () => {
       const response = await fetch('/example_flowgraphs');
       if (!response.ok) throw new Error(`example listing failed (${response.status})`);

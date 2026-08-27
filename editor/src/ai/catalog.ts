@@ -6,6 +6,8 @@ export interface CatalogEntry {
   label: string;
   category: string;
   javascript?: boolean;
+  /** Reaches a physical device: needs one present, plus a human click to run. */
+  hardware?: boolean;
 }
 
 export interface CatalogDeps {
@@ -28,7 +30,10 @@ export function runnableIndex(entries: CatalogEntry[]): string {
   }
   return [...byCategory.keys()].sort().map(category =>
     `${category}:\n${byCategory.get(category)!
-      .map(entry => `  ${entry.id} | ${entry.label}${entry.javascript ? ' | JavaScript' : ''}`).join('\n')}`).join('\n');
+      .map(entry => `  ${entry.id} | ${entry.label}` +
+        `${entry.javascript ? ' | JavaScript' : ''}` +
+        `${entry.hardware ? ' | HARDWARE: only if the user asked for this device' : ''}`)
+      .join('\n')}`).join('\n');
 }
 
 function score(entry: CatalogEntry, words: string[]): number {
@@ -75,6 +80,7 @@ export function describeBlock(
   deps: CatalogDeps, id: string, fullDocs = false,
 ): Record<string, unknown> {
   const def = deps.definition(id);
+  const hardware = deps.entries().find(entry => entry.id === id)?.hardware;
   if (!def) throw new Error(`block "${id}" is not runnable in this WebAssembly build`);
   const params = def.params.map(param => ({
     id: param.id,
@@ -96,6 +102,10 @@ export function describeBlock(
   return {
     id,
     label: def.label,
+    ...(hardware ? { hardware: 'Reaches a physical device. It needs that device ' +
+      'plugged in and a human permission click, so a flowgraph built around it ' +
+      'cannot run on its own. Use it only when the user asked for this hardware; ' +
+      'otherwise use a hosted recording or a simulated source.' } : {}),
     parameters: params,
     inputs: ports('in'),
     outputs: ports('out'),
