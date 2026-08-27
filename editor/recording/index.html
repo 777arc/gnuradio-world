@@ -10,6 +10,12 @@
     <meta name="theme-color" content="#20232f" />
     <meta name="description" content="SigMF recording view: spectrogram, time/frequency/IQ plots, annotations and metadata" />
     <title>Recording View</title>
+    <!-- Not a page anyone should reach from a search result: the viewer is
+         framed by the editor, and the recording it shows is addressed by URL
+         fragment, so on its own this renders "No recording selected." -->
+    <meta name="robots" content="noindex, follow" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
     <style>
       /* The viewer is framed inside the editor, so the page itself never scrolls
          sideways and the body carries the theme background from the first paint

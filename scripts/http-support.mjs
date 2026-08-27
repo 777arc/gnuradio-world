@@ -25,6 +25,8 @@ const MIME = {
   // both fetched by the interpreter itself rather than by the page.
   '.whl': 'application/zip',
   '.zip': 'application/zip',
+  // sitemap.xml, which Pages serves as XML and a crawler expects as XML.
+  '.xml': 'application/xml; charset=utf-8',
 };
 
 export function contentType(path) {

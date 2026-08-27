@@ -247,6 +247,8 @@ async function main() {
 <html lang="en">
 <head>
 <meta charset="utf-8" />
+<meta name="robots" content="noindex" />
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 <title>Not found — GNU Radio World</title>
 <style>
   html,body { margin:0; height:100%; font-family:system-ui,Arial,sans-serif;

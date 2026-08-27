@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+The site mark. Deliberately not the wordmark: a 1007x433 lockup is unreadable at
+the 16px Google shows beside a search result, so this is the two motifs the logo
+is built from — GNU Radio's orange broadcast arcs over the blue sine wave that
+underlines "World" — on the app's own chrome colour. Shipped alongside a
+rasterised favicon.ico, which Google's favicon crawler and older browsers want;
+regenerate the raster set from this file with scripts/make-favicons.mjs.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64"
+     role="img" aria-label="GNU Radio World">
+  <rect width="64" height="64" rx="13" fill="#181b26"/>
+  <g fill="none" stroke="#ff6905" stroke-width="5" stroke-linecap="round">
+    <path d="M22.5 27.5a13.5 13.5 0 0 1 19 0"/>
+    <path d="M13.5 19.5a26 26 0 0 1 37 0"/>
+  </g>
+  <circle cx="32" cy="36.5" r="4.5" fill="#ff6905"/>
+  <path d="M7 52q7.5-11 15 0t15 0 8 0" fill="none" stroke="#3399ff"
+        stroke-width="5" stroke-linecap="round"/>
+</svg>

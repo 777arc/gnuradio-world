@@ -1,0 +1,11 @@
+# Everything served from this origin is public. The two Disallow rules are about
+# crawl budget, not secrecy: /runner/build/ is ~20 MB of WebAssembly and its
+# side modules, and /pyodide/ is a whole CPython distribution. Neither has
+# anything to index, and neither is fetched while rendering the editor — the
+# runner is only loaded once someone presses Run.
+User-agent: *
+Allow: /
+Disallow: /runner/build/
+Disallow: /pyodide/
+
+Sitemap: https://gnuradioworld.com/sitemap.xml
