@@ -1431,12 +1431,20 @@ function setZoom(next: number) {
 // its reader a flowgraph already sized to the frame. A query parameter for the
 // same reason `embed` is one: it is a property of how the page was opened, not
 // of which flowgraph the fragment names, and the app never rewrites it as the
-// reader zooms. Always a percentage — "5" and "5%" both mean 5% — so there is no
-// value where the meaning flips; setZoom clamps whatever comes out to the same
-// range the toolbar buttons reach.
+// reader zooms. Otherwise always a percentage — "5" and "5%" both mean 5% — so
+// there is no value where the meaning flips; setZoom clamps whatever comes out
+// to the same range the toolbar buttons reach.
+//
+// `fit` is the one word it takes instead of a number, doing what Ctrl+9 does.
+// A percentage cannot serve an embed that does not know what it is framing: the
+// generated example pages (editor/gen/gen_example_pages.mjs) put every one of 79
+// flowgraphs into the same 16:10 frame, and they range from three blocks to
+// forty. Applied here with the rest, i.e. after the flowgraph has loaded, which
+// is the whole reason it can measure anything.
 function applyZoomFromUrl() {
   const raw = new URLSearchParams(location.search).get('zoom');
   if (raw === null) return;
+  if (raw.trim().toLowerCase() === 'fit') { zoomToFitWhenMeasurable(); return; }
   const value = Number(raw.trim().replace(/%$/, ''));
   if (!Number.isFinite(value) || value <= 0) { log(`ignoring ?zoom=${raw}: not a positive number`); return; }
   setZoom(value / 100);
@@ -1466,7 +1474,7 @@ function applyCenterFromUrl() {
 // never scales *up* past 100%: a two-block flowgraph blown up to fill the pane
 // reads as a mistake, and setZoom's own floor keeps a huge one legible rather
 // than fitting it at any cost.
-function zoomToFit() {
+function zoomToFit(): boolean {
   let right = 0, bottom = 0;
   for (const inst of state.insts) {
     if (canvasBlockHidden(inst)) continue;
@@ -1475,11 +1483,31 @@ function zoomToFit() {
     right = Math.max(right, inst.x + Math.max(w, comment.width));
     bottom = Math.max(bottom, inst.y + h + comment.height);
   }
-  if (!right || !bottom) { log('nothing to fit'); return; }
+  if (!right || !bottom) { log('nothing to fit'); return false; }
   const pane = el('canvasWrap').getBoundingClientRect();
   const margin = 16;
+  // A pane too small to hold the margin makes every ratio below zero or
+  // negative, and setZoom would clamp that to ZOOM_MIN -- a flowgraph shrunk to
+  // 1% and apparently blank. It happens whenever the canvas is measured while
+  // hidden, which a click-to-load embed keeps it until its reader presses Load.
+  // Decline instead, and let the caller decide whether to wait.
+  if (pane.width <= margin || pane.height <= margin) return false;
   setZoom(Math.min(1, (pane.width - margin) / right, (pane.height - margin) / bottom));
   el('canvasScroll').scrollTo(0, 0);
+  return true;
+}
+// `?zoom=fit` on a canvas that cannot be measured yet. Rather than poll for a
+// fixed while -- a click-to-load embed stays display:none until someone presses
+// Load, which may be never -- wait for the pane to acquire a size and fit then.
+function zoomToFitWhenMeasurable() {
+  if (zoomToFit()) return;
+  const wrap = el('canvasWrap');
+  const observer = new ResizeObserver(() => {
+    if (wrap.getBoundingClientRect().width <= 0) return;
+    observer.disconnect();
+    zoomToFit();
+  });
+  observer.observe(wrap);
 }
 // ---- Options block: the singleton flowgraph-metadata block (GRC-style) ----
 // Every flowgraph has exactly one, holding title/author/copyright/description.

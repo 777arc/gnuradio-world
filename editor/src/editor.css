@@ -473,9 +473,20 @@ button:hover { filter:brightness(1.15); }
 .ex-list { padding:10px; display:flex; flex-direction:column; gap:7px; }
 /* the copy-link button overlays the example button, so they are siblings */
 .ex-row { position:relative; }
+/* An anchor to the example's own page under /examples/, styled as the card it
+   has always looked like: font and text-align no longer come from the generic
+   button rule, and the underline has to go. */
 .ex-item { text-align:left; background:#242a3b; border:1px solid #333a4d; border-radius:6px;
-    padding:8px 36px 8px 13px; cursor:pointer; color:#dce3f5; display:block; width:100%; }
+    padding:8px 36px 8px 13px; cursor:pointer; color:#dce3f5; display:block; width:100%;
+    font:inherit; text-decoration:none; }
 .ex-item:hover { background:#2c3448; border-color:#46507a; filter:none; }
+/* An example whose .grc would not parse: nothing to load and no page to visit. */
+.ex-item.disabled { cursor:not-allowed; color:#5c637a; }
+.ex-item.disabled:hover { background:#242a3b; border-color:#333a4d; }
+/* The link to the generated catalog, under the examples search box. */
+.ex-browse { padding:0 8px 8px; font-size:13px; }
+.ex-browse a { color:#7ab7ff; text-decoration:none; }
+.ex-browse a:hover { text-decoration:underline; }
 /* the classes set display:block, which would otherwise beat the UA [hidden] rule */
 .ex-item[hidden], .ex-row[hidden] { display:none; }
 .ex-directory[hidden] { display:none; }

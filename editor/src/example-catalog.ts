@@ -74,6 +74,39 @@ export function exampleUrl(file: string, href = location.href): string {
   return `${base}#example=${encodeURIComponent(file.replace(/\.grc$/, ''))}`;
 }
 
+// ---- the static page generated for each example -----------------------------
+// Every example also exists as a real document under /examples/, generated at
+// build time by editor/gen/gen_example_pages.mjs. That page is what a search
+// engine can index: the fragment above is not a URL a crawler can distinguish
+// from the bare editor, so without it the 79 examples are invisible to search.
+//
+// The slug hyphenates, because a search engine splits words on a hyphen and
+// joins them across an underscore -- `fm_loopback` reads as one token,
+// `fm-loopback` as two. The .grc keeps its own name; this mapping is the only
+// place the two spellings meet, which is why both the generator and the palette
+// call it rather than each building the path themselves.
+export function exampleSlug(segment: string): string {
+  return segment.toLowerCase().replace(/_/g, '-').replace(/[^a-z0-9-]+/g, '-')
+    .replace(/-+/g, '-').replace(/^-|-$/g, '');
+}
+
+/** 'analog/fm_loopback.grc' -> 'analog/fm-loopback' */
+export function examplePageSlug(path: string): string {
+  return normalizeExamplePath(path).replace(/\.grc$/, '').split('/').map(exampleSlug).join('/');
+}
+
+/** 'analog/fm_loopback.grc' -> '/examples/analog/fm-loopback/' */
+export function examplePageUrl(path: string): string {
+  return `/examples/${examplePageSlug(path)}/`;
+}
+
+/** The category page an example belongs to, or the hub for a top-level one. */
+export function exampleCategoryUrl(path: string): string {
+  const parts = examplePageSlug(path).split('/');
+  parts.pop();
+  return parts.length ? `/examples/${parts.join('/')}/` : '/examples/';
+}
+
 export function buildExampleTree(files: string[]): ExampleDirectory {
   const root: ExampleDirectory = { name: '', directories: new Map(), files: [] };
   for (const file of files) {

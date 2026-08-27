@@ -263,6 +263,7 @@ async function main() {
   <h1>404</h1>
   <p>Nothing here.</p>
   <p><a href="/">Open the flowgraph editor</a></p>
+  <p><a href="/examples/">Browse the example flowgraphs</a></p>
 </main>
 </body>
 </html>

@@ -135,7 +135,13 @@ carry it, and each has a reason it is where it is:
 
 `?zoom=75` opens the canvas at 75% instead of 100%, which is what a link or an
 embed wants when its frame is smaller (or larger) than the flowgraph was drawn
-for. Always a percentage, with or without the `%` — `?zoom=75` and `?zoom=75%`
+for. `?zoom=fit` is the exception to the rule below: it does what Ctrl+9 does,
+scaling until the whole flowgraph fits the pane (never above 100%). That is what
+an embed wants when it does not know what it is framing — the generated example
+pages under `/examples/` put flowgraphs of three blocks and of forty into the
+same frame, and no percentage suits both.
+
+Otherwise always a percentage, with or without the `%` — `?zoom=75` and `?zoom=75%`
 mean the same thing, and so does `?zoom=5` (5%) or `?zoom=500` (500%, then
 clamped) — there is no factor spelling and no value where the meaning flips.
 Values outside the editor's own `ZOOM_MIN`/`ZOOM_MAX` (1%–250%) range are

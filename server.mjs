@@ -44,16 +44,30 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(200);
       return res.end(JSON.stringify(files));
     }
-    if (urlPath.endsWith('/')) urlPath += 'index.html';
-    const direct = normalize(join(root, urlPath));
-    if (!direct.startsWith(root)) { res.writeHead(403); return res.end('forbidden'); }
+    // A directory is served by its index.html with or without the trailing
+    // slash. Pages 308-redirects the slashless form; matching that here is what
+    // keeps /examples/analog/fm-loopback -- the generated example pages, linked
+    // with a slash and typed without one -- from 404ing only in development.
+    const candidates = urlPath.endsWith('/')
+      ? [urlPath + 'index.html']
+      : [urlPath, urlPath + '/index.html'];
     // The editor is served at the site root, matching the deployed layout
     // (assemble-site.mjs copies editor/dist to the top of the site). Anything
     // that isn't a file under the repository root resolves against editor/dist/, which
     // is where index.html, assets/ and blocks.json live.
-    const filePath = await isFile(direct)
-      ? direct
-      : normalize(join(root, 'editor', 'dist', urlPath));
+    const bases = [root, join(root, 'editor', 'dist')];
+    let filePath = null;
+    for (const candidate of candidates) {
+      for (const base of bases) {
+        const resolved = normalize(join(base, candidate));
+        if (!resolved.startsWith(root)) { res.writeHead(403); return res.end('forbidden'); }
+        filePath ??= await isFile(resolved) ? resolved : null;
+      }
+      if (filePath) break;
+    }
+    // Nothing matched: fall through with the plain editor/dist path so the read
+    // below fails and the 404 handler answers, as it always has.
+    filePath ||= normalize(join(root, 'editor', 'dist', candidates[0]));
     res.setHeader('Content-Type', contentType(filePath));
     // HEAD (used by the editor's debug dialog to read wasm sizes): stat only,
     // report Content-Length, send no body.

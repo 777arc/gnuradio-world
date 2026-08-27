@@ -1,0 +1,117 @@
+/* The generated example pages under /examples/ (editor/gen/gen_example_pages.mjs).
+   A sibling of legal.css: same palette, same header, same measure — these pages
+   are the site's other static documents, and a reader arriving from a search
+   result should land somewhere that plainly belongs to the app it links into.
+   Wider than legal.css, because a page here carries an embedded editor and a
+   block table rather than a column of prose. */
+:root {
+  color-scheme: dark;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #e6e9f0;
+  background: #1e2230;
+}
+
+* { box-sizing: border-box; }
+
+body { margin: 0; min-height: 100vh; background: #1e2230; line-height: 1.6; }
+
+header { border-bottom: 1px solid #333a4d; background: #181b26; }
+header a {
+  display: inline-flex; align-items: center; padding: 10px 16px;
+  color: #e6e9f0; text-decoration: none;
+}
+header img { display: block; width: auto; height: 48px; }
+
+main { width: min(980px, calc(100% - 32px)); margin: 32px auto 80px; }
+
+h1, h2 { line-height: 1.25; color: #fff; }
+h1 { margin: 0 0 6px; font-size: clamp(1.8rem, 4.5vw, 2.5rem); }
+h2 { margin-top: 2.4rem; font-size: 1.3rem; }
+a { color: #7ab7ff; }
+
+/* Breadcrumb. A real trail, so the category and hub pages are one click away
+   from every leaf and a crawler can walk back up. */
+.crumbs { margin: 0 0 18px; font-size: .92rem; color: #9ca8c5; }
+.crumbs a { text-decoration: none; }
+.crumbs a:hover { text-decoration: underline; }
+.crumbs span { margin: 0 7px; color: #5c637a; }
+
+.lede { margin: 0 0 22px; font-size: 1.15rem; color: #c9d3e8; }
+
+/* Author / block count / source file. A definition list rather than prose: the
+   values are what they are, and a reader scanning for "how big is this" should
+   not have to read a sentence. */
+.facts {
+  display: flex; flex-wrap: wrap; gap: 8px 26px; margin: 0 0 26px;
+  padding: 0; list-style: none; font-size: .93rem; color: #9ca8c5;
+}
+.facts b { color: #dce3f5; font-weight: 600; }
+.facts code { color: #c9d3e8; }
+
+/* The embedded editor. Framed with ?embed=1&click_to_load=1, so nothing but a
+   2 kB bootstrap is fetched until the reader presses Load — the page stays
+   light for someone who only wanted to read about the flowgraph. */
+.embed {
+  position: relative; margin: 0 0 10px; border: 1px solid #333a4d;
+  border-radius: 8px; overflow: hidden; background: #1e2230;
+  aspect-ratio: 16 / 10;
+}
+.embed iframe { display: block; width: 100%; height: 100%; border: 0; }
+.embed-note { margin: 0 0 26px; font-size: .88rem; color: #9ca8c5; }
+
+.actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 0 0 8px; }
+.actions a {
+  display: inline-block; padding: 9px 18px; border-radius: 6px;
+  border: 1px solid #46507a; background: #2f3650; color: #e6e9f0;
+  text-decoration: none; font-weight: 600;
+}
+.actions a.primary { background: #2e7d46; border-color: #3fae63; }
+.actions a:hover { filter: brightness(1.15); }
+
+/* Blocks used. The page's substance: what a reader searching for a block name
+   is actually looking for, and the one part that differs between every example. */
+table { width: 100%; border-collapse: collapse; margin: 12px 0 0; font-size: .95rem; }
+th, td { padding: 8px 12px; text-align: left; border-bottom: 1px solid #2c3346; }
+th { color: #9ca8c5; font-weight: 600; font-size: .85rem; text-transform: uppercase;
+     letter-spacing: .04em; }
+td.count { color: #9ca8c5; width: 1%; white-space: nowrap; }
+td.module code { color: #9ca8c5; font-size: .88rem; }
+
+.notes { margin: 12px 0 0; padding: 0 0 0 18px; }
+.notes li { color: #c9d3e8; }
+
+/* The .grc itself, behind a <details>: unique indexable text on every page, and
+   genuinely the thing a GNU Radio user wants to see. */
+details { margin-top: 14px; border: 1px solid #333a4d; border-radius: 8px;
+          background: #181b26; }
+summary { padding: 12px 16px; cursor: pointer; color: #dce3f5; font-weight: 600; }
+summary:hover { color: #fff; }
+pre {
+  margin: 0; padding: 0 16px 16px; overflow-x: auto; font-size: .85rem;
+  line-height: 1.5; color: #c9d3e8;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+/* The listing shared by the hub and the category pages. */
+.cards { display: grid; gap: 12px; margin: 14px 0 0; padding: 0; list-style: none;
+         grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+.cards a {
+  display: block; height: 100%; padding: 13px 15px; border: 1px solid #333a4d;
+  border-radius: 7px; background: #242a3b; color: #dce3f5; text-decoration: none;
+}
+.cards a:hover { background: #2c3448; border-color: #46507a; }
+.cards strong { display: block; color: #fff; font-size: 1.02rem; }
+.cards span { display: block; margin-top: 4px; font-size: .89rem; color: #9ca8c5; }
+
+.siblings { margin-top: 2.4rem; padding-top: 18px; border-top: 1px solid #333a4d;
+            display: flex; flex-wrap: wrap; gap: 8px 26px; font-size: .93rem; }
+
+footer { margin-top: 48px; padding-top: 18px; border-top: 1px solid #333a4d;
+         color: #9ca8c5; font-size: .93rem; }
+footer a + a { margin-left: 16px; }
+
+@media (max-width: 600px) {
+  main { margin-top: 22px; }
+  header img { height: 38px; }
+  .embed { aspect-ratio: 4 / 5; }
+}

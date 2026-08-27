@@ -27,3 +27,11 @@ __pycache__/
 # committed copy was never what shipped -- CI regenerates both first either way.
 /editor/public/blocks.json
 /runner/generated_blocks.json
+
+# The static page per example flowgraph, and the sitemap listing them, rebuilt
+# by `npm run examples` from example_flowgraphs/. Generated for the same reason
+# as blocks.json: they are derived from files already in the tree, and a
+# committed copy would put 80 regenerated documents in the diff of every example
+# change. See editor/gen/gen_example_pages.mjs.
+/editor/public/examples/
+/editor/public/sitemap.xml

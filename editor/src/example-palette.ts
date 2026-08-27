@@ -3,6 +3,7 @@ import {
   buildExampleTree,
   encodeExamplePath,
   exampleFileName,
+  examplePageUrl,
   exampleTreeCount,
   exampleUrl,
   summarizeExampleFlowgraph,
@@ -126,13 +127,34 @@ export function createExamplePalette(deps: ExamplePaletteDeps) {
     };
     applyExampleFilter = refresh;
   
-    status.remove(); panel.append(searchBar, bar, list, noMatch);
+    // The way to the generated example pages from inside the app. Every row is
+    // already a link to one, but those only exist once the palette has rendered;
+    // this is here from the first paint and is the entry a reader (or a crawler)
+    // finds without opening a directory.
+    const browse = document.createElement('div'); browse.className = 'ex-browse';
+    const browseLink = document.createElement('a');
+    browseLink.href = '/examples/';
+    browseLink.target = '_blank';
+    browseLink.rel = 'noopener noreferrer';
+    browseLink.textContent = 'Browse all examples ↗';
+    browseLink.title = 'Open the example flowgraph catalog in a new tab';
+    browse.append(browseLink);
+
+    status.remove(); panel.append(searchBar, browse, bar, list, noMatch);
     exampleEntries.length = 0;
     const addExample = (file: string, container: HTMLElement) => {
-      // A row, not just the button, because the copy-link button sits on top of it
-      // and a button cannot contain another button.
+      // A row, not just the entry, because the copy-link button sits on top of it
+      // and neither a button nor an anchor may contain another button.
       const row = document.createElement('div'); row.className = 'ex-row';
-      const item = document.createElement('button'); item.className = 'ex-item';
+      // An anchor, not a button, and it really points at the example's own page
+      // under /examples/ (editor/gen/gen_example_pages.mjs). A plain click still
+      // loads the flowgraph in place -- the handler below cancels the
+      // navigation -- but ctrl/⌘/middle-click open the page in a tab, "copy link
+      // address" yields something worth pasting, and a crawler rendering the
+      // editor finds a real link to all 79 of them. A <button> offered none of
+      // that.
+      const item = document.createElement('a'); item.className = 'ex-item';
+      item.href = examplePageUrl(file);
       const title = document.createElement('div'); title.className = 'ex-title';
       title.textContent = exampleFileName(file).replace(/\.grc$/, '');
       item.append(title);
@@ -171,7 +193,11 @@ export function createExamplePalette(deps: ExamplePaletteDeps) {
         const meta = document.createElement('div'); meta.className = 'ex-meta';
         meta.textContent = `${file} · ${n} block${n === 1 ? '' : 's'}`;
         item.append(meta);
-        item.onclick = () => {
+        item.onclick = e => {
+          // Let the browser have the modified clicks: they are the ones a reader
+          // means as "open the page", not "load this into the canvas".
+          if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+          e.preventDefault();
           try {
             closePaletteDrawer();
             trustExampleJavaScript(fg);
@@ -186,7 +212,8 @@ export function createExamplePalette(deps: ExamplePaletteDeps) {
         // An unparseable example can never match a block filter, but it must stop
         // counting as pending or the banner claims it is still loading forever.
         entry.blockIds = new Set(); refresh();
-        item.disabled = true; title.textContent = `${file} (failed to load)`;
+        item.classList.add('disabled'); item.removeAttribute('href');
+        title.textContent = `${file} (failed to load)`;
         log(`example "${file}" not loaded: ${err}`);
       });
     };

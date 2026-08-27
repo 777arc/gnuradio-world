@@ -25,7 +25,9 @@ assert.match(html, /\.palsearch-bar \{[^}]*background:#[0-9a-f]{6}[^}]*\}/,
 // Each tab builds its own box through the helper and puts it first in the panel.
 for (const [placeholder, append] of [
   ['Search blocks…', /blocksPanel\.append\(searchBar, tree\)/],
-  ['Search examples…', /panel\.append\(searchBar, bar, list, noMatch\)/],
+  // The examples tab also carries a link to the generated /examples/ catalog,
+  // between the search box and the list; the box is still what comes first.
+  ['Search examples…', /panel\.append\(searchBar, browse, bar, list, noMatch\)/],
   ['Search recordings…', /panel\.append\(searchBar, list, noMatch, moreResults\)/],
 ]) {
   assert.ok(source.includes(placeholder), `no search box placeholder "${placeholder}"`);

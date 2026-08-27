@@ -12,7 +12,7 @@
 GNU Radio, entirely in your browser — explore the open-source SDR ecosystem with zero install!
 
 - Includes popular out-of-tree modules (OOTs)
-- Many example flowgraphs
+- Many example flowgraphs — [browse them at gnuradioworld.com/examples](https://gnuradioworld.com/examples/), each one runnable right on its page
 - Example IQ recordings of signals to test them with
 - Support for RTL-SDR, PlutoSDR, HackRF
 - On-demand fetching of WebAssembly modules and IQ recordings, to keep the load time short
