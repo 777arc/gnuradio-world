@@ -260,6 +260,25 @@ export function createRecordingPalette(deps: RecordingPaletteDeps) {
     const annotated = checkControl('Annotated');
     controls.append(category, band, collection, dataFormat, annotated, group, sort);
 
+    // The catalog's seven facets are taller than the list they filter, so the
+    // sticky header opens with the search box alone and keeps the rest behind a
+    // disclosure whose badge reports how many facets are narrowing the results.
+    const filterToggle = document.createElement('button');
+    filterToggle.type = 'button'; filterToggle.className = 'rec-filter-toggle';
+    filterToggle.setAttribute('aria-expanded', 'false');
+    const filterCaret = document.createElement('span'); filterCaret.className = 'rec-filter-caret';
+    filterCaret.textContent = '▸';
+    const filterLabel = document.createElement('span'); filterLabel.textContent = 'Filters & sorting';
+    const filterBadge = document.createElement('span');
+    filterBadge.className = 'rec-filter-badge'; filterBadge.hidden = true;
+    filterToggle.append(filterCaret, filterLabel, filterBadge);
+    controls.hidden = true;
+    filterToggle.onclick = () => {
+      controls.hidden = !controls.hidden;
+      filterToggle.setAttribute('aria-expanded', String(!controls.hidden));
+      filterCaret.textContent = controls.hidden ? '▸' : '▾';
+    };
+
     const catalogStatus = document.createElement('div'); catalogStatus.className = 'rec-catalog-status';
     const resultCount = document.createElement('span');
     const clear = document.createElement('button'); clear.type = 'button'; clear.className = 'rec-clear';
@@ -270,7 +289,7 @@ export function createRecordingPalette(deps: RecordingPaletteDeps) {
     const noMatch = document.createElement('div'); noMatch.className = 'ex-empty'; noMatch.hidden = true;
     const moreResults = document.createElement('button');
     moreResults.type = 'button'; moreResults.className = 'rec-show-more'; moreResults.hidden = true;
-    status.remove(); searchBar.append(controls, catalogStatus);
+    status.remove(); searchBar.append(filterToggle, controls, catalogStatus);
     panel.append(searchBar, list, noMatch, moreResults);
 
     const selectOf = (label: HTMLLabelElement) => label.querySelector('select')!;
@@ -305,9 +324,11 @@ export function createRecordingPalette(deps: RecordingPaletteDeps) {
         return byName(a.title, b.title) || byName(a.name, b.name);
       });
 
-      const hasFilters = !!query || !!categoryValue || !!bandValue || !!collectionValue ||
-        !!formatValue || checkOf(annotated).checked;
-      clear.hidden = !hasFilters;
+      const activeFilters = [categoryValue, bandValue, collectionValue, formatValue]
+        .filter(Boolean).length + (checkOf(annotated).checked ? 1 : 0);
+      filterBadge.hidden = !activeFilters;
+      filterBadge.textContent = String(activeFilters);
+      clear.hidden = !query && !activeFilters;
       resultCount.textContent = `Showing ${Math.min(visibleLimit, filtered.length)} of ` +
         `${filtered.length} matching · ${recordings.length} total`;
       noMatch.textContent = query
