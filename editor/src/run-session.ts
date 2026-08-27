@@ -45,6 +45,8 @@ export interface RunSessionDeps {
   validateGraph(): ValidationIssue[];
   select(uid: string | null): void;
   askToRunUnpacedFlowgraph(): Promise<boolean>;
+  /** The dialog's own predicate, for a caller that cannot show the dialog. */
+  isUnpacedFlowgraph(): boolean;
   usbRadios: UsbRadio[];
   showUsbPreparationProblem(problem: Exclude<UsbPreparationProblem, string>): void;
   sigmfOutputDirsByToken: Map<string, FileSystemDirectoryHandle>;
@@ -126,7 +128,19 @@ function requestRunnerShutdown(deps: RunSessionDeps, frame: HTMLIFrameElement): 
   });
 }
 
-export async function runFlowgraph(deps: RunSessionDeps, session: RunSessionState): Promise<string | null> {
+/**
+ * `unattended` means nobody is at the keyboard to answer a question: Graham's
+ * runs, and anything else automated. A gate that exists to ask a human is then
+ * *declined* rather than shown, because a modal waiting for a click that will
+ * never come does not stop a run — it hangs whoever asked for one, with no
+ * timeout anywhere on the path. Declining reports through the same
+ * `cannot run:` line every other refusal here uses, which the caller already
+ * reads back and can act on.
+ */
+export interface RunOptions { unattended?: boolean }
+
+export async function runFlowgraph(deps: RunSessionDeps, session: RunSessionState,
+                                   options: RunOptions = {}): Promise<string | null> {
   const { state, trainingSession: getTrainingSession, log, validateGraph, select, askToRunUnpacedFlowgraph,
     usbRadios: USB_RADIOS, showUsbPreparationProblem, sigmfOutputDirsByToken,
     newLocalFileToken, unacceptedJsSources, askToRunJavaScript,
@@ -160,7 +174,15 @@ export async function runFlowgraph(deps: RunSessionDeps, session: RunSessionStat
   if (!state.insts.some(i => i.id !== OPTIONS_ID && i.id !== LAYOUT_ID)) {
     log('nothing to run — add some blocks'); return null;
   }
-  if (!await askToRunUnpacedFlowgraph()) {
+  if (options.unattended) {
+    // The same condition the dialog below asks about, answered without one.
+    if (deps.isUnpacedFlowgraph()) {
+      log('cannot run: the flowgraph has no rate limit — add a Throttle ' +
+          '(blocks_throttle2) at the highest sample rate in it, or a naturally ' +
+          'paced block such as an audio device or an SDR');
+      return null;
+    }
+  } else if (!await askToRunUnpacedFlowgraph()) {
     log('cancelled: the flowgraph has no rate limit');
     return null;
   }

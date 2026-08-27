@@ -206,6 +206,16 @@ try {
   // lands on an SDR source looks like a defect.
   const unauthorized = tools.some(i => /run_flowgraph/.test(i.summary) &&
     /not authorized/.test(i.result));
+  // A refusal the model then *fixed* is the mechanism working, not a defect:
+  // the editor declines a run, says why in the same line the tool result
+  // carries, and the model corrects the graph and runs it. Judging every
+  // `cannot run:` line as a failure marks that as broken -- and it is the only
+  // way an unattended run can ever be told that something needs a human, so
+  // scoring it that way pushes back towards the alternative, which was waiting
+  // on a dialog forever. What still fails is a refusal that *stands*: the turn
+  // ended with no passing run behind it.
+  const ranSuccessfully = String(runner.verdict).includes('RUNNER_PASS');
+  const unresolvedRefusals = ranSuccessfully || unauthorized ? [] : refusals;
 
   console.log(`\n=== TURN: ${seconds}s · ${tools.length} tool calls · usage ${scraped.cost} ===\n`);
   for (const item of scraped.items) {
@@ -239,15 +249,18 @@ try {
   if (failed.length) for (const f of failed) console.log(`     ! ${f.summary}: ${short(f.result, 160)}`);
   console.log(`  run attempted:     ${attemptedRun}` +
               (unauthorized ? ' (refused: needs hardware authorization, which a headless run cannot give)' : ''));
-  console.log(`  editor refusals:   ${refusals.length}`);
+  console.log(`  editor refusals:   ${refusals.length}` +
+              (refusals.length && !unresolvedRefusals.length
+                ? ' (overcome: a later run passed)' : ''));
   for (const line of refusals) console.log(`     ! ${line.trim()}`);
 
-  ok = failed.length === 0 && refusals.length === 0 &&
+  ok = failed.length === 0 && unresolvedRefusals.length === 0 &&
        (!attemptedRun || unauthorized ||
         (String(runner.verdict).includes('RUNNER_PASS') && runner.idle.length === 0));
 
   result = { prompt, model: dock.model, fresh, seconds: Number(seconds), usage: scraped.cost,
     tools: tools.length, toolErrors: failed.length, attemptedRun, unauthorized, refusals,
+    unresolvedRefusals,
     runner, blocksBefore: before, transcript: scraped.items,
     blocks: scraped.blocks, log: scraped.log, ok };
 

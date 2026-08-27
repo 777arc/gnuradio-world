@@ -192,6 +192,31 @@ function runReport(first: RawStats, last: RawStats, consoleLines: string[],
   };
 }
 
+/**
+ * How long to wait for the editor to actually start a run before giving up on
+ * it. Everything on that path is normally immediate, so this is a backstop
+ * against one thing: a gate that opens a dialog and waits for a click. An
+ * unattended run declines the ones it can answer itself (see `RunOptions` in
+ * run-session.ts), but a review a human is genuinely meant to read — the
+ * JavaScript one — legitimately waits, and waiting *forever* is what must not
+ * happen: it hangs the turn with no message, which is indistinguishable from
+ * the model having stopped. Generous enough to read a short block of code, and
+ * the dialog stays open afterwards so a later click still runs the graph.
+ */
+const RUN_START_TIMEOUT_MS = 180_000;
+
+const startTimeout = (signal?: AbortSignal) => new Promise<'timeout'>((resolve, reject) => {
+  const abort = () => {
+    window.clearTimeout(timer);
+    reject(new DOMException('The operation was aborted.', 'AbortError'));
+  };
+  const timer = window.setTimeout(() => {
+    signal?.removeEventListener('abort', abort);
+    resolve('timeout');
+  }, RUN_START_TIMEOUT_MS);
+  signal?.addEventListener('abort', abort, { once: true });
+});
+
 let runQueue: Promise<unknown> = Promise.resolve();
 
 /** Drives the editor's real runner and observes it without stopping it. */
@@ -204,9 +229,18 @@ export function runFlowgraph(
     const unsubscribe = deps.subscribeLogs(batch => lines.push(...batch));
     try {
       const authorization = await deps.authorization();
-      const token = authorization
-        ? await deps.requestAuthorization(authorization, () => deps.run(), signal)
-        : await deps.run();
+      const started = authorization
+        ? deps.requestAuthorization(authorization, () => deps.run(), signal)
+        : deps.run();
+      const token = await Promise.race([started, startTimeout(signal)]);
+      if (token === 'timeout') return {
+        started: false,
+        error: 'the editor has not started the flowgraph: it is waiting for the ' +
+          'user to answer something on screen. Say what you were trying to run ' +
+          'and ask them to look at the editor.',
+        console: lines.slice(0, 50),
+        still_running: false,
+      };
       if (!token) return {
         started: false,
         error: [...lines].reverse().find(line => line.startsWith('cannot run:')) ||

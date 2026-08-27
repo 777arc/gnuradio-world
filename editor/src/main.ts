@@ -142,6 +142,7 @@ import {
   stopFlowgraph,
   takeRecordingFiles,
   updateRunningCanvasState as updateRunCanvasState,
+  type RunOptions,
   type RunSessionDeps,
   type RunSessionState,
   type RunnerInputFile,
@@ -3458,6 +3459,13 @@ const runSessionDeps: RunSessionDeps = {
   validateGraph,
   select,
   askToRunUnpacedFlowgraph,
+  // Whether the dialog above *would be shown*, which is the question an
+  // unattended run has to answer for itself. Gated on the same dismissal, so
+  // there is one rule rather than two: an unattended run declines exactly the
+  // runs a human would have been asked to approve, and a reader who has turned
+  // the warning off has said to let an unpaced graph run.
+  isUnpacedFlowgraph: () => !unpacedRunWarningDismissed() &&
+    shouldWarnAboutUnpacedRun(state.insts, rateLimiterIds()),
   usbRadios: USB_RADIOS,
   showUsbPreparationProblem,
   sigmfOutputDirsByToken,
@@ -3484,8 +3492,8 @@ const runSessionDeps: RunSessionDeps = {
   markCanvasStale: markRunningCanvasStale,
 };
 
-async function run(): Promise<string | null> {
-  return runFlowgraph(runSessionDeps, runSessionState);
+async function run(options: RunOptions = {}): Promise<string | null> {
+  return runFlowgraph(runSessionDeps, runSessionState, options);
 }
 
 function stop(): void {
@@ -4762,7 +4770,9 @@ function aiToolDependencies(): AiReadDeps {
 
 function initializeAiPanel(): void {
   const harness: Omit<HarnessDeps, 'requestAuthorization'> = {
-    run,
+    // Nobody is at the keyboard on Graham's behalf: a run gate that exists to
+    // ask a human is answered rather than shown. See RunOptions.
+    run: () => run({ unattended: true }),
     frame: () => el('runFrame') as HTMLIFrameElement,
     blocks: () => state.insts,
     layout: () => runnerLayout,

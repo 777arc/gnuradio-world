@@ -382,7 +382,19 @@ authoring assistance does not widen the code-execution boundary.
 ## Visible runs and evidence
 
 `run_flowgraph` calls `main.ts`'s `run()` wrapper and never constructs a second
-iframe; the session lifecycle itself lives in `editor/src/run-session.ts`.
+iframe; the session lifecycle itself lives in `editor/src/run-session.ts`. It
+calls it as `run({ unattended: true })`, and that word carries real weight: the
+run path has gates that exist to ask a human, and **a modal waiting for a click
+that will never come does not stop a run — it hangs the turn**, silently and
+without a timeout anywhere on that path. So an unattended run answers the gates
+it can answer for itself. The unpaced-flowgraph confirmation is the one that
+bites: it declines instead, through the same `cannot run:` line every other
+refusal there uses, naming `blocks_throttle2` as the fix — which the harness
+surfaces as the tool's `error`, and the model acts on and runs again. What is
+left is the JavaScript review, which a human is genuinely meant to read, so
+`RUN_START_TIMEOUT_MS` bounds the wait at three minutes and reports that the
+editor is asking the user something. The dialog stays open; a later click still
+runs the graph.
 `run()` returns the unique `recordingToken` embedded in the runner query string.
 Every cross-frame read verifies that query string first and is wrapped for the
 mid-navigation case, so stats from an older run cannot be attributed to a newer
@@ -701,6 +713,14 @@ OPENAI_API_KEY=... node scripts/eval_graham_suite.mjs            # every case
 OPENAI_API_KEY=... node scripts/eval_graham_suite.mjs qpsk-sync  # one of them
 node scripts/eval_graham_suite.mjs --list                        # no model calls
 ```
+
+An **editor refusal only fails a case if it still stands.** The editor declines
+a run it cannot do unattended — an unpaced flowgraph is the common one — and says
+why in the line the tool result carries, so the model can fix the graph and run
+it. A refusal followed by a passing run is that mechanism working; only one the
+turn ended on is a defect. Judging every `cannot run:` line as a failure scores
+the self-correcting path as broken, and the only alternative to refusing is what
+this replaced: waiting on a dialog that nobody was going to click.
 
 A case is more than its prompt, because "the turn finished and the graph ran"
 passes for an answer that ignored half the request. Each carries an `expect`

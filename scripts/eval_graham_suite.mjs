@@ -83,7 +83,11 @@ function judge(item, result) {
   if (expect.run === 'authorized' && !verdict.includes('RUNNER_PASS') && !result.unauthorized)
     notes.push(`the run neither passed nor asked for authorization (${verdict || 'never ran'})`);
   if (result.toolErrors) notes.push(`${result.toolErrors} tool call(s) errored`);
-  for (const refusal of result.refusals || []) notes.push(`editor refused: ${refusal.trim()}`);
+  // Only a refusal that still stands at the end of the turn. One the model was
+  // given, acted on, and ran past is the editor and the model working together
+  // -- see `unresolvedRefusals` in eval_graham_prompt.mjs.
+  for (const refusal of result.unresolvedRefusals || [])
+    notes.push(`editor refused: ${refusal.trim()}`);
 
   return notes;
 }

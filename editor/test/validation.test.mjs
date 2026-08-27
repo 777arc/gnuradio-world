@@ -51,6 +51,20 @@ assert.equal(unpacedRunWarningDismissed(storage), true,
 assert.match(main,
   /if \(!await askToRunUnpacedFlowgraph\(\)\)[\s\S]*?flowgraph has no rate limit/,
   'the visible Run path must await the unpaced-flowgraph confirmation');
+// ...and the unattended path must NOT, because there is nobody to answer it: a
+// modal waiting on a click that never comes hangs whoever asked for the run,
+// with no timeout on that path. Graham's runs go through here.
+assert.match(main,
+  /options\.unattended[\s\S]{0,400}isUnpacedFlowgraph\(\)[\s\S]{0,300}cannot run: the flowgraph has no rate limit/,
+  'an unattended run must decline an unpaced flowgraph instead of opening the dialog');
+assert.match(main, /blocks_throttle2/,
+  'and must name the block that fixes it, since the caller acts on that line');
+assert.match(main,
+  /isUnpacedFlowgraph: \(\) => !unpacedRunWarningDismissed\(\)/,
+  'the unattended predicate must honour the do-not-remind choice, so it declines ' +
+  'exactly the runs a human would have been asked about');
+assert.match(main, /run: \(\) => run\(\{ unattended: true \}\)/,
+  "Graham's run harness must take the unattended path");
 assert.match(main,
   /blockFlags\(block\.flags\)\.includes\('throttle'\)/,
   'the warning must use GNU Radio metadata for Throttle, SDR, and audio blocks');
