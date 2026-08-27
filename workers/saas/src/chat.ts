@@ -28,9 +28,35 @@ const jsonError = (status: number, message: string): Response => Response.json({
   error: { type: status === 402 ? 'insufficient_credits' : 'invalid_request_error', message },
 }, { status });
 
+/**
+ * A screenshot arrives as a base64 data URL inside a message part, and a model
+ * bills it at a flat rate that has nothing to do with how many bytes the encoding
+ * took. Counting those bytes as tokens the way the text below is counted would
+ * hold tens of thousands of tokens against a wallet for one image and refuse a
+ * user with a small balance outright, so image parts are replaced by that flat
+ * rate before the bytes are counted. Generous — the hold is an upper bound, and
+ * settlement always uses the final usage.
+ */
+const IMAGE_TOKENS = 2_000;
+
+const withoutImageData = (messages: unknown): unknown => {
+  if (!Array.isArray(messages)) return messages;
+  return messages.map(message => {
+    const content = (message as { content?: unknown })?.content;
+    if (!Array.isArray(content)) return message;
+    return {
+      ...(message as object),
+      content: content.map(part => (part as { type?: unknown })?.type === 'image_url'
+        ? { type: 'image_url', image_url: { url: 'x'.repeat(IMAGE_TOKENS) } }
+        : part),
+    };
+  });
+};
+
 /** Safe token upper bound for pre-flight holds. Actual billing always uses final usage. */
 export function countInputTokens(messages: unknown, tools: unknown): number {
-  const bytes = new TextEncoder().encode(JSON.stringify({ messages, tools })).byteLength;
+  const bytes = new TextEncoder()
+    .encode(JSON.stringify({ messages: withoutImageData(messages), tools })).byteLength;
   return Math.max(1, bytes);
 }
 

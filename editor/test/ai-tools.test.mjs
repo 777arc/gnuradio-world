@@ -143,6 +143,11 @@ metadata:
   exerciseJsBlock: async args => ({ source_hash: 'exercise', calls: args.calls || [] }),
   saveJsBlock: async (name, id) => ({ installed: true, name, id }),
   runFlowgraph: async () => ({ started: true }),
+  capturePlots: async () => ({
+    dataUrl: 'data:image/png;base64,AAAA', width: 400, height: 300, bytes: 3,
+    widgets: [], notes: [],
+  }),
+  readPlotData: async () => ({ widgets: [] }),
 };
 
 let result = await dispatchAiTool(deps, 'add_block', { id: 'source', name: 'src' });

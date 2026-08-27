@@ -100,7 +100,7 @@ import {
   showSdrSpeedTestDialog,
 } from './sdr-speed-test';
 import type { CatalogEntry } from './ai/catalog';
-import type { AiToolDeps } from './ai/tools';
+import type { AiReadDeps } from './ai/tools';
 import type { HarnessDeps, RunAuthorization } from './ai/harness';
 import { createAiPanel, type AiPanel } from './ai/panel';
 import { TrainingSession, type TrainingProgress } from './training';
@@ -2748,7 +2748,12 @@ if (EMBEDDED) {
 // Properties designer uses, writes the result into the GUI Layout block -- so it
 // is part of the flowgraph and Save keeps it -- and sends it down to be applied
 // live. Nothing restarts: the plots keep plotting while they move.
-interface RunnerWidget { name: string; id: string; col: number; row: number; w: number; h: number }
+interface RunnerWidget {
+  name: string; id: string; col: number; row: number; w: number; h: number;
+  /** Where it is on the Qt canvas, in the iframe's CSS pixels. For cropping a
+   *  screenshot to one plot; absent from an older runner build's report. */
+  rect?: { x: number; y: number; width: number; height: number };
+}
 interface RunnerLayoutReport {
   columns: number; rowHeight: number; arranged: boolean;
   rect: { x: number; y: number; width: number; height: number };
@@ -4449,7 +4454,7 @@ function aiAuthorization(): Promise<RunAuthorization | null> {
   })();
 }
 
-function aiToolDependencies(): Omit<AiToolDeps, 'runFlowgraph'> {
+function aiToolDependencies(): AiReadDeps {
   // list_examples reads every small .grc once to expose its native Options
   // metadata. Keep those texts for a later read_example call in the same dock,
   // and drop only a failed read so a transient response can be retried.
@@ -4760,6 +4765,7 @@ function initializeAiPanel(): void {
     run,
     frame: () => el('runFrame') as HTMLIFrameElement,
     blocks: () => state.insts,
+    layout: () => runnerLayout,
     authorization: aiAuthorization,
     subscribeLogs: subscriber => {
       logSubscribers.add(subscriber);
@@ -4769,6 +4775,12 @@ function initializeAiPanel(): void {
   aiPanel = createAiPanel({
     openDialog, log, systemPrompt: aiSystemPrompt, entries: aiCatalogEntries,
     toolDeps: aiToolDependencies(), harness,
+    // Reading the running window: the same frame the harness watches, and the
+    // widget geometry the runner already reports for the Arrange overlay.
+    capture: {
+      frame: () => el('runFrame') as HTMLIFrameElement,
+      layout: () => runnerLayout,
+    },
     snapshot,
     commitHistory: recordHistory,
     restoreSnapshot: restoreAiSnapshot,

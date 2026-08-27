@@ -150,6 +150,10 @@ function makeDeps(initialSource = '') {
     },
     saveJsBlock: async (name, id) => ({ installed: true, name, id }),
     runFlowgraph: async () => ({ started: true, note: 'Use exercise_js_block for this evaluation.' }),
+    // No runner here, so nothing to look at or read; `capture_plots` is not even
+    // offered, because this harness leaves `vision` off.
+    capturePlots: async () => { throw new Error('there is no running flowgraph in this evaluation'); },
+    readPlotData: async () => { throw new Error('there is no running flowgraph in this evaluation'); },
   };
   return { deps, blocks };
 }

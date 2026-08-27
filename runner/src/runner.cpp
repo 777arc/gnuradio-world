@@ -8,6 +8,7 @@
 #include "grc_lower.hpp"
 #include "gui_layout.hpp"
 #include "js_block.hpp"
+#include "plot_data.hpp"
 #include "flat_flowgraph.h"
 #include <gnuradio/blocks/probe_signal.h>
 #include <gnuradio/top_block.h>
@@ -362,9 +363,18 @@ static void publish_gui_layout(bool force) {
     for (const auto& placed : g_widgets) {
         if (!placed.widget)
             continue;
+        // Two geometries, because two consumers want different things. The tile
+        // is what the Arrange overlay drags; the pixel rectangle is where this
+        // widget actually is on the Qt canvas, which is what a screenshot has to
+        // crop to. Same coordinate system as `rect` above -- Qt's global
+        // coordinates are this iframe's own CSS pixels.
+        const QPoint at = placed.widget->mapToGlobal(QPoint(0, 0));
         widgets.push_back({ { "name", placed.name }, { "id", placed.id },
                             { "col", placed.tile.col }, { "row", placed.tile.row },
-                            { "w", placed.tile.w }, { "h", placed.tile.h } });
+                            { "w", placed.tile.w }, { "h", placed.tile.h },
+                            { "rect", { { "x", at.x() }, { "y", at.y() },
+                                        { "width", placed.widget->width() },
+                                        { "height", placed.widget->height() } } } });
     }
     payload["widgets"] = std::move(widgets);
     std::string text = payload.dump();
@@ -387,6 +397,30 @@ extern "C" EMSCRIPTEN_KEEPALIVE void gr_apply_gui_layout(const char* tiles_json,
     // The tiles changed, so the editor's own overlay geometry is stale; it will
     // not hear about it from the change it just made.
     publish_gui_layout(true);
+}
+
+// The numbers behind the plots, for whoever asked -- the debug panel, a test, or
+// the editor's assistant reading a spectrum rather than looking at one. See
+// plot_data.hpp for the shape and for why Qwt's public dictionary is enough.
+//
+// The result is published onto a global instead of returned as a pointer, for
+// the reason publish_stats() gives: Qt's WASM build does not reliably hand out
+// ccall/cwrap/UTF8ToString on the module, and the raw exports plus a global are
+// the path that always works. The caller reads window.__grplots straight after.
+//
+// Called from the browser main thread, which is the Qt main thread here -- the
+// same thread the sinks repaint on, so this never reads a half-drawn curve.
+extern "C" EMSCRIPTEN_KEEPALIVE void gr_read_plot_data(const char* only,
+                                                       int max_points) {
+    std::vector<plot_data::Target> targets;
+    for (const auto& placed : g_widgets) {
+        if (placed.widget)
+            targets.push_back({ placed.name, placed.id, placed.widget.data() });
+    }
+    const std::string json =
+        plot_data::to_json(targets, only ? std::string(only) : std::string(), max_points);
+    EM_ASM({ if (typeof window !== 'undefined') window.__grplots = UTF8ToString($0); },
+           json.c_str());
 }
 
 // Ask the flowgraph to finish, so a block with something to finish gets to.

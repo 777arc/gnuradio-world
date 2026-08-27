@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
-import { chat } from '../src/chat';
+import { chat, countInputTokens } from '../src/chat';
 import { cfg, env, seedRate, seedUser, sse, testDatabase, type TestDatabase } from './helpers';
 
 const databases: TestDatabase[] = [];
@@ -101,4 +101,21 @@ test('mid-stream upstream error is absorbed, sanitized, and releases the hold', 
   const absorbed = await t.db.prepare('SELECT * FROM absorbed_costs').all();
   assert.equal(absorbed.results.length, 1);
   assert.equal((absorbed.results[0] as any).exact, 0);
+});
+
+// A screenshot is billed at a flat rate per image, not per byte of base64. If
+// the hold counted its bytes the way it counts text, one 64 KB image would
+// reserve tens of thousands of tokens and 402 a user who has plenty of credit.
+test('an image part is held at a flat rate rather than by its encoded size', () => {
+  const text = countInputTokens([{ role: 'user', content: 'hello' }], []);
+  const image = countInputTokens([{
+    role: 'user',
+    content: [
+      { type: 'text', text: 'hello' },
+      { type: 'image_url', image_url: { url: `data:image/png;base64,${'A'.repeat(64_000)}` } },
+    ],
+  }], []);
+  assert.ok(image - text < 10_000,
+    `an image added ${image - text} tokens to the hold; it must be a flat rate`);
+  assert.ok(image > text, 'an image is not free either');
 });

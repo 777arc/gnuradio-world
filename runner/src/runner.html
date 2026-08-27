@@ -1279,6 +1279,26 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
         }
       });
 
+      // The numbers behind this run's plots, read synchronously by whoever holds
+      // this frame. gr_read_plot_data() publishes onto window.__grplots for the
+      // reason the stats snapshot does — Qt's build does not reliably expose
+      // ccall/UTF8ToString on the module — and this hands back what it wrote.
+      // The editor is same-origin, so it calls this directly instead of waiting
+      // on a postMessage round trip.
+      window.__grReadPlotData = (only, maxPoints) => {
+        const instance = window.__grRunnerInstance;
+        if (!instance || typeof instance._gr_read_plot_data !== 'function') return null;
+        const stack = instance.stackSave();
+        try {
+          instance._gr_read_plot_data(
+            instance.stringToUTF8OnStack(String(only || '')),
+            Number(maxPoints) || 32);
+        } finally {
+          instance.stackRestore(stack);
+        }
+        return window.__grplots || null;
+      };
+
       async function init()
       {
         const spinner = document.querySelector('#qtspinner');

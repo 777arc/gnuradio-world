@@ -13,6 +13,13 @@ export interface AiModel {
   contextLength: number;
   promptPrice: number;
   completionPrice: number;
+  /**
+   * Whether this model can be sent an image, which decides whether Graham is
+   * offered `capture_plots` at all. A model that cannot take one would call the
+   * tool and then have the request carrying the answer refused, so this is
+   * derived from what each catalog actually publishes rather than assumed.
+   */
+  vision?: boolean;
 }
 
 export interface ChatToolCall {
@@ -21,9 +28,19 @@ export interface ChatToolCall {
   function: { name: string; arguments: string };
 }
 
+/**
+ * A message is text, or — where a model can see — a list of parts, which is the
+ * only shape an image travels in. A tool result is always a string on this API,
+ * so a tool that answers with a picture reports in its result and the picture
+ * arrives in a user message after it; see `capture_plots` in agent.ts.
+ */
+export type ContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; image_url: { url: string; detail?: 'auto' | 'low' | 'high' } };
+
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';
-  content: string | null;
+  content: string | ContentPart[] | null;
   tool_call_id?: string;
   tool_calls?: ChatToolCall[];
 }
@@ -126,13 +143,18 @@ const OPENAI_NOT_CHAT = /embed|audio|tts|whisper|image|dall-e|moderation|realtim
 // request argument supplied: reasoning_effort" — so the provider's effort is
 // sent through this gate rather than to whatever the user picked.
 const REASONING_MODEL = /^(gpt-5|o\d)/;
+// The OpenAI families that accept an image part. gpt-3.5 and the older text
+// completions do not, and OpenAI's catalog publishes no capability flag to read
+// this from -- so, like OPENAI_CHAT_MODEL above, it is a list of families.
+const OPENAI_VISION_MODEL = /^(gpt-4o|gpt-4\.|gpt-4-turbo|gpt-5|chatgpt-|o[1-9])/;
 
 const openAiModels = (payload: any): AiModel[] =>
   (Array.isArray(payload?.data) ? payload.data : [])
     .map((model: any) => String(model.id))
     .filter((id: string) => OPENAI_CHAT_MODEL.test(id) && !OPENAI_NOT_CHAT.test(id))
     .sort()
-    .map((id: string) => ({ id, name: id, contextLength: 0, promptPrice: 0, completionPrice: 0 }));
+    .map((id: string) => ({ id, name: id, contextLength: 0, promptPrice: 0,
+      completionPrice: 0, vision: OPENAI_VISION_MODEL.test(id) }));
 
 const openRouterModels = (payload: any): AiModel[] =>
   (Array.isArray(payload?.data) ? payload.data : [])
@@ -144,6 +166,9 @@ const openRouterModels = (payload: any): AiModel[] =>
       contextLength: Number(model.context_length || 0),
       promptPrice: Number(model.pricing?.prompt || 0),
       completionPrice: Number(model.pricing?.completion || 0),
+      // OpenRouter publishes this one, so it needs no family list.
+      vision: Array.isArray(model.architecture?.input_modalities) &&
+        model.architecture.input_modalities.includes('image'),
     }));
 
 const creditModels = (payload: any): AiModel[] =>
@@ -153,6 +178,10 @@ const creditModels = (payload: any): AiModel[] =>
     contextLength: 0,
     promptPrice: Number(model.pricing_micros_per_million?.input || 0) / 1_000_000_000_000,
     completionPrice: Number(model.pricing_micros_per_million?.output || 0) / 1_000_000_000_000,
+    // The credits catalog is OpenAI models under their own ids, so the same
+    // family list decides it unless the service says otherwise itself.
+    vision: model.vision === undefined
+      ? OPENAI_VISION_MODEL.test(String(model.id)) : !!model.vision,
   }));
 
 /**

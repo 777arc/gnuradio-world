@@ -281,6 +281,11 @@ jobs:
           # optional runtime into a failed deploy.
           node test/test_python_block.mjs
           node test/test_python_block_editor.mjs
+          # Graham reading the running flowgraph's plots -- as numbers off Qwt,
+          # and as a screenshot of Qt's canvas. No model and no key: the page's
+          # fetch is stubbed. It gates the deploy because a blank readback looks
+          # exactly like a working one everywhere except in the pixels.
+          node test/test_plot_capture.mjs
 
       - name: Save ccache
         if: ${{ inputs.save_ccache }}

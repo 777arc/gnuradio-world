@@ -180,8 +180,9 @@ export const AI_PROVIDERS: Record<ProviderId, AiProvider> = {
     // The prompt ends up at OpenAI either way, so their data controls apply.
     privacyUrl: 'https://platform.openai.com/docs/guides/your-data',
     privacyLabel: 'OpenAI data controls',
-    sends: 'Your prompt, current flowgraph, relevant block metadata, tool results, and console ' +
-      "output captured while diagnosing a run. That content goes to GNU Radio World's proxy, " +
+    sends: 'Your prompt, current flowgraph, relevant block metadata, tool results, console ' +
+      "output, and — when it looks at your plots — a picture of the flowgraph's own " +
+      "output window, captured while diagnosing a run. That content goes to GNU Radio World's proxy, " +
       'which forwards it to OpenAI using a key shared by everyone who uses the site. Usage is ' +
       'rate limited per visitor, and a busy day can use the shared budget up.',
     oauth: false,
@@ -195,6 +196,8 @@ export const AI_PROVIDERS: Record<ProviderId, AiProvider> = {
       contextLength: 0,
       promptPrice: 0,
       completionPrice: 0,
+      // An OpenAI chat model, so it can be shown a screenshot of the plots.
+      vision: true,
     })),
     reportsCost: false,
     modelsNeedKey: false,
@@ -224,7 +227,8 @@ export const AI_PROVIDERS: Record<ProviderId, AiProvider> = {
     privacyUrl: `${OPENROUTER_ORIGIN}/docs/guides/privacy/data-collection`,
     privacyLabel: 'OpenRouter privacy controls',
     sends: 'Your prompt, current flowgraph, relevant block metadata, tool results, and console ' +
-      "output captured while diagnosing a run. That content goes to GNU Radio World's proxy, " +
+      "output captured while diagnosing a run — no screenshots: this model reads text only, " +
+      "so it reads the plots as numbers instead. That content goes to GNU Radio World's proxy, " +
       'which forwards it to OpenRouter using a key shared by everyone who uses the site, and ' +
       'OpenRouter sends it on to whichever provider serves the free model. Free-tier requests ' +
       'are limited per visitor and for the whole site.',
@@ -240,6 +244,9 @@ export const AI_PROVIDERS: Record<ProviderId, AiProvider> = {
       contextLength: 0,
       promptPrice: 0,
       completionPrice: 0,
+      // Text only, so `capture_plots` is not offered here at all; this provider
+      // reads the plots as numbers instead. See aiTools() in tools.ts.
+      vision: false,
     })),
     // A free model prices every request at zero, which is a headline saying
     // nothing; tokens are what distinguishes a cheap turn from a wasteful one.
@@ -270,8 +277,9 @@ export const AI_PROVIDERS: Record<ProviderId, AiProvider> = {
     keysLabel: 'How prepaid credits work',
     privacyUrl: 'https://platform.openai.com/docs/guides/your-data',
     privacyLabel: 'Model-provider data controls',
-    sends: 'Your prompt, current flowgraph, relevant block metadata, tool results, and console ' +
-      "output captured while diagnosing a run. GNU Radio World's billing Worker reserves and " +
+    sends: 'Your prompt, current flowgraph, relevant block metadata, tool results, console ' +
+      "output, and — when it looks at your plots — a picture of the flowgraph's own " +
+      "output window, captured while diagnosing a run. GNU Radio World's billing Worker reserves and " +
       'settles prepaid credits, then sends the bounded request to OpenAI. Neither the Polar ' +
       'token nor the upstream provider key is sent to your browser.',
     oauth: false,
@@ -301,8 +309,9 @@ export const AI_PROVIDERS: Record<ProviderId, AiProvider> = {
     keysLabel: 'Create a dedicated, limited key',
     privacyUrl: `${OPENROUTER_ORIGIN}/docs/guides/privacy/data-collection`,
     privacyLabel: 'OpenRouter privacy controls',
-    sends: 'Your prompt, current flowgraph, relevant block metadata, tool results, and console ' +
-      'output captured while diagnosing a run. OpenRouter sends that content—not your OpenRouter ' +
+    sends: 'Your prompt, current flowgraph, relevant block metadata, tool results, console ' +
+      'output, and — when it looks at your plots — a picture of the flowgraph\'s own ' +
+      'output window, captured while diagnosing a run. OpenRouter sends that content—not your OpenRouter ' +
       'key—to the selected model provider.',
     oauth: true,
     keyless: false,
@@ -335,8 +344,9 @@ export const AI_PROVIDERS: Record<ProviderId, AiProvider> = {
     // pr-security-scan: allow new-outbound-host
     privacyUrl: 'https://platform.openai.com/docs/guides/your-data',
     privacyLabel: 'OpenAI data controls',
-    sends: 'Your prompt, current flowgraph, relevant block metadata, tool results, and console ' +
-      'output captured while diagnosing a run. OpenAI receives that content together with your ' +
+    sends: 'Your prompt, current flowgraph, relevant block metadata, tool results, console ' +
+      'output, and — when it looks at your plots — a picture of the flowgraph\'s own ' +
+      'output window, captured while diagnosing a run. OpenAI receives that content together with your ' +
       'OpenAI key, which authenticates the request.',
     oauth: false,
     keyless: false,

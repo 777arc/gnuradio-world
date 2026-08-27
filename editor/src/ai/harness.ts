@@ -17,6 +17,8 @@ export interface HarnessDeps {
     signal?: AbortSignal,
   ): Promise<string | null>;
   subscribeLogs(subscriber: (lines: string[]) => void): () => void;
+  /** The runner's widget report, for naming the plots this run put on screen. */
+  layout(): { widgets: { name: string }[] } | null;
 }
 
 interface RawStats {
@@ -117,7 +119,8 @@ function sideChannel(frame: HTMLIFrameElement, token: string, name: string): unk
   } catch { return undefined; }
 }
 
-function runReport(first: RawStats, last: RawStats, consoleLines: string[]): Record<string, unknown> {
+function runReport(first: RawStats, last: RawStats, consoleLines: string[],
+                   plots: string[]): Record<string, unknown> {
   const elapsed = Math.max(0.001, Number(last.uptime_s) - Number(first.uptime_s));
   const before = new Map(first.blocks.map(block => [block.name, block]));
   const blocks = last.blocks.map(block => {
@@ -164,6 +167,12 @@ function runReport(first: RawStats, last: RawStats, consoleLines: string[]): Rec
     findings.push(`output buffers are ${(fullestOutput.out_full * 100).toFixed(0)}% full after ${fullestOutput.name}`);
   if (realtime !== null)
     findings.unshift(`realtime factor ${realtime.toFixed(2)}× at ${ref?.name || 'the reference block'}`);
+  // Named here rather than left to the system prompt: the moment a model has a
+  // run report in front of it is the moment it decides whether the counters
+  // answered the question, and this is where it can see that they did not.
+  if (plots.length)
+    findings.push(`plotting: ${plots.map(name => `"${name}"`).join(', ')} — ` +
+      'read_plot_data for what they show as numbers, capture_plots to look at them');
   const jsBlocks = blocks.filter(block => block.javascript).map(block => ({
     name: block.name, id: block.id, ...block.javascript,
   }));
@@ -227,7 +236,8 @@ export function runFlowgraph(
         if (Date.now() > deadline)
           return { started: false, error: 'the runner did not publish diagnostics', console: lines.slice(0, 50), still_running: false };
       }
-      const report = runReport(first!, last!, lines);
+      const report = runReport(first!, last!, lines,
+        (deps.layout()?.widgets || []).map(widget => widget.name));
       const radio = sideChannel(frame, token, '__grUsbStats');
       const files = sideChannel(frame, token, '__grFileStats');
       const audio = sideChannel(frame, token, '__grAudioStats');

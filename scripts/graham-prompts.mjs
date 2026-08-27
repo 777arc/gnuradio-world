@@ -114,6 +114,37 @@ export const CASES = [
       run: 'pass',
     },
   },
+  {
+    name: 'measure-tone',
+    // A question with a right answer in Hz, which no counter in the run report
+    // carries: the graph runs perfectly whatever the frequency is. Reading the
+    // spectrum sink's own numbers is the only way to answer it, and a
+    // screenshot is the expensive way to answer it badly.
+    prompt: 'Build a flowgraph with a signal source at 12 kHz into a frequency sink, ' +
+            'run it, and tell me exactly what frequency the peak is at',
+    fresh: true,
+    expect: {
+      clears: true,
+      tools: ['run_flowgraph', 'read_plot_data'],
+      blocks: ['QT GUI Frequency Sink', 'Signal Source'],
+      run: 'pass',
+    },
+  },
+  {
+    name: 'look-at-constellation',
+    // The other half: a question about shape, where the numbers are a poor
+    // instrument and looking is the point. The welcome example already plots a
+    // constellation, so this is about observing what is there rather than
+    // building anything -- and about not throwing the canvas away to do it.
+    prompt: 'Run the flowgraph that is open and look at the constellation plot — ' +
+            'does it look like a clean BPSK constellation to you?',
+    fresh: false,
+    expect: {
+      clears: false,
+      tools: ['run_flowgraph', 'capture_plots'],
+      run: 'pass',
+    },
+  },
 ];
 
 export const caseNamed = name => CASES.find(item => item.name === name);

@@ -99,13 +99,19 @@ give them, so a tall narrow tile does not look square here and quite different
 in the runner.
 
 **Arrange mode** rearranges a *running* flowgraph. The runner posts
-`gr-widgets` — the tiles as placed, plus the grid's rectangle in the iframe's
-own CSS pixels, which is what Qt's global coordinates are there — and the editor
+`gr-widgets` — the tiles as placed, each widget's own rectangle, plus the grid's
+rectangle, all in the iframe's own CSS pixels, which is what Qt's global
+coordinates are there — and the editor
 draws handles over the live plots **in its own DOM**, on top of the iframe. A
 drag goes through the same `placeTile()`, is written into the block's parameter,
 and is posted back down as `gr-set-layout`; `gr_apply_gui_layout` rebuilds the
 `QGridLayout` in place. Nothing restarts: the plots keep plotting while they
 move.
+
+The per-widget rectangle in that payload is not the overlay's: a tile is what
+the overlay drags. It is there for cropping a *screenshot* of the Qt canvas to
+one named plot, which is how Graham looks at a single sink — see
+[docs/graham.md](graham.md).
 
 Keeping the overlay in the editor rather than building a Qt one is what keeps
 every interactive line in TypeScript, where it is testable under node, and keeps

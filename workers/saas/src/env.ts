@@ -85,7 +85,11 @@ export function runtimeConfig(env: Env): RuntimeConfig {
     products,
     productCredits: new Map(Object.values(products).map(product =>
       [product.productId, product.creditsMicros])),
-    maxChatBodyBytes: positiveInteger(env.MAX_CHAT_BODY_BYTES, 200_000),
+    // Room for the screenshots Graham's capture_plots sends. Each is capped at
+    // 48 KB encoded (~64 KB as base64) and the editor keeps only the newest few
+    // in a conversation, so this bounds a transcript carrying its full
+    // allowance of them plus the text it was already sized for.
+    maxChatBodyBytes: positiveInteger(env.MAX_CHAT_BODY_BYTES, 600_000),
     maxCompletionTokens: positiveInteger(env.MAX_COMPLETION_TOKENS, 50_000),
     holdTtlSeconds: positiveInteger(env.HOLD_TTL_SECONDS, 900),
     purchaseRateLimitPerHour: positiveInteger(env.PURCHASE_RATE_LIMIT_PER_HOUR, 10),

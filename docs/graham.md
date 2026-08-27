@@ -4,7 +4,8 @@ Graham — GNU Radio Assistant for Hams And Mortals — is the editor's AI assis
 free to use on a key the
 project shares, or on one of your own. It can inspect and edit the canvas
 through validated structured operations, run the graph in the normal visible QT
-GUI tab, and read the runner's diagnostics snapshot. Its code
+GUI tab, read the runner's diagnostics snapshot, and both read the running
+flowgraph's plots as numbers and look at them as a picture. Its code
 lives under `editor/src/ai/`; `editor/src/main.ts`, as the composition root,
 supplies the narrow dependency bundle that is allowed to touch editor state.
 Its system prompt is `editor/src/ai/system-prompt.md`, symlinked at the
@@ -413,11 +414,88 @@ PlutoSDR or HackRF sink always adds a Transmit & Run row, even with persistent
 permission, and names its center frequency and sample rate. Transmit approval is
 per run.
 
+## Seeing the plots
+
+The counters prove samples moved; they say nothing about whether they are the
+right samples. Two tools observe the *still-running* graph, and the split between
+them is the whole design — one is cheap and exact, the other is expensive and
+the only one that can answer a question about shape. The run report ends by
+naming the widgets this run put on screen and both tools, because the moment a
+model has a run report in front of it is the moment it decides whether the
+counters answered the question.
+
+**`read_plot_data` returns what the sinks are plotting, as numbers.** Every Qt
+GUI sink here ends in a `QwtPlot`, and Qwt's plot dictionary is public API:
+`itemList(Rtti_PlotCurve)` enumerates the curves and `QwtSeriesStore::sample()`
+reads them. So the numbers behind a trace are readable from outside the sink,
+with the axis titles and units the display itself is using — no upstream patch,
+nothing per sink type, and no second copy of the data to keep in step.
+`runner/src/plot_data.hpp` reports per plot its axis titles and *displayed*
+range, and per trace its point count, x/y extent, mean, peak, and a decimated set
+of points at six significant figures. The displayed range matters as much as the
+data's: a trace pinned to the top of its axis is clipped, not flat. Two shapes
+fall outside it and say so rather than returning nothing — a waterfall or time
+raster is a `QwtPlotSpectrogram` with no series to sample (`kind: "raster"`), and
+Number Sink and the browser gauges are QLabels, whose text is collected instead
+(`kind: "labels"`).
+
+`gr_read_plot_data()` publishes onto `window.__grplots` rather than returning a
+pointer, for the reason `publish_stats()` does: Qt's WASM build does not reliably
+expose `ccall`/`UTF8ToString` on the module, and the raw exports plus a global
+always work. It runs on the browser main thread, which is the Qt main thread and
+the thread the sinks repaint on, so a read never sees a half-drawn curve.
+
+**`capture_plots` returns a screenshot the model can see.** Qt for WebAssembly
+draws the entire flowgraph window into one `canvas.qt-window-canvas` inside an
+open shadow root — so `document.querySelector('canvas')` finds nothing, and a
+single readback is the whole GUI. The frame is same-origin, so the canvas is
+untainted and `drawImage` across the document boundary is allowed.
+`editor/src/ai/capture.ts` crops to the grid area from the same `gr-widgets`
+report the Arrange overlay uses (the window's chrome is pixels that say nothing
+and are billed like the ones that do), or to a single named widget's rectangle —
+which is why `publish_gui_layout()` now reports a pixel rect per widget beside
+its grid tile. Qt's coordinates there are the iframe's CSS pixels, so the crop is
+scaled by `canvas.width / canvas.clientWidth`.
+
+The image is PNG. JPEG rings around the thin bright traces these plots are made
+of and measured *larger* than PNG on a dense one; WebP is smaller than both but
+is not accepted by every endpoint the dock can be pointed at, and a screenshot a
+provider rejects is worse than one costing a few more kilobytes. Width steps down
+a ladder until the encoding fits 48 KB.
+
+**gr-fosphor is not in the picture.** It floats its own WebGPU canvas over a
+placeholder widget instead of drawing into Qt's, so its tile comes out blank; the
+result says so rather than leaving a reader to wonder what the empty rectangle
+was.
+
+Two things are load-bearing around the tool rather than in it. A tool result is a
+*string* on this API, so the picture cannot travel in one: `dispatchAiTool`
+returns it on a separate `images` channel and the agent loop appends a user
+message carrying the image parts after that round's tool results. And an
+observation describes the graph that was **running**, not the one on the canvas —
+so when the canvas has been edited since the run started, both tools' results
+carry a `stale` line saying so. A plot read as though it reflected edits it
+cannot possibly show is a wrong conclusion drawn confidently.
+
+The panel renders the screenshot into the transcript beside the tool result.
+That is not decoration: a screenshot is the one tool result a user cannot check
+by reading it, and trusting a conclusion drawn from a picture means seeing the
+same picture.
+
+Which models get the tool is decided by the catalog, not by a guess.
+`AiModel.vision` comes from OpenRouter's published `input_modalities`, from an
+OpenAI family list (that catalog publishes no capability flags), or from the
+descriptor for a fixed model list; `aiTools(vision)` hides `capture_plots` from a
+model that cannot be sent an image, because otherwise it would call the tool and
+the request carrying the answer would be refused. `read_plot_data` is offered to
+every model — the free OpenRouter model reads the plots as numbers, and its
+connection dialog says exactly that.
+
 ## Token discipline
 
 Everything in the transcript is resent on every one of a turn's up-to-50 tool
 rounds, so a payload's size is multiplied by how early in the turn it appears.
-Three places account for most of it, and each is trimmed without hiding
+Four places account for most of it, and each is trimmed without hiding
 anything from the model:
 
 - **The runnable block index** in the system prompt is grouped under category
@@ -439,6 +517,23 @@ anything from the model:
   apart. `wbfm-waterfall` in the prompt suite is the regression case: it asserts
   no SDR block on the canvas *and* a real `RUNNER_PASS`, because a receiver
   that cannot be run is not an answer to "build me a receiver".
+- **Screenshots are capped and evicted.** An image is worth roughly a thousand
+  input tokens and, unlike everything else a tool returns, it is worth that much
+  again on every later round of the turn — the one payload here that can make a
+  turn cost several times what it should. So `capture_plots` is bounded three
+  ways: 48 KB encoded per image, `MAX_IMAGES_PER_TURN` (3) and
+  `MAX_IMAGES_PER_CONVERSATION` (8), both refused *before* the capture is taken
+  so a spent budget costs nothing, with the refusal naming `read_plot_data` as
+  where to go instead. And only the newest `IMAGE_HISTORY_KEEP` (2) stay in the
+  transcript as pictures: older ones become a line of text saying what was there.
+  Two rather than one because the loop this serves is look → change → look, and
+  comparing against the previous plot is the point of the second look. Evicting
+  rewrites history and so costs the provider's cached prefix from that point on
+  — bounded, paid only once a third image arrives, and cheaper than resending
+  every earlier image for the rest of the conversation. The prepaid Worker
+  counts an image part at a flat rate rather than by its base64 bytes
+  (`countInputTokens`), or one screenshot would place a 67,000-token hold on a
+  wallet and 402 a user with plenty of credit.
 - **`describe_block`'s `api_documentation`** is truncated at `API_DOC_LIMIT`
   (`catalog.ts`) to a line boundary, ending in a note naming
   `full_docs: true` as the way to read the rest. Doxygen prose runs to 8.7 KB
@@ -504,7 +599,9 @@ Those three are all input-side, which is where OpenRouter's cost sits. **On
 OpenAI the input side is largely already discounted** — it caches prompt
 prefixes above about 1024 tokens by itself, with no `cache_control` to send, and
 the prefix here is stable by construction: `rebuildAgent()` fixes the system
-prompt once and history only ever appends. What is left is the output side, so
+prompt once and history only ever appends — with one deliberate exception,
+evicting a superseded screenshot, which is the one thing worth invalidating a
+cached tail for. What is left is the output side, so
 the two OpenAI-only request fields are:
 
 - **`prompt_cache_key`** (`CACHE_KEY` in `agent.ts`), one per page rather than
@@ -565,7 +662,20 @@ pass with no stored key:
 ```bash
 (cd editor && npm run check)
 node test/test_smoke.mjs
+node test/test_plot_capture.mjs
 ```
+
+`test_plot_capture.mjs` is the one that needs a browser, because everything it
+covers lives in pixels and in a `<canvas>` inside a shadow root. It replaces the
+page's `fetch` with a stub that answers each round with the tool calls the test
+wants made, so the whole real chain runs — agent loop, dispatch, `capture.ts`
+against the live iframe, Qt's canvas, and `gr_read_plot_data` — with no model and
+no key. It decodes the captured PNG again and counts distinct colors, because a
+blank readback looks like a working screenshot everywhere except in the pixels;
+it reads the stub's own request bodies back, because a picture that never reaches
+a user message is invisible to Graham while everything else still passes; and it
+drives the per-turn cap and the history eviction, which are what stop one
+conversation costing many times what it should.
 
 The proxy has a suite of its own, on plain Node with no Wrangler and no network:
 

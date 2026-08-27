@@ -7,6 +7,7 @@ import {
   briefBlock, describeBlock, nonDefaultParams, searchCatalog,
   type CatalogDeps, type CatalogEntry,
 } from './catalog';
+import type { PlotCapture } from './capture';
 import type { ToolDefinition } from './client';
 
 export interface AiToolDeps {
@@ -39,6 +40,12 @@ export interface AiToolDeps {
   exerciseJsBlock(args: Record<string, unknown>): Promise<Record<string, unknown>>;
   saveJsBlock(name: string, id: string, label?: string, category?: string): Promise<Record<string, unknown>>;
   runFlowgraph(seconds: number, signal?: AbortSignal): Promise<Record<string, unknown>>;
+  capturePlots(
+    options: { block?: string; settleSeconds?: number }, signal?: AbortSignal,
+  ): Promise<PlotCapture>;
+  readPlotData(
+    options: { block?: string; points?: number; settleSeconds?: number }, signal?: AbortSignal,
+  ): Promise<Record<string, unknown>>;
 }
 
 /**
@@ -180,14 +187,34 @@ export const AI_TOOLS: ToolDefinition[] = [
   tool('replace_flowgraph', 'Replace the entire canvas from native .grc YAML. Prefer granular edits unless building from scratch. Do not include the options block under `blocks:` -- it is the top-level `options:` key.', object({ grc: text }, ['grc'])),
   tool('validate', 'Return all current blocking and non-blocking validation issues.', object({})),
   tool('run_flowgraph', 'Run the current canvas visibly and observe diagnostics for 0.5–15 seconds. The graph remains running.', object({ seconds: { type: 'number', minimum: 0.5, maximum: 15, default: 3 } })),
+  tool('read_plot_data', 'Read what the running flowgraph\'s GUI sinks are plotting, as numbers: each plot\'s axis titles and displayed range, and per trace its peak (x and y), min/max/mean and a decimated set of points. This is the precise and cheap way to answer "where is the peak", "what is the level", "is the tone at the right frequency" — prefer it over a screenshot for anything measurable. Needs a flowgraph that is still running.', object({
+    block: { type: 'string', description: 'One GUI block by name; omit for every plot in the window.' },
+    points: { type: 'integer', minimum: 4, maximum: 256, default: 32, description: 'Points sampled per trace.' },
+    settle_seconds: { type: 'number', minimum: 0, maximum: 5, default: 0 },
+  })),
+  tool('capture_plots', 'Look at the running flowgraph: returns a screenshot of the GUI window as an image you can actually see. Use it for questions about shape that numbers answer badly — is the constellation tight, is the demodulator locked, does the waterfall show a signal, does the plot look wrong. It costs far more than read_plot_data, so use that one for anything measurable, and do not take a screenshot when the run report already answers the question. Needs a flowgraph that is still running.', object({
+    block: { type: 'string', description: 'Crop to one GUI block by name; omit for the whole window.' },
+    settle_seconds: { type: 'number', minimum: 0, maximum: 5, default: 1, description: 'Let the plots draw before looking; a waterfall needs a second or two.' },
+  })),
 ];
+
+/** Tools that answer with an image, and so need a model that can see one. */
+const VISION_TOOLS = new Set(['capture_plots']);
+
+/**
+ * The tools to offer this provider and model. A model that cannot take an image
+ * must not be handed a tool whose whole result is one: it would call it, and the
+ * request carrying the answer would be refused by the endpoint.
+ */
+export const aiTools = (vision: boolean): ToolDefinition[] =>
+  vision ? AI_TOOLS : AI_TOOLS.filter(entry => !VISION_TOOLS.has(entry.function.name));
 
 /**
  * What reading the canvas needs, which is everything except the run harness —
  * so the panel can seed a message from the same dependency bundle it hands the
  * tools, without owning a runner to do it.
  */
-export type AiReadDeps = Omit<AiToolDeps, 'runFlowgraph'>;
+export type AiReadDeps = Omit<AiToolDeps, 'runFlowgraph' | 'capturePlots' | 'readPlotData'>;
 
 const catalogDeps = (deps: AiReadDeps): CatalogDeps => ({
   entries: deps.entries,
@@ -225,6 +252,29 @@ const mutation = (deps: AiToolDeps, result: unknown, mutated = true) => {
     },
   };
 };
+
+/**
+ * A screenshot, reported as a result plus an image. The result says what was
+ * captured and names every widget in the window, because the picture alone does
+ * not say which plot belongs to which block; the image arrives in the message
+ * the agent loop appends after this one.
+ */
+const capture = (shot: PlotCapture): DispatchResult => ({
+  mutated: false,
+  value: {
+    captured: `${shot.width}x${shot.height}`,
+    ...(shot.block ? { cropped_to: shot.block } : {}),
+    widgets: shot.widgets,
+    ...(shot.notes.length ? { notes: shot.notes } : {}),
+    image: 'attached to the next message',
+  },
+  images: [{
+    dataUrl: shot.dataUrl,
+    alt: shot.block
+      ? `the running flowgraph's "${shot.block}" widget`
+      : "the running flowgraph's GUI window",
+  }],
+});
 
 /**
  * Runs a batch in order, stopping at the first failure rather than pressing on
@@ -270,7 +320,16 @@ function applyEdits(deps: AiToolDeps, edits: any[]): DispatchResult {
   }, applied > 0);
 }
 
-export interface DispatchResult { mutated: boolean; value: unknown }
+export interface DispatchResult {
+  mutated: boolean;
+  value: unknown;
+  /**
+   * Images this call produced, kept out of `value` because a tool result is a
+   * string on the wire: the agent loop attaches these as a separate message
+   * carrying image parts. See `capture_plots` in agent.ts.
+   */
+  images?: { dataUrl: string; alt: string }[];
+}
 
 function exactExamplePath(paths: string[], requested: string): string {
   const normalized = requested.replace(/^\/+|\.grc$/g, '');
@@ -624,6 +683,15 @@ export async function dispatchAiTool(
     case 'replace_flowgraph': deps.replaceFlowgraph(String(args.grc)); return mutation(deps, { replaced: true });
     case 'validate': return { mutated: false, value: issueJson(deps) };
     case 'run_flowgraph': return { mutated: false, value: await deps.runFlowgraph(Number(args.seconds || 3), signal) };
+    case 'read_plot_data': return { mutated: false, value: await deps.readPlotData({
+      block: args.block === undefined ? undefined : String(args.block),
+      points: args.points === undefined ? undefined : Number(args.points),
+      settleSeconds: args.settle_seconds === undefined ? undefined : Number(args.settle_seconds),
+    }, signal) };
+    case 'capture_plots': return capture(await deps.capturePlots({
+      block: args.block === undefined ? undefined : String(args.block),
+      settleSeconds: args.settle_seconds === undefined ? undefined : Number(args.settle_seconds),
+    }, signal));
     default: {
       // The single-edit tools are `EDITS` reported one at a time; a batch is
       // the same functions with one validation pass at the end.

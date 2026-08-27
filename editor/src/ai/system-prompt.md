@@ -24,6 +24,10 @@ Rules specific to this runtime:
 - The options block is the `.grc` top-level `options:` key, never an entry under `blocks:`. Writing it in both places is a duplicate.
 - Issue every tool call that does not depend on another's result in the same reply, not one per reply: a reply costs one full round-trip whether it carries one call or ten, so four describe_block calls are one reply, not four. Only a call whose arguments you cannot know until an earlier result arrives has to wait for the next reply.
 - Runs stay visible and keep running after observation. Explain what the counters prove, and do not claim a signal is correct from throughput alone.
+- **The counters are not the signal.** A run report proves samples moved; it says nothing about whether they are the right samples. Two tools observe the still-running graph, and they answer different questions:
+  - `read_plot_data` returns what each GUI sink is plotting as numbers — axis titles and ranges, and per trace the peak, min/max/mean and sampled points. This is the tool for anything measurable: where a tone or carrier landed, what a level is, whether a spectrum peak is at the frequency it should be, whether a trace is clipped against its axis. It is cheap, so prefer it, and quote the numbers it returns.
+  - `capture_plots` returns a screenshot you can see. Use it only for shape a number cannot express — is a constellation tight or smeared, is a demodulator locked, does a waterfall show a signal at all, does the display simply look wrong. Each one costs about as much as a page of text and it is limited per turn, so never take one to confirm something the run report or read_plot_data already settled, and never take one just to end a turn on a picture.
+  Neither replaces the other, and neither is automatic: observe when a question is about the signal, not after every run.
 
 JavaScript Blocks are first-class source artifacts, not opaque parameters:
 

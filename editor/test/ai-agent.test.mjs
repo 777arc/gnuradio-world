@@ -5,6 +5,7 @@ const {
   CACHE_KEY,
   FlowgraphAgent,
   GRAPH_PREVIEW_DELAY_MS,
+  MAX_IMAGES_PER_TURN,
   MAX_TOOL_ROUNDS,
 } = await bundleModule('../src/ai/agent.ts');
 const {
@@ -244,6 +245,11 @@ const deps = {
   setJsBlockSource: async () => ({}), forkJsBlock: async () => ({}),
   exerciseJsBlock: async () => ({}), saveJsBlock: async () => ({}),
   runFlowgraph: async () => ({ started: true }),
+  capturePlots: async () => ({
+    dataUrl: 'data:image/png;base64,AAAA', width: 400, height: 300, bytes: 3,
+    widgets: [{ name: 'snk', id: 'qtgui_time_sink_x' }], notes: [],
+  }),
+  readPlotData: async () => ({ widgets: [] }),
 };
 
 let request = 0;
@@ -610,5 +616,63 @@ const routerModels = await listModels({
   },
 });
 assert.deepEqual(routerModels.map(model => model.id), ['a/b']);
+// OpenRouter publishes what a model can be sent, so `capture_plots` is offered
+// on the strength of its catalog rather than a guess.
+assert.equal(routerModels[0].vision, false, 'no image modality means no vision');
+
+// A screenshot is the one tool result that is resent, in full, on every later
+// round of the turn. Two bounds keep that from running away: how many may be
+// taken, and how many stay in the transcript as pictures afterwards.
+{
+  const bodies = [];
+  let round = 0;
+  const captureAgent = new FlowgraphAgent({
+    provider: 'openrouter', key: 'sk-or-test', model: 'stub/model',
+    systemPrompt: 'stub', deps, vision: true,
+    fetchImpl: async (_url, init) => {
+      bodies.push(JSON.parse(init.body));
+      round++;
+      // One capture per round, one more than the turn is allowed.
+      if (round <= MAX_IMAGES_PER_TURN + 1) return sse([{ choices: [{ delta: { tool_calls: [{
+        index: 0, id: `call_${round}`, type: 'function',
+        function: { name: 'capture_plots', arguments: '{}' },
+      }] } }] }]);
+      return sse([{ choices: [{ delta: { content: 'Done.' } }] }]);
+    },
+  });
+  const result = await captureAgent.turn('look at it', undefined);
+  assert.equal(result.rounds, MAX_IMAGES_PER_TURN + 2);
+
+  const transcript = captureAgent.transcript();
+  const imageParts = message => Array.isArray(message.content)
+    ? message.content.filter(part => part.type === 'image_url').length : 0;
+  const total = transcript.reduce((sum, message) => sum + imageParts(message), 0);
+  assert.equal(total, 2, 'only the two most recent screenshots stay in the transcript');
+  assert.equal(
+    transcript.filter(message => typeof message.content === 'string' &&
+      message.content.includes('no longer in this conversation')).length,
+    MAX_IMAGES_PER_TURN - 2,
+    'the rest became a line of text naming what was there');
+  const refused = transcript.filter(message => message.role === 'tool' &&
+    String(message.content).includes('screenshots this turn'));
+  assert.equal(refused.length, 1, 'the capture past the per-turn limit is refused');
+
+  // A model that cannot be shown an image is never offered the tool that
+  // answers with one.
+  assert.ok(bodies[0].tools.some(entry => entry.function.name === 'capture_plots'));
+  const blind = new FlowgraphAgent({
+    provider: 'openrouter', key: 'sk-or-test', model: 'stub/model',
+    systemPrompt: 'stub', deps,
+    fetchImpl: async (_url, init) => {
+      const body = JSON.parse(init.body);
+      assert.ok(!body.tools.some(entry => entry.function.name === 'capture_plots'),
+        'capture_plots must be hidden from a model that cannot see');
+      assert.ok(body.tools.some(entry => entry.function.name === 'read_plot_data'),
+        'reading the plots as numbers stays available to every model');
+      return sse([{ choices: [{ delta: { content: 'Done.' } }] }]);
+    },
+  });
+  await blind.turn('look at it', undefined);
+}
 
 console.log('ai-agent.test.mjs: ok');

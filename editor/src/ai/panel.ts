@@ -35,6 +35,7 @@ import {
   storedProvider,
   type ProviderId,
 } from './providers';
+import { capturePlots, readPlotData, type CaptureDeps } from './capture';
 import { runFlowgraph, type HarnessDeps, type RunAuthorization } from './harness';
 import { canvasContext, type AiToolDeps } from './tools';
 
@@ -43,8 +44,10 @@ export interface AiPanelDeps {
   log(message: string): void;
   systemPrompt: string;
   entries(): CatalogEntry[];
-  toolDeps: Omit<AiToolDeps, 'runFlowgraph'>;
+  toolDeps: Omit<AiToolDeps, 'runFlowgraph' | 'capturePlots' | 'readPlotData'>;
   harness: Omit<HarnessDeps, 'requestAuthorization'>;
+  /** Reading the running window: its canvas, and where its widgets are on it. */
+  capture: CaptureDeps;
   snapshot(): GraphSnapshot;
   commitHistory(): void;
   restoreSnapshot(snapshot: GraphSnapshot, record: boolean): void;
@@ -417,11 +420,22 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
     },
     requestStarted: () => { requests++; showSpend(); },
     toolStarted: (name, args) => { currentTool = toolRow(name, args); },
-    toolFinished: (_name, result, error) => {
+    toolFinished: (_name, result, error, images) => {
       if (!currentTool) return;
       const output = node('pre', `ai-tool-result${error ? ' error' : ''}`);
       output.textContent = JSON.stringify(result, null, 2);
       currentTool.appendChild(output);
+      // Show what was sent, not a description of it. A screenshot is the one
+      // tool result the user cannot check by reading it, and trusting a
+      // conclusion drawn from a picture means seeing the same picture.
+      for (const image of images || []) {
+        const shot = node('img', 'ai-tool-image') as HTMLImageElement;
+        shot.src = image.dataUrl;
+        shot.alt = image.alt;
+        shot.title = `${image.alt} — click to open full size`;
+        shot.onclick = () => window.open(image.dataUrl, '_blank', 'noopener');
+        currentTool.appendChild(shot);
+      }
       currentTool = null;
       scrollDown();
     },
@@ -478,7 +492,13 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
       ...deps.harness,
       requestAuthorization: askAuthorization,
     }, seconds, signal),
+    capturePlots: (options, signal) => capturePlots(deps.capture, options, signal),
+    readPlotData: (options, signal) => readPlotData(deps.capture, options, signal),
   };
+
+  /** Whether the selected model can be shown a screenshot at all. */
+  const modelSeesImages = () =>
+    !!models.find(model => model.id === currentModel())?.vision;
 
   const rebuildAgent = () => {
     agent = ready() && currentModel() ? new FlowgraphAgent({
@@ -487,6 +507,7 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
       model: currentModel(),
       systemPrompt: `${deps.systemPrompt.trim()}\n\nRunnable block index:\n${runnableIndex(deps.entries())}`,
       deps: fullToolDeps,
+      vision: modelSeesImages(),
       hooks,
     }) : null;
     updateSend();

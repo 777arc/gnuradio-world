@@ -270,6 +270,10 @@ button:hover { filter:brightness(1.15); }
 .ai-tool pre { margin:0; padding:8px 9px; overflow:auto; max-height:220px; white-space:pre-wrap;
     color:#aeb8d0; background:#171a25; font-size:12px; }
 .ai-tool pre.error { color:#ff9b95; }
+/* The screenshot capture_plots sent to the model, shown so the user can check a
+   conclusion drawn from a picture against the picture. */
+.ai-tool img.ai-tool-image { display:block; width:100%; height:auto; cursor:zoom-in;
+    border-top:1px solid #394058; background:#fff; }
 .ai-diff { margin-top:9px; }
 .ai-diff ul { margin:4px 12px 10px; padding-left:20px; color:#cbd5e9; font-size:13px; }
 .ai-diff button { margin:0 9px 9px; padding:5px 9px; font-size:13px; }
