@@ -10,6 +10,7 @@
 #include "js_block.hpp"
 #include "plot_data.hpp"
 #include "flat_flowgraph.h"
+#include "schedulers.hpp"
 #include <gnuradio/blocks/probe_signal.h>
 #include <gnuradio/top_block.h>
 #include <gnuradio/block.h>
@@ -46,6 +47,51 @@
 #include <vector>
 
 static gr::top_block_sptr g_tb;
+// The flattened graph and the scheduler running it. The runner does what
+// top_block_impl::start() does rather than calling it, because that path hides
+// the scheduler choice behind a process-wide cached factory -- see
+// runner/src/schedulers.hpp. Consequences: top_block::start/stop/wait/run are
+// never used, every lifecycle call goes to g_sched, and g_ffg has to outlive it
+// (it owns the flat graph the scheduler holds a reference to).
+static gr::flat_flowgraph_sptr g_ffg;
+static gr::scheduler_sptr g_sched;
+// The plugin g_sched was made from, kept for its thread_estimate() and for
+// diagnostics. Never null once a run has been prepared.
+static const runner_sched::plugin* g_plugin = nullptr;
+// runner.html?rounds=<n>, the deterministic scheduler's run length. Read here
+// rather than inside the scheduler because a URL is the runner's business, and
+// because no budget suits every graph -- see kDeterministicRoundsDefault.
+static void apply_rounds_override() {
+    const int rounds = EM_ASM_INT({
+        try {
+            var raw = new URLSearchParams(location.search).get('rounds');
+            var n = raw === null ? 0 : parseInt(raw, 10);
+            return Number.isFinite(n) && n > 0 ? n : 0;
+        } catch (error) { return 0; }
+    });
+    if (rounds > 0) runner_sched::deterministic_rounds() = rounds;
+}
+
+// runner.html?scheduler=<name>, which overrides the flowgraph's own Options
+// value. A property of the frame rather than of the run: the smoke suite and
+// scripts/run.mjs hand a .grc straight to runner.html and have nowhere else to
+// say which scheduler to use. runner.html reads the same query to size the
+// prewarmed worker pool. Resolved on first use, on the browser main thread.
+static const std::string& scheduler_override() {
+    static const std::string value = [] {
+        char* raw = reinterpret_cast<char*>(EM_ASM_PTR({
+            try {
+                var requested = new URLSearchParams(location.search).get('scheduler');
+                return requested ? stringToNewUTF8(requested) : 0;
+            } catch (error) { return 0; }
+        }));
+        if (!raw) return std::string();
+        std::string requested(raw);
+        free(raw);
+        return requested;
+    }();
+    return value;
+}
 // The top-level flowgraph window. Its own layout is fixed: an error banner (when
 // there is one) above g_gui_area, which is the part a flowgraph arranges.
 static QWidget* g_container = nullptr;
@@ -446,16 +492,16 @@ extern "C" EMSCRIPTEN_KEEPALIVE void gr_read_plot_data(const char* only,
 // **This signals and returns; it must not join.** The browser main thread calls
 // it, and every block's stop() runs on that block's own scheduler thread -- where
 // BrowserFileSink's makes a proxied MAIN_THREAD_EM_ASM call to reach its writer.
-// Blocking here (top_block::wait(), the way run_now() tears down for a re-run)
+// Blocking here (scheduler::wait(), the way run_now() tears down for a re-run)
 // deadlocks outright: the block waits for the main thread to run its JS, and the
 // main thread waits for the block to exit. What runner.html waits for instead is
 // the writers reporting their files closed, which is the only part of a shutdown
 // that unloading the frame would actually lose.
 extern "C" EMSCRIPTEN_KEEPALIVE void gr_shutdown_flowgraph() {
-    if (!g_tb)
+    if (!g_sched)
         return;
     try {
-        g_tb->stop();
+        g_sched->stop();
     } catch (...) {
         // Nothing useful is left to do about a block that throws on the way
         // down, and the caller is about to discard this frame regardless.
@@ -568,12 +614,25 @@ static int worker_tier_for(int required_workers) {
     return std::min(256, std::max(8, rounded));
 }
 
+// What top_block_impl::start() does, minus its scheduler choice. Called on the
+// browser main thread, from inside run_now()'s try/catch (directly, or through
+// the worker preload's completion callback) -- so validate() rejecting a graph
+// surfaces as RUNNER_FAIL rather than throwing out of a detached thread.
 static void start_prepared_flowgraph(unsigned int generation) {
     if (generation != g_run_generation || !g_tb)
         return;
+    g_ffg = g_tb->flatten();
+    g_ffg->validate();
+    g_ffg->setup_connections();
+    // 100000000 is top_block::start()'s own default for max_noutput_items.
+    g_sched = g_plugin->make(g_ffg, 100000000, /*catch_exceptions=*/true);
     g_run_start = std::chrono::steady_clock::now();
-    auto tb = g_tb;
-    std::thread([tb] { tb->run(); }).detach();
+    // Where the detached top_block::run() used to be. run() is start() + wait();
+    // the wait half still needs a thread of its own, so a graph that finishes by
+    // itself is reaped without the main thread ever blocking. This thread is the
+    // "+ 1" in the worker sizing below.
+    auto sched = g_sched;
+    std::thread([sched] { sched->wait(); }).detach();
     const std::string msg = g_pending_success_message;
     QTimer::singleShot(2500, [msg] { report(true, msg); });
 }
@@ -668,7 +727,13 @@ static double declared_item_rate(const nlohmann::json& params) {
 static void run_now(const std::string& json_source) {
     try {
         auto j = nlohmann::json::parse(json_source);
-        if (g_tb) { g_tb->stop(); g_tb->wait(); g_tb.reset(); }
+        // Tear the previous run down in scheduler -> flat graph -> top block
+        // order. Unlike gr_shutdown_flowgraph() this one *does* join: it is
+        // re-running the graph, so the old blocks have to be finished with their
+        // buffers before the new ones take them.
+        if (g_sched) { g_sched->stop(); g_sched->wait(); g_sched.reset(); }
+        g_ffg.reset();
+        g_tb.reset();
         // clear previous sink widgets, and the arrangement they were in
         g_widgets.clear();
         if (g_gui_area && g_gui_area->layout()) {
@@ -697,6 +762,64 @@ static void run_now(const std::string& json_source) {
         g_stats.clear();
         g_scheduler_workers = 0;
         g_ref_item_rate = 0.0;
+
+        // Pick the scheduler before anything is constructed: it decides how many
+        // Web Workers this run needs, which runner.html has already guessed at
+        // and the sizing further down corrects. The URL query wins over the
+        // flowgraph's own Options value, so a headless harness can drive either
+        // scheduler over an unmodified .grc.
+        const std::string requested = !scheduler_override().empty()
+            ? scheduler_override()
+            : j.value("scheduler", std::string());
+        g_plugin = &runner_sched::select(requested);
+        if (!requested.empty() && !runner_sched::find(requested))
+            post_info_to_editor("scheduler: no such scheduler \"" + requested +
+                                "\"; using " + g_plugin->label);
+        else if (g_plugin != &runner_sched::default_plugin())
+            post_info_to_editor(std::string("scheduler: ") + g_plugin->label);
+
+        // A scheduler that does not give each block a thread cannot survive a
+        // block whose work() waits -- the one wait stalls every other block on
+        // that thread. Warn rather than refuse: the graph may still be the one
+        // the user wants to watch, and which of these actually blocks depends on
+        // whether the browser granted the device.
+        const auto ids_matching = [&j](bool (*matches)(const std::string&)) {
+            std::string names;
+            std::set<std::string> hits;
+            if (j.contains("blocks"))
+                for (const auto& blk : j.at("blocks")) {
+                    const std::string id = blk.value("id", std::string());
+                    if (matches(id)) hits.insert(id);
+                }
+            for (const auto& id : hits) names += (names.empty() ? "" : ", ") + id;
+            return names;
+        };
+        if (g_plugin->thread_estimate(2) < 2) {
+            const std::string waiting = ids_matching(&runner_sched::blocks_in_work);
+            if (!waiting.empty())
+                // Advisory, not a failure: post_error_to_editor() would flip the
+                // editor's Run button to "Flowgraph failed" for a graph that is
+                // running. The info channel also reaches console.log, so a
+                // direct runner page and the smoke suite can see it too.
+                post_info_to_editor(std::string("scheduler warning: ") + g_plugin->label +
+                    " shares one thread across every block, but " + waiting +
+                    " waits inside work() -- the whole flowgraph stalls while it does");
+        }
+        if (g_plugin->deterministic) {
+            apply_rounds_override();
+            post_info_to_editor("scheduler: deterministic run is " +
+                std::to_string(runner_sched::deterministic_rounds()) +
+                " rounds of at most 4096 items per block, then the graph stops");
+            // The guarantee is "the same flowgraph gives the same run", and
+            // these are the blocks that make that false: a throttle produces
+            // whatever the wall clock allowed, and anything on the blocking list
+            // waits on something outside the graph entirely.
+            const std::string timed = ids_matching(&runner_sched::wall_clock_block);
+            if (!timed.empty())
+                post_info_to_editor("scheduler warning: " + timed +
+                    " paces itself by the wall clock, so this run is not reproducible "
+                    "-- remove it to compare two runs");
+        }
 
         // Construct controls first so references such as frequency="freq" can
         // be resolved regardless of where the control appears in the graph JSON.
@@ -852,16 +975,22 @@ static void run_now(const std::string& json_source) {
         g_ref_item_rate = ref ? ref->item_rate : 0.0;
         const std::string ref_name = ref ? ref->name : std::string();
         for (auto& sb : g_stats) sb.is_ref = (!ref_name.empty() && sb.name == ref_name);
-        // This is exactly the list scheduler_tpb uses to create its one thread
-        // per primitive block. Unlike the URL-time estimate it recursively
-        // expands every instantiated hierarchy with its actual parameters.
+        // This is exactly the list a scheduler builds its threads from. Unlike
+        // the URL-time estimate it recursively expands every instantiated
+        // hierarchy with its actual parameters. Note this is a throwaway
+        // flatten() purely to count: start_prepared_flowgraph() does the real
+        // one, because merge_connections is not involved and flattening twice
+        // is cheap next to allocating a worker.
         auto flat = g_tb->flatten();
-        const int scheduler_workers = static_cast<int>(flat->calc_used_blocks().size());
+        const int flat_blocks = static_cast<int>(flat->calc_used_blocks().size());
+        // How many threads *this* scheduler will make of that. TPB answers with
+        // the block count; the single-threaded one answers 1.
+        const int scheduler_workers = g_plugin->thread_estimate(flat_blocks);
         g_scheduler_workers = scheduler_workers;
         // Give diagnostics a sane timestamp while an upgraded tier is loading;
         // start_prepared_flowgraph resets it when sample processing begins.
         g_run_start = std::chrono::steady_clock::now();
-        const int required_workers = scheduler_workers + 1; // detached tb->run()
+        const int required_workers = scheduler_workers + 1; // detached sched->wait()
         const int exact_tier = worker_tier_for(required_workers);
         const int selected_tier = EM_ASM_INT({ return globalThis.__grPoolTier || 16; });
         const int target_tier = std::max(selected_tier, exact_tier);
@@ -871,7 +1000,12 @@ static void run_now(const std::string& json_source) {
         const int missing_workers = std::max(0, target_tier - allocated_workers);
 
         std::string count_msg = "workers: calc_used_blocks() = " +
-            std::to_string(scheduler_workers) + "; " +
+            std::to_string(flat_blocks) + "; ";
+        // Only worth saying when the scheduler does not give each block a thread.
+        if (scheduler_workers != flat_blocks)
+            count_msg += std::to_string(scheduler_workers) + " scheduler thread" +
+                (scheduler_workers == 1 ? "" : "s") + "; ";
+        count_msg +=
             std::to_string(required_workers) + " required including flowgraph runner; tier " +
             std::to_string(selected_tier);
         if (target_tier != selected_tier)

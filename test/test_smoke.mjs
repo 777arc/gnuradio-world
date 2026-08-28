@@ -45,15 +45,19 @@ const OFFSET_SAMPLE = 3;
 const SIGMF_LOCAL_PATH = '/local-files/sigmf-test/tagged.sigmf-data';
 const rangeRequests = [];
 
-function expectedPoolTier(grc) {
+function expectedPoolTier(grc, scheduler) {
   const start = grc.search(/^blocks:\s*$/m);
   if (start < 0) return 16;
   const afterStart = grc.slice(start).replace(/^blocks:\s*\n?/, '');
   const end = afterStart.search(/^(?:connections|metadata):\s*$/m);
   const blockSection = end < 0 ? afterStart : afterStart.slice(0, end);
   const blockCount = (blockSection.match(/^-\s+name\s*:/gm) || []).length;
+  // Mirrors schedulerThreadCount() in runner.html, which mirrors each plugin's
+  // thread_estimate() in runner/src/schedulers.hpp: only thread-per-block turns
+  // blocks into threads.
+  const threads = scheduler === 'sts' || scheduler === 'det' ? 1 : blockCount;
   // Mirrors poolTierForBlockCount() in runner.html: multiples of 8, clamped.
-  return Math.min(256, Math.max(8, Math.ceil((blockCount + 1) / 8) * 8));
+  return Math.min(256, Math.max(8, Math.ceil((threads + 1) / 8) * 8));
 }
 
 // Flowgraphs to run. Each .grc is handed straight to runner.html, which is NOT
@@ -134,6 +138,32 @@ const CASES = [
       'Key: burst',                  // Tag Object, emitted by Vector Source
       'Source: vector_src',
     ] },
+  // The same flowgraph on the single-threaded scheduler: one thread for all ten
+  // blocks, so the prewarmed pool drops from 16 to 8. It is this graph rather
+  // than a stream-only one because the riskiest part of a second scheduler is
+  // the message pump -- every expectLogs line below is a message or a tag that
+  // only appears if handlers are still being dispatched. See docs/schedulers.md.
+  { name: 'PMT strobes on the single-threaded scheduler',
+    grc: 'test/fixtures/wasm_pmt_blocks.grc',
+    scheduler: 'sts', exactWorkers: 9, expectedDspThreads: 1, expectedPool: 8,
+    expectLogs: [
+      '(payload . #[11 22 33 44])',
+      'RANDOM_STROBE',
+      'Key: strobe_key',
+      'Value: 2.5',
+      'Key: burst',
+      'Source: vector_src',
+    ] },
+  // The deterministic scheduler, which is the only case here that runs its
+  // flowgraph twice and compares. Its .grc carries `scheduler: det` in its own
+  // Options block rather than taking the query, so this is also the one case
+  // covering that path end to end. The chain has no throttle and nothing that
+  // waits inside work(), which is what the guarantee requires -- see
+  // docs/schedulers.md. 1000 rounds x 4096 items is the default budget.
+  { name: 'deterministic scheduler repeats a run exactly',
+    grc: 'test/fixtures/deterministic_chain.grc',
+    deterministic: true, exactWorkers: 4, expectedDspThreads: 1, expectedPool: 8,
+    expectedItems: 4096000 },
   // The QT GUI controls. Their widgets need a click to say anything, which this
   // harness has no way to deliver, so what the logs prove is the half that runs
   // without one: a Message Strobe drives the Digital Number Control's `valuein`
@@ -261,8 +291,12 @@ async function runCase(test) {
   page.on('pageerror', e => logs.push('PAGEERROR ' + e.message));
 
   const grc = readFileSync(join(ROOT, test.grc), 'utf8');
-  await page.goto(`http://localhost:${PORT}/runner/build/runner.html#${encodeURIComponent(grc)}`,
-                  { waitUntil: 'load', timeout: 30000 });
+  // ?scheduler= overrides whatever the flowgraph's Options block says, which is
+  // the only way a harness handing a .grc straight to runner.html can pick one.
+  const query = test.scheduler ? `?scheduler=${encodeURIComponent(test.scheduler)}` : '';
+  await page.goto(
+    `http://localhost:${PORT}/runner/build/runner.html${query}#${encodeURIComponent(grc)}`,
+    { waitUntil: 'load', timeout: 30000 });
 
   let verdict = '(no #result)';
   try {
@@ -290,7 +324,7 @@ async function runCase(test) {
   const blocks = stats ? JSON.parse(stats).blocks : [];
   const pool = stats ? JSON.parse(stats).pool : null;
   const dspThreads = stats ? JSON.parse(stats).dsp_threads : null;
-  const initialExpectedPool = expectedPoolTier(grc);
+  const initialExpectedPool = expectedPoolTier(grc, test.scheduler);
   const monitor = await page.evaluate(() => ({
     tier: document.getElementById('d-tier')?.textContent?.trim() || '',
     workers: document.getElementById('d-workers')?.textContent?.trim() || '',
@@ -324,7 +358,10 @@ async function runCase(test) {
     new RegExp(`^tier ${pool} \\+\\d+ extra$`).test(monitor.tier) &&
     /^active workers \d+$/.test(monitor.workers) &&
     monitor.threads === `dsp threads ${dspThreads}` &&
-    (test.exactWorkers === undefined || dspThreads === test.exactWorkers) &&
+    // exactWorkers is what calc_used_blocks() found; dsp threads is what the
+    // scheduler made of it, and the two part company off thread-per-block.
+    (test.exactWorkers === undefined ||
+     dspThreads === (test.expectedDspThreads ?? test.exactWorkers)) &&
     workerLogOk && preloadLogOk && correctedPoolOk;
   const audioRingOk = test.expectedAudioRingFrames === undefined ||
     (monitor.audio.length > 0 && monitor.audio.every(
@@ -340,8 +377,44 @@ async function runCase(test) {
   const rejectedLogs = (test.rejectLogs || [])
     .filter(rejected => logs.some(line => line.includes(rejected)));
 
+  // The deterministic scheduler's whole claim is that the same flowgraph gives
+  // the same run, so the only way to test it is to run it twice. Its budget is a
+  // fixed number of rounds rather than a wall-clock duration, so by the time the
+  // snapshot above was taken the graph had already stopped and the counters had
+  // settled -- which is what makes an exact comparison legitimate here and
+  // nowhere else in this file.
+  let repeatMismatch = null;
+  if (test.deterministic && started) {
+    const second = await browser.newPage();
+    try {
+      await second.goto(
+        `http://localhost:${PORT}/runner/build/runner.html${query}#${encodeURIComponent(grc)}`,
+        { waitUntil: 'load', timeout: 30000 });
+      await second.waitForFunction(() => {
+        if (!window.__grstats) return false;
+        return JSON.parse(window.__grstats).blocks.every(b => b.msg_only || b.items > 0);
+      }, { timeout: 60000, polling: 200 });
+      await new Promise(r => setTimeout(r, 4000));
+      const repeat = JSON.parse(await second.evaluate(() => window.__grstats)).blocks;
+      const counts = list => list.map(b => `${b.name}=${b.items}`).join(' ');
+      if (counts(repeat) !== counts(blocks))
+        repeatMismatch = `${counts(blocks)}  vs  ${counts(repeat)}`;
+    } catch (error) {
+      repeatMismatch = `second run failed: ${error.message}`;
+    }
+    await second.close();
+  }
+
+  // Pins the budget itself, not just its repeatability: rounds x chunk is an
+  // exact item count, so a change to either constant in schedulers.hpp shows up
+  // here rather than silently making every "deterministic" run a different one.
+  const wrongItems = test.expectedItems === undefined ? []
+    : blocks.filter(b => b.items !== test.expectedItems)
+            .map(b => `${b.name}=${b.items}`);
+
   const ok = started && blocks.length > 0 && idle.length === 0 && monitorOk && audioRingOk &&
-    missingLogs.length === 0 && rejectedLogs.length === 0;
+    missingLogs.length === 0 && rejectedLogs.length === 0 && !repeatMismatch &&
+    wrongItems.length === 0;
   await page.close();
 
   const lines = [];
@@ -362,6 +435,10 @@ async function runCase(test) {
   if (!audioRingOk)
     lines.push(`   audio ring mismatch: ${JSON.stringify(monitor.audio)}, ` +
       `expected ${test.expectedAudioRingFrames} frames`);
+  if (wrongItems.length)
+    lines.push(`   expected every block at ${test.expectedItems} items: ${wrongItems.join(' ')}`);
+  if (repeatMismatch) lines.push(`   two runs disagreed: ${repeatMismatch}`);
+  else if (test.deterministic) lines.push('   two runs produced identical item counts');
   if (!ok && logs.length) lines.push('   logs: ' + logs.slice(-4).join('\n         '));
   return { ok, lines };
 }

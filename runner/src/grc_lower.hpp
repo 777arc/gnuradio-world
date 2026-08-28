@@ -32,6 +32,39 @@ inline bool is_variable_control(const std::string& id) {
            id == "qtgui_msgdigitalnumbercontrol";
 }
 
+// The flowgraph's chosen scheduler, from the browser-only `scheduler` key on the
+// options block. Empty means "whatever the runner's default is".
+//
+// Native GRC ignores an options key it does not know -- Block.import_data()
+// swallows the KeyError, and the options block's insert_grc_parameters() only
+// reads keys it names -- so a .grc carrying this still loads there without a
+// word. It is dropped on a native re-save, which is the whole cost.
+//
+// Two shapes have to be accepted, exactly as the editor's loader accepts them:
+// the top-level `options:` key GRC writes, and an `options` entry under
+// `blocks:`, which is how a hand-written flowgraph often spells it.
+inline std::string scheduler_of(const json& g) {
+    auto from = [](const json& node) -> std::string {
+        if (!node.is_object()) return {};
+        auto params = node.find("parameters");
+        if (params == node.end() || !params->is_object()) return {};
+        auto it = params->find("scheduler");
+        if (it == params->end() || !it->is_string()) return {};
+        return it->get<std::string>();
+    };
+    auto opts = g.find("options");
+    if (opts != g.end()) {
+        std::string name = from(*opts);
+        if (!name.empty()) return name;
+    }
+    auto blocks = g.find("blocks");
+    if (blocks != g.end() && blocks->is_array())
+        for (const auto& b : *blocks)
+            if (b.is_object() && b.value("id", std::string()) == "options")
+                return from(b);
+    return {};
+}
+
 // A GRC scalar (int/string) rendered as a string, for connection port tokens.
 inline std::string scalar_to_str(const json& v) {
     if (v.is_string()) return v.get<std::string>();
@@ -231,6 +264,9 @@ inline json lower(const json& g) {
     out["blocks"] = std::move(blocksOut);
     out["connections"] = std::move(connsOut);
     out["variables"] = std::move(variables);
+    // The options block is dropped above like every other non-DSP block; this
+    // one key of it survives, because the runner picks its scheduler from it.
+    out["scheduler"] = scheduler_of(g);
     return out;
 }
 

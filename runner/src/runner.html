@@ -87,9 +87,38 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
         }
       }
 
+      // Which scheduler this run will use, needed here rather than in runner.cpp
+      // because the tier is fixed before the WASM module starts. The query wins
+      // over the flowgraph's own Options value, exactly as runner.cpp resolves
+      // it. Matching keys keyed off the raw .grc text is the same trick
+      // flowgraphUsesFosphorSink() plays; a wrong guess here only costs slack,
+      // since runner.cpp tops the pool up once it has the real thread count.
+      function flowgraphScheduler() {
+        try {
+          const requested = new URLSearchParams(location.search).get('scheduler');
+          if (requested) return requested;
+          if (!location.hash || location.hash.length <= 1) return '';
+          const grc = decodeURIComponent(location.hash.substring(1));
+          const match = grc.match(/^\s*scheduler:\s*(\S+)\s*$/m);
+          return match ? match[1] : '';
+        } catch (error) {
+          return '';
+        }
+      }
+
+      // How many scheduler threads that many blocks turn into. Mirrors the
+      // thread_estimate() of each plugin in runner/src/schedulers.hpp: only
+      // thread-per-block scales with the block count.
+      const SINGLE_THREADED_SCHEDULERS = ['sts', 'det'];
+      function schedulerThreadCount(scheduler, blockCount) {
+        return SINGLE_THREADED_SCHEDULERS.includes(scheduler) ? 1 : blockCount;
+      }
+
       window.__grPoolTierForBlockCount = poolTierForBlockCount;
       window.__grFlowgraphBlockCount = flowgraphBlockCount();
-      window.__grPoolTier = poolTierForBlockCount(window.__grFlowgraphBlockCount);
+      window.__grScheduler = flowgraphScheduler();
+      window.__grPoolTier = poolTierForBlockCount(
+        schedulerThreadCount(window.__grScheduler, window.__grFlowgraphBlockCount));
 
       // The one-time payload the editor hands over: files a source reads, and
       // the destinations a sink writes. Both arrive in the same array, keyed by

@@ -22,6 +22,7 @@ full* before starting that kind of work:
 | [docs/editor-ui.md](docs/editor-ui.md) | working on block IDs, auto-arrange, the narrow-screen/touch layout, or the embedded layout another site frames (`?embed=1`) |
 | [docs/gui-layout.md](docs/gui-layout.md) | touching where QT GUI widgets go in the runner window — the GUI Layout block, `editor/src/gui-layout*.ts`, `runner/src/gui_layout.hpp`, or Arrange mode |
 | [docs/ci.md](docs/ci.md) | changing a workflow, the deploy, PR preview deployments, or the PR security gate (`security-analysis.yml`, `scripts/pr-security-scan.mjs`) |
+| [docs/schedulers.md](docs/schedulers.md) | swapping the flowgraph scheduler — the plugin table in `runner/src/schedulers.hpp`, the Options block's `scheduler` key, the single-threaded scheduler, or anything that counts scheduler threads |
 | [docs/gnuradio-patches.md](docs/gnuradio-patches.md) | changing anything inside the `gnuradio/` submodule or `qtgui/` |
 | [docs/double-mapped-buffer.md](docs/double-mapped-buffer.md) | working on the emulated vmcircbuf |
 | [docs/diagnostics.md](docs/diagnostics.md) | working on the runner's `__grstats` snapshot, the debug panel, or the Benchmark Tool |
@@ -391,6 +392,19 @@ explanation lives in that doc — follow it before working in that area.
 - **Use `blocks_throttle2`, never `blocks_throttle`**, and terminate PDU chains
   with `pdu_pdu_to_stream_x` rather than `pdu_pdu_to_tagged_stream`, which is not
   scheduled here. Reasons in [docs/flowgraph-files.md](docs/flowgraph-files.md).
+- **The scheduler is swappable, and the alternative cannot run a blocking
+  `work()`.** The default is stock upstream thread-per-block, unpatched, but the
+  runner picks its scheduler from a plugin table rather than calling
+  `top_block::start()` — so `top_block::start/stop/wait/run` are never used and
+  every lifecycle call goes to the scheduler object. The single-threaded one
+  (Options ▸ Scheduler, or `runner.html?scheduler=sts`) runs every block on one
+  thread, which turns a 22-block graph's 32-worker pool into 8 — and stalls
+  outright on a block that waits inside `work()`: Audio Sink/Source, the four
+  blocks that read a file, SigMF Sink, the SDR sources and sinks, the Embedded
+  Python Block. The deterministic one (`det`) adds a fixed chunk size and a round
+  budget, so it **stops on its own** after `rounds x 4096` items per block and two
+  runs of the same flowgraph match exactly — which a throttle voids, since it
+  paces by the wall clock. See [docs/schedulers.md](docs/schedulers.md).
 - **Message-only blocks report `items: 0` forever** — `gr_stats_json()` reads
   `nitems_written`/`nitems_read`, which do not exist for a block with no stream
   ports. The snapshot flags them as `msg_only` and `test_smoke.mjs` exempts them

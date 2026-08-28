@@ -242,7 +242,9 @@ function flowgraph(blocks: string, connections: string): string {
 // and sets the runner's prewarmed worker pool (40 workers, ~3.5s of boot). It
 // used to be far worse — the pool ladder jumped 32 -> 256 and this case spent
 // ~28s spawning workers before its first sample, which is what prompted
-// rounding both copies of the ladder to multiples of 8.
+// rounding both copies of the ladder to multiples of 8. That whole cost is what
+// the single-threaded group below measures against: same lengths, same
+// flowgraphs, one worker.
 const CHAIN_LENGTHS = [10, 20, 30];
 
 /** A chain of `count` Multiply Const blocks between the source and the sink. */
@@ -266,6 +268,14 @@ export interface BenchmarkCase {
   key: string; column: string; grc: string;
   /** Seconds of flowgraph uptime to measure over; MIN_RUN_SECONDS if absent. */
   runSeconds?: number;
+  /**
+   * Which scheduler the runner should use, as `runner.html?scheduler=` spells
+   * it (see docs/schedulers.md). Absent means the default, thread-per-block.
+   * The query is used rather than the flowgraph's own Options block because
+   * these .grc are handed straight to runner.html, and because it keeps the two
+   * chain groups measuring a byte-identical flowgraph.
+   */
+  scheduler?: string;
 }
 export interface BenchmarkTable {
   /** `columnHeading` doubles as the group's label: it heads the first column. */
@@ -275,8 +285,8 @@ export interface BenchmarkTable {
 
 /**
  * Every case a run measures, grouped the way the dialog tabulates it. Filters
- * first, then the Multiply Const chains; a run walks them in this order, one
- * flowgraph at a time.
+ * first, then the Multiply Const chains on each scheduler; a run walks them in
+ * this order, one flowgraph at a time.
  */
 export function benchmarkTables(): BenchmarkTable[] {
   return [
@@ -303,6 +313,27 @@ export function benchmarkTables(): BenchmarkTable[] {
           key: `mult:${count}`,
           column: `${count} blocks`,
           grc: multiplyChainFlowgraph(count),
+        })),
+      }],
+    },
+    // The same flowgraphs, byte for byte, on the single-threaded scheduler --
+    // which is why the group above is the one worth pairing: its cost is length
+    // rather than arithmetic, and length is exactly what thread-per-block turns
+    // into workers. Read the two "with startup" columns against each other for
+    // what the pool costs, and the two "without startup" columns for what one
+    // thread costs a warm graph. Nothing in this chain waits inside work(), so
+    // the scheduler's one disqualifying limitation does not apply here; see
+    // docs/schedulers.md before pairing any other group this way.
+    {
+      key: 'chain-sts', columnHeading: 'Long Chain of Blocks (single-threaded scheduler)',
+      rows: [{
+        key: 'mult-sts',
+        label: 'Null Source -> N x Multiply Const -> Null Sink',
+        cases: CHAIN_LENGTHS.map(count => ({
+          key: `mult-sts:${count}`,
+          column: `${count} blocks`,
+          grc: multiplyChainFlowgraph(count),
+          scheduler: 'sts',
         })),
       }],
     },
@@ -391,7 +422,8 @@ async function measureCase(
   // A hash-only change does not reload a document, so the query string carries
   // the case: without it every case after the first would re-measure the first.
   // It doubles as the identity every read below is checked against.
-  const search = `?benchmark=${encodeURIComponent(benchmark.key)}`;
+  const search = `?benchmark=${encodeURIComponent(benchmark.key)}` +
+    (benchmark.scheduler ? `&scheduler=${encodeURIComponent(benchmark.scheduler)}` : '');
   frame.src = `/runner/build/runner.html${search}#${encodeURIComponent(benchmark.grc)}`;
 
   const deadline = Date.now() + START_TIMEOUT_MS;

@@ -195,6 +195,19 @@ export const RUNNABLE: Record<string, RunnableDef> = {
       { id: 'author', label: 'Author', type: 'string', def: '' },
       { id: 'copyright', label: 'Copyright', type: 'string', def: '', hideIfEmpty: true },
       { id: 'description', label: 'Description', type: 'string', def: '' },
+      // Browser-only. Which scheduler the runner drives this flowgraph with --
+      // see docs/schedulers.md. Native GRC ignores an options key it does not
+      // know (grc/core/blocks/block.py's import_data swallows the KeyError), so
+      // a .grc carrying this still opens there; it is dropped on a native
+      // re-save, which is the whole cost of keeping it in the file.
+      //
+      // 'tpb' is deliberately NOT written out (see grcParams' caller in
+      // main.ts): every options parameter is serialized, so a default that
+      // reached the file would rewrite every .grc in the repository.
+      { id: 'scheduler', label: 'Scheduler', type: 'enum', def: 'tpb',
+        options: ['tpb', 'sts', 'det'],
+        optionLabels: ['Thread-Per-Block (default)', 'Single-Threaded',
+                       'Deterministic (bounded, repeatable)'] },
     ],
   },
   // GRC's canvas annotation. It has no GNU Radio block behind it — the runner

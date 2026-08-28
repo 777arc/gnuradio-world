@@ -1,0 +1,56 @@
+options:
+    parameters:
+        id: deterministic_chain
+        title: Deterministic scheduler repeatability
+        scheduler: det
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: src
+    id: blocks_null_source
+    parameters:
+        type: complex
+        num_outputs: '1'
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: scale
+    id: blocks_multiply_const_vxx
+    parameters:
+        type: complex
+        mode: scalar
+        const: '2'
+        vlen: '1'
+    states:
+        coordinate: [200, 0]
+        rotation: 0
+        state: enabled
+-   name: shift
+    id: blocks_delay
+    parameters:
+        type: complex
+        delay: '17'
+        num_ports: '1'
+        vlen: '1'
+    states:
+        coordinate: [400, 0]
+        rotation: 0
+        state: enabled
+-   name: snk
+    id: blocks_null_sink
+    parameters:
+        type: complex
+        num_inputs: '1'
+        vlen: '1'
+    states:
+        coordinate: [600, 0]
+        rotation: 0
+        state: enabled
+connections:
+- [src, '0', scale, '0']
+- [scale, '0', shift, '0']
+- [shift, '0', snk, '0']

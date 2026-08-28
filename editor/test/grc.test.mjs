@@ -6,7 +6,8 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { exampleFiles } from './example-files.mjs';
 import { bundleModule } from './bundle-module.mjs';
-import { mainSource as main } from './editor-contract-source.mjs';
+import { mainSource as main, blockDefsSource, runSessionSource }
+  from './editor-contract-source.mjs';
 
 // grc.ts is TypeScript and pulls in js-yaml, so bundle it to an importable mjs.
 const out = join(tmpdir(), `grc-test-${process.pid}.mjs`);
@@ -132,10 +133,10 @@ for (const file of exampleFiles) {
 // them going malformed. Parsing them here is the guard.
 const { benchmarkTables, benchmarkCases } = await bundleModule('../src/benchmark.ts');
 const benchmarks = benchmarkCases();
-assert.deepEqual(benchmarkTables().map(table => table.key), ['filters', 'chain'],
-  'filters are measured first, then the chains');
-assert.equal(benchmarks.length, 15,
-  'four filters at three tap counts, plus three chain lengths');
+assert.deepEqual(benchmarkTables().map(table => table.key), ['filters', 'chain', 'chain-sts'],
+  'filters are measured first, then the chains on each scheduler');
+assert.equal(benchmarks.length, 18,
+  'four filters at three tap counts, plus three chain lengths on two schedulers');
 assert.equal(new Set(benchmarks.map(benchmark => benchmark.key)).size, benchmarks.length,
   'case keys are unique');
 for (const benchmark of benchmarks) {
@@ -152,7 +153,7 @@ for (const benchmark of benchmarks) {
     assert.deepEqual(connection, [names[index], '0', names[index + 1], '0'],
       `${benchmark.key}: hop ${index} is in series`);
 
-  if (benchmark.key.startsWith('mult:')) {
+  if (/^mult(-sts)?:/.test(benchmark.key)) {
     const count = Number(benchmark.key.split(':')[1]);
     assert.equal(names.length, count + 2, `${benchmark.key}: ${count} blocks plus source and sink`);
     // GNU Radio runs a thread per block, so a chain's length decides the
@@ -164,6 +165,20 @@ for (const benchmark of benchmarks) {
       assert.equal(block.id, 'blocks_multiply_const_vxx', `${benchmark.key}: chain of Multiply Const`);
       assert.equal(block.parameters.type, 'complex', `${benchmark.key}: complex I/O`);
     }
+    // The two chain groups are a comparison, so the only thing allowed to differ
+    // between them is which scheduler runs the flowgraph -- not the flowgraph.
+    const sts = benchmark.key.startsWith('mult-sts:');
+    assert.equal(benchmark.scheduler, sts ? 'sts' : undefined,
+      `${benchmark.key}: the scheduler is the only difference between the groups`);
+    const twin = benchmarks.find(other =>
+      other.key === (sts ? `mult:${count}` : `mult-sts:${count}`));
+    assert.equal(benchmark.grc, twin?.grc,
+      `${benchmark.key}: both schedulers must run a byte-identical flowgraph`);
+    // Nothing in the chain waits inside work(), which is what makes it safe to
+    // run single-threaded at all. See docs/schedulers.md.
+    for (const block of parsed.blocks)
+      assert.ok(!/audio_|file_source|sigmf|recording|rtlsdr|plutosdr|hackrf|epy_block/.test(block.id),
+        `${benchmark.key}: ${block.id} waits inside work() and would stall a shared thread`);
   } else {
     assert.deepEqual(names, ['src', 'dut', 'snk'], `${benchmark.key}: source, filter, sink`);
     const dut = parsed.blocks[1];
@@ -239,5 +254,54 @@ const rtlSpeed = parseGrc(
 assert.equal(rtlSpeed.blocks[0].parameters.type, 'complex');
 assert.equal(rtlSpeed.blocks[0].parameters.bufflen, '262144');
 
+// ---- the Options block's browser-only `scheduler` key ----
+// It names one of the runner's scheduler plugins (docs/schedulers.md). Three
+// things have to hold, and none of them is visible from either side alone.
+const schedulersHpp = await readFile(
+  new URL('../../runner/src/schedulers.hpp', import.meta.url), 'utf8');
+const runnerSchedulers = [...schedulersHpp.matchAll(/^\s*\{ "([a-z]+)", "/gm)].map(m => m[1]);
+assert.ok(runnerSchedulers.length >= 2,
+  'failed to read the plugin table out of runner/src/schedulers.hpp');
+const schedulerParam =
+  blockDefsSource.match(/\{ id: 'scheduler',[\s\S]*?\},\n/)?.[0] ?? '';
+const editorSchedulers =
+  [...(schedulerParam.match(/options: \[([^\]]*)\]/)?.[1] ?? '').matchAll(/'([a-z]+)'/g)]
+    .map(m => m[1]);
+
+// 1. The dropdown offers exactly the schedulers the runner can actually make.
+//    Drift either way is silent: an editor-only name falls back to the default
+//    at run time, and a runner-only one is simply unreachable.
+assert.deepEqual(editorSchedulers, runnerSchedulers,
+  'the Options Scheduler dropdown and runner_sched::plugins() must list the same names');
+
+// 2. The schema default, the constant main.ts omits on save, and the runner's
+//    own fallback are the same scheduler. If the first two ever disagree, every
+//    saved .grc grows a `scheduler:` key; if the last does, the key is omitted
+//    and the runner then picks something else.
+const schemaDefault = schedulerParam.match(/def: '([a-z]+)'/)?.[1];
+const omittedDefault = main.match(/const SCHEDULER_DEFAULT = '([a-z]+)';/)?.[1];
+assert.equal(schemaDefault, omittedDefault,
+  'block-defs.ts `def` and main.ts SCHEDULER_DEFAULT must name the same scheduler');
+assert.equal(schemaDefault, runnerSchedulers[0],
+  'the omitted default must be the runner\'s first plugin, which select() falls back to');
+assert.match(main,
+  /if \(k === SCHEDULER_PARAM && String\(v\) === SCHEDULER_DEFAULT\) continue;/,
+  'the default scheduler must be left out of the saved .grc entirely');
+
+// 3. No committed flowgraph carries the key. Every one of them predates it, so
+//    any that has it is a file the default-omission rule failed to keep clean.
+for (const file of exampleFiles) {
+  const text = await readFile(
+    new URL(`../../example_flowgraphs/${file}`, import.meta.url), 'utf8');
+  assert.equal(parseGrc(text).options?.parameters?.scheduler, undefined,
+    `${file} must not carry a scheduler key: the default is never written out`);
+}
+
+// The editor's own ?scheduler= is handed on to the runner frame, which is what
+// makes the choice reachable without editing (and re-saving) the flowgraph.
+assert.match(runSessionSource, /\['scheduler', 'rounds'\]/,
+  "run-session.ts must forward ?scheduler= and ?rounds= onto the runner URL");
+
 console.log(`checked .grc round-trip, byte-exact formatting, ${exampleFiles.length} derived flowgraph ids, ` +
-  `${benchmarks.length} CPU benchmark cases, and the SDR speed-test flowgraph`);
+  `${benchmarks.length} CPU benchmark cases, the scheduler option against ` +
+  `${runnerSchedulers.length} runner plugins, and the SDR speed-test flowgraph`);

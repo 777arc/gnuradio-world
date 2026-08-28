@@ -1528,6 +1528,11 @@ function zoomToFitWhenMeasurable() {
 // ---- Options block: the singleton flowgraph-metadata block (GRC-style) ----
 // Every flowgraph has exactly one, holding title/author/copyright/description.
 const OPTIONS_ID = 'options';
+// The Options block's browser-only scheduler choice. Its default is left out of
+// the saved .grc entirely -- see buildGrcDoc -- so `def` here and the value the
+// runner falls back to have to stay the same string. See docs/schedulers.md.
+const SCHEDULER_PARAM = 'scheduler';
+const SCHEDULER_DEFAULT = 'tpb';
 // The id a flowgraph with no Title gets, matching native's default_flow_graph.grc.
 const DEFAULT_FLOWGRAPH_ID = 'default';
 function makeOptionsInst(): Inst {
@@ -1781,7 +1786,14 @@ function buildGrcDoc(resolve = false): GrcDoc {
   // options: a top-level block (not in `blocks`), carrying flowgraph metadata.
   const opt = state.insts.find(i => i.id === OPTIONS_ID);
   const optionParams: Record<string, GrcScalar> = { generate_options: 'qt_gui', id: flowgraphId() };
-  if (opt) for (const [k, v] of Object.entries(opt.params)) optionParams[k] = String(v);
+  if (opt) for (const [k, v] of Object.entries(opt.params)) {
+    // `scheduler` is browser-only and defaults to the scheduler the runner would
+    // have used anyway, so writing it out at its default would add a key to
+    // every .grc in the repository -- and to every file a user has saved -- for
+    // no change in behaviour. Omitting it keeps those byte-identical.
+    if (k === SCHEDULER_PARAM && String(v) === SCHEDULER_DEFAULT) continue;
+    optionParams[k] = String(v);
+  }
   const options = { parameters: grcParams(optionParams),
     states: opt ? grcStates(opt) : { coordinate: [10, 10], rotation: 0, state: 'enabled' } };
 

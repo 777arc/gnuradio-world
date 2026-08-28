@@ -435,8 +435,19 @@ export async function runFlowgraph(deps: RunSessionDeps, session: RunSessionStat
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   session.pendingToken = token;
   session.pendingFiles.set(token, recordingFiles);
+  // The editor's own ?scheduler= is forwarded to the runner, where it overrides
+  // whatever the flowgraph's Options block says; ?rounds= goes with it, since a
+  // deterministic run's budget is useless without a way to set it. Together they
+  // make the choice testable from the address bar without editing (and
+  // re-saving) the flowgraph. See docs/schedulers.md.
+  const here = new URLSearchParams(location.search);
+  const passthrough = ['scheduler', 'rounds']
+    .map(key => [key, here.get(key)] as const)
+    .filter(([, value]) => value)
+    .map(([key, value]) => `&${key}=${encodeURIComponent(value!)}`)
+    .join('');
   const url = '/runner/build/runner.html?recordingToken=' + encodeURIComponent(token) +
-    '#' + encodeURIComponent(grcTextForRun(fileOverrides));
+    passthrough + '#' + encodeURIComponent(grcTextForRun(fileOverrides));
   const frame = deps.frame;
   deps.runEmpty.hidden = true;
   frame.hidden = false;

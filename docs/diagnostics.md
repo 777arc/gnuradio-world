@@ -213,10 +213,13 @@ so the bottleneck lights up without reading numbers.
    extra workers, which the separate `+N extra` counter exposes.
 7. Before scheduler startup, the runner flattens the fully constructed graph and
    calls the same `calc_used_blocks()` used by GNU Radio's thread-per-block
-   scheduler. If hierarchy expansion crosses a tier boundary, the missing
-   workers are allocated and initialized before `tb->run()`. The exact count and
-   any corrective preload are written to the editor console; the same exact
-   count drives the headline's `dsp threads` value.
+   scheduler, then asks the *chosen* scheduler how many threads it will make of
+   that count (`plugin::thread_estimate()` — see
+   [schedulers.md](schedulers.md); only thread-per-block answers with the block
+   count). If hierarchy expansion crosses a tier boundary, the missing workers
+   are allocated and initialized before the scheduler is constructed. Both counts
+   and any corrective preload are written to the editor console; the thread count
+   — not the block count — drives the headline's `dsp threads` value.
 
 ### Findings worth remembering
 
@@ -261,9 +264,10 @@ Verified headless: a `src → multiply_const → throttle → null_sink` graph r
 
 Help ▸ Benchmark Tool ([`editor/src/benchmark.ts`](../editor/src/benchmark.ts))
 reads the same `window.__grstats` snapshot, for a different question: not "is
-this flowgraph keeping up?" but "how fast is this machine?". One click fills two
+this flowgraph keeping up?" but "how fast is this machine?". One click fills three
 matrices: three filters (complex in/out, real taps) at 101, 1001 and 10001 taps,
-then chains of 10, 20 and 30 Multiply Const blocks in series.
+then chains of 10, 20 and 30 Multiply Const blocks in series — twice over, once
+per scheduler.
 
 The filter rows are Decimating FIR, FFT Filter, and — the reason they are in one
 table — the same filter written as an **Embedded Python Block** over
@@ -276,24 +280,35 @@ scipy's FFT against gr-fft's. On this laptop it lands between the two C++ rows �
 several times slower than the C++ FFT Filter, several times faster than the
 time-domain FIR at the same tap count.
 
+**The last matrix is the same chains on the single-threaded scheduler**
+([schedulers.md](schedulers.md)), reached through the `?scheduler=sts` query the
+benchmark's iframe URL already carries a case key in. The chain group is the one
+worth pairing because its cost is length rather than arithmetic, and length is
+exactly what thread-per-block turns into Web Workers: the 30-block case is 33
+threads and a 40-worker prewarmed pool, against one thread and a pool of 8. The
+two "with startup" columns are therefore what the pool costs, and the two
+"without startup" columns what a single thread costs a warm graph. Both groups
+run a byte-identical `.grc` — `grc.test.mjs` asserts it, along with the absence
+of any block that waits inside `work()` and would stall a shared thread.
+
 Two consequences of that row being Python. It needs `pyodide/`
 ([docs/embedded-python.md](embedded-python.md)), and on a build without it those
 three cells report the failure and the other nine are unaffected. And it makes a
 run take about twice as long in wall-clock time, because each case starts the
 interpreter and installs scipy — which does *not* touch the rates, since
-`uptime_s` starts at `tb->run()` and the Python Block's interpreter is loaded
+`uptime_s` starts when the scheduler does and the Python Block's interpreter is loaded
 before that, in the prepare step.
 
 - **One case per flowgraph, run one at a time.** Each cell is its own Null
   Source → *thing under test* → Null Sink `.grc`, loaded into a private
   offscreen runner iframe, so it has the machine to itself. Null Source keeps
   the samples at zero, the one input that can never drag a float path into
-  denormals. `grc.test.mjs` parses all twelve, because they are hand-written text
-  going straight to the runner — including the Python row's source, which has to
-  survive the `.grc` as one escaped line.
+  denormals. `grc.test.mjs` parses every one of them, because they are
+  hand-written text going straight to the runner — including the Python row's
+  source, which has to survive the `.grc` as one escaped line.
 - **The rate is end-to-end**: the counted block's `items` divided by the
   snapshot's own `uptime_s`, both from a single snapshot. `uptime_s` runs from
-  the instant `start_prepared_flowgraph()` launched `tb->run()`, so the divisor
+  the instant `start_prepared_flowgraph()` constructed the scheduler, so the divisor
   covers graph start-up and every per-sample cost in the chain. It is *not* the
   per-block work timer: that one (`work_total_s`, what the debug panel uses)
   excludes waiting, and under Emscripten it is not CPU time either, because GR

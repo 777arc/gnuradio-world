@@ -230,6 +230,70 @@ int main() {
         assert(other->at("params").at("device").is_number());
     }
 
+    // The browser-only `scheduler` key on the options block. Two spellings have
+    // to work: the top-level `options:` GRC writes, and an `options` entry under
+    // `blocks:`, which is how a hand-written flowgraph often carries it.
+    {
+        const char* top_level =
+            "options:\n"
+            "    parameters:\n"
+            "        id: t\n"
+            "        scheduler: sts\n"
+            "    states:\n"
+            "        coordinate: [8, 8]\n"
+            "        rotation: 0\n"
+            "        state: enabled\n"
+            "blocks:\n"
+            "-   name: snk\n"
+            "    id: blocks_null_sink\n"
+            "    parameters:\n"
+            "        vlen: '1'\n"
+            "    states:\n"
+            "        coordinate: [0, 0]\n"
+            "        rotation: 0\n"
+            "        state: enabled\n"
+            "connections: []\n";
+        assert(grc_lower::lower(grc_yaml::parse(top_level)).at("scheduler") == "sts");
+
+        const char* in_blocks =
+            "blocks:\n"
+            "-   name: options\n"
+            "    id: options\n"
+            "    parameters:\n"
+            "        id: t\n"
+            "        scheduler: sts\n"
+            "    states:\n"
+            "        coordinate: [8, 8]\n"
+            "        rotation: 0\n"
+            "        state: enabled\n"
+            "-   name: snk\n"
+            "    id: blocks_null_sink\n"
+            "    parameters:\n"
+            "        vlen: '1'\n"
+            "    states:\n"
+            "        coordinate: [0, 0]\n"
+            "        rotation: 0\n"
+            "        state: enabled\n"
+            "connections: []\n";
+        const json in_blocks_low = grc_lower::lower(grc_yaml::parse(in_blocks));
+        assert(in_blocks_low.at("scheduler") == "sts");
+        // ... and the options block itself never reaches the registry either way.
+        assert(in_blocks_low.at("blocks").size() == 1);
+
+        // Absent means "the runner's default", not an error.
+        const char* absent =
+            "options:\n"
+            "    parameters:\n"
+            "        id: t\n"
+            "    states:\n"
+            "        coordinate: [8, 8]\n"
+            "        rotation: 0\n"
+            "        state: enabled\n"
+            "blocks: []\n"
+            "connections: []\n";
+        assert(grc_lower::lower(grc_yaml::parse(absent)).at("scheduler") == "");
+    }
+
     std::cout << "grc_test: parser + lowering OK\n";
     return 0;
 }
