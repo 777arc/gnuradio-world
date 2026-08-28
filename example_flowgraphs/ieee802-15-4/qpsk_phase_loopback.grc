@@ -1,0 +1,256 @@
+options:
+    parameters:
+        author: Bastian Bloessl
+        comment: ''
+        copyright: ''
+        description: Maps all four QPSK symbol pairs to phase and recovers their I/Q values with gr-ieee802-15-4.
+        generate_options: qt_gui
+        id: IEEE_802_15_4_QPSK_Phase_Loopback
+        title: IEEE 802.15.4 QPSK Phase Loopback
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: symbol_rate
+    id: variable
+    parameters:
+        comment: ''
+        value: '32000'
+    states:
+        coordinate: [600, 10]
+        rotation: 0
+        state: enabled
+-   name: explanation
+    id: note
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        note: The mapper converts every I/Q pair to a phase in radians; the demapper recovers the original -1/+1 streams.
+    states:
+        coordinate: [780, 10]
+        rotation: 0
+        state: enabled
+-   name: i_symbols
+    id: blocks_vector_source_x
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        repeat: 'True'
+        tags: '[]'
+        type: int
+        vector: '[-1, -1, 1, 1]'
+        vlen: '1'
+    states:
+        coordinate: [10, 150]
+        rotation: 0
+        state: enabled
+-   name: pace
+    id: blocks_throttle2
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        ignoretag: 'True'
+        limit: time
+        maximum: '0.1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        samples_per_second: symbol_rate
+        type: float
+        vlen: '1'
+    states:
+        coordinate: [570, 150]
+        rotation: 0
+        state: enabled
+-   name: phase_and_symbols
+    id: qtgui_time_sink_x
+    parameters:
+        affinity: ''
+        alias: ''
+        alpha1: '1'
+        alpha10: '1'
+        alpha2: '1'
+        alpha3: '1'
+        alpha4: '1'
+        alpha5: '1'
+        alpha6: '1'
+        alpha7: '1'
+        alpha8: '1'
+        alpha9: '1'
+        autoscale: 'False'
+        axislabels: 'True'
+        color1: blue
+        color10: dark blue
+        color2: red
+        color3: green
+        color4: black
+        color5: cyan
+        color6: magenta
+        color7: yellow
+        color8: dark red
+        color9: dark green
+        comment: ''
+        ctrlpanel: 'False'
+        grid: 'True'
+        label1: Phase (radians)
+        label10: Signal 10
+        label2: Recovered I
+        label3: Recovered Q
+        label4: Signal 4
+        label5: Signal 5
+        label6: Signal 6
+        label7: Signal 7
+        label8: Signal 8
+        label9: Signal 9
+        legend: 'True'
+        marker1: '-1'
+        marker10: '-1'
+        marker2: '-1'
+        marker3: '-1'
+        marker4: '-1'
+        marker5: '-1'
+        marker6: '-1'
+        marker7: '-1'
+        marker8: '-1'
+        marker9: '-1'
+        name: QPSK phase and recovered symbols
+        nconnections: '3'
+        samp_rate: symbol_rate
+        size: '256'
+        stemplot: 'True'
+        style1: '1'
+        style10: '1'
+        style2: '1'
+        style3: '1'
+        style4: '1'
+        style5: '1'
+        style6: '1'
+        style7: '1'
+        style8: '1'
+        style9: '1'
+        tr_chan: '0'
+        tr_delay: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_slope: qtgui.TRIG_SLOPE_POS
+        tr_tag: ''
+        type: float
+        update_time: '0.1'
+        width1: '1'
+        width10: '1'
+        width2: '1'
+        width3: '1'
+        width4: '1'
+        width5: '1'
+        width6: '1'
+        width7: '1'
+        width8: '1'
+        width9: '1'
+        ylabel: Value
+        ymax: '3.5'
+        ymin: '-3.5'
+        yunit: ''
+    states:
+        coordinate: [1450, 170]
+        rotation: 0
+        state: enabled
+-   name: phase_demapper
+    id: ieee802_15_4_qpsk_demapper_fi
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
+    states:
+        coordinate: [900, 150]
+        rotation: 0
+        state: enabled
+-   name: phase_mapper
+    id: ieee802_15_4_qpsk_mapper_if
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
+    states:
+        coordinate: [310, 150]
+        rotation: 0
+        state: enabled
+-   name: q_symbols
+    id: blocks_vector_source_x
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        repeat: 'True'
+        tags: '[]'
+        type: int
+        vector: '[-1, 1, -1, 1]'
+        vlen: '1'
+    states:
+        coordinate: [10, 270]
+        rotation: 0
+        state: enabled
+-   name: recovered_i
+    id: blocks_int_to_float
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        scale: '1'
+        vlen: '1'
+    states:
+        coordinate: [1200, 160]
+        rotation: 0
+        state: enabled
+-   name: recovered_q
+    id: blocks_int_to_float
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        scale: '1'
+        vlen: '1'
+    states:
+        coordinate: [1200, 260]
+        rotation: 0
+        state: enabled
+-   name: wasm_gui_layout_0
+    id: wasm_gui_layout
+    parameters:
+        affinity: ''
+        alias: ''
+        columns: '12'
+        comment: ''
+        layout: '{}'
+        row_height: '60'
+    states:
+        coordinate: [310, 10]
+        rotation: 0
+        state: enabled
+connections:
+- [i_symbols, '0', phase_mapper, '0']
+- [pace, '0', phase_and_symbols, '0']
+- [pace, '0', phase_demapper, '0']
+- [phase_demapper, '0', recovered_i, '0']
+- [phase_demapper, '1', recovered_q, '0']
+- [phase_mapper, '0', pace, '0']
+- [q_symbols, '0', phase_mapper, '1']
+- [recovered_i, '0', phase_and_symbols, '1']
+- [recovered_q, '0', phase_and_symbols, '2']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0

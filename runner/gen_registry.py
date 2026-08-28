@@ -272,6 +272,14 @@ def vector_type(dtype: str) -> str | None:
     }.get(dtype)
 
 
+def matrix_type(dtype: str) -> str | None:
+    return {
+        "int_matrix": "int",
+        "real_matrix": "float",
+        "float_matrix": "float",
+    }.get(dtype)
+
+
 class Arg(str):
     """Mako argument whose rendered value is a typed JSON access expression."""
 
@@ -430,6 +438,9 @@ def param_arg(block_id: str, param: dict[str, Any], namespace: dict[str, Any]) -
     # one-element tuple's trailing comma.
     if dtype == "string_vector":
         return Arg(f"wasm_registry::string_vector(p, {quoted_id})")
+    item_type = matrix_type(dtype)
+    if item_type:
+        return Arg(f"wasm_registry::matrix<{item_type}>(p, {quoted_id})")
     item_type = vector_type(dtype)
     if item_type:
         if block_id == "blocks_blockinterleaver_xx" and pid == "interleaver_indices":

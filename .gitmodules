@@ -58,3 +58,7 @@
 	path = gr-gsm
 	url = https://github.com/ptrkrysik/gr-gsm.git
 	branch = porting_to_3.11
+[submodule "gr-ieee802_15_4"]
+	path = gr-ieee802_15_4
+	url = https://github.com/bastibl/gr-ieee802-15-4.git
+	branch = maint-3.10

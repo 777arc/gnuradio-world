@@ -1,0 +1,266 @@
+options:
+    parameters:
+        author: Bastian Bloessl
+        comment: ''
+        copyright: ''
+        description: Maps bits to CSS codewords and decodes them by minimum distance with gr-ieee802-15-4.
+        generate_options: qt_gui
+        id: IEEE_802_15_4_CSS_Codeword_Loopback
+        title: IEEE 802.15.4 CSS Codeword Loopback
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: chip_rate
+    id: variable
+    parameters:
+        comment: ''
+        value: '8000'
+    states:
+        coordinate: [600, 10]
+        rotation: 0
+        state: enabled
+-   name: codewords
+    id: variable
+    parameters:
+        comment: ''
+        value: '[[0, 1, 0, 1], [1, 0, 1, 0]]'
+    states:
+        coordinate: [770, 10]
+        rotation: 0
+        state: enabled
+-   name: bits
+    id: blocks_vector_source_x
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        repeat: 'True'
+        tags: '[]'
+        type: byte
+        vector: '[0, 1, 1, 0]'
+        vlen: '1'
+    states:
+        coordinate: [10, 160]
+        rotation: 0
+        state: enabled
+-   name: bits_to_float
+    id: blocks_char_to_float
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        scale: '1'
+        vlen: '1'
+    states:
+        coordinate: [80, 420]
+        rotation: 0
+        state: enabled
+-   name: chips_to_float
+    id: blocks_int_to_float
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        scale: '1'
+        vlen: '1'
+    states:
+        coordinate: [80, 320]
+        rotation: 0
+        state: enabled
+-   name: codeword_demapper
+    id: ieee802_15_4_codeword_demapper_ib
+    parameters:
+        affinity: ''
+        alias: ''
+        bits_per_cw: '1'
+        codewords: codewords
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
+    states:
+        coordinate: [940, 160]
+        rotation: 0
+        state: enabled
+-   name: codeword_mapper
+    id: ieee802_15_4_codeword_mapper_bi
+    parameters:
+        affinity: ''
+        alias: ''
+        bits_per_cw: '1'
+        codewords: codewords
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
+    states:
+        coordinate: [290, 160]
+        rotation: 0
+        state: enabled
+-   name: codeword_scope
+    id: qtgui_time_sink_x
+    parameters:
+        affinity: ''
+        alias: ''
+        alpha1: '1'
+        alpha10: '1'
+        alpha2: '1'
+        alpha3: '1'
+        alpha4: '1'
+        alpha5: '1'
+        alpha6: '1'
+        alpha7: '1'
+        alpha8: '1'
+        alpha9: '1'
+        autoscale: 'False'
+        axislabels: 'True'
+        color1: blue
+        color10: dark blue
+        color2: red
+        color3: green
+        color4: black
+        color5: cyan
+        color6: magenta
+        color7: yellow
+        color8: dark red
+        color9: dark green
+        comment: ''
+        ctrlpanel: 'False'
+        grid: 'True'
+        label1: Mapped chips
+        label10: Signal 10
+        label2: Recovered bit
+        label3: Signal 3
+        label4: Signal 4
+        label5: Signal 5
+        label6: Signal 6
+        label7: Signal 7
+        label8: Signal 8
+        label9: Signal 9
+        legend: 'True'
+        marker1: '-1'
+        marker10: '-1'
+        marker2: '-1'
+        marker3: '-1'
+        marker4: '-1'
+        marker5: '-1'
+        marker6: '-1'
+        marker7: '-1'
+        marker8: '-1'
+        marker9: '-1'
+        name: CSS codeword mapping and recovery
+        nconnections: '2'
+        samp_rate: chip_rate
+        size: '256'
+        stemplot: 'True'
+        style1: '1'
+        style10: '1'
+        style2: '1'
+        style3: '1'
+        style4: '1'
+        style5: '1'
+        style6: '1'
+        style7: '1'
+        style8: '1'
+        style9: '1'
+        tr_chan: '0'
+        tr_delay: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_slope: qtgui.TRIG_SLOPE_POS
+        tr_tag: ''
+        type: float
+        update_time: '0.1'
+        width1: '1'
+        width10: '1'
+        width2: '1'
+        width3: '1'
+        width4: '1'
+        width5: '1'
+        width6: '1'
+        width7: '1'
+        width8: '1'
+        width9: '1'
+        ylabel: Chip / bit value
+        ymax: '1.2'
+        ymin: '-0.2'
+        yunit: ''
+    states:
+        coordinate: [340, 310]
+        rotation: 0
+        state: enabled
+-   name: explanation
+    id: note
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        note: Each bit selects a four-chip codeword. The minimum-distance demapper recovers the bit, repeated here for an equal-rate plot.
+    states:
+        coordinate: [1020, 10]
+        rotation: 0
+        state: enabled
+-   name: pace
+    id: blocks_throttle2
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        ignoretag: 'True'
+        limit: time
+        maximum: '0.1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        samples_per_second: chip_rate
+        type: int
+        vlen: '1'
+    states:
+        coordinate: [610, 150]
+        rotation: 0
+        state: enabled
+-   name: repeat_recovered_bit
+    id: blocks_repeat
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        interp: '4'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [1270, 170]
+        rotation: 0
+        state: enabled
+-   name: wasm_gui_layout_0
+    id: wasm_gui_layout
+    parameters:
+        affinity: ''
+        alias: ''
+        columns: '12'
+        comment: ''
+        layout: '{}'
+        row_height: '60'
+    states:
+        coordinate: [310, 10]
+        rotation: 0
+        state: enabled
+connections:
+- [bits, '0', codeword_mapper, '0']
+- [bits_to_float, '0', codeword_scope, '1']
+- [chips_to_float, '0', codeword_scope, '0']
+- [codeword_demapper, '0', repeat_recovered_bit, '0']
+- [codeword_mapper, '0', pace, '0']
+- [pace, '0', chips_to_float, '0']
+- [pace, '0', codeword_demapper, '0']
+- [repeat_recovered_bit, '0', bits_to_float, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0

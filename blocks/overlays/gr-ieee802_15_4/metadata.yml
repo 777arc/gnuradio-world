@@ -1,0 +1,219 @@
+# Browser-only block metadata for bastibl/gr-ieee802-15-4.
+#
+# All 25 GRC blocks have native C++ implementations. Their generated factories
+# live in the deferred ieee802_15_4 side module. Upstream's nested chip/codeword
+# tables are `raw`; browser-only matrix dtypes make the editor resolve variable
+# references while saved .grc files retain their native text. RIME vectors are
+# narrowed by the helper beside this file with range checks.
+
+ieee802_15_4_access_code_prefixer:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <ieee802_15_4/access_code_prefixer.h>']
+        declarations: ieee802_15_4::access_code_prefixer::sptr ${id};
+        make: this->${id} = ieee802_15_4::access_code_prefixer::make(${pad}, ${preamble});
+        link: [gnuradio-ieee802_15_4]
+
+ieee802_15_4_access_code_removal_b:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <ieee802_15_4/access_code_removal_b.h>']
+        declarations: ieee802_15_4::access_code_removal_b::sptr ${id};
+        make: this->${id} = ieee802_15_4::access_code_removal_b::make(${payload_len});
+        link: [gnuradio-ieee802_15_4]
+
+ieee802_15_4_chips_to_bits_fb:
+    flags: [python, cpp]
+    parameter_dtypes:
+        chip_seq: float_matrix
+    cpp_templates:
+        includes: ['#include <ieee802_15_4/chips_to_bits_fb.h>']
+        declarations: ieee802_15_4::chips_to_bits_fb::sptr ${id};
+        make: this->${id} = ieee802_15_4::chips_to_bits_fb::make(${chip_seq});
+        link: [gnuradio-ieee802_15_4]
+
+ieee802_15_4_codeword_demapper_ib:
+    flags: [python, cpp]
+    parameter_dtypes:
+        codewords: int_matrix
+    cpp_templates:
+        includes: ['#include <ieee802_15_4/codeword_demapper_ib.h>']
+        declarations: ieee802_15_4::codeword_demapper_ib::sptr ${id};
+        make: this->${id} = ieee802_15_4::codeword_demapper_ib::make(${bits_per_cw}, ${codewords});
+        link: [gnuradio-ieee802_15_4]
+
+ieee802_15_4_codeword_mapper_bi:
+    flags: [python, cpp]
+    parameter_dtypes:
+        codewords: int_matrix
+    cpp_templates:
+        includes: ['#include <ieee802_15_4/codeword_mapper_bi.h>']
+        declarations: ieee802_15_4::codeword_mapper_bi::sptr ${id};
+        make: this->${id} = ieee802_15_4::codeword_mapper_bi::make(${bits_per_cw}, ${codewords});
+        link: [gnuradio-ieee802_15_4]
+
+ieee802_15_4_codeword_soft_demapper_fb:
+    flags: [python, cpp]
+    parameter_dtypes:
+        codewords: float_matrix
+    cpp_templates:
+        includes: ['#include <ieee802_15_4/codeword_soft_demapper_fb.h>']
+        declarations: ieee802_15_4::codeword_soft_demapper_fb::sptr ${id};
+        make: this->${id} = ieee802_15_4::codeword_soft_demapper_fb::make(${bits_per_cw}, ${codewords});
+        link: [gnuradio-ieee802_15_4]
+
+ieee802_15_4_deinterleaver_ff:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <ieee802_15_4/deinterleaver_ff.h>']
+        declarations: ieee802_15_4::deinterleaver_ff::sptr ${id};
+        make: this->${id} = ieee802_15_4::deinterleaver_ff::make(${intlv_seq});
+        link: [gnuradio-ieee802_15_4]
+
+ieee802_15_4_dqcsk_demapper_cc:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <ieee802_15_4/dqcsk_demapper_cc.h>']
+        declarations: ieee802_15_4::dqcsk_demapper_cc::sptr ${id};
+        make: this->${id} = ieee802_15_4::dqcsk_demapper_cc::make(${chirp_seq}, ${time_gap_1}, ${time_gap_2}, ${len_subchirp}, ${num_subchirps});
+        link: [gnuradio-ieee802_15_4]
+
+ieee802_15_4_dqcsk_mapper_fc:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <ieee802_15_4/dqcsk_mapper_fc.h>']
+        declarations: ieee802_15_4::dqcsk_mapper_fc::sptr ${id};
+        make: this->${id} = ieee802_15_4::dqcsk_mapper_fc::make(${chirp_seq}, ${time_gap_1}, ${time_gap_2}, ${len_subchirp}, ${num_subchirps}, ${nsym_frame});
+        link: [gnuradio-ieee802_15_4]
+
+ieee802_15_4_dqpsk_mapper_ff:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <ieee802_15_4/dqpsk_mapper_ff.h>']
+        declarations: ieee802_15_4::dqpsk_mapper_ff::sptr ${id};
+        make: this->${id} = ieee802_15_4::dqpsk_mapper_ff::make(${framelen}, ${forward});
+        link: [gnuradio-ieee802_15_4]
+
+ieee802_15_4_dqpsk_soft_demapper_cc:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <ieee802_15_4/dqpsk_soft_demapper_cc.h>']
+        declarations: ieee802_15_4::dqpsk_soft_demapper_cc::sptr ${id};
+        make: this->${id} = ieee802_15_4::dqpsk_soft_demapper_cc::make(${framelen});
+        link: [gnuradio-ieee802_15_4]
+
+ieee802_15_4_frame_buffer_cc:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <ieee802_15_4/frame_buffer_cc.h>']
+        declarations: ieee802_15_4::frame_buffer_cc::sptr ${id};
+        make: this->${id} = ieee802_15_4::frame_buffer_cc::make(${nsym_frame});
+        link: [gnuradio-ieee802_15_4]
+
+ieee802_15_4_interleaver_ii:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <ieee802_15_4/interleaver_ii.h>']
+        declarations: ieee802_15_4::interleaver_ii::sptr ${id};
+        make: this->${id} = ieee802_15_4::interleaver_ii::make(${intlv_seq}, ${forward});
+        link: [gnuradio-ieee802_15_4]
+
+ieee802_15_4_mac:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <ieee802_15_4/mac.h>']
+        declarations: ieee802_15_4::mac::sptr ${id};
+        make: this->${id} = ieee802_15_4::mac::make(${debug}, ${fcf}, ${seq_nr}, ${dst_pan}, ${dst}, ${src});
+        link: [gnuradio-ieee802_15_4]
+
+ieee802_15_4_multiuser_chirp_detector_cc:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <ieee802_15_4/multiuser_chirp_detector_cc.h>']
+        declarations: ieee802_15_4::multiuser_chirp_detector_cc::sptr ${id};
+        make: this->${id} = ieee802_15_4::multiuser_chirp_detector_cc::make(${chirp_seq}, ${time_gap_1}, ${time_gap_2}, ${len_subchirp}, ${threshold});
+        link: [gnuradio-ieee802_15_4]
+
+ieee802_15_4_packet_sink:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <ieee802_15_4/packet_sink.h>']
+        declarations: ieee802_15_4::packet_sink::sptr ${id};
+        make: this->${id} = ieee802_15_4::packet_sink::make(${th});
+        link: [gnuradio-ieee802_15_4]
+
+ieee802_15_4_phr_prefixer:
+    flags: [python, cpp]
+    parameter_dtypes:
+        phr: byte_vector
+    cpp_templates:
+        includes: ['#include <ieee802_15_4/phr_prefixer.h>']
+        declarations: ieee802_15_4::phr_prefixer::sptr ${id};
+        make: this->${id} = ieee802_15_4::phr_prefixer::make(${phr});
+        link: [gnuradio-ieee802_15_4]
+
+ieee802_15_4_phr_removal:
+    flags: [python, cpp]
+    parameter_dtypes:
+        phr: byte_vector
+    cpp_templates:
+        includes: ['#include <ieee802_15_4/phr_removal.h>']
+        declarations: ieee802_15_4::phr_removal::sptr ${id};
+        make: this->${id} = ieee802_15_4::phr_removal::make(${phr});
+        link: [gnuradio-ieee802_15_4]
+
+ieee802_15_4_preamble_sfd_prefixer_ii:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <ieee802_15_4/preamble_sfd_prefixer_ii.h>']
+        declarations: ieee802_15_4::preamble_sfd_prefixer_ii::sptr ${id};
+        make: this->${id} = ieee802_15_4::preamble_sfd_prefixer_ii::make(${preamble}, ${sfd}, ${nsym_frame});
+        link: [gnuradio-ieee802_15_4]
+
+ieee802_15_4_preamble_tagger_cc:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <ieee802_15_4/preamble_tagger_cc.h>']
+        declarations: ieee802_15_4::preamble_tagger_cc::sptr ${id};
+        make: this->${id} = ieee802_15_4::preamble_tagger_cc::make(${len_preamble});
+        link: [gnuradio-ieee802_15_4]
+
+ieee802_15_4_qpsk_demapper_fi:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <ieee802_15_4/qpsk_demapper_fi.h>']
+        declarations: ieee802_15_4::qpsk_demapper_fi::sptr ${id};
+        make: this->${id} = ieee802_15_4::qpsk_demapper_fi::make();
+        link: [gnuradio-ieee802_15_4]
+
+ieee802_15_4_qpsk_mapper_if:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <ieee802_15_4/qpsk_mapper_if.h>']
+        declarations: ieee802_15_4::qpsk_mapper_if::sptr ${id};
+        make: this->${id} = ieee802_15_4::qpsk_mapper_if::make();
+        link: [gnuradio-ieee802_15_4]
+
+ieee802_15_4_rime_stack:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <ieee802_15_4/rime_stack.h>', '#include "ieee802_15_4_params.hpp"']
+        declarations: ieee802_15_4::rime_stack::sptr ${id};
+        make: this->${id} = ieee802_15_4::rime_stack::make(wasm_ieee802_15_4::channels(${bc_channels}), wasm_ieee802_15_4::channels(${uc_channels}), wasm_ieee802_15_4::channels(${ruc_channels}), wasm_ieee802_15_4::address(${rime_add}));
+        link: [gnuradio-ieee802_15_4]
+
+ieee802_15_4_zeropadding_b:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <ieee802_15_4/zeropadding_b.h>']
+        declarations: ieee802_15_4::zeropadding_b::sptr ${id};
+        make: this->${id} = ieee802_15_4::zeropadding_b::make(${nzeros});
+        link: [gnuradio-ieee802_15_4]
+
+ieee802_15_4_zeropadding_removal_b:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <ieee802_15_4/zeropadding_removal_b.h>']
+        declarations: ieee802_15_4::zeropadding_removal_b::sptr ${id};
+        make: this->${id} = ieee802_15_4::zeropadding_removal_b::make(${phr_payload_len}, ${nzeros});
+        link: [gnuradio-ieee802_15_4]

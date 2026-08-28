@@ -80,6 +80,7 @@ set(GR_INCLUDE_DIRS
   ${WORLD}/gr-fosphor/include
   ${WORLD}/gr-droneid/gnuradio/gr-droneid/include
   ${WORLD}/gr-ieee802_11/include
+  ${WORLD}/gr-ieee802_15_4/include
   ${WORLD}/gr-hrpt/include
   ${WORLD}/gr-lora_sdr/include
   ${WORLD}/gr-radar/include
@@ -547,6 +548,53 @@ set(IEEE802_11_SOURCES
 add_side_module(ieee802_11
   SOURCES ${IEEE802_11_SOURCES}
   DEPENDS ${BLOCKS}/overlays/gr-ieee802_11/ieee802_11_params.hpp)
+
+# gr-ieee802-15-4 (bastibl): the IEEE 802.15.4 O-QPSK/CSS transceiver. All 25
+# blocks exposed by its grc/ have native C++ implementations, so the complete
+# lib/ source set is compiled directly into an on-demand side module. The
+# module's README names gr-foo because its desktop transceiver examples use
+# foo's Packet Pad and Wireshark Connector; none of this module's C++ sources
+# imports gr-foo, so there is no deferred-module dependency edge. VOLK and
+# gr-blocks are already in the main module. config.h is guarded by
+# HAVE_CONFIG_H, which is not defined here, so no generated-header shim is
+# needed. Generic matrix decoding handles the nested chip/codeword tables; the
+# module-local parameter helper narrows the integer vectors used by RIME.
+set(IEEE802_15_4_LIB ${WORLD}/gr-ieee802_15_4/lib)
+set(IEEE802_15_4_SOURCES
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/generated_registry_ieee802_15_4.cpp
+  ${IEEE802_15_4_LIB}/access_code_prefixer.cc
+  ${IEEE802_15_4_LIB}/access_code_removal_b_impl.cc
+  ${IEEE802_15_4_LIB}/bc_connection.cc
+  ${IEEE802_15_4_LIB}/chips_to_bits_fb_impl.cc
+  ${IEEE802_15_4_LIB}/codeword_demapper_ib_impl.cc
+  ${IEEE802_15_4_LIB}/codeword_mapper_bi_impl.cc
+  ${IEEE802_15_4_LIB}/codeword_soft_demapper_fb_impl.cc
+  ${IEEE802_15_4_LIB}/deinterleaver_ff_impl.cc
+  ${IEEE802_15_4_LIB}/dqcsk_demapper_cc_impl.cc
+  ${IEEE802_15_4_LIB}/dqcsk_mapper_fc_impl.cc
+  ${IEEE802_15_4_LIB}/dqpsk_mapper_ff_impl.cc
+  ${IEEE802_15_4_LIB}/dqpsk_soft_demapper_cc_impl.cc
+  ${IEEE802_15_4_LIB}/frame_buffer_cc_impl.cc
+  ${IEEE802_15_4_LIB}/interleaver_ii_impl.cc
+  ${IEEE802_15_4_LIB}/mac.cc
+  ${IEEE802_15_4_LIB}/multiuser_chirp_detector_cc_impl.cc
+  ${IEEE802_15_4_LIB}/packet_sink.cc
+  ${IEEE802_15_4_LIB}/phr_prefixer_impl.cc
+  ${IEEE802_15_4_LIB}/phr_removal_impl.cc
+  ${IEEE802_15_4_LIB}/preamble_sfd_prefixer_ii_impl.cc
+  ${IEEE802_15_4_LIB}/preamble_tagger_cc_impl.cc
+  ${IEEE802_15_4_LIB}/qpsk_demapper_fi_impl.cc
+  ${IEEE802_15_4_LIB}/qpsk_mapper_if_impl.cc
+  ${IEEE802_15_4_LIB}/rime_connection.cc
+  ${IEEE802_15_4_LIB}/rime_stack.cc
+  ${IEEE802_15_4_LIB}/ruc_connection.cc
+  ${IEEE802_15_4_LIB}/stubborn_sender.cc
+  ${IEEE802_15_4_LIB}/uc_connection.cc
+  ${IEEE802_15_4_LIB}/zeropadding_b_impl.cc
+  ${IEEE802_15_4_LIB}/zeropadding_removal_b_impl.cc)
+add_side_module(ieee802_15_4
+  SOURCES ${IEEE802_15_4_SOURCES}
+  DEPENDS ${BLOCKS}/overlays/gr-ieee802_15_4/ieee802_15_4_params.hpp)
 
 # gr-droneid: proto17/dji_droneid keeps its GNU Radio OOT below
 # gnuradio/gr-droneid in the repository. All five blocks have native C++

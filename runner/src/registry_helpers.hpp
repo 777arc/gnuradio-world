@@ -208,6 +208,53 @@ std::vector<T> vector(const nlohmann::json& params,
     return result;
 }
 
+// Nested numeric sequences are still `raw` in native GRC because it has no
+// matrix dtype. Browser overlays retype those parameters as `*_matrix` so the
+// editor evaluates variable references before Run, then factories decode the
+// resulting JSON/Python-style sequence here. Saved .grc files keep their native
+// spelling unchanged.
+template <typename T>
+std::vector<std::vector<T>> matrix(const nlohmann::json& params,
+                                   const char* key,
+                                   std::vector<std::vector<T>> fallback = {})
+{
+    auto item = params.find(key);
+    if (item == params.end() || item->is_null())
+        return fallback;
+    nlohmann::json values = *item;
+    if (item->is_string()) {
+        std::string source = strip_quotes(item->get<std::string>());
+        source.erase(std::remove_if(source.begin(), source.end(), [](unsigned char c) {
+                         return std::isspace(c);
+                     }),
+                     source.end());
+        if (source == "()" || source == "(,)" || source == "[]")
+            return {};
+        std::replace(source.begin(), source.end(), '(', '[');
+        std::replace(source.begin(), source.end(), ')', ']');
+        try {
+            values = nlohmann::json::parse(source);
+        } catch (const std::exception&) {
+            throw std::runtime_error(std::string(key) +
+                                     " must be a JSON-style matrix");
+        }
+    }
+    if (!values.is_array())
+        throw std::runtime_error(std::string(key) + " must be a matrix");
+    std::vector<std::vector<T>> result;
+    result.reserve(values.size());
+    for (const auto& row : values) {
+        if (!row.is_array())
+            throw std::runtime_error(std::string(key) + " must be a matrix");
+        std::vector<T> converted;
+        converted.reserve(row.size());
+        for (const auto& value : row)
+            converted.push_back(value.get<T>());
+        result.push_back(std::move(converted));
+    }
+    return result;
+}
+
 // A Python sequence of quoted names, as a parameter typed `string_vector` by an
 // overlay carries it: `('range','velocity')`, `["range"]`, or a bare `range`.
 // vector<std::string> above cannot read these -- it parses the text as JSON,

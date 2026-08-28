@@ -43,6 +43,7 @@ const byId = new Map((library.blocks || []).map(b => [b.id, b]));
 const EVALUATED_DTYPES = new Set([
   'int', 'real', 'float', 'hex', 'raw',
   'int_vector', 'real_vector', 'float_vector', 'complex_vector',
+  'int_matrix', 'real_matrix', 'float_matrix',
 ]);
 
 // GRC dtypes can be templated on another parameter (`${ type.taps }`); resolve

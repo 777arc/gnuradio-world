@@ -276,6 +276,52 @@ const scenarios = [
         ['bytes',0,'chunks',0], ['chunks',0,'chunk_sink',0],
       ] },
     expectFetch: ['digital.wasm', 'ieee802_11.wasm'] },
+  // gr-ieee802-15-4 (OOT deferred). The QPSK mapper/demapper round trip moves
+  // samples through the side module, while the codeword round trip exercises
+  // the browser-side nested-vector parser used by the CSS primitives. The
+  // message-only blocks cover byte-vector and narrowed RIME parameters too.
+  { name: 'gr-ieee802-15-4 QPSK and codeword chains (OOT deferred)',
+    fg: { blocks:[
+      { name:'i_src', id:'blocks_vector_source_x',
+        params:{ type:'int', vector:'[1, -1, 1, -1]', repeat:'True', vlen:1 } },
+      { name:'q_src', id:'blocks_vector_source_x',
+        params:{ type:'int', vector:'[1, 1, -1, -1]', repeat:'True', vlen:1 } },
+      { name:'qpsk_map', id:'ieee802_15_4_qpsk_mapper_if', params:{} },
+      { name:'thr', id:'blocks_throttle2',
+        params:{ type:'float', samples_per_second:32000, vlen:1,
+                 ignoretag:'True', limit:'time', maximum:0.1 } },
+      { name:'qpsk_demap', id:'ieee802_15_4_qpsk_demapper_fi', params:{} },
+      { name:'i_sink', id:'blocks_null_sink', params:{ type:'int' } },
+      { name:'q_sink', id:'blocks_null_sink', params:{ type:'int' } },
+      { name:'bits', id:'blocks_vector_source_x',
+        params:{ type:'byte', vector:'[0, 1]', repeat:'True', vlen:1 } },
+      { name:'cw_map', id:'ieee802_15_4_codeword_mapper_bi',
+        params:{ bits_per_cw:1, codewords:'[[1, -1], [-1, 1]]' } },
+      { name:'cw_demap', id:'ieee802_15_4_codeword_demapper_ib',
+        params:{ bits_per_cw:1, codewords:'[[1, -1], [-1, 1]]' } },
+      { name:'bit_sink', id:'blocks_null_sink', params:{ type:'byte' } },
+      { name:'access_prefix', id:'ieee802_15_4_access_code_prefixer',
+        params:{ pad:0, preamble:167 } },
+      { name:'phr_prefix', id:'ieee802_15_4_phr_prefixer',
+        params:{ phr:'[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]' } },
+      { name:'phr_remove', id:'ieee802_15_4_phr_removal',
+        params:{ phr:'[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]' } },
+      { name:'mac', id:'ieee802_15_4_mac',
+        params:{ debug:'False', fcf:34881, seq_nr:0, dst_pan:6826,
+                 dst:65535, src:13124 } },
+      // An empty reliable-unicast channel list avoids starting its background
+      // retransmission thread in a factory-only lazy-load scenario.
+      { name:'rime', id:'ieee802_15_4_rime_stack',
+        params:{ bc_channels:'[129]', uc_channels:'[130]', ruc_channels:'[]',
+                 rime_add:'[23, 42]' } } ],
+      connections:[
+        ['i_src',0,'qpsk_map',0], ['q_src',0,'qpsk_map',1],
+        ['qpsk_map',0,'thr',0], ['thr',0,'qpsk_demap',0],
+        ['qpsk_demap',0,'i_sink',0], ['qpsk_demap',1,'q_sink',0],
+        ['bits',0,'cw_map',0], ['cw_map',0,'cw_demap',0],
+        ['cw_demap',0,'bit_sink',0],
+      ] },
+    expectFetch: ['ieee802_15_4.wasm'] },
   { name: 'gr-hrpt NOAA chain + image sink (OOT deferred)',
     fg: { blocks:[
       { name:'src', id:'analog_noise_source_x',

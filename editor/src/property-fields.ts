@@ -49,6 +49,7 @@ export function usesOptionCombo(param: ParamDef): boolean {
 const PROPERTY_FIELD_COLORS: Record<string, string> = {
   complex: '#3399FF', real: '#FF8C69', float: '#FF8C69', int: '#00FF99',
   complex_vector: '#3399AA', real_vector: '#CC8C69', float_vector: '#CC8C69',
+  real_matrix: '#CC8C69', float_matrix: '#CC8C69', int_matrix: '#00CC99',
   int_vector: '#00CC99', bool: '#00FF99', hex: '#00FF99', string: '#CC66CC',
   id: '#DDDDDD', stream_id: '#DDDDDD', raw: '#DDDDDD',
 };

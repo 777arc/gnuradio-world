@@ -67,6 +67,9 @@ Supported keys, all optional except where an entry would otherwise do nothing:
     ``('range','velocity')``); the generator renders it as
     ``wasm_registry::string_vector()``, which parses that sequence rather than
     the JSON the ordinary vector reader wants.
+    ``int_matrix`` / ``real_matrix`` / ``float_matrix`` likewise preserve a
+    native ``raw`` nested numeric sequence while making the editor evaluate
+    variable references and the generator render ``wasm_registry::matrix()``.
     Keeping the value in its Python spelling is what lets the .grc round-trip to
     native GRC unchanged.  Relabelling is for a parameter the browser build gives
     a different meaning: gr-paint's Image File Source names a URL, not a local

@@ -32,6 +32,7 @@ export function effectiveDtype(inst: Inst, def: RunnableDef, p: ParamDef): strin
 export const EVALUATED_DTYPES = new Set([
   'int', 'real', 'float', 'hex', 'raw',
   'int_vector', 'real_vector', 'float_vector', 'complex_vector',
+  'int_matrix', 'real_matrix', 'float_matrix',
 ]);
 
 export const NAME_FIELD = '__name';

@@ -1774,7 +1774,7 @@ function resolveParamsForRun(inst: Inst, scope: Scope): Record<string, any> {
   if (!def) return out;
   for (const p of def.params) {
     const dtype = effectiveDtype(inst, def, p);
-    // Numeric, vector and `raw` params are evaluated; enum/string params pass
+    // Numeric, vector, matrix and `raw` params are evaluated; enum/string params pass
     // through. `raw` covers things like an OFDM carrier allocation written as
     // `list(range(-26, -21)) + ...`; the vector dtypes cover the commonest GRC
     // idiom of all, filter taps written as `firdes.low_pass(...)` or

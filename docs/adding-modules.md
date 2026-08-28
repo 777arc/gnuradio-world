@@ -68,6 +68,7 @@ third-party OOT module (already done for [`gr-rds/`](../gr-rds), [`gr-foo/`](../
 [`gr-paint/`](../gr-paint), [`gr-fosphor/`](../gr-fosphor),
 [`gr-droneid/`](../gr-droneid), [`gr-ham/`](../gr-ham),
 [`gr-ieee802_11/`](../gr-ieee802_11), [`gr-hrpt/`](../gr-hrpt),
+[`gr-ieee802_15_4/`](../gr-ieee802_15_4),
 [`gr-lora_sdr/`](../gr-lora_sdr), [`gr-radar/`](../gr-radar), and
 [`gr-gsm/`](../gr-gsm)) is **not** part of that
 umbrella build, so there is no `libgnuradio-<m>.a`; instead its own `lib/*.cc` are
