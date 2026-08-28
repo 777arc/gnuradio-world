@@ -75,11 +75,16 @@ and a tree without it builds and runs fine — only a flowgraph containing an
 Embedded Python Block notices, and its tests skip with a message. See
 [embedded-python.md](embedded-python.md).
 
-`DEPS_MIRROR=https://host/path` makes `fetch-deps.sh` pull the tarballs from a
-mirror you control instead of SourceForge/ftp.gnu.org, which rate-limit CI
-runners. `SYSROOT=/tmp/scratch bash deps/build-deps.sh` builds into a throwaway
-prefix, which is how to test a change to the recipe without risking a working
-tree.
+Every tarball `fetch-deps.sh` downloads lists **alternate mirrors after its
+preferred URL**, tried in order, because SourceForge and ftp.gnu.org both
+throttle and drop CI runners — ftp.gnu.org refusing connections outright is what
+broke the dependency build once already, and GMP now goes to GNU's
+`ftpmirror.gnu.org` redirector first for that reason. Add mirrors as extra
+arguments after the tar flags; they must unpack to the same directory name.
+`DEPS_MIRROR=https://host/path` bypasses the whole list and pulls every tarball
+from a host you control (files keep their upstream basenames).
+`SYSROOT=/tmp/scratch bash deps/build-deps.sh` builds into a throwaway prefix,
+which is how to test a change to the recipe without risking a working tree.
 
 ## 2. Build GNU Radio and the WASM apps
 

@@ -8,9 +8,10 @@
 #   bash deps/fetch-deps.sh
 #   bash deps/fetch-deps.sh --runner-only  # turbofec + CRCpp only
 #
-# Upstream hosts (SourceForge, ftp.gnu.org) rate-limit CI runners. Set
-# DEPS_MIRROR=https://host/path to pull the tarballs from somewhere you control
-# instead; files must keep their upstream basenames.
+# Upstream hosts (SourceForge, ftp.gnu.org) rate-limit and drop CI runners, so
+# every tarball below lists alternate mirrors that are tried in turn. Set
+# DEPS_MIRROR=https://host/path to bypass all of them and pull the tarballs from
+# somewhere you control; files must keep their upstream basenames.
 set -euo pipefail
 
 MODE="${1:-all}"
@@ -33,16 +34,34 @@ MIRROR="${DEPS_MIRROR:-}"
 mkdir -p "$SRC"
 cd "$SRC"
 
-# fetch_tar <unpacked-dir> <url> <tar-flags>
+# fetch_tar <unpacked-dir> <url> <tar-flags> [fallback-url...]
+# The first URL is the preferred source; any extra ones are alternate mirrors of
+# the same tarball, tried in order. Every host here has gone down or throttled CI
+# at least once, so none of them is allowed to be the only way in. DEPS_MIRROR,
+# when set, replaces the whole list. The retry budget per URL is deliberately
+# small -- an unreachable host has to give up in well under a minute so the next
+# mirror gets its turn, which is the opposite of what you want with one URL.
 fetch_tar() {
     local dir="$1" url="$2" flags="$3" file="${2##*/}"
+    shift 3
     if [ -d "$dir" ]; then
         echo "[fetch] $dir (already present)"
         return
     fi
-    [ -n "$MIRROR" ] && url="$MIRROR/$file"
-    echo "[fetch] $dir <- $url"
-    curl -fL --retry 3 --retry-delay 5 "$url" | tar "$flags"
+    local urls=("$url" "$@")
+    [ -n "$MIRROR" ] && urls=("$MIRROR/$file")
+    for url in "${urls[@]}"; do
+        echo "[fetch] $dir <- $url"
+        if curl -fL --connect-timeout 10 --retry 2 --retry-delay 3 "$url" | tar "$flags"; then
+            return
+        fi
+        # A failure part-way through leaves a partial unpack behind, which the
+        # -d check above would mistake for a good tree on the next run.
+        rm -rf "$dir"
+        echo "[fetch] $url failed" >&2
+    done
+    echo "[fetch] every source for $dir failed; set DEPS_MIRROR to fetch it from your own host" >&2
+    return 1
 }
 
 # clone <dir> <tag> <url> [extra git args...]
@@ -95,10 +114,17 @@ clone spdlog v1.12.0 https://github.com/gabime/spdlog.git
 clone volk   v3.1.2  https://github.com/gnuradio/volk.git --recursive
 clone libosmocore 1.14.2 https://gitea.osmocom.org/osmocom/libosmocore.git
 
-fetch_tar boost_1_83_0 https://archives.boost.io/release/1.83.0/source/boost_1_83_0.tar.bz2 xj
+fetch_tar boost_1_83_0 https://archives.boost.io/release/1.83.0/source/boost_1_83_0.tar.bz2 xj \
+    https://sourceforge.net/projects/boost/files/boost/1.83.0/boost_1_83_0.tar.bz2
 fetch_tar fftw-3.3.10  https://www.fftw.org/fftw-3.3.10.tar.gz                              xz
-fetch_tar gmp-6.3.0    https://ftp.gnu.org/gnu/gmp/gmp-6.3.0.tar.xz                         xJ
-fetch_tar qwt-6.3.0    https://sourceforge.net/projects/qwt/files/qwt/6.3.0/qwt-6.3.0.tar.bz2 xj
+# ftpmirror.gnu.org is GNU's own redirector to a nearby mirror, and is what they
+# ask automated downloads to use; ftp.gnu.org itself refuses connections from CI
+# often enough that it cannot be the primary.
+fetch_tar gmp-6.3.0    https://ftpmirror.gnu.org/gnu/gmp/gmp-6.3.0.tar.xz                   xJ \
+    https://gmplib.org/download/gmp/gmp-6.3.0.tar.xz \
+    https://ftp.gnu.org/gnu/gmp/gmp-6.3.0.tar.xz
+fetch_tar qwt-6.3.0    https://sourceforge.net/projects/qwt/files/qwt/6.3.0/qwt-6.3.0.tar.bz2 xj \
+    https://downloads.sourceforge.net/project/qwt/qwt/6.3.0/qwt-6.3.0.tar.bz2
 
 # Local fixes that upstream does not carry. This is NOT optional: without the
 # VOLK patch every flowgraph dies during construction (see the patch header)

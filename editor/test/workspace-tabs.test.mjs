@@ -172,8 +172,25 @@ assert.match(source,
   'the one embedded button runs the flowgraph and stops it again');
 assert.match(source, /if \(!runnerRunning\) \{\s*updateEmbedRun\(\/\* failed \*\/ true\)/,
   'a refused flowgraph reports on the button, since an embed has no console pane');
-assert.match(source, /if \(!EMBEDDED && !returnedFromOpenRouter\) showWelcomePopup\(\)/,
-  'the welcome modal stays out of embedded flowgraphs and the OAuth return');
+assert.match(source, /if \(!EMBEDDED && !returnedFromOpenRouter && !AUTO_RUN\) showWelcomePopup\(\)/,
+  'the welcome modal stays out of embedded flowgraphs, the OAuth return and an auto-run');
+
+// ?run=1 — the link that opens on the running flowgraph rather than on the
+// canvas. A query parameter like `embed`, applied last so the graph it starts is
+// the one the fragment named, and never awaited inside `editorReady`, which
+// bootstrap.ts reveals the page off.
+assert.match(source, /const AUTO_RUN = \(\(\) => \{[\s\S]*URLSearchParams\(location\.search\)\.get\('run'\)/,
+  'auto-run is a query parameter, leaving the fragment to name the flowgraph');
+assert.match(source, /const AUTO_RUN = \(\(\) => \{\s*if \(TRAINING_EXAMPLE\) return false;/,
+  'a training lesson is deliberately incomplete, so ?run=1 does not try to run it');
+assert.match(source, /if \(AUTO_RUN\) setTimeout\(\(\) => void autoRunFromUrl\(\), 0\);/,
+  'the auto-run is deferred and unawaited, so the page is revealed before it starts');
+assert.match(source, /applyZoomFromUrl\(\);[\s\S]*if \(AUTO_RUN\) setTimeout/,
+  'the auto-run comes after the flowgraph, ?zoom= and ?center= have been applied');
+assert.match(source,
+  /async function autoRunFromUrl\(\)[\s\S]*if \(EMBEDDED && requestEmbedRun\) \{ await requestEmbedRun\(\); return; \}[\s\S]*await run\(\);/,
+  'an embedded auto-run goes through the embed button, which is where a refusal shows');
+
 assert.match(source,
   /href = historyIndex > 0 \? await flowgraphToUrl\(\) : embedOpenUrl\(\)/,
   'the Open link carries the edited canvas, and the plain example link until then');

@@ -168,6 +168,44 @@ origin. `applyCenterFromUrl()` runs right after `applyZoomFromUrl()` in
 anything that does not parse as `"x,y"` is ignored with a console line, the same
 way a bad `?zoom=` is.
 
+## Opening straight into the running flowgraph (`?run=1`)
+
+`?run=1` presses Run for the reader: once the page has loaded whatever flowgraph
+the URL named, the editor starts it and the workspace switches to the QT GUI tab,
+so a link opens on the plots rather than on a canvas with a Run button over it.
+
+```
+https://gnuradioworld.com/?run=1#example=digital/welcome_example
+https://gnuradioworld.com/?embed=1&run=1&zoom=fit#example=ofdm/ofdm
+```
+
+A query parameter for the same reason `embed` and `zoom` are, and with the same
+truthy rule: any value but `0`/`false` turns it on, bare `?run` included, and
+nothing in the app rewrites it as the reader stops and restarts the graph — so a
+reload runs it again. It composes with every fragment (`#example=`, `#fg=`,
+`#duplicate=`) and with `embed`; `?training=` is the one thing that suppresses
+it, since a lesson's canvas is deliberately incomplete and would be refused
+anyway.
+
+`autoRunFromUrl()` fires last in `editorReady`, after the flowgraph, `?zoom=` and
+`?center=`. It is deferred by a `setTimeout(…, 0)` and not awaited, because
+`bootstrap.ts` reveals the application off that same promise in a microtask:
+blocking there would hold a hidden page over a run that can put a modal on
+screen. It calls the ordinary `run()` — not an unattended run — since a human
+followed the link and can answer the unpaced-flowgraph question; in an embed it
+calls `#embedRun`'s own click handler instead, so a refusal shows on the button
+the way a click's would, the console pane being one of the parts an embed does
+not show.
+
+What a link cannot hand a flowgraph is a **user gesture**. A graph that needs one
+at Run time refuses and says why: WebUSB's `requestDevice()` for the SDR sources
+and sinks, and `showDirectoryPicker()` for a SigMF Sink with no folder bound.
+Audio Sink does not refuse — the autoplay policy leaves it pacing itself by the
+wall clock and discarding, so the plots run at the right rate in silence until
+the page is clicked (see [audio.md](audio.md)). A `click_to_load=1` embed is the
+exception to all of it: its Load button is a real gesture, so an auto-run behind
+that gate has everything an ordinary Run click has.
+
 ## Opening an example as training (`?training=`)
 
 `?training=digital/welcome_example` opens an example as a lesson rather than as
@@ -277,6 +315,9 @@ Five things make it an embed, and each is one place:
   Run is nearly the only control left, so it also has to report a **refusal** —
   `run()` explains a flowgraph that fails validation in the console pane, which
   an embed does not show, hence the three-second `⚠ Cannot run` on the button.
+  `?run=1` presses it for the reader on load — see
+  [above](#opening-straight-into-the-running-flowgraph-run1) — through that same
+  handler, so the button reports an auto-run's refusal too.
 - **Zoom is two icons in the corner.** An embed has no toolbar and no menu bar,
   so `#embedZoom` — 🔍+ and 🔍−, the same glyphs and the same `setZoom()` steps
   the toolbar uses — sits beside `#embedOpen` at the right of that row, because

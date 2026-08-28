@@ -187,6 +187,20 @@ const EMBED_NO_CONTROLS = (() => {
   const value = new URLSearchParams(location.search).get('no_controls');
   return value !== null && value !== '0' && value.toLowerCase() !== 'false';
 })();
+// ?run=1 — start the flowgraph as soon as the page has loaded one and show its
+// QT GUI, so a link hands its reader the running graph rather than the canvas
+// they would have to press Run on. A query parameter for the same reason `embed`
+// and `zoom` are: it is a property of how the page was opened, not of which
+// flowgraph the fragment names, and nothing rewrites it as the reader starts and
+// stops the graph. Same truthy rule as the embed flags — any value but
+// `0`/`false`, bare `?run` included. Composes with every fragment and with
+// `embed`; `training` is the one thing it is ignored for, since a lesson's
+// canvas is deliberately incomplete and could not run anyway.
+const AUTO_RUN = (() => {
+  if (TRAINING_EXAMPLE) return false;
+  const value = new URLSearchParams(location.search).get('run');
+  return value !== null && value !== '0' && value.toLowerCase() !== 'false';
+})();
 const embedRun = el('embedRun') as HTMLButtonElement;
 const embedOpen = el('embedOpen') as HTMLAnchorElement;
 const embedZoom = el('embedZoom');
@@ -2726,6 +2740,11 @@ function setRunnerRunning(running: boolean, status?: string) {
   qtTab.setAttribute('aria-label', qtLabel);
 }
 
+// The embed's Run click, published for ?run=1 so an auto-run in an embed reports
+// a refusal the same way a click on the button does — the console pane that
+// would otherwise carry the reason is one of the parts an embed does not show.
+let requestEmbedRun: (() => Promise<void>) | null = null;
+
 if (EMBEDDED) {
   // ?no_controls=1 — a host that draws its own Run/zoom UI and wants the canvas
   // free of the row #embedControls otherwise floats over it (Run, the way out,
@@ -2756,6 +2775,7 @@ if (EMBEDDED) {
       failedTimer = window.setTimeout(() => updateEmbedRun(), 3000);
     }
   };
+  requestEmbedRun = onEmbedRunClick;
   embedRun.addEventListener('click', onEmbedRunClick);
   embedPlayBlock.addEventListener('click', onEmbedRunClick);
   updateEmbedRun();
@@ -4903,6 +4923,21 @@ async function openRecordingFromUrl(): Promise<boolean> {
   }
 }
 
+// The ?run=1 start itself. It goes through the very same entry points a reader's
+// Run click does — including the unpaced-flowgraph question, which a human who
+// followed the link is there to answer — rather than an unattended run, which
+// would decline exactly the graphs a click would have offered to run anyway.
+// What a link cannot supply is a user gesture: a flowgraph whose blocks need one
+// (WebUSB's device picker, a SigMF Sink choosing a folder) refuses here and says
+// so, and Audio Sink falls back to pacing itself silently until the page is
+// clicked. A click-to-load embed is the exception, since the Load button *is* a
+// gesture.
+async function autoRunFromUrl(): Promise<void> {
+  log('starting the flowgraph from ?run=1');
+  if (EMBEDDED && requestEmbedRun) { await requestEmbedRun(); return; }
+  await run();
+}
+
 function showWelcomePopup() {
   const WELCOME_KEY = 'gnuradio_world_welcome_seen';
   try { if (localStorage.getItem(WELCOME_KEY)) return; } catch { return; }
@@ -4971,6 +5006,16 @@ export const editorReady = paletteReady.then(async () => {
   applyCenterFromUrl();
   historyReady = true; resetHistory();
   // Nothing of the application's own is offered in an embed, and a modal about
-  // contributing examples is the last thing a host page's reader asked for.
-  if (!EMBEDDED && !returnedFromOpenRouter) showWelcomePopup();
+  // contributing examples is the last thing a host page's reader asked for. Nor
+  // is it what a ?run=1 reader asked for: it would open over the plots the link
+  // exists to show. It is one-shot only once dismissed, so their next ordinary
+  // visit still gets it.
+  if (!EMBEDDED && !returnedFromOpenRouter && !AUTO_RUN) showWelcomePopup();
+  // ?run=1 — last, so the graph that starts is the one the fragment asked for,
+  // fully loaded. Deliberately not awaited, and deferred by a task: bootstrap.ts
+  // reveals the application (or drops the click-to-load gate) in a microtask off
+  // this same promise, so blocking here would hold a hidden page over a run that
+  // may put a modal on screen. Failures are already reported the way a Run click
+  // reports them — the console pane, or the embed's own button.
+  if (AUTO_RUN) setTimeout(() => void autoRunFromUrl(), 0);
 });
