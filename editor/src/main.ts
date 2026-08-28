@@ -2053,7 +2053,15 @@ function loadFlowgraphAnimated(doc: any) {
 
   // Preserve the outgoing scene in an overlay so render() can rebuild the canvas
   // underneath it. flyG mirrors nodesG's scale so coordinates line up.
-  const flyG = svgEl('g', { transform: `scale(${zoom})` });
+  //
+  // It is painted last, so without `pointer-events: none` the departing scene
+  // sits *over* the flowgraph that replaced it for the length of the animation:
+  // the moved nodes keep the handlers they were built with, so a click landing
+  // on a fading ghost selects -- or opens the Properties of -- a block of the
+  // flowgraph that is no longer on the canvas. Fading to opacity 0 does not
+  // stop that; SVG hit-testing ignores opacity.
+  const flyG = svgEl('g', { class: 'fly-overlay', transform: `scale(${zoom})`,
+                            'pointer-events': 'none' });
   const oldWires = [...wiresG.children];
   const oldBlocks = [...nodesG.children];
   for (const w of oldWires) flyG.appendChild(w);
@@ -4326,6 +4334,7 @@ const MENUS: TopMenu[] = [
     { label: 'Keyboard Shortcuts', key: 'Ctrl+K', run: showShortcutHelp },
     'sep',
     { label: 'Get Involved', run: () => openLink('https://www.gnuradio.org/get-involved/') },
+    { label: 'Discord Server', run: () => openLink('https://discord.gg/5aMSvsBp') },
     'sep',
     { label: 'Privacy Policy', run: () => openLink('/privacy.html') },
     { label: 'Terms of Service', run: () => openLink('/terms.html') },

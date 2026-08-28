@@ -23,6 +23,7 @@ import {
   launchBrowser,
   setIsolationHeaders,
   suppressEditorWelcome,
+  waitForEditorCanvasIdle,
 } from '../scripts/browser-test-support.mjs';
 
 const ROOT = normalize(new URL('..', import.meta.url).pathname);
@@ -142,10 +143,11 @@ await page.setViewport({ width: 1400, height: 900 });
 await suppressEditorWelcome(page);
 await page.goto(`http://localhost:${PORT}/`, { waitUntil: 'load', timeout: 30000 });
 // Palette rows are built before the asynchronous default flowgraph arrives.
-// Wait for bootstrap's shared readiness boundary so that load cannot replace a
-// block placed by the test (or by a fast user) immediately afterward.
-await page.waitForFunction(() =>
-  !document.documentElement.classList.contains('app-bootstrapping'), { timeout: 30000 });
+// Wait for bootstrap's shared readiness boundary -- so that load cannot replace
+// a block placed by the test (or by a fast user) immediately afterward -- and
+// for the load's fly-in animation to finish, so the clicks below land on the
+// block they aim at rather than on one still travelling.
+await waitForEditorCanvasIdle(page);
 
 // Place a Python Block by clicking its palette entry, the way a user does.
 const placed = await page.evaluate(() => {

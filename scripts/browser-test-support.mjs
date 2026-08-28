@@ -65,3 +65,26 @@ export async function suppressEditorWelcome(page) {
     catch { /* localStorage is unavailable for opaque documents */ }
   });
 }
+
+/**
+ * Wait until the editor's canvas has settled, so a test can click a block and
+ * hit the block it aimed at.
+ *
+ * Two things move after the page loads. The bootstrap gate says the default
+ * flowgraph has arrived -- past it, a block a test places is no longer replaced
+ * by the load. But the load is *animated*: the incoming blocks travel to their
+ * positions while the flowgraph they replaced flies out in an overlay, and both
+ * halves are real DOM nodes carrying real transforms, so a click that lands
+ * mid-transition can hit a block still in flight or one that no longer exists.
+ * Waiting for the overlay to be torn down and every block/wire animation to
+ * finish makes a click deterministic on a slow machine as much as a fast one.
+ */
+export async function waitForEditorCanvasIdle(page, timeout = 30000) {
+  await page.waitForFunction(() =>
+    !document.documentElement.classList.contains('app-bootstrapping'), { timeout });
+  await page.waitForFunction(() =>
+    !document.querySelector('#svg .fly-overlay') &&
+    [...document.querySelectorAll('#svg .blk'), document.querySelector('#svg #wires')]
+      .every(el => !el || el.getAnimations().every(a => a.playState !== 'running')),
+    { timeout, polling: 100 });
+}

@@ -1,0 +1,48 @@
+From: GNU Radio World
+Subject: pseudotalloc: provide realloc API used by select.c
+
+The embedded pseudotalloc header does not declare the realloc helpers now used
+by libosmocore's own select.c. Keep the allocator host-provided, like malloc and
+free already are, and expose the small compatible talloc surface.
+
+diff --git a/src/pseudotalloc/pseudotalloc.c b/src/pseudotalloc/pseudotalloc.c
+index 2fb95805..52fc7c47 100644
+--- a/src/pseudotalloc/pseudotalloc.c
++++ b/src/pseudotalloc/pseudotalloc.c
+@@ -41,6 +41,11 @@ int _talloc_free(void *ptr, const char *location)
+ 	return 0;
+ }
+ 
++void *_talloc_realloc(const void *ctx, void *ptr, size_t size, const char *name)
++{
++	return pseudotalloc_realloc(ptr, size);
++}
++
+ void *talloc_named_const(const void *context, size_t size, const char *name)
+ {
+ 	return pseudotalloc_malloc(size);
+diff --git a/src/pseudotalloc/talloc.h b/src/pseudotalloc/talloc.h
+index c4aaf2df..d149bc5e 100644
+--- a/src/pseudotalloc/talloc.h
++++ b/src/pseudotalloc/talloc.h
+@@ -29,6 +29,7 @@
+-/* those two functions have to be provided by the user/environment */
++/* those three functions have to be provided by the user/environment */
+ extern void *pseudotalloc_malloc(size_t size);
+ extern void  pseudotalloc_free(void *ptr);
++extern void *pseudotalloc_realloc(void *ptr, size_t size);
+ 
+ typedef void TALLOC_CTX;
+ 
+@@ -43,6 +44,11 @@ void *_talloc_zero(const void *ctx, size_t size, const char *name);
+ #define talloc_free(ctx) _talloc_free(ctx, __location__)
+ int _talloc_free(void *ptr, const char *location);
+ 
++#define talloc_realloc_size(ctx, ptr, size) _talloc_realloc(ctx, ptr, size, __location__)
++#define talloc_realloc(ctx, ptr, type, count) \
++	(type *)_talloc_realloc(ctx, ptr, sizeof(type) * (count), #type)
++void *_talloc_realloc(const void *ctx, void *ptr, size_t size, const char *name);
++
+ /* Unsupported! */
+ #define talloc(ctx, type) (type *)talloc_named_const(ctx, sizeof(type), #type)
+ #define talloc_size(ctx, size) talloc_named_const(ctx, size, __location__)

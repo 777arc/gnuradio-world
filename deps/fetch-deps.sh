@@ -93,6 +93,7 @@ fi
 
 clone spdlog v1.12.0 https://github.com/gabime/spdlog.git
 clone volk   v3.1.2  https://github.com/gnuradio/volk.git --recursive
+clone libosmocore 1.14.2 https://gitea.osmocom.org/osmocom/libosmocore.git
 
 fetch_tar boost_1_83_0 https://archives.boost.io/release/1.83.0/source/boost_1_83_0.tar.bz2 xj
 fetch_tar fftw-3.3.10  https://www.fftw.org/fftw-3.3.10.tar.gz                              xz
@@ -114,5 +115,6 @@ apply_patch() {  # <git-repo-dir> <patch-file>
 }
 
 apply_patch "$SRC/volk" "$PATCHES/volk-generic-machine.patch"
+apply_patch "$SRC/libosmocore" "$PATCHES/libosmocore-pseudotalloc-realloc.patch"
 
 echo "=== sources ready in $SRC ==="

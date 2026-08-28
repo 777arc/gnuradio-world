@@ -405,6 +405,33 @@ const scenarios = [
           snk_blk_id:'results', snk_port_id:'Msg in' },
       ] },
     expectFetch: ['radar.wasm'] },
+
+  { name: 'gr-gsm hierarchy and native blocks (OOT deferred)',
+    fg: { blocks:[
+      { name:'src', id:'blocks_null_source', params:{ type:'complex' } },
+      { name:'clock', id:'gsm_clock_offset_corrector_tagged',
+        params:{ fc:936600000, osr:4, ppm:0, samp_rate_in:1083333.3333333333 } },
+      { name:'rotator', id:'gsm_controlled_rotator_cc',
+        params:{ phase_inc:0.01 } },
+      { name:'snk', id:'blocks_null_sink', params:{ type:'complex' } },
+      // Construct representative message-only factories as well. They remain
+      // disconnected because useful output requires complete GSMTAP bursts.
+      { name:'decode', id:'gsm_control_channels_decoder', params:{} },
+      { name:'tch_f', id:'gsm_tch_f_decoder',
+        params:{ mode:'gsm.TCH_FS', boundary_check:'False' } },
+      { name:'assignment', id:'gsm_extract_assignment_cmd', params:{} },
+      { name:'system_info', id:'gsm_extract_system_info', params:{} },
+      { name:'tag', id:'gsm_msg_to_tag', params:{} },
+      { name:'burst_sink', id:'gsm_burst_sink', params:{} },
+      { name:'message_sink', id:'gsm_message_sink', params:{} },
+      { name:'bcch_ccch', id:'gsm_bcch_ccch_demapper', params:{ timeslot_nr:0 } },
+      { name:'bcch_sdcch4', id:'gsm_bcch_ccch_sdcch4_demapper',
+        params:{ timeslot_nr:0 } },
+      { name:'sdcch8', id:'gsm_sdcch8_demapper', params:{ timeslot_nr:1 } } ],
+      connections:[
+        ['src',0,'clock',0], ['clock',0,'rotator',0], ['rotator',0,'snk',0],
+      ] },
+    expectFetch: ['gsm.wasm'] },
 ];
 
 // The runner consumes native .grc; wrap these {blocks,connections} fixtures in

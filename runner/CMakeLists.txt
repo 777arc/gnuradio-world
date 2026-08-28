@@ -83,6 +83,7 @@ set(GR_INCLUDE_DIRS
   ${WORLD}/gr-hrpt/include
   ${WORLD}/gr-lora_sdr/include
   ${WORLD}/gr-radar/include
+  ${WORLD}/gr-gsm/include
   ${BUILDGR}/gnuradio-runtime/include ${SYSROOT}/include)
 
 # ---------------------------------------------------------------------------
@@ -878,6 +879,64 @@ set(RADAR_SOURCES
 add_side_module(radar
   SOURCES ${RADAR_SOURCES}
   INCLUDE_DIRS ${RADAR_LIB})
+
+# gr-gsm (ptrkrysik): GSM burst acquisition, demapping, decryption and channel
+# decoding. The upstream branch targets GNU Radio 3.11 and its native C++ blocks
+# are portable; libosmocore is cross-built with its embedded profile and bundled
+# pseudotalloc allocator. Host-file blocks (burst/message file source and sink)
+# and TMSI Dumper are intentionally absent because their persistent filesystem
+# behavior has no browser binding. Four Python hierarchies have no C++ source and
+# are rebuilt in the overlay. The remaining native blocks share this side module.
+set(GSM_LIB ${WORLD}/gr-gsm/lib)
+set(GSM_OVERLAY ${BLOCKS}/overlays/gr-gsm)
+set(GSM_WASM_SHIMS ${GSM_OVERLAY}/shims)
+set(GSM_SOURCES
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/generated_registry_gsm.cpp
+  ${GSM_OVERLAY}/gsm_hier.cpp
+  ${GSM_OVERLAY}/pseudotalloc_shim.cc
+  ${GSM_LIB}/decoding/control_channels_decoder_impl.cc
+  ${GSM_LIB}/decoding/tch_f_decoder_impl.cc
+  ${GSM_LIB}/decoding/tch_h_decoder_impl.cc
+  ${BLOCKS}/overlays/gr-gsm/sch_decoder.cc
+  ${GSM_LIB}/decoding/openbts/AmrCoder.cpp
+  ${GSM_LIB}/decoding/openbts/BitVector.cpp
+  ${GSM_LIB}/decoding/openbts/GSM503Tables.cpp
+  ${GSM_LIB}/decoding/openbts/GSM610Tables.cpp
+  ${GSM_LIB}/decoding/openbts/GSM660Tables.cpp
+  ${GSM_LIB}/decoding/openbts/ViterbiR204.cpp
+  ${GSM_LIB}/decryption/decryption_impl.cc
+  ${GSM_LIB}/demapping/tch_f_chans_demapper_impl.cc
+  ${GSM_LIB}/demapping/tch_h_chans_demapper_impl.cc
+  ${GSM_LIB}/demapping/universal_ctrl_chans_demapper_impl.cc
+  ${GSM_LIB}/misc_utils/bursts_printer_impl.cc
+  ${GSM_LIB}/misc_utils/controlled_fractional_resampler_cc_impl.cc
+  ${GSM_LIB}/misc_utils/controlled_rotator_cc_impl.cc
+  ${GSM_LIB}/misc_utils/extract_assignment_cmd_impl.cc
+  ${GSM_LIB}/misc_utils/extract_immediate_assignment_impl.cc
+  ${GSM_LIB}/misc_utils/extract_system_info_impl.cc
+  ${GSM_LIB}/misc_utils/message_printer_impl.cc
+  ${GSM_LIB}/misc_utils/msg_to_tag_impl.cc
+  ${GSM_LIB}/misc_utils/time_spec.cc
+  ${GSM_LIB}/qa_utils/burst_sink_impl.cc
+  ${GSM_LIB}/qa_utils/burst_source_impl.cc
+  ${GSM_LIB}/qa_utils/message_sink_impl.cc
+  ${GSM_LIB}/qa_utils/message_source_impl.cc
+  ${GSM_LIB}/receiver/cx_channel_hopper_impl.cc
+  ${GSM_LIB}/receiver/receiver_config.cc
+  ${GSM_LIB}/receiver/receiver_impl.cc
+  ${GSM_LIB}/receiver/viterbi_detector.cc
+  ${SYSROOT}/lib/libosmocoding.a
+  ${SYSROOT}/lib/libosmocodec.a
+  ${SYSROOT}/lib/libosmogsm.a
+  ${SYSROOT}/lib/libosmoisdn.a
+  ${SYSROOT}/lib/libosmocore.a
+  ${SYSROOT}/lib/libpseudotalloc.a)
+add_side_module(gsm
+  SOURCES ${GSM_SOURCES}
+  INCLUDE_DIRS ${GSM_WASM_SHIMS} ${GSM_OVERLAY} ${GSM_LIB}
+  DEPENDS ${GSM_WASM_SHIMS}/config.h
+          ${GSM_WASM_SHIMS}/omp.h
+          ${GSM_WASM_SHIMS}/gnuradio/gsm/endian.h)
 
 # Fail at configure time if modules.json names a deferred category that has no
 # build rule here, or if a build rule was added without registering its topology.

@@ -1,0 +1,262 @@
+# Browser-only C++ factory metadata for ptrkrysik/gr-gsm. The upstream checkout
+# stays pristine; the four file readers/writers and TMSI Dumper are deliberately
+# absent because their host-filesystem behavior has no browser binding. The
+# The four upstream Python hierarchies are rebuilt as C++ hier_block2 classes in
+# gsm_hier.cpp so every non-filesystem block has a browser runtime path.
+
+gsm_bcch_ccch_demapper:
+    flags: [python, cpp]
+    parameter_dtypes:
+        timeslot_nr: int
+    cpp_templates:
+        includes: ['#include "gsm_hier.hpp"']
+        declarations: 'wasm_gsm::bcch_ccch_demapper::sptr ${id};'
+        make: 'this->${id} = wasm_gsm::bcch_ccch_demapper::make(${timeslot_nr});'
+        link: [gnuradio-gsm]
+
+gsm_bcch_ccch_sdcch4_demapper:
+    flags: [python, cpp]
+    parameter_dtypes:
+        timeslot_nr: int
+    cpp_templates:
+        includes: ['#include "gsm_hier.hpp"']
+        declarations: 'wasm_gsm::bcch_ccch_sdcch4_demapper::sptr ${id};'
+        make: 'this->${id} = wasm_gsm::bcch_ccch_sdcch4_demapper::make(${timeslot_nr});'
+        link: [gnuradio-gsm]
+
+gsm_sdcch8_demapper:
+    flags: [python, cpp]
+    parameter_dtypes:
+        timeslot_nr: int
+    cpp_templates:
+        includes: ['#include "gsm_hier.hpp"']
+        declarations: 'wasm_gsm::sdcch8_demapper::sptr ${id};'
+        make: 'this->${id} = wasm_gsm::sdcch8_demapper::make(${timeslot_nr});'
+        link: [gnuradio-gsm]
+
+gsm_clock_offset_corrector_tagged:
+    flags: [python, cpp]
+    parameter_dtypes:
+        fc: real
+        osr: int
+        ppm: real
+        samp_rate_in: real
+    parameter_defaults:
+        osr: '4'
+        samp_rate_in: '1083333.3333333333'
+    cpp_templates:
+        includes: ['#include "gsm_hier.hpp"']
+        declarations: 'wasm_gsm::clock_offset_corrector_tagged::sptr ${id};'
+        make: 'this->${id} = wasm_gsm::clock_offset_corrector_tagged::make(${fc}, ${osr}, ${ppm}, ${samp_rate_in});'
+        link: [gnuradio-gsm]
+
+gsm_control_channels_decoder:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <gnuradio/gsm/decoding/control_channels_decoder.h>']
+        declarations: 'gsm::control_channels_decoder::sptr ${id};'
+        make: 'this->${id} = gsm::control_channels_decoder::make();'
+        link: [gnuradio-gsm]
+
+gsm_tch_f_decoder:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <gnuradio/gsm/decoding/tch_f_decoder.h>']
+        declarations: 'gsm::tch_f_decoder::sptr ${id};'
+        make: 'this->${id} = gsm::tch_f_decoder::make(${mode}, ${boundary_check});'
+        link: [gnuradio-gsm]
+        translations:
+            gsm\.: 'gsm::'
+
+gsm_tch_h_decoder:
+    flags: [python, cpp]
+    parameter_defaults:
+        multi_rate: ''
+    cpp_templates:
+        includes: ['#include <gnuradio/gsm/decoding/tch_h_decoder.h>']
+        declarations: 'gsm::tch_h_decoder::sptr ${id};'
+        make: 'this->${id} = gsm::tch_h_decoder::make(${sub_channel}, ${multi_rate}, ${boundary_check});'
+        link: [gnuradio-gsm]
+
+gsm_decryption:
+    flags: [python, cpp]
+    parameter_dtypes:
+        k_c: byte_vector
+    cpp_templates:
+        includes: ['#include <gnuradio/gsm/decryption/decryption.h>']
+        declarations: 'gsm::decryption::sptr ${id};'
+        make: 'this->${id} = gsm::decryption::make(${k_c}, ${a5_version});'
+        link: [gnuradio-gsm]
+
+gsm_tch_f_chans_demapper:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <gnuradio/gsm/demapping/tch_f_chans_demapper.h>']
+        declarations: 'gsm::tch_f_chans_demapper::sptr ${id};'
+        make: 'this->${id} = gsm::tch_f_chans_demapper::make(${timeslot_nr});'
+        link: [gnuradio-gsm]
+
+gsm_tch_h_chans_demapper:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <gnuradio/gsm/demapping/tch_h_chans_demapper.h>']
+        declarations: 'gsm::tch_h_chans_demapper::sptr ${id};'
+        make: 'this->${id} = gsm::tch_h_chans_demapper::make(${timeslot_nr}, ${tch_h_channel});'
+        link: [gnuradio-gsm]
+
+gsm_universal_ctrl_chans_demapper:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <gnuradio/gsm/demapping/universal_ctrl_chans_demapper.h>']
+        declarations: 'gsm::universal_ctrl_chans_demapper::sptr ${id};'
+        make: |-
+            this->${id} = gsm::universal_ctrl_chans_demapper::make(${timeslot_nr},
+                ${downlink_starts_fn_mod51}, ${downlink_channel_types}, ${downlink_subslots},
+                ${uplink_starts_fn_mod51}, ${uplink_channel_types}, ${uplink_subslots});
+        link: [gnuradio-gsm]
+
+gsm_bursts_printer:
+    flags: [python, cpp]
+    parameter_defaults:
+        prepend_string: ''
+    cpp_templates:
+        includes: ['#include <gnuradio/gsm/misc_utils/bursts_printer.h>']
+        declarations: 'gsm::bursts_printer::sptr ${id};'
+        make: |-
+            this->${id} = gsm::bursts_printer::make(pmt::intern(${prepend_string}), ${prepend_fnr},
+                ${prepend_frame_count}, ${print_payload_only}, ${ignore_dummy_bursts});
+        link: [gnuradio-gsm]
+
+gsm_controlled_fractional_resampler_cc:
+    flags: [python, cpp]
+    parameter_defaults:
+        phase_shift: '0'
+        resamp_ratio: '1'
+    cpp_templates:
+        includes: ['#include <gnuradio/gsm/misc_utils/controlled_fractional_resampler_cc.h>']
+        declarations: 'gsm::controlled_fractional_resampler_cc::sptr ${id};'
+        make: 'this->${id} = gsm::controlled_fractional_resampler_cc::make(${phase_shift}, ${resamp_ratio});'
+        link: [gnuradio-gsm]
+
+gsm_controlled_rotator_cc:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <gnuradio/gsm/misc_utils/controlled_rotator_cc.h>']
+        declarations: 'gsm::controlled_rotator_cc::sptr ${id};'
+        make: 'this->${id} = gsm::controlled_rotator_cc::make(${phase_inc});'
+        link: [gnuradio-gsm]
+
+gsm_extract_assignment_cmd:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <gnuradio/gsm/misc_utils/extract_assignment_cmd.h>']
+        declarations: 'gsm::extract_assignment_cmd::sptr ${id};'
+        make: 'this->${id} = gsm::extract_assignment_cmd::make();'
+        link: [gnuradio-gsm]
+
+gsm_extract_immediate_assignment:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <gnuradio/gsm/misc_utils/extract_immediate_assignment.h>']
+        declarations: 'gsm::extract_immediate_assignment::sptr ${id};'
+        make: |-
+            this->${id} = gsm::extract_immediate_assignment::make(${print_immediate_assignments},
+                ${ignore_gprs}, ${unique_references});
+        link: [gnuradio-gsm]
+
+gsm_extract_system_info:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <gnuradio/gsm/misc_utils/extract_system_info.h>']
+        declarations: 'gsm::extract_system_info::sptr ${id};'
+        make: 'this->${id} = gsm::extract_system_info::make();'
+        link: [gnuradio-gsm]
+
+gsm_message_printer:
+    flags: [python, cpp]
+    parameter_defaults:
+        prepend_string: ''
+    cpp_templates:
+        includes: ['#include <gnuradio/gsm/misc_utils/message_printer.h>']
+        declarations: 'gsm::message_printer::sptr ${id};'
+        make: |-
+            this->${id} = gsm::message_printer::make(pmt::intern(${prepend_string}), ${prepend_fnr},
+                ${prepend_frame_count}, ${print_gsmtap_header});
+        link: [gnuradio-gsm]
+
+gsm_msg_to_tag:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <gnuradio/gsm/misc_utils/msg_to_tag.h>']
+        declarations: 'gsm::msg_to_tag::sptr ${id};'
+        make: 'this->${id} = gsm::msg_to_tag::make();'
+        link: [gnuradio-gsm]
+
+gsm_burst_sink:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <gnuradio/gsm/qa_utils/burst_sink.h>']
+        declarations: 'gsm::burst_sink::sptr ${id};'
+        make: 'this->${id} = gsm::burst_sink::make();'
+        link: [gnuradio-gsm]
+
+gsm_burst_source:
+    flags: [python, cpp]
+    parameter_dtypes:
+        bursts: string_vector
+    parameter_defaults:
+        bursts: '[]'
+    cpp_templates:
+        includes: ['#include <gnuradio/gsm/qa_utils/burst_source.h>']
+        declarations: 'gsm::burst_source::sptr ${id};'
+        make: 'this->${id} = gsm::burst_source::make(${framenumbers}, ${timeslots}, ${bursts});'
+        link: [gnuradio-gsm]
+
+gsm_message_sink:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <gnuradio/gsm/qa_utils/message_sink.h>']
+        declarations: 'gsm::message_sink::sptr ${id};'
+        make: 'this->${id} = gsm::message_sink::make();'
+        link: [gnuradio-gsm]
+
+gsm_message_source:
+    flags: [python, cpp]
+    parameter_dtypes:
+        messages: string_vector
+    cpp_templates:
+        includes: ['#include <gnuradio/gsm/qa_utils/message_source.h>']
+        declarations: 'gsm::message_source::sptr ${id};'
+        make: 'this->${id} = gsm::message_source::make(${messages});'
+        link: [gnuradio-gsm]
+
+gsm_cx_channel_hopper:
+    flags: [python, cpp]
+    parameter_defaults:
+        maio: '0'
+        hsn: '0'
+    cpp_templates:
+        includes: ['#include <gnuradio/gsm/receiver/cx_channel_hopper.h>']
+        declarations: 'gsm::cx_channel_hopper::sptr ${id};'
+        make: 'this->${id} = gsm::cx_channel_hopper::make(${ma}, ${maio}, ${hsn});'
+        link: [gnuradio-gsm]
+
+gsm_receiver:
+    flags: [python, cpp]
+    parameter_dtypes:
+        cell_allocation: int_vector
+    cpp_templates:
+        includes: ['#include <gnuradio/gsm/receiver/receiver.h>']
+        declarations: 'gsm::receiver::sptr ${id};'
+        make: 'this->${id} = gsm::receiver::make(${osr}, ${cell_allocation}, ${tseq_nums}, false);'
+        link: [gnuradio-gsm]
+
+gsm_receiver_with_uplink:
+    flags: [python, cpp]
+    parameter_dtypes:
+        cell_allocation: int_vector
+    cpp_templates:
+        includes: ['#include <gnuradio/gsm/receiver/receiver.h>']
+        declarations: 'gsm::receiver::sptr ${id};'
+        make: 'this->${id} = gsm::receiver::make(${osr}, ${cell_allocation}, ${tseq_nums}, true);'
+        link: [gnuradio-gsm]

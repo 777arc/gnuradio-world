@@ -4,7 +4,7 @@
   "deferred": [
     "digital", "dtv", "network", "pdu", "vocoder", "channels",
     "rds", "foo", "dvbs2", "dvbs2rx", "satellites", "paint", "fosphor",
-    "droneid", "ham", "ieee802_11", "hrpt", "lora_sdr", "radar"
+    "droneid", "ham", "ieee802_11", "hrpt", "lora_sdr", "radar", "gsm"
   ],
   "source_roots": {
     "gr-droneid": "gr-droneid/gnuradio/gr-droneid"

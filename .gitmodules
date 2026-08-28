@@ -54,3 +54,7 @@
 	path = gr-radar
 	url = https://github.com/kit-cel/gr-radar.git
 	branch = master
+[submodule "gr-gsm"]
+	path = gr-gsm
+	url = https://github.com/ptrkrysik/gr-gsm.git
+	branch = porting_to_3.11

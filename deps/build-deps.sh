@@ -2,7 +2,7 @@
 # Cross-build GNU Radio's C++ dependencies to WASM into $SYSROOT.
 #
 # Installs the shared third-party libraries the runner links:
-#   spdlog, VOLK, Boost, FFTW (double + float), GMP, Qwt
+#   spdlog, VOLK, Boost, FFTW (double + float), GMP, libosmocore, Qwt
 # OOT-local source dependencies such as turbofec and header-only CRCpp are
 # fetched beside these but compiled directly by their runner side module.
 #
@@ -90,6 +90,28 @@ fftw_build                  # double precision -> libfftw3.a
 emmake make clean
 fftw_build --enable-float   # single precision -> libfftw3f.a
 
+# --- libosmocore (embedded profile + its bundled pseudotalloc) --------------
+# gr-gsm uses the portable GSM coding/codec helpers. Upstream detects emcc and
+# carries both an embedded profile and an allocator shim, so no host networking,
+# PC/SC, USB, SCTP, GnuTLS, or systemd dependency is pulled into the browser.
+# configure still probes pkg-config for talloc before it enables pseudotalloc;
+# use its documented TALLOC_* override to point at the bundled compatible header.
+cd "$DEPS_SRC/libosmocore"
+autoreconf -fi
+OSMO_BUILD="$DEPS_BUILD/libosmocore"
+rm -rf "$OSMO_BUILD"
+mkdir -p "$OSMO_BUILD"
+cd "$OSMO_BUILD"
+TALLOC_CFLAGS="-I$DEPS_SRC/libosmocore/src/pseudotalloc" TALLOC_LIBS="-lpseudotalloc" \
+  emconfigure "$DEPS_SRC/libosmocore/configure" \
+    --host=wasm32-unknown-emscripten \
+    --prefix="$SYSROOT" --enable-static --disable-shared \
+    --enable-embedded --enable-pseudotalloc \
+    --disable-doxygen --disable-systemtap --disable-external-tests \
+    --disable-simd --disable-neon --disable-werror \
+    CFLAGS="$WASM_PTHREAD_FLAGS -O2"
+emmake make -j"$JOBS" install
+
 # --- GMP (no assembly under wasm; the C++ bindings are needed too) ----------
 # `--host none` is load-bearing, not cosmetic: it selects GMP's generic C path
 # and skips the assembler probes. Without it, configure feeds hand-written
@@ -136,4 +158,4 @@ make -j"$JOBS"
 make install
 
 echo "=== deps installed into $SYSROOT ==="
-ls "$SYSROOT"/lib/lib{spdlog,volk,boost_thread,boost_program_options,fftw3,fftw3f,gmp,gmpxx,qwt}.a
+ls "$SYSROOT"/lib/lib{spdlog,volk,boost_thread,boost_program_options,fftw3,fftw3f,gmp,gmpxx,osmocore,osmocodec,osmogsm,osmoisdn,osmocoding,pseudotalloc,qwt}.a

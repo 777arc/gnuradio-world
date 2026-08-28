@@ -41,10 +41,10 @@ button:hover { filter:brightness(1.15); }
 #menus { display:flex; gap:1px; }
 .menu-top { position:relative; padding:6px 12px; font-size:16px; color:#c3cbe0; border-radius:5px; cursor:pointer; user-select:none; }
 .menu-top:hover, .menu-top.open { background:#2a2f42; color:#fff; }
-.github-link { display:flex; align-items:center; justify-content:center; width:32px; height:32px; margin-left:2px;
+.header-link { display:flex; align-items:center; justify-content:center; width:32px; height:32px; margin-left:2px;
     color:#c3cbe0; border-radius:5px; }
-.github-link:hover { background:#2a2f42; color:#fff; }
-.github-link svg { width:22px; height:22px; fill:currentColor; }
+.header-link:hover { background:#2a2f42; color:#fff; }
+.header-link svg { width:22px; height:22px; fill:currentColor; }
 .menu-drop { position:absolute; top:100%; left:0; z-index:300; min-width:320px; background:#272c3d;
     border:1px solid #46507a; border-radius:6px; padding:4px 0; box-shadow:0 10px 30px #000a; }
 .menuitem { display:flex; align-items:center; gap:12px; padding:7px 14px 7px 10px; font-size:16px;
@@ -1054,7 +1054,7 @@ svg text { user-select:none; -webkit-user-select:none; -moz-user-select:none; }
   #paletteToggle:hover, #paletteToggle:focus-visible { background:#2a2f42; color:#fff; filter:none; }
   #app:not(.hide-palette) #paletteToggle { background:#2a2f42; color:#fff; border-color:#3a4366; }
   .menu-top { padding:13px 11px; }
-  .github-link { width:40px; height:40px; }
+  .header-link { width:40px; height:40px; }
   #toolbar { height:54px; padding:4px 6px; scrollbar-width:none;
       -webkit-overflow-scrolling:touch; }
   #toolbar::-webkit-scrollbar { display:none; }

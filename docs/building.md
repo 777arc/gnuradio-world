@@ -18,14 +18,16 @@ Userspace (no sudo) requirements:
 - **Qt 6.9.1 for WebAssembly (multithread) + host tools**, via `aqtinstall`.
 - **Node ≥ 20** (for the editor build and the dev server; Ubuntu 24 ships 18).
 - Dependency sources fetched under `deps/src/` (VOLK 3.1.2, Boost 1.83, spdlog
-  1.12, GMP 6.3, FFTW 3.3.10, Qwt 6.3, CRCpp 1.2.2, and pinned turbofec).
+  1.12, GMP 6.3, FFTW 3.3.10, libosmocore 1.14.2, Qwt 6.3, CRCpp 1.2.2,
+  and pinned turbofec).
 
 System packages and toolchains on a fresh machine:
 
 ```bash
 sudo apt-get update
 sudo apt-get install -y build-essential cmake ninja-build git curl \
-  python3 python3-venv python3-pip pipx autoconf bzip2 xz-utils
+  python3 python3-venv python3-pip pipx autoconf automake libtool pkg-config \
+  bzip2 xz-utils
 
 # Node 20 (Ubuntu 24 ships 18; the editor build needs >= 20)
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
@@ -59,7 +61,7 @@ export VITE_RECORDINGS_R2_BASE=https://recordings.gnuradioworld.com
 Two scripts; versions are pinned in `fetch-deps.sh` and nowhere else. Both are
 idempotent, so re-running after a failure is cheap. `build-deps.sh` installs the
 shared runner dependencies (spdlog, VOLK, Boost, FFTW in both precisions, GMP,
-Qwt). The DroneID side module compiles the fetched turbofec C sources and
+libosmocore, Qwt). The DroneID side module compiles the fetched turbofec C sources and
 header-only CRCpp directly, so those two need no separate install step.
 
 ```bash

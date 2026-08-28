@@ -28,6 +28,7 @@ import {
   launchBrowser,
   setIsolationHeaders,
   suppressEditorWelcome,
+  waitForEditorCanvasIdle,
 } from '../scripts/browser-test-support.mjs';
 
 const ROOT = normalize(new URL('..', import.meta.url).pathname);
@@ -242,8 +243,10 @@ await page.evaluateOnNewDocument(() => {
   localStorage.setItem('gnuradio-world.hosted-consent', 'yes');
 });
 await page.goto(`http://localhost:${PORT}/`, { waitUntil: 'load', timeout: 30000 });
-await page.waitForFunction(() =>
-  !document.documentElement.classList.contains('app-bootstrapping'), { timeout: 30000 });
+// Past the bootstrap gate and the load's fly-in animation: a block placed now
+// is not replaced by the arriving flowgraph, and a click lands on the block it
+// aims at rather than on one still travelling.
+await waitForEditorCanvasIdle(page);
 
 // ---- the palette ------------------------------------------------------------
 
