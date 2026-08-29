@@ -230,8 +230,18 @@ const scenarios = [
       { name:'csi_v2s', id:'blocks_vector_to_stream',
         params:{ type:'complex', vlen:1, num_items:52 } },
       { name:'csi_sink', id:'blocks_null_sink', params:{ type:'complex', vlen:1, num_inputs:1 } },
-      // The chunk mapper runs on its own: bytes in, BPSK symbols out.
-      { name:'bytes', id:'blocks_null_source', params:{ type:'byte', vlen:1, num_outputs:1 } },
+      // chunks_to_symbols is a tagged-stream block. Mirror the two tags its
+      // upstream mapper puts at the start of every packet so this path executes
+      // the mapper instead of failing in tagged_stream_block before work().
+      { name:'chunk_len_tag', id:'variable_tag_object',
+        params:{ offset:0, key:'pmt.intern("packet_len")', value:'pmt.from_long(48)',
+                 src:'pmt.intern("bytes")' } },
+      { name:'encoding_tag', id:'variable_tag_object',
+        params:{ offset:0, key:'pmt.intern("encoding")', value:'pmt.from_long(3)',
+                 src:'pmt.intern("bytes")' } },
+      { name:'bytes', id:'blocks_vector_source_x',
+        params:{ type:'byte', vector:`[${Array(48).fill(0).join(',')}]`,
+                 tags:'[chunk_len_tag, encoding_tag]', repeat:'True', vlen:1 } },
       { name:'chunks', id:'ieee802_11_chunks_to_symbols_xx', params:{} },
       { name:'chunk_sink', id:'blocks_null_sink', params:{ type:'complex', vlen:1, num_inputs:1 } },
       // The transmit blocks are constructed but left unconnected: each is driven
