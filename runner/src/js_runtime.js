@@ -142,7 +142,11 @@
     if (typeof value === 'bigint') n = value;
     else {
       if (!Number.isSafeInteger(value) || value < 0)
-        fail(where + ' must be a non-negative safe integer or BigInt');
+        // The value matters: this is what a work() called with the wrong
+        // argument order looks like from in here, and "must be a non-negative
+        // safe integer" alone reads as a rule rather than as NaN arriving.
+        fail(where + ' must be a non-negative safe integer or BigInt (got ' +
+             (typeof value === 'number' ? String(value) : typeof value) + ')');
       n = BigInt(value);
     }
     if (n < 0n || n > U64_MAX) fail(where + ' is outside the uint64 range');
@@ -329,6 +333,19 @@
     fail('unsupported PMT type ' + kind + ' at the JavaScript boundary');
   }
 
+  function kindOf(value) {
+    if (value === null || value === undefined) return 'NIL';
+    if (typeof value === 'boolean') return 'a bool';
+    if (typeof value === 'string') return 'a symbol';
+    if (typeof value === 'bigint') return 'a uint64';
+    if (typeof value === 'number') return Number.isInteger(value) ? 'a long' : 'a real';
+    if (Array.isArray(value)) return 'a vector';
+    if (ArrayBuffer.isView(value)) return 'a uniform vector';
+    var kind = value && value[BRAND];
+    if (kind === 'pair') return 'a pair — take its value with pmt.cdr(msg)';
+    return kind ? 'a ' + kind : typeof value;
+  }
+
   function valueEqual(a, b) {
     if (Object.is(a, b)) return true;
     if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false;
@@ -396,20 +413,24 @@
     },
     from_bool: function (value) { return !!value; },
     from_complex: complexValue,
+    // What a conversion actually received. A control block's message is very
+    // often a (key . value) pair -- a QT GUI Message Edit Box in its default
+    // pair mode sends one -- and "needs a PMT real or long" alone leaves the
+    // author re-reading their handler rather than unwrapping the message.
     to_long: function (value) {
       if (!Number.isInteger(value) || (value && value[BRAND] === 'real'))
-        fail('pmt.to_long() needs a PMT long');
+        fail('pmt.to_long() needs a PMT long, got ' + kindOf(value));
       return value;
     },
     to_uint64: function (value) {
       if (typeof value === 'bigint') return value;
       if (Number.isInteger(value) && value >= 0) return BigInt(value);
-      fail('pmt.to_uint64() needs a PMT uint64 or non-negative long');
+      fail('pmt.to_uint64() needs a PMT uint64 or non-negative long, got ' + kindOf(value));
     },
     to_double: function (value) {
       if (value && value[BRAND] === 'real') return value.value;
       if (typeof value === 'number') return value;
-      fail('pmt.to_double() needs a PMT real or long');
+      fail('pmt.to_double() needs a PMT real or long, got ' + kindOf(value));
     },
     to_bool: function (value) { if (typeof value !== 'boolean') fail('pmt.to_bool() needs a bool'); return value; },
     to_python: copyToPython,
@@ -496,6 +517,16 @@
     if (spec && typeof spec === 'object') {
       dtype = spec.dtype;
       vlen = spec.vlen === undefined ? 1 : spec.vlen;
+      // A port *is* a dtype; it is not a description of one. {name, type} is
+      // the shape an author reaches for first, and reporting that as "unknown
+      // port type undefined" hides the mistake rather than naming it -- the
+      // type is right there, under a key nothing reads. Say what the accepted
+      // spellings are and what this object actually carried.
+      if (typeof dtype !== 'string')
+        fail(where + ": a port is a dtype string such as 'complex', or " +
+             "{ dtype: 'complex', vlen: 1 }; this object has no dtype (its keys are " +
+             (Object.keys(spec).join(', ') || 'none') +
+             '). Stream ports are identified by position, not by a name.');
     }
     if (typeof dtype !== 'string' || !DTYPES[dtype])
       fail(where + ': unknown port type ' + JSON.stringify(dtype) +
@@ -674,7 +705,15 @@
     var hasMessages = (info.msgPortsIn && info.msgPortsIn.length) ||
                       (info.msgPortsOut && info.msgPortsOut.length);
     if (!info.general && typeof d.work !== 'function' && !hasMessages)
-      fail('the descriptor has no work() (or generalWork()) function');
+      // A descriptor is the block, not a description of where the block is.
+      // The class form -- gr.export({ block: SomeClass }) -- reads as obvious
+      // and is not part of the contract, and saying only that work() is missing
+      // sends an author round the same attempt again.
+      fail('the descriptor has no work() (or generalWork()) function: define ' +
+           'work(nout, input, output) as a method on the object passed to ' +
+           'gr.export(). There is no class or constructor form, and no key that ' +
+           'names one. This descriptor carries: ' +
+           (Object.keys(d).join(', ') || 'nothing'));
     if (!info.inputs.length && !info.outputs.length && !hasMessages)
       fail('a block needs at least one stream or message port');
     return info;
@@ -710,7 +749,14 @@
       // eslint-disable-next-line no-new-func
       fn = new Function('gr', 'pmt', '"use strict";\n' + String(source));
     } catch (e) {
-      fail('the block source did not parse: ' + (e && e.message ? e.message : e));
+      var parseError = e && e.message ? e.message : String(e);
+      // `gr` and `pmt` are this function's own parameters, so `const pmt = ...`
+      // does not shadow them -- it fails to parse, with a message that says
+      // nothing about where the other declaration came from.
+      if (/Identifier '(gr|pmt)' has already been declared/.test(parseError))
+        parseError += ' — gr and pmt are injected into every block source; ' +
+                      'use them directly rather than declaring them';
+      fail('the block source did not parse: ' + parseError);
     }
     fn(gr, pmt);
     if (!descriptor)

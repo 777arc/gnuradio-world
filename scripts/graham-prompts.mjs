@@ -145,6 +145,61 @@ export const CASES = [
       run: 'pass',
     },
   },
+  {
+    name: 'js-energy-detector',
+    // Message ports in both directions, on a block no catalog entry provides:
+    // one publishing a detection, one taking a new threshold while the graph
+    // runs. Both are `init()` declarations, which is the half a descriptor-only
+    // reading of the JS Block gets wrong -- registering a port inside work(),
+    // or publishing on one that was never registered at all.
+    //
+    // exercise_js_block first, then a real run: the disposable Worker is the
+    // only place a work() that never returns can be caught, and the run is what
+    // proves the ports the model declared actually connect and get scheduled.
+    // Inline JavaScript stops at the human review on the Run click -- the
+    // driver clicks it through, so the source still crosses that gate, just
+    // with nobody reading it.
+    prompt: 'Write me a JavaScript block that works as an energy detector: it measures ' +
+            'the average power over each 1024-sample window of a complex stream and, ' +
+            'whenever that crosses a threshold, publishes a message carrying the sample ' +
+            'offset and the power it measured. It should also take a message port I can ' +
+            'send a new threshold to while it is running. Wire it up to a noisy signal ' +
+            'source, with a QT GUI Message Edit Box driving the threshold and a Message ' +
+            'Debug on the detections, exercise the block to show me it fires, and ' +
+            'then run the whole thing.',
+    fresh: true,
+    expect: {
+      tools: ['create_js_block', 'exercise_js_block'],
+      blocks: ['Message Debug', 'QT GUI Message Edit Box'],
+      absentBlocks: ['RTL-SDR', 'HackRF', 'PlutoSDR'],
+      run: 'pass',
+    },
+  },
+  {
+    name: 'js-per-packet-tags',
+    // The other side of the same runtime: tags rather than messages. Reading
+    // them at absolute offsets, writing new ones, and keeping the upstream tag
+    // that defines the burst -- which is a tag propagation decision rather than
+    // a default, since a block that writes its own tags and leaves the policy
+    // alone either loses packet_len or duplicates it. Where the measurement tag
+    // lands is a real design question too: the RMS of a packet is not known at
+    // the sample the packet starts on. Run, like the case above, because a tag
+    // written into a real buffer is the only proof the offsets were absolute.
+    prompt: 'I want per-packet statistics on a tagged stream. Cut a noisy signal into ' +
+            '1024-sample packets with Stream to Tagged Stream, then write me a ' +
+            'JavaScript block that reads the packet_len tags and tags each packet with ' +
+            'its packet number and the RMS level you measured for it, passing the ' +
+            'samples through unchanged and leaving the original packet_len tag in ' +
+            'place. Put a Tag Debug on its output so I can see all three tags, and ' +
+            'exercise the block on a window with a tag in it first, then run it.',
+    fresh: true,
+    expect: {
+      tools: ['create_js_block', 'exercise_js_block'],
+      blocks: ['Stream to Tagged Stream', 'Tag Debug'],
+      absentBlocks: ['RTL-SDR', 'HackRF', 'PlutoSDR'],
+      run: 'pass',
+    },
+  },
 ];
 
 export const caseNamed = name => CASES.find(item => item.name === name);

@@ -56,6 +56,14 @@ export async function launchBrowser(root, options = {}) {
     executablePath,
     headless: true,
     args: options.webgpu ? WEBGPU_CHROME_ARGS : CHROME_ARGS,
+    // Puppeteer's own default is 180s per CDP call, which is *below* what the
+    // callers here wait for: a Graham turn is given 420s, and one call cannot be
+    // answered while the page's main thread is busy -- a flowgraph running, a
+    // Message Debug filling the console pane. The harness then dies with
+    // "Runtime.callFunctionOn timed out" and no transcript at all, which reads
+    // as the evaluation being broken rather than the turn being slow. Keep this
+    // above every caller's own timeout so the caller is the one that decides.
+    protocolTimeout: 600_000,
   });
 }
 

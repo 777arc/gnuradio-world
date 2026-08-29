@@ -397,7 +397,9 @@ surfaces as the tool's `error`, and the model acts on and runs again. What is
 left is the JavaScript review, which a human is genuinely meant to read, so
 `RUN_START_TIMEOUT_MS` bounds the wait at three minutes and reports that the
 editor is asking the user something. The dialog stays open; a later click still
-runs the graph.
+runs the graph. The one place that wait is answered without a human is the
+evaluation driver, which clicks the dialog's own button and says so in its
+report — see "The prompt suite" below. Nothing in the editor knows about it.
 `run()` returns the unique `recordingToken` embedded in the runner query string.
 Every cross-frame read verifies that query string first and is wrapped for the
 mid-navigation case, so stats from an older run cannot be attributed to a newer
@@ -739,6 +741,21 @@ graph on screen that *did* clear threw away the thing being asked about.
 `notBefore` is the softer form, for a prompt naming an example to modify —
 reading that example and rebuilding it changed is a legitimate route, so what
 matters is only that nothing cleared the canvas *before* `read_example`.
+
+**The JavaScript review is clicked through, and only here.** Two cases have
+Graham *write* a block — `js-energy-detector` (message ports in both directions)
+and `js-per-packet-tags` (tag reads, tag writes and a propagation policy) — and
+model-written source is exactly what the Run click's JavaScript review exists to
+show a human. Nobody is at this keyboard, so the driver stands in for that
+reader: it watches for the dialog and clicks its own *Run it* button, through
+the same handler a person's click runs. Without it those two cases would sit out
+the harness's three-minute `RUN_START_TIMEOUT_MS` and reach no verdict at all,
+which is the same as not testing them. The editor is unchanged — there is no
+bypass flag in the app, the gate still renders, and the click is still what
+accepts the source — and the driver counts the clicks and prints them, so a
+report never quietly implies a human read the code. Both cases therefore expect
+`run: 'pass'`: `exercise_js_block` proves the arithmetic in a disposable Worker,
+and the run proves the declared ports connect and get scheduled.
 
 ### End to end, through the dock
 

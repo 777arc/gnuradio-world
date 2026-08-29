@@ -875,7 +875,16 @@ static void run_now(const std::string& json_source) {
             if (is_variable_control(id)) {
                 bb = variables.at(name).built;
             } else {
-                bb = it->second(params);
+                try {
+                    bb = it->second(params);
+                } catch (const std::exception& e) {
+                    // A factory throws over one parameter of one block, and the
+                    // bare message says which parameter at best -- a json
+                    // type_error names neither. Whoever reads this line is
+                    // looking at a canvas and needs to know where to click.
+                    throw std::runtime_error("block '" + name + "' (" + id +
+                                             "): " + e.what());
+                }
             }
             apply_output_buffer_limits(bb.block, params);
             if (bb.block)

@@ -220,10 +220,23 @@ const rejects = (source, pattern, what) => {
 };
 rejects('const x = 1;', /never called gr\.export/, 'a source that registers nothing');
 rejects('gr.export({ inputs: [], outputs: [] });', /no work\(\)/, 'a descriptor with no work');
+// The class form is what an author writes when work() is a method somewhere
+// else entirely; the message has to name the shape, not just the absence.
+rejects("class B { work(){} }\ngr.export({ block: B, inputs: ['complex'], outputs: [] });",
+        /no class or constructor form.*carries: block, inputs, outputs/s,
+        'a descriptor pointing at a class');
+rejects("const pmt = gr.pmt;\ngr.export({ inputs: ['complex'], outputs: [], work(){} });",
+        /gr and pmt are injected/, 'a source redeclaring an injected global');
 rejects("gr.export({ inputs: ['complex'], outputs: [], work(){}, generalWork(){} });",
         /work\(\) or generalWork\(\), not both/, 'both work and generalWork');
 rejects("gr.export({ inputs: ['cplx'], outputs: [], work(){} });",
         /unknown port type "cplx"/, 'an unknown port dtype');
+// The shape a first-time author (and a model) reaches for. It has to be told
+// that a port is a dtype rather than a description of one, because the generic
+// message reports the type it *did* supply as undefined.
+rejects("gr.export({ inputs: [{ name: 'in', type: 'complex' }], outputs: [], work(){} });",
+        /a port is a dtype string.*no dtype \(its keys are name, type\)/s,
+        'a {name,type} port object');
 rejects('gr.export({ inputs: [], outputs: [], work(){} });',
         /at least one stream or message port/, 'a block with no ports at all');
 rejects("gr.export({ inputs: ['float'], outputs: [], params: { 'a-b': 1 }, work(){} });",

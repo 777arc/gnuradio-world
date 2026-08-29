@@ -34,8 +34,17 @@
 //   --shot=<path>    save a screenshot of the finished dock and canvas
 //   --json=<path>    write the structured result, for diffing two models
 //
-// Exits non-zero if the harness failed, a tool call errored, the graph still
-// has blocking validation errors, or a run was attempted and did not pass.
+// One gate is answered for the absent human: the JavaScript review a Run click
+// shows for source that did not come from this session -- which model-written
+// source always is. It is clicked through automatically and counted, because
+// waiting for a click nobody is there to give is the only other outcome. The
+// report says how many it accepted; see acceptJavaScriptReviews below.
+//
+// Exits non-zero if the harness failed, the turn overran, the graph still has
+// blocking validation errors, or a run was attempted and did not pass. A tool
+// call that errored and was then corrected does not by itself fail the run --
+// being told what is wrong is how the next attempt gets written -- but the
+// count is always reported.
 import { writeFileSync } from 'node:fs';
 import { launchBrowser, suppressEditorWelcome } from './browser-test-support.mjs';
 
@@ -79,6 +88,36 @@ const seed = (k, chosen) => {
   } catch { /* storage unavailable */ }
 };
 
+// The one Run gate an unattended run cannot answer for itself. Every other one
+// is *declined* by `unattended` (see run-session.ts), but the JavaScript review
+// is meant for a human to read -- and model-written source is exactly what it
+// asks about, so any prompt that has Graham write a JS Block would otherwise sit
+// out the harness's three-minute RUN_START_TIMEOUT_MS and reach no verdict at
+// all. This evaluation stands in for that reader: it clicks the dialog's own
+// "Run it" button, through the same handler a person's click runs, and counts
+// the clicks so the report can say the run went ahead with nobody reading the
+// code. Nothing in the editor changes -- the gate is still there, and still the
+// only way that source runs.
+const acceptJavaScriptReviews = () => {
+  globalThis.__grahamJsReviews = 0;
+  const accept = () => {
+    // .dlg-code is also the Properties dialog for a JS or Python block, and
+    // there is a second `button.run` behind Save; the review's is the only one
+    // reading "Run it".
+    const button = [...document.querySelectorAll('.modal .dlg-code .dlgfoot button.run')]
+      .find(b => b.textContent.trim() === 'Run it');
+    if (!button) return;
+    globalThis.__grahamJsReviews++;
+    button.click();
+  };
+  const watch = () => {
+    accept();
+    new MutationObserver(accept).observe(document.body, { childList: true });
+  };
+  if (document.body) watch();
+  else document.addEventListener('DOMContentLoaded', watch, { once: true });
+};
+
 const short = (text, n) => {
   const flat = String(text ?? '').replace(/\s+/g, ' ').trim();
   return flat.length > n ? flat.slice(0, n) + ` …[+${flat.length - n} chars]` : flat;
@@ -90,6 +129,7 @@ try {
   const page = await browser.newPage();
   await suppressEditorWelcome(page);
   await page.evaluateOnNewDocument(seed, key, model);
+  await page.evaluateOnNewDocument(acceptJavaScriptReviews);
   await page.setViewport({ width: 1440, height: 900 });
   page.on('pageerror', e => console.log('PAGEERROR', e.message));
 
@@ -151,11 +191,20 @@ try {
       b => b.textContent.trim() === 'Stop');
     return stop && !stop.hidden;
   }, { timeout: 30000, polling: 200 }).catch(() => console.log('(the turn never started)'));
+  // A turn that overruns is still worth everything it did: the transcript, the
+  // canvas and the console are all sitting in the page. Throwing here instead
+  // discards the whole run and reports "the harness produced no result", which
+  // says nothing about which tool call was the slow one.
+  let timedOut = false;
   await page.waitForFunction(() => {
     const stop = [...document.querySelectorAll('#aiDock button')].find(
       b => b.textContent.trim() === 'Stop');
     return !stop || stop.hidden;
-  }, { timeout: timeoutMs, polling: 500 });
+  }, { timeout: timeoutMs, polling: 500 }).catch(() => {
+    timedOut = true;
+    console.log(`(the turn was still running after ${timeoutMs / 1000}s — ` +
+                'reporting what it had done by then)');
+  });
   const seconds = ((Date.now() - started) / 1000).toFixed(1);
 
   const scraped = await page.evaluate(() => {
@@ -173,6 +222,7 @@ try {
         items.push({ kind: 'gesture', text: el.textContent || '' });
     }
     return { items, cost: document.querySelector('.ai-cost')?.textContent,
+      jsReviews: globalThis.__grahamJsReviews || 0,
       blocks: [...document.querySelectorAll('#nodes > *')]
         .map(n => (n.textContent || '').trim()),
       log: (document.getElementById('log')?.textContent || '')
@@ -231,6 +281,12 @@ try {
   console.log(`\n=== CANVAS: ${before} → ${scraped.blocks.length} blocks ===`);
   for (const block of scraped.blocks) console.log('  -', short(block, 70));
 
+  // Said out loud rather than buried: this run's JavaScript went to the
+  // scheduler with nobody having read it.
+  if (scraped.jsReviews)
+    console.log(`\n=== JAVASCRIPT REVIEW: accepted ${scraped.jsReviews} ` +
+                `unattended (a human would have read the code here) ===`);
+
   console.log(`\n=== EDITOR CONSOLE ===`);
   for (const line of scraped.log.slice(-20)) console.log('  |', line);
 
@@ -254,12 +310,21 @@ try {
                 ? ' (overcome: a later run passed)' : ''));
   for (const line of refusals) console.log(`     ! ${line.trim()}`);
 
-  ok = failed.length === 0 && unresolvedRefusals.length === 0 &&
+  // A tool error the turn then recovered from is the repair loop working -- the
+  // same reasoning as unresolvedRefusals above, and the rule the suite applies
+  // when it judges a case. A turn that authored a JS Block and was told its
+  // descriptor was wrong before the canvas changed did not fail; a turn that
+  // ended there did, and it ends with no passing run to show, which is what the
+  // clause below is. The count is printed either way.
+  const recovered = ranSuccessfully && runner.idle.length === 0;
+  ok = !timedOut && (failed.length === 0 || recovered) &&
+       unresolvedRefusals.length === 0 &&
        (!attemptedRun || unauthorized ||
         (String(runner.verdict).includes('RUNNER_PASS') && runner.idle.length === 0));
 
   result = { prompt, model: dock.model, fresh, seconds: Number(seconds), usage: scraped.cost,
     tools: tools.length, toolErrors: failed.length, attemptedRun, unauthorized, refusals,
+    jsReviews: scraped.jsReviews, timedOut,
     unresolvedRefusals,
     runner, blocksBefore: before, transcript: scraped.items,
     blocks: scraped.blocks, log: scraped.log, ok };

@@ -257,7 +257,14 @@ export async function exerciseJsSource(
     if (!Number.isInteger(nout) || nout < 1 || nout > 4096)
       throw new Error('each exercise call needs nout from 1 to 4096');
     for (const input of call.inputs || []) {
-      if (!Array.isArray(input) || input.some(value => !Number.isFinite(Number(value))))
+      // `inputs` is one array *per port*, and a flat array of samples is the
+      // obvious first guess for a one-input block. Say which of the two shapes
+      // arrived, or the caller re-sends the same flat array with tidier numbers.
+      if (!Array.isArray(input))
+        throw new Error('exercise inputs is one array per input port, so a ' +
+          'single-input block takes inputs: [[1, 0, 1, 0]] — not a flat list ' +
+          `of samples (got ${typeof input} at port ${call.inputs!.indexOf(input)})`);
+      if (input.some(value => !Number.isFinite(Number(value))))
         throw new Error('exercise inputs must be arrays of finite numbers');
       scalars += input.length;
     }
@@ -451,8 +458,16 @@ self.onmessage = function (event) {
       if (rc) throw new Error(__error(err));
       received.push({ port: incoming.port, value: incoming.value });
     }
-    var forecast = null;
-    if (payload.forecastNout !== undefined) {
+    var forecast = null, notes = [];
+    // __grJs.forecast() is only defined for a descriptor that supplies its own
+    // forecast(); calling it otherwise throws an opaque TypeError from inside
+    // the runtime and fails the whole exercise, including the work calls that
+    // would have run. Asking for a forecast a block does not implement is a
+    // reasonable thing to try, so it costs a note, not the run.
+    if (payload.forecastNout !== undefined && !info.overridesForecast)
+      notes.push('forecast_nout ignored: this block defines no forecast(), so ' +
+                 'the scheduler uses the default one item per output item');
+    else if (payload.forecastNout !== undefined) {
       words[base] = payload.forecastNout | 0; words[base + 1] = info.inputs.length;
       rc = __grJs.forecast(handle, wordsPtr, err, 4096);
       if (rc) throw new Error(__error(err));
@@ -527,7 +542,7 @@ self.onmessage = function (event) {
     if (rc) throw new Error(__error(err));
     __grJs.destroy(handle);
     self.postMessage({ ok: true, info: info, forecast: forecast, calls: results,
-      messages_received: received,
+      notes: notes, messages_received: received,
       messages_published: __published.map(function (entry) {
         return { port: (info.msgPortsOut || [])[entry.port], value: __plain(entry.value) }; }),
       tags_added: __tagsOut.map(function (tag) {

@@ -147,6 +147,26 @@
 
 using nlohmann::json;
 
+// A .grc parameter declared `dtype: string` still arrives as a JSON *number*
+// whenever its value looks like one -- the lowering pass turns a numeric literal
+// into a real number so arithmetic parameters work at all -- and nlohmann's
+// value<std::string>() throws type_error.302 rather than converting. That threw
+// the entire flowgraph away over, say, a Message Edit Box whose Value is 0.5,
+// with an exception naming neither the block nor the parameter. Read a
+// nominally-textual parameter through here instead of p.value(k, std::string()).
+static std::string param_text(const json& p, const std::string& key,
+                              std::string fallback = {})
+{
+    auto item = p.find(key);
+    if (item == p.end() || item->is_null())
+        return fallback;
+    if (item->is_string())
+        return item->get<std::string>();
+    if (item->is_boolean())
+        return item->get<bool>() ? "True" : "False";
+    return item->dump();
+}
+
 static gr::analog::gr_waveform_t waveform_from(const std::string& s) {
     // Accept both GRC constants ("analog.GR_COS_WAVE") and the old shorthand
     // ("cos"). Match COS before SIN because "cosine" contains "sin".
@@ -163,10 +183,10 @@ static gr::analog::gr_waveform_t waveform_from(const std::string& s) {
     return gr::analog::GR_COS_WAVE;
 }
 // Many blocks are type-parameterized (like GRC): a "type" param selects the C++ type.
-static bool is_float(const json& p) { return p.value("type", std::string("complex")) == "float"; }
+static bool is_float(const json& p) { return param_text(p, "type", "complex") == "float"; }
 static int itemsize_of(const json& p)
 {
-    const std::string type = p.value("type", std::string("complex"));
+    const std::string type = param_text(p, "type", "complex");
     if (type == "complex") return sizeof(gr_complex);
     if (type == "float" || type == "int") return sizeof(std::int32_t);
     if (type == "short") return sizeof(std::int16_t);
@@ -235,7 +255,7 @@ static std::string uppercase(std::string value)
 static gr::qtgui::trigger_mode trigger_mode_from(const json& p)
 {
     const std::string mode = uppercase(
-        p.value("tr_mode", std::string("qtgui.TRIG_MODE_FREE")));
+        param_text(p, "tr_mode", "qtgui.TRIG_MODE_FREE"));
     if (mode.find("AUTO") != std::string::npos)
         return gr::qtgui::TRIG_MODE_AUTO;
     if (mode.find("NORM") != std::string::npos)
@@ -248,7 +268,7 @@ static gr::qtgui::trigger_mode trigger_mode_from(const json& p)
 static gr::qtgui::trigger_slope trigger_slope_from(const json& p)
 {
     const std::string slope = uppercase(
-        p.value("tr_slope", std::string("qtgui.TRIG_SLOPE_POS")));
+        param_text(p, "tr_slope", "qtgui.TRIG_SLOPE_POS"));
     return slope.find("NEG") != std::string::npos ? gr::qtgui::TRIG_SLOPE_NEG
                                                    : gr::qtgui::TRIG_SLOPE_POS;
 }
@@ -279,7 +299,7 @@ static void configure_line(const std::shared_ptr<Sink>& sink,
     if (auto it = p.find("label" + suffix); it != p.end() && it->is_string())
         sink->set_line_label(line, unquoted(it->get<std::string>()));
     sink->set_line_color(
-        line, unquoted(p.value("color" + suffix, default_color)));
+        line, unquoted(param_text(p, "color" + suffix, default_color)));
     sink->set_line_width(
         line, static_cast<int>(number_from(p, "width" + suffix, 1)));
     // The fallbacks are the defaults GRC's own Time/Frequency Sink yaml
@@ -300,8 +320,8 @@ static void configure_time_sink(const std::shared_ptr<Sink>& sink,
                                 const json& p,
                                 unsigned int line_count)
 {
-    sink->set_y_label(unquoted(p.value("ylabel", std::string("Amplitude"))),
-                      unquoted(p.value("yunit", std::string())));
+    sink->set_y_label(unquoted(param_text(p, "ylabel", "Amplitude")),
+                      unquoted(param_text(p, "yunit")));
     sink->set_y_axis(number_from(p, "ymin", -1.0), number_from(p, "ymax", 1.0));
     sink->set_update_time(number_from(p, "update_time", 0.1));
     sink->enable_grid(bool_from(p, "grid", false));
@@ -319,7 +339,7 @@ static void configure_time_sink(const std::shared_ptr<Sink>& sink,
                            static_cast<float>(number_from(p, "tr_level", 0.0)),
                            static_cast<float>(number_from(p, "tr_delay", 0.0)),
                            static_cast<int>(number_from(p, "tr_chan", 0)),
-                           unquoted(p.value("tr_tag", std::string())));
+                           unquoted(param_text(p, "tr_tag")));
 }
 
 // GRC's Average is an enum of FFT smoothing alphas (1.0 = off, down to 0.05 =
@@ -369,7 +389,7 @@ static void configure_freq_sink(const std::shared_ptr<Sink>& sink,
     sink->set_trigger_mode(trigger_mode_from(p),
                            static_cast<float>(number_from(p, "tr_level", 0.0)),
                            static_cast<int>(number_from(p, "tr_chan", 0)),
-                           unquoted(p.value("tr_tag", std::string())));
+                           unquoted(param_text(p, "tr_tag")));
 }
 
 template <typename Sink>
@@ -788,7 +808,7 @@ cc_mode_t cc_mode_from(const json& p, const char* key)
 gr::digital::ted_type ted_type_from(const json& p)
 {
     const std::string value = uppercase(
-        p.value("ted_type", std::string("digital.TED_MUELLER_AND_MULLER")));
+        param_text(p, "ted_type", "digital.TED_MUELLER_AND_MULLER"));
     if (value.find("MOD_MUELLER") != std::string::npos)
         return gr::digital::TED_MOD_MUELLER_AND_MULLER;
     if (value.find("MUELLER") != std::string::npos)
@@ -813,7 +833,7 @@ gr::digital::ted_type ted_type_from(const json& p)
 gr::digital::ir_type resampler_type_from(const json& p)
 {
     const std::string value = uppercase(
-        p.value("resamp_type", std::string("digital.IR_MMSE_8TAP")));
+        param_text(p, "resamp_type", "digital.IR_MMSE_8TAP"));
     if (value.find("PFB_NO_MF") != std::string::npos)
         return gr::digital::IR_PFB_NO_MF;
     if (value.find("PFB_MF") != std::string::npos)
@@ -826,8 +846,7 @@ gr::digital::ir_type resampler_type_from(const json& p)
 gr::digital::evm_measurement_t evm_type_from(const json& p)
 {
     const std::string value = uppercase(
-        p.value("meas_type",
-                std::string("digital.evm_measurement_t.EVM_PERCENT")));
+        param_text(p, "meas_type", "digital.evm_measurement_t.EVM_PERCENT"));
     return value.find("EVM_DB") != std::string::npos
                ? gr::digital::evm_measurement_t::EVM_DB
                : gr::digital::evm_measurement_t::EVM_PERCENT;
@@ -866,8 +885,7 @@ BuiltBlock make_symbol_sync(const json& p)
         static_cast<float>(number_from(p, "max_dev", 1.5)),
         static_cast<int>(number_from(p, "osps", 1)),
         named_constellation(
-            p.value("constellation",
-                    std::string("digital.constellation_bpsk().base()"))),
+            param_text(p, "constellation", "digital.constellation_bpsk().base()")),
         resampler_type_from(p),
         static_cast<int>(number_from(p, "nfilters", 128)),
         flat_sequence<float>(p, "pfb_mf_taps"));
@@ -1050,23 +1068,23 @@ BuiltBlock make_range(const json& p)
         throw std::runtime_error("QT GUI Range requires start <= stop and step > 0");
 
     auto state = std::make_shared<RangeState>(RangeState{
-        start, stop, step, p.value("rangeType", std::string("float")) == "int", {}
+        start, stop, step, param_text(p, "rangeType", "float") == "int", {}
     });
     const double initial = state->normalize(p.value("value", 50.0));
     const int minimum_length = std::max(1, p.value("min_len", 200));
-    const std::string orientation_name = p.value("orient", std::string("horizontal"));
+    const std::string orientation_name = param_text(p, "orient", "horizontal");
     const auto orientation = orientation_name == "vertical" ||
                                      orientation_name.find("Vertical") != std::string::npos
                                  ? Qt::Vertical
                                  : Qt::Horizontal;
-    const std::string style = p.value("widget", std::string("counter_slider"));
+    const std::string style = param_text(p, "widget", "counter_slider");
 
     auto* widget = new QWidget;
     auto* layout = new QHBoxLayout(widget);
     layout->setContentsMargins(0, 0, 0, 0);
-    QString label = QString::fromStdString(p.value("label", std::string()));
+    QString label = QString::fromStdString(param_text(p, "label"));
     if (label.isEmpty())
-        label = QString::fromStdString(p.value("__name", std::string("Range")));
+        label = QString::fromStdString(param_text(p, "__name", "Range"));
     layout->addWidget(new QLabel(label, widget));
 
     auto publish = [state](double value) { state->publish(value); };
@@ -1173,7 +1191,7 @@ BuiltBlock make_chooser(const json& p)
     // Options are numeric because the WASM variable model carries a double.
     std::vector<double> options;
     for (const QString& piece :
-         split_list(QString::fromStdString(p.value("options", std::string("0, 1, 2"))))) {
+         split_list(QString::fromStdString(param_text(p, "options", "0, 1, 2")))) {
         bool ok = false;
         const double value = piece.toDouble(&ok);
         options.push_back(ok ? value : static_cast<double>(options.size()));
@@ -1182,7 +1200,7 @@ BuiltBlock make_chooser(const json& p)
         throw std::runtime_error("QT GUI Chooser requires at least one option");
 
     const QStringList labels =
-        split_list(QString::fromStdString(p.value("labels", std::string())));
+        split_list(QString::fromStdString(param_text(p, "labels")));
     bool have_labels = false;
     for (const QString& label : labels)
         have_labels = have_labels || !label.isEmpty();
@@ -1203,13 +1221,13 @@ BuiltBlock make_chooser(const json& p)
 
     auto state = std::make_shared<ControlState>();
     auto option_values = std::make_shared<std::vector<double>>(options);
-    QString label = QString::fromStdString(p.value("label", std::string()));
+    QString label = QString::fromStdString(param_text(p, "label"));
     if (label.isEmpty())
-        label = QString::fromStdString(p.value("__name", std::string("Chooser")));
+        label = QString::fromStdString(param_text(p, "__name", "Chooser"));
 
     QWidget* widget = nullptr;
-    if (p.value("widget", std::string("combo_box")) == "radio_buttons") {
-        const std::string orient = p.value("orient", std::string("Qt.QVBoxLayout"));
+    if (param_text(p, "widget", "combo_box") == "radio_buttons") {
+        const std::string orient = param_text(p, "orient", "Qt.QVBoxLayout");
         auto* group = new QGroupBox(label);
         // GRC stores "Qt.QHBoxLayout"/"Qt.QVBoxLayout"; also accept the shorthand.
         const bool horizontal = orient == "horizontal" ||
@@ -1267,9 +1285,9 @@ BuiltBlock make_push_button(const json& p)
     const double initial = p.value("value", released);
 
     auto state = std::make_shared<ControlState>();
-    QString label = QString::fromStdString(p.value("label", std::string()));
+    QString label = QString::fromStdString(param_text(p, "label"));
     if (label.isEmpty())
-        label = QString::fromStdString(p.value("__name", std::string("Button")));
+        label = QString::fromStdString(param_text(p, "__name", "Button"));
 
     auto* button = new QPushButton(label);
     QObject::connect(button, &QPushButton::pressed, button,
@@ -1313,7 +1331,7 @@ double control_number(const json& p, const char* key, double fallback)
 
 BuiltBlock make_check_box(const json& p)
 {
-    const std::string type = unquoted(p.value("type", std::string("int")));
+    const std::string type = unquoted(param_text(p, "type", "int"));
     if (type != "real" && type != "int" && type != "bool")
         throw std::runtime_error(
             "QT GUI Check Box supports real, int, and bool values in WebAssembly");
@@ -1325,9 +1343,9 @@ BuiltBlock make_check_box(const json& p)
         std::abs(initial - true_value) <= std::abs(initial - false_value);
     auto state = std::make_shared<ControlState>();
     QString label = QString::fromStdString(
-        unquoted(p.value("label", std::string())));
+        unquoted(param_text(p, "label")));
     if (label.isEmpty())
-        label = QString::fromStdString(p.value("__name", std::string("Check Box")));
+        label = QString::fromStdString(param_text(p, "__name", "Check Box"));
 
     auto* check_box = new QCheckBox(label);
     check_box->setChecked(checked);
@@ -1348,7 +1366,7 @@ BuiltBlock make_check_box(const json& p)
 
 BuiltBlock make_entry(const json& p)
 {
-    const std::string type = unquoted(p.value("type", std::string("int")));
+    const std::string type = unquoted(param_text(p, "type", "int"));
     if (type != "real" && type != "int" && type != "bool")
         throw std::runtime_error(
             "QT GUI Entry supports real, int, and bool values in WebAssembly");
@@ -1361,9 +1379,9 @@ BuiltBlock make_entry(const json& p)
                            : requested;
     auto state = std::make_shared<ControlState>();
     QString label = QString::fromStdString(
-        unquoted(p.value("label", std::string())));
+        unquoted(param_text(p, "label")));
     if (label.isEmpty())
-        label = QString::fromStdString(p.value("__name", std::string("Entry")));
+        label = QString::fromStdString(param_text(p, "__name", "Entry"));
 
     auto* widget = new QWidget;
     auto* layout = new QHBoxLayout(widget);
@@ -1385,7 +1403,7 @@ BuiltBlock make_entry(const json& p)
         entry->setText(QString::number(value, 'g', 12));
         state->publish(value);
     };
-    if (p.value("entry_signal", std::string("editingFinished")) ==
+    if (param_text(p, "entry_signal", "editingFinished") ==
         "returnPressed")
         QObject::connect(entry, &QLineEdit::returnPressed, entry, publish);
     else
@@ -1410,15 +1428,15 @@ BuiltBlock make_entry(const json& p)
 
 QString control_label(const json& p, const char* fallback)
 {
-    QString label = QString::fromStdString(unquoted(p.value("label", std::string())));
+    QString label = QString::fromStdString(unquoted(param_text(p, "label")));
     if (label.isEmpty())
-        label = QString::fromStdString(p.value("__name", std::string(fallback)));
+        label = QString::fromStdString(param_text(p, "__name", fallback));
     return label;
 }
 
 grworld::ControlType control_type(const json& p, const char* what)
 {
-    const std::string type = unquoted(p.value("type", std::string("int")));
+    const std::string type = unquoted(param_text(p, "type", "int"));
     if (type == "real" || type == "float")
         return grworld::ControlType::Real;
     if (type == "int")
@@ -1479,9 +1497,9 @@ TwoStateControl two_state_from(const json& p, const char* what)
     control.released = control_number(p, "released", 0.0);
     control.initially_pressed = bool_from(p, "initPressed", false);
     control.message_name =
-        unquoted(p.value("outputmsgname", std::string("value")));
+        unquoted(param_text(p, "outputmsgname", "value"));
     control.block = grworld::ControlMessageBlock::make(
-        p.value("__name", std::string(what)), "state");
+        param_text(p, "__name", what), "state");
     return control;
 }
 
@@ -1490,15 +1508,15 @@ BuiltBlock make_toggle_switch(const json& p)
     TwoStateControl control = two_state_from(p, "QT GUI Toggle Switch");
     auto* toggle = new grworld::ToggleSwitchWidget(
         QString::fromStdString(
-            unquoted(p.value("switchOnBackground", std::string("green")))),
+            unquoted(param_text(p, "switchOnBackground", "green"))),
         QString::fromStdString(
-            unquoted(p.value("switchOffBackground", std::string("gray")))),
+            unquoted(param_text(p, "switchOffBackground", "gray"))),
         control.initially_pressed,
         50);
     toggle->on_change = [control](bool on) { control.changed(on); };
     return control.built(grworld::label_around(
         toggle,
-        QString::fromStdString(unquoted(p.value("label", std::string()))),
+        QString::fromStdString(unquoted(param_text(p, "label"))),
         static_cast<int>(number_from(p, "position", 4)),
         static_cast<int>(number_from(p, "cellalignment", 1)),
         static_cast<int>(number_from(p, "verticalalignment", 1))));
@@ -1508,11 +1526,11 @@ BuiltBlock make_toggle_button(const json& p)
 {
     TwoStateControl control = two_state_from(p, "QT GUI Toggle Button");
     const QString released_style = grworld::color_style(
-        unquoted(p.value("relBackgroundColor", std::string("default"))),
-        unquoted(p.value("relFontColor", std::string("default"))));
+        unquoted(param_text(p, "relBackgroundColor", "default")),
+        unquoted(param_text(p, "relFontColor", "default")));
     const QString pressed_style = grworld::color_style(
-        unquoted(p.value("pressBackgroundColor", std::string("default"))),
-        unquoted(p.value("pressFontColor", std::string("default"))));
+        unquoted(param_text(p, "pressBackgroundColor", "default")),
+        unquoted(param_text(p, "pressFontColor", "default")));
 
     auto* button = new QPushButton(control_label(p, "Toggle Button"));
     button->setCheckable(true);
@@ -1550,14 +1568,14 @@ BuiltBlock make_msg_push_button(const json& p)
     // than something the flowgraph reads.
     const grworld::ControlType type = control_type(p, "QT GUI Msg Push Button");
     const double value = control_number(p, "value", 1.0);
-    const std::string key = unquoted(p.value("msgName", std::string("pressed")));
+    const std::string key = unquoted(param_text(p, "msgName", "pressed"));
     auto block = grworld::ControlMessageBlock::make(
-        p.value("__name", std::string("QT GUI Msg Push Button")), "pressed");
+        param_text(p, "__name", "QT GUI Msg Push Button"), "pressed");
 
     auto* button = new QPushButton(control_label(p, "Button"));
     button->setStyleSheet(grworld::color_style(
-        unquoted(p.value("relBackgroundColor", std::string("default"))),
-        unquoted(p.value("relFontColor", std::string("default")))));
+        unquoted(param_text(p, "relBackgroundColor", "default")),
+        unquoted(param_text(p, "relFontColor", "default"))));
     QObject::connect(button, &QPushButton::clicked, button, [block, type, value, key] {
         block->publish(pmt::cons(pmt::intern(key), grworld::control_pmt(type, value)));
     });
@@ -1580,16 +1598,16 @@ BuiltBlock make_dial_control(const json& p)
         throw std::runtime_error("QT GUI Dial: Maximum must be at least Minimum");
     const int minimum_size = static_cast<int>(number_from(p, "minsize", 100.0));
     const bool show_value = bool_from(p, "showvalue", false);
-    const std::string key = unquoted(p.value("outputmsgname", std::string("value")));
+    const std::string key = unquoted(param_text(p, "outputmsgname", "value"));
     const QString label = QString::fromStdString(
-        unquoted(p.value("label", std::string())));
+        unquoted(param_text(p, "label")));
     const double requested = number_from(p, "value", 0.0);
     const int steps = std::min(std::max(static_cast<int>(std::llround(requested / scale)),
                                         minimum),
                                maximum);
 
     auto block = grworld::ControlMessageBlock::make(
-        p.value("__name", std::string("QT GUI Dial")), "value");
+        param_text(p, "__name", "QT GUI Dial"), "value");
     auto state = std::make_shared<ControlState>();
 
     auto* widget = new QWidget;
@@ -1613,7 +1631,7 @@ BuiltBlock make_dial_control(const json& p)
     dial->setMaximum(maximum);
     dial->setValue(steps);
     const QString style = grworld::color_style(
-        unquoted(p.value("relBackgroundColor", std::string("default"))), std::string());
+        unquoted(param_text(p, "relBackgroundColor", "default")), std::string());
     if (!style.isEmpty())
         dial->setStyleSheet(style);
     QObject::connect(
@@ -1640,7 +1658,7 @@ BuiltBlock make_dial_control(const json& p)
 
 BuiltBlock make_gui_label(const json& p)
 {
-    const std::string type = unquoted(p.value("type", std::string("int")));
+    const std::string type = unquoted(param_text(p, "type", "int"));
     // A Label displays whatever it is given, so unlike the controls above it has
     // no reason to refuse a string: `type` only decides the formatting.
     const auto format = [type](double value) {
@@ -1698,11 +1716,11 @@ BuiltBlock make_gui_label(const json& p)
 BuiltBlock make_numeric_entry(const json& p)
 {
     auto* entry = new grworld::NumericEntryWidget(
-        QString::fromStdString(unquoted(p.value("label", std::string()))),
+        QString::fromStdString(unquoted(param_text(p, "label"))),
         number_from(p, "value", 0.0),
         number_from(p, "increment", 0.1),
-        QString::fromStdString(unquoted(p.value("unit", std::string()))),
-        QString::fromStdString(unquoted(p.value("description", std::string()))),
+        QString::fromStdString(unquoted(param_text(p, "unit"))),
+        QString::fromStdString(unquoted(param_text(p, "description"))),
         static_cast<int>(number_from(p, "precision", 10)),
         bool_from(p, "enabled", true),
         number_from(p, "value_min", -std::numeric_limits<double>::infinity()),
@@ -1730,18 +1748,18 @@ BuiltBlock make_digital_number_control(const json& p)
     if (maximum < minimum)
         throw std::runtime_error(
             "QT GUI Digital Number Control: Max Freq is below Min Freq");
-    const std::string key = unquoted(p.value("outputmsgname", std::string("freq")));
+    const std::string key = unquoted(param_text(p, "outputmsgname", "freq"));
     auto block = grworld::ControlMessageBlock::make(
-        p.value("__name", std::string("QT GUI Digital Number Control")),
+        param_text(p, "__name", "QT GUI Digital Number Control"),
         "valueout",
         "valuein");
 
     auto* number = new grworld::DigitalNumberWidget(
         minimum,
         maximum,
-        QString::fromStdString(unquoted(p.value("ThousandsSeparator", std::string(",")))),
-        QString::fromStdString(unquoted(p.value("relBackgroundColor", std::string("black")))),
-        QString::fromStdString(unquoted(p.value("relFontColor", std::string("white")))));
+        QString::fromStdString(unquoted(param_text(p, "ThousandsSeparator", ","))),
+        QString::fromStdString(unquoted(param_text(p, "relBackgroundColor", "black"))),
+        QString::fromStdString(unquoted(param_text(p, "relFontColor", "white"))));
     const double requested = number_from(p, "value", static_cast<double>(minimum));
     number->set_value_now(static_cast<long long>(std::llround(
         std::min(std::max(requested, static_cast<double>(minimum)),
@@ -1774,7 +1792,7 @@ BuiltBlock make_digital_number_control(const json& p)
     BuiltBlock result{ block,
                        grworld::label_around(
                            number,
-                           QString::fromStdString(unquoted(p.value("lbl", std::string()))),
+                           QString::fromStdString(unquoted(param_text(p, "lbl"))),
                            1,
                            1,
                            1) };
@@ -1871,7 +1889,7 @@ static std::vector<int> itemsizes_from(const json& description, const char* key)
 
 static BuiltBlock make_python_block(const json& p)
 {
-    const std::string name = p.value("__name", std::string());
+    const std::string name = param_text(p, "__name");
     if (name.empty())
         throw std::runtime_error("Python Block: the flowgraph gave it no block id");
 
@@ -2200,11 +2218,11 @@ static std::map<std::string, Factory>& registry_storage() {
                  gr::qtgui::STRING);
              auto b = gr::qtgui::edit_box_msg::make(
                  type,
-                 unquoted(p.value("value", std::string())),
-                 unquoted(p.value("label", std::string())),
+                 unquoted(param_text(p, "value")),
+                 unquoted(param_text(p, "label")),
                  bool_from(p, "is_pair", true),
                  bool_from(p, "is_static", true),
-                 unquoted(p.value("key", std::string())));
+                 unquoted(param_text(p, "key")));
              return BuiltBlock{ b, b->qwidget() };
          }},
         // ---- sources ----
@@ -2283,7 +2301,7 @@ static std::map<std::string, Factory>& registry_storage() {
          }},
         {"analog_sig_source_x", [](const json& p) -> BuiltBlock {
              double sr = p.value("samp_rate", 32000.0);
-             auto wf = waveform_from(p.value("waveform", std::string("cos")));
+             auto wf = waveform_from(param_text(p, "waveform", "cos"));
              double fr = p.value("frequency", p.value("freq", 1000.0)), a = p.value("amplitude", 1.0),
                     off = p.value("offset", 0.0), ph = p.value("phase", 0.0);
              if (is_float(p)) {
@@ -2484,7 +2502,7 @@ static std::map<std::string, Factory>& registry_storage() {
              const auto length = static_cast<std::uint64_t>(
                  std::max(0.0, number_from(p, "length", 0.0)));
              return { BrowserFileSource::make(item_size,
-                                               p.value("file", std::string()),
+                                               param_text(p, "file"),
                                                bool_from(p, "repeat", true),
                                                offset,
                                                length),
@@ -2495,7 +2513,7 @@ static std::map<std::string, Factory>& registry_storage() {
         // path this derives, so the mapping lives in exactly two places:
         // recordingDataPath() in editor/src/recording-catalog.ts and here.
         {"wasm_gr_world_recording", [](const json& p) -> BuiltBlock {
-             const auto key = p.value("recording", std::string());
+             const auto key = param_text(p, "recording");
              if (key.empty())
                  throw std::runtime_error(
                      "GR World Recording: no recording chosen");
@@ -2519,7 +2537,7 @@ static std::map<std::string, Factory>& registry_storage() {
         // beside it, so the tag plan is built here rather than shipped in the
         // .grc -- a binding is session-only, and a .grc keeps only a file name.
         {"wasm_sigmf_source", [](const json& p) -> BuiltBlock {
-             const auto path = p.value("file", std::string());
+             const auto path = param_text(p, "file");
              if (path.empty())
                  throw std::runtime_error(
                      "SigMF Source: no recording chosen -- pick both .sigmf-data "
@@ -2576,7 +2594,7 @@ static std::map<std::string, Factory>& registry_storage() {
         // no File System Access API) buffers it and downloads it at the end. The
         // editor binds that destination under a /local-output/... path.
         {"wasm_sigmf_sink", [](const json& p) -> BuiltBlock {
-             const auto path = p.value("file", std::string());
+             const auto path = param_text(p, "file");
              if (path.empty())
                  throw std::runtime_error(
                      "SigMF Sink: no output bound -- open its properties and give "
@@ -2612,7 +2630,7 @@ static std::map<std::string, Factory>& registry_storage() {
         // under the '/recordings/external/...' path it rewrites this parameter
         // to on the Run path, so what arrives here is already that path.
         {"wasm_public_http_recording", [](const json& p) -> BuiltBlock {
-             const auto url = p.value("url", std::string());
+             const auto url = param_text(p, "url");
              if (url.empty())
                  throw std::runtime_error("Public HTTP Recording: no URL given");
              const auto vlen = static_cast<std::size_t>(
@@ -2893,7 +2911,7 @@ static std::map<std::string, Factory>& registry_storage() {
          }},
         {"blocks_swapiq", [](const json& p) -> BuiltBlock {
              const std::string type =
-                 unquoted(p.value("datatype", std::string("complex")));
+                 unquoted(param_text(p, "datatype", "complex"));
              if (type == "complex")
                  return { gr::blocks::swap_iq::make(
                               1, static_cast<int>(sizeof(gr_complex))),
@@ -2920,7 +2938,7 @@ static std::map<std::string, Factory>& registry_storage() {
          }},
         {"ival_decimator", [](const json& p) -> BuiltBlock {
              const std::string type =
-                 unquoted(p.value("datatype", std::string("byte")));
+                 unquoted(param_text(p, "datatype", "byte"));
              const int item_size =
                  type == "byte" ? static_cast<int>(sizeof(std::int8_t))
                                 : type == "short"
@@ -2960,7 +2978,7 @@ static std::map<std::string, Factory>& registry_storage() {
              const int pattern = static_cast<int>(number_from(p, "puncpat", 3));
              const int delay = static_cast<int>(number_from(p, "delay", 0));
              const std::string type =
-                 unquoted(p.value("type", std::string("byte")));
+                 unquoted(param_text(p, "type", "byte"));
              if (type == "byte")
                  return { gr::fec::puncture_bb::make(size, pattern, delay),
                           nullptr };
@@ -2973,7 +2991,7 @@ static std::map<std::string, Factory>& registry_storage() {
         // or, at a non-zero Parallelism, a list of them -- for an FEC block to
         // name. Being objects rather than blocks is what keeps them here.
         {"variable_cc_decoder_def", [](const json& p) -> BuiltBlock {
-             const std::string name = p.value("__name", std::string());
+             const std::string name = param_text(p, "__name");
              if (name.empty())
                  throw std::runtime_error("CC Decoder Definition requires a block name");
              // Each object in a parallel declaration is built separately rather
@@ -2995,7 +3013,7 @@ static std::map<std::string, Factory>& registry_storage() {
              return {};
          }},
         {"variable_cc_encoder_def", [](const json& p) -> BuiltBlock {
-             const std::string name = p.value("__name", std::string());
+             const std::string name = param_text(p, "__name");
              if (name.empty())
                  throw std::runtime_error("CC Encoder Definition requires a block name");
              std::vector<gr::fec::generic_encoder::sptr> encoders;
@@ -3013,7 +3031,7 @@ static std::map<std::string, Factory>& registry_storage() {
              return {};
          }},
         {"variable_ccsds_encoder_def", [](const json& p) -> BuiltBlock {
-             const std::string name = p.value("__name", std::string());
+             const std::string name = param_text(p, "__name");
              if (name.empty())
                  throw std::runtime_error(
                      "CCSDS Encoder Definition requires a block name");
@@ -3028,7 +3046,7 @@ static std::map<std::string, Factory>& registry_storage() {
              return {};
          }},
         {"variable_dummy_encoder_def", [](const json& p) -> BuiltBlock {
-             const std::string name = p.value("__name", std::string());
+             const std::string name = param_text(p, "__name");
              if (name.empty())
                  throw std::runtime_error(
                      "Dummy Encoder Definition requires a block name");
@@ -3041,7 +3059,7 @@ static std::map<std::string, Factory>& registry_storage() {
              return {};
          }},
         {"variable_repetition_encoder_def", [](const json& p) -> BuiltBlock {
-             const std::string name = p.value("__name", std::string());
+             const std::string name = param_text(p, "__name");
              if (name.empty())
                  throw std::runtime_error(
                      "Repetition Encoder Definition requires a block name");
@@ -3056,7 +3074,7 @@ static std::map<std::string, Factory>& registry_storage() {
              return {};
          }},
         {"variable_dummy_decoder_def", [](const json& p) -> BuiltBlock {
-             const std::string name = p.value("__name", std::string());
+             const std::string name = param_text(p, "__name");
              if (name.empty())
                  throw std::runtime_error(
                      "Dummy Decoder Definition requires a block name");
@@ -3069,7 +3087,7 @@ static std::map<std::string, Factory>& registry_storage() {
              return {};
          }},
         {"variable_repetition_decoder_def", [](const json& p) -> BuiltBlock {
-             const std::string name = p.value("__name", std::string());
+             const std::string name = param_text(p, "__name");
              if (name.empty())
                  throw std::runtime_error(
                      "Repetition Decoder Definition requires a block name");
@@ -3090,7 +3108,7 @@ static std::map<std::string, Factory>& registry_storage() {
         // PMT fields are decoded from their source text and the object is filed
         // under its variable name for wasm_registry::tag_objects() to find.
         {"variable_tag_object", [](const json& p) -> BuiltBlock {
-             const std::string name = p.value("__name", std::string());
+             const std::string name = param_text(p, "__name");
              if (name.empty())
                  throw std::runtime_error("Tag Object requires a block name");
              gr::tag_t tag;
@@ -3107,7 +3125,7 @@ static std::map<std::string, Factory>& registry_storage() {
         // what it parsed for the layout pass to pick up once they do.
         {"wasm_gui_layout", [](const json& p) -> BuiltBlock {
              gui_layout::runtime_spec() = gui_layout::parse(
-                 unquoted(p.value("layout", std::string("{}"))),
+                 unquoted(param_text(p, "layout", "{}")),
                  static_cast<int>(number_from(p, "columns",
                                               gui_layout::kDefaultColumns)),
                  static_cast<int>(number_from(p, "row_height",
@@ -3116,7 +3134,7 @@ static std::map<std::string, Factory>& registry_storage() {
          }},
         {"fec_async_decoder", [](const json& p) -> BuiltBlock {
              return { gr::fec::async_decoder::make(
-                          named_cc_decoder(p.value("decoder", std::string())),
+                          named_cc_decoder(param_text(p, "decoder")),
                           bool_from(p, "packed", false),
                           bool_from(p, "rev_pack", true),
                           static_cast<int>(number_from(p, "mtu", 1500))),
@@ -3127,26 +3145,26 @@ static std::map<std::string, Factory>& registry_storage() {
         // which is what keeps them out of the generated factories.
         {"fec_extended_decoder", [](const json& p) -> BuiltBlock {
              return { ExtendedDecoder::make(
-                          named_cc_decoder(p.value("decoder_list", std::string())),
+                          named_cc_decoder(param_text(p, "decoder_list")),
                           wasm_registry::text(p, "puncpat", "11")),
                       nullptr };
          }},
         {"fec_extended_encoder", [](const json& p) -> BuiltBlock {
              return { ExtendedEncoder::make(
-                          named_fec_encoders(p.value("encoder_list", std::string())),
+                          named_fec_encoders(param_text(p, "encoder_list")),
                           fec_threading_from(
-                              unquoted(p.value("threadtype", std::string("capillary")))),
+                              unquoted(param_text(p, "threadtype", "capillary"))),
                           wasm_registry::text(p, "puncpat", "11")),
                       nullptr };
          }},
         {"fec_extended_async_encoder", [](const json& p) -> BuiltBlock {
              return { ExtendedAsyncEncoder::make(
-                          named_fec_encoder(p.value("encoder_list", std::string()))),
+                          named_fec_encoder(param_text(p, "encoder_list"))),
                       nullptr };
          }},
         {"fec_extended_tagged_encoder", [](const json& p) -> BuiltBlock {
              return { ExtendedTaggedEncoder::make(
-                          named_fec_encoder(p.value("encoder_list", std::string())),
+                          named_fec_encoder(param_text(p, "encoder_list")),
                           wasm_registry::text(p, "puncpat", "11"),
                           length_tag_name(p),
                           static_cast<int>(number_from(p, "mtu", 1500))),
@@ -3159,7 +3177,7 @@ static std::map<std::string, Factory>& registry_storage() {
                  throw std::runtime_error(
                      "FEC Extended Tagged Decoder annihilator is not supported");
              return { ExtendedTaggedDecoder::make(
-                          named_cc_decoder(p.value("decoder_list", std::string())),
+                          named_cc_decoder(param_text(p, "decoder_list")),
                           wasm_registry::text(p, "puncpat", "11"),
                           length_tag_name(p),
                           static_cast<int>(number_from(p, "mtu", 1500))),
@@ -3168,21 +3186,21 @@ static std::map<std::string, Factory>& registry_storage() {
         {"fec_bercurve_generator", [](const json& p) -> BuiltBlock {
              const auto esno = flat_sequence<float>(p, "esno");
              return { BerCurveGenerator::make(
-                          named_fec_encoders(p.value("encoder_list", std::string())),
-                          named_cc_decoders(p.value("decoder_list", std::string())),
+                          named_fec_encoders(param_text(p, "encoder_list")),
+                          named_cc_decoders(param_text(p, "decoder_list")),
                           std::vector<double>(esno.begin(), esno.end()),
                           fec_threading_from(
-                              unquoted(p.value("threadtype", std::string("capillary")))),
+                              unquoted(param_text(p, "threadtype", "capillary"))),
                           wasm_registry::text(p, "puncpat", "11"),
                           static_cast<long>(number_from(p, "seed", 0))),
                       nullptr };
          }},
         {"variable_constellation", [](const json& p) -> BuiltBlock {
-             const std::string name = p.value("__name", std::string());
+             const std::string name = param_text(p, "__name");
              if (name.empty())
                  throw std::runtime_error("Constellation Object requires a block name");
              const std::string type =
-                 unquoted(p.value("type", std::string("qpsk")));
+                 unquoted(param_text(p, "type", "qpsk"));
              gr::digital::constellation_sptr object;
              if (type == "calcdist") {
                  object = gr::digital::constellation_calcdist::make(
@@ -3199,7 +3217,7 @@ static std::map<std::string, Factory>& registry_storage() {
              }
              object->set_npwr(static_cast<float>(number_from(p, "npwr", 1.0)));
              const std::string soft_lut =
-                 unquoted(p.value("soft_dec_lut", std::string("None")));
+                 unquoted(param_text(p, "soft_dec_lut", "None"));
              if (soft_lut == "auto") {
                  object->gen_soft_dec_lut(
                      static_cast<int>(number_from(p, "precision", 8)));
@@ -3212,7 +3230,7 @@ static std::map<std::string, Factory>& registry_storage() {
              return {};
          }},
         {"variable_constellation_rect", [](const json& p) -> BuiltBlock {
-             const std::string name = p.value("__name", std::string());
+             const std::string name = param_text(p, "__name");
              if (name.empty())
                  throw std::runtime_error(
                      "Rectangular Constellation Object requires a block name");
@@ -3231,7 +3249,7 @@ static std::map<std::string, Factory>& registry_storage() {
                                    number_from(p, "w_imag_sect", 1)))
                                ->base();
              const std::string soft_lut =
-                 unquoted(p.value("soft_dec_lut", std::string("None")));
+                 unquoted(param_text(p, "soft_dec_lut", "None"));
              if (soft_lut == "auto") {
                  object->gen_soft_dec_lut(
                      static_cast<int>(number_from(p, "precision", 8)));
@@ -3246,18 +3264,18 @@ static std::map<std::string, Factory>& registry_storage() {
         {"digital_constellation_decoder_cb", [](const json& p) -> BuiltBlock {
              return { gr::digital::constellation_decoder_cb::make(
                           named_constellation(
-                              p.value("constellation", std::string()))),
+                              param_text(p, "constellation"))),
                       nullptr };
          }},
         {"digital_constellation_encoder_bc", [](const json& p) -> BuiltBlock {
              return { gr::digital::constellation_encoder_bc::make(
                           named_constellation(
-                              p.value("constellation", std::string()))),
+                              param_text(p, "constellation"))),
                       nullptr };
          }},
         {"digital_constellation_receiver_cb", [](const json& p) -> BuiltBlock {
              auto block = gr::digital::constellation_receiver_cb::make(
-                 named_constellation(p.value("constellation", std::string())),
+                 named_constellation(param_text(p, "constellation")),
                  static_cast<float>(number_from(p, "loop_bw", 2.0 * PI / 100.0)),
                  static_cast<float>(number_from(p, "fmin", -0.25)),
                  static_cast<float>(number_from(p, "fmax", 0.25)));
@@ -3298,7 +3316,7 @@ static std::map<std::string, Factory>& registry_storage() {
         {"digital_constellation_soft_decoder_cf",
          [](const json& p) -> BuiltBlock {
              auto block = gr::digital::constellation_soft_decoder_cf::make(
-                 named_constellation(p.value("constellation", std::string())),
+                 named_constellation(param_text(p, "constellation")),
                  static_cast<float>(number_from(p, "npwr", -1.0)));
              BuiltBlock result{ block };
              result.numeric_setters["npwr"] =
@@ -3309,13 +3327,13 @@ static std::map<std::string, Factory>& registry_storage() {
          }},
         {"digital_meas_evm_cc", [](const json& p) -> BuiltBlock {
              return { gr::digital::meas_evm_cc::make(
-                          named_constellation(p.value("cons", std::string())),
+                          named_constellation(param_text(p, "cons")),
                           evm_type_from(p)),
                       nullptr };
          }},
         {"digital_symbol_sync_xx", [](const json& p) -> BuiltBlock {
              const std::string type =
-                 unquoted(p.value("type", std::string("cc")));
+                 unquoted(param_text(p, "type", "cc"));
              if (type == "cc" || type == "complex")
                  return make_symbol_sync<gr::digital::symbol_sync_cc>(p);
              if (type == "ff" || type == "float")
@@ -3324,7 +3342,7 @@ static std::map<std::string, Factory>& registry_storage() {
          }},
         {"digital_constellation_modulator", [](const json& p) -> BuiltBlock {
              const std::string constellation =
-                 p.value("constellation", std::string());
+                 param_text(p, "constellation");
              return { ConstellationModulator::make(
                           named_constellation(constellation),
                           bool_from(p, "differential", true),
@@ -3339,7 +3357,7 @@ static std::map<std::string, Factory>& registry_storage() {
                  number_from(p, "constellation_points", 8));
              return { PskDemod::make(
                           static_cast<unsigned int>(std::max(0, points)),
-                          unquoted(p.value("mod_code", std::string("gray"))),
+                          unquoted(param_text(p, "mod_code", "gray")),
                           bool_from(p, "differential", true),
                           static_cast<int>(
                               number_from(p, "samples_per_symbol", 2)),
@@ -3355,7 +3373,7 @@ static std::map<std::string, Factory>& registry_storage() {
              const int samples_per_symbol = static_cast<int>(
                  number_from(p, "samples_per_symbol", 2));
              std::string mod_code = unquoted(
-                 p.value("mod_code", std::string("gray")));
+                 param_text(p, "mod_code", "gray"));
              return { PskMod::make(
                           static_cast<unsigned int>(std::max(0, points)),
                           mod_code,
@@ -3378,7 +3396,7 @@ static std::map<std::string, Factory>& registry_storage() {
                  return it->second;
              };
              const std::string packet_key =
-                 unquoted(p.value("packet_len_key", std::string("length")));
+                 unquoted(param_text(p, "packet_len_key", "length"));
              const auto occupied_carriers =
                  nested_sequence<int>(p, "occupied_carriers", default_occupied_carriers());
              const auto pilot_carriers =
@@ -3427,7 +3445,7 @@ static std::map<std::string, Factory>& registry_storage() {
              return { OfdmTxWasm::make(
                           static_cast<int>(number_from(p, "fft_len", 64)),
                           static_cast<int>(number_from(p, "cp_len", 16)),
-                          unquoted(p.value("packet_len_key", std::string("length"))),
+                          unquoted(param_text(p, "packet_len_key", "length")),
                           occupied_carriers,
                           pilot_carriers,
                           nested_sequence<gr_complex>(p, "pilot_symbols",
@@ -3445,7 +3463,7 @@ static std::map<std::string, Factory>& registry_storage() {
         // meaningful live: a Range control can drive the averaging on and off
         // and retune the alpha while the graph runs.
         {"logpwrfft_x", [](const json& p) -> BuiltBlock {
-             const std::string type = unquoted(p.value("type", std::string("complex")));
+             const std::string type = unquoted(param_text(p, "type", "complex"));
              const double sample_rate = number_from(p, "sample_rate", 32000.0);
              const int fft_size = static_cast<int>(number_from(p, "fft_size", 1024));
              const double ref_scale = number_from(p, "ref_scale", 2.0);
@@ -3659,12 +3677,12 @@ static std::map<std::string, Factory>& registry_storage() {
              for (int i = 0; i < connections; ++i) {
                  const std::string suffix = std::to_string(i + 1);
                  std::string label =
-                     unquoted(p.value("label" + suffix, std::string()));
+                     unquoted(param_text(p, "label" + suffix));
                  if (label.empty())
                      label = "Data " + std::to_string(i);
                  labels.push_back(std::move(label));
                  units.push_back(
-                     unquoted(p.value("unit" + suffix, std::string())));
+                     unquoted(param_text(p, "unit" + suffix)));
                  factors.push_back(
                      number_from(p, "factor" + suffix, 1.0));
              }
@@ -3672,7 +3690,7 @@ static std::map<std::string, Factory>& registry_storage() {
              auto block = NumberSinkWasm::make(
                  input_type,
                  connections,
-                 unquoted(p.value("name", std::string("Number"))),
+                 unquoted(param_text(p, "name", "Number")),
                  labels,
                  units,
                  factors);
@@ -3681,16 +3699,16 @@ static std::map<std::string, Factory>& registry_storage() {
         // A runner-only sink: no upstream GNU Radio block defines it, so its
         // whole definition is blocks/grc/wasm_packet_rate_sink.block.yml.
         {"wasm_packet_rate_sink", [](const json& p) -> BuiltBlock {
-             std::string label = unquoted(p.value("label", std::string()));
+             std::string label = unquoted(param_text(p, "label"));
              if (label.empty())
                  label = "Rate";
              auto block = PacketRateSinkWasm::make(
                  static_cast<std::size_t>(itemsize_of(p)),
                  number_from(p, "items_per_packet", 1.0),
                  number_from(p, "update_time", 0.5),
-                 unquoted(p.value("name", std::string("Rate"))),
+                 unquoted(param_text(p, "name", "Rate")),
                  label,
-                 unquoted(p.value("unit", std::string())));
+                 unquoted(param_text(p, "unit")));
              return { block, block->qwidget() };
          }},
         // ---- arbitrary Python ----
@@ -3712,7 +3730,7 @@ static std::map<std::string, Factory>& registry_storage() {
         // text decode with; see blocks/src/text_sink.hpp.
         {"wasm_text_sink", [](const json& p) -> BuiltBlock {
              auto block = TextSinkWasm::make(
-                 unquoted(p.value("prefix", std::string())),
+                 unquoted(param_text(p, "prefix")),
                  static_cast<int>(number_from(p, "max_line", 72.0)));
              return { block, nullptr };
          }},
@@ -3722,7 +3740,7 @@ static std::map<std::string, Factory>& registry_storage() {
         // does instead and where its word-offset constants come from.
         {"hrpt_image_sink", [](const json& p) -> BuiltBlock {
              auto block = HrptImageSinkWasm::make(
-                 unquoted(p.value("name", std::string("HRPT Image"))),
+                 unquoted(param_text(p, "name", "HRPT Image")),
                  static_cast<int>(number_from(p, "channel", 2.0)),
                  static_cast<int>(number_from(p, "image_width", 2048.0)),
                  static_cast<int>(number_from(p, "words_per_line", 11090.0)),
@@ -3736,7 +3754,7 @@ static std::map<std::string, Factory>& registry_storage() {
         // path; see blocks/overlays/gr-paint/paint_image_source.cpp.
         {"paint_image_source", [](const json& p) -> BuiltBlock {
              auto block = ImageSourceWasm::make(
-                 unquoted(p.value("image_file", std::string())),
+                 unquoted(param_text(p, "image_file")),
                  bool_from(p, "image_flip", false),
                  bool_from(p, "bt709_map", true),
                  bool_from(p, "image_invert", false),
@@ -3805,7 +3823,7 @@ static std::map<std::string, Factory>& registry_storage() {
              // native GRC handed straight to runner.html still scales its x-axis.
              double sr = p.contains("srate") ? number_from(p, "srate", 32000.0)
                                              : number_from(p, "samp_rate", 32000.0);
-             std::string nm = unquoted(p.value("name", std::string())); int nc = p.value("nconnections", 1);
+             std::string nm = unquoted(param_text(p, "name")); int nc = p.value("nconnections", 1);
              // A float input is one trace, a complex input two (real and
              // imaginary), so the two branches configure different line counts.
              if (is_float(p)) {
@@ -3835,7 +3853,7 @@ static std::map<std::string, Factory>& registry_storage() {
              const double initial_bw = number_from(p, "bw", sr);
              const int fftsize = p.value("fftsize", 1024);
              const int wintype = p.value("wintype", 5);
-             const std::string name = unquoted(p.value("name", std::string()));
+             const std::string name = unquoted(param_text(p, "name"));
              const int nc = p.value("nconnections", 1);
              // Everything past construction is identical for the two sinks, so
              // the shared tail is a template over the sptr the branch produced.
@@ -3884,7 +3902,7 @@ static std::map<std::string, Factory>& registry_storage() {
                      "QT GUI Constellation Sink connections cannot be negative");
              auto block = gr::qtgui::const_sink_c::make(
                  static_cast<int>(number_from(p, "size", 1024)),
-                 unquoted(p.value("name", std::string())),
+                 unquoted(param_text(p, "name")),
                  connections);
 
              auto x_axis = std::make_shared<std::pair<double, double>>(
@@ -3933,7 +3951,7 @@ static std::map<std::string, Factory>& registry_storage() {
                  trigger_slope_from(p),
                  static_cast<float>(number_from(p, "tr_level", 0.0)),
                  static_cast<int>(number_from(p, "tr_chan", 0)),
-                 unquoted(p.value("tr_tag", std::string())));
+                 unquoted(param_text(p, "tr_tag")));
 
              BuiltBlock result{ block, block->qwidget() };
              result.numeric_setters["size"] = [block](double value) {
@@ -3967,7 +3985,7 @@ static std::map<std::string, Factory>& registry_storage() {
              const int wintype = static_cast<int>(number_from(p, "wintype", 0));
              const double initial_fc = number_from(p, "fc", 0.0);
              const double initial_bw = number_from(p, "bw", sr);
-             const std::string nm = unquoted(p.value("name", std::string()));
+             const std::string nm = unquoted(param_text(p, "name"));
              // Message-mode variants carry no stream inputs.
              const int nconnections = type.rfind("msg", 0) == 0
                                           ? 0
@@ -4009,7 +4027,7 @@ static std::map<std::string, Factory>& registry_storage() {
              const double initial_fc = number_from(p, "fc", 0.0);
              const double initial_bw = number_from(p, "bw", 32000.0);
              const int fftsize = static_cast<int>(number_from(p, "fftsize", 1024));
-             const std::string nm = unquoted(p.value("name", std::string()));
+             const std::string nm = unquoted(param_text(p, "name"));
              const int wintype = static_cast<int>(window_type_from(p));
              const bool plotfreq = bool_from(p, "plotfreq", true);
              const bool plotwaterfall = bool_from(p, "plotwaterfall", true);
@@ -4090,7 +4108,7 @@ static std::map<std::string, Factory>& registry_storage() {
                  static_cast<int>(number_from(p, "bins", 100)),
                  x_axis->first,
                  x_axis->second,
-                 unquoted(p.value("name", std::string())),
+                 unquoted(param_text(p, "name")),
                  connections);
              b->set_update_time(number_from(p, "update_time", 0.1));
              b->enable_autoscale(bool_from(p, "autoscale", true));
@@ -4129,7 +4147,7 @@ static std::map<std::string, Factory>& registry_storage() {
              const double cols = number_from(p, "ncols", 256.0);
              const std::vector<float> mult = flat_sequence<float>(p, "mult");
              const std::vector<float> offset = flat_sequence<float>(p, "offset");
-             const std::string nm = unquoted(p.value("name", std::string()));
+             const std::string nm = unquoted(param_text(p, "name"));
 
              auto finish = [&](auto b) -> BuiltBlock {
                  b->set_update_time(number_from(p, "update_time", 0.1));
@@ -4138,10 +4156,10 @@ static std::map<std::string, Factory>& registry_storage() {
                      static_cast<float>(number_from(p, "zmax", 1.0)));
                  b->enable_grid(bool_from(p, "grid", false));
                  b->enable_axis_labels(bool_from(p, "axislabels", true));
-                 b->set_x_label(unquoted(p.value("x_label", std::string())));
+                 b->set_x_label(unquoted(param_text(p, "x_label")));
                  b->set_x_range(number_from(p, "x_start_value", 0.0),
                                 number_from(p, "x_end_value", 0.0));
-                 b->set_y_label(unquoted(p.value("y_label", std::string())));
+                 b->set_y_label(unquoted(param_text(p, "y_label")));
                  b->set_y_range(number_from(p, "y_start_value", 0.0),
                                 number_from(p, "y_end_value", 0.0));
                  // Per-connection label, color map and alpha, as for the
@@ -4187,9 +4205,9 @@ static std::map<std::string, Factory>& registry_storage() {
                  static_cast<unsigned int>(number_from(p, "vlen", 1024)),
                  number_from(p, "x_start", 0.0),
                  number_from(p, "x_step", 1.0),
-                 unquoted(p.value("x_axis_label", std::string("x-Axis"))),
-                 unquoted(p.value("y_axis_label", std::string("y-Axis"))),
-                 unquoted(p.value("name", std::string())),
+                 unquoted(param_text(p, "x_axis_label", "x-Axis")),
+                 unquoted(param_text(p, "y_axis_label", "y-Axis")),
+                 unquoted(param_text(p, "name")),
                  connections);
              auto y_axis = std::make_shared<std::pair<double, double>>(
                  number_from(p, "ymin", -140.0), number_from(p, "ymax", 10.0));
@@ -4199,8 +4217,8 @@ static std::map<std::string, Factory>& registry_storage() {
              b->set_vec_average(static_cast<float>(fft_average_from(p)));
              b->enable_autoscale(bool_from(p, "autoscale", false));
              b->enable_grid(bool_from(p, "grid", false));
-             b->set_x_axis_units(unquoted(p.value("x_units", std::string())));
-             b->set_y_axis_units(unquoted(p.value("y_units", std::string())));
+             b->set_x_axis_units(unquoted(param_text(p, "x_units")));
+             b->set_y_axis_units(unquoted(param_text(p, "y_units")));
              b->set_ref_level(number_from(p, "ref_level", 0.0));
              if (!bool_from(p, "legend", true))
                  b->disable_legend();
@@ -4225,13 +4243,12 @@ static std::map<std::string, Factory>& registry_storage() {
          }},
         {"qtgui_matrix_sink", [](const json& p) -> BuiltBlock {
              auto b = gr::qtgui::matrix_sink::make(
-                 unquoted(p.value("name", std::string())),
+                 unquoted(param_text(p, "name")),
                  static_cast<unsigned int>(number_from(p, "num_cols", 10.0)),
                  static_cast<unsigned int>(number_from(p, "vlen", 100.0)),
                  bool_from(p, "contour", false),
-                 unquoted(p.value("color_map", std::string("rgb"))),
-                 unquoted(p.value("interpolation",
-                                  std::string("BilinearInterpolation"))));
+                 unquoted(param_text(p, "color_map", "rgb")),
+                 unquoted(param_text(p, "interpolation", "BilinearInterpolation")));
              b->set_x_start(number_from(p, "x_start", 0.0));
              b->set_x_end(number_from(p, "x_end", 1.0));
              b->set_y_start(number_from(p, "y_start", 0.0));
@@ -4239,11 +4256,11 @@ static std::map<std::string, Factory>& registry_storage() {
              b->set_z_max(number_from(p, "z_max", 1.0));
              b->set_z_min(number_from(p, "z_min", 0.0));
              b->set_x_axis_label(
-                 unquoted(p.value("x_axis_label", std::string("x-Axis"))));
+                 unquoted(param_text(p, "x_axis_label", "x-Axis")));
              b->set_y_axis_label(
-                 unquoted(p.value("y_axis_label", std::string("y-Axis"))));
+                 unquoted(param_text(p, "y_axis_label", "y-Axis")));
              b->set_z_axis_label(
-                 unquoted(p.value("z_axis_label", std::string("z-Axis"))));
+                 unquoted(param_text(p, "z_axis_label", "z-Axis")));
 
              BuiltBlock result{ b, b->qwidget() };
              result.numeric_setters["z_min"] =

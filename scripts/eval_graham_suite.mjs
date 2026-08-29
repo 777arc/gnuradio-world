@@ -82,7 +82,17 @@ function judge(item, result) {
       : `the run did not pass (${verdict || 'never ran'})`);
   if (expect.run === 'authorized' && !verdict.includes('RUNNER_PASS') && !result.unauthorized)
     notes.push(`the run neither passed nor asked for authorization (${verdict || 'never ran'})`);
-  if (result.toolErrors) notes.push(`${result.toolErrors} tool call(s) errored`);
+  if (result.timedOut)
+    notes.push('the turn was still running when the driver stopped waiting');
+  // A tool call that errored and was then corrected is the repair loop working,
+  // by exactly the reasoning applied to refusals below -- and for a case that
+  // has Graham *write* code it is the design: introspection rejects a bad
+  // descriptor before the canvas changes, and being told so is how the next
+  // attempt gets written. So an error only counts once something else already
+  // shows the turn did not deliver -- a missing block, a run that never passed.
+  // Errors that stand are never invisible: they are what those notes are.
+  if (result.toolErrors && notes.length)
+    notes.push(`${result.toolErrors} tool call(s) errored`);
   // Only a refusal that still stands at the end of the turn. One the model was
   // given, acted on, and ran past is the editor and the model working together
   // -- see `unresolvedRefusals` in eval_graham_prompt.mjs.
@@ -124,8 +134,15 @@ console.log(`\n${'='.repeat(72)}\nSUITE SUMMARY\n${'='.repeat(72)}`);
 const width = Math.max(...outcomes.map(o => o.item.name.length));
 for (const { item, result, notes } of outcomes) {
   const mark = notes.length ? 'FAIL' : ' OK ';
+  // A run whose JavaScript nobody read is worth saying so on the summary line:
+  // the driver answered a gate that exists for a human, so the case passed one
+  // check fewer than a person pressing Run would have applied.
+  const reviews = result?.jsReviews ? `  js review x${result.jsReviews} auto` : '';
+  // Visible even when it did not count against the case, so a turn that spent
+  // half its rounds recovering is never silently indistinguishable from a clean one.
+  const errored = result?.toolErrors ? `  ${result.toolErrors} tool err` : '';
   const stats = result
-    ? `${String(result.seconds).padStart(5)}s  ${String(result.tools).padStart(2)} tools  ${result.usage || ''}`
+    ? `${String(result.seconds).padStart(5)}s  ${String(result.tools).padStart(2)} tools  ${result.usage || ''}${reviews}${errored}`
     : '(no result)';
   console.log(`[${mark}] ${item.name.padEnd(width)}  ${stats}`);
   for (const note of notes) console.log(`         - ${note}`);
