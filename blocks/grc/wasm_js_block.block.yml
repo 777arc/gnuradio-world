@@ -48,13 +48,30 @@ documentation: |-
     nout, nin, input, output)` in place of `work` for a general block, which gets
     a synchronous `this.consume(port, n)`.
 
+    `init()` is the constructor hook. It can use GNU Radio's native spellings to
+    register message ports and handlers and configure tag propagation:
+
+        init() {
+          this.message_port_register_in(pmt.intern('ctrl'));
+          this.set_msg_handler(pmt.intern('ctrl'), this.handle_ctrl);
+          this.message_port_register_out(pmt.intern('out'));
+          this.set_tag_propagation_policy(gr.TPP_CUSTOM);
+        }
+
+    A handler receives an owned JavaScript PMT value and may synchronously call
+    `message_port_pub()`. Work functions can use `get_tags_in_window()`,
+    `get_tags_in_range()`, `add_item_tag()`, `nitems_read()` and
+    `nitems_written()`. `pmt` provides the familiar `intern`, `from_long`,
+    dictionary, pair/PDU, tuple, vector, uniform-vector and blob operations.
+    Plain strings, numbers, arrays, typed arrays and objects are accepted too.
+
     Two things to know. The source is evaluated twice -- once to read its
-    descriptor and once on the block's own thread to build the instance -- so
-    per-instance state belongs in start() or on `this`, never at the top level.
+    descriptor (including one recording call to init()) and once on the block's
+    own thread to build the instance (including one live init()) -- so
+    per-instance state belongs in start() or on `this`, never at the top level,
+    and ports/scheduler settings in init() cannot depend on parameter values.
     And the views handed to work() are re-derived on every call: keeping one on
     `this` and using it later reads the wrong memory, silently.
-
-    Stream tags and message ports are not available yet.
 
     This block exists only in the WebAssembly runner -- it has no Python
     implementation, so a flowgraph using it will not run in desktop GNU Radio.

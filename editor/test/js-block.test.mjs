@@ -11,6 +11,7 @@
 // cover is the sandboxed introspection itself (which needs an iframe) or the
 // crossing into C++: test/test_js_block.mjs does the second, in the real runner.
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { bundleModule } from './bundle-module.mjs';
 import { editorSource as source, cssSource as css } from './editor-contract-source.mjs';
@@ -78,6 +79,7 @@ const io = {
   numericParams: ['left', 'right'],
   decim: 1, interp: 1, history: 1, outputMultiple: 0, relativeRate: 1,
   general: false, overridesForecast: false, hasStart: true, hasStop: false,
+  msgPortsIn: ['control'], msgPortsOut: ['events'], msgHandlerPorts: ['control'],
 };
 const def = jsDef(base, io);
 
@@ -97,15 +99,16 @@ assert.deepEqual(def.params.slice(3).map(p => [p.label, p.def, p.type]),
 assert.ok(def.params.slice(3, 5).every(p => p.type === 'number' && !p.raw),
   'numeric parameters must be numbers, and must not be marked raw');
 
-assert.equal(def.inputs, 2);
-assert.equal(def.outputs, 1);
+assert.equal(def.inputs, 3);
+assert.equal(def.outputs, 2);
 assert.deepEqual(def.inputTemplates.map(t => [t.domain, t.dtype, t.vlen, t.label]), [
   ['stream', 'float', '1', 'in0'],
   ['stream', 'float', '1', 'in1'],
-], 'stream ports are numbered when there is more than one');
-assert.deepEqual(def.outputTemplates.map(t => [t.dtype, t.vlen, t.label]),
-  [['complex', '2', '']],
-  'a lone port is unnumbered, and a vlen port carries it');
+  ['message', 'message', '1', 'control'],
+], 'message inputs follow stream inputs and keep their name');
+assert.deepEqual(def.outputTemplates.map(t => [t.domain, t.dtype, t.vlen, t.label, t.optional]),
+  [['stream', 'complex', '2', '', false], ['message', 'message', '1', 'events', true]],
+  'message outputs follow stream outputs and are optional');
 
 // No interface yet: the block still loads, with its code, and shows no ports.
 const bare = jsDef(base, null);
@@ -189,8 +192,12 @@ assert.match(yml, /^-   id: left\n    label: Left\n    dtype: real\n    default:
 assert.match(yml, /^-   id: tag\n    label: Tag\n    dtype: string\n    default: burst$/m);
 assert.match(yml, /inputs:\n-   domain: stream\n    dtype: float\n-   domain: stream\n    dtype: float\n/,
   'both input ports are declared, in order');
+assert.match(yml, /-   domain: message\n    id: control\n    optional: true/,
+  'a saved repo block emits its input message port');
 assert.match(yml, /outputs:\n-   domain: stream\n    dtype: complex\n    vlen: '2'\n/,
   'a vlen other than 1 is carried');
+assert.match(yml, /-   domain: message\n    id: events\n    optional: true/,
+  'a saved repo block emits its output message port');
 assert.match(yml, /^file_format: 1$/m);
 // gen_registry.py holds the descriptor and this yml to each other, so it has to
 // be readable by the same yaml parser that reads every other block's.
@@ -198,7 +205,44 @@ const { load } = await import('js-yaml');
 const parsedYml = load(yml);
 assert.equal(parsedYml.id, 'js_weighted_sum');
 assert.deepEqual(parsedYml.flags, ['js']);
-assert.deepEqual(parsedYml.inputs.map(p => p.dtype), ['float', 'float']);
+assert.deepEqual(parsedYml.inputs.filter(p => p.domain === 'stream').map(p => p.dtype),
+  ['float', 'float']);
+
+// gen_registry.py never executes repo JavaScript. Its lexical scan accepts the
+// two canonical literal spellings, ignores comments/strings, and rejects a
+// dynamic registration or a parameter-dependent stream shape.
+const generatorProbe = spawnSync('python3', ['-c', String.raw`
+import json, tempfile
+from pathlib import Path
+from runner.gen_registry import _literal_message_ports, check_js_ports_agree
+literal = """// this.message_port_register_in('fake')
+const fake = "this.message_port_register_out('also_fake')";
+this.message_port_register_in('ctrl');
+this.message_port_register_out(pmt.intern('events'));
+"""
+forms = [_literal_message_ports(literal, 'in'), _literal_message_ports(literal, 'out')]
+with tempfile.TemporaryDirectory() as directory:
+    source = Path(directory) / 'probe.js'
+    source.write_text("gr.export({ inputs: ['float'], outputs: ['float'], init() { this.message_port_register_in(name); } });")
+    dynamic = None
+    try:
+        check_js_ports_agree({'id':'probe','inputs':[{'domain':'stream','dtype':'float'}, {'domain':'message','id':'ctrl'}], 'outputs':[{'domain':'stream','dtype':'float'}]}, source)
+    except SystemExit as error:
+        dynamic = str(error)
+    source.write_text("gr.export({ inputs: ['float'], outputs: ['float'] });")
+    templated = None
+    try:
+        check_js_ports_agree({'id':'probe','inputs':[{'domain':'stream','dtype':'float','vlen':'$' + '{vlen}'}], 'outputs':[{'domain':'stream','dtype':'float'}]}, source)
+    except SystemExit as error:
+        templated = str(error)
+print(json.dumps({'forms': forms, 'dynamic': dynamic, 'templated': templated}))
+`], { cwd: new URL('../../', import.meta.url), encoding: 'utf8' });
+assert.equal(generatorProbe.status, 0, generatorProbe.stderr);
+const generatorResult = JSON.parse(generatorProbe.stdout);
+assert.deepEqual(generatorResult.forms, [[['ctrl'], false], [['events'], false]],
+  'both canonical message registration forms are recognized and decoys are ignored');
+assert.match(generatorResult.dynamic, /dynamic registration/);
+assert.match(generatorResult.templated, /parameter-dependent/);
 
 // ---- Run consent ------------------------------------------------------------
 // Not a security boundary -- a stable key for "this exact source", so a .grc that
@@ -330,6 +374,20 @@ assert.doesNotMatch(codeEditor, /^import [^t]/m,
   'code-editor.ts must have no eager imports: it exists to be a lazy chunk');
 assert.match(css, /\.code-modal-body \{[^}]*grid-template-columns/,
   'the popup editor puts the code and what it means side by side');
+
+// Graham's exercise adapter must carry the two native-style asynchronous
+// surfaces through to the disposable worker, where added tags and published
+// messages can be checked before a live scheduler thread is involved.
+assert.match(source, /tags: call\.tags/,
+  'Graham exercise calls must retain their input stream tags');
+assert.match(source, /messages: Array\.isArray\(args\.messages\)/,
+  'Graham exercise requests must retain their input messages');
+assert.match(js.exerciseJsSource.toString(), /__inputTags/,
+  'the exercise worker must install input tags for get_tags_in_window/range');
+assert.match(js.exerciseJsSource.toString(), /messages_published/,
+  'the exercise worker must report messages published by handlers');
+assert.match(js.exerciseJsSource.toString(), /tags_added/,
+  'the exercise worker must report tags added by work functions');
 
 console.log('checked the JS Block schema synthesis, its .grc round trip, the ' +
             'generated repo pair and the editor wiring');

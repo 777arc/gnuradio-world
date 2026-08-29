@@ -58,6 +58,14 @@ const CASES = [
     expectProbes: { probe_clip: 0.5, probe_peak: 3.0 },
     expectJsDiagnostics: 3,
   },
+  {
+    name: 'stream tags and message-only PMT handlers',
+    grc: 'test/fixtures/wasm_js_tags_messages.grc',
+    expectPrints: ['js_tag', 'js_payload_len'],
+    rejectPrints: ['Key: input_tag'],
+    expectJsDiagnostics: 3,
+    expectTagOutput: true,
+  },
 ];
 
 const server = http.createServer(async (req, res) => {
@@ -106,17 +114,23 @@ for (const test of CASES) {
   const idle = blocks.filter(b => !b.msg_only && !(b.items > 0)).map(b => `${b.name} (${b.id})`);
 
   const wrong = [];
-  for (const [name, expected] of Object.entries(test.expectProbes)) {
+  for (const [name, expected] of Object.entries(test.expectProbes || {})) {
     const probe = blocks.find(b => b.name === name);
     if (!probe || Math.abs(probe.value - expected) > 1e-4)
       wrong.push(`${name} = ${probe ? probe.value : '(absent)'}, expected ${expected}`);
   }
-  const printOk = !test.expectPrint || logs.some(line => line.includes(test.expectPrint));
+  const expectedPrints = test.expectPrints || (test.expectPrint ? [test.expectPrint] : []);
+  const missingPrints = expectedPrints.filter(text => !logs.some(line => line.includes(text)));
+  const rejectedPrints = (test.rejectPrints || []).filter(
+    text => logs.some(line => line.includes(text)));
+  const printOk = missingPrints.length === 0 && rejectedPrints.length === 0;
   const jsDiagnostics = blocks.filter(block => block.javascript);
   const diagnosticsOk = jsDiagnostics.length === test.expectJsDiagnostics &&
-    jsDiagnostics.every(block => block.javascript.work_calls > 0 &&
-      block.javascript.last_requested > 0 && block.javascript.last_produced >= 0 &&
-      block.javascript.zero_progress_calls >= 0);
+    jsDiagnostics.every(block => block.msg_only
+      ? block.javascript.msgs_in > 0 && block.javascript.msgs_out > 0
+      : block.javascript.work_calls > 0 && block.javascript.last_requested > 0 &&
+        block.javascript.last_produced >= 0 && block.javascript.zero_progress_calls >= 0) &&
+    (!test.expectTagOutput || jsDiagnostics.some(block => block.javascript.tags_out > 0));
 
   const ok = started && blocks.length > 0 && idle.length === 0 && !wrong.length &&
     printOk && diagnosticsOk;
@@ -126,8 +140,31 @@ for (const test of CASES) {
   if (blocks.length) console.log('   items: ' + blocks.map(b => `${b.name}=${b.items}`).join(' '));
   if (idle.length) console.log(`   produced nothing: ${idle.join(', ')}`);
   for (const line of wrong) console.log(`   probe ${line}`);
-  if (!printOk) console.log(`   never printed ${JSON.stringify(test.expectPrint)}`);
+  if (!printOk) console.log(`   never printed ${JSON.stringify(missingPrints)}`);
+  if (rejectedPrints.length) console.log(`   unexpectedly printed ${JSON.stringify(rejectedPrints)}`);
   if (!diagnosticsOk) console.log(`   JS diagnostics: ${JSON.stringify(jsDiagnostics)}`);
+  if (!ok && logs.length) console.log('   logs: ' + logs.slice(-12).join('\n         '));
+  await page.close();
+}
+
+// A handler exception follows the same BrowserLogSink/RUNNER_FAIL path as a
+// throwing work(). Under TPB it ends one block thread; under STS it escapes the
+// shared scheduler loop, but the user-facing failure is deliberately identical.
+for (const scheduler of ['tpb', 'sts']) {
+  const page = await browser.newPage();
+  const logs = [];
+  page.on('console', message => logs.push(message.text()));
+  page.on('pageerror', error => logs.push('PAGEERROR ' + error.message));
+  const grc = readFileSync(join(ROOT, 'test/fixtures/wasm_js_throwing_message.grc'), 'utf8');
+  await page.goto(`http://localhost:${PORT}/runner/build/runner.html?scheduler=${scheduler}#${encodeURIComponent(grc)}`,
+                  { waitUntil: 'load', timeout: 30000 });
+  await new Promise(resolve => setTimeout(resolve, 2500));
+  const verdict = await page.evaluate(() => document.getElementById('result')?.textContent || '');
+  const text = [verdict, ...logs].join('\n');
+  const ok = text.includes('RUNNER_FAIL') && text.includes('[message]') && text.includes('boom in message');
+  allOk = allOk && ok;
+  console.log(`\n[${ok ? 'OK' : 'FAIL'}] throwing message handler (${scheduler})`);
+  console.log('   ' + verdict.trim());
   if (!ok && logs.length) console.log('   logs: ' + logs.slice(-12).join('\n         '));
   await page.close();
 }

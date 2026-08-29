@@ -27,9 +27,25 @@ const describe = source => {
   return result.info;
 };
 
+// The quality evaluation is plain Node rather than the browser exercise Worker,
+// so give model-written handlers the small PMT vocabulary these cases use. The
+// browser-path test covers the complete production bridge.
+globalThis.pmt = {
+  intern: value => String(value),
+  from_long: value => Number(value),
+  to_long: value => Number(value),
+  cons: (car, cdr) => [car, cdr], car: pair => pair[0], cdr: pair => pair[1],
+  make_dict: () => ({}), is_dict: value => !!value && !Array.isArray(value) &&
+    typeof value === 'object',
+  dict_add: (dict, key, value) => ({ ...dict, [key]: value }),
+};
+
 const descriptor = source => {
   let exported = null;
-  new Function('gr', '"use strict";\n' + source)({ export(value) { exported = value; } });
+  new Function('gr', '"use strict";\n' + source)({
+    export(value) { exported = value; },
+    TPP_DONT: 0, TPP_ALL_TO_ALL: 1, TPP_ONE_TO_ONE: 2, TPP_CUSTOM: 3,
+  });
   if (!exported) throw new Error('source did not export a descriptor');
   return exported;
 };
@@ -40,17 +56,40 @@ const elems = dtype => dtype === 'complex' ? 2 : 1;
 
 function exercise(source, request = {}) {
   const info = describe(source), d = descriptor(source);
-  const self = Object.fromEntries(info.params);
+  const self = Object.assign(Object.create(d), Object.fromEntries(info.params));
   Object.assign(self, request.params || {});
-  const logs = [];
+  const logs = [], handlers = new Map(), published = [], tagsAdded = [];
+  const messageInputs = [], messageOutputs = [];
   self.log = (...values) => logs.push(values.join(' '));
   let consumed = [];
   self.consume = (port, count) => { consumed[port] = (consumed[port] || 0) + count; };
+  self.message_port_register_in = port => messageInputs.push(String(port));
+  self.message_port_register_out = port => messageOutputs.push(String(port));
+  self.set_msg_handler = (port, handler) => handlers.set(String(port), handler);
+  self.message_port_pub = (port, value) => published.push({ port: String(port), value });
+  self.set_tag_propagation_policy = policy => { self.tagPropagation = Number(policy); };
+  let inputTags = [], itemsRead = info.inputs.map(() => 0), itemsWritten = info.outputs.map(() => 0);
+  self.nitems_read = port => itemsRead[port];
+  self.nitems_written = port => itemsWritten[port];
+  self.get_tags_in_range = (port, start, end, key) => inputTags.filter(tag =>
+    tag.port === port && tag.offset >= start && tag.offset < end &&
+    (key === undefined || tag.key === key));
+  self.get_tags_in_window = (port, start, end, key) =>
+    self.get_tags_in_range(port, itemsRead[port] + start, itemsRead[port] + end, key);
+  self.add_item_tag = (port, offset, key, value, srcid = false) =>
+    tagsAdded.push({ port, offset, key, value, srcid });
+  d.init?.call(self);
   d.start?.call(self);
+  for (const message of request.messages || []) {
+    const handler = handlers.get(message.port);
+    if (!handler) throw new Error(`no handler for message port ${message.port}`);
+    handler.call(self, message.value);
+  }
   const results = [];
   for (const call of request.calls || [{ nout: 8 }]) {
     Object.assign(self, call.set_params || {});
     consumed = [];
+    inputTags = call.tags || [];
     const nout = call.nout || 8;
     const input = info.inputs.map((port, index) => {
       const raw = call.inputs?.[index] || [];
@@ -73,9 +112,12 @@ function exercise(source, request = {}) {
         : info.inputs.map(() => Math.floor(result * info.decim / info.interp)),
       outputs: output.map(view => ({ values: Array.from(view).slice(0, 128),
         total_values: view.length })), log: logs.splice(0) });
+    const used = results.at(-1).consumed;
+    itemsRead = itemsRead.map((value, index) => value + used[index]);
+    itemsWritten = itemsWritten.map(value => value + result);
   }
   d.stop?.call(self);
-  return { info, calls: results };
+  return { info, calls: results, messages_published: published, tags_added: tagsAdded };
 }
 
 function makeDeps(initialSource = '') {
@@ -200,6 +242,26 @@ const CASES = [
       ] });
       return close(run.calls[0].outputs[0].values, [1, 3]) &&
         close(run.calls[1].outputs[0].values, [6, 10]);
+    },
+  },
+  {
+    name: 'message-only handler',
+    prompt: 'Create message-only JS Block dut with input port ctrl and output port events. On each numeric ctrl message, synchronously publish twice its value to events. Exercise it with ctrl value 4 and calls:[] before finishing.',
+    check(source) {
+      const run = exercise(source, { messages: [{ port: 'ctrl', value: 4 }], calls: [] });
+      return run.info.msgPortsIn?.includes('ctrl') && run.info.msgPortsOut?.includes('events') &&
+        run.messages_published.some(message => message.port === 'events' && message.value === 8);
+    },
+  },
+  {
+    name: 'custom stream tag',
+    prompt: 'Create byte input/output JS Block dut that copies samples and uses TPP_CUSTOM to rewrite input_tag stream tags as seen_tag with the numeric value increased by one. Exercise four bytes with an input_tag at absolute offset 2 and verify the added tag.',
+    check(source) {
+      const run = exercise(source, { calls: [{ nout: 4, inputs: [[1, 2, 3, 4]],
+        tags: [{ port: 0, offset: 2, key: 'input_tag', value: 7 }] }] });
+      return close(run.calls[0].outputs[0].values, [1, 2, 3, 4]) &&
+        run.tags_added.some(tag => tag.port === 0 && tag.offset === 2 &&
+          tag.key === 'seen_tag' && tag.value === 8);
     },
   },
 ];

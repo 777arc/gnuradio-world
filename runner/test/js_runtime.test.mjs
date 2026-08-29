@@ -65,6 +65,95 @@ globalThis.stringToNewUTF8 = text => {
 };
 const cstr = text => stringToNewUTF8(text);
 
+// ---- stand-ins for the exported C++ PMT/tag/message shims -----------------
+// The runtime owns the value mapping; this small arena only supplies canonical
+// handle operations so that mapping is testable on plain Node.
+globalThis._malloc = bytes => alloc(Math.max(1, bytes));
+globalThis._free = () => {};
+const arena = [];
+const addPmt = value => (arena.push(value), arena.length - 1);
+let bridgeError = '';
+const errorTextPtr = alloc(1024);
+globalThis._gr_js_last_error = () => {
+  stringToUTF8(bridgeError, errorTextPtr, 1024);
+  return errorTextPtr;
+};
+const failShim = error => { bridgeError = String(error?.message || error); return -1; };
+const withShim = fn => { try { bridgeError = ''; return fn(); } catch (error) { return failShim(error); } };
+const wordsToBig = (lo, hi) => BigInt(lo >>> 0) | (BigInt(hi >>> 0) << 32n);
+const writeBig = (value, ptr) => {
+  views.U32[ptr >> 2] = Number(value & 0xffffffffn);
+  views.U32[(ptr >> 2) + 1] = Number((value >> 32n) & 0xffffffffn);
+};
+globalThis._gr_js_pmt_make = (kind, lo, hi, x, y, textPtr) => withShim(() => addPmt({
+  kind,
+  value: kind === 0 ? null : kind === 1 ? !!x : kind === 2 ? UTF8ToString(textPtr)
+    : kind === 3 ? (lo | 0) : kind === 4 ? wordsToBig(lo, hi)
+    : kind === 5 ? x : kind === 6 ? [x, y] : undefined,
+}));
+globalThis._gr_js_pmt_seq = (kind, ptr, count) => withShim(() => {
+  const handles = Array.from(views.I32.subarray(ptr >> 2, (ptr >> 2) + count));
+  return addPmt({ kind, value: handles.map(handle => arena[handle]) });
+});
+globalThis._gr_js_pmt_dict = (ptr, count) => withShim(() => {
+  const handles = Array.from(views.I32.subarray(ptr >> 2, (ptr >> 2) + count));
+  const entries = [];
+  for (let i = 0; i < handles.length; i += 2) entries.push([arena[handles[i]], arena[handles[i + 1]]]);
+  return addPmt({ kind: 7, value: entries });
+});
+const itemSize = kind => ({ 20: 1, 21: 1, 22: 2, 23: 2, 24: 4, 25: 4,
+  26: 8, 27: 8, 28: 4, 29: 8, 30: 8, 31: 16, 32: 1 })[kind];
+globalThis._gr_js_pmt_blob_new = (kind, count, metaPtr) => withShim(() => {
+  const size = itemSize(kind);
+  if (!size) throw new Error('bad vector kind');
+  const ptr = alloc(Math.max(1, count * size));
+  views.U32.set([ptr, count * size, size, kind], metaPtr >> 2);
+  return addPmt({ kind: kind === 32 ? 20 : kind, ptr, count, size });
+});
+globalThis._gr_js_pmt_type = handle => arena[handle]?.kind ?? failShim('bad handle');
+globalThis._gr_js_pmt_real = (handle, component) => {
+  const value = arena[handle]?.value;
+  return Array.isArray(value) ? value[component] : Number(value);
+};
+globalThis._gr_js_pmt_u64 = (handle, ptr) => withShim(() => (writeBig(BigInt(arena[handle].value), ptr), 0));
+globalThis._gr_js_pmt_length = handle => withShim(() => arena[handle].value?.length ?? arena[handle].count ?? 0);
+globalThis._gr_js_pmt_ref = (handle, op, index) => withShim(() => {
+  const value = arena[handle];
+  if (op === 0 || op === 1) return addPmt(value.value[op]);
+  if (op === 2 || op === 3) return addPmt(value.value[index]);
+  return addPmt(value.value[index][op === 4 ? 0 : 1]);
+});
+globalThis._gr_js_pmt_text = (handle, ptr, cap) => withShim(() =>
+  stringToUTF8(arena[handle].value, ptr, cap));
+globalThis._gr_js_pmt_blob = (handle, metaPtr) => withShim(() => {
+  const value = arena[handle];
+  views.U32.set([value.ptr, value.count, value.size, value.kind], metaPtr >> 2);
+  return 0;
+});
+const published = [], addedTags = [];
+let deliveredTags = [], currentTags = [];
+const counters = { read: 100, written: 200 };
+globalThis._gr_js_publish = (_handle, port, message) =>
+  withShim(() => (published.push({ port, value: arena[message] }), 0));
+globalThis._gr_js_nitems = (_handle, written, _port, ptr) =>
+  withShim(() => (writeBig(BigInt(written ? counters.written : counters.read), ptr), 0));
+globalThis._gr_js_tags = (_handle, port, lo, hi, elo, ehi, keyHandle) => withShim(() => {
+  const start = wordsToBig(lo, hi), end = wordsToBig(elo, ehi);
+  const key = keyHandle < 0 ? null : arena[keyHandle];
+  currentTags = deliveredTags.filter(tag => tag.port === port && tag.offset >= start && tag.offset < end &&
+    (!key || JSON.stringify(tag.key) === JSON.stringify(key)));
+  return currentTags.length;
+});
+globalThis._gr_js_tag_offset = (_handle, index, ptr) =>
+  withShim(() => (writeBig(currentTags[index].offset, ptr), 0));
+globalThis._gr_js_tag_field = (_handle, index, field) =>
+  withShim(() => addPmt(currentTags[index][['key', 'value', 'srcid'][field]]));
+globalThis._gr_js_add_tag = (_handle, port, lo, hi, key, value, srcid) => withShim(() => {
+  addedTags.push({ port, offset: wordsToBig(lo, hi), key: arena[key], value: arena[value],
+    srcid: srcid < 0 ? { kind: 1, value: false } : arena[srcid] });
+  return 0;
+});
+
 // The runtime, evaluated exactly as --pre-js would evaluate it.
 const runtimeSource = await readFile(
   new URL('../src/js_runtime.js', import.meta.url), 'utf8');
@@ -136,7 +225,7 @@ rejects("gr.export({ inputs: ['complex'], outputs: [], work(){}, generalWork(){}
 rejects("gr.export({ inputs: ['cplx'], outputs: [], work(){} });",
         /unknown port type "cplx"/, 'an unknown port dtype');
 rejects('gr.export({ inputs: [], outputs: [], work(){} });',
-        /at least one input or output/, 'a block with no ports at all');
+        /at least one stream or message port/, 'a block with no ports at all');
 rejects("gr.export({ inputs: ['float'], outputs: [], params: { 'a-b': 1 }, work(){} });",
         /not a usable identifier/, 'a parameter name that is not an identifier');
 rejects("gr.export({ inputs: ['float'], outputs: [], params: { a: [1, 2] }, work(){} });",
@@ -146,11 +235,140 @@ rejects("gr.export({ inputs: ['float'], outputs: [], decimation: 0, work(){} });
 rejects("gr.export({ inputs: ['float'], outputs: [], work(){} }); gr.export({});",
         /called more than once/, 'a second gr.export');
 rejects('this is not javascript(', /did not parse/, 'a syntax error');
+assert.equal('msgPortsIn' in described.info, false,
+  'new declaration keys stay absent from old descriptors, preserving _js_io bytes');
+
+// ---- init(), message-only blocks, PMTs, tags and counters ------------------
+
+const MESSAGE_ONLY = `
+globalThis.__jsInitCalls = globalThis.__jsInitCalls || 0;
+gr.export({
+  label: 'PMT Echo', params: { bias: 1 },
+  init() {
+    globalThis.__jsInitCalls++;
+    this.message_port_register_in(pmt.intern('in'));
+    this.set_msg_handler(pmt.intern('in'), this.handle);
+    this.message_port_register_out(pmt.intern('out'));
+  },
+  handle(msg) {
+    const values = [
+      null, true, 'symbol', -2147483648, pmt.from_uint64(18446744073709551615n),
+      pmt.from_double(1), pmt.from_complex(2, -3), pmt.cons('meta', msg),
+      pmt.dict_add(pmt.make_dict(), pmt.from_complex(1, 2), 'arbitrary-key'),
+      [1, 'two'], pmt.make_tuple(1, 'two'),
+      pmt.init_u8vector(2, [1, 255]), pmt.init_s8vector(2, [-1, 2]),
+      pmt.init_u16vector(2, [1, 65535]), pmt.init_s16vector(2, [-2, 3]),
+      pmt.init_u32vector(2, [1, 4294967295]), pmt.init_s32vector(2, [-3, 4]),
+      pmt.init_u64vector(2, [1n, 18446744073709551615n]),
+      pmt.init_s64vector(2, [-4n, 5n]), pmt.init_f32vector(2, [1.5, 2.5]),
+      pmt.init_f64vector(2, [3.5, 4.5]), pmt.init_c32vector(1, [5, -6]),
+      pmt.init_c64vector(1, [7, -8]), pmt.make_blob(new Uint8Array([9, 10])), this.bias,
+    ];
+    if (!pmt.is_pair(values[7]) || !pmt.is_dict(values[8]) || !pmt.is_blob(values[23]))
+      throw new Error('PMT predicates failed');
+    if (pmt.to_long(pmt.dict_ref({ answer: 42 }, 'answer', 0)) !== 42)
+      throw new Error('plain-object dictionary shorthand failed');
+    for (const value of values) this.message_port_pub('out', value);
+  },
+});`;
+const messageInfo = gr.describeSource(MESSAGE_ONLY);
+assert.ok(messageInfo.ok, messageInfo.error);
+assert.deepEqual(messageInfo.info.msgPortsIn, ['in']);
+assert.deepEqual(messageInfo.info.msgPortsOut, ['out']);
+assert.deepEqual(messageInfo.info.msgHandlerPorts, ['in']);
+assert.equal(messageInfo.info.inputs.length + messageInfo.info.outputs.length, 0,
+  'a message-only block needs no stream ports');
+
+globalThis.__jsInitCalls = 0;
+const MESSAGE_HANDLE = 40;
+assert.equal(gr.compile(MESSAGE_HANDLE, cstr(MESSAGE_ONLY), 0, 0, errPtr, ERR_CAP), 0,
+  readError());
+assert.equal(globalThis.__jsInitCalls, 2,
+  'compile fallback performs one recording init and one live init');
+assert.equal(gr.setParam(MESSAGE_HANDLE, cstr('bias'), 9), 0);
+published.length = 0;
+assert.equal(gr.message(MESSAGE_HANDLE, 0, addPmt({ kind: 3, value: 9 }), errPtr, ERR_CAP), 0,
+  readError());
+assert.deepEqual(published.map(entry => entry.value.kind),
+  [0, 1, 2, 3, 4, 5, 6, 8, 7, 9, 10,
+   20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 20, 3],
+  'every supported scalar/container/uniform PMT crossed to canonical C++ kinds');
+assert.equal(published[4].value.value, 18446744073709551615n,
+  'a uint64 remains exact across the low/high-word boundary');
+assert.equal(published[5].value.kind, 5,
+  'an integral-valued real remains a PMT real rather than becoming a long');
+assert.equal(published.at(-1).value.value, 9,
+  'a live numeric parameter change reaches a message-only block before its next handler');
+
+const DONT_TAGS = `gr.export({ inputs: ['byte'], outputs: ['byte'],
+  init() { this.set_tag_propagation_policy(gr.TPP_DONT); },
+  work(nout) { return nout; } });`;
+assert.equal(gr.describeSource(DONT_TAGS).info.tagPropagation, 0,
+  'TPP_DONT is retained as an explicit non-default declaration');
+
+const MISMATCH = `gr.export({ inputs: ['float'], outputs: ['float'], params: { n: 1 },
+  init() { this.set_history(this.n); }, work(n) { return n; } });`;
+assert.equal(gr.compile(41, cstr(MISMATCH), cstr('{"n":2}'), 0, errPtr, ERR_CAP), -1);
+assert.match(readError(), /\[init\].*different history.*cannot depend on parameter values/s,
+  'a parameter-dependent declaration fails instead of drifting');
+
+const UNHANDLED = `gr.export({ init() { this.message_port_register_in('in'); } });`;
+const unhandledInfo = gr.describeSource(UNHANDLED);
+assert.ok(unhandledInfo.ok, unhandledInfo.error);
+assert.deepEqual(unhandledInfo.info.msgPortsIn, ['in']);
+assert.equal('msgHandlerPorts' in unhandledInfo.info, false,
+  'a registered input may deliberately have no handler');
+
+const COUNTERS = `gr.export({ inputs: ['byte'], outputs: ['byte'],
+  work(nout, input, output) { this.log(this.nitems_read(0), this.nitems_written(0)); return nout; } });`;
+assert.equal(gr.compile(42, cstr(COUNTERS), 0, 0, errPtr, ERR_CAP), 0, readError());
+counters.read = Number.MAX_SAFE_INTEGER; counters.written = Number.MAX_SAFE_INTEGER;
+views.I32.fill(0, wordsPtr >> 2, (wordsPtr >> 2) + WORDS);
+setWord(W.NOUT, 1); setWord(W.NIN_PORTS, 1); setWord(W.NOUT_PORTS, 1);
+setWord(W.IN_PTR, alloc(1)); setWord(W.IN_AVAIL, 1); setWord(W.OUT_PTR, alloc(1));
+assert.equal(gr.work(42, wordsPtr, errPtr, ERR_CAP), 0, readError());
+counters.read = 1n << 53n;
+assert.equal(gr.work(42, wordsPtr, errPtr, ERR_CAP), -2);
+assert.match(readError(), /nitems_read\(0\).*exact integer range/,
+  'counters above 2^53 throw rather than truncate');
+counters.read = 100; counters.written = 200;
+
+const RETAINED_TAG = `gr.export({ inputs: ['byte'], outputs: ['byte'],
+  init() { this.set_tag_propagation_policy(gr.TPP_CUSTOM); },
+  work(nout) {
+    const tags = this.get_tags_in_window(0, 0, nout, 'bytes');
+    if (!this.saved && tags.length) this.saved = tags[0];
+    if (this.saved && pmt.u8vector_elements(this.saved.value)[0] !== 7)
+      throw new Error('retained tag value changed');
+    return nout;
+  } });`;
+assert.equal(gr.compile(43, cstr(RETAINED_TAG), 0, 0, errPtr, ERR_CAP), 0, readError());
+const tagBytesPtr = alloc(2);
+views.U8.set([7, 8], tagBytesPtr);
+deliveredTags = [{ port: 0, offset: 100n,
+  key: { kind: 2, value: 'bytes' }, value: { kind: 20, ptr: tagBytesPtr, count: 2, size: 1 },
+  srcid: { kind: 2, value: 'source' } }];
+assert.equal(gr.work(43, wordsPtr, errPtr, ERR_CAP), 0, readError());
+views.U8[tagBytesPtr] = 99;
+assert.equal(gr.work(43, wordsPtr, errPtr, ERR_CAP), 0, readError());
+
+deliveredTags = [{ ...deliveredTags[0], offset: 1n << 53n }];
+const LARGE_TAG = `gr.export({ inputs: ['byte'], outputs: ['byte'], work(nout) {
+  this.get_tags_in_range(0, 0n, (1n << 53n) + 1n, 'bytes'); return nout; } });`;
+assert.equal(gr.compile(44, cstr(LARGE_TAG), 0, 0, errPtr, ERR_CAP), 0, readError());
+assert.equal(gr.work(44, wordsPtr, errPtr, ERR_CAP), -2);
+assert.match(readError(), /tag offset.*exact integer range/,
+  'tag offsets above 2^53 throw rather than truncate');
+deliveredTags = [];
+gr.destroy(MESSAGE_HANDLE);
+gr.destroy(42);
+gr.destroy(43);
+gr.destroy(44);
 
 // ---- compile, work, and the views ------------------------------------------
 
 const HANDLE = 1;
-assert.equal(gr.compile(HANDLE, cstr(GAIN), cstr('{"gain":3}'), errPtr, ERR_CAP), 0,
+assert.equal(gr.compile(HANDLE, cstr(GAIN), cstr('{"gain":3}'), 0, errPtr, ERR_CAP), 0,
   readError());
 assert.equal(gr.count(), 1);
 
@@ -198,7 +416,7 @@ gr.export({
   },
 });`;
 
-assert.equal(gr.compile(2, cstr(rateBlock('decimation: 4,')), 0, errPtr, ERR_CAP), 0,
+assert.equal(gr.compile(2, cstr(rateBlock('decimation: 4,')), 0, 0, errPtr, ERR_CAP), 0,
   readError());
 views.I32.fill(0, wordsPtr >> 2, (wordsPtr >> 2) + WORDS);
 setWord(W.NOUT, 16); setWord(W.NIN_PORTS, 1); setWord(W.NOUT_PORTS, 1);
@@ -210,7 +428,7 @@ gr.takeLog(2, ratePtr, 128);
 assert.equal(UTF8ToString(ratePtr), 'in=64 out=16',
   'a decim-4 block is handed 4 * nout input items, as GNU Radio guarantees');
 
-assert.equal(gr.compile(3, cstr(rateBlock('interpolation: 4,')), 0, errPtr, ERR_CAP), 0,
+assert.equal(gr.compile(3, cstr(rateBlock('interpolation: 4,')), 0, 0, errPtr, ERR_CAP), 0,
   readError());
 views.I32.fill(0, wordsPtr >> 2, (wordsPtr >> 2) + WORDS);
 setWord(W.NOUT, 16); setWord(W.NIN_PORTS, 1); setWord(W.NOUT_PORTS, 1);
@@ -237,7 +455,7 @@ gr.export({
     return n;
   },
 });`;
-assert.equal(gr.compile(4, cstr(GENERAL), 0, errPtr, ERR_CAP), 0, readError());
+assert.equal(gr.compile(4, cstr(GENERAL), 0, 0, errPtr, ERR_CAP), 0, readError());
 views.I8[inPtr] = 41;
 views.I32.fill(0, wordsPtr >> 2, (wordsPtr >> 2) + WORDS);
 setWord(W.NOUT, 10); setWord(W.NIN_PORTS, 1); setWord(W.NOUT_PORTS, 1);
@@ -255,7 +473,7 @@ gr.export({
   inputs: ['byte'], outputs: ['byte'],
   generalWork(nout, nin, input, output) { return 0; },
 });`;
-assert.equal(gr.compile(5, cstr(IDLE), 0, errPtr, ERR_CAP), 0, readError());
+assert.equal(gr.compile(5, cstr(IDLE), 0, 0, errPtr, ERR_CAP), 0, readError());
 views.I32.fill(0, wordsPtr >> 2, (wordsPtr >> 2) + WORDS);
 setWord(W.NOUT, 10); setWord(W.NIN_PORTS, 1); setWord(W.NOUT_PORTS, 1);
 setWord(W.IN_PTR, inPtr); setWord(W.IN_AVAIL, 7); setWord(W.OUT_PTR, outPtr);
@@ -275,7 +493,7 @@ gr.export({
 const forecastInfo = gr.describeSource(FORECAST).info;
 assert.equal(forecastInfo.overridesForecast, true);
 assert.equal(forecastInfo.history, 8);
-assert.equal(gr.compile(6, cstr(FORECAST), 0, errPtr, ERR_CAP), 0, readError());
+assert.equal(gr.compile(6, cstr(FORECAST), 0, 0, errPtr, ERR_CAP), 0, readError());
 views.I32.fill(0, wordsPtr >> 2, (wordsPtr >> 2) + WORDS);
 setWord(W.NOUT, 100); setWord(W.NIN_PORTS, 2);
 assert.equal(gr.forecast(6, wordsPtr, errPtr, ERR_CAP), 0, readError());
@@ -292,7 +510,7 @@ gr.export({
     return nout;
   },
 });`;
-assert.equal(gr.compile(7, cstr(VECTOR), 0, errPtr, ERR_CAP), 0, readError());
+assert.equal(gr.compile(7, cstr(VECTOR), 0, 0, errPtr, ERR_CAP), 0, readError());
 views.I32.fill(0, wordsPtr >> 2, (wordsPtr >> 2) + WORDS);
 setWord(W.NOUT, 5); setWord(W.NIN_PORTS, 1); setWord(W.NOUT_PORTS, 1);
 setWord(W.IN_PTR, inPtr); setWord(W.IN_AVAIL, 5); setWord(W.OUT_PTR, outPtr);
@@ -312,7 +530,7 @@ gr.export({
   inputs: ['float'], outputs: ['float'],
   work(nout, input, output) { throw new Error('boom in work'); },
 });`;
-assert.equal(gr.compile(8, cstr(THROWS), 0, errPtr, ERR_CAP), 0, readError());
+assert.equal(gr.compile(8, cstr(THROWS), 0, 0, errPtr, ERR_CAP), 0, readError());
 views.I32.fill(0, wordsPtr >> 2, (wordsPtr >> 2) + WORDS);
 setWord(W.NOUT, 4); setWord(W.NIN_PORTS, 1); setWord(W.NOUT_PORTS, 1);
 setWord(W.IN_PTR, inPtr); setWord(W.IN_AVAIL, 4); setWord(W.OUT_PTR, outPtr);
@@ -325,7 +543,7 @@ assert.match(readError(), /at .*work/, 'and so does the stack');
 assert.equal(gr.compile(9, cstr(`
 gr.export({ inputs: ['float'], outputs: ['float'],
   start() { throw new Error('boom in start'); }, work() { return 0; } });`),
-  0, errPtr, ERR_CAP), -1);
+  0, 0, errPtr, ERR_CAP), -1);
 assert.match(readError(), /\[start\]/, 'a start failure is distinct from compile/work');
 assert.match(readError(), /boom in start/);
 
@@ -340,7 +558,7 @@ assert.match(readError(), /never compiled/);
 
 assert.equal(gr.compile(10, cstr(`
 gr.export({ inputs: ['float'], outputs: ['float'],
-  work(nout) { this.log('hello', 7); return nout; } });`), 0, errPtr, ERR_CAP), 0);
+  work(nout) { this.log('hello', 7); return nout; } });`), 0, 0, errPtr, ERR_CAP), 0);
 views.I32.fill(0, wordsPtr >> 2, (wordsPtr >> 2) + WORDS);
 setWord(W.NOUT, 4); setWord(W.NIN_PORTS, 1); setWord(W.NOUT_PORTS, 1);
 setWord(W.IN_PTR, inPtr); setWord(W.IN_AVAIL, 4); setWord(W.OUT_PTR, outPtr);
@@ -397,7 +615,7 @@ async function loadShipped(file, params = {}) {
   const described = gr.describeSource(text);
   assert.ok(described.ok, `${file}: ${described.error}`);
   const handle = nextHandle++;
-  assert.equal(gr.compile(handle, cstr(text), cstr(JSON.stringify(params)), errPtr, ERR_CAP),
+  assert.equal(gr.compile(handle, cstr(text), cstr(JSON.stringify(params)), 0, errPtr, ERR_CAP),
                0, readError());
   return { handle, info: described.info };
 }

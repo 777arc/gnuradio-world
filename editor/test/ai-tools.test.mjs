@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { bundleModule } from './bundle-module.mjs';
 
 const { AI_TOOLS, dispatchAiTool, canvasContext, SEED_DEFINITION_LIMIT, SEED_DEFINITION_BYTES, SEED_GRAPH_LIMIT } =
@@ -8,6 +9,7 @@ const { runnableIndex, API_DOC_LIMIT } = await bundleModule('../src/ai/catalog.t
 let uid = 0;
 const blocks = [];
 const connections = [];
+let exercisedArgs = null;
 const defs = {
   source: { label: 'Source', inputs: 0, outputs: 1, apiDocumentation: 'x'.repeat(9000), params: [
     { id: 'rate', label: 'Rate', type: 'number', def: 32000 },
@@ -140,7 +142,10 @@ metadata:
   createJsBlock: async (name, source) => ({ name: name || 'wasm_js_block_0', source }),
   setJsBlockSource: async (name, source) => ({ name, source_hash: String(source.length) }),
   forkJsBlock: async name => ({ name, id: 'wasm_js_block' }),
-  exerciseJsBlock: async args => ({ source_hash: 'exercise', calls: args.calls || [] }),
+  exerciseJsBlock: async args => {
+    exercisedArgs = args;
+    return { source_hash: 'exercise', calls: args.calls || [] };
+  },
   saveJsBlock: async (name, id) => ({ installed: true, name, id }),
   runFlowgraph: async () => ({ started: true }),
   capturePlots: async () => ({
@@ -231,6 +236,29 @@ assert.equal((await dispatchAiTool(deps, 'validate', {})).value.length, 0);
 // parameter. Its tools stay transactional behind dedicated dependencies.
 assert.equal((await dispatchAiTool(deps, 'get_js_block_help', { topic: 'scheduling' }))
   .value.topic, 'scheduling');
+const tagHelp = (await dispatchAiTool(deps, 'get_js_block_help', { topic: 'tags' })).value;
+assert.match(tagHelp.contract, /get_tags_in_window/);
+assert.match(tagHelp.contract, /tags_added/);
+assert.match((await dispatchAiTool(deps, 'get_js_block_help', { topic: 'messages' }))
+  .value.contract, /message_port_register_in/);
+assert.match((await dispatchAiTool(deps, 'get_js_block_help', { topic: 'pmt' }))
+  .value.contract, /pmt\.cons/);
+
+// These are model-visible contracts, not just implementation detail. Keep the
+// cached prompt and callable schema from regressing to the old claim that
+// tags/messages were unavailable.
+const prompt = await readFile(new URL('../src/ai/system-prompt.md', import.meta.url), 'utf8');
+assert.doesNotMatch(prompt, /stream tags and message ports are unavailable/);
+assert.match(prompt, /Stream tags and message ports are supported/);
+const helpTool = AI_TOOLS.find(tool => tool.function.name === 'get_js_block_help');
+for (const topic of ['tags', 'messages', 'pmt'])
+  assert.ok(helpTool.function.parameters.properties.topic.enum.includes(topic),
+    `get_js_block_help must offer ${topic}`);
+const exerciseTool = AI_TOOLS.find(tool => tool.function.name === 'exercise_js_block');
+assert.ok(exerciseTool.function.parameters.properties.messages,
+  'exercise_js_block must expose input messages to Graham');
+assert.ok(exerciseTool.function.parameters.properties.calls.items.properties.tags,
+  'exercise_js_block must expose input stream tags to Graham');
 assert.equal((await dispatchAiTool(deps, 'inspect_js_block', { name: 'custom' }))
   .value.name, 'custom');
 assert.equal((await dispatchAiTool(deps, 'create_js_block', {
@@ -241,8 +269,15 @@ assert.equal((await dispatchAiTool(deps, 'set_js_block_source', {
 })).value.result.source_hash, '13');
 assert.equal((await dispatchAiTool(deps, 'fork_js_block', { name: 'repo' })).mutated, true);
 assert.equal((await dispatchAiTool(deps, 'exercise_js_block', {
-  source: 'gr.export({})', calls: [{ nout: 4 }],
+  source: 'gr.export({})',
+  messages: [{ port: 'ctrl', value: { gain: 3 } }],
+  calls: [{ nout: 4, tags: [
+    { port: 0, offset: 2, key: 'packet_len', value: 4 },
+  ] }],
 })).mutated, false);
+assert.deepEqual(exercisedArgs.messages, [{ port: 'ctrl', value: { gain: 3 } }]);
+assert.deepEqual(exercisedArgs.calls[0].tags,
+  [{ port: 0, offset: 2, key: 'packet_len', value: 4 }]);
 assert.equal((await dispatchAiTool(deps, 'save_js_block', {
   name: 'custom', id: 'saved_custom',
 })).value.installed, true);

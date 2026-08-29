@@ -1,0 +1,36 @@
+options:
+    parameters:
+        id: wasm_js_throwing_message
+        title: JavaScript throwing message handler
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: message_strobe
+    id: blocks_message_strobe
+    parameters:
+        msg: pmt.intern("TRIGGER")
+        period: '100'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: js_throw
+    id: wasm_js_block
+    parameters:
+        _source_code: "gr.export({ init() { this.message_port_register_in('in'); this.set_msg_handler('in', this.handle); }, handle() { throw new Error('boom in message'); } });"
+        _js_io: '{}'
+        _js_source: ''
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+connections:
+-   src_blk_id: message_strobe
+    src_port_id: strobe
+    snk_blk_id: js_throw
+    snk_port_id: in
+metadata:
+    file_format: 2
+    grc_version: 3.10.9.2

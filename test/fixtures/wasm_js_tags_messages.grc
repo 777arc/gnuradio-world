@@ -1,0 +1,134 @@
+options:
+    parameters:
+        id: wasm_js_tags_messages
+        title: JavaScript Block tags and messages
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: input_tag
+    id: variable_tag_object
+    parameters:
+        offset: '0'
+        key: pmt.intern("input_tag")
+        value: pmt.from_long(7)
+        src: pmt.intern("tag_source")
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: tag_source
+    id: blocks_vector_source_x
+    parameters:
+        type: byte
+        vector: '[1, 2, 3, 4]'
+        tags: '[input_tag]'
+        repeat: 'True'
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: tag_throttle
+    id: blocks_throttle2
+    parameters:
+        type: byte
+        samples_per_second: '200'
+        vlen: '1'
+        ignoretag: 'True'
+        limit: time
+        maximum: '0.1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: js_tags
+    id: wasm_js_block
+    parameters:
+        _source_code: "gr.export({ label: 'JS Tag Transform', inputs: ['byte'], outputs: ['byte'], init() { this.set_tag_propagation_policy(gr.TPP_CUSTOM); }, work(nout, input, output) { output[0].set(input[0].subarray(0, nout)); const before = this.nitems_read(0), after = this.nitems_written(0); const ranged = this.get_tags_in_range(0, before, before + nout, pmt.intern('input_tag')); const windowed = this.get_tags_in_window(0, 0, nout, pmt.intern('input_tag')); if (ranged.length !== windowed.length) throw new Error('tag range/window mismatch'); for (const tag of windowed) this.add_item_tag(0, after + tag.offset - before, pmt.intern('js_tag'), pmt.from_long(pmt.to_long(tag.value) + 1)); return nout; } });"
+        _js_io: '{}'
+        _js_source: ''
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: tag_debug
+    id: blocks_tag_debug
+    parameters:
+        type: byte
+        name: js_tag_output
+        filter: '"js_tag"'
+        num_inputs: '1'
+        vlen: '1'
+        display: 'True'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: js_dont_tags
+    id: wasm_js_block
+    parameters:
+        _source_code: "gr.export({ label: 'JS Suppress Tags', inputs: ['byte'], outputs: ['byte'], init() { this.set_tag_propagation_policy(gr.TPP_DONT); }, work(nout, input, output) { output[0].set(input[0].subarray(0, nout)); return nout; } });"
+        _js_io: '{}'
+        _js_source: ''
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: tag_debug_dont
+    id: blocks_tag_debug
+    parameters:
+        type: byte
+        name: suppressed_input_tag
+        filter: '"input_tag"'
+        num_inputs: '1'
+        vlen: '1'
+        display: 'True'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: message_strobe
+    id: blocks_message_strobe
+    parameters:
+        msg: pmt.cons(pmt.make_dict(), pmt.init_u8vector(4, [11, 22, 33, 44]))
+        period: '200'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: js_pdu
+    id: js_pdu_length
+    parameters:
+        comment: ''
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: message_debug
+    id: blocks_message_debug
+    parameters:
+        en_uvec: 'True'
+        log_level: info
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+connections:
+- [tag_source, '0', tag_throttle, '0']
+- [tag_throttle, '0', js_tags, '0']
+- [js_tags, '0', tag_debug, '0']
+- [tag_throttle, '0', js_dont_tags, '0']
+- [js_dont_tags, '0', tag_debug_dont, '0']
+-   src_blk_id: message_strobe
+    src_port_id: strobe
+    snk_blk_id: js_pdu
+    snk_port_id: in
+-   src_blk_id: js_pdu
+    src_port_id: out
+    snk_blk_id: message_debug
+    snk_port_id: print_pdu
+metadata:
+    file_format: 2
+    grc_version: 3.10.9.2

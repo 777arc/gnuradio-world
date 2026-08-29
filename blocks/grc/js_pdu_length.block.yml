@@ -1,0 +1,28 @@
+# Implemented in JavaScript: blocks/js/js_pdu_length.js. See docs/js-blocks.md.
+id: js_pdu_length
+label: PDU Length Metadata
+category: '[GNU Radio World]'
+flags: [js]
+
+documentation: |-
+    Adds a js_payload_len integer to a PDU's metadata dictionary and publishes
+    the PDU unchanged otherwise. Non-PDU messages are reported and dropped.
+
+    This message-only block is implemented in JavaScript and demonstrates the
+    native-style message API: registration in init(), a per-port handler, PMT
+    dictionary operations, and synchronous message_port_pub().
+
+    It has no Python implementation, so a flowgraph using it will not run in
+    desktop GNU Radio.
+
+inputs:
+-   domain: message
+    id: in
+    optional: true
+
+outputs:
+-   domain: message
+    id: out
+    optional: true
+
+file_format: 1

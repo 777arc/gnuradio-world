@@ -497,6 +497,11 @@ explanation lives in that doc — follow it before working in that area.
   buffer allocated later**, not as a crash or a zero read. Take views through
   `GROWABLE_HEAP_*` every call and never stash one on `this`. See
   [docs/js-blocks.md](docs/js-blocks.md).
+- **A JS PMT shim can grow the heap too.** Re-derive every internal metadata or
+  data view after `_gr_js_*` returns, including the words array used to receive a
+  pointer. This is only a bridge implementation rule: author-visible messages,
+  tags, uniform vectors and blobs are owned JavaScript copies and may be retained
+  across callbacks. See [docs/js-blocks.md](docs/js-blocks.md).
 - **`MAIN_THREAD_EM_ASM` in a JS block's hot path would silently serialize the
   whole flowgraph.** `EM_ASM` runs on the calling thread; `MAIN_THREAD_EM_ASM`
   proxies to the browser main thread and blocks until it answers. Every *other*
@@ -505,9 +510,10 @@ explanation lives in that doc — follow it before working in that area.
   `blocks/src/js_block.hpp` compiles, runs, produces correct samples, and queues
   every JS block behind Qt's event loop. `window` is undefined on a pthread for
   the same reason; use `globalThis`. See [docs/js-blocks.md](docs/js-blocks.md).
-- **A JS block's source is evaluated twice, and its `work()` cannot be
+- **A JS block's source and `init()` are evaluated twice, and its `work()` cannot be
   interrupted.** Once on the main thread for its descriptor and once on the
-  block's own thread for its instance, so module-level side effects run twice and
+  block's own thread for its instance; `init()` likewise has one recording and
+  one live call, so module-level side effects run twice and
   per-instance state belongs in `start()` or on `this`. And a `work()` that never
   returns wedges that scheduler thread until the tab is reloaded — there is no
   worker to terminate, because the call is on the thread's own stack. See

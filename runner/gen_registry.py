@@ -11,6 +11,7 @@ live setters, or are Python/hierarchical compositions.
 from __future__ import annotations
 
 import argparse
+import ast
 import itertools
 import json
 import os
@@ -1070,10 +1071,117 @@ def load_js_blocks() -> dict[str, str]:
 JS_PORT_DTYPES = {"complex", "float", "int", "short", "byte"}
 
 
+def _js_tokens(text: str) -> list[tuple[str, str]]:
+    """Enough JavaScript lexing for literal message-port declarations.
+
+    Comments are discarded and strings are decoded into one token, so method
+    names or fake calls inside either cannot satisfy the repo-block contract.
+    """
+    tokens: list[tuple[str, str]] = []
+    i = 0
+    while i < len(text):
+        ch = text[i]
+        if ch.isspace():
+            i += 1
+            continue
+        if text.startswith("//", i):
+            end = text.find("\n", i + 2)
+            i = len(text) if end < 0 else end + 1
+            continue
+        if text.startswith("/*", i):
+            end = text.find("*/", i + 2)
+            if end < 0:
+                raise SystemExit("unterminated JavaScript block comment")
+            i = end + 2
+            continue
+        if ch in "'\"":
+            quote, start = ch, i
+            i += 1
+            escaped = False
+            while i < len(text):
+                current = text[i]
+                i += 1
+                if escaped:
+                    escaped = False
+                elif current == "\\":
+                    escaped = True
+                elif current == quote:
+                    break
+            else:
+                raise SystemExit("unterminated JavaScript string")
+            raw = text[start:i]
+            try:
+                value = ast.literal_eval(raw)
+            except (SyntaxError, ValueError):
+                raise SystemExit(f"unsupported JavaScript string literal {raw!r}") from None
+            tokens.append(("string", str(value)))
+            continue
+        if ch.isalpha() or ch in "_$":
+            start = i
+            i += 1
+            while i < len(text) and (text[i].isalnum() or text[i] in "_$"):
+                i += 1
+            tokens.append(("ident", text[start:i]))
+            continue
+        tokens.append(("punct", ch))
+        i += 1
+    return tokens
+
+
+def _literal_message_ports(text: str, direction: str) -> tuple[list[str], bool]:
+    method = f"message_port_register_{direction}"
+    tokens = _js_tokens(text)
+    found: list[str] = []
+    dynamic = False
+    for i in range(len(tokens) - 4):
+        if tokens[i:i + 4] != [
+            ("ident", "this"), ("punct", "."), ("ident", method), ("punct", "(")
+        ]:
+            continue
+        tail = tokens[i + 4:]
+        if len(tail) >= 2 and tail[0][0] == "string" and tail[1] == ("punct", ")"):
+            found.append(tail[0][1])
+            continue
+        if len(tail) >= 6 and tail[:4] == [
+            ("ident", "pmt"), ("punct", "."), ("ident", "intern"), ("punct", "(")
+        ] and tail[4][0] == "string" and tail[5:7] == [("punct", ")"), ("punct", ")")]:
+            found.append(tail[4][1])
+            continue
+        dynamic = True
+    return found, dynamic
+
+
+def _reject_dynamic_js_port_shapes(block: dict[str, Any], source: Path) -> None:
+    for side in ("inputs", "outputs"):
+        for index, port in enumerate(block.get(side) or []):
+            if not isinstance(port, dict):
+                raise SystemExit(f"{source.name}: {side}[{index}] must be a port mapping")
+            if str(port.get("domain", "stream")) != "stream":
+                continue
+            for field in ("dtype", "vlen", "multiplicity", "hide", "optional"):
+                if field not in port:
+                    continue
+                value = port[field]
+                text = str(value)
+                if "${" in text:
+                    raise SystemExit(
+                        f"{source.name}: repo JS block {side}[{index}].{field} is parameter-dependent; "
+                        "the runner cannot construct parameter-dependent JS port shapes")
+            for field in ("vlen", "multiplicity"):
+                if field in port and not re.fullmatch(r"[1-9]\d*", str(port[field]).strip("'\"")):
+                    raise SystemExit(
+                        f"{source.name}: repo JS block {side}[{index}].{field} must be a static integer")
+            if "hide" in port and str(port["hide"]).lower() not in {"false", "none", "0", ""}:
+                raise SystemExit(
+                    f"{source.name}: repo JS block {side}[{index}].hide changes port presence; "
+                    "the runner requires a static visible port list")
+
+
 def check_js_ports_agree(block: dict[str, Any], source: Path) -> None:
     """A descriptor's own port declaration is optional; when it is there, it has to
     match the yml. Parsed textually -- this generator does not run JavaScript."""
     text = source.read_text()
+    _reject_dynamic_js_port_shapes(block, source)
     for side, key in (("inputs", "inputs"), ("outputs", "outputs")):
         yml_ports = [p for p in (block.get(side) or [])
                      if str(p.get("domain", "stream")) == "stream"]
@@ -1091,6 +1199,18 @@ def check_js_ports_agree(block: dict[str, Any], source: Path) -> None:
                 f"{source.name}: gr.export() declares {side} {declared}, but "
                 f"{block['id']}.block.yml declares {yml_dtypes}. The yml is "
                 "authoritative for a repo block; make them agree.")
+
+    for side, direction in (("inputs", "in"), ("outputs", "out")):
+        yml_messages = [str(port.get("id", "")) for port in (block.get(side) or [])
+                        if str(port.get("domain", "stream")) == "message"]
+        declared, dynamic = _literal_message_ports(text, direction)
+        if dynamic or declared != yml_messages:
+            reason = "uses a dynamic registration" if dynamic else f"declares {declared}"
+            raise SystemExit(
+                f"{source.name}: gr.export() {reason} for message {side}, but "
+                f"{block['id']}.block.yml declares {yml_messages}. Repo JS message ports must "
+                "match in order and use this.message_port_register_"
+                f"{direction}('name') or this.message_port_register_{direction}(pmt.intern('name')).")
 
 
 def write_js_registrar(output_dir: Path, js_blocks: dict[str, str]) -> None:

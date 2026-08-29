@@ -364,16 +364,19 @@ changes the canvas only after the descriptor succeeds:
 topic without putting the whole JS Block guide into the cached prompt. A small
 version stays in the prompt: complex buffers are interleaved, state belongs on
 `this`, views are never retained, `generalWork()` must consume, and
-`this.log()` is the visible logger.
+`this.log()` is the visible logger. Focused `tags`, `messages`, and `pmt` topics
+describe the synchronous native-style APIs without making every Graham turn pay
+for that detail.
 
 `exercise_js_block` drives up to eight bounded calls through the real
 `js_runtime.js` compile/work/forecast/log entry points in a disposable Worker.
 It accepts explicit per-port scalar arrays, construction parameters and numeric
-updates between calls, and reports produced/consumed counts plus bounded output
-heads. Outbound browser APIs are removed before source evaluation and a two
-second timeout terminates the Worker. This is the safe place to catch a loop
-that never returns: the corresponding live scheduler thread cannot be
-interrupted.
+updates between calls, absolute-offset input tags, and messages for registered
+handlers. It reports produced/consumed counts, bounded output heads, published
+messages, and added tags. Outbound browser APIs are removed before source
+evaluation and a two second timeout terminates the Worker. This is the safe
+place to catch a callback that never returns: the corresponding live scheduler
+thread cannot be interrupted.
 
 Model-written source is deliberately **not** accepted by any edit or exercise
 tool. Its first visible run still shows the existing human JavaScript review;
@@ -777,9 +780,10 @@ The narrow one, `scripts/eval_graham_js_blocks.mjs`, drives `FlowgraphAgent`
 directly against an `AiToolDeps` whose catalog holds exactly one block and whose
 `run_flowgraph` returns a note. It exercises
 creation, interface-preserving modification, a missing-`consume()` repair and
-state across work calls against deterministic arrays — so a failure here is
-about the model's JavaScript specifically, with no canvas, validation or runner
-in the way:
+state across work calls against deterministic arrays, plus a message-only
+handler and custom stream-tag propagation — so a failure here is about the
+model's JavaScript specifically, with no canvas, validation or runner in the
+way:
 
 ```bash
 OPENAI_API_KEY=... node scripts/eval_graham_js_blocks.mjs

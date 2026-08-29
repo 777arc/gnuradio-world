@@ -52,6 +52,12 @@ export interface JsBlockIo {
   overridesForecast: boolean;
   hasStart: boolean;
   hasStop: boolean;
+  msgPortsIn?: string[];
+  msgPortsOut?: string[];
+  msgHandlerPorts?: string[];
+  tagPropagation?: number;
+  minOutputBuffers?: number[];
+  maxNoutputItems?: number;
 }
 
 export function parseJsIo(text: unknown): JsBlockIo | null {
@@ -79,6 +85,11 @@ export function serializeJsIo(io: JsBlockIo): string {
 const portTemplate = (port: JsPort, label: string): PortTemplate => ({
   dtype: port.dtype, vlen: String(port.vlen ?? 1), domain: 'stream',
   id: '', label, multiplicity: '1', optional: false, hide: false,
+});
+
+const messagePortTemplate = (id: string): PortTemplate => ({
+  dtype: 'message', vlen: '1', domain: 'message', id, label: id,
+  multiplicity: '1', optional: true, hide: false,
 });
 
 // Each port is its own template with multiplicity 1, so nothing numbers them the
@@ -116,8 +127,14 @@ export function jsDef(base: RunnableDef, io: JsBlockIo | null): RunnableDef {
     def: def === null || def === undefined ? '' : def,
   }));
 
-  const inputTemplates = templatesFor(io.inputs || [], 'in');
-  const outputTemplates = templatesFor(io.outputs || [], 'out');
+  const inputTemplates = [
+    ...templatesFor(io.inputs || [], 'in'),
+    ...(io.msgPortsIn || []).map(messagePortTemplate),
+  ];
+  const outputTemplates = [
+    ...templatesFor(io.outputs || [], 'out'),
+    ...(io.msgPortsOut || []).map(messagePortTemplate),
+  ];
   return {
     ...base,
     label: io.label || base.label,
@@ -211,12 +228,14 @@ export interface JsExerciseCall {
   nout?: number;
   inputs?: number[][];
   setParams?: Record<string, number>;
+  tags?: { port: number; offset: number; key: unknown; value: unknown; srcid?: unknown }[];
 }
 
 export interface JsExerciseRequest {
   params?: Record<string, unknown>;
   calls?: JsExerciseCall[];
   forecastNout?: number;
+  messages?: { port: string; value: unknown }[];
 }
 
 const EXERCISE_TIMEOUT_MS = 2000;
@@ -230,9 +249,9 @@ const EXERCISE_TIMEOUT_MS = 2000;
 export async function exerciseJsSource(
   source: string, request: JsExerciseRequest = {},
 ): Promise<Record<string, unknown>> {
-  const calls = request.calls?.length ? request.calls : [{ nout: 8 }];
+  const calls = request.calls !== undefined ? request.calls : [{ nout: 8 }];
   if (calls.length > 8) throw new Error('exercise_js_block accepts at most 8 calls');
-  let scalars = 0;
+  let scalars = 0, tags = 0;
   for (const call of calls) {
     const nout = Number(call.nout ?? 8);
     if (!Number.isInteger(nout) || nout < 1 || nout > 4096)
@@ -242,12 +261,25 @@ export async function exerciseJsSource(
         throw new Error('exercise inputs must be arrays of finite numbers');
       scalars += input.length;
     }
+    for (const tag of call.tags || []) {
+      if (!Number.isInteger(tag.port) || tag.port < 0)
+        throw new Error('exercise tag ports must be non-negative integers');
+      if (!Number.isSafeInteger(tag.offset) || tag.offset < 0)
+        throw new Error('exercise tag offsets must be non-negative safe integers');
+      tags++;
+    }
   }
   if (scalars > 65_536) throw new Error('exercise inputs are limited to 65,536 scalar values');
+  if (tags > 64) throw new Error('exercise_js_block accepts at most 64 input tags');
   if (request.forecastNout !== undefined &&
       (!Number.isInteger(request.forecastNout) || request.forecastNout < 1 ||
        request.forecastNout > 4096))
     throw new Error('forecastNout must be an integer from 1 to 4096');
+  if ((request.messages?.length || 0) > 16)
+    throw new Error('exercise_js_block accepts at most 16 input messages');
+  for (const message of request.messages || [])
+    if (typeof message.port !== 'string' || !message.port.length)
+      throw new Error('exercise input messages need a non-empty port name');
 
   const runtime = await loadRuntime();
   const workerSource = `'use strict';
@@ -266,9 +298,13 @@ function __alloc(bytes, alignment) {
   return ptr;
 }
 function GROWABLE_HEAP_I8() { return new Int8Array(__buffer); }
+function GROWABLE_HEAP_U8() { return new Uint8Array(__buffer); }
 function GROWABLE_HEAP_I16() { return new Int16Array(__buffer); }
+function GROWABLE_HEAP_U16() { return new Uint16Array(__buffer); }
 function GROWABLE_HEAP_I32() { return new Int32Array(__buffer); }
+function GROWABLE_HEAP_U32() { return new Uint32Array(__buffer); }
 function GROWABLE_HEAP_F32() { return new Float32Array(__buffer); }
+function GROWABLE_HEAP_F64() { return new Float64Array(__buffer); }
 function UTF8ToString(ptr) {
   var heap = new Uint8Array(__buffer), end = ptr;
   while (end < heap.length && heap[end]) end++;
@@ -283,6 +319,94 @@ function stringToUTF8(text, ptr, cap) {
 function stringToNewUTF8(text) {
   var bytes = __enc.encode(String(text)), ptr = __alloc(bytes.length + 1, 1);
   stringToUTF8(text, ptr, bytes.length + 1); return ptr;
+}
+function _malloc(bytes) { return __alloc(Math.max(1, bytes), 8); }
+function _free() {}
+var __arena = [], __bridgeError = '', __published = [], __tagsOut = [];
+var __inputTags = [], __currentTags = [], __nread = [], __nwritten = [];
+function __pmtAdd(value) { __arena.push(value); return __arena.length - 1; }
+function __shim(run) { try { __bridgeError = ''; return run(); }
+  catch (error) { __bridgeError = String(error && error.message || error); return -1; } }
+function __big(lo, hi) { return BigInt(lo >>> 0) | (BigInt(hi >>> 0) << 32n); }
+function __writeBig(value, ptr) { var u = GROWABLE_HEAP_U32(), b = ptr >> 2;
+  u[b] = Number(value & 0xffffffffn); u[b + 1] = Number((value >> 32n) & 0xffffffffn); }
+var __errorPtr = __alloc(1024, 1);
+function _gr_js_last_error() { stringToUTF8(__bridgeError, __errorPtr, 1024); return __errorPtr; }
+function _gr_js_pmt_make(kind, lo, hi, x, y, textPtr) { return __shim(function () {
+  return __pmtAdd({ kind: kind, value: kind === 0 ? null : kind === 1 ? !!x
+    : kind === 2 ? UTF8ToString(textPtr) : kind === 3 ? (lo | 0)
+    : kind === 4 ? __big(lo, hi) : kind === 5 ? x : kind === 6 ? [x, y] : undefined }); }); }
+function _gr_js_pmt_seq(kind, ptr, count) { return __shim(function () {
+  var h = Array.from(GROWABLE_HEAP_I32().subarray(ptr >> 2, (ptr >> 2) + count));
+  return __pmtAdd({ kind: kind, value: h.map(function (i) { return __arena[i]; }) }); }); }
+function _gr_js_pmt_dict(ptr, count) { return __shim(function () {
+  var h = Array.from(GROWABLE_HEAP_I32().subarray(ptr >> 2, (ptr >> 2) + count)), e = [];
+  for (var i = 0; i < h.length; i += 2) e.push([__arena[h[i]], __arena[h[i + 1]]]);
+  return __pmtAdd({ kind: 7, value: e }); }); }
+function __itemSize(kind) { return ({20:1,21:1,22:2,23:2,24:4,25:4,26:8,27:8,
+  28:4,29:8,30:8,31:16,32:1})[kind]; }
+function _gr_js_pmt_blob_new(kind, count, meta) { return __shim(function () {
+  var size = __itemSize(kind), ptr = __alloc(Math.max(1, count * size), size);
+  GROWABLE_HEAP_U32().set([ptr, count * size, size, kind], meta >> 2);
+  return __pmtAdd({ kind: kind === 32 ? 20 : kind, ptr: ptr, count: count, size: size }); }); }
+function _gr_js_pmt_type(handle) { return __arena[handle] ? __arena[handle].kind : -1; }
+function _gr_js_pmt_real(handle, component) { var v = __arena[handle].value;
+  return Array.isArray(v) ? v[component] : Number(v); }
+function _gr_js_pmt_u64(handle, ptr) { return __shim(function () {
+  __writeBig(BigInt(__arena[handle].value), ptr); return 0; }); }
+function _gr_js_pmt_length(handle) { var v = __arena[handle];
+  return v.value && v.value.length !== undefined ? v.value.length : (v.count || 0); }
+function _gr_js_pmt_ref(handle, op, index) { return __shim(function () { var v = __arena[handle].value;
+  if (op < 2) return __pmtAdd(v[op]); if (op < 4) return __pmtAdd(v[index]);
+  return __pmtAdd(v[index][op === 4 ? 0 : 1]); }); }
+function _gr_js_pmt_text(handle, ptr, cap) { return __shim(function () {
+  return stringToUTF8(__arena[handle].value, ptr, cap); }); }
+function _gr_js_pmt_blob(handle, meta) { return __shim(function () { var v = __arena[handle];
+  GROWABLE_HEAP_U32().set([v.ptr, v.count, v.size, v.kind], meta >> 2); return 0; }); }
+function _gr_js_publish(handle, port, message) { return __shim(function () {
+  __published.push({ port: port, value: __arena[message] }); return 0; }); }
+function _gr_js_nitems(handle, written, port, ptr) { return __shim(function () {
+  __writeBig((written ? __nwritten : __nread)[port] || 0n, ptr); return 0; }); }
+function __samePmt(first, second) {
+  if (!first || !second || first.kind !== second.kind) return false;
+  return first.value === second.value;
+}
+function _gr_js_tags(handle, port, startLo, startHi, endLo, endHi, keyHandle) {
+  return __shim(function () {
+    var start = __big(startLo, startHi), end = __big(endLo, endHi);
+    var key = keyHandle < 0 ? null : __arena[keyHandle];
+    __currentTags = __inputTags.filter(function (tag) {
+      return tag.port === port && tag.offset >= start && tag.offset < end &&
+        (!key || __samePmt(tag.key, key));
+    });
+    return __currentTags.length;
+  });
+}
+function _gr_js_tag_offset(handle, index, ptr) { return __shim(function () {
+  __writeBig(__currentTags[index].offset, ptr); return 0; }); }
+function _gr_js_tag_field(handle, index, field) { return __shim(function () {
+  return __pmtAdd(__currentTags[index][['key','value','srcid'][field]]); }); }
+function _gr_js_add_tag(handle, port, lo, hi, key, value, srcid) { return __shim(function () {
+  __tagsOut.push({ port: port, offset: __big(lo, hi), key: __arena[key], value: __arena[value],
+    srcid: srcid < 0 ? { kind: 1, value: false } : __arena[srcid] }); return 0; }); }
+function __plainPmt(value) {
+  if (value === null || value === undefined) return { kind: 0, value: null };
+  if (typeof value === 'boolean') return { kind: 1, value: value };
+  if (typeof value === 'string') return { kind: 2, value: value };
+  if (typeof value === 'bigint') return { kind: 4, value: value };
+  if (typeof value === 'number') return { kind: Number.isInteger(value) ? 3 : 5, value: value };
+  if (Array.isArray(value)) return { kind: 9, value: value.map(__plainPmt) };
+  var entries = Object.keys(value).map(function (key) {
+    return [{ kind: 2, value: key }, __plainPmt(value[key])]; });
+  return { kind: 7, value: entries };
+}
+function __plain(value) {
+  if (!value) return value;
+  if (value.kind === 7) { var result = {}; value.value.forEach(function (entry) {
+    result[entry[0].value] = __plain(entry[1]); }); return result; }
+  if (value.kind === 8 || value.kind === 9 || value.kind === 10) return value.value.map(__plain);
+  if (value.ptr !== undefined) return Array.from(new Uint8Array(__buffer, value.ptr, value.count * value.size));
+  return typeof value.value === 'bigint' ? value.value.toString() + 'n' : value.value;
 }
 ${runtime}
 var __types = {
@@ -299,8 +423,10 @@ function __writeText(text) {
 function __error(ptr) { return UTF8ToString(ptr) || 'the JavaScript exercise failed'; }
 function __summary(values) {
   var list = Array.from(values), head = list.slice(0, 128);
-  var min = list.length ? Math.min.apply(null, list) : null;
-  var max = list.length ? Math.max.apply(null, list) : null;
+  var hasBig = list.some(function (value) { return typeof value === 'bigint'; });
+  var min = list.length && !hasBig ? Math.min.apply(null, list) : null;
+  var max = list.length && !hasBig ? Math.max.apply(null, list) : null;
+  if (hasBig) head = head.map(function (value) { return value.toString() + 'n'; });
   return { values: head, total_values: list.length,
     truncated: list.length > head.length, min: min, max: max };
 }
@@ -311,8 +437,20 @@ self.onmessage = function (event) {
     var info = described.info, err = __alloc(4096, 8), wordsPtr = __alloc(__grJs.WORDS * 4, 8);
     var words = GROWABLE_HEAP_I32(), base = wordsPtr >> 2, handle = 1;
     var srcPtr = __writeText(payload.source), paramsPtr = __writeText(JSON.stringify(payload.params || {}));
-    var rc = __grJs.compile(handle, srcPtr, paramsPtr, err, 4096);
+    var rc = __grJs.compile(handle, srcPtr, paramsPtr, 0, err, 4096);
     if (rc) throw new Error(__error(err));
+    __nread = new Array(info.inputs.length).fill(0n);
+    __nwritten = new Array(info.outputs.length).fill(0n);
+    var received = [];
+    for (var mi = 0; mi < (payload.messages || []).length; mi++) {
+      var incoming = payload.messages[mi];
+      var messageIndex = (info.msgHandlerPorts || []).indexOf(incoming.port);
+      if (messageIndex < 0) throw new Error('no JS message handler for port ' + incoming.port);
+      var messageHandle = __pmtAdd(__plainPmt(incoming.value));
+      rc = __grJs.message(handle, messageIndex, messageHandle, err, 4096);
+      if (rc) throw new Error(__error(err));
+      received.push({ port: incoming.port, value: incoming.value });
+    }
     var forecast = null;
     if (payload.forecastNout !== undefined) {
       words[base] = payload.forecastNout | 0; words[base + 1] = info.inputs.length;
@@ -325,6 +463,13 @@ self.onmessage = function (event) {
     var results = [];
     for (var ci = 0; ci < payload.calls.length; ci++) {
       var call = payload.calls[ci], nout = call.nout | 0, inputs = call.inputs || [];
+      __inputTags = (call.tags || []).map(function (tag) {
+        if (tag.port < 0 || tag.port >= info.inputs.length)
+          throw new Error('call ' + ci + ' tag names no input port ' + tag.port);
+        return { port: tag.port, offset: BigInt(tag.offset), key: __plainPmt(tag.key),
+          value: __plainPmt(tag.value),
+          srcid: tag.srcid === undefined ? { kind: 1, value: false } : __plainPmt(tag.srcid) };
+      });
       Object.keys(call.setParams || {}).forEach(function (name) {
         if (info.numericParams.indexOf(name) < 0)
           throw new Error('no numeric live parameter named ' + name);
@@ -371,7 +516,9 @@ self.onmessage = function (event) {
           throw new Error('call ' + ci + ' consumed ' + amount + ' items from input ' + co +
             ', which had ' + available);
         consumed.push(amount);
+        __nread[co] += BigInt(amount);
       }
+      for (var wo = 0; wo < info.outputs.length; wo++) __nwritten[wo] += BigInt(produced);
       var logPtr = __alloc(4096, 1), logged = __grJs.takeLog(handle, logPtr, 4096);
       results.push({ produced: produced, consumed: consumed,
         outputs: outputViews.map(__summary), log: logged ? UTF8ToString(logPtr).split('\\n') : [] });
@@ -379,7 +526,13 @@ self.onmessage = function (event) {
     rc = __grJs.stop(handle, err, 4096);
     if (rc) throw new Error(__error(err));
     __grJs.destroy(handle);
-    self.postMessage({ ok: true, info: info, forecast: forecast, calls: results });
+    self.postMessage({ ok: true, info: info, forecast: forecast, calls: results,
+      messages_received: received,
+      messages_published: __published.map(function (entry) {
+        return { port: (info.msgPortsOut || [])[entry.port], value: __plain(entry.value) }; }),
+      tags_added: __tagsOut.map(function (tag) {
+        return { port: tag.port, offset: tag.offset.toString(), key: __plain(tag.key),
+          value: __plain(tag.value), srcid: __plain(tag.srcid) }; }) });
   } catch (error) {
     self.postMessage({ ok: false, error: String(error && (error.stack || error.message) || error) });
   }
@@ -404,7 +557,7 @@ self.onmessage = function (event) {
         ? resolve(event.data) : reject(new Error(event.data?.error || 'the exercise failed')));
       worker.onerror = event => finish(() => reject(new Error(event.message || 'the exercise worker failed')));
       worker.postMessage({ source, params: request.params || {}, calls,
-        forecastNout: request.forecastNout });
+        forecastNout: request.forecastNout, messages: request.messages || [] });
     });
   } finally {
     worker.terminate();
@@ -683,14 +836,21 @@ export function generateBlockYml(block: LocalJsBlock): string {
     }
     lines.push('');
   }
-  for (const [key, ports] of [['inputs', block.io.inputs], ['outputs', block.io.outputs]] as
-       [string, JsPort[]][]) {
-    if (!ports?.length) continue;
+  for (const [key, ports, messages] of [
+    ['inputs', block.io.inputs, block.io.msgPortsIn],
+    ['outputs', block.io.outputs, block.io.msgPortsOut],
+  ] as [string, JsPort[], string[] | undefined][]) {
+    if (!ports?.length && !messages?.length) continue;
     lines.push(`${key}:`);
     for (const port of ports) {
       lines.push('-   domain: stream');
       lines.push(`    dtype: ${GRC_DTYPE[port.dtype] || port.dtype}`);
       if ((port.vlen ?? 1) !== 1) lines.push(`    vlen: '${port.vlen}'`);
+    }
+    for (const id of messages || []) {
+      lines.push('-   domain: message');
+      lines.push(`    id: ${ymlScalar(id)}`);
+      lines.push('    optional: true');
     }
     lines.push('');
   }

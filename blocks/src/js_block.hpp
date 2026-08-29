@@ -33,11 +33,14 @@
 
 #pragma once
 
+#include "js_pmt.hpp"
+
 #include <emscripten.h>
 #include <emscripten/threading.h>
 
 #include <gnuradio/block.h>
 #include <gnuradio/io_signature.h>
+#include <gnuradio/tags.h>
 
 #include <algorithm>
 #include <atomic>
@@ -63,6 +66,7 @@ struct JsBlockConfig {
     std::string label;       // the descriptor's label, for gr::block
     std::string source;      // the JavaScript, evaluated again on this block's thread
     std::string params_json = "{}"; // this instance's parameter values, as a JSON object
+    std::string descriptor_json; // normalized descriptor from the factory pass
     std::vector<int> in_itemsizes;
     std::vector<int> out_itemsizes;
     int decim = 1;
@@ -72,6 +76,13 @@ struct JsBlockConfig {
     double relative_rate = 1.0;
     bool general = false;
     bool overrides_forecast = false;
+    std::vector<std::string> msg_ports_in;
+    std::vector<std::string> msg_ports_out;
+    std::vector<std::string> msg_handler_ports;
+    int tag_propagation_policy = gr::block::TPP_ALL_TO_ALL;
+    // One entry per output; zero means no request for that port.
+    std::vector<long> min_output_buffers;
+    int max_noutput_items = 0;
     // Numeric parameters, in the order the descriptor declared them. Each gets a
     // slot below and one bit of the dirty mask.
     std::vector<std::string> numeric_params;
@@ -114,6 +125,68 @@ public:
     {
         return d_zero_progress_calls.load(std::memory_order_relaxed);
     }
+    std::uint64_t messages_in() const { return d_messages_in.load(std::memory_order_relaxed); }
+    std::uint64_t messages_out() const { return d_messages_out.load(std::memory_order_relaxed); }
+    std::uint64_t tags_out() const { return d_tags_out.load(std::memory_order_relaxed); }
+
+    // Narrow surface used only by js_pmt.cpp while JavaScript is synchronously
+    // on this block's scheduler-thread stack.
+    int bridge_get_tags(int port,
+                        std::uint64_t start,
+                        std::uint64_t end,
+                        const pmt::pmt_t* key)
+    {
+        if (port < 0 || port >= static_cast<int>(d_config.in_itemsizes.size()))
+            throw std::runtime_error("get_tags_in_range(): no input port " +
+                                     std::to_string(port));
+        if (end < start)
+            throw std::runtime_error("get_tags_in_range(): end precedes start");
+        d_tag_scratch.clear();
+        if (key) get_tags_in_range(d_tag_scratch, port, start, end, *key);
+        else get_tags_in_range(d_tag_scratch, port, start, end);
+        return static_cast<int>(d_tag_scratch.size());
+    }
+
+    const gr::tag_t& bridge_tag(int index) const
+    {
+        if (index < 0 || index >= static_cast<int>(d_tag_scratch.size()))
+            throw std::runtime_error("the JavaScript tag index was out of range");
+        return d_tag_scratch[static_cast<std::size_t>(index)];
+    }
+
+    void bridge_add_tag(int port,
+                        std::uint64_t offset,
+                        const pmt::pmt_t& key,
+                        const pmt::pmt_t& value,
+                        const pmt::pmt_t& srcid)
+    {
+        if (port < 0 || port >= static_cast<int>(d_config.out_itemsizes.size()))
+            throw std::runtime_error("add_item_tag(): no output port " +
+                                     std::to_string(port));
+        add_item_tag(static_cast<unsigned>(port), offset, key, value, srcid);
+        d_tags_out.fetch_add(1, std::memory_order_relaxed);
+    }
+
+    std::uint64_t bridge_nitems(bool written, int port)
+    {
+        const int count = written ? static_cast<int>(d_config.out_itemsizes.size())
+                                  : static_cast<int>(d_config.in_itemsizes.size());
+        if (port < 0 || port >= count)
+            throw std::runtime_error(std::string(written ? "nitems_written" : "nitems_read") +
+                                     "(): no " + (written ? "output" : "input") +
+                                     " port " + std::to_string(port));
+        return written ? nitems_written(static_cast<unsigned>(port))
+                       : nitems_read(static_cast<unsigned>(port));
+    }
+
+    void bridge_publish(int port_index, const pmt::pmt_t& message)
+    {
+        if (port_index < 0 || port_index >= static_cast<int>(d_config.msg_ports_out.size()))
+            throw std::runtime_error("message_port_pub(): no registered output port at index " +
+                                     std::to_string(port_index));
+        message_port_pub(pmt::intern(d_config.msg_ports_out[port_index]), message);
+        d_messages_out.fetch_add(1, std::memory_order_relaxed);
+    }
 
     bool start() override
     {
@@ -134,6 +207,7 @@ public:
         // the instance does not exist. Ask only when we are the thread that built
         // it; otherwise the worker is about to be torn down anyway.
         if (d_compiled && !emscripten_is_main_browser_thread()) {
+            JsPmtArenaScope arena;
             const int rc = EM_ASM_INT({ return __grJs.stop($0, $1, $2); },
                                       handle(), d_error.data(), kJsErrorBytes);
             drain_log();
@@ -160,6 +234,7 @@ public:
         // one general_work() arrives on, so building the instance here is safe --
         // and necessary, because forecast() runs before the first work() call.
         ensure_compiled();
+        JsPmtArenaScope arena;
         d_words[kNout] = noutput_items;
         d_words[kNinPorts] = std::min(inputs, kJsMaxPorts);
         const int rc = EM_ASM_INT({ return __grJs.forecast($0, $1, $2, $3); },
@@ -176,6 +251,7 @@ public:
     {
         ensure_compiled();
         drain_param_changes();
+        JsPmtArenaScope arena;
 
         const int nin = std::min(static_cast<int>(input_items.size()), kJsMaxPorts);
         const int nout = std::min(static_cast<int>(output_items.size()), kJsMaxPorts);
@@ -265,6 +341,23 @@ private:
         if (config.history > 1) set_history(config.history);
         if (config.output_multiple > 0) set_output_multiple(config.output_multiple);
         if (config.relative_rate != 1.0) set_relative_rate(config.relative_rate);
+        set_tag_propagation_policy(static_cast<tag_propagation_policy_t>(
+            config.tag_propagation_policy));
+        for (int port = 0; port < static_cast<int>(config.min_output_buffers.size()); ++port)
+            if (config.min_output_buffers[port] > 0)
+                set_min_output_buffer(port, config.min_output_buffers[port]);
+        if (config.max_noutput_items > 0) set_max_noutput_items(config.max_noutput_items);
+
+        for (const auto& name : config.msg_ports_in)
+            message_port_register_in(pmt::intern(name));
+        for (const auto& name : config.msg_ports_out)
+            message_port_register_out(pmt::intern(name));
+        for (int index = 0; index < static_cast<int>(config.msg_handler_ports.size()); ++index) {
+            const auto port = pmt::intern(config.msg_handler_ports[index]);
+            set_msg_handler(port, [this, index](const pmt::pmt_t& message) {
+                handle_message(index, message);
+            });
+        }
     }
 
     static gr::io_signature::sptr signature(const std::vector<int>& itemsizes)
@@ -304,9 +397,11 @@ private:
     void ensure_compiled()
     {
         if (d_compiled) return;
-        const int rc = EM_ASM_INT({ return __grJs.compile($0, $1, $2, $3, $4); },
+        JsPmtArenaScope arena;
+        const int rc = EM_ASM_INT({ return __grJs.compile($0, $1, $2, $3, $4, $5); },
                                   handle(), d_config.source.c_str(),
                                   d_config.params_json.c_str(),
+                                  d_config.descriptor_json.c_str(),
                                   d_error.data(), kJsErrorBytes);
         if (rc != 0) throw std::runtime_error(prefix() + error_text());
         d_compiled = true;
@@ -316,6 +411,23 @@ private:
         // only what a Range has since written. A change that arrived before the
         // first call set its own bit and is drained below like any other.
         drain_param_changes();
+    }
+
+    void handle_message(int port_index, const pmt::pmt_t& message)
+    {
+        if (emscripten_is_main_browser_thread())
+            throw std::runtime_error(prefix() +
+                "a JavaScript message handler ran on the browser main thread");
+        ensure_compiled();
+        drain_param_changes();
+        JsPmtArenaScope arena;
+        const int message_handle = js_pmt_add(message);
+        const int rc = EM_ASM_INT({ return __grJs.message($0, $1, $2, $3, $4); },
+                                  handle(), port_index, message_handle,
+                                  d_error.data(), kJsErrorBytes);
+        drain_log();
+        if (rc < 0) throw std::runtime_error(prefix() + error_text());
+        d_messages_in.fetch_add(1, std::memory_order_relaxed);
     }
 
     // this.log() lines, printed through printf() so they reach the editor's
@@ -349,6 +461,7 @@ private:
     std::vector<char> d_error;
     std::vector<char> d_log;
     std::vector<double> d_param_values;
+    std::vector<gr::tag_t> d_tag_scratch;
     std::uint32_t d_dirty_mask = 0;
     bool d_compiled = false;
     std::atomic<std::uint64_t> d_work_calls{ 0 };
@@ -356,6 +469,9 @@ private:
     std::atomic<int> d_last_produced{ 0 };
     std::atomic<int> d_last_consumed{ 0 };
     std::atomic<std::uint64_t> d_zero_progress_calls{ 0 };
+    std::atomic<std::uint64_t> d_messages_in{ 0 };
+    std::atomic<std::uint64_t> d_messages_out{ 0 };
+    std::atomic<std::uint64_t> d_tags_out{ 0 };
 };
 
 }  // namespace grworld

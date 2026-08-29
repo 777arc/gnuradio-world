@@ -106,6 +106,10 @@ const object = (properties: Record<string, unknown>, required: string[] = []) =>
 });
 const text = { type: 'string' };
 const port = { anyOf: [{ type: 'string' }, { type: 'integer', minimum: 0 }] };
+const pmtValue = { anyOf: [
+  { type: 'boolean' }, { type: 'number' }, { type: 'string' },
+  { type: 'array', items: {} }, { type: 'object', additionalProperties: true },
+], description: 'A plain JSON value converted to a PMT (strings become symbols, arrays vectors, and objects symbol-key dictionaries).' };
 
 const tool = (name: string, description: string, parameters: Record<string, unknown>): ToolDefinition => ({
   type: 'function', function: { name, description, parameters },
@@ -137,7 +141,7 @@ export const AI_TOOLS: ToolDefinition[] = [
     annotation_limit: { type: 'integer', minimum: 0, maximum: 100, default: 10 },
   }, ['recording'])),
   tool('get_js_block_help', 'Return the browser JS Block authoring contract or one focused topic. Use this before writing an unfamiliar work/generalWork block; inspect_js_block is for a particular instance.', object({
-    topic: { type: 'string', enum: ['overview', 'ports', 'scheduling', 'state', 'debugging', 'examples'], default: 'overview' },
+    topic: { type: 'string', enum: ['overview', 'ports', 'scheduling', 'state', 'tags', 'messages', 'pmt', 'debugging', 'examples'], default: 'overview' },
   })),
   tool('inspect_js_block', 'Read one JavaScript-backed block instance: complete source, implementation kind, derived descriptor, current declared parameters and ports, source hash, and JS-specific warnings. Use this instead of reading _source_code through generic graph parameters.', object({ name: text }, ['name'])),
   tool('create_js_block', 'Create an inline JS Block from source. The source is sandbox-introspected before the canvas changes, so syntax or descriptor failures leave no half-created block.', object({
@@ -150,11 +154,23 @@ export const AI_TOOLS: ToolDefinition[] = [
     source: { type: 'string', description: 'Candidate source to exercise without applying it. Supply name or source.' },
     params: { type: 'object', additionalProperties: true, description: 'Construction-time parameter overrides.' },
     forecast_nout: { type: 'integer', minimum: 1, maximum: 4096 },
-    calls: { type: 'array', minItems: 1, maxItems: 8, items: object({
-      nout: { type: 'integer', minimum: 1, maximum: 4096, default: 8 },
-      inputs: { type: 'array', description: 'One finite-number array per input port. Omitted values are zero-filled.', items: { type: 'array', items: { type: 'number' } } },
-      set_params: { type: 'object', additionalProperties: { type: 'number' }, description: 'Numeric live updates applied immediately before this call.' },
-    }) },
+    messages: { type: 'array', maxItems: 16,
+      description: 'Input messages delivered to registered handlers before work calls.',
+      items: object({ port: text, value: pmtValue }, ['port', 'value']) },
+    calls: { type: 'array', minItems: 0, maxItems: 8,
+      description: 'Work calls to run; use an empty array when exercising a message-only block.',
+      items: object({
+        nout: { type: 'integer', minimum: 1, maximum: 4096, default: 8 },
+        inputs: { type: 'array', description: 'One finite-number array per input port. Omitted values are zero-filled.', items: { type: 'array', items: { type: 'number' } } },
+        set_params: { type: 'object', additionalProperties: { type: 'number' }, description: 'Numeric live updates applied immediately before this call.' },
+        tags: { type: 'array', maxItems: 64,
+          description: 'Absolute-offset input stream tags visible during this work call.',
+          items: object({
+            port: { type: 'integer', minimum: 0 },
+            offset: { type: 'integer', minimum: 0 },
+            key: pmtValue, value: pmtValue, srcid: pmtValue,
+          }, ['port', 'offset', 'key', 'value']) },
+      }) },
   })),
   tool('save_js_block', 'Install an inline or browser-local JS Block into the browser-local library and return the generated repository file pair. This writes IndexedDB but does not bypass the human JavaScript review required for a run.', object({
     name: text, id: text, label: text,
@@ -445,12 +461,15 @@ const pageInfo = (total: number, offset: number, returned: number) => ({
 });
 
 const JS_HELP: Record<string, string> = {
-  overview: `A JS Block calls gr.export({...}) exactly once. The descriptor needs at least one input or output and exactly one of work(nout,input,output) or generalWork(nout,nin,input,output). Optional fields are label, doc, params, decimation, interpolation, history, outputMultiple, relativeRate, forecast, start and stop. Imports, stream tags and message ports are not supported. Use inspect_js_block, set_js_block_source and exercise_js_block rather than editing hidden cache parameters.`,
+  overview: `A JS Block calls gr.export({...}) exactly once. It needs at least one stream or message port. A stream block defines exactly one of work(nout,input,output) or generalWork(nout,nin,input,output); a message-only block may omit both. Optional fields are label, doc, params, decimation, interpolation, history, outputMultiple, relativeRate, forecast, init, start and stop. init() declares message ports/handlers, tag propagation and scheduler settings with GNU Radio's native method names. Imports are not supported. Use the tags, messages and pmt help topics for those APIs, and use inspect_js_block, set_js_block_source and exercise_js_block rather than editing hidden cache parameters.`,
   ports: `Ports are 'complex', 'float', 'int', 'short', 'byte', or {dtype,vlen}. complex and float are Float32Array; complex is interleaved I/Q and therefore has 2*nout*vlen scalar elements. int, short and byte use Int32Array, Int16Array and Int8Array. Never keep an input/output view after the current call returns.`,
   scheduling: `work() is sync-like. It receives nout plus nout*decimation/interpolation input items and returning r consumes r*decimation/interpolation. generalWork() receives per-port nin and consumes nothing automatically: call this.consume(port,n) on every progress path. Return the number of output items produced, from 0 through nout. forecast(nout,required) fills one required count per input.`,
   state: `The source is evaluated once on the main thread for its descriptor and again on the block's scheduler thread. Mutable per-instance state belongs on this, normally initialized in start(); mutable top-level state is wrong. Scalar params arrive on this. Numeric params can be updated between work calls by QT GUI Range controls.`,
-  debugging: `Use this.log(...) for the editor console; console.log from a scheduler worker reaches only devtools. Exercise candidate code with small deterministic arrays before a live run because a live work() that never returns cannot be interrupted. Throughput proves progress, not signal correctness: use known exercise outputs or a Probe in the visible graph.`,
-  examples: `Gain loop: for (let i=0;i<nout*2;i++) y[i]=x[i]*this.gain for complex, but only nout for float. Stateful transforms initialize this.previous in start(). A decimator reads x[i*decimation]. A general block computes n=Math.min(nout,...nin), writes n items, calls this.consume(0,n), and returns n. Repository examples include js_clip_cc, js_phase_unwrap_ff and js_peak_hold_ff; inspect or fork an instance to read the complete source.`,
+  tags: `In init(), choose gr.TPP_DONT, gr.TPP_ALL_TO_ALL, gr.TPP_ONE_TO_ONE or gr.TPP_CUSTOM with this.set_tag_propagation_policy(...). In work/generalWork, this.get_tags_in_window(port,start,end[,key]) and this.get_tags_in_range(port,absoluteStart,absoluteEnd[,key]) return owned {offset,key,value,srcid} objects whose offsets are absolute. this.nitems_read(port) and this.nitems_written(port) are exact counters; add output tags with this.add_item_tag(port, absoluteOffset, key, value[,srcid]). For custom propagation, the usual offset is this.nitems_written(0) + tag.offset - this.nitems_read(0). exercise_js_block accepts absolute-offset tags per work call and returns tags_added.`,
+  messages: `Declare ports in init() with this.message_port_register_in(pmt.intern('in')) and this.message_port_register_out(pmt.intern('out')); attach a descriptor method with this.set_msg_handler(pmt.intern('in'), this.handle_message). A handler receives one owned PMT value and publishes synchronously with this.message_port_pub(pmt.intern('out'), value). Handlers run on the same scheduler thread as work(), may retain their input, and a message-only block needs no work function. exercise_js_block accepts top-level messages [{port,value}] and returns messages_received and messages_published; pass calls:[] for a message-only block.`,
+  pmt: `The injected pmt global supports symbols; bool, long, real, uint64 and complex scalars; pairs/proper lists; dictionaries; vectors and tuples; every uniform vector type; and blobs. Common PDU construction is pmt.cons(metadata, payload), with pmt.car/cdr to read it. Plain strings become symbols, integral numbers longs, non-integral numbers reals, BigInts uint64s, arrays vectors, typed arrays matching uniform vectors, and plain objects symbol-key dictionaries. Use pmt.from_double(1) to keep an integral-valued real and pmt.from_uint64(1n) outside wasm32 signed-long range.`,
+  debugging: `Use this.log(...) for the editor console; console.log from a scheduler worker reaches only devtools. Exercise candidate code with small deterministic arrays, input tags and messages before a live run because a live callback that never returns cannot be interrupted. The result includes outputs, consumed counts, messages_published and tags_added. Throughput proves progress, not signal correctness: use known exercise outputs or a Probe in the visible graph.`,
+  examples: `Gain loop: for (let i=0;i<nout*2;i++) y[i]=x[i]*this.gain for complex, but only nout for float. Stateful transforms initialize this.previous in start(). A decimator reads x[i*decimation]. A general block computes n=Math.min(nout,...nin), writes n items, calls this.consume(0,n), and returns n. Repository examples include js_clip_cc, js_phase_unwrap_ff, js_peak_hold_ff and the message-only js_pdu_length; example_flowgraphs/javascript/js_tags_and_messages.grc demonstrates custom stream-tag propagation plus a PDU handler. Inspect or fork an instance to read complete source.`,
 };
 
 function jsHelp(topic: unknown): Record<string, unknown> {

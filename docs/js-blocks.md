@@ -32,6 +32,8 @@ around a constraint JavaScript does not have, so all of it goes.
 | Interface at construction | an async prepare step before any block is built | evaluated synchronously inside the factory |
 | Editor introspection | opt-in ~16 MB download, explicit re-read, Apply disabled until it lands | instant and local; ports follow the code as you type |
 | consume / produce | recorded as intents, applied after the call returns | `this.consume()` recorded and applied on return, with no thread to wake |
+| stream tags | bridge not built; the GR thread is asleep while Python runs | synchronous native-style reads and writes through owned PMT values |
+| message ports | refused at prepare time | registered in `init()`; handlers and publish calls run synchronously on the scheduler thread |
 | A call that never answers | 30 s timeout, then an error | cannot time out — see [The hang](#the-hang) |
 | Deploy-gated smoke test | excluded; the runtime is optional | included; there is no optional runtime |
 
@@ -114,30 +116,100 @@ so lines are queued and drained by C++ into `printf()` — the path every other
 block's output already takes. A word flag in the control array makes the common
 case (a block that never logs) free.
 
-**Not in v1.** Stream tags and message ports. The architecture supports them —
-synchronously, which is precisely what the Python block can never have — but they
-need a JS↔PMT bridge. It is a scope decision, not a limitation.
+### Tags and messages
+
+`init()` is the constructor hook for declarations that must exist before GNU
+Radio connects or starts a graph. It uses GNU Radio's own method names, as do the
+live APIs, so these portions of a block port to Python or C++ by transliteration:
+
+```js
+gr.export({
+  inputs: ['byte'], outputs: ['byte'],
+
+  init() {
+    this.message_port_register_in(pmt.intern('ctrl'));
+    this.set_msg_handler(pmt.intern('ctrl'), this.handle_ctrl);
+    this.message_port_register_out(pmt.intern('pdus'));
+    this.set_tag_propagation_policy(gr.TPP_CUSTOM);
+  },
+
+  handle_ctrl(msg) {
+    this.log('control:', pmt.to_python(msg));
+  },
+
+  work(nout, input, output) {
+    output[0].set(input[0].subarray(0, nout));
+    const read = this.nitems_read(0), written = this.nitems_written(0);
+    for (const tag of this.get_tags_in_window(0, 0, nout, pmt.intern('packet_len')))
+      this.add_item_tag(0, written + tag.offset - read, tag.key, tag.value);
+    this.message_port_pub(pmt.intern('pdus'),
+      pmt.cons(pmt.make_dict(), new Uint8Array(output[0])));
+    return nout;
+  },
+});
+```
+
+`get_tags_in_window()` and `get_tags_in_range()` return arrays of native
+`{ offset, key, value, srcid }` objects; offsets are absolute. `nitems_read()`
+and `nitems_written()` return ordinary exact JavaScript numbers, which keeps the
+usual `nitems_written(0) + i` idiom intact. The bridge checks the 2^53 exactness
+bound and throws rather than truncating. PMT uint64 *values* remain `BigInt`s.
+
+The injected `pmt` global covers symbols, bool/long/real/uint64/complex scalars,
+pairs and proper lists, dictionaries, vectors versus tuples, every uniform
+vector type, and blobs. Plain JavaScript values are accepted anywhere a PMT is:
+strings become symbols, in-range integral numbers become PMT longs, non-integral
+numbers become reals, BigInts become uint64s, arrays become vectors, typed arrays
+keep their element type, and plain objects are symbol-key dictionaries. Use
+`pmt.from_double(1)` when an integral-valued real must remain a real, and use
+`pmt.from_uint64(1n)` for an integer outside wasm32's signed-long range.
+
+Inbound messages, tags, uniform vectors and blobs are owned copies, not borrowed
+WASM views or arena handles. They may be retained across callbacks. Message
+handlers run on the same scheduler thread as `work()` and a publish is immediate;
+a handler exception follows the same failure path and has the same scheduler-
+dependent blast radius as a work exception.
+
+The supported constructor-style methods in `init()` are message-port
+registration and handler attachment, tag propagation policy, `set_history`,
+`set_output_multiple`, `set_relative_rate(rate)` or `(interp, decim)`,
+`set_min_output_buffer(items)` or `(port, items)`, and
+`set_max_noutput_items`. The descriptor shorthands (`history`,
+`outputMultiple`, `relativeRate`, decimation and interpolation) remain available;
+an `init()` setter wins when both spellings are present.
 
 ## Two rules a block author has to know
 
-### Module-level side effects run twice, and per-thread
+### Module-level side effects and `init()` run twice, and per-thread
 
 The descriptor is data; the instance is per-thread. A JS object cannot cross a
 worker boundary, and the factory runs on the browser main thread while `work()`
 runs on the block's thread. So the source is evaluated twice:
 
 - **Main thread, inside the factory.** Evaluate the source, read the descriptor,
-  take from it the item sizes, decimation/interpolation, history, output multiple
-  and the parameter names. All pure data; it becomes a plain `JsBlockConfig`
+  and run `init()` once on a recording instance holding the declared parameter
+  defaults. Take from it the item sizes, message ports, tag policy,
+  decimation/interpolation, history, output and buffer constraints and parameter
+  names. All pure data; it becomes a plain `JsBlockConfig`
   exactly as `PythonBlockConfig` is today. Unlike the Python path, nothing has to
   be fetched or awaited first — which is why there is no prepare step.
-- **Block thread, before the first `work()`.** Evaluate the same source again,
-  build the instance, seed `this` from the flowgraph's parameters, call `start()`.
+- **Block thread, before the first `work()` or handled message.** Evaluate the
+  same source again, build the instance, seed `this` from the flowgraph's
+  parameters, run live `init()` once, compare its declaration with the factory's,
+  then call `start()`.
 
 **Per-instance state belongs in `start()` or on `this` — never in the source's
 top-level scope.** A top-level `const` that is genuinely constant is fine (see
 `DECIMATION` in [blocks/js/js_peak_hold_ff.js](../blocks/js/js_peak_hold_ff.js));
 a top-level array a block writes into is not.
+
+Both recording and live instances inherit from the descriptor, so the canonical
+`this.set_msg_handler(port, this.handle_ctrl)` spelling works. The recording pass
+holds parameter *defaults*, not a particular flowgraph instance's values;
+message ports, history/rate/buffer settings and every other `init()` declaration
+therefore cannot depend on parameters. The live declaration is compared with the
+recorded one and a mismatch fails explicitly rather than constructing one
+interface and running another.
 
 Constructing lazily on the first `work()` rather than in `gr::block::start()` is
 deliberate: `general_work()` is definitionally on the block's own thread, whereas
@@ -161,6 +233,11 @@ more load-bearing, not less.
 
 A `subarray` costs tens of nanoseconds against a `work()` that moves thousands of
 items, so there is no reason to ever bend it.
+
+The PMT converter has the same internal rule: a PMT constructor shim can grow
+the heap, so it re-derives its metadata and data views after every shim call.
+That is an implementation detail, not a PMT lifetime restriction — author-visible
+messages, tags and typed PMT data are owned copies and may be retained.
 
 ## The pieces
 
@@ -239,19 +316,29 @@ below for what that costs.
 (`cmake --build runner/build` with any relink), and no generator has to run at all
 unless the descriptor's ports changed.
 
-**The yml is authoritative, not the descriptor.** It unlocks the whole GRC
-parameter and port vocabulary — enums with `option_attributes`, `${type}`-templated
-port dtypes, `hide` expressions, categories, documentation — that a JS object
-would re-invent badly. The descriptor's own port declaration is then optional, and
-`gen_registry.py` **fails the build** when a descriptor that declares ports
-disagrees with its yml.
+**The yml is authoritative, not the descriptor.** It unlocks the GRC parameter
+vocabulary — enums with `option_attributes`, categories and documentation — that
+a JS object would re-invent badly. The descriptor's own stream declaration is
+then optional, and `gen_registry.py` **fails the build** when a descriptor that
+declares ports disagrees with its yml. Message ports are declared in `init()` and
+must match `domain: message` yml ports in the same order; the generator's lexical
+scan accepts literal strings and `pmt.intern('literal')` without executing
+untrusted JavaScript.
 
-The three shipped blocks are worth reading as examples, because each exercises a
+Repo JS port shapes must currently be static. A parameter expression in `dtype`,
+`vlen`, `multiplicity`, conditional presence or message-port registration is a
+generator error. The editor could resolve such a yml shape per instance, but the
+runner constructs the stream signature from the source descriptor and the
+`_js_io` cache is per source string, not per instance. Failing at generation is
+preferable to drawing N ports and constructing a different number at run time.
+
+The four shipped blocks are worth reading as examples, because each exercises a
 different part of the runtime:
 [js_clip_cc](../blocks/js/js_clip_cc.js) (two live numeric parameters),
 [js_phase_unwrap_ff](../blocks/js/js_phase_unwrap_ff.js) (per-instance state
 carried across `work()` calls), and
-[js_peak_hold_ff](../blocks/js/js_peak_hold_ff.js) (decimation).
+[js_peak_hold_ff](../blocks/js/js_peak_hold_ff.js) (decimation), and
+[js_pdu_length](../blocks/js/js_pdu_length.js) (a message-only PMT handler).
 
 ## The editor
 
@@ -393,6 +480,10 @@ everything else on this page.
   `LINK_DEPENDS` carries it, because `--pre-js` is not a tracked dependency.
 - **`stringToUTF8` must stay in `-sEXPORTED_RUNTIME_METHODS`.** The runtime writes
   an error message into a fixed buffer C++ already owns rather than allocating one.
+- **The `gr_js_*` shims must stay in `-sEXPORTED_FUNCTIONS`.** `--pre-js` calls
+  those wasm exports synchronously from scheduler pthread realms for PMT
+  conversion, tag access and message publication. A temporary worker-thread
+  re-entry spike proved this toolchain path before the bridge was implemented.
 - **`MAIN_THREAD_EM_ASM` is the trap, not `EM_ASM`.** Every other JS-crossing
   helper in this tree uses the proxying form, because they all run from
   constructors on the main thread. Copying one into the JS block's hot path would
@@ -415,12 +506,13 @@ everything else on this page.
 
 | suite | covers |
 |---|---|
-| [runner/test/js_runtime.test.mjs](../runner/test/js_runtime.test.mjs) | the harness on plain Node, no browser: descriptor validation, view shapes and lengths, decim/interp arithmetic, `generalWork`, `forecast`, logging, error capture — and the arithmetic of every shipped `blocks/js/*.js`. Runs in a second, the same bargain [runner/test/grc_test.cpp](../runner/test/grc_test.cpp) makes for the parser |
-| [test/test_js_block.mjs](../test/test_js_block.mjs) | two flowgraphs whose `work()` is JavaScript, end to end in the runner, checked on probe *values* rather than liveness |
+| [runner/test/js_runtime.test.mjs](../runner/test/js_runtime.test.mjs) | the harness on plain Node, no browser: descriptor validation, init recording/live comparison, PMT scalar/container/uniform mappings, counter bounds, message-only blocks, view shapes and lengths, decim/interp arithmetic, `generalWork`, `forecast`, logging, error capture — and the arithmetic of every shipped `blocks/js/*.js`. Runs in a second, the same bargain [runner/test/grc_test.cpp](../runner/test/grc_test.cpp) makes for the parser |
+| [test/test_js_block.mjs](../test/test_js_block.mjs) | stream DSP, tag reads/writes and message handlers end to end in the real runner, checked on values, prints and JS diagnostics rather than liveness; throwing handlers under TPB and STS cover the failure surface |
 | [test/test_smoke.mjs](../test/test_smoke.mjs) | **a case, not an exemption.** There is no optional runtime to skip over, so the deploy gate covers JS blocks — which the Python block has never been able to claim |
 | [editor/test/js-block.test.mjs](../editor/test/js-block.test.mjs) | descriptor → `RunnableDef`, `defFor` coverage, `_js_io` byte stability, the generated repo pair, the editor wiring — all on plain Node |
 | [test/test_js_block_editor.mjs](../test/test_js_block_editor.mjs) | the editor in a real browser: the sandboxed introspection itself, and a block's ports following the code as it is typed with nothing pressed |
 | [example_flowgraphs/javascript/js_amplifier_model.grc](../example_flowgraphs/javascript/js_amplifier_model.grc) | an inline JS block and a repo one in one flowgraph, run through `node scripts/run_example.mjs javascript/js_amplifier_model` |
+| [example_flowgraphs/javascript/js_tags_and_messages.grc](../example_flowgraphs/javascript/js_tags_and_messages.grc) | both tag query spellings, custom tag propagation and the shipped message-only PDU block |
 | Help ▸ Benchmark Tool | a JS filter row beside the Python `fftconvolve` row, at the same tap counts. The comparison is the point of the row |
 
 One lesson worth carrying into any new test here: **`-O2` deletes an allocation
@@ -428,11 +520,6 @@ whose memory is never observed.** A test that means to force memory growth must
 make the allocation escape.
 
 ## Not supported yet
-
-- **Stream tags and message ports.** The architecture supports them
-  *synchronously* — a JS↔PMT bridge through small exported C shims, callable on
-  the block's own thread, because that thread is awake and on the stack. This is
-  precisely what the Python block cannot have, and it is the first thing after v1.
 - **A JS block that draws.** The runner's GUI is Qt widgets placed by the GUI
   Layout block; a JS block wanting its own canvas needs a `gui: true`
   declaration and a widget to host it. See [docs/gui-layout.md](gui-layout.md).

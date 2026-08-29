@@ -102,6 +102,9 @@ static QWidget* g_container = nullptr;
 static QWidget* g_gui_area = nullptr;
 static unsigned int g_run_generation = 0;
 static std::string g_pending_success_message;
+// Scheduler failures arrive asynchronously from worker threads. Keep the
+// delayed startup verdict from replacing a failure with RUNNER_PASS.
+static bool g_runtime_failed = false;
 
 // This run's widgets, in flowgraph order, for the layout pass and for re-laying
 // out on the fly when the editor sends a new spec. QPointer because run_now()
@@ -555,6 +558,8 @@ static void post_info_to_editor(const std::string& msg) {
 //     them to the editor's console pane. A Message Debug on a fast frame source
 //     emits thousands of lines a second, so reusing that batching matters —
 //     posting each record straight to the parent frame would drown it.
+static void report(bool ok, const std::string& msg);
+
 class BrowserLogSink : public spdlog::sinks::base_sink<std::mutex> {
 protected:
     void sink_it_(const spdlog::details::log_msg& msg) override {
@@ -582,8 +587,7 @@ protected:
         QMetaObject::invokeMethod(
             qApp,
             [text] {
-                show_error_in_window(QStringLiteral("Runtime error"), text);
-                post_error_to_editor(text);
+                report(false, text);
             },
             Qt::QueuedConnection);
     }
@@ -591,6 +595,7 @@ protected:
 };
 
 static void report(bool ok, const std::string& msg) {
+    if (!ok) g_runtime_failed = true;
     // marshalled to the browser main thread by Qt/emscripten as needed
     EM_ASM({
         var d = document.getElementById('result') ||
@@ -634,7 +639,10 @@ static void start_prepared_flowgraph(unsigned int generation) {
     auto sched = g_sched;
     std::thread([sched] { sched->wait(); }).detach();
     const std::string msg = g_pending_success_message;
-    QTimer::singleShot(2500, [msg] { report(true, msg); });
+    QTimer::singleShot(2500, [msg, generation] {
+        if (generation == g_run_generation && !g_runtime_failed)
+            report(true, msg);
+    });
 }
 
 // Called on the browser main thread after every newly allocated Worker has
@@ -727,6 +735,7 @@ static double declared_item_rate(const nlohmann::json& params) {
 static void run_now(const std::string& json_source) {
     try {
         auto j = nlohmann::json::parse(json_source);
+        g_runtime_failed = false;
         // Tear the previous run down in scheduler -> flat graph -> top block
         // order. Unlike gr_shutdown_flowgraph() this one *does* join: it is
         // re-running the graph, so the old blocks have to be finished with their
@@ -1373,6 +1382,9 @@ static std::string build_stats_json() {
                 { "last_produced", js->last_produced() },
                 { "last_consumed", js->last_consumed() },
                 { "zero_progress_calls", js->zero_progress_calls() },
+                { "msgs_in", js->messages_in() },
+                { "msgs_out", js->messages_out() },
+                { "tags_out", js->tags_out() },
             };
         }
         // Probe Signal is deliberately observable in the diagnostics snapshot.

@@ -141,9 +141,12 @@ so the bottleneck lights up without reading numbers.
 - **Per-block:** avg `work()` time (µs), **CPU share %**, work-call rate, avg
   `noutput_items`/call, input/output buffer %full, `nproduced`
 - **JavaScript blocks:** cumulative work calls, last requested/produced/consumed
-  counts and consecutive zero-progress calls. These stay in the JSON snapshot
-  for Graham and other diagnostic consumers; the visual panel need not add
-  columns for them.
+  counts, consecutive zero-progress calls, handled input messages, successfully
+  published output messages and successfully added output tags (`msgs_in`,
+  `msgs_out`, `tags_out`). The message counters make a working message-only block
+  distinguishable from one whose item count is correctly zero. These stay in the
+  JSON snapshot for Graham and other diagnostic consumers; the visual panel need
+  not add columns for them.
 - **Bottleneck attribution** — one derived field: block with max downstream-full
   or max CPU share
 - Sink **underruns / late frames** (dropped qtgui updates)

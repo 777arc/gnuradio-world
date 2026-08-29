@@ -177,6 +177,15 @@ returns wedges `sts` completely rather than just its own thread, but that alread
 wedges the thread until the tab is reloaded either way — see
 [js-blocks.md](js-blocks.md).
 
+A JavaScript exception has the same boundary whether it came from `work()` or a
+message handler: the JS entry point writes the stack into C++'s error buffer and
+the block throws `std::runtime_error`. Under TPB, `thread_body_wrapper` contains
+one block, so that block's thread ends and the rest of the graph may limp on.
+Under STS and deterministic scheduling, the wrapper contains the whole shared
+round-robin loop, so either callback ends the entire scheduler thread. The
+asymmetry is between schedulers, not between callback kinds; the JS browser test
+covers a throwing handler under both.
+
 ## The deterministic scheduler (`det`)
 
 The same single thread and the same fixed round-robin as `sts`, plus the two

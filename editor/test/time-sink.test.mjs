@@ -60,6 +60,19 @@ assert.match(runner, /configure_time_sink\(b, p, nc\)/,
 assert.match(runner, /configure_time_sink\(b, p, 2 \* nc\)/,
   'complex Time Sinks must configure real and imaginary traces');
 
+// Native GNU Radio calls this parameter `entags`, defaults it on, and applies
+// it to every trace. The hand-written editor schema must retain that id so a
+// native .grc round-trips without silently dropping the setting.
+{
+  const displayTags = param('qtgui_time_sink_x', 'entags');
+  assert.ok(displayTags, 'Time Sink must expose the native entags parameter');
+  assert.equal(displayTags.def, 'True');
+  assert.deepEqual(displayTags.options, ['True', 'False']);
+  assert.deepEqual(displayTags.optionLabels, ['Yes', 'No']);
+  assert.match(runner, /enable_tags\(bool_from\(p, "entags", true\)\)/,
+    'runner must apply entags and preserve native GNU Radio\'s enabled default');
+}
+
 // Line style and marker are enums of Qt::PenStyle / QwtSymbol::Style ids, and
 // the label a reader picks has to name the id that gets stored. GRC's sinks
 // order these lists differently from one another, so merging one sink's labels

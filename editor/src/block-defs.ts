@@ -424,6 +424,8 @@ export const RUNNABLE: Record<string, RunnableDef> = {
       { id: 'yunit', label: 'Y Axis Unit', type: 'string', def: '', category: 'General' },
       { id: 'grid', label: 'Grid', type: 'enum', def: 'False', options: BOOL_OPTIONS, category: 'General' },
       { id: 'autoscale', label: 'Autoscale', type: 'enum', def: 'False', options: BOOL_OPTIONS, category: 'General' },
+      { id: 'entags', label: 'Display Tags', type: 'enum', def: 'True',
+        options: BOOL_OPTIONS, optionLabels: ['Yes', 'No'], category: 'General' },
       { id: 'ymin', label: 'Y min', type: 'number', def: -1, category: 'General' },
       { id: 'ymax', label: 'Y max', type: 'number', def: 1, category: 'General' },
       { id: 'update_time', label: 'Update Period', type: 'number', def: 0.1, category: 'General' },

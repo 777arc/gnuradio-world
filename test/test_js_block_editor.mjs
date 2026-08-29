@@ -110,6 +110,31 @@ const GRAHAM_MODIFIED_SOURCE = `gr.export({
   },
 });`;
 
+const GRAHAM_MESSAGE_SOURCE = `gr.export({
+  label: 'Graham Message Echo',
+  init() {
+    this.message_port_register_in(pmt.intern('ctrl'));
+    this.set_msg_handler(pmt.intern('ctrl'), this.handle_ctrl);
+    this.message_port_register_out(pmt.intern('events'));
+  },
+  handle_ctrl(msg) {
+    this.message_port_pub(pmt.intern('events'), { seen: msg });
+  },
+});`;
+
+const GRAHAM_TAG_SOURCE = `gr.export({
+  label: 'Graham Tag Copy', inputs: ['byte'], outputs: ['byte'],
+  init() { this.set_tag_propagation_policy(gr.TPP_CUSTOM); },
+  work(nout, input, output) {
+    output[0].set(input[0].subarray(0, nout));
+    const read = this.nitems_read(0), written = this.nitems_written(0);
+    for (const tag of this.get_tags_in_window(0, 0, nout, pmt.intern('input_tag')))
+      this.add_item_tag(0, written + tag.offset - read,
+        pmt.intern('seen_tag'), tag.value);
+    return nout;
+  },
+});`;
+
 // The editor gives blocks no DOM identity, so every probe goes through this: the
 // JS Block is the *selected* one -- placing it selects it -- and its ports are
 // read off their labels, which is how a user tells them apart too.
@@ -170,10 +195,16 @@ const check = (ok, what, detail = '') => {
   console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${what}${detail && !ok ? ` — ${detail}` : ''}`);
   if (!ok) failures.push(what);
 };
+const toolResult = (body, id) => {
+  const message = body?.messages?.find(item =>
+    item.role === 'tool' && item.tool_call_id === id);
+  return message ? JSON.parse(message.content) : null;
+};
 
 const browser = await launchBrowser(ROOT);
 const page = await browser.newPage();
 let aiRequests = 0;
+const aiBodies = [];
 await page.setRequestInterception(true);
 page.on('request', request => {
   if (!request.url().includes('ai.gnuradioworld.com/v1/chat/completions')) {
@@ -190,6 +221,7 @@ page.on('request', request => {
     return;
   }
   aiRequests++;
+  if (request.postData()) aiBodies.push(JSON.parse(request.postData()));
   const chunk = aiRequests === 1
     ? { choices: [{ delta: { tool_calls: [
       { index: 0, id: 'create_js', type: 'function', function: {
@@ -220,6 +252,37 @@ page.on('request', request => {
       ] } }] }
       : aiRequests === 5
         ? { choices: [{ delta: { tool_calls: [
+          { index: 0, id: 'create_message_js', type: 'function', function: {
+            name: 'create_js_block', arguments: JSON.stringify({
+              name: 'graham_message', source: GRAHAM_MESSAGE_SOURCE,
+            }),
+          } },
+          { index: 1, id: 'exercise_message_js', type: 'function', function: {
+            name: 'exercise_js_block', arguments: JSON.stringify({
+              source: GRAHAM_MESSAGE_SOURCE,
+              messages: [{ port: 'ctrl', value: { gain: 3 } }],
+              calls: [],
+            }),
+          } },
+        ] } }] }
+        : aiRequests === 7
+          ? { choices: [{ delta: { tool_calls: [
+            { index: 0, id: 'create_tag_js', type: 'function', function: {
+              name: 'create_js_block', arguments: JSON.stringify({
+                name: 'graham_tags', source: GRAHAM_TAG_SOURCE,
+              }),
+            } },
+            { index: 1, id: 'exercise_tag_js', type: 'function', function: {
+              name: 'exercise_js_block', arguments: JSON.stringify({
+                source: GRAHAM_TAG_SOURCE,
+                calls: [{ nout: 4, inputs: [[1, 2, 3, 4]], tags: [
+                  { port: 0, offset: 2, key: 'input_tag', value: 7 },
+                ] }],
+              }),
+            } },
+          ] } }] }
+          : aiRequests === 9
+        ? { choices: [{ delta: { tool_calls: [
           { index: 0, id: 'fork_js', type: 'function', function: {
             name: 'fork_js_block', arguments: JSON.stringify({
               name: 'js_phase_unwrap_ff_0',
@@ -229,6 +292,8 @@ page.on('request', request => {
         : { choices: [{ delta: { content: aiRequests === 2
           ? 'Created and exercised Graham Gain.'
           : aiRequests === 4 ? 'Modified and exercised Graham Weighted Sum.'
+          : aiRequests === 6 ? 'Created and exercised a message-only JS Block.'
+          : aiRequests === 8 ? 'Created and exercised a stream-tag JS Block.'
           : 'Forked Phase Unwrap into an editable inline block.' } }] };
   void request.respond({ status: 200, contentType: 'text/event-stream', headers: {
     'Access-Control-Allow-Origin': origin, 'Cache-Control': 'no-cache',
@@ -260,10 +325,11 @@ const placed = await page.evaluate(() => {
 });
 check(placed === '', 'the palette offers a runnable JS Block', placed);
 
-// The three shipped repo blocks are palette entries like any other, with no
+// The four shipped repo blocks are palette entries like any other, with no
 // relink and nothing fetched to make them so.
 const repoBlocks = await page.evaluate(() => {
-  const wanted = ['Complex Soft Clipper', 'Phase Unwrap', 'Peak Hold (decimating)'];
+  const wanted = ['Complex Soft Clipper', 'Phase Unwrap', 'Peak Hold (decimating)',
+    'PDU Length Metadata'];
   const items = [...document.querySelectorAll('.pal-item')];
   return wanted.map(label => {
     const item = items.find(node => node.textContent.trim() === label);
@@ -472,6 +538,50 @@ check(modifiedByGraham?.rows.some(row => /Left/.test(row)) &&
 check(aiRequests === 4,
       'modify and exercise also share one tool round before the final answer', String(aiRequests));
 
+await page.evaluate(() => {
+  const prompt = document.querySelector('.ai-prompt');
+  prompt.value = 'Create and test a message-only JS Block.';
+  prompt.closest('form').requestSubmit();
+});
+await page.waitForFunction(() =>
+  (document.querySelector('.ai-transcript')?.textContent || '')
+    .includes('Created and exercised a message-only JS Block.'),
+{ timeout: 30000, polling: 100 });
+const messageByGraham = await probe();
+check(messageByGraham?.title === 'Graham Message Echo',
+      'Graham creates a message-only JS Block', JSON.stringify(messageByGraham));
+const messageEvidence = toolResult(aiBodies.at(-1), 'exercise_message_js');
+const published = messageEvidence?.messages_published?.[0];
+check(published?.port === 'events' && published?.value?.seen?.gain === 3,
+      'exercise_js_block delivers an input message and reports the handler publication',
+      JSON.stringify(messageEvidence));
+check(aiRequests === 6,
+      'message creation and exercise share one tool round before the final answer',
+      String(aiRequests));
+
+await page.evaluate(() => {
+  const prompt = document.querySelector('.ai-prompt');
+  prompt.value = 'Create and test a JS Block that rewrites stream tags.';
+  prompt.closest('form').requestSubmit();
+});
+await page.waitForFunction(() =>
+  (document.querySelector('.ai-transcript')?.textContent || '')
+    .includes('Created and exercised a stream-tag JS Block.'),
+{ timeout: 30000, polling: 100 });
+const tagsByGraham = await probe();
+check(tagsByGraham?.title === 'Graham Tag Copy' &&
+      tagsByGraham.inputs === 1 && tagsByGraham.outputs === 1,
+      'Graham creates a stream-tag JS Block', JSON.stringify(tagsByGraham));
+const tagEvidence = toolResult(aiBodies.at(-1), 'exercise_tag_js');
+const addedTag = tagEvidence?.tags_added?.[0];
+check(addedTag?.port === 0 && addedTag?.offset === '2' &&
+      addedTag?.key === 'seen_tag' && addedTag?.value === 7,
+      'exercise_js_block injects an input tag and reports the rewritten tag',
+      JSON.stringify(tagEvidence));
+check(aiRequests === 8,
+      'tag creation and exercise share one tool round before the final answer',
+      String(aiRequests));
+
 const placedRepoForFork = await page.evaluate(() => {
   const item = [...document.querySelectorAll('.pal-item')]
     .find(node => node.textContent.trim() === 'Phase Unwrap');
@@ -494,7 +604,7 @@ const forkedSource = await page.evaluate(() =>
   document.querySelector('.modal.props .code-field textarea.code-editor')?.value || '');
 check(/Phase Unwrap/.test(forkedSource) && /gr\.export/.test(forkedSource),
       'Graham can fork a shipped repository JS block into editable inline source');
-check(aiRequests === 6, 'forking completes in one tool round', String(aiRequests));
+check(aiRequests === 10, 'forking completes in one tool round', String(aiRequests));
 
 await browser.close();
 server.close();

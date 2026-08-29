@@ -7,6 +7,7 @@ const std::map<std::string, std::string>& block_js_map()
 {
     static const std::map<std::string, std::string> m = {
         {"js_clip_cc", "js_clip_cc.js"},
+        {"js_pdu_length", "js_pdu_length.js"},
         {"js_peak_hold_ff", "js_peak_hold_ff.js"},
         {"js_phase_unwrap_ff", "js_phase_unwrap_ff.js"},
     };
@@ -16,6 +17,7 @@ const std::map<std::string, std::string>& block_js_map()
 void register_generated_js_blocks(std::map<std::string, Factory>& registry)
 {
     register_js_block(registry, "js_clip_cc");
+    register_js_block(registry, "js_pdu_length");
     register_js_block(registry, "js_peak_hold_ff");
     register_js_block(registry, "js_phase_unwrap_ff");
 }

@@ -306,6 +306,7 @@ static void configure_time_sink(const std::shared_ptr<Sink>& sink,
     sink->set_update_time(number_from(p, "update_time", 0.1));
     sink->enable_grid(bool_from(p, "grid", false));
     sink->enable_autoscale(bool_from(p, "autoscale", false));
+    sink->enable_tags(bool_from(p, "entags", true));
     sink->enable_control_panel(bool_from(p, "ctrlpanel", false));
     sink->enable_axis_labels(bool_from(p, "axislabels", true));
     sink->enable_stem_plot(bool_from(p, "stemplot", false));
@@ -2001,6 +2002,7 @@ static BuiltBlock make_js_block(const std::string& block_id, const json& p)
     config.name = p.value("__name", block_id);
     config.label = info.value("label", std::string("JS Block"));
     config.source = source;
+    config.descriptor_json = text;
     for (const auto& port : info.value("inputs", json::array()))
         config.in_itemsizes.push_back(
             js_itemsize(port.value("dtype", std::string()), port.value("vlen", 1)));
@@ -2014,6 +2016,64 @@ static BuiltBlock make_js_block(const std::string& block_id, const json& p)
     config.relative_rate = info.value("relativeRate", 1.0);
     config.general = info.value("general", false);
     config.overrides_forecast = info.value("overridesForecast", false);
+
+    auto string_list = [&](const char* key) {
+        std::vector<std::string> values;
+        std::set<std::string> seen;
+        const auto list = info.value(key, json::array());
+        if (!list.is_array())
+            throw std::runtime_error("JS Block '" + config.name + "': " + key +
+                                     " must be an array");
+        for (const auto& item : list) {
+            if (!item.is_string() || item.get<std::string>().empty())
+                throw std::runtime_error("JS Block '" + config.name + "': " + key +
+                                         " contains an empty or non-string port name");
+            const std::string name = item.get<std::string>();
+            if (!seen.insert(name).second)
+                throw std::runtime_error("JS Block '" + config.name + "': duplicate " +
+                                         std::string(key) + " port '" + name + "'");
+            values.push_back(name);
+        }
+        return values;
+    };
+    config.msg_ports_in = string_list("msgPortsIn");
+    config.msg_ports_out = string_list("msgPortsOut");
+    config.msg_handler_ports = string_list("msgHandlerPorts");
+    const std::set<std::string> input_messages(config.msg_ports_in.begin(),
+                                                config.msg_ports_in.end());
+    for (const auto& name : config.msg_handler_ports)
+        if (!input_messages.count(name))
+            throw std::runtime_error("JS Block '" + config.name + "': handler port '" +
+                                     name + "' is not a registered input message port");
+
+    config.tag_propagation_policy = info.value("tagPropagation", 1);
+    if (config.tag_propagation_policy < 0 || config.tag_propagation_policy > 3)
+        throw std::runtime_error("JS Block '" + config.name +
+                                 "': unsupported tag propagation policy " +
+                                 std::to_string(config.tag_propagation_policy));
+    if (config.tag_propagation_policy == gr::block::TPP_ONE_TO_ONE &&
+        config.in_itemsizes.size() != config.out_itemsizes.size())
+        throw std::runtime_error("JS Block '" + config.name +
+                                 "': TPP_ONE_TO_ONE requires equal stream port counts (" +
+                                 std::to_string(config.in_itemsizes.size()) + " inputs, " +
+                                 std::to_string(config.out_itemsizes.size()) + " outputs)");
+
+    if (info.contains("minOutputBuffers")) {
+        const auto& minima = info.at("minOutputBuffers");
+        if (!minima.is_array() || minima.size() != config.out_itemsizes.size())
+            throw std::runtime_error("JS Block '" + config.name +
+                                     "': minOutputBuffers must have one entry per stream output");
+        for (const auto& value : minima) {
+            if (!value.is_number_integer() || value.get<long>() < 0)
+                throw std::runtime_error("JS Block '" + config.name +
+                                         "': minimum output buffer sizes must be non-negative integers");
+            config.min_output_buffers.push_back(value.get<long>());
+        }
+    }
+    config.max_noutput_items = info.value("maxNoutputItems", 0);
+    if (info.contains("maxNoutputItems") && config.max_noutput_items <= 0)
+        throw std::runtime_error("JS Block '" + config.name +
+                                 "': maxNoutputItems must be a positive integer");
 
     // The flowgraph's values for this instance's parameters, as JSON for the JS
     // side to spread onto `this`. GRC parameters arrive as JSON numbers *or* as

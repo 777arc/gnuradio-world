@@ -4776,11 +4776,14 @@ function aiToolDependencies(): AiReadDeps {
         nout: call.nout,
         inputs: call.inputs,
         setParams: call.set_params,
+        tags: call.tags,
       })) : undefined;
       const result = await exerciseJsSource(source, {
         params: args.params as Record<string, unknown> | undefined,
         calls,
         forecastNout: args.forecast_nout === undefined ? undefined : Number(args.forecast_nout),
+        messages: Array.isArray(args.messages) ? args.messages as { port: string; value: unknown }[]
+          : undefined,
       });
       return { source_hash: sourceHash(source), warnings: await analyzeJs(source), ...result };
     },

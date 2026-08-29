@@ -226,13 +226,16 @@ specification of what a Python block may do.
 
 ## Not supported yet
 
-- **Message ports and stream tags.** Both need a PMT bridge across the WASM
-  boundary in C++ (`pmt.py` is the Python half; nothing serializes a `pmt_t` yet).
-  A Python Block that registers a message port is refused at prepare time with a
-  message saying so, rather than running and silently delivering nothing. Tags are
-  already plumbed as far as `_Gateway`: `get_tags_in_range`/`get_tags_in_window`
-  filter a pre-supplied list (currently always empty) and `add_item_tag` records an
-  intent, so the remaining work is the serialization and the two ends of it.
+- **Message ports and stream tags.** Both still need a PMT bridge across the
+  Pyodide worker boundary (`pmt.py` is the Python half; nothing serializes a
+  `pmt_t` into that second WASM heap yet). A Python Block that registers a
+  message port is refused at prepare time with a message saying so, rather than
+  running and silently delivering nothing. Tags are already plumbed as far as
+  `_Gateway`: `get_tags_in_range`/`get_tags_in_window` filter a pre-supplied list
+  (currently always empty) and `add_item_tag` records an intent. The JavaScript
+  Block now supports both synchronously because it runs on the awake GNU Radio
+  thread and shares the runner heap; reach for it when tags or messages matter
+  more than running the same source unchanged in desktop GNU Radio.
 - **`epy_module`** (GRC's Python Module block), which exists to be imported into
   *other blocks' parameter expressions*. Those are evaluated by
   [`editor/src/expr.ts`](../editor/src/expr.ts), a TypeScript Python subset, so
