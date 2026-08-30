@@ -73,7 +73,8 @@ const AnnotationViewer = ({ currentFFT }: AnnotationViewerProps) => {
 
     // Getting new values for the annotation
     const newValues = {
-      'core:sample_start': (annotations[annot_indx].y1 + currentFFT) * fftSize * (fftStepSize + 1),
+      'core:sample_start':
+        (currentFFT + annotations[annot_indx].y1 * (fftStepSize + 1)) * fftSize,
       'core:sample_count': (annotations[annot_indx].y2 - annotations[annot_indx].y1) * fftSize * (fftStepSize + 1),
       'core:freq_lower_edge': annotations[annot_indx].x1 * meta.getSampleRate() + lower_freq,
       'core:freq_upper_edge': annotations[annot_indx].x2 * meta.getSampleRate() + lower_freq,
@@ -93,19 +94,25 @@ const AnnotationViewer = ({ currentFFT }: AnnotationViewerProps) => {
     const minimumFFT = currentFFT;
     const maximumFFT = currentFFT + spectrogramHeight * (fftStepSize + 1);
     const annotations = meta.annotations.map((annotation, index) => {
-      if (!annotation['core:sample_count']) {
-        return;
-      }
-      const start = annotation['core:sample_start'] / fftSize;
-      const end = annotation['core:sample_count'] / fftSize + start;
+      const sampleStart = Number(annotation['core:sample_start'] ?? 0);
+      const sampleCount = Math.max(0, Number(annotation['core:sample_count'] ?? 0));
+      const start = sampleStart / fftSize;
+      // A point annotation has no sample_count. Give it one displayed row so it
+      // remains selectable without changing its metadata into a range.
+      const end = start + Math.max(sampleCount / fftSize, fftStepSize + 1);
 
       const visible = start < maximumFFT && end > minimumFFT;
       const labelVisible = (start > minimumFFT && start < maximumFFT) || (end < maximumFFT && end > minimumFFT);
-      const capture = meta.getCapture(annotation['core:sample_start']);
+      const capture = meta.getCapture(sampleStart);
+      const centerFrequency = Number(capture?.['core:frequency'] ?? meta.getCenterFrequency());
+      const lowerEdge = Number(annotation['core:freq_lower_edge'] ??
+        centerFrequency - meta.getSampleRate() / 2);
+      const upperEdge = Number(annotation['core:freq_upper_edge'] ??
+        centerFrequency + meta.getSampleRate() / 2);
 
       return {
-        x1: (annotation['core:freq_lower_edge'] - capture['core:frequency']) / meta.getSampleRate() + 0.5,
-        x2: (annotation['core:freq_upper_edge'] - capture['core:frequency']) / meta.getSampleRate() + 0.5,
+        x1: (lowerEdge - centerFrequency) / meta.getSampleRate() + 0.5,
+        x2: (upperEdge - centerFrequency) / meta.getSampleRate() + 0.5,
         y1: (start - minimumFFT) / (fftStepSize + 1),
         y2: (end - minimumFFT) / (fftStepSize + 1),
         label: annotation.getLabel(),
@@ -117,7 +124,7 @@ const AnnotationViewer = ({ currentFFT }: AnnotationViewerProps) => {
       };
     });
     return annotations;
-  }, [meta, currentFFT, fftStepSize, fftSize, spectrogramWidth]);
+  }, [meta, currentFFT, fftStepSize, fftSize, spectrogramHeight]);
 
   // add cursor styling
   function onMouseOver() {
@@ -128,39 +135,29 @@ const AnnotationViewer = ({ currentFFT }: AnnotationViewerProps) => {
   }
 
   const newAnnotationClick = useCallback(() => {
-    annotations.push({
-      x1: 200,
-      x2: 400,
-      y1: 200,
-      y2: 400,
-      label: 'Fill Me In',
-      comment: null,
-      shortComment: null,
-      index: -1,
-      visible: true,
-      labelVisible: true,
-    });
-
-    // Add it to the meta.annotations as well. TODO: this is duplicate code
-    let updatedAnnotations = [...meta.annotations];
-    annotations[annotations.length - 1]['index'] = updatedAnnotations.length;
-
-    let start_sample_index = currentFFT * fftSize;
-    const annot_indx = annotations.length - 1;
-    let lower_freq = meta.captures[0]['core:frequency'] - meta.global['core:sample_rate'] / 2;
+    // Annotation x coordinates are normalized across the spectrogram; y is in
+    // displayed rows. Start with a centered, visible rectangle in those units.
+    const x1 = 0.25;
+    const x2 = 0.75;
+    const y1 = Math.max(0, spectrogramHeight * 0.25);
+    const y2 = Math.max(y1 + 1, spectrogramHeight * 0.5);
+    const startSampleIndex = currentFFT * fftSize;
+    const sampleRate = meta.getSampleRate();
+    const lowerFreq = meta.getCenterFrequency() - sampleRate / 2;
+    const newIndex = meta.annotations.length;
     meta.annotations.push(
       Object.assign(new Annotation(), {
-        'core:sample_start': annotations[annot_indx].y1 * fftSize * (fftStepSize + 1) + start_sample_index,
-        'core:sample_count': (annotations[annot_indx].y2 - annotations[annot_indx].y1) * fftSize * (fftStepSize + 1),
-        'core:freq_lower_edge': (annotations[annot_indx].x1 / fftSize) * meta.global['core:sample_rate'] + lower_freq,
-        'core:freq_upper_edge': (annotations[annot_indx].x2 / fftSize) * meta.global['core:sample_rate'] + lower_freq,
-        'core:label': annotations[annot_indx]['label'],
+        'core:sample_start': y1 * fftSize * (fftStepSize + 1) + startSampleIndex,
+        'core:sample_count': (y2 - y1) * fftSize * (fftStepSize + 1),
+        'core:freq_lower_edge': x1 * sampleRate + lowerFreq,
+        'core:freq_upper_edge': x2 * sampleRate + lowerFreq,
+        'core:label': 'Fill Me In',
       })
     );
-    let new_meta = Object.assign(new SigMFMetadata(), meta);
+    const new_meta = Object.assign(new SigMFMetadata(), meta);
     setMeta(new_meta);
-    // setSelectedAnnotation(annot_indx);
-  }, [annotations, meta, currentFFT, fftSize, fftStepSize, setMeta]);
+    setSelectedAnnotation(newIndex);
+  }, [meta, currentFFT, fftSize, fftStepSize, spectrogramHeight, setMeta, setSelectedAnnotation]);
 
   const onBoxCornerClick = useCallback(
     (e) => {
@@ -193,7 +190,7 @@ const AnnotationViewer = ({ currentFFT }: AnnotationViewerProps) => {
         key="newannotation"
       />
 
-      {annotations?.map(
+      {annotations.map(
         (annotation, index) =>
           annotation.visible && (
             // for params of Rect see https://konvajs.org/api/Konva.Rect.html

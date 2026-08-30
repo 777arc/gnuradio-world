@@ -9,6 +9,12 @@ export {
 } from '../src/recording/utils/selector';
 export { convertToFloat32 } from '../src/recording/utils/fetch-more-data-source';
 export {
+  float32IqBytes,
+  sampleSelection,
+  trimmedSigmfMetadata,
+} from '../src/recording/utils/selection-export';
+export { SigMFMetadata } from '../src/recording/utils/sigmfMetadata';
+export {
   CHANNELIZER_OVERSAMPLING,
   CHANNELIZER_OVERSAMPLING_CHOICES,
   CHANNELIZER_ROLLOFF,

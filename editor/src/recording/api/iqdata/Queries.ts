@@ -26,7 +26,7 @@ export function useGetIQData(
   const [fftsRequired, setStateFFTsRequired] = useState<number[]>([]);
 
   // enforce MAXIMUM_SAMPLES_PER_REQUEST by truncating if need be
-  function setFFTsRequired(fftsRequired: number[]) {
+  const setFFTsRequired = useCallback((fftsRequired: number[]) => {
     fftsRequired = fftsRequired.slice(
       0,
       fftsRequired.length > Math.ceil(MAXIMUM_SAMPLES_PER_REQUEST / fftSize)
@@ -34,7 +34,7 @@ export function useGetIQData(
         : fftsRequired.length
     );
     setStateFFTsRequired(fftsRequired);
-  }
+  }, [fftSize]);
 
   const { data: meta } = useMeta(type, account, container, filePath);
 

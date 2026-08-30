@@ -291,4 +291,35 @@ const settle = () => new Promise(resolve => setTimeout(resolve, 20));
     'a cancelled recording is not handed back');
 }
 
+// File System Access writes are transactional: close() commits the temporary
+// file, while abort() discards it. Cancellation must use the latter so an old
+// recording is not replaced by a partial new one.
+{
+  let closed = false;
+  let aborted = false;
+  const dir = {
+    getFileHandle: async () => ({
+      createWritable: async () => ({
+        write: async () => {},
+        close: async () => { closed = true; },
+        abort: async () => { aborted = true; },
+      }),
+    }),
+  };
+  const harness = build();
+  const worker = await startWorker();
+  worker.post({
+    sink: { kind: 'fsaccess', base: 'take', dir },
+    memory: harness.memory, ringPointer: harness.ringPointer,
+    capacityItems: harness.capacityItems, itemSize: harness.itemSize,
+    controlPointer: harness.controlPointer, errorPointer: harness.errorPointer,
+    errorCapacity: harness.errorCapacity,
+  });
+  await settle();
+  Atomics.store(harness.control, STATE, CANCELLED);
+  await settle();
+  assert.equal(aborted, true, 'cancellation discards the File System Access temporary file');
+  assert.equal(closed, false, 'cancellation must not commit a partial recording');
+}
+
 console.log('browser_file_writer: buffered and streamed paths, finish handshake, failures — OK');

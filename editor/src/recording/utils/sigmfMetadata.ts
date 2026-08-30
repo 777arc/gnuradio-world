@@ -32,7 +32,7 @@ export class SigMFMetadata {
   captures: Array<CaptureSegment>;
   annotations: Array<Annotation>;
 
-  getCapture(sampleStart: number): CaptureSegment {
+  getCapture(sampleStart: number): CaptureSegment | undefined {
     let capture = this.captures[0];
     for (let c of this.captures) {
       if (c['core:sample_start'] > sampleStart) break;
@@ -75,7 +75,7 @@ export class SigMFMetadata {
   }
 
   getFrequency() {
-    return Number(this.captures[0]['core:frequency'] ?? 1e6);
+    return Number(this.captures[0]?.['core:frequency'] ?? 1e6);
   }
   getAuthor() {
     return String(this.global['core:author'] ?? '')

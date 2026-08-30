@@ -5,12 +5,17 @@
 // Usage: node server.mjs [port] [absoluteRootDir]
 import http from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
-import { join, normalize } from 'node:path';
+import { join, normalize, resolve } from 'node:path';
 import { findExampleFlowgraphs } from './scripts/example-flowgraphs.mjs';
-import { contentType, setIsolationHeaders } from './scripts/http-support.mjs';
+import {
+  contentType,
+  decodeUrlPath,
+  pathIsWithin,
+  setIsolationHeaders,
+} from './scripts/http-support.mjs';
 
 const port = Number(process.argv[2] || 8080);
-const root = normalize(process.argv[3] || new URL('.', import.meta.url).pathname);
+const root = resolve(normalize(process.argv[3] || new URL('.', import.meta.url).pathname));
 
 async function isFile(path) {
   try { return (await stat(path)).isFile(); }
@@ -18,11 +23,14 @@ async function isFile(path) {
 }
 
 const server = http.createServer(async (req, res) => {
-  let urlPath = decodeURIComponent(new URL(req.url, 'http://x').pathname);
-
   // Cross-origin isolation headers on every response, the recording view's
   // included: it fetches the recording in CORS mode, which satisfies COEP.
   setIsolationHeaders(res);
+  const urlPath = decodeUrlPath(req.url);
+  if (urlPath === null) {
+    res.writeHead(400);
+    return res.end('bad request');
+  }
   // no-store everywhere, so an edit-reload loop never serves yesterday's build.
   // Pyodide is the exception: 16 MB of a pinned upstream release that no local
   // build can change, and re-downloading it on every Run of a flowgraph with a
@@ -60,7 +68,7 @@ const server = http.createServer(async (req, res) => {
     for (const candidate of candidates) {
       for (const base of bases) {
         const resolved = normalize(join(base, candidate));
-        if (!resolved.startsWith(root)) { res.writeHead(403); return res.end('forbidden'); }
+        if (!pathIsWithin(base, resolved)) { res.writeHead(403); return res.end('forbidden'); }
         filePath ??= await isFile(resolved) ? resolved : null;
       }
       if (filePath) break;

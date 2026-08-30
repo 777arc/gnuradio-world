@@ -314,10 +314,39 @@ assert.match(blockById('wasm_sigmf_sink')?.documentation ?? '',
 // Stopping a flowgraph that writes a recording has to let it finish: unloading
 // the frame kills the writer worker with the tail of the capture still in shared
 // memory, and with the whole of it where the browser buffers rather than streams.
-assert.match(main, /function runnerNeedsGracefulStop\(deps: RunSessionDeps\)[\s\S]*?i\.id === SIGMF_SINK_ID/);
-assert.match(main, /const finishing = runnerNeedsGracefulStop\(deps\) \? requestRunnerShutdown\(deps, frame\) : null;/,
+assert.match(main, /function graphNeedsGracefulStop\(deps: RunSessionDeps\)[\s\S]*?i\.id === SIGMF_SINK_ID/);
+assert.match(main, /session\.runningNeedsGracefulStop = graphNeedsGracefulStop\(deps\)/,
+  'the running graph records whether it owns a writer before later canvas edits');
+assert.match(main, /const finishing = session\.runningNeedsGracefulStop\s*\? requestRunnerShutdown\(deps, frame\) : null;/,
   'stop() stays synchronous -- loadFlowgraphAnimated needs the tab switch immediately');
+assert.match(main, /if \(session\.active \|\| session\.starting \|\| session\.finishing\)[\s\S]*?return null;/,
+  'Execute cannot replace an active runner or one whose recording is still flushing');
+assert.match(main, /session\.starting = true;[\s\S]*?try \{[\s\S]*?await prepareFlowgraph[\s\S]*?finally \{[\s\S]*?session\.starting = false;/,
+  'overlapping Execute clicks are also refused while permissions and file bindings are prepared');
 assert.match(main, /if \(generation !== session\.generation\) return;/,
-  'a Run pressed while a recording is still finishing keeps its own frame');
+  'a stale asynchronous unload remains unable to blank a different frame');
+
+const annotationViewer = await readFile(new URL(
+  '../src/recording/pages/recording-view/components/annotation/annotation-viewer.tsx', import.meta.url), 'utf8');
+assert.match(annotationViewer, /annotation\['core:sample_count'\] \?\? 0/,
+  'point annotations without sample_count are rendered instead of becoming undefined');
+assert.match(annotationViewer, /capture\?\.\['core:frequency'\] \?\? meta\.getCenterFrequency\(\)/,
+  'annotations remain renderable when the captures array is empty');
+assert.match(annotationViewer, /const x1 = 0\.25;[\s\S]*const x2 = 0\.75;/,
+  'new annotations use normalized horizontal coordinates');
+
+const timeSelector = await readFile(new URL(
+  '../src/recording/pages/recording-view/components/time-selector.tsx', import.meta.url), 'utf8');
+assert.match(timeSelector, /const fftStride = fftStepSize \+ 1/);
+assert.match(timeSelector, /e\.target\.y\(\) \* fftStride/,
+  'time cursor drag math includes zoom-out decimation');
+const timeMinimap = await readFile(new URL(
+  '../src/recording/pages/recording-view/components/time-selector-minimap.tsx', import.meta.url), 'utf8');
+assert.match(timeMinimap, /Math\.min\(\s*totalSamples,[\s\S]*Math\.max\(0, y\)/,
+  'both minimap handles clamp in sample units from zero through EOF');
+const scrollBar = await readFile(new URL(
+  '../src/recording/pages/recording-view/components/scroll-bar.tsx', import.meta.url), 'utf8');
+assert.match(scrollBar, /Math\.min\(\s*spectrogramHeight,[\s\S]*MINIMUM_SCROLL_HANDLE_HEIGHT_PIXELS/,
+  'a short recording cannot make its scroll handle taller than the minimap');
 
 console.log('checked SigMF Source/Sink pairing, metadata, samp_rate and shutdown');

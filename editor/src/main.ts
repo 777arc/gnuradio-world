@@ -2611,7 +2611,10 @@ const runSessionState: RunSessionState = {
   pendingToken: null,
   generation: 0,
   runningGraphSnapshot: null,
+  runningNeedsGracefulStop: false,
   active: false,
+  starting: false,
+  finishing: false,
 };
 
 // How big the file at a Public HTTP Recording's URL is. The reader needs the
@@ -2727,6 +2730,7 @@ function setRunnerRunning(running: boolean, status?: string) {
   }
   el('runStatus').textContent = status || (running ? 'Running flowgraph…' : 'No flowgraph running');
   (el('btnStop') as HTMLButtonElement).disabled = !running;
+  setExecuteEnabled(!running && !runSessionState.starting && !runSessionState.finishing);
   // Arranging needs live widgets to drag. A new run re-enables the button when
   // its first widget report arrives.
   if (!running) {
@@ -2738,6 +2742,11 @@ function setRunnerRunning(running: boolean, status?: string) {
   const qtLabel = running ? 'QT GUI — flowgraph running' : 'QT GUI';
   qtTab.title = qtLabel;
   qtTab.setAttribute('aria-label', qtLabel);
+}
+
+function setExecuteEnabled(enabled: boolean): void {
+  const execute = document.querySelector<HTMLButtonElement>('[data-tool="Execute"]');
+  if (execute) execute.disabled = !enabled;
 }
 
 // The embed's Run click, published for ?run=1 so an auto-run in an embed reports
@@ -3527,6 +3536,7 @@ const runSessionDeps: RunSessionDeps = {
   httpRecordingPrefix: HTTP_RECORDING_PREFIX,
   frame: el('runFrame') as HTMLIFrameElement,
   runEmpty: el('runEmpty'),
+  setExecuteEnabled,
   setRunnerRunning,
   activateWorkspaceTab,
   markCanvasStale: markRunningCanvasStale,
@@ -4329,7 +4339,8 @@ const MENUS: TopMenu[] = [
     { label: 'Flowgraph Errors', run: showErrorsDialog },
   ] },
   { label: 'Run', items: [
-    { label: 'Execute', key: 'F6', run: run },
+    { label: 'Execute', key: 'F6', run: run,
+      enabled: () => !runSessionState.active && !runSessionState.starting && !runSessionState.finishing },
     { label: 'Kill', key: 'F7', run: stop },
   ] },
   { label: 'Tools', items: [

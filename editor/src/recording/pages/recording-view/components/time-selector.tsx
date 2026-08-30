@@ -16,13 +16,14 @@ interface TimeSelectorProps {
 const TimeSelector = ({ currentFFT }: TimeSelectorProps) => {
   const [diffSamples, setDiffSamples] = useState('');
   const [diffSeconds, setDiffSeconds] = useState('');
-  const { spectrogramWidth, meta, fftSize } = useSpectrogramContext();
+  const { spectrogramWidth, meta, fftSize, fftStepSize } = useSpectrogramContext();
   const { cursorTime, cursorTimeEnabled, cursorTimeOpenEnded, setCursorTime } = useCursorContext();
 
   const cursorStartFFT = Math.floor(cursorTime.start / fftSize);
   const cursorEndFFT = Math.floor(cursorTime.end / fftSize);
-  const cursorYStart = cursorStartFFT - currentFFT;
-  const cursorYEnd = cursorEndFFT - currentFFT;
+  const fftStride = fftStepSize + 1;
+  const cursorYStart = (cursorStartFFT - currentFFT) / fftStride;
+  const cursorYEnd = (cursorEndFFT - currentFFT) / fftStride;
   const offsetSamples = `Offset: ${Math.round(cursorTime.start)} samples`;
   const lengthSamples = `Length: ${cursorTimeOpenEnded ? 0 : Math.round(cursorTime.end - cursorTime.start)} samples`;
 
@@ -54,7 +55,10 @@ const TimeSelector = ({ currentFFT }: TimeSelectorProps) => {
   // Sample-start bar
   const handleDragMoveStart = (e) => {
     e.target.x(0); // keep line in the same x location
-    const newStartSample = Math.max(currentFFT * fftSize, (currentFFT + e.target.y()) * fftSize);
+    const newStartSample = Math.max(
+      currentFFT * fftSize,
+      (currentFFT + e.target.y() * fftStride) * fftSize,
+    );
     // check if there is the need to reverse the two
     if (newStartSample > cursorTime.end) {
       setCursorTime({
@@ -72,7 +76,10 @@ const TimeSelector = ({ currentFFT }: TimeSelectorProps) => {
   // Sample-end bar
   const handleDragMoveEnd = (e) => {
     e.target.x(0); // keep line in the same x location
-    const newStartSample = Math.max(currentFFT * fftSize, (currentFFT + e.target.y()) * fftSize);
+    const newStartSample = Math.max(
+      currentFFT * fftSize,
+      (currentFFT + e.target.y() * fftStride) * fftSize,
+    );
     if (newStartSample > cursorTime.start) {
       setCursorTime({
         start: cursorTime.start,

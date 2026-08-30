@@ -1,4 +1,4 @@
-import { extname } from 'node:path';
+import { extname, isAbsolute, relative, sep } from 'node:path';
 
 const MIME = {
   '.css': 'text/css',
@@ -31,6 +31,22 @@ const MIME = {
 
 export function contentType(path) {
   return MIME[extname(path)] || 'application/octet-stream';
+}
+
+// URL parsing and path containment are shared by the two repository servers.
+// decodeURIComponent throws for malformed escape sequences, and a string-prefix
+// check confuses sibling paths such as /tmp/site and /tmp/site-secret.
+export function decodeUrlPath(url) {
+  try {
+    return decodeURIComponent(new URL(url, 'http://localhost').pathname);
+  } catch {
+    return null;
+  }
+}
+
+export function pathIsWithin(root, candidate) {
+  const rel = relative(root, candidate);
+  return rel === '' || (rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
 }
 
 // COOP + COEP are what SharedArrayBuffer and Emscripten's pthreads require.

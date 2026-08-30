@@ -74,13 +74,16 @@ const ScrollBar = ({ currentFFT, setCurrentFFT }: ScrollBarProps) => {
   // Calc scroll handle height and new scaling factor
   useEffect(() => {
     if (!meta) return;
-    let newHandleHeight =
-      (spectrogramHeight / (meta.getTotalSamples() / fftSize / (fftStepSize + 1))) * spectrogramHeight;
-    setHandleHeightPixels(Math.max(MINIMUM_SCROLL_HANDLE_HEIGHT_PIXELS, newHandleHeight));
+    const totalFfts = Math.max(1, meta.getTotalSamples() / fftSize);
+    const visibleFfts = spectrogramHeight * (fftStepSize + 1);
+    const newHandleHeight = (visibleFfts / totalFfts) * spectrogramHeight;
+    setHandleHeightPixels(Math.min(
+      spectrogramHeight,
+      Math.max(MINIMUM_SCROLL_HANDLE_HEIGHT_PIXELS, newHandleHeight),
+    ));
 
-    const totalffts = meta.getTotalSamples() / fftSize;
     // get the length ot any of the iqData arrays
-    const newScalingFactor = totalffts / spectrogramHeight;
+    const newScalingFactor = totalFfts / spectrogramHeight;
     setScalingFactor(newScalingFactor);
   }, [spectrogramHeight, fftSize, fftStepSize, meta]);
 
@@ -117,20 +120,16 @@ const ScrollBar = ({ currentFFT, setCurrentFFT }: ScrollBarProps) => {
     }
     // Add a tick wherever there are annotations
     let t = [];
+    const sampleRate = meta.getSampleRate();
+    const centerFrequency = meta.getCenterFrequency();
     meta.annotations.forEach((annotation) => {
+      const lowerEdge = Number(annotation['core:freq_lower_edge'] ?? centerFrequency - sampleRate / 2);
+      const upperEdge = Number(annotation['core:freq_upper_edge'] ?? centerFrequency + sampleRate / 2);
       t.push({
-        y: annotation['core:sample_start'] / fftSize,
-        height: annotation['core:sample_count'] / fftSize,
-        x:
-          ((annotation['core:freq_lower_edge'] -
-            meta.captures[0]['core:frequency'] +
-            meta.global['core:sample_rate'] / 2) /
-            meta.global['core:sample_rate']) *
-          MINIMAP_FFT_SIZE,
-        width:
-          ((annotation['core:freq_upper_edge'] - annotation['core:freq_lower_edge']) /
-            meta.global['core:sample_rate']) *
-          MINIMAP_FFT_SIZE,
+        y: Number(annotation['core:sample_start'] ?? 0) / fftSize,
+        height: Math.max(1, Number(annotation['core:sample_count'] ?? 0) / fftSize),
+        x: ((lowerEdge - centerFrequency + sampleRate / 2) / sampleRate) * MINIMAP_FFT_SIZE,
+        width: ((upperEdge - lowerEdge) / sampleRate) * MINIMAP_FFT_SIZE,
       });
     });
     setTicks(t);
@@ -139,13 +138,11 @@ const ScrollBar = ({ currentFFT, setCurrentFFT }: ScrollBarProps) => {
   const handleClick = (e) => {
     let currentY = e.evt.offsetY;
     let newY = currentY - handleHeightPixels / 2; // assume we want the handle centered where we click but we have to send fetchAndRender the top of the handle
-    if (newY < 0) {
-      newY = 0;
-    }
-    if (newY > spectrogramHeight - handleHeightPixels) {
-      newY = spectrogramHeight - handleHeightPixels;
-    }
-    setCurrentFFT(Math.floor(newY * scalingFactor));
+    const maxY = Math.max(0, spectrogramHeight - handleHeightPixels);
+    newY = Math.min(maxY, Math.max(0, newY));
+    const visibleFfts = spectrogramHeight * (fftStepSize + 1);
+    const maxFFT = Math.max(0, meta.getTotalSamples() / fftSize - visibleFfts);
+    setCurrentFFT(Math.floor(maxY > 0 ? (newY / maxY) * maxFFT : 0));
   };
 
   const handleWheel = (e) => {
@@ -162,17 +159,21 @@ const ScrollBar = ({ currentFFT, setCurrentFFT }: ScrollBarProps) => {
 
   const handleDragMove = (e) => {
     let newY = e.target.y();
-    if (newY <= 0) {
-      e.target.y(0);
-      newY = 0;
-    }
-    if (newY > spectrogramHeight - handleHeightPixels) {
-      e.target.y(spectrogramHeight - handleHeightPixels);
-      newY = spectrogramHeight - handleHeightPixels;
-    }
+    const maxY = Math.max(0, spectrogramHeight - handleHeightPixels);
+    newY = Math.min(maxY, Math.max(0, newY));
+    e.target.y(newY);
     e.target.x(0);
-    setCurrentFFT(Math.floor(newY * scalingFactor));
+    const visibleFfts = spectrogramHeight * (fftStepSize + 1);
+    const maxFFT = Math.max(0, meta.getTotalSamples() / fftSize - visibleFfts);
+    setCurrentFFT(Math.floor(maxY > 0 ? (newY / maxY) * maxFFT : 0));
   };
+
+  const maxHandleY = Math.max(0, spectrogramHeight - handleHeightPixels);
+  const visibleFfts = spectrogramHeight * (fftStepSize + 1);
+  const maxCurrentFFT = Math.max(0, meta.getTotalSamples() / fftSize - visibleFfts);
+  const handleY = maxCurrentFFT > 0
+    ? Math.min(maxHandleY, Math.max(0, currentFFT / maxCurrentFFT * maxHandleY))
+    : 0;
 
   return (
     <>
@@ -201,7 +202,7 @@ const ScrollBar = ({ currentFFT, setCurrentFFT }: ScrollBarProps) => {
       <Layer onWheel={handleWheel}>
         <Rect
           x={0}
-          y={currentFFT / scalingFactor}
+          y={handleY}
           fill="black"
           opacity={minimapImg ? 0.6 : 1}
           width={MINIMAP_FFT_SIZE}

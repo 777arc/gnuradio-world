@@ -35,7 +35,10 @@ export interface RunSessionState {
   pendingToken: string | null;
   generation: number;
   runningGraphSnapshot: string | null;
+  runningNeedsGracefulStop: boolean;
   active: boolean;
+  starting: boolean;
+  finishing: boolean;
 }
 
 export interface RunSessionDeps {
@@ -68,6 +71,7 @@ export interface RunSessionDeps {
   httpRecordingPrefix: string;
   frame: HTMLIFrameElement;
   runEmpty: HTMLElement;
+  setExecuteEnabled(enabled: boolean): void;
   setRunnerRunning(running: boolean, status?: string): void;
   activateWorkspaceTab(tab: string): void;
   markCanvasStale(stale: boolean): void;
@@ -99,7 +103,7 @@ async function publicHttpFileSize(url: string): Promise<number | null> {
   } catch { return null; }
 }
 
-function runnerNeedsGracefulStop(deps: RunSessionDeps): boolean {
+function graphNeedsGracefulStop(deps: RunSessionDeps): boolean {
   return deps.state.insts.some(i => i.id === SIGMF_SINK_ID && i.enabled && !i.bypassed);
 }
 
@@ -141,6 +145,26 @@ export interface RunOptions { unattended?: boolean }
 
 export async function runFlowgraph(deps: RunSessionDeps, session: RunSessionState,
                                    options: RunOptions = {}): Promise<string | null> {
+  if (session.active || session.starting || session.finishing) {
+    deps.log(session.finishing
+      ? 'cannot run: the previous recording is still being finished'
+      : session.starting
+        ? 'cannot run: a flowgraph is already being prepared'
+        : 'cannot run: stop the current flowgraph before starting it again');
+    return null;
+  }
+  session.starting = true;
+  deps.setExecuteEnabled(false);
+  try {
+    return await prepareFlowgraph(deps, session, options);
+  } finally {
+    session.starting = false;
+    deps.setExecuteEnabled(!session.active && !session.finishing);
+  }
+}
+
+async function prepareFlowgraph(deps: RunSessionDeps, session: RunSessionState,
+                                options: RunOptions): Promise<string | null> {
   const { state, trainingSession: getTrainingSession, log, validateGraph, select, askToRunUnpacedFlowgraph,
     usbRadios: USB_RADIOS, showUsbPreparationProblem, sigmfOutputDirsByToken,
     newLocalFileToken, unacceptedJsSources, askToRunJavaScript,
@@ -453,22 +477,26 @@ export async function runFlowgraph(deps: RunSessionDeps, session: RunSessionStat
   frame.hidden = false;
   deps.setRunnerRunning(true);
   deps.activateWorkspaceTab('qtgui');
-  // Claims the frame: a previous stop() still finishing a recording will see
-  // this and leave the new run alone.
+  // Claims the frame. The generation check remains a final guard against any
+  // stale asynchronous unload, though Run is also refused while one is pending.
   ++session.generation;
   frame.src = url;
   const doc = buildGrcDoc();
   log('▶ running ' + doc.blocks.length + ' blocks, ' + doc.connections.length + ' connections');
   session.runningGraphSnapshot = JSON.stringify(snapshot());
+  session.runningNeedsGracefulStop = graphNeedsGracefulStop(deps);
   session.active = true;
   return token;
 }
 
 export function stopFlowgraph(deps: RunSessionDeps, session: RunSessionState): void {
+  if (session.finishing || !session.active) return;
   const frame = deps.frame;
-  // Started before anything else, because it reads `insts` -- and one caller
-  // (loadFlowgraphAnimated) replaces the canvas the moment this returns.
-  const finishing = runnerNeedsGracefulStop(deps) ? requestRunnerShutdown(deps, frame) : null;
+  // This was captured from the graph that actually started. The canvas may
+  // already have been edited or replaced by the time Stop is pressed.
+  const finishing = session.runningNeedsGracefulStop
+    ? requestRunnerShutdown(deps, frame) : null;
+  session.finishing = !!finishing;
   const generation = session.generation;
 
   if (session.pendingToken) {
@@ -481,6 +509,7 @@ export function stopFlowgraph(deps: RunSessionDeps, session: RunSessionState): v
   deps.runEmpty.hidden = false;
   session.active = false;
   session.runningGraphSnapshot = null;
+  session.runningNeedsGracefulStop = false;
   deps.setRunnerRunning(false);
   deps.activateWorkspaceTab('editor');
 
@@ -488,6 +517,8 @@ export function stopFlowgraph(deps: RunSessionDeps, session: RunSessionState): v
     // Only if this is still the run we were asked to stop.
     if (generation !== session.generation) return;
     frame.src = 'about:blank';   // unloading the iframe stops its WASM workers
+    session.finishing = false;
+    deps.setRunnerRunning(false);
     deps.log('■ flowgraph stopped');
   };
   if (finishing) {

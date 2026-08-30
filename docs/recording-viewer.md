@@ -187,8 +187,11 @@ Three traps worth keeping straight:
   recording finishes.
 
   On the editor side `stop()` stays *synchronous* — `loadFlowgraphAnimated()`
-  needs the tab switch immediately — and only the unload is deferred, guarded by a
-  `runGeneration` counter so a late unload cannot blank a newer run's frame.
+  needs the tab switch immediately — and only the unload is deferred. Whether a
+  shutdown is required is captured from the graph that actually started, since
+  the canvas can be edited before Stop is pressed. Execute is refused while a
+  graph is being prepared, active, or its writer is still flushing, so assigning
+  a new URL can never unload the iframe underneath a recording.
 - **The finish handshake is two messages.** `FINISHING` (an atomic) and the
   `.sigmf-meta` (a `postMessage`) are sent separately and either can land first,
   so the worker closes the file only once it has both. For the same reason the
@@ -377,6 +380,17 @@ working:
   "Real", and the IQ plot says why every point is on the I axis — unless the
   frequency shift is on, which mixes a real signal down to a genuinely complex
   one and makes both meaningful again.
+- **Big-endian recordings remain viewable.** Multi-byte `_be` components are
+  read through `DataView` with explicit byte order; `_le` keeps the typed-array
+  fast path. They still cannot be added as a GNU Radio source block, whose
+  stream item layout is native little-endian, but View must not silently show
+  byte-swapped samples.
+- **Downloaded selections are normalized to `cf32_le`.** The viewer has already
+  widened and normalized every supported input to interleaved float I/Q, so the
+  selected `.sigmf-data` writes those floats explicitly little-endian and its
+  metadata declares that representation. Captures and annotations are clipped
+  and rebased to the selected half-open sample range; hashes, origins and other
+  whole-file claims are removed.
 
 ## Viewer styling
 

@@ -25,7 +25,17 @@ await build({
   logLevel: 'silent',
   alias: { '@': resolve(new URL('../src/recording', import.meta.url).pathname) },
 });
-const { calcFfts, convertToFloat32, dataTypeIsComplex, dataTypeToBytesPerIQSample, windowCoefficient } =
+const {
+  calcFfts,
+  convertToFloat32,
+  dataTypeIsComplex,
+  dataTypeToBytesPerIQSample,
+  float32IqBytes,
+  sampleSelection,
+  SigMFMetadata,
+  trimmedSigmfMetadata,
+  windowCoefficient,
+} =
   await import(pathToFileURL(out));
 
 // --- datatype shape -------------------------------------------------------
@@ -82,10 +92,79 @@ assert.deepEqual(
   [0.5, -0.25],
   'cf32 must remain the zero-copy fast path it has always been');
 
+const bigEndianInt16 = new ArrayBuffer(4);
+const bigEndianInt16View = new DataView(bigEndianInt16);
+bigEndianInt16View.setInt16(0, 32767, false);
+bigEndianInt16View.setInt16(2, -32767, false);
+assert.deepEqual(
+  Array.from(convertToFloat32(bigEndianInt16, 'ci16_be')),
+  [1, -1],
+  'big-endian integer components must not be read in host byte order');
+const bigEndianFloat32 = new ArrayBuffer(8);
+const bigEndianFloat32View = new DataView(bigEndianFloat32);
+bigEndianFloat32View.setFloat32(0, 0.5, false);
+bigEndianFloat32View.setFloat32(4, -0.25, false);
+assert.deepEqual(
+  Array.from(convertToFloat32(bigEndianFloat32, 'cf32_be')),
+  [0.5, -0.25],
+  'big-endian float components must be decoded explicitly');
+
 // A real read is half as many bytes for the same sample count, and produces the
 // same number of floats as the complex recording of the same width would.
 const realSamples = convertToFloat32(int16Buffer([1, 2, 3, 4]), 'ri16_le');
 assert.equal(realSamples.length / 2, 4, 'four ri16 samples must be four I/Q pairs');
+
+// --- exact, self-describing selected-sample exports -----------------------
+
+assert.deepEqual(sampleSelection(3.25, 5.1, 20), { start: 3, end: 6, count: 3 });
+assert.deepEqual(sampleSelection(-5, 50, 20), { start: 0, end: 20, count: 20 });
+const exportedBytes = float32IqBytes(Float32Array.from([0.5, -0.25]));
+assert.equal(exportedBytes.byteLength, 8);
+assert.equal(new DataView(exportedBytes.buffer).getFloat32(0, true), 0.5);
+assert.equal(new DataView(exportedBytes.buffer).getFloat32(4, true), -0.25);
+
+const exportMeta = Object.assign(new SigMFMetadata(), {
+  global: {
+    'core:datatype': 'ci16_le',
+    'core:version': '1.2.0',
+    'core:sample_rate': 1e6,
+    'core:sha512': 'stale',
+    'traceability:sample_length': 100,
+    'traceability:origin': { type: 'url', account: '', container: '', file_path: 'old' },
+  },
+  captures: [
+    { 'core:sample_start': 0, 'core:frequency': 100e6 },
+    { 'core:sample_start': 40, 'core:frequency': 101e6 },
+    { 'core:sample_start': 80, 'core:frequency': 102e6 },
+  ],
+  annotations: [
+    { 'core:sample_start': 25, 'core:sample_count': 20, 'core:label': 'overlap start' },
+    { 'core:sample_start': 50, 'core:label': 'point' },
+    { 'core:sample_start': 65, 'core:sample_count': 20, 'core:label': 'overlap end' },
+  ],
+});
+const trimmed = trimmedSigmfMetadata(exportMeta, sampleSelection(30, 70, 100));
+assert.equal(trimmed.global['core:datatype'], 'cf32_le');
+assert.equal(trimmed.global['traceability:sample_length'], 40);
+assert.equal(trimmed.global['core:sha512'], undefined);
+assert.equal(trimmed.global['traceability:origin'], undefined);
+assert.deepEqual(trimmed.captures.map(capture => capture['core:sample_start']), [0, 10]);
+assert.deepEqual(trimmed.annotations.map(annotation => [
+  annotation['core:sample_start'], annotation['core:sample_count'], annotation['core:label'],
+]), [
+  [0, 15, 'overlap start'],
+  [20, undefined, 'point'],
+  [35, 5, 'overlap end'],
+]);
+
+const noCaptures = Object.assign(new SigMFMetadata(), {
+  global: { 'core:datatype': 'cf32_le', 'core:version': '1.2.0' },
+  captures: [],
+  annotations: [],
+});
+assert.equal(noCaptures.getCapture(10), undefined,
+  'an empty captures array is valid and must not be dereferenced');
+assert.equal(noCaptures.getCenterFrequency(), 0);
 
 // --- the mirrored spectrum ------------------------------------------------
 

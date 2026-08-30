@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { findExampleFlowgraphs } from '../../scripts/example-flowgraphs.mjs';
 import { bundleModule } from './bundle-module.mjs';
 import { examplePaletteSource as examples, cssSource as css } from './editor-contract-source.mjs';
+import { decodeUrlPath, pathIsWithin } from '../../scripts/http-support.mjs';
 
 const fixture = await mkdtemp(join(tmpdir(), 'example-flowgraphs-'));
 try {
@@ -32,6 +33,15 @@ const server = await readFile(new URL('../../server.mjs', import.meta.url), 'utf
 const assembler = await readFile(new URL('../../scripts/assemble-site.mjs', import.meta.url), 'utf8');
 const harness = await readFile(new URL('../../scripts/run_example.mjs', import.meta.url), 'utf8');
 assert.match(server, /await findExampleFlowgraphs\(dir\)/);
+assert.equal(decodeUrlPath('/%E0%A4%A'), null,
+  'a malformed URL is rejected instead of throwing out of the request handler');
+assert.equal(decodeUrlPath('/examples/radio'), '/examples/radio');
+assert.equal(pathIsWithin('/tmp/site', '/tmp/site/assets/app.js'), true);
+assert.equal(pathIsWithin('/tmp/site', '/tmp/site-secret/token'), false,
+  'a sibling whose name shares the root prefix is not inside the served directory');
+assert.match(server, /pathIsWithin\(base, resolved\)/);
+const pagesServer = await readFile(new URL('../../scripts/serve_site.mjs', import.meta.url), 'utf8');
+assert.match(pagesServer, /pathIsWithin\(SITE, direct\)/);
 assert.match(assembler, /const grcFiles = await findExampleFlowgraphs\(fgDir\)/);
 assert.match(assembler, /await mkdir\(dirname\(destination\), \{ recursive: true \}\)/);
 // The folder rows own their styling; they used to borrow the recordings tab's

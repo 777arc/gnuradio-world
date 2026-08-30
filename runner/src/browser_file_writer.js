@@ -81,7 +81,7 @@ async function openDestination(sink) {
           bytesWritten: this.bytesWritten, base: sink.base,
         });
       },
-      async abort() { try { await writable.close(); } catch { /* already gone */ } },
+      async abort() { try { await writable.abort(); } catch { /* already gone */ } },
     };
   }
 

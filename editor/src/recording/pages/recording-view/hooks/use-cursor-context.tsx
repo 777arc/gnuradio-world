@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useState } from 'rea
 import { useSpectrogramContext } from './use-spectrogram-context';
 import { useGetIQData } from '@/api/iqdata/Queries';
 import { useDebounce } from 'usehooks-ts';
+import { sampleSelection } from '@/utils/selection-export';
 
 interface CursorContextProperties {
   cursorTime: Cursor;
@@ -28,16 +29,19 @@ interface Cursor {
 }
 
 export function CursorContextProvider({ children }) {
+  const [cursorData, setCursorData] = useState<Float32Array>(new Float32Array(0));
   const [cursorTime, setCursorTimeState] = useState<Cursor>({
     start: 0,
     end: 0,
   });
   const [cursorTimeOpenEnded, setCursorTimeOpenEnded] = useState<boolean>(false);
   const setCursorTime = useCallback((next: Cursor) => {
+    setCursorData(new Float32Array(0));
     setCursorTimeState(next);
     setCursorTimeOpenEnded(false);
   }, []);
   const setCursorTimeFromFileSource = useCallback((next: Cursor, openEnded: boolean) => {
+    setCursorData(new Float32Array(0));
     setCursorTimeState(next);
     setCursorTimeOpenEnded(openEnded);
   }, []);
@@ -50,32 +54,45 @@ export function CursorContextProvider({ children }) {
   const [cursorFreqEnabled, setCursorFreqEnabled] = useState<boolean>(false);
   const [cursorTimeEnabled, setCursorTimeEnabled] = useState<boolean>(false);
 
-  const { type, account, container, filePath, fftSize } = useSpectrogramContext();
+  const { type, account, container, filePath, fftSize, meta } = useSpectrogramContext();
   const { currentData, setFFTsRequired } = useGetIQData(type, account, container, filePath, fftSize);
 
-  const [cursorData, setCursorData] = useState<Float32Array>(new Float32Array(0));
   const debounceCursorTime = useDebounce(cursorTime, 500);
 
   useEffect(() => {
-    if (!currentData || !cursorTime || cursorTime.start === cursorTime.end || !cursorTimeEnabled) {
+    if (!currentData || !debounceCursorTime || !cursorTimeEnabled || !meta) {
       return;
     }
-    const startingFFT = Math.floor(cursorTime.start / fftSize);
-    const endingFFT = Math.floor(cursorTime.end / fftSize);
-    const iqData = new Float32Array((endingFFT - startingFFT) * fftSize * 2);
+    const selection = sampleSelection(
+      debounceCursorTime.start,
+      debounceCursorTime.end,
+      meta.getTotalSamples(),
+    );
+    if (selection.count === 0) {
+      setCursorData(new Float32Array(0));
+      return;
+    }
+    const startingFFT = Math.floor(selection.start / fftSize);
+    const endingFFT = Math.ceil(selection.end / fftSize);
+    const iqData = new Float32Array(selection.count * 2);
     let offset = 0;
     let requiredBlocks: number[] = [];
     for (let i = startingFFT; i < endingFFT; i++) {
-      if (currentData[i]) {
-        iqData.set(currentData[i], offset);
-      } else {
+      const block = currentData[i];
+      if (!block) {
         requiredBlocks.push(i);
+        continue;
       }
-      offset += fftSize * 2;
+      const blockStart = i * fftSize;
+      const first = Math.max(selection.start, blockStart) - blockStart;
+      const last = Math.min(selection.end, blockStart + fftSize) - blockStart;
+      const slice = block.slice(first * 2, last * 2);
+      iqData.set(slice, offset);
+      offset += slice.length;
     }
-    setCursorData(iqData);
     setFFTsRequired(requiredBlocks);
-  }, [debounceCursorTime, currentData, fftSize]);
+    if (requiredBlocks.length === 0) setCursorData(iqData);
+  }, [debounceCursorTime, currentData, cursorTimeEnabled, fftSize, meta, setFFTsRequired]);
 
   return (
     <CursorContext.Provider

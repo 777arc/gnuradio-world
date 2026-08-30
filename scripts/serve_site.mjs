@@ -17,9 +17,10 @@
 // Usage: node scripts/serve_site.mjs [siteDir] [port]
 import http from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
-import { extname, join, normalize } from 'node:path';
+import { extname, join, normalize, resolve } from 'node:path';
+import { decodeUrlPath, pathIsWithin } from './http-support.mjs';
 
-const SITE = normalize(process.argv[2] || join(process.cwd(), 'site'));
+const SITE = resolve(normalize(process.argv[2] || join(process.cwd(), 'site')));
 const PORT = Number(process.argv[3] || 8098);
 
 const MIME = {
@@ -44,7 +45,11 @@ function match(rule, path) {
 }
 
 const server = http.createServer(async (req, res) => {
-  const path = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+  const path = decodeUrlPath(req.url);
+  if (path === null) {
+    res.writeHead(400);
+    return res.end('bad request');
+  }
   const send = async (file, status = 200) => {
     res.setHeader('Content-Type', MIME[extname(file)] || 'application/octet-stream');
     const body = await readFile(file);
@@ -56,7 +61,7 @@ const server = http.createServer(async (req, res) => {
   try {
     // 1. static asset
     const direct = normalize(join(SITE, path));
-    if (!direct.startsWith(SITE)) { res.writeHead(403); return res.end('forbidden'); }
+    if (!pathIsWithin(SITE, direct)) { res.writeHead(403); return res.end('forbidden'); }
     if (await isFile(direct)) return send(direct);
     if (await isFile(join(direct, 'index.html'))) return send(join(direct, 'index.html'));
 
@@ -75,6 +80,10 @@ const server = http.createServer(async (req, res) => {
         break;
       }
       const target = normalize(join(SITE, to));
+      if (!pathIsWithin(SITE, target)) {
+        console.warn(`_redirects: "${rule.from} -> ${to}" escapes the site root`);
+        break;
+      }
       if (await isFile(target)) return send(target);
       if (await isFile(join(target, 'index.html'))) return send(join(target, 'index.html'));
       console.warn(`_redirects: "${rule.from} -> ${to}" has no such target in the site`);

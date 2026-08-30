@@ -7,6 +7,11 @@ import { useCursorContext } from '../hooks/use-cursor-context';
 import { unitPrefixHz } from '@/utils/rf-functions';
 import { CHANNELIZER_OVERSAMPLING_CHOICES, CHANNELIZER_TAPS_CHOICES } from '@/utils/channelizer';
 import { Tab, TAB_NAMES } from '../tabs';
+import {
+  float32IqBytes,
+  sampleSelection,
+  trimmedSigmfMetadata,
+} from '@/utils/selection-export';
 
 // The dropdown triggers are <label>s, so the base layer's <button> rule does not
 // reach them; these restate the editor's button and menu popup over daisyUI's
@@ -45,16 +50,15 @@ const SettingsPane = ({ currentFFT, currentTab, setCurrentTab }: SettingsPanePro
   }, [cursorContext.cursorFreqShift]);
 
   const onPressDownloadSelectedSamples = (e) => {
-    // Grab metadata and remove the parts that shouldn't be included in the metafile
-    let metaClone = JSON.parse(JSON.stringify(context.meta));
-    delete metaClone['dataClient'];
+    const selection = sampleSelection(
+      cursorContext.cursorTime.start,
+      cursorContext.cursorTime.end,
+      context.meta.getTotalSamples(),
+    );
+    if (selection.count === 0 || cursorContext.cursorData.length !== selection.count * 2) return;
+    const metaClone = trimmedSigmfMetadata(context.meta, selection);
     const a = document.createElement('a');
-    const sampleBytes = new Uint8Array(cursorContext.cursorData.byteLength);
-    sampleBytes.set(new Uint8Array(
-      cursorContext.cursorData.buffer,
-      cursorContext.cursorData.byteOffset,
-      cursorContext.cursorData.byteLength,
-    ));
+    const sampleBytes = float32IqBytes(cursorContext.cursorData);
     const blobUrl = window.URL.createObjectURL(
       new Blob([sampleBytes], { type: 'application/octet-stream' })
     );
@@ -121,8 +125,8 @@ const SettingsPane = ({ currentFFT, currentTab, setCurrentTab }: SettingsPanePro
           onChange={(e) => {
             if (!cursorContext.cursorTimeEnabled && cursorContext.cursorTime.start == cursorContext.cursorTime.end) {
               cursorContext.setCursorTime({
-                start: (currentFFT + context.spectrogramHeight / 4) * context.fftSize,
-                end: (currentFFT + context.spectrogramHeight / 2) * context.fftSize,
+                start: (currentFFT + context.spectrogramHeight / 4 * (context.fftStepSize + 1)) * context.fftSize,
+                end: (currentFFT + context.spectrogramHeight / 2 * (context.fftStepSize + 1)) * context.fftSize,
               });
             }
             cursorContext.setCursorTimeEnabled(e.target.checked);
@@ -153,7 +157,7 @@ const SettingsPane = ({ currentFFT, currentTab, setCurrentTab }: SettingsPanePro
         className="mb-3"
         onClick={onPressDownloadSelectedSamples}
         style={{ width: '100%', marginTop: '5px' }}
-        disabled={!context.canDownload}
+        disabled={!context.canDownload || cursorContext.cursorData.length === 0}
       >
         Download Selected Samples
       </button>
