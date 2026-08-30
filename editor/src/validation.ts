@@ -119,7 +119,7 @@ export function validateFlowgraph(
   // control" case below.
   const activeBlocks = blocks.filter(active);
   const staticScope = buildScope(activeBlocks.filter(block => block.id === 'variable'));
-  const fullScope = buildScope(activeBlocks);
+  const fullScope = buildScope(activeBlocks.filter(block => VARIABLE_IDS.has(block.id)));
   // Every name the flowgraph publishes. `fullScope` holds only what evaluates to
   // a value, which leaves out the variable blocks that carry an object rather
   // than a number -- a Constellation Object, a Tag Object -- so add every block

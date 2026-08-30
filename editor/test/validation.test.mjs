@@ -171,6 +171,29 @@ assert.ok(invalid.some(issue => issue.message.includes('unsupported value')));
     'a plain variable inside a list literal stays legal');
 }
 
+// Runtime-object variables share the `variable_` prefix with live controls, but
+// name C++ objects rather than publishing numeric control values. A raw block
+// parameter may name one directly without it being mistaken for a live-control
+// expression merely because its definition has a string-valued `value` field.
+{
+  const decoder = inst('decoder', 'variable_cc_decoder_def', 'viterbi_def', {
+    value: '"aausat4_long"',
+  });
+  const consumer = inst('consumer', 'blocks_complex_to_mag_squared', 'consumer', {
+    decoder: 'viterbi_def',
+  });
+  const objectIssues = validateFlowgraph([decoder, consumer], [], {
+    ...ports,
+    def: block => block.id === 'variable_cc_decoder_def'
+      ? ({ label: 'CC Decoder Definition', inputs: 0, outputs: 0, params: [] })
+      : ({ label: 'FEC Async Decoder', inputs: 1, outputs: 1,
+           params: [{ id: 'decoder', label: 'Decoder Obj.', type: 'string',
+                      dtype: 'raw', raw: true, def: '' }] }),
+  }).filter(issue => issue.field === 'decoder');
+  assert.deepEqual(objectIssues, [],
+    'a runtime-object variable is not treated as a live GUI control');
+}
+
 const live = inst('range', 'variable_qtgui_range', 'freq', {
   label: '', rangeType: 'float', value: 10, start: 20, stop: 10, step: 0,
   widget: 'slider', orient: 'QtCore.Qt.Horizontal', min_len: 0,
