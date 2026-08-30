@@ -63,8 +63,13 @@ function judge(item, result) {
     notes.push('did not call new_flowgraph for a from-scratch request');
   if (expect.clears === false && names.includes('new_flowgraph'))
     notes.push('called new_flowgraph on a request to modify the existing graph');
-  for (const tool of expect.tools || [])
-    if (!names.includes(tool)) notes.push(`never called ${tool}`);
+  for (const tool of expect.tools || []) {
+    // A nested array is a set of alternatives -- any one of them satisfies the
+    // expectation, for a question more than one tool answers well.
+    const options = Array.isArray(tool) ? tool : [tool];
+    if (!options.some(name => names.includes(name)))
+      notes.push(`never called ${options.join(' or ')}`);
+  }
   if (expect.notBefore) {
     const [after, first] = expect.notBefore;
     const afterAt = names.indexOf(after), firstAt = names.indexOf(first);

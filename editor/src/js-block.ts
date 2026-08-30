@@ -503,7 +503,13 @@ self.onmessage = function (event) {
           : Math.floor(nout * info.decim / info.interp);
         var neededValues = neededItems * stride;
         if (raw.length && raw.length < neededValues)
-          throw new Error('call ' + ci + ' input ' + ii + ' needs at least ' + neededValues + ' scalar values');
+          // Say why, not just how many. The count alone reads as arbitrary to a
+          // caller that thought in items -- a complex port wants two interleaved
+          // scalars per item, so a 1024-sample window is 2048 values, and being
+          // told only "needs 2048" invites guessing rather than the arithmetic.
+          throw new Error('call ' + ci + ' input ' + ii + ' needs at least ' + neededValues +
+            ' scalar values (' + neededItems + ' ' + ip.dtype + ' item' + (neededItems === 1 ? '' : 's') +
+            ' x ' + stride + ' scalar' + (stride === 1 ? '' : 's') + ' each), got ' + raw.length);
         var inPtr = __alloc(Math.max(1, neededValues) * its.bytes, its.bytes);
         var inView = new its.C(__buffer, inPtr, neededValues);
         if (raw.length) inView.set(raw.slice(0, neededValues));

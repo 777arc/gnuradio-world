@@ -24,7 +24,10 @@
 //                        fine *after* read_example -- rebuilding a graph it has
 //                        read is a legitimate way to modify it -- and destroys
 //                        the request before it.
-//   expect.tools         tool names that must appear in the transcript.
+//   expect.tools         tool names that must appear in the transcript. A
+//                        nested array is a set of alternatives -- any one of
+//                        them satisfies it, for a question two different tools
+//                        can both answer well.
 //   expect.blocks        substrings that must appear in a canvas block's label.
 //   expect.absentBlocks  substrings that must NOT. Hardware SDRs belong here on
 //                        any prompt that did not name one: they need a device
@@ -71,7 +74,7 @@ export const CASES = [
   {
     name: 'qpsk-sync',
     prompt: 'Open the example digital/synchronization_bpsk_recovery and adjust it ' +
-            'to use QPSK, also adjust the sync portion to work with QPSK',
+            'to use QPSK, also adjust the sync portion to work with QPSK, then run it',
     fresh: false,
     expect: {
       // Reading the example and rebuilding it modified is a legitimate route,
@@ -132,16 +135,19 @@ export const CASES = [
   },
   {
     name: 'look-at-constellation',
-    // The other half: a question about shape, where the numbers are a poor
-    // instrument and looking is the point. The welcome example already plots a
-    // constellation, so this is about observing what is there rather than
-    // building anything -- and about not throwing the canvas away to do it.
+    // The other half: a question about shape rather than a number. The welcome
+    // example already plots a constellation, so this is about observing what is
+    // there rather than building anything -- and about not throwing the canvas
+    // away to do it. Either observation tool counts: capturing the plot is the
+    // obvious route, but reading the scatter back as coordinates answers "is
+    // this two tight clusters on the I axis?" perfectly well, so the case asks
+    // that Graham *looked* somehow, not which instrument it reached for.
     prompt: 'Run the flowgraph that is open and look at the constellation plot — ' +
             'does it look like a clean BPSK constellation to you?',
     fresh: false,
     expect: {
       clears: false,
-      tools: ['run_flowgraph', 'capture_plots'],
+      tools: ['run_flowgraph', ['capture_plots', 'read_plot_data']],
       run: 'pass',
     },
   },
