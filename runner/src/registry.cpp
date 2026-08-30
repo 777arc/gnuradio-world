@@ -167,6 +167,22 @@ static std::string param_text(const json& p, const std::string& key,
     return item->dump();
 }
 
+// GRC's Noise Type enum. The yaml spells it `analog.GR_*` and there is no
+// cpp_template rewrite for this block, but choice() tolerates either spelling.
+static gr::analog::noise_type_t noise_type_from(const json& p)
+{
+    return wasm_registry::choice<gr::analog::noise_type_t>(
+        p,
+        "noise_type",
+        {
+            { "analog.GR_UNIFORM", gr::analog::GR_UNIFORM },
+            { "analog.GR_GAUSSIAN", gr::analog::GR_GAUSSIAN },
+            { "analog.GR_LAPLACIAN", gr::analog::GR_LAPLACIAN },
+            { "analog.GR_IMPULSE", gr::analog::GR_IMPULSE },
+        },
+        gr::analog::GR_GAUSSIAN);
+}
+
 static gr::analog::gr_waveform_t waveform_from(const std::string& s) {
     // Accept both GRC constants ("analog.GR_COS_WAVE") and the old shorthand
     // ("cos"). Match COS before SIN because "cosine" contains "sin".
@@ -233,6 +249,14 @@ static double number_from(const json& p, const std::string& key, double fallback
             return parsed;
     }
     throw std::runtime_error(key + " must be numeric");
+}
+
+// GRC's Vector Length, as a multiplier on an item size or a constructor
+// argument. Absent, junk or below one means the scalar stream every flowgraph
+// without the parameter has.
+static std::size_t vlen_of(const json& p)
+{
+    return static_cast<std::size_t>(std::max(1.0, number_from(p, "vlen", 1)));
 }
 
 static std::string unquoted(std::string value)
@@ -386,6 +410,14 @@ static void configure_freq_sink(const std::shared_ptr<Sink>& sink,
                        p,
                        line,
                        default_line_color(static_cast<int>(line)));
+    // Upstream's own defaults, and its own parameter ids: the Frequency Sink
+    // spells these `label`/`units` where the Time Sink spells them
+    // `ylabel`/`yunit`.
+    sink->set_y_label(unquoted(param_text(p, "label", "Relative Gain")),
+                      unquoted(param_text(p, "units", "dB")));
+    // Divides the window by its own power, so changing the window stops moving
+    // the level the spectrum is drawn at.
+    sink->set_fft_window_normalized(bool_from(p, "norm_window", false));
     sink->set_trigger_mode(trigger_mode_from(p),
                            static_cast<float>(number_from(p, "tr_level", 0.0)),
                            static_cast<int>(number_from(p, "tr_chan", 0)),
@@ -2340,8 +2372,19 @@ static std::map<std::string, Factory>& registry_storage() {
                                   ? number_from(p, "amp", 1.0)
                                   : number_from(p, "amplitude", 1.0);
              const long s = static_cast<long>(number_from(p, "seed", 0));
+             const auto noise = noise_type_from(p);
+             // Upstream implements only Uniform and Gaussian for a complex
+             // output (noise_source_impl<gr_complex>::work throws "invalid
+             // type" for the other two) -- and it throws from work(), so the
+             // graph would start, produce nothing, and say only that. Refuse it
+             // here instead, where the message names the block and the fix.
+             if (!is_float(p) && noise != gr::analog::GR_UNIFORM &&
+                 noise != gr::analog::GR_GAUSSIAN)
+                 throw std::runtime_error(
+                     "Noise Source: a complex output supports only Uniform and "
+                     "Gaussian noise; use a float output for Laplacian or Impulse");
              if (is_float(p)) {
-                 auto b = gr::analog::noise_source_f::make(gr::analog::GR_GAUSSIAN, a, s);
+                 auto b = gr::analog::noise_source_f::make(noise, a, s);
                  BuiltBlock result{ b };
                  const auto set_amplitude =
                      [b](double value) { b->set_amplitude(static_cast<float>(value)); };
@@ -2349,7 +2392,7 @@ static std::map<std::string, Factory>& registry_storage() {
                  result.numeric_setters["amplitude"] = set_amplitude;
                  return result;
              }
-             auto b = gr::analog::noise_source_c::make(gr::analog::GR_GAUSSIAN, a, s);
+             auto b = gr::analog::noise_source_c::make(noise, a, s);
              BuiltBlock result{ b };
              const auto set_amplitude =
                  [b](double value) { b->set_amplitude(static_cast<float>(value)); };
@@ -3602,7 +3645,8 @@ static std::map<std::string, Factory>& registry_storage() {
          }},
         {"blocks_head", [](const json& p) -> BuiltBlock {
              auto b = gr::blocks::head::make(
-                 itemsize_of(p), static_cast<uint64_t>(p.value("num_items", 1000000.0)));
+                 itemsize_of(p) * vlen_of(p),
+                 static_cast<uint64_t>(p.value("num_items", 1000000.0)));
              BuiltBlock result{ b };
              result.numeric_setters["num_items"] = [b](double value) {
                  b->set_length(static_cast<uint64_t>(std::max(0.0, value)));
@@ -3611,7 +3655,8 @@ static std::map<std::string, Factory>& registry_storage() {
          }},
         {"blocks_delay", [](const json& p) -> BuiltBlock {
              // Sets history = delay+1, so it exercises the history path (like the qtgui sinks).
-             auto b = gr::blocks::delay::make(itemsize_of(p), p.value("delay", 1));
+             auto b = gr::blocks::delay::make(itemsize_of(p) * vlen_of(p),
+                                              p.value("delay", 1));
              BuiltBlock result{ b };
              result.numeric_setters["delay"] =
                  [b](double value) { b->set_dly(static_cast<int>(value)); };
@@ -3639,14 +3684,15 @@ static std::map<std::string, Factory>& registry_storage() {
                                   : (gr::basic_block_sptr)gr::blocks::divide_cc::make(vlen), nullptr }; }},
         {"blocks_multiply_const_xx", [](const json& p) -> BuiltBlock {
              double k = p.value("constant", 1.0);
+             const auto vlen = vlen_of(p);
              if (is_float(p)) {
-                 auto b = gr::blocks::multiply_const_ff::make(static_cast<float>(k));
+                 auto b = gr::blocks::multiply_const_ff::make(static_cast<float>(k), vlen);
                  BuiltBlock result{ b };
                  result.numeric_setters["constant"] =
                      [b](double value) { b->set_k(static_cast<float>(value)); };
                  return result;
              }
-             auto b = gr::blocks::multiply_const_cc::make(gr_complex(k, 0));
+             auto b = gr::blocks::multiply_const_cc::make(gr_complex(k, 0), vlen);
              BuiltBlock result{ b };
              result.numeric_setters["constant"] =
                  [b](double value) { b->set_k(gr_complex(value, 0)); };
@@ -3654,10 +3700,13 @@ static std::map<std::string, Factory>& registry_storage() {
          }},
         {"blocks_conjugate_cc", [](const json&) -> BuiltBlock { return { gr::blocks::conjugate_cc::make(), nullptr }; }},
         // ---- type converters (complex in -> float out, etc.) ----
-        {"blocks_complex_to_mag", [](const json&) -> BuiltBlock { return { gr::blocks::complex_to_mag::make(1), nullptr }; }},
-        {"blocks_complex_to_mag_squared", [](const json&) -> BuiltBlock { return { gr::blocks::complex_to_mag_squared::make(1), nullptr }; }},
-        {"blocks_complex_to_float", [](const json&) -> BuiltBlock { return { gr::blocks::complex_to_float::make(1), nullptr }; }},
-        {"blocks_float_to_complex", [](const json&) -> BuiltBlock { return { gr::blocks::float_to_complex::make(1), nullptr }; }},
+        // Each of these takes GRC's Vector Length as its constructor argument, so
+        // a vector stream passes through them a vector at a time. Hardcoding 1
+        // made every such connection an itemsize mismatch at connect time.
+        {"blocks_complex_to_mag", [](const json& p) -> BuiltBlock { return { gr::blocks::complex_to_mag::make(vlen_of(p)), nullptr }; }},
+        {"blocks_complex_to_mag_squared", [](const json& p) -> BuiltBlock { return { gr::blocks::complex_to_mag_squared::make(vlen_of(p)), nullptr }; }},
+        {"blocks_complex_to_float", [](const json& p) -> BuiltBlock { return { gr::blocks::complex_to_float::make(vlen_of(p)), nullptr }; }},
+        {"blocks_float_to_complex", [](const json& p) -> BuiltBlock { return { gr::blocks::float_to_complex::make(vlen_of(p)), nullptr }; }},
         // ---- sinks ----
         {"blocks_null_sink", [](const json& p) -> BuiltBlock {
              // vlen matters here: a vector stream terminated by a scalar-sized
@@ -3992,7 +4041,11 @@ static std::map<std::string, Factory>& registry_storage() {
              const std::string type = type_from(p, "complex");
              const double sr = number_from(p, "samp_rate", 32000.0);
              const int fftsize = static_cast<int>(number_from(p, "fftsize", 1024));
-             const int wintype = static_cast<int>(number_from(p, "wintype", 0));
+             // As on the Frequency Sink: rectangular unless the .grc says
+             // otherwise, and read through choice() because the value arrives as
+             // the string `window.WIN_*`, which number_from() cannot parse at all.
+             const int wintype =
+                 static_cast<int>(window_type_from(p, gr::fft::window::WIN_RECTANGULAR));
              const double initial_fc = number_from(p, "fc", 0.0);
              const double initial_bw = number_from(p, "bw", sr);
              const std::string nm = unquoted(param_text(p, "name"));
@@ -4024,9 +4077,15 @@ static std::map<std::string, Factory>& registry_storage() {
                  return result;
              };
              const bool is_float_variant = type == "float" || type == "msg_float";
-             if (is_float_variant)
-                 return finish(gr::qtgui::waterfall_sink_f::make(
-                     fftsize, wintype, initial_fc, initial_bw, nm, nconnections));
+             if (is_float_variant) {
+                 auto b = gr::qtgui::waterfall_sink_f::make(
+                     fftsize, wintype, initial_fc, initial_bw, nm, nconnections);
+                 // GRC's Spectrum Width, as on the Frequency Sink: a real input's
+                 // spectrum is symmetric, so `freqhalf` False plots the positive
+                 // half alone. Same inversion as the yaml's cpp_template.
+                 b->set_plot_pos_half(!bool_from(p, "freqhalf", true));
+                 return finish(b);
+             }
              return finish(gr::qtgui::waterfall_sink_c::make(
                  fftsize, wintype, initial_fc, initial_bw, nm, nconnections));
          }},

@@ -286,6 +286,23 @@ is *bound* through a numeric setter rather than read, and so may name a control
 and track it. `example_flowgraphs/qtgui/control_widgets.grc` exercises every one
 of them.
 
+### The FFT window defaults to rectangular, not Blackman-harris
+
+The Frequency Sink and the Waterfall Sink both take upstream's `wintype`, with
+upstream's seven options, but their default here is `window.WIN_RECTANGULAR`
+where native GRC's is `window.WIN_BLACKMAN_hARRIS` — an unconfigured sink shows
+the unweighted spectrum. The default lives in two places that must agree, since
+the editor writes the parameter into every `.grc` it saves but a hand-authored
+one may omit it: the schema in `editor/src/block-defs.ts` and the fallback
+argument to `window_type_from()` in `registry.cpp`. A `.grc` carrying `wintype`
+— native or ours — always wins over both.
+
+Read that parameter through `window_type_from()` and never through
+`p.value<int>()` or `number_from()`. It arrives as the *string* `window.WIN_*`,
+so an integer read throws (`type_error.302`, or "must be numeric") and takes the
+whole flowgraph with it; both sinks had that bug, unnoticed because the editor
+was dropping the parameter before the runner ever saw it.
+
 ### The fosphor sink
 
 The gr-fosphor Qt sink is a dual-backend GUI path (its standalone GLFW

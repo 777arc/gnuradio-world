@@ -79,6 +79,11 @@ export const DTYPE_COLOR: Record<string, string> = {
 const TYPE_PARAM: ParamDef = { id: 'type', label: 'Type', type: 'enum', def: 'complex', options: ['complex', 'float'], hide: 'part' };
 const INTEGER_TYPE_PARAM: ParamDef = { id: 'type', label: 'Type', type: 'enum', def: 'byte', options: ['byte', 'short', 'int'], hide: 'part' };
 const STREAM_TYPE_PARAM: ParamDef = { id: 'type', label: 'Type', type: 'enum', def: 'complex', options: ['complex', 'float', 'int', 'short', 'byte'], hide: 'part' };
+// GRC's Vector Length, shared by the blocks whose ports are `vlen: ${vlen}`.
+// Declaring it is what lets a vector stream reach the block at all: an
+// undeclared parameter is dropped, and portMeta() then reads every port as
+// vlen 1, so the connection is refused as a vector-length mismatch.
+const VLEN_PARAM: ParamDef = { id: 'vlen', label: 'Vector Length', type: 'number', def: 1 };
 // GRC-native enum vocabularies (values stored/serialized verbatim, matching
 // grc block YAML so saved .grc is byte-compatible with desktop GRC).
 const BOOL_OPTIONS = ['True', 'False'];
@@ -98,6 +103,9 @@ const LINE_STYLES = ['1', '2', '3', '4', '5', '0'];
 const LINE_STYLE_LABELS = ['Solid', 'Dash', 'Dots', 'Dash-Dot', 'Dash-Dot-Dot', 'None'];
 // GRC's frequency-sink Average options (None / Low / Medium / High smoothing).
 const FFT_AVERAGES = ['1.0', '0.2', '0.1', '0.05'];
+// analog::noise_type_t, in the yaml's own order.
+const NOISE_TYPES = ['analog.GR_UNIFORM', 'analog.GR_GAUSSIAN', 'analog.GR_LAPLACIAN',
+  'analog.GR_IMPULSE'];
 // GRC's FFT window enum, spelled as upstream's yaml does (the runner's choice()
 // accepts both this and the `fft::window::WIN_*` form a cpp_template emits).
 const FFT_WINDOWS = ['window.WIN_RECTANGULAR', 'window.WIN_BLACKMAN_hARRIS',
@@ -235,11 +243,15 @@ export const RUNNABLE: Record<string, RunnableDef> = {
         options: ['analog.GR_CONST_WAVE', 'analog.GR_SIN_WAVE', 'analog.GR_COS_WAVE', 'analog.GR_SQR_WAVE', 'analog.GR_TRI_WAVE', 'analog.GR_SAW_WAVE'] },
       { id: 'frequency', label: 'Frequency', type: 'number', def: 2000 },
       { id: 'amplitude', label: 'Amplitude', type: 'number', def: 1.0 },
+      { id: 'offset', label: 'Offset', type: 'number', def: 0 },
+      { id: 'phase', label: 'Initial Phase (Radians)', type: 'number', def: 0 },
     ],
   },
   analog_noise_source_x: {
     label: 'Noise Source', inputs: 0, outputs: 1, params: [
       TYPE_PARAM,
+      { id: 'noise_type', label: 'Noise Type', type: 'enum', def: 'analog.GR_GAUSSIAN',
+        options: NOISE_TYPES, optionLabels: ['Uniform', 'Gaussian', 'Laplacian', 'Impulse'] },
       { id: 'amplitude', label: 'Amplitude', type: 'number', def: 1.0 },
       { id: 'seed', label: 'Seed', type: 'number', def: 0 }] },
   analog_random_source_x: {
@@ -302,11 +314,13 @@ export const RUNNABLE: Record<string, RunnableDef> = {
   blocks_head: {
     label: 'Head', inputs: 1, outputs: 1, params: [
       STREAM_TYPE_PARAM,
-      { id: 'num_items', label: 'Num Items', type: 'number', def: 10000000 }] },
+      { id: 'num_items', label: 'Num Items', type: 'number', def: 10000000 },
+      VLEN_PARAM] },
   blocks_delay: {
     label: 'Delay', inputs: 1, outputs: 1, params: [
       STREAM_TYPE_PARAM,
-      { id: 'delay', label: 'Delay (items)', type: 'number', def: 0 }] },
+      { id: 'delay', label: 'Delay (items)', type: 'number', def: 0 },
+      VLEN_PARAM] },
   // ---- math (type-parameterized: complex or float) ----
   blocks_add_xx: {
     label: 'Add', inputs: 2, outputs: 1, params: [
@@ -335,16 +349,17 @@ export const RUNNABLE: Record<string, RunnableDef> = {
   blocks_multiply_const_xx: {
     label: 'Multiply Const', inputs: 1, outputs: 1, params: [
       TYPE_PARAM,
-      { id: 'constant', label: 'Constant', type: 'number', def: 1.0 }] },
+      { id: 'constant', label: 'Constant', type: 'number', def: 1.0 },
+      VLEN_PARAM] },
   blocks_conjugate_cc: { label: 'Conjugate', inputs: 1, outputs: 1, params: [], dtype: 'complex' },
   // ---- type converters (per-port dtypes) ----
-  blocks_complex_to_mag: { label: 'Complex to Mag', inputs: 1, outputs: 1, params: [],
+  blocks_complex_to_mag: { label: 'Complex to Mag', inputs: 1, outputs: 1, params: [VLEN_PARAM],
     inTypes: ['complex'], outTypes: ['float'] },
-  blocks_complex_to_mag_squared: { label: 'Complex to Mag^2', inputs: 1, outputs: 1, params: [],
+  blocks_complex_to_mag_squared: { label: 'Complex to Mag^2', inputs: 1, outputs: 1, params: [VLEN_PARAM],
     inTypes: ['complex'], outTypes: ['float'] },
-  blocks_complex_to_float: { label: 'Complex to Float', inputs: 1, outputs: 2, params: [],
+  blocks_complex_to_float: { label: 'Complex to Float', inputs: 1, outputs: 2, params: [VLEN_PARAM],
     inTypes: ['complex'], outTypes: ['float', 'float'] },
-  blocks_float_to_complex: { label: 'Float to Complex', inputs: 2, outputs: 1, params: [],
+  blocks_float_to_complex: { label: 'Float to Complex', inputs: 2, outputs: 1, params: [VLEN_PARAM],
     inTypes: ['float', 'float'], outTypes: ['complex'] },
   // ---- variables / controls ----
   // `variable` carries GRC's `show_id` flag, but it is not in the runner's
@@ -478,6 +493,14 @@ export const RUNNABLE: Record<string, RunnableDef> = {
       { id: 'tr_level', label: 'Trigger Level', type: 'number', def: 0, category: 'Trigger' },
       { id: 'tr_chan', label: 'Trigger Channel', type: 'number', def: 0, category: 'Trigger' },
       { id: 'tr_tag', label: 'Trigger Tag Key', type: 'string', def: '', category: 'Trigger' },
+      // Upstream's `label`/`units`, spelled as its yaml does rather than as the
+      // Time Sink's `ylabel`/`yunit`: these two ids are what a native .grc carries.
+      { id: 'label', label: 'Y Axis Label', type: 'string', def: 'Relative Gain', category: 'General' },
+      { id: 'units', label: 'Y Axis Unit', type: 'string', def: 'dB', category: 'General' },
+      // set_fft_window_normalized(): divides the window by its own power so a
+      // window choice stops changing the level the spectrum is drawn at.
+      { id: 'norm_window', label: 'Normalize Window Power', type: 'enum', def: 'False',
+        options: BOOL_OPTIONS, optionLabels: ['Yes', 'No'], category: 'General' },
       { id: 'ctrlpanel', label: 'Control Panel', type: 'enum', def: 'False', options: BOOL_OPTIONS, category: 'Config' },
       { id: 'legend', label: 'Legend', type: 'enum', def: 'True', options: BOOL_OPTIONS, category: 'Config' },
       { id: 'axislabels', label: 'Axis Labels', type: 'enum', def: 'True', options: BOOL_OPTIONS, category: 'Config' },
@@ -509,8 +532,17 @@ export const RUNNABLE: Record<string, RunnableDef> = {
     ], dtype: 'complex' },
   qtgui_waterfall_sink_x: {
     label: 'QT GUI Waterfall Sink', inputs: 1, outputs: 0, params: [
+      // The runner builds waterfall_sink_f for a float input and always has;
+      // without this parameter the editor could only ever ask for the complex one.
+      TYPE_PARAM,
       { id: 'name', label: 'Title', type: 'string', def: 'Waterfall' },
       { id: 'fftsize', label: 'FFT Size', type: 'number', def: 1024 },
+      // Same defaults and reasoning as the Frequency Sink's two.
+      { id: 'wintype', label: 'Window Type', type: 'enum', def: 'window.WIN_RECTANGULAR',
+        options: FFT_WINDOWS, optionLabels: FFT_WINDOW_LABELS, hide: 'part' },
+      { id: 'freqhalf', label: 'Spectrum Width', type: 'enum', def: 'True',
+        options: BOOL_OPTIONS, optionLabels: ['Full', 'Half'],
+        showWhen: (p) => p.type === 'float' },
       { ...SAMP_RATE_PARAM },
       { id: 'fc', label: 'Center Frequency', type: 'number', def: 0 },
       NCONNECTIONS_PARAM,

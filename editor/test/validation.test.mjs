@@ -100,7 +100,7 @@ const ports = {
 
 const signal = inst('sig', 'analog_sig_source_x', 'sig', {
   type: 'complex', samp_rate: 'samp_rate', waveform: 'analog.GR_COS_WAVE',
-  frequency: 'samp_rate/4', amplitude: '1',
+  frequency: 'samp_rate/4', amplitude: '1', offset: '0', phase: '0',
 });
 const variable = inst('rate', 'variable', 'samp_rate', { value: '32000' });
 const terminated = inst('term', 'blocks_null_sink', 'term', { type: 'complex', vlen: 1 });
@@ -207,7 +207,7 @@ assert.ok(validateFlowgraph([disabled], [], ports).every(issue => !issue.blockin
 // Port connectivity, as native GRC enforces it (grc/core/ports/port.py).
 const source = inst('src', 'analog_sig_source_x', 'src', {
   type: 'complex', samp_rate: 32000, waveform: 'analog.GR_COS_WAVE',
-  frequency: 1000, amplitude: 1,
+  frequency: 1000, amplitude: 1, offset: 0, phase: 0,
 });
 const drain = inst('drain', 'blocks_null_sink', 'drain', { type: 'complex', vlen: 1 });
 const link = { from: 'src', fp: 0, to: 'drain', tp: 0 };
@@ -222,7 +222,7 @@ assert.deepEqual(validateFlowgraph([source, drain], [link], ports), [],
   'a wired pair is clean');
 
 // An optional port needs no connection; its non-optional sibling still does.
-const split = inst('split', 'blocks_complex_to_float', 'split', {});
+const split = inst('split', 'blocks_complex_to_float', 'split', { vlen: 1 });
 const optionalPorts = validateFlowgraph([source, split], [{ from: 'src', fp: 0, to: 'split', tp: 0 }], ports);
 assert.deepEqual(optionalPorts.map(issue => issue.message),
   ['Output port "out0" is not connected.'],
@@ -237,7 +237,7 @@ assert.deepEqual(validateFlowgraph([source, drain], [], hiddenPorts), [],
 // A disabled neighbour breaks the connection; a bypassed one still carries it,
 // and a bypassed block's own ports are never reported.
 const passthrough = (extra) =>
-  inst('pass', 'blocks_complex_to_mag_squared', 'pass', {}, extra);
+  inst('pass', 'blocks_complex_to_mag_squared', 'pass', { vlen: 1 }, extra);
 const chain = [{ from: 'src', fp: 0, to: 'pass', tp: 0 }, { from: 'pass', fp: 0, to: 'drain', tp: 0 }];
 assert.deepEqual(validateFlowgraph([source, passthrough({ enabled: false }), drain], chain, ports)
   .map(issue => issue.message).sort(), [
