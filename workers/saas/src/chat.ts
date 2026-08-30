@@ -2,6 +2,7 @@ import type { Env, RuntimeConfig } from './env';
 import type { Hold } from './ledger';
 import { absorbAndRelease, activeRate, InsufficientFundsError, releaseUnused, reserve, settle } from './ledger';
 import type { TokenUsage } from './pricing';
+import { tokensFromBytes } from './pricing';
 
 interface ChatBody {
   model?: unknown;
@@ -35,7 +36,12 @@ const jsonError = (status: number, message: string): Response => Response.json({
  * hold tens of thousands of tokens against a wallet for one image and refuse a
  * user with a small balance outright, so image parts are replaced by that flat
  * rate before the bytes are counted. Generous — the hold is an upper bound, and
- * settlement always uses the final usage.
+ * settlement uses the final usage whenever the stream reported one.
+ *
+ * Counted in the same byte space as everything else here, so after
+ * tokensFromBytes() an image is worth IMAGE_TOKENS/BYTES_PER_TOKEN on the
+ * fallback settlement path. That undershoots a real image, which is the right
+ * direction for a request that ended without ever reporting its usage.
  */
 const IMAGE_TOKENS = 2_000;
 
@@ -53,15 +59,23 @@ const withoutImageData = (messages: unknown): unknown => {
   });
 };
 
-/** Safe token upper bound for pre-flight holds. Actual billing always uses final usage. */
+/**
+ * The size of a request in bytes, used as a safe upper bound for pre-flight
+ * holds. Deliberately NOT a token count: see BYTES_PER_TOKEN in pricing.ts for
+ * why the hold and the billable estimate must not share this number.
+ */
 export function countInputTokens(messages: unknown, tools: unknown): number {
   const bytes = new TextEncoder()
     .encode(JSON.stringify({ messages: withoutImageData(messages), tools })).byteLength;
   return Math.max(1, bytes);
 }
 
+// The fallback when no final usage chunk arrived. Both halves are byte counts
+// converted to tokens: hold.inputTokens is the hold's deliberate byte-count
+// upper bound, and billing it as a token count would charge about four times
+// the real input cost on a request the client abandoned.
 const estimatedUsage = (hold: Hold, outputBytes: number): TokenUsage => ({
-  inputTokens: hold.inputTokens,
+  inputTokens: tokensFromBytes(hold.inputTokens),
   cachedInputTokens: 0,
   cacheWriteTokens: 0,
   outputTokens: Math.max(1, Math.ceil(outputBytes / 3)),

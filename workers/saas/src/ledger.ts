@@ -139,10 +139,15 @@ export async function settle(db: D1Database, hold: Hold, usage: TokenUsage, exac
       usage.inputTokens, usage.cachedInputTokens, usage.outputTokens, usage.cacheWriteTokens,
       charge.wholesaleMicros, exact ? 1 : 0, metadata, now, hold.id),
     db.prepare(lots.sql).bind(...lots.values),
+    // low_balance_notice is deliberately NOT cleared here. It records which
+    // threshold a user has already been emailed about, and only a purchase
+    // (webhooks.ts) makes that stale. Clearing it on spend re-armed the notice
+    // on every settled request, so a user sitting below the threshold was
+    // emailed again on every run of the daily job instead of once.
     db.prepare(
       `UPDATE wallets
        SET balance_micros = balance_micros - ?, held_micros = held_micros - ?,
-           updated_at = ?, low_balance_notice = 0
+           updated_at = ?
        WHERE user_id = ? AND EXISTS
          (SELECT 1 FROM holds WHERE id = ? AND status = 'active')`,
     ).bind(charge.retailMicros, hold.amountMicros, now, hold.userId, hold.id),

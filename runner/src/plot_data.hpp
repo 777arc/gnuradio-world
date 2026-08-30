@@ -93,11 +93,17 @@ inline nlohmann::json curve_json(const QwtPlotCurve* curve, int max_points)
 
     double x_min = 0, x_max = 0, y_min = 0, y_max = 0, y_sum = 0;
     double peak_x = 0, peak_y = 0;
+    // Non-finite samples are skipped, so the mean divides by the number of
+    // samples actually summed rather than by the curve's length -- otherwise a
+    // sink with any NaN in it reports a mean pulled toward zero, and the whole
+    // point of reading numbers instead of pixels is that they are right.
+    int finite = 0;
     bool first = true;
     for (int i = 0; i < count; ++i) {
         const QPointF point = curve->sample(i);
         if (!std::isfinite(point.x()) || !std::isfinite(point.y()))
             continue;
+        ++finite;
         if (first) {
             x_min = x_max = point.x();
             y_min = y_max = peak_y = point.y();
@@ -119,7 +125,7 @@ inline nlohmann::json curve_json(const QwtPlotCurve* curve, int max_points)
 
     out["x"] = { { "min", number(x_min) }, { "max", number(x_max) } };
     out["y"] = { { "min", number(y_min) }, { "max", number(y_max) },
-                 { "mean", number(y_sum / count) } };
+                 { "mean", number(y_sum / finite) } };
     // The whole point of reading numbers rather than pixels: where the largest
     // value actually is, to the resolution the sink computed it at.
     out["peak"] = { { "x", number(peak_x) }, { "y", number(peak_y) } };

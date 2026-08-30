@@ -27,7 +27,7 @@
 // absent, or any --reject substring appears in the console pane.
 import { existsSync, readFileSync } from 'node:fs';
 import { basename, resolve, sep } from 'node:path';
-import { launchBrowser, suppressEditorWelcome, dismissUnpacedRunWarning }
+import { launchBrowser, dismissUnpacedRunWarning }
   from './browser-test-support.mjs';
 
 const args = process.argv.slice(2);
@@ -87,7 +87,6 @@ const browser = await launchBrowser(new URL('..', import.meta.url).pathname);
 let ok = false;
 try {
   const page = await browser.newPage();
-  await suppressEditorWelcome(page);
   await dismissUnpacedRunWarning(page);
   await page.setViewport({ width: 1200, height: 800 });
   page.on('pageerror', e => console.log('PAGEERROR', e.message));

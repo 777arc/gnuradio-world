@@ -1065,7 +1065,20 @@
         } else {
           produced = block.d.work.call(block.self, nout, input, output);
         }
+        // Clamp to what the output buffers actually hold. GNU Radio takes this
+        // number as gospel and advances the write pointers by it, so a work()
+        // that returns more than nout -- input[0].length for a complex port is
+        // 2*nout, which is an easy thing to return by mistake -- would walk the
+        // buffer past the space reserved for it. That corrupts downstream data
+        // silently rather than crashing, so it is caught here instead.
         produced = produced === undefined ? nout : (produced | 0);
+        if (produced > nout) {
+          setError(errPtr, errCap, new Error(
+            'work() returned ' + produced + ' but only ' + nout +
+            ' output items were available; return at most noutput_items'));
+          return -1;
+        }
+        if (produced < 0) produced = 0;
 
         // The words array can have moved if user code grew the heap, so re-read
         // it before writing anything back. Rule 1, applied to our own view.

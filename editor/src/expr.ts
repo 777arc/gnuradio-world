@@ -17,6 +17,16 @@ export class Complex {
   constructor(public re: number, public im: number) {}
 }
 
+// A numpy array, as distinct from a Python list.
+//
+// The two disagree about arithmetic and the difference is not cosmetic:
+// `numpy.array([1,2,3]) * 2` is [2,4,6] and `[1,2,3] * 2` is [1,2,3,1,2,3].
+// Both spellings appear in taps parameters, and modelling numpy's as a plain
+// list silently produced a vector of the wrong length *and* the wrong values.
+// Subclassing Array keeps every Array.isArray() path in this file working.
+export class NdArray extends Array<Value> {}
+const nd = (items: Value[]): NdArray => NdArray.from(items) as NdArray;
+
 export interface EvalOk { ok: true; value: Value }
 export interface EvalErr { ok: false; error: string }
 export type EvalResult = EvalOk | EvalErr;
@@ -78,12 +88,37 @@ function lex(src: string): Tok[] {
       else { toks.push({ t: 'num', v: parseFloat(text) }); i = j; }
       continue;
     }
-    // string literal
+    // string literal. Python's escape sequences are decoded rather than having
+    // the backslash dropped: `"\\n"` is a newline, not the letter n. A GRC
+    // parameter that carries a delimiter or a separator says so this way, and
+    // handing the runner a literal 'n' is a wrong value it cannot detect.
+    // An unrecognised escape keeps the character, as Python does.
     if (c === '"' || c === "'") {
       const q = c; let j = i + 1; let s = '';
       while (j < n && src[j] !== q) {
-        if (src[j] === '\\' && j + 1 < n) { s += src[j + 1]; j += 2; }
-        else { s += src[j]; j++; }
+        if (src[j] !== '\\' || j + 1 >= n) { s += src[j]; j++; continue; }
+        const e = src[j + 1];
+        j += 2;
+        if (e === 'n') s += '\n';
+        else if (e === 't') s += '\t';
+        else if (e === 'r') s += '\r';
+        else if (e === '0') s += '\0';
+        else if (e === 'a') s += '\x07';
+        else if (e === 'b') s += '\b';
+        else if (e === 'f') s += '\f';
+        else if (e === 'v') s += '\v';
+        else if (e === '\n') { /* a line continuation contributes nothing */ }
+        else if (e === 'x' || e === 'u' || e === 'U') {
+          const width = e === 'x' ? 2 : e === 'u' ? 4 : 8;
+          const digits = src.slice(j, j + width);
+          const code = /^[0-9a-fA-F]+$/.test(digits) && digits.length === width
+            ? parseInt(digits, 16) : NaN;
+          // Python raises on a malformed \x/\u; keeping the raw text is the
+          // gentler answer for a parameter that is only being previewed.
+          if (Number.isNaN(code) || code > 0x10ffff) s += '\\' + e;
+          else { s += String.fromCodePoint(code); j += width; }
+        }
+        else s += e;
       }
       toks.push({ t: 'str', v: s }); i = j + 1; continue;
     }
@@ -246,17 +281,63 @@ function numeric(v: Value): number {
 }
 function simplifyC(c: Complex): Value { return c.im === 0 ? c.re : c; }
 
+// ---- bitwise operands, in Python's integer semantics ----
+// BigInt rather than JS's implicit int32 coercion. The result comes back as a
+// Number, so a value past 2^53 loses precision -- which every other number in
+// this evaluator does too, and which is a far narrower failure than wrapping
+// every mask into 32 signed bits.
+function toBits(v: Value, op: string): bigint {
+  const x = numish(v);
+  if (!Number.isInteger(x))
+    throw new Error(`unsupported operand type for ${op}: a float has no bits`);
+  return BigInt(x);
+}
+const fromBits = (v: bigint): number => Number(v);
+function bitwise(a: Value, b: Value, op: string,
+                 apply: (x: bigint, y: bigint) => bigint): Value {
+  if (anyNd(a, b)) return broadcast((x, y) => bitwise(x, y, op, apply), a, b);
+  return fromBits(apply(toBits(a, op), toBits(b, op)));
+}
+function shifted(a: Value, b: Value, op: string): Value {
+  if (anyNd(a, b)) return broadcast((x, y) => shifted(x, y, op), a, b);
+  const count = toBits(b, op);
+  if (count < 0n) throw new Error('negative shift count');
+  return fromBits(op === '<<' ? toBits(a, op) << count : toBits(a, op) >> count);
+}
+
+// numpy broadcasting for the one shape this evaluator models: a 1-D array
+// against a scalar, or against another sequence of the same length. Entered
+// only when at least one side is an NdArray, so `op` re-enters on scalars and
+// takes its ordinary path.
+function broadcast(op: (x: Value, y: Value) => Value, a: Value, b: Value): Value {
+  const av = Array.isArray(a) ? a : null;
+  const bv = Array.isArray(b) ? b : null;
+  if (av && bv) {
+    if (av.length !== bv.length)
+      throw new Error(`operands could not be broadcast together with shapes ` +
+        `(${av.length},) (${bv.length},)`);
+    return nd(av.map((x, i) => op(x, bv[i])));
+  }
+  if (av) return nd(av.map(x => op(x, b)));
+  return nd((bv as Value[]).map(y => op(a, y)));
+}
+const anyNd = (a: Value, b: Value) => a instanceof NdArray || b instanceof NdArray;
+
 function add(a: Value, b: Value): Value {
+  if (anyNd(a, b)) return broadcast(add, a, b);
   if (typeof a === 'string' && typeof b === 'string') return a + b;
   if (Array.isArray(a) && Array.isArray(b)) return a.concat(b);
   if (a instanceof Complex || b instanceof Complex) { const x = toC(a), y = toC(b); return simplifyC(new Complex(x.re + y.re, x.im + y.im)); }
   return numish(a) + numish(b);
 }
 function sub(a: Value, b: Value): Value {
+  if (anyNd(a, b)) return broadcast(sub, a, b);
   if (a instanceof Complex || b instanceof Complex) { const x = toC(a), y = toC(b); return simplifyC(new Complex(x.re - y.re, x.im - y.im)); }
   return numish(a) - numish(b);
 }
 function mul(a: Value, b: Value): Value {
+  // A numpy array multiplies elementwise; only a *list* repeats.
+  if (anyNd(a, b)) return broadcast(mul, a, b);
   // Python sequence repetition: int * list / list * int, int * str / str * int
   if (Array.isArray(a) && typeof b === 'number') return repeat(a, b);
   if (Array.isArray(b) && typeof a === 'number') return repeat(b, a);
@@ -274,15 +355,23 @@ function repeat(arr: Value[], k: number): Value[] {
   return out;
 }
 function div(a: Value, b: Value): Value {
+  if (anyNd(a, b)) return broadcast(div, a, b);
   if (a instanceof Complex || b instanceof Complex) {
     const x = toC(a), y = toC(b); const d = y.re * y.re + y.im * y.im;
     return simplifyC(new Complex((x.re * y.re + x.im * y.im) / d, (x.im * y.re - x.re * y.im) / d));
   }
   return numish(a) / numish(b);                 // Python 3 true division
 }
-function floordiv(a: Value, b: Value): Value { return Math.floor(numish(a) / numish(b)); }
-function mod(a: Value, b: Value): Value { const x = numish(a), y = numish(b); return ((x % y) + y) % y; }
+function floordiv(a: Value, b: Value): Value {
+  if (anyNd(a, b)) return broadcast(floordiv, a, b);
+  return Math.floor(numish(a) / numish(b));
+}
+function mod(a: Value, b: Value): Value {
+  if (anyNd(a, b)) return broadcast(mod, a, b);
+  const x = numish(a), y = numish(b); return ((x % y) + y) % y;
+}
 function pow(a: Value, b: Value): Value {
+  if (anyNd(a, b)) return broadcast(pow, a, b);
   if (a instanceof Complex || b instanceof Complex) return cpow(toC(a), toC(b));
   const x = numish(a), y = numish(b);
   if (x < 0 && !Number.isInteger(y)) return cpow(new Complex(x, 0), new Complex(y, 0)); // Python -> complex
@@ -313,7 +402,7 @@ class Evaluator {
       case 'unary': {
         const v = this.eval(n.e);
         if (n.op === '+') return v;
-        if (n.op === '~') return ~numish(v);
+        if (n.op === '~') return fromBits(~toBits(v, '~'));
         if (v instanceof Complex) return new Complex(-v.re, -v.im);
         return -numish(v);
       }
@@ -333,11 +422,15 @@ class Evaluator {
       case '//': return floordiv(a, b);
       case '%': return mod(a, b);
       case '**': return pow(a, b);
-      case '<<': return numish(a) << numish(b);
-      case '>>': return numish(a) >> numish(b);
-      case '&': return numish(a) & numish(b);
-      case '|': return numish(a) | numish(b);
-      case '^': return numish(a) ^ numish(b);
+      // Python's bitwise operators are integer-only and arbitrary-precision;
+      // JavaScript's coerce to *signed 32 bits*, which made
+      // `0xffffffff & 0xdeadbeef` negative and `1 << 40` come out as 256.
+      // A parameter written as a mask is exactly where GRC reaches for hex.
+      case '<<': return shifted(a, b, '<<');
+      case '>>': return shifted(a, b, '>>');
+      case '&': return bitwise(a, b, '&', (x, y) => x & y);
+      case '|': return bitwise(a, b, '|', (x, y) => x | y);
+      case '^': return bitwise(a, b, '^', (x, y) => x ^ y);
     }
     throw new Error(`operator '${op}' unsupported`);
   }
@@ -405,11 +498,17 @@ const NAMESPACES: Record<string, Record<string, Value>> = {
   cmath: { pi: Math.PI, e: Math.E },
   numpy: { pi: Math.PI, e: Math.E, inf: Infinity },
   np: { pi: Math.PI, e: Math.E, inf: Infinity },
-  // GNU Radio window ids (gr::fft::window::win_type).
+  // GNU Radio window ids, the complete gr::fft::window::win_type enum
+  // (gr-fft/include/gnuradio/fft/window.h). All of them, because windowBuild()
+  // below implements all of them: a constant this table is missing evaluates to
+  // "not defined" and a window windowBuild() is missing would silently design
+  // somebody else's filter.
   window: {
     WIN_NONE: -1, WIN_HAMMING: 0, WIN_HANN: 1, WIN_HANNING: 1, WIN_BLACKMAN: 2,
     WIN_RECTANGULAR: 3, WIN_KAISER: 4, WIN_BLACKMAN_hARRIS: 5, WIN_BLACKMAN_HARRIS: 5,
-    WIN_BARTLETT: 6, WIN_FLATTOP: 7,
+    WIN_BARTLETT: 6, WIN_FLATTOP: 7, WIN_NUTTALL: 8, WIN_BLACKMAN_NUTTALL: 8,
+    WIN_NUTTALL_CFD: 9, WIN_WELCH: 10, WIN_PARZEN: 11, WIN_EXPONENTIAL: 12,
+    WIN_RIEMANN: 13, WIN_GAUSSIAN: 14, WIN_TUKEY: 15,
   },
   filter: {},
 };
@@ -430,7 +529,7 @@ const asVec = (v: Value): number[] => {
 function elementwise(fn: (x: number) => number) {
   return (args: Value[]): Value => {
     const a = args[0];
-    if (Array.isArray(a)) return a.map(x => fn(numish(x)));
+    if (Array.isArray(a)) return nd(a.map(x => fn(numish(x))));
     if (a instanceof Complex) throw new Error('complex not supported here');
     return fn(numish(a));
   };
@@ -469,9 +568,11 @@ function flat(args: Value[]): number[] {
   return args.map(x => numish(x));
 }
 
-// numpy shim (the array-returning members the examples use).
+// numpy shim (the array-returning members the examples use). Everything here
+// that yields a sequence yields an NdArray, so the result keeps numpy's
+// elementwise arithmetic instead of degrading into a Python list.
 const npFuncs: Record<string, (args: Value[]) => Value> = {
-  array: a => (Array.isArray(a[0]) ? a[0].slice() : [a[0]]),
+  array: a => (Array.isArray(a[0]) ? nd(a[0].slice()) : nd([a[0]])),
   arange: a => {
     let lo = 0, hi = 0, st = 1;
     if (a.length === 1) hi = numish(a[0]);
@@ -479,16 +580,16 @@ const npFuncs: Record<string, (args: Value[]) => Value> = {
     const out: number[] = [];
     if (st > 0) for (let x = lo; x < hi - 1e-12; x += st) out.push(x);
     else for (let x = lo; x > hi + 1e-12; x += st) out.push(x);
-    return out;
+    return nd(out);
   },
   linspace: a => {
     const lo = numish(a[0]), hi = numish(a[1]), num = a.length > 2 ? Math.trunc(numish(a[2])) : 50;
-    if (num <= 1) return [lo];
+    if (num <= 1) return nd([lo]);
     const out: number[] = []; const step = (hi - lo) / (num - 1);
-    for (let i = 0; i < num; i++) out.push(lo + step * i); return out;
+    for (let i = 0; i < num; i++) out.push(lo + step * i); return nd(out);
   },
-  zeros: a => new Array(Math.trunc(numish(a[0]))).fill(0),
-  ones: a => new Array(Math.trunc(numish(a[0]))).fill(1),
+  zeros: a => nd(new Array(Math.trunc(numish(a[0]))).fill(0)),
+  ones: a => nd(new Array(Math.trunc(numish(a[0]))).fill(1)),
   sqrt: elementwise(Math.sqrt),
   exp: elementwise(Math.exp),
   log: elementwise(Math.log),
@@ -498,13 +599,13 @@ const npFuncs: Record<string, (args: Value[]) => Value> = {
   cos: elementwise(Math.cos),
   tan: elementwise(Math.tan),
   square: elementwise(x => x * x),
-  abs: a => (Array.isArray(a[0]) ? a[0].map(x => (x instanceof Complex ? Math.hypot(x.re, x.im) : Math.abs(numish(x)))) : a[0] instanceof Complex ? Math.hypot(a[0].re, a[0].im) : Math.abs(numish(a[0]))),
-  float32: a => a[0],
-  float64: a => a[0],
-  real: a => (a[0] instanceof Complex ? a[0].re : numish(a[0])),
-  imag: a => (a[0] instanceof Complex ? a[0].im : 0),
-  conj: a => (Array.isArray(a[0]) ? a[0].map(x => (x instanceof Complex ? new Complex(x.re, -x.im) : x)) : a[0] instanceof Complex ? new Complex(a[0].re, -a[0].im) : a[0]),
-  angle: a => (Array.isArray(a[0]) ? a[0].map(x => (x instanceof Complex ? Math.atan2(x.im, x.re) : (numish(x) < 0 ? Math.PI : 0))) : a[0] instanceof Complex ? Math.atan2(a[0].im, a[0].re) : (numish(a[0]) < 0 ? Math.PI : 0)),
+  abs: a => (Array.isArray(a[0]) ? nd(a[0].map(x => (x instanceof Complex ? Math.hypot(x.re, x.im) : Math.abs(numish(x))))) : a[0] instanceof Complex ? Math.hypot(a[0].re, a[0].im) : Math.abs(numish(a[0]))),
+  float32: a => (Array.isArray(a[0]) ? nd(a[0].slice()) : a[0]),
+  float64: a => (Array.isArray(a[0]) ? nd(a[0].slice()) : a[0]),
+  real: a => (Array.isArray(a[0]) ? nd(a[0].map(x => (x instanceof Complex ? x.re : numish(x)))) : a[0] instanceof Complex ? a[0].re : numish(a[0])),
+  imag: a => (Array.isArray(a[0]) ? nd(a[0].map(x => (x instanceof Complex ? x.im : 0))) : a[0] instanceof Complex ? a[0].im : 0),
+  conj: a => (Array.isArray(a[0]) ? nd(a[0].map(x => (x instanceof Complex ? new Complex(x.re, -x.im) : x))) : a[0] instanceof Complex ? new Complex(a[0].re, -a[0].im) : a[0]),
+  angle: a => (Array.isArray(a[0]) ? nd(a[0].map(x => (x instanceof Complex ? Math.atan2(x.im, x.re) : (numish(x) < 0 ? Math.PI : 0)))) : a[0] instanceof Complex ? Math.atan2(a[0].im, a[0].re) : (numish(a[0]) < 0 ? Math.PI : 0)),
   mean: a => { const v = asVec(a[0]); return v.reduce((s, x) => s + x, 0) / (v.length || 1); },
   sum: a => asVec(a[0]).reduce((s, x) => s + x, 0),
   dot: a => { const x = asVec(a[0]), y = asVec(a[1]); return x.reduce((s, xi, i) => s + xi * (y[i] ?? 0), 0); },
@@ -535,43 +636,329 @@ const mathFuncs: Record<string, (args: Value[]) => Value> = {
 // preview: `resolveParamsForRun` evaluates every expression here and ships the
 // resulting tap list to the runner, which cannot evaluate Python itself. So a
 // formula that is only approximately right produces a filter that is actually
-// wrong in the running flowgraph — port gr-filter/lib/firdes.cc faithfully.
+// wrong in the running flowgraph — and the same flowgraph can hold a Low Pass
+// Filter block, whose taps the *runner* designs with the real
+// gr::filter::firdes, so an approximation here makes two blocks given identical
+// arguments disagree. Port gr-filter/lib/firdes.cc and gr-fft/lib/window.cc
+// faithfully; nothing below is allowed to be "close enough".
+const WIN_HAMMING = 0;
+// firdes.h's default for the Kaiser/Exponential/Gaussian/Tukey parameter.
+const DEFAULT_WIN_PARAM = 6.76;
+// window.h's INVALID_WIN_PARAM: what firdes::window() passes when the caller
+// gave no parameter, and what makes a window that needs one throw.
+const INVALID_WIN_PARAM = -1;
+
 const firdesFuncs: Record<string, (args: Value[]) => Value> = {
-  low_pass: a => lowPass(numish(a[0]), numish(a[1]), numish(a[2]), numish(a[3]), a.length > 4 ? numish(a[4]) : 0),
-  low_pass_2: a => lowPass(numish(a[0]), numish(a[1]), numish(a[2]), numish(a[3]), a.length > 5 ? numish(a[5]) : 0),
+  low_pass: a => firdesLowPass(
+    numish(a[0]), numish(a[1]), numish(a[2]), numish(a[3]),
+    a.length > 4 ? numish(a[4]) : WIN_HAMMING,
+    a.length > 5 ? numish(a[5]) : DEFAULT_WIN_PARAM),
+  // low_pass_2's fifth argument is the required stopband attenuation, which is
+  // what sets its tap count; the window is the *sixth*. Reading the window out
+  // of the fifth position (as this did) both ignored the attenuation and
+  // designed with whatever window id the attenuation happened to collide with.
+  low_pass_2: a => firdesLowPass2(
+    numish(a[0]), numish(a[1]), numish(a[2]), numish(a[3]), numish(a[4]),
+    a.length > 5 ? numish(a[5]) : WIN_HAMMING,
+    a.length > 6 ? numish(a[6]) : DEFAULT_WIN_PARAM),
   root_raised_cosine: a => rrc(numish(a[0]), numish(a[1]), numish(a[2]), numish(a[3]), Math.trunc(numish(a[4]))),
-  window: a => windowFn(numish(a[0]), Math.trunc(numish(a[1]))),
+  window: a => windowBuild(
+    numish(a[0]), Math.trunc(numish(a[1])),
+    a.length > 2 ? numish(a[2]) : INVALID_WIN_PARAM),
 };
 
-function windowFn(type: number, ntaps: number): number[] {
-  const w = new Array(Math.max(0, ntaps)).fill(0);
+// ---- gr-fft/lib/window.cc -------------------------------------------------
+// Every branch of window::build(), because low_pass()'s tap *count* is a
+// function of the window type (through max_attenuation) and its shape is a
+// function of the window itself. Falling back to Hamming for a window that is
+// not implemented — which is what this file used to do for Kaiser,
+// Blackman-Harris, Bartlett and Flattop — designs a different filter than GNU
+// Radio does, without a word. An unimplemented id throws instead, exactly as
+// window::build()'s `default:` does.
+
+// window::Izero — modified Bessel function of the first kind, order 0.
+function izero(x: number): number {
+  const EPSILON = 1e-21;
+  let sum = 1, u = 1, n = 1;
+  const halfx = x / 2;
+  do {
+    let temp = halfx / n;
+    n += 1;
+    temp *= temp;
+    u *= temp;
+    sum += u;
+  } while (u >= EPSILON * sum);
+  return sum;
+}
+
+const midn = (ntaps: number) => ntaps / 2;
+const midm1 = (ntaps: number) => (ntaps - 1) / 2;
+const midp1 = (ntaps: number) => (ntaps + 1) / 2;
+const winFreq = (ntaps: number) => (2 * Math.PI) / ntaps;
+
+// window::coswindow, whose 3-, 4- and 5-coefficient overloads are one series
+// with alternating signs: c0 - c1 cos(x) + c2 cos(2x) - c3 cos(3x) + c4 cos(4x).
+function coswindow(ntaps: number, c: number[]): number[] {
+  const taps = new Array<number>(ntaps).fill(0);
   const M = ntaps - 1;
   for (let n = 0; n < ntaps; n++) {
-    switch (type) {
-      case 1: w[n] = 0.5 - 0.5 * Math.cos((2 * Math.PI * n) / M); break;              // Hann
-      case 0: w[n] = 0.54 - 0.46 * Math.cos((2 * Math.PI * n) / M); break;            // Hamming
-      case 2: w[n] = 0.42 - 0.5 * Math.cos((2 * Math.PI * n) / M) + 0.08 * Math.cos((4 * Math.PI * n) / M); break; // Blackman
-      case 3: w[n] = 1; break;                                                        // Rectangular
-      default: w[n] = 0.54 - 0.46 * Math.cos((2 * Math.PI * n) / M);                  // fallback Hamming
-    }
+    const x = (2 * Math.PI * n) / M;
+    let value = c[0];
+    for (let k = 1; k < c.length; k++)
+      value += (k % 2 ? -1 : 1) * c[k] * Math.cos(k * x);
+    taps[n] = value;
   }
-  return w;
-}
-function lowPass(gain: number, fs: number, cutoff: number, transition: number, winType = 0): number[] {
-  // ntaps from transition width (GR uses a window-dependent factor; ~4 for Hamming).
-  const ntaps0 = Math.ceil((3.3 * fs) / transition);
-  const ntaps = ntaps0 % 2 === 0 ? ntaps0 + 1 : ntaps0;
-  const w = windowFn(winType, ntaps);
-  const M = (ntaps - 1) / 2; const fwT0 = (2 * Math.PI * cutoff) / fs;
-  const taps = new Array(ntaps).fill(0); let sum = 0;
-  for (let n = 0; n < ntaps; n++) {
-    const m = n - M;
-    const h = m === 0 ? fwT0 / Math.PI : Math.sin(fwT0 * m) / (Math.PI * m);
-    taps[n] = h * w[n]; sum += taps[n];
-  }
-  for (let n = 0; n < ntaps; n++) taps[n] = (taps[n] * gain) / sum;
   return taps;
 }
+
+function rectangularWindow(ntaps: number): number[] {
+  return new Array<number>(ntaps).fill(1);
+}
+function hammingWindow(ntaps: number): number[] {
+  const taps = new Array<number>(ntaps).fill(0);
+  const M = ntaps - 1;
+  for (let n = 0; n < ntaps; n++) taps[n] = 0.54 - 0.46 * Math.cos((2 * Math.PI * n) / M);
+  return taps;
+}
+function hannWindow(ntaps: number): number[] {
+  const taps = new Array<number>(ntaps).fill(0);
+  const M = ntaps - 1;
+  for (let n = 0; n < ntaps; n++) taps[n] = 0.5 - 0.5 * Math.cos((2 * Math.PI * n) / M);
+  return taps;
+}
+function blackmanHarrisWindow(ntaps: number, atten = 92): number[] {
+  switch (atten) {
+    case 61: return coswindow(ntaps, [0.42323, 0.49755, 0.07922]);
+    case 67: return coswindow(ntaps, [0.44959, 0.49364, 0.05677]);
+    case 74: return coswindow(ntaps, [0.40271, 0.49703, 0.09392, 0.00183]);
+    case 92: return coswindow(ntaps, [0.35875, 0.48829, 0.14128, 0.01168]);
+  }
+  throw new Error('window::blackman_harris: unknown attenuation value (must be 61, 67, 74, or 92)');
+}
+function kaiserWindow(ntaps: number, beta: number): number[] {
+  if (beta < 0) throw new Error('window::kaiser: beta must be >= 0');
+  const taps = new Array<number>(ntaps).fill(0);
+  const ibeta = 1 / izero(beta);
+  const inm1 = 1 / (ntaps - 1);
+  // First and last are lifted out of the loop upstream too: sqrt(1 - t*t) with
+  // |t| = 1 + epsilon is the floating-point hazard that gnuradio#1348 was about.
+  taps[0] = ibeta;
+  for (let i = 1; i < ntaps - 1; i++) {
+    const temp = 2 * i * inm1 - 1;
+    taps[i] = izero(beta * Math.sqrt(1 - temp * temp)) * ibeta;
+  }
+  taps[ntaps - 1] = ibeta;
+  return taps;
+}
+function bartlettWindow(ntaps: number): number[] {
+  const taps = new Array<number>(ntaps).fill(0);
+  const M = ntaps - 1;
+  const half = Math.trunc(ntaps / 2);
+  for (let n = 0; n < half; n++) taps[n] = (2 * n) / M;
+  for (let n = half; n < ntaps; n++) taps[n] = 2 - (2 * n) / M;
+  return taps;
+}
+function flattopWindow(ntaps: number): number[] {
+  const scale = 4.63867;
+  return coswindow(ntaps,
+    [1.0 / scale, 1.93 / scale, 1.29 / scale, 0.388 / scale, 0.028 / scale]);
+}
+function welchWindow(ntaps: number): number[] {
+  const taps = new Array<number>(ntaps).fill(0);
+  const m1 = midm1(ntaps), p1 = midp1(ntaps);
+  for (let i = 0; i < midn(ntaps) + 1; i++) {
+    taps[i] = 1.0 - Math.pow((i - m1) / p1, 2);
+    taps[ntaps - i - 1] = taps[i];
+  }
+  return taps;
+}
+function parzenWindow(ntaps: number): number[] {
+  const taps = new Array<number>(ntaps).fill(0);
+  const m1 = midm1(ntaps), m = midn(ntaps);
+  let i = Math.trunc(ntaps / 4);
+  for (; i < Math.trunc((3 * ntaps) / 4); i++)
+    taps[i] = 1.0 - 6.0 * Math.pow((i - m1) / m, 2.0) * (1.0 - Math.abs(i - m1) / m);
+  for (; i < ntaps; i++) {
+    taps[i] = 2.0 * Math.pow(1.0 - Math.abs(i - m1) / m, 3.0);
+    taps[ntaps - i - 1] = taps[i];
+  }
+  return taps;
+}
+function exponentialWindow(ntaps: number, d: number): number[] {
+  if (d < 0) throw new Error('window::exponential: d must be >= 0');
+  const m1 = midm1(ntaps);
+  const p = 1.0 / ((8.69 * ntaps) / (2.0 * d));
+  const taps = new Array<number>(ntaps).fill(0);
+  for (let i = 0; i < midn(ntaps) + 1; i++) {
+    taps[i] = Math.exp(-Math.abs(i - m1) * p);
+    taps[ntaps - i - 1] = taps[i];
+  }
+  return taps;
+}
+function riemannWindow(ntaps: number): number[] {
+  const sr1 = winFreq(ntaps);
+  const mid = midn(ntaps);
+  const taps = new Array<number>(ntaps).fill(0);
+  for (let i = 0; i < mid; i++) {
+    if (i === midn(ntaps)) {
+      taps[i] = 1.0;
+      taps[ntaps - i - 1] = 1.0;
+    } else {
+      const cx = sr1 * (i - mid);
+      taps[i] = Math.sin(cx) / cx;
+      taps[ntaps - i - 1] = Math.sin(cx) / cx;
+    }
+  }
+  return taps;
+}
+function tukeyWindow(ntaps: number, alpha: number): number[] {
+  if (alpha < 0 || alpha > 1) throw new Error('window::tukey: alpha must be between 0 and 1');
+  const N = ntaps - 1;
+  const aN = alpha * N;
+  const p1 = aN / 2.0;
+  const mid = midn(ntaps);
+  const taps = new Array<number>(ntaps).fill(0);
+  for (let i = 0; i < mid; i++) {
+    if (Math.abs(i) < p1) {
+      taps[i] = 0.5 * (1.0 - Math.cos((2 * Math.PI * i) / aN));
+      taps[ntaps - 1 - i] = taps[i];
+    } else {
+      taps[i] = 1.0;
+      taps[ntaps - i - 1] = 1.0;
+    }
+  }
+  return taps;
+}
+function gaussianWindow(ntaps: number, sigma: number): number[] {
+  if (sigma <= 0) throw new Error('window::gaussian: sigma must be > 0');
+  const a = 2 * sigma * sigma;
+  const m1 = midm1(ntaps);
+  const taps = new Array<number>(ntaps).fill(0);
+  for (let i = 0; i < midn(ntaps); i++) {
+    const N = i - m1;
+    taps[i] = Math.exp(-((N * N) / a));
+    taps[ntaps - 1 - i] = taps[i];
+  }
+  return taps;
+}
+
+// window::build(type, ntaps, param) with normalize=false, which is the default
+// and what firdes::window() asks for.
+function windowBuild(type: number, ntaps: number, param = INVALID_WIN_PARAM): number[] {
+  if (!Number.isFinite(ntaps) || ntaps < 1)
+    throw new Error('window::build: ntaps must be a positive integer');
+  switch (type) {
+    case 3: return rectangularWindow(ntaps);              // WIN_RECTANGULAR
+    case 0: return hammingWindow(ntaps);                  // WIN_HAMMING
+    case 1: return hannWindow(ntaps);                     // WIN_HANN / WIN_HANNING
+    case 2: return coswindow(ntaps, [0.42, 0.5, 0.08]);   // WIN_BLACKMAN
+    case 5: return blackmanHarrisWindow(ntaps);           // WIN_BLACKMAN_hARRIS
+    case 4: return kaiserWindow(ntaps, param);            // WIN_KAISER
+    case 6: return bartlettWindow(ntaps);                 // WIN_BARTLETT
+    case 7: return flattopWindow(ntaps);                  // WIN_FLATTOP
+    case 8:                                               // WIN_NUTTALL
+      return coswindow(ntaps, [0.3635819, 0.4891775, 0.1365995, 0.0106411]);
+    case 9:                                               // WIN_NUTTALL_CFD
+      return coswindow(ntaps, [0.355768, 0.487396, 0.144232, 0.012604]);
+    case 10: return welchWindow(ntaps);                   // WIN_WELCH
+    case 11: return parzenWindow(ntaps);                  // WIN_PARZEN
+    case 12: return exponentialWindow(ntaps, param);      // WIN_EXPONENTIAL
+    case 13: return riemannWindow(ntaps);                 // WIN_RIEMANN
+    case 14: return gaussianWindow(ntaps, param);         // WIN_GAUSSIAN
+    case 15: return tukeyWindow(ntaps, param);            // WIN_TUKEY
+  }
+  throw new Error('window::build: type out of range');
+}
+
+// window::max_attenuation — the dB figure that, through compute_ntaps below,
+// decides how many taps a window-method filter gets.
+function maxAttenuation(type: number, param: number): number {
+  switch (type) {
+    case 0: return 53;     // Hamming
+    case 1: return 44;     // Hann
+    case 2: return 74;     // Blackman
+    case 3: return 21;     // Rectangular
+    case 4: return param / 0.1102 + 8.7;   // Kaiser, linear approximation
+    case 5: return 92;     // Blackman-Harris
+    case 6: return 27;     // Bartlett
+    case 7: return 93;     // Flattop
+    case 8: return 114;    // Nuttall
+    case 9: return 112;    // Nuttall CFD
+    case 10: return 31;    // Welch
+    case 11: return 56;    // Parzen
+    case 12: return 26;    // Exponential
+    case 13: return 39;    // Riemann
+    case 14: return 100;   // Gaussian, not meaningful but has to be something
+    case 15:               // Tukey, piecewise linear fit
+      if (param > 0.9) return (param - 0.9) * 135 + 30.5;
+      if (param > 0.7) return (param - 0.6) * 20 + 24;
+      return param * 5 + 21;
+  }
+  throw new Error('window::max_attenuation: unknown window type provided.');
+}
+
+// ---- gr-filter/lib/firdes.cc ----------------------------------------------
+
+// (int) truncates toward zero, then an even count is made odd. Both matter:
+// ceil() instead of trunc() shifts every filter by two taps.
+const oddTaps = (n: number) => (Math.trunc(n) % 2 === 0 ? Math.trunc(n) + 1 : Math.trunc(n));
+
+// firdes::compute_ntaps. The 22.0 and the window's own max_attenuation are the
+// whole formula (Herrmann/harris); there is no window-independent constant that
+// approximates it, which is what the 3.3 here used to assume.
+function computeNtaps(fs: number, transition: number, winType: number, param: number): number {
+  return oddTaps((maxAttenuation(winType, param) * fs) / (22.0 * transition));
+}
+// firdes::compute_ntaps_windes — the same, from a stopband attenuation the
+// caller states outright rather than one implied by the window.
+function computeNtapsWindes(fs: number, transition: number, attenuationDb: number): number {
+  return oddTaps((attenuationDb * fs) / (22.0 * transition));
+}
+
+function sanityCheck1f(fs: number, fa: number, transition: number): void {
+  if (!(fs > 0.0)) throw new Error('firdes check failed: sampling_freq > 0');
+  if (!(fa > 0.0) || fa > fs / 2)
+    throw new Error('firdes check failed: 0 < fa <= sampling_freq / 2');
+  if (!(transition > 0.0)) throw new Error('firdes check failed: transition_width > 0');
+}
+
+// The body both low_pass forms share: a windowed sinc normalised so the gain at
+// DC is exactly `gain`. fmax is taps[M] + 2*sum(upper half) rather than the
+// plain sum, which is the same number for a symmetric filter and is how
+// firdes.cc spells it.
+function lowPassTaps(gain: number, fs: number, cutoff: number, ntaps: number,
+                     winType: number, param: number): number[] {
+  const w = windowBuild(winType, ntaps, param);
+  const taps = new Array<number>(ntaps).fill(0);
+  const M = Math.trunc((ntaps - 1) / 2);
+  const fwT0 = (2 * Math.PI * cutoff) / fs;
+  for (let n = -M; n <= M; n++) {
+    taps[n + M] = n === 0
+      ? (fwT0 / Math.PI) * w[n + M]
+      : (Math.sin(n * fwT0) / (n * Math.PI)) * w[n + M];
+  }
+  let fmax = taps[M];
+  for (let n = 1; n <= M; n++) fmax += 2 * taps[n + M];
+  const scale = gain / fmax;
+  for (let i = 0; i < ntaps; i++) taps[i] *= scale;
+  return taps;
+}
+
+function firdesLowPass(gain: number, fs: number, cutoff: number, transition: number,
+                       winType = WIN_HAMMING, param = DEFAULT_WIN_PARAM): number[] {
+  sanityCheck1f(fs, cutoff, transition);
+  return lowPassTaps(gain, fs, cutoff,
+    computeNtaps(fs, transition, winType, param), winType, param);
+}
+
+function firdesLowPass2(gain: number, fs: number, cutoff: number, transition: number,
+                        attenuationDb: number,
+                        winType = WIN_HAMMING, param = DEFAULT_WIN_PARAM): number[] {
+  sanityCheck1f(fs, cutoff, transition);
+  return lowPassTaps(gain, fs, cutoff,
+    computeNtapsWindes(fs, transition, attenuationDb), winType, param);
+}
+
 // firdes::root_raised_cosine, transcribed from gr-filter/lib/firdes.cc. Two
 // details are load-bearing and were wrong here before: `x2` has no factor of pi
 // (a spurious one moves the x2*x2 == 1 singularity, so the tails diverge instead

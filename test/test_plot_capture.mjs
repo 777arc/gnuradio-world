@@ -33,7 +33,6 @@ import {
   contentType,
   launchBrowser,
   setIsolationHeaders,
-  suppressEditorWelcome,
 } from '../scripts/browser-test-support.mjs';
 
 const ROOT = normalize(new URL('..', import.meta.url).pathname);
@@ -80,7 +79,6 @@ const check = (ok, what) => {
 const browser = await launchBrowser(ROOT);
 const page = await browser.newPage();
 await page.setViewport({ width: 1400, height: 900 });
-await suppressEditorWelcome(page);
 
 const logs = [];
 page.on('console', message => logs.push(message.text().slice(0, 300)));

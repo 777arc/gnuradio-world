@@ -97,13 +97,57 @@ inline double sample_rate_of(const nlohmann::json& meta)
                : 0.0;
 }
 
+// The capture segment in effect at absolute sample `offset_items`: the last one
+// whose sample_start is at or before it. Returned as an index into the array so
+// two segments sharing a sample_start resolve to exactly one of them.
+//
+// This exists because a capture segment describes every sample from its own
+// start *onward*, not just the one it sits on. Every SigMF recording has a
+// segment at sample 0, so a selection starting anywhere past the beginning has
+// one in effect -- and simply dropping it, which is what this did, left the
+// stream with no rx_freq, no rx_rate and no rx_time at all.
+inline std::size_t enclosing_capture(const nlohmann::json& captures,
+                                     std::uint64_t offset_items)
+{
+    const std::size_t none = static_cast<std::size_t>(-1);
+    std::size_t found = none;
+    double best = 0.0;
+    for (std::size_t i = 0; i < captures.size(); ++i) {
+        if (!captures[i].is_object())
+            continue;
+        const double start = sigmf_number(captures[i], KEY_SAMPLE_START, 0.0);
+        if (!(start >= 0.0) || static_cast<std::uint64_t>(start) > offset_items)
+            continue;
+        if (found == none || start >= best) {
+            found = i;
+            best = start;
+        }
+    }
+    return found;
+}
+
+// Whether an annotation is still running at absolute sample `offset_items`: it
+// began earlier and its extent reaches past. The same argument as a capture
+// segment -- an annotation covering the selection's first sample belongs on it.
+inline bool annotation_spans(const nlohmann::json& annotation, std::uint64_t offset_items)
+{
+    const double start = sigmf_number(annotation, KEY_SAMPLE_START, 0.0);
+    const double count = sigmf_number(annotation, KEY_SAMPLE_COUNT, 0.0);
+    if (!(start >= 0.0) || !(count > 0.0))
+        return false;
+    return static_cast<std::uint64_t>(start) < offset_items &&
+           start + count > static_cast<double>(offset_items);
+}
+
 // The recording's metadata as tags to emit while reading it.
 //
 // Offsets come out counted from the first sample of a pass -- the block's Offset
 // parameter subtracted -- so a trimmed selection tags the right samples and a
-// repeat pass re-emits the same plan. Anything before the selection is dropped;
-// anything past its end is harmless (the block never reaches it), so the tail is
-// only clipped when Length actually bounds it.
+// repeat pass re-emits the same plan. Anything that begins before the selection
+// and does not reach into it is dropped; anything still in effect at the
+// selection's first sample is carried onto that sample instead. Anything past
+// the end is harmless (the block never reaches it), so the tail is only clipped
+// when Length actually bounds it.
 inline std::vector<TagPlanEntry> build_tag_plan(const nlohmann::json& meta,
                                                 std::uint64_t offset_items,
                                                 std::uint64_t length_items)
@@ -114,41 +158,55 @@ inline std::vector<TagPlanEntry> build_tag_plan(const nlohmann::json& meta,
 
     const double rate = sample_rate_of(meta);
 
-    const auto push = [&](double absolute_start, const char* name, pmt::pmt_t value) {
+    // `carried` marks an entry whose extent covers the selection's first
+    // sample: it lands at relative offset 0 rather than being dropped.
+    const auto push = [&](double absolute_start,
+                          bool carried,
+                          const char* name,
+                          pmt::pmt_t value) {
         if (!(absolute_start >= 0.0))
             return;
         const auto start = static_cast<std::uint64_t>(absolute_start);
-        if (start < offset_items)
+        std::uint64_t relative = 0;
+        if (start >= offset_items) {
+            relative = start - offset_items;
+            if (length_items && relative >= length_items)
+                return;
+        } else if (!carried) {
             return;
-        const std::uint64_t relative = start - offset_items;
-        if (length_items && relative >= length_items)
-            return;
+        }
         plan.push_back({ relative, pmt::string_to_symbol(name), std::move(value) });
     };
 
     if (meta.contains("captures") && meta.at("captures").is_array()) {
-        for (const auto& capture : meta.at("captures")) {
+        const nlohmann::json& captures = meta.at("captures");
+        const std::size_t enclosing = enclosing_capture(captures, offset_items);
+        for (std::size_t i = 0; i < captures.size(); ++i) {
+            const auto& capture = captures[i];
             if (!capture.is_object())
                 continue;
             const double start = sigmf_number(capture, KEY_SAMPLE_START, 0.0);
+            const bool carried = (i == enclosing);
 
             // The conventional receive tags first: these are the names blocks
             // elsewhere in GNU Radio already look for.
             if (capture.contains(KEY_FREQUENCY))
-                push(start, TAG_RX_FREQ, pmt::from_double(sigmf_number(capture, KEY_FREQUENCY)));
+                push(start, carried, TAG_RX_FREQ,
+                     pmt::from_double(sigmf_number(capture, KEY_FREQUENCY)));
             if (rate > 0.0)
-                push(start, TAG_RX_RATE, pmt::from_double(rate));
+                push(start, carried, TAG_RX_RATE, pmt::from_double(rate));
             std::uint64_t seconds = 0;
             double fraction = 0.0;
             const std::string datetime = sigmf_string(capture, KEY_DATETIME);
             if (!datetime.empty() && iso8601_to_epoch(datetime, seconds, fraction))
                 push(start,
+                     carried,
                      TAG_RX_TIME,
                      pmt::cons(pmt::from_uint64(seconds), pmt::from_double(fraction)));
 
             // Then the whole segment, so nothing in it is lost on the way to a
             // SigMF Sink downstream.
-            push(start, TAG_CAPTURE, json_to_pmt(capture));
+            push(start, carried, TAG_CAPTURE, json_to_pmt(capture));
         }
     }
 
@@ -157,6 +215,7 @@ inline std::vector<TagPlanEntry> build_tag_plan(const nlohmann::json& meta,
             if (!annotation.is_object())
                 continue;
             push(sigmf_number(annotation, KEY_SAMPLE_START, 0.0),
+                 annotation_spans(annotation, offset_items),
                  TAG_ANNOTATION,
                  json_to_pmt(annotation));
         }

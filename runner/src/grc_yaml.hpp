@@ -244,14 +244,24 @@ private:
         json arr = json::array();
         std::size_t end = s.rfind(']');
         std::string body = s.substr(1, end == std::string::npos ? std::string::npos : end - 1);
-        // Split on top-level commas (respecting quotes).
+        // Split on top-level commas, respecting quotes *and* nesting. Without
+        // the depth counter a matrix parameter written as [[1,2],[3,4]] split
+        // into the four tokens "[1", "2]", "[3", "4]" and became a list of
+        // strings, silently.
         std::string cur;
         char quote = 0;
-        auto flush = [&]() { std::string t = trim(cur); if (!t.empty()) arr.push_back(parse_scalar(t)); cur.clear(); };
+        int depth = 0;
+        auto flush = [&]() {
+            std::string t = trim(cur);
+            if (!t.empty()) arr.push_back(parse_inline(t));
+            cur.clear();
+        };
         for (char c : body) {
             if (quote) { cur += c; if (c == quote) quote = 0; }
             else if (c == '\'' || c == '"') { quote = c; cur += c; }
-            else if (c == ',') flush();
+            else if (c == '[' || c == '{') { ++depth; cur += c; }
+            else if (c == ']' || c == '}') { if (depth) --depth; cur += c; }
+            else if (c == ',' && depth == 0) flush();
             else cur += c;
         }
         flush();

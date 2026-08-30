@@ -36,7 +36,7 @@ import type { Conn, GraphSnapshot, Inst, ValidationIssue } from './graph-model';
 import {
   installAudioResumeRelay,
 } from './audio';
-import { EVALUATED_DTYPES, VARIABLE_IDS, effectiveDtype, validateFlowgraph } from './validation';
+import { EVALUATED_DTYPES, effectiveDtype, isVariableBlock, validateFlowgraph } from './validation';
 import {
   type UsbPreparationProblem,
   type UsbRadio,
@@ -241,7 +241,7 @@ let showAllBlockIds = false;
 let paletteSearch: HTMLInputElement | null = null;
 
 function canvasBlockHidden(inst: Inst): boolean {
-  return (hideDisabled && !inst.enabled) || (hideVariables && VARIABLE_IDS.has(inst.id));
+  return (hideDisabled && !inst.enabled) || (hideVariables && isVariableBlock(inst.id));
 }
 
 // Whether this block exposes its instance ID, as native GRC decides it: the
@@ -1723,7 +1723,7 @@ function withImplicitParams(inst: Inst, params: Record<string, GrcScalar>): Reco
   const def = defFor(inst);
   const hasOutput = def?.nativeOutputBuffers ??
     ((def?.outputTemplates?.length ?? def?.outputs ?? 0) > 0);
-  const implicit: Record<string, GrcScalar> = VARIABLE_IDS.has(inst.id)
+  const implicit: Record<string, GrcScalar> = isVariableBlock(inst.id)
     ? { comment: '' }
     : hasOutput
       ? { affinity: '', alias: '', comment: '', maxoutbuf: '0', minoutbuf: '0' }
@@ -1812,7 +1812,7 @@ function buildGrcDoc(resolve = false): GrcDoc {
     states: opt ? grcStates(opt) : { coordinate: [10, 10], rotation: 0, state: 'enabled' } };
 
   // blocks: everything except options, GRC order (variables first, then by name).
-  const isVar = (i: Inst) => VARIABLE_IDS.has(i.id);
+  const isVar = (i: Inst) => isVariableBlock(i.id);
   const blocks = state.insts.filter(i => i.id !== OPTIONS_ID)
     .sort((a, b) => (Number(!isVar(a)) - Number(!isVar(b))) ||
       (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
@@ -4059,7 +4059,7 @@ function toggleHideDisabled() { hideDisabled = !hideDisabled; render(); }
 function toggleHideVariables() {
   hideVariables = !hideVariables;
   if (hideVariables) {
-    const hidden = new Set(state.insts.filter(inst => VARIABLE_IDS.has(inst.id)).map(inst => inst.uid));
+    const hidden = new Set(state.insts.filter(inst => isVariableBlock(inst.id)).map(inst => inst.uid));
     state.selectedBlocks = new Set([...state.selectedBlocks].filter(uid => !hidden.has(uid)));
     if (state.selected && hidden.has(state.selected)) state.selected = [...state.selectedBlocks].pop() || null;
     if (state.selectedConnection && (hidden.has(state.selectedConnection.from) || hidden.has(state.selectedConnection.to)))
@@ -4948,50 +4948,11 @@ async function autoRunFromUrl(): Promise<void> {
   await run();
 }
 
-function showWelcomePopup() {
-  const WELCOME_KEY = 'gnuradio_world_welcome_seen';
-  try { if (localStorage.getItem(WELCOME_KEY)) return; } catch { return; }
-  const overlay = document.createElement('div'); overlay.className = 'modal';
-  const dlg = document.createElement('div'); dlg.className = 'dlg';
-  const head = document.createElement('div'); head.className = 'dlghead'; head.textContent = 'Welcome to GNU Radio World';
-  const body = document.createElement('div'); body.className = 'dlgbody';
-  type Item = { text: string } | { parts: (string | HTMLElement)[] };
-  const emailLink = document.createElement('a');
-  emailLink.href = 'mailto:info@iqengine.org'; emailLink.textContent = 'info@iqengine.org';
-  emailLink.style.color = 'var(--accent, #58a6ff)';
-  const items: Item[] = [
-    { text: 'GNU Radio World is very new and a work in progress \u2014 expect rough edges!' },
-    { text: 'Example flowgraphs can be submitted via File \u203a Contribute Example.' },
-    { parts: ['Example recordings can be submitted by emailing ', emailLink, ' with a way to download them.'] },
-    { text: 'Features or bug fixes can be done very easily: open a new GitHub Issue, then click \u201cAssign to Agent\u201d to have AI do the work and make a PR. The PR will automatically build and after ~8 minutes give you a link to a live preview so you can verify the change.' },
-  ];
-  const ul = document.createElement('ul'); ul.style.cssText = 'margin:0;padding-left:1.4em;line-height:1.7';
-  for (const item of items) {
-    const li = document.createElement('li');
-    if ('text' in item) { li.textContent = item.text; }
-    else { for (const part of item.parts) li.append(part); }
-    ul.appendChild(li);
-  }
-  body.appendChild(ul);
-  const foot = document.createElement('div'); foot.className = 'dlgfoot';
-  const close = document.createElement('button'); close.textContent = 'Got it';
-  const dismiss = () => {
-    try { localStorage.setItem(WELCOME_KEY, '1'); } catch { /* ignore */ }
-    overlay.remove();
-  };
-  close.onclick = dismiss;
-  foot.appendChild(close);
-  dlg.append(head, body, foot); overlay.appendChild(dlg); document.body.appendChild(overlay);
-  overlay.addEventListener('mousedown', e => { if (e.target === overlay) dismiss(); });
-  close.focus();
-}
-
 // bootstrap.ts keeps the application hidden (or its click-to-load screen up)
 // until this resolves. The palette becomes populated before the initial
 // flowgraph fetch completes, but it must not become interactive in that gap: a
 // block placed there would be discarded when the startup flowgraph arrived.
 export const editorReady = paletteReady.then(async () => {
-  const returnedFromOpenRouter = aiPanel?.isOAuthReturn() ?? false;
   const oauthRestore = aiPanel?.oauthRestore() ?? Promise.resolve(null);
   // The GUI Layout block needs its schema, which only arrives with the generated
   // library, so the canvas built before that gets its singleton here instead.
@@ -5015,12 +4976,6 @@ export const editorReady = paletteReady.then(async () => {
   applyZoomFromUrl();
   applyCenterFromUrl();
   historyReady = true; resetHistory();
-  // Nothing of the application's own is offered in an embed, and a modal about
-  // contributing examples is the last thing a host page's reader asked for. Nor
-  // is it what a ?run=1 reader asked for: it would open over the plots the link
-  // exists to show. It is one-shot only once dismissed, so their next ordinary
-  // visit still gets it.
-  if (!EMBEDDED && !returnedFromOpenRouter && !AUTO_RUN) showWelcomePopup();
   // ?run=1 — last, so the graph that starts is the one the fragment asked for,
   // fully loaded. Deliberately not awaited, and deferred by a task: bootstrap.ts
   // reveals the application (or drops the click-to-load gate) in a microtask off

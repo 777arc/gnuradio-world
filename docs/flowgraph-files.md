@@ -180,7 +180,15 @@ in a browser, that is the right trade.
   `editor/src/main.ts` evaluates every numeric/`raw` parameter through
   [`editor/src/expr.ts`](../editor/src/expr.ts) — a Python-subset evaluator covering
   arithmetic, `math`/`numpy`/`firdes`, list literals and repetition — and hands
-  the runner a *resolved* .grc. `example_flowgraphs/rds/rds_receiver.grc` relies on
+  the runner a *resolved* .grc. **Its `firdes` and `window` shims are a
+  transcription of `gr-filter/lib/firdes.cc` and `gr-fft/lib/window.cc`, not an
+  approximation of them**, down to the `(int)(max_attenuation * fs / (22 * tw))`
+  tap count and every window type `window::build()` implements. They have to be:
+  a Low Pass Filter block has its taps designed by the *runner*, with the real
+  `gr::filter::firdes`, so anything less than a faithful port makes two blocks
+  given identical arguments disagree inside one flowgraph. A window this shim
+  does not implement throws rather than falling back to Hamming, for the same
+  reason. `example_flowgraphs/rds/rds_receiver.grc` relies on
   this (`2*math.pi/100`, `samp_rate/(2*math.pi*75e3)`).
   A .grc loaded **straight into `runner.html#<grc>`** gets no such pass: the C++
   side only inlines plain `variable` blocks and coerces numeric strings, so

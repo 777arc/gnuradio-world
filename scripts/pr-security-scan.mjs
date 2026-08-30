@@ -298,7 +298,11 @@ function addedLines(base, head) {
       continue;
     }
     if (!file) continue;
-    if (raw.startsWith("+") && !raw.startsWith("+++")) {
+    // "+++ " with the trailing space, matching the header branch above: an
+    // added line whose own content starts with "++" produces a diff line
+    // starting "+++", and testing without the space skipped it entirely --
+    // unscanned, and every later line number in the hunk off by one.
+    if (raw.startsWith("+") && !raw.startsWith("+++ ")) {
       lines.push({ file, line: lineNo, text: raw.slice(1) });
       lineNo++;
     } else if (!raw.startsWith("-") && !raw.startsWith("\\")) {

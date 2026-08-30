@@ -99,7 +99,18 @@ inline json coerce_numeric(const std::string& s) {
     char* end = nullptr;
     errno = 0;
     long long ll = std::strtoll(b, &end, 10);
-    if (end == b + s.size() && errno == 0) return json(ll);
+    if (end == b + s.size() && errno == 0) {
+        // Only when the integer is the *whole* meaning of the text. "007" is a
+        // serial number, a call sign or a label, and std::to_string(7) is not
+        // it: a factory reading the parameter as text (registry_helpers'
+        // text(), which dumps a non-string) would get "7" and the leading
+        // zeros would be gone for good. is_text_param below exists because a
+        // device serial forced the question; this is the general answer, and it
+        // costs a numeric parameter nothing -- registry_helpers' number()
+        // parses a numeric string just as happily as a JSON number.
+        if (std::to_string(ll) == s) return json(ll);
+        return json(s);
+    }
     errno = 0; end = nullptr;
     double d = std::strtod(b, &end);
     if (end == b + s.size() && end != b && errno == 0) return json(d);

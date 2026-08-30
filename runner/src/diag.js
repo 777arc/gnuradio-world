@@ -27,6 +27,7 @@
   var expanded = false;
   var el = {};               // cached DOM nodes
   var workerTracker = null;  // prewarmed tier + cumulative dynamic allocations
+  var sparkStepPx = 6;       // measured once the diagnostics font is in the DOM
 
   // Below this the bar itself (its stats alone, collapsed, need ~600px to read
   // without wrapping into an unreadable mess) would eat a large fraction of an
@@ -97,12 +98,19 @@
     }
   }
 
-  function spark(arr, lo, hi) {
+  function spark(arr, lo, hi, cells) {
     if (!arr || !arr.length) return '';
     if (hi <= lo) hi = lo + 1;
+    cells = Math.max(1, cells || arr.length);
     var s = '';
-    for (var i = 0; i < arr.length; i++) {
-      var f = (arr[i] - lo) / (hi - lo);
+    // Resample the available history into however many adjacent monospace
+    // glyphs the throughput cell can actually hold. This fills a wide pane
+    // without pulling individual characters apart, and it does not grow while
+    // the first HIST history samples arrive.
+    for (var i = 0; i < cells; i++) {
+      var source = arr.length === 1 || cells === 1
+        ? 0 : Math.round(i * (arr.length - 1) / (cells - 1));
+      var f = (arr[source] - lo) / (hi - lo);
       f = f < 0 ? 0 : f > 1 ? 1 : f;
       s += SPARK[Math.round(f * (SPARK.length - 1))];
     }
@@ -154,13 +162,21 @@
       '#gr-diag .grow{flex:1}' +
       '#gr-diag .btn{color:#8a97ad;border:1px solid #2b3547;border-radius:3px;padding:1px 7px}' +
       '#gr-diag table{width:100%;border-collapse:collapse;font-size:11px}' +
-      '#gr-diag .body{max-height:40vh;overflow:auto;padding:0 10px 8px;display:none}' +
+      '#gr-diag .body{max-height:40vh;overflow:auto;padding:0 10px 8px;display:none;background:#10141c}' +
       '#gr-diag.open .body{display:block}' +
       '#gr-diag th{color:#8a97ad;text-align:right;font-weight:400;padding:3px 8px;position:sticky;top:0;background:#141a24}' +
       '#gr-diag th.l,#gr-diag td.l{text-align:left}' +
       '#gr-diag td{text-align:right;padding:2px 8px;border-top:1px solid #1e2632}' +
+      // Keep every descriptive/numeric column at its intrinsic width and give
+      // the throughput column all remaining room.  Its sparkline is positioned
+      // out of flow so the string growing from 1 to HIST glyphs cannot make the
+      // browser redistribute every column on each diagnostics tick.
+      '#gr-diag th.fit,#gr-diag td.fit{width:1%;white-space:nowrap}' +
+      '#gr-diag th.throughput,#gr-diag td.throughput{width:100%;min-width:240px}' +
       '#gr-diag tr.hot td{background:rgba(224,74,74,.16)}' +
-      '#gr-diag .spk{color:#5aa9e6;letter-spacing:-1px}';
+      '#gr-diag .spk{position:relative;overflow:hidden;color:#5aa9e6}' +
+      '#gr-diag .sparkline{position:absolute;inset:2px 8px;overflow:hidden;' +
+      'white-space:nowrap;text-align:right;letter-spacing:-1px}';
     document.head.appendChild(css);
 
     var root = document.createElement('div');
@@ -180,10 +196,21 @@
         '<span class="btn" id="d-btn">metrics ▲</span>' +
       '</div>' +
       '<div class="body"><table><thead><tr>' +
-        '<th class="l">block</th><th class="l">type</th><th>items/s</th>' +
-        '<th>work µs</th><th>cpu%</th><th>in■</th><th>out■</th><th class="l">throughput</th>' +
+        '<th class="l fit">block</th><th class="l fit">type</th><th class="fit">items/s</th>' +
+        '<th class="fit">work µs</th><th class="fit">cpu%</th><th class="fit">in■</th>' +
+        '<th class="fit">out■</th><th class="l throughput">throughput</th>' +
       '</tr></thead><tbody id="d-rows"></tbody></table></div>';
     document.body.appendChild(root);
+
+    // Measure the actual advance after the inherited monospace font and the
+    // sparkline's tracking are active. A hardcoded px/ch estimate is visibly
+    // wrong across Menlo, Consolas and the platform monospace fallback.
+    var probe = document.createElement('span');
+    probe.textContent = Array(101).join(SPARK[0]);
+    probe.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;letter-spacing:-1px';
+    root.appendChild(probe);
+    sparkStepPx = probe.getBoundingClientRect().width / 100 || sparkStepPx;
+    probe.remove();
 
     el.root = root;
     ['d-dot','d-rt','d-cpu','d-mem','d-fps','d-tier','d-workers','d-thr','d-jank','d-bot','d-rows'].forEach(function (id) {
@@ -286,20 +313,29 @@
       for (var r = 0; r < rows.length; r++) {
         var row = rows[r], bb = row.b;
         var hot = bb.in_full > 0.8 || bb.out_full > 0.8;
-        var lo = Math.min.apply(null, row.hist), hi = Math.max.apply(null, row.hist);
         var type = bb.id.replace(/_x+$/, '').replace(/^[a-z]+_/, '');
         out += '<tr class="' + (hot ? 'hot' : '') + '">' +
-          '<td class="l">' + bb.name + '</td>' +
-          '<td class="l k">' + type + '</td>' +
-          '<td>' + eng(row.thru) + '</td>' +
-          '<td>' + (row.isThr ? '<span class="k">sleep</span>' : bb.work_us.toFixed(1)) + '</td>' +
-          '<td>' + (row.isThr ? '<span class="k">·</span>' : Math.round(row.cpu)) + '</td>' +
-          '<td>' + Math.round(bb.in_full * 100) + '</td>' +
-          '<td>' + Math.round(bb.out_full * 100) + '</td>' +
-          '<td class="l spk">' + spark(row.hist, lo, hi) + '</td>' +
+          '<td class="l fit">' + bb.name + '</td>' +
+          '<td class="l k fit">' + type + '</td>' +
+          '<td class="fit">' + eng(row.thru) + '</td>' +
+          '<td class="fit">' + (row.isThr ? '<span class="k">sleep</span>' : bb.work_us.toFixed(1)) + '</td>' +
+          '<td class="fit">' + (row.isThr ? '<span class="k">·</span>' : Math.round(row.cpu)) + '</td>' +
+          '<td class="fit">' + Math.round(bb.in_full * 100) + '</td>' +
+          '<td class="fit">' + Math.round(bb.out_full * 100) + '</td>' +
+          '<td class="l spk throughput"><span class="sparkline"></span></td>' +
           '</tr>';
       }
       el['d-rows'].innerHTML = out || '<tr><td class="l k" colspan="8">waiting for flowgraph…</td></tr>';
+      var plots = el['d-rows'].querySelectorAll('.sparkline');
+      for (var p = 0; p < plots.length; p++) {
+        var values = rows[p].hist;
+        var columns = Math.max(2, Math.floor(plots[p].clientWidth / sparkStepPx));
+        plots[p].textContent = spark(
+          values,
+          Math.min.apply(null, values),
+          Math.max.apply(null, values),
+          columns);
+      }
     }
   }
 

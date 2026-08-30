@@ -22,7 +22,6 @@ import {
   contentType,
   launchBrowser,
   setIsolationHeaders,
-  suppressEditorWelcome,
   waitForEditorCanvasIdle,
 } from '../scripts/browser-test-support.mjs';
 
@@ -140,7 +139,6 @@ const logs = [];
 page.on('console', m => logs.push(m.text()));
 page.on('pageerror', e => logs.push('PAGEERROR ' + e.message));
 await page.setViewport({ width: 1400, height: 900 });
-await suppressEditorWelcome(page);
 await page.goto(`http://localhost:${PORT}/`, { waitUntil: 'load', timeout: 30000 });
 // Palette rows are built before the asynchronous default flowgraph arrives.
 // Wait for bootstrap's shared readiness boundary -- so that load cannot replace

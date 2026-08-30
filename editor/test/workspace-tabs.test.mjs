@@ -175,8 +175,8 @@ assert.match(source,
   'the one embedded button runs the flowgraph and stops it again');
 assert.match(source, /if \(!runnerRunning\) \{\s*updateEmbedRun\(\/\* failed \*\/ true\)/,
   'a refused flowgraph reports on the button, since an embed has no console pane');
-assert.match(source, /if \(!EMBEDDED && !returnedFromOpenRouter && !AUTO_RUN\) showWelcomePopup\(\)/,
-  'the welcome modal stays out of embedded flowgraphs, the OAuth return and an auto-run');
+assert.doesNotMatch(source, /showWelcomePopup|gnuradio_world_welcome_seen|Welcome to GNU Radio World/,
+  'the removed welcome modal cannot return through startup code or local-storage state');
 
 // ?run=1 — the link that opens on the running flowgraph rather than on the
 // canvas. A query parameter like `embed`, applied last so the graph it starts is

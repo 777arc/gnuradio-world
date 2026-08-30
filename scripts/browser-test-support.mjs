@@ -67,13 +67,6 @@ export async function launchBrowser(root, options = {}) {
   });
 }
 
-export async function suppressEditorWelcome(page) {
-  await page.evaluateOnNewDocument(() => {
-    try { localStorage.setItem('gnuradio_world_welcome_seen', '1'); }
-    catch { /* localStorage is unavailable for opaque documents */ }
-  });
-}
-
 /**
  * Pre-dismiss the "Run without a rate limit?" confirmation, so pressing Run
  * actually starts the flowgraph.

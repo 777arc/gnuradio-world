@@ -53,8 +53,18 @@ export const VARIABLE_CONTROL_IDS = new Set([
   'variable_qtgui_msg_push_button', 'variable_qtgui_dial_control',
   'qtgui_msgdigitalnumbercontrol',
 ]);
+// ...but the *rule* is `is_variable_control()`'s, not the list's. The list above
+// is what the palette offers today and what the drift test asserts against; a
+// block the runner would treat as a control and this list has not caught up
+// with must behave the same way here, or the editor rejects a reference the
+// runner resolves fine. So every decision below goes through the predicate and
+// the list is only ever enumerated.
+export const isVariableControl = (id: string): boolean =>
+  id.startsWith('variable_qtgui_') || id === 'qtgui_msgdigitalnumbercontrol';
 // Every block ID that can be the target of a numeric variable reference.
 export const VARIABLE_IDS = new Set([...VARIABLE_CONTROL_IDS, 'variable']);
+export const isVariableBlock = (id: string): boolean =>
+  id === 'variable' || isVariableControl(id);
 // A control's own parameters are read when it is constructed, before any other
 // control exists, so they cannot reference one. The exception is a parameter the
 // runner does not read but *binds*, through the same numeric setter that lets a
@@ -96,7 +106,7 @@ export function validateFlowgraph(
     activeNames.set(name, (activeNames.get(name) || 0) + 1);
   }
   const activeVariables = new Set(blocks
-    .filter(block => active(block) && VARIABLE_IDS.has(block.id) &&
+    .filter(block => active(block) && isVariableBlock(block.id) &&
       activeNames.get(String(block.name || '').trim()) === 1)
     .map(block => String(block.name || '').trim()));
 
@@ -119,7 +129,7 @@ export function validateFlowgraph(
   // control" case below.
   const activeBlocks = blocks.filter(active);
   const staticScope = buildScope(activeBlocks.filter(block => block.id === 'variable'));
-  const fullScope = buildScope(activeBlocks.filter(block => VARIABLE_IDS.has(block.id)));
+  const fullScope = buildScope(activeBlocks.filter(block => isVariableBlock(block.id)));
   // Every name the flowgraph publishes. `fullScope` holds only what evaluates to
   // a value, which leaves out the variable blocks that carry an object rather
   // than a number -- a Constellation Object, a Tag Object -- so add every block
@@ -156,7 +166,7 @@ export function validateFlowgraph(
     for (const param of def.params) {
       const value = block.params?.[param.id];
       if (param.type === 'number') {
-        const binds = !VARIABLE_CONTROL_IDS.has(block.id) ||
+        const binds = !isVariableControl(block.id) ||
           TRACKING_PARAMS.has(`${block.id}:${param.id}`);
         const variableReference = binds && typeof value === 'string' &&
           activeVariables.has(value.trim());

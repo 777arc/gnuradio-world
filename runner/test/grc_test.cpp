@@ -205,7 +205,8 @@ int main() {
             "-   name: other\n"
             "    id: blocks_null_sink\n"
             "    parameters:\n"
-            "        device: '00000001'\n"
+            "        device: '42'\n"
+            "        serial: '00000001'\n"
             "    states: {coordinate: [0, 0], rotation: 0, state: enabled}\n"
             "connections: []\n";
         const json rtl_low = grc_lower::lower(grc_yaml::parse(rtl_doc));
@@ -226,8 +227,51 @@ int main() {
         assert(pluto_tx->at("params").at("device") == "00009999");
         // Still coerced for every other numeric param on the same block...
         assert(rtl->at("params").at("samp_rate").is_number());
-        // ...and the exception is keyed on the block id, not the name alone.
+        // ...and the is_text_param exception is keyed on the block id, not on
+        // the parameter name alone: `device` on a block that is not a radio is
+        // an ordinary parameter and still coerces.
         assert(other->at("params").at("device").is_number());
+        assert(other->at("params").at("device") == 42);
+        // Beyond that named exception, coerce_numeric only converts an integer
+        // that is the whole meaning of its text. "00000001" is not the integer
+        // 1 -- to_string(1) does not give it back -- so it stays text wherever
+        // it appears, without needing a block id on a list first. This is what
+        // stops a call sign, a label or an unlisted device's serial from
+        // silently losing its leading zeros.
+        assert(other->at("params").at("serial").is_string());
+        assert(other->at("params").at("serial") == "00000001");
+    }
+
+    // Flow sequences nest. Splitting on top-level commas without tracking
+    // bracket depth turned a matrix parameter into a list of strings ("[1",
+    // "2]", ...) with nothing to show for it, so a hand-written .grc carrying
+    // an int_matrix computed something else entirely.
+    {
+        const char* nested =
+            "options:\n"
+            "    parameters: {id: nested}\n"
+            "blocks:\n"
+            "-   name: m\n"
+            "    id: blocks_null_sink\n"
+            "    parameters:\n"
+            "        matrix: [[1, 2], [3, 4]]\n"
+            "        mixed: [1, [2, 3], 'a, b']\n"
+            "    states: {coordinate: [0, 0], rotation: 0, state: enabled}\n"
+            "connections: []\n";
+        const json low = grc_lower::lower(grc_yaml::parse(nested));
+        const json& params = low.at("blocks").at(0).at("params");
+        const json& matrix = params.at("matrix");
+        assert(matrix.is_array() && matrix.size() == 2);
+        assert(matrix[0].is_array() && matrix[0].size() == 2);
+        assert(matrix[0][0] == 1 && matrix[0][1] == 2);
+        assert(matrix[1][0] == 3 && matrix[1][1] == 4);
+        // A quoted comma is still one element, and a nested sequence beside a
+        // scalar does not disturb it.
+        const json& mixed = params.at("mixed");
+        assert(mixed.size() == 3);
+        assert(mixed[0] == 1);
+        assert(mixed[1].is_array() && mixed[1].size() == 2);
+        assert(mixed[2] == "a, b");
     }
 
     // The browser-only `scheduler` key on the options block. Two spellings have

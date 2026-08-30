@@ -16,7 +16,7 @@
 // DOM-free by design, like note.ts, so editor/test/gui-layout.test.mjs can
 // exercise it under node. The designer's DOM lives in gui-layout-designer.ts.
 
-import { VARIABLE_CONTROL_IDS } from './validation';
+import { isVariableControl } from './validation';
 
 export interface Tile { col: number; row: number; w: number; h: number }
 /** Tiles by block ID -- the same keying the .grc parameter uses. */
@@ -44,8 +44,16 @@ const clampInt = (value: unknown, low: number, high: number, fallback: number): 
   return Math.max(low, Math.min(high, n));
 };
 
-/** Whether this block is a QT GUI *control* rather than a plot. */
-export const isControlWidget = (id: string): boolean => VARIABLE_CONTROL_IDS.has(id);
+/**
+ * Whether this block is a QT GUI *control* rather than a plot, which is what
+ * picks CONTROL_ROWS over SINK_ROWS for a widget nobody has placed yet.
+ *
+ * The same `is_variable_control()` rule the runner applies at
+ * runner/src/runner.cpp's apply_gui_layout(), deliberately: this decides the
+ * editor's preview and that decides the window, and the two disagreeing shows
+ * up as a preview that does not match what runs.
+ */
+export const isControlWidget = (id: string): boolean => isVariableControl(id);
 
 /** Fit a tile inside a `columns`-wide grid, narrowing rather than moving it. */
 export function clampTile(tile: Tile, columns: number): Tile {

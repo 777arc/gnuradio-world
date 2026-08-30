@@ -67,6 +67,22 @@ export function priceUsage(rate: ModelRate, usage: TokenUsage): Charge {
   };
 }
 
+/**
+ * Bytes of request JSON per input token.
+ *
+ * countInputTokens() deliberately counts *bytes*, which is a safe upper bound
+ * for sizing a hold: a reservation only costs the user headroom until
+ * settlement corrects it. A settlement estimate is a different thing -- it is
+ * money -- so the two must not share a number. Charging the byte count as if it
+ * were a token count billed roughly four times the real input cost on every
+ * request that ended without a final usage chunk.
+ */
+export const BYTES_PER_TOKEN = 4;
+
+/** A byte count as a billable token estimate. Never zero: every request has input. */
+export const tokensFromBytes = (bytes: number): number =>
+  Math.max(1, Math.ceil(bytes / BYTES_PER_TOKEN));
+
 /** Reserve input at its most expensive possible class plus the full output ceiling, then add 20%. */
 export function estimateHold(rate: ModelRate, inputTokens: number, maxOutputTokens: number): number {
   const allCacheWrites = rate.cacheWriteMicrosPerMillion > rate.inputMicrosPerMillion;

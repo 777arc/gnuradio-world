@@ -226,6 +226,14 @@ inline std::string iso8601_from_epoch(std::uint64_t seconds, double fraction)
 {
     if (fraction < 0.0 || fraction >= 1.0 || !std::isfinite(fraction))
         fraction = 0.0;
+    // Round to milliseconds *before* the date is formatted. A fraction just
+    // under one rounds to 1000, which printed as ".1000Z" -- not an instant any
+    // parser accepts, and a whole second adrift. The carry belongs in seconds.
+    int millis_value = static_cast<int>(fraction * 1000.0 + 0.5);
+    if (millis_value >= 1000) {
+        millis_value -= 1000;
+        ++seconds;
+    }
     const auto stamp = static_cast<std::time_t>(seconds);
     std::tm parts{};
     if (!gmtime_r(&stamp, &parts))
@@ -234,8 +242,7 @@ inline std::string iso8601_from_epoch(std::uint64_t seconds, double fraction)
     if (!std::strftime(date, sizeof(date), "%Y-%m-%dT%H:%M:%S", &parts))
         return {};
     char millis[8];
-    std::snprintf(millis, sizeof(millis), "%03d",
-                  static_cast<int>(fraction * 1000.0 + 0.5));
+    std::snprintf(millis, sizeof(millis), "%03d", millis_value);
     return std::string(date) + '.' + millis + "Z";
 }
 

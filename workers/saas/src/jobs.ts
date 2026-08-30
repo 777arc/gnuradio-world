@@ -1,7 +1,7 @@
 import { Polar } from '@polar-sh/sdk';
 import type { Env, RuntimeConfig } from './env';
 import { absorbAndRelease, holdFromRow } from './ledger';
-import { priceUsage } from './pricing';
+import { priceUsage, tokensFromBytes } from './pricing';
 
 type JsonRecord = Record<string, unknown>;
 
@@ -43,10 +43,14 @@ export async function reapExpiredHolds(env: Env, now = Math.floor(Date.now() / 1
   let count = 0;
   for (const row of rows.results) {
     const hold = await holdFromRow(env.DB, row);
+    // hold.inputTokens is the byte-count upper bound reserve() sized the hold
+    // from; an absorbed-cost row is a real accounting figure, so it gets the
+    // same bytes-to-tokens conversion settlement uses.
+    const inputTokens = tokensFromBytes(hold.inputTokens);
     const estimatedCharge = priceUsage(hold.rate, {
-      inputTokens: hold.inputTokens,
+      inputTokens,
       cachedInputTokens: 0,
-      cacheWriteTokens: hold.inputTokens,
+      cacheWriteTokens: inputTokens,
       outputTokens: hold.maxOutputTokens,
     });
     await absorbAndRelease(env.DB, hold, {

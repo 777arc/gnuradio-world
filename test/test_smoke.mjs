@@ -25,7 +25,6 @@ import {
   contentType,
   launchBrowser,
   setIsolationHeaders,
-  suppressEditorWelcome,
 } from '../scripts/browser-test-support.mjs';
 
 const ROOT = normalize(new URL('..', import.meta.url).pathname);
@@ -645,7 +644,6 @@ for (const result of caseResults) {
     `<rect width="${width}" height="${height}" fill="#ffffff"/></svg>\n`);
 
   const page = await browser.newPage();
-  await suppressEditorWelcome(page);
   const logs = [];
   page.on('console', m => logs.push(m.text()));
   page.on('pageerror', e => logs.push('PAGEERROR ' + e.message));
@@ -723,9 +721,17 @@ for (const result of caseResults) {
 // tags. This is what the block exists for -- reading the samples is the same
 // BrowserFileSource every other file-reading block uses -- so it is asserted
 // through what a Tag Debug prints rather than through item counts, which cannot
-// see a tag at all. The Offset of 2 is deliberate: tag offsets are pass-relative,
-// so the capture at sample 0 is dropped and the annotation at sample 5 lands on
-// sample 3.
+// see a tag at all.
+//
+// The Offset of 2 is the whole point of the fixture. Tag offsets are
+// pass-relative, so the capture at sample 4 lands on sample 2 and the
+// annotation at sample 5 on sample 3 -- but a capture segment describes every
+// sample from its own start *onward*, so the one at sample 0 is still in effect
+// when the selection begins and belongs on the selection's first sample rather
+// than nowhere. Dropping it (which this used to do, and used to assert) left a
+// trimmed recording with no rx_freq, no rx_rate and no rx_time at all, since
+// every SigMF recording's first capture is at sample 0. The same argument
+// covers an annotation still running at the selection's first sample.
 {
   const test = {
     name: 'SigMF Source turns captures and annotations into stream tags',
@@ -749,6 +755,11 @@ for (const result of caseResults) {
     ],
     annotations: [
       { 'core:sample_start': 5, 'core:sample_count': 2, 'core:label': 'burst' },
+      // Begins before the Offset and runs past it: still on screen when the
+      // selection starts, so it is carried onto the first sample.
+      { 'core:sample_start': 1, 'core:sample_count': 3, 'core:label': 'spanning' },
+      // Begins and ends before the Offset: genuinely out of the selection.
+      { 'core:sample_start': 0, 'core:sample_count': 1, 'core:label': 'wayback' },
     ],
   });
 
@@ -792,22 +803,32 @@ for (const result of caseResults) {
 
   const printed = logs.join('\n');
   const tagLines = printed.split('\n').filter(line => /Key:/.test(line));
-  const tagAt = (offset, key) => tagLines.some(line =>
-    new RegExp(`Offset:\\s*${offset}\\s`).test(line) &&
+  const linesAt = offset =>
+    tagLines.filter(line => new RegExp(`Offset:\\s*${offset}\\s`).test(line));
+  const tagAt = (offset, key) => linesAt(offset).some(line =>
     new RegExp(`Key:\\s*${key}(\\s|$)`).test(line));
-  // The capture at sample 0 is before the Offset and must not appear at all; the
-  // one at sample 4 must, shifted to sample 2, and the annotation at sample 5 to
-  // sample 3. rx_freq/rx_rate are the conventional names other GNU Radio blocks
-  // look for; the dictionaries carry everything else the recording said.
+  const valueAt = (offset, pattern) => linesAt(offset).some(line => pattern.test(line));
+  // The capture at sample 4 lands on sample 2 and the annotation at sample 5 on
+  // sample 3. The capture at sample 0 is still in effect at the Offset, so it
+  // lands on sample 0 carrying its own frequency -- not shifted, not dropped.
+  // rx_freq/rx_rate are the conventional names other GNU Radio blocks look for;
+  // the dictionaries carry everything else the recording said.
   const checks = {
     'rx_freq at the shifted capture': tagAt(2, 'rx_freq'),
     'rx_rate at the shifted capture': tagAt(2, 'rx_rate'),
     'sigmf:capture at the shifted capture': tagAt(2, 'sigmf:capture'),
     'sigmf:annotation at the shifted annotation': tagAt(3, 'sigmf:annotation'),
     'the annotation carries its label': /burst/.test(printed),
-    'the pre-Offset capture is dropped':
-      tagLines.filter(line => /Key:\s*rx_freq/.test(line))
-        .every(line => /Offset:\s*2\s/.test(line)),
+    // The enclosing capture, carried onto the selection's first sample.
+    'rx_freq at the carried capture': tagAt(0, 'rx_freq'),
+    'rx_rate at the carried capture': tagAt(0, 'rx_rate'),
+    'sigmf:capture at the carried capture': tagAt(0, 'sigmf:capture'),
+    'the carried capture keeps its own frequency': valueAt(0, /1e\+08|100000000/),
+    'the shifted capture keeps its own frequency': valueAt(2, /1\.01e\+08|101000000/),
+    // ...and an annotation still running at that sample, likewise.
+    'the spanning annotation is carried': valueAt(0, /spanning/),
+    // Anything wholly before the selection is still dropped.
+    'the annotation that ends before the Offset is dropped': !/wayback/.test(printed),
   };
   const failed = Object.entries(checks).filter(([, pass]) => !pass).map(([name]) => name);
   const ok = verdict.includes('RUNNER_PASS') && failed.length === 0;

@@ -275,10 +275,15 @@ control's own name. Three things follow, and none is guessable:
   control (`edit_box_msg_impl::start`) already publishes its default this way.
   The Msg Push Button deliberately does not: a momentary trigger announces an
   event, and an event that did not happen must not be announced.
-- **`VARIABLE_CONTROL_IDS` in `editor/src/validation.ts` is a hand-kept copy of
-  that C++ rule**, and the two drifting is silent: the editor refuses a parameter
-  naming a control it does not know is one, with the wrong reason. A case in
-  `editor/test/validation.test.mjs` asserts them equal against blocks.json.
+- **`isVariableControl()` in `editor/src/validation.ts` is that C++ rule**, spelled
+  the same way — the `variable_qtgui_` prefix plus Digital Number Control — so the
+  editor cannot decide a block is not a control when the runner decides it is.
+  Every editor-side judgement goes through it, including `isControlWidget()` in
+  `gui-layout.ts`, which is what picks a one-row tile over a four-row one and has
+  to agree with `apply_gui_layout()` for the preview to match the window.
+  `VARIABLE_CONTROL_IDS` beside it is the enumerable list of the controls the
+  palette offers today, and a case in `editor/test/validation.test.mjs` asserts it
+  against blocks.json — it is for listing, never for deciding.
 
 A control's own parameters are read when it is constructed, before any other
 control exists, so they cannot reference one — except QT GUI Label's Value, which

@@ -214,7 +214,7 @@ assert.match(source, /expression\.setAttribute\('class', 'pexpr'\)/,
 assert.match(html, /\.blk text\.pexpr \{[^}]*font-style:italic/,
   'raw expressions must be italic like native GRC');
 assert.match(source,
-  /function canvasBlockHidden\(inst: Inst\)[\s\S]*?hideVariables && VARIABLE_IDS\.has\(inst\.id\)/,
+  /function canvasBlockHidden\(inst: Inst\)[\s\S]*?hideVariables && isVariableBlock\(inst\.id\)/,
   'Hide Variables must remove native variable/control blocks from the canvas');
 assert.match(html,
   /#canvasWrap\.auto-hide-port-labels \.port-label \{ opacity:0; \}[\s\S]*?#canvasWrap\.auto-hide-port-labels \.port:hover \+ \.port-label \{ opacity:1; \}/,
