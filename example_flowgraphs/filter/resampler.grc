@@ -141,8 +141,8 @@ blocks:
     showports: 'False'
     type: float
     waveform: analog.GR_TRI_WAVE
-    frequency: '0.05'
-    amplitude: '2'
+    freq: '0.05'
+    amp: '2'
   states:
     bus_sink: false
     bus_source: false
@@ -265,7 +265,7 @@ blocks:
     wintype: window.WIN_BLACKMAN_hARRIS
     ymax: '10'
     ymin: '-140'
-    samp_rate: samp_rate
+    bw: samp_rate
   states:
     bus_sink: false
     bus_source: false
@@ -346,7 +346,7 @@ blocks:
     wintype: window.WIN_BLACKMAN_hARRIS
     ymax: '10'
     ymin: '-140'
-    samp_rate: new_rate
+    bw: new_rate
   states:
     bus_sink: false
     bus_source: false

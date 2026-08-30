@@ -247,7 +247,7 @@ blocks:
         minoutbuf: '0'
         name: Spectral regrowth
         nconnections: '1'
-        samp_rate: samp_rate
+        bw: samp_rate
         style1: '1'
         style10: '1'
         style2: '1'
@@ -303,9 +303,9 @@ blocks:
     parameters:
         affinity: ''
         alias: ''
-        amplitude: '0.5'
+        amp: '0.5'
         comment: ''
-        frequency: '9000'
+        freq: '9000'
         maxoutbuf: '0'
         minoutbuf: '0'
         samp_rate: samp_rate
@@ -320,9 +320,9 @@ blocks:
     parameters:
         affinity: ''
         alias: ''
-        amplitude: '0.5'
+        amp: '0.5'
         comment: ''
-        frequency: '11000'
+        freq: '11000'
         maxoutbuf: '0'
         minoutbuf: '0'
         samp_rate: samp_rate

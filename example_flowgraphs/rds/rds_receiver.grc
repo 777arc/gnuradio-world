@@ -224,9 +224,9 @@ blocks:
     parameters:
         affinity: ''
         alias: ''
-        amplitude: '1'
+        amp: '1'
         comment: ''
-        frequency: -rds_carrier
+        freq: -rds_carrier
         maxoutbuf: '0'
         minoutbuf: '0'
         samp_rate: samp_rate

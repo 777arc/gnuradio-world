@@ -120,7 +120,7 @@ blocks:
         marker9: '-1'
         name: QPSK phase and recovered symbols
         nconnections: '3'
-        samp_rate: symbol_rate
+        srate: symbol_rate
         size: '256'
         stemplot: 'True'
         style1: '1'

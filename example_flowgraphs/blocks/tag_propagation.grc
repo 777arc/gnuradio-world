@@ -226,7 +226,7 @@ blocks:
     ymax: '1.5'
     ymin: '-1.5'
     yunit: '""'
-    samp_rate: '1'
+    srate: '1'
   states:
     bus_sink: false
     bus_source: false
@@ -323,7 +323,7 @@ blocks:
     ymax: '1.5'
     ymin: '-1.5'
     yunit: '""'
-    samp_rate: '1'
+    srate: '1'
   states:
     bus_sink: false
     bus_source: false

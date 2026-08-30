@@ -13,8 +13,8 @@ blocks:
         type: float
         samp_rate: '8000'
         waveform: analog.GR_COS_WAVE
-        frequency: '400'
-        amplitude: '0.5'
+        freq: '400'
+        amp: '0.5'
         offset: '0'
         phase: '0'
     states:

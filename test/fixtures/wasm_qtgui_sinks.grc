@@ -21,8 +21,8 @@ blocks:
         type: float
         samp_rate: samp_rate
         waveform: analog.GR_COS_WAVE
-        frequency: '1000'
-        amplitude: '1'
+        freq: '1000'
+        amp: '1'
         offset: '0'
         phase: '0'
     states:
@@ -121,8 +121,8 @@ blocks:
         type: complex
         samp_rate: samp_rate
         waveform: analog.GR_COS_WAVE
-        frequency: '4000'
-        amplitude: '0.7'
+        freq: '4000'
+        amp: '0.7'
         offset: '0'
         phase: '0'
     states:

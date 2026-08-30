@@ -13,9 +13,9 @@ const block = (uid, id, name, x, y, params = {}) => ({
 });
 const options = block('t0', 'options', 'options', 10, 10);
 const sourceA = block('t1', 'analog_sig_source_x', 'analog_sig_source_x_0', 100, 100,
-  { frequency: 1000 });
+  { freq: 1000 });
 const sourceB = block('t2', 'analog_sig_source_x', 'analog_sig_source_x_1', 500, 100,
-  { frequency: 2000 });
+  { freq: 2000 });
 const sink = block('t3', 'qtgui_time_sink_x', 'qtgui_time_sink_x_0', 800, 100,
   { nconnections: 2 });
 const template = {

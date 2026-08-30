@@ -156,7 +156,7 @@ blocks:
         marker9: '-1'
         name: CSS codeword mapping and recovery
         nconnections: '2'
-        samp_rate: chip_rate
+        srate: chip_rate
         size: '256'
         stemplot: 'True'
         style1: '1'

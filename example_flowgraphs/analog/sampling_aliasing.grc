@@ -97,7 +97,7 @@ blocks:
         minoutbuf: '0'
         name: '"Where the tone appears"'
         nconnections: '1'
-        samp_rate: samp_rate
+        bw: samp_rate
         style1: '1'
         style10: '1'
         style2: '1'
@@ -212,7 +212,7 @@ blocks:
         marker9: '-1'
         name: '"Samples in the time domain"'
         nconnections: '1'
-        samp_rate: samp_rate
+        srate: samp_rate
         size: '200'
         stemplot: 'False'
         style1: '1'
@@ -256,9 +256,9 @@ blocks:
     parameters:
         affinity: ''
         alias: ''
-        amplitude: '1'
+        amp: '1'
         comment: ''
-        frequency: tone_freq
+        freq: tone_freq
         maxoutbuf: '0'
         minoutbuf: '0'
         samp_rate: samp_rate

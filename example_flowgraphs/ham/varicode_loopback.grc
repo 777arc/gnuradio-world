@@ -58,7 +58,7 @@ blocks:
         marker1: '0'
         marker2: '-1'
         name: Varicode bit stream
-        samp_rate: baud_rate
+        srate: baud_rate
         size: '128'
         stemplot: 'True'
         style1: '0'

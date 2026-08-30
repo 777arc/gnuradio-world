@@ -105,7 +105,7 @@ blocks:
         marker1: '-1'
         marker2: '-1'
         name: BPSK soft symbols
-        samp_rate: '9600'
+        srate: '9600'
         size: '20000'
         stemplot: 'False'
         style1: '1'

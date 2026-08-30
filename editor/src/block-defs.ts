@@ -140,6 +140,14 @@ const NCONNECTIONS_PARAM: ParamDef = {
 const SAMP_RATE_PARAM: ParamDef = {
   id: 'samp_rate', label: 'Sample Rate', type: 'number', def: 'samp_rate',
 };
+// The three sinks that do not call it `samp_rate`. Upstream is not consistent
+// with itself here -- the Time Sink says `srate`, the Frequency and Waterfall
+// Sinks say `bw` and label it Bandwidth -- but these are the ids and labels a
+// .grc carries, in either direction, so they are the ones to use.
+const SRATE_PARAM: ParamDef = { ...SAMP_RATE_PARAM, id: 'srate' };
+const BANDWIDTH_PARAM: ParamDef = {
+  ...SAMP_RATE_PARAM, id: 'bw', label: 'Bandwidth (Hz)',
+};
 
 // GRC gives each sink ten configurable lines and hides the ones past the active
 // line count; `configure_line` in runner/src/registry.cpp reads them back per
@@ -241,8 +249,8 @@ export const RUNNABLE: Record<string, RunnableDef> = {
       { ...SAMP_RATE_PARAM },
       { id: 'waveform', label: 'Waveform', type: 'enum', def: 'analog.GR_COS_WAVE',
         options: ['analog.GR_CONST_WAVE', 'analog.GR_SIN_WAVE', 'analog.GR_COS_WAVE', 'analog.GR_SQR_WAVE', 'analog.GR_TRI_WAVE', 'analog.GR_SAW_WAVE'] },
-      { id: 'frequency', label: 'Frequency', type: 'number', def: 2000 },
-      { id: 'amplitude', label: 'Amplitude', type: 'number', def: 1.0 },
+      { id: 'freq', label: 'Frequency', type: 'number', def: 1000 },
+      { id: 'amp', label: 'Amplitude', type: 'number', def: 1.0 },
       { id: 'offset', label: 'Offset', type: 'number', def: 0 },
       { id: 'phase', label: 'Initial Phase (Radians)', type: 'number', def: 0 },
     ],
@@ -252,7 +260,7 @@ export const RUNNABLE: Record<string, RunnableDef> = {
       TYPE_PARAM,
       { id: 'noise_type', label: 'Noise Type', type: 'enum', def: 'analog.GR_GAUSSIAN',
         options: NOISE_TYPES, optionLabels: ['Uniform', 'Gaussian', 'Laplacian', 'Impulse'] },
-      { id: 'amplitude', label: 'Amplitude', type: 'number', def: 1.0 },
+      { id: 'amp', label: 'Amplitude', type: 'number', def: 1.0 },
       { id: 'seed', label: 'Seed', type: 'number', def: 0 }] },
   analog_random_source_x: {
     label: 'Random Source', inputs: 0, outputs: 1, params: [
@@ -309,8 +317,7 @@ export const RUNNABLE: Record<string, RunnableDef> = {
   },
   // ---- flow control ----
   // Throttle (blocks_throttle2) has no hand-written entry: the generated schema
-  // already matches upstream, and the deprecated blocks_throttle it replaced is
-  // kept loadable through LEGACY_PARAM_IDS below.
+  // already matches upstream.
   blocks_head: {
     label: 'Head', inputs: 1, outputs: 1, params: [
       STREAM_TYPE_PARAM,
@@ -349,7 +356,7 @@ export const RUNNABLE: Record<string, RunnableDef> = {
   blocks_multiply_const_xx: {
     label: 'Multiply Const', inputs: 1, outputs: 1, params: [
       TYPE_PARAM,
-      { id: 'constant', label: 'Constant', type: 'number', def: 1.0 },
+      { id: 'const', label: 'Constant', type: 'number', def: 1.0 },
       VLEN_PARAM] },
   blocks_conjugate_cc: { label: 'Conjugate', inputs: 1, outputs: 1, params: [], dtype: 'complex' },
   // ---- type converters (per-port dtypes) ----
@@ -440,7 +447,7 @@ export const RUNNABLE: Record<string, RunnableDef> = {
       TYPE_PARAM,
       { id: 'name', label: 'Title', type: 'string', def: 'Scope' },
       { id: 'size', label: 'Num Points', type: 'number', def: 1024 },
-      { ...SAMP_RATE_PARAM },
+      { ...SRATE_PARAM },
       NCONNECTIONS_PARAM,
       { id: 'ylabel', label: 'Y Axis Label', type: 'string', def: 'Amplitude', category: 'General' },
       { id: 'yunit', label: 'Y Axis Unit', type: 'string', def: '', category: 'General' },
@@ -479,7 +486,7 @@ export const RUNNABLE: Record<string, RunnableDef> = {
       { id: 'freqhalf', label: 'Spectrum Width', type: 'enum', def: 'True',
         options: BOOL_OPTIONS, optionLabels: ['Full', 'Half'],
         showWhen: (p) => p.type === 'float' },
-      { ...SAMP_RATE_PARAM },
+      { ...BANDWIDTH_PARAM },
       { id: 'fc', label: 'Center Frequency', type: 'number', def: 0 },
       NCONNECTIONS_PARAM,
       { id: 'grid', label: 'Grid', type: 'enum', def: 'False', options: BOOL_OPTIONS, category: 'General' },
@@ -543,7 +550,7 @@ export const RUNNABLE: Record<string, RunnableDef> = {
       { id: 'freqhalf', label: 'Spectrum Width', type: 'enum', def: 'True',
         options: BOOL_OPTIONS, optionLabels: ['Full', 'Half'],
         showWhen: (p) => p.type === 'float' },
-      { ...SAMP_RATE_PARAM },
+      { ...BANDWIDTH_PARAM },
       { id: 'fc', label: 'Center Frequency', type: 'number', def: 0 },
       NCONNECTIONS_PARAM,
       { id: 'int_min', label: 'Intensity Min', type: 'number', def: -140, category: 'General' },

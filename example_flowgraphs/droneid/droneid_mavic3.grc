@@ -205,7 +205,7 @@ blocks:
         marker1: '0'
         marker2: '0'
         name: Scope
-        samp_rate: '32000'
+        srate: '32000'
         size: '10240'
         stemplot: 'False'
         style1: '1'

@@ -117,7 +117,7 @@ blocks:
         minoutbuf: '0'
         name: Spectrum
         nconnections: '1'
-        samp_rate: samp_rate
+        bw: samp_rate
         style1: '1'
         style10: '1'
         style2: '1'
@@ -196,7 +196,7 @@ blocks:
         minoutbuf: '0'
         name: Waterfall
         nconnections: '1'
-        samp_rate: samp_rate
+        bw: samp_rate
         update_time: '0.1'
     states:
         coordinate: [400, 380]

@@ -68,8 +68,8 @@ blocks:
     samp_rate: samp_rate
     type: float
     waveform: analog.GR_COS_WAVE
-    frequency: freq
-    amplitude: '1'
+    freq: freq
+    amp: '1'
   states:
     bus_sink: false
     bus_source: false

@@ -145,7 +145,7 @@ blocks:
         marker1: '-1'
         marker2: '0'
         name: FSK discriminator
-        samp_rate: channel_rate
+        srate: channel_rate
         size: '4800'
         stemplot: 'False'
         style1: '1'
@@ -222,7 +222,7 @@ blocks:
         maxoutbuf: '0'
         minoutbuf: '0'
         name: CHU tone channel
-        samp_rate: channel_rate
+        bw: channel_rate
         update_time: '0.1'
     states:
         coordinate: [80, 470]

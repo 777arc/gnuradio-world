@@ -6,12 +6,12 @@
 // test/test_smoke.mjs) skips everything the editor does to a flowgraph on the
 // way to the runner, and two whole classes of bug live in that gap:
 //
-//   * parameter ids. A hand-written RUNNABLE schema in editor/src/main.ts wins
-//     over the generated one, and unknown parameters are dropped in silence.
-//     A .grc using GRC's `freq`/`amp` on analog_sig_source_x (whose schema says
-//     `frequency`/`amplitude`) loads with those values replaced by defaults —
-//     the runner accepts both spellings, so it runs correctly when loaded
-//     directly and silently wrong through the editor.
+//   * parameter ids. A hand-written RUNNABLE schema in editor/src/block-defs.ts
+//     wins over the generated one, and unknown parameters are dropped in
+//     silence, leaving the schema default in place — so such a file runs
+//     correctly when handed straight to the runner and silently wrong through
+//     the editor. example-flowgraphs.test.mjs now checks the ids themselves;
+//     this harness is what catches the rest.
 //   * validation. Connection type checks, required-parameter checks and
 //     expression resolution all run in the editor. A flowgraph that the runner
 //     would happily execute can still be refused before it gets there.
@@ -27,7 +27,8 @@
 // absent, or any --reject substring appears in the console pane.
 import { existsSync, readFileSync } from 'node:fs';
 import { basename, resolve, sep } from 'node:path';
-import { launchBrowser, suppressEditorWelcome } from './browser-test-support.mjs';
+import { launchBrowser, suppressEditorWelcome, dismissUnpacedRunWarning }
+  from './browser-test-support.mjs';
 
 const args = process.argv.slice(2);
 const expectIndex = args.findIndex(a => a.startsWith('--expect='));
@@ -87,6 +88,7 @@ let ok = false;
 try {
   const page = await browser.newPage();
   await suppressEditorWelcome(page);
+  await dismissUnpacedRunWarning(page);
   await page.setViewport({ width: 1200, height: 800 });
   page.on('pageerror', e => console.log('PAGEERROR', e.message));
   await page.goto(`http://localhost:${port}/`, { waitUntil: 'networkidle2', timeout: 60000 });

@@ -20,8 +20,8 @@ blocks:
 -   name: clip_source
     id: analog_sig_source_x
     parameters:
-        amplitude: '2'
-        frequency: '0'
+        amp: '2'
+        freq: '0'
         offset: '0'
         phase: '0'
         samp_rate: '32000'
@@ -70,8 +70,8 @@ blocks:
 -   name: peak_source
     id: analog_sig_source_x
     parameters:
-        amplitude: '-3'
-        frequency: '0'
+        amp: '-3'
+        freq: '0'
         offset: '0'
         phase: '0'
         samp_rate: '32000'
@@ -111,8 +111,8 @@ blocks:
 -   name: phase_source
     id: analog_sig_source_x
     parameters:
-        amplitude: '1'
-        frequency: '1000'
+        amp: '1'
+        freq: '1000'
         offset: '0'
         phase: '0'
         samp_rate: '32000'

@@ -82,7 +82,7 @@ blocks:
     parameters:
         affinity: ''
         alias: ''
-        amplitude: noise
+        amp: noise
         comment: ''
         maxoutbuf: '0'
         minoutbuf: '0'

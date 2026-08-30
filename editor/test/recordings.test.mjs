@@ -117,6 +117,12 @@ assert.doesNotMatch(publicSize, /response\.ok[\s\S]{0,120}return size;/,
   'a successful HEAD alone cannot claim that the public recording supports ranges');
 assert.match(publicSize, /response\.status !== 206[\s\S]*return null/,
   'the preflight requires an actual one-byte partial response');
+// Content-Range is not CORS-safelisted: raw.githubusercontent.com serves ranges
+// and hides that header from script, so demanding it refused every recording
+// hosted there. The 206 is the proof of range support; HEAD's Content-Length,
+// which is safelisted, is allowed to supply the size on its own.
+assert.match(publicSize, /return headSize;/,
+  'an unreadable Content-Range falls back to the size HEAD reported');
 assert.match(main, /const size = url \? await publicHttpFileSize\(url\) : null/);
 assert.match(main, /const path = HTTP_RECORDING_PREFIX \+ encodeURIComponent\(url\)/);
 assert.match(main, /const HTTP_RECORDING_PREFIX = '\/recordings\/external\/'/);

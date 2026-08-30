@@ -53,7 +53,7 @@ blocks:
         affinity: ''
         alias: ''
         comment: ''
-        constant: delta_f
+        const: delta_f
         maxoutbuf: '0'
         minoutbuf: '0'
         type: float
@@ -133,7 +133,7 @@ blocks:
         minoutbuf: '0'
         name: Four tones, delta f apart
         nconnections: '1'
-        samp_rate: samp_rate
+        bw: samp_rate
         style1: '1'
         style10: '1'
         style2: '1'
@@ -304,7 +304,7 @@ blocks:
         minoutbuf: '0'
         name: Symbols over time
         nconnections: '1'
-        samp_rate: samp_rate
+        bw: samp_rate
         update_time: '0.1'
     states:
         coordinate: [450, 580]

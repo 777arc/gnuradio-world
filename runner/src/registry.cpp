@@ -2338,16 +2338,15 @@ static std::map<std::string, Factory>& registry_storage() {
         {"analog_sig_source_x", [](const json& p) -> BuiltBlock {
              double sr = p.value("samp_rate", 32000.0);
              auto wf = waveform_from(param_text(p, "waveform", "cos"));
-             double fr = p.value("frequency", p.value("freq", 1000.0)), a = p.value("amplitude", 1.0),
+             double fr = p.value("freq", 1000.0), a = p.value("amp", 1.0),
                     off = p.value("offset", 0.0), ph = p.value("phase", 0.0);
              if (is_float(p)) {
                  auto b = gr::analog::sig_source_f::make(sr, wf, fr, a, off, ph);
                  BuiltBlock result{ b };
                  result.numeric_setters = {
                      { "samp_rate", [b](double value) { b->set_sampling_freq(value); } },
-                     { "frequency", [b](double value) { b->set_frequency(value); } },
                      { "freq", [b](double value) { b->set_frequency(value); } },
-                     { "amplitude", [b](double value) { b->set_amplitude(value); } },
+                     { "amp", [b](double value) { b->set_amplitude(value); } },
                      { "offset", [b](double value) { b->set_offset(static_cast<float>(value)); } },
                      { "phase", [b](double value) { b->set_phase(static_cast<float>(value)); } },
                  };
@@ -2357,20 +2356,15 @@ static std::map<std::string, Factory>& registry_storage() {
              BuiltBlock result{ b };
              result.numeric_setters = {
                  { "samp_rate", [b](double value) { b->set_sampling_freq(value); } },
-                 { "frequency", [b](double value) { b->set_frequency(value); } },
                  { "freq", [b](double value) { b->set_frequency(value); } },
-                 { "amplitude", [b](double value) { b->set_amplitude(value); } },
+                 { "amp", [b](double value) { b->set_amplitude(value); } },
                  { "offset", [b](double value) { b->set_offset(gr_complex(value, 0)); } },
                  { "phase", [b](double value) { b->set_phase(static_cast<float>(value)); } },
              };
              return result;
         }},
         {"analog_noise_source_x", [](const json& p) -> BuiltBlock {
-             // "amp" is the native GRC parameter. Accept the older WASM
-             // example's "amplitude" spelling as a compatibility alias.
-             const double a = p.contains("amp")
-                                  ? number_from(p, "amp", 1.0)
-                                  : number_from(p, "amplitude", 1.0);
+             const double a = number_from(p, "amp", 1.0);
              const long s = static_cast<long>(number_from(p, "seed", 0));
              const auto noise = noise_type_from(p);
              // Upstream implements only Uniform and Gaussian for a complex
@@ -2386,18 +2380,14 @@ static std::map<std::string, Factory>& registry_storage() {
              if (is_float(p)) {
                  auto b = gr::analog::noise_source_f::make(noise, a, s);
                  BuiltBlock result{ b };
-                 const auto set_amplitude =
+                 result.numeric_setters["amp"] =
                      [b](double value) { b->set_amplitude(static_cast<float>(value)); };
-                 result.numeric_setters["amp"] = set_amplitude;
-                 result.numeric_setters["amplitude"] = set_amplitude;
                  return result;
              }
              auto b = gr::analog::noise_source_c::make(noise, a, s);
              BuiltBlock result{ b };
-             const auto set_amplitude =
+             result.numeric_setters["amp"] =
                  [b](double value) { b->set_amplitude(static_cast<float>(value)); };
-             result.numeric_setters["amp"] = set_amplitude;
-             result.numeric_setters["amplitude"] = set_amplitude;
              return result;
          }},
         {"analog_random_source_x", [](const json& p) -> BuiltBlock {
@@ -3683,18 +3673,18 @@ static std::map<std::string, Factory>& registry_storage() {
              return { is_float(p) ? (gr::basic_block_sptr)gr::blocks::divide_ff::make(vlen)
                                   : (gr::basic_block_sptr)gr::blocks::divide_cc::make(vlen), nullptr }; }},
         {"blocks_multiply_const_xx", [](const json& p) -> BuiltBlock {
-             double k = p.value("constant", 1.0);
+             double k = p.value("const", 1.0);
              const auto vlen = vlen_of(p);
              if (is_float(p)) {
                  auto b = gr::blocks::multiply_const_ff::make(static_cast<float>(k), vlen);
                  BuiltBlock result{ b };
-                 result.numeric_setters["constant"] =
+                 result.numeric_setters["const"] =
                      [b](double value) { b->set_k(static_cast<float>(value)); };
                  return result;
              }
              auto b = gr::blocks::multiply_const_cc::make(gr_complex(k, 0), vlen);
              BuiltBlock result{ b };
-             result.numeric_setters["constant"] =
+             result.numeric_setters["const"] =
                  [b](double value) { b->set_k(gr_complex(value, 0)); };
              return result;
          }},
@@ -3871,11 +3861,11 @@ static std::map<std::string, Factory>& registry_storage() {
          }},
         {"qtgui_time_sink_x", [](const json& p) -> BuiltBlock {
              int n = static_cast<int>(number_from(p, "size", 1024));
-             // `srate` is GRC's own id for the rate; `samp_rate` is the spelling
-             // this editor writes. Accept both, upstream's first, so a .grc from
-             // native GRC handed straight to runner.html still scales its x-axis.
-             double sr = p.contains("srate") ? number_from(p, "srate", 32000.0)
-                                             : number_from(p, "samp_rate", 32000.0);
+             // `srate` is GRC's own id for this sink's rate -- the Frequency and
+             // Waterfall Sinks call theirs `bw`, and the Time Raster Sink really
+             // does call it `samp_rate`. Upstream is inconsistent; the schemas
+             // and this factory follow it block by block.
+             double sr = number_from(p, "srate", 32000.0);
              std::string nm = unquoted(param_text(p, "name")); int nc = p.value("nconnections", 1);
              // A float input is one trace, a complex input two (real and
              // imaginary), so the two branches configure different line counts.
@@ -3883,27 +3873,23 @@ static std::map<std::string, Factory>& registry_storage() {
                  auto b = gr::qtgui::time_sink_f::make(n, sr, nm, nc);
                  configure_time_sink(b, p, nc);
                  BuiltBlock result{ b, b->qwidget() };
-                 const auto set_rate = [b](double value) { b->set_samp_rate(value); };
-                 result.numeric_setters["srate"] = set_rate;
-                 result.numeric_setters["samp_rate"] = set_rate;
+                 result.numeric_setters["srate"] =
+                     [b](double value) { b->set_samp_rate(value); };
                  return result;
              }
              auto b = gr::qtgui::time_sink_c::make(n, sr, nm, nc);
              configure_time_sink(b, p, 2 * nc);
              BuiltBlock result{ b, b->qwidget() };
-             const auto set_rate = [b](double value) { b->set_samp_rate(value); };
-             result.numeric_setters["srate"] = set_rate;
-             result.numeric_setters["samp_rate"] = set_rate;
+             result.numeric_setters["srate"] =
+                 [b](double value) { b->set_samp_rate(value); };
              return result;
          }},
         {"qtgui_freq_sink_x", [](const json& p) -> BuiltBlock {
-             // `bw` is GRC's own id for the rate, `samp_rate` the spelling this
-             // editor writes; upstream's wins where both are present, and the
-             // shared reader keeps a non-numeric value a clean error rather than
-             // an uncaught nlohmann type_error.
-             const double sr = number_from(p, "samp_rate", 32000.0);
+             // `bw` is GRC's own id for this sink's rate, and the shared reader
+             // keeps a non-numeric value a clean error rather than an uncaught
+             // nlohmann type_error.
              const double initial_fc = number_from(p, "fc", 0.0);
-             const double initial_bw = number_from(p, "bw", sr);
+             const double initial_bw = number_from(p, "bw", 32000.0);
              const int fftsize = static_cast<int>(number_from(p, "fftsize", 1024));
              // GRC's own default is Blackman-harris; this build defaults to a
              // rectangular window so an unconfigured sink shows the spectrum
@@ -3935,7 +3921,6 @@ static std::map<std::string, Factory>& registry_storage() {
                      b->set_frequency_range(range->first, range->second);
                  };
                  result.numeric_setters["bw"] = set_bandwidth;
-                 result.numeric_setters["samp_rate"] = set_bandwidth;
                  return result;
              };
              if (is_float(p)) {
@@ -4039,7 +4024,6 @@ static std::map<std::string, Factory>& registry_storage() {
          }},
         {"qtgui_waterfall_sink_x", [](const json& p) -> BuiltBlock {
              const std::string type = type_from(p, "complex");
-             const double sr = number_from(p, "samp_rate", 32000.0);
              const int fftsize = static_cast<int>(number_from(p, "fftsize", 1024));
              // As on the Frequency Sink: rectangular unless the .grc says
              // otherwise, and read through choice() because the value arrives as
@@ -4047,7 +4031,7 @@ static std::map<std::string, Factory>& registry_storage() {
              const int wintype =
                  static_cast<int>(window_type_from(p, gr::fft::window::WIN_RECTANGULAR));
              const double initial_fc = number_from(p, "fc", 0.0);
-             const double initial_bw = number_from(p, "bw", sr);
+             const double initial_bw = number_from(p, "bw", 32000.0);
              const std::string nm = unquoted(param_text(p, "name"));
              // Message-mode variants carry no stream inputs.
              const int nconnections = type.rfind("msg", 0) == 0
@@ -4073,7 +4057,6 @@ static std::map<std::string, Factory>& registry_storage() {
                      b->set_frequency_range(range->first, range->second);
                  };
                  result.numeric_setters["bw"] = set_bandwidth;
-                 result.numeric_setters["samp_rate"] = set_bandwidth;
                  return result;
              };
              const bool is_float_variant = type == "float" || type == "msg_float";

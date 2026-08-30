@@ -41,8 +41,8 @@ blocks:
     type: float
     samp_rate: samp_rate
     waveform: analog.GR_COS_WAVE
-    frequency: '1000'
-    amplitude: '1'
+    freq: '1000'
+    amp: '1'
     offset: '0'
     phase: '0'
   states:
@@ -54,7 +54,7 @@ blocks:
   parameters:
     type: float
     noise_type: analog.GR_GAUSSIAN
-    amplitude: '0.1'
+    amp: '0.1'
     seed: '0'
   states:
     coordinate: [10, 350]

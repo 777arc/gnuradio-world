@@ -18,8 +18,8 @@ blocks:
 -   name: analog_sig_source_x_0
     id: analog_sig_source_x
     parameters:
-        amplitude: '1'
-        frequency: '1000'
+        amp: '1'
+        freq: '1000'
         offset: '0'
         phase: '0'
         samp_rate: '32000'

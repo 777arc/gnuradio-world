@@ -145,7 +145,7 @@ blocks:
         marker9: '-1'
         name: Scope
         nconnections: '1'
-        samp_rate: '200'
+        srate: '200'
         size: '32'
         stemplot: 'False'
         style1: '1'

@@ -102,8 +102,8 @@ blocks:
     showports: 'False'
     type: complex
     waveform: analog.GR_COS_WAVE
-    frequency: freq
-    amplitude: '1'
+    freq: freq
+    amp: '1'
   states:
     bus_sink: false
     bus_source: false
@@ -322,7 +322,7 @@ blocks:
     ymax: 0.55*samp_rate
     ymin: -0.55*samp_rate
     yunit: '"Hz"'
-    samp_rate: samp_rate
+    srate: samp_rate
   states:
     bus_sink: false
     bus_source: false

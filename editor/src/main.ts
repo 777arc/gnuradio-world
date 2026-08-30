@@ -1873,31 +1873,22 @@ function stateToFlags(state: any): { enabled: boolean; bypassed: boolean } {
 // own id for a field this schema still spells differently. Consulted only when
 // the current id is absent, so a .grc keeps its value instead of silently
 // falling back to the schema default.
-const LEGACY_PARAM_IDS: Record<string, Record<string, string>> = {
-  // Deprecated "Throttle (old)", superseded by blocks_throttle2. Its rate was
-  // written as `samp_rate`; upstream has always called it samples_per_second.
-  blocks_throttle: { samples_per_second: 'samp_rate' },
-  // These three sinks' rate field is `samp_rate` here but `bw`/`srate` upstream,
-  // so a .grc written by native GRC carries the value under a name this schema
-  // does not declare -- and an undeclared parameter is dropped in silence,
-  // leaving the sink's axis at the schema default. Read the upstream spelling
-  // as a fallback so such a file keeps its rate. (The runner accepts both
-  // spellings too, for a .grc handed straight to runner.html.)
-  qtgui_freq_sink_x: { samp_rate: 'bw' },
-  qtgui_waterfall_sink_x: { samp_rate: 'bw' },
-  qtgui_time_sink_x: { samp_rate: 'srate' },
-};
 // GRC stores param values as strings; numeric fields become numbers (or keep a
 // variable-reference expression), everything else stays a string.
-function importParams(def: RunnableDef, raw: Record<string, any> = {},
-                      blockId?: string): Record<string, any> {
+//
+// There is no table of alternate spellings to consult: every schema here uses
+// the parameter ids the block's own yaml uses, so a .grc written by native GRC
+// and one written here name the same field the same way. Anything a schema does
+// not declare is dropped in silence, which is what that table existed to
+// prevent -- editor/test/example-flowgraphs.test.mjs now guards the corpus
+// against exactly that instead.
+function importParams(def: RunnableDef, raw: Record<string, any> = {}): Record<string, any> {
   const params: Record<string, any> = {};
-  const legacy = (blockId && LEGACY_PARAM_IDS[blockId]) || {};
   for (const p of def.params) {
-    const key = raw[p.id] !== undefined && raw[p.id] !== null ? p.id : legacy[p.id] ?? p.id;
-    const present = raw[key] !== undefined && raw[key] !== null;
-    const value = present ? raw[key] : p.def;
-    params[p.id] = p.type === 'number' ? numericOrExpression(String(value)) : String(value);
+    const present = raw[p.id] !== undefined && raw[p.id] !== null;
+    params[p.id] = p.type === 'number'
+      ? numericOrExpression(String(present ? raw[p.id] : p.def))
+      : String(present ? raw[p.id] : p.def);
   }
   return params;
 }
@@ -1983,7 +1974,7 @@ function loadFlowgraph(doc: any, record = true) {
     const uid = 'b' + (++state.counter), name = String(b.name || b.id);
     nameToUid.set(name, uid);
     state.insts.push({ uid, id: b.id, name, x: Number(coord[0]) || 0, y: Number(coord[1]) || 0,
-      params: importParams(def, b.parameters || {}, b.id), enabled: flags.enabled,
+      params: importParams(def, b.parameters || {}), enabled: flags.enabled,
       rotation: Number(b.states?.rotation) || 0, bypassed: flags.bypassed });
   });
   for (const c of doc.connections || []) {

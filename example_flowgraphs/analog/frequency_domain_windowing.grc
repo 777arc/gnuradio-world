@@ -162,7 +162,7 @@ blocks:
         minoutbuf: '0'
         name: Spectrum
         nconnections: '1'
-        samp_rate: samp_rate
+        bw: samp_rate
         style1: '1'
         style10: '1'
         style2: '1'
@@ -199,7 +199,7 @@ blocks:
     parameters:
         affinity: ''
         alias: ''
-        amplitude: noise_amp
+        amp: noise_amp
         comment: ''
         maxoutbuf: '0'
         minoutbuf: '0'
@@ -225,9 +225,9 @@ blocks:
     parameters:
         affinity: ''
         alias: ''
-        amplitude: '1'
+        amp: '1'
         comment: ''
-        frequency: strong_freq
+        freq: strong_freq
         maxoutbuf: '0'
         minoutbuf: '0'
         samp_rate: samp_rate
@@ -315,7 +315,7 @@ blocks:
         minoutbuf: '0'
         name: Waterfall
         nconnections: '1'
-        samp_rate: samp_rate
+        bw: samp_rate
         update_time: '0.1'
     states:
         coordinate: [920, 440]
@@ -326,9 +326,9 @@ blocks:
     parameters:
         affinity: ''
         alias: ''
-        amplitude: weak_amp
+        amp: weak_amp
         comment: ''
-        frequency: weak_freq
+        freq: weak_freq
         maxoutbuf: '0'
         minoutbuf: '0'
         samp_rate: samp_rate

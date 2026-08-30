@@ -43,9 +43,9 @@ blocks:
     parameters:
         affinity: ''
         alias: ''
-        amplitude: '1'
+        amp: '1'
         comment: ''
-        frequency: '1200'
+        freq: '1200'
         maxoutbuf: '0'
         minoutbuf: '0'
         samp_rate: samp_rate
@@ -90,7 +90,7 @@ blocks:
         marker1: '0'
         marker2: '0'
         name: Transmitted AFSK audio
-        samp_rate: samp_rate
+        srate: samp_rate
         size: '1024'
         stemplot: 'False'
         style1: '1'
@@ -231,9 +231,9 @@ blocks:
     parameters:
         affinity: ''
         alias: ''
-        amplitude: '1'
+        amp: '1'
         comment: ''
-        frequency: '-1700'
+        freq: '-1700'
         maxoutbuf: '0'
         minoutbuf: '0'
         samp_rate: samp_rate
@@ -378,7 +378,7 @@ blocks:
         marker1: '0'
         marker2: '0'
         name: Recovered soft symbols
-        samp_rate: baudrate
+        srate: baudrate
         size: '256'
         stemplot: 'False'
         style1: '1'

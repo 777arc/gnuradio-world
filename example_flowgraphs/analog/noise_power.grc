@@ -116,7 +116,7 @@ blocks:
     noise_type: analog.GR_GAUSSIAN
     seed: '0'
     type: complex
-    amplitude: noise
+    amp: noise
   states:
     bus_sink: false
     bus_source: false
@@ -135,7 +135,7 @@ blocks:
     noise_type: analog.GR_GAUSSIAN
     seed: '0'
     type: float
-    amplitude: noise
+    amp: noise
   states:
     bus_sink: false
     bus_source: false

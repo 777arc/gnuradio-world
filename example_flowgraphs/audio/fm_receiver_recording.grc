@@ -115,7 +115,7 @@ blocks:
         minoutbuf: '0'
         name: Demodulated audio (19 kHz stereo pilot visible)
         nconnections: '1'
-        samp_rate: audio_rate
+        bw: audio_rate
         style1: '1'
         style10: '1'
         style2: '1'
@@ -241,7 +241,7 @@ blocks:
         minoutbuf: '0'
         name: RF spectrum
         nconnections: '1'
-        samp_rate: samp_rate
+        bw: samp_rate
         style1: '1'
         style10: '1'
         style2: '1'

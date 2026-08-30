@@ -89,7 +89,7 @@ blocks:
         marker1: '-1'
         marker2: '-1'
         name: AFSK soft symbols
-        samp_rate: '4800'
+        srate: '4800'
         size: '6000'
         stemplot: 'False'
         style1: '1'

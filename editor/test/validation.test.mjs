@@ -100,7 +100,7 @@ const ports = {
 
 const signal = inst('sig', 'analog_sig_source_x', 'sig', {
   type: 'complex', samp_rate: 'samp_rate', waveform: 'analog.GR_COS_WAVE',
-  frequency: 'samp_rate/4', amplitude: '1', offset: '0', phase: '0',
+  freq: 'samp_rate/4', amp: '1', offset: '0', phase: '0',
 });
 const variable = inst('rate', 'variable', 'samp_rate', { value: '32000' });
 const terminated = inst('term', 'blocks_null_sink', 'term', { type: 'complex', vlen: 1 });
@@ -110,7 +110,7 @@ assert.deepEqual(validateFlowgraph([variable, signal, terminated], wired, ports)
 
 const invalid = validateFlowgraph([
   inst('missing', 'analog_sig_source_x', '', {
-    type: 'wrong', samp_rate: 'not_defined', waveform: 'bad', frequency: 1, amplitude: 1,
+    type: 'wrong', samp_rate: 'not_defined', waveform: 'bad', freq: 1, amp: 1,
   }),
   inst('one', 'variable', 'duplicate', { value: 1 }),
   inst('two', 'variable', 'duplicate', { value: 2 }),
@@ -175,7 +175,7 @@ const live = inst('range', 'variable_qtgui_range', 'freq', {
   label: '', rangeType: 'float', value: 10, start: 20, stop: 10, step: 0,
   widget: 'slider', orient: 'QtCore.Qt.Horizontal', min_len: 0,
 });
-signal.params.frequency = 'freq/2';
+signal.params.freq = 'freq/2';
 const liveIssues = validateFlowgraph([live, signal], [], ports);
 assert.ok(liveIssues.some(issue => issue.message.includes('only on its own')));
 assert.ok(liveIssues.some(issue => issue.field === 'stop'));
@@ -207,7 +207,7 @@ assert.ok(validateFlowgraph([disabled], [], ports).every(issue => !issue.blockin
 // Port connectivity, as native GRC enforces it (grc/core/ports/port.py).
 const source = inst('src', 'analog_sig_source_x', 'src', {
   type: 'complex', samp_rate: 32000, waveform: 'analog.GR_COS_WAVE',
-  frequency: 1000, amplitude: 1, offset: 0, phase: 0,
+  freq: 1000, amp: 1, offset: 0, phase: 0,
 });
 const drain = inst('drain', 'blocks_null_sink', 'drain', { type: 'complex', vlen: 1 });
 const link = { from: 'src', fp: 0, to: 'drain', tp: 0 };

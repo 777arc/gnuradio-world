@@ -340,7 +340,7 @@ blocks:
         maxoutbuf: '0'
         minoutbuf: '0'
         name: '"802.11a bursts"'
-        samp_rate: samp_rate
+        bw: samp_rate
         update_time: '0.1'
     states:
         coordinate: [700, 360]

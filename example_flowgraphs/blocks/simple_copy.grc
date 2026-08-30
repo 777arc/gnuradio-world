@@ -67,8 +67,8 @@ blocks:
     samp_rate: samp_rate
     type: complex
     waveform: analog.GR_COS_WAVE
-    frequency: '1000'
-    amplitude: '0.5'
+    freq: '1000'
+    amp: '0.5'
   states:
     coordinate: [10, 130]
     rotation: 0
@@ -229,7 +229,7 @@ blocks:
     ymax: '1'
     ymin: '-1'
     yunit: '""'
-    samp_rate: samp_rate
+    srate: samp_rate
   states:
     coordinate: [1140, 140]
     rotation: 0

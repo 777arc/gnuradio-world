@@ -30,11 +30,15 @@ await build({
   entryPoints: [new URL('./_example-entry.ts', import.meta.url).pathname],
   bundle: true, format: 'esm', outfile: out, logLevel: 'silent',
 });
-const { evaluate, buildScope, parseGrc } = await import(pathToFileURL(out).href);
+const { evaluate, buildScope, parseGrc, installGeneratedBlocks, RUNNABLE } =
+  await import(pathToFileURL(out).href);
 
 const library = JSON.parse(await readFile(
   new URL('../public/blocks.json', import.meta.url), 'utf8'));
 const byId = new Map((library.blocks || []).map(b => [b.id, b]));
+// The schemas the editor actually loads a file with: a hand-written one
+// supersedes the generated one rather than merging with it.
+installGeneratedBlocks(library.blocks || []);
 
 // This MUST mirror main.ts exactly. An earlier version of this test was more
 // permissive than the editor (it treated every `${ ... }` dtype as evaluated),
@@ -141,4 +145,57 @@ for (const file of files) {
   }
 }
 
-console.log(`checked ${files.length} example flowgraphs (${checked} parameter expressions)`);
+// ---- parameter ids ----
+//
+// The other silent failure: a parameter the block's *effective* schema does not
+// declare is dropped on load without a word, and the block runs with the schema
+// default. Nothing downstream notices -- the file parses, the graph builds, every
+// block moves samples, it just computes something else. That is how a native
+// `.grc` used to lose analog_sig_source_x's freq/amp, and how these files would
+// quietly rot if a schema were renamed and a file missed.
+//
+// GRC writes these on every block regardless of its own parameter list
+// (grc/core/blocks/block.py), and no schema here declares them. `showports`
+// joins them: it toggles the visibility of the optional message ports that the
+// hand-written schemas deliberately do not expose.
+const UNIVERSAL_KEYS = new Set([
+  'comment', 'affinity', 'alias', 'minoutbuf', 'maxoutbuf', 'gui_hint', 'showports',
+]);
+// Parameters one block deliberately does not model, each for its own reason.
+// Anything added here should be a decision, not an oversight.
+const ALLOWED = new Set([
+  // GRC's port-count and bus hints for these two: the runner's factories build
+  // exactly one port, so declaring them would let the editor draw ports the
+  // flowgraph cannot have.
+  'blocks_null_source.num_outputs',
+  'blocks_null_source.bus_structure_source',
+  // Its only other option is `msg_complex`, and a hand-written schema has no
+  // way to turn its stream input into a message port (installGeneratedBlocks
+  // gives it no inputTemplates). The written value is the default either way.
+  'qtgui_const_sink_x.type',
+]);
+// A block whose parameters come from its own source rather than its id: the
+// editor resolves those per instance through defFor(), which this test has no
+// canvas to do. See docs/embedded-python.md and docs/js-blocks.md.
+const SOURCE_DEFINED = new Set(['epy_block', 'wasm_js_block']);
+
+let idsChecked = 0;
+for (const file of files) {
+  const doc = parseGrc(await readFile(exampleFilePath(file), 'utf8'));
+  for (const block of doc.blocks) {
+    const def = RUNNABLE[block.id];
+    if (!def || SOURCE_DEFINED.has(block.id)) continue;
+    const declared = new Set(def.params.map(p => p.id));
+    for (const key of Object.keys(block.parameters || {})) {
+      if (UNIVERSAL_KEYS.has(key) || declared.has(key) ||
+          ALLOWED.has(`${block.id}.${key}`)) { ++idsChecked; continue; }
+      assert.fail(`${file}: ${block.name} (${block.id}) sets \`${key}\`, which its ` +
+        `schema does not declare\n  The editor drops it on load and uses the ` +
+        `default instead, silently. Check editor/src/block-defs.ts for the id ` +
+        `this block actually spells it.`);
+    }
+  }
+}
+
+console.log(`checked ${files.length} example flowgraphs (${checked} parameter expressions, ` +
+  `${idsChecked} parameter ids)`);

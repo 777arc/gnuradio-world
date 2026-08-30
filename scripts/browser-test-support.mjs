@@ -75,6 +75,26 @@ export async function suppressEditorWelcome(page) {
 }
 
 /**
+ * Pre-dismiss the "Run without a rate limit?" confirmation, so pressing Run
+ * actually starts the flowgraph.
+ *
+ * A graph with no throttle-flagged block gets a modal on the Run click
+ * (askToRunUnpacedFlowgraph in main.ts), and a harness that clicks the button
+ * and then waits never answers it: the runner iframe simply never appears, and
+ * the run reads as a flowgraph that failed rather than one that was never
+ * started. Fifteen of the examples are legitimately unpaced -- the gr-satellites
+ * chains are message- and file-driven, and end on their own -- so this is the
+ * dialog's dismissal, not a verdict on the flowgraph.
+ */
+export async function dismissUnpacedRunWarning(page) {
+  await page.evaluateOnNewDocument(() => {
+    try {
+      localStorage.setItem('gnuradio-world.unpaced-run-warning-dismissed', 'yes');
+    } catch { /* as above */ }
+  });
+}
+
+/**
  * Wait until the editor's canvas has settled, so a test can click a block and
  * hit the block it aimed at.
  *

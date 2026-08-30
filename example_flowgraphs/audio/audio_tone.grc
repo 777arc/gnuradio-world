@@ -74,9 +74,9 @@ blocks:
     parameters:
         affinity: ''
         alias: ''
-        amplitude: volume
+        amp: volume
         comment: ''
-        frequency: tone_frequency
+        freq: tone_frequency
         maxoutbuf: '0'
         minoutbuf: '0'
         samp_rate: samp_rate
@@ -152,7 +152,7 @@ blocks:
         marker9: '-1'
         name: What the speakers are playing
         nconnections: '1'
-        samp_rate: samp_rate
+        srate: samp_rate
         size: '1024'
         stemplot: 'False'
         style1: '1'

@@ -23,16 +23,26 @@ headless harnesses take that path — `scripts/run.mjs` and `test/test_smoke.mjs
 both hand the .grc straight to `runner.html`, skipping every step the editor
 performs on the way. Two classes of bug live in that gap, and both are silent:
 
-- **Parameter ids.** A hand-written `RUNNABLE` schema in `editor/src/main.ts`
-  supersedes the generated one, and parameters it does not declare are dropped
-  without a word, leaving the schema default in place. `analog_sig_source_x`
-  declares `frequency`/`amplitude`, so a .grc written with GRC's own `freq`/`amp`
-  loads with those values silently replaced. The runner reads
-  `p.value("frequency", p.value("freq", …))` and accepts either, so such a
-  flowgraph is *correct* fed directly to `runner.html` and *wrong* through the
-  editor — it still runs, every block still moves samples, it just quietly
-  computes something else. Take parameter ids from the hand-written schema for
-  any block that has one.
+- **Parameter ids.** A hand-written `RUNNABLE` schema in
+  `editor/src/block-defs.ts` supersedes the generated one, and parameters it does
+  not declare are dropped without a word, leaving the schema default in place. A
+  file that trips this is *correct* fed directly to `runner.html` and *wrong*
+  through the editor — it still runs, every block still moves samples, it just
+  quietly computes something else. Take parameter ids from the hand-written
+  schema for any block that has one.
+
+  The hand-written schemas spell every parameter as upstream's yaml does, so
+  the block's `.block.yml` is the authority: every hand-written schema uses the
+  ids that yaml uses, so there is no table of alternate spellings to consult.
+  Upstream is not self-consistent about the sinks' rate — the Time and Eye Sinks
+  call it `srate`, the Frequency and Waterfall Sinks call it `bw` and label it
+  Bandwidth, the Time Raster Sink really does call it `samp_rate` — and the
+  schemas follow it block by block rather than smoothing it over. What *does*
+  differ from native is a default, not an id: the FFT window is rectangular here.
+  A case in `editor/test/example-flowgraphs.test.mjs` asserts that no file under
+  `example_flowgraphs/` sets a parameter its block's schema would drop, with an
+  explicit allowlist for the few GRC writes that nothing here models —
+  add to that list only deliberately.
 - **Editor-side validation.** Connection type checks, required-parameter checks,
   port connectivity and expression resolution all happen in the editor. A
   flowgraph the runner would execute happily can still be refused before it ever
@@ -239,10 +249,10 @@ in a browser, that is the right trade.
   bounds the sleep; `limit: auto` (the default) reproduces the old behavior
   exactly. Also put one throttle at the highest rate in the graph and let
   backpressure pace everything upstream, rather than throttling a slow payload
-  stream. The old block is kept registered and loadable for existing .grc files —
-  `PALETTE_HIDDEN` in `main.ts` keeps it out of the palette, and `main.ts`'s
-  `LEGACY_PARAM_IDS` maps the `samp_rate` spelling this editor used onto GRC's
-  own `samples_per_second` on load — but nothing in the repo should use it.
+  stream. The old block is kept registered and loadable so a native .grc that
+  still uses it opens — `PALETTE_HIDDEN` in `main.ts` keeps it out of the palette,
+  and it loads with its generated schema, whose ids are upstream's
+  (`samples_per_second`) — but nothing in the repo should use it.
 - **`pdu_pdu_to_tagged_stream` has zero stream inputs** and in practice is not
   scheduled in this runtime, so a PDU chain terminated with it sits at zero
   items. Terminate with `pdu_pdu_to_stream_x` ("PDU To Stream", a plain

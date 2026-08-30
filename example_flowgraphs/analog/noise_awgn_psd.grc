@@ -129,7 +129,7 @@ blocks:
         minoutbuf: '0'
         name: '"Power spectral density"'
         nconnections: '1'
-        samp_rate: samp_rate
+        bw: samp_rate
         style1: '1'
         style10: '1'
         style2: '1'
@@ -251,7 +251,7 @@ blocks:
     parameters:
         affinity: ''
         alias: ''
-        amplitude: noise_amp
+        amp: noise_amp
         comment: ''
         maxoutbuf: '0'
         minoutbuf: '0'
@@ -343,7 +343,7 @@ blocks:
         marker9: '-1'
         name: '"Noise in the time domain"'
         nconnections: '1'
-        samp_rate: samp_rate
+        srate: samp_rate
         size: '1024'
         stemplot: 'False'
         style1: '1'
@@ -400,9 +400,9 @@ blocks:
     parameters:
         affinity: ''
         alias: ''
-        amplitude: tone_amp
+        amp: tone_amp
         comment: ''
-        frequency: '10000'
+        freq: '10000'
         maxoutbuf: '0'
         minoutbuf: '0'
         samp_rate: samp_rate

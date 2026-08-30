@@ -1448,8 +1448,8 @@ blocks:
         type: complex
         samp_rate: '32000'
         waveform: analog.GR_COS_WAVE
-        frequency: '1500'
-        amplitude: '1'
+        freq: '1500'
+        amp: '1'
     states:
         coordinate: [50, 70]
         rotation: 0
@@ -1458,7 +1458,7 @@ blocks:
     id: analog_noise_source_x
     parameters:
         type: complex
-        amplitude: '0.25'
+        amp: '0.25'
         seed: '42'
     states:
         coordinate: [50, 250]

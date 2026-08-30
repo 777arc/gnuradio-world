@@ -115,7 +115,7 @@ blocks:
         minoutbuf: '0'
         name: 'Wideband: notches move across the band'
         nconnections: '1'
-        samp_rate: samp_rate
+        bw: samp_rate
         style1: '1'
         style10: '1'
         style2: '1'
@@ -258,7 +258,7 @@ blocks:
         minoutbuf: '0'
         name: Notches drifting over time
         nconnections: '1'
-        samp_rate: samp_rate
+        bw: samp_rate
         update_time: '0.02'
     states:
         coordinate: [1130, 450]
@@ -269,7 +269,7 @@ blocks:
     parameters:
         affinity: ''
         alias: ''
-        amplitude: '1'
+        amp: '1'
         comment: ''
         maxoutbuf: '0'
         minoutbuf: '0'

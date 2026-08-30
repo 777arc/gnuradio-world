@@ -74,7 +74,7 @@ blocks:
         marker1: '-1'
         marker2: '-1'
         name: FSK soft symbols
-        samp_rate: '4800'
+        srate: '4800'
         size: '12000'
         stemplot: 'False'
         style1: '1'

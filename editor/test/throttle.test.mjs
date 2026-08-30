@@ -1,6 +1,6 @@
 // Throttle policy: the editor offers upstream's blocks_throttle2 ("Throttle")
 // and nothing else, while the deprecated blocks_throttle ("Throttle (old)")
-// stays loadable so an existing .grc keeps working. Both wrap the same
+// stays loadable so a native .grc that still uses it opens. Both wrap the same
 // gr::blocks::throttle; only throttle2 exposes the limit/maximum cap that keeps
 // a low-rate throttle from stalling on a wide buffer.
 import assert from 'node:assert/strict';
@@ -26,10 +26,16 @@ assert.match(source, /const PALETTE_HIDDEN = new Set\(\[[^\]]*'blocks_throttle'/
   'blocks_throttle must be kept out of the palette');
 assert.equal(byId.get('blocks_throttle')?.runnable, true,
   'blocks_throttle must stay runnable so an existing .grc still opens');
-assert.match(source, /LEGACY_PARAM_IDS[\s\S]{0,400}blocks_throttle: \{ samples_per_second: 'samp_rate' \}/,
-  'a .grc written with this editor\'s old `samp_rate` id must keep its rate on load');
-assert.match(source, /function importParams\([^)]*blockId\?: string\)/,
-  'importParams must receive the block id so it can consult LEGACY_PARAM_IDS');
+// It has no hand-written schema, so it loads with the generated one -- upstream's
+// own parameter ids, `samples_per_second` included. There is no table of
+// alternate spellings behind that any more: every schema in block-defs.ts uses
+// the ids the block's own yaml uses, which is what makes a .grc written here one
+// native GRC reads and vice versa.
+const throttleParams = new Map(byId.get('blocks_throttle').params.map(p => [p.id, p]));
+assert.ok(throttleParams.has('samples_per_second'),
+  'the deprecated Throttle keeps upstream\'s rate parameter id');
+assert.doesNotMatch(source, /LEGACY_PARAM_IDS/,
+  'parameter ids follow upstream, so nothing should need an alias table');
 
 // ---- the default example waits for the palette ----
 // Loading a flowgraph needs the generated block schemas installed first.

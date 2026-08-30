@@ -129,7 +129,7 @@ blocks:
         minoutbuf: '0'
         name: Before vs after filtering
         nconnections: '2'
-        samp_rate: samp_rate
+        bw: samp_rate
         style1: '1'
         style10: '1'
         style2: '1'
@@ -167,9 +167,9 @@ blocks:
     parameters:
         affinity: ''
         alias: ''
-        amplitude: '0.3'
+        amp: '0.3'
         comment: ''
-        frequency: '10000'
+        freq: '10000'
         maxoutbuf: '0'
         minoutbuf: '0'
         samp_rate: samp_rate
@@ -184,7 +184,7 @@ blocks:
     parameters:
         affinity: ''
         alias: ''
-        amplitude: '0.02'
+        amp: '0.02'
         comment: ''
         maxoutbuf: '0'
         minoutbuf: '0'
@@ -210,7 +210,7 @@ blocks:
     parameters:
         affinity: ''
         alias: ''
-        amplitude: '0.7'
+        amp: '0.7'
         comment: ''
         maxoutbuf: '0'
         minoutbuf: '0'

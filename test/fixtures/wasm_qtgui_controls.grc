@@ -161,8 +161,8 @@ blocks:
         type: complex
         samp_rate: '32000'
         waveform: analog.GR_COS_WAVE
-        frequency: tone
-        amplitude: '1'
+        freq: tone
+        amp: '1'
         offset: '0'
         phase: '0'
     states:
@@ -173,7 +173,7 @@ blocks:
     id: blocks_multiply_const_xx
     parameters:
         type: complex
-        constant: gain_sw
+        const: gain_sw
         vlen: '1'
     states:
         coordinate: [0, 0]

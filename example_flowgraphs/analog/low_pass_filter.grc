@@ -37,9 +37,9 @@ blocks:
     parameters:
         affinity: ''
         alias: ''
-        amplitude: '1'
+        amp: '1'
         comment: ''
-        frequency: '2000'
+        freq: '2000'
         maxoutbuf: '0'
         minoutbuf: '0'
         samp_rate: '48000'
@@ -70,7 +70,7 @@ blocks:
         maxoutbuf: '0'
         minoutbuf: '0'
         name: After Filter - 12 kHz Rejected
-        samp_rate: '48000'
+        bw: '48000'
         style1: '1'
         tr_chan: '0'
         tr_level: '0'
@@ -105,7 +105,7 @@ blocks:
         maxoutbuf: '0'
         minoutbuf: '0'
         name: Before Filter - 2 kHz and 12 kHz
-        samp_rate: '48000'
+        bw: '48000'
         style1: '1'
         tr_chan: '0'
         tr_level: '0'
@@ -124,9 +124,9 @@ blocks:
     parameters:
         affinity: ''
         alias: ''
-        amplitude: '1'
+        amp: '1'
         comment: ''
-        frequency: '12000'
+        freq: '12000'
         maxoutbuf: '0'
         minoutbuf: '0'
         samp_rate: '48000'

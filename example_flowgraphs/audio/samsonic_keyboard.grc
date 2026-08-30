@@ -129,7 +129,7 @@ blocks:
         marker9: '-1'
         name: Scope
         nconnections: '1'
-        samp_rate: samp_rate
+        srate: samp_rate
         size: '1024'
         stemplot: 'False'
         style1: '1'
@@ -241,7 +241,7 @@ blocks:
         minoutbuf: '0'
         name: SamSonic Spectrum
         nconnections: '1'
-        samp_rate: samp_rate/4
+        bw: samp_rate/4
         style1: '1'
         style10: '1'
         style2: '1'

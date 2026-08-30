@@ -567,7 +567,7 @@ blocks:
         marker9: '-1'
         name: '"Recovered symbols"'
         nconnections: '1'
-        samp_rate: samp_rate/sps
+        srate: samp_rate/sps
         size: '256'
         stemplot: 'False'
         style1: '0'

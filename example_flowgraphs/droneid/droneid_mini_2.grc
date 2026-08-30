@@ -91,9 +91,9 @@ blocks:
     parameters:
         affinity: ''
         alias: ''
-        amplitude: '1'
+        amp: '1'
         comment: ''
-        frequency: -channel_offset
+        freq: -channel_offset
         maxoutbuf: '0'
         minoutbuf: '0'
         samp_rate: capture_rate

@@ -202,7 +202,7 @@ blocks:
         marker9: '-1'
         name: Scope
         nconnections: '1'
-        samp_rate: samp_rate
+        srate: samp_rate
         size: '1024'
         stemplot: 'False'
         style1: '1'

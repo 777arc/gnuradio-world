@@ -243,7 +243,7 @@ blocks:
     ymax: '12'
     ymin: '-1'
     yunit: '""'
-    samp_rate: samp_rate
+    srate: samp_rate
   states:
     bus_sink: false
     bus_source: false
@@ -340,7 +340,7 @@ blocks:
     ymax: '20'
     ymin: '-1'
     yunit: '""'
-    samp_rate: samp_rate
+    srate: samp_rate
   states:
     bus_sink: false
     bus_source: false
@@ -437,7 +437,7 @@ blocks:
     ymax: '20'
     ymin: '-1'
     yunit: '""'
-    samp_rate: samp_rate
+    srate: samp_rate
   states:
     bus_sink: false
     bus_source: false

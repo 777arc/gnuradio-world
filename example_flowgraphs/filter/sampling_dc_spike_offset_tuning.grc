@@ -136,7 +136,7 @@ blocks:
         minoutbuf: '0'
         name: 'Raw: signal at +250 kHz, DC spike at 0'
         nconnections: '1'
-        samp_rate: samp_rate
+        bw: samp_rate
         style1: '1'
         style10: '1'
         style2: '1'
@@ -228,7 +228,7 @@ blocks:
         minoutbuf: '0'
         name: 'Tuned: signal at 0, DC spike pushed to -250 kHz'
         nconnections: '1'
-        samp_rate: samp_rate
+        bw: samp_rate
         style1: '1'
         style10: '1'
         style2: '1'
@@ -266,9 +266,9 @@ blocks:
     parameters:
         affinity: ''
         alias: ''
-        amplitude: '1'
+        amp: '1'
         comment: ''
-        frequency: soi_offset
+        freq: soi_offset
         maxoutbuf: '0'
         minoutbuf: '0'
         samp_rate: samp_rate
@@ -283,7 +283,7 @@ blocks:
     parameters:
         affinity: ''
         alias: ''
-        amplitude: '0.02'
+        amp: '0.02'
         comment: ''
         maxoutbuf: '0'
         minoutbuf: '0'
@@ -341,7 +341,7 @@ blocks:
     parameters:
         affinity: ''
         alias: ''
-        amplitude: '0.5'
+        amp: '0.5'
         comment: ''
         maxoutbuf: '0'
         minoutbuf: '0'

@@ -90,7 +90,7 @@ blocks:
         marker9: '-1'
         name: Soft limiter output
         nconnections: '1'
-        samp_rate: '32000'
+        srate: '32000'
         size: '1024'
         stemplot: 'False'
         style1: '1'
@@ -165,9 +165,9 @@ blocks:
     parameters:
         affinity: ''
         alias: ''
-        amplitude: '1'
+        amp: '1'
         comment: ''
-        frequency: '1000'
+        freq: '1000'
         maxoutbuf: '0'
         minoutbuf: '0'
         samp_rate: samp_rate

@@ -86,8 +86,8 @@ blocks:
     samp_rate: samp_rate
     type: complex
     waveform: analog.GR_COS_WAVE
-    frequency: freq
-    amplitude: '1'
+    freq: freq
+    amp: '1'
   states:
     coordinate: [10, 210]
     rotation: 0
@@ -104,8 +104,8 @@ blocks:
     samp_rate: samp_rate
     type: complex
     waveform: analog.GR_TRI_WAVE
-    frequency: freq
-    amplitude: '1'
+    freq: freq
+    amp: '1'
   states:
     coordinate: [10, 350]
     rotation: 0
@@ -122,8 +122,8 @@ blocks:
     samp_rate: samp_rate
     type: complex
     waveform: analog.GR_SAW_WAVE
-    frequency: freq
-    amplitude: '1'
+    freq: freq
+    amp: '1'
   states:
     coordinate: [10, 490]
     rotation: 0
@@ -238,7 +238,7 @@ blocks:
     ymax: '1'
     ymin: '-1'
     yunit: '""'
-    samp_rate: samp_rate
+    srate: samp_rate
   states:
     coordinate: [650, 240]
     rotation: 0

@@ -49,7 +49,7 @@ blocks:
         maxoutbuf: '0'
         minoutbuf: '0'
         name: AM Spectrum - Carrier and Sidebands
-        samp_rate: '48000'
+        bw: '48000'
         style1: '1'
         tr_chan: '0'
         tr_level: '0'
@@ -83,7 +83,7 @@ blocks:
         marker1: '-1'
         marker2: '-1'
         name: AM Waveform and Envelope
-        samp_rate: '48000'
+        srate: '48000'
         size: '1024'
         stemplot: 'False'
         style1: '1'
@@ -111,9 +111,9 @@ blocks:
     parameters:
         affinity: ''
         alias: ''
-        amplitude: modulation_depth
+        amp: modulation_depth
         comment: ''
-        frequency: '1000'
+        freq: '1000'
         maxoutbuf: '0'
         minoutbuf: '0'
         samp_rate: '48000'
@@ -128,9 +128,9 @@ blocks:
     parameters:
         affinity: ''
         alias: ''
-        amplitude: '1'
+        amp: '1'
         comment: ''
-        frequency: '10000'
+        freq: '10000'
         maxoutbuf: '0'
         minoutbuf: '0'
         samp_rate: '48000'

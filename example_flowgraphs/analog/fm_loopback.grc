@@ -50,7 +50,7 @@ blocks:
     parameters:
         affinity: ''
         alias: ''
-        amplitude: noise_amplitude
+        amp: noise_amplitude
         comment: ''
         maxoutbuf: '0'
         minoutbuf: '0'
@@ -107,7 +107,7 @@ blocks:
         maxoutbuf: '0'
         minoutbuf: '0'
         name: FM Channel Spectrum
-        samp_rate: '48000'
+        bw: '48000'
         style1: '1'
         tr_chan: '0'
         tr_level: '0'
@@ -126,9 +126,9 @@ blocks:
     parameters:
         affinity: ''
         alias: ''
-        amplitude: '1'
+        amp: '1'
         comment: ''
-        frequency: tone_frequency
+        freq: tone_frequency
         maxoutbuf: '0'
         minoutbuf: '0'
         samp_rate: '48000'
@@ -173,7 +173,7 @@ blocks:
         marker1: '-1'
         marker2: '-1'
         name: Recovered FM Message
-        samp_rate: '48000'
+        srate: '48000'
         size: '1024'
         stemplot: 'False'
         style1: '1'

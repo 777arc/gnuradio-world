@@ -30,7 +30,7 @@ const satellitesTestPacket = [
 const scenarios = [
   { name: 'core-only (no deferred block)',
     fg: { blocks:[
-      { name:'src', id:'analog_sig_source_x', params:{ type:'float', samp_rate:32000, waveform:'cos', frequency:1000, amplitude:1.0 } },
+      { name:'src', id:'analog_sig_source_x', params:{ type:'float', samp_rate:32000, waveform:'cos', freq:1000, amp:1.0 } },
       { name:'thr', id:'blocks_throttle2', params:{ type:'float', samples_per_second:32000, vlen:1, ignoretag:'True', limit:'auto', maximum:0.1 } },
       { name:'snk', id:'blocks_null_sink', params:{ type:'float' } } ],
       connections:[['src',0,'thr',0],['thr',0,'snk',0]] },
@@ -46,7 +46,7 @@ const scenarios = [
     fg: { blocks:[
       { name:'src', id:'analog_sig_source_x',
         params:{ type:'complex', samp_rate:32000, waveform:'cos',
-                 frequency:1000, amplitude:1.0 } },
+                 freq:1000, amp:1.0 } },
       { name:'thr', id:'blocks_throttle2',
         params:{ type:'complex', samples_per_second:32000, vlen:1,
                  ignoretag:'True', limit:'auto', maximum:0.1 } },
@@ -73,7 +73,7 @@ const scenarios = [
     expectFetch: ['fosphor.wasm'] },
   { name: 'gr-fosphor Qt sink (browser backend)',
     fg: { blocks:[
-      { name:'src', id:'analog_sig_source_x', params:{ type:'complex', samp_rate:32000, waveform:'cos', frequency:1000, amplitude:1.0 } },
+      { name:'src', id:'analog_sig_source_x', params:{ type:'complex', samp_rate:32000, waveform:'cos', freq:1000, amp:1.0 } },
       { name:'thr', id:'blocks_throttle2', params:{ type:'complex', samples_per_second:32000, vlen:1, ignoretag:'True', limit:'auto', maximum:0.1 } },
       { name:'snk', id:'fosphor_qt_sink_c', params:{ wintype:'window.WIN_HANN', freq_center:0, freq_span:32000, gui_hint:'' } } ],
       connections:[['src',0,'thr',0],['thr',0,'snk',0]] },

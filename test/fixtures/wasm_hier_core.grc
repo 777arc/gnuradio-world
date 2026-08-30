@@ -71,8 +71,8 @@ blocks:
         type: complex
         samp_rate: '32000'
         waveform: analog.GR_COS_WAVE
-        frequency: '1000'
-        amplitude: '1'
+        freq: '1000'
+        amp: '1'
         offset: '0'
         phase: '0'
     states:

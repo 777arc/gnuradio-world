@@ -122,7 +122,7 @@ blocks:
     parameters:
         affinity: ''
         alias: ''
-        amplitude: noise_amplitude
+        amp: noise_amplitude
         comment: ''
         maxoutbuf: '0'
         minoutbuf: '0'
@@ -372,7 +372,7 @@ blocks:
         marker1: '0'
         marker2: '-1'
         name: Scope
-        samp_rate: '32000'
+        srate: '32000'
         size: '1024'
         stemplot: 'False'
         style1: '1'

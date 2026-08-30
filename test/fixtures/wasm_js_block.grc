@@ -18,8 +18,8 @@ blocks:
 -   name: float_source
     id: analog_sig_source_x
     parameters:
-        amplitude: '1'
-        frequency: '1000'
+        amp: '1'
+        freq: '1000'
         offset: '0'
         phase: '0'
         samp_rate: '32000'
@@ -66,8 +66,8 @@ blocks:
 -   name: complex_source
     id: analog_sig_source_x
     parameters:
-        amplitude: '1'
-        frequency: '1000'
+        amp: '1'
+        freq: '1000'
         offset: '0'
         phase: '0'
         samp_rate: '32000'

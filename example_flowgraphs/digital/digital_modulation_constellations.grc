@@ -440,7 +440,7 @@ blocks:
         minoutbuf: '0'
         name: All three occupy the same bandwidth
         nconnections: '3'
-        samp_rate: samp_rate
+        bw: samp_rate
         style1: '1'
         style10: '1'
         style2: '1'

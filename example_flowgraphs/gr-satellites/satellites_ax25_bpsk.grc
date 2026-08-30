@@ -274,7 +274,7 @@ blocks:
         maxoutbuf: '0'
         minoutbuf: '0'
         name: Transmitted BPSK spectrum
-        samp_rate: samp_rate
+        bw: samp_rate
         style1: '1'
         tr_chan: '0'
         tr_level: '0'
@@ -308,7 +308,7 @@ blocks:
         marker1: '0'
         marker2: '0'
         name: Recovered soft symbols
-        samp_rate: baudrate
+        srate: baudrate
         size: '256'
         stemplot: 'False'
         style1: '1'

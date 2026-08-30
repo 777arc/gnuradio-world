@@ -95,16 +95,24 @@ export async function publicHttpFileSize(url: string): Promise<number | null> {
   } catch { /* Some range-capable hosts do not implement HEAD. */ }
 
   // The source depends on byte ranges, so HEAD is only a size hint. A real
-  // one-byte 206 response proves both range support and that Content-Range is
-  // exposed through CORS before the runner is started.
+  // one-byte 206 response proves range support before the runner is started.
   try {
     const response = await fetch(parsed.href, {
       headers: { Range: 'bytes=0-0' }, cache: 'no-store', mode: 'cors',
     });
     const match = /^bytes\s+0-0\/(\d+)$/i.exec(response.headers.get('Content-Range') || '');
     await response.body?.cancel();
+    if (response.status !== 206) return null;
     const size = Number(match?.[1]);
-    if (response.status !== 206 || !Number.isSafeInteger(size) || size <= 0) return null;
+    // Content-Range is not one of the seven CORS-safelisted response headers, so
+    // a host that serves ranges perfectly still hides it from script unless it
+    // sends Access-Control-Expose-Headers -- raw.githubusercontent.com, where
+    // most public sample captures live, is exactly that host: `curl` sees the
+    // header and the browser cannot. The 206 already proves the range was
+    // served, so fall back to HEAD's Content-Length, which *is* safelisted.
+    // Requiring both to agree when both are readable keeps a host that reports
+    // one size and serves another out.
+    if (!Number.isSafeInteger(size) || size <= 0) return headSize;
     return headSize === null || headSize === size ? size : null;
   } catch { return null; }
 }

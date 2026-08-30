@@ -320,7 +320,7 @@ blocks:
     wintype: window.WIN_BLACKMAN_hARRIS
     ymax: '10'
     ymin: '-140'
-    samp_rate: symbol_rate
+    bw: symbol_rate
   states:
     coordinate: [820, 620]
     rotation: 0

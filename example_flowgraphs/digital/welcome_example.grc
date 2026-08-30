@@ -77,9 +77,9 @@ blocks:
     parameters:
         affinity: ''
         alias: ''
-        amplitude: tone_mag
+        amp: tone_mag
         comment: ''
-        frequency: freq
+        freq: freq
         maxoutbuf: '0'
         minoutbuf: '0'
         samp_rate: samp_rate
@@ -263,7 +263,7 @@ blocks:
         minoutbuf: '0'
         name: Spectrum
         nconnections: '1'
-        samp_rate: samp_rate
+        bw: samp_rate
         style1: '1'
         style10: '1'
         style2: '1'
@@ -332,7 +332,7 @@ blocks:
     parameters:
         affinity: ''
         alias: ''
-        amplitude: noise
+        amp: noise
         comment: ''
         maxoutbuf: '0'
         minoutbuf: '0'
