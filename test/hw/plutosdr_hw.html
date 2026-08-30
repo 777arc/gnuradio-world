@@ -84,7 +84,7 @@ window.__start = async ({
   Atomics.store(control, CTRL.FLAGS, 7);
   Atomics.store(control, CTRL.CMD_SEQ, 1);
 
-  const worker = new Worker(`../../runner/src/plutosdr_worker.js?v=${Date.now()}`);
+  const worker = new Worker(`/runner/build/plutosdr_worker.js?v=${Date.now()}`);
   state.worker = worker;
   worker.onmessage = event => {
     state.messages.push(event.data);

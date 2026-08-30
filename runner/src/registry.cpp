@@ -424,8 +424,12 @@ static void configure_waterfall_sink(const std::shared_ptr<Sink>& sink,
 
 // GRC's Window Type enum, shared by every sink that takes an FFT window. The
 // yaml spells the options `window.WIN_*` and its cpp_templates rewrite them to
-// `fft::window::WIN_*`; choice() normalizes both.
-static gr::fft::window::win_type window_type_from(const json& p)
+// `fft::window::WIN_*`; choice() normalizes both. The fallback is a parameter
+// because the Frequency Sink defaults to a rectangular window here rather than
+// to upstream's Blackman-harris.
+static gr::fft::window::win_type window_type_from(
+    const json& p,
+    gr::fft::window::win_type fallback = gr::fft::window::WIN_BLACKMAN_hARRIS)
 {
     return wasm_registry::choice<gr::fft::window::win_type>(
         p,
@@ -439,7 +443,7 @@ static gr::fft::window::win_type window_type_from(const json& p)
             { "window.WIN_KAISER", gr::fft::window::WIN_KAISER },
             { "window.WIN_FLATTOP", gr::fft::window::WIN_FLATTOP },
         },
-        gr::fft::window::WIN_BLACKMAN_hARRIS);
+        fallback);
 }
 
 // The stream connection count for the sinks whose Type parameter has message
@@ -3851,8 +3855,14 @@ static std::map<std::string, Factory>& registry_storage() {
              const double sr = number_from(p, "samp_rate", 32000.0);
              const double initial_fc = number_from(p, "fc", 0.0);
              const double initial_bw = number_from(p, "bw", sr);
-             const int fftsize = p.value("fftsize", 1024);
-             const int wintype = p.value("wintype", 5);
+             const int fftsize = static_cast<int>(number_from(p, "fftsize", 1024));
+             // GRC's own default is Blackman-harris; this build defaults to a
+             // rectangular window so an unconfigured sink shows the spectrum
+             // unweighted. A .grc carrying `wintype` (native or ours) wins, and
+             // it arrives as the string `window.WIN_*`, which is why this reads
+             // through choice() rather than json::value<int>().
+             const int wintype =
+                 static_cast<int>(window_type_from(p, gr::fft::window::WIN_RECTANGULAR));
              const std::string name = unquoted(param_text(p, "name"));
              const int nc = p.value("nconnections", 1);
              // Everything past construction is identical for the two sinks, so

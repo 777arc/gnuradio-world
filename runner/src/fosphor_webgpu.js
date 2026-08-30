@@ -903,8 +903,7 @@
       if (message === this.lastBackendMessage) return;
       this.lastBackendMessage = message;
       console.info(message);
-      if (window.parent && window.parent !== window)
-        window.parent.postMessage({ type: 'gr-info', message }, '*');
+      window.__grPostToEditor?.({ type: 'gr-info', message });
     }
 
     markCpu(reason) {

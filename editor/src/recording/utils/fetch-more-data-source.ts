@@ -9,7 +9,14 @@ import { dataTypeIsComplex } from './selector';
 // is all that is applied.
 export function applyProcessing(samples, squareSignal) {
   if (squareSignal) {
-    for (let i = 0; i < samples.length; i++) samples[i] = samples[i] * samples[i];
+    // Samples are interleaved complex values. (I + jQ)^2 is
+    // (I^2 - Q^2) + j(2IQ), not two independent scalar squares.
+    for (let i = 0; i + 1 < samples.length; i += 2) {
+      const real = samples[i];
+      const imaginary = samples[i + 1];
+      samples[i] = real * real - imaginary * imaginary;
+      samples[i + 1] = 2 * real * imaginary;
+    }
   }
   return samples;
 }

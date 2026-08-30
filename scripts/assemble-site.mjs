@@ -11,15 +11,16 @@
 //
 // Usage:  node scripts/assemble-site.mjs [outDir]   (default ./site)
 import { readdir, readFile, stat, rm, mkdir, cp } from 'node:fs/promises';
-import { join, extname, dirname, relative } from 'node:path';
+import { join, extname, dirname, relative, resolve } from 'node:path';
 import { writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { brotliCompressSync, constants } from 'node:zlib';
 import { findExampleFlowgraphs } from './example-flowgraphs.mjs';
+import { assertSafeOutputDirectory } from './http-support.mjs';
 
 const SCRIPT_DIR = new URL('.', import.meta.url).pathname;
-const ROOT = join(SCRIPT_DIR, '..');
-const OUT = process.argv[2] || join(process.cwd(), 'site');
+const ROOT = resolve(SCRIPT_DIR, '..');
+const OUT = resolve(process.argv[2] || join(process.cwd(), 'site'));
 
 // runner/build files the browser needs (everything else there is build scratch).
 // .py and .json are here for runner/build/pyodide/: the Embedded Python Block's
@@ -95,6 +96,7 @@ async function stampRunnerBuild(destDir, srcFiles) {
 }
 
 async function main() {
+  assertSafeOutputDirectory(OUT, ROOT);
   await rm(OUT, { recursive: true, force: true });
   await mkdir(OUT, { recursive: true });
 

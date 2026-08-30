@@ -2,7 +2,7 @@
 // Static dev server for the GNU Radio WASM port.
 // Sets COOP/COEP so the page is cross-origin isolated -> SharedArrayBuffer +
 // Emscripten pthreads work (needed by the thread-per-block scheduler).
-// Usage: node server.mjs [port] [absoluteRootDir]
+// Usage: node server.mjs [port] [absoluteRootDir] [bindHost]
 import http from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { join, normalize, resolve } from 'node:path';
@@ -10,12 +10,14 @@ import { findExampleFlowgraphs } from './scripts/example-flowgraphs.mjs';
 import {
   contentType,
   decodeUrlPath,
+  devServerRepoAssetAllowed,
   pathIsWithin,
   setIsolationHeaders,
 } from './scripts/http-support.mjs';
 
 const port = Number(process.argv[2] || 8080);
 const root = resolve(normalize(process.argv[3] || new URL('.', import.meta.url).pathname));
+const bindHost = process.argv[4] || '127.0.0.1';
 
 async function isFile(path) {
   try { return (await stat(path)).isFile(); }
@@ -59,11 +61,11 @@ const server = http.createServer(async (req, res) => {
     const candidates = urlPath.endsWith('/')
       ? [urlPath + 'index.html']
       : [urlPath, urlPath + '/index.html'];
-    // The editor is served at the site root, matching the deployed layout
-    // (assemble-site.mjs copies editor/dist to the top of the site). Anything
-    // that isn't a file under the repository root resolves against editor/dist/, which
-    // is where index.html, assets/ and blocks.json live.
-    const bases = [root, join(root, 'editor', 'dist')];
+    // The editor is served at the site root, matching the deployed layout.
+    // Only explicitly public runtime artifacts are read from the repository;
+    // source, local configuration and .git are never part of the document root.
+    const distRoot = join(root, 'editor', 'dist');
+    const bases = devServerRepoAssetAllowed(urlPath) ? [root, distRoot] : [distRoot];
     let filePath = null;
     for (const candidate of candidates) {
       for (const base of bases) {
@@ -99,6 +101,6 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(port, '0.0.0.0', () => {
-  console.log(`gnuradio-wasm dev server: http://localhost:${port}/  (root=${root})`);
+server.listen(port, bindHost, () => {
+  console.log(`gnuradio-wasm dev server: http://${bindHost}:${port}/  (root=${root})`);
 });

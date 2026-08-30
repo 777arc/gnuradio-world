@@ -147,7 +147,11 @@ const ScrollBar = ({ currentFFT, setCurrentFFT }: ScrollBarProps) => {
 
   const handleWheel = (e) => {
     e.evt.preventDefault();
-    const scrollAmount = Math.floor(e.evt.wheelDeltaY);
+    const scale = e.evt.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16
+      : e.evt.deltaMode === WheelEvent.DOM_DELTA_PAGE ? spectrogramHeight : 1;
+    const delta = e.evt.deltaY * scale;
+    const scrollAmount = delta === 0 ? 0
+      : -Math.sign(delta) * Math.max(1, Math.round(Math.abs(delta)));
 
     const nextPosition = currentFFT - scrollAmount + spectrogramHeight * (fftStepSize + 1);
     const maxPosition = meta.getTotalSamples() / fftSize;

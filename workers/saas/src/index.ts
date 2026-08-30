@@ -7,6 +7,7 @@ import { assertSecrets, runtimeConfig } from './env';
 import { dailyJobs, reapExpiredHolds } from './jobs';
 import { priceUsage, rateFromRow } from './pricing';
 import { polarWebhook } from './webhooks';
+import { readUsagePage, UsageQueryError } from './usage';
 
 type Session = Awaited<ReturnType<Auth['api']['getSession']>>;
 type Variables = { auth: Auth; cfg: RuntimeConfig; session: NonNullable<Session> };
@@ -127,18 +128,15 @@ app.get('/api/me', async c => {
 });
 
 app.get('/api/usage', async c => {
-  const limit = Math.min(100, Math.max(1, Number(c.req.query('limit') || 50)));
-  const before = Number(c.req.query('before') || Number.MAX_SAFE_INTEGER);
-  const rows = await c.env.DB.prepare(
-    `SELECT id, kind, amount_micros, request_id, model, rate_version_id,
-            input_tokens, cached_input_tokens, cache_write_tokens, output_tokens,
-            exact, metadata, created_at
-     FROM ledger_entries WHERE user_id = ? AND created_at < ?
-     ORDER BY created_at DESC, id DESC LIMIT ?`,
-  ).bind(c.get('session').user.id, before, limit + 1).all();
-  const entries = rows.results.slice(0, limit);
-  return c.json({ entries, next_before: rows.results.length > limit
-    ? Number((entries[entries.length - 1] as any).created_at) : null });
+  try {
+    return c.json(await readUsagePage(c.env.DB, c.get('session').user.id,
+      c.req.query('limit'), c.req.query('before')));
+  } catch (error) {
+    if (error instanceof UsageQueryError) {
+      return c.json({ error: { type: 'invalid_request_error', message: error.message } }, 400);
+    }
+    throw error;
+  }
 });
 
 app.get('/api/models', async c => {

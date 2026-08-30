@@ -98,6 +98,13 @@ const LINE_STYLES = ['1', '2', '3', '4', '5', '0'];
 const LINE_STYLE_LABELS = ['Solid', 'Dash', 'Dots', 'Dash-Dot', 'Dash-Dot-Dot', 'None'];
 // GRC's frequency-sink Average options (None / Low / Medium / High smoothing).
 const FFT_AVERAGES = ['1.0', '0.2', '0.1', '0.05'];
+// GRC's FFT window enum, spelled as upstream's yaml does (the runner's choice()
+// accepts both this and the `fft::window::WIN_*` form a cpp_template emits).
+const FFT_WINDOWS = ['window.WIN_RECTANGULAR', 'window.WIN_BLACKMAN_hARRIS',
+  'window.WIN_HAMMING', 'window.WIN_HANN', 'window.WIN_BLACKMAN',
+  'window.WIN_KAISER', 'window.WIN_FLATTOP'];
+const FFT_WINDOW_LABELS = ['Rectangular', 'Blackman-harris', 'Hamming', 'Hann',
+  'Blackman', 'Kaiser', 'Flat-top'];
 const LINE_MARKERS = ['-1', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
 const LINE_MARKER_LABELS = ['None', 'Circle', 'Rectangle', 'Diamond', 'Triangle',
   'Down Triangle', 'Up Triangle', 'Left Triangle', 'Right Triangle', 'Cross', 'X-Cross'];
@@ -446,6 +453,12 @@ export const RUNNABLE: Record<string, RunnableDef> = {
       TYPE_PARAM,
       { id: 'name', label: 'Title', type: 'string', def: 'Spectrum' },
       { id: 'fftsize', label: 'FFT Size', type: 'number', def: 1024 },
+      // Upstream's `wintype`, kept off the block face as its yaml's `hide: part`
+      // does. Unlike native GRC, the default here is rectangular rather than
+      // Blackman-harris, so the sink shows the unweighted spectrum until a
+      // window is asked for; the runner's factory defaults to match.
+      { id: 'wintype', label: 'Window Type', type: 'enum', def: 'window.WIN_RECTANGULAR',
+        options: FFT_WINDOWS, optionLabels: FFT_WINDOW_LABELS, hide: 'part' },
       // A real input has a symmetric spectrum, so GRC offers to plot only its
       // positive half. Named as upstream: 'True' is the full width, 'False' half.
       { id: 'freqhalf', label: 'Spectrum Width', type: 'enum', def: 'True',

@@ -455,7 +455,8 @@ const rateHeaders = (cfg, reserve) => {
 
 async function handleCompletion(request, env, ctx, origin, cfg) {
   const raw = await request.text();
-  if (raw.length > cfg.maxBodyBytes) {
+  const rawBytes = new TextEncoder().encode(raw).byteLength;
+  if (rawBytes > cfg.maxBodyBytes) {
     return json(errorBody(
       'Request is too large for the shared model. Start a new chat, or connect your own key.',
       'request_too_large',
@@ -486,7 +487,7 @@ async function handleCompletion(request, env, ctx, origin, cfg) {
   // estimate it settles later; a request-metered one reserves the single
   // request it is, which is already exact and settles to nothing.
   const requestMetered = cfg.upstream.meter === 'requests';
-  const estimate = requestMetered ? 1 : estimateTokens(raw.length, cfg);
+  const estimate = requestMetered ? 1 : estimateTokens(rawBytes, cfg);
   // The agent loop sends one request per tool round, so a request count says
   // little about how much was actually asked for. A round that *begins* a turn
   // is the one whose last message came from the human; every later round of the

@@ -38,7 +38,7 @@ export const IQPlot = ({ displayedIQ, fftStepSize }: IQPlotProps) => {
       setI(temp_I);
       setQ(temp_Q);
     }
-  }, [displayedIQ, freqShift]);
+  }, [displayedIQ, freqShift, cursorFreqShift]);
 
   // A real recording has no imaginary part, so every point sits on the I axis.
   // Say so rather than leaving the reader with an unexplained flat line; a

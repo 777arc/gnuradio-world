@@ -5,7 +5,12 @@ import { join } from 'node:path';
 import { findExampleFlowgraphs } from '../../scripts/example-flowgraphs.mjs';
 import { bundleModule } from './bundle-module.mjs';
 import { examplePaletteSource as examples, cssSource as css } from './editor-contract-source.mjs';
-import { decodeUrlPath, pathIsWithin } from '../../scripts/http-support.mjs';
+import {
+  assertSafeOutputDirectory,
+  decodeUrlPath,
+  devServerRepoAssetAllowed,
+  pathIsWithin,
+} from '../../scripts/http-support.mjs';
 
 const fixture = await mkdtemp(join(tmpdir(), 'example-flowgraphs-'));
 try {
@@ -40,9 +45,21 @@ assert.equal(pathIsWithin('/tmp/site', '/tmp/site/assets/app.js'), true);
 assert.equal(pathIsWithin('/tmp/site', '/tmp/site-secret/token'), false,
   'a sibling whose name shares the root prefix is not inside the served directory');
 assert.match(server, /pathIsWithin\(base, resolved\)/);
+assert.equal(devServerRepoAssetAllowed('/runner/build/runner.wasm'), true);
+assert.equal(devServerRepoAssetAllowed('/test/hw/plutosdr_hw.html'), true);
+assert.equal(devServerRepoAssetAllowed('/.git/config'), false);
+assert.equal(devServerRepoAssetAllowed('/AGENTS.md'), false);
+assert.match(server, /process\.argv\[4\] \|\| '127\.0\.0\.1'/,
+  'the development server is loopback-only unless a bind host is explicitly supplied');
+assert.throws(() => assertSafeOutputDirectory('/tmp', '/tmp/repository'), /refusing to remove/);
+assert.throws(() => assertSafeOutputDirectory('/tmp/repository', '/tmp/repository'), /refusing to remove/);
+assert.doesNotThrow(() => assertSafeOutputDirectory('/tmp/repository/site', '/tmp/repository'));
 const pagesServer = await readFile(new URL('../../scripts/serve_site.mjs', import.meta.url), 'utf8');
 assert.match(pagesServer, /pathIsWithin\(SITE, direct\)/);
+assert.match(pagesServer, /pathIsWithin\(SITE, target\)/,
+  'redirect targets are subject to the same site-root containment check');
 assert.match(assembler, /const grcFiles = await findExampleFlowgraphs\(fgDir\)/);
+assert.match(assembler, /assertSafeOutputDirectory\(OUT, ROOT\);\s*await rm\(OUT/);
 assert.match(assembler, /await mkdir\(dirname\(destination\), \{ recursive: true \}\)/);
 // The folder rows own their styling; they used to borrow the recordings tab's
 // classes, which vanished when that tab became a flat catalog and left the

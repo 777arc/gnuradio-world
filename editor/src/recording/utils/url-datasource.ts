@@ -61,9 +61,13 @@ export async function fetchDataFileByteLength(dataUrl: string): Promise<number> 
   if (!probe.ok) {
     throw new Error(`${probe.status} ${probe.statusText} fetching ${dataUrl}`);
   }
-  const total = Number(probe.headers.get('content-range')?.split('/').pop());
-  if (Number.isFinite(total) && total > 0) {
-    return total;
+  const contentRange = probe.headers.get('content-range');
+  const total = Number(contentRange?.split('/').pop());
+  if (probe.status === 206) {
+    if (Number.isFinite(total) && total > 0) return total;
+    // Content-Length on a 206 is the length of this response (one byte), not
+    // the complete object. If CORS hides Content-Range, the total is unknown.
+    throw new Error(`could not determine the size of ${dataUrl}`);
   }
   const probeLength = Number(probe.headers.get('content-length'));
   if (Number.isFinite(probeLength) && probeLength > 0) {
@@ -90,8 +94,12 @@ export async function fetchIQRange(
     throw new Error(`${response.status} ${response.statusText} fetching ${dataUrl}`);
   }
   let buffer = await response.arrayBuffer();
-  if (response.status !== 206 && buffer.byteLength > countBytes) {
-    buffer = buffer.slice(offsetBytes, offsetBytes + countBytes);
+  if (response.status !== 206) {
+    // A 200 response is the complete representation even when it is shorter
+    // than the requested count. Always apply the requested offset locally.
+    buffer = offsetBytes < buffer.byteLength
+      ? buffer.slice(offsetBytes, Math.min(buffer.byteLength, offsetBytes + countBytes))
+      : new ArrayBuffer(0);
   }
   // A read that runs into the end of the file can stop mid-sample; the typed
   // array views used downstream need whole samples.

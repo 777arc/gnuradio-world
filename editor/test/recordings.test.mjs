@@ -111,6 +111,12 @@ assert.match(main, /const HTTP_RECORDING_ID = 'wasm_public_http_recording'/);
 assert.match(main, /await resolveRemoteRecording\(recordingDataPath\(key\)\)/);
 assert.match(main, /const path = recordingDataPath\(key\);[\s\S]*?url: recording\.downloadUrl, size: recording\.byteLength/);
 assert.match(main, /async function publicHttpFileSize[\s\S]*?method: 'HEAD'[\s\S]*?Range: 'bytes=0-0'/);
+const publicSize = main.slice(main.indexOf('async function publicHttpFileSize'),
+  main.indexOf('function graphNeedsGracefulStop'));
+assert.doesNotMatch(publicSize, /response\.ok[\s\S]{0,120}return size;/,
+  'a successful HEAD alone cannot claim that the public recording supports ranges');
+assert.match(publicSize, /response\.status !== 206[\s\S]*return null/,
+  'the preflight requires an actual one-byte partial response');
 assert.match(main, /const size = url \? await publicHttpFileSize\(url\) : null/);
 assert.match(main, /const path = HTTP_RECORDING_PREFIX \+ encodeURIComponent\(url\)/);
 assert.match(main, /const HTTP_RECORDING_PREFIX = '\/recordings\/external\/'/);
@@ -136,6 +142,9 @@ assert.doesNotMatch(runnerHtml, /\.arrayBuffer\(\)/);
 assert.match(readerWorker, /MAX_CHUNK_BYTES = 2 \* 1024 \* 1024/);
 assert.match(readerWorker, /Range: `bytes=\$\{start\}-\$\{end - 1\}`/);
 assert.match(readerWorker, /if \(contentRange &&[\s\S]*?data\.byteLength !== end - start/);
+assert.match(runnerHtml,
+  /const RUN_RECORDING_TOKEN[\s\S]*message\.recordingToken = RUN_RECORDING_TOKEN;[\s\S]*postMessage\(message, location\.origin\)/,
+  'every runner-to-editor message carries the run token and uses an exact target origin');
 
 const library = JSON.parse(await readFile(
   new URL('../public/blocks.json', import.meta.url), 'utf8'));
@@ -317,7 +326,7 @@ assert.match(blockById('wasm_sigmf_sink')?.documentation ?? '',
 assert.match(main, /function graphNeedsGracefulStop\(deps: RunSessionDeps\)[\s\S]*?i\.id === SIGMF_SINK_ID/);
 assert.match(main, /session\.runningNeedsGracefulStop = graphNeedsGracefulStop\(deps\)/,
   'the running graph records whether it owns a writer before later canvas edits');
-assert.match(main, /const finishing = session\.runningNeedsGracefulStop\s*\? requestRunnerShutdown\(deps, frame\) : null;/,
+assert.match(main, /const finishing = session\.runningNeedsGracefulStop\s*\? requestRunnerShutdown\(deps, frame, session\.activeToken\) : null;/,
   'stop() stays synchronous -- loadFlowgraphAnimated needs the tab switch immediately');
 assert.match(main, /if \(session\.active \|\| session\.starting \|\| session\.finishing\)[\s\S]*?return null;/,
   'Execute cannot replace an active runner or one whose recording is still flushing');

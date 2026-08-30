@@ -49,6 +49,30 @@ export function pathIsWithin(root, candidate) {
   return rel === '' || (rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
 }
 
+// server.mjs deliberately serves only browser runtime artifacts from the
+// repository tree. Everything else must come from editor/dist: treating the
+// repository root as a generic document root exposes source, local config and
+// .git whenever the development server is reachable from another process.
+const DEV_REPO_PREFIXES = ['/runner/build/', '/example_flowgraphs/', '/pyodide/'];
+const DEV_REPO_FILES = new Set([
+  '/test/hw/hackrf_hw.html',
+  '/test/hw/plutosdr_hw.html',
+  '/test/hw/rtlsdr_hw.html',
+]);
+
+export function devServerRepoAssetAllowed(urlPath) {
+  return DEV_REPO_FILES.has(urlPath) || DEV_REPO_PREFIXES.some(prefix => urlPath.startsWith(prefix));
+}
+
+// assemble-site.mjs recursively removes its output before rebuilding it. A
+// typo must never turn that cleanup into removal of the repository itself (or
+// one of its ancestors).
+export function assertSafeOutputDirectory(output, protectedRoot) {
+  if (pathIsWithin(output, protectedRoot)) {
+    throw new Error(`refusing to remove output directory containing repository: ${output}`);
+  }
+}
+
 // COOP + COEP are what SharedArrayBuffer and Emscripten's pthreads require.
 // CORP is `cross-origin` so another site can frame the embedded editor
 // (?embed=1 -- see docs/editor-ui.md): a host page that is itself cross-origin

@@ -2609,6 +2609,7 @@ svg.addEventListener('contextmenu', e => {
 const runSessionState: RunSessionState = {
   pendingFiles: new Map<string, RunnerInputFile[]>(),
   pendingToken: null,
+  activeToken: null,
   generation: 0,
   runningGraphSnapshot: null,
   runningNeedsGracefulStop: false,
@@ -3594,11 +3595,15 @@ window.addEventListener('message', (e) => {
     recordingTabsController.applyRecordingSelection(e as MessageEvent, d);
     return;
   }
+  const runnerFrame = el('runFrame') as HTMLIFrameElement;
+  if (e.origin !== location.origin || e.source !== runnerFrame.contentWindow ||
+      d.recordingToken !== runSessionState.activeToken) return;
   // A flowgraph that fails to build shows an error in the runner pane; mirror it
   // here so the reason is in the log next to the Run that caused it.
   if (d.type === 'gr-error' && typeof d.message === 'string') {
-    setRunnerRunning(false, 'Flowgraph failed');
     log(`run failed: ${d.message}`);
+    stop();
+    setRunnerRunning(false, 'Flowgraph failed');
     return;
   }
   if (d.type === 'gr-info' && typeof d.message === 'string') {

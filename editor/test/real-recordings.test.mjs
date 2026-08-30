@@ -26,17 +26,58 @@ await build({
   alias: { '@': resolve(new URL('../src/recording', import.meta.url).pathname) },
 });
 const {
+  applyProcessing,
   calcFfts,
   convertToFloat32,
   dataTypeIsComplex,
   dataTypeToBytesPerIQSample,
   float32IqBytes,
+  fetchDataFileByteLength,
+  fetchIQRange,
   sampleSelection,
   SigMFMetadata,
   trimmedSigmfMetadata,
   windowCoefficient,
 } =
   await import(pathToFileURL(out));
+
+// "Square Signal" is complex squaring, which doubles phase. Squaring the two
+// stored components independently invents a different signal entirely.
+assert.deepEqual(
+  Array.from(applyProcessing(Float32Array.from([1, 2, -3, 4]), true)),
+  [-3, 4, -7, -24],
+  'complex square must apply (I²-Q², 2IQ) to each interleaved pair');
+
+// A server that ignores Range returns the complete object with status 200.
+// Apply the requested offset even when that complete object is no longer than
+// the requested count.
+const originalFetch = globalThis.fetch;
+try {
+  globalThis.fetch = async () => new Response(Uint8Array.from([0, 1, 2, 3, 4, 5, 6, 7]));
+  const ranged = await fetchIQRange('https://example.test/data', 4, 8, 2,
+    new AbortController().signal);
+  assert.deepEqual(Array.from(new Uint8Array(ranged)), [4, 5, 6, 7]);
+
+  globalThis.fetch = async (_url, init) => {
+    if (init?.method === 'HEAD') throw new Error('HEAD unavailable');
+    return new Response(Uint8Array.of(0), {
+      status: 206, headers: { 'Content-Length': '1' },
+    });
+  };
+  await assert.rejects(() => fetchDataFileByteLength('https://example.test/data'),
+    /could not determine/,
+    'a hidden Content-Range must not turn the one-byte response length into the file size');
+
+  globalThis.fetch = async (_url, init) => init?.method === 'HEAD'
+    ? new Response(null, { status: 405 })
+    : new Response(Uint8Array.from({ length: 12 }), {
+      status: 200, headers: { 'Content-Length': '12' },
+    });
+  assert.equal(await fetchDataFileByteLength('https://example.test/data'), 12,
+    'a range-ignoring 200 response may use its full representation length');
+} finally {
+  globalThis.fetch = originalFetch;
+}
 
 // --- datatype shape -------------------------------------------------------
 
@@ -213,6 +254,19 @@ assert.ok(Math.max(...Array.from(complexRow.slice(0, FFT_SIZE / 2))) < bin(compl
 // that happens to be 1". This asserts the two lists still agree.
 const settingsPane = await readFile(
   new URL('../src/recording/pages/recording-view/components/settings-pane.tsx', import.meta.url), 'utf8');
+const scrollBar = await readFile(
+  new URL('../src/recording/pages/recording-view/components/scroll-bar.tsx', import.meta.url), 'utf8');
+assert.match(scrollBar, /e\.evt\.deltaY/);
+assert.doesNotMatch(scrollBar, /wheelDeltaY/,
+  'recording scrolling must use the standard WheelEvent delta fields');
+const spectrogramHook = await readFile(
+  new URL('../src/recording/pages/recording-view/hooks/use-spectrogram.tsx', import.meta.url), 'utf8');
+assert.match(spectrogramHook, /indx < totalFFTs && indx >= 0/,
+  'the first FFT beyond the recording must never be requested');
+const iqPlot = await readFile(
+  new URL('../src/recording/pages/recording-view/components/iq-plot.tsx', import.meta.url), 'utf8');
+assert.match(iqPlot, /\[displayedIQ, freqShift, cursorFreqShift\]/,
+  'moving the frequency cursor must recompute the IQ plot');
 const offered = /const windowFunctions = \[([^\]]*)\]/.exec(settingsPane)?.[1]
   ?.split(',').map(name => name.trim().replace(/^'|'$/g, '')).filter(Boolean);
 assert.ok(offered?.length, 'settings pane must declare its window functions as a literal list');

@@ -34,8 +34,11 @@ assert.match(source,
   /function stopFlowgraph[\s\S]*deps\.setRunnerRunning\(false\);\s*deps\.activateWorkspaceTab\('editor'\);/,
   'stopping a flowgraph clears the QT GUI running state and returns to the editor');
 assert.match(source,
-  /d\.type === 'gr-error'[\s\S]*setRunnerRunning\(false, 'Flowgraph failed'\)/,
-  'a runner startup failure also clears the running indicator');
+  /e\.origin !== location\.origin[\s\S]*e\.source !== runnerFrame\.contentWindow[\s\S]*d\.recordingToken !== runSessionState\.activeToken/,
+  'runner messages must come from the current same-origin frame and carry its run token');
+assert.match(source,
+  /d\.type === 'gr-error'[\s\S]*log\(`run failed:[\s\S]*stop\(\);[\s\S]*setRunnerRunning\(false, 'Flowgraph failed'\)/,
+  'a runner startup failure stops and unloads the failed runner before clearing its indicator');
 
 // ---- Graham right dock ----------------------------------------------------
 assert.match(html,

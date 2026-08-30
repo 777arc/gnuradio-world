@@ -42,7 +42,7 @@ export function useSpectrogram(currentFFT) {
     const currentPadding = Math.floor(FETCH_PADDING / (fftSize / 1024));
     for (let i = -currentPadding; i < spectrogramHeight + currentPadding; i++) {
       const indx = currentFFT + i * (fftStepSize + 1);
-      if (indx <= totalFFTs && indx >= 0) {
+      if (indx < totalFFTs && indx >= 0) {
         requiredFFTIndices.push(indx);
       }
     }

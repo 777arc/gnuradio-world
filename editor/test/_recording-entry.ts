@@ -7,7 +7,8 @@ export {
   dataTypeToBytesPerIQSample,
   windowCoefficient,
 } from '../src/recording/utils/selector';
-export { convertToFloat32 } from '../src/recording/utils/fetch-more-data-source';
+export { applyProcessing, convertToFloat32 } from '../src/recording/utils/fetch-more-data-source';
+export { fetchDataFileByteLength, fetchIQRange } from '../src/recording/utils/url-datasource';
 export {
   float32IqBytes,
   sampleSelection,

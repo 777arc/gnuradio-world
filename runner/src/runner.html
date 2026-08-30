@@ -39,6 +39,14 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
     <div id="screen"></div>
 
     <script type="text/javascript">
+      const RUN_RECORDING_TOKEN = new URLSearchParams(location.search).get('recordingToken') || '';
+      function postToEditor(message) {
+        if (!(window.parent && window.parent !== window)) return;
+        message.recordingToken = RUN_RECORDING_TOKEN;
+        window.parent.postMessage(message, location.origin);
+      }
+      window.__grPostToEditor = postToEditor;
+
       // Emscripten evaluates PTHREAD_POOL_SIZE when runner_entry() starts, so
       // select the prewarmed tier now, before runner.js is instantiated by Qt.
       // One worker is reserved for the detached top-block run thread; GNU Radio
@@ -617,11 +625,6 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
           console.warn('Audio is waiting for a click: the browser blocks sound until the page is interacted with.');
           postToEditor({ type: 'gr-audio-blocked' });
         }, 500);
-      }
-
-      function postToEditor(message) {
-        if (window.parent && window.parent !== window)
-          window.parent.postMessage(message, '*');
       }
 
       function failAudio(id, memory, controlPointer, errorPointer, error) {
@@ -1225,7 +1228,7 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
         const dropped = stdoutDropped;
         stdoutQueue = [];
         stdoutDropped = 0;
-        window.parent.postMessage({ type: 'gr-print', lines, dropped }, '*');
+        postToEditor({ type: 'gr-print', lines, dropped });
       }
 
       function queueStdout(text) {
@@ -1249,8 +1252,7 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
         const data = event.data;
         if (!data || data.type !== 'gr-shutdown') return;
         if (event.source !== window.parent) return;
-        const ack = () => window.parent.postMessage(
-          { type: 'gr-shutdown-done' }, location.origin);
+        const ack = () => postToEditor({ type: 'gr-shutdown-done' });
         const instance = window.__grRunnerInstance;
         if (!instance || typeof instance._gr_shutdown_flowgraph !== 'function') {
           ack();     // never started, or an older build: nothing to bring down

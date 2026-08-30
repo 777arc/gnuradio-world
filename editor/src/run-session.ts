@@ -33,6 +33,7 @@ export type RunnerInputFile =
 export interface RunSessionState {
   pendingFiles: Map<string, RunnerInputFile[]>;
   pendingToken: string | null;
+  activeToken: string | null;
   generation: number;
   runningGraphSnapshot: string | null;
   runningNeedsGracefulStop: boolean;
@@ -79,19 +80,23 @@ export interface RunSessionDeps {
 
 const SHUTDOWN_TIMEOUT_MS = 20000;
 
-async function publicHttpFileSize(url: string): Promise<number | null> {
+export async function publicHttpFileSize(url: string): Promise<number | null> {
   let parsed: URL;
   try { parsed = new URL(url); } catch { return null; }
   if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
 
+  let headSize: number | null = null;
   try {
     const response = await fetch(parsed.href, {
       method: 'HEAD', cache: 'no-store', mode: 'cors',
     });
     const size = Number(response.headers.get('Content-Length'));
-    if (response.ok && Number.isSafeInteger(size) && size > 0) return size;
+    if (response.ok && Number.isSafeInteger(size) && size > 0) headSize = size;
   } catch { /* Some range-capable hosts do not implement HEAD. */ }
 
+  // The source depends on byte ranges, so HEAD is only a size hint. A real
+  // one-byte 206 response proves both range support and that Content-Range is
+  // exposed through CORS before the runner is started.
   try {
     const response = await fetch(parsed.href, {
       headers: { Range: 'bytes=0-0' }, cache: 'no-store', mode: 'cors',
@@ -99,7 +104,8 @@ async function publicHttpFileSize(url: string): Promise<number | null> {
     const match = /^bytes\s+0-0\/(\d+)$/i.exec(response.headers.get('Content-Range') || '');
     await response.body?.cancel();
     const size = Number(match?.[1]);
-    return response.status === 206 && Number.isSafeInteger(size) && size > 0 ? size : null;
+    if (response.status !== 206 || !Number.isSafeInteger(size) || size <= 0) return null;
+    return headSize === null || headSize === size ? size : null;
   } catch { return null; }
 }
 
@@ -107,7 +113,8 @@ function graphNeedsGracefulStop(deps: RunSessionDeps): boolean {
   return deps.state.insts.some(i => i.id === SIGMF_SINK_ID && i.enabled && !i.bypassed);
 }
 
-function requestRunnerShutdown(deps: RunSessionDeps, frame: HTMLIFrameElement): Promise<void> {
+function requestRunnerShutdown(deps: RunSessionDeps, frame: HTMLIFrameElement,
+                               recordingToken: string | null): Promise<void> {
   const target = frame.contentWindow;
   if (!target) return Promise.resolve();
   return new Promise<void>(resolve => {
@@ -121,7 +128,8 @@ function requestRunnerShutdown(deps: RunSessionDeps, frame: HTMLIFrameElement): 
     };
     const onMessage = (event: MessageEvent) => {
       if (event.source !== target || event.origin !== location.origin) return;
-      if (event.data?.type === 'gr-shutdown-done') finish();
+      if (event.data?.type === 'gr-shutdown-done' &&
+          event.data.recordingToken === recordingToken) finish();
     };
     window.addEventListener('message', onMessage);
     const timer = setTimeout(() => {
@@ -458,6 +466,7 @@ async function prepareFlowgraph(deps: RunSessionDeps, session: RunSessionState,
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   session.pendingToken = token;
+  session.activeToken = token;
   session.pendingFiles.set(token, recordingFiles);
   // The editor's own ?scheduler= is forwarded to the runner, where it overrides
   // whatever the flowgraph's Options block says; ?rounds= goes with it, since a
@@ -495,7 +504,7 @@ export function stopFlowgraph(deps: RunSessionDeps, session: RunSessionState): v
   // This was captured from the graph that actually started. The canvas may
   // already have been edited or replaced by the time Stop is pressed.
   const finishing = session.runningNeedsGracefulStop
-    ? requestRunnerShutdown(deps, frame) : null;
+    ? requestRunnerShutdown(deps, frame, session.activeToken) : null;
   session.finishing = !!finishing;
   const generation = session.generation;
 
@@ -508,6 +517,7 @@ export function stopFlowgraph(deps: RunSessionDeps, session: RunSessionState): v
   frame.hidden = true;
   deps.runEmpty.hidden = false;
   session.active = false;
+  session.activeToken = null;
   session.runningGraphSnapshot = null;
   session.runningNeedsGracefulStop = false;
   deps.setRunnerRunning(false);

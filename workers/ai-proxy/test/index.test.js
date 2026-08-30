@@ -390,6 +390,22 @@ test('an oversized body is refused before any reservation', async () => {
   assert.equal(await env.LIMITER.used('ip:unknown'), 0);
 });
 
+test('the body limit counts UTF-8 bytes rather than JavaScript characters', async () => {
+  const env = { OPENAI_API_KEY: 'sk-shared', LIMITER: fakeLimiters(), MAX_BODY_BYTES: '512' };
+  const body = { ...CHAT, messages: [{ role: 'user', content: 'é'.repeat(300) }] };
+  const serialized = JSON.stringify(body);
+  assert.ok(serialized.length < 512);
+  assert.ok(new TextEncoder().encode(serialized).byteLength > 512);
+  const { ctx } = context();
+  const { result, seen } = await withUpstream(
+    () => { throw new Error('an oversized UTF-8 request must not reach OpenAI'); },
+    () => worker.fetch(completionRequest(body), env, ctx),
+  );
+  assert.equal(seen.length, 0);
+  assert.equal(result.status, 413);
+  assert.equal(await env.LIMITER.used('ip:unknown'), 0);
+});
+
 test('an upstream failure is reported without its body, and refunded', async () => {
   const env = { OPENAI_API_KEY: 'sk-shared', LIMITER: fakeLimiters() };
   const { ctx, settled } = context();

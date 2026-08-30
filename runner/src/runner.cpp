@@ -291,7 +291,7 @@ static void post_widgets_to_editor(const std::string& payload) {
             var m = {};
             m.type = 'gr-widgets';
             m.payload = UTF8ToString($0);
-            window.parent.postMessage(m, '*');
+            window.__grPostToEditor(m);
         }
     }, payload.c_str());
 }
@@ -519,7 +519,7 @@ static void post_error_to_editor(const std::string& msg) {
             var m = {};
             m.type = 'gr-error';
             m.message = UTF8ToString($0);
-            window.parent.postMessage(m, '*');
+            window.__grPostToEditor(m);
         }
     }, msg.c_str());
 }
@@ -535,7 +535,7 @@ static void post_info_to_editor(const std::string& msg) {
             var m = {};
             m.type = 'gr-info';
             m.message = text;
-            window.parent.postMessage(m, '*');
+            window.__grPostToEditor(m);
         }
     }, msg.c_str());
 }
@@ -1073,7 +1073,7 @@ static void notify_module(const std::string& module, const char* state) {
                 m.type = 'gr-module';
                 m.module = name;
                 m.state = st;
-                window.parent.postMessage(m, '*');
+                window.__grPostToEditor(m);
             }
         } catch (e) {}
     }, module.c_str(), state);
