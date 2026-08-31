@@ -16,8 +16,25 @@
 // to disagree with it. The .ico embeds PNGs (the Vista-era form every browser
 // in use reads) rather than BMPs, so no palette or mask encoding is needed.
 //
-// Usage: node scripts/make-favicons.mjs      (rewrites the files in editor/public/)
-import { readFileSync, writeFileSync } from 'node:fs';
+// HAND-DRAWN FRAMES. A favicon's 16px frame is the one a browser tab actually
+// shows, and it is the one downscaling serves worst: the mark's 48px grid is
+// not divisible by 3, so a 2px border lands on 0.67px and greys out. Drop a
+// PNG of exactly NxN at editor/public/favicon-<N>.png and this script embeds it
+// verbatim instead of rendering that size from the SVG - the usual practice of
+// pixel-fitting the small frame by hand. The other sizes keep coming from the
+// SVG, so the mark stays one drawing with one hand-tuned exception.
+//
+// It sits beside favicon.svg rather than in a build-inputs directory of its own
+// so that everything hand-authored about the mark is in one place. The cost is
+// that Vite copies it to dist/ and serves it unreferenced, which is cheaper
+// than a directory nobody remembers.
+//
+// Usage:
+//   node scripts/make-favicons.mjs             rewrite the files in editor/public/
+//   node scripts/make-favicons.mjs --eject 16  write the SVG's own 16px render to
+//                                              editor/public/favicon-16.png as a
+//                                              starting point to edit, then stop
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { launchBrowser } from './browser-test-support.mjs';
 
@@ -44,16 +61,54 @@ try {
     return page.screenshot({ type: 'png', omitBackground: !background });
   };
 
-  const apple = await render(180, OPAQUE_BG);
-  writeFileSync(join(PUBLIC, 'apple-touch-icon.png'), apple);
-
   const icoSizes = [16, 32, 48];
-  const pngs = [];
-  for (const size of icoSizes) pngs.push(await render(size));
-  writeFileSync(join(PUBLIC, 'favicon.ico'), buildIco(icoSizes, pngs));
-  console.log(`favicon.ico: ${icoSizes.join(', ')} px   apple-touch-icon.png: 180 px`);
+
+  // --eject <size>: hand this size's current render to the user to edit.
+  const ejectAt = process.argv.indexOf('--eject');
+  if (ejectAt !== -1) {
+    const size = Number(process.argv[ejectAt + 1]);
+    if (!icoSizes.includes(size)) {
+      console.error(`--eject needs one of ${icoSizes.join(', ')}; got ${process.argv[ejectAt + 1] ?? '(nothing)'}`);
+      process.exitCode = 1;
+    } else {
+      const at = join(PUBLIC, `favicon-${size}.png`);
+      writeFileSync(at, await render(size));
+      console.log(`wrote ${at}\nEdit it, keep it ${size}x${size} RGBA, then re-run this script without --eject.`);
+    }
+  } else {
+    const apple = await render(180, OPAQUE_BG);
+    writeFileSync(join(PUBLIC, 'apple-touch-icon.png'), apple);
+
+    const pngs = [];
+    const from = [];
+    for (const size of icoSizes) {
+      const override = overrideFor(size);
+      pngs.push(override ?? await render(size));
+      from.push(override ? `${size} px (hand-drawn)` : `${size} px`);
+    }
+    writeFileSync(join(PUBLIC, 'favicon.ico'), buildIco(icoSizes, pngs));
+    console.log(`favicon.ico: ${from.join(', ')}   apple-touch-icon.png: 180 px`);
+  }
 } finally {
   await browser.close();
+}
+
+// A hand-drawn frame, if one is sitting beside the SVG. Checked rather than
+// trusted: an ICONDIRENTRY declares the dimensions separately from the PNG it
+// points at, so a mis-sized override would produce an .ico that parses and
+// renders wrong, which is the hardest kind of wrong to notice.
+function overrideFor(size) {
+  const at = join(PUBLIC, `favicon-${size}.png`);
+  if (!existsSync(at)) return null;
+  const png = readFileSync(at);
+  const magic = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  if (!png.subarray(0, 8).equals(magic))
+    throw new Error(`${at} is not a PNG (a .ico or .bmp renamed to .png will not do)`);
+  // IHDR is required to be the first chunk: 8 byte signature, 4 length, 4 type.
+  const [w, h] = [png.readUInt32BE(16), png.readUInt32BE(20)];
+  if (w !== size || h !== size)
+    throw new Error(`${at} is ${w}x${h}, must be exactly ${size}x${size}`);
+  return png;
 }
 
 // ICONDIR + one ICONDIRENTRY per image, then the PNG payloads. A dimension of
