@@ -117,6 +117,51 @@ Keeping the overlay in the editor rather than building a Qt one is what keeps
 every interactive line in TypeScript, where it is testable under node, and keeps
 the C++ a renderer.
 
+## Positioning a browser-native overlay
+
+A sink whose display is a browser canvas rather than a `QwtPlot` — the Spectrum
+Analyzer, gr-fosphor's WebGPU path — builds a `QWidget` that is nothing but a
+placement placeholder and floats its real display over the iframe. It therefore
+needs that placeholder's rectangle, and **Qt widget geometry is not observable
+from JavaScript**.
+
+The `gr-widgets` payload already carries it, so that is where it comes from.
+`post_widgets_to_editor()` calls every function in
+`globalThis.__grGuiLayoutListeners` with the parsed report, and each renderer
+manager registers one and matches entries to instances by block name.
+
+Two consequences worth knowing:
+
+- **A new browser-native sink adds no new poller.** Each such sink used to run
+  its own 100 ms `QTimer` calling `mapToGlobal`; one shared notification
+  replaced all of them. Do not reintroduce a per-instance timer.
+- **`publish_gui_layout()` is event-driven, with the 3 Hz sweep as a backstop.**
+  A `GeometryWatcher` event filter on every placed widget *and* on `g_gui_area`
+  schedules a publish on `Move`/`Resize`/`Show`/`Hide`, coalesced onto the next
+  event-loop turn — one payload per visible change, not one per widget. The
+  filter has to watch `g_gui_area` as well as the widgets because Qt sends
+  `Move` only when a widget's position changes relative to its *parent*, so the
+  error banner `show_error_in_window()` inserts above `g_gui_area` shifts every
+  widget down without one of them hearing about it.
+
+The payload's `visible` flag exists for this consumer: a widget that is not in
+the arrangement, or is hidden, has its overlay hidden rather than left stranded
+where it last was. It also means a visibility-only change still differs from the
+last payload, so the dedupe in `publish_gui_layout()` does not swallow it.
+
+`test/test_spectrum_analyzer.mjs` asserts each analyzer sits on its placeholder
+to the pixel, on load and after a resize.
+
+Replacing the `QGridLayout` with a DOM grid — making each sink its own top-level
+Qt window, so both kinds of widget become positionable DOM elements and this
+notification path disappears — was costed and spiked, and rejected: per-window
+cost is flat and the idea works, but it buys tidiness at the price of rewriting
+the layout pass, the capture path and the row-height/font scaling. If you
+revisit it, note that `QWidget::setGeometry` does not reach the platform window
+under Qt for WebAssembly. Geometry has to go through `windowHandle()` after
+`show()`; the other approaches silently give every window a *screen-sized*
+canvas instead of failing.
+
 Three things about the C++ side that are not guessable:
 
 - **The window has a fixed outer layout.** `g_container` holds an error banner

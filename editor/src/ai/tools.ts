@@ -26,6 +26,13 @@ export interface AiToolDeps {
   autoArrange(): void;
   replaceFlowgraph(grc: string): void;
   clearFlowgraph(): void;
+  /**
+   * Whose flowgraph is on the canvas: the example the editor opened by itself,
+   * or something the user opened, built or edited. Optional so a harness need
+   * not answer it; unanswered reads as the user's, which is the safe way for
+   * `new_flowgraph` to be wrong.
+   */
+  canvasOrigin?(): 'default-example' | 'user';
   listExamples(): Promise<string[]>;
   readExample(path: string): Promise<string>;
   listRecordings(): Promise<ExampleRecording[]>;
@@ -199,7 +206,7 @@ export const AI_TOOLS: ToolDefinition[] = [
   tool('disconnect', 'Disconnect one exact connection using names and port labels/indices.', object({ from: text, output: port, to: text, input: port }, ['from', 'output', 'to', 'input'])),
   tool('set_enabled', 'Set a block to enabled, disabled, or bypassed.', object({ name: text, state: { type: 'string', enum: ['enabled', 'disabled', 'bypassed'] } }, ['name', 'state'])),
   tool('auto_arrange', 'Lay out all blocks left-to-right so the edited canvas is readable.', object({})),
-  tool('new_flowgraph', 'Empty the canvas to a blank flowgraph (Options, GUI Layout and samp_rate only), discarding everything on it. Call this first whenever the request is to build something new rather than to modify or explain what is already there.', object({})),
+  tool('new_flowgraph', 'Discard the whole flowgraph on the canvas, leaving a blank one (Options, GUI Layout and samp_rate only). Only for a request for a whole new flowgraph that does not refer to what is open, and then before the first edit. Never to make room for something being added: adding, changing, fixing, explaining or running anything on the canvas is an edit to it, and clearing the user\'s own flowgraph destroys work they did not offer up.', object({})),
   tool('replace_flowgraph', 'Replace the entire canvas from native .grc YAML. Prefer granular edits unless building from scratch. Do not include the options block under `blocks:` -- it is the top-level `options:` key.', object({ grc: text }, ['grc'])),
   tool('validate', 'Return all current blocking and non-blocking validation issues.', object({})),
   tool('run_flowgraph', 'Run the current canvas visibly and observe diagnostics for 0.5–15 seconds. The graph remains running.', object({ seconds: { type: 'number', minimum: 0.5, maximum: 15, default: 3 } })),
@@ -602,18 +609,36 @@ export function canvasContext(deps: AiReadDeps): string {
   }
 }
 
+/**
+ * Whose graph this is, stated in the message rather than left to be guessed
+ * from the wording of the request. The editor opens on the welcome example and
+ * never on nothing, which is the whole reason `new_flowgraph` exists — but the
+ * moment the canvas is the user's own, clearing it destroys work they did not
+ * offer up, and "add a slider to this" reads as a build request often enough
+ * for that to have happened.
+ */
+function canvasOriginText(deps: AiReadDeps): string {
+  return deps.canvasOrigin?.() === 'default-example'
+    ? `[canvas provenance] the example the editor loaded by itself at startup; the user ` +
+      `has not opened, built or edited it. Clearing it for a from-scratch build is free.\n`
+    : `[canvas provenance] the user's own flowgraph — they opened, built or edited it. ` +
+      `It is not yours to discard: edit it, and do not call new_flowgraph unless they asked ` +
+      `to start over or to replace this graph with a different one.\n`;
+}
+
 function canvasText(deps: AiReadDeps): string {
   if (!deps.blocks().length)
     return '[canvas] empty. Nothing is placed yet.';
 
+  const origin = canvasOriginText(deps);
   const graph = flowgraphJson(deps);
   const json = JSON.stringify(graph);
-  const canvas = json.length <= SEED_GRAPH_LIMIT
+  const canvas = origin + (json.length <= SEED_GRAPH_LIMIT
     ? `[canvas at the time of this message — the get_flowgraph result, already read for you. ` +
       `Your own edit results supersede it; call get_flowgraph only to re-read it]
 ${json}`
     : `[canvas] ${graph.blocks.length} blocks, ${graph.connections.length} connections, ` +
-      `too large to include here — call get_flowgraph to read it.`;
+      `too large to include here — call get_flowgraph to read it.`);
 
   const ids = [...new Set(deps.blocks().map(block => block.id))];
   if (ids.length > SEED_DEFINITION_LIMIT)

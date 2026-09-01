@@ -330,6 +330,7 @@
       this.centerFrequency = Number(options.centerFrequency) || 0;
       this.frequencySpan = Math.max(1, Number(options.frequencySpan) || 1);
       this.windowType = options.windowType | 0;
+      this.blockName = String(options.blockName || `fosphor_${id}`);
       this.dbReference = 0;
       this.dbPerDivisionIndex = 3;
       this.dbPerDivisions = [1, 2, 5, 10, 20];
@@ -355,6 +356,8 @@
 
       this.canvas = document.createElement('canvas');
       this.canvas.className = 'gr-fosphor-webgpu';
+      this.canvas.dataset.blockName = this.blockName;
+      this.canvas.dataset.blockId = 'fosphor_qt_sink_c';
       this.canvas.tabIndex = 0;
       this.canvas.title =
         'gr-fosphor WebGPU — duty is fosphor GPU time / wall time; click for keyboard controls';
@@ -920,11 +923,51 @@
       this.instances.get(id)?.setFrequencyRange(center, span);
     }
     setWindow(id, kind) { this.instances.get(id)?.setWindow(kind); }
+    widgets() {
+      return [...this.instances.values()].map(instance => ({
+        name: instance.blockName,
+        id: 'fosphor_qt_sink_c',
+        rect: instance.canvas.getBoundingClientRect(),
+      }));
+    }
+    captureNotes(only = '') {
+      const present = [...this.instances.values()].some(instance =>
+        (!only || instance.blockName === only) &&
+        instance.canvas.style.display !== 'none');
+      return present ? ['a fosphor display is in this window and does not appear in the ' +
+        'image: its WebGPU canvas does not support this readback'] : [];
+    }
+    // The runner publishes every placed widget's rectangle whenever the
+    // arrangement changes (publish_gui_layout() in runner.cpp). Reading it here
+    // is what lets each renderer sit exactly on its QWidget placeholder without
+    // the sink polling its own geometry on a timer.
+    applyLayoutReport(report) {
+      const widgets = report && Array.isArray(report.widgets) ? report.widgets : null;
+      if (!widgets) return;
+      for (const instance of this.instances.values()) {
+        const placed = widgets.find(w => w && w.name === instance.blockName);
+        if (placed && placed.rect && placed.visible !== false) {
+          const { x, y, width, height } = placed.rect;
+          instance.layout(x, y, width, height, true);
+        } else {
+          // Not in this run's arrangement, or hidden: keep it off the page
+          // rather than stranded wherever it last was.
+          instance.layout(0, 0, 0, 0, false);
+        }
+      }
+    }
+
     destroy(id) {
       this.instances.get(id)?.destroy();
       this.instances.delete(id);
     }
   }
 
-  globalThis.__grFosphorWebGpu = new FosphorWebGpuManager();
+  const manager = new FosphorWebGpuManager();
+  globalThis.__grFosphorWebGpu = manager;
+  (globalThis.__grGuiLayoutListeners ||= []).push(report => manager.applyLayoutReport(report));
+  globalThis.__grGuiObservation?.register('fosphor-webgpu', {
+    widgets: () => manager.widgets(),
+    captureNotes: only => manager.captureNotes(only),
+  }, 10);
 })();

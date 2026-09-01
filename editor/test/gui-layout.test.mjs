@@ -254,7 +254,7 @@ assert.match(html, /id="arrangeOverlay"/);
   for (const id of ['qtgui_time_sink_x', 'qtgui_freq_sink_x', 'qtgui_waterfall_sink_x',
                     'qtgui_const_sink_x', 'qtgui_number_sink', 'variable_qtgui_range',
                     'variable_qtgui_chooser', 'fosphor_qt_sink_c',
-                    'wasm_musical_keyboard_source'])
+                    'wasm_musical_keyboard_source', 'wasm_spectrum_analyzer_sink'])
     assert.equal(byId.get(id)?.gui, true, `${id} is flagged as a GUI widget`);
   // And nothing else is: a block with no widget must not appear in the designer.
   for (const id of ['blocks_throttle2', 'analog_sig_source_x', 'wasm_text_sink',

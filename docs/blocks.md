@@ -322,6 +322,29 @@ histogram, upstream rise/decay constants and palette, live and max-hold traces).
 If adapter, device, pipeline or canvas setup fails, the registry constructs the
 Qt6 CPU spectrum/waterfall hierarchy instead.
 
+### The browser-native Spectrum Analyzer
+
+`wasm_spectrum_analyzer_sink` is a GNU Radio World-specific frequency-only
+instrument. [`blocks/src/spectrum_analyzer_sink.cpp`](../blocks/src/spectrum_analyzer_sink.cpp)
+runs the window and real/complex FFT on the block's scheduler thread, then
+publishes normalized linear-power bins through a lock-free double buffer in
+shared WASM memory. [`runner/src/spectrum_analyzer.js`](../runner/src/spectrum_analyzer.js)
+owns the Canvas2D trace, HTML controls, markers, peak tracking, max hold and the
+occupied-bandwidth calculation. Float input publishes only DC through Nyquist;
+complex input is FFT-shifted and two-sided.
+
+Like the WebGPU fosphor path, its `QWidget` is a placement placeholder, so GUI
+Layout needs no special case and no scheduler thread touches the DOM. Neither
+sink tracks its own geometry: the runner publishes every placed widget's
+rectangle whenever the arrangement changes (`publish_gui_layout()` in
+`runner.cpp`), and each renderer positions itself from that one report — see
+"Positioning a browser-native overlay" in [docs/gui-layout.md](gui-layout.md). Unlike fosphor, its renderer
+registers both a bounded numeric snapshot and a drawable Canvas2D layer with
+`runner/src/gui_observation.js`, so both `read_plot_data` and `capture_plots`
+observe it without block-specific branches in the editor. Keep the power bridge
+linear; averaging and 99% OBW must not integrate values after their conversion
+to dB.
+
 ### A widget's placement is not the block's business
 
 `gui_hint` does nothing here; a singleton **GUI Layout** block arranges the whole

@@ -1,0 +1,130 @@
+id: wasm_spectrum_analyzer_sink
+label: Spectrum Analyzer
+category: '[GNU Radio World]'
+flags: [cpp]
+
+# The factory in registry.cpp builds a QWidget placeholder used by GUI Layout;
+# the visible instrument is a browser-native DOM/canvas overlay aligned to it.
+gui: true
+
+documentation: |-
+    A browser-native spectrum analyzer with a single frequency-domain display.
+    It accepts either complex or float streams. Complex input is shown from
+    Center Frequency - Sample Rate/2 through Center Frequency + Sample Rate/2;
+    float input shows only its non-negative frequencies, from Center Frequency
+    through Center Frequency + Sample Rate/2.
+
+    The running instrument provides clear/write, averaging, and max-hold traces;
+    run/hold and autoscale controls; a manual marker; one-shot peak search; peak
+    tracking; and an occupied-bandwidth measurement. The occupied-bandwidth
+    control defaults to 99% and integrates linear power inside Measurement Span
+    around the active marker or peak. Set Measurement Span to 0 to use the whole
+    displayed spectrum.
+
+    Levels are dBFS by default. A complex carrier of magnitude 1, or a full-scale
+    real sinusoid, reads 0 dBFS when it falls exactly on an FFT bin. Calibration
+    Offset is added to every displayed level; changing Level Unit to dBm or dBuV
+    is meaningful only when that offset accounts for the complete input chain.
+
+    FFT analysis is rate-limited by Update Period and always uses the newest
+    complete FFT frame, so a high-rate stream does not make the GUI consume every
+    possible overlapping transform. Resolution bandwidth is reported using the
+    selected window's equivalent noise bandwidth.
+
+    This block exists only in the WebAssembly runner and does not run in desktop
+    GNU Radio.
+
+parameters:
+-   id: name
+    label: Title
+    dtype: string
+    default: '"Spectrum Analyzer"'
+-   id: type
+    label: Input Type
+    dtype: enum
+    default: complex
+    options: [complex, float]
+    option_labels: [Complex, Float32]
+    hide: part
+-   id: samp_rate
+    label: Sample Rate (Hz)
+    dtype: real
+    default: samp_rate
+-   id: center_freq
+    label: Center Frequency (Hz)
+    dtype: real
+    default: '0'
+-   id: fftsize
+    label: FFT Size
+    dtype: int
+    default: '4096'
+    options: ['256', '512', '1024', '2048', '4096', '8192', '16384', '32768', '65536']
+-   id: wintype
+    label: Window Type
+    dtype: enum
+    default: window.WIN_BLACKMAN_hARRIS
+    options: [window.WIN_BLACKMAN_hARRIS, window.WIN_HAMMING, window.WIN_HANN,
+        window.WIN_BLACKMAN, window.WIN_RECTANGULAR, window.WIN_FLATTOP]
+    option_labels: [Blackman-harris, Hamming, Hann, Blackman, Rectangular, Flat-top]
+    hide: part
+-   id: update_time
+    label: Update Period (s)
+    dtype: real
+    default: '0.10'
+-   id: average
+    label: Averaging
+    dtype: enum
+    default: '0.2'
+    options: ['1.0', '0.5', '0.2', '0.1', '0.05']
+    option_labels: [None, Light, Medium, High, Very High]
+-   id: trace_mode
+    label: Initial Trace Mode
+    dtype: enum
+    default: average
+    options: [clear_write, average, max_hold]
+    option_labels: [Clear / Write, Average, Max Hold]
+-   id: reference_level
+    label: Reference Level
+    dtype: real
+    default: '0'
+-   id: db_per_div
+    label: dB per Division
+    dtype: real
+    default: '10'
+-   id: level_offset_db
+    label: Calibration Offset (dB)
+    dtype: real
+    default: '0'
+-   id: level_unit
+    label: Level Unit
+    dtype: string
+    default: '"dBFS"'
+-   id: peak_track
+    label: Track Peak Initially
+    dtype: bool
+    default: 'False'
+    options: ['True', 'False']
+    option_labels: [Yes, No]
+-   id: obw_percent
+    label: Occupied Bandwidth (%)
+    dtype: real
+    default: '99'
+-   id: obw_span
+    label: Measurement Span (Hz, 0 = full)
+    dtype: real
+    default: '0'
+
+inputs:
+-   domain: stream
+    dtype: ${ type }
+
+asserts:
+- ${ samp_rate > 0 }
+- ${ fftsize >= 256 and fftsize <= 65536 }
+- ${ update_time >= 0.02 }
+- ${ average > 0 and average <= 1 }
+- ${ db_per_div > 0 }
+- ${ obw_percent > 0 and obw_percent < 100 }
+- ${ obw_span >= 0 }
+
+file_format: 1

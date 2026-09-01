@@ -3,9 +3,6 @@
 #include <gnuradio/io_signature.h>
 #include <pmt/pmt.h>
 
-#include <QPointer>
-#include <QTimer>
-
 #include <emscripten.h>
 
 #include <algorithm>
@@ -54,6 +51,7 @@ FosphorWebGpuSinkWasm::FosphorWebGpuSinkWasm(
                 centerFrequency: $3,
                 frequencySpan: $4,
                 windowType: $5,
+                blockName: UTF8ToString($6),
                 publishFrequency: (sink, frequency) =>
                     _gr_fosphor_webgpu_frequency(sink, frequency),
             });
@@ -63,35 +61,16 @@ FosphorWebGpuSinkWasm::FosphorWebGpuSinkWasm(
         reinterpret_cast<std::uintptr_t>(this),
         center_frequency,
         frequency_span,
-        static_cast<int>(window));
+        static_cast<int>(window),
+        block_name.c_str());
     if (!d_renderer_id)
         throw std::runtime_error("WebGPU fosphor canvas initialization failed");
 
-    // Qt for WASM draws all widgets into its own canvas. Keep a browser WebGPU
-    // canvas aligned over this placeholder without making the scheduler touch
-    // either Qt or the DOM.
-    auto* geometry_timer = new QTimer(d_widget);
-    geometry_timer->setInterval(100);
-    QPointer<QWidget> widget = d_widget;
-    const int renderer_id = d_renderer_id;
-    QObject::connect(geometry_timer, &QTimer::timeout, d_widget, [widget, renderer_id] {
-        if (!widget)
-            return;
-        const QPoint position = widget->mapToGlobal(QPoint(0, 0));
-        MAIN_THREAD_EM_ASM(
-            {
-                const manager = globalThis.__grFosphorWebGpu;
-                if (manager)
-                    manager.layout($0, $1, $2, $3, $4, $5);
-            },
-            renderer_id,
-            position.x(),
-            position.y(),
-            widget->width(),
-            widget->height(),
-            widget->isVisible() ? 1 : 0);
-    });
-    geometry_timer->start();
+    // Qt for WASM draws all widgets into its own canvas, so this WebGPU canvas
+    // has to be kept aligned over the placeholder. That geometry comes from the
+    // runner's own widget report (publish_gui_layout() in runner.cpp), which
+    // fosphor_webgpu.js applies -- no timer here, and no scheduler thread
+    // touching Qt or the DOM.
 }
 
 FosphorWebGpuSinkWasm::~FosphorWebGpuSinkWasm()

@@ -103,6 +103,20 @@ export const CASES = [
     },
   },
   {
+    name: 'add-range-to-open-graph',
+    // The other half of modify-open-graph, and a failure that really happened:
+    // "add a QT GUI Range" was read as a request to build something, so the
+    // user's own open flowgraph was cleared before the slider went on. A block
+    // named in an add request is not a flowgraph to start from scratch.
+    prompt: 'add a qt gui range',
+    fresh: false,
+    expect: {
+      clears: false,
+      blocks: ['QT GUI Range', 'PSK Mod'],   // PSK Mod: the open graph survived
+      run: 'any',
+    },
+  },
+  {
     name: 'fm-from-recording',
     prompt: 'Make an FM radio receiver, try to find an example of FM radio in the ' +
             'GNU Radio World recordings to use as a test, and then have the output ' +
@@ -127,7 +141,6 @@ export const CASES = [
             'run it, and tell me exactly what frequency the peak is at',
     fresh: true,
     expect: {
-      clears: true,
       tools: ['run_flowgraph', 'read_plot_data'],
       blocks: ['QT GUI Frequency Sink', 'Signal Source'],
       run: 'pass',

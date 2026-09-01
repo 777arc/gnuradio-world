@@ -10,6 +10,9 @@
 // screenshot answers "does this look right"; this answers "where exactly is the
 // peak", which pixels are a poor instrument for.
 //
+// Browser-native renderers register their own snapshots with
+// gui_observation.js; their QWidget placement placeholders contain no QwtPlot.
+//
 // Read on the Qt main thread only. The sinks repaint from their own timers on
 // that same thread, so a read from there sees a whole frame and never races a
 // half-written curve. runner.cpp calls this from the export the editor drives,

@@ -286,9 +286,28 @@ bubble.
 exists because the editor opens on `digital/welcome_example.grc` and never on
 nothing, so "build me an FM receiver" otherwise means *build it around whatever
 example is already loaded* — which is how a first BPSK graph came back carrying
-the welcome example's Note block. The system prompt makes the choice explicit
-rather than leaving it implied: build/create/make is a new flowgraph and calls
-this first, while modify/extend/fix/explain/run leaves the canvas alone.
+the welcome example's Note block.
+
+**Its failure mode is not symmetric, and the prompt says so.** Building into an
+unwanted example wastes a turn; clearing the flowgraph the user has open
+destroys work they never offered up — which is what "add a qt gui range" did,
+read as a request to build something rather than to add one block. So the rule
+is stated as an exception rather than a coin flip: anything that adds, changes,
+removes, fixes, explains or runs is an edit to what is there, and only a request
+for a whole flowgraph that does not refer to what is open clears. The tool's own
+description says the same, because a model reaching for a tool reads that and
+not the prompt.
+
+Wording alone cannot settle every case, so the editor also says **whose graph it
+is**. `canvasIsDefaultExample` in `main.ts` is true only for the example the
+startup path loads when no link named anything, and any load, clear or recorded
+edit turns it off; it reaches Graham as `canvasOrigin()` on `AiToolDeps` and as
+the `[canvas provenance]` line `canvasContext()` puts above the canvas. An
+untouched default is the editor's own and free to clear; anything else is the
+user's, and a build request that could mean "add this to what I have" is added
+rather than started over. The dep is optional, and an unanswered one reads as
+the user's — the safe way for `new_flowgraph` to be wrong. `add-range-to-open-graph`
+in the prompt suite is that regression.
 
 `replace_flowgraph` is the escape hatch for a new graph. It still goes through
 `parseGrc()` and `loadFlowgraph()` and returns the same editor validation result.
@@ -441,8 +460,9 @@ naming the widgets this run put on screen and both tools, because the moment a
 model has a run report in front of it is the moment it decides whether the
 counters answered the question.
 
-**`read_plot_data` returns what the sinks are plotting, as numbers.** Every Qt
-GUI sink here ends in a `QwtPlot`, and Qwt's plot dictionary is public API:
+**`read_plot_data` returns what the sinks are plotting, as numbers.** The runner's
+renderer-neutral GUI observation service collects the widget snapshots. Its Qt
+adapter handles every Qt GUI sink through `QwtPlot`, whose dictionary is public API:
 `itemList(Rtti_PlotCurve)` enumerates the curves and `QwtSeriesStore::sample()`
 reads them. So the numbers behind a trace are readable from outside the sink,
 with the axis titles and units the display itself is using — no upstream patch,
@@ -456,23 +476,28 @@ raster is a `QwtPlotSpectrogram` with no series to sample (`kind: "raster"`), an
 Number Sink and the browser gauges are QLabels, whose text is collected instead
 (`kind: "labels"`).
 
+The GNU Radio World Spectrum Analyzer registers a browser-native provider with
+the same service. Its Canvas2D renderer supplies its own bounded snapshot: the
+same axis and curve summary plus marker, RBW and occupied-bandwidth measurements.
+Providers merge by flowgraph instance name, so that snapshot replaces the empty
+QWidget placement placeholder without the aggregator knowing the block's id.
+
 `gr_read_plot_data()` publishes onto `window.__grplots` rather than returning a
 pointer, for the reason `publish_stats()` does: Qt's WASM build does not reliably
 expose `ccall`/`UTF8ToString` on the module, and the raw exports plus a global
 always work. It runs on the browser main thread, which is the Qt main thread and
 the thread the sinks repaint on, so a read never sees a half-drawn curve.
 
-**`capture_plots` returns a screenshot the model can see.** Qt for WebAssembly
-draws the entire flowgraph window into one `canvas.qt-window-canvas` inside an
-open shadow root — so `document.querySelector('canvas')` finds nothing, and a
-single readback is the whole GUI. The frame is same-origin, so the canvas is
-untainted and `drawImage` across the document boundary is allowed.
-`editor/src/ai/capture.ts` crops to the grid area from the same `gr-widgets`
-report the Arrange overlay uses (the window's chrome is pixels that say nothing
-and are billed like the ones that do), or to a single named widget's rectangle —
-which is why `publish_gui_layout()` now reports a pixel rect per widget beside
-its grid tile. Qt's coordinates there are the iframe's CSS pixels, so the crop is
-scaled by `canvas.width / canvas.clientWidth`.
+**`capture_plots` returns a screenshot the model can see.** Each GUI provider
+contributes drawable layers in iframe CSS coordinates. Qt contributes its one
+`canvas.qt-window-canvas` from the open shadow root; the browser-native Spectrum
+Analyzer contributes its Canvas2D plot above that background. The frame is
+same-origin, so `drawImage` across the document boundary is allowed.
+`editor/src/ai/capture.ts` crops the generic layer plan to the grid area from the
+same `gr-widgets` report the Arrange overlay uses (the window's chrome is pixels
+that say nothing and are billed like the ones that do), or to a single named
+widget's rectangle. Each layer carries its own backing-store scale, so adding a
+browser renderer does not add another selector or Qt-specific scale branch.
 
 The image is PNG. JPEG rings around the thin bright traces these plots are made
 of and measured *larger* than PNG on a dense one; WebP is smaller than both but
@@ -480,10 +505,10 @@ is not accepted by every endpoint the dock can be pointed at, and a screenshot a
 provider rejects is worse than one costing a few more kilobytes. Width steps down
 a ladder until the encoding fits 48 KB.
 
-**gr-fosphor is not in the picture.** It floats its own WebGPU canvas over a
-placeholder widget instead of drawing into Qt's, so its tile comes out blank; the
-result says so rather than leaving a reader to wonder what the empty rectangle
-was.
+**gr-fosphor is not in the picture.** Its provider explicitly reports that its
+WebGPU canvas cannot be read back, so its tile comes out blank with a note rather
+than leaving a reader to wonder what happened. The browser-native Spectrum
+Analyzer registers a drawable 2D layer, so its plotted trace is present.
 
 Two things are load-bearing around the tool rather than in it. A tool result is a
 *string* on this API, so the picture cannot travel in one: `dispatchAiTool`
@@ -564,9 +589,9 @@ argument or a dedicated tool, a truncation the model can see and act on, and
 never a payload whose size grows with the graph when a count would do.
 
 **Every user message is seeded with the canvas**, by `canvasContext()` in
-`tools.ts`, called from the panel's submit handler — the `get_flowgraph` result
-plus the `describe_block` results, minus documentation, for the block types
-placed on it. Nearly every turn used to open by asking for exactly those two
+`tools.ts`, called from the panel's submit handler — a `[canvas provenance]`
+line, the `get_flowgraph` result, and the `describe_block` results minus
+documentation for the block types placed on it. Nearly every turn used to open by asking for exactly those two
 things, which is two round-trips spent on what the editor already had in hand.
 It is seeded into the *message*, never the system prompt: the canvas changes
 between turns and the cached prefix must not. The transcript bubble still shows

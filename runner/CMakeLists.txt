@@ -115,6 +115,7 @@ qt_add_executable(runner
   ${BLOCKS}/src/hackrf_common.cpp
   ${BLOCKS}/src/hackrf_source.cpp
   ${BLOCKS}/src/hackrf_sink.cpp
+  ${BLOCKS}/src/spectrum_analyzer_sink.cpp
   ${BLOCKS}/overlays/gr-paint/paint_image_source.cpp
   ${BLOCKS}/overlays/gr-fosphor/fosphor_webgpu_sink.cpp
   ${BLOCKS}/overlays/gr-radar/radar_plots.cpp
@@ -243,8 +244,14 @@ add_custom_command(TARGET runner POST_BUILD
           ${CMAKE_CURRENT_SOURCE_DIR}/src/hackrf_worker.js
           ${CMAKE_CURRENT_BINARY_DIR}/hackrf_worker.js
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/gui_observation.js
+          ${CMAKE_CURRENT_BINARY_DIR}/gui_observation.js
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
           ${CMAKE_CURRENT_SOURCE_DIR}/src/fosphor_webgpu.js
           ${CMAKE_CURRENT_BINARY_DIR}/fosphor_webgpu.js
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/spectrum_analyzer.js
+          ${CMAKE_CURRENT_BINARY_DIR}/spectrum_analyzer.js
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
           ${CMAKE_CURRENT_SOURCE_DIR}/src/js_runtime.js
           ${CMAKE_CURRENT_BINARY_DIR}/js_runtime.js
@@ -264,7 +271,9 @@ set_property(TARGET runner APPEND PROPERTY LINK_DEPENDS
   ${CMAKE_CURRENT_SOURCE_DIR}/src/rtlsdr_reader.js
   ${CMAKE_CURRENT_SOURCE_DIR}/src/plutosdr_worker.js
   ${CMAKE_CURRENT_SOURCE_DIR}/src/hackrf_worker.js
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/gui_observation.js
   ${CMAKE_CURRENT_SOURCE_DIR}/src/fosphor_webgpu.js
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/spectrum_analyzer.js
   ${CMAKE_CURRENT_SOURCE_DIR}/src/pyodide/gr_pyodide_worker.js)
 
 # ---------------------------------------------------------------------------

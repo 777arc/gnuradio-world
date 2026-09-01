@@ -5,14 +5,14 @@
 // Two observation tools, one path, and no model involved: the browser's fetch is
 // replaced with a stub that answers each round with the tool calls this test
 // wants made, so the whole real chain runs — the agent loop, the tool dispatch,
-// capture.ts against the live iframe, Qt's own canvas, and the runner's
-// gr_read_plot_data export — while the assertions stay deterministic.
+// capture.ts against the live iframe, the runner's GUI observation providers,
+// and the Qwt plot-data adapter — while the assertions stay deterministic.
 //
 // What is actually at risk here, and what each assertion is for:
 //
-//  * The picture is real. Qt for WebAssembly draws into a canvas inside an open
-//    shadow root, so `document.querySelector('canvas')` finds nothing and it is
-//    easy to ship a capture that silently returns a blank or a black rectangle.
+//  * The picture is real. Qt for WebAssembly contributes a canvas inside an
+//    open shadow root, while browser-native renderers contribute overlay layers;
+//    it is easy to ship a capture that silently returns a blank rectangle.
 //    So: the PNG is decoded again and checked for more than a handful of colors.
 //  * The numbers are the plot's. gr_read_plot_data walks Qwt's public plot
 //    dictionary; a sink whose curves it cannot reach reports zero of them

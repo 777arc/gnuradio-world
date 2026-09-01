@@ -1,0 +1,105 @@
+options:
+    parameters:
+        author: GNU Radio World
+        comment: ''
+        copyright: ''
+        description: A browser-native frequency-only spectrum analyzer with manual and peak-tracking markers, trace averaging and max hold, and a 99% occupied-bandwidth measurement.
+        generate_options: qt_gui
+        id: Spectrum_Analyzer
+        title: Browser-Native Spectrum Analyzer
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: samp_rate
+    id: variable
+    parameters:
+        comment: ''
+        value: '1000000'
+    states:
+        coordinate: [600, 10]
+        rotation: 0
+        state: enabled
+-   name: analyzer
+    id: wasm_spectrum_analyzer_sink
+    parameters:
+        affinity: ''
+        alias: ''
+        average: '0.2'
+        center_freq: '0'
+        comment: ''
+        db_per_div: '10'
+        fftsize: '4096'
+        level_offset_db: '0'
+        level_unit: dBFS
+        name: Spectrum Analyzer
+        obw_percent: '99'
+        obw_span: '100000'
+        peak_track: 'True'
+        reference_level: '0'
+        samp_rate: samp_rate
+        trace_mode: average
+        type: complex
+        update_time: '0.1'
+        wintype: window.WIN_BLACKMAN_hARRIS
+    states:
+        coordinate: [690, 180]
+        rotation: 0
+        state: enabled
+-   name: gui_layout
+    id: wasm_gui_layout
+    parameters:
+        affinity: ''
+        alias: ''
+        columns: '12'
+        comment: ''
+        layout: '{"analyzer":[0,0,12,7]}'
+        row_height: '60'
+    states:
+        coordinate: [310, 10]
+        rotation: 0
+        state: enabled
+-   name: throttle
+    id: blocks_throttle2
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        ignoretag: 'True'
+        limit: time
+        maximum: '0.02'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        samples_per_second: samp_rate
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [360, 280]
+        rotation: 0
+        state: enabled
+-   name: tone
+    id: analog_sig_source_x
+    parameters:
+        affinity: ''
+        alias: ''
+        amp: '0.5'
+        comment: ''
+        freq: '125000'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        offset: '0'
+        phase: '0'
+        samp_rate: samp_rate
+        type: complex
+        waveform: analog.GR_COS_WAVE
+    states:
+        coordinate: [10, 260]
+        rotation: 0
+        state: enabled
+connections:
+- [throttle, '0', analyzer, '0']
+- [tone, '0', throttle, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0

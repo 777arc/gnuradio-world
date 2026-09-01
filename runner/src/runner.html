@@ -1316,7 +1316,7 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
       // ccall/UTF8ToString on the module — and this hands back what it wrote.
       // The editor is same-origin, so it calls this directly instead of waiting
       // on a postMessage round trip.
-      window.__grReadPlotData = (only, maxPoints) => {
+      window.__grReadQtPlotData = (only, maxPoints) => {
         const instance = window.__grRunnerInstance;
         if (!instance || typeof instance._gr_read_plot_data !== 'function') return null;
         const stack = instance.stackSave();
@@ -1327,7 +1327,17 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
         } finally {
           instance.stackRestore(stack);
         }
-        return window.__grplots || null;
+        return window.__grplots;
+      };
+
+      // Stable renderer-neutral entry point used by Graham and browser tests.
+      // gui_observation.js owns aggregation; this wrapper keeps the historical
+      // string return shape expected by callers.
+      window.__grReadPlotData = (only, maxPoints) => {
+        const service = window.__grGuiObservation;
+        if (!service) return window.__grReadQtPlotData(only, maxPoints);
+        return JSON.stringify(service.readPlotData(
+          String(only || ''), Number(maxPoints) || 32));
       };
 
       async function init()
@@ -1409,6 +1419,8 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
         }
       }
     </script>
+    <script src="gui_observation.js"></script>
+    <script src="spectrum_analyzer.js"></script>
     <script src="fosphor_webgpu.js"></script>
     <script src="runner.js"></script>
     <script type="text/javascript" src="qtloader.js"></script>

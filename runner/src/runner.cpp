@@ -24,6 +24,7 @@
 #include <QScreen>
 #include <QSize>
 #include <QWidget>
+#include <QEvent>
 #include <QGridLayout>
 #include <QVBoxLayout>
 #include <QTimer>
@@ -287,10 +288,23 @@ static void show_error_in_window(const QString& title, const std::string& msg) {
 // arguments on top-level commas, which rules out building the object in JS.
 static void post_widgets_to_editor(const std::string& payload) {
     EM_ASM({
+        var text = UTF8ToString($0);
+        try { window.__grGuiLayout = JSON.parse(text); }
+        catch (_) { window.__grGuiLayout = null; }
+        // Browser-native sinks (the Spectrum Analyzer, fosphor's WebGPU path)
+        // float their display over an empty QWidget placeholder and need its
+        // rectangle. This report already carries every widget's, so they read
+        // it from here instead of each polling its own widget on a timer.
+        var listeners = globalThis.__grGuiLayoutListeners;
+        if (listeners)
+            for (var i = 0; i < listeners.length; ++i) {
+                try { listeners[i](window.__grGuiLayout); }
+                catch (e) { console.error('GUI layout listener failed: ' + e); }
+            }
         if (window.parent && window.parent !== window) {
             var m = {};
             m.type = 'gr-widgets';
-            m.payload = UTF8ToString($0);
+            m.payload = text;
             window.__grPostToEditor(m);
         }
     }, payload.c_str());
@@ -432,6 +446,7 @@ static void publish_gui_layout(bool force) {
         widgets.push_back({ { "name", placed.name }, { "id", placed.id },
                             { "col", placed.tile.col }, { "row", placed.tile.row },
                             { "w", placed.tile.w }, { "h", placed.tile.h },
+                            { "visible", placed.widget->isVisible() },
                             { "rect", { { "x", at.x() }, { "y", at.y() },
                                         { "width", placed.widget->width() },
                                         { "height", placed.widget->height() } } } });
@@ -442,6 +457,56 @@ static void publish_gui_layout(bool force) {
         return;
     g_last_layout_payload = std::move(text);
     post_widgets_to_editor(g_last_layout_payload);
+}
+
+// Publish geometry when it actually changes, rather than waiting for the next
+// stats tick. The 3 Hz sweep below remains as the backstop -- it is what catches
+// a change no Qt event reports -- but an overlay that has to sit exactly on top
+// of a plot should not be a third of a second behind a resize.
+//
+// Coalesced onto the next event-loop turn on purpose: apply_gui_layout() moves
+// every widget in one pass and a window resize moves them all again, so
+// publishing per event would serialize the whole payload once per widget for a
+// single visible change.
+static bool g_publish_scheduled = false;
+static void schedule_publish_gui_layout() {
+    if (g_publish_scheduled)
+        return;
+    g_publish_scheduled = true;
+    QTimer::singleShot(0, [] {
+        g_publish_scheduled = false;
+        publish_gui_layout(false);
+    });
+}
+
+// Watches a placed widget and the area holding them. Qt sends Move only when a
+// widget's position changes *relative to its parent*, so watching the widgets
+// alone is not enough: show_error_in_window() inserts a banner above g_gui_area
+// and shifts every widget down without one of them hearing about it.
+//
+// No Q_OBJECT and no moc pass: eventFilter() is a virtual, not a slot.
+class GeometryWatcher : public QObject {
+public:
+    using QObject::QObject;
+
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override {
+        switch (event->type()) {
+        case QEvent::Move:
+        case QEvent::Resize:
+        case QEvent::Show:
+        case QEvent::Hide:
+            schedule_publish_gui_layout();
+            break;
+        default:
+            break;
+        }
+        return QObject::eventFilter(watched, event);
+    }
+};
+static GeometryWatcher* geometry_watcher() {
+    static GeometryWatcher* watcher = new GeometryWatcher();
+    return watcher;
 }
 
 // Re-arrange a running flowgraph from a spec the editor just edited, without
@@ -892,7 +957,11 @@ static void run_now(const std::string& json_source) {
             ++nblocks;
             // Collected rather than placed: where a widget goes is decided once,
             // below, by the flowgraph's GUI Layout block.
-            if (bb.widget) { g_widgets.push_back({ name, id, bb.widget }); ++nsinks; }
+            if (bb.widget) {
+                bb.widget->installEventFilter(geometry_watcher());
+                g_widgets.push_back({ name, id, bb.widget });
+                ++nsinks;
+            }
 
             // Bind parameters whose expression is exactly a Range variable ID.
             // GRC's common `frequency: freq` form now updates the live block.
@@ -1558,6 +1627,7 @@ int main(int argc, char** argv) {
     // set none at all, so the layout is free to overwrite it.
     outer->setSizeConstraint(QLayout::SetNoConstraint);
     g_gui_area = new QWidget(g_container);
+    g_gui_area->installEventFilter(geometry_watcher());
     outer->addWidget(g_gui_area, 1);
 
     // The QScreen is the browser-backed canvas, so its geometry is the tab.

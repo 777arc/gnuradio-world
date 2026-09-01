@@ -254,8 +254,10 @@ node scripts/pr-security-scan.mjs --base origin/main --head HEAD   # ... over yo
 real model on the user's own key and cost tokens, so none of them is in CI, in
 `npm test`, or in either smoke suite — **run them only when the user asks.** They
 answer "did the assistant do a good job", which no assertion states. Set
-`OPENAI_API_KEY`, and for the first two keep `server.mjs` running and the editor
-built:
+`OPENAI_API_KEY`; when the user asks to run the Graham example prompts, load it
+from the repository-root `.env`, where it is stored as `OPENAI_API_KEY` (do not
+print or expose the value). For the first two, also keep `server.mjs` running and
+the editor built:
 
 ```bash
 node scripts/eval_graham_suite.mjs [case…] [--model=<id>] [--keep]

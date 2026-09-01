@@ -30,6 +30,9 @@ assert.match(byId.get('digital_psk_mod')?.api_documentation || '',
 assert.match(byId.get('wasm_packet_rate_sink')?.documentation || '',
   /throughput of its input stream/,
   'YAML documentation must be retained for browser-only blocks');
+assert.match(byId.get('wasm_spectrum_analyzer_sink')?.documentation || '',
+  /occupied-bandwidth measurement/,
+  'the browser-native analyzer must describe its measurements');
 assert.equal(byId.get('analog_sig_source_x')?.wiki_url,
   'https://wiki.gnuradio.org/index.php/Signal_Source',
   'in-tree blocks must derive their wiki page from the block label');

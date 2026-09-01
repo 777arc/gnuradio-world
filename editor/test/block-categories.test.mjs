@@ -84,6 +84,7 @@ const worldBlocks = new Map([
   ['wasm_public_http_recording', ['GNU Radio World']],
   ['wasm_sigmf_sink', ['GNU Radio World']],
   ['wasm_sigmf_source', ['GNU Radio World']],
+  ['wasm_spectrum_analyzer_sink', ['GNU Radio World']],
   ['wasm_text_sink', ['GNU Radio World']],
 ]);
 for (const [id, category] of worldBlocks)

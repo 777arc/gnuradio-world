@@ -415,6 +415,7 @@ function resetHistory() {
 }
 function recordHistory() {
   if (!historyReady) return;
+  canvasIsDefaultExample = false;   // the user has edited what is on the canvas
   graphHistory.splice(historyIndex + 1);
   graphHistory.push(snapshot());
   if (graphHistory.length > 100) graphHistory.shift();
@@ -790,12 +791,23 @@ function portWidth(inst: Inst, kind: 'in' | 'out', i: number): number {
     Math.ceil(textW(portLabel(inst, kind, i), PORT_FONT_SIZE)) + 2 * PORT_LABEL_PAD));
 }
 
+// Engineering notation, exactly as native GRC draws a number on a block face:
+// grc/gui/Utils.py num_to_str() walks 10^9 down to 10^-15 in steps of three and
+// takes the first bucket the magnitude reaches, printing the mantissa with
+// Python's `%g` — six significant digits, trailing zeros dropped. So 2400000 is
+// "2.4M" rather than "2400k", 2500 is "2.5k" rather than a bare 2500, and a
+// filter's 0.35 excess bandwidth is "350m".
+const ENG_UNITS: [number, string][] = [
+  [1e9, 'G'], [1e6, 'M'], [1e3, 'k'], [1, ''],
+  [1e-3, 'm'], [1e-6, 'u'], [1e-9, 'n'], [1e-12, 'p'], [1e-15, 'f'],
+];
 function fmtVal(v: any): string {
-  if (typeof v === 'number' && Number.isInteger(v) && Math.abs(v) >= 1000) {
-    if (v % 1000000 === 0) return v / 1000000 + 'M';
-    if (v % 1000 === 0) return v / 1000 + 'k';
-  }
-  return String(v);
+  if (typeof v !== 'number') return String(v);
+  if (!Number.isFinite(v)) return v > 0 ? 'inf' : v < 0 ? '-inf' : 'nan';
+  const magnitude = Math.abs(v);
+  for (const [factor, symbol] of ENG_UNITS)
+    if (magnitude >= factor) return Number((v / factor).toPrecision(6)) + symbol;
+  return String(Number(v.toPrecision(6)));
 }
 
 // Variable scope for expression evaluation, rebuilt each render() from the
@@ -1668,6 +1680,17 @@ function setCurrentFileName(file: string | null) {
   currentFileName = file ? exampleFileName(file) : null;   // name only, always .grc
 }
 
+// Whose flowgraph is on the canvas. The editor never opens on nothing: with no
+// link to follow it loads digital/welcome_example.grc by itself, and that graph
+// is the editor's, not the user's -- clearing it to build something from
+// scratch costs nobody anything. Everything else on the canvas got there
+// because the user opened it, dropped a file on it, or edited it, and throwing
+// that away is destroying their work. Graham is told which it is looking at,
+// because the wording of a request often does not say. Any load, any clear and
+// any recorded edit makes the canvas the user's; only the startup default sets
+// it back.
+let canvasIsDefaultExample = false;
+
 function exitTrainingMode(stripQuery = true) {
   if (!trainingSession) return;
   trainingSession = null;
@@ -1679,6 +1702,7 @@ function exitTrainingMode(stripQuery = true) {
 
 function clearFlowgraph(record = true) {
   exitTrainingMode();
+  canvasIsDefaultExample = false;
   state.insts = []; state.conns = []; state.counter = 0; state.selected = null; state.selectedBlocks.clear();
   state.insts.push(makeSampRateInst());   // the default flowgraph's one variable
   state.selectedConnection = null; cancelConnect();
@@ -1920,6 +1944,7 @@ function loadFlowgraph(doc: any, record = true) {
   if (!doc || !Array.isArray(doc.blocks))
     throw new Error('not a GNU Radio .grc flowgraph');
   exitTrainingMode();
+  canvasIsDefaultExample = false;   // the startup default sets this back itself
   state.insts = []; state.conns = []; state.counter = 0;
   // Whatever was on the canvas is gone, and with it the file Save writes to; the
   // callers that do know a name (an example, an opened .grc) set it back after.
@@ -2351,6 +2376,12 @@ document.addEventListener('keydown', e => {
     return !!el && (['INPUT', 'SELECT', 'TEXTAREA'].includes(el.tagName) || el.isContentEditable);
   };
   if (typing(e.target) || typing(document.activeElement)) return;
+  // A modal owns the keyboard while it is open, and its own handlers run first.
+  // Anything that reaches here is a key the dialog did not want — which must not
+  // become a canvas shortcut behind it. Enter is the one that showed: on the
+  // Properties dialog's OK button it both activated the button and re-opened the
+  // properties of the block still selected underneath.
+  if (document.querySelector('.modal')) return;
 
   if (ctrl && key === 'z') { consume(e); e.shiftKey ? redo() : undo(); }
   else if (ctrl && key === 'y') { consume(e); redo(); }
@@ -4746,6 +4777,7 @@ function aiToolDependencies(): AiReadDeps {
     autoArrange: () => autoArrangeBlocks(false),
     replaceFlowgraph: grc => loadFlowgraph(parseGrc(grc), false),
     clearFlowgraph: () => clearFlowgraph(false),
+    canvasOrigin: () => canvasIsDefaultExample ? 'default-example' : 'user',
     listExamples: async () => {
       const response = await fetch('/example_flowgraphs');
       if (!response.ok) throw new Error(`example listing failed (${response.status})`);
@@ -4963,8 +4995,10 @@ export const editorReady = paletteReady.then(async () => {
   const loaded = await loadFlowgraphFromUrl();
   const opened = await openRecordingFromUrl();
   if (!loaded && !opened) {
-    try { await loadExampleByName('digital/welcome_example.grc', /* updateHash */ false); }
-    catch (error) { log(`could not load default example "digital/welcome_example.grc": ${error}`); }
+    try {
+      await loadExampleByName('digital/welcome_example.grc', /* updateHash */ false);
+      canvasIsDefaultExample = true;   // after the load, which clears it
+    } catch (error) { log(`could not load default example "digital/welcome_example.grc": ${error}`); }
   }
   const oauthSnapshot = await oauthRestore;
   if (oauthSnapshot) {

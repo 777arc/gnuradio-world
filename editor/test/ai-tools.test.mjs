@@ -377,6 +377,16 @@ assert.equal(seed.includes('xxxxxxxxxx'), false, 'but never the doxygen prose');
 const seededGraph = JSON.parse(seed.slice(seed.indexOf('{'), seed.indexOf('\n\n')));
 assert.deepEqual(seededGraph, (await dispatchAiTool(deps, 'get_flowgraph', {})).value);
 
+// Whose graph it is rides along with it, because the wording of a request often
+// does not say and clearing the user's own flowgraph to "build" a block they
+// asked to have added destroys work they never offered up. Unanswered reads as
+// theirs, which is the safe way for new_flowgraph to be wrong.
+assert.match(seed, /\[canvas provenance\] the user's own flowgraph/);
+assert.match(canvasContext({ ...deps, canvasOrigin: () => 'user' }),
+  /do not call new_flowgraph/);
+assert.match(canvasContext({ ...deps, canvasOrigin: () => 'default-example' }),
+  /the editor loaded by itself at startup/);
+
 // It degrades instead of growing without bound, naming the tool that reads what
 // it left out — a canvas resent on every message must have a ceiling.
 const anyType = {

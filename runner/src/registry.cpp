@@ -25,6 +25,7 @@
 #include "js_block.hpp"
 #include "qtgui_controls.hpp"
 #include "qtgui_sinks.hpp"
+#include "spectrum_analyzer_sink.hpp"
 #include "musical_keyboard_source.hpp"
 #include "text_sink.hpp"
 #include "hrpt_image_sink.hpp"
@@ -3705,6 +3706,56 @@ static std::map<std::string, Factory>& registry_storage() {
              const auto vlen = static_cast<std::size_t>(
                  std::max(1.0, number_from(p, "vlen", 1)));
              return { gr::blocks::null_sink::make(itemsize_of(p) * vlen), nullptr };
+         }},
+        // GNU Radio World-specific, browser-native frequency-only instrument.
+        // The block owns FFT/data publication; its QWidget is only the GUI
+        // Layout placeholder under runner/src/spectrum_analyzer.js's overlay.
+        {"wasm_spectrum_analyzer_sink", [](const json& p) -> BuiltBlock {
+             const double sample_rate = number_from(p, "samp_rate", 1000000.0);
+             const double center_frequency = number_from(p, "center_freq", 0.0);
+             const double reference_level = number_from(p, "reference_level", 0.0);
+             const double db_per_division = number_from(p, "db_per_div", 10.0);
+             const double level_offset = number_from(p, "level_offset_db", 0.0);
+             const double obw_percent = number_from(p, "obw_percent", 99.0);
+             const double obw_span = number_from(p, "obw_span", 0.0);
+             auto block = SpectrumAnalyzerSinkWasm::make(
+                 p.value("__name", std::string("spectrum_analyzer")),
+                 unquoted(param_text(p, "name", "Spectrum Analyzer")),
+                 type_from(p, "complex"),
+                 sample_rate,
+                 center_frequency,
+                 static_cast<int>(number_from(p, "fftsize", 4096)),
+                 window_type_from(p, gr::fft::window::WIN_BLACKMAN_hARRIS),
+                 number_from(p, "update_time", 0.1),
+                 fft_average_from(p),
+                 unquoted(param_text(p, "trace_mode", "average")),
+                 reference_level,
+                 db_per_division,
+                 level_offset,
+                 unquoted(param_text(p, "level_unit", "dBFS")),
+                 bool_from(p, "peak_track", false),
+                 obw_percent,
+                 obw_span);
+             BuiltBlock result{ block, block->qwidget() };
+             result.numeric_setters["samp_rate"] =
+                 [block](double value) { block->set_sample_rate(value); };
+             result.numeric_setters["center_freq"] =
+                 [block](double value) { block->set_center_frequency(value); };
+             result.numeric_setters["update_time"] =
+                 [block](double value) { block->set_update_time(value); };
+             result.numeric_setters["average"] =
+                 [block](double value) { block->set_average(value); };
+             result.numeric_setters["reference_level"] =
+                 [block](double value) { block->set_reference_level(value); };
+             result.numeric_setters["db_per_div"] =
+                 [block](double value) { block->set_db_per_division(value); };
+             result.numeric_setters["level_offset_db"] =
+                 [block](double value) { block->set_level_offset_db(value); };
+             result.numeric_setters["obw_percent"] =
+                 [block](double value) { block->set_obw_percent(value); };
+             result.numeric_setters["obw_span"] =
+                 [block](double value) { block->set_obw_span(value); };
+             return result;
          }},
         {"qtgui_number_sink", [](const json& p) -> BuiltBlock {
              const std::string input_type = type_from(p, "float");

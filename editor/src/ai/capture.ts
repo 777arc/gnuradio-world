@@ -8,16 +8,10 @@
  * instrument for "where exactly is the peak", which pixels answer badly and
  * expensively.
  *
- * The picture comes off Qt's own canvas rather than anything DOM-level: Qt for
- * WebAssembly draws the whole flowgraph window into one `canvas.qt-window-canvas`
- * inside an open shadow root, so a single readback is the entire GUI. The frame
- * is same-origin, so the canvas is untainted and `drawImage` across the document
- * boundary is allowed.
- *
- * Not captured: gr-fosphor's WebGPU display, which floats its own canvas over a
- * placeholder widget instead of drawing into Qt's (see fosphor_webgpu.js). Its
- * tile comes out empty, and the result says so rather than leaving a reader to
- * wonder what the blank rectangle was.
+ * The runner exposes a renderer-neutral capture plan: Qt contributes its
+ * window canvas, browser-native instruments contribute their own canvas
+ * layers, and an unsupported renderer contributes an explicit note. The frame
+ * is same-origin, so `drawImage` across the document boundary is allowed.
  */
 
 export interface CaptureWidget {
@@ -35,6 +29,25 @@ export interface CaptureDeps {
   frame(): HTMLIFrameElement;
   /** The runner's last `gr-widgets` report, or null before one arrives. */
   layout(): CaptureLayout | null;
+}
+
+interface GuiCaptureLayer {
+  source: HTMLCanvasElement;
+  rect: { x: number; y: number; width: number; height: number };
+  z?: number;
+  widget?: string;
+  provider?: string;
+}
+
+interface GuiCapturePlan {
+  bounds?: { x: number; y: number; width: number; height: number };
+  widgets: CaptureWidget[];
+  layers: GuiCaptureLayer[];
+  notes?: string[];
+}
+
+interface GuiObservationService {
+  capturePlan(only?: string): GuiCapturePlan;
 }
 
 /**
@@ -99,19 +112,60 @@ function runnerWindow(deps: CaptureDeps): Window {
   return live;
 }
 
-function qtCanvas(live: Window): HTMLCanvasElement {
-  const container = live.document.querySelector('#qt-shadow-container');
-  const canvas = container?.shadowRoot?.querySelector<HTMLCanvasElement>(
-    'canvas.qt-window-canvas');
-  if (!canvas || !canvas.width || !canvas.height)
-    throw new CaptureError(
-      'the flowgraph window has not finished drawing yet — run it for longer first');
-  return canvas;
+function observationService(live: Window): GuiObservationService {
+  const service = (live as any).__grGuiObservation;
+  if (!service || typeof service.capturePlan !== 'function')
+    throw new CaptureError('this runner build cannot capture GUI widgets');
+  return service;
 }
 
-/** Fosphor draws outside Qt's canvas, so its tile is a hole in the picture. */
-const fosphorPresent = (live: Window) =>
-  !!live.document.querySelector('canvas.gr-fosphor-webgpu');
+type Rect = { x: number; y: number; width: number; height: number };
+
+const validRect = (rect: Rect | undefined | null): rect is Rect => !!rect &&
+  [rect.x, rect.y, rect.width, rect.height].every(Number.isFinite) &&
+  rect.width > 0 && rect.height > 0;
+
+const intersection = (left: Rect, right: Rect): Rect | null => {
+  const x = Math.max(left.x, right.x);
+  const y = Math.max(left.y, right.y);
+  const edgeX = Math.min(left.x + left.width, right.x + right.width);
+  const edgeY = Math.min(left.y + left.height, right.y + right.height);
+  return edgeX > x && edgeY > y
+    ? { x, y, width: edgeX - x, height: edgeY - y } : null;
+};
+
+/** Draw one renderer-owned canvas into a crop expressed entirely in CSS pixels. */
+function drawLayer(
+  layer: GuiCaptureLayer,
+  target: HTMLCanvasElement,
+  crop: Rect,
+  notes: string[],
+) {
+  const context = target.getContext('2d');
+  const overlap = intersection(layer.rect, crop);
+  if (!context || !overlap || !layer.source.width || !layer.source.height) return;
+  const sourceScaleX = layer.source.width / layer.rect.width;
+  const sourceScaleY = layer.source.height / layer.rect.height;
+  const outputScaleX = target.width / crop.width;
+  const outputScaleY = target.height / crop.height;
+  try {
+    context.drawImage(
+      layer.source,
+      (overlap.x - layer.rect.x) * sourceScaleX,
+      (overlap.y - layer.rect.y) * sourceScaleY,
+      overlap.width * sourceScaleX,
+      overlap.height * sourceScaleY,
+      (overlap.x - crop.x) * outputScaleX,
+      (overlap.y - crop.y) * outputScaleY,
+      overlap.width * outputScaleX,
+      overlap.height * outputScaleY,
+    );
+  } catch (error) {
+    const note = `${layer.provider || 'a GUI renderer'} could not be captured: ${
+      error instanceof Error ? error.message : String(error)}`;
+    if (!notes.includes(note)) notes.push(note);
+  }
+}
 
 export async function capturePlots(
   deps: CaptureDeps,
@@ -123,55 +177,49 @@ export async function capturePlots(
     options.settleSeconds ?? DEFAULT_SETTLE_SECONDS)));
   if (settle > 0) await sleep(settle * 1000, signal);
 
-  const canvas = qtCanvas(live);
+  const plan = observationService(live).capturePlan(options.block || '');
   const layout = deps.layout();
-  const notes: string[] = [];
+  const notes = [...(plan.notes || [])];
+  const bounds = validRect(layout?.rect) ? layout.rect : plan.bounds;
+  if (!validRect(bounds))
+    throw new CaptureError(
+      'the flowgraph window has not finished drawing yet — run it for longer first');
 
-  // Qt reports geometry in the iframe's CSS pixels; the canvas backing store is
-  // those times the device pixel ratio.
-  const scale = canvas.clientWidth > 0 ? canvas.width / canvas.clientWidth : 1;
-
-  let crop = { x: 0, y: 0, width: canvas.width, height: canvas.height };
+  let crop = { ...bounds };
   let croppedTo: string | undefined;
   if (options.block) {
-    const widget = layout?.widgets.find(entry => entry.name === options.block);
+    const available = plan.widgets.length ? plan.widgets : (layout?.widgets || []);
+    const widget = available.find(entry => entry.name === options.block);
     if (!widget)
       throw new CaptureError(
         `no GUI widget named "${options.block}" is running` +
-        (layout?.widgets.length
-          ? `; this run has ${layout.widgets.map(w => `"${w.name}"`).join(', ')}`
+        (available.length
+          ? `; this run has ${available.map(w => `"${w.name}"`).join(', ')}`
           : ''));
     if (!widget.rect)
       throw new CaptureError(
         `the runner did not report where "${options.block}" is on screen`);
-    crop = {
-      x: widget.rect.x * scale, y: widget.rect.y * scale,
-      width: widget.rect.width * scale, height: widget.rect.height * scale,
-    };
+    crop = { ...widget.rect };
     croppedTo = options.block;
-  } else if (layout?.rect?.width && layout.rect.height) {
-    // The grid area only: the window's title bar and the grey around it are
-    // pixels that say nothing and are billed like the ones that do.
-    crop = {
-      x: layout.rect.x * scale, y: layout.rect.y * scale,
-      width: layout.rect.width * scale, height: layout.rect.height * scale,
-    };
   }
 
-  // Clamp, so a widget that has been dragged partly off-screen still yields the
-  // part that is on it rather than a zero-sized draw.
-  crop.x = Math.max(0, Math.min(crop.x, canvas.width - 1));
-  crop.y = Math.max(0, Math.min(crop.y, canvas.height - 1));
-  crop.width = Math.max(1, Math.min(crop.width, canvas.width - crop.x));
-  crop.height = Math.max(1, Math.min(crop.height, canvas.height - crop.y));
+  // Clamp, so a widget partly outside the reported GUI area still yields its
+  // visible portion rather than a zero-sized draw.
+  crop = intersection(crop, bounds) || crop;
 
-  if (fosphorPresent(live))
-    notes.push('a fosphor display is in this window and does not appear in the ' +
-               'image: it draws on its own canvas outside Qt\'s');
+  const visibleLayers = plan.layers.filter(layer => intersection(layer.rect, crop));
+  if (!visibleLayers.length)
+    throw new CaptureError('the flowgraph window has no drawable GUI layer yet');
+
+  // Preserve the sharpest renderer backing store that intersects this crop.
+  // Qt and browser-native canvases may use different device-pixel ratios.
+  const sourceScale = Math.max(1, ...visibleLayers.map(layer =>
+    Math.max(layer.source.width / layer.rect.width,
+             layer.source.height / layer.rect.height)));
 
   // Native size first, then progressively smaller — never larger, which would
   // spend bytes on interpolation rather than on detail.
-  const native = Math.max(1, Math.round(crop.width));
+  const native = Math.max(1, Math.round(crop.width * sourceScale));
   const ladder = [native, ...WIDTH_LADDER.filter(width => width < native)];
   let best: { dataUrl: string; width: number; height: number; bytes: number } | null = null;
   for (const width of ladder) {
@@ -185,8 +233,7 @@ export async function capturePlots(
     // otherwise composite against whatever the reader shows it on.
     context.fillStyle = '#ffffff';
     context.fillRect(0, 0, target.width, target.height);
-    context.drawImage(canvas, crop.x, crop.y, crop.width, crop.height,
-                      0, 0, target.width, target.height);
+    for (const layer of visibleLayers) drawLayer(layer, target, crop, notes);
     let dataUrl: string;
     try {
       dataUrl = target.toDataURL(IMAGE_TYPE);
@@ -207,7 +254,8 @@ export async function capturePlots(
   return {
     ...best,
     ...(croppedTo ? { block: croppedTo } : {}),
-    widgets: (layout?.widgets || []).map(widget => ({ name: widget.name, id: widget.id })),
+    widgets: (plan.widgets.length ? plan.widgets : (layout?.widgets || []))
+      .map(widget => ({ name: widget.name, id: widget.id })),
     notes,
   };
 }
@@ -239,8 +287,8 @@ export async function readPlotData(
   if (parsed?.error) throw new CaptureError(String(parsed.error));
   if (!parsed?.widgets?.length)
     throw new CaptureError(
-      'this flowgraph has no GUI sink to read — add one (a QT GUI Frequency Sink, ' +
-      'Time Sink or Constellation Sink), or use a Probe Signal, whose value is in ' +
-      'the run_flowgraph report');
+      'this flowgraph has no GUI sink to read — add a spectrum, time, or ' +
+      'constellation display, or use a Probe Signal, whose value is in the ' +
+      'run_flowgraph report');
   return parsed;
 }

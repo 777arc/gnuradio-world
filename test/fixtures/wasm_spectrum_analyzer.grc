@@ -1,0 +1,117 @@
+options:
+    parameters:
+        id: wasm_spectrum_analyzer
+        title: Browser-native spectrum analyzer test
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: complex_tone
+    id: analog_sig_source_x
+    parameters:
+        type: complex
+        samp_rate: '96000'
+        waveform: analog.GR_COS_WAVE
+        freq: '12000'
+        amp: '0.5'
+        offset: '0'
+        phase: '0'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: complex_throttle
+    id: blocks_throttle2
+    parameters:
+        ignoretag: 'True'
+        limit: time
+        maximum: '0.02'
+        samples_per_second: '96000'
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [220, 0]
+        rotation: 0
+        state: enabled
+-   name: complex_analyzer
+    id: wasm_spectrum_analyzer_sink
+    parameters:
+        name: Complex Spectrum
+        type: complex
+        samp_rate: '96000'
+        center_freq: '0'
+        fftsize: '4096'
+        wintype: window.WIN_BLACKMAN_hARRIS
+        update_time: '0.05'
+        average: '0.2'
+        trace_mode: average
+        reference_level: '0'
+        db_per_div: '10'
+        level_offset_db: '0'
+        level_unit: dBFS
+        peak_track: 'False'
+        obw_percent: '99'
+        obw_span: '4000'
+    states:
+        coordinate: [450, 0]
+        rotation: 0
+        state: enabled
+-   name: real_tone
+    id: analog_sig_source_x
+    parameters:
+        type: float
+        samp_rate: '96000'
+        waveform: analog.GR_COS_WAVE
+        freq: '9375'
+        amp: '0.25'
+        offset: '0'
+        phase: '0'
+    states:
+        coordinate: [0, 180]
+        rotation: 0
+        state: enabled
+-   name: real_throttle
+    id: blocks_throttle2
+    parameters:
+        ignoretag: 'True'
+        limit: time
+        maximum: '0.02'
+        samples_per_second: '96000'
+        type: float
+        vlen: '1'
+    states:
+        coordinate: [220, 180]
+        rotation: 0
+        state: enabled
+-   name: real_analyzer
+    id: wasm_spectrum_analyzer_sink
+    parameters:
+        name: Real Positive Spectrum
+        type: float
+        samp_rate: '96000'
+        center_freq: '0'
+        fftsize: '4096'
+        wintype: window.WIN_BLACKMAN_hARRIS
+        update_time: '0.05'
+        average: '0.2'
+        trace_mode: average
+        reference_level: '0'
+        db_per_div: '10'
+        level_offset_db: '0'
+        level_unit: dBFS
+        peak_track: 'False'
+        obw_percent: '99'
+        obw_span: '4000'
+    states:
+        coordinate: [450, 180]
+        rotation: 0
+        state: enabled
+connections:
+- [complex_tone, '0', complex_throttle, '0']
+- [complex_throttle, '0', complex_analyzer, '0']
+- [real_tone, '0', real_throttle, '0']
+- [real_throttle, '0', real_analyzer, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0

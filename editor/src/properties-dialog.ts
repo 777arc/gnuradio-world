@@ -171,9 +171,17 @@ export function showPropertiesDialog(inst: Inst, deps: PropertiesDialogDeps) {
   // Same, for the GUI Layout block's designer: it owns a ResizeObserver on a
   // node that is about to be detached.
   const layoutDesigner: { dispose: () => void } = { dispose: () => {} };
+  // Teardown the dialog collects as it is built, for anything registered outside
+  // the overlay — a document-level key listener, say — which the overlay's own
+  // removal would otherwise leave behind.
+  const teardown: (() => void)[] = [];
   // Every way this dialog closes goes through here, so nothing leaks a mounted
   // CodeMirror or a live observer on a detached node.
-  const closeDialog = () => { code.dispose(); layoutDesigner.dispose(); overlay.remove(); };
+  const closeDialog = () => {
+    code.dispose(); layoutDesigner.dispose();
+    teardown.forEach(fn => fn());
+    overlay.remove();
+  };
   const activateTab = (category: string) => {
     panels.forEach((panel, name) => panel.hidden = name !== category);
     tabs.forEach(tab => {
@@ -943,6 +951,38 @@ export function showPropertiesDialog(inst: Inst, deps: PropertiesDialogDeps) {
     };
     code.refresh();
   }
+
+  // Enter commits the dialog, exactly as OK does: typing a parameter and pressing
+  // Enter is how every other field in this editor behaves, and reaching for the
+  // mouse to confirm one number is the slowest part of editing a flowgraph.
+  //
+  // It listens on the document, in the capture phase, rather than on the dialog.
+  // Focus is often nowhere in particular — clicking a label or the dialog's own
+  // background leaves it on <body> — so the key event need never reach the
+  // dialog's subtree; and capturing it here keeps it away from the bare-key
+  // shortcut handler in main.ts, whose Enter re-opens the properties of the
+  // block that is still selected behind this dialog.
+  const onEnterKey = (event: KeyboardEvent) => {
+    // Escape removes the overlay directly rather than through closeDialog, so
+    // this can outlive the dialog it commits. Retire it the moment that shows.
+    if (!overlay.isConnected) { document.removeEventListener('keydown', onEnterKey, true); return; }
+    if (event.key !== 'Enter' || event.isComposing) return;
+    if (event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) return;
+    // Only the topmost modal answers: the code editor's pop-out opens over this
+    // one, and Enter there belongs to it.
+    const modals = document.querySelectorAll('.modal');
+    if (modals[modals.length - 1] !== overlay) return;
+    const target = event.target as HTMLElement | null;
+    // Multi-line fields keep Enter for themselves, and a focused button or link
+    // already has its own activation — committing here too would apply twice.
+    if (target instanceof HTMLTextAreaElement || target?.closest('.code-cm')) return;
+    if (target instanceof HTMLButtonElement || target instanceof HTMLAnchorElement) return;
+    if (okButton.disabled) return;
+    event.preventDefault(); event.stopPropagation();
+    apply(); closeDialog();
+  };
+  document.addEventListener('keydown', onEnterKey, true);
+  teardown.push(() => document.removeEventListener('keydown', onEnterKey, true));
 
   activateTab('General');
   dlg.append(head, tabBar, body, foot); overlay.appendChild(dlg); document.body.appendChild(overlay);
