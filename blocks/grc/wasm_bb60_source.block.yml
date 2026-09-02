@@ -1,0 +1,87 @@
+id: wasm_bb60_source
+label: 'Signal Hound BB60'
+category: '[Supported SDRs]'
+flags: [cpp, throttle]
+
+documentation: |-
+    On Windows you have to install the WinUSB driver first, or pressing Run
+    fails with "Access denied":
+
+      1. Download and run [Zadig](https://zadig.akeo.ie/).
+      2. Select the BB60C — it may show up as "FX3".
+      3. Select WinUSB as the driver.
+      4. Press Replace Driver.
+
+    Signal Hound's own driver is Cypress's cyusb3, which WebUSB cannot open, so
+    this swap is required. It also stops Spike from seeing the device until you
+    point Device Manager back at the drivers folder under the Spike install. If
+    the device was ever shared with usbipd, unbind it as well.
+
+    Receives complex baseband from a Signal Hound BB60C or BB60D connected to
+    this computer. The browser drives the device's USB protocol directly over
+    WebUSB; the proprietary bb_api library and a native helper are not required.
+
+    Click Add beside Device to grant this site access to a BB60. Leave Device
+    empty to use the first already-shared unit. WebUSB requires a Chromium-based
+    browser such as Chrome, Edge or Opera; Firefox and Safari cannot run it.
+
+    On Linux, grant the browser access to the USB device (a udev rule for USB
+    vendor 2817) and ensure no native application, including Spike, has the
+    device open.
+
+    The BB60 always streams real samples at a fixed 70 MS/s regardless of the
+    requested rate: all tuning below that is done on this side, exactly as the
+    vendor library does it. Sample Rate therefore selects a decimation of the
+    fixed 70 MS/s stream, and the block reports the rate it actually produced.
+    Because the USB stream is a constant 140 MB/s, a slow machine or a busy tab
+    can overrun; overruns are counted and reported.
+
+    Reference Level sets the front-end gain the way Spike and bb_api do: give
+    it roughly 5 dB above the strongest signal you expect. Too high buries weak
+    signals in the noise floor, too low overloads the front end. It may be
+    driven by a QT GUI control while running.
+
+    Center Frequency covers 9 kHz to 6.4 GHz. Bandwidth 0 selects 80% of the
+    output sample rate. Center Frequency may be driven by a QT GUI control
+    while running; Sample Rate and Bandwidth are fixed at construction because
+    they size the decimator's filter.
+
+    Amplitude is NOT calibrated. The device's per-unit calibration tables are
+    not decoded, so readings are in uncalibrated units rather than dBm. Relative
+    measurements and all frequency-domain work are unaffected.
+
+parameters:
+-   id: device
+    label: Device
+    dtype: bb60_device
+    default: ''
+-   id: samp_rate
+    label: Sample Rate
+    dtype: float
+    default: samp_rate
+-   id: center_freq
+    label: 'Center Frequency (Hz)'
+    dtype: real
+    default: '100e6'
+-   id: bandwidth
+    label: 'Filter Bandwidth (Hz, 0 = Auto)'
+    dtype: real
+    default: '0'
+    hide: part
+-   id: ref_level
+    label: 'Reference Level (dBm)'
+    dtype: real
+    default: '-20'
+
+asserts:
+-   ${ samp_rate >= 17000 and samp_rate <= 70000000 }
+-   ${ center_freq >= 9000 and center_freq <= 6400000000 }
+-   ${ bandwidth >= 0 and bandwidth <= 40000000 }
+-   ${ ref_level >= -100 and ref_level <= 20 }
+
+outputs:
+-   label: RX
+    domain: stream
+    dtype: complex
+
+file_format: 1

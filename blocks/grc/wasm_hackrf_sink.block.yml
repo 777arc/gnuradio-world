@@ -1,5 +1,5 @@
 id: wasm_hackrf_sink
-label: '🛜 HackRF Sink'
+label: 'HackRF Sink'
 category: '[Supported SDRs]'
 flags: [cpp, throttle]
 

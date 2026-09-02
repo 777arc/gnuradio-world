@@ -25,9 +25,7 @@ assert.match(html, /\.palsearch-bar \{[^}]*background:#[0-9a-f]{6}[^}]*\}/,
 // Each tab builds its own box through the helper and puts it first in the panel.
 for (const [placeholder, append] of [
   ['Search blocks…', /blocksPanel\.append\(searchBar, tree\)/],
-  // The examples tab also carries a link to the generated /examples/ catalog,
-  // between the search box and the list; the box is still what comes first.
-  ['Search examples…', /panel\.append\(searchBar, browse, bar, list, noMatch\)/],
+  ['Search examples…', /panel\.append\(searchBar, bar, list, noMatch\)/],
   ['Search recordings…', /panel\.append\(searchBar, list, noMatch, moreResults\)/],
 ]) {
   assert.ok(source.includes(placeholder), `no search box placeholder "${placeholder}"`);
@@ -41,6 +39,12 @@ assert.match(source, /TOP_PALETTE_CATEGORY = 'Supported SDRs'/,
   'Supported SDRs must have explicit root-category priority');
 assert.match(source, /if \(depth === 0\)[\s\S]*?a === TOP_PALETTE_CATEGORY[\s\S]*?return -1/,
   'Supported SDRs must sort above Core at the root of the block tree');
+// Both categories a user reaches for first are open on the first paint; every
+// other root stays collapsed until it is clicked or a search matches inside it.
+assert.match(source,
+  /openByDefault = depth === 0 &&\s*\n?\s*\(child\.name === TOP_PALETTE_CATEGORY \|\| child\.name === CORE_PALETTE_CATEGORY\)/,
+  'Supported SDRs and Core must both start expanded');
+
 assert.match(source, /CORE_PALETTE_CATEGORY = 'Core'/,
   'Core must have explicit root-category priority');
 assert.match(source, /AFTER_CORE_PALETTE_CATEGORY = 'GNU Radio World'/,

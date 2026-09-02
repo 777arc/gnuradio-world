@@ -112,6 +112,7 @@ qt_add_executable(runner
   ${BLOCKS}/src/plutosdr_common.cpp
   ${BLOCKS}/src/plutosdr_source.cpp
   ${BLOCKS}/src/plutosdr_sink.cpp
+  ${BLOCKS}/src/bb60_source.cpp
   ${BLOCKS}/src/hackrf_common.cpp
   ${BLOCKS}/src/hackrf_source.cpp
   ${BLOCKS}/src/hackrf_sink.cpp
@@ -244,6 +245,9 @@ add_custom_command(TARGET runner POST_BUILD
           ${CMAKE_CURRENT_SOURCE_DIR}/src/hackrf_worker.js
           ${CMAKE_CURRENT_BINARY_DIR}/hackrf_worker.js
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/bb60_worker.js
+          ${CMAKE_CURRENT_BINARY_DIR}/bb60_worker.js
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
           ${CMAKE_CURRENT_SOURCE_DIR}/src/gui_observation.js
           ${CMAKE_CURRENT_BINARY_DIR}/gui_observation.js
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
@@ -271,6 +275,7 @@ set_property(TARGET runner APPEND PROPERTY LINK_DEPENDS
   ${CMAKE_CURRENT_SOURCE_DIR}/src/rtlsdr_reader.js
   ${CMAKE_CURRENT_SOURCE_DIR}/src/plutosdr_worker.js
   ${CMAKE_CURRENT_SOURCE_DIR}/src/hackrf_worker.js
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/bb60_worker.js
   ${CMAKE_CURRENT_SOURCE_DIR}/src/gui_observation.js
   ${CMAKE_CURRENT_SOURCE_DIR}/src/fosphor_webgpu.js
   ${CMAKE_CURRENT_SOURCE_DIR}/src/spectrum_analyzer.js

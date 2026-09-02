@@ -68,4 +68,11 @@ assert.match(source,
 assert.match(source,
   /if \(typing\(e\.target\) \|\| typing\(document\.activeElement\)\) return;/,
   'the typing guard must test the event target, not only the current activeElement');
+// ... and a click on the canvas must hand the keyboard back to it. Every canvas
+// pointerdown handler calls preventDefault(), which is also what suppresses the
+// browser's own focus change, so after searching the palette and clicking a
+// block, `d` kept typing into the search field instead of disabling the block.
+assert.match(source,
+  /addEventListener\('pointerdown', \(\) => \{[\s\S]{0,240}?document\.activeElement[\s\S]{0,200}?\.blur\(\);[\s\S]{0,40}?\}, true\)/,
+  'a canvas pointerdown must blur the focused field, in the capture phase');
 console.log(`checked ${Object.keys(bindings).length} native shortcut groups`);

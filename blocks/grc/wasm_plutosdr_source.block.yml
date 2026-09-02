@@ -1,5 +1,5 @@
 id: wasm_plutosdr_source
-label: '👂 PlutoSDR Source'
+label: 'PlutoSDR Source'
 category: '[Supported SDRs]'
 flags: [cpp, throttle]
 

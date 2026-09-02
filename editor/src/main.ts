@@ -44,6 +44,7 @@ import {
 } from './usb-radio';
 import { RTLSDR_RADIO } from './rtlsdr';
 import { PLUTOSDR_RADIO } from './plutosdr';
+import { BB60_RADIO } from './bb60';
 import { HACKRF_RADIO } from './hackrf';
 import {
   displaySi,
@@ -159,7 +160,7 @@ const el = (id: string) => document.getElementById(id)!;
  * Properties dialog, the device a block face resolves to, and the permission
  * prompt on the Run click. Adding one is adding it here. See ./usb-radio.
  */
-const USB_RADIOS: UsbRadio[] = [RTLSDR_RADIO, PLUTOSDR_RADIO, HACKRF_RADIO];
+const USB_RADIOS: UsbRadio[] = [RTLSDR_RADIO, PLUTOSDR_RADIO, HACKRF_RADIO, BB60_RADIO];
 const radioForDtype = (dtype?: string): UsbRadio | undefined =>
   USB_RADIOS.find(radio => radio.dtype === dtype);
 // ?training=<example path> opens that example as a lesson template rather than
@@ -995,7 +996,12 @@ function noteGeom(inst: Inst, d: RunnableDef) {
   return {
     d, rows, subtitle: '', headH: TITLE_H,
     h: TITLE_H + Math.max(rows.length * ROW_H, ROW_H) + BODY_SLACK,
-    w: Math.max(BLOCK_MIN_W, Math.ceil(w) + TEXT_PAD_L + TEXT_PAD_R),
+    // Notes have no ports to dictate their horizontal rhythm, so make the body
+    // span an even number of visible grid tiles while still rounding outward
+    // far enough to contain the measured prose.
+    w: ceilToGrid(
+      Math.max(BLOCK_MIN_W, Math.ceil(w) + TEXT_PAD_L + TEXT_PAD_R),
+      SNAP_GRID_SIZE * 2),
   };
 }
 

@@ -521,6 +521,81 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
         if (stats && stats.state !== 'error') stats.state = 'cancelled';
       };
 
+      // Signal Hound BB60C/D. One worker owns the device, replays the captured
+      // open sequence and streams real 16-bit samples at a fixed 70 MS/s into a
+      // shared ring; the block does the whole DDC. See docs/signalhound.md.
+      let nextBb60WorkerId = 30000;
+      const bb60Workers = new Map();
+      window.__grStartBb60 = (
+        serial, memory, ringPointer, capacitySamples, controlPointer, errorPointer
+      ) => {
+        const id = nextBb60WorkerId++;
+        const workerUrl = new URL('bb60_worker.js', location.href);
+        if (window.__grBuildStamp) workerUrl.searchParams.set('v', window.__grBuildStamp);
+        const worker = new Worker(workerUrl);
+        const label = serial || 'first available';
+        const stats = {
+          device: 'BB60', direction: 'rx', serial: label,
+          ringBytes: capacitySamples * 2,
+          requestedRate: 70e6, actualRate: 0,
+          bytesRead: 0, bytesWritten: 0,
+          overruns: 0, underflows: 0, droppedSamples: 0,
+          firmware: '', usbApi: '', state: 'starting',
+        };
+        window.__grUsbStats[id] = stats;
+        bb60Workers.set(id, worker);
+        const name = `BB60 RX ${label}`;
+        worker.onmessage = event => {
+          const message = event.data || {};
+          if (Number.isFinite(message.actualRate)) stats.actualRate = message.actualRate;
+          if (Number.isFinite(message.bytes)) stats.bytesRead = message.bytes;
+          if (Number.isFinite(message.events)) stats.overruns = message.events;
+          if (Number.isFinite(message.lost)) stats.droppedSamples = message.lost;
+          if (message.type === 'device') {
+            stats.serial = message.serial || label;
+            console.log(`${name}: opened serial ${stats.serial}`);
+          }
+          if (message.type === 'trace') {
+            // Also send it to the editor's console pane. This block's failure
+            // modes are all invisible without it: the flowgraph simply stops.
+            console.log(`${name}| ${message.text}`);
+            queueStdout(`${name}| ${message.text}`);
+            return;
+          }
+          if (USB_WORKER_STATES.has(message.type)) stats.state = message.type;
+          if (message.type === 'running') {
+            console.log(`${name}: streaming at 70 MS/s`);
+            queueStdout(`${name}: streaming at 70 MS/s`);
+          }
+          if (message.type === 'error') {
+            reportUsbWorkerError(name, message);
+            queueStdout(`${name}: ERROR ${message.message}`);
+          }
+          if (message.type === 'cancelled' || message.type === 'error')
+            bb60Workers.delete(id);
+        };
+        worker.onerror = event => {
+          stats.state = 'error';
+          console.error(`${name} worker: ${event.message || 'worker error'}`);
+          bb60Workers.delete(id);
+        };
+        worker.postMessage({
+          serial, memory, ringPointer, capacitySamples,
+          controlPointer, errorPointer, errorCapacity: 512,
+        });
+        return id;
+      };
+      window.__grStopBb60 = id => {
+        const worker = bb60Workers.get(id);
+        if (worker) {
+          worker.postMessage({ type: 'stop' });
+          setTimeout(() => worker.terminate(), 1000);
+        }
+        bb60Workers.delete(id);
+        const stats = window.__grUsbStats[id];
+        if (stats && stats.state !== 'error') stats.state = 'cancelled';
+      };
+
       // Audio Sink and Audio Source: the browser's sound card, in place of
       // gr-audio's ALSA/PortAudio devices. Both blocks proxy their start() here
       // for the same reason the USB radios do -- an AudioContext,

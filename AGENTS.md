@@ -19,6 +19,7 @@ full* before starting that kind of work:
 | [docs/plutosdr.md](docs/plutosdr.md) | touching PlutoSDR Source or Sink — stock-firmware USB IIOD, WebUSB transport, IIO discovery, 1R1T/2R2T, device permission, or Pluto hardware testing |
 | [docs/audio.md](docs/audio.md) | touching Audio Sink or Audio Source — the Web Audio worklet, the sound-card ring, microphone permission, or the browser's autoplay policy |
 | [docs/hackrf.md](docs/hackrf.md) | touching HackRF Source or Sink — the stock vendor-control protocol, signed 8-bit IQ streaming, half-duplex ownership, TX safety, or HackRF hardware testing |
+| [docs/signalhound.md](docs/signalhound.md) | touching Signal Hound BB60 Source — the reverse-engineered BB60C/D USB protocol, its tuning tables, the WebUSB worker, or the 70 MS/s host DDC |
 | [docs/editor-ui.md](docs/editor-ui.md) | working on block IDs, auto-arrange, the narrow-screen/touch layout, or the embedded layout another site frames (`?embed=1`) |
 | [docs/gui-layout.md](docs/gui-layout.md) | touching where QT GUI widgets go in the runner window — the GUI Layout block, `editor/src/gui-layout*.ts`, `runner/src/gui_layout.hpp`, or Arrange mode |
 | [docs/ci.md](docs/ci.md) | changing a workflow, the deploy, PR preview deployments, or the PR security gate (`security-analysis.yml`, `scripts/pr-security-scan.mjs`) |

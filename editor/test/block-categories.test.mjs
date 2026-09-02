@@ -56,18 +56,19 @@ assert.deepEqual(byId.get('fosphor_qt_sink_c')?.category,
   'an OOT formerly filed under Core must keep its useful category tail');
 
 const supportedSdrBlocks = new Map([
-  ['wasm_rtlsdr_source', '👂 RTL-SDR Source'],
-  ['wasm_hackrf_source', '👂 HackRF Source'],
-  ['wasm_hackrf_sink', '🛜 HackRF Sink'],
-  ['wasm_plutosdr_source', '👂 PlutoSDR Source'],
-  ['wasm_plutosdr_sink', '🛜 PlutoSDR Sink'],
+  ['wasm_rtlsdr_source', 'RTL-SDR Source'],
+  ['wasm_hackrf_source', 'HackRF Source'],
+  ['wasm_hackrf_sink', 'HackRF Sink'],
+  ['wasm_plutosdr_source', 'PlutoSDR Source'],
+  ['wasm_plutosdr_sink', 'PlutoSDR Sink'],
+  ['wasm_bb60_source', 'Signal Hound BB60'],
 ]);
 for (const [id, label] of supportedSdrBlocks) {
   assert.equal(byId.get(id)?.runnable, true, `${id} must stay runnable in WASM`);
   assert.deepEqual(byId.get(id)?.category, ['Supported SDRs'],
     `${id} must appear in the root-level Supported SDRs category`);
   assert.equal(byId.get(id)?.label, label,
-    `${id} must show whether it receives or transmits`);
+    `${id} names its radio and, where the radio does both, its direction`);
 }
 
 const worldBlocks = new Map([

@@ -107,10 +107,15 @@ function renderCategory(node: Category, container: HTMLElement, depth: number,
   for (const child of [...node.subs.values()].sort(
     (a, b) => comparePaletteCategoryNames(a.name, b.name, depth))) {
     if (!categoryMatches(child, query)) continue;
+    // A search opens everything it matched. Otherwise the two root categories
+    // a user reaches for first start open: the radios they can actually plug
+    // in, and Core.
+    const openByDefault = depth === 0 &&
+      (child.name === TOP_PALETTE_CATEGORY || child.name === CORE_PALETTE_CATEGORY);
     const children = makeCategoryRow(
       child.name,
       container,
-      !!query || (depth === 0 && child.name === 'Core'),
+      !!query || openByDefault,
       6 + depth * TREE_INDENT,
     );
     renderCategory(child, children, depth + 1, query, options);

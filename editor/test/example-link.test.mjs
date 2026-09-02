@@ -76,7 +76,6 @@ assert.match(main, /link\.onclick = e => \{ e\.stopPropagation\(\); void copyExa
 assert.match(main, /const item = document\.createElement\('a'\); item\.className = 'ex-item'/);
 assert.match(main, /item\.href = examplePageUrl\(file\)/);
 assert.match(main, /if \(e\.metaKey \|\| e\.ctrlKey \|\| e\.shiftKey \|\| e\.altKey \|\| e\.button !== 0\) return;/);
-assert.match(main, /browseLink\.href = '\/examples\/'/);
 assert.ok(css.includes('.ex-item.disabled'), 'the anchor has no disabled property to fall back on');
 assert.match(main, /history\.replaceState\(null, '', url\)/);
 assert.match(main, /const file = currentFileName \|\| 'flowgraph\.grc'/);

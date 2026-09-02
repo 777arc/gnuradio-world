@@ -1,5 +1,5 @@
 id: wasm_plutosdr_sink
-label: '🛜 PlutoSDR Sink'
+label: 'PlutoSDR Sink'
 category: '[Supported SDRs]'
 flags: [cpp, throttle]
 

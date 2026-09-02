@@ -70,6 +70,9 @@ assert.match(source, /if \(inst\.id === NOTE_ID\) return noteGeom\(inst, d\)/,
   'the Note block must use its own geometry, not the one-row-per-param layout');
 assert.match(source, /wrapNoteText\(text, s => textW\(s, NOTE_FONT_SIZE\)\)/,
   'note text must be wrapped against the same metrics it is drawn with');
+assert.match(source,
+  /w: ceilToGrid\([\s\S]*?Math\.max\(BLOCK_MIN_W,[\s\S]*?SNAP_GRID_SIZE \* 2\)/,
+  'the Note block width must span an even number of grid tiles');
 assert.match(source, /document\.createElement\(p\.multiline \? 'textarea' : 'input'\)/,
   'multiline params must be edited in a textarea so notes can hold line breaks');
 assert.match(html, /\.dlgrow textarea/, 'the properties textarea must be styled');

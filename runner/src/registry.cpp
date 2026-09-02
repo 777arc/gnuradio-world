@@ -8,6 +8,7 @@
 #include "rtlsdr_source.hpp"
 #include "plutosdr_source.hpp"
 #include "plutosdr_sink.hpp"
+#include "bb60_source.hpp"
 #include "hackrf_source.hpp"
 #include "hackrf_sink.hpp"
 #include "paint_image_source.hpp"
@@ -2826,6 +2827,24 @@ static std::map<std::string, Factory>& registry_storage() {
                  [block](double value) { block->set_amp(value != 0.0); };
              result.numeric_setters["bias_tee"] =
                  [block](double value) { block->set_bias_tee(value != 0.0); };
+             return result;
+        }},
+        // Signal Hound BB60C/D. The device has no decimation to ask for: it
+        // always streams real 16-bit samples at 70 MS/s and every bit of tuning
+        // below that happens in the block. runner/src/bb60_worker.js owns the
+        // reverse-engineered USB protocol. See docs/signalhound.md.
+        {"wasm_bb60_source", [](const json& p) -> BuiltBlock {
+             auto block = Bb60Source::make(
+                 wasm_registry::text(p, "device"),
+                 number_from(p, "samp_rate", 10e6),
+                 number_from(p, "center_freq", 100e6),
+                 number_from(p, "bandwidth", 0.0),
+                 number_from(p, "ref_level", -20.0));
+             BuiltBlock result{ block };
+             result.numeric_setters["center_freq"] =
+                 [block](double value) { block->set_center_freq(value); };
+             result.numeric_setters["ref_level"] =
+                 [block](double value) { block->set_ref_level(value); };
              return result;
         }},
         {"wasm_hackrf_sink", [](const json& p) -> BuiltBlock {

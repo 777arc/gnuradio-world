@@ -51,6 +51,15 @@ export class CanvasGestureController {
     window.addEventListener('pointerup', this.endPointerGesture);
     window.addEventListener('pointercancel', this.endPointerGesture);
     deps.svg.addEventListener('pointerdown', this.onCanvasPointerDown);
+    // Every canvas pointerdown handler calls preventDefault(), and moving focus
+    // is that default action — so clicking a block left the palette search field
+    // focused and its next keystroke went on typing there instead of reaching a
+    // bare-key shortcut (`d` typed a letter rather than disabling the block).
+    // Capture phase, because the port handlers stop propagation before bubbling.
+    deps.svg.addEventListener('pointerdown', () => {
+      const active = document.activeElement as HTMLElement | null;
+      if (active && active !== document.body) active.blur();
+    }, true);
   }
 
   startDrag(event: PointerEvent, inst: Inst): void {

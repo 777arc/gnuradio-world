@@ -1,5 +1,5 @@
 id: wasm_rtlsdr_source
-label: '👂 RTL-SDR Source'
+label: 'RTL-SDR Source'
 category: '[Supported SDRs]'
 flags: [cpp, throttle]
 
