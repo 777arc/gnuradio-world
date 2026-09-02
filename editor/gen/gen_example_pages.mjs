@@ -33,6 +33,7 @@ const PUBLIC = join(ROOT, 'editor', 'public');
 const OUT = join(PUBLIC, 'examples');
 const ORIGIN = 'https://gnuradioworld.com';
 const REPO = 'https://github.com/777arc/gnuradio-world';
+const GA_MEASUREMENT_ID = 'G-NJ22205C3S';
 
 const { parseGrc } = await bundleModule('../src/grc.ts');
 const catalog = await bundleModule('../src/example-catalog.ts');
@@ -96,6 +97,14 @@ const page = ({ title, description, canonical, jsonLd = [], body }) => `<!doctyp
 <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 <link rel="icon" href="/favicon.ico" sizes="32x32" />
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', '${GA_MEASUREMENT_ID}');
+</script>
 <link rel="stylesheet" href="/examples.css" />
 ${jsonLd.map(data =>
   `<script type="application/ld+json">\n${JSON.stringify(data, null, 2)}\n</script>`).join('\n')}
