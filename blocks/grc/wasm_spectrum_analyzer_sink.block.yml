@@ -15,11 +15,26 @@ documentation: |-
     through Center Frequency + Sample Rate/2.
 
     The running instrument provides clear/write, averaging, and max-hold traces;
-    run/hold and autoscale controls; a manual marker; one-shot peak search; peak
-    tracking; and an occupied-bandwidth measurement. The occupied-bandwidth
-    control defaults to 99% and integrates linear power inside Measurement Span
-    around the active marker or peak. Set Measurement Span to 0 to use the whole
-    displayed spectrum.
+    run/hold and autoscale controls; and always-on automatic signal detection and
+    occupied-bandwidth measurement. Drag a rectangle on the plot to zoom its
+    frequency and level axes; right-click to return one level through the zoom
+    history. Its automatic detector learns a default noise floor from the lower
+    tail of the first 10,000 spectrum bins.
+    It uses the 20th percentile with the statistical correction appropriate for
+    exponential FFT-bin noise power, avoiding both occupied bins and anomalously
+    low FFT nulls, then places the threshold 6 dB above that estimate. Automatic
+    mode adapts the estimate slowly in subsequent 10,000-bin batches. The
+    threshold remains editable in the running GUI and can be re-learned at any
+    time. Every above-threshold signal receives a stable color, a solid
+    center-frequency line, shaded 99% occupied bandwidth with dashed edges, and
+    one live annotation above its center containing center frequency, bandwidth,
+    and the maximum-bin level. The peak frequency remains available in numeric
+    plot data.
+    Detection uses a two-pass linear-power moving average (a triangular
+    frequency-domain envelope) to suppress isolated noise crossings, consolidate
+    threshold-edge fragments, and join natural periodogram notches inside
+    modulated signals. Peak and bandwidth measurements retain the unsmoothed FFT
+    bins.
 
     Levels are dBFS by default. A complex carrier of magnitude 1, or a full-scale
     real sinusoid, reads 0 dBFS when it falls exactly on an FFT bin. Calibration

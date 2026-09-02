@@ -329,9 +329,31 @@ instrument. [`blocks/src/spectrum_analyzer_sink.cpp`](../blocks/src/spectrum_ana
 runs the window and real/complex FFT on the block's scheduler thread, then
 publishes normalized linear-power bins through a lock-free double buffer in
 shared WASM memory. [`runner/src/spectrum_analyzer.js`](../runner/src/spectrum_analyzer.js)
-owns the Canvas2D trace, HTML controls, markers, peak tracking, max hold and the
-occupied-bandwidth calculation. Float input publishes only DC through Nyquist;
-complex input is FFT-shifted and two-sided.
+owns the Canvas2D trace, HTML controls, box-zoom history, max hold,
+occupied-bandwidth calculations and always-on multi-signal detection. A drag on
+the plot zooms both its frequency and level axes, and right-click restores one
+saved view. The detector learns
+its initial noise floor from exactly the first 10,000 published spectrum bins.
+The estimator uses the 20th percentile and corrects that lower-tail quantile to
+mean noise power using the exponential distribution of raw FFT-bin power. This
+is resistant to occupied bins without treating isolated FFT nulls as the floor.
+The automatic threshold is 6 dB above the estimate and adapts slowly over later
+10,000-bin batches; a manual GUI threshold disables adaptation. The detector
+forms a two-pass linear-power moving average before threshold comparison. The
+resulting triangular frequency-domain envelope rejects isolated noise crossings,
+consolidates small fragments at signal edges and bridges periodogram notches
+within a modulated signal, while peaks and occupied bandwidth still come from
+the original unsmoothed bins. It measures every resulting above-threshold island
+independently, tracks identities between frames for stable colors, and publishes
+the signals through `read_plot_data`. Float input publishes only DC through
+Nyquist; complex input is FFT-shifted and two-sided.
+
+Each detected region has one annotation above its center line containing center
+frequency, 99% occupied bandwidth and the unsmoothed maximum-bin level. The peak
+dot remains on the trace. `read_plot_data` exposes the annotation's signal id,
+center frequency, 99% bandwidth and maximum level, along with peak frequency,
+as raw numbers rather than its rounded display strings; there is no second peak
+callout to obscure the plot.
 
 Like the WebGPU fosphor path, its `QWidget` is a placement placeholder, so GUI
 Layout needs no special case and no scheduler thread touches the DOM. Neither

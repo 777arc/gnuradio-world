@@ -8,8 +8,28 @@ const source = await readFile(
   new URL('../src/spectrum_analyzer.js', import.meta.url), 'utf8');
 const sandbox = { console };
 vm.runInNewContext(source, sandbox, { filename: 'spectrum_analyzer.js' });
-const { engineering, peakOf, occupiedBandwidth } =
+const { engineering, percentile, estimateNoiseFloor, smoothPower, peakOf,
+  occupiedBandwidth, detectSignals } =
   sandbox.__grSpectrumAnalyzerInternals;
+
+{
+  const values = Array.from({ length: 10_000 }, (_, index) => index);
+  assert.ok(Math.abs(percentile(values, 4) - 399.96) < 1e-9,
+    'percentiles use interpolation rather than snapping to a sample');
+}
+
+{
+  // Deterministic quantiles of exponential power with a -70 dB mean. The
+  // corrected lower-tail estimator should recover that mean noise power even
+  // though its input quantile is roughly 6.5 dB lower.
+  const meanPower = 1e-7;
+  const levels = Array.from({ length: 10_000 }, (_, index) => {
+    const probability = (index + 0.5) / 10_000;
+    return 10 * Math.log10(-Math.log1p(-probability) * meanPower);
+  });
+  assert.ok(Math.abs(estimateNoiseFloor(levels) + 70) < 0.01,
+    'the corrected lower-tail estimator recovers mean FFT-bin noise power');
+}
 
 {
   const peak = peakOf([1, 4, 16, 4, 1], index => 1000 + index * 25, -10);
@@ -41,6 +61,56 @@ const { engineering, peakOf, occupiedBandwidth } =
 }
 
 assert.match(engineering(2_450_000, 'Hz'), /2\.45 MHz/);
+
+{
+  const power = Array(32).fill(1e-10);
+  for (let index = 4; index <= 8; index++) power[index] = 1e-5;
+  for (let index = 20; index <= 24; index++) power[index] = 1e-4;
+  power[6] = 1e-3;
+  power[22] = 1e-2;
+  const frequencies = power.map((_, index) => 1000 + index * 100);
+  const signals = detectSignals(power, frequencies, -60, 99);
+  assert.equal(signals.length, 2, 'each above-threshold island is detected');
+  assert.equal(signals[0].peakIndex, 6);
+  assert.equal(signals[1].peakIndex, 22);
+  assert.ok(signals.every(signal => signal.width > 0 && signal.low < signal.center &&
+    signal.center < signal.high), 'every detected signal has a 99% bandwidth and center');
+  assert.ok(signals[1].peakLevel > signals[0].peakLevel,
+    'each signal carries its own peak y-axis value');
+}
+
+{
+  // A modulated signal's raw periodogram has deep random notches. Detection on
+  // a short power envelope should keep it whole and reject isolated background
+  // excursions, while measurements still use the original bins.
+  const power = Array(96).fill(1e-10);
+  for (let index = 24; index <= 70; index++)
+    power[index] = index % 3 === 0 ? 1e-10 : 1e-4;
+  power[8] = 1e-5;
+  const frequencies = power.map((_, index) => index * 100);
+  const envelope = smoothPower(power, 8);
+  const signals = detectSignals(power, frequencies, -60, 99, 0, 24, envelope);
+  assert.equal(signals.length, 1,
+    'spectral-envelope detection joins modulation notches and rejects an isolated bin');
+  assert.ok(signals[0].first <= 24 && signals[0].last >= 70);
+  assert.equal(signals[0].peakLevel,
+    peakOf(power, index => frequencies[index]).level,
+    'envelope smoothing does not alter the interpolated peak measurement');
+}
+
+{
+  // Two boxcar passes form a triangular kernel: a one-bin excursion is spread
+  // more gently than after one pass and cannot create a tiny boundary island.
+  const impulse = Array(41).fill(0);
+  impulse[20] = 1;
+  const once = smoothPower(impulse, 4, 1);
+  const twice = smoothPower(impulse, 4, 2);
+  assert.ok(twice[12] > once[12] && twice[16] < once[16] &&
+    Math.abs(twice[20] - once[20]) < 1e-12,
+    'two-pass smoothing produces the intended triangular detection envelope');
+  assert.ok(Math.abs(Array.from(twice).reduce((sum, value) => sum + value, 0) - 1) < 1e-9,
+    'frequency-domain smoothing preserves integrated power away from display edges');
+}
 
 {
   // Browser renderers replace their otherwise-empty Qt placement placeholder

@@ -1,7 +1,7 @@
 // End-to-end browser test for the GNU Radio World Spectrum Analyzer. It drives
 // both input types through the built runner, checks numeric plot observation,
-// exercises the peak/OBW controls, and verifies that real input has no negative
-// frequency half.
+// exercises box zoom and zoom history, and verifies that real input has no
+// negative frequency half.
 import http from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { join, normalize } from 'node:path';
@@ -61,6 +61,13 @@ try {
       return widgets.length === 2 && widgets.every(widget => widget.curves?.[0]?.points > 0);
     } catch { return false; }
   }, { timeout: 30000, polling: 200 });
+  await page.waitForFunction(() => {
+    try {
+      const widgets = JSON.parse(window.__grReadPlotData?.('', 32) || '{}').widgets || [];
+      return widgets.length === 2 && widgets.every(widget =>
+        Number.isFinite(widget.detection?.threshold) && widget.detected_signals?.length > 0);
+    } catch { return false; }
+  }, { timeout: 30000, polling: 200 });
 
   let plots = await page.evaluate(() => JSON.parse(window.__grReadPlotData('', 32)));
   check(plots.widgets.length === 2, 'both complex and float analyzers report plot data');
@@ -78,21 +85,99 @@ try {
     `complex 0.5-amplitude carrier is about -6.02 dBFS (${complex?.curves?.[0]?.peak?.y})`);
   check(Math.abs(real?.curves?.[0]?.peak?.y + 12.0412) < 0.5,
     `real 0.25-amplitude sinusoid is about -12.04 dBFS (${real?.curves?.[0]?.peak?.y})`);
+  check([complex, real].every(widget => widget?.detection?.threshold_source === 'automatic' &&
+    widget.detection.required_samples === 10000 &&
+    widget.detection.estimator === 'corrected_lower_tail' &&
+    widget.detection.estimator_percentile === 20 &&
+    Number.isFinite(widget.detection.noise_floor) && widget.detection.margin_db === 6),
+  'both analyzers learn a corrected lower-tail noise floor from 10,000 bins plus 6 dB');
+  check(complex?.detected_signals?.some(signal =>
+    Math.abs(signal.peak_frequency - 12000) < 30 && signal.occupied_bandwidth_99 > 0),
+  'automatic detection measures the complex carrier and its 99% bandwidth');
+  check(real?.detected_signals?.some(signal =>
+    Math.abs(signal.peak_frequency - 9375) < 30 && signal.occupied_bandwidth_99 > 0),
+  'automatic detection measures the real carrier and its 99% bandwidth');
+  check([complex, real].every(widget => widget?.detected_signals?.every(signal =>
+    Number.isInteger(signal.id) && Number.isFinite(signal.center_frequency) &&
+    Number.isFinite(signal.peak_frequency) && Number.isFinite(signal.peak_level) &&
+    Number.isFinite(signal.occupied_bandwidth_99))),
+  'numeric plot observation exposes every signal annotation as raw numbers');
 
   await page.evaluate(() => {
-    for (const root of document.querySelectorAll('.gr-spectrum-analyzer')) {
-      [...root.querySelectorAll('button')]
-        .find(button => button.textContent === 'Peak Search')?.click();
-      [...root.querySelectorAll('button')]
-        .find(button => button.textContent.startsWith('OBW '))?.click();
+    const first = document.querySelector('.gr-spectrum-analyzer');
+    const threshold = first?.querySelector('input[aria-label="Threshold"]');
+    if (threshold) {
+      threshold.value = '-20';
+      threshold.dispatchEvent(new Event('change', { bubbles: true }));
     }
   });
-  await new Promise(resolve => setTimeout(resolve, 250));
+  await new Promise(resolve => setTimeout(resolve, 100));
   plots = await page.evaluate(() => JSON.parse(window.__grReadPlotData('', 32)));
-  check(plots.widgets.every(widget => widget.marker && widget.occupied_bandwidth?.width > 0),
-    'peak search and occupied-bandwidth controls produce measurements');
-  check(plots.widgets.every(widget => widget.occupied_bandwidth.width < 1000),
-    'a bin-centered tone has a narrow 99% occupied bandwidth');
+  const manuallyThresholded = plots.widgets.find(widget => widget.name === 'complex_analyzer');
+  check(manuallyThresholded?.detection?.threshold === -20 &&
+    manuallyThresholded.detection.threshold_source === 'manual',
+  'the running GUI can override the automatic detection threshold');
+
+  const toolbarState = await page.evaluate(() => ({
+    buttons: [...document.querySelectorAll('.gr-spectrum-analyzer button')]
+      .map(button => button.textContent),
+    cursors: [...document.querySelectorAll('canvas.gr-spectrum-analyzer-plot')]
+      .map(canvas => getComputedStyle(canvas).cursor),
+  }));
+  const removedControls = ['Peak Search', 'Track Peak', 'Marker', 'Detect'];
+  check(removedControls.every(label => !toolbarState.buttons.includes(label)) &&
+    !toolbarState.buttons.some(label => label.startsWith('OBW ')),
+  'peak, marker, OBW, and detector toggle buttons are absent');
+  check(toolbarState.cursors.every(cursor => cursor === 'zoom-in') &&
+    plots.widgets.every(widget => widget.detection?.enabled === true),
+  'automatic detection is always on and box zoom is the default cursor mode');
+
+  const initialComplexAxes = {
+    x: { ...manuallyThresholded.x_axis }, y: { ...manuallyThresholded.y_axis },
+  };
+  const zoomBox = await page.evaluate(() => {
+    const canvas = document.querySelector(
+      '.gr-spectrum-analyzer[data-block-name="complex_analyzer"] canvas');
+    const bounds = canvas.getBoundingClientRect();
+    const plot = { left: bounds.left + 62, right: bounds.right - 14,
+      top: bounds.top + 16, bottom: bounds.bottom - 34 };
+    return {
+      x1: plot.left + (plot.right - plot.left) * 0.25,
+      y1: plot.top + (plot.bottom - plot.top) * 0.2,
+      x2: plot.left + (plot.right - plot.left) * 0.75,
+      y2: plot.top + (plot.bottom - plot.top) * 0.7,
+      centerX: (plot.left + plot.right) / 2,
+      centerY: (plot.top + plot.bottom) / 2,
+    };
+  });
+  await page.mouse.move(zoomBox.x1, zoomBox.y1);
+  await page.mouse.down();
+  await page.mouse.move(zoomBox.x2, zoomBox.y2, { steps: 5 });
+  await page.mouse.up();
+  await page.waitForFunction(() => {
+    const widgets = JSON.parse(window.__grReadPlotData?.('', 32) || '{}').widgets || [];
+    return widgets.find(widget => widget.name === 'complex_analyzer')?.zoom_depth === 1;
+  });
+  plots = await page.evaluate(() => JSON.parse(window.__grReadPlotData('', 32)));
+  const zoomed = plots.widgets.find(widget => widget.name === 'complex_analyzer');
+  const initialXSpan = initialComplexAxes.x.max - initialComplexAxes.x.min;
+  const initialYSpan = initialComplexAxes.y.max - initialComplexAxes.y.min;
+  check(zoomed.zoom_depth === 1 &&
+    Math.abs((zoomed.x_axis.max - zoomed.x_axis.min) / initialXSpan - 0.5) < 0.03 &&
+    Math.abs((zoomed.y_axis.max - zoomed.y_axis.min) / initialYSpan - 0.5) < 0.03,
+  'left-drag zooms the selected frequency and level rectangle');
+  await page.mouse.click(zoomBox.centerX, zoomBox.centerY, { button: 'right' });
+  await page.waitForFunction(() => {
+    const widgets = JSON.parse(window.__grReadPlotData?.('', 32) || '{}').widgets || [];
+    return widgets.find(widget => widget.name === 'complex_analyzer')?.zoom_depth === 0;
+  });
+  plots = await page.evaluate(() => JSON.parse(window.__grReadPlotData('', 32)));
+  const restored = plots.widgets.find(widget => widget.name === 'complex_analyzer');
+  check(restored.x_axis.min === initialComplexAxes.x.min &&
+    restored.x_axis.max === initialComplexAxes.x.max &&
+    restored.y_axis.min === initialComplexAxes.y.min &&
+    restored.y_axis.max === initialComplexAxes.y.max,
+  'right-click restores exactly one saved zoom level');
   const canvases = await page.evaluate(() => [...document.querySelectorAll(
     'canvas.gr-spectrum-analyzer-plot')].map(canvas => ({
       width: canvas.width, height: canvas.height, visible: canvas.offsetParent !== null,

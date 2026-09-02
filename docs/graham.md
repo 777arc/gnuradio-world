@@ -478,9 +478,12 @@ Number Sink and the browser gauges are QLabels, whose text is collected instead
 
 The GNU Radio World Spectrum Analyzer registers a browser-native provider with
 the same service. Its Canvas2D renderer supplies its own bounded snapshot: the
-same axis and curve summary plus marker, RBW and occupied-bandwidth measurements.
-Providers merge by flowgraph instance name, so that snapshot replaces the empty
-QWidget placement placeholder without the aggregator knowing the block's id.
+same axis and curve summary plus RBW, detector state, and the exact numeric values
+behind every detected-signal annotation — signal id, center frequency, peak
+frequency and level, and 99% occupied bandwidth. Those are raw numbers, not the
+rounded engineering strings drawn on the canvas. Providers merge by flowgraph
+instance name, so that snapshot replaces the empty QWidget placement placeholder
+without the aggregator knowing the block's id.
 
 `gr_read_plot_data()` publishes onto `window.__grplots` rather than returning a
 pointer, for the reason `publish_stats()` does: Qt's WASM build does not reliably

@@ -6,12 +6,60 @@
 
   const MIN_POWER = 1e-30;
   const GRID_DIVISIONS = 10;
+  const THRESHOLD_SAMPLE_COUNT = 10_000;
+  const NOISE_FLOOR_PERCENTILE = 20;
+  const NOISE_FLOOR_ALPHA = 0.1;
+  const THRESHOLD_MARGIN_DB = 6;
   const TRACE_MODES = new Set(['clear_write', 'average', 'max_hold']);
 
   const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
   const db = power => 10 * Math.log10(Math.max(MIN_POWER, Number(power) || 0));
   const finite = (value, fallback = 0) => Number.isFinite(Number(value))
     ? Number(value) : fallback;
+
+  function percentile(values, percent) {
+    const sorted = Array.from(values || [], Number)
+      .filter(Number.isFinite).sort((a, b) => a - b);
+    if (!sorted.length) return null;
+    const position = clamp(finite(percent) / 100, 0, 1) * (sorted.length - 1);
+    const lower = Math.floor(position);
+    const fraction = position - lower;
+    return sorted[lower] + (sorted[Math.min(lower + 1, sorted.length - 1)] -
+      sorted[lower]) * fraction;
+  }
+
+  // A raw periodogram's noise power is exponentially distributed. Its lower
+  // quantiles are therefore below mean noise power by a known amount. Using a
+  // corrected lower-tail quantile rejects occupied bins without mistaking an
+  // isolated FFT null for the noise floor.
+  function estimateNoiseFloor(values, percent = NOISE_FLOOR_PERCENTILE) {
+    const quantile = percentile(values, percent);
+    if (quantile == null) return null;
+    const fraction = clamp(finite(percent) / 100, 0.001, 0.999);
+    const quantileToMeanDb = 10 * Math.log10(-Math.log1p(-fraction));
+    return quantile - quantileToMeanDb;
+  }
+
+  function smoothPower(values, radius, passes = 2) {
+    if (!values?.length) return [];
+    radius = Math.max(0, Math.floor(finite(radius)));
+    passes = Math.max(1, Math.floor(finite(passes, 2)));
+    let source = Float64Array.from(values, value => Math.max(0, finite(value)));
+    if (!radius) return source;
+    for (let pass = 0; pass < passes; pass++) {
+      const result = new Float64Array(values.length);
+      const prefix = new Float64Array(values.length + 1);
+      for (let index = 0; index < source.length; index++)
+        prefix[index + 1] = prefix[index] + source[index];
+      for (let index = 0; index < source.length; index++) {
+        const first = Math.max(0, index - radius);
+        const last = Math.min(source.length, index + radius + 1);
+        result[index] = (prefix[last] - prefix[first]) / (last - first);
+      }
+      source = result;
+    }
+    return source;
+  }
 
   function engineering(value, unit = 'Hz', digits = 4) {
     const numeric = finite(value);
@@ -104,6 +152,99 @@
     };
   }
 
+  function occupiedBandwidthRange(values, frequencies, first, last, percent) {
+    if (!values?.length || values.length !== frequencies?.length || values.length < 2)
+      return null;
+    first = clamp(Math.floor(finite(first)), 0, values.length - 1);
+    last = clamp(Math.floor(finite(last)), first, values.length - 1);
+    const binWidth = Math.abs(frequencies[1] - frequencies[0]);
+    if (!(binWidth > 0)) return null;
+    let total = 0;
+    for (let index = first; index <= last; index++)
+      total += Math.max(0, finite(values[index]));
+    if (!(total > MIN_POWER)) return null;
+
+    const tail = clamp((100 - finite(percent, 99)) / 200, 0.000001, 0.499999);
+    const targets = [total * tail, total * (1 - tail)];
+    const crossings = [frequencies[first] - binWidth / 2,
+      frequencies[last] + binWidth / 2];
+    let cumulative = 0;
+    let targetIndex = 0;
+    for (let index = first; index <= last && targetIndex < targets.length; index++) {
+      const power = Math.max(0, finite(values[index]));
+      const before = cumulative;
+      cumulative += power;
+      while (targetIndex < targets.length && cumulative >= targets[targetIndex]) {
+        const fraction = power > 0
+          ? clamp((targets[targetIndex] - before) / power, 0, 1) : 0;
+        crossings[targetIndex] = frequencies[index] - binWidth / 2 + fraction * binWidth;
+        targetIndex++;
+      }
+    }
+    return {
+      percent: finite(percent, 99), low: crossings[0], high: crossings[1],
+      center: (crossings[0] + crossings[1]) / 2,
+      width: Math.max(0, crossings[1] - crossings[0]), integratedPower: total,
+      regionLow: frequencies[first] - binWidth / 2,
+      regionHigh: frequencies[last] + binWidth / 2,
+      touchesEdge: first === 0 || last === values.length - 1,
+    };
+  }
+
+  // Join a one-bin dropout so a windowed carrier with a narrow spectral notch
+  // remains one measured signal. Every other above-threshold island is kept,
+  // including a single-bin carrier.
+  function detectSignals(values, frequencies, thresholdDb, percent = 99,
+    offsetDb = 0, bridgeBins = 1, detectionValues = values) {
+    if (!values?.length || values.length !== frequencies?.length ||
+        values.length !== detectionValues?.length ||
+        !Number.isFinite(Number(thresholdDb))) return [];
+    const above = Array.from(detectionValues,
+      value => db(value) + offsetDb >= thresholdDb);
+    const ranges = [];
+    for (let index = 0; index < above.length;) {
+      while (index < above.length && !above[index]) index++;
+      if (index >= above.length) break;
+      const first = index;
+      let last = index;
+      let gap = 0;
+      for (index++; index < above.length; index++) {
+        if (above[index]) { last = index; gap = 0; }
+        else if (++gap > bridgeBins) break;
+      }
+      ranges.push([first, last]);
+    }
+
+    return ranges.map(([first, last]) => {
+      let peakIndex = first;
+      for (let index = first + 1; index <= last; index++)
+        if (values[index] > values[peakIndex]) peakIndex = index;
+      let interpolatedIndex = peakIndex;
+      let peakLevel = db(values[peakIndex]) + offsetDb;
+      if (peakIndex > first && peakIndex < last) {
+        const left = db(values[peakIndex - 1]);
+        const center = db(values[peakIndex]);
+        const right = db(values[peakIndex + 1]);
+        const denominator = left - 2 * center + right;
+        if (Number.isFinite(denominator) && Math.abs(denominator) > 1e-9) {
+          const delta = clamp(0.5 * (left - right) / denominator, -0.5, 0.5);
+          interpolatedIndex += delta;
+          peakLevel = center - 0.25 * (left - right) * delta + offsetDb;
+        }
+      }
+      const binWidth = Math.abs(frequencies[1] - frequencies[0]);
+      const bandwidth = occupiedBandwidthRange(values, frequencies, first, last, percent);
+      return {
+        first, last,
+        detectionLow: frequencies[first] - binWidth / 2,
+        detectionHigh: frequencies[last] + binWidth / 2,
+        peakIndex, peakFrequency: frequencies[0] + interpolatedIndex * binWidth,
+        peakLevel,
+        ...bandwidth,
+      };
+    });
+  }
+
   function button(label, action, title = label) {
     const element = document.createElement('button');
     element.type = 'button';
@@ -124,7 +265,7 @@
     Object.assign(label.style, { whiteSpace: 'nowrap', color: '#8ea2bd' });
     const input = document.createElement('input');
     input.type = 'number';
-    input.value = String(value);
+    input.value = value == null ? '' : String(value);
     input.step = String(step);
     input.setAttribute('aria-label', labelText);
     Object.assign(input.style, {
@@ -154,7 +295,6 @@
       this.dbPerDivision = Math.max(0.1, finite(options.dbPerDivision, 10));
       this.levelOffsetDb = finite(options.levelOffsetDb);
       this.levelUnit = String(options.levelUnit || 'dBFS');
-      this.trackPeak = !!options.peakTrack;
       this.obwPercent = clamp(finite(options.obwPercent, 99), 0.001, 99.999);
       this.obwSpan = Math.max(0, finite(options.obwSpan));
       this.blockName = String(options.blockName || `spectrum_analyzer_${id}`);
@@ -165,13 +305,20 @@
       this.skippedFrames = 0;
       this.frameCopy = new Float32Array(this.binCount);
       this.trace = null;
-      this.markerIndex = null;
       this.peak = null;
-      this.obw = null;
-      this.obwEnabled = false;
+      this.thresholdDb = null;
+      this.thresholdAutomatic = true;
+      this.noiseFloorDb = null;
+      this.thresholdSamples = [];
+      this.detectedSignals = [];
+      this.signalTracks = [];
+      this.nextSignalId = 1;
       this.frozen = false;
       this.autoScalePending = false;
-      this.draggingMarker = false;
+      this.viewFirstIndex = 0;
+      this.viewLastIndex = this.binCount - 1;
+      this.zoomStack = [];
+      this.zoomSelection = null;
       this.destroyed = false;
       this.dirty = true;
       this.buildDom();
@@ -201,11 +348,13 @@
       });
       this.holdButton = button('Hold', 'hold', 'Freeze or resume the display');
       this.autoButton = button('Auto', 'auto', 'Autoscale the level axis once');
-      this.peakButton = button('Peak Search', 'peak', 'Move marker to the strongest peak');
-      this.trackButton = button('Track Peak', 'track', 'Continuously follow the strongest peak');
-      this.markerButton = button('Marker', 'marker', 'Enable a manual marker; click the plot to place it');
-      this.obwButton = button(`OBW ${this.obwPercent.toFixed(0)}%`, 'obw',
-        'Measure occupied bandwidth around the marker or peak');
+      const threshold = numberInput('Threshold', null, 1, '70px');
+      this.thresholdInput = threshold.input;
+      this.thresholdInput.placeholder = 'learning';
+      this.thresholdInput.title =
+        'Detection threshold in the displayed level unit; clear it to learn again';
+      this.relearnButton = button('Relearn', 'relearn',
+        'Restart adaptive noise-floor estimation with the next 10,000 spectrum bins');
       this.clearButton = button('Clear', 'clear', 'Clear averaging, max hold, and measurements');
 
       this.modeSelect = document.createElement('select');
@@ -228,17 +377,17 @@
       const division = numberInput('dB/div', this.dbPerDivision, 1, '46px');
       this.divisionInput = division.input;
       this.toolbar.append(this.holdButton, this.autoButton, this.modeSelect,
-        reference.label, division.label, this.peakButton, this.trackButton,
-        this.markerButton, this.obwButton, this.clearButton);
+        reference.label, division.label, threshold.label, this.relearnButton,
+        this.clearButton);
 
       this.canvas = document.createElement('canvas');
       this.canvas.className = 'gr-spectrum-analyzer-plot';
       this.canvas.tabIndex = 0;
       this.canvas.setAttribute('aria-label',
-        'Spectrum plot. Click to place the marker; arrow keys move it one FFT bin.');
+        'Spectrum plot. Drag a box to zoom in; right-click to zoom out one level.');
       Object.assign(this.canvas.style, {
         display: 'block', flex: '1 1 auto', width: '100%', minHeight: '100px',
-        cursor: 'crosshair', outline: 'none', background: '#050914',
+        cursor: 'zoom-in', outline: 'none', background: '#050914',
       });
       this.context = this.canvas.getContext('2d', { alpha: false });
       if (!this.context) throw new Error('Canvas 2D is unavailable');
@@ -261,16 +410,8 @@
         if (!action) return;
         if (action === 'hold') this.frozen = !this.frozen;
         else if (action === 'auto') this.autoScalePending = true;
-        else if (action === 'peak') this.placeAtPeak();
-        else if (action === 'track') {
-          this.trackPeak = !this.trackPeak;
-          if (this.trackPeak) this.placeAtPeak();
-        } else if (action === 'marker') {
-          if (this.markerIndex == null) this.markerIndex = Math.floor(this.binCount / 2);
-          this.trackPeak = false;
-        } else if (action === 'obw') {
-          this.obwEnabled = !this.obwEnabled;
-          if (this.markerIndex == null) this.placeAtPeak();
+        else if (action === 'relearn') {
+          this.resetThresholdLearning();
         } else if (action === 'clear') this.clear();
         this.dirty = true;
         this.updateButtonStates();
@@ -285,41 +426,60 @@
         this.setReferenceLevel(finite(this.referenceInput.value, this.referenceLevel)));
       this.divisionInput.addEventListener('change', () =>
         this.setDbPerDivision(finite(this.divisionInput.value, this.dbPerDivision)));
-
-      const pointerToMarker = event => {
-        const rect = this.plotRect();
-        const x = clamp(event.offsetX, rect.left, rect.right);
-        const fraction = (x - rect.left) / Math.max(1, rect.right - rect.left);
-        this.markerIndex = clamp(Math.round(fraction * (this.binCount - 1)),
-          0, this.binCount - 1);
-        this.trackPeak = false;
+      this.thresholdInput.addEventListener('change', () => {
+        if (!this.thresholdInput.value.trim()) {
+          this.resetThresholdLearning();
+          return;
+        }
+        const value = Number(this.thresholdInput.value);
+        if (!Number.isFinite(value)) {
+          this.thresholdInput.value = this.thresholdDb == null
+            ? '' : this.thresholdDb.toFixed(2);
+          return;
+        }
+        this.thresholdDb = value;
+        this.thresholdAutomatic = false;
+        this.thresholdSamples = [];
+        this.updateDetections();
         this.dirty = true;
-        this.updateMeasurements();
-        this.updateButtonStates();
+      });
+
+      const pointerPosition = event => {
+        const rect = this.plotRect();
+        return {
+          x: clamp(event.offsetX, rect.left, rect.right),
+          y: clamp(event.offsetY, rect.top, rect.bottom),
+        };
       };
       this.canvas.addEventListener('pointerdown', event => {
-        this.draggingMarker = true;
+        if (event.button !== 0) return;
+        const point = pointerPosition(event);
+        this.zoomSelection = { pointerId: event.pointerId,
+          startX: point.x, startY: point.y, x: point.x, y: point.y };
         this.canvas.setPointerCapture?.(event.pointerId);
-        pointerToMarker(event);
+        this.dirty = true;
+        event.preventDefault();
       });
       this.canvas.addEventListener('pointermove', event => {
-        if (this.draggingMarker) pointerToMarker(event);
+        if (!this.zoomSelection || this.zoomSelection.pointerId !== event.pointerId) return;
+        Object.assign(this.zoomSelection, pointerPosition(event));
+        this.dirty = true;
       });
       const release = event => {
-        this.draggingMarker = false;
+        if (!this.zoomSelection || this.zoomSelection.pointerId !== event.pointerId) return;
+        Object.assign(this.zoomSelection, pointerPosition(event));
+        this.applyZoomSelection();
         this.canvas.releasePointerCapture?.(event.pointerId);
       };
       this.canvas.addEventListener('pointerup', release);
-      this.canvas.addEventListener('pointercancel', release);
-      this.canvas.addEventListener('keydown', event => {
-        if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
-        if (this.markerIndex == null) this.markerIndex = Math.floor(this.binCount / 2);
-        this.markerIndex = clamp(this.markerIndex + (event.key === 'ArrowLeft' ? -1 : 1),
-          0, this.binCount - 1);
-        this.trackPeak = false;
-        this.updateMeasurements();
-        this.updateButtonStates();
+      this.canvas.addEventListener('pointercancel', event => {
+        if (!this.zoomSelection || this.zoomSelection.pointerId !== event.pointerId) return;
+        this.zoomSelection = null;
         this.dirty = true;
+      });
+      this.canvas.addEventListener('contextmenu', event => {
+        this.dirty = true;
+        this.zoomOut();
         event.preventDefault();
       });
     }
@@ -332,20 +492,71 @@
         element.style.color = active ? '#d9fffb' : '#c8d6e8';
       };
       state(this.holdButton, this.frozen);
-      state(this.trackButton, this.trackPeak);
-      state(this.markerButton, this.markerIndex != null && !this.trackPeak);
-      state(this.obwButton, this.obwEnabled);
       this.holdButton.textContent = this.frozen ? 'Run' : 'Hold';
     }
 
     clear() {
       this.trace = null;
-      this.markerIndex = null;
       this.peak = null;
-      this.obw = null;
-      this.trackPeak = false;
-      this.obwEnabled = false;
+      this.detectedSignals = [];
+      this.signalTracks = [];
       this.updateButtonStates();
+    }
+
+    applyZoomSelection() {
+      const selection = this.zoomSelection;
+      this.zoomSelection = null;
+      if (!selection) return;
+      const rect = this.plotRect();
+      const left = Math.min(selection.startX, selection.x);
+      const right = Math.max(selection.startX, selection.x);
+      const top = Math.min(selection.startY, selection.y);
+      const bottom = Math.max(selection.startY, selection.y);
+      if (right - left < 8 || bottom - top < 8) {
+        this.dirty = true;
+        return;
+      }
+      this.zoomStack.push({
+        first: this.viewFirstIndex, last: this.viewLastIndex,
+        referenceLevel: this.referenceLevel, dbPerDivision: this.dbPerDivision,
+      });
+      const oldFirst = this.viewFirstIndex;
+      const oldLast = this.viewLastIndex;
+      const indexAtX = x => oldFirst + (oldLast - oldFirst) *
+        (x - rect.left) / Math.max(1, rect.right - rect.left);
+      let nextFirst = clamp(indexAtX(left), 0, this.binCount - 1);
+      let nextLast = clamp(indexAtX(right), nextFirst, this.binCount - 1);
+      const minimumSpan = Math.min(2, this.binCount - 1);
+      if (nextLast - nextFirst < minimumSpan) {
+        const center = (nextFirst + nextLast) / 2;
+        nextFirst = clamp(center - minimumSpan / 2, 0,
+          this.binCount - 1 - minimumSpan);
+        nextLast = nextFirst + minimumSpan;
+      }
+      this.viewFirstIndex = nextFirst;
+      this.viewLastIndex = nextLast;
+      const oldReference = this.referenceLevel;
+      const oldRange = GRID_DIVISIONS * this.dbPerDivision;
+      const levelAtY = y => oldReference - oldRange *
+        (y - rect.top) / Math.max(1, rect.bottom - rect.top);
+      this.referenceLevel = levelAtY(top);
+      this.dbPerDivision = Math.max(0.1,
+        (this.referenceLevel - levelAtY(bottom)) / GRID_DIVISIONS);
+      this.referenceInput.value = String(Number(this.referenceLevel.toFixed(3)));
+      this.divisionInput.value = String(Number(this.dbPerDivision.toFixed(3)));
+      this.dirty = true;
+    }
+
+    zoomOut() {
+      const previous = this.zoomStack.pop();
+      if (!previous) return;
+      this.viewFirstIndex = previous.first;
+      this.viewLastIndex = previous.last;
+      this.referenceLevel = previous.referenceLevel;
+      this.dbPerDivision = previous.dbPerDivision;
+      this.referenceInput.value = String(this.referenceLevel);
+      this.divisionInput.value = String(this.dbPerDivision);
+      this.dirty = true;
     }
 
     frequencyAt(index) {
@@ -396,36 +607,98 @@
             alpha * Math.max(MIN_POWER, this.frameCopy[i]);
       }
       this.peak = peakOf(this.trace, index => this.frequencyAt(index), this.levelOffsetDb);
-      if (this.trackPeak && this.peak) this.markerIndex = this.peak.index;
+      this.learnThreshold(this.frameCopy);
+      this.updateDetections();
       if (this.autoScalePending && this.peak) {
-        const levels = Array.from(this.trace, value => db(value) + this.levelOffsetDb).sort((a, b) => a - b);
-        const floor = levels[Math.floor(levels.length * 0.15)] ?? this.peak.level - 80;
-        this.referenceLevel = Math.ceil((this.peak.level + 3) / 5) * 5;
+        const first = Math.max(0, Math.floor(this.viewFirstIndex));
+        const last = Math.min(this.binCount - 1, Math.ceil(this.viewLastIndex));
+        const visibleTrace = this.trace.slice(first, last + 1);
+        const visiblePeak = peakOf(visibleTrace,
+          index => this.frequencyAt(first + index), this.levelOffsetDb) || this.peak;
+        const levels = Array.from(visibleTrace,
+          value => db(value) + this.levelOffsetDb).sort((a, b) => a - b);
+        const floor = levels[Math.floor(levels.length * 0.15)] ?? visiblePeak.level - 80;
+        this.referenceLevel = Math.ceil((visiblePeak.level + 3) / 5) * 5;
         this.dbPerDivision = Math.max(1,
           Math.ceil((this.referenceLevel - floor) / GRID_DIVISIONS / 2) * 2);
         this.referenceInput.value = String(this.referenceLevel);
         this.divisionInput.value = String(this.dbPerDivision);
         this.autoScalePending = false;
       }
-      this.updateMeasurements();
     }
 
-    placeAtPeak() {
-      if (!this.peak && this.trace)
-        this.peak = peakOf(this.trace, index => this.frequencyAt(index), this.levelOffsetDb);
-      if (this.peak) this.markerIndex = this.peak.index;
-      this.updateMeasurements();
+    learnThreshold(values) {
+      if (!this.thresholdAutomatic) return;
+      const needed = THRESHOLD_SAMPLE_COUNT - this.thresholdSamples.length;
+      for (let index = 0; index < Math.min(needed, values?.length || 0); index++)
+        this.thresholdSamples.push(db(values[index]));
+      if (this.thresholdSamples.length < THRESHOLD_SAMPLE_COUNT) return;
+      const estimate = estimateNoiseFloor(this.thresholdSamples);
+      this.noiseFloorDb = this.noiseFloorDb == null ? estimate :
+        (1 - NOISE_FLOOR_ALPHA) * this.noiseFloorDb + NOISE_FLOOR_ALPHA * estimate;
+      this.thresholdDb = this.noiseFloorDb + THRESHOLD_MARGIN_DB + this.levelOffsetDb;
+      this.thresholdSamples = [];
+      if (document.activeElement !== this.thresholdInput)
+        this.thresholdInput.value = this.thresholdDb.toFixed(2);
     }
 
-    updateMeasurements() {
-      if (!this.trace) return;
-      if (this.markerIndex != null)
-        this.markerIndex = clamp(Math.round(this.markerIndex), 0, this.binCount - 1);
-      const center = this.markerIndex ?? this.peak?.index ?? Math.floor(this.binCount / 2);
-      this.obw = this.obwEnabled
-        ? occupiedBandwidth(this.trace, this.frequencies(), center,
-          this.obwPercent, this.obwSpan)
-        : null;
+    resetThresholdLearning() {
+      this.thresholdDb = null;
+      this.thresholdAutomatic = true;
+      this.noiseFloorDb = null;
+      this.thresholdSamples = [];
+      this.detectedSignals = [];
+      this.signalTracks = [];
+      this.thresholdInput.value = '';
+      this.thresholdInput.placeholder = 'learning';
+      this.dirty = true;
+    }
+
+    updateDetections() {
+      if (this.thresholdDb == null || !this.frameCopy?.length) {
+        this.detectedSignals = [];
+        return;
+      }
+      // Average only the decision envelope, never the values used for peak and
+      // occupied-bandwidth measurement. This suppresses isolated noise-bin
+      // crossings and joins the natural periodogram notches inside QPSK/OFDM.
+      const smoothingRadius = Math.max(3, Math.round(this.binCount / 512));
+      const envelope = smoothPower(this.frameCopy, smoothingRadius, 2);
+      const detections = detectSignals(this.frameCopy, this.frequencies(),
+        this.thresholdDb, 99, this.levelOffsetDb, smoothingRadius * 2, envelope);
+      const binWidth = this.binCount > 1
+        ? Math.abs(this.frequencyAt(1) - this.frequencyAt(0)) : 0;
+      const candidates = [];
+      for (let oldIndex = 0; oldIndex < this.signalTracks.length; oldIndex++) {
+        const old = this.signalTracks[oldIndex];
+        for (let newIndex = 0; newIndex < detections.length; newIndex++) {
+          const signal = detections[newIndex];
+          const distance = Math.abs(old.center - signal.center);
+          const tolerance = Math.max(3 * binWidth, (old.width + signal.width) / 2);
+          if (distance <= tolerance) candidates.push({ oldIndex, newIndex, distance });
+        }
+      }
+      candidates.sort((a, b) => a.distance - b.distance);
+      const usedOld = new Set();
+      const usedNew = new Set();
+      for (const candidate of candidates) {
+        if (usedOld.has(candidate.oldIndex) || usedNew.has(candidate.newIndex)) continue;
+        const old = this.signalTracks[candidate.oldIndex];
+        Object.assign(detections[candidate.newIndex], { id: old.id, hue: old.hue });
+        usedOld.add(candidate.oldIndex);
+        usedNew.add(candidate.newIndex);
+      }
+      for (const signal of detections) {
+        if (!signal.id) {
+          signal.id = this.nextSignalId++;
+          signal.hue = (signal.id * 137.508 + 8) % 360;
+        }
+        signal.color = `hsl(${signal.hue.toFixed(1)} 82% 64%)`;
+        signal.fillColor = `hsl(${signal.hue.toFixed(1)} 82% 58% / 0.14)`;
+      }
+      this.detectedSignals = detections;
+      this.signalTracks = detections.map(({ id, hue, center, width }) =>
+        ({ id, hue, center, width }));
     }
 
     plotRect() {
@@ -472,7 +745,8 @@
           context.fillText(level.toFixed(Math.abs(level) < 100 ? 0 : 0), rect.left - 6, y);
         }
         if (division % 2 === 0) {
-          const frequency = this.frequencyAt((this.binCount - 1) * division / GRID_DIVISIONS);
+          const frequency = this.frequencyAt(this.viewFirstIndex +
+            (this.viewLastIndex - this.viewFirstIndex) * division / GRID_DIVISIONS);
           context.textAlign = division === 0 ? 'left' : division === GRID_DIVISIONS ? 'right' : 'center';
           context.textBaseline = 'top';
           context.fillText(engineering(frequency, 'Hz', 4), x, rect.bottom + 6);
@@ -487,61 +761,109 @@
       context.fillText(this.levelUnit, 0, 0);
       context.restore();
 
-      const xForIndex = index => rect.left + plotWidth * index / Math.max(1, this.binCount - 1);
+      const xForIndex = index => rect.left + plotWidth *
+        (index - this.viewFirstIndex) /
+        Math.max(1e-9, this.viewLastIndex - this.viewFirstIndex);
+      const firstFrequency = this.frequencyAt(this.viewFirstIndex);
+      const lastFrequency = this.frequencyAt(this.viewLastIndex);
+      const xForFrequency = frequency => rect.left + plotWidth *
+        (frequency - firstFrequency) / Math.max(1e-30, lastFrequency - firstFrequency);
       const yForLevel = level => rect.top +
         clamp((this.referenceLevel - level) /
           (GRID_DIVISIONS * this.dbPerDivision), 0, 1) * plotHeight;
 
-      if (this.obw) {
-        const firstFrequency = this.frequencyAt(0);
-        const lastFrequency = this.frequencyAt(this.binCount - 1);
-        const xForFrequency = frequency => rect.left + plotWidth *
-          (frequency - firstFrequency) / Math.max(1e-30, lastFrequency - firstFrequency);
-        const lowX = clamp(xForFrequency(this.obw.low), rect.left, rect.right);
-        const highX = clamp(xForFrequency(this.obw.high), rect.left, rect.right);
-        context.fillStyle = 'rgba(246, 190, 65, 0.13)';
+      for (const signal of this.detectedSignals) {
+        if (signal.high < firstFrequency || signal.low > lastFrequency) continue;
+        const lowX = clamp(xForFrequency(signal.low), rect.left, rect.right);
+        const highX = clamp(xForFrequency(signal.high), rect.left, rect.right);
+        context.fillStyle = signal.fillColor;
         context.fillRect(lowX, rect.top, Math.max(1, highX - lowX), plotHeight);
-        context.strokeStyle = '#f6be41';
-        context.setLineDash([4, 3]);
+        context.strokeStyle = signal.color;
+        context.lineWidth = 1.15;
+        context.setLineDash([5, 4]);
         for (const x of [lowX, highX]) {
           context.beginPath(); context.moveTo(x, rect.top); context.lineTo(x, rect.bottom); context.stroke();
         }
         context.setLineDash([]);
+        if (signal.center >= firstFrequency && signal.center <= lastFrequency) {
+          const centerX = xForFrequency(signal.center);
+          context.lineWidth = 1.5;
+          context.beginPath(); context.moveTo(centerX, rect.top);
+          context.lineTo(centerX, rect.bottom); context.stroke();
+        }
       }
 
       if (this.trace) {
         context.strokeStyle = '#67f5aa';
         context.lineWidth = 1.35;
         context.beginPath();
-        for (let index = 0; index < this.binCount; index++) {
+        const first = Math.max(0, Math.floor(this.viewFirstIndex));
+        const last = Math.min(this.binCount - 1, Math.ceil(this.viewLastIndex));
+        for (let index = first; index <= last; index++) {
           const x = xForIndex(index);
           const y = yForLevel(db(this.trace[index]) + this.levelOffsetDb);
-          if (index === 0) context.moveTo(x, y); else context.lineTo(x, y);
+          if (index === first) context.moveTo(x, y); else context.lineTo(x, y);
         }
         context.stroke();
       }
 
-      if (this.markerIndex != null && this.trace) {
-        const index = clamp(this.markerIndex, 0, this.binCount - 1);
-        const x = xForIndex(index);
-        const level = db(this.trace[index]) + this.levelOffsetDb;
-        const y = yForLevel(level);
-        context.strokeStyle = '#ffcf4d';
-        context.fillStyle = '#ffcf4d';
+      if (this.thresholdDb != null) {
+        const thresholdY = yForLevel(this.thresholdDb);
+        context.strokeStyle = '#f07f67';
         context.lineWidth = 1;
-        context.beginPath(); context.moveTo(x, rect.top); context.lineTo(x, rect.bottom); context.stroke();
-        context.beginPath(); context.moveTo(x, y); context.lineTo(x - 6, y - 9);
-        context.lineTo(x + 6, y - 9); context.closePath(); context.fill();
-        const label = `M1 ${engineering(this.frequencyAt(index), 'Hz', 6)}  ${level.toFixed(2)} ${this.levelUnit}`;
-        context.font = '600 11px ui-monospace, SFMono-Regular, Menlo, monospace';
-        const labelWidth = context.measureText(label).width + 10;
-        const labelX = clamp(x + 8, rect.left, rect.right - labelWidth);
-        const labelY = clamp(y - 28, rect.top + 2, rect.bottom - 18);
-        context.fillStyle = 'rgba(22, 29, 39, 0.92)';
-        context.fillRect(labelX, labelY, labelWidth, 18);
-        context.strokeStyle = '#ffcf4d'; context.strokeRect(labelX, labelY, labelWidth, 18);
-        context.fillStyle = '#ffe59b'; context.textAlign = 'left'; context.textBaseline = 'middle';
-        context.fillText(label, labelX + 5, labelY + 9);
+        context.setLineDash([2, 3]);
+        context.beginPath(); context.moveTo(rect.left, thresholdY);
+        context.lineTo(rect.right, thresholdY); context.stroke();
+        context.setLineDash([]);
+        const source = this.thresholdAutomatic ? 'AUTO' : 'MANUAL';
+        const thresholdLabel = `${source} THR ${this.thresholdDb.toFixed(1)} ${this.levelUnit}`;
+        context.font = '600 9px ui-monospace, SFMono-Regular, Menlo, monospace';
+        context.textAlign = 'right'; context.textBaseline = 'bottom';
+        context.fillStyle = '#ffad9c';
+        context.fillText(thresholdLabel, rect.right - 3, Math.max(rect.top + 10, thresholdY - 2));
+      }
+
+      const drawLabel = (lines, anchorX, anchorY, color) => {
+        context.font = '600 9px ui-monospace, SFMono-Regular, Menlo, monospace';
+        const width = Math.max(...lines.map(line => context.measureText(line).width)) + 8;
+        const height = lines.length * 11 + 5;
+        const x = clamp(anchorX - width / 2, rect.left + 1, rect.right - width - 1);
+        const y = clamp(anchorY, rect.top + 1, rect.bottom - height - 1);
+        context.fillStyle = 'rgba(8, 13, 24, 0.88)';
+        context.fillRect(x, y, width, height);
+        context.strokeStyle = color; context.lineWidth = 1; context.strokeRect(x, y, width, height);
+        context.fillStyle = color; context.textAlign = 'left'; context.textBaseline = 'top';
+        lines.forEach((line, index) => context.fillText(line, x + 4, y + 3 + index * 11));
+      };
+      const visibleSignals = this.detectedSignals.filter(signal =>
+        signal.center >= firstFrequency && signal.center <= lastFrequency);
+      for (let index = 0; index < visibleSignals.length; index++) {
+        const signal = visibleSignals[index];
+        const centerX = xForFrequency(signal.center);
+        const peakX = xForFrequency(signal.peakFrequency);
+        const peakY = yForLevel(signal.peakLevel);
+        context.fillStyle = signal.color;
+        context.beginPath(); context.arc(peakX, peakY, 3, 0, Math.PI * 2); context.fill();
+        drawLabel([
+          `S${signal.id} C ${engineering(signal.center, 'Hz', 6)}`,
+          `99% BW ${engineering(signal.width, 'Hz', 5)}`,
+          `Max ${signal.peakLevel.toFixed(2)} ${this.levelUnit}`,
+        ], centerX, rect.top + 20 + (index % 3) * 40, signal.color);
+      }
+
+      if (this.zoomSelection) {
+        const left = Math.min(this.zoomSelection.startX, this.zoomSelection.x);
+        const right = Math.max(this.zoomSelection.startX, this.zoomSelection.x);
+        const top = Math.min(this.zoomSelection.startY, this.zoomSelection.y);
+        const bottom = Math.max(this.zoomSelection.startY, this.zoomSelection.y);
+        context.fillStyle = 'rgba(89, 217, 205, 0.13)';
+        context.fillRect(left, top, right - left, bottom - top);
+        context.strokeStyle = '#59d9cd';
+        context.lineWidth = 1;
+        context.setLineDash([4, 3]);
+        context.strokeRect(left + 0.5, top + 0.5,
+          Math.max(0, right - left - 1), Math.max(0, bottom - top - 1));
+        context.setLineDash([]);
       }
 
       context.fillStyle = '#dce8f8';
@@ -552,17 +874,23 @@
     }
 
     updateStatus() {
-      const span = this.isFloat ? this.sampleRate / 2 : this.sampleRate;
+      const firstFrequency = this.frequencyAt(this.viewFirstIndex);
+      const lastFrequency = this.frequencyAt(this.viewLastIndex);
+      const span = lastFrequency - firstFrequency;
       const rbw = this.sampleRate / this.fftSize * this.enbwBins;
       const parts = [
-        `Center ${engineering(this.centerFrequency, 'Hz')}`,
+        `Center ${engineering((firstFrequency + lastFrequency) / 2, 'Hz')}`,
         `Span ${engineering(span, 'Hz')}`,
         `RBW ${engineering(rbw, 'Hz')}`,
       ];
-      if (this.peak)
-        parts.push(`Peak ${engineering(this.peak.frequency, 'Hz', 6)} ${this.peak.level.toFixed(2)} ${this.levelUnit}`);
-      if (this.obw)
-        parts.push(`OBW ${this.obw.percent.toFixed(2)}% ${engineering(this.obw.width, 'Hz', 6)}`);
+      if (this.zoomStack.length) parts.push(`Zoom ${this.zoomStack.length}×`);
+      if (this.thresholdDb == null && this.thresholdAutomatic)
+        parts.push(`Threshold learning ${this.thresholdSamples.length}/${THRESHOLD_SAMPLE_COUNT}`);
+      else if (this.thresholdDb != null)
+        parts.push(`${this.detectedSignals.length} signal${this.detectedSignals.length === 1 ? '' : 's'} above ${
+          this.thresholdDb.toFixed(2)} ${this.levelUnit}`);
+      if (this.thresholdAutomatic && this.noiseFloorDb != null)
+        parts.push(`Noise floor ${(this.noiseFloorDb + this.levelOffsetDb).toFixed(2)} ${this.levelUnit}`);
       if (this.frozen) parts.push('HELD');
       if (this.skippedFrames) parts.push(`${this.skippedFrames} skipped`);
       this.status.textContent = parts.join(' · ');
@@ -589,8 +917,14 @@
       this.dirty = true;
     }
 
-    setSampleRate(value) { this.sampleRate = Math.max(1, finite(value, this.sampleRate)); this.dirty = true; }
-    setCenterFrequency(value) { this.centerFrequency = finite(value); this.dirty = true; }
+    setSampleRate(value) {
+      this.sampleRate = Math.max(1, finite(value, this.sampleRate));
+      this.updateDetections(); this.dirty = true;
+    }
+    setCenterFrequency(value) {
+      this.centerFrequency = finite(value);
+      this.updateDetections(); this.dirty = true;
+    }
     setAverage(value) { this.average = clamp(finite(value, this.average), 0.0001, 1); }
     setReferenceLevel(value) {
       this.referenceLevel = finite(value, this.referenceLevel);
@@ -600,13 +934,19 @@
       this.dbPerDivision = Math.max(0.1, finite(value, this.dbPerDivision));
       this.divisionInput.value = String(this.dbPerDivision); this.dirty = true;
     }
-    setLevelOffsetDb(value) { this.levelOffsetDb = finite(value); this.updateMeasurements(); this.dirty = true; }
+    setLevelOffsetDb(value) {
+      const next = finite(value);
+      if (this.thresholdAutomatic && this.thresholdDb != null)
+        this.thresholdDb += next - this.levelOffsetDb;
+      this.levelOffsetDb = next;
+      if (this.thresholdDb != null) this.thresholdInput.value = this.thresholdDb.toFixed(2);
+      this.updateDetections(); this.dirty = true;
+    }
     setObwPercent(value) {
       this.obwPercent = clamp(finite(value, this.obwPercent), 0.001, 99.999);
-      this.obwButton.textContent = `OBW ${this.obwPercent.toFixed(0)}%`;
-      this.updateMeasurements(); this.dirty = true;
+      this.dirty = true;
     }
-    setObwSpan(value) { this.obwSpan = Math.max(0, finite(value)); this.updateMeasurements(); this.dirty = true; }
+    setObwSpan(value) { this.obwSpan = Math.max(0, finite(value)); this.dirty = true; }
 
     configureNumeric(sampleRate, centerFrequency, enbwBins, average,
       referenceLevel, dbPerDivision, levelOffsetDb, peakTrack) {
@@ -617,7 +957,6 @@
       this.referenceLevel = finite(referenceLevel, this.referenceLevel);
       this.dbPerDivision = Math.max(0.1, finite(dbPerDivision, this.dbPerDivision));
       this.levelOffsetDb = finite(levelOffsetDb, this.levelOffsetDb);
-      this.trackPeak = !!peakTrack;
       this.referenceInput.value = String(this.referenceLevel);
       this.divisionInput.value = String(this.dbPerDivision);
       this.updateButtonStates();
@@ -648,35 +987,65 @@
         entry.curves = [];
         return entry;
       }
-      const levels = Array.from(this.trace, value => db(value) + this.levelOffsetDb);
-      const frequencies = this.frequencies();
-      const stride = Math.max(1, Math.ceil(this.binCount / clamp(maxPoints | 0, 4, 256)));
+      const first = Math.max(0, Math.floor(this.viewFirstIndex));
+      const last = Math.min(this.binCount - 1, Math.ceil(this.viewLastIndex));
+      const levels = Array.from(this.trace.slice(first, last + 1),
+        value => db(value) + this.levelOffsetDb);
+      const frequencies = Array.from({ length: last - first + 1 },
+        (_, index) => this.frequencyAt(first + index));
+      const stride = Math.max(1,
+        Math.ceil(levels.length / clamp(maxPoints | 0, 4, 256)));
       const samples = [];
-      for (let index = 0; index < this.binCount; index += stride)
+      for (let index = 0; index < levels.length; index += stride)
         samples.push([frequencies[index], levels[index]]);
       const minimum = Math.min(...levels);
       const maximum = Math.max(...levels);
       const mean = levels.reduce((sum, value) => sum + value, 0) / levels.length;
+      const visiblePeak = peakOf(this.trace.slice(first, last + 1),
+        index => this.frequencyAt(first + index), this.levelOffsetDb);
       const curve = {
-        label: this.title, points: this.binCount,
-        x: { min: frequencies[0], max: frequencies[frequencies.length - 1] },
+        label: this.title, points: levels.length,
+        x: { min: this.frequencyAt(this.viewFirstIndex),
+          max: this.frequencyAt(this.viewLastIndex) },
         y: { min: minimum, max: maximum, mean },
-        peak: this.peak ? { x: this.peak.frequency, y: this.peak.level } : undefined,
+        peak: visiblePeak ? { x: visiblePeak.frequency, y: visiblePeak.level } : undefined,
         samples,
         ...(stride > 1 ? { sample_stride: stride } : {}),
       };
       entry.kind = 'curves';
-      entry.x_axis = { title: 'Frequency (Hz)', min: frequencies[0], max: frequencies[frequencies.length - 1] };
+      entry.x_axis = { title: 'Frequency (Hz)',
+        min: this.frequencyAt(this.viewFirstIndex),
+        max: this.frequencyAt(this.viewLastIndex) };
       entry.y_axis = { title: this.levelUnit,
         min: this.referenceLevel - GRID_DIVISIONS * this.dbPerDivision,
         max: this.referenceLevel };
+      entry.zoom_depth = this.zoomStack.length;
       entry.curves = [curve];
       entry.rbw_hz = this.sampleRate / this.fftSize * this.enbwBins;
       entry.trace_mode = this.traceMode;
-      if (this.markerIndex != null)
-        entry.marker = { frequency: this.frequencyAt(this.markerIndex),
-          level: levels[this.markerIndex], tracking: this.trackPeak };
-      if (this.obw) entry.occupied_bandwidth = { ...this.obw };
+      entry.detection = {
+        enabled: true,
+        threshold: this.thresholdDb,
+        threshold_unit: this.levelUnit,
+        threshold_source: this.thresholdAutomatic ? 'automatic' : 'manual',
+        noise_floor: this.noiseFloorDb == null
+          ? null : this.noiseFloorDb + this.levelOffsetDb,
+        estimator: 'corrected_lower_tail',
+        estimator_percentile: NOISE_FLOOR_PERCENTILE,
+        adaptation_alpha: NOISE_FLOOR_ALPHA,
+        batch_samples: this.thresholdAutomatic ? this.thresholdSamples.length : undefined,
+        required_samples: THRESHOLD_SAMPLE_COUNT,
+        margin_db: THRESHOLD_MARGIN_DB,
+      };
+      entry.detected_signals = this.detectedSignals.map(signal => ({
+        id: signal.id,
+        center_frequency: signal.center,
+        peak_frequency: signal.peakFrequency,
+        peak_level: signal.peakLevel,
+        occupied_bandwidth_99: signal.width,
+        low_frequency_99: signal.low,
+        high_frequency_99: signal.high,
+      }));
       return entry;
     }
 
@@ -770,7 +1139,8 @@
   }
 
   globalThis.__grSpectrumAnalyzerInternals = {
-    engineering, peakOf, occupiedBandwidth,
+    engineering, percentile, estimateNoiseFloor, smoothPower, peakOf,
+    occupiedBandwidth, occupiedBandwidthRange, detectSignals,
   };
   const manager = new SpectrumAnalyzerManager();
   globalThis.__grSpectrumAnalyzer = manager;
