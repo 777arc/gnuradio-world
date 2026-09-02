@@ -127,20 +127,7 @@ export function createExamplePalette(deps: ExamplePaletteDeps) {
     };
     applyExampleFilter = refresh;
   
-    // The way to the generated example pages from inside the app. Every row is
-    // already a link to one, but those only exist once the palette has rendered;
-    // this is here from the first paint and is the entry a reader (or a crawler)
-    // finds without opening a directory.
-    const browse = document.createElement('div'); browse.className = 'ex-browse';
-    const browseLink = document.createElement('a');
-    browseLink.href = '/examples/';
-    browseLink.target = '_blank';
-    browseLink.rel = 'noopener noreferrer';
-    browseLink.textContent = 'Browse all examples ↗';
-    browseLink.title = 'Open the example flowgraph catalog in a new tab';
-    browse.append(browseLink);
-
-    status.remove(); panel.append(searchBar, browse, bar, list, noMatch);
+    status.remove(); panel.append(searchBar, bar, list, noMatch);
     exampleEntries.length = 0;
     const addExample = (file: string, container: HTMLElement) => {
       // A row, not just the entry, because the copy-link button sits on top of it

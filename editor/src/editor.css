@@ -487,10 +487,6 @@ button:hover { filter:brightness(1.15); }
 /* An example whose .grc would not parse: nothing to load and no page to visit. */
 .ex-item.disabled { cursor:not-allowed; color:#5c637a; }
 .ex-item.disabled:hover { background:#242a3b; border-color:#333a4d; }
-/* The link to the generated catalog, under the examples search box. */
-.ex-browse { padding:0 8px 8px; font-size:13px; }
-.ex-browse a { color:#7ab7ff; text-decoration:none; }
-.ex-browse a:hover { text-decoration:underline; }
 /* the classes set display:block, which would otherwise beat the UA [hidden] rule */
 .ex-item[hidden], .ex-row[hidden] { display:none; }
 .ex-directory[hidden] { display:none; }
