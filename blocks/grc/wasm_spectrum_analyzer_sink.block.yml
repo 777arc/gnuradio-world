@@ -24,8 +24,8 @@ documentation: |-
     exponential FFT-bin noise power, avoiding both occupied bins and anomalously
     low FFT nulls, then places the threshold 6 dB above that estimate. Automatic
     mode adapts the estimate slowly in subsequent 10,000-bin batches. The
-    threshold remains editable in the running GUI and can be re-learned at any
-    time. Every above-threshold signal receives a stable color, a solid
+    threshold remains editable with a slider in the running GUI and can be
+    re-learned at any time. Every above-threshold signal receives a stable color, a solid
     center-frequency line, shaded 99% occupied bandwidth with dashed edges, and
     one live annotation above its center containing center frequency, bandwidth,
     and the maximum-bin level. The peak frequency remains available in numeric

@@ -8,8 +8,9 @@ const source = await readFile(
   new URL('../src/spectrum_analyzer.js', import.meta.url), 'utf8');
 const sandbox = { console };
 vm.runInNewContext(source, sandbox, { filename: 'spectrum_analyzer.js' });
-const { engineering, percentile, estimateNoiseFloor, smoothPower, peakOf,
-  occupiedBandwidth, detectSignals } =
+const { engineering, signalAnnotationLines, signalHue, placeSignalAnnotation,
+  accumulateDisplayedPeak, percentile, estimateNoiseFloor, smoothPower, peakOf,
+  autoScaleBounds, occupiedBandwidth, detectSignals } =
   sandbox.__grSpectrumAnalyzerInternals;
 
 {
@@ -61,6 +62,50 @@ const { engineering, percentile, estimateNoiseFloor, smoothPower, peakOf,
 }
 
 assert.match(engineering(2_450_000, 'Hz'), /2\.45 MHz/);
+
+assert.deepEqual(Array.from(signalAnnotationLines({
+  id: 2, center: 2_450_000, width: 12_500, peakLevel: -18.125,
+}, 'dBFS')), [
+  'S2', 'Center 2.45 MHz', '99% BW 12.5 kHz', 'Max -18.13 dBFS',
+], 'signal annotations put the centered id on its own line and spell out Center');
+
+assert.ok(Array.from({ length: 1000 }, (_, index) => signalHue(index + 1))
+  .every(hue => hue < 110 || hue >= 190),
+'signal colors always exclude the green hue band used by the spectrum trace');
+
+{
+  const peak = { x: 280, y: 58 };
+  const label = { width: 170, height: 83 };
+  const placed = placeSignalAnnotation(
+    { left: 62, right: 520, top: 16, bottom: 330 },
+    label.width, label.height, 42, peak.x, peak.y);
+  const coversPeak = peak.x >= placed.x && peak.x <= placed.x + label.width &&
+    peak.y >= placed.y && peak.y <= placed.y + label.height;
+  assert.equal(coversPeak, false,
+    'a tone annotation is placed beside its peak instead of covering the tip');
+}
+
+{
+  let state = accumulateDisplayedPeak(1000, -30, null, 0);
+  state = accumulateDisplayedPeak(1100, -20, state, 250);
+  state = accumulateDisplayedPeak(1200, -10, state, 750);
+  assert.equal(state.displayPeakLevel, -30,
+    'the displayed peak stays fixed during its one-second accumulation window');
+  state = accumulateDisplayedPeak(1300, -15, state, 1000);
+  assert.equal(state.displayPeakLevel, -10);
+  assert.equal(state.displayPeakFrequency, 1200,
+    'the completed window publishes its strongest peak and matching frequency');
+}
+
+{
+  const levels = [-83, -81, -79, -77, -30, -24.25];
+  const annotationMaximum = -22.125;
+  const scale = autoScaleBounds(levels, annotationMaximum);
+  assert.ok(scale.referenceLevel - annotationMaximum >= scale.dbPerDivision,
+    'autoscale reserves at least one full division above the annotation maximum');
+  assert.ok(scale.referenceLevel - 10 * scale.dbPerDivision <= scale.floor,
+    'autoscale keeps the estimated floor inside the displayed range');
+}
 
 {
   const power = Array(32).fill(1e-10);

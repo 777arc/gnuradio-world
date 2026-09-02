@@ -10,6 +10,15 @@
   const NOISE_FLOOR_PERCENTILE = 20;
   const NOISE_FLOOR_ALPHA = 0.1;
   const THRESHOLD_MARGIN_DB = 6;
+  const AUTO_SCALE_HEADROOM_DIVISIONS = 1;
+  const UI_FONT_SIZE_PX = 16;
+  const UI_FONT = `${UI_FONT_SIZE_PX}px system-ui, sans-serif`;
+  const UI_MONO_FONT = `${UI_FONT_SIZE_PX}px ui-monospace, SFMono-Regular, Menlo, monospace`;
+  const TRACE_COLOR = '#67f5aa';
+  const SIGNAL_HUE_LOW_LENGTH = 110;
+  const SIGNAL_HUE_HIGH_START = 190;
+  const SIGNAL_HUE_SPAN = SIGNAL_HUE_LOW_LENGTH + (360 - SIGNAL_HUE_HIGH_START);
+  const PEAK_DISPLAY_INTERVAL_MS = 1000;
   const TRACE_MODES = new Set(['clear_write', 'average', 'max_hold']);
 
   const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
@@ -75,6 +84,80 @@
     })} ${prefix}${unit}`;
   }
 
+  function signalAnnotationLines(signal, levelUnit) {
+    return [
+      `S${signal.id}`,
+      `Center ${engineering(signal.center, 'Hz', 6)}`,
+      `99% BW ${engineering(signal.width, 'Hz', 5)}`,
+      `Max ${signal.peakLevel.toFixed(2)} ${levelUnit}`,
+    ];
+  }
+
+  // The trace is green (about 150°). Map the golden-angle sequence around a
+  // deliberately omitted 110°–190° band so no detected signal can borrow the
+  // plot's own color while identities remain stable between frames.
+  function signalHue(id) {
+    const mapped = (Math.max(1, finite(id, 1)) * 137.508 + 8) % SIGNAL_HUE_SPAN;
+    return mapped < SIGNAL_HUE_LOW_LENGTH
+      ? mapped : SIGNAL_HUE_HIGH_START + mapped - SIGNAL_HUE_LOW_LENGTH;
+  }
+
+  function placeSignalAnnotation(rect, width, height, anchorY, peakX, peakY,
+    preferRight = true) {
+    const inset = 1;
+    const gap = 10;
+    const minimumX = rect.left + inset;
+    const maximumX = rect.right - width - inset;
+    const minimumY = rect.top + inset;
+    const maximumY = rect.bottom - height - inset;
+    const y = clamp(anchorY, minimumY, maximumY);
+    const right = { x: peakX + gap, y };
+    const left = { x: peakX - gap - width, y };
+    const sides = preferRight ? [right, left] : [left, right];
+    for (const candidate of sides) {
+      if (candidate.x >= minimumX && candidate.x <= maximumX) return candidate;
+    }
+    const x = clamp(peakX - width / 2, minimumX, maximumX);
+    const below = { x, y: peakY + gap };
+    if (below.y >= minimumY && below.y <= maximumY) return below;
+    const above = { x, y: peakY - gap - height };
+    if (above.y >= minimumY && above.y <= maximumY) return above;
+    return { x, y };
+  }
+
+  function accumulateDisplayedPeak(peakFrequency, peakLevel, previous, now) {
+    if (!previous || !Number.isFinite(previous.displayPeakLevel)) {
+      return {
+        displayPeakFrequency: peakFrequency,
+        displayPeakLevel: peakLevel,
+        pendingPeakFrequency: peakFrequency,
+        pendingPeakLevel: -Infinity,
+        peakWindowStartedAt: now,
+      };
+    }
+    const pendingWins = !Number.isFinite(previous.pendingPeakLevel) ||
+      peakLevel > previous.pendingPeakLevel;
+    const pendingPeakFrequency = pendingWins
+      ? peakFrequency : previous.pendingPeakFrequency;
+    const pendingPeakLevel = pendingWins ? peakLevel : previous.pendingPeakLevel;
+    if (now - previous.peakWindowStartedAt < PEAK_DISPLAY_INTERVAL_MS) {
+      return {
+        displayPeakFrequency: previous.displayPeakFrequency,
+        displayPeakLevel: previous.displayPeakLevel,
+        pendingPeakFrequency,
+        pendingPeakLevel,
+        peakWindowStartedAt: previous.peakWindowStartedAt,
+      };
+    }
+    return {
+      displayPeakFrequency: pendingPeakFrequency,
+      displayPeakLevel: pendingPeakLevel,
+      pendingPeakFrequency: peakFrequency,
+      pendingPeakLevel: -Infinity,
+      peakWindowStartedAt: now,
+    };
+  }
+
   function peakOf(values, indexToFrequency, offsetDb = 0) {
     if (!values?.length) return null;
     let index = 0;
@@ -100,6 +183,21 @@
       frequency: indexToFrequency(interpolated),
       level,
     };
+  }
+
+  function autoScaleBounds(values, highlightedPeak = -Infinity) {
+    const levels = Array.from(values || [], Number)
+      .filter(Number.isFinite).sort((a, b) => a - b);
+    if (!levels.length) return null;
+    const peak = Math.max(levels[levels.length - 1],
+      Number.isFinite(Number(highlightedPeak)) ? Number(highlightedPeak) : -Infinity);
+    const floor = levels[Math.floor(levels.length * 0.15)] ?? peak - 80;
+    const dataDivisions = GRID_DIVISIONS - AUTO_SCALE_HEADROOM_DIVISIONS;
+    const dbPerDivision = Math.max(1,
+      Math.ceil((peak - floor) / dataDivisions / 2) * 2);
+    const referenceLevel = Math.ceil((peak +
+      AUTO_SCALE_HEADROOM_DIVISIONS * dbPerDivision) / 5) * 5;
+    return { referenceLevel, dbPerDivision, peak, floor };
   }
 
   function occupiedBandwidth(values, frequencies, centerIndex, percent, spanHz) {
@@ -250,10 +348,10 @@
     element.type = 'button';
     element.textContent = label;
     element.dataset.action = action;
-    element.title = title;
+    element.dataset.tooltip = title;
     Object.assign(element.style, {
       border: '1px solid #31425c', borderRadius: '3px', color: '#c8d6e8',
-      background: '#111b2b', padding: '3px 7px', font: '600 11px system-ui',
+      background: '#111b2b', padding: '3px 7px', font: `600 ${UI_FONT}`,
       minHeight: '26px', cursor: 'pointer', whiteSpace: 'nowrap',
     });
     return element;
@@ -271,10 +369,33 @@
     Object.assign(input.style, {
       width, boxSizing: 'border-box', background: '#07101d', color: '#dce8f8',
       border: '1px solid #31425c', borderRadius: '3px', padding: '3px 4px',
-      font: '11px ui-monospace, monospace',
+      font: UI_MONO_FONT,
     });
     label.append(input);
     return { label, input };
+  }
+
+  function rangeInput(labelText, step, width = '120px') {
+    const label = document.createElement('label');
+    label.append(`${labelText} `);
+    Object.assign(label.style, {
+      display: 'inline-flex', alignItems: 'center', gap: '4px',
+      whiteSpace: 'nowrap', color: '#8ea2bd',
+    });
+    const input = document.createElement('input');
+    input.type = 'range';
+    input.step = String(step);
+    input.setAttribute('aria-label', labelText);
+    Object.assign(input.style, {
+      width, accentColor: '#f07f67', cursor: 'pointer', font: UI_FONT,
+    });
+    const readout = document.createElement('span');
+    Object.assign(readout.style, {
+      minWidth: '74px', color: '#dce8f8',
+      font: UI_MONO_FONT,
+    });
+    label.append(input, readout);
+    return { label, input, readout };
   }
 
   class SpectrumAnalyzerRenderer {
@@ -314,7 +435,7 @@
       this.signalTracks = [];
       this.nextSignalId = 1;
       this.frozen = false;
-      this.autoScalePending = false;
+      this.autoScalePending = true;
       this.viewFirstIndex = 0;
       this.viewLastIndex = this.binCount - 1;
       this.zoomStack = [];
@@ -336,7 +457,7 @@
         position: 'fixed', left: '0', top: '0', width: '1px', height: '1px',
         zIndex: '10000', display: 'none', flexDirection: 'column', overflow: 'hidden',
         boxSizing: 'border-box', border: '1px solid #24344c', borderRadius: '2px',
-        background: '#050914', color: '#c8d6e8', font: '11px system-ui, sans-serif',
+        background: '#050914', color: '#c8d6e8', font: UI_FONT,
         pointerEvents: 'auto', userSelect: 'none',
       });
 
@@ -348,11 +469,11 @@
       });
       this.holdButton = button('Hold', 'hold', 'Freeze or resume the display');
       this.autoButton = button('Auto', 'auto', 'Autoscale the level axis once');
-      const threshold = numberInput('Threshold', null, 1, '70px');
+      const threshold = rangeInput('Threshold', 1);
       this.thresholdInput = threshold.input;
-      this.thresholdInput.placeholder = 'learning';
-      this.thresholdInput.title =
-        'Detection threshold in the displayed level unit; clear it to learn again';
+      this.thresholdReadout = threshold.readout;
+      this.thresholdInput.dataset.tooltip =
+        'Detection threshold in the displayed level unit; use Relearn for automatic estimation';
       this.relearnButton = button('Relearn', 'relearn',
         'Restart adaptive noise-floor estimation with the next 10,000 spectrum bins');
       this.clearButton = button('Clear', 'clear', 'Clear averaging, max hold, and measurements');
@@ -370,7 +491,7 @@
       this.modeSelect.value = this.traceMode;
       Object.assign(this.modeSelect.style, {
         color: '#c8d6e8', background: '#111b2b', border: '1px solid #31425c',
-        borderRadius: '3px', minHeight: '26px', font: '600 11px system-ui',
+        borderRadius: '3px', minHeight: '26px', font: `600 ${UI_FONT}`,
       });
       const reference = numberInput('Ref', this.referenceLevel, 5);
       this.referenceInput = reference.input;
@@ -397,11 +518,22 @@
         minHeight: '24px', padding: '4px 8px', boxSizing: 'border-box',
         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         color: '#9fb4cf', background: '#07101d', borderTop: '1px solid #24344c',
-        font: '11px ui-monospace, SFMono-Regular, Menlo, monospace',
+        font: UI_MONO_FONT,
+      });
+      this.tooltip = document.createElement('div');
+      this.tooltip.className = 'gr-spectrum-tooltip';
+      this.tooltip.hidden = true;
+      Object.assign(this.tooltip.style, {
+        position: 'fixed', zIndex: '10001', maxWidth: '320px', padding: '7px 10px',
+        border: '1px solid #465a76', borderRadius: '5px', pointerEvents: 'none',
+        color: '#e4edf9', background: '#111a28', boxShadow: '0 6px 18px rgba(0,0,0,.45)',
+        font: UI_FONT, lineHeight: '1.35', whiteSpace: 'normal',
       });
       this.root.append(this.toolbar, this.canvas, this.status);
       document.body.append(this.root);
+      document.body.append(this.tooltip);
       this.updateButtonStates();
+      this.updateThresholdControl();
     }
 
     installControls() {
@@ -426,23 +558,41 @@
         this.setReferenceLevel(finite(this.referenceInput.value, this.referenceLevel)));
       this.divisionInput.addEventListener('change', () =>
         this.setDbPerDivision(finite(this.divisionInput.value, this.dbPerDivision)));
-      this.thresholdInput.addEventListener('change', () => {
-        if (!this.thresholdInput.value.trim()) {
-          this.resetThresholdLearning();
-          return;
-        }
+      this.thresholdInput.addEventListener('input', () => {
         const value = Number(this.thresholdInput.value);
-        if (!Number.isFinite(value)) {
-          this.thresholdInput.value = this.thresholdDb == null
-            ? '' : this.thresholdDb.toFixed(2);
-          return;
-        }
+        if (!Number.isFinite(value)) return;
         this.thresholdDb = value;
         this.thresholdAutomatic = false;
         this.thresholdSamples = [];
         this.updateDetections();
+        this.updateThresholdControl();
         this.dirty = true;
       });
+
+      const showTooltip = (target, clientX, clientY) => {
+        const text = target?.dataset?.tooltip;
+        if (!text) return;
+        this.tooltip.textContent = text;
+        this.tooltip.hidden = false;
+        const bounds = this.tooltip.getBoundingClientRect();
+        this.tooltip.style.left = `${clamp(clientX + 12, 4,
+          Math.max(4, window.innerWidth - bounds.width - 4))}px`;
+        this.tooltip.style.top = `${clamp(clientY + 14, 4,
+          Math.max(4, window.innerHeight - bounds.height - 4))}px`;
+      };
+      this.root.addEventListener('pointermove', event => {
+        const target = event.target?.closest?.('[data-tooltip]');
+        if (target) showTooltip(target, event.clientX, event.clientY);
+        else this.tooltip.hidden = true;
+      });
+      this.root.addEventListener('pointerleave', () => { this.tooltip.hidden = true; });
+      this.root.addEventListener('focusin', event => {
+        const target = event.target?.closest?.('[data-tooltip]');
+        if (!target) return;
+        const bounds = target.getBoundingClientRect();
+        showTooltip(target, bounds.left, bounds.bottom);
+      });
+      this.root.addEventListener('focusout', () => { this.tooltip.hidden = true; });
 
       const pointerPosition = event => {
         const rect = this.plotRect();
@@ -493,6 +643,27 @@
       };
       state(this.holdButton, this.frozen);
       this.holdButton.textContent = this.frozen ? 'Run' : 'Hold';
+    }
+
+    updateThresholdControl() {
+      const axisMinimum = this.referenceLevel - GRID_DIVISIONS * this.dbPerDivision;
+      const threshold = this.thresholdDb;
+      const minimum = Math.floor(Math.min(axisMinimum, threshold ?? axisMinimum));
+      const maximum = Math.ceil(Math.max(this.referenceLevel, threshold ?? this.referenceLevel));
+      this.thresholdInput.min = String(minimum);
+      this.thresholdInput.max = String(Math.max(minimum + 1, maximum));
+      if (threshold == null) {
+        this.thresholdInput.disabled = true;
+        this.thresholdInput.value = String((minimum + maximum) / 2);
+        this.thresholdInput.setAttribute('aria-valuetext', 'learning');
+        this.thresholdReadout.textContent = 'learning';
+        return;
+      }
+      this.thresholdInput.disabled = false;
+      this.thresholdInput.value = String(threshold);
+      const text = `${threshold.toFixed(1)} ${this.levelUnit}`;
+      this.thresholdInput.setAttribute('aria-valuetext', text);
+      this.thresholdReadout.textContent = text;
     }
 
     clear() {
@@ -616,11 +787,16 @@
         const visiblePeak = peakOf(visibleTrace,
           index => this.frequencyAt(first + index), this.levelOffsetDb) || this.peak;
         const levels = Array.from(visibleTrace,
-          value => db(value) + this.levelOffsetDb).sort((a, b) => a - b);
-        const floor = levels[Math.floor(levels.length * 0.15)] ?? visiblePeak.level - 80;
-        this.referenceLevel = Math.ceil((visiblePeak.level + 3) / 5) * 5;
-        this.dbPerDivision = Math.max(1,
-          Math.ceil((this.referenceLevel - floor) / GRID_DIVISIONS / 2) * 2);
+          value => db(value) + this.levelOffsetDb);
+        const firstFrequency = this.frequencyAt(this.viewFirstIndex);
+        const lastFrequency = this.frequencyAt(this.viewLastIndex);
+        const annotatedPeak = this.detectedSignals
+          .filter(signal => signal.center >= firstFrequency && signal.center <= lastFrequency)
+          .reduce((maximum, signal) => Math.max(maximum, signal.peakLevel),
+            visiblePeak.level);
+        const bounds = autoScaleBounds(levels, annotatedPeak);
+        this.referenceLevel = bounds.referenceLevel;
+        this.dbPerDivision = bounds.dbPerDivision;
         this.referenceInput.value = String(this.referenceLevel);
         this.divisionInput.value = String(this.dbPerDivision);
         this.autoScalePending = false;
@@ -638,8 +814,7 @@
         (1 - NOISE_FLOOR_ALPHA) * this.noiseFloorDb + NOISE_FLOOR_ALPHA * estimate;
       this.thresholdDb = this.noiseFloorDb + THRESHOLD_MARGIN_DB + this.levelOffsetDb;
       this.thresholdSamples = [];
-      if (document.activeElement !== this.thresholdInput)
-        this.thresholdInput.value = this.thresholdDb.toFixed(2);
+      this.updateThresholdControl();
     }
 
     resetThresholdLearning() {
@@ -649,8 +824,7 @@
       this.thresholdSamples = [];
       this.detectedSignals = [];
       this.signalTracks = [];
-      this.thresholdInput.value = '';
-      this.thresholdInput.placeholder = 'learning';
+      this.updateThresholdControl();
       this.dirty = true;
     }
 
@@ -666,6 +840,7 @@
       const envelope = smoothPower(this.frameCopy, smoothingRadius, 2);
       const detections = detectSignals(this.frameCopy, this.frequencies(),
         this.thresholdDb, 99, this.levelOffsetDb, smoothingRadius * 2, envelope);
+      const now = performance.now();
       const binWidth = this.binCount > 1
         ? Math.abs(this.frequencyAt(1) - this.frequencyAt(0)) : 0;
       const candidates = [];
@@ -684,21 +859,36 @@
       for (const candidate of candidates) {
         if (usedOld.has(candidate.oldIndex) || usedNew.has(candidate.newIndex)) continue;
         const old = this.signalTracks[candidate.oldIndex];
-        Object.assign(detections[candidate.newIndex], { id: old.id, hue: old.hue });
+        Object.assign(detections[candidate.newIndex], { id: old.id, hue: old.hue,
+          peakDisplayState: old });
         usedOld.add(candidate.oldIndex);
         usedNew.add(candidate.newIndex);
       }
       for (const signal of detections) {
         if (!signal.id) {
           signal.id = this.nextSignalId++;
-          signal.hue = (signal.id * 137.508 + 8) % 360;
+          signal.hue = signalHue(signal.id);
         }
+        const instantaneousPeakFrequency = signal.peakFrequency;
+        const instantaneousPeakLevel = signal.peakLevel;
+        const peakState = accumulateDisplayedPeak(instantaneousPeakFrequency,
+          instantaneousPeakLevel, signal.peakDisplayState, now);
+        Object.assign(signal, peakState, {
+          instantaneousPeakFrequency, instantaneousPeakLevel,
+          peakFrequency: peakState.displayPeakFrequency,
+          peakLevel: peakState.displayPeakLevel,
+        });
+        delete signal.peakDisplayState;
         signal.color = `hsl(${signal.hue.toFixed(1)} 82% 64%)`;
         signal.fillColor = `hsl(${signal.hue.toFixed(1)} 82% 58% / 0.14)`;
       }
       this.detectedSignals = detections;
-      this.signalTracks = detections.map(({ id, hue, center, width }) =>
-        ({ id, hue, center, width }));
+      this.signalTracks = detections.map(({ id, hue, center, width,
+        displayPeakFrequency, displayPeakLevel, pendingPeakFrequency,
+        pendingPeakLevel, peakWindowStartedAt }) => ({
+        id, hue, center, width, displayPeakFrequency, displayPeakLevel,
+        pendingPeakFrequency, pendingPeakLevel, peakWindowStartedAt,
+      }));
     }
 
     plotRect() {
@@ -732,7 +922,7 @@
       context.lineWidth = 1;
       context.strokeStyle = '#24344c';
       context.fillStyle = '#8ea2bd';
-      context.font = '10px ui-monospace, SFMono-Regular, Menlo, monospace';
+      context.font = UI_MONO_FONT;
       context.textBaseline = 'middle';
       for (let division = 0; division <= GRID_DIVISIONS; division++) {
         const x = rect.left + plotWidth * division / GRID_DIVISIONS;
@@ -794,7 +984,7 @@
       }
 
       if (this.trace) {
-        context.strokeStyle = '#67f5aa';
+        context.strokeStyle = TRACE_COLOR;
         context.lineWidth = 1.35;
         context.beginPath();
         const first = Math.max(0, Math.floor(this.viewFirstIndex));
@@ -817,38 +1007,42 @@
         context.setLineDash([]);
         const source = this.thresholdAutomatic ? 'AUTO' : 'MANUAL';
         const thresholdLabel = `${source} THR ${this.thresholdDb.toFixed(1)} ${this.levelUnit}`;
-        context.font = '600 9px ui-monospace, SFMono-Regular, Menlo, monospace';
+        context.font = `600 ${UI_MONO_FONT}`;
         context.textAlign = 'right'; context.textBaseline = 'bottom';
         context.fillStyle = '#ffad9c';
-        context.fillText(thresholdLabel, rect.right - 3, Math.max(rect.top + 10, thresholdY - 2));
+        context.fillText(thresholdLabel, rect.right - 3,
+          Math.max(rect.top + UI_FONT_SIZE_PX, thresholdY - 2));
       }
 
-      const drawLabel = (lines, anchorX, anchorY, color) => {
-        context.font = '600 9px ui-monospace, SFMono-Regular, Menlo, monospace';
+      const drawLabel = (lines, anchorY, peakX, peakY, color, preferRight) => {
+        context.font = UI_MONO_FONT;
+        const lineHeight = UI_FONT_SIZE_PX + 3;
         const width = Math.max(...lines.map(line => context.measureText(line).width)) + 8;
-        const height = lines.length * 11 + 5;
-        const x = clamp(anchorX - width / 2, rect.left + 1, rect.right - width - 1);
-        const y = clamp(anchorY, rect.top + 1, rect.bottom - height - 1);
+        const height = lines.length * lineHeight + 7;
+        const { x, y } = placeSignalAnnotation(rect, width, height, anchorY,
+          peakX, peakY, preferRight);
         context.fillStyle = 'rgba(8, 13, 24, 0.88)';
         context.fillRect(x, y, width, height);
         context.strokeStyle = color; context.lineWidth = 1; context.strokeRect(x, y, width, height);
-        context.fillStyle = color; context.textAlign = 'left'; context.textBaseline = 'top';
-        lines.forEach((line, index) => context.fillText(line, x + 4, y + 3 + index * 11));
+        context.fillStyle = color; context.textBaseline = 'top';
+        lines.forEach((line, index) => {
+          context.textAlign = index === 0 ? 'center' : 'left';
+          context.fillText(line, index === 0 ? x + width / 2 : x + 4,
+            y + 3 + index * lineHeight);
+        });
       };
       const visibleSignals = this.detectedSignals.filter(signal =>
         signal.center >= firstFrequency && signal.center <= lastFrequency);
       for (let index = 0; index < visibleSignals.length; index++) {
         const signal = visibleSignals[index];
-        const centerX = xForFrequency(signal.center);
         const peakX = xForFrequency(signal.peakFrequency);
         const peakY = yForLevel(signal.peakLevel);
         context.fillStyle = signal.color;
         context.beginPath(); context.arc(peakX, peakY, 3, 0, Math.PI * 2); context.fill();
-        drawLabel([
-          `S${signal.id} C ${engineering(signal.center, 'Hz', 6)}`,
-          `99% BW ${engineering(signal.width, 'Hz', 5)}`,
-          `Max ${signal.peakLevel.toFixed(2)} ${this.levelUnit}`,
-        ], centerX, rect.top + 20 + (index % 3) * 40, signal.color);
+        drawLabel(signalAnnotationLines(signal, this.levelUnit),
+          rect.top + UI_FONT_SIZE_PX + 10 +
+          (index % 3) * (4 * (UI_FONT_SIZE_PX + 3) + 13),
+          peakX, peakY, signal.color, index % 2 === 0);
       }
 
       if (this.zoomSelection) {
@@ -867,15 +1061,20 @@
       }
 
       context.fillStyle = '#dce8f8';
-      context.font = '600 12px system-ui, sans-serif';
+      context.font = `600 ${UI_FONT}`;
       context.textAlign = 'left'; context.textBaseline = 'top';
       context.fillText(this.title, rect.left + 5, rect.top + 4);
+      this.updateThresholdControl();
       this.updateStatus();
     }
 
     updateStatus() {
       const firstFrequency = this.frequencyAt(this.viewFirstIndex);
-      const lastFrequency = this.frequencyAt(this.viewLastIndex);
+      // A complex FFT's upper endpoint is exclusive: its last bin center is one
+      // bin below the configured edge. Include that final bin's coverage in the
+      // status readout. A real FFT includes its Nyquist endpoint already.
+      const lastFrequency = this.frequencyAt(this.viewLastIndex) +
+        (this.isFloat ? 0 : this.sampleRate / this.fftSize);
       const span = lastFrequency - firstFrequency;
       const rbw = this.sampleRate / this.fftSize * this.enbwBins;
       const parts = [
@@ -914,6 +1113,7 @@
         left: `${x | 0}px`, top: `${y | 0}px`, width: `${Math.max(1, width | 0)}px`,
         height: `${Math.max(1, height | 0)}px`, display: visible ? 'flex' : 'none',
       });
+      if (!visible) this.tooltip.hidden = true;
       this.dirty = true;
     }
 
@@ -939,7 +1139,7 @@
       if (this.thresholdAutomatic && this.thresholdDb != null)
         this.thresholdDb += next - this.levelOffsetDb;
       this.levelOffsetDb = next;
-      if (this.thresholdDb != null) this.thresholdInput.value = this.thresholdDb.toFixed(2);
+      this.updateThresholdControl();
       this.updateDetections(); this.dirty = true;
     }
     setObwPercent(value) {
@@ -1054,6 +1254,7 @@
       this.destroyed = true;
       cancelAnimationFrame(this.animationFrame);
       this.root.remove();
+      this.tooltip.remove();
     }
   }
 
@@ -1139,8 +1340,9 @@
   }
 
   globalThis.__grSpectrumAnalyzerInternals = {
-    engineering, percentile, estimateNoiseFloor, smoothPower, peakOf,
-    occupiedBandwidth, occupiedBandwidthRange, detectSignals,
+    engineering, signalAnnotationLines, signalHue, placeSignalAnnotation,
+    accumulateDisplayedPeak, percentile, estimateNoiseFloor, smoothPower, peakOf,
+    autoScaleBounds, occupiedBandwidth, occupiedBandwidthRange, detectSignals,
   };
   const manager = new SpectrumAnalyzerManager();
   globalThis.__grSpectrumAnalyzer = manager;

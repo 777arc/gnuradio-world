@@ -1,3 +1,5 @@
+import { NOTE_BG_PARAM } from './note';
+
 export type ParamType = 'number' | 'string' | 'enum';
 // `raw` marks a GRC dtype: raw parameter — free-form Python (vectors, matrices).
 // Like numeric params these are evaluated before the flowgraph goes to the runner.
@@ -12,6 +14,10 @@ export interface ParamDef {
   // Free-form prose (the Note block's text): edited in a textarea so it can hold
   // line breaks, which .grc round-trips as a double-quoted `\n` scalar.
   multiline?: boolean;
+  // An `#rrggbb` fill (the Note block's background): edited with the browser's
+  // native colour picker plus a Default button, since a hex field is the one
+  // parameter type nobody can read back. Empty means "unset", not "black".
+  color?: boolean;
 }
 export interface PortTemplate {
   dtype: string;
@@ -237,9 +243,14 @@ export const RUNNABLE: Record<string, RunnableDef> = {
   // drops it while lowering, the same way it drops `options` and `variable` —
   // so a hand-written schema here is all the support it needs. Its text is the
   // block's whole body, rendered wrapped (see noteGeom).
+  // `bgcolor` is browser-only: native GRC's Note has one parameter, so a .grc
+  // carrying a colour still loads there (GRC warns about the extra key rather
+  // than failing), and one written here omits it entirely while it is unset.
   note: {
     label: 'Note', inputs: 0, outputs: 0, params: [
       { id: 'note', label: 'Note', type: 'string', def: '', multiline: true },
+      { id: NOTE_BG_PARAM, label: 'Background Color', type: 'string', def: '',
+        color: true },
     ],
   },
   // ---- sources ----

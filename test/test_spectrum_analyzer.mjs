@@ -102,13 +102,46 @@ try {
     Number.isFinite(signal.peak_frequency) && Number.isFinite(signal.peak_level) &&
     Number.isFinite(signal.occupied_bandwidth_99))),
   'numeric plot observation exposes every signal annotation as raw numbers');
+  const hasAutoScaleHeadroom = widget => {
+    const annotationMaximum = Math.max(widget.curves[0].peak.y,
+      ...widget.detected_signals.map(signal => signal.peak_level));
+    const division = (widget.y_axis.max - widget.y_axis.min) / 10;
+    return widget.y_axis.max - annotationMaximum >= division - 1e-6;
+  };
+  check([complex, real].every(hasAutoScaleHeadroom),
+    'initial autoscale leaves at least one vertical division above every maximum');
+
+  await page.evaluate(maximum => {
+    const root = document.querySelector(
+      '.gr-spectrum-analyzer[data-block-name="complex_analyzer"]');
+    const reference = root?.querySelector('input[aria-label="Ref"]');
+    if (reference) {
+      reference.value = String(maximum);
+      reference.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    [...(root?.querySelectorAll('button') || [])]
+      .find(button => button.textContent === 'Auto')?.click();
+  }, Math.max(complex.curves[0].peak.y,
+    ...complex.detected_signals.map(signal => signal.peak_level)));
+  await page.waitForFunction(() => {
+    const widgets = JSON.parse(window.__grReadPlotData?.('', 32) || '{}').widgets || [];
+    const widget = widgets.find(candidate => candidate.name === 'complex_analyzer');
+    if (!widget?.detected_signals?.length) return false;
+    const maximum = Math.max(widget.curves[0].peak.y,
+      ...widget.detected_signals.map(signal => signal.peak_level));
+    const division = (widget.y_axis.max - widget.y_axis.min) / 10;
+    return widget.y_axis.max - maximum >= division - 1e-6;
+  });
+  plots = await page.evaluate(() => JSON.parse(window.__grReadPlotData('', 32)));
+  check(hasAutoScaleHeadroom(plots.widgets.find(widget => widget.name === 'complex_analyzer')),
+    'the Auto button restores a full division of headroom above the maximum');
 
   await page.evaluate(() => {
     const first = document.querySelector('.gr-spectrum-analyzer');
     const threshold = first?.querySelector('input[aria-label="Threshold"]');
     if (threshold) {
       threshold.value = '-20';
-      threshold.dispatchEvent(new Event('change', { bubbles: true }));
+      threshold.dispatchEvent(new Event('input', { bubbles: true }));
     }
   });
   await new Promise(resolve => setTimeout(resolve, 100));
@@ -121,6 +154,9 @@ try {
   const toolbarState = await page.evaluate(() => ({
     buttons: [...document.querySelectorAll('.gr-spectrum-analyzer button')]
       .map(button => button.textContent),
+    thresholdTypes: [...document.querySelectorAll(
+      '.gr-spectrum-analyzer input[aria-label="Threshold"]')]
+      .map(input => ({ type: input.type, disabled: input.disabled })),
     cursors: [...document.querySelectorAll('canvas.gr-spectrum-analyzer-plot')]
       .map(canvas => getComputedStyle(canvas).cursor),
   }));
@@ -131,6 +167,43 @@ try {
   check(toolbarState.cursors.every(cursor => cursor === 'zoom-in') &&
     plots.widgets.every(widget => widget.detection?.enabled === true),
   'automatic detection is always on and box zoom is the default cursor mode');
+  check(toolbarState.thresholdTypes.length === 2 &&
+    toolbarState.thresholdTypes.every(input => input.type === 'range' && !input.disabled),
+  'each learned detection threshold is adjustable with a slider');
+  const fontState = await page.evaluate(() => ({
+    dom: [...document.querySelectorAll([
+      '.gr-spectrum-analyzer', '.gr-spectrum-analyzer button',
+      '.gr-spectrum-analyzer select', '.gr-spectrum-analyzer input',
+      '.gr-spectrum-analyzer label span', '.gr-spectrum-analyzer > div:last-child',
+    ].join(','))].map(element => parseFloat(getComputedStyle(element).fontSize)),
+    canvas: [...document.querySelectorAll('canvas.gr-spectrum-analyzer-plot')]
+      .map(canvas => canvas.getContext('2d')?.font || ''),
+  }));
+  check(fontState.dom.length > 0 && fontState.dom.every(size => size === 16) &&
+    fontState.canvas.every(font => /\b16px\b/.test(font)),
+  'all analyzer controls, readouts, status text, and canvas text use the 16px app size');
+  const tooltipTarget = await page.$(
+    '.gr-spectrum-analyzer[data-block-name="complex_analyzer"] button');
+  const tooltipBounds = await tooltipTarget.boundingBox();
+  await page.mouse.move(tooltipBounds.x + tooltipBounds.width / 2,
+    tooltipBounds.y + tooltipBounds.height / 2);
+  const tooltipState = await page.evaluate(() => {
+    const tooltip = [...document.querySelectorAll('.gr-spectrum-tooltip')]
+      .find(element => !element.hidden);
+    return tooltip ? {
+      text: tooltip.textContent,
+      fontSize: parseFloat(getComputedStyle(tooltip).fontSize),
+    } : null;
+  });
+  check(tooltipState?.text && tooltipState.fontSize === 16,
+    'analyzer control tooltips use the same 16px app size');
+  const statusText = await page.evaluate(() => Object.fromEntries(
+    [...document.querySelectorAll('.gr-spectrum-analyzer')].map(root => [
+      root.dataset.blockName, root.querySelector(':scope > div:last-child')?.textContent || '',
+    ])));
+  check(/Center 0 Hz · Span 96 kHz/.test(statusText.complex_analyzer) &&
+    /Center 24 kHz · Span 48 kHz/.test(statusText.real_analyzer),
+  'status reports the full configured bin coverage for complex and real spectra');
 
   const initialComplexAxes = {
     x: { ...manuallyThresholded.x_axis }, y: { ...manuallyThresholded.y_axis },

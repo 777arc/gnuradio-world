@@ -5,6 +5,7 @@ import type { WidgetRef } from './gui-layout';
 import { layoutColumns, layoutRowHeight, parseTiles, serializeTiles } from './gui-layout';
 import { numericOrExpression } from './block-library';
 import { NAME_FIELD } from './validation';
+import { NOTE_DEFAULT_BG } from './note';
 import type { UsbLike, UsbRadio } from './usb-radio';
 import { usbApi } from './usb-radio';
 import {
@@ -50,6 +51,7 @@ import {
   type JsBlockIo,
 } from './js-block';
 import {
+  colorField,
   colorPropertyRow,
   optionCombo,
   propertyFieldDtype,
@@ -872,6 +874,16 @@ export function showPropertiesDialog(inst: Inst, deps: PropertiesDialogDeps) {
       code.dispose = () => { clearTimeout(deriveTimer); previousDispose(); };
       code.refresh();
       describe();
+    } else if (p.color) {
+      // A colour parameter (the Note block's background). No expression support
+      // and no dtype tint on the row: the value is a literal `#rrggbb` that the
+      // canvas paints directly, and the field is already all colour.
+      const field = colorField(String(tmp.params[p.id]), value => {
+        tmp.params[p.id] = value;
+        refreshVisibility(); refreshValidation();
+      }, NOTE_DEFAULT_BG);
+      addField(p.category || 'General', `${p.label}  (${p.id})`, field.wrap, p.id, field.text);
+      if (p.showWhen) conditionalRows.push({ param: p, row: field.wrap.closest('.dlgrow') as HTMLElement });
     } else if (usesOptionCombo(p)) {
       // A parameter with an options list that is not `dtype: enum` — see
       // optionCombo(): a dropdown of the options, still able to hold an

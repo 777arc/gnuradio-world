@@ -1,4 +1,5 @@
 import type { ParamDef } from './block-defs';
+import { normalizeNoteColor } from './note';
 
 // Native GRC gives an editable combo box to any parameter carrying options,
 // including non-enum parameters whose current value may be an expression.
@@ -64,4 +65,46 @@ export function colorPropertyRow(row: HTMLElement, dtype: string, enabled: boole
   if (!color) return;
   row.classList.add('dtype-field');
   row.style.setProperty('--dtype-field-color', color);
+}
+
+// A colour parameter (the Note block's background): the browser's own picker,
+// the hex beside it so the value is readable and typeable, and a Default button
+// that clears the field back to the block's normal fill. `commit` receives ''
+// for "no colour" and a canonical `#rrggbb` otherwise -- never a half-typed hex,
+// so the canvas cannot flicker through the colours a user passes on the way.
+export function colorField(value: string, commit: (value: string) => void,
+                           fallback: string) {
+  const wrap = document.createElement('div');
+  wrap.className = 'color-field';
+  const swatch = document.createElement('input');
+  swatch.type = 'color';
+  const text = document.createElement('input');
+  text.className = 'color-hex';
+  text.placeholder = fallback;
+  text.spellcheck = false;
+  const clear = document.createElement('button');
+  clear.type = 'button';
+  clear.className = 'color-default';
+  clear.textContent = 'Default';
+  const show = (current: string) => {
+    // An <input type=color> has no empty state, so an unset parameter shows the
+    // fill the block already has -- opening the picker on the colour on screen.
+    swatch.value = normalizeNoteColor(current) || fallback;
+    text.value = normalizeNoteColor(current);
+    clear.disabled = !text.value;
+  };
+  show(value);
+  swatch.oninput = () => { show(swatch.value); commit(normalizeNoteColor(swatch.value)); };
+  // Typing is committed only once it parses, so the intermediate "#f", "#f1"…
+  // of a hand-typed hex neither clears the colour nor paints a wrong one.
+  text.oninput = () => {
+    const parsed = normalizeNoteColor(text.value);
+    clear.disabled = !text.value.trim();
+    if (parsed) { swatch.value = parsed; commit(parsed); }
+    else if (!text.value.trim()) commit('');
+  };
+  text.onblur = () => show(normalizeNoteColor(text.value));
+  clear.onclick = () => { show(''); commit(''); };
+  wrap.append(swatch, text, clear);
+  return { wrap, swatch, text, clear };
 }

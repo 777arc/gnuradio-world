@@ -8,7 +8,8 @@ import { dumpGrc, parseGrc, type GrcDoc, type GrcScalar } from './grc';
 import { ceilToGrid, centeredPortSlot, constrainBlockPosition, SNAP_GRID_SIZE } from './grid';
 import { arrangeFlowgraph, type LayoutNode } from './layout';
 import { evaluate as evalExpr, buildScope, formatValue as fmtExprVal, serializeForRunner, type Scope, type Value } from './expr';
-import { wrapNoteText, NOTE_FONT_SIZE } from './note';
+import { wrapNoteText, NOTE_FONT_SIZE, NOTE_ID, NOTE_BG_PARAM,
+  normalizeNoteColor } from './note';
 import {
   layoutColumns,
   packLayout,
@@ -983,7 +984,6 @@ function parameterHideValue(hide: string | undefined, params: Record<string, any
 
 // The Note block's body is its text, wrapped to a fixed column: one row per
 // wrapped line, drawn as plain label text (no "Note: " prefix, no truncation).
-const NOTE_ID = 'note';
 function noteGeom(inst: Inst, d: RunnableDef) {
   const text = String(inst.params.note ?? '');
   const lines = text.trim() ? wrapNoteText(text, s => textW(s, NOTE_FONT_SIZE)) : [];
@@ -1817,9 +1817,21 @@ function resolveParamsForRun(inst: Inst, scope: Scope): Record<string, any> {
   return out;
 }
 
+// A Note's background colour is browser-only, and an unset one says exactly what
+// a .grc written before the parameter existed says: nothing. Writing `bgcolor:
+// ''` instead would add a key to every note in the repository -- and to every
+// file a user has saved -- for no change in appearance, exactly as writing the
+// default `scheduler` would below.
+function withoutUnsetNoteColor(inst: Inst, params: Record<string, any>): Record<string, any> {
+  if (inst.id !== NOTE_ID || normalizeNoteColor(params[NOTE_BG_PARAM])) return params;
+  const { [NOTE_BG_PARAM]: _unset, ...rest } = params;
+  return rest;
+}
+
 function buildGrcDoc(resolve = false): GrcDoc {
   const runScope = resolve ? buildRunScope() : {};
-  const paramsOf = (i: Inst) => grcParams(resolve ? resolveParamsForRun(i, runScope) : i.params);
+  const paramsOf = (i: Inst) => grcParams(withoutUnsetNoteColor(
+    i, resolve ? resolveParamsForRun(i, runScope) : i.params));
   const byUid = (u: string) => state.insts.find(i => i.uid === u);
   // options: a top-level block (not in `blocks`), carrying flowgraph metadata.
   const opt = state.insts.find(i => i.id === OPTIONS_ID);

@@ -49,3 +49,39 @@ export function wrapNoteText(text: string, measure: Measure,
   }
   return lines;
 }
+
+// ---- background colour (browser-only; native GRC's Note has no such field) ----
+//
+// The Note block's id, shared by the geometry in main.ts and the tint in
+// canvas-renderer.ts so neither has to spell it again.
+export const NOTE_ID = 'note';
+// The parameter holding the tint. Empty means "the block palette's own fill",
+// which is also what every .grc written before this parameter existed says by
+// saying nothing -- see grcParams' caller in main.ts, which keeps it out of the
+// file while it is empty so those files stay byte-identical.
+export const NOTE_BG_PARAM = 'bgcolor';
+// `.blk rect.body` in editor.css: what an untinted block is filled with, and so
+// what the colour picker should open on.
+export const NOTE_DEFAULT_BG = '#f1ecff';
+
+// Accept the two hex spellings a colour input or a hand-written .grc can hold
+// and return one canonical `#rrggbb`; anything else (including empty) reads as
+// "no tint" rather than as an error, because a note is an annotation and a
+// mistyped colour must never make the flowgraph invalid.
+export function normalizeNoteColor(value: unknown): string {
+  const text = String(value ?? '').trim().toLowerCase();
+  if (/^#[0-9a-f]{6}$/.test(text)) return text;
+  if (/^#[0-9a-f]{3}$/.test(text))
+    return '#' + [...text.slice(1)].map(c => c + c).join('');
+  return '';
+}
+
+// Whether black body text would be hard to read on this fill, so the canvas can
+// switch the note to light text. Rec. 601 luma, the same weighting a browser's
+// own contrast heuristics use, against the midpoint of the range.
+export function isDarkNoteColor(hex: string): boolean {
+  const color = normalizeNoteColor(hex);
+  if (!color) return false;
+  const [r, g, b] = [1, 3, 5].map(i => parseInt(color.slice(i, i + 2), 16));
+  return 0.299 * r + 0.587 * g + 0.114 * b < 140;
+}

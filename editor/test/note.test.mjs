@@ -15,7 +15,8 @@ await build({
   entryPoints: [new URL('../src/note.ts', import.meta.url).pathname],
   bundle: true, format: 'esm', outfile: out, logLevel: 'silent',
 });
-const { wrapNoteText, NOTE_MAX_TEXT_W } = await import(pathToFileURL(out));
+const { wrapNoteText, NOTE_MAX_TEXT_W, NOTE_DEFAULT_BG, normalizeNoteColor,
+        isDarkNoteColor } = await import(pathToFileURL(out));
 
 // A stand-in for the canvas text metrics: every glyph is 6px wide.
 const GLYPH = 6;
@@ -34,6 +35,31 @@ assert.deepEqual(wrap('ab   cd'), ['ab cd'], 'runs of whitespace collapse to one
 for (const line of wrap('the quick brown fox jumps over the lazy dog', 60))
   assert.ok(measure(line) <= 60, `wrapped line "${line}" must fit the column`);
 assert.ok(NOTE_MAX_TEXT_W > 0, 'the note column must have a width');
+
+// ---- background colour (browser-only; native GRC's Note has no such field) ----
+assert.equal(normalizeNoteColor('#AABBCC'), '#aabbcc', 'a full hex is canonicalized');
+assert.equal(normalizeNoteColor(' #abc '), '#aabbcc', 'the short hex expands to the same colour');
+for (const bad of ['', 'red', '#12', '#gggggg', 'rgb(1,2,3)', undefined, null])
+  assert.equal(normalizeNoteColor(bad), '',
+    `"${bad}" must read as no tint rather than as an error -- a note is an annotation`);
+assert.equal(normalizeNoteColor(NOTE_DEFAULT_BG), NOTE_DEFAULT_BG,
+  'the default fill must itself be a colour the picker can open on');
+assert.ok(isDarkNoteColor('#102040') && isDarkNoteColor('#000000'),
+  'a dark fill must ask the canvas for light text');
+assert.ok(!isDarkNoteColor('#ffff88') && !isDarkNoteColor(NOTE_DEFAULT_BG) && !isDarkNoteColor(''),
+  'a light or unset fill must keep the black body text');
+
+assert.match(source, /id: NOTE_BG_PARAM[^}]*color: true/,
+  "the Note block's background must be a colour param");
+assert.match(html, /\.blk\.note-tinted rect\.body \{ fill:var\(--note-bg\); \}/,
+  'the tint must reach the block face through --note-bg');
+assert.match(source, /g\.style\.setProperty\('--note-bg', tint\)/,
+  'the canvas must set --note-bg per block');
+assert.match(source, /export function colorField\(/,
+  'a colour param must get the browser colour picker, not a bare text field');
+assert.match(source, /if \(inst\.id !== NOTE_ID \|\| normalizeNoteColor\(params\[NOTE_BG_PARAM\]\)\) return params;/,
+  'an unset note colour must stay out of the .grc, so existing files are unchanged');
+assert.match(html, /\.color-field \{/, 'the colour field must be styled');
 
 // ---- editor wiring ----
 assert.match(source, /\n\s*note:\s*{[\s\S]*?label: 'Note'/,

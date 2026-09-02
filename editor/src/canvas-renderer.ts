@@ -2,6 +2,7 @@ import type { Conn, Inst, ValidationIssue } from './graph-model';
 import type { EditorGraphState } from './editor-state';
 import type { TrainingSession } from './training';
 import { fieldIssue } from './validation-ui';
+import { NOTE_ID, NOTE_BG_PARAM, normalizeNoteColor, isDarkNoteColor } from './note';
 
 interface LayoutThumbTile {
   name: string;
@@ -198,6 +199,18 @@ export function renderCanvas(deps: CanvasRenderDeps): void {
       transform: `translate(${inst.x},${inst.y})` });
     const rect = svgEl('rect', { class: 'body', width: String(w), height: String(h), rx: '2' });
     g.appendChild(rect);
+    // A Note's own background colour, browser-only and unique to this block. It
+    // arrives as a custom property rather than an inline `fill` so the cascade
+    // still decides: the tint outranks the selected fill (a note has to keep
+    // looking like the colour just picked for it, and the selection stroke says
+    // enough), and the disabled/bypassed/invalid fills outrank the tint, since
+    // those states have to stay legible whatever colour the note carries.
+    const tint = inst.id === NOTE_ID ? normalizeNoteColor(inst.params[NOTE_BG_PARAM]) : '';
+    if (tint) {
+      g.classList.add('note-tinted');
+      if (isDarkNoteColor(tint)) g.classList.add('note-dark');
+      g.style.setProperty('--note-bg', tint);
+    }
     // Native GRC has no title separator. With no face parameters, center the
     // title in the whole block instead of leaving it in an empty title row.
     // With a subtitle it is the pair that gets centered, so the title rises by

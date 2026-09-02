@@ -245,6 +245,19 @@ in a browser, that is the right trade.
 - **A QT GUI control referenced by ID** is a variable too, with its own
   construction-order rules — see "A QT GUI control is two objects" in
   [blocks.md](blocks.md#a-qt-gui-control-is-two-objects-not-one).
+- **The Note block has a browser-only `bgcolor`.** Native GRC's Note takes one
+  parameter, its text; here it also takes an `#rrggbb` fill, edited with the
+  browser's colour picker and painted on the block face through the
+  `--note-bg` custom property (`normalizeNoteColor` in
+  [`note.ts`](../editor/src/note.ts), the tint in `canvas-renderer.ts`, the
+  cascade in `editor.css`). Two rules keep it from leaking: an *unset* colour is
+  omitted from the .grc entirely — `withoutUnsetNoteColor` in `main.ts`, the same
+  reasoning as the Options block's default `scheduler` — so every file written
+  before the parameter existed still saves byte-identically; and a colour that
+  *is* set is an extra key desktop GRC warns about rather than one it refuses, so
+  the file still opens there. An unparseable value reads as no tint rather than
+  as an error: a note is an annotation, and a mistyped colour must never make the
+  flowgraph invalid.
 
 ## Which block to reach for
 

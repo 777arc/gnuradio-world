@@ -78,13 +78,27 @@ async function stampRunnerBuild(destDir, srcFiles) {
 
   const htmlPath = join(destDir, 'runner.html');
   const html = await readFile(htmlPath, 'utf8');
-  let scripts = 0;
+  const stamped = [];
   let out = html.replace(/(<script[^>]*\ssrc=")([^"?]+\.js)(")/g, (_, pre, src, post) => {
-    scripts++;
+    stamped.push(src);
     return `${pre}${src}?v=${stamp}${post}`;
   });
-  if (scripts !== 3)
-    throw new Error(`runner.html: expected 3 external scripts to stamp, found ${scripts}`);
+  // What this guards is not *how many* scripts the page loads -- that was the
+  // original check, and every script added to runner.html since has broken this
+  // step -- but that every one of them is a file of this build, and so is
+  // covered by the hash above. A script from anywhere else would carry a version
+  // that says nothing about it, which is worse than not stamping it at all.
+  if (!stamped.length)
+    throw new Error('runner.html: no external scripts to stamp -- the version lock would be inert');
+  for (const src of stamped) {
+    if (/^(?:[a-z]+:)?\/\//i.test(src) || src.startsWith('/'))
+      throw new Error(`runner.html: <script src="${src}"> is not part of the runner build, ` +
+                      'so the build stamp cannot version-lock it');
+    await stat(join(destDir, src)).catch(() => {
+      throw new Error(`runner.html: <script src="${src}"> was stamped but is not in the ` +
+                      'copied runner build -- it would 404 with a ?v= on it');
+    });
+  }
   if (!out.includes('</head>'))
     throw new Error('runner.html: no </head> to insert the build stamp before');
   out = out.replace('</head>',
@@ -200,28 +214,7 @@ async function main() {
 /*.wasm
   Content-Type: application/wasm
 
-/runner/build/runner.js
-  Cache-Control: public, max-age=86400
-
-/runner/build/qtloader.js
-  Cache-Control: public, max-age=86400
-
-/runner/build/browser_file_reader.js
-  Cache-Control: public, max-age=86400
-
-/runner/build/browser_file_writer.js
-  Cache-Control: public, max-age=86400
-
-/runner/build/rtlsdr_reader.js
-  Cache-Control: public, max-age=86400
-
-/runner/build/audio_worklet.js
-  Cache-Control: public, max-age=86400
-
-/runner/build/fosphor_webgpu.js
-  Cache-Control: public, max-age=86400
-
-/runner/build/js_runtime.js
+/runner/build/*.js
   Cache-Control: public, max-age=86400
 
 /runner/build/js/*

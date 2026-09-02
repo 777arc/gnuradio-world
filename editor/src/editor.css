@@ -674,6 +674,18 @@ svg text { user-select:none; -webkit-user-select:none; -moz-user-select:none; }
 .blk.sel rect.body { fill:#e3f0ff; stroke:#1a63c4; stroke-width:2; }
 .blk.training-snap rect.body { fill:#e9f8ee; stroke:#2f8f4e; stroke-width:3; }
 .blk.training-snap { cursor:grabbing; }
+/* A Note block's own background colour -- browser-only, no native GRC
+   equivalent. Deliberately placed after the selected fill and before the
+   invalid/disabled/bypassed ones: the same-specificity cascade then keeps a
+   note the colour it was given while it is selected (its stroke still turns
+   blue), and lets the three state fills paint over it when they apply. Only
+   the fill is set here, so every stroke rule above and below still lands.
+   --note-bg is set per block in canvas-renderer.ts. */
+.blk.note-tinted rect.body { fill:var(--note-bg); }
+/* Black prose on a dark note is unreadable, so a dark fill flips the text. The
+   canvas measures the same glyphs either way -- only the colour changes. */
+.blk.note-dark text.title, .blk.note-dark text.param,
+.blk.note-dark text.pval { fill:#fff; }
 /* native MISSING_BLOCK_BACKGROUND_COLOR / MISSING_BLOCK_BORDER_COLOR */
 .blk.invalid rect.body { fill:#fff2f2; stroke:#ff0000; stroke-width:2; }
 .blk.invalid text.title { fill:#a40e26 !important; }
@@ -817,6 +829,19 @@ svg text { user-select:none; -webkit-user-select:none; -moz-user-select:none; }
    and the text field it swaps in for a custom value occupy the same row, one at
    a time. */
 .opt-combo { display:grid; gap:6px; min-width:0; }
+/* A colour parameter (the Note block's background): the browser's picker, the
+   hex it holds, and the button that clears it, on one row. The swatch is sized
+   rather than stretched -- `width:100%` from the .dlgrow input rule would give
+   a colour well the width of the dialog. */
+.color-field { display:flex; gap:8px; align-items:center; min-width:0; }
+.dlgrow .color-field input[type=color] { flex:0 0 auto; width:44px; height:32px;
+    padding:2px; cursor:pointer; }
+.dlgrow .color-field input.color-hex { flex:1 1 auto; min-width:0;
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+.color-field .color-default { flex:0 0 auto; background:#232838; color:#c5cce0;
+    border:1px solid #3a4366; border-radius:5px; padding:7px 10px; font-size:16px;
+    cursor:pointer; }
+.color-field .color-default:disabled { opacity:.45; cursor:default; }
 /* The Embedded Python Block's Code field is a program, not a value: it gets the
    full width of a wider dialog, its own monospace box, and the label above it
    rather than beside it. */
