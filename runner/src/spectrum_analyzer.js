@@ -10,6 +10,7 @@
   const NOISE_FLOOR_PERCENTILE = 20;
   const NOISE_FLOOR_ALPHA = 0.1;
   const THRESHOLD_MARGIN_DB = 6;
+  const OCCUPIED_BANDWIDTH_PERCENT = 99;
   const AUTO_SCALE_HEADROOM_DIVISIONS = 1;
   const UI_FONT_SIZE_PX = 16;
   const UI_FONT = `${UI_FONT_SIZE_PX}px system-ui, sans-serif`;
@@ -84,11 +85,17 @@
     })} ${prefix}${unit}`;
   }
 
+  function totalPowerLevel(integratedPower, enbwBins = 1, offsetDb = 0) {
+    const equivalentNoiseBandwidth = Math.max(MIN_POWER, finite(enbwBins, 1));
+    return db(finite(integratedPower) / equivalentNoiseBandwidth) + finite(offsetDb);
+  }
+
   function signalAnnotationLines(signal, levelUnit) {
     return [
       `S${signal.id}`,
       `Center ${engineering(signal.center, 'Hz', 6)}`,
-      `99% BW ${engineering(signal.width, 'Hz', 5)}`,
+      `${OCCUPIED_BANDWIDTH_PERCENT}% BW ${engineering(signal.width, 'Hz', 5)}`,
+      `Power ${signal.totalPower.toFixed(2)} ${levelUnit}`,
       `Max ${signal.peakLevel.toFixed(2)} ${levelUnit}`,
     ];
   }
@@ -200,57 +207,7 @@
     return { referenceLevel, dbPerDivision, peak, floor };
   }
 
-  function occupiedBandwidth(values, frequencies, centerIndex, percent, spanHz) {
-    if (!values?.length || values.length !== frequencies?.length) return null;
-    const binWidth = values.length > 1
-      ? Math.abs(frequencies[1] - frequencies[0]) : 0;
-    if (!(binWidth > 0)) return null;
-    const center = clamp(Math.round(finite(centerIndex)), 0, values.length - 1);
-    let first = 0;
-    let last = values.length - 1;
-    if (spanHz > 0) {
-      const radius = Math.max(1, Math.floor(spanHz / binWidth / 2));
-      first = Math.max(0, center - radius);
-      last = Math.min(values.length - 1, center + radius);
-    }
-    let total = 0;
-    for (let i = first; i <= last; i++) total += Math.max(0, values[i]);
-    if (!(total > MIN_POWER)) return null;
-
-    const tail = clamp((100 - finite(percent, 99)) / 200, 0.000001, 0.499999);
-    const lowTarget = total * tail;
-    const highTarget = total * (1 - tail);
-    let cumulative = 0;
-    let low = frequencies[first] - binWidth / 2;
-    let high = frequencies[last] + binWidth / 2;
-    for (let i = first; i <= last; i++) {
-      const power = Math.max(0, values[i]);
-      const before = cumulative;
-      cumulative += power;
-      if (before < lowTarget && cumulative >= lowTarget && power > 0) {
-        const fraction = clamp((lowTarget - before) / power, 0, 1);
-        low = frequencies[i] - binWidth / 2 + fraction * binWidth;
-      }
-      if (before < highTarget && cumulative >= highTarget && power > 0) {
-        const fraction = clamp((highTarget - before) / power, 0, 1);
-        high = frequencies[i] - binWidth / 2 + fraction * binWidth;
-        break;
-      }
-    }
-    return {
-      percent: finite(percent, 99),
-      low,
-      high,
-      center: (low + high) / 2,
-      width: Math.max(0, high - low),
-      integratedPower: total,
-      regionLow: frequencies[first] - binWidth / 2,
-      regionHigh: frequencies[last] + binWidth / 2,
-      touchesEdge: first === 0 || last === values.length - 1,
-    };
-  }
-
-  function occupiedBandwidthRange(values, frequencies, first, last, percent) {
+  function occupiedBandwidthRange(values, frequencies, first, last) {
     if (!values?.length || values.length !== frequencies?.length || values.length < 2)
       return null;
     first = clamp(Math.floor(finite(first)), 0, values.length - 1);
@@ -262,7 +219,7 @@
       total += Math.max(0, finite(values[index]));
     if (!(total > MIN_POWER)) return null;
 
-    const tail = clamp((100 - finite(percent, 99)) / 200, 0.000001, 0.499999);
+    const tail = (100 - OCCUPIED_BANDWIDTH_PERCENT) / 200;
     const targets = [total * tail, total * (1 - tail)];
     const crossings = [frequencies[first] - binWidth / 2,
       frequencies[last] + binWidth / 2];
@@ -280,20 +237,17 @@
       }
     }
     return {
-      percent: finite(percent, 99), low: crossings[0], high: crossings[1],
+      low: crossings[0], high: crossings[1],
       center: (crossings[0] + crossings[1]) / 2,
       width: Math.max(0, crossings[1] - crossings[0]), integratedPower: total,
-      regionLow: frequencies[first] - binWidth / 2,
-      regionHigh: frequencies[last] + binWidth / 2,
-      touchesEdge: first === 0 || last === values.length - 1,
     };
   }
 
   // Join a one-bin dropout so a windowed carrier with a narrow spectral notch
   // remains one measured signal. Every other above-threshold island is kept,
   // including a single-bin carrier.
-  function detectSignals(values, frequencies, thresholdDb, percent = 99,
-    offsetDb = 0, bridgeBins = 1, detectionValues = values) {
+  function detectSignals(values, frequencies, thresholdDb, offsetDb = 0,
+    bridgeBins = 1, detectionValues = values) {
     if (!values?.length || values.length !== frequencies?.length ||
         values.length !== detectionValues?.length ||
         !Number.isFinite(Number(thresholdDb))) return [];
@@ -331,12 +285,9 @@
         }
       }
       const binWidth = Math.abs(frequencies[1] - frequencies[0]);
-      const bandwidth = occupiedBandwidthRange(values, frequencies, first, last, percent);
+      const bandwidth = occupiedBandwidthRange(values, frequencies, first, last);
       return {
-        first, last,
-        detectionLow: frequencies[first] - binWidth / 2,
-        detectionHigh: frequencies[last] + binWidth / 2,
-        peakIndex, peakFrequency: frequencies[0] + interpolatedIndex * binWidth,
+        peakFrequency: frequencies[0] + interpolatedIndex * binWidth,
         peakLevel,
         ...bandwidth,
       };
@@ -399,9 +350,7 @@
   }
 
   class SpectrumAnalyzerRenderer {
-    constructor(manager, id, options) {
-      this.manager = manager;
-      this.id = id;
+    constructor(id, options) {
       this.memory = options.memory;
       this.controlPointer = options.controlPointer >>> 0;
       this.framesPointer = options.framesPointer >>> 0;
@@ -416,8 +365,6 @@
       this.dbPerDivision = Math.max(0.1, finite(options.dbPerDivision, 10));
       this.levelOffsetDb = finite(options.levelOffsetDb);
       this.levelUnit = String(options.levelUnit || 'dBFS');
-      this.obwPercent = clamp(finite(options.obwPercent, 99), 0.001, 99.999);
-      this.obwSpan = Math.max(0, finite(options.obwSpan));
       this.blockName = String(options.blockName || `spectrum_analyzer_${id}`);
       this.title = String(options.title || 'Spectrum Analyzer');
       this.traceMode = TRACE_MODES.has(options.traceMode)
@@ -839,7 +786,7 @@
       const smoothingRadius = Math.max(3, Math.round(this.binCount / 512));
       const envelope = smoothPower(this.frameCopy, smoothingRadius, 2);
       const detections = detectSignals(this.frameCopy, this.frequencies(),
-        this.thresholdDb, 99, this.levelOffsetDb, smoothingRadius * 2, envelope);
+        this.thresholdDb, this.levelOffsetDb, smoothingRadius * 2, envelope);
       const now = performance.now();
       const binWidth = this.binCount > 1
         ? Math.abs(this.frequencyAt(1) - this.frequencyAt(0)) : 0;
@@ -877,6 +824,8 @@
           instantaneousPeakFrequency, instantaneousPeakLevel,
           peakFrequency: peakState.displayPeakFrequency,
           peakLevel: peakState.displayPeakLevel,
+          totalPower: totalPowerLevel(
+            signal.integratedPower, this.enbwBins, this.levelOffsetDb),
         });
         delete signal.peakDisplayState;
         signal.color = `hsl(${signal.hue.toFixed(1)} 82% 64%)`;
@@ -1039,9 +988,10 @@
         const peakY = yForLevel(signal.peakLevel);
         context.fillStyle = signal.color;
         context.beginPath(); context.arc(peakX, peakY, 3, 0, Math.PI * 2); context.fill();
-        drawLabel(signalAnnotationLines(signal, this.levelUnit),
+        const lines = signalAnnotationLines(signal, this.levelUnit);
+        drawLabel(lines,
           rect.top + UI_FONT_SIZE_PX + 10 +
-          (index % 3) * (4 * (UI_FONT_SIZE_PX + 3) + 13),
+          (index % 3) * (lines.length * (UI_FONT_SIZE_PX + 3) + 13),
           peakX, peakY, signal.color, index % 2 === 0);
       }
 
@@ -1142,14 +1092,8 @@
       this.updateThresholdControl();
       this.updateDetections(); this.dirty = true;
     }
-    setObwPercent(value) {
-      this.obwPercent = clamp(finite(value, this.obwPercent), 0.001, 99.999);
-      this.dirty = true;
-    }
-    setObwSpan(value) { this.obwSpan = Math.max(0, finite(value)); this.dirty = true; }
-
     configureNumeric(sampleRate, centerFrequency, enbwBins, average,
-      referenceLevel, dbPerDivision, levelOffsetDb, peakTrack) {
+      referenceLevel, dbPerDivision, levelOffsetDb) {
       this.sampleRate = Math.max(1, finite(sampleRate, this.sampleRate));
       this.centerFrequency = finite(centerFrequency, this.centerFrequency);
       this.enbwBins = Math.max(1, finite(enbwBins, this.enbwBins));
@@ -1161,11 +1105,6 @@
       this.divisionInput.value = String(this.dbPerDivision);
       this.updateButtonStates();
       this.dirty = true;
-    }
-
-    configureMeasurement(percent, span) {
-      this.setObwPercent(percent);
-      this.setObwSpan(span);
     }
 
     configureText(blockName, title, traceMode, levelUnit) {
@@ -1242,6 +1181,8 @@
         center_frequency: signal.center,
         peak_frequency: signal.peakFrequency,
         peak_level: signal.peakLevel,
+        total_power: signal.totalPower,
+        power_unit: this.levelUnit,
         occupied_bandwidth_99: signal.width,
         low_frequency_99: signal.low,
         high_frequency_99: signal.high,
@@ -1263,7 +1204,7 @@
     create(options) {
       const id = this.nextId++;
       try {
-        this.instances.set(id, new SpectrumAnalyzerRenderer(this, id, options));
+        this.instances.set(id, new SpectrumAnalyzerRenderer(id, options));
         return id;
       } catch (error) {
         console.error(`Spectrum Analyzer: ${error.message || error}`);
@@ -1277,10 +1218,7 @@
     setReferenceLevel(id, value) { this.instances.get(id)?.setReferenceLevel(value); }
     setDbPerDivision(id, value) { this.instances.get(id)?.setDbPerDivision(value); }
     setLevelOffsetDb(id, value) { this.instances.get(id)?.setLevelOffsetDb(value); }
-    setObwPercent(id, value) { this.instances.get(id)?.setObwPercent(value); }
-    setObwSpan(id, value) { this.instances.get(id)?.setObwSpan(value); }
     configureNumeric(id, ...values) { this.instances.get(id)?.configureNumeric(...values); }
-    configureMeasurement(id, ...values) { this.instances.get(id)?.configureMeasurement(...values); }
     configureText(id, ...values) { this.instances.get(id)?.configureText(...values); }
     readPlotData(only = '', maxPoints = 32) {
       const widgets = [];
@@ -1340,9 +1278,9 @@
   }
 
   globalThis.__grSpectrumAnalyzerInternals = {
-    engineering, signalAnnotationLines, signalHue, placeSignalAnnotation,
+    engineering, totalPowerLevel, signalAnnotationLines, signalHue, placeSignalAnnotation,
     accumulateDisplayedPeak, percentile, estimateNoiseFloor, smoothPower, peakOf,
-    autoScaleBounds, occupiedBandwidth, occupiedBandwidthRange, detectSignals,
+    autoScaleBounds, occupiedBandwidthRange, detectSignals,
   };
   const manager = new SpectrumAnalyzerManager();
   globalThis.__grSpectrumAnalyzer = manager;

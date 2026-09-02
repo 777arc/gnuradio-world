@@ -3716,8 +3716,6 @@ static std::map<std::string, Factory>& registry_storage() {
              const double reference_level = number_from(p, "reference_level", 0.0);
              const double db_per_division = number_from(p, "db_per_div", 10.0);
              const double level_offset = number_from(p, "level_offset_db", 0.0);
-             const double obw_percent = number_from(p, "obw_percent", 99.0);
-             const double obw_span = number_from(p, "obw_span", 0.0);
              auto block = SpectrumAnalyzerSinkWasm::make(
                  p.value("__name", std::string("spectrum_analyzer")),
                  unquoted(param_text(p, "name", "Spectrum Analyzer")),
@@ -3732,10 +3730,7 @@ static std::map<std::string, Factory>& registry_storage() {
                  reference_level,
                  db_per_division,
                  level_offset,
-                 unquoted(param_text(p, "level_unit", "dBFS")),
-                 bool_from(p, "peak_track", false),
-                 obw_percent,
-                 obw_span);
+                 unquoted(param_text(p, "level_unit", "dBFS")));
              BuiltBlock result{ block, block->qwidget() };
              result.numeric_setters["samp_rate"] =
                  [block](double value) { block->set_sample_rate(value); };
@@ -3751,10 +3746,6 @@ static std::map<std::string, Factory>& registry_storage() {
                  [block](double value) { block->set_db_per_division(value); };
              result.numeric_setters["level_offset_db"] =
                  [block](double value) { block->set_level_offset_db(value); };
-             result.numeric_setters["obw_percent"] =
-                 [block](double value) { block->set_obw_percent(value); };
-             result.numeric_setters["obw_span"] =
-                 [block](double value) { block->set_obw_span(value); };
              return result;
          }},
         {"qtgui_number_sink", [](const json& p) -> BuiltBlock {

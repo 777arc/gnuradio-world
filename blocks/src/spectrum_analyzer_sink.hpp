@@ -36,10 +36,7 @@ public:
                      double reference_level,
                      double db_per_division,
                      double level_offset_db,
-                     const std::string& level_unit,
-                     bool peak_track,
-                     double obw_percent,
-                     double obw_span);
+                     const std::string& level_unit);
 
     SpectrumAnalyzerSinkWasm(const std::string& instance_name,
                              const std::string& display_title,
@@ -54,10 +51,7 @@ public:
                              double reference_level,
                              double db_per_division,
                              double level_offset_db,
-                             const std::string& level_unit,
-                             bool peak_track,
-                             double obw_percent,
-                             double obw_span);
+                             const std::string& level_unit);
     ~SpectrumAnalyzerSinkWasm() override;
 
     QWidget* qwidget() const { return d_widget; }
@@ -69,8 +63,6 @@ public:
     void set_reference_level(double value);
     void set_db_per_division(double value);
     void set_level_offset_db(double value);
-    void set_obw_percent(double value);
-    void set_obw_span(double value);
 
     int work(int noutput_items,
              gr_vector_const_void_star& input_items,

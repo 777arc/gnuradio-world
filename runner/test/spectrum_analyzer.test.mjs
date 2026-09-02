@@ -8,9 +8,9 @@ const source = await readFile(
   new URL('../src/spectrum_analyzer.js', import.meta.url), 'utf8');
 const sandbox = { console };
 vm.runInNewContext(source, sandbox, { filename: 'spectrum_analyzer.js' });
-const { engineering, signalAnnotationLines, signalHue, placeSignalAnnotation,
+const { engineering, totalPowerLevel, signalAnnotationLines, signalHue, placeSignalAnnotation,
   accumulateDisplayedPeak, percentile, estimateNoiseFloor, smoothPower, peakOf,
-  autoScaleBounds, occupiedBandwidth, detectSignals } =
+  autoScaleBounds, occupiedBandwidthRange, detectSignals } =
   sandbox.__grSpectrumAnalyzerInternals;
 
 {
@@ -40,34 +40,29 @@ const { engineering, signalAnnotationLines, signalHue, placeSignalAnnotation,
 }
 
 {
-  // Five equal-power bins from 2 through 6. The 10% and 90% cumulative
-  // crossings fall at 2 and 6, so the central 80% occupies exactly four bins.
+  // Five equal-power bins span 500 Hz. Removing 0.5% of the power from each
+  // edge leaves the fixed 99% occupied bandwidth at 495 Hz.
   const power = [0, 0, 1, 1, 1, 1, 1, 0, 0];
   const frequency = power.map((_, index) => index * 100);
-  const bandwidth = occupiedBandwidth(power, frequency, 4, 80, 0);
+  const bandwidth = occupiedBandwidthRange(power, frequency, 2, 6);
   assert.ok(bandwidth);
-  assert.ok(Math.abs(bandwidth.low - 200) < 1e-9);
-  assert.ok(Math.abs(bandwidth.high - 600) < 1e-9);
-  assert.ok(Math.abs(bandwidth.width - 400) < 1e-9);
-}
-
-{
-  // A restricted measurement span must ignore a much larger signal outside
-  // the region centered on the active marker.
-  const power = [1000, 0, 1, 2, 1, 0, 0];
-  const frequency = power.map((_, index) => index * 10);
-  const bandwidth = occupiedBandwidth(power, frequency, 3, 99, 30);
-  assert.ok(bandwidth);
-  assert.ok(bandwidth.low > 10 && bandwidth.high < 50);
+  assert.ok(Math.abs(bandwidth.low - 152.5) < 1e-9);
+  assert.ok(Math.abs(bandwidth.high - 647.5) < 1e-9);
+  assert.ok(Math.abs(bandwidth.width - 495) < 1e-9);
 }
 
 assert.match(engineering(2_450_000, 'Hz'), /2\.45 MHz/);
 
+assert.ok(Math.abs(totalPowerLevel(4, 2, -10) - (10 * Math.log10(2) - 10)) < 1e-9,
+  'total signal power divides integrated FFT-bin power by window ENBW before calibration');
+
 assert.deepEqual(Array.from(signalAnnotationLines({
-  id: 2, center: 2_450_000, width: 12_500, peakLevel: -18.125,
-}, 'dBFS')), [
-  'S2', 'Center 2.45 MHz', '99% BW 12.5 kHz', 'Max -18.13 dBFS',
-], 'signal annotations put the centered id on its own line and spell out Center');
+  id: 2, center: 2_450_000, width: 12_500,
+  totalPower: -14.375, peakLevel: -18.125,
+}, 'dBm')), [
+  'S2', 'Center 2.45 MHz', '99% BW 12.5 kHz',
+  'Power -14.38 dBm', 'Max -18.13 dBm',
+], 'signal annotations put the centered id on its own line and honor calibrated units');
 
 assert.ok(Array.from({ length: 1000 }, (_, index) => signalHue(index + 1))
   .every(hue => hue < 110 || hue >= 190),
@@ -114,10 +109,10 @@ assert.ok(Array.from({ length: 1000 }, (_, index) => signalHue(index + 1))
   power[6] = 1e-3;
   power[22] = 1e-2;
   const frequencies = power.map((_, index) => 1000 + index * 100);
-  const signals = detectSignals(power, frequencies, -60, 99);
+  const signals = detectSignals(power, frequencies, -60);
   assert.equal(signals.length, 2, 'each above-threshold island is detected');
-  assert.equal(signals[0].peakIndex, 6);
-  assert.equal(signals[1].peakIndex, 22);
+  assert.equal(signals[0].peakFrequency, frequencies[6]);
+  assert.equal(signals[1].peakFrequency, frequencies[22]);
   assert.ok(signals.every(signal => signal.width > 0 && signal.low < signal.center &&
     signal.center < signal.high), 'every detected signal has a 99% bandwidth and center');
   assert.ok(signals[1].peakLevel > signals[0].peakLevel,
@@ -134,10 +129,10 @@ assert.ok(Array.from({ length: 1000 }, (_, index) => signalHue(index + 1))
   power[8] = 1e-5;
   const frequencies = power.map((_, index) => index * 100);
   const envelope = smoothPower(power, 8);
-  const signals = detectSignals(power, frequencies, -60, 99, 0, 24, envelope);
+  const signals = detectSignals(power, frequencies, -60, 0, 24, envelope);
   assert.equal(signals.length, 1,
     'spectral-envelope detection joins modulation notches and rejects an isolated bin');
-  assert.ok(signals[0].first <= 24 && signals[0].last >= 70);
+  assert.ok(signals[0].low < frequencies[25] && signals[0].high > frequencies[70]);
   assert.equal(signals[0].peakLevel,
     peakOf(power, index => frequencies[index]).level,
     'envelope smoothing does not alter the interpolated peak measurement');

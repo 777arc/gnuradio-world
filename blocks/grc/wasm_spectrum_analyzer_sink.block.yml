@@ -28,8 +28,11 @@ documentation: |-
     re-learned at any time. Every above-threshold signal receives a stable color, a solid
     center-frequency line, shaded 99% occupied bandwidth with dashed edges, and
     one live annotation above its center containing center frequency, bandwidth,
-    and the maximum-bin level. The peak frequency remains available in numeric
-    plot data.
+    ENBW-corrected total signal power, and the maximum-bin level. Total power is
+    the sum of the detected signal's linear FFT-bin powers divided by the
+    selected window's equivalent noise bandwidth. The peak frequency remains
+    available in numeric plot data. Numeric plot data also reports total_power
+    and its power_unit for every detected signal.
     Detection uses a two-pass linear-power moving average (a triangular
     frequency-domain envelope) to suppress isolated noise crossings, consolidate
     threshold-edge fragments, and join natural periodogram notches inside
@@ -38,8 +41,10 @@ documentation: |-
 
     Levels are dBFS by default. A complex carrier of magnitude 1, or a full-scale
     real sinusoid, reads 0 dBFS when it falls exactly on an FFT bin. Calibration
-    Offset is added to every displayed level; changing Level Unit to dBm or dBuV
+    Offset is added to every displayed level; changing Level Unit to dBm or dBµV
     is meaningful only when that offset accounts for the complete input chain.
+    A source whose complex samples are already scaled so I^2 + Q^2 is power in
+    milliwatts can use dBm with a zero offset.
 
     FFT analysis is rate-limited by Update Period and always uses the newest
     complete FFT frame, so a high-rate stream does not make the GUI consume every
@@ -112,23 +117,9 @@ parameters:
     default: '0'
 -   id: level_unit
     label: Level Unit
-    dtype: string
-    default: '"dBFS"'
--   id: peak_track
-    label: Track Peak Initially
-    dtype: bool
-    default: 'False'
-    options: ['True', 'False']
-    option_labels: [Yes, No]
--   id: obw_percent
-    label: Occupied Bandwidth (%)
-    dtype: real
-    default: '99'
--   id: obw_span
-    label: Measurement Span (Hz, 0 = full)
-    dtype: real
-    default: '0'
-
+    dtype: enum
+    default: dBFS
+    options: [dBFS, dBm, dBµV]
 inputs:
 -   domain: stream
     dtype: ${ type }
@@ -139,7 +130,5 @@ asserts:
 - ${ update_time >= 0.02 }
 - ${ average > 0 and average <= 1 }
 - ${ db_per_div > 0 }
-- ${ obw_percent > 0 and obw_percent < 100 }
-- ${ obw_span >= 0 }
 
 file_format: 1

@@ -356,16 +356,20 @@ Nyquist; complex input is FFT-shifted and two-sided. Signal colors deliberately
 exclude the green hue band reserved for the spectrum trace.
 
 Each detected region has one annotation above its center line containing center
-frequency, 99% occupied bandwidth and the unsmoothed maximum-bin level. Its
-normal-weight text puts the centered signal id on a line of its own. Placement
+frequency, 99% occupied bandwidth, ENBW-corrected total signal power and the
+unsmoothed maximum-bin level. Total power sums the region's linear FFT-bin power
+and divides by the selected window's equivalent noise bandwidth before applying
+the calibration offset. A calibrated complex source whose squared sample
+magnitude is power in milliwatts therefore reads directly in dBm with a zero
+offset. Normal-weight text puts the centered signal id on a line of its own. Placement
 prefers either side of the peak, then above or below, so the annotation does not
 cover a tone's tip. The peak dot and annotation Max are latched to the strongest
 peak in each completed one-second window, keeping both steady between updates
 without missing a brief maximum. A newly detected signal appears immediately.
 The peak dot remains on the trace. `read_plot_data` exposes the annotation's signal id,
-center frequency, 99% bandwidth and maximum level, along with peak frequency,
-as raw numbers rather than its rounded display strings; there is no second peak
-callout to obscure the plot.
+center frequency, 99% bandwidth, total power, power unit and maximum level,
+along with peak frequency, as raw numbers rather than its rounded display
+strings; there is no second peak callout to obscure the plot.
 
 Like the WebGPU fosphor path, its `QWidget` is a placement placeholder, so GUI
 Layout needs no special case and no scheduler thread touches the DOM. Neither

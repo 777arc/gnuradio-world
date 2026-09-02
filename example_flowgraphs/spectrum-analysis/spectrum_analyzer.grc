@@ -61,9 +61,6 @@ blocks:
         level_offset_db: '0'
         level_unit: dBFS
         name: Three-Signal Spectrum
-        obw_percent: '99'
-        obw_span: '0'
-        peak_track: 'False'
         reference_level: '0'
         samp_rate: samp_rate
         trace_mode: average

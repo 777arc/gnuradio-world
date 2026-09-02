@@ -100,8 +100,17 @@ try {
   check([complex, real].every(widget => widget?.detected_signals?.every(signal =>
     Number.isInteger(signal.id) && Number.isFinite(signal.center_frequency) &&
     Number.isFinite(signal.peak_frequency) && Number.isFinite(signal.peak_level) &&
+    Number.isFinite(signal.total_power) && signal.power_unit === 'dBFS' &&
     Number.isFinite(signal.occupied_bandwidth_99))),
-  'numeric plot observation exposes every signal annotation as raw numbers');
+  'numeric plot observation exposes every signal annotation, including total power, as raw numbers');
+  const complexTone = complex?.detected_signals?.find(signal =>
+    Math.abs(signal.peak_frequency - 12000) < 30);
+  const realTone = real?.detected_signals?.find(signal =>
+    Math.abs(signal.peak_frequency - 9375) < 30);
+  check(Math.abs(complexTone?.total_power + 6.0206) < 0.5,
+    `ENBW-corrected complex carrier power is about -6.02 dBFS (${complexTone?.total_power})`);
+  check(Math.abs(realTone?.total_power + 12.0412) < 0.6,
+    `ENBW-corrected real carrier power is about -12.04 dBFS (${realTone?.total_power})`);
   const hasAutoScaleHeadroom = widget => {
     const annotationMaximum = Math.max(widget.curves[0].peak.y,
       ...widget.detected_signals.map(signal => signal.peak_level));

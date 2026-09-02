@@ -50,9 +50,6 @@ blocks:
         db_per_div: '10'
         level_offset_db: '0'
         level_unit: dBFS
-        peak_track: 'False'
-        obw_percent: '99'
-        obw_span: '4000'
     states:
         coordinate: [450, 0]
         rotation: 0
@@ -100,9 +97,6 @@ blocks:
         db_per_div: '10'
         level_offset_db: '0'
         level_unit: dBFS
-        peak_track: 'False'
-        obw_percent: '99'
-        obw_span: '4000'
     states:
         coordinate: [450, 180]
         rotation: 0

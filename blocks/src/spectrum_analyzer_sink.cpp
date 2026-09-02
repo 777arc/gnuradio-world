@@ -36,10 +36,7 @@ SpectrumAnalyzerSinkWasm::sptr SpectrumAnalyzerSinkWasm::make(
     double reference_level,
     double db_per_division,
     double level_offset_db,
-    const std::string& level_unit,
-    bool peak_track,
-    double obw_percent,
-    double obw_span)
+    const std::string& level_unit)
 {
     return gnuradio::make_block_sptr<SpectrumAnalyzerSinkWasm>(
         instance_name,
@@ -55,10 +52,7 @@ SpectrumAnalyzerSinkWasm::sptr SpectrumAnalyzerSinkWasm::make(
         reference_level,
         db_per_division,
         level_offset_db,
-        level_unit,
-        peak_track,
-        obw_percent,
-        obw_span);
+        level_unit);
 }
 
 SpectrumAnalyzerSinkWasm::SpectrumAnalyzerSinkWasm(
@@ -75,10 +69,7 @@ SpectrumAnalyzerSinkWasm::SpectrumAnalyzerSinkWasm(
     double reference_level,
     double db_per_division,
     double level_offset_db,
-    const std::string& level_unit,
-    bool peak_track,
-    double obw_percent,
-    double obw_span)
+    const std::string& level_unit)
     : gr::sync_block(instance_name,
                      gr::io_signature::make(
                          1,
@@ -105,10 +96,6 @@ SpectrumAnalyzerSinkWasm::SpectrumAnalyzerSinkWasm(
         throw std::runtime_error("Spectrum Analyzer sample rate must be positive");
     if (!(db_per_division > 0.0))
         throw std::runtime_error("Spectrum Analyzer dB/division must be positive");
-    if (!(obw_percent > 0.0 && obw_percent < 100.0))
-        throw std::runtime_error(
-            "Spectrum Analyzer occupied bandwidth percentage must be between 0 and 100");
-
     static_assert(std::atomic<std::uint32_t>::is_always_lock_free,
                   "Spectrum Analyzer frame publication requires lock-free 32-bit atomics");
 
@@ -155,7 +142,7 @@ SpectrumAnalyzerSinkWasm::SpectrumAnalyzerSinkWasm(
         {
             const manager = globalThis.__grSpectrumAnalyzer;
             if (manager) manager.configureNumeric(
-                $0, $1, $2, $3, $4, $5, $6, $7, !!$8);
+                $0, $1, $2, $3, $4, $5, $6, $7);
         },
         d_renderer_id,
         sample_rate,
@@ -164,16 +151,7 @@ SpectrumAnalyzerSinkWasm::SpectrumAnalyzerSinkWasm(
         std::clamp(average, 0.0001, 1.0),
         reference_level,
         db_per_division,
-        level_offset_db,
-        peak_track ? 1 : 0);
-    MAIN_THREAD_EM_ASM(
-        {
-            const manager = globalThis.__grSpectrumAnalyzer;
-            if (manager) manager.configureMeasurement($0, $1, $2);
-        },
-        d_renderer_id,
-        obw_percent,
-        std::max(0.0, obw_span));
+        level_offset_db);
     MAIN_THREAD_EM_ASM(
         {
             const manager = globalThis.__grSpectrumAnalyzer;
@@ -257,17 +235,6 @@ void SpectrumAnalyzerSinkWasm::set_db_per_division(double value)
 void SpectrumAnalyzerSinkWasm::set_level_offset_db(double value)
 {
     publish_number("setLevelOffsetDb", value);
-}
-
-void SpectrumAnalyzerSinkWasm::set_obw_percent(double value)
-{
-    if (value > 0.0 && value < 100.0)
-        publish_number("setObwPercent", value);
-}
-
-void SpectrumAnalyzerSinkWasm::set_obw_span(double value)
-{
-    publish_number("setObwSpan", std::max(0.0, value));
 }
 
 int SpectrumAnalyzerSinkWasm::work(int noutput_items,

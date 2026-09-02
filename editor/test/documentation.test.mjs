@@ -33,6 +33,12 @@ assert.match(byId.get('wasm_packet_rate_sink')?.documentation || '',
 assert.match(byId.get('wasm_spectrum_analyzer_sink')?.documentation || '',
   /occupied-bandwidth measurement/,
   'the browser-native analyzer must describe its measurements');
+const analyzerLevelUnit = byId.get('wasm_spectrum_analyzer_sink')?.params
+  .find(param => param.id === 'level_unit');
+assert.equal(analyzerLevelUnit?.dtype, 'enum',
+  'the Spectrum Analyzer level unit must be a bounded choice');
+assert.deepEqual(analyzerLevelUnit?.options, ['dBFS', 'dBm', 'dBµV'],
+  'the Spectrum Analyzer must offer relative and calibrated level units');
 assert.equal(byId.get('analog_sig_source_x')?.wiki_url,
   'https://wiki.gnuradio.org/index.php/Signal_Source',
   'in-tree blocks must derive their wiki page from the block label');
