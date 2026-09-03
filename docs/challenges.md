@@ -185,6 +185,23 @@ No code changes. That is the whole point of putting the criteria in a block.
 | dropping the block before the registry | [runner/src/grc_lower.hpp](../runner/src/grc_lower.hpp) |
 | tests | [editor/test/challenge.test.mjs](../editor/test/challenge.test.mjs), and the lowering assertion in [runner/test/grc_test.cpp](../runner/test/grc_test.cpp) |
 
+## What it costs a flowgraph that is not a challenge
+
+Most of the app is not this feature, so the common path was measured rather than
+assumed. On a 21-block example with no Challenge block: **no poll timer, no
+canvas repaint out of the run path, and no chip element**. Per render it is one
+`insts.find()` that misses; per block, one id compare in `geom()` and one
+short-circuited compare in `validateGraph()`. The Example Flowgraphs list scans
+each `.grc` once for a Challenge block as it parses it, and folders holding no
+challenge keep the count line written when they were drawn. The modules add
+about 4 kB gzipped to the editor bundle.
+
+Two things were deliberately *not* added, because measurement said they would be
+complexity for nothing: a cache for `parseChallenge()` (2.7 µs per render — 0.02%
+of a frame budget, even though `render()` runs on every pointermove of a drag)
+and a cache for the progress store (1 µs a read; ~40 µs per keystroke even at ten
+times the current number of challenges). Re-measure before adding either.
+
 ## Known limits
 
 - Criteria compare **evaluated** parameter values, so a challenge cannot require

@@ -49,7 +49,6 @@ export function createExamplePalette(deps: ExamplePaletteDeps) {
     bindFlowgraphRecordings,
   } = deps;
   const exampleEntries: ExampleEntry[] = [];
-  const entryByRow = new Map<HTMLElement, ExampleEntry>();
   let exampleFilter: { id: string; label: string } | null = null;
   let applyExampleFilter: (() => void) | null = null;
   // Every challenge the list has seen, by its Challenge ID, so a locked row can
@@ -58,11 +57,11 @@ export function createExamplePalette(deps: ExamplePaletteDeps) {
   const challengesById = new Map<string, ChallengeSpec>();
   const challengeName = (id: string) =>
     challengesById.get(id)?.title || id;
-  // The folders that hold at least one challenge, collected as each example's
-  // .grc arrives. Only these get their count line recomputed on a refresh --
-  // refresh() runs on every keystroke in the search box, and every other folder
-  // keeps the plain count written when it was drawn.
-  const challengeDirectories = new Set<HTMLElement>();
+  // The challenges each folder holds, collected as the examples' .grc files
+  // arrive. Only folders in here get their count line recomputed on a refresh --
+  // that runs on every keystroke in the search box, and every other folder keeps
+  // the plain count written when it was drawn.
+  const challengesByDirectory = new Map<HTMLElement, ChallengeSpec[]>();
   // Set once the Examples tab has been built. Passing a challenge repaints the
   // list through this, so the next one flips from locked without a reload.
   let refreshExamples: (() => void) | null = null;
@@ -115,15 +114,11 @@ export function createExamplePalette(deps: ExamplePaletteDeps) {
     // "6 examples · 2 of 6 passed" on a folder of challenges. Recomputed rather
     // than written once: the tally has to move the moment a challenge is passed,
     // and the examples' .grc files arrive after the folders are drawn.
-    const paintDirectoryCount = (details: HTMLElement) => {
-      const count = details.querySelector<HTMLElement>(':scope > .ex-directory-head > .ex-directory-count');
-      const contents = details.querySelector<HTMLElement>(':scope > .ex-directory-contents');
-      if (!count || !contents) return;
-      const rows = [...contents.querySelectorAll<HTMLElement>('.ex-row')];
-      const challenges = rows.map(row => entryByRow.get(row)?.challenge)
-        .filter((spec): spec is ChallengeSpec => !!spec);
-      if (!challenges.length) return;   // keeps the plain count drawn at creation
-      const total = Number(count.dataset.total || rows.length);
+    const paintDirectoryCount = (details: HTMLElement, challenges: ChallengeSpec[]) => {
+      const count = details.querySelector<HTMLElement>(
+        ':scope > .ex-directory-head > .ex-directory-count');
+      if (!count) return;
+      const total = Number(count.dataset.total || challenges.length);
       const passed = challenges
         .filter(spec => deps.challengeStatus(spec) === 'passed').length;
       const text = `${total} example${total === 1 ? '' : 's'}` +
@@ -156,7 +151,8 @@ export function createExamplePalette(deps: ExamplePaletteDeps) {
         details.hidden = !hasVisibleChild;
         if ((f || q) && hasVisibleChild) details.open = true;
       }
-      for (const details of challengeDirectories) paintDirectoryCount(details);
+      for (const [details, specs] of challengesByDirectory)
+        paintDirectoryCount(details, specs);
       if (f) {
         barText.textContent =
           `Filtered: ${shown} of ${exampleEntries.length} examples use “${f.label}”` +
@@ -173,8 +169,7 @@ export function createExamplePalette(deps: ExamplePaletteDeps) {
   
     status.remove(); panel.append(searchBar, bar, list, noMatch);
     exampleEntries.length = 0;
-    entryByRow.clear();
-    challengeDirectories.clear();
+    challengesByDirectory.clear();
     const addExample = (file: string, container: HTMLElement) => {
       // A row, not just the entry, because the copy-link button sits on top of it
       // and neither a button nor an anchor may contain another button.
@@ -202,7 +197,6 @@ export function createExamplePalette(deps: ExamplePaletteDeps) {
         challenge: null, paintStatus: null,
       };
       exampleEntries.push(entry);
-      entryByRow.set(row, entry);
       // Fetch the file to show its title/description and load it on click.
       fetch('/example_flowgraphs/' + encodeExamplePath(file)).then(r => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -217,9 +211,11 @@ export function createExamplePalette(deps: ExamplePaletteDeps) {
         title.textContent = fgTitle;
         entry.challenge = challengeFromGrc(fg);
         if (entry.challenge) {
-          if (entry.challenge.id) challengesById.set(entry.challenge.id, entry.challenge);
+          const spec = entry.challenge;
+          if (spec.id) challengesById.set(spec.id, spec);
           for (let node = row.parentElement; node; node = node.parentElement)
-            if (node.classList?.contains('ex-directory')) challengeDirectories.add(node);
+            if (node.classList?.contains('ex-directory'))
+              challengesByDirectory.set(node, [...(challengesByDirectory.get(node) || []), spec]);
         }
         // A challenge row's glyph, dimming and tooltip all follow the progress
         // store, so they are repainted rather than set once: passing one

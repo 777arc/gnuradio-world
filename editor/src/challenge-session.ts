@@ -43,8 +43,6 @@ export interface ChallengeSessionDeps {
   bannerContainer(): HTMLElement;
   /** ?challenges=unlocked: every challenge open, for development and harnesses. */
   unlockAll: boolean;
-  storage?: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
-  now?(): number;
 }
 
 const ICONS: Record<CriterionState, string> = { met: '✓', unmet: '○', pending: '◌' };
@@ -79,8 +77,6 @@ export class ChallengeSession {
 
   constructor(deps: ChallengeSessionDeps) { this.deps = deps; }
 
-  private now(): number { return this.deps.now?.() ?? Date.now(); }
-
   /** The challenge on the canvas, or null. Reparsed on every refresh(). */
   current(): ChallengeSpec | null { return this.spec; }
 
@@ -88,7 +84,7 @@ export class ChallengeSession {
   criterionStates(): CriterionState[] { return this.states; }
 
   /** Which challenge ids this browser has passed. */
-  passed(): Set<string> { return passedIds(this.deps.storage); }
+  passed(): Set<string> { return passedIds(); }
 
   /**
    * Where a challenge stands for this browser, honouring ?challenges=unlocked —
@@ -140,7 +136,7 @@ export class ChallengeSession {
     // produces it, so a new run starts from nothing rather than from a latch.
     this.live = [];
     this.plotData = null;
-    if (running) this.runStartedAt = this.now();
+    if (running) this.runStartedAt = Date.now();
     this.syncPolling();
     if (this.spec) this.deps.requestRender();
   }
@@ -180,7 +176,7 @@ export class ChallengeSession {
       // challenge whose flowgraph has no analyzer to read. `ran` still ticks.
     }
     if (!this.running) return;
-    const elapsed = this.runStartedAt ? (this.now() - this.runStartedAt) / 1000 : 0;
+    const elapsed = this.runStartedAt ? (Date.now() - this.runStartedAt) / 1000 : 0;
     const before = this.states.join(',');
     this.live = latchLive(this.live,
       evaluateLive(this.spec, this.plotData, elapsed));
@@ -200,8 +196,8 @@ export class ChallengeSession {
     const complete = allMet(this.states), wasComplete = this.wasComplete;
     this.wasComplete = complete;
     if (!complete || wasComplete || !spec.id) return;
-    const already = passedIds(this.deps.storage).has(spec.id);
-    recordPass(spec.id, this.deps.storage);
+    const already = passedIds().has(spec.id);
+    recordPass(spec.id);
     const name = this.challengeName();
     this.deps.log(already
       ? `challenge "${name}" passed again — all ${this.states.length} criteria met`
@@ -273,7 +269,7 @@ export class ChallengeSession {
 
   /** Help ▸ Reset Challenge Progress. */
   reset(): void {
-    resetProgress(this.deps.storage);
+    resetProgress();
     this.hideBanner();
     this.deps.onProgressChanged();
     // `wasComplete` is deliberately left alone: a reset performed with the
