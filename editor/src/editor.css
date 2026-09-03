@@ -356,6 +356,28 @@ button:hover { filter:brightness(1.15); }
 .workspace-tab-close:hover { color:#ff9b95; background:transparent; filter:none; }
 .workspace-tab-close:focus-visible { outline:2px solid #58a6ff; outline-offset:-2px; }
 .workspace-tab-close[hidden] { display:none; }
+/* The challenge chip: `🎯 Tone Control · 2/3`, in the workspace tab bar so it is
+   visible from the canvas and from the running QT GUI alike. `order` keeps it at
+   the far right as recording tabs are appended after it. */
+.challenge-chip { order:999; margin-left:auto; align-self:center; flex:none;
+    padding:5px 11px; margin-bottom:4px; font-size:15px; color:#cfe6d8;
+    background:#243a2c; border:1px solid #3fae63; border-radius:999px;
+    white-space:nowrap; }
+.challenge-chip.complete { color:#0f2b18; background:#7ee0a0; border-color:#7ee0a0;
+    font-weight:600; }
+/* The pass announcement. Fixed rather than in a tab, for the same reason the
+   chip is in the tab bar: the moment it fires, the reader is usually looking at
+   the running flowgraph. */
+.challenge-banner { position:fixed; right:18px; bottom:18px; z-index:60;
+    display:flex; align-items:flex-start; gap:10px; max-width:min(420px,90vw);
+    padding:12px 12px 12px 15px; font-size:16px; line-height:1.4;
+    color:#0f2b18; background:#7ee0a0; border:1px solid #4bbd77; border-radius:8px;
+    box-shadow:0 6px 20px #0006; }
+.challenge-banner[hidden] { display:none; }
+.challenge-banner-text { flex:1; }
+.challenge-banner-close { flex:none; padding:0 4px; font-size:16px; line-height:1.2;
+    color:#0f2b18; background:transparent; border:0; cursor:pointer; }
+.challenge-banner-close:hover { filter:none; color:#000; }
 #runIndicator { width:8px; height:8px; border-radius:50%; background:#3fae63;
     box-shadow:0 0 0 2px #3fae6333; opacity:0; transform:scale(.7); transition:.15s; }
 #workspace.running #runIndicator { opacity:1; transform:scale(1); animation:run-pulse 1.7s ease-in-out infinite; }
@@ -487,6 +509,22 @@ button:hover { filter:brightness(1.15); }
 /* An example whose .grc would not parse: nothing to load and no page to visit. */
 .ex-item.disabled { cursor:not-allowed; color:#5c637a; }
 .ex-item.disabled:hover { background:#242a3b; border-color:#333a4d; }
+/* A challenge whose prerequisite has not been passed. Dimmed rather than
+   removed -- the reader should see what is coming -- and the row's title
+   attribute says which challenge unlocks it. The lock is palette-only: the
+   anchor still points at the example's own page, which opens normally. */
+.ex-item.locked { color:#69708a; }
+.ex-item.locked .ex-title, .ex-item.locked .ex-desc, .ex-item.locked .ex-author {
+    color:inherit; }
+.ex-item.locked:hover { background:#262c3e; border-color:#3b4262; }
+/* The ✅ / ▶ / 🔒 before a challenge's title. Drawn in CSS rather than as an
+   element, so `.ex-title` still holds exactly the example's title -- and it is
+   decoration either way: the same fact is in the row's title attribute in
+   words, which is what a screen reader reads. */
+.ex-item[data-challenge] .ex-title::before { margin-right:6px; }
+.ex-item[data-challenge="passed"] .ex-title::before { content:'\2705'; }
+.ex-item[data-challenge="unlocked"] .ex-title::before { content:'\25B6'; }
+.ex-item[data-challenge="locked"] .ex-title::before { content:'\1F512'; }
 /* the classes set display:block, which would otherwise beat the UA [hidden] rule */
 .ex-item[hidden], .ex-row[hidden] { display:none; }
 .ex-directory[hidden] { display:none; }
@@ -700,6 +738,13 @@ svg text { user-select:none; -webkit-user-select:none; -moz-user-select:none; }
 .blk text.pexpr { fill:#6b3fa0; font-style:italic; }
 .blk text.param.pmore { fill:#6b6b6b; font-style:italic; }
 .blk text.param.invalid, .blk text.param.invalid .pval { fill:#d1242f; font-weight:700; }
+/* The Challenge block's checklist rows. `pending` is a live criterion the
+   current run has not shown yet, which is neither a pass nor a failure. */
+.blk text.param.challenge-met, .blk text.param.challenge-met .pval {
+    fill:#1a7f3c; font-weight:600; }
+.blk text.param.challenge-unmet, .blk text.param.challenge-unmet .pval { fill:#3d4250; }
+.blk text.param.challenge-pending, .blk text.param.challenge-pending .pval {
+    fill:#7a6a20; font-style:italic; }
 .blk text.comment { fill:#444; font:14px 'DejaVu Sans',Verdana,sans-serif; pointer-events:none; }
 .blk.disabled text.comment { fill:#888; }
 .blk text.validation-error { fill:#d1242f; font:14px 'DejaVu Sans',Verdana,sans-serif; pointer-events:none; }

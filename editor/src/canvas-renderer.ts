@@ -14,7 +14,7 @@ interface LayoutThumbTile {
 
 interface BlockGeometry {
   d: { label: string };
-  rows: { id: string; l: string; v: string; expression?: string }[];
+  rows: { id: string; l: string; v: string; expression?: string; cls?: string }[];
   h: number;
   w: number;
   subtitle?: string;
@@ -234,8 +234,11 @@ export function renderCanvas(deps: CanvasRenderDeps): void {
     // parameter rows: "label: value"
     rows.forEach((r, i) => {
       const y = rowsTop(h, rows.length, headH) + i * ROW_H + ROW_BASELINE;
+      // `cls` is the Challenge block's checklist state (met/unmet/pending), the
+      // one place a face row's colour comes from the row rather than the block.
       const tx = svgEl('text', { class: 'param' + (fieldIssue(blockIssues, inst.uid, r.id) ? ' invalid' : '') +
-        (r.id === MORE_ROW_ID ? ' pmore' : ''), x: String(TEXT_PAD_L), y: String(y) });
+        (r.id === MORE_ROW_ID ? ' pmore' : '') + (r.cls ? ' ' + r.cls : ''),
+        x: String(TEXT_PAD_L), y: String(y) });
       const l = document.createElementNS(SVGNS, 'tspan'); l.setAttribute('class', 'plabel'); l.textContent = r.l;
       if (r.expression !== undefined) {
         const expression = document.createElementNS(SVGNS, 'tspan');

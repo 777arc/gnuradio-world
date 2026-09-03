@@ -90,7 +90,11 @@ try {
   await dismissUnpacedRunWarning(page);
   await page.setViewport({ width: 1200, height: 800 });
   page.on('pageerror', e => console.log('PAGEERROR', e.message));
-  await page.goto(`http://localhost:${port}/`, { waitUntil: 'networkidle2', timeout: 60000 });
+  // ?challenges=unlocked: this harness picks the example out of the palette, and
+  // a challenge whose prerequisite has not been passed refuses to load from
+  // there. Nothing here plays through a challenge chain to reach the next one.
+  await page.goto(`http://localhost:${port}/?challenges=unlocked`,
+    { waitUntil: 'networkidle2', timeout: 60000 });
   await new Promise(r => setTimeout(r, 1500));
 
   const tab = await page.evaluateHandle(() =>

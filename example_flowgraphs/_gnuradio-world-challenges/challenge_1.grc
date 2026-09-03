@@ -1,0 +1,191 @@
+options:
+    parameters:
+        author: GNU Radio World
+        comment: ''
+        copyright: ''
+        description: Tune a tone to a target frequency and confirm it on the spectrum analyzer.
+        generate_options: qt_gui
+        id: Challenge_1
+        title: Challenge 1
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: center_freq
+    id: variable
+    parameters:
+        comment: ''
+        value: '100000000'
+    states:
+        coordinate: [590, 10]
+        rotation: 0
+        state: enabled
+-   name: samp_rate
+    id: variable
+    parameters:
+        comment: ''
+        value: '1000000'
+    states:
+        coordinate: [760, 10]
+        rotation: 0
+        state: enabled
+-   name: tone_offset
+    id: variable
+    parameters:
+        comment: ''
+        value: '0'
+    states:
+        coordinate: [930, 10]
+        rotation: 0
+        state: enabled
+-   name: analyzer
+    id: wasm_spectrum_analyzer_sink
+    parameters:
+        affinity: ''
+        alias: ''
+        average: '0.2'
+        center_freq: center_freq
+        comment: Finds and measures signals
+        db_per_div: '10'
+        fftsize: '4096'
+        level_offset_db: '0'
+        level_unit: dBFS
+        name: Tune the tone
+        reference_level: '0'
+        samp_rate: samp_rate
+        trace_mode: average
+        type: complex
+        update_time: '0.1'
+        wintype: window.WIN_BLACKMAN_hARRIS
+    states:
+        coordinate: [940, 450]
+        rotation: 0
+        state: enabled
+-   name: challenge_1
+    id: wasm_challenge
+    parameters:
+        affinity: ''
+        alias: ''
+        challenge_id: challenge_1
+        comment: ''
+        criteria: "[\n {\"kind\": \"ran\", \"seconds\": 3, \"goal\": \"Run the flowgraph and find the tone on the spectrum\"},\n {\"kind\": \"detected_signal\", \"center_freq\": 100250000, \"center_tol\": 20000, \"min_peak_level\": -40, \"goal\": \"Move the tone to 100.25 MHz - 250 kHz above the center frequency\"}\n]"
+        requires: challenge_0
+        title: Tune the tone
+    states:
+        coordinate: [1100, 10]
+        rotation: 0
+        state: enabled
+-   name: channel_sum
+    id: blocks_add_xx
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        num_inputs: '2'
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [370, 530]
+        rotation: 0
+        state: enabled
+-   name: channel_throttle
+    id: blocks_throttle2
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: "Limits the rate of IQ samples\nflowing through"
+        ignoretag: 'True'
+        limit: time
+        maximum: '0.02'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        samples_per_second: samp_rate
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [610, 520]
+        rotation: 0
+        state: enabled
+-   name: gui_layout
+    id: wasm_gui_layout
+    parameters:
+        affinity: ''
+        alias: ''
+        columns: '12'
+        comment: ''
+        layout: '{"analyzer":[0,0,12,8]}'
+        row_height: '60'
+    states:
+        coordinate: [300, 10]
+        rotation: 0
+        state: enabled
+-   name: note_0
+    id: note
+    parameters:
+        affinity: ''
+        alias: ''
+        bgcolor: '#4dff6a'
+        comment: ''
+        note: The radio is tuned to 100 MHz and listening across 1 MHz of spectrum, so the analyzer shows 99.5 MHz to 100.5 MHz. The Signal Source adds a tone at an offset from that center frequency.
+    states:
+        coordinate: [10, 210]
+        rotation: 0
+        state: enabled
+-   name: note_1
+    id: note
+    parameters:
+        affinity: ''
+        alias: ''
+        bgcolor: '#4dff6a'
+        comment: ''
+        note: "Challenge:\n1) Run the flowgraph and find the tone -- it starts at the center of the display\n2) Put the tone at 100.25 MHz by changing the tone_offset variable\n\nThe offset is relative to the center frequency, and a variable is edited the same way a block parameter is: double-click it."
+    states:
+        coordinate: [420, 210]
+        rotation: 0
+        state: enabled
+-   name: receiver_noise
+    id: analog_noise_source_x
+    parameters:
+        affinity: ''
+        alias: ''
+        amp: '0.002'
+        comment: Gives the detector a noise floor
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        noise_type: analog.GR_GAUSSIAN
+        seed: '7'
+        type: complex
+    states:
+        coordinate: [10, 670]
+        rotation: 0
+        state: enabled
+-   name: tone
+    id: analog_sig_source_x
+    parameters:
+        affinity: ''
+        alias: ''
+        amp: '0.3'
+        comment: The tone you are moving
+        freq: tone_offset
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        offset: '0'
+        phase: '0'
+        samp_rate: samp_rate
+        type: complex
+        waveform: analog.GR_COS_WAVE
+    states:
+        coordinate: [10, 490]
+        rotation: 0
+        state: enabled
+connections:
+- [channel_sum, '0', channel_throttle, '0']
+- [channel_throttle, '0', analyzer, '0']
+- [receiver_noise, '0', channel_sum, '1']
+- [tone, '0', channel_sum, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0

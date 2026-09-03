@@ -135,7 +135,12 @@ export function blockFlags(flags: any): string[] {
 
 export function installGeneratedBlocks(blocks: any[]) {
   for (const block of blocks) {
-    if (!block.runnable) continue;
+    // A block with a hand-written schema is supported whatever the generated
+    // manifest says -- `note` and the Challenge block have no factory at all,
+    // because the runner drops them while lowering -- and its yaml prose is
+    // still the documentation the Properties dialog should show. Everything
+    // else that is not runnable stays out of RUNNABLE entirely.
+    if (!block.runnable && !RUNNABLE[block.id]) continue;
     // `show_id` is what makes native GRC expose a block's instance ID as a
     // parameter; every other block hides it (`hide: all`).
     const flags = blockFlags(block.flags);

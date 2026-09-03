@@ -45,6 +45,15 @@ blocks:
         coordinate: [50, 600]
         rotation: 0
         state: enabled
+-   name: challenge_0
+    id: wasm_challenge
+    parameters:
+        challenge_id: challenge_0
+        criteria: '[{"kind": "ran", "goal": "Run it"}]'
+    states:
+        coordinate: [50, 650]
+        rotation: 0
+        state: enabled
 -   name: x1
     id: analog_sig_source_x
     parameters:
@@ -112,7 +121,7 @@ int main() {
 
     // ---- parser ----
     json g = grc_yaml::parse(kGraph);
-    assert(g.at("blocks").is_array() && g["blocks"].size() == 8);
+    assert(g.at("blocks").is_array() && g["blocks"].size() == 9);
     assert(g.at("connections").size() == 4);
     assert(g["options"]["parameters"]["id"] == "t");
     assert(g["blocks"][0]["states"]["coordinate"] == json::array({ 50, 400 }));
@@ -146,13 +155,17 @@ int main() {
     json low = grc_lower::lower(g);
     const json& lb = low.at("blocks");
     // Dropped: options (not a block), disabled x2, bypassed thr, plain variable
-    // rate, and note_0 (an editor-only canvas annotation).
+    // rate, note_0 (an editor-only canvas annotation) and challenge_0 (an
+    // editor-only statement of a challenge's success criteria). Neither of the
+    // last two has a GNU Radio block behind it, so neither may reach the
+    // factory registry.
     // Kept: freq (control), x1, xx3, snk.
     assert(lb.size() == 4);
     assert(find_block(lb, "freq") && find_block(lb, "x1") &&
            find_block(lb, "xx3") && find_block(lb, "snk"));
     assert(find_block(lb, "x2") == nullptr && find_block(lb, "thr") == nullptr &&
-           find_block(lb, "rate") == nullptr && find_block(lb, "note_0") == nullptr);
+           find_block(lb, "rate") == nullptr && find_block(lb, "note_0") == nullptr &&
+           find_block(lb, "challenge_0") == nullptr);
 
     // Plain variable `rate` is inlined as a number; control ref `freq` is kept.
     const json* x1 = find_block(lb, "x1");

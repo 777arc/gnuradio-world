@@ -1,4 +1,8 @@
 import { NOTE_BG_PARAM } from './note';
+import {
+  CHALLENGE_ID, CHALLENGE_ID_PARAM, CHALLENGE_TITLE_PARAM,
+  CHALLENGE_REQUIRES_PARAM, CHALLENGE_CRITERIA_PARAM,
+} from './challenge';
 
 export type ParamType = 'number' | 'string' | 'enum';
 // `raw` marks a GRC dtype: raw parameter — free-form Python (vectors, matrices).
@@ -251,6 +255,25 @@ export const RUNNABLE: Record<string, RunnableDef> = {
       { id: 'note', label: 'Note', type: 'string', def: '', multiline: true },
       { id: NOTE_BG_PARAM, label: 'Background Color', type: 'string', def: '',
         color: true },
+    ],
+  },
+  // The Challenge block, and the same story as Note above: metadata only, no
+  // GNU Radio block behind it, dropped by the runner while lowering. Its body
+  // on the canvas is the live checklist its `criteria` describe (challengeGeom
+  // in main.ts), and it is in PALETTE_HIDDEN because authoring a challenge is a
+  // repository activity rather than something to drop onto a flowgraph.
+  //
+  // Every parameter of it has to be declared here or the editor drops it
+  // silently on load -- and a challenge whose criteria quietly became `[]`
+  // would show an empty checklist that can never be completed. See
+  // docs/challenges.md.
+  [CHALLENGE_ID]: {
+    label: 'Challenge', inputs: 0, outputs: 0, params: [
+      { id: CHALLENGE_ID_PARAM, label: 'Challenge ID', type: 'string', def: '' },
+      { id: CHALLENGE_TITLE_PARAM, label: 'Title', type: 'string', def: '' },
+      { id: CHALLENGE_REQUIRES_PARAM, label: 'Requires', type: 'string', def: '' },
+      { id: CHALLENGE_CRITERIA_PARAM, label: 'Success Criteria', type: 'string',
+        def: '[]', multiline: true },
     ],
   },
   // ---- sources ----

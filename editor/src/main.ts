@@ -104,8 +104,15 @@ import {
 import type { CatalogEntry } from './ai/catalog';
 import type { AiReadDeps } from './ai/tools';
 import type { HarnessDeps, RunAuthorization } from './ai/harness';
+import { readPlotData, type CaptureDeps } from './ai/capture';
 import { createAiPanel, type AiPanel } from './ai/panel';
 import { TrainingSession, type TrainingProgress } from './training';
+import {
+  CHALLENGE_ID, CHALLENGE_CRITERIA_PARAM, challengeBlock, challengeProblems,
+  parseChallenge,
+  type CriterionState,
+} from './challenge';
+import { ChallengeSession, criterionLine } from './challenge-session';
 import {
   dismissUnpacedRunWarning,
   shouldWarnAboutUnpacedRun,
@@ -201,6 +208,14 @@ const EMBED_NO_CONTROLS = (() => {
 const AUTO_RUN = (() => {
   if (TRAINING_EXAMPLE) return false;
   const value = new URLSearchParams(location.search).get('run');
+  return value !== null && value !== '0' && value.toLowerCase() !== 'false';
+})();
+// ?challenges=unlocked — every challenge open, whatever this browser has
+// passed. For development and for scripts/run_example.mjs, which has to be able
+// to open any challenge flowgraph without playing through the ones before it.
+// Same truthy rule as the flags above, plus the explicit spelling.
+const CHALLENGES_UNLOCKED = (() => {
+  const value = new URLSearchParams(location.search).get('challenges');
   return value !== null && value !== '0' && value.toLowerCase() !== 'false';
 })();
 const embedRun = el('embedRun') as HTMLButtonElement;
@@ -875,7 +890,7 @@ function paramDisplay(p: ParamDef, raw: any): ParamDisplay {
   return { value };
 }
 
-interface FaceRow { id: string; l: string; v: string; expression?: string }
+interface FaceRow { id: string; l: string; v: string; expression?: string; cls?: string }
 const faceRowText = (row: FaceRow) =>
   (row.expression || '') + (row.expression && row.v ? '=' : '') + row.v;
 
@@ -934,6 +949,21 @@ function validateGraph(blocks: Inst[] = state.insts, connections: Conn[] = state
       issues.push({ uid: block.uid,
                     field: block.id === JS_BLOCK_ID ? JS_SOURCE_PARAM : EPY_SOURCE_PARAM,
                     message, blocking: block.enabled && !block.bypassed });
+
+    // Everything wrong with a challenge's authoring: malformed criteria JSON,
+    // an unknown kind, a criterion with no goal, and above all a criterion
+    // naming a block that was renamed. Reported here rather than in
+    // validation.ts because it is the *parsed* criteria that are wrong, not
+    // anything validation.ts can see in the .grc -- and parsed from `blocks`
+    // rather than read off the session, so the Properties dialog's live check
+    // sees the criteria being typed. Non-blocking: a broken challenge is still
+    // a flowgraph worth running.
+    if (block.id === CHALLENGE_ID && challengeBlock(blocks)?.uid === block.uid) {
+      const spec = parseChallenge(blocks);
+      for (const message of spec ? challengeProblems(spec, blocks) : [])
+        issues.push({ uid: block.uid, field: CHALLENGE_CRITERIA_PARAM,
+                      message, blocking: false });
+    }
 
     // A SigMF Sink's name is the stem of two real files, so an empty one has
     // nothing to write to. Unlike a source's missing binding -- which is a
@@ -1005,6 +1035,40 @@ function noteGeom(inst: Inst, d: RunnableDef) {
   };
 }
 
+// The Challenge block's body is its live checklist: one row per success
+// criterion, ticked as the reader meets it. Same idea as the Note block above
+// and the GUI Layout miniature below -- the parameter it would otherwise show
+// is a JSON array, which tells a reader nothing, and the checklist is the whole
+// point of the block. The states come from the session rather than from the
+// parameters, because the live ones are only knowable while the graph runs.
+function challengeGeom(d: RunnableDef) {
+  const spec = challengeSession.current();
+  const states = challengeSession.criterionStates();
+  const rows: FaceRow[] = [];
+  const push = (text: string, cls: string) => {
+    for (const line of wrapNoteText(text, s => textW(s, NOTE_FONT_SIZE)))
+      rows.push({ id: CHALLENGE_CRITERIA_PARAM, l: '', v: line, cls });
+  };
+  const criteria = spec?.criteria ?? [];
+  if (!criteria.length) push('No success criteria yet.', 'challenge-unmet');
+  criteria.forEach((criterion, index) => {
+    const state: CriterionState = states[index] ?? 'unmet';
+    push(criterionLine(state, criterion.goal), `challenge-${state}`);
+  });
+  const subtitle = spec?.title ?? '';
+  let w = Math.max(textW(d.label, TITLE_FONT_SIZE, true),
+                   textW(subtitle, SUBTITLE_FONT_SIZE));
+  for (const row of rows) w = Math.max(w, textW(row.v, NOTE_FONT_SIZE));
+  const headH = TITLE_H + (subtitle ? SUBTITLE_H : 0);
+  return {
+    d, rows, subtitle, headH,
+    h: headH + Math.max(rows.length * ROW_H, ROW_H) + BODY_SLACK,
+    w: ceilToGrid(
+      Math.max(BLOCK_MIN_W, Math.ceil(w) + TEXT_PAD_L + TEXT_PAD_R),
+      SNAP_GRID_SIZE * 2),
+  };
+}
+
 // The GUI Layout block's body is a miniature of the runner window: one rectangle
 // per widget, where that widget will actually appear. A parameter row holding
 // `{"qtgui_freq_sink_x_0":[0,0,8,4]}` tells a reader nothing, and the whole
@@ -1058,6 +1122,7 @@ function layoutGeom(inst: Inst, d: RunnableDef) {
 function geom(inst: Inst) {
   const d = defFor(inst);
   if (inst.id === NOTE_ID) return noteGeom(inst, d);
+  if (inst.id === CHALLENGE_ID) return challengeGeom(d);
   if (inst.id === LAYOUT_ID) return layoutGeom(inst, d);
   // Categorized parameters belong in the modal notebook. Native GRC also keeps
   // parameters marked `hide: part` or `hide: all` off the block face.
@@ -2530,7 +2595,47 @@ function addTrainingPort(g: SVGGElement, inst: Inst, kind: 'in' | 'out', idx: nu
   g.appendChild(label);
 }
 
+// Reading the running window: the frame the AI harness watches, and the widget
+// geometry the runner already reports for the Arrange overlay. Shared by
+// Graham's capture tools and the challenge session below, so the two cannot end
+// up reading different runners.
+const captureDeps: CaptureDeps = {
+  frame: () => el('runFrame') as HTMLIFrameElement,
+  layout: () => runnerLayout,
+};
+
+// The challenge on the canvas, if any: its checklist, its progress and the chip
+// in the tab bar. Static criteria are recomputed by render() below (the same
+// hook validation runs on); the live ones are polled while the runner runs. The
+// rules themselves are in challenge.ts, which stays DOM-free and unit-tested.
+// See docs/challenges.md.
+const challengeSession = new ChallengeSession({
+  blocks: () => state.insts,
+  connections: () => state.conns,
+  // The full variable scope, so a criterion's `equals: 200` is satisfied by
+  // `200`, by `2*100` and by a variable holding 200 alike.
+  scope: () => varScope,
+  flowgraphTitle: () =>
+    String(state.insts.find(i => i.id === OPTIONS_ID)?.params.title || '').trim(),
+  // The same reader Graham's read_plot_data tool uses, over the same frame.
+  // `points: 4` because nothing here looks at the curve -- only at the
+  // Spectrum Analyzer's detected_signals[], which every snapshot carries whole.
+  readPlotData: () => readPlotData(captureDeps, { points: 4 }),
+  log,
+  onProgressChanged: () => examplePaletteController.refresh(),
+  requestRender: () => render(),
+  chipContainer: () => el('workspaceTabs'),
+  bannerContainer: () => document.body,
+  unlockAll: CHALLENGES_UNLOCKED,
+});
+
 function render() {
+  // Before renderCanvas, not after: the Challenge block's face *is* its
+  // checklist, so the geom() renderCanvas calls has to read states this call has
+  // already computed -- against a scope that is likewise already rebuilt, which
+  // is why rebuildScope() runs here as well as inside renderCanvas.
+  rebuildScope();
+  challengeSession.refresh();
   renderCanvas({
     state, zoom, trainingSession, trainingNodesG, trainingWiresG, nodesG, wiresG,
     selectionG, rebuildScope, validateGraph, canvasBlockHidden, portMeta,
@@ -2762,6 +2867,10 @@ function updateEmbedRun(failed = false) {
 
 function setRunnerRunning(running: boolean, status?: string) {
   runnerRunning = running;
+  // A challenge's live criteria are only knowable while the graph runs, and
+  // never outlive the run that saw them -- a tone the previous run produced
+  // must not pass a graph that no longer produces it.
+  challengeSession.setRunning(running);
   updateEmbedRun();
   el('workspace').classList.toggle('running', running);
   if (!running) {
@@ -3605,6 +3714,11 @@ const GUI_BLOCK_IDS = new Set<string>();
 // one still opens, runs and round-trips.
 const PALETTE_HIDDEN = new Set([
   'blocks_throttle',   // "Throttle (old)" — superseded by blocks_throttle2
+  // Authoring a challenge is a repository activity: the block is placed by
+  // hand in a .grc under example_flowgraphs/_gnuradio-world-challenges/, and a
+  // reader who dropped one onto their own flowgraph would only get a checklist
+  // with nothing behind it. See docs/challenges.md.
+  CHALLENGE_ID,
 ]);
 
 // Passes the editor's own clicks down to a runner frame whose audio the
@@ -3644,6 +3758,7 @@ window.addEventListener('message', (e) => {
     log(`run failed: ${d.message}`);
     stop();
     setRunnerRunning(false, 'Flowgraph failed');
+    challengeSession.runFailed();
     return;
   }
   if (d.type === 'gr-info' && typeof d.message === 'string') {
@@ -3813,6 +3928,7 @@ const examplePaletteController = createExamplePalette({
   setExampleHash,
   setCurrentFileName,
   bindFlowgraphRecordings,
+  challengeStatus: spec => challengeSession.statusOf(spec),
 });
 
 function showExamplesFor(id: string, label: string): void {
@@ -4181,6 +4297,26 @@ function openDialog(title: string, build: (body: HTMLElement) => void, wide = fa
   return overlay;
 }
 
+// Help > Reset Challenge Progress. Confirmed rather than immediate: it throws
+// away everything the reader has solved, and there is no way back.
+function resetChallengeProgress(): void {
+  openDialog('Reset Challenge Progress', body => {
+    const message = document.createElement('p');
+    message.textContent =
+      'This clears every challenge you have passed in this browser, locking all ' +
+      'but the first again. It cannot be undone.';
+    body.appendChild(message);
+    const reset = document.createElement('button');
+    reset.textContent = 'Reset progress';
+    reset.onclick = () => {
+      challengeSession.reset();
+      log('challenge progress reset');
+      document.querySelector('.modal')?.remove();
+    };
+    body.appendChild(reset);
+  });
+}
+
 function showUsbPreparationProblem(problem: Exclude<UsbPreparationProblem, string>): void {
   openDialog(problem.title, body => {
     const message = document.createElement('p');
@@ -4411,6 +4547,8 @@ const MENUS: TopMenu[] = [
     'sep',
     { label: 'Get Involved', run: () => openLink('https://www.gnuradio.org/get-involved/') },
     { label: 'Discord Server', run: () => openLink('https://discord.gg/5aMSvsBp') },
+    'sep',
+    { label: 'Reset Challenge Progress', run: resetChallengeProgress },
     'sep',
     { label: 'Privacy Policy', run: () => openLink('/privacy.html') },
     { label: 'Terms of Service', run: () => openLink('/terms.html') },
@@ -4886,12 +5024,7 @@ function initializeAiPanel(): void {
   aiPanel = createAiPanel({
     openDialog, log, systemPrompt: aiSystemPrompt, entries: aiCatalogEntries,
     toolDeps: aiToolDependencies(), harness,
-    // Reading the running window: the same frame the harness watches, and the
-    // widget geometry the runner already reports for the Arrange overlay.
-    capture: {
-      frame: () => el('runFrame') as HTMLIFrameElement,
-      layout: () => runnerLayout,
-    },
+    capture: captureDeps,
     snapshot,
     commitHistory: recordHistory,
     restoreSnapshot: restoreAiSnapshot,

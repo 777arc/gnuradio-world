@@ -234,10 +234,12 @@ inline json lower(const json& g) {
     json blocksOut = json::array();
     for (const auto& b : blocks) {
         const std::string id = b.value("id", std::string()), name = b.value("name", std::string());
-        // `note` is a canvas annotation (GRC's comment block): it carries text
-        // for the editor only and has no GNU Radio block behind it, so it never
-        // reaches the factory registry.
-        if (id == "options" || id == "variable" || id == "note" || !active(name)) continue;
+        // `note` is a canvas annotation (GRC's comment block) and
+        // `wasm_challenge` states a challenge's success criteria: both carry
+        // text for the editor only and have no GNU Radio block behind them, so
+        // neither ever reaches the factory registry.
+        if (id == "options" || id == "variable" || id == "note" ||
+            id == "wasm_challenge" || !active(name)) continue;
         json nb = json::object();
         nb["name"] = name; nb["id"] = id;
         nb["params"] = (b.contains("parameters") && b["parameters"].is_object())

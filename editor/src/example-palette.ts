@@ -1,4 +1,5 @@
 import { parseGrc } from './grc';
+import { challengeFromGrc, type ChallengeSpec, type ChallengeStatus } from './challenge';
 import {
   buildExampleTree,
   encodeExamplePath,
@@ -16,6 +17,10 @@ interface ExampleEntry {
   item: HTMLElement;
   blockIds: Set<string> | null;
   text: string;
+  /** The challenge this example states, once its .grc has been parsed. */
+  challenge: ChallengeSpec | null;
+  /** Repaints this row's lock/tick glyph and its locked styling. */
+  paintStatus: (() => void) | null;
 }
 
 export interface ExamplePaletteDeps {
@@ -28,6 +33,8 @@ export interface ExamplePaletteDeps {
   setExampleHash(file: string | null): void;
   setCurrentFileName(file: string | null): void;
   bindFlowgraphRecordings(flowgraph: any, name: string): Promise<void>;
+  /** Where a challenge stands for this browser: passed, unlocked, or locked. */
+  challengeStatus(spec: Pick<ChallengeSpec, 'id' | 'requires'>): ChallengeStatus;
 }
 
 export function createExamplePalette(deps: ExamplePaletteDeps) {
@@ -42,8 +49,23 @@ export function createExamplePalette(deps: ExamplePaletteDeps) {
     bindFlowgraphRecordings,
   } = deps;
   const exampleEntries: ExampleEntry[] = [];
+  const entryByRow = new Map<HTMLElement, ExampleEntry>();
   let exampleFilter: { id: string; label: string } | null = null;
   let applyExampleFilter: (() => void) | null = null;
+  // Every challenge the list has seen, by its Challenge ID, so a locked row can
+  // name its prerequisite by title rather than by slug. Built from the examples
+  // themselves: the chain is stated in the .grc files, nowhere else.
+  const challengesById = new Map<string, ChallengeSpec>();
+  const challengeName = (id: string) =>
+    challengesById.get(id)?.title || id;
+  // The folders that hold at least one challenge, collected as each example's
+  // .grc arrives. Only these get their count line recomputed on a refresh --
+  // refresh() runs on every keystroke in the search box, and every other folder
+  // keeps the plain count written when it was drawn.
+  const challengeDirectories = new Set<HTMLElement>();
+  // Set once the Examples tab has been built. Passing a challenge repaints the
+  // list through this, so the next one flips from locked without a reload.
+  let refreshExamples: (() => void) | null = null;
 
   function showExamplesFor(id: string, label: string) {
     exampleFilter = { id, label };
@@ -90,11 +112,31 @@ export function createExamplePalette(deps: ExamplePaletteDeps) {
     bar.append(barText, clear);
     const noMatch = document.createElement('div'); noMatch.className = 'ex-empty'; noMatch.hidden = true;
   
+    // "6 examples · 2 of 6 passed" on a folder of challenges. Recomputed rather
+    // than written once: the tally has to move the moment a challenge is passed,
+    // and the examples' .grc files arrive after the folders are drawn.
+    const paintDirectoryCount = (details: HTMLElement) => {
+      const count = details.querySelector<HTMLElement>(':scope > .ex-directory-head > .ex-directory-count');
+      const contents = details.querySelector<HTMLElement>(':scope > .ex-directory-contents');
+      if (!count || !contents) return;
+      const rows = [...contents.querySelectorAll<HTMLElement>('.ex-row')];
+      const challenges = rows.map(row => entryByRow.get(row)?.challenge)
+        .filter((spec): spec is ChallengeSpec => !!spec);
+      if (!challenges.length) return;   // keeps the plain count drawn at creation
+      const total = Number(count.dataset.total || rows.length);
+      const passed = challenges
+        .filter(spec => deps.challengeStatus(spec) === 'passed').length;
+      const text = `${total} example${total === 1 ? '' : 's'}` +
+        ` · ${passed} of ${challenges.length} passed`;
+      if (count.textContent !== text) count.textContent = text;
+    };
+
     const refresh = () => {
       const f = exampleFilter;
       const q = terms.join(' ');
       bar.hidden = !f;
       let shown = 0, pending = 0;
+      for (const entry of exampleEntries) entry.paintStatus?.();   // challenge rows only
       for (const entry of exampleEntries) {
         const hit = terms.every(t => entry.text.includes(t));
         if (!f) { entry.item.hidden = !hit; if (hit) shown++; continue; }
@@ -114,6 +156,7 @@ export function createExamplePalette(deps: ExamplePaletteDeps) {
         details.hidden = !hasVisibleChild;
         if ((f || q) && hasVisibleChild) details.open = true;
       }
+      for (const details of challengeDirectories) paintDirectoryCount(details);
       if (f) {
         barText.textContent =
           `Filtered: ${shown} of ${exampleEntries.length} examples use “${f.label}”` +
@@ -126,9 +169,12 @@ export function createExamplePalette(deps: ExamplePaletteDeps) {
       noMatch.hidden = (!f && !q) || shown > 0 || pending > 0;
     };
     applyExampleFilter = refresh;
+    refreshExamples = refresh;
   
     status.remove(); panel.append(searchBar, bar, list, noMatch);
     exampleEntries.length = 0;
+    entryByRow.clear();
+    challengeDirectories.clear();
     const addExample = (file: string, container: HTMLElement) => {
       // A row, not just the entry, because the copy-link button sits on top of it
       // and neither a button nor an anchor may contain another button.
@@ -151,8 +197,12 @@ export function createExamplePalette(deps: ExamplePaletteDeps) {
       link.onclick = e => { e.stopPropagation(); void copyExampleUrl(file); };
       row.append(item, link);
       container.append(row);
-      const entry: ExampleEntry = { file, item: row, blockIds: null, text: file.toLowerCase() };
+      const entry: ExampleEntry = {
+        file, item: row, blockIds: null, text: file.toLowerCase(),
+        challenge: null, paintStatus: null,
+      };
       exampleEntries.push(entry);
+      entryByRow.set(row, entry);
       // Fetch the file to show its title/description and load it on click.
       fetch('/example_flowgraphs/' + encodeExamplePath(file)).then(r => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -165,6 +215,32 @@ export function createExamplePalette(deps: ExamplePaletteDeps) {
         const fgDesc = summary.description;
         entry.text = [file, fgTitle, fgAuthor, fgDesc].filter(Boolean).join(' ').toLowerCase();
         title.textContent = fgTitle;
+        entry.challenge = challengeFromGrc(fg);
+        if (entry.challenge) {
+          if (entry.challenge.id) challengesById.set(entry.challenge.id, entry.challenge);
+          for (let node = row.parentElement; node; node = node.parentElement)
+            if (node.classList?.contains('ex-directory')) challengeDirectories.add(node);
+        }
+        // A challenge row's glyph, dimming and tooltip all follow the progress
+        // store, so they are repainted rather than set once: passing one
+        // challenge has to unlock the next without a reload.
+        entry.paintStatus = () => {
+          const spec = entry.challenge;
+          if (!spec) return;
+          const status = deps.challengeStatus(spec);
+          // The ✅/▶/🔒 glyph is drawn by CSS off this attribute rather than by
+          // an element of its own, so `.ex-title` keeps holding exactly the
+          // example's title and nothing else -- which is what the palette
+          // search and the example harnesses read it for.
+          item.dataset.challenge = status;
+          item.classList.toggle('locked', status === 'locked');
+          const words = status === 'passed' ? 'Challenge passed'
+            : status === 'locked'
+              ? `Locked — finish “${challengeName(spec.requires)}” first`
+              : 'Challenge unlocked, not yet passed';
+          item.title = `${words}. ${fgTitle}`;
+        };
+        entry.paintStatus();
         if (fgAuthor) {
           const author = document.createElement('div'); author.className = 'ex-author';
           author.textContent = `by ${fgAuthor}`; item.append(author);
@@ -185,6 +261,14 @@ export function createExamplePalette(deps: ExamplePaletteDeps) {
           // means as "open the page", not "load this into the canvas".
           if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
           e.preventDefault();
+          // The lock is soft and palette-only: a #example= deep link and the
+          // generated /examples/ page still open a locked challenge, so
+          // sharing, bookmarks and search indexing keep working.
+          const spec = entry.challenge;
+          if (spec && deps.challengeStatus(spec) === 'locked') {
+            log(`"${fgTitle}" is locked — finish "${challengeName(spec.requires)}" first`);
+            return;
+          }
           try {
             closePaletteDrawer();
             trustExampleJavaScript(fg);
@@ -215,6 +299,7 @@ export function createExamplePalette(deps: ExamplePaletteDeps) {
         name.textContent = child.name;
         const count = document.createElement('span'); count.className = 'ex-directory-count';
         const total = exampleTreeCount(child);
+        count.dataset.total = String(total);
         count.textContent = `${total} example${total === 1 ? '' : 's'}`;
         summary.append(name, count);
         const contents = document.createElement('div'); contents.className = 'ex-directory-contents';
@@ -227,5 +312,5 @@ export function createExamplePalette(deps: ExamplePaletteDeps) {
     renderDirectory(buildExampleTree(files), list);
     refresh();
   }
-  return { showExamplesFor, buildExamples };
+  return { showExamplesFor, buildExamples, refresh: () => refreshExamples?.() };
 }

@@ -30,6 +30,7 @@ full* before starting that kind of work:
 | [docs/embedded-python.md](docs/embedded-python.md) | touching the Embedded Python Block — Pyodide, the Python shim under `runner/src/pyodide/`, `blocks/src/python_block.hpp`, `editor/src/epy.ts`, or the Code field's CodeMirror in `editor/src/code-editor.ts` |
 | [docs/js-blocks.md](docs/js-blocks.md) | touching the JavaScript Block — `runner/src/js_runtime.js`, `blocks/src/js_block.hpp`, `editor/src/js-block.ts`, `editor/src/code-modal.ts`, or anything under `blocks/js/` |
 | [docs/rtl433-decoders.md](docs/rtl433-decoders.md) | porting an rtl_433 device decoder, hosting an rtl_433_tests capture as a GNU Radio World SigMF recording, or changing an `rtl433_*` block/example |
+| [docs/challenges.md](docs/challenges.md) | writing a challenge flowgraph under `example_flowgraphs/_gnuradio-world-challenges/`, or touching the Challenge block, its success criteria, the locked/unlocked progression, or the progress store |
 | [docs/graham.md](docs/graham.md) | touching Graham — the two-upstream shared-key proxy in `workers/ai-proxy/`, the prepaid service in `workers/saas/`, any AI provider, structured graph tools, the agent loop, visible-run diagnostics, reading or capturing a running flowgraph's plots, consent/key storage, or hardware authorization rows |
 
 ## Project overview
