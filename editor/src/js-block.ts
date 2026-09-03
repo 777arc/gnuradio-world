@@ -125,6 +125,8 @@ export function jsDef(base: RunnableDef, io: JsBlockIo | null): RunnableDef {
     label: titleCase(id),
     type: numeric.has(id) ? 'number' : 'string',
     def: def === null || def === undefined ? '' : def,
+    // ... and every numeric one gets that setter, so every numeric one is live.
+    live: numeric.has(id),
   }));
 
   const inputTemplates = [

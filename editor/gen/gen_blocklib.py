@@ -415,6 +415,13 @@ def main(out_path):
     # id -> deferred category side module (fetched on demand). Blocks absent from
     # this map live in the always-loaded core module.
     block_module = manifest.get("block_module", {})
+    # Parameters the running flowgraph can still change: the ones whose factory
+    # installed a numeric setter, which gen_registry.py reads back out of the
+    # C++ it generates and out of registry.cpp's hand-written table. Native GRC
+    # underlines the same idea in its Properties dialog, taking it from the
+    # yaml `callbacks:` -- but a callback this runtime never rendered is not a
+    # parameter that can be changed here, so the factory is the authority.
+    live_params = manifest.get("live_params", {})
     blocks_by_id = {}
     for mod in MODULES:
         # Source provenance is deliberately separate from `block_module` above:
@@ -464,6 +471,7 @@ def main(out_path):
                 block_category[0] = oot_module
             params = []
             param_categories = {}
+            live = set(live_params.get(block_id, []))
             for p in d.get("parameters", []) or []:
                 if isinstance(p, dict) and "id" in p:
                     param_category = p.get("category")
@@ -478,7 +486,11 @@ def main(out_path):
                                    "options": python_options(p.get("options")),
                                    "option_labels": p.get("option_labels"),
                                    "option_attributes": p.get("option_attributes"),
-                                   "hide": p.get("hide", "none")})
+                                   "hide": p.get("hide", "none")}
+                                  # Only when true: this is one key on every
+                                  # parameter of every block, and blocks.json is
+                                  # already a 2 MB download.
+                                  | ({"live": True} if p["id"] in live else {}))
             flags = d.get("flags", []) or []
             runnable = block_id in supported
             documentation = str(d.get("documentation") or "").strip()

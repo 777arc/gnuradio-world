@@ -14,6 +14,12 @@ export interface ParamDef {
   optionLabels?: string[];
   category?: string; hide?: string; hideIfEmpty?: boolean; raw?: boolean; dtype?: string;
   optionAttributes?: Record<string, string[]>;
+  // The running flowgraph can still change this one: its factory installed a
+  // numeric setter under this id, so a QT GUI control naming it here drives the
+  // live block instead of only its construction-time value. Read out of the
+  // factories by gen_registry.py and carried in blocks.json; the Properties
+  // dialog underlines these, as native GRC does.
+  live?: boolean;
   showWhen?: (params: Record<string, any>) => boolean;
   // Free-form prose (the Note block's text): edited in a textarea so it can hold
   // line breaks, which .grc round-trips as a double-quoted `\n` scalar.

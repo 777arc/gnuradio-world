@@ -151,6 +151,32 @@ Where no `cpp_templates` callback list exists, the Python one is used — the tw
 agree throughout GNU Radio today, and it is what makes Message Strobe's period
 and Probe Rate's alpha live.
 
+### And the editor underlines the parameters that got one
+
+Native GRC underlines a parameter's label in its Properties dialog when the
+block has a callback naming it (`format_label_markup` in
+`grc/gui/canvas/param.py`; its Qt GUI dropped the marking). The same underline
+is here, over a stricter fact: not what the yaml *asks* for, but what the
+factory actually installed. A callback this generator could not render, or one
+a hand-written factory never got around to, is not a parameter this runtime can
+change — and it is the parameter that looks live and is not that costs someone
+an afternoon.
+
+So the set is read back out of the C++ rather than declared anywhere.
+`gen_registry.py`'s `setter_params()` extracts the `numeric_setters` keys from
+the text of each factory it is about to write and from each entry of
+`registry.cpp`'s hand-written table, following a call into the helper a factory
+delegates to (`make_fosphor_sink`, `finish_symbol_sync`). They reach the palette
+as `live_params` in the `generated_blocks.json` manifest, become each
+parameter's `live` flag in `blocks.json`, and are underlined by
+`editor/src/properties-dialog.ts`. Adding a setter is therefore the whole of it:
+regenerate, and the parameter is underlined.
+
+Two blocks are resolved in the editor instead, because their parameters are
+whatever the user's own source declares: the Embedded Python Block underlines
+the callbacks its introspection found, and the JS Block underlines every numeric
+parameter — which is exactly what each factory turns into setters at run time.
+
 ## Writing the C++
 
 ### `registry.cpp` compiles its includes with Qt's macros in scope

@@ -157,6 +157,7 @@ export function installGeneratedBlocks(blocks: any[]) {
       raw: String(p.dtype) === 'raw',
       dtype: p.dtype ? String(p.dtype) : undefined,
       hide: p.hide ? String(p.hide) : 'none',
+      live: !!p.live,
       def: generatedDefault(p),
       options: p.options ? p.options.map(String) :
         p.dtype === 'bool' ? ['True', 'False'] : undefined,
@@ -222,6 +223,10 @@ export function installGeneratedBlocks(blocks: any[]) {
       existing.params = existing.params.map(p => ({
         ...p,
         hide: generatedParams.get(p.id)?.hide ?? p.hide,
+        // Which parameters the runner can change mid-run is decided in C++, and
+        // a hand-written schema is exactly the case where it cannot be guessed
+        // from the yaml: the SDR sources name none of their setters there.
+        live: generatedParams.get(p.id)?.live ?? p.live,
         optionLabels: mergedOptionLabels(p, generatedParams.get(p.id)),
       }));
       // These definitions currently expose stream ports only, so omit optional

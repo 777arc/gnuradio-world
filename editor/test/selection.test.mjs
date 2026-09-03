@@ -39,5 +39,7 @@ assert.match(html, /class: 'selection-box'|\.selection-box/,
   'the marquee must have a visible canvas style');
 assert.match(html, /id="selectionOverlay"/,
   'the marquee overlay must render above blocks and wires');
+assert.match(source, /function deleteConnection\(conn: Conn\) \{[\s\S]{0,400}?closeMenu\(\);/,
+  'deleting a selected connection must dismiss its connection menu');
 
-console.log('checked marquee geometry, interaction wiring, and overlay');
+console.log('checked selection geometry, interaction wiring, and cleanup');

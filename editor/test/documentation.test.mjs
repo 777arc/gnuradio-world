@@ -4,6 +4,8 @@ import { editorSource as source, markupSource as html } from './editor-contract-
 
 const library = JSON.parse(await readFile(
   new URL('../public/blocks.json', import.meta.url), 'utf8'));
+const generatedRegistry = await readFile(
+  new URL('../../runner/src/generated_registry.cpp', import.meta.url), 'utf8');
 const byId = new Map((library.blocks || []).map(block => [block.id, block]));
 
 for (const block of library.blocks || []) {
@@ -69,4 +71,39 @@ assert.match(html, /\.props-doc-text\s*{[^}]*white-space:pre-wrap/s,
 assert.match(html, /\.props-wiki-link\s*{[^}]*color:#58a6ff;[^}]*text-decoration:underline/s,
   'the wiki link must be blue and underlined');
 
-console.log('checked generated block documentation and the Properties documentation tab');
+// Parameters a QT GUI control can still drive with the flowgraph running.
+// gen_registry.py reads them back out of the factories it generates and out of
+// registry.cpp's hand-written table, so the palette agrees with the one map the
+// runner actually looks a control's parameter up in.
+const liveIds = id => (byId.get(id)?.params || [])
+  .filter(param => param.live).map(param => param.id).sort();
+assert.deepEqual(liveIds('analog_sig_source_x'),
+  ['amp', 'freq', 'offset', 'phase', 'samp_rate'],
+  'a generated factory\'s numeric setters must reach the palette');
+assert.deepEqual(liveIds('wasm_rtlsdr_source'),
+  ['bias_tee', 'center_freq', 'freq_correction', 'gain', 'gain_mode'],
+  'a hand-written factory\'s setters must too, and its YAML names none of them');
+assert.ok(liveIds('qtgui_freq_sink_x').includes('fc'),
+  'a QT GUI sink can be retuned while it runs');
+assert.ok(!liveIds('analog_sig_source_x').includes('waveform'),
+  'a parameter with no setter must not be marked live: the control would ' +
+  'move and the block would keep its construction-time value');
+const multiplyFactory = generatedRegistry.match(
+  /registry\.emplace\("blocks_multiply_const_vxx"[\s\S]*?(?=\n    registry\.emplace\()/)?.[0] || '';
+assert.match(multiplyFactory,
+  /const bool vector = vlen > 1 &&[\s\S]*?type == "complex"[\s\S]*?numeric_setters\["const"\][\s\S]*?set_k\(gr_complex/,
+  'Multiply Const at vlen 1 must use its complex scalar setter even though its hidden mode defaults to vector');
+const allBlocks = library.blocks || [];
+assert.ok(allBlocks.some(block => (block.params || []).some(param => param.live)) &&
+  allBlocks.some(block => (block.params || []).every(param => !param.live)),
+  'the flag must distinguish blocks, not be set or cleared everywhere');
+
+assert.match(source, /const liveParams = new Set\(d\.params\.filter\(p => p\.live\)/,
+  'the Properties dialog must know which parameters are runtime-changeable');
+assert.match(source, /l\.className = 'live-param'/,
+  'a runtime-changeable parameter must have its label marked');
+assert.match(html, /\.dlgrow label\.live-param\s*{[^}]*text-decoration:underline/s,
+  'and underlined, as native GRC underlines a parameter with a callback');
+
+console.log('checked generated block documentation, runtime-changeable parameter ' +
+  'marking, and the Properties documentation tab');

@@ -803,8 +803,8 @@ svg text { user-select:none; -webkit-user-select:none; -moz-user-select:none; }
    at a glance. Ports keep their type colors here as they do natively, where only
    `not enabled` greys them and a bypassed block is still enabled. */
 .blk.bypassed rect.body { fill:#f4ff81; stroke:#616161; }
-.blk.disabled.invalid rect.body, .blk.bypassed.invalid rect.body { fill:#fff2f2; stroke:#ff0000; }
-.blk.disabled.invalid text.title, .blk.bypassed.invalid text.title { fill:#a40e26; }
+.blk.bypassed.invalid rect.body { fill:#fff2f2; stroke:#ff0000; }
+.blk.bypassed.invalid text.title { fill:#a40e26; }
 /* A magnetic training match is the release cue, so it deliberately wins over
    the ordinary "unconnected port" validation red shown during construction. */
 .blk.training-snap rect.body, .blk.training-snap.invalid rect.body {
@@ -849,6 +849,12 @@ svg text { user-select:none; -webkit-user-select:none; -moz-user-select:none; }
 .props-doc-empty { color:#9aa7c6; font-size:16px; font-style:italic; }
 .dlgrow { display:grid; grid-template-columns:1fr 1.25fr; gap:14px; align-items:center; margin:11px 0; }
 .dlgrow label { font-size:16px; color:#9aa7c6; text-align:right; }
+/* A parameter the running flowgraph can still change, underlined exactly as
+   native GRC's parameter dialog underlines one with a callback (Pango's
+   `underline="low"`). Offset off the descenders so the underscores in a
+   parameter id stay readable. */
+.dlgrow label.live-param { text-decoration:underline; text-underline-offset:3px;
+    text-decoration-thickness:1px; text-decoration-color:#6c7ba8; }
 .dlgrow input, .dlgrow select, .dlgrow textarea { background:#171a24; color:#e6e9f0; border:1px solid #3a4366;
     border-radius:5px; padding:7px 10px; font-size:16px; width:100%; }
 /* View ▸ Show Properties Field Colors: native GRC's dtype palette. Apply it to

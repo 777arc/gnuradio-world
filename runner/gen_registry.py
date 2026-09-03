@@ -74,8 +74,11 @@ OBJECT_PARAMETERS = {
 # Every hand-written factory in registry.cpp, read back out of the table itself.
 # A custom factory is one providing a widget, live callbacks, or a browser-safe
 # implementation, and the generator must not emit a duplicate of it.
-def read_custom_factory_ids() -> set[str]:
-    """The block ids registry.cpp's hand-written factory table registers.
+REGISTRY_CPP = WORLD / "runner" / "src" / "registry.cpp"
+
+
+def read_custom_factory_table() -> dict[str, str]:
+    """Every hand-written factory in registry.cpp, as block id -> its C++ body.
 
     Parsed rather than restated here.  That table is the only place deciding
     which ids have a hand-written factory, so a second copy in this file could
@@ -87,7 +90,7 @@ def read_custom_factory_ids() -> set[str]:
     a `{"id",` appearing anywhere else in registry.cpp -- in a helper, or in the
     generated-factory merge below the table -- is not mistaken for an entry.
     """
-    source = (WORLD / "runner" / "src" / "registry.cpp").read_text()
+    source = REGISTRY_CPP.read_text()
     try:
         table = source.split(
             "const std::map<std::string, Factory> custom = {", 1)[1].split(
@@ -95,13 +98,116 @@ def read_custom_factory_ids() -> set[str]:
     except IndexError as error:
         raise SystemExit(
             "could not locate the custom factory table in registry.cpp") from error
-    ids = set(re.findall(r'^        \{"([^"]+)",', table, re.MULTILINE))
-    if not ids:
+    entries: dict[str, str] = {}
+    starts = list(re.finditer(r'^        \{"([^"]+)",', table, re.MULTILINE))
+    for index, match in enumerate(starts):
+        end = starts[index + 1].start() if index + 1 < len(starts) else len(table)
+        entries[match.group(1)] = table[match.start():end]
+    if not entries:
         raise SystemExit("registry.cpp's custom factory table parsed as empty")
+    return entries
+
+
+CUSTOM_FACTORY_TABLE = read_custom_factory_table()
+CUSTOM_IDS = set(CUSTOM_FACTORY_TABLE)
+
+
+# ---------------------------------------------------------------------------
+# Which parameters a running flowgraph can still change.
+#
+# A parameter is live iff its block's factory put a `numeric_setters` entry
+# under that GRC parameter id: that map is the whole of the mechanism, since
+# runner.cpp binds a QT GUI control to a block by looking the parameter's id up
+# in it (see the binding loop in run_flowgraph) and silently leaves the
+# parameter frozen when it is absent.  So the fact is read back out of the C++
+# rather than declared anywhere -- a factory that gains or loses a setter says
+# so in the only place that can be wrong.
+#
+# The same extractor serves both kinds of factory, because both spell the fact
+# the same way: the ones this script generates below, read from the text it is
+# about to write, and the hand-written ones in registry.cpp.  It reaches the
+# editor as each parameter's `live` flag, by way of the generated_blocks.json
+# manifest, and is what the Properties dialog underlines.
+
+SETTER_INDEX_RE = re.compile(r'numeric_setters\[\s*"([^"]+)"\s*\]')
+SETTER_ADD_RE = re.compile(r'add_numeric_setter\(\s*\w+\s*,\s*"([^"]+)"')
+SETTER_MAP_RE = re.compile(r'numeric_setters\s*=\s*\{')
+SETTER_MAP_KEY_RE = re.compile(r'\{\s*"([^"]+)"\s*,')
+# Any call, so a factory that hands the work to a helper (make_fosphor_sink,
+# finish_symbol_sync) is followed into it. Template arguments are skipped so
+# `make_random_vector_source<std::uint8_t>(p)` still names its helper.
+CALL_RE = re.compile(r'\b([a-z_]\w*)\s*(?:<[^;{}()]*>)?\s*\(')
+
+
+def brace_block(text: str, open_index: int) -> str:
+    """The text of the `{...}` starting at open_index, braces balanced."""
+    depth = 0
+    for index in range(open_index, len(text)):
+        if text[index] == "{":
+            depth += 1
+        elif text[index] == "}":
+            depth -= 1
+            if depth == 0:
+                return text[open_index:index + 1]
+    return text[open_index:]
+
+
+def setter_params(cpp: str) -> set[str]:
+    """The GRC parameter ids this snippet of C++ installs a numeric setter for.
+
+    Three spellings, all in use: `numeric_setters["freq"] = ...`, the whole map
+    at once as an initializer list, and the helper the generated compound-
+    callback path emits.  A key built at run time from a block's own source
+    (the Embedded Python and JS blocks, whose parameters are whatever the user
+    wrote) matches none of them on purpose -- those two are resolved in the
+    editor from the same parsed source their parameters come from.
+    """
+    ids = set(SETTER_INDEX_RE.findall(cpp)) | set(SETTER_ADD_RE.findall(cpp))
+    for match in SETTER_MAP_RE.finditer(cpp):
+        body = brace_block(cpp, cpp.index("{", match.end() - 1))
+        ids |= set(SETTER_MAP_KEY_RE.findall(body))
     return ids
 
 
-CUSTOM_IDS = read_custom_factory_ids()
+def read_helper_bodies() -> dict[str, str]:
+    """registry.cpp's file-scope function bodies, by name.
+
+    Only the column-0 definitions, which is every helper a factory can call and
+    excludes each `if (...) {` inside one.
+    """
+    source = REGISTRY_CPP.read_text()
+    bodies: dict[str, str] = {}
+    for match in re.finditer(
+            r"^[A-Za-z_][^\n;=]*?\b(\w+)\s*\([^;]*?\)\s*(?:const\s*)?\{",
+            source, re.MULTILINE | re.DOTALL):
+        bodies[match.group(1)] = brace_block(source, match.end() - 1)
+    return bodies
+
+
+def read_custom_live_params() -> dict[str, list[str]]:
+    """Live parameter ids per hand-written factory, helpers followed."""
+    helpers = read_helper_bodies()
+    # registry_storage() holds the table itself; following it from a factory
+    # would hand every block every other block's setters.
+    helpers.pop("registry_storage", None)
+    cache: dict[str, set[str]] = {}
+
+    def from_body(body: str, seen: frozenset[str]) -> set[str]:
+        ids = setter_params(body)
+        for name in set(CALL_RE.findall(body)):
+            if name in seen or name not in helpers:
+                continue
+            if name not in cache:
+                cache[name] = from_body(helpers[name], seen | {name})
+            ids |= cache[name]
+        return ids
+
+    live = {}
+    for block_id, body in CUSTOM_FACTORY_TABLE.items():
+        ids = from_body(body, frozenset())
+        if ids:
+            live[block_id] = sorted(ids)
+    return live
 
 # Blocks whose factory returns a QWidget, i.e. everything that occupies a tile in
 # the runner window. The editor needs this to lay a flowgraph out *before* it has
@@ -779,6 +885,66 @@ def render_block(block: dict[str, Any]) -> tuple[list[str], str]:
         throw std::runtime_error("unsupported type selection for blocks_add_const_vxx");
     });'''
         return includes, factory
+    if block["id"] == "blocks_multiply_const_vxx":
+        # The upstream template selects multiply_const_xx whenever vlen == 1,
+        # even though the hidden Mode parameter defaults to "vector". The
+        # generic structural-enum renderer can only branch on Mode, so it used
+        # multiply_const_vxx for the ordinary vlen=1 case. Besides constructing
+        # the wrong class, that loses the scalar set_k callback a QT GUI Range
+        # needs (a double cannot replace a genuine vector constant). Keep this
+        # runtime vlen decision explicit, as Add Const does above.
+        includes = [
+            "#include <gnuradio/blocks/multiply_const.h>",
+            "#include <gnuradio/blocks/multiply_const_v.h>",
+        ]
+        factory = r'''    registry.emplace("blocks_multiply_const_vxx", [](const nlohmann::json& p) -> BuiltBlock {
+        const auto type = wasm_registry::text(p, "type", "complex");
+        const auto vlen = wasm_registry::number<int>(p, "vlen", 1);
+        const bool vector = vlen > 1 &&
+                            wasm_registry::text(p, "mode", "vector") == "vector";
+        if (type == "complex") {
+            if (vector)
+                return { blocks::multiply_const_vcc::make(wasm_registry::vector<gr_complex>(p, "const")), nullptr };
+            auto block = blocks::multiply_const_cc::make(wasm_registry::complex(p, "const"), vlen);
+            BuiltBlock built{ block };
+            built.numeric_setters["const"] = [block](double value) {
+                block->set_k(gr_complex(static_cast<float>(value), 0.0F));
+            };
+            return built;
+        }
+        if (type == "float") {
+            if (vector)
+                return { blocks::multiply_const_vff::make(wasm_registry::vector<float>(p, "const")), nullptr };
+            auto block = blocks::multiply_const_ff::make(
+                wasm_registry::number<float>(p, "const", 1.0F), vlen);
+            BuiltBlock built{ block };
+            built.numeric_setters["const"] =
+                [block](double value) { block->set_k(static_cast<float>(value)); };
+            return built;
+        }
+        if (type == "int") {
+            if (vector)
+                return { blocks::multiply_const_vii::make(wasm_registry::vector<std::int32_t>(p, "const")), nullptr };
+            auto block = blocks::multiply_const_ii::make(
+                wasm_registry::number<int>(p, "const", 1), vlen);
+            BuiltBlock built{ block };
+            built.numeric_setters["const"] =
+                [block](double value) { block->set_k(static_cast<int>(value)); };
+            return built;
+        }
+        if (type == "short") {
+            if (vector)
+                return { blocks::multiply_const_vss::make(wasm_registry::vector<std::int16_t>(p, "const")), nullptr };
+            auto block = blocks::multiply_const_ss::make(
+                wasm_registry::number<short>(p, "const", 1), vlen);
+            BuiltBlock built{ block };
+            built.numeric_setters["const"] =
+                [block](double value) { block->set_k(static_cast<short>(value)); };
+            return built;
+        }
+        throw std::runtime_error("unsupported type selection for blocks_multiply_const_vxx");
+    });'''
+        return includes, factory
     structural = structural_enums(block)
     structural_ids = {str(param["id"]) for param in structural}
     combinations = list(itertools.product(*[param["options"] for param in structural])) or [()]
@@ -1287,6 +1453,10 @@ def generate(output_dir: Path, manifest: Path) -> None:
     skipped: dict[str, str] = dict(EXCLUDED_BLOCKS)
     block_module: dict[str, str] = {}  # deferred blocks only
     counts: dict[str, int] = defaultdict(int)
+    # Read back out of the C++ each factory is about to become, rather than out
+    # of the yaml it came from: a `callbacks:` entry this generator could not
+    # render is not a parameter the running flowgraph can change.
+    live_params: dict[str, list[str]] = dict(read_custom_live_params())
 
     for block in load_blocks():
         module = block["__module"]
@@ -1297,6 +1467,9 @@ def generate(output_dir: Path, manifest: Path) -> None:
             continue
         includes[module].update(block_includes)
         factories[module].append(factory)
+        live = setter_params(factory)
+        if live:
+            live_params[str(block["id"])] = sorted(live)
         supported.append(str(block["id"]))
         counts[module] += 1
         if module in DEFERRED_MODULES:
@@ -1339,6 +1512,11 @@ def generate(output_dir: Path, manifest: Path) -> None:
         "deferred_modules": emitted_modules,
         "module_deps": MODULE_DEPS,
         "block_module": block_module,
+        # Parameters a QT GUI control can still change while the graph runs,
+        # i.e. the ones whose factory installed a numeric setter for them. The
+        # editor underlines these in the Properties dialog, as native GRC does.
+        "live_params": {block_id: live_params[block_id]
+                        for block_id in sorted(live_params)},
         # blocks/js/<id>.js, fetched at run time rather than linked in.
         "js_blocks": js_blocks,
     }, indent=2) + "\n"
@@ -1346,6 +1524,9 @@ def generate(output_dir: Path, manifest: Path) -> None:
 
     core_total = sum(counts.get(m, 0) for m in CORE_MODULES)
     deferred_summary = ", ".join(f"{m}={counts[m]}" for m in emitted_modules)
+    live_total = sum(len(ids) for ids in live_params.values())
+    print(f"{live_total} runtime-changeable parameters across "
+          f"{len(live_params)} blocks")
     print(f"generated core={core_total} (+ {len(CUSTOM_IDS)} custom, "
           f"{len(js_blocks)} js); "
           f"deferred: {deferred_summary}; skipped {len(skipped)}")

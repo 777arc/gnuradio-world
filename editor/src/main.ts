@@ -941,10 +941,13 @@ function validateGraph(blocks: Inst[] = state.insts, connections: Conn[] = state
   // parameter). The rule lives here rather than in validation.ts because the
   // error comes from having *run* the source, not from anything in the .grc.
   for (const block of blocks) {
+    // A disabled block is omitted by the runner. Match the core validator by
+    // leaving editor-specific source and file diagnostics dormant as well.
+    if (!block.enabled) continue;
     const message = block.id === EPY_BLOCK_ID ? epySourceError(block.uid)
       : block.id === JS_BLOCK_ID ? jsSourceError(block.uid) : '';
-    // Blocking only while the block is active, as validation.ts treats every
-    // other issue: a disabled block with broken code cannot break a run.
+    // A bypassed block remains inspectable but does not block a run, matching
+    // validation.ts; disabled blocks were skipped above altogether.
     if (message)
       issues.push({ uid: block.uid,
                     field: block.id === JS_BLOCK_ID ? JS_SOURCE_PARAM : EPY_SOURCE_PARAM,
@@ -1390,6 +1393,11 @@ function deleteBlocks(uids = state.selectedBlocks, record = true) {
   render(); if (record) recordHistory();
 }
 function deleteConnection(conn: Conn) {
+  // A primary click on a wire opens its one-item context menu. Keyboard and
+  // toolbar deletion do not go through that item's click handler, so dismiss
+  // the menu here with the connection itself instead of leaving a stale
+  // "Delete Connection" action floating over the canvas.
+  closeMenu();
   state.conns = state.conns.filter(c => c !== conn);
   if (state.selectedConnection === conn) state.selectedConnection = null;
   render(); recordHistory();

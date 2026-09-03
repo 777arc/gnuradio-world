@@ -213,6 +213,12 @@ assert.match(runnerHpp, new RegExp(`kControlRows = ${CONTROL_ROWS}\\b`));
 assert.match(runnerHpp, new RegExp(`kSinkRows = ${SINK_ROWS}\\b`));
 assert.match(runnerCpp, /is_variable_control\(placed\.id\) \? gui_layout::kControlRows/,
              'the runner sizes an unplaced control the way the editor does');
+assert.match(runnerCpp, /class TileWidgetItem final : public QWidgetItem/,
+             'widget size hints cannot distort equal grid columns or rows');
+assert.match(runnerCpp, /class ProportionalGridLayout final : public QGridLayout/,
+             'the runner gives grid units deterministic proportional geometry');
+assert.match(runnerCpp, /grid->addTile\(placed\.widget, placed\.tile\)/,
+             'the proportional grid receives every requested widget tile');
 
 // It is a runtime object, not a scheduler block: run_now() must skip it the way
 // it skips a constellation, or the graph tries to connect something that is not

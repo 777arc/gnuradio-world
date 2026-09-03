@@ -96,12 +96,17 @@ export function epyDef(base: RunnableDef, io: BlockIo | null): RunnableDef {
   // which Python could not eval. These expressions are evaluated by Python
   // itself, in a namespace holding the flowgraph's variables -- which is what
   // the generated Python does natively.
+  // Every introspected callback becomes a numeric setter in the factory, so the
+  // underline is derived from the block's own source here rather than from
+  // blocks.json, which knows only the three static parameters.
+  const callbacks = new Set(io.callbacks || []);
   const derived: ParamDef[] = io.params.map(([id, def]) => ({
     id,
     // upstream's _update_params: `example_param` shows as "Example Param".
     label: id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
     type: 'string',
     def,
+    live: callbacks.has(id),
   }));
   const inputTemplates = [
     ...streamTemplates(io.sinks, 'in'),

@@ -1020,6 +1020,34 @@ double engineering_value(const QString& text, bool* ok)
     return value * multiplier;
 }
 
+// `min_len` describes the slider's preferred length, but a GUI Layout tile can
+// legitimately become narrower than that (especially in an embedded window).
+// Keeping it as QWidget's hard minimum makes QHBoxLayout lay the slider beneath
+// the value editor when there is not enough room. A size hint preserves the
+// requested normal length while allowing the layout to shrink both controls
+// into distinct rectangles.
+class RangeSlider final : public QSlider
+{
+public:
+    RangeSlider(Qt::Orientation orientation, int preferred_length, QWidget* parent)
+        : QSlider(orientation, parent), d_preferred_length(preferred_length)
+    {
+    }
+
+    QSize sizeHint() const override
+    {
+        QSize hint = QSlider::sizeHint();
+        if (orientation() == Qt::Horizontal)
+            hint.setWidth(std::max(hint.width(), d_preferred_length));
+        else
+            hint.setHeight(std::max(hint.height(), d_preferred_length));
+        return hint;
+    }
+
+private:
+    int d_preferred_length;
+};
+
 QSlider* make_slider(QWidget* parent,
                      const std::shared_ptr<RangeState>& state,
                      Qt::Orientation orientation,
@@ -1027,17 +1055,13 @@ QSlider* make_slider(QWidget* parent,
                      double initial,
                      const std::function<void(double)>& changed)
 {
-    auto* slider = new QSlider(orientation, parent);
+    auto* slider = new RangeSlider(orientation, minimum_length, parent);
     slider->setRange(0, state->steps());
     slider->setSingleStep(1);
     slider->setPageStep(std::max(1, state->steps() / std::max(1, minimum_length)));
     slider->setTickInterval(slider->pageStep());
     slider->setTickPosition(orientation == Qt::Horizontal ? QSlider::TicksBelow
                                                           : QSlider::TicksLeft);
-    if (orientation == Qt::Horizontal)
-        slider->setMinimumWidth(minimum_length);
-    else
-        slider->setMinimumHeight(minimum_length);
     slider->setValue(state->index(initial));
     QObject::connect(slider, &QSlider::valueChanged, slider, [state, changed](int index) {
         changed(state->value(index));
@@ -1159,7 +1183,7 @@ BuiltBlock make_range(const json& p)
             state->publish(value);
         });
         *entry_ref = entry;
-        layout->addWidget(slider);
+        layout->addWidget(slider, 1);
         layout->addWidget(entry);
     } else {
         auto counter_ref = std::make_shared<QPointer<QDoubleSpinBox>>();
@@ -1177,7 +1201,7 @@ BuiltBlock make_range(const json& p)
             state->publish(value);
         });
         *counter_ref = counter;
-        layout->addWidget(slider);
+        layout->addWidget(slider, 1);
         layout->addWidget(counter);
     }
 

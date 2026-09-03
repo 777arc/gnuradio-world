@@ -234,6 +234,14 @@ export function showPropertiesDialog(inst: Inst, deps: PropertiesDialogDeps) {
     docsPanel.appendChild(empty);
   }
 
+  // Native GRC underlines the label of every parameter the block has a callback
+  // for (`format_label_markup` in grc/gui/canvas/param.py), which is the one
+  // hint anywhere that a value can still be changed with the flowgraph running.
+  // Here the same fact comes from the factory rather than the yaml: `live` is
+  // set for the parameters the runner installed a numeric setter for, which are
+  // exactly the ones a QT GUI control's ID can be typed into and actually drive.
+  const liveParams = new Set(d.params.filter(p => p.live).map(p => p.id));
+
   const addField = (
     category: string,
     label: string,
@@ -244,6 +252,14 @@ export function showPropertiesDialog(inst: Inst, deps: PropertiesDialogDeps) {
   ) => {
     const row = document.createElement('div'); row.className = 'dlgrow';
     const l = document.createElement('label'); l.textContent = label;
+    if (liveParams.has(field)) {
+      l.className = 'live-param';
+      // The underline is decoration; this is the same fact in words, for anyone
+      // who cannot see it -- and the only place the mechanism is spelled out.
+      l.title = 'Can be changed while the flowgraph is running: give this ' +
+        'parameter the ID of a QT GUI control (a Range, for instance) and the ' +
+        'control will drive the live block.';
+    }
     const control = document.createElement('div'); control.className = 'field-control';
     const error = document.createElement('small'); error.className = 'field-error'; error.hidden = true;
     control.append(node, error); row.append(l, control); panels.get(category)!.appendChild(row);

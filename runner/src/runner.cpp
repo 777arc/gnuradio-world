@@ -120,6 +120,91 @@ struct PlacedWidget {
     gui_layout::Tile tile;
 };
 static std::vector<PlacedWidget> g_widgets;
+constexpr int kMinGridRowHeight = 8;
+
+// A grid tile's dimensions come from the GUI Layout block, not from the size
+// hint of whichever widget happens to occupy it. QGridLayout normally feeds a
+// QWidgetItem's preferred and minimum sizes into its track calculation before
+// distributing the remaining space by stretch factor. Different widgets then
+// make nominally equal columns unequal (a Range's slider is especially good at
+// this), so use a neutral item at this one outer layout boundary. The widget's
+// own child layout still renders normally inside the rectangle it receives.
+class TileWidgetItem final : public QWidgetItem {
+public:
+    explicit TileWidgetItem(QWidget* widget) : QWidgetItem(widget) {}
+
+    QSize sizeHint() const override { return QSize(0, 0); }
+    QSize minimumSize() const override { return QSize(0, 0); }
+    QSize maximumSize() const override {
+        return QSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+    }
+    // Track stretch is declared uniformly on the grid itself. Marking a
+    // spanning item expansive makes QGridLayout feed that span back into its
+    // multi-cell distribution and biases those tracks all over again.
+    Qt::Orientations expandingDirections() const override { return {}; }
+    bool isEmpty() const override { return false; }
+    bool hasHeightForWidth() const override { return false; }
+};
+
+// QGridLayout is useful for ownership, invalidation and normal QWidget layout
+// propagation, but its multi-cell solver does not promise equal physical track
+// sizes: it may redistribute a spanning item's constraints across only that
+// span. GUI Layout does promise a proportional grid, so correct the item
+// rectangles after Qt's normal layout pass using the stored tile coordinates.
+class ProportionalGridLayout final : public QGridLayout {
+public:
+    ProportionalGridLayout(QWidget* parent, int columns)
+        : QGridLayout(parent), d_columns(std::max(1, columns)) {}
+
+    void addTile(QWidget* widget, const gui_layout::Tile& tile) {
+        addChildWidget(widget);
+        auto* item = new TileWidgetItem(widget);
+        QGridLayout::addItem(item, tile.row, tile.col, tile.h, tile.w);
+        d_tiles.push_back({ item, tile });
+    }
+
+    void setGeometry(const QRect& rect) override {
+        QGridLayout::setGeometry(rect);
+        if (d_tiles.empty())
+            return;
+
+        int left = 0, top = 0, right = 0, bottom = 0;
+        getContentsMargins(&left, &top, &right, &bottom);
+        const int gap = std::max(0, spacing());
+        int rows = 0;
+        for (const Entry& entry : d_tiles)
+            rows = std::max(rows, entry.tile.row + entry.tile.h);
+        const int horizontal = std::max(
+            0, rect.width() - left - right - (d_columns - 1) * gap);
+        const int vertical = std::max(
+            rows * kMinGridRowHeight,
+            rect.height() - top - bottom - std::max(0, rows - 1) * gap);
+
+        // edge(k) is the leading edge of track k. Subtract one trailing gap
+        // from the exclusive edge so a tile contains only its internal gaps.
+        const auto edge = [gap](int k, int space, int tracks) {
+            return (k * space) / tracks + k * gap;
+        };
+        for (const Entry& entry : d_tiles) {
+            const auto& tile = entry.tile;
+            const int x = rect.x() + left + edge(tile.col, horizontal, d_columns);
+            const int y = rect.y() + top + edge(tile.row, vertical, rows);
+            const int x2 = rect.x() + left +
+                           edge(tile.col + tile.w, horizontal, d_columns) - gap;
+            const int y2 = rect.y() + top + edge(tile.row + tile.h, vertical, rows) - gap;
+            entry.item->setGeometry(
+                QRect(x, y, std::max(0, x2 - x), std::max(0, y2 - y)));
+        }
+    }
+
+private:
+    struct Entry {
+        QLayoutItem* item;
+        gui_layout::Tile tile;
+    };
+    int d_columns;
+    std::vector<Entry> d_tiles;
+};
 
 struct VariableControl {
     double value;
@@ -341,9 +426,11 @@ static void apply_gui_layout() {
         return;
     }
 
-    auto* grid = new QGridLayout(g_gui_area);
-    grid->setContentsMargins(4, 4, 4, 4);
-    grid->setSpacing(4);
+    constexpr int kGridMargin = 4;
+    constexpr int kGridSpacing = 4;
+    auto* grid = new ProportionalGridLayout(g_gui_area, spec.columns);
+    grid->setContentsMargins(kGridMargin, kGridMargin, kGridMargin, kGridMargin);
+    grid->setSpacing(kGridSpacing);
     // Every column and row stretches equally, which is what makes a tile's w and
     // h proportional rather than absolute: the window's width is shared between
     // `columns` columns, so a 6-wide tile is half of any window.
@@ -368,8 +455,7 @@ static void apply_gui_layout() {
             : gui_layout::Tile{ 0, next_row, spec.columns, rows };
         if (found == spec.tiles.end())
             next_row += rows;
-        grid->addWidget(placed.widget, placed.tile.row, placed.tile.col,
-                        placed.tile.h, placed.tile.w);
+        grid->addTile(placed.widget, placed.tile);
         placed.widget->show();
         last_row = std::max(last_row, placed.tile.row + placed.tile.h);
     }
@@ -382,17 +468,21 @@ static void apply_gui_layout() {
     // widgets and a hundred-odd pixels tall. Scale row_height down so the whole
     // arrangement fits vertically instead, floored so a widget never collapses
     // to nothing.
-    constexpr int kMinRowHeight = 8;
     int row_height = spec.row_height;
     if (last_row > 0) {
-        const int available = g_gui_area->height();
+        // Margins and inter-row spacing consume part of the area too. Leaving
+        // them out makes the requested minima impossible to satisfy, and Qt's
+        // emergency shrink pass then gives nominally equal rows unequal sizes.
+        const int available = g_gui_area->height() - 2 * kGridMargin -
+                              std::max(0, last_row - 1) * kGridSpacing;
         if (available > 0 && available < last_row * row_height)
-            row_height = std::max(kMinRowHeight, available / last_row);
+            row_height = std::max(kMinGridRowHeight, available / last_row);
     }
     for (int r = 0; r < last_row; ++r) {
         grid->setRowStretch(r, 1);
         grid->setRowMinimumHeight(r, row_height);
     }
+    grid->activate();
     // Shrink the whole arrangement's text along with its rows: a QwtPlot reads
     // its axis tick-label font from the widget's own font() (DisplayPlot.cc),
     // and every widget below g_gui_area that never called setFont() itself

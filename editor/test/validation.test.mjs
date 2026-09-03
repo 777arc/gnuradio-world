@@ -223,10 +223,6 @@ assert.ok(mismatch.some(issue => issue.field === BLOCK_FIELD && issue.message.in
 const badPort = validateFlowgraph([signal, sink], [{ from: 'sig', fp: 4, to: 'sink', tp: 0 }], ports);
 assert.ok(badPort.some(issue => issue.message.includes('invalid output port')));
 
-const disabled = inst('disabled', 'unknown', '', {}, { enabled: false });
-assert.ok(validateFlowgraph([disabled], [], ports).every(issue => !issue.blocking),
-  'disabled-block diagnostics do not prevent a run');
-
 // Port connectivity, as native GRC enforces it (grc/core/ports/port.py).
 const source = inst('src', 'analog_sig_source_x', 'src', {
   type: 'complex', samp_rate: 32000, waveform: 'analog.GR_COS_WAVE',

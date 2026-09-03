@@ -949,43 +949,49 @@ void register_generated_blocks(std::map<std::string, Factory>& registry)
         return { block, nullptr };
     });
     registry.emplace("blocks_multiply_const_vxx", [](const nlohmann::json& p) -> BuiltBlock {
-        if (wasm_registry::text(p, "type", "complex") == "complex" && wasm_registry::text(p, "mode", "vector") == "scalar") {
-            auto block = blocks::multiply_const_cc::make(wasm_registry::complex(p, "const"), wasm_registry::number<int>(p, "vlen", 1));
-            return { block, nullptr };
-        }
-        else if (wasm_registry::text(p, "type", "complex") == "complex" && wasm_registry::text(p, "mode", "vector") == "vector") {
-            auto block = blocks::multiply_const_vcc::make(wasm_registry::vector<gr_complex>(p, "const"));
-            return { block, nullptr };
-        }
-        else if (wasm_registry::text(p, "type", "complex") == "float" && wasm_registry::text(p, "mode", "vector") == "scalar") {
-            auto block = blocks::multiply_const_ff::make(wasm_registry::number<double>(p, "const", 1.0), wasm_registry::number<int>(p, "vlen", 1));
+        const auto type = wasm_registry::text(p, "type", "complex");
+        const auto vlen = wasm_registry::number<int>(p, "vlen", 1);
+        const bool vector = vlen > 1 &&
+                            wasm_registry::text(p, "mode", "vector") == "vector";
+        if (type == "complex") {
+            if (vector)
+                return { blocks::multiply_const_vcc::make(wasm_registry::vector<gr_complex>(p, "const")), nullptr };
+            auto block = blocks::multiply_const_cc::make(wasm_registry::complex(p, "const"), vlen);
             BuiltBlock built{ block };
-            built.numeric_setters["const"] = [block](double value) { block->set_k(static_cast<double>(value)); };
+            built.numeric_setters["const"] = [block](double value) {
+                block->set_k(gr_complex(static_cast<float>(value), 0.0F));
+            };
             return built;
         }
-        else if (wasm_registry::text(p, "type", "complex") == "float" && wasm_registry::text(p, "mode", "vector") == "vector") {
-            auto block = blocks::multiply_const_vff::make(wasm_registry::vector<float>(p, "const"));
-            return { block, nullptr };
-        }
-        else if (wasm_registry::text(p, "type", "complex") == "int" && wasm_registry::text(p, "mode", "vector") == "scalar") {
-            auto block = blocks::multiply_const_ii::make(wasm_registry::number<int>(p, "const", 1), wasm_registry::number<int>(p, "vlen", 1));
+        if (type == "float") {
+            if (vector)
+                return { blocks::multiply_const_vff::make(wasm_registry::vector<float>(p, "const")), nullptr };
+            auto block = blocks::multiply_const_ff::make(
+                wasm_registry::number<float>(p, "const", 1.0F), vlen);
             BuiltBlock built{ block };
-            built.numeric_setters["const"] = [block](double value) { block->set_k(static_cast<int>(value)); };
+            built.numeric_setters["const"] =
+                [block](double value) { block->set_k(static_cast<float>(value)); };
             return built;
         }
-        else if (wasm_registry::text(p, "type", "complex") == "int" && wasm_registry::text(p, "mode", "vector") == "vector") {
-            auto block = blocks::multiply_const_vii::make(wasm_registry::vector<std::int32_t>(p, "const"));
-            return { block, nullptr };
-        }
-        else if (wasm_registry::text(p, "type", "complex") == "short" && wasm_registry::text(p, "mode", "vector") == "scalar") {
-            auto block = blocks::multiply_const_ss::make(wasm_registry::number<int>(p, "const", 1), wasm_registry::number<int>(p, "vlen", 1));
+        if (type == "int") {
+            if (vector)
+                return { blocks::multiply_const_vii::make(wasm_registry::vector<std::int32_t>(p, "const")), nullptr };
+            auto block = blocks::multiply_const_ii::make(
+                wasm_registry::number<int>(p, "const", 1), vlen);
             BuiltBlock built{ block };
-            built.numeric_setters["const"] = [block](double value) { block->set_k(static_cast<int>(value)); };
+            built.numeric_setters["const"] =
+                [block](double value) { block->set_k(static_cast<int>(value)); };
             return built;
         }
-        else if (wasm_registry::text(p, "type", "complex") == "short" && wasm_registry::text(p, "mode", "vector") == "vector") {
-            auto block = blocks::multiply_const_vss::make(wasm_registry::vector<std::int16_t>(p, "const"));
-            return { block, nullptr };
+        if (type == "short") {
+            if (vector)
+                return { blocks::multiply_const_vss::make(wasm_registry::vector<std::int16_t>(p, "const")), nullptr };
+            auto block = blocks::multiply_const_ss::make(
+                wasm_registry::number<short>(p, "const", 1), vlen);
+            BuiltBlock built{ block };
+            built.numeric_setters["const"] =
+                [block](double value) { block->set_k(static_cast<short>(value)); };
+            return built;
         }
         throw std::runtime_error("unsupported type selection for blocks_multiply_const_vxx");
     });

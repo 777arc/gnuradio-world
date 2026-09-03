@@ -111,6 +111,10 @@ export function validateFlowgraph(
     .map(block => String(block.name || '').trim()));
 
   const add = (block: Inst, field: string, message: string, connection?: Conn) => {
+    // Disabled blocks do not participate in the generated flowgraph, so there
+    // is nothing useful to diagnose on them. In particular, keeping their
+    // issues as merely non-blocking still paints them as invalid on the canvas.
+    if (!block.enabled) return;
     if (!issues.some(issue => issue.uid === block.uid && issue.field === field &&
       issue.message === message && issue.connection === connection))
       issues.push({ uid: block.uid, field, message, blocking: active(block), connection });
@@ -150,6 +154,7 @@ export function validateFlowgraph(
   };
 
   for (const block of blocks) {
+    if (!block.enabled) continue;
     const def = ports.def(block);
     if (!def) { add(block, BLOCK_FIELD, `Unknown block type "${block.id}".`); continue; }
     const name = String(block.name || '').trim();

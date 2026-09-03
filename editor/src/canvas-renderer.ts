@@ -191,7 +191,9 @@ export function renderCanvas(deps: CanvasRenderDeps): void {
     if (canvasBlockHidden(inst)) continue;
     const { d, rows, h, w, subtitle, headH, thumb, thumbH, thumbTop } = geom(inst);
     const comment = blockCommentGeometry(inst);
-    const blockIssues = validation.filter(issue => issue.uid === inst.uid);
+    // Disabled blocks are not part of the runnable graph and always keep the
+    // ordinary grey disabled treatment, even if a caller supplies stale issues.
+    const blockIssues = inst.enabled ? validation.filter(issue => issue.uid === inst.uid) : [];
     const g = svgEl('g', { class: 'blk' + (state.selectedBlocks.has(inst.uid) ? ' sel' : '') +
       (trainingSession?.snapTargetForActual(inst.uid) ? ' training-snap' : '') +
       (inst.enabled ? '' : ' disabled') + (inst.bypassed ? ' bypassed' : '') +

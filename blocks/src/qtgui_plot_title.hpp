@@ -28,9 +28,8 @@
 
 namespace wasm_qtgui {
 
-//! Padding, in pixels, between the title text and the edges of the plate behind it.
-inline constexpr double title_padding_x = 8.0;
-inline constexpr double title_padding_y = 4.0;
+//! Padding, in pixels, between the title text and every edge of its plate.
+inline constexpr double title_padding = 4.0;
 //! Distance from the title to the top edge of the canvas.
 inline constexpr int title_margin = 6;
 
@@ -46,8 +45,8 @@ class CanvasTitle : public QwtPlotTextLabel
 public:
     QRectF textRect(const QRectF& rect, const QSizeF& textSize) const override
     {
-        const double w = qMin(textSize.width() + 2 * title_padding_x, rect.width());
-        const double h = qMin(textSize.height() + 2 * title_padding_y, rect.height());
+        const double w = qMin(textSize.width() + 2 * title_padding, rect.width());
+        const double h = qMin(textSize.height() + 2 * title_padding, rect.height());
         return QRectF(rect.center().x() - w / 2.0, rect.top(), w, h);
     }
 };
@@ -87,7 +86,9 @@ inline void set_canvas_title(QwtPlot* plot, const QString& title)
     plate.setAlpha(200);
 
     QwtText text(title);
-    text.setRenderFlags(Qt::AlignHCenter | Qt::AlignTop);
+    // textRect() already anchors the plate at the top of the canvas. Center the
+    // glyphs inside it so the plate's padding is equal on all four sides.
+    text.setRenderFlags(Qt::AlignCenter);
     text.setColor(background.lightness() > 127 ? Qt::black : Qt::white);
     text.setBackgroundBrush(QBrush(plate));
     text.setBorderRadius(4.0);
