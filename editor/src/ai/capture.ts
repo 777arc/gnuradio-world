@@ -65,7 +65,7 @@ const IMAGE_TYPE = 'image/png';
  * below step down until the image fits.
  */
 const MAX_IMAGE_BYTES = 48_000;
-const WIDTH_LADDER = [896, 768, 640, 512, 384];
+const WIDTH_LADDER = [896, 768, 640, 512, 384, 320, 256];
 
 /** Long enough for a waterfall to have drawn something, short enough to batch. */
 const DEFAULT_SETTLE_SECONDS = 1;
