@@ -5,7 +5,14 @@
 
 import './editor.css';
 import { dumpGrc, parseGrc, type GrcDoc, type GrcScalar } from './grc';
-import { ceilToGrid, centeredPortSlot, constrainBlockPosition, SNAP_GRID_SIZE } from './grid';
+import {
+  canvasViewportCenter,
+  ceilToGrid,
+  centeredBlockPosition,
+  centeredPortSlot,
+  constrainBlockPosition,
+  SNAP_GRID_SIZE,
+} from './grid';
 import { arrangeFlowgraph, type LayoutNode } from './layout';
 import { evaluate as evalExpr, buildScope, formatValue as fmtExprVal, serializeForRunner, type Scope, type Value } from './expr';
 import { wrapNoteText, NOTE_FONT_SIZE, NOTE_ID, NOTE_BG_PARAM,
@@ -1269,7 +1276,8 @@ function uniqueBlockName(base: string, taken: Set<string> = namesInUse()): strin
 }
 
 function addBlock(id: string, x = 60 + (state.counter % 5) * 30, y = 60 + (state.counter % 7) * 24,
-                  paramOverrides: Record<string, any> = {}, record = true): Inst | null {
+                  paramOverrides: Record<string, any> = {}, record = true,
+                  centerOnPosition = false): Inst | null {
   const d = RUNNABLE[id]; if (!d) { log('block "' + id + '" is not runnable yet'); return null; }
   if (id === OPTIONS_ID || id === LAYOUT_ID) {
     const existing = state.insts.find(i => i.id === id);
@@ -1288,6 +1296,11 @@ function addBlock(id: string, x = 60 + (state.counter % 5) * 30, y = 60 + (state
     x: position.x, y: position.y, params,
     enabled: true, rotation: 0, bypassed: false,
   };
+  // Palette targets describe where the block's center belongs. Resolve that
+  // before the first render: rendering at the uncentered point can temporarily
+  // shrink the canvas extent and clamp a scrolled viewport to the wrong place.
+  if (centerOnPosition)
+    ({ x: inst.x, y: inst.y } = centeredBlockPosition({ x, y }, geom(inst), snapToGrid));
   state.insts.push(inst);
   select(uid);
   if (record) recordHistory();
@@ -3381,16 +3394,18 @@ async function refreshLocalJsBlocks() {
   redrawPalette?.();
 }
 
-function placeLocalJsBlock(block: LocalJsBlock) {
+function placeLocalJsBlock(block: LocalJsBlock,
+                           center?: { x: number; y: number }): Inst | null {
   const params: Record<string, any> = { [JS_LOCAL_SOURCE_PARAM]: block.source };
   applyJsIo(params, block.io);
-  const inst = addBlock(JS_BLOCK_ID, undefined, undefined, params, false);
-  if (!inst) return;
+  const inst = addBlock(JS_BLOCK_ID, center?.x, center?.y, params, false, !!center);
+  if (!inst) return null;
   // Named after the saved block rather than after wasm_js_block, so a canvas of
   // them reads as the blocks they are.
   inst.name = uniqueBlockName(block.id);
   recordHistory();
   render();
+  return inst;
 }
 
 // ---- Save as Block ---------------------------------------------------------
@@ -3804,6 +3819,123 @@ window.addEventListener('message', (e) => {
   if (d.state === 'loaded') loadedModules.add(d.module);
 });
 
+// Palette placement is intentionally separate from addBlock()'s fallback
+// coordinates: callers such as recording helpers and Graham have their own
+// placement rules. A click uses the visible pane's center, while a palette drag
+// supplies the canvas point under the pointer. In both cases the point denotes
+// the middle of the new block, not its top-left corner.
+function visibleCanvasCenter(): { x: number; y: number } {
+  return canvasViewportCenter(el('canvasScroll'), zoom);
+}
+
+function placePaletteBlock(b: LibraryBlock, center = visibleCanvasCenter()): Inst | null {
+  if (b.localJs) return placeLocalJsBlock(b.localJs, center);
+  const before = state.insts.length;
+  const inst = addBlock(b.id, center.x, center.y, {}, false, true);
+  // Singleton blocks return their existing instance. Selecting one is useful,
+  // but a palette action must not unexpectedly move it or add a history entry.
+  if (!inst || state.insts.length === before) return inst;
+  recordHistory();
+  render();
+  return inst;
+}
+
+let draggedPaletteBlock: LibraryBlock | null = null;
+let paletteDragPreview: HTMLElement | null = null;
+
+function palettePreviewPortInfo(b: LibraryBlock, kind: 'in' | 'out'):
+    { count: number; colors: string[] } {
+  if (b.localJs) {
+    const ports = kind === 'in' ? b.localJs.io.inputs : b.localJs.io.outputs;
+    return { count: ports.length, colors: ports.map(port => DTYPE_COLOR[port.dtype] || '#fff') };
+  }
+  const d = RUNNABLE[b.id];
+  if (!d) return { count: 0, colors: [] };
+  const templates = kind === 'in' ? d.inputTemplates : d.outputTemplates;
+  const domains = kind === 'in' ? d.inDomains : d.outDomains;
+  const types = kind === 'in' ? d.inTypes : d.outTypes;
+  const count = Math.max(kind === 'in' ? d.inputs : d.outputs, templates?.length || 0);
+  const fallback = String(d.params.find(param => param.id === 'type')?.def || d.dtype || 'complex');
+  return {
+    count,
+    colors: Array.from({ length: count }, (_, index) => {
+      const dtype = domains?.[index] === 'message' ? 'message'
+        : templates?.[index]?.domain === 'message' ? 'message'
+        : types?.[index] || templates?.[index]?.dtype || fallback;
+      return DTYPE_COLOR[dtype] || '#fff';
+    }),
+  };
+}
+
+// A lightweight facsimile rather than a second block renderer: it uses the
+// canvas block's body/title palette and representative typed ports, while
+// keeping drag start synchronous and free of graph-state mutations.
+function makePaletteDragPreview(b: LibraryBlock): HTMLElement {
+  const input = palettePreviewPortInfo(b, 'in');
+  const output = palettePreviewPortInfo(b, 'out');
+  const shownPorts = Math.min(4, Math.max(input.count, output.count));
+  const preview = document.createElement('div');
+  preview.className = 'palette-drag-preview';
+  preview.style.width = `${Math.max(140, Math.min(260, Math.ceil(textW(b.label, TITLE_FONT_SIZE, true)) + 28))}px`;
+  preview.style.height = `${Math.max(60, 34 + shownPorts * 24)}px`;
+  const title = document.createElement('div');
+  title.className = 'palette-drag-preview-title';
+  title.textContent = b.label;
+  preview.appendChild(title);
+  for (const [kind, info] of [['in', input], ['out', output]] as const) {
+    for (let index = 0; index < Math.min(4, info.count); ++index) {
+      const port = document.createElement('span');
+      port.className = `palette-drag-preview-port ${kind}`;
+      port.style.background = info.colors[index] || '#fff';
+      port.style.top = `${34 + (index + .5) * 24}px`;
+      preview.appendChild(port);
+    }
+  }
+  document.body.appendChild(preview);
+  return preview;
+}
+
+function canvasContainsDragPoint(event: DragEvent): boolean {
+  const rect = el('canvasWrap').getBoundingClientRect();
+  return rect.width > 0 && rect.height > 0 &&
+    event.clientX >= rect.left && event.clientX <= rect.right &&
+    event.clientY >= rect.top && event.clientY <= rect.bottom;
+}
+
+function clearPaletteDrag(): void {
+  draggedPaletteBlock = null;
+  paletteDragPreview?.remove();
+  paletteDragPreview = null;
+  document.querySelector('.pal-item.dragging')?.classList.remove('dragging');
+  el('canvasWrap').classList.remove('palette-drop-target');
+}
+
+// Listen on the document rather than only #canvasScroll. On a narrow screen the
+// palette's scrim deliberately sits above the canvas, but it should still be a
+// valid landing surface for a block being dragged out of that drawer.
+document.addEventListener('dragover', event => {
+  if (!draggedPaletteBlock) return;
+  const overCanvas = canvasContainsDragPoint(event) &&
+    !(event.target as Element | null)?.closest?.('#palette');
+  el('canvasWrap').classList.toggle('palette-drop-target', overCanvas);
+  if (!overCanvas) return;
+  event.preventDefault();
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+});
+
+document.addEventListener('drop', event => {
+  const block = draggedPaletteBlock;
+  if (!block || !canvasContainsDragPoint(event) ||
+      (event.target as Element | null)?.closest?.('#palette')) {
+    clearPaletteDrag();
+    return;
+  }
+  event.preventDefault();
+  const placed = placePaletteBlock(block, svgPoint(event));
+  clearPaletteDrag();
+  if (placed) closePaletteDrawer();
+});
+
 function makeBlockItem(b: LibraryBlock, indent: number): HTMLElement {
   // A hand-written schema in RUNNABLE means we support the block even if the
   // generated library marks it unavailable (e.g. the plain `variable` block,
@@ -3821,10 +3953,26 @@ function makeBlockItem(b: LibraryBlock, indent: number): HTMLElement {
   item.title = !run ? `${b.id} — ${b.unavailableReason || 'not available in WebAssembly'}`
     : b.js ? `${b.id} — implemented in JavaScript` : b.id;
   item.setAttribute('aria-disabled', String(!run));
+  item.draggable = run;
+  item.ondragstart = event => {
+    if (!run) { event.preventDefault(); return; }
+    draggedPaletteBlock = b;
+    item.classList.add('dragging');
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = 'copy';
+      event.dataTransfer.setData('application/x-gnuradio-world-block', b.id);
+      paletteDragPreview = makePaletteDragPreview(b);
+      event.dataTransfer.setDragImage(
+        paletteDragPreview,
+        paletteDragPreview.offsetWidth / 2,
+        paletteDragPreview.offsetHeight / 2,
+      );
+    }
+  };
+  item.ondragend = clearPaletteDrag;
   item.onclick = () => {
     if (!run) { log(`"${b.id}" is unavailable: ${b.unavailableReason || 'not implemented in WebAssembly'}`); return; }
-    if (b.localJs) placeLocalJsBlock(b.localJs);
-    else addBlock(b.id);
+    placePaletteBlock(b);
     closePaletteDrawer();
   };
   // Right-click works on unavailable blocks too: an example that uses one is

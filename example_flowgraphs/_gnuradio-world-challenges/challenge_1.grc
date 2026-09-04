@@ -1,9 +1,9 @@
 options:
     parameters:
-        author: GNU Radio World
+        author: Marc
         comment: ''
         copyright: ''
-        description: Tune a tone to a target frequency and confirm it on the spectrum analyzer.
+        description: Add a Frequency Sink of your own, then look at a square wave in the frequency domain.
         generate_options: qt_gui
         id: Challenge_1
         title: Challenge 1
@@ -12,54 +12,13 @@ options:
         rotation: 0
         state: enabled
 blocks:
--   name: center_freq
-    id: variable
-    parameters:
-        comment: ''
-        value: '100000000'
-    states:
-        coordinate: [590, 10]
-        rotation: 0
-        state: enabled
 -   name: samp_rate
     id: variable
     parameters:
         comment: ''
-        value: '1000000'
+        value: '32000'
     states:
-        coordinate: [760, 10]
-        rotation: 0
-        state: enabled
--   name: tone_offset
-    id: variable
-    parameters:
-        comment: ''
-        value: '0'
-    states:
-        coordinate: [930, 10]
-        rotation: 0
-        state: enabled
--   name: analyzer
-    id: wasm_spectrum_analyzer_sink
-    parameters:
-        affinity: ''
-        alias: ''
-        average: '0.2'
-        center_freq: center_freq
-        comment: Finds and measures signals
-        db_per_div: '10'
-        fftsize: '4096'
-        level_offset_db: '0'
-        level_unit: dBFS
-        name: Tune the tone
-        reference_level: '0'
-        samp_rate: samp_rate
-        trace_mode: average
-        type: complex
-        update_time: '0.1'
-        wintype: window.WIN_BLACKMAN_hARRIS
-    states:
-        coordinate: [940, 450]
+        coordinate: [330, 30]
         rotation: 0
         state: enabled
 -   name: challenge_1
@@ -69,44 +28,11 @@ blocks:
         alias: ''
         challenge_id: challenge_1
         comment: ''
-        criteria: "[\n {\"kind\": \"ran\", \"seconds\": 3, \"goal\": \"Run the flowgraph and find the tone on the spectrum\"},\n {\"kind\": \"detected_signal\", \"center_freq\": 100250000, \"center_tol\": 20000, \"min_peak_level\": -40, \"goal\": \"Move the tone to 100.25 MHz - 250 kHz above the center frequency\"}\n]"
+        criteria: "[\n {\"kind\": \"block_present\", \"id\": \"qtgui_freq_sink_x\", \"goal\": \"Add a QT GUI Frequency Sink and connect the Throttle to it\"},\n {\"kind\": \"ran\", \"seconds\": 4, \"goal\": \"Run it: one cosine is one spike in the frequency domain\"},\n {\"kind\": \"param\", \"block\": \"tone\", \"param\": \"waveform\", \"matches\": \"SQR\", \"goal\": \"Switch the Signal Source to a square wave and find its harmonics\"}\n]"
         requires: challenge_0
-        title: Tune the tone
+        title: Into the frequency domain
     states:
-        coordinate: [1100, 10]
-        rotation: 0
-        state: enabled
--   name: channel_sum
-    id: blocks_add_xx
-    parameters:
-        affinity: ''
-        alias: ''
-        comment: ''
-        maxoutbuf: '0'
-        minoutbuf: '0'
-        num_inputs: '2'
-        type: complex
-        vlen: '1'
-    states:
-        coordinate: [370, 530]
-        rotation: 0
-        state: enabled
--   name: channel_throttle
-    id: blocks_throttle2
-    parameters:
-        affinity: ''
-        alias: ''
-        comment: "Limits the rate of IQ samples\nflowing through"
-        ignoretag: 'True'
-        limit: time
-        maximum: '0.02'
-        maxoutbuf: '0'
-        minoutbuf: '0'
-        samples_per_second: samp_rate
-        type: complex
-        vlen: '1'
-    states:
-        coordinate: [610, 520]
+        coordinate: [500, 10]
         rotation: 0
         state: enabled
 -   name: gui_layout
@@ -116,10 +42,10 @@ blocks:
         alias: ''
         columns: '12'
         comment: ''
-        layout: '{"analyzer":[0,0,12,8]}'
+        layout: '{"time_sink":[0,0,12,5]}'
         row_height: '60'
     states:
-        coordinate: [300, 10]
+        coordinate: [1410, 10]
         rotation: 0
         state: enabled
 -   name: note_0
@@ -129,9 +55,9 @@ blocks:
         alias: ''
         bgcolor: '#4dff6a'
         comment: ''
-        note: The radio is tuned to 100 MHz and listening across 1 MHz of spectrum, so the analyzer shows 99.5 MHz to 100.5 MHz. The Signal Source adds a tone at an offset from that center frequency.
+        note: 'A Time Sink shows a signal as amplitude against time. The other half of DSP is the frequency domain: the same samples, drawn as how much energy sits at each frequency. GNU Radio has a sink for that too -- the QT GUI Frequency Sink.'
     states:
-        coordinate: [10, 210]
+        coordinate: [980, 70]
         rotation: 0
         state: enabled
 -   name: note_1
@@ -141,25 +67,120 @@ blocks:
         alias: ''
         bgcolor: '#4dff6a'
         comment: ''
-        note: "Challenge:\n1) Run the flowgraph and find the tone -- it starts at the center of the display\n2) Put the tone at 100.25 MHz by changing the tone_offset variable\n\nThe offset is relative to the center frequency, and a variable is edited the same way a block parameter is: double-click it."
+        note: "Challenge:\n1) Find \"QT GUI Frequency Sink\" in the block palette on the left and drag it onto the canvas.\n2) Set its Type to Float (note the Down button is a shortcut). Our samples are real, not complex, and a Complex input port will refuse to connect to a Float stream.\n3) Connect the Throttle's output to it: click the output port, then the sink's input port. A stream can feed more than one sink\n4) Run it. The 1 kHz cosine is a single spike\n5) Stop, then change the Signal Source waveform to Square. A square wave is a sum of odd harmonics: spikes at 3 kHz, 5 kHz, 7 kHz ... each smaller than the last"
     states:
-        coordinate: [420, 210]
+        coordinate: [30, 160]
         rotation: 0
         state: enabled
--   name: receiver_noise
-    id: analog_noise_source_x
+-   name: throttle
+    id: blocks_throttle2
     parameters:
         affinity: ''
         alias: ''
-        amp: '0.002'
-        comment: Gives the detector a noise floor
+        comment: "Limits the rate of samples\nflowing through"
+        ignoretag: 'True'
+        limit: auto
+        maximum: '0.1'
         maxoutbuf: '0'
         minoutbuf: '0'
-        noise_type: analog.GR_GAUSSIAN
-        seed: '7'
-        type: complex
+        samples_per_second: samp_rate
+        type: float
+        vlen: '1'
     states:
-        coordinate: [10, 670]
+        coordinate: [810, 250]
+        rotation: 0
+        state: enabled
+-   name: time_sink
+    id: qtgui_time_sink_x
+    parameters:
+        affinity: ''
+        alias: ''
+        alpha1: '1'
+        alpha10: '1'
+        alpha2: '1'
+        alpha3: '1'
+        alpha4: '1'
+        alpha5: '1'
+        alpha6: '1'
+        alpha7: '1'
+        alpha8: '1'
+        alpha9: '1'
+        autoscale: 'False'
+        axislabels: 'True'
+        color1: blue
+        color10: dark blue
+        color2: red
+        color3: green
+        color4: black
+        color5: cyan
+        color6: magenta
+        color7: yellow
+        color8: dark red
+        color9: dark green
+        comment: The time domain
+        ctrlpanel: 'False'
+        entags: 'True'
+        grid: 'False'
+        label1: Signal 1
+        label10: Signal 10
+        label2: Signal 2
+        label3: Signal 3
+        label4: Signal 4
+        label5: Signal 5
+        label6: Signal 6
+        label7: Signal 7
+        label8: Signal 8
+        label9: Signal 9
+        legend: 'True'
+        marker1: '-1'
+        marker10: '-1'
+        marker2: '-1'
+        marker3: '-1'
+        marker4: '-1'
+        marker5: '-1'
+        marker6: '-1'
+        marker7: '-1'
+        marker8: '-1'
+        marker9: '-1'
+        name: Time domain
+        nconnections: '1'
+        size: '512'
+        srate: samp_rate
+        stemplot: 'False'
+        style1: '1'
+        style10: '1'
+        style2: '1'
+        style3: '1'
+        style4: '1'
+        style5: '1'
+        style6: '1'
+        style7: '1'
+        style8: '1'
+        style9: '1'
+        tr_chan: '0'
+        tr_delay: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_slope: qtgui.TRIG_SLOPE_POS
+        tr_tag: ''
+        type: float
+        update_time: '0.1'
+        width1: '1'
+        width10: '1'
+        width2: '1'
+        width3: '1'
+        width4: '1'
+        width5: '1'
+        width6: '1'
+        width7: '1'
+        width8: '1'
+        width9: '1'
+        ylabel: Amplitude
+        ymax: '1'
+        ymin: '-1'
+        yunit: ''
+    states:
+        coordinate: [1140, 250]
         rotation: 0
         state: enabled
 -   name: tone
@@ -167,25 +188,23 @@ blocks:
     parameters:
         affinity: ''
         alias: ''
-        amp: '0.3'
-        comment: The tone you are moving
-        freq: tone_offset
+        amp: '0.5'
+        comment: A 1 kHz tone
+        freq: '1000'
         maxoutbuf: '0'
         minoutbuf: '0'
         offset: '0'
         phase: '0'
         samp_rate: samp_rate
-        type: complex
-        waveform: analog.GR_COS_WAVE
+        type: float
+        waveform: analog.GR_SQR_WAVE
     states:
-        coordinate: [10, 490]
+        coordinate: [460, 230]
         rotation: 0
         state: enabled
 connections:
-- [channel_sum, '0', channel_throttle, '0']
-- [channel_throttle, '0', analyzer, '0']
-- [receiver_noise, '0', channel_sum, '1']
-- [tone, '0', channel_sum, '0']
+- [throttle, '0', time_sink, '0']
+- [tone, '0', throttle, '0']
 metadata:
     file_format: 1
     grc_version: 3.11.0.0

@@ -12,7 +12,9 @@ await build({
 });
 const {
   SNAP_GRID_SIZE,
+  canvasViewportCenter,
   ceilToGrid,
+  centeredBlockPosition,
   centeredPortSlot,
   constrainBlockPosition,
 } = await import(pathToFileURL(out));
@@ -26,6 +28,16 @@ assert.deepEqual(constrainBlockPosition(14.4, 26.4, false), { x: 14, y: 26 },
   'disabling snapping preserves the existing whole-coordinate movement');
 assert.deepEqual(constrainBlockPosition(-1, 12, false), { x: 0, y: 12 },
   'native top/left bounds still apply while snapping is disabled');
+assert.deepEqual(canvasViewportCenter({
+  scrollLeft: 600, scrollTop: 300, clientWidth: 800, clientHeight: 500,
+}, 2), { x: 500, y: 275 },
+  'the visible canvas center includes scroll position and reverses zoom');
+assert.deepEqual(centeredBlockPosition({ x: 500, y: 275 }, { w: 120, h: 90 }, true),
+  { x: 440, y: 230 },
+  'palette placement centers the block body and follows grid snapping');
+assert.deepEqual(centeredBlockPosition({ x: 20, y: 15 }, { w: 100, h: 80 }, true),
+  { x: 0, y: 0 },
+  'centering near the canvas origin preserves its top and left bounds');
 assert.equal(ceilToGrid(104), 110,
   'block and port widths round outward to the grid');
 assert.equal(ceilToGrid(61, SNAP_GRID_SIZE * 2), 80,

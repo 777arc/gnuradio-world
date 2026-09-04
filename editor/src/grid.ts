@@ -42,3 +42,24 @@ export function constrainBlockPosition(x: number, y: number, snapToGrid: boolean
   // Native GRC does not allow a block to be dragged above or left of the canvas.
   return { x: Math.max(0, x), y: Math.max(0, y) };
 }
+
+export interface CanvasViewport {
+  scrollLeft: number;
+  scrollTop: number;
+  clientWidth: number;
+  clientHeight: number;
+}
+
+/** The flowgraph coordinate in the middle of the currently visible canvas. */
+export function canvasViewportCenter(viewport: CanvasViewport, zoom: number): Point {
+  return {
+    x: (viewport.scrollLeft + viewport.clientWidth / 2) / zoom,
+    y: (viewport.scrollTop + viewport.clientHeight / 2) / zoom,
+  };
+}
+
+/** Put a block's body around a canvas point while preserving normal placement rules. */
+export function centeredBlockPosition(center: Point, size: { w: number; h: number },
+                                      snapToGrid: boolean): Point {
+  return constrainBlockPosition(center.x - size.w / 2, center.y - size.h / 2, snapToGrid);
+}

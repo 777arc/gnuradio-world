@@ -359,7 +359,7 @@ assert.doesNotMatch(css, /\.pal-item\.pal-js::after \{[^}]*position:absolute/,
   'it is inline content, so it flows with the name it tags');
 
 // The local library, and what an instance of one carries.
-assert.match(source, /placeLocalJsBlock\(b\.localJs\)/,
+assert.match(source, /placeLocalJsBlock\(b\.localJs, center\)/,
   'a saved block is placed from the palette like any other');
 assert.match(source, /\{ \[JS_LOCAL_SOURCE_PARAM\]: block\.source \}/,
   'a local block’s instances inline their source, so a shared link works for ' +

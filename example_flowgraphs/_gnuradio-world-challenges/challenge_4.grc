@@ -1,0 +1,241 @@
+options:
+    parameters:
+        author: GNU Radio World
+        comment: ''
+        copyright: ''
+        description: Multiply by a complex sine wave to slide a signal down to 0 Hz -- the move every SDR receiver makes.
+        generate_options: qt_gui
+        id: Challenge_4
+        title: Challenge 4
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: samp_rate
+    id: variable
+    parameters:
+        comment: ''
+        value: '1000000'
+    states:
+        coordinate: [590, 10]
+        rotation: 0
+        state: enabled
+-   name: analyzer
+    id: wasm_spectrum_analyzer_sink
+    parameters:
+        affinity: ''
+        alias: ''
+        average: '0.2'
+        center_freq: '0'
+        comment: Finds and measures signals
+        db_per_div: '10'
+        fftsize: '4096'
+        level_offset_db: '0'
+        level_unit: dBFS
+        name: After the mixer
+        reference_level: '0'
+        samp_rate: samp_rate
+        trace_mode: average
+        type: complex
+        update_time: '0.1'
+        wintype: window.WIN_BLACKMAN_hARRIS
+    states:
+        coordinate: [1210, 490]
+        rotation: 0
+        state: enabled
+-   name: challenge_4
+    id: wasm_challenge
+    parameters:
+        affinity: ''
+        alias: ''
+        challenge_id: challenge_4
+        comment: ''
+        criteria: "[\n {\"kind\": \"param\", \"block\": \"lo\", \"param\": \"freq\", \"equals\": -250000, \"tolerance\": 5000, \"goal\": \"Set the local oscillator to the frequency that slides +250 kHz down to 0 -- mind the sign\"},\n {\"kind\": \"detected_signal\", \"center_freq\": 0, \"center_tol\": 15000, \"min_peak_level\": -40, \"goal\": \"Run it: the wanted signal now sits at 0 Hz\"},\n {\"kind\": \"detected_signal\", \"center_freq\": -430000, \"center_tol\": 25000, \"goal\": \"...and the other signal slid down by exactly the same amount, to -430 kHz\"}\n]"
+        requires: challenge_3
+        title: Mix it down to baseband
+    states:
+        coordinate: [760, 10]
+        rotation: 0
+        state: enabled
+-   name: channel
+    id: blocks_add_xx
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: What the radio hears
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        num_inputs: '3'
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [370, 540]
+        rotation: 0
+        state: enabled
+-   name: gui_layout
+    id: wasm_gui_layout
+    parameters:
+        affinity: ''
+        alias: ''
+        columns: '12'
+        comment: ''
+        layout: '{"analyzer":[0,0,12,8]}'
+        row_height: '60'
+    states:
+        coordinate: [300, 10]
+        rotation: 0
+        state: enabled
+-   name: lo
+    id: analog_sig_source_x
+    parameters:
+        affinity: ''
+        alias: ''
+        amp: '1'
+        comment: "The local oscillator:\na complex sine wave"
+        freq: '0'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        offset: '0'
+        phase: '0'
+        samp_rate: samp_rate
+        type: complex
+        waveform: analog.GR_COS_WAVE
+    states:
+        coordinate: [610, 690]
+        rotation: 0
+        state: enabled
+-   name: mixer
+    id: blocks_multiply_xx
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: "Multiplying by a sine wave\nshifts every frequency"
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        num_inputs: '2'
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [970, 570]
+        rotation: 0
+        state: enabled
+-   name: neighbor
+    id: analog_sig_source_x
+    parameters:
+        affinity: ''
+        alias: ''
+        amp: '0.25'
+        comment: Someone else's signal
+        freq: '-180000'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        offset: '0'
+        phase: '0'
+        samp_rate: samp_rate
+        type: complex
+        waveform: analog.GR_COS_WAVE
+    states:
+        coordinate: [10, 680]
+        rotation: 0
+        state: enabled
+-   name: note_0
+    id: note
+    parameters:
+        affinity: ''
+        alias: ''
+        bgcolor: '#4dff6a'
+        comment: ''
+        note: 'Two signals are on the air: the one you want at +250 kHz, and a neighbor at -180 kHz. Filtering can throw the neighbor away, but it cannot move your signal to the middle -- and every receiver wants its signal at 0 Hz, where it can be filtered narrowly and decimated hard.'
+    states:
+        coordinate: [1190, 10]
+        rotation: 0
+        state: enabled
+-   name: note_1
+    id: note
+    parameters:
+        affinity: ''
+        alias: ''
+        bgcolor: '#4dff6a'
+        comment: ''
+        note: "Multiplying two sine waves adds their frequencies. With complex samples that is all there is to tuning: multiply by a complex sine wave at frequency f and every signal in the band moves by f. That multiply is called a mixer, and the sine wave feeding it is the local oscillator.\n\nThe LO is at 0 Hz right now, which is a sine wave of a constant 1 -- multiplying by it changes nothing."
+    states:
+        coordinate: [10, 210]
+        rotation: 0
+        state: enabled
+-   name: note_2
+    id: note
+    parameters:
+        affinity: ''
+        alias: ''
+        bgcolor: '#4dff6a'
+        comment: ''
+        note: "Challenge:\n1) Run it and confirm the two signals sit at +250 kHz and -180 kHz\n2) Stop, and set the local oscillator's Frequency so the wanted signal lands at 0 Hz. To move a signal down, the LO frequency is negative\n3) Run it again. The neighbor moved by the same amount, to -430 kHz -- a mixer shifts the whole band, not one signal\n\nTune, filter, decimate: that is a receiver."
+    states:
+        coordinate: [440, 210]
+        rotation: 0
+        state: enabled
+-   name: receiver_noise
+    id: analog_noise_source_x
+    parameters:
+        affinity: ''
+        alias: ''
+        amp: '0.002'
+        comment: Gives the detector a noise floor
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        noise_type: analog.GR_GAUSSIAN
+        seed: '7'
+        type: complex
+    states:
+        coordinate: [10, 860]
+        rotation: 0
+        state: enabled
+-   name: throttle
+    id: blocks_throttle2
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: "Limits the rate of IQ samples\nflowing through"
+        ignoretag: 'True'
+        limit: time
+        maximum: '0.02'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        samples_per_second: samp_rate
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [610, 550]
+        rotation: 0
+        state: enabled
+-   name: wanted
+    id: analog_sig_source_x
+    parameters:
+        affinity: ''
+        alias: ''
+        amp: '0.4'
+        comment: The one you want
+        freq: '250000'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        offset: '0'
+        phase: '0'
+        samp_rate: samp_rate
+        type: complex
+        waveform: analog.GR_COS_WAVE
+    states:
+        coordinate: [10, 500]
+        rotation: 0
+        state: enabled
+connections:
+- [channel, '0', throttle, '0']
+- [lo, '0', mixer, '1']
+- [mixer, '0', analyzer, '0']
+- [neighbor, '0', channel, '1']
+- [receiver_noise, '0', channel, '2']
+- [throttle, '0', mixer, '0']
+- [wanted, '0', channel, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0

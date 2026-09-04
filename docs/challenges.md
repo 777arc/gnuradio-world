@@ -150,6 +150,20 @@ data resets it.
 - A **completion banner** on a first pass, naming the challenge and pointing at
   the Example Flowgraphs list where the next one has just unlocked.
 
+## The series so far
+
+Each one teaches one thing about GNU Radio and one thing about DSP, and the
+`requires` chain runs straight down this table — a new challenge continues it
+from `challenge_4`.
+
+| file | `challenge_id` | title | the editor skill | the DSP |
+|------|----------------|-------|------------------|---------|
+| `challenge_0.grc` | `challenge_0` | Change the tone | run and stop a flowgraph, edit a block parameter | a tone, in the time domain |
+| `challenge_1.grc` | `challenge_1` | Into the frequency domain | find a block in the palette, place it, set its port type, connect a second sink to one stream | the frequency domain, and a square wave's odd harmonics |
+| `challenge_2.grc` | `challenge_2` | Turn the knob | a parameter that names a variable, and a QT GUI Range that moves while the graph runs | center frequency plus offset, read off the analyzer |
+| `challenge_3.grc` | `challenge_3` | Filter and decimate | a rate-changing block does not tell the blocks after it — the display's own rate is a parameter | low-pass cutoff, decimation, and why the filter comes first |
+| `challenge_4.grc` | `challenge_4` | Mix it down to baseband | reading a mixer's two inputs as signal and local oscillator | multiplying by a complex sine shifts the whole band, sign and all |
+
 ## Writing a new challenge
 
 1. Copy an existing challenge in `example_flowgraphs/_gnuradio-world-challenges/`

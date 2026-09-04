@@ -1,0 +1,227 @@
+options:
+    parameters:
+        author: GNU Radio World
+        comment: ''
+        copyright: ''
+        description: Filter out an interferer, decimate what is left, and tell the display about the new sample rate.
+        generate_options: qt_gui
+        id: Challenge_3
+        title: Challenge 3
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: samp_rate
+    id: variable
+    parameters:
+        comment: ''
+        value: '1000000'
+    states:
+        coordinate: [590, 10]
+        rotation: 0
+        state: enabled
+-   name: analyzer
+    id: wasm_spectrum_analyzer_sink
+    parameters:
+        affinity: ''
+        alias: ''
+        average: '0.2'
+        center_freq: '0'
+        comment: Finds and measures signals
+        db_per_div: '10'
+        fftsize: '4096'
+        level_offset_db: '0'
+        level_unit: dBFS
+        name: After the filter
+        reference_level: '0'
+        samp_rate: samp_rate
+        trace_mode: average
+        type: complex
+        update_time: '0.1'
+        wintype: window.WIN_BLACKMAN_hARRIS
+    states:
+        coordinate: [1250, 560]
+        rotation: 0
+        state: enabled
+-   name: challenge_3
+    id: wasm_challenge
+    parameters:
+        affinity: ''
+        alias: ''
+        challenge_id: challenge_3
+        comment: ''
+        criteria: "[\n {\"kind\": \"param\", \"block\": \"lpf\", \"param\": \"cutoff_freq\", \"min\": 60000, \"max\": 100000, \"goal\": \"Set the Low Pass Filter cutoff to keep the 50 kHz tone and drop the 300 kHz interferer\"},\n {\"kind\": \"param\", \"block\": \"lpf\", \"param\": \"decim\", \"equals\": 4, \"goal\": \"Decimate by 4 in that same block -- 1 MHz of samples for a narrow signal is waste\"},\n {\"kind\": \"param\", \"block\": \"analyzer\", \"param\": \"samp_rate\", \"equals\": 250000, \"goal\": \"Tell the Spectrum Analyzer its input rate is now samp_rate/4\"},\n {\"kind\": \"detected_signal\", \"center_freq\": 50000, \"center_tol\": 15000, \"min_peak_level\": -40, \"goal\": \"Run it: the tone still reads 50 kHz, and the interferer is gone\"}\n]"
+        requires: challenge_2
+        title: Filter and decimate
+    states:
+        coordinate: [760, 10]
+        rotation: 0
+        state: enabled
+-   name: channel
+    id: blocks_add_xx
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: What the radio hears
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        num_inputs: '3'
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [370, 620]
+        rotation: 0
+        state: enabled
+-   name: gui_layout
+    id: wasm_gui_layout
+    parameters:
+        affinity: ''
+        alias: ''
+        columns: '12'
+        comment: ''
+        layout: '{"analyzer":[0,0,12,8]}'
+        row_height: '60'
+    states:
+        coordinate: [300, 10]
+        rotation: 0
+        state: enabled
+-   name: interferer
+    id: analog_sig_source_x
+    parameters:
+        affinity: ''
+        alias: ''
+        amp: '0.5'
+        comment: The one you do not want
+        freq: '300000'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        offset: '0'
+        phase: '0'
+        samp_rate: samp_rate
+        type: complex
+        waveform: analog.GR_COS_WAVE
+    states:
+        coordinate: [10, 760]
+        rotation: 0
+        state: enabled
+-   name: lpf
+    id: low_pass_filter
+    parameters:
+        affinity: ''
+        alias: ''
+        beta: '6.76'
+        comment: "Passes low frequencies,\nstops high ones"
+        cutoff_freq: '400000'
+        decim: '1'
+        gain: '1'
+        interp: '1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        samp_rate: samp_rate
+        type: fir_filter_ccf
+        width: '50000'
+        win: window.WIN_HAMMING
+    states:
+        coordinate: [940, 590]
+        rotation: 0
+        state: enabled
+-   name: note_0
+    id: note
+    parameters:
+        affinity: ''
+        alias: ''
+        bgcolor: '#4dff6a'
+        comment: ''
+        note: 'Two tones arrive together: the one you want at 50 kHz, and an interferer at 300 kHz. A low-pass filter passes everything below its cutoff frequency and attenuates everything above it, over a transition band whose width you also choose. The cutoff is wide open at 400 kHz right now, so both get through.'
+    states:
+        coordinate: [1190, 10]
+        rotation: 0
+        state: enabled
+-   name: note_1
+    id: note
+    parameters:
+        affinity: ''
+        alias: ''
+        bgcolor: '#4dff6a'
+        comment: ''
+        note: "Once a signal is narrow, carrying it at 1 MS/s is wasted work. Decimating by 4 keeps every 4th sample, and the stream leaving the filter is 250 kS/s. That is why you filter first: anything left above the new Nyquist rate of 125 kHz would fold back on top of your signal.\n\nA block that changes the sample rate does not tell the blocks after it. They take their rate as a parameter, and it is on you to keep it right."
+    states:
+        coordinate: [10, 260]
+        rotation: 0
+        state: enabled
+-   name: note_2
+    id: note
+    parameters:
+        affinity: ''
+        alias: ''
+        bgcolor: '#4dff6a'
+        comment: ''
+        note: "Challenge:\n1) Run it first and see both tones\n2) Set the Low Pass Filter cutoff between the two -- well above 50 kHz, well below both 300 kHz and the 125 kHz Nyquist rate you are about to create\n3) Set its Decimation to 4\n4) Set the Spectrum Analyzer's Sample Rate to samp_rate/4, or the display will put the tone at the wrong frequency\n5) Run it again: one tone, still at 50 kHz, in a span four times narrower"
+    states:
+        coordinate: [440, 260]
+        rotation: 0
+        state: enabled
+-   name: receiver_noise
+    id: analog_noise_source_x
+    parameters:
+        affinity: ''
+        alias: ''
+        amp: '0.002'
+        comment: Gives the detector a noise floor
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        noise_type: analog.GR_GAUSSIAN
+        seed: '7'
+        type: complex
+    states:
+        coordinate: [10, 940]
+        rotation: 0
+        state: enabled
+-   name: throttle
+    id: blocks_throttle2
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: "Limits the rate of IQ samples\nflowing through"
+        ignoretag: 'True'
+        limit: time
+        maximum: '0.02'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        samples_per_second: samp_rate
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [610, 630]
+        rotation: 0
+        state: enabled
+-   name: wanted
+    id: analog_sig_source_x
+    parameters:
+        affinity: ''
+        alias: ''
+        amp: '0.5'
+        comment: The one you want
+        freq: '50000'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        offset: '0'
+        phase: '0'
+        samp_rate: samp_rate
+        type: complex
+        waveform: analog.GR_COS_WAVE
+    states:
+        coordinate: [10, 580]
+        rotation: 0
+        state: enabled
+connections:
+- [channel, '0', throttle, '0']
+- [interferer, '0', channel, '1']
+- [lpf, '0', analyzer, '0']
+- [receiver_noise, '0', channel, '2']
+- [throttle, '0', lpf, '0']
+- [wanted, '0', channel, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0

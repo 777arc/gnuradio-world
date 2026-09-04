@@ -53,6 +53,36 @@ assert.match(source,
   /a === CORE_PALETTE_CATEGORY[\s\S]*?return -1[\s\S]*?a === AFTER_CORE_PALETTE_CATEGORY[\s\S]*?return -1/,
   'GNU Radio World must sort immediately after Core at the root of the block tree');
 
+// Clicking and dragging share one placement path. A click passes no point and
+// therefore uses the center of the scrolled viewport; a drop supplies the
+// pointer's canvas coordinate. Only runnable rows advertise browser dragging.
+assert.match(source,
+  /function placePaletteBlock\(b: LibraryBlock, center = visibleCanvasCenter\(\)\)/,
+  'a palette click must default to the visible canvas center');
+assert.match(source,
+  /centerOnPosition[\s\S]*?centeredBlockPosition\(\{ x, y \}, geom\(inst\), snapToGrid\)/,
+  'palette placement must center the block body around its target point');
+assert.match(source, /addBlock\(b\.id, center\.x, center\.y, \{\}, false, true\)/,
+  'palette blocks must be centered before their first render');
+assert.match(source, /item\.draggable = run;/,
+  'only runnable palette blocks can be dragged');
+assert.match(source,
+  /paletteDragPreview = makePaletteDragPreview\(b\);[\s\S]*?setDragImage\([\s\S]*?paletteDragPreview\.offsetWidth \/ 2[\s\S]*?paletteDragPreview\.offsetHeight \/ 2/,
+  'the browser drag ghost must be a centered canvas-style block preview');
+assert.match(source,
+  /function clearPaletteDrag\(\)[\s\S]*?paletteDragPreview\?\.remove\(\)/,
+  'the temporary drag preview must be removed after every drag');
+assert.match(source,
+  /document\.addEventListener\('drop'[\s\S]*?placePaletteBlock\(block, svgPoint\(event\)\)/,
+  'dropping a palette block must place it at the pointer canvas coordinate');
+assert.match(source,
+  /document\.addEventListener\('dragover'[\s\S]*?event\.preventDefault\(\)/,
+  'the canvas must opt into the browser drop operation');
+assert.match(html, /#canvasWrap\.palette-drop-target #canvasScroll/,
+  'the canvas must visibly acknowledge a valid palette drop target');
+assert.match(html, /\.palette-drag-preview \{[^}]*border:1px solid #616161[^}]*background:#f1ecff/,
+  'the drag preview must share the canvas block body colors');
+
 // ---- Example Flowgraphs -----------------------------------------------------
 // What it matches: every whitespace-separated term, against one lowercased blob.
 assert.match(source, /terms = search\.value\.trim\(\)\.toLowerCase\(\)\.split\(\/\\s\+\/\)\.filter\(Boolean\);\s*refresh\(\);/,

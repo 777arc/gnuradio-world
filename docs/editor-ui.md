@@ -66,6 +66,23 @@ not alter history or the serialized `.grc`.
   to fields in block Properties and the Variable Editor. It affects dialogs
   opened after the toggle is changed.
 
+## Placing blocks from the palette
+
+Clicking a runnable block row places the new block at the center of the visible
+part of the canvas, including its current scroll position and zoom. The target
+is the center of the block body, and the resulting top-left coordinate still
+follows the current Snap to Grid setting and the canvas's top/left bounds.
+
+Runnable rows are also native browser drag sources. Dropping one over the canvas
+uses the pointer's canvas coordinate as that same block-center target; the canvas
+shows a blue inset border while it is a valid destination. The browser drag
+image is a lightweight canvas-block facsimile: the same body and title styling,
+plus up to four typed port tabs on either side, but no parameter rows. Unavailable
+rows are neither clickable placement sources nor draggable. The document owns
+the drop listeners because the narrow-layout palette scrim sits above the canvas
+and must still work as a landing surface while a block is dragged out of the
+drawer.
+
 ## Auto-arrange (Edit ▸ Auto-Arrange Blocks)
 
 Rewrites every block coordinate so the flowgraph reads as a left-to-right

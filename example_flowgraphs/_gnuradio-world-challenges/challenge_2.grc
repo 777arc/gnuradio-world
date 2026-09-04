@@ -1,0 +1,211 @@
+options:
+    parameters:
+        author: GNU Radio World
+        comment: ''
+        copyright: ''
+        description: Wire a slider to a block parameter, then tune the tone to 100.25 MHz while the flowgraph runs.
+        generate_options: qt_gui
+        id: Challenge_2
+        title: Challenge 2
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: center_freq
+    id: variable
+    parameters:
+        comment: ''
+        value: '100000000'
+    states:
+        coordinate: [590, 10]
+        rotation: 0
+        state: enabled
+-   name: samp_rate
+    id: variable
+    parameters:
+        comment: ''
+        value: '1000000'
+    states:
+        coordinate: [760, 10]
+        rotation: 0
+        state: enabled
+-   name: tone_offset
+    id: variable_qtgui_range
+    parameters:
+        comment: ''
+        label: Tone offset from center (Hz)
+        min_len: '300'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '-400000'
+        step: '1000'
+        stop: '400000'
+        value: '0'
+        widget: counter_slider
+    states:
+        coordinate: [930, 10]
+        rotation: 0
+        state: enabled
+-   name: analyzer
+    id: wasm_spectrum_analyzer_sink
+    parameters:
+        affinity: ''
+        alias: ''
+        average: '0.2'
+        center_freq: center_freq
+        comment: Finds and measures signals
+        db_per_div: '10'
+        fftsize: '4096'
+        level_offset_db: '0'
+        level_unit: dBFS
+        name: Tune the tone
+        reference_level: '0'
+        samp_rate: samp_rate
+        trace_mode: average
+        type: complex
+        update_time: '0.1'
+        wintype: window.WIN_BLACKMAN_hARRIS
+    states:
+        coordinate: [940, 490]
+        rotation: 0
+        state: enabled
+-   name: challenge_2
+    id: wasm_challenge
+    parameters:
+        affinity: ''
+        alias: ''
+        challenge_id: challenge_2
+        comment: ''
+        criteria: "[\n {\"kind\": \"param\", \"block\": \"tone\", \"param\": \"freq\", \"matches\": \"^\\\\s*tone_offset\\\\s*$\", \"goal\": \"Set the Signal Source's Frequency to tone_offset, so the slider drives it\"},\n {\"kind\": \"ran\", \"seconds\": 3, \"goal\": \"Run it: the slider appears above the spectrum\"},\n {\"kind\": \"detected_signal\", \"center_freq\": 100250000, \"center_tol\": 20000, \"min_peak_level\": -40, \"goal\": \"Without stopping, tune the tone to 100.25 MHz -- 250 kHz above center\"}\n]"
+        requires: challenge_1
+        title: Turn the knob
+    states:
+        coordinate: [1220, 10]
+        rotation: 0
+        state: enabled
+-   name: channel
+    id: blocks_add_xx
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: What the radio hears
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        num_inputs: '2'
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [370, 570]
+        rotation: 0
+        state: enabled
+-   name: gui_layout
+    id: wasm_gui_layout
+    parameters:
+        affinity: ''
+        alias: ''
+        columns: '12'
+        comment: ''
+        layout: '{"analyzer":[0,1,12,7],"tone_offset":[0,0,12,1]}'
+        row_height: '60'
+    states:
+        coordinate: [300, 10]
+        rotation: 0
+        state: enabled
+-   name: note_0
+    id: note
+    parameters:
+        affinity: ''
+        alias: ''
+        bgcolor: '#4dff6a'
+        comment: ''
+        note: 'The radio is tuned to 100 MHz and listening across 1 MHz of spectrum, so the analyzer shows 99.5 MHz to 100.5 MHz. The Signal Source''s frequency is an offset from that center: 0 puts the tone right in the middle.'
+    states:
+        coordinate: [10, 230]
+        rotation: 0
+        state: enabled
+-   name: note_1
+    id: note
+    parameters:
+        affinity: ''
+        alias: ''
+        bgcolor: '#4dff6a'
+        comment: ''
+        note: 'A block parameter does not have to be a number -- it can be the name of a variable. tone_offset is a QT GUI Range: a variable with a slider attached, which can be moved while the flowgraph is running. Parameters that accept a new value at run time are underlined in the properties dialog.'
+    states:
+        coordinate: [420, 230]
+        rotation: 0
+        state: enabled
+-   name: note_2
+    id: note
+    parameters:
+        affinity: ''
+        alias: ''
+        bgcolor: '#4dff6a'
+        comment: ''
+        note: "Challenge:\n1) Double-click the Signal Source and set its Frequency to tone_offset (type the name, not a number)\n2) Run it. The slider appears above the spectrum\n3) Drag the slider -- or type into its box -- until the tone sits at 100.25 MHz. The analyzer labels every signal it finds with its measured center frequency, so read it off the plot"
+    states:
+        coordinate: [850, 230]
+        rotation: 0
+        state: enabled
+-   name: receiver_noise
+    id: analog_noise_source_x
+    parameters:
+        affinity: ''
+        alias: ''
+        amp: '0.002'
+        comment: Gives the detector a noise floor
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        noise_type: analog.GR_GAUSSIAN
+        seed: '7'
+        type: complex
+    states:
+        coordinate: [10, 710]
+        rotation: 0
+        state: enabled
+-   name: throttle
+    id: blocks_throttle2
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: "Limits the rate of IQ samples\nflowing through"
+        ignoretag: 'True'
+        limit: time
+        maximum: '0.02'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        samples_per_second: samp_rate
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [610, 560]
+        rotation: 0
+        state: enabled
+-   name: tone
+    id: analog_sig_source_x
+    parameters:
+        affinity: ''
+        alias: ''
+        amp: '0.3'
+        comment: The tone you are tuning
+        freq: '0'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        offset: '0'
+        phase: '0'
+        samp_rate: samp_rate
+        type: complex
+        waveform: analog.GR_COS_WAVE
+    states:
+        coordinate: [10, 530]
+        rotation: 0
+        state: enabled
+connections:
+- [channel, '0', throttle, '0']
+- [receiver_noise, '0', channel, '1']
+- [throttle, '0', analyzer, '0']
+- [tone, '0', channel, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0
