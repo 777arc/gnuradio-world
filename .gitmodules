@@ -62,3 +62,7 @@
 	path = gr-ieee802_15_4
 	url = https://github.com/bastibl/gr-ieee802-15-4.git
 	branch = maint-3.10
+[submodule "gr-bbc"]
+	path = gr-bbc
+	url = https://github.com/xeno00/gr-bbc.git
+	branch = main
