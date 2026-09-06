@@ -4,7 +4,7 @@ carrying real test imagery on AVHRR channel 2, verified by replaying gr-hrpt's
 own noaa_hrpt_deframer_impl.cc state machine in Python.
 
 Run from anywhere; paths are resolved relative to this file:
-    python3 example_flowgraphs/hrpt/gen_synthetic_symbols.py
+    python3 example_flowgraphs/gr-hrpt/gen_synthetic_symbols.py
 """
 from pathlib import Path
 
@@ -124,7 +124,7 @@ def main() -> None:
 
     print(f'{IMAGE_LINES} lines, round-trip + channel extraction OK')
 
-    out_path = REPO_ROOT / 'example_flowgraphs/hrpt/noaa_synthetic_symbols.bin'
+    out_path = REPO_ROOT / 'example_flowgraphs/gr-hrpt/noaa_synthetic_symbols.bin'
     out_path.write_bytes(bytes(all_symbols))
     print('total symbols:', len(all_symbols))
     print('wrote', out_path, len(all_symbols), 'bytes')

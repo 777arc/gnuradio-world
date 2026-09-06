@@ -30,6 +30,7 @@
 #include "musical_keyboard_source.hpp"
 #include "text_sink.hpp"
 #include "hrpt_image_sink.hpp"
+#include "bbc_frequency_command.hpp"
 #include "gui_layout.hpp"
 #include <emscripten.h>
 #include <gnuradio/analog/sig_source.h>
@@ -1020,6 +1021,52 @@ double engineering_value(const QString& text, bool* ok)
     return value * multiplier;
 }
 
+// The label, slider and value editor in a combined Range can collectively ask
+// for more width than a narrow GUI Layout tile owns. QHBoxLayout then honors
+// their minimum-size hints by letting sibling rectangles overlap, and because
+// the editor is added last it paints over the slider's right edge. Keep Qt's
+// normal vertical sizing, but deterministically divide the horizontal space:
+// preserve the editor, guarantee a usable slider, and elide the label first.
+class RangeRowLayout final : public QHBoxLayout
+{
+public:
+    using QHBoxLayout::QHBoxLayout;
+
+    void setGeometry(const QRect& rect) override
+    {
+        QHBoxLayout::setGeometry(rect);
+        if (count() != 3)
+            return;
+
+        QLayoutItem* label = itemAt(0);
+        QLayoutItem* slider = itemAt(1);
+        QLayoutItem* editor = itemAt(2);
+        if (!label || !slider || !editor)
+            return;
+
+        const QRect inner = contentsRect();
+        const int gap = std::max(0, spacing());
+        const int available = std::max(0, inner.width() - 2 * gap);
+        constexpr int kMinimumSliderWidth = 20;
+        const int slider_floor = std::min(kMinimumSliderWidth, available);
+        const int editor_width = std::min(
+            std::min(100, editor->sizeHint().width()), available - slider_floor);
+        const int label_width = std::min(
+            label->sizeHint().width(), available - editor_width - slider_floor);
+        const int slider_width = available - label_width - editor_width;
+
+        const auto place = [](QLayoutItem* item, int x, int width) {
+            QRect geometry = item->geometry();
+            geometry.moveLeft(x);
+            geometry.setWidth(width);
+            item->setGeometry(geometry);
+        };
+        place(label, inner.x(), label_width);
+        place(slider, inner.x() + label_width + gap, slider_width);
+        place(editor, inner.right() - editor_width + 1, editor_width);
+    }
+};
+
 // `min_len` describes the slider's preferred length, but a GUI Layout tile can
 // legitimately become narrower than that (especially in an embedded window).
 // Keeping it as QWidget's hard minimum makes QHBoxLayout lay the slider beneath
@@ -1142,7 +1189,7 @@ BuiltBlock make_range(const json& p)
     const std::string style = param_text(p, "widget", "counter_slider");
 
     auto* widget = new QWidget;
-    auto* layout = new QHBoxLayout(widget);
+    auto* layout = new RangeRowLayout(widget);
     layout->setContentsMargins(0, 0, 0, 0);
     QString label = QString::fromStdString(param_text(p, "label"));
     if (label.isEmpty())
@@ -3861,6 +3908,12 @@ static std::map<std::string, Factory>& registry_storage() {
                  unquoted(param_text(p, "prefix")),
                  static_cast<int>(number_from(p, "max_line", 72.0)));
              return { block, nullptr };
+         }},
+        // Browser-only replacement for the Embedded Python PDU adapter in
+        // gr-bbc's frequency-hop example. It converts an ASCII decoded payload
+        // to the (freq . value) PMT accepted by Frequency Xlating FIR Filter.
+        {"wasm_bbc_frequency_command", [](const json&) -> BuiltBlock {
+             return { BbcFrequencyCommand::make(), nullptr };
          }},
         // No upstream equivalent -- gr-hrpt's own noaa_hrpt_decoder only parses
         // minor-frame telemetry, it never extracts AVHRR imagery; see

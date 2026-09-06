@@ -1,0 +1,624 @@
+options:
+  parameters:
+    author: James Morrison
+    catch_exceptions: 'True'
+    category: '[GRC Hier Blocks]'
+    cmake_opt: ''
+    comment: ''
+    copyright: ''
+    description: A jam-resistant BBC control channel that commands a frequency hop.
+    gen_cmake: 'On'
+    gen_linking: dynamic
+    generate_options: qt_gui
+    hier_block_src_path: '.:'
+    id: bbc_fhss_control
+    max_nouts: '0'
+    output_language: python
+    placement: (0,0)
+    qt_qss_theme: ''
+    realtime_scheduling: ''
+    run: 'True'
+    run_command: '{python} -u {filename}'
+    run_options: prompt
+    sizing_mode: fixed
+    thread_safe_setters: ''
+    title: BBC Frequency Hop Control
+    window_size: ''
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [10, 10]
+    rotation: 0
+    state: enabled
+blocks:
+- name: MESSAGE_LENGTH
+  id: variable
+  parameters:
+    comment: ''
+    value: '8'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [600, 10]
+    rotation: 0
+    state: enabled
+- name: CODEWORD_LENGTH
+  id: variable
+  parameters:
+    comment: ''
+    value: '1024'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [830, 10]
+    rotation: 0
+    state: enabled
+- name: CHECKSUM_BITS
+  id: variable
+  parameters:
+    comment: ''
+    value: '32'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1080, 10]
+    rotation: 0
+    state: enabled
+- name: samp_rate
+  id: variable
+  parameters:
+    comment: ''
+    value: 128e3
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1300, 10]
+    rotation: 0
+    state: enabled
+- name: symbol_rate
+  id: variable
+  parameters:
+    comment: ''
+    value: '8000'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1470, 10]
+    rotation: 0
+    state: enabled
+- name: carrier_freq
+  id: variable
+  parameters:
+    comment: Control channel, as a baseband offset.
+    value: 20e3
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [10, 170]
+    rotation: 0
+    state: enabled
+- name: tone_freq
+  id: variable
+  parameters:
+    comment: The payload signal that gets hopped.
+    value: 5e3
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [180, 170]
+    rotation: 0
+    state: enabled
+- name: jam_amplitude
+  id: variable
+  parameters:
+    comment: Jammer power relative to the control channel.
+    value: '1.0'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [350, 170]
+    rotation: 0
+    state: enabled
+- name: jam_bytes
+  id: variable
+  parameters:
+    comment: ''
+    value: '[13, 180, 91, 2] * 1024'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [550, 170]
+    rotation: 0
+    state: enabled
+- name: commands
+  id: variable
+  parameters:
+    comment: Two hop commands, sent in turn.
+    value: '[43, 50, 48, 48, 48, 48, 0, 0, 45, 50, 48, 48, 48, 48, 0, 0]'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [830, 170]
+    rotation: 0
+    state: enabled
+- name: blocks_vector_source_x_0
+  id: blocks_vector_source_x
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    repeat: 'True'
+    tags: '[]'
+    type: byte
+    vector: commands
+    vlen: MESSAGE_LENGTH
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [10, 270]
+    rotation: 0
+    state: enabled
+- name: bbc_bbc_encoder_0
+  id: bbc_bbc_encoder
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    message_length: MESSAGE_LENGTH
+    codeword_length: CODEWORD_LENGTH
+    checksum_length: CHECKSUM_BITS
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [360, 270]
+    rotation: 0
+    state: enabled
+- name: blocks_vector_to_stream_0
+  id: blocks_vector_to_stream
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    num_items: CODEWORD_LENGTH
+    type: byte
+    vlen: '1'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [800, 290]
+    rotation: 0
+    state: enabled
+- name: bbc_OOKModulator_0
+  id: bbc_OOKModulator
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    carrier_freq: carrier_freq
+    samp_rate: samp_rate
+    symbol_rate: symbol_rate
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1130, 270]
+    rotation: 0
+    state: enabled
+- name: blocks_vector_source_x_1
+  id: blocks_vector_source_x
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: Jammer payload
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    repeat: 'True'
+    tags: '[]'
+    type: byte
+    vector: jam_bytes
+    vlen: '1'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [360, 410]
+    rotation: 0
+    state: enabled
+- name: bbc_OOKModulator_1
+  id: bbc_OOKModulator
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: Jammer on the control channel
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    carrier_freq: carrier_freq
+    samp_rate: samp_rate
+    symbol_rate: symbol_rate
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [800, 400]
+    rotation: 0
+    state: enabled
+- name: blocks_multiply_const_vxx_0
+  id: blocks_multiply_const_vxx
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    const: jam_amplitude
+    type: complex
+    vlen: '1'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1130, 420]
+    rotation: 0
+    state: enabled
+- name: blocks_add_xx_0
+  id: blocks_add_xx
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: Marks are added, never removed.
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    num_inputs: '2'
+    type: complex
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1470, 290]
+    rotation: 0
+    state: enabled
+- name: blocks_throttle2_0
+  id: blocks_throttle2
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: Keeps the waterfall running in real time.
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    ignoretag: 'True'
+    limit: auto
+    maximum: '0.1'
+    samples_per_second: samp_rate
+    type: complex
+    vlen: '1'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [80, 560]
+    rotation: 0
+    state: enabled
+- name: bbc_OOKDemodulator_0
+  id: bbc_OOKDemodulator
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    bandwidth: '0'
+    carrier_freq: carrier_freq
+    samp_rate: samp_rate
+    symbol_rate: symbol_rate
+    threshold: '0.25'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [410, 560]
+    rotation: 0
+    state: enabled
+- name: blocks_stream_to_vector_0
+  id: blocks_stream_to_vector
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    num_items: CODEWORD_LENGTH
+    type: byte
+    vlen: '1'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [740, 580]
+    rotation: 0
+    state: enabled
+- name: bbc_bbc_decoder_0
+  id: bbc_bbc_decoder
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    message_length: MESSAGE_LENGTH
+    codeword_length: CODEWORD_LENGTH
+    checksum_length: CHECKSUM_BITS
+    max_candidates: '256'
+    max_steps: '5000000'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1030, 740]
+    rotation: 0
+    state: enabled
+- name: blocks_null_sink_0
+  id: blocks_null_sink
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    type: byte
+    vlen: MESSAGE_LENGTH
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [130, 1150]
+    rotation: 0
+    state: enabled
+- name: blocks_message_debug_0
+  id: blocks_message_debug
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    en_uvec: 'True'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [130, 1250]
+    rotation: 0
+    state: enabled
+- name: wasm_bbc_frequency_command_0
+  id: wasm_bbc_frequency_command
+  parameters:
+    comment: Decoded message to hop command; browser-native replacement for the upstream Embedded Python adapter.
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [130, 1050]
+    rotation: 0
+    state: enabled
+- name: analog_sig_source_x_0
+  id: analog_sig_source_x
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: The signal being hopped.
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    amp: '1'
+    freq: tone_freq
+    offset: '0'
+    phase: '0'
+    samp_rate: samp_rate
+    type: complex
+    waveform: analog.GR_COS_WAVE
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1030, 560]
+    rotation: 0
+    state: enabled
+- name: blocks_throttle2_0_0
+  id: blocks_throttle2
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    ignoretag: 'True'
+    limit: auto
+    maximum: '0.1'
+    samples_per_second: samp_rate
+    type: complex
+    vlen: '1'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [130, 910]
+    rotation: 0
+    state: enabled
+- name: freq_xlating_fir_filter_xxx_0
+  id: freq_xlating_fir_filter_xxx
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: Hops when the control channel says so.
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    center_freq: '0'
+    decim: '1'
+    samp_rate: samp_rate
+    taps: '1'
+    type: ccc
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [520, 920]
+    rotation: 0
+    state: enabled
+- name: qtgui_waterfall_sink_x_0
+  id: qtgui_waterfall_sink_x
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    alpha1: '1.0'
+    alpha2: '1.0'
+    alpha3: '1.0'
+    alpha4: '1.0'
+    alpha5: '1.0'
+    alpha6: '1.0'
+    alpha7: '1.0'
+    alpha8: '1.0'
+    alpha9: '1.0'
+    alpha10: '1.0'
+    color1: '0'
+    color2: '0'
+    color3: '0'
+    color4: '0'
+    color5: '0'
+    color6: '0'
+    color7: '0'
+    color8: '0'
+    color9: '0'
+    color10: '0'
+    label1: ''
+    label2: ''
+    label3: ''
+    label4: ''
+    label5: ''
+    label6: ''
+    label7: ''
+    label8: ''
+    label9: ''
+    label10: ''
+    axislabels: 'True'
+    bw: samp_rate
+    fc: '0'
+    fftsize: '1024'
+    freqhalf: 'True'
+    grid: 'False'
+    gui_hint: ''
+    int_max: '10'
+    int_min: '-140'
+    legend: 'True'
+    name: '"Hopping signal"'
+    nconnections: '1'
+    showports: 'False'
+    type: complex
+    update_time: '0.10'
+    wintype: window.WIN_BLACKMAN_hARRIS
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [930, 900]
+    rotation: 0
+    state: enabled
+connections:
+- - blocks_vector_source_x_0
+  - '0'
+  - bbc_bbc_encoder_0
+  - '0'
+- - bbc_bbc_encoder_0
+  - '0'
+  - blocks_vector_to_stream_0
+  - '0'
+- - blocks_vector_to_stream_0
+  - '0'
+  - bbc_OOKModulator_0
+  - '0'
+- - bbc_OOKModulator_0
+  - '0'
+  - blocks_add_xx_0
+  - '0'
+- - blocks_vector_source_x_1
+  - '0'
+  - bbc_OOKModulator_1
+  - '0'
+- - bbc_OOKModulator_1
+  - '0'
+  - blocks_multiply_const_vxx_0
+  - '0'
+- - blocks_multiply_const_vxx_0
+  - '0'
+  - blocks_add_xx_0
+  - '1'
+- - blocks_add_xx_0
+  - '0'
+  - blocks_throttle2_0
+  - '0'
+- - blocks_throttle2_0
+  - '0'
+  - bbc_OOKDemodulator_0
+  - '0'
+- - bbc_OOKDemodulator_0
+  - '0'
+  - blocks_stream_to_vector_0
+  - '0'
+- - blocks_stream_to_vector_0
+  - '0'
+  - bbc_bbc_decoder_0
+  - '0'
+- - bbc_bbc_decoder_0
+  - '0'
+  - blocks_null_sink_0
+  - '0'
+- - bbc_bbc_decoder_0
+  - decoded
+  - blocks_message_debug_0
+  - print
+- - bbc_bbc_decoder_0
+  - decoded
+  - wasm_bbc_frequency_command_0
+  - decoded
+- - wasm_bbc_frequency_command_0
+  - freq
+  - freq_xlating_fir_filter_xxx_0
+  - freq
+- - analog_sig_source_x_0
+  - '0'
+  - blocks_throttle2_0_0
+  - '0'
+- - blocks_throttle2_0_0
+  - '0'
+  - freq_xlating_fir_filter_xxx_0
+  - '0'
+- - freq_xlating_fir_filter_xxx_0
+  - '0'
+  - qtgui_waterfall_sink_x_0
+  - '0'
+metadata:
+  file_format: 1
+  grc_version: 3.10.9.2

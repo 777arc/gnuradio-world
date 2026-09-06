@@ -1,0 +1,308 @@
+options:
+  parameters:
+    author: James Morrison
+    catch_exceptions: 'True'
+    category: '[GRC Hier Blocks]'
+    cmake_opt: ''
+    comment: ''
+    copyright: ''
+    description: Two messages OR'd into one codeword, both recovered.
+    gen_cmake: 'On'
+    gen_linking: dynamic
+    generate_options: no_gui
+    hier_block_src_path: '.:'
+    id: bbc_concurrent_codes
+    max_nouts: '0'
+    output_language: python
+    placement: (0,0)
+    qt_qss_theme: ''
+    realtime_scheduling: ''
+    run: 'True'
+    run_command: '{python} -u {filename}'
+    run_options: run
+    sizing_mode: fixed
+    thread_safe_setters: ''
+    title: BBC Concurrent Codes
+    window_size: ''
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [10, 10]
+    rotation: 0
+    state: enabled
+
+blocks:
+- name: CHECKSUM_BITS
+  id: variable
+  parameters:
+    comment: ''
+    value: '32'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [600, 10]
+    rotation: 0
+    state: enabled
+- name: CODEWORD_LENGTH
+  id: variable
+  parameters:
+    comment: ''
+    value: '8192'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [820, 10]
+    rotation: 0
+    state: enabled
+- name: MESSAGE_LENGTH
+  id: variable
+  parameters:
+    comment: ''
+    value: '16'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1070, 10]
+    rotation: 0
+    state: enabled
+- name: message1
+  id: variable
+  parameters:
+    comment: ''
+    value: '[102, 105, 114, 115, 116, 32, 115, 101, 110, 100, 101, 114, 46, 46, 46, 0]'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1300, 10]
+    rotation: 0
+    state: enabled
+- name: message2
+  id: variable
+  parameters:
+    comment: ''
+    value: '[115, 101, 99, 111, 110, 100, 32, 115, 101, 110, 100, 101, 114, 46, 46, 0]'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [10, 170]
+    rotation: 0
+    state: enabled
+- name: blocks_vector_source_x_0
+  id: blocks_vector_source_x
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    repeat: 'False'
+    tags: '[]'
+    type: byte
+    vector: message1
+    vlen: MESSAGE_LENGTH
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [10, 270]
+    rotation: 0
+    state: enabled
+- name: blocks_vector_source_x_1
+  id: blocks_vector_source_x
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    repeat: 'False'
+    tags: '[]'
+    type: byte
+    vector: message2
+    vlen: MESSAGE_LENGTH
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [10, 410]
+    rotation: 0
+    state: enabled
+- name: bbc_bbc_encoder_0
+  id: bbc_bbc_encoder
+  parameters:
+    affinity: ''
+    alias: ''
+    checksum_length: CHECKSUM_BITS
+    codeword_length: CODEWORD_LENGTH
+    comment: ''
+    maxoutbuf: '0'
+    message_length: MESSAGE_LENGTH
+    minoutbuf: '0'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [370, 270]
+    rotation: 0
+    state: enabled
+- name: bbc_bbc_encoder_1
+  id: bbc_bbc_encoder
+  parameters:
+    affinity: ''
+    alias: ''
+    checksum_length: CHECKSUM_BITS
+    codeword_length: CODEWORD_LENGTH
+    comment: ''
+    maxoutbuf: '0'
+    message_length: MESSAGE_LENGTH
+    minoutbuf: '0'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [370, 410]
+    rotation: 0
+    state: enabled
+- name: blocks_vector_to_stream_0
+  id: blocks_vector_to_stream
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    num_items: CODEWORD_LENGTH
+    type: byte
+    vlen: '1'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [810, 290]
+    rotation: 0
+    state: enabled
+- name: blocks_vector_to_stream_1
+  id: blocks_vector_to_stream
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    num_items: CODEWORD_LENGTH
+    type: byte
+    vlen: '1'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [810, 430]
+    rotation: 0
+    state: enabled
+- name: blocks_or_xx_0
+  id: blocks_or_xx
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: Both senders share one codeword. Marks are only ever added, so
+      neither message is destroyed.
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    num_inputs: '2'
+    type: byte
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1110, 290]
+    rotation: 0
+    state: enabled
+- name: blocks_stream_to_vector_0
+  id: blocks_stream_to_vector
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    num_items: CODEWORD_LENGTH
+    type: byte
+    vlen: '1'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1350, 300]
+    rotation: 0
+    state: enabled
+- name: bbc_bbc_decoder_0
+  id: bbc_bbc_decoder
+  parameters:
+    affinity: ''
+    alias: ''
+    checksum_length: CHECKSUM_BITS
+    codeword_length: CODEWORD_LENGTH
+    comment: Emits both messages.
+    max_candidates: '256'
+    max_steps: '5000000'
+    maxoutbuf: '0'
+    message_length: MESSAGE_LENGTH
+    minoutbuf: '0'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [80, 570]
+    rotation: 0
+    state: enabled
+- name: blocks_message_debug_0
+  id: blocks_message_debug
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    en_uvec: 'True'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [610, 680]
+    rotation: 0
+    state: enabled
+- name: blocks_null_sink_0
+  id: blocks_null_sink
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    type: byte
+    vlen: MESSAGE_LENGTH
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [610, 580]
+    rotation: 0
+    state: enabled
+
+connections:
+- [bbc_bbc_decoder_0, '0', blocks_null_sink_0, '0']
+- [bbc_bbc_decoder_0, decoded, blocks_message_debug_0, print]
+- [bbc_bbc_encoder_0, '0', blocks_vector_to_stream_0, '0']
+- [bbc_bbc_encoder_1, '0', blocks_vector_to_stream_1, '0']
+- [blocks_or_xx_0, '0', blocks_stream_to_vector_0, '0']
+- [blocks_stream_to_vector_0, '0', bbc_bbc_decoder_0, '0']
+- [blocks_vector_source_x_0, '0', bbc_bbc_encoder_0, '0']
+- [blocks_vector_source_x_1, '0', bbc_bbc_encoder_1, '0']
+- [blocks_vector_to_stream_0, '0', blocks_or_xx_0, '0']
+- [blocks_vector_to_stream_1, '0', blocks_or_xx_0, '1']
+
+metadata:
+  file_format: 1
+  grc_version: 3.10.9.2

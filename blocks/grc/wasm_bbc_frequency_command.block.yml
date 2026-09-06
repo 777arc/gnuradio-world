@@ -1,0 +1,26 @@
+id: wasm_bbc_frequency_command
+label: BBC Frequency Command
+category: '[GNU Radio World]'
+flags: [cpp]
+
+documentation: |-
+    Converts a decoded BBC payload into a frequency-control message.
+
+    The input must be a PDU whose byte payload contains an ASCII frequency in
+    hertz, optionally padded with NUL bytes (for example, ``+20000``). Valid
+    values are published as a ``(freq . value)`` PMT pair for Frequency Xlating
+    FIR Filter's ``freq`` port. Malformed payloads are ignored.
+
+    This browser-only helper replaces the Embedded Python message adapter in
+    gr-bbc's frequency-hop example, because Embedded Python stream buffers and
+    GNU Radio PMTs use different worker bridges.
+
+inputs:
+-   id: decoded
+    domain: message
+
+outputs:
+-   id: freq
+    domain: message
+
+file_format: 1

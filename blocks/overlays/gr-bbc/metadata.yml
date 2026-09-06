@@ -1,0 +1,45 @@
+# Browser-only block metadata for the vendored out-of-tree module gr-bbc.
+#
+# Upstream is pure Python. These entries expose the faithful C++ ports in
+# bbc_blocks.cpp while leaving the submodule itself pristine. The two OOK
+# hierarchies intentionally have no live callbacks: their generated factories
+# hold gr::basic_block_sptr, as with the other Python hierarchies rebuilt here.
+
+bbc_bbc_encoder:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include "bbc_blocks.hpp"']
+        make: 'this->${id} = wasm_bbc::make_encoder(${message_length}, ${codeword_length}, ${checksum_length}, ${checksum_mode});'
+        translations:
+            '(?<!")\bzeros\b(?!")': '"zeros"'
+            '(?<!")\bsha256\b(?!")': '"sha256"'
+
+bbc_bbc_decoder:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include "bbc_blocks.hpp"']
+        make: 'this->${id} = wasm_bbc::make_decoder(${message_length}, ${codeword_length}, ${checksum_length}, ${max_candidates}, ${max_steps}, ${checksum_mode});'
+        translations:
+            '(?<!")\bzeros\b(?!")': '"zeros"'
+            '(?<!")\bsha256\b(?!")': '"sha256"'
+
+bbc_OOKModulator:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include "bbc_blocks.hpp"']
+        make: 'this->${id} = wasm_bbc::make_ook_modulator(${carrier_freq}, ${samp_rate}, ${symbol_rate});'
+    callbacks: []
+
+bbc_OOKDemodulator:
+    flags: [python, cpp]
+    # Upstream uses raw None for automatic bandwidth. The browser presents the
+    # same setting as numeric 0, which make_ook_demodulator expands to 4x the
+    # symbol rate before designing the filter.
+    parameter_dtypes:
+        bandwidth: real
+    parameter_defaults:
+        bandwidth: '0'
+    cpp_templates:
+        includes: ['#include "bbc_blocks.hpp"']
+        make: 'this->${id} = wasm_bbc::make_ook_demodulator(${carrier_freq}, ${samp_rate}, ${symbol_rate}, ${bandwidth}, ${threshold});'
+    callbacks: []

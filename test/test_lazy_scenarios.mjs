@@ -175,6 +175,28 @@ const scenarios = [
       connections:[['msg',0,'encode',0],['encode',0,'decode',0],['decode',0,'text',0]] },
     expectFetch: ['ham.wasm'],
     expectLog: 'CQ TEST DE VE3XYZ' },
+  // gr-bbc is pure Python upstream. Its browser side module is therefore the
+  // generated registrar plus this repository's four C++ ports. Exercise the
+  // codec itself so this checks more than construction and dlopen.
+  { name: 'gr-bbc codec round trip (OOT deferred)',
+    fg: { blocks:[
+      { name:'msg', id:'blocks_vector_source_x',
+        params:{ type:'byte', vector:'[66]', repeat:'True', vlen:1 } },
+      { name:'encode', id:'bbc_bbc_encoder',
+        params:{ message_length:1, codeword_length:256, checksum_length:32,
+                 checksum_mode:'sha256' } },
+      { name:'decode', id:'bbc_bbc_decoder',
+        params:{ message_length:1, codeword_length:256, checksum_length:32,
+                 checksum_mode:'sha256', max_candidates:16, max_steps:100000 } },
+      { name:'sink', id:'blocks_null_sink', params:{ type:'byte' } },
+      { name:'debug', id:'blocks_message_debug', params:{ en_uvec:'True' } } ],
+      connections:[
+        ['msg',0,'encode',0],['encode',0,'decode',0],['decode',0,'sink',0],
+        { src_blk_id:'decode', src_port_id:'decoded',
+          snk_blk_id:'debug', snk_port_id:'print' },
+      ] },
+    expectFetch: ['bbc.wasm'],
+    expectLog: '42' },
   // gr-ieee802-11 (OOT deferred). Its receive chain is upstream wifi_phy_hier's,
   // expanded inline because that is a GRC hier block and the browser has no
   // Python to build one: Schmidl-Cox autocorrelation into Sync Short, Sync Long,

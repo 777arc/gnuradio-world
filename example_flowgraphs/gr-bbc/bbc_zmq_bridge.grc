@@ -1,0 +1,180 @@
+options:
+  parameters:
+    author: James Morrison
+    catch_exceptions: 'True'
+    category: '[GRC Hier Blocks]'
+    cmake_opt: ''
+    comment: ''
+    copyright: ''
+    description: Browser adaptation of the upstream ZeroMQ bridge. A browser tab cannot open ZeroMQ sockets, so an in-page vector source and Message Debug demonstrate the same codeword-in/message-out boundary.
+    gen_cmake: 'On'
+    gen_linking: dynamic
+    generate_options: no_gui
+    hier_block_src_path: '.:'
+    id: bbc_zmq_bridge
+    max_nouts: '0'
+    output_language: python
+    placement: (0,0)
+    qt_qss_theme: ''
+    realtime_scheduling: ''
+    run: 'True'
+    run_command: '{python} -u {filename}'
+    run_options: run
+    sizing_mode: fixed
+    thread_safe_setters: ''
+    title: BBC ZeroMQ Bridge (Browser Adaptation)
+    window_size: ''
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [10, 10]
+    rotation: 0
+    state: enabled
+
+blocks:
+- name: CHECKSUM_BITS
+  id: variable
+  parameters:
+    comment: Check bits appended to each message; must match at both ends.
+    value: '32'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [600, 10]
+    rotation: 0
+    state: enabled
+- name: CODEWORD_LENGTH
+  id: variable
+  parameters:
+    comment: Codeword size in bytes. A larger ratio survives more jamming.
+    value: '8192'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [820, 10]
+    rotation: 0
+    state: enabled
+- name: MESSAGE_LENGTH
+  id: variable
+  parameters:
+    comment: Message size in bytes.
+    value: '32'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1070, 10]
+    rotation: 0
+    state: enabled
+- name: message
+  id: variable
+  parameters:
+    comment: In-page stand-in for the upstream ZeroMQ codeword producer.
+    value: '[66, 66, 67, 32, 115, 97, 121, 115, 32, 104, 101, 108, 108, 111, 32, 116, 111, 32, 71, 82, 67, 111, 110, 50, 54, 33, 0, 0, 0, 0, 0, 0]'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1300, 10]
+    rotation: 0
+    state: enabled
+- name: bbc_bbc_encoder_0
+  id: bbc_bbc_encoder
+  parameters:
+    affinity: ''
+    alias: ''
+    checksum_length: CHECKSUM_BITS
+    codeword_length: CODEWORD_LENGTH
+    comment: ''
+    maxoutbuf: '0'
+    message_length: MESSAGE_LENGTH
+    minoutbuf: '0'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [360, 150]
+    rotation: 0
+    state: enabled
+- name: bbc_bbc_decoder_0
+  id: bbc_bbc_decoder
+  parameters:
+    affinity: ''
+    alias: ''
+    checksum_length: CHECKSUM_BITS
+    codeword_length: CODEWORD_LENGTH
+    comment: ''
+    max_candidates: '256'
+    max_steps: '5000000'
+    maxoutbuf: '0'
+    message_length: MESSAGE_LENGTH
+    minoutbuf: '0'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [800, 150]
+    rotation: 0
+    state: enabled
+- name: blocks_message_debug_0
+  id: blocks_message_debug
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: In-page stand-in for the upstream ZeroMQ message consumer.
+    en_uvec: 'True'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1330, 260]
+    rotation: 0
+    state: enabled
+- name: blocks_null_sink_0
+  id: blocks_null_sink
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: The same messages also come out as a byte-vector stream.
+    type: byte
+    vlen: MESSAGE_LENGTH
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1330, 160]
+    rotation: 0
+    state: enabled
+- name: blocks_vector_source_x_0
+  id: blocks_vector_source_x
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    repeat: 'False'
+    tags: '[]'
+    type: byte
+    vector: message
+    vlen: MESSAGE_LENGTH
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [10, 150]
+    rotation: 0
+    state: enabled
+
+connections:
+- [bbc_bbc_decoder_0, '0', blocks_null_sink_0, '0']
+- [bbc_bbc_decoder_0, decoded, blocks_message_debug_0, print]
+- [bbc_bbc_encoder_0, '0', bbc_bbc_decoder_0, '0']
+- [blocks_vector_source_x_0, '0', bbc_bbc_encoder_0, '0']
+
+metadata:
+  file_format: 1
+  grc_version: 3.10.9.2

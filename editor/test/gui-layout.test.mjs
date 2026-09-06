@@ -185,7 +185,8 @@ assert.equal(rowsUsed({ a: tile(0, 0, 1, 3), b: tile(1, 1, 1, 1) }), 3);
 // ---- the block definition, and the runner that renders it ------------------
 const world = new URL('../../', import.meta.url);
 const read = path => readFile(new URL(path, world), 'utf8');
-const [blockYaml, runnerHpp, runnerCpp, registryCpp, runnerHtml, blocksJson] =
+const [blockYaml, runnerHpp, runnerCpp, registryCpp, runnerHtml, blocksJson,
+       plotTitleHpp] =
   await Promise.all([
     read('blocks/grc/wasm_gui_layout.block.yml'),
     read('runner/src/gui_layout.hpp'),
@@ -193,6 +194,7 @@ const [blockYaml, runnerHpp, runnerCpp, registryCpp, runnerHtml, blocksJson] =
     read('runner/src/registry.cpp'),
     read('runner/src/runner.html'),
     read('editor/public/blocks.json'),
+    read('blocks/src/qtgui_plot_title.hpp'),
   ]);
 
 // The parameter ids the editor writes have to be the ones the factory reads.
@@ -219,6 +221,12 @@ assert.match(runnerCpp, /class ProportionalGridLayout final : public QGridLayout
              'the runner gives grid units deterministic proportional geometry');
 assert.match(runnerCpp, /grid->addTile\(placed\.widget, placed\.tile\)/,
              'the proportional grid receives every requested widget tile');
+assert.match(registryCpp, /class RangeRowLayout final : public QHBoxLayout/,
+             'combined Range controls use a non-overlapping narrow-tile layout');
+assert.match(registryCpp, /constexpr int kMinimumSliderWidth = 20/,
+             'a narrow combined Range preserves a usable slider before its label');
+assert.match(plotTitleHpp, /setLayoutAttribute\(QwtText::MinimumLayout\)/,
+             'plot title padding excludes unused font bearings');
 
 // It is a runtime object, not a scheduler block: run_now() must skip it the way
 // it skips a constellation, or the graph tries to connect something that is not

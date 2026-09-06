@@ -2,7 +2,7 @@ options:
     parameters:
         author: gnuradio-world
         copyright: ''
-        description: 32 synthetic NOAA HRPT minor frames (32 AVHRR scan lines, carrying this repo's own logo on channel 2) that exercise the real noaa_hrpt_deframer and hrpt_image_sink blocks end to end. See example_flowgraphs/hrpt/README.md for how the fixture was generated and why the PLL/bit-slicer stage is skipped here.
+        description: 32 synthetic NOAA HRPT minor frames (32 AVHRR scan lines, carrying this repo's own logo on channel 2) that exercise the real noaa_hrpt_deframer and hrpt_image_sink blocks end to end. See example_flowgraphs/gr-hrpt/README.md for how the fixture was generated and why the PLL/bit-slicer stage is skipped here.
         generate_options: qt_gui
         id: HRPT_NOAA_Synthetic_Image
         title: HRPT NOAA Synthetic Image
@@ -64,7 +64,7 @@ blocks:
         offset: '0'
         repeat: 'False'
         type: byte
-        url: https://raw.githubusercontent.com/777arc/gnuradio-world/main/example_flowgraphs/hrpt/noaa_synthetic_symbols.bin
+        url: https://raw.githubusercontent.com/777arc/gnuradio-world/0fe7d7263adeb70c6c3af63f93b8cfb3ed2e4d9e/example_flowgraphs/hrpt/noaa_synthetic_symbols.bin
         vlen: '1'
     states:
         coordinate: [10, 130]

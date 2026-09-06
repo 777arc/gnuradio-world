@@ -188,7 +188,7 @@ in a browser, that is the right trade.
   `gr::filter::firdes`, so anything less than a faithful port makes two blocks
   given identical arguments disagree inside one flowgraph. A window this shim
   does not implement throws rather than falling back to Hamming, for the same
-  reason. `example_flowgraphs/rds/rds_receiver.grc` relies on
+  reason. `example_flowgraphs/gr-rds/rds_receiver.grc` relies on
   this (`2*math.pi/100`, `samp_rate/(2*math.pi*75e3)`).
   A .grc loaded **straight into `runner.html#<grc>`** gets no such pass: the C++
   side only inlines plain `variable` blocks and coerces numeric strings, so

@@ -21,7 +21,7 @@ computer and GR World Recording takes a key into the recordings bucket. It is
 not committed as a *huge* binary, so **the source block in
 `hrpt_noaa_synthetic_image.grc` only resolves once this changeset is pushed to
 `main`** -- before that, test locally by pointing its `url`
-parameter at a `http://localhost:<port>/example_flowgraphs/hrpt/...` URL served
+parameter at a `http://localhost:<port>/example_flowgraphs/gr-hrpt/...` URL served
 by a Range-capable dev server instead (`server.mjs` itself does not serve
 Range requests for arbitrary static files, only `/recordings/`; see
 `test_smoke.mjs`'s own note on this in AGENTS.md's recording-viewer doc).
@@ -50,7 +50,7 @@ side-module import, which is what a real receive chain looks like.
    (`gr-hrpt/lib/noaa_hrpt_deframer_impl.cc`) until the decoded words round-trip
    byte-for-byte back to the input, including the channel-2 pixel row.
 
-Run `python3 example_flowgraphs/hrpt/gen_synthetic_symbols.py` (needs `numpy`
+Run `python3 example_flowgraphs/gr-hrpt/gen_synthetic_symbols.py` (needs `numpy`
 and `Pillow`) to regenerate it with a different image, line count or channel;
 the round-trip assertion against the ported state machine is what guarantees
 the fixture actually plays back through the real block rather than merely

@@ -1,0 +1,428 @@
+options:
+  parameters:
+    author: James Morrison
+    catch_exceptions: 'True'
+    category: '[GRC Hier Blocks]'
+    cmake_opt: ''
+    comment: ''
+    copyright: ''
+    description: BBC over OOK, recovered while a stronger jammer floods the channel
+      with marks.
+    gen_cmake: 'On'
+    gen_linking: dynamic
+    generate_options: no_gui
+    hier_block_src_path: '.:'
+    id: bbc_ook_jammed
+    max_nouts: '0'
+    output_language: python
+    placement: (0,0)
+    qt_qss_theme: ''
+    realtime_scheduling: ''
+    run: 'True'
+    run_command: '{python} -u {filename}'
+    run_options: run
+    sizing_mode: fixed
+    thread_safe_setters: ''
+    title: BBC over OOK with a Jammer
+    window_size: ''
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [10, 10]
+    rotation: 0
+    state: enabled
+
+blocks:
+- name: CHECKSUM_BITS
+  id: variable
+  parameters:
+    comment: ''
+    value: '32'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [600, 10]
+    rotation: 0
+    state: enabled
+- name: CODEWORD_LENGTH
+  id: variable
+  parameters:
+    comment: 128x expansion over the message.
+    value: '1024'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [820, 10]
+    rotation: 0
+    state: enabled
+- name: MESSAGE_LENGTH
+  id: variable
+  parameters:
+    comment: ''
+    value: '8'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1070, 10]
+    rotation: 0
+    state: enabled
+- name: NUM_CODEWORDS
+  id: variable
+  parameters:
+    comment: The demodulator drops the filter warm-up, so the last codeword is
+      always short. Send a few.
+    value: '3'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1300, 10]
+    rotation: 0
+    state: enabled
+- name: carrier_freq
+  id: variable
+  parameters:
+    comment: Baseband offset, not an RF frequency.
+    value: 20e3
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1540, 10]
+    rotation: 0
+    state: enabled
+- name: jam_amplitude
+  id: variable
+  parameters:
+    comment: 1.0 means the jammer is as strong as the signal. Try turning it up.
+    value: '1.0'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [10, 170]
+    rotation: 0
+    state: enabled
+- name: jam_bytes
+  id: variable
+  parameters:
+    comment: Pseudo-random keying, so the jammer sprays marks across the codeword.
+    value: '[13, 180, 91, 2] * 1024'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [210, 170]
+    rotation: 0
+    state: enabled
+- name: message
+  id: variable
+  parameters:
+    comment: ''
+    value: '[71, 82, 67, 111, 110, 50, 54, 33]'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [490, 170]
+    rotation: 0
+    state: enabled
+- name: samp_rate
+  id: variable
+  parameters:
+    comment: ''
+    value: 128e3
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [770, 170]
+    rotation: 0
+    state: enabled
+- name: symbol_rate
+  id: variable
+  parameters:
+    comment: ''
+    value: '8000'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [940, 170]
+    rotation: 0
+    state: enabled
+- name: blocks_vector_source_x_0
+  id: blocks_vector_source_x
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    repeat: 'True'
+    tags: '[]'
+    type: byte
+    vector: message
+    vlen: MESSAGE_LENGTH
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [10, 270]
+    rotation: 0
+    state: enabled
+- name: bbc_bbc_encoder_0
+  id: bbc_bbc_encoder
+  parameters:
+    affinity: ''
+    alias: ''
+    checksum_length: CHECKSUM_BITS
+    codeword_length: CODEWORD_LENGTH
+    comment: ''
+    maxoutbuf: '0'
+    message_length: MESSAGE_LENGTH
+    minoutbuf: '0'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [360, 270]
+    rotation: 0
+    state: enabled
+- name: blocks_head_0
+  id: blocks_head
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    num_items: NUM_CODEWORDS
+    type: byte
+    vlen: CODEWORD_LENGTH
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [800, 290]
+    rotation: 0
+    state: enabled
+- name: blocks_vector_to_stream_0
+  id: blocks_vector_to_stream
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    num_items: CODEWORD_LENGTH
+    type: byte
+    vlen: '1'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1150, 290]
+    rotation: 0
+    state: enabled
+- name: bbc_OOKModulator_0
+  id: bbc_OOKModulator
+  parameters:
+    affinity: ''
+    alias: ''
+    carrier_freq: carrier_freq
+    comment: ''
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    samp_rate: samp_rate
+    symbol_rate: symbol_rate
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [80, 550]
+    rotation: 0
+    state: enabled
+- name: blocks_vector_source_x_1
+  id: blocks_vector_source_x
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: Jammer payload
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    repeat: 'True'
+    tags: '[]'
+    type: byte
+    vector: jam_bytes
+    vlen: '1'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [800, 390]
+    rotation: 0
+    state: enabled
+- name: bbc_OOKModulator_1
+  id: bbc_OOKModulator
+  parameters:
+    affinity: ''
+    alias: ''
+    carrier_freq: carrier_freq
+    comment: Jammer, same channel
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    samp_rate: samp_rate
+    symbol_rate: symbol_rate
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1150, 390]
+    rotation: 0
+    state: enabled
+- name: blocks_multiply_const_vxx_0
+  id: blocks_multiply_const_vxx
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    const: jam_amplitude
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    type: complex
+    vlen: '1'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [80, 690]
+    rotation: 0
+    state: enabled
+- name: blocks_add_xx_0
+  id: blocks_add_xx
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: The Z channel - a jammer can add marks but never remove them.
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    num_inputs: '2'
+    type: complex
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [420, 570]
+    rotation: 0
+    state: enabled
+- name: bbc_OOKDemodulator_0
+  id: bbc_OOKDemodulator
+  parameters:
+    affinity: ''
+    alias: ''
+    bandwidth: '0'
+    carrier_freq: carrier_freq
+    comment: ''
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    samp_rate: samp_rate
+    symbol_rate: symbol_rate
+    threshold: '0.25'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [660, 560]
+    rotation: 0
+    state: enabled
+- name: blocks_stream_to_vector_0
+  id: blocks_stream_to_vector
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    num_items: CODEWORD_LENGTH
+    type: byte
+    vlen: '1'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [990, 580]
+    rotation: 0
+    state: enabled
+- name: bbc_bbc_decoder_0
+  id: bbc_bbc_decoder
+  parameters:
+    affinity: ''
+    alias: ''
+    checksum_length: CHECKSUM_BITS
+    codeword_length: CODEWORD_LENGTH
+    comment: ''
+    max_candidates: '256'
+    max_steps: '5000000'
+    maxoutbuf: '0'
+    message_length: MESSAGE_LENGTH
+    minoutbuf: '0'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1280, 560]
+    rotation: 0
+    state: enabled
+- name: blocks_message_debug_0
+  id: blocks_message_debug
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    en_uvec: 'True'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [130, 810]
+    rotation: 0
+    state: enabled
+- name: blocks_null_sink_0
+  id: blocks_null_sink
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    type: byte
+    vlen: MESSAGE_LENGTH
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [130, 990]
+    rotation: 0
+    state: enabled
+
+connections:
+- [bbc_OOKDemodulator_0, '0', blocks_stream_to_vector_0, '0']
+- [bbc_OOKModulator_0, '0', blocks_add_xx_0, '0']
+- [bbc_OOKModulator_1, '0', blocks_multiply_const_vxx_0, '0']
+- [bbc_bbc_decoder_0, '0', blocks_null_sink_0, '0']
+- [bbc_bbc_decoder_0, decoded, blocks_message_debug_0, print]
+- [bbc_bbc_encoder_0, '0', blocks_head_0, '0']
+- [blocks_add_xx_0, '0', bbc_OOKDemodulator_0, '0']
+- [blocks_head_0, '0', blocks_vector_to_stream_0, '0']
+- [blocks_multiply_const_vxx_0, '0', blocks_add_xx_0, '1']
+- [blocks_stream_to_vector_0, '0', bbc_bbc_decoder_0, '0']
+- [blocks_vector_source_x_0, '0', bbc_bbc_encoder_0, '0']
+- [blocks_vector_source_x_1, '0', bbc_OOKModulator_1, '0']
+- [blocks_vector_to_stream_0, '0', bbc_OOKModulator_0, '0']
+
+metadata:
+  file_format: 1
+  grc_version: 3.10.9.2

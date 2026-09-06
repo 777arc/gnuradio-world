@@ -521,6 +521,17 @@ add_side_module(ham
   SOURCES ${HAM_SOURCES}
   DEPENDS ${BLOCKS}/overlays/gr-ham/ham_blocks.hpp)
 
+# gr-bbc (xeno00): the Baird/Bahn/Collins concurrent anti-jam codec and its
+# OOK physical layer. Upstream is intentionally pure Python, so all four blocks
+# are faithful C++ ports in this repository's overlay and the pristine vendored
+# module contributes its GRC metadata and examples only.
+set(BBC_SOURCES
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/generated_registry_bbc.cpp
+  ${BLOCKS}/overlays/gr-bbc/bbc_blocks.cpp)
+add_side_module(bbc
+  SOURCES ${BBC_SOURCES}
+  DEPENDS ${BLOCKS}/overlays/gr-bbc/bbc_blocks.hpp)
+
 # gr-ieee802-11 (bastibl): the 802.11a/g/p transceiver. Every block in its grc/
 # has a C++ impl, so this is the plain OOT case -- its own lib/*.cc compiled
 # straight into the side module alongside the generated factory table. Its

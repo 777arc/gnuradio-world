@@ -226,7 +226,7 @@ Python QWidget, and it is the only place an RDS receiver ever shows its decoded
 ASCII, so `registry.cpp` rebuilds it as a message-sink block whose handler records
 the parser's `(type, text)` tuples and whose QTimer paints them (message handlers
 run on GR threads; widgets are main-thread only). See
-`example_flowgraphs/rds/rds_receiver.grc`.
+`example_flowgraphs/gr-rds/rds_receiver.grc`.
 
 ### The musical keyboard is a source and a widget
 
@@ -275,7 +275,7 @@ that parameter to a `/local-files/...` path on the Run path (`RUN_BOUND_PARAMS`
 adds Public HTTP Recording's URL, rewritten the same way to
 `/recordings/external/...`). A `.grc` still stores only the file name. An image on
 another origin must be served with permissive CORS headers, which is why the
-`example_flowgraphs/paint/` examples paint same-origin assets from
+`example_flowgraphs/gr-paint/` examples paint same-origin assets from
 `editor/public/example_images/`.
 
 ## GUI blocks

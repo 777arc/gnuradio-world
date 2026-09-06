@@ -87,8 +87,12 @@ inline void set_canvas_title(QwtPlot* plot, const QString& title)
 
     QwtText text(title);
     // textRect() already anchors the plate at the top of the canvas. Center the
-    // glyphs inside it so the plate's padding is equal on all four sides.
+    // glyphs inside it so the plate's padding is equal on all four sides. Qwt's
+    // normal text size includes the font's unused top/bottom bearings; removing
+    // those bearings is what makes the *visible* bottom margin match the top and
+    // sides rather than merely making the mathematical text rectangle equal.
     text.setRenderFlags(Qt::AlignCenter);
+    text.setLayoutAttribute(QwtText::MinimumLayout);
     text.setColor(background.lightness() > 127 ? Qt::black : Qt::white);
     text.setBackgroundBrush(QBrush(plate));
     text.setBorderRadius(4.0);
