@@ -72,8 +72,8 @@ blocks:
 - name: message
   id: variable
   parameters:
-    comment: In-page stand-in for the upstream ZeroMQ codeword producer.
-    value: '[66, 66, 67, 32, 115, 97, 121, 115, 32, 104, 101, 108, 108, 111, 32, 116, 111, 32, 71, 82, 67, 111, 110, 50, 54, 33, 0, 0, 0, 0, 0, 0]'
+    comment: In-page stand-in for the upstream ZeroMQ codeword producer; hex bytes match Message Debug's display.
+    value: '[0x42, 0x42, 0x43, 0x20, 0x73, 0x61, 0x79, 0x73, 0x20, 0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x74, 0x6f, 0x20, 0x47, 0x52, 0x43, 0x6f, 0x6e, 0x32, 0x36, 0x21, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]'
   states:
     bus_sink: false
     bus_source: false

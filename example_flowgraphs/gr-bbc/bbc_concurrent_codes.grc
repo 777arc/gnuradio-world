@@ -72,8 +72,8 @@ blocks:
 - name: message1
   id: variable
   parameters:
-    comment: ''
-    value: '[102, 105, 114, 115, 116, 32, 115, 101, 110, 100, 101, 114, 46, 46, 46, 0]'
+    comment: Hex bytes, matching Message Debug's display.
+    value: '[0x66, 0x69, 0x72, 0x73, 0x74, 0x20, 0x73, 0x65, 0x6e, 0x64, 0x65, 0x72, 0x2e, 0x2e, 0x2e, 0x00]'
   states:
     bus_sink: false
     bus_source: false
@@ -84,8 +84,8 @@ blocks:
 - name: message2
   id: variable
   parameters:
-    comment: ''
-    value: '[115, 101, 99, 111, 110, 100, 32, 115, 101, 110, 100, 101, 114, 46, 46, 0]'
+    comment: Hex bytes, matching Message Debug's display.
+    value: '[0x73, 0x65, 0x63, 0x6f, 0x6e, 0x64, 0x20, 0x73, 0x65, 0x6e, 0x64, 0x65, 0x72, 0x2e, 0x2e, 0x00]'
   states:
     bus_sink: false
     bus_source: false

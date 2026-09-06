@@ -111,7 +111,7 @@ blocks:
   id: variable
   parameters:
     comment: Pseudo-random keying, so the jammer sprays marks across the codeword.
-    value: '[13, 180, 91, 2] * 1024'
+    value: '[0x0d, 0xb4, 0x5b, 0x02] * 1024'
   states:
     bus_sink: false
     bus_source: false
@@ -122,8 +122,8 @@ blocks:
 - name: message
   id: variable
   parameters:
-    comment: ''
-    value: '[71, 82, 67, 111, 110, 50, 54, 33]'
+    comment: Hex bytes, matching Message Debug's display.
+    value: '[0x47, 0x52, 0x43, 0x6f, 0x6e, 0x32, 0x36, 0x21]'
   states:
     bus_sink: false
     bus_source: false

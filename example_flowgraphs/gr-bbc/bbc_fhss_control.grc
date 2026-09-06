@@ -132,7 +132,7 @@ blocks:
   id: variable
   parameters:
     comment: ''
-    value: '[13, 180, 91, 2] * 1024'
+    value: '[0x0d, 0xb4, 0x5b, 0x02] * 1024'
   states:
     bus_sink: false
     bus_source: false
@@ -143,8 +143,8 @@ blocks:
 - name: commands
   id: variable
   parameters:
-    comment: Two hop commands, sent in turn.
-    value: '[43, 50, 48, 48, 48, 48, 0, 0, 45, 50, 48, 48, 48, 48, 0, 0]'
+    comment: Two hop commands in hex, matching Message Debug's display; sent in turn.
+    value: '[0x2b, 0x32, 0x30, 0x30, 0x30, 0x30, 0x00, 0x00, 0x2d, 0x32, 0x30, 0x30, 0x30, 0x30, 0x00, 0x00]'
   states:
     bus_sink: false
     bus_source: false
