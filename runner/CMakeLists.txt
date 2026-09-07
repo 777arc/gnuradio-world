@@ -532,6 +532,19 @@ add_side_module(bbc
   SOURCES ${BBC_SOURCES}
   DEPENDS ${BLOCKS}/overlays/gr-bbc/bbc_blocks.hpp)
 
+# gr-adsb (mhostetter): the 1090 MHz Mode S / ADS-B receiver. Like gr-ham and
+# gr-bbc this module ships no C++ blocks -- its lib/ holds only the QA harness,
+# and the framer, demodulator and decoder are all Python gr.sync_block
+# subclasses -- so the side module is the generated factory table over the
+# browser rebuilds in blocks/overlays/gr-adsb/adsb_blocks.cpp. Its only
+# dependency is the GNU Radio runtime already in the main module.
+set(ADSB_SOURCES
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/generated_registry_adsb.cpp
+  ${BLOCKS}/overlays/gr-adsb/adsb_blocks.cpp)
+add_side_module(adsb
+  SOURCES ${ADSB_SOURCES}
+  DEPENDS ${BLOCKS}/overlays/gr-adsb/adsb_blocks.hpp)
+
 # gr-ieee802-11 (bastibl): the 802.11a/g/p transceiver. Every block in its grc/
 # has a C++ impl, so this is the plain OOT case -- its own lib/*.cc compiled
 # straight into the side module alongside the generated factory table. Its

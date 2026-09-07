@@ -7,6 +7,9 @@
 const std::map<std::string, std::string>& block_module_map()
 {
     static const std::map<std::string, std::string> m = {
+        {"adsb_decoder", "adsb"},
+        {"adsb_demod", "adsb"},
+        {"adsb_framer", "adsb"},
         {"bbc_OOKDemodulator", "bbc"},
         {"bbc_OOKModulator", "bbc"},
         {"bbc_bbc_decoder", "bbc"},

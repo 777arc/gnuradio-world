@@ -1,0 +1,288 @@
+options:
+    parameters:
+        author: Marc
+        comment: ''
+        copyright: ''
+        description: Decodes aircraft from a hosted 1090 MHz ADS-B recording, no radio needed.
+        generate_options: qt_gui
+        id: ADS_B_from_a_Recording
+        title: ADS-B from a Recording
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: rec_rate
+    id: variable
+    parameters:
+        comment: The recording's own complex sample rate
+        value: '5000000'
+    states:
+        coordinate: [600, 10]
+        rotation: 0
+        state: enabled
+-   name: samp_rate
+    id: variable
+    parameters:
+        comment: 2x that, which is what the ADS-B blocks see
+        value: '10000000'
+    states:
+        coordinate: [770, 10]
+        rotation: 0
+        state: enabled
+-   name: threshold
+    id: variable_qtgui_range
+    parameters:
+        comment: Noise floor here is about 45, bursts reach 3e6
+        label: Detection Threshold
+        min_len: '200'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '200'
+        step: '100'
+        stop: '20000'
+        value: '1800'
+        widget: counter_slider
+    states:
+        coordinate: [940, 10]
+        rotation: 0
+        state: enabled
+-   name: bursts
+    id: qtgui_time_sink_x
+    parameters:
+        affinity: ''
+        alias: ''
+        alpha1: '1'
+        alpha10: '1'
+        alpha2: '1'
+        alpha3: '1'
+        alpha4: '1'
+        alpha5: '1'
+        alpha6: '1'
+        alpha7: '1'
+        alpha8: '1'
+        alpha9: '1'
+        autoscale: 'True'
+        axislabels: 'True'
+        color1: blue
+        color10: dark blue
+        color2: red
+        color3: green
+        color4: black
+        color5: cyan
+        color6: magenta
+        color7: yellow
+        color8: dark red
+        color9: dark green
+        comment: ''
+        ctrlpanel: 'False'
+        entags: 'True'
+        grid: 'True'
+        label1: Burst power
+        label10: Signal 10
+        label2: Signal 2
+        label3: Signal 3
+        label4: Signal 4
+        label5: Signal 5
+        label6: Signal 6
+        label7: Signal 7
+        label8: Signal 8
+        label9: Signal 9
+        legend: 'True'
+        marker1: '-1'
+        marker10: '-1'
+        marker2: '-1'
+        marker3: '-1'
+        marker4: '-1'
+        marker5: '-1'
+        marker6: '-1'
+        marker7: '-1'
+        marker8: '-1'
+        marker9: '-1'
+        name: ADS-B bursts
+        nconnections: '1'
+        size: '2048'
+        srate: samp_rate
+        stemplot: 'False'
+        style1: '1'
+        style10: '1'
+        style2: '1'
+        style3: '1'
+        style4: '1'
+        style5: '1'
+        style6: '1'
+        style7: '1'
+        style8: '1'
+        style9: '1'
+        tr_chan: '0'
+        tr_delay: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_slope: qtgui.TRIG_SLOPE_POS
+        tr_tag: ''
+        type: float
+        update_time: '0.1'
+        width1: '1'
+        width10: '1'
+        width2: '1'
+        width3: '1'
+        width4: '1'
+        width5: '1'
+        width6: '1'
+        width7: '1'
+        width8: '1'
+        width9: '1'
+        ylabel: Power
+        ymax: '1'
+        ymin: '0'
+        yunit: ''
+    states:
+        coordinate: [510, 510]
+        rotation: 0
+        state: enabled
+-   name: decoded_planes
+    id: blocks_message_debug
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        en_uvec: 'False'
+        log_level: info
+    states:
+        coordinate: [970, 350]
+        rotation: 0
+        state: enabled
+-   name: decoder
+    id: adsb_decoder
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        error_corr: '"Conservative"'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        msg_filter: '"Extended Squitter Only"'
+        print_level: '"Brief"'
+    states:
+        coordinate: [510, 370]
+        rotation: 0
+        state: enabled
+-   name: demod
+    id: adsb_demod
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        fs: samp_rate
+        maxoutbuf: '0'
+        minoutbuf: '0'
+    states:
+        coordinate: [80, 380]
+        rotation: 0
+        state: enabled
+-   name: framer
+    id: adsb_framer
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        fs: samp_rate
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        threshold: threshold
+    states:
+        coordinate: [1290, 210]
+        rotation: 0
+        state: enabled
+-   name: interp2
+    id: blocks_repeat
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: 5 Msps is an odd 5 samples/symbol; the ADS-B blocks need an even one
+        interp: '2'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        type: float
+        vlen: '1'
+    states:
+        coordinate: [1030, 220]
+        rotation: 0
+        state: enabled
+-   name: mag_squared
+    id: blocks_complex_to_mag_squared
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: The framer works on power, not complex samples
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        vlen: '1'
+    states:
+        coordinate: [720, 220]
+        rotation: 0
+        state: enabled
+-   name: rec
+    id: wasm_gr_world_recording
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        length: '0'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        offset: '0'
+        progress: 'True'
+        recording: ADS-B_20150526_203031Z_1090000kHz_IQ
+        repeat: 'True'
+        type: short
+    states:
+        coordinate: [10, 210]
+        rotation: 0
+        state: enabled
+-   name: to_complex
+    id: blocks_interleaved_short_to_complex
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        scale_factor: '1'
+        swap: 'False'
+        vector_input: 'False'
+    states:
+        coordinate: [410, 220]
+        rotation: 0
+        state: enabled
+-   name: wasm_gui_layout_0
+    id: wasm_gui_layout
+    parameters:
+        affinity: ''
+        alias: ''
+        columns: '12'
+        comment: ''
+        layout: '{}'
+        row_height: '60'
+    states:
+        coordinate: [310, 10]
+        rotation: 0
+        state: enabled
+connections:
+-   src_blk_id: decoder
+    src_port_id: decoded
+    snk_blk_id: decoded_planes
+    snk_port_id: print
+- [demod, '0', bursts, '0']
+-   src_blk_id: demod
+    src_port_id: demodulated
+    snk_blk_id: decoder
+    snk_port_id: demodulated
+- [framer, '0', demod, '0']
+- [interp2, '0', framer, '0']
+- [mag_squared, '0', interp2, '0']
+- [rec, '0', to_complex, '0']
+- [to_complex, '0', mag_squared, '0']
+metadata:
+    file_format: 2
+    grc_version: 3.11.0.0

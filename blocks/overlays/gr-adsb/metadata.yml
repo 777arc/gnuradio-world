@@ -1,0 +1,89 @@
+# Browser-only block metadata for the vendored out-of-tree module gr-adsb.
+#
+# Keeping these overlays here instead of in the submodule's own .block.yml is what
+# lets that submodule stay pinned to a pristine upstream commit: nothing in the
+# checkout has to be edited, rebased, or pushed to a fork to add a block. See
+# tools/block_overrides.py for the supported keys, and docs/adding-modules.md
+# for the out-of-tree checklist this file is step 3 of.
+#
+# Like gr-ham and gr-bbc, gr-adsb has no C++ to generate factories from: its lib/
+# holds the QA harness and nothing else, and all three blocks are Python
+# gr.sync_block subclasses under gr-adsb/python/adsb/. So none of the entries
+# below point at a vendored block -- they point at the rebuilds in
+# adsb_blocks.cpp beside this file, each of which mirrors the Python file it is
+# named for.
+#
+# The chain is Framer -> Demod -> Decoder, fed by the squared magnitude of a
+# 1090 MHz baseband signal sampled at an integer multiple of 1 Msps (2 Msps is
+# the usual choice, and the rate every upstream example uses).
+
+adsb_framer:
+    flags: [python, cpp]
+    documentation: |-
+        Finds the start of each ADS-B burst and tags it.
+
+        ADS-B is pulse-position modulated at 1 Msym/s, and every message opens
+        with the same 8-bit preamble. This block thresholds the input, correlates
+        each detected pulse against that preamble as 16 half symbols, and tags a
+        match with "burst" -- carrying ("SOB", snr) -- for ADS-B Demod downstream.
+
+        Feed it the squared magnitude of the complex baseband (Complex to Mag^2),
+        not the complex samples themselves: the pulse comparisons and the SNR
+        estimate both assume an I^2 + Q^2 power signal.
+
+        Sample Rate must be an integer multiple of 1 Msps. Detection Threshold is
+        the power a sample has to reach to count as a pulse, and is worth driving
+        from a QT GUI Range while watching a recording -- too low and every noise
+        excursion starts a correlation, too high and weak aircraft disappear.
+    cpp_templates:
+        includes: ['#include "adsb_blocks.hpp"']
+        make: 'this->${id} = wasm_adsb::make_framer(${fs}, ${threshold});'
+
+adsb_demod:
+    flags: [python, cpp]
+    documentation: |-
+        Slices each tagged burst into the 112 bits of a Mode S message.
+
+        For every "burst" tag the framer left, this block compares the energy in
+        the first half of each symbol against the second -- which is what
+        pulse-position modulation encodes a bit as -- and publishes the result on
+        "demodulated" as a PDU whose metadata carries the burst's timestamp and
+        SNR. The sample stream passes through unchanged so it can still be
+        plotted.
+
+        A burst that runs past the end of the current block of samples is
+        dropped rather than buffered, exactly as upstream does.
+
+        Sample Rate must match the framer's.
+    cpp_templates:
+        includes: ['#include "adsb_blocks.hpp"']
+        make: 'this->${id} = wasm_adsb::make_demod(${fs});'
+
+adsb_decoder:
+    flags: [python, cpp]
+    documentation: |-
+        Decodes Mode S / ADS-B messages into aircraft state.
+
+        Checks the 24-bit CRC, then reads whichever fields the downlink format
+        carries: ICAO address, callsign, barometric altitude, ground speed,
+        heading, climb rate, and the CPR-encoded position -- which needs a
+        matching pair of even and odd frames from the same aircraft within 30
+        seconds before a latitude and longitude can be recovered. Decoded
+        aircraft go out on "decoded", messages it cannot interpret on "unknown";
+        connect either to a Message Debug to see the PDUs.
+
+        Message Filter chooses between the extended squitters that carry ADS-B
+        position and velocity, and every Mode S reply the decoder knows.
+
+        Error Correction "Conservative" repairs a contiguous 1- or 2-bit error
+        using a precomputed syndrome table. "Brute Force" is a stub upstream and
+        does nothing here either.
+
+        Print Level "Brief" prints one row per decoded update in the columns
+        upstream's curses table uses -- time, ICAO, callsign, altitude, climb,
+        speed, heading, latitude, longitude, message count -- and "Verbose"
+        prints every field of every message. Both go to the console below the
+        flowgraph. "None" is silent.
+    cpp_templates:
+        includes: ['#include "adsb_blocks.hpp"']
+        make: 'this->${id} = wasm_adsb::make_decoder(${msg_filter}, ${error_corr}, ${print_level});'

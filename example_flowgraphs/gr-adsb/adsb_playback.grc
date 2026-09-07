@@ -1,0 +1,150 @@
+options:
+    parameters:
+        author: Marc
+        comment: ''
+        copyright: ''
+        description: Replays captured Mode S extended squitters through the ADS-B Decoder, no radio needed.
+        generate_options: qt_gui
+        id: ADS_B_Playback
+        title: ADS-B Playback
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: callsign
+    id: blocks_message_strobe
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: KLM1023 identification (DF 17, TC 4)
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        msg: pmt.cons(pmt.dict_add(pmt.dict_add(pmt.make_dict(), pmt.intern("timestamp"), pmt.from_double(1757260800.0)), pmt.intern("snr"), pmt.from_double(21.4)), pmt.init_u8vector(112, [1,0,0,0,1,1,0,1,0,1,0,0,1,0,0,0,0,1,0,0,0,0,0,0,1,1,0,1,0,1,1,0,0,0,1,0,0,0,0,0,0,0,1,0,1,1,0,0,1,1,0,0,0,0,1,1,0,1,1,1,0,0,0,1,1,1,0,0,0,0,1,1,0,0,1,0,1,1,0,0,1,1,1,0,0,0,0,0,0,1,0,1,0,1,1,1,0,1,1,0,0,0,0,0,1,0,0,1,1,0,0,0]))
+        period: '2000'
+    states:
+        coordinate: [90, 190]
+        rotation: 0
+        state: enabled
+-   name: decoded_planes
+    id: blocks_message_debug
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        en_uvec: 'False'
+        log_level: info
+    states:
+        coordinate: [1030, 150]
+        rotation: 0
+        state: enabled
+-   name: decoder
+    id: adsb_decoder
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        error_corr: '"None"'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        msg_filter: '"Extended Squitter Only"'
+        print_level: '"Brief"'
+    states:
+        coordinate: [570, 170]
+        rotation: 0
+        state: enabled
+-   name: position_even
+    id: blocks_message_strobe
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: Airborne position, even CPR frame (DF 17, TC 11)
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        msg: pmt.cons(pmt.dict_add(pmt.dict_add(pmt.make_dict(), pmt.intern("timestamp"), pmt.from_double(1757260801.0)), pmt.intern("snr"), pmt.from_double(18.9)), pmt.init_u8vector(112, [1,0,0,0,1,1,0,1,0,1,0,0,0,0,0,0,0,1,1,0,0,0,1,0,0,0,0,1,1,1,0,1,0,1,0,1,1,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,0,0,1,0,1,1,0,1,0,1,1,0,1,0,0,1,0,0,0,0,1,1,0,0,1,0,0,0,1,0,1,0,1,1,0,0,0,0,1,0,1,0,0,0,0,1,1,0,0,0,1,1,1,0,1,0,0,1,1,1]))
+        period: '1000'
+    states:
+        coordinate: [90, 290]
+        rotation: 0
+        state: enabled
+-   name: position_odd
+    id: blocks_message_strobe
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: Airborne position, odd CPR frame (DF 17, TC 11)
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        msg: pmt.cons(pmt.dict_add(pmt.dict_add(pmt.make_dict(), pmt.intern("timestamp"), pmt.from_double(1757260802.0)), pmt.intern("snr"), pmt.from_double(19.6)), pmt.init_u8vector(112, [1,0,0,0,1,1,0,1,0,1,0,0,0,0,0,0,0,1,1,0,0,0,1,0,0,0,0,1,1,1,0,1,0,1,0,1,1,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,0,0,1,0,0,0,0,1,1,0,1,0,1,1,1,0,0,1,1,0,0,0,1,0,0,0,0,0,1,0,0,1,0,0,1,1,0,1,0,0,1,0,0,1,0,1,0,1,0,1,1,0,1,0,1,1,0]))
+        period: '1500'
+    states:
+        coordinate: [90, 390]
+        rotation: 0
+        state: enabled
+-   name: unknown_messages
+    id: blocks_message_debug
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        en_uvec: 'False'
+        log_level: info
+    states:
+        coordinate: [1030, 330]
+        rotation: 0
+        state: enabled
+-   name: velocity
+    id: blocks_message_strobe
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: Airborne velocity (DF 17, TC 19)
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        msg: pmt.cons(pmt.dict_add(pmt.dict_add(pmt.make_dict(), pmt.intern("timestamp"), pmt.from_double(1757260803.0)), pmt.intern("snr"), pmt.from_double(17.2)), pmt.init_u8vector(112, [1,0,0,0,1,1,0,1,0,1,0,0,1,0,0,0,0,1,0,1,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,1,1,0,0,1,0,1,0,0,0,1,0,0,0,0,0,0,1,0,0,1,1,0,0,1,0,1,0,0,0,0,0,0,1,0,0,0,0,0,1,1,1,0,0,0,0,0,0,1,0,1,1,1,0,1,0,1,1,0,1,1,0,0,1,0,1,0,0,0,0,1,0,0,1,1,1,1]))
+        period: '3000'
+    states:
+        coordinate: [90, 490]
+        rotation: 0
+        state: enabled
+-   name: wasm_gui_layout_0
+    id: wasm_gui_layout
+    parameters:
+        affinity: ''
+        alias: ''
+        columns: '12'
+        comment: ''
+        layout: '{}'
+        row_height: '60'
+    states:
+        coordinate: [310, 10]
+        rotation: 0
+        state: enabled
+connections:
+-   src_blk_id: callsign
+    src_port_id: strobe
+    snk_blk_id: decoder
+    snk_port_id: demodulated
+-   src_blk_id: decoder
+    src_port_id: decoded
+    snk_blk_id: decoded_planes
+    snk_port_id: print
+-   src_blk_id: decoder
+    src_port_id: unknown
+    snk_blk_id: unknown_messages
+    snk_port_id: print
+-   src_blk_id: position_even
+    src_port_id: strobe
+    snk_blk_id: decoder
+    snk_port_id: demodulated
+-   src_blk_id: position_odd
+    src_port_id: strobe
+    snk_blk_id: decoder
+    snk_port_id: demodulated
+-   src_blk_id: velocity
+    src_port_id: strobe
+    snk_blk_id: decoder
+    snk_port_id: demodulated
+metadata:
+    file_format: 2
+    grc_version: 3.11.0.0

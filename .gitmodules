@@ -66,3 +66,7 @@
 	path = gr-bbc
 	url = https://github.com/xeno00/gr-bbc.git
 	branch = main
+[submodule "gr-adsb"]
+	path = gr-adsb
+	url = https://github.com/mhostetter/gr-adsb.git
+	branch = maint-3.10

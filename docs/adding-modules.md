@@ -70,7 +70,8 @@ third-party OOT module (already done for [`gr-rds/`](../gr-rds), [`gr-foo/`](../
 [`gr-ieee802_11/`](../gr-ieee802_11), [`gr-hrpt/`](../gr-hrpt),
 [`gr-ieee802_15_4/`](../gr-ieee802_15_4),
 [`gr-lora_sdr/`](../gr-lora_sdr), [`gr-radar/`](../gr-radar),
-[`gr-gsm/`](../gr-gsm), and [`gr-bbc/`](../gr-bbc)) is **not** part of that
+[`gr-gsm/`](../gr-gsm), [`gr-bbc/`](../gr-bbc), and
+[`gr-adsb/`](../gr-adsb)) is **not** part of that
 umbrella build, so there is no `libgnuradio-<m>.a`; instead its own `lib/*.cc` are
 compiled straight into an on-demand `<m>.wasm` side module. This is a
 **self-contained checklist** — following it needs no investigation beyond the
@@ -144,9 +145,9 @@ all landing in the module's own `blocks/overlays/gr-<m>/`:
   or a fetched URL with `createImageBitmap` instead, again with a hand-written
   factory in `registry.cpp` rather than a generated one.
 
-A module can be **entirely** Python: gr-ham's `lib/` holds a CMakeLists.txt and
-nothing else, so it has no vendored source to compile and its side module is the
-generated factory table over
+A module can be **entirely** Python — gr-ham, gr-bbc and gr-adsb all are.
+gr-ham's `lib/` holds a CMakeLists.txt and nothing else, so it has no vendored
+source to compile and its side module is the generated factory table over
 [`blocks/overlays/gr-ham/ham_blocks.cpp`](../blocks/overlays/gr-ham/ham_blocks.cpp)
 alone. Nothing about steps 3, 6 and 7 changes — only step 6's source list is
 shorter. Blocks worth rebuilding are the ones whose output can be *checked*:
