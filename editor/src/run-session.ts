@@ -25,9 +25,13 @@ import {
   type SigmfBinding,
 } from './sigmf-blocks';
 
+// `sampleRate` is the recording's own, where the editor knows one that the
+// runner cannot work out for itself. Nothing DSP-side reads it: it is what lets
+// a source's progress display count in seconds as well as samples.
 export type RunnerInputFile =
-  | { kind: 'local'; path: string; file: File; meta?: string }
-  | { kind: 'http'; path: string; url: string; size: number; meta?: string }
+  | { kind: 'local'; path: string; file: File; meta?: string; sampleRate?: number }
+  | { kind: 'http'; path: string; url: string; size: number; meta?: string;
+      sampleRate?: number }
   | { kind: 'output'; path: string; base: string; dir: FileSystemDirectoryHandle | null };
 
 export interface RunSessionState {
@@ -322,6 +326,11 @@ async function prepareFlowgraph(deps: RunSessionDeps, session: RunSessionState,
       if (!addedPaths.has(path)) {
         recordingFiles.push({
           kind: 'http', path, url: recording.downloadUrl, size: recording.byteLength,
+          // The runner never reads this recording's .sigmf-meta -- its factory
+          // derives the data path and nothing else -- so the rate the index
+          // already told the editor is the only one its progress display can
+          // count seconds with.
+          sampleRate: recording.sampleRate ?? undefined,
         });
         addedPaths.add(path);
       }

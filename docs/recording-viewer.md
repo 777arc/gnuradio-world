@@ -71,6 +71,44 @@ file larger than 4 GiB through the actual editor and reads beyond the 32-bit
 boundary; its HTTP case runs a GR World Recording against an endpoint that
 refuses non-Range requests and verifies the exact range consumed.
 
+## The progress display
+
+The three recording blocks carry one, on by default, because a recording
+streaming past with nothing saying where in it you are is the state each of them
+used to leave the reader in. **File Source has none**, deliberately: it is
+upstream's block, its `.grc` has to stay one native GNU Radio also reads, and
+giving it a display would mean adding a browser-only parameter to that file. The
+tile is one row in the flowgraph window — a bar, then the
+position and the total in samples, in seconds too where the recording says what
+rate it was made at, and the pass number once a repeating source has looped —
+plus a tooltip with the path, the byte position and the Offset/Length selection.
+
+Three things about it are worth knowing before touching it:
+
+- **The block publishes one counter, not two.** `BrowserFileSource::progress()`
+  divides the position and the pass number back out of the items produced since
+  `start()`. It reads that way because `work()` resets its position at every
+  loop, and a display that caught the two halves of that reset either side of
+  each other would show the file jumping backwards.
+  [`blocks/src/file_progress_widget.hpp`](../blocks/src/file_progress_widget.hpp)
+  polls it on a `QTimer`, exactly as `PacketRateSinkWasm` does and for the same
+  reason: a display driven by the stream freezes at the moment the stream stops,
+  which is the moment it is worth reading.
+- **The seconds come from the recording, or not at all.** `runner.html` puts a
+  `sampleRate` on the bound descriptor where anything knows one — from the
+  recordings index for a hosted recording (the editor reads it out of the
+  catalog entry in `run-session.ts`), or out of the `.sigmf-meta` for a local
+  one — and `progress_sample_rate()` in
+  [`runner/src/registry.cpp`](../runner/src/registry.cpp) reads exactly that.
+  A raw file has no metadata to ask, so Public HTTP Recording counts in samples
+  alone. The flowgraph's `samp_rate` is deliberately *not* a
+  fallback: it is the rate the graph processes at, which the recording is free
+  to disagree with, and a confidently wrong duration is worse than none.
+- **The tile is conditional, which the metadata has to say.** A block's `gui`
+  declaration names the `progress` parameter rather than saying `true`, so the
+  editor knows not to hold a tile open for a display that was turned off. See
+  "Which blocks take a tile" in [gui-layout.md](gui-layout.md).
+
 ## SigMF Source: metadata as stream tags
 
 SigMF Source is the only local source that reads a recording's *metadata*. A

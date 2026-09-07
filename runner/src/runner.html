@@ -138,6 +138,22 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
             typeof window.parent.__grTakeRecordingFiles !== 'function')
           throw new Error('browser file bindings are unavailable');
 
+        // The recording's own sample rate, where anything knows one: the editor
+        // reads a hosted recording's out of the recordings index and puts it on
+        // the descriptor, and a local SigMF recording carries its .sigmf-meta
+        // along, which has it. Only the progress display uses it -- it is what
+        // turns a position in samples into one in seconds -- so a recording
+        // without one is not an error, just a display in samples alone.
+        const boundSampleRate = descriptor => {
+          if (Number.isFinite(descriptor.sampleRate) && descriptor.sampleRate > 0)
+            return descriptor.sampleRate;
+          if (typeof descriptor.meta !== 'string') return undefined;
+          try {
+            const rate = JSON.parse(descriptor.meta)?.global?.['core:sample_rate'];
+            return Number.isFinite(rate) && rate > 0 ? rate : undefined;
+          } catch { return undefined; }
+        };
+
         const inputs = [];
         const outputs = [];
         for (const descriptor of window.parent.__grTakeRecordingFiles(token)) {
@@ -177,6 +193,7 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
               // SigMF Source binds the .sigmf-meta text beside the samples; the
               // block's factory reads it from here to build its tag plan.
               meta: typeof descriptor.meta === 'string' ? descriptor.meta : undefined,
+              sampleRate: boundSampleRate(descriptor),
             });
             continue;
           }
@@ -190,6 +207,7 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
               url: new URL(descriptor.url, location.href).href,
               size: descriptor.size,
               meta: typeof descriptor.meta === 'string' ? descriptor.meta : undefined,
+              sampleRate: boundSampleRate(descriptor),
             });
             continue;
           }

@@ -197,5 +197,26 @@ for (const file of files) {
   }
 }
 
+// The three recording blocks each carry a browser-only `progress` parameter
+// (File Source, being upstream's block, deliberately has none), and the editor
+// writes every parameter it declares. A committed
+// flowgraph without the key still runs (the factory defaults it on), but it is
+// a file that no longer matches what saving it here would produce, which is how
+// a repository's examples drift out of the format they document.
+let progressChecked = 0;
+const PROGRESS_BLOCKS = new Set([
+  'wasm_sigmf_source', 'wasm_gr_world_recording', 'wasm_public_http_recording',
+]);
+for (const file of files) {
+  const doc = parseGrc(await readFile(exampleFilePath(file), 'utf8'));
+  for (const block of doc.blocks) {
+    if (!PROGRESS_BLOCKS.has(block.id)) continue;
+    assert.ok((block.parameters || {}).progress !== undefined,
+      `${file}: ${block.name} (${block.id}) is missing the \`progress\` parameter ` +
+      `the editor writes for it`);
+    ++progressChecked;
+  }
+}
+
 console.log(`checked ${files.length} example flowgraphs (${checked} parameter expressions, ` +
-  `${idsChecked} parameter ids)`);
+  `${idsChecked} parameter ids, ${progressChecked} file sources)`);

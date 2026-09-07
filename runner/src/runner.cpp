@@ -449,7 +449,9 @@ static void apply_gui_layout() {
         // edit; until then this is where it appears, and where the Arrange
         // overlay draws its handle.
         const int rows = is_variable_control(placed.id) ? gui_layout::kControlRows
-                                                        : gui_layout::kSinkRows;
+                         : gui_layout::is_progress_widget(placed.id)
+                             ? gui_layout::kProgressRows
+                             : gui_layout::kSinkRows;
         placed.tile = found != spec.tiles.end()
             ? found->second
             : gui_layout::Tile{ 0, next_row, spec.columns, rows };

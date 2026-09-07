@@ -2,6 +2,7 @@
 #include "registry_helpers.hpp"
 #include "sigmf_meta.hpp"
 #include "browser_file_source.hpp"
+#include "file_progress_widget.hpp"
 #include "browser_file_sink.hpp"
 #include "sigmf_sink.hpp"
 #include "browser_audio.hpp"
@@ -711,6 +712,93 @@ std::map<std::string, gr::digital::constellation_sptr>& runtime_constellations()
 {
     static std::map<std::string, gr::digital::constellation_sptr> objects;
     return objects;
+}
+
+// ---- the recording blocks' progress display --------------------------------
+// SigMF Source, GR World Recording and Public HTTP Recording are one
+// BrowserFileSource each, so what their display is called and what rate it
+// counts seconds at is decided once here rather than three times below. The
+// widget itself is blocks/src/file_progress_widget.hpp.
+
+std::string percent_decoded(const std::string& text)
+{
+    std::string out;
+    out.reserve(text.size());
+    for (std::size_t i = 0; i < text.size(); ++i) {
+        if (text[i] == '%' && i + 2 < text.size() &&
+            std::isxdigit(static_cast<unsigned char>(text[i + 1])) &&
+            std::isxdigit(static_cast<unsigned char>(text[i + 2]))) {
+            out.push_back(static_cast<char>(
+                std::stoi(text.substr(i + 1, 2), nullptr, 16)));
+            i += 2;
+        } else {
+            out.push_back(text[i]);
+        }
+    }
+    return out;
+}
+
+// What to call this recording on screen, from the path the block reads -- which
+// is the only thing the three have in common by the time a factory runs (the
+// editor has already rewritten `file` and `url` into a bound path).
+QString progress_label(const std::string& path)
+{
+    static const std::string kExternal = "/recordings/external/";
+    static const std::string kHosted = "/recordings/";
+    static const std::string kData = ".sigmf-data";
+    std::string label = path;
+    if (label.rfind(kExternal, 0) == 0) {
+        // A public URL, which is worth showing by its file name rather than in
+        // full: the whole thing is in the tooltip.
+        label = percent_decoded(label.substr(kExternal.size()));
+        const auto slash = label.find_last_of('/');
+        if (slash != std::string::npos)
+            label = label.substr(slash + 1);
+    } else if (label.rfind(kHosted, 0) == 0) {
+        // A hosted recording is known by its bucket key, slash and all.
+        label = label.substr(kHosted.size());
+    } else {
+        const auto slash = label.find_last_of('/');
+        if (slash != std::string::npos)
+            label = label.substr(slash + 1);
+        label = percent_decoded(label);
+    }
+    if (label.size() > kData.size() &&
+        label.compare(label.size() - kData.size(), kData.size(), kData) == 0)
+        label = label.substr(0, label.size() - kData.size());
+    return label.empty() ? QStringLiteral("recording")
+                         : QString::fromStdString(label);
+}
+
+// The rate the display turns samples into seconds with: the recording's own,
+// and only ever that. runner.html puts it on the bound descriptor -- out of a
+// hosted recording's index entry, or out of a local .sigmf-meta -- so a SigMF
+// recording counts in seconds and a raw file does not. Deliberately not the
+// flowgraph's samp_rate: that is the rate the graph processes at, which a
+// recording is free to disagree with, and a confidently wrong duration is worse
+// than none. 0 means unknown, and the display stays in samples alone.
+double progress_sample_rate(const std::string& path)
+{
+    // A factory runs on the browser main thread while the graph is built, so
+    // proxying costs nothing here; the same call inside work() would queue the
+    // whole flowgraph behind Qt's event loop.
+    return MAIN_THREAD_EM_ASM_DOUBLE({
+        const source = window.__grInputSources && window.__grInputSources[UTF8ToString($0)];
+        return source && Number.isFinite(source.sampleRate) && source.sampleRate > 0
+            ? source.sampleRate : 0;
+    }, path.c_str());
+}
+
+// The whole of what a file-source factory does about its display: nothing when
+// the block's `progress` parameter is off, and one widget when it is on.
+QWidget* progress_widget(const json& p,
+                         const std::shared_ptr<BrowserFileSource>& block,
+                         const std::string& path)
+{
+    if (!bool_from(p, "progress", true))
+        return nullptr;
+    return new FileProgressWidget(
+        block, progress_label(path), progress_sample_rate(path));
 }
 
 gr::digital::constellation::normalization_t normalization_from(const json& p)
@@ -2611,6 +2699,11 @@ static std::map<std::string, Factory>& registry_storage() {
                  std::max(0.0, number_from(p, "offset", 0.0)));
              const auto length = static_cast<std::uint64_t>(
                  std::max(0.0, number_from(p, "length", 0.0)));
+             // No progress display here, unlike the three blocks below: File
+             // Source is upstream's own block, and giving it one would mean
+             // adding a browser-only parameter to a .grc that native GNU Radio
+             // also reads. The three recording blocks are this project's own,
+             // and carry theirs.
              return { BrowserFileSource::make(item_size,
                                                param_text(p, "file"),
                                                bool_from(p, "repeat", true),
@@ -2634,12 +2727,10 @@ static std::map<std::string, Factory>& registry_storage() {
                  std::max(0.0, number_from(p, "offset", 0.0)));
              const auto length = static_cast<std::uint64_t>(
                  std::max(0.0, number_from(p, "length", 0.0)));
-             return { BrowserFileSource::make(item_size,
-                                               "/recordings/" + key + ".sigmf-data",
-                                               bool_from(p, "repeat", false),
-                                               offset,
-                                               length),
-                      nullptr };
+             const auto path = "/recordings/" + key + ".sigmf-data";
+             auto block = BrowserFileSource::make(
+                 item_size, path, bool_from(p, "repeat", false), offset, length);
+             return { block, progress_widget(p, block, path) };
         }},
         // A SigMF recording on this computer: the same browser reader again, plus
         // the recording's own metadata turned into stream tags. The editor binds
@@ -2696,7 +2787,7 @@ static std::map<std::string, Factory>& registry_storage() {
                      }
                  }
              }
-             return { block, nullptr };
+             return { block, progress_widget(p, block, path) };
         }},
         // Writing a recording to this computer. Emscripten's filesystem is
         // in-memory, so there is no File Sink here at all: this block hands its
@@ -2750,12 +2841,9 @@ static std::map<std::string, Factory>& registry_storage() {
                  std::max(0.0, number_from(p, "offset", 0.0)));
              const auto length = static_cast<std::uint64_t>(
                  std::max(0.0, number_from(p, "length", 0.0)));
-             return { BrowserFileSource::make(item_size,
-                                               url,
-                                               bool_from(p, "repeat", false),
-                                               offset,
-                                               length),
-                      nullptr };
+             auto block = BrowserFileSource::make(
+                 item_size, url, bool_from(p, "repeat", false), offset, length);
+             return { block, progress_widget(p, block, url) };
         }},
         // An RTL-SDR on this computer, reached over WebUSB by the worker in
         // runner/src/rtlsdr_reader.js. The Device parameter is a serial number

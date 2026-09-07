@@ -62,6 +62,7 @@ blocks:
         maxoutbuf: '0'
         minoutbuf: '0'
         offset: '0'
+        progress: 'True'
         recording: estevez/gomx_1
         repeat: 'False'
         type: short

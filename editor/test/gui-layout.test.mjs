@@ -22,8 +22,9 @@ await build({
 });
 const {
   DEFAULT_COLUMNS, DEFAULT_ROW_HEIGHT, MAX_COLUMNS, CONTROL_ROWS, SINK_ROWS,
+  PROGRESS_ROWS,
   clampTile, parseTiles, serializeTiles, settle, rowsUsed, packLayout, placeTile,
-  layoutColumns, layoutRowHeight, isControlWidget,
+  layoutColumns, layoutRowHeight, isControlWidget, isProgressWidget, takesTile,
 } = await import(pathToFileURL(out));
 
 const tile = (col, row, w, h) => ({ col, row, w, h });
@@ -284,6 +285,51 @@ assert.match(html, /id="arrangeOverlay"/);
   assert.equal(packLayout(
     [{ name: 'keys', id: 'wasm_musical_keyboard_source' }], {}, 12,
   ).keys.h, SINK_ROWS);
+
+  // ---- the conditional widget: a file source's progress display ------------
+  // Each of the four declares `gui: <parameter>` rather than `gui: true`, so
+  // the library carries both the flag and the parameter that decides.
+  const guiIds = new Set(blocks.filter(b => b.gui).map(b => b.id));
+  const guiWhen = new Map(blocks.filter(b => b.gui_when)
+    .map(b => [b.id, b.gui_when]));
+  for (const id of ['wasm_sigmf_source', 'wasm_gr_world_recording',
+                    'wasm_public_http_recording']) {
+    assert.equal(byId.get(id)?.gui, true, `${id} can build a widget`);
+    assert.equal(guiWhen.get(id), 'progress', `${id}'s widget is conditional`);
+    assert.ok(byId.get(id).params.some(p => p.id === 'progress'),
+              `${id} has the parameter its gui declaration names`);
+    // On by default, and a .grc written before the parameter existed carries
+    // no value at all -- both have to mean "takes a tile".
+    assert.equal(takesTile(id, { progress: 'True' }, guiIds, guiWhen), true);
+    assert.equal(takesTile(id, {}, guiIds, guiWhen), true);
+    // Off means no widget is built, so no tile may be held open for one.
+    assert.equal(takesTile(id, { progress: 'False' }, guiIds, guiWhen), false);
+    // A bar and a line of text: taller than a slider, nothing like a plot.
+    assert.equal(isProgressWidget(id), true);
+    assert.equal(packLayout([{ name: 'src', id }], {}, 12).src.h, PROGRESS_ROWS);
+  }
+  // An unconditional widget is unaffected by any parameter it happens to have.
+  assert.equal(takesTile('qtgui_time_sink_x', { progress: 'False' }, guiIds, guiWhen),
+               true);
+  assert.equal(takesTile('blocks_throttle2', {}, guiIds, guiWhen), false);
+
+  // The runner has to give an unplaced one the same height, or a flowgraph that
+  // has never been arranged looks different the moment it runs.
+  const guiLayoutHpp = await read('runner/src/gui_layout.hpp');
+  assert.match(guiLayoutHpp, new RegExp(`kProgressRows = ${PROGRESS_ROWS};`),
+               'runner/src/gui_layout.hpp must agree about the progress height');
+  for (const id of ['wasm_sigmf_source', 'wasm_gr_world_recording',
+                    'wasm_public_http_recording'])
+    assert.ok(guiLayoutHpp.includes(`"${id}"`),
+              `is_progress_widget() must know about ${id}`);
+  // File Source is upstream's block and deliberately has no progress display:
+  // giving it one would mean a browser-only parameter in a .grc that native GNU
+  // Radio also reads. It must therefore take no tile at all.
+  assert.equal(byId.get('blocks_file_source')?.gui, false,
+               'File Source builds no widget');
+  assert.equal(guiWhen.has('blocks_file_source'), false);
+  assert.equal(isProgressWidget('blocks_file_source'), false);
+  assert.ok(!guiLayoutHpp.includes('"blocks_file_source"'));
 }
 
 console.log('gui-layout tests passed');

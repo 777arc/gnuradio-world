@@ -205,6 +205,7 @@ blocks:
         maxoutbuf: '0'
         minoutbuf: '0'
         offset: '0'
+        progress: 'True'
         repeat: 'False'
         type: complex
         url: https://raw.githubusercontent.com/RUB-SysSec/DroneSecurity/public_squash/samples/mini2_sm

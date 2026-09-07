@@ -86,6 +86,7 @@ blocks:
         maxoutbuf: '0'
         minoutbuf: '0'
         offset: '0'
+        progress: 'True'
         recording: estevez/1kuns_pf
         repeat: 'False'
         type: short
@@ -173,6 +174,7 @@ blocks:
         maxoutbuf: '0'
         minoutbuf: '0'
         offset: '0'
+        progress: 'True'
         recording: estevez/tw_1b
         repeat: 'False'
         type: short

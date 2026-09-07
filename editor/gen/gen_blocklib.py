@@ -412,6 +412,10 @@ def main(out_path):
     # window. Declared per block as `gui: true` (in its overlay, or in its own
     # yml for a runner-only block); gen_registry.py collects them into `gui`.
     gui = set(manifest.get("gui", []))
+    # Of those, the ones whose widget is conditional: `gui: <parameter id>` in
+    # the block's metadata, meaning it takes a tile only while that parameter is
+    # True. The file sources' progress display is the case this exists for.
+    gui_when = manifest.get("gui_when", {}) or {}
     # id -> deferred category side module (fetched on demand). Blocks absent from
     # this map live in the always-loaded core module.
     block_module = manifest.get("block_module", {})
@@ -491,6 +495,11 @@ def main(out_path):
                                   # parameter of every block, and blocks.json is
                                   # already a 2 MB download.
                                   | ({"live": True} if p["id"] in live else {}))
+            if block_id in gui_when and gui_when[block_id] not in {
+                    p["id"] for p in params}:
+                raise SystemExit(
+                    f"{block_id}: `gui: {gui_when[block_id]}` names a parameter "
+                    f"the block does not have, so it would never take a tile")
             flags = d.get("flags", []) or []
             runnable = block_id in supported
             documentation = str(d.get("documentation") or "").strip()
@@ -523,6 +532,8 @@ def main(out_path):
                 "unavailable_reason": unavailable_reason,
                 # Occupies a tile in the runner window's GUI Layout grid.
                 "gui": block_id in gui,
+                # ... but only while this parameter is True, where there is one.
+                **({"gui_when": gui_when[block_id]} if block_id in gui_when else {}),
                 # Which downloadable chunk supplies this block's code; "core" is
                 # always present, others are fetched on first use.
                 "module": block_module.get(block_id, "core"),

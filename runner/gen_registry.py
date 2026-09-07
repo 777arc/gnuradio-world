@@ -224,21 +224,38 @@ def read_custom_live_params() -> dict[str, list[str]]:
 # declaration on a block with no hand-written factory, and the runner reports the
 # widgets it actually built on every run, so the editor can name in the console
 # anything that builds a widget without having said so.
-def read_gui_ids() -> set[str]:
-    """Block ids declaring `gui: true`, from the two places one can be declared."""
-    ids = {block_id for block_id, override in BLOCK_OVERRIDES.items()
-           if override.get("gui")}
+def read_gui_ids() -> tuple[set[str], dict[str, str]]:
+    """Block ids declaring `gui`, from the two places one can be declared, plus
+    the parameter each conditional declaration names.
+
+    `gui: true` is unconditional. `gui: <parameter id>` says the factory builds
+    its widget only while that parameter is True -- the file sources' progress
+    display -- and the editor needs to know, or it holds a tile open for a
+    widget that was never built.
+    """
+    ids: set[str] = set()
+    when: dict[str, str] = {}
+
+    def record(block_id: str, value: object) -> None:
+        if not value:
+            return
+        ids.add(block_id)
+        if isinstance(value, str):
+            when[block_id] = value
+
+    for block_id, override in BLOCK_OVERRIDES.items():
+        record(block_id, override.get("gui"))
     for path in sorted((WORLD / "blocks" / "grc").glob("*.block.yml")):
         try:
             block = yaml.safe_load(path.read_text())
         except Exception:
             continue
-        if isinstance(block, dict) and block.get("gui") and "id" in block:
-            ids.add(str(block["id"]))
-    return ids
+        if isinstance(block, dict) and "id" in block:
+            record(str(block["id"]), block.get("gui"))
+    return ids, when
 
 
-GUI_IDS = read_gui_ids()
+GUI_IDS, GUI_WHEN = read_gui_ids()
 
 INVALID_CPP_TEMPLATES = {
     # Not present in the WASM static libraries because their optional native
@@ -1508,6 +1525,8 @@ def generate(output_dir: Path, manifest: Path) -> None:
         "skipped": skipped,
         # Blocks that occupy a tile in the runner window (see read_gui_ids).
         "gui": sorted(GUI_IDS),
+        # Of those, the ones that take a tile only while a parameter says so.
+        "gui_when": dict(sorted(GUI_WHEN.items())),
         "core_modules": list(CORE_MODULES),
         "deferred_modules": emitted_modules,
         "module_deps": MODULE_DEPS,

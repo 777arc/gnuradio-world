@@ -92,6 +92,7 @@ blocks:
         maxoutbuf: '0'
         minoutbuf: '0'
         offset: '0'
+        progress: 'True'
         recording: estevez/by701
         repeat: 'False'
         type: short
@@ -183,6 +184,7 @@ blocks:
         maxoutbuf: '0'
         minoutbuf: '0'
         offset: '0'
+        progress: 'True'
         recording: estevez/trisat
         repeat: 'False'
         type: short

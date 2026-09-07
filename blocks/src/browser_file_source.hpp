@@ -4,6 +4,7 @@
 
 #include <gnuradio/sync_block.h>
 #include <pmt/pmt.h>
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -34,6 +35,21 @@ public:
     // job. Entries must be sorted by offset; runner/src/sigmf_meta.hpp builds
     // them that way. Call before start().
     void set_tag_plan(std::vector<sigmf::TagPlanEntry> plan);
+
+    // How far into the file this source has read, for the progress widget the
+    // factory attaches (blocks/src/file_progress_widget.hpp). Safe to call from
+    // the Qt thread while work() runs on the block's own: the one counter it
+    // moves is published through an atomic, and nothing here reads the ring or
+    // the tag plan.
+    struct Progress {
+        std::uint64_t position = 0;  // items produced into the current pass
+        std::uint64_t length = 0;    // items in one pass, i.e. the selection
+        std::uint64_t offset = 0;    // items skipped before the selection
+        std::uint64_t passes = 0;    // passes completed, for a Repeat source
+        std::size_t item_size = 0;
+    };
+    Progress progress() const;
+    const std::string& path() const { return d_path; }
 
     bool start() override;
     bool stop() override;
@@ -74,6 +90,12 @@ private:
     std::uint64_t d_length_items;
     std::uint64_t d_items_into_pass = 0;
     std::uint64_t d_repeat_count = 0;
+    // Items produced since start(), published for progress(). One counter that
+    // only ever climbs, rather than the position/pass pair the display wants:
+    // work() resets the position at every loop, and a reader that caught the
+    // two halves of that either side of the reset would see the file jump
+    // backwards. Position and pass number divide back out of this.
+    std::atomic<std::uint64_t> d_published_produced{ 0 };
     pmt::pmt_t d_begin_tag;
     pmt::pmt_t d_tag_source;
     std::vector<sigmf::TagPlanEntry> d_tag_plan;

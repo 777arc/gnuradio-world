@@ -24,6 +24,7 @@ import {
   placeTile,
   rowsUsed,
   serializeTiles,
+  takesTile,
   type TileMap,
   type WidgetRef,
 } from './gui-layout';
@@ -1721,10 +1722,12 @@ function ensureLayoutBlock() {
 const layoutInst = (): Inst | undefined => state.insts.find(i => i.id === LAYOUT_ID);
 // The blocks that take a tile: those whose factory builds a QWidget. Only the
 // C++ knows which those are, so the answer comes from the generated library's
-// `gui` flag, which each block declares for itself as `gui: true`. Disabled
-// blocks are left out because the runner never builds them.
+// `gui` flag, which each block declares for itself as `gui: true` -- or, where
+// the widget is a parameter away from not existing, `gui: <parameter id>`.
+// Disabled blocks are left out because the runner never builds them.
 function guiWidgets(): WidgetRef[] {
-  return state.insts.filter(i => i.enabled && !i.bypassed && GUI_BLOCK_IDS.has(i.id))
+  return state.insts.filter(i => i.enabled && !i.bypassed &&
+      takesTile(i.id, i.params, GUI_BLOCK_IDS, GUI_WHEN_PARAM))
     .map(i => ({ name: i.name, id: i.id }));
 }
 function layoutTilesFor(inst: Inst | undefined = layoutInst()): TileMap {
@@ -3731,6 +3734,11 @@ function stop(): void {
 // block, its own yml) -- the C++ decides this, and the editor has no way to work
 // it out for itself.
 const GUI_BLOCK_IDS = new Set<string>();
+// Of those, the ones whose widget is conditional, and the parameter that
+// decides: a file source with its Progress Display turned off builds no widget,
+// so holding a tile open for it would leave a gap nothing fills. Filled from the
+// same metadata, as the library's `gui_when`.
+const GUI_WHEN_PARAM = new Map<string, string>();
 // Blocks that stay loadable and runnable but are not offered in the palette:
 // upstream deprecated them in favour of a replacement listed right beside them,
 // and showing both only invites picking the wrong one. A .grc that already uses
@@ -4037,8 +4045,10 @@ async function buildPalette() {
   try {
     LIB = await (await fetch(BLOCKS_URL).then(r => r.ok ? r : fetch('/editor/public/blocks.json'))).json();
     installGeneratedBlocks(LIB.blocks || []);
-    for (const block of LIB.blocks || [])
+    for (const block of LIB.blocks || []) {
       if (block.gui) GUI_BLOCK_IDS.add(block.id);
+      if (block.gui_when) GUI_WHEN_PARAM.set(block.id, String(block.gui_when));
+    }
   } catch (e) { log('block library not loaded: ' + e); }
   // Anything a Python Block prints while the editor reads it -- Pyodide's own
   // progress, or a print() at the top of the user's source -- goes to the same

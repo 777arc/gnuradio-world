@@ -128,6 +128,7 @@ bool BrowserFileSource::start()
     store(&d_control.state, INITIAL);
     d_items_into_pass = 0;
     d_repeat_count = 0;
+    d_published_produced.store(0, std::memory_order_relaxed);
     d_tag_cursor = 0;
 
     // top_block::run() invokes start() from a pthread. Proxy only this short
@@ -180,6 +181,28 @@ bool BrowserFileSource::stop()
     }, reader_id);
     d_reader_id = 0;
     return true;
+}
+
+BrowserFileSource::Progress BrowserFileSource::progress() const
+{
+    Progress out;
+    const std::uint64_t produced = d_published_produced.load(std::memory_order_relaxed);
+    // Every pass is d_length_items long, so where in the file this is, and how
+    // many times round it has been, both fall out of the one counter.
+    out.position = d_length_items ? produced % d_length_items : 0;
+    out.passes = d_length_items ? produced / d_length_items : 0;
+    // Exactly at a boundary, that arithmetic says "0 items into the next pass",
+    // which is right for a repeating source about to start one and wrong for the
+    // display: a file read to its end has to read 100%, not 0% of the pass after
+    // it. Count the boundary as the end of the pass that just finished.
+    if (produced && !out.position) {
+        out.position = d_length_items;
+        --out.passes;
+    }
+    out.length = d_length_items;
+    out.offset = d_offset_items;
+    out.item_size = d_item_size;
+    return out;
 }
 
 std::string BrowserFileSource::reader_error() const
@@ -257,6 +280,7 @@ int BrowserFileSource::work(int noutput_items,
                     take * d_item_size);
         produced += static_cast<int>(take);
         d_items_into_pass += take;
+        d_published_produced.fetch_add(take, std::memory_order_relaxed);
 
         const auto next_read =
             static_cast<std::int32_t>((static_cast<std::size_t>(read_pos) + take) %

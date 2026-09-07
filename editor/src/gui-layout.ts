@@ -34,6 +34,21 @@ export const MAX_COLUMNS = 48;
 // (it is a slider or a button); a plot needs enough rows to be readable at all.
 export const CONTROL_ROWS = 1;
 export const SINK_ROWS = 4;
+// A file source's progress display: a bar with a line of text under it, which
+// fits the same single row a slider gets and is nothing like a plot. Its own
+// constant rather than CONTROL_ROWS because it is a different widget answering
+// a different question, and only incidentally the same height.
+export const PROGRESS_ROWS = 1;
+
+// The recording blocks that grow that display. File Source is deliberately not
+// among them -- see its factory in runner/src/registry.cpp. Listed by id like
+// isVariableControl's family is, and mirrored by is_progress_widget() in
+// runner/src/gui_layout.hpp -- the editor's preview and the real window have to
+// agree on a widget's height or a fresh flowgraph looks wrong the moment it runs.
+const PROGRESS_WIDGET_IDS = new Set([
+  'wasm_sigmf_source', 'wasm_gr_world_recording', 'wasm_public_http_recording',
+]);
+export const isProgressWidget = (id: string): boolean => PROGRESS_WIDGET_IDS.has(id);
 
 const clampInt = (value: unknown, low: number, high: number, fallback: number): number => {
   // An empty parameter is an unset one, not a zero: `Number('')` is 0, which
@@ -54,6 +69,29 @@ const clampInt = (value: unknown, low: number, high: number, fallback: number): 
  * up as a preview that does not match what runs.
  */
 export const isControlWidget = (id: string): boolean => isVariableControl(id);
+
+/**
+ * Whether this block takes a tile at all, given what its parameters say.
+ *
+ * `guiIds` is every block whose factory can build a widget, and `guiWhen` names
+ * the parameter for the ones whose widget is optional -- a file source with its
+ * progress display turned off builds none, and a tile held open for it would be
+ * a gap in the arrangement that nothing ever fills. Both come from the block
+ * library's own metadata (`gui` / `gui_when`), because only the C++ knows.
+ */
+export function takesTile(id: string, params: Record<string, unknown>,
+                          guiIds: ReadonlySet<string>,
+                          guiWhen: ReadonlyMap<string, string>): boolean {
+  if (!guiIds.has(id)) return false;
+  const param = guiWhen.get(id);
+  if (!param) return true;
+  // Anything but an explicit no: the parameter is on by default, so a missing
+  // one (a .grc written before it existed), a blank one, or an unrecognised one
+  // all mean the widget is there. GRC spells the value 'True'/'False', but an
+  // unsaved edit can still hold a JavaScript boolean.
+  const value = params[param];
+  return value !== false && String(value) !== 'False';
+}
 
 /** Fit a tile inside a `columns`-wide grid, narrowing rather than moving it. */
 export function clampTile(tile: Tile, columns: number): Tile {
@@ -164,7 +202,8 @@ export function packLayout(widgets: WidgetRef[], stored: TileMap,
       tiles[widget.name] = clampTile(tile, cols);
       continue;
     }
-    const h = isControlWidget(widget.id) ? CONTROL_ROWS : SINK_ROWS;
+    const h = isControlWidget(widget.id) ? CONTROL_ROWS
+      : isProgressWidget(widget.id) ? PROGRESS_ROWS : SINK_ROWS;
     tiles[widget.name] = { col: 0, row: next, w: cols, h };
     next += h;
   }

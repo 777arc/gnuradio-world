@@ -528,7 +528,11 @@ for (const result of caseResults) {
   const valueOk = probe?.value?.length === 2 &&
     closeEnough(probe.value[0], expected[0]) &&
     closeEnough(probe.value[1], expected[1]);
-  const ok = verdict.includes('RUNNER_PASS') && probe?.items === 1 && valueOk;
+  // "sinks=" counts the blocks that grew a QWidget, so this is the assertion
+  // that File Source builds none: the progress display belongs to the three
+  // recording blocks, not to upstream's own block.
+  const ok = verdict.includes('RUNNER_PASS') && probe?.items === 1 && valueOk &&
+    verdict.includes('sinks=0');
   allOk = allOk && ok;
   console.log(`\n[${ok ? 'OK' : 'FAIL'}] ${test.name}  (${test.grc})`);
   console.log(`   ${verdict.trim()}`);
@@ -615,11 +619,16 @@ for (const result of caseResults) {
   const bounded = fileStats.length === 1 &&
     fileStats[0].maxChunkBytes <= 2 * 1024 * 1024 &&
     fileStats[0].bytesRead === 8;
-  const ok = verdict.includes('RUNNER_PASS') && valueOk && rangesOk && bounded;
+  // The progress display, on because the fixture does not say otherwise, so
+  // what is under test is the factory's own default. "sinks=" is the count of
+  // blocks that grew a QWidget, and this graph's only candidate is the source.
+  const ok = verdict.includes('RUNNER_PASS') && valueOk && rangesOk && bounded &&
+    verdict.includes('sinks=1');
   allOk = allOk && ok;
   console.log(`\n[${ok ? 'OK' : 'FAIL'}] ${test.name}  (${test.grc})`);
   console.log(`   ${verdict.trim()}`);
   console.log(`   ranges: ${JSON.stringify(rangeRequests)}  stats: ${JSON.stringify(fileStats)}`);
+  console.log(`   progress display built: ${verdict.includes('sinks=1')}`);
   if (!ok && logs.length) console.log('   logs: ' + logs.slice(-6).join('\n         '));
   await page.close();
 }

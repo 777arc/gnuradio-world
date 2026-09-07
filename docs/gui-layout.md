@@ -84,6 +84,22 @@ every other browser-only fact about a block goes: an upstream block declares it
 in its module's `blocks/overlays/<module>/metadata.yml`, and a runner-only block
 in its own `blocks/grc/<id>.block.yml`.
 
+**A widget can be conditional, and then `gui` names the parameter that decides**
+— `gui: progress` rather than `gui: true`. The three recording blocks are the
+case: each builds a progress display unless its `progress` parameter turns it off (see [recording-viewer.md](recording-viewer.md)), and a tile held
+open for a widget that was never built is a gap in the arrangement that nothing
+ever fills. It travels the same path as the flag, as `gui_when`, and ends at
+`takesTile()` in `editor/src/gui-layout.ts`, which `guiWidgets()` filters
+through. `gen_blocklib.py` refuses a declaration naming a parameter the block
+does not have, since that would silently mean "never takes a tile".
+
+**Default heights are per kind, and both ends have to agree.** A control gets one
+row, a progress display one, a plot four (`CONTROL_ROWS` / `PROGRESS_ROWS` /
+`SINK_ROWS` in `editor/src/gui-layout.ts`, `kControlRows` / `kProgressRows` /
+`kSinkRows` in `runner/src/gui_layout.hpp`). The editor lays out an unarranged
+flowgraph for its preview and the runner lays out the window, so a disagreement
+shows up as a preview that does not match what runs.
+
 Two things guard it. The generator refuses `gui: true` on a block with no
 hand-written factory (a generated factory never builds a widget), and **the
 runner reports the widgets it actually built on every run**, so the editor names

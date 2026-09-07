@@ -3,6 +3,11 @@ label: SigMF Source
 category: '[GNU Radio World]'
 flags: [cpp]
 
+# The factory builds a small progress display unless the `progress` parameter
+# says otherwise, so this block takes a tile in the runner window's GUI Layout
+# grid only while that parameter is on. See docs/gui-layout.md.
+gui: progress
+
 documentation: |-
     Streams a SigMF recording stored on this computer, metadata and all.
 
@@ -45,6 +50,13 @@ documentation: |-
     The recording is read on demand in bounded byte ranges while the flowgraph
     runs, so a multi-gigabyte capture costs no more memory than a small one.
 
+    Progress Display puts a small tile in the flowgraph window showing how far
+    into the recording this block has read: a progress bar, the position and the
+    total in samples, and the pass number once a repeating source has looped.
+    The same figures appear in seconds as well when the recording itself says
+    what rate it was made at. Turn it off for a flowgraph whose window has no
+    room for it.
+
     This block exists only in the WebAssembly runner -- it has no Python
     implementation, so a flowgraph using it will not run in desktop GNU Radio.
 
@@ -83,6 +95,12 @@ parameters:
     label: Repeat
     dtype: enum
     default: 'False'
+    options: ['True', 'False']
+    option_labels: ['Yes', 'No']
+-   id: progress
+    label: Progress Display
+    dtype: enum
+    default: 'True'
     options: ['True', 'False']
     option_labels: ['Yes', 'No']
 -   id: offset

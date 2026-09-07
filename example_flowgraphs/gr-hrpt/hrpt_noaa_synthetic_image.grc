@@ -62,6 +62,7 @@ blocks:
         maxoutbuf: '0'
         minoutbuf: '0'
         offset: '0'
+        progress: 'True'
         repeat: 'False'
         type: byte
         url: https://raw.githubusercontent.com/777arc/gnuradio-world/0fe7d7263adeb70c6c3af63f93b8cfb3ed2e4d9e/example_flowgraphs/hrpt/noaa_synthetic_symbols.bin

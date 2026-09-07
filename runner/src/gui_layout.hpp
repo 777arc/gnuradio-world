@@ -41,6 +41,17 @@ constexpr int kMaxColumns = 48;
 // disagreement shows up as a preview that does not match what runs.
 constexpr int kControlRows = 1;
 constexpr int kSinkRows = 4;
+// A file source's progress display: a bar with a line of text under it.
+constexpr int kProgressRows = 1;
+
+// The recording blocks that grow that display. The mirror of
+// PROGRESS_WIDGET_IDS in editor/src/gui-layout.ts, for the same reason the row
+// counts above are mirrored.
+inline bool is_progress_widget(const std::string& id)
+{
+    return id == "wasm_sigmf_source" || id == "wasm_gr_world_recording" ||
+           id == "wasm_public_http_recording";
+}
 
 struct Tile {
     int col = 0;
