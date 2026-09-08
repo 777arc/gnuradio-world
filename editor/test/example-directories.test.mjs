@@ -26,7 +26,10 @@ try {
   await rm(fixture, { recursive: true, force: true });
 }
 
-const { buildExampleTree, exampleTreeCount } = await bundleModule('../src/example-catalog.ts');
+const { buildExampleTree, exampleDirectoryLabel, exampleTreeCount } =
+  await bundleModule('../src/example-catalog.ts');
+assert.equal(exampleDirectoryLabel('_gnuradio-world-challenges'), 'GR World Challenges');
+assert.equal(exampleDirectoryLabel('radios'), 'radios', 'ordinary directory labels are unchanged');
 const tree = buildExampleTree(['radios/fm.grc', 'radios/satellites/ax25.grc', 'root.grc']);
 assert.equal(exampleTreeCount(tree), 3);
 assert.deepEqual(tree.files, ['root.grc']);
@@ -66,6 +69,7 @@ assert.match(assembler, /await mkdir\(dirname\(destination\), \{ recursive: true
 // folder head an unstyled inline run of name and count.
 assert.match(examples, /details\.className = 'ex-directory'/);
 assert.doesNotMatch(examples, /rec-directory/);
+assert.match(examples, /name\.textContent = exampleDirectoryLabel\(child\.name\)/);
 for (const rule of ['.ex-directory-head', '.ex-directory-name', '.ex-directory-count',
   '.ex-directory-contents'])
   assert.ok(css.includes(rule), `no ${rule} rule for the example folder rows`);

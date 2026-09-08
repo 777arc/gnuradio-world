@@ -125,6 +125,8 @@ for (const file of files)
 
 const category = await generated('examples/analog/index.html');
 assert.match(category, /<h1>Analog example flowgraphs<\/h1>/);
+const challenges = await generated('examples/gnuradio-world-challenges/index.html');
+assert.match(challenges, /<h1>GR World Challenges example flowgraphs<\/h1>/);
 
 const sitemap = await generated('sitemap.xml');
 assert.ok(sitemap.includes('<loc>https://gnuradioworld.com/</loc>'));

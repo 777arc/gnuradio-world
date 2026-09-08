@@ -68,9 +68,13 @@ const CATEGORY_NAMES = {
   qtgui: 'QT GUI', rds: 'RDS', recordings: 'Recordings', rtlsdr: 'RTL-SDR',
   wifi: 'Wi-Fi',
 };
-const categoryName = (dir) => CATEGORY_NAMES[dir]
-  || (dir.startsWith('gr-') ? dir
-      : dir.replace(/[-_]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase()));
+const categoryName = (dir) => {
+  const directoryLabel = catalog.exampleDirectoryLabel(dir);
+  return directoryLabel !== dir ? directoryLabel
+    : CATEGORY_NAMES[dir]
+      || (dir.startsWith('gr-') ? dir
+        : dir.replace(/[-_]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase()));
+};
 
 const page = ({ title, description, canonical, jsonLd = [], body }) => `<!doctype html>
 <html lang="en">

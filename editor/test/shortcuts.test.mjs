@@ -22,7 +22,7 @@ const bindings = {
 for (const [name, pattern] of Object.entries(bindings))
   assert.match(source, pattern, `missing native shortcut group: ${name}`);
 
-assert.match(source, /Ctrl\+K or F1/);
+assert.match(source, /\['Ctrl\+K', 'Show these shortcuts'\], \['F1', 'Show Help'\]/);
 assert.match(source, /hierarchical blocks are not supported in WebAssembly/);
 // The keyboard-shortcut help now lives in the Help menu (the old top-right button was removed).
 assert.match(source, /label: 'Keyboard Shortcuts', key: 'Ctrl\+K', run: showShortcutHelp/);

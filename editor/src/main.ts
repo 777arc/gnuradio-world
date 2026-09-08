@@ -2411,7 +2411,7 @@ const SHORTCUTS: [string, string][] = [
   ['Ctrl++ / Ctrl+− / Ctrl+0', 'Zoom in / out / reset'], ['Ctrl+9', 'Zoom to fit the flowgraph'],
   ['Ctrl+D', 'Hide disabled blocks'],
   ['Ctrl+E / R / B', 'Variable editor / console / block tree'], ['Scroll Lock', 'Toggle console autoscroll'],
-  ['G', 'Toggle grid'], ['Ctrl+K or F1', 'Show these shortcuts'],
+  ['G', 'Toggle grid'], ['Ctrl+K', 'Show these shortcuts'], ['F1', 'Show Help'],
   ['F6 / F7', 'Execute / stop'], ['Escape', 'Close dialog or menu'],
 ];
 function showShortcutHelp() {
@@ -2446,7 +2446,8 @@ document.addEventListener('keydown', e => {
     }
     return;
   }
-  if (e.key === 'F1' || (ctrl && key === 'k')) { consume(e); showShortcutHelp(); return; }
+  if (e.key === 'F1') { consume(e); showHelpDialog(); return; }
+  if (ctrl && key === 'k') { consume(e); showShortcutHelp(); return; }
   if (ctrl && key === 'n') { consume(e); clearFlowgraph(); return; }
   if (ctrl && key === 'o') { consume(e); (el('fileOpen') as HTMLInputElement).click(); return; }
   if (ctrl && key === 's') { consume(e); saveFlowgraph(); return; }
@@ -4523,6 +4524,31 @@ function showAboutDialog() {
   });
 }
 
+function showHelpDialog() {
+  openDialog('Help', body => {
+    body.classList.add('help-body');
+    const link = (text: string, href: string): HTMLAnchorElement => {
+      const anchor = document.createElement('a');
+      anchor.textContent = text;
+      anchor.href = href;
+      anchor.target = '_blank';
+      anchor.rel = 'noopener';
+      return anchor;
+    };
+    const message = document.createElement('p');
+    message.append(
+      'For questions, comments, or suggestions, you can email ',
+      link('support@gnuradioworld.com', 'mailto:support@gnuradioworld.com'),
+      ', join the ',
+      link('Discord server', 'https://discord.gg/5aMSvsBp'),
+      ', or post a ',
+      link('GitHub issue', 'https://github.com/777arc/gnuradio-world/issues/new'),
+      '.',
+    );
+    body.appendChild(message);
+  });
+}
+
 // ---- contribute the open flowgraph as a repo example ----
 // The editor is a static site with no backend and no credentials, so a
 // contribution is a hand-off: the .grc goes on the clipboard and GitHub's web
@@ -4708,7 +4734,7 @@ const MENUS: TopMenu[] = [
     { label: 'Parser Errors', reason: R_XML },
   ] },
   { label: 'Help', items: [
-    { label: 'Help', key: 'F1', run: () => openLink('https://wiki.gnuradio.org/index.php/Main_Page') },
+    { label: 'Help', key: 'F1', run: showHelpDialog },
     { label: 'Keyboard Shortcuts', key: 'Ctrl+K', run: showShortcutHelp },
     'sep',
     { label: 'Get Involved', run: () => openLink('https://www.gnuradio.org/get-involved/') },

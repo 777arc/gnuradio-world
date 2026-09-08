@@ -3,6 +3,7 @@ import { challengeFromGrc, type ChallengeSpec, type ChallengeStatus } from './ch
 import {
   buildExampleTree,
   encodeExamplePath,
+  exampleDirectoryLabel,
   exampleFileName,
   examplePageUrl,
   exampleTreeCount,
@@ -292,7 +293,7 @@ export function createExamplePalette(deps: ExamplePaletteDeps) {
         details.className = 'ex-directory';
         const summary = document.createElement('summary'); summary.className = 'ex-directory-head';
         const name = document.createElement('span'); name.className = 'ex-directory-name';
-        name.textContent = child.name;
+        name.textContent = exampleDirectoryLabel(child.name);
         const count = document.createElement('span'); count.className = 'ex-directory-count';
         const total = exampleTreeCount(child);
         count.dataset.total = String(total);

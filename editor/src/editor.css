@@ -81,6 +81,9 @@ button:hover { filter:brightness(1.15); }
 .about-body p { margin:0 0 12px; }
 .about-body p:last-child { margin-bottom:0; }
 .about-body a { color:#7fb4ff; }
+.help-body { line-height:1.55; font-size:16px; }
+.help-body p { margin:0; }
+.help-body a { color:#7fb4ff; }
 /* Contribute-example dialog */
 .contrib-intro { line-height:1.55; font-size:16px; margin-bottom:14px; }
 .contrib-steps { margin:0 0 14px; padding-left:24px; font-size:16px; line-height:1.6; color:#c3cbe0; }

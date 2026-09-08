@@ -24,6 +24,16 @@ const LEGACY_EXAMPLE_PATHS: Record<string, string> = {
   'recording_waterfall_test.grc': 'recordings/recording_waterfall.grc',
 };
 
+// A directory name is part of every example's stable URL, but it need not be
+// the label shown to a person in the palette or on the generated catalog page.
+const EXAMPLE_DIRECTORY_LABELS: Record<string, string> = {
+  '_gnuradio-world-challenges': 'GR World Challenges',
+};
+
+export function exampleDirectoryLabel(name: string): string {
+  return EXAMPLE_DIRECTORY_LABELS[name] || name;
+}
+
 export function normalizeExamplePath(name: string): string {
   let path = String(name).replace(/\\/g, '/');
   if (!path.endsWith('.grc')) path += '.grc';
