@@ -1,0 +1,486 @@
+options:
+    parameters:
+        author: Marc
+        comment: ''
+        copyright: ''
+        description: 8PSK with added noise, adjustable via range widget
+        generate_options: qt_gui
+        id: GNU_Radio_org_Example
+        title: GNU Radio.org Example
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: freq
+    id: variable_qtgui_range
+    parameters:
+        comment: ''
+        label: Tone Freq.
+        min_len: '200'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: -1*np.pi
+        step: '0.1'
+        stop: np.pi
+        value: 2*np.pi*50e3/samp_rate
+        widget: counter_slider
+    states:
+        coordinate: [540, 10]
+        rotation: 0
+        state: enabled
+-   name: mag
+    id: variable_qtgui_range
+    parameters:
+        comment: ''
+        label: Tone Mag.
+        min_len: '200'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '0'
+        step: '0.1'
+        stop: '10'
+        value: '1'
+        widget: counter_slider
+    states:
+        coordinate: [830, 10]
+        rotation: 0
+        state: enabled
+-   name: noise
+    id: variable_qtgui_range
+    parameters:
+        comment: ''
+        label: Noise Mag.
+        min_len: '200'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '0'
+        step: '0.01'
+        stop: '1'
+        value: '0'
+        widget: counter_slider
+    states:
+        coordinate: [40, 150]
+        rotation: 0
+        state: enabled
+-   name: samp_rate
+    id: variable
+    parameters:
+        comment: ''
+        value: '200000'
+    states:
+        coordinate: [300, 20]
+        rotation: 0
+        state: enabled
+-   name: analog_sig_source_x_1
+    id: analog_sig_source_x
+    parameters:
+        affinity: ''
+        alias: ''
+        amp: '1'
+        comment: ''
+        freq: '0.3'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        offset: '-0.5'
+        phase: '0'
+        samp_rate: samp_rate
+        type: float
+        waveform: analog.GR_TRI_WAVE
+    states:
+        coordinate: [10, 490]
+        rotation: 0
+        state: enabled
+-   name: blocks_multiply_const_vxx_0
+    id: blocks_multiply_const_vxx
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        const: mag
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        mode: vector
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [460, 700]
+        rotation: 0
+        state: enabled
+-   name: blocks_rotator_cc_0
+    id: blocks_rotator_cc
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        phase_inc: freq
+        tag_inc_update: 'False'
+    states:
+        coordinate: [120, 690]
+        rotation: 0
+        state: enabled
+-   name: blocks_vco_c_0
+    id: blocks_vco_c
+    parameters:
+        affinity: ''
+        alias: ''
+        amplitude: '1'
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        samp_rate: samp_rate
+        sensitivity: '100000'
+    states:
+        coordinate: [380, 520]
+        rotation: 0
+        state: enabled
+-   name: constellation
+    id: qtgui_const_sink_x
+    parameters:
+        affinity: ''
+        alias: ''
+        alpha1: '1'
+        alpha10: '1'
+        alpha2: '1'
+        alpha3: '1'
+        alpha4: '1'
+        alpha5: '1'
+        alpha6: '1'
+        alpha7: '1'
+        alpha8: '1'
+        alpha9: '1'
+        autoscale: 'False'
+        axislabels: 'True'
+        color1: '"blue"'
+        color10: '"dark blue"'
+        color2: '"red"'
+        color3: '"green"'
+        color4: '"black"'
+        color5: '"cyan"'
+        color6: '"magenta"'
+        color7: '"yellow"'
+        color8: '"dark red"'
+        color9: '"dark green"'
+        comment: ''
+        grid: 'False'
+        label1: ''
+        label10: ''
+        label2: ''
+        label3: ''
+        label4: ''
+        label5: ''
+        label6: ''
+        label7: ''
+        label8: ''
+        label9: ''
+        legend: 'True'
+        marker1: '0'
+        marker10: '0'
+        marker2: '0'
+        marker3: '0'
+        marker4: '0'
+        marker5: '0'
+        marker6: '0'
+        marker7: '0'
+        marker8: '0'
+        marker9: '0'
+        name: Constellation
+        nconnections: '1'
+        size: '1024'
+        style1: '0'
+        style10: '0'
+        style2: '0'
+        style3: '0'
+        style4: '0'
+        style5: '0'
+        style6: '0'
+        style7: '0'
+        style8: '0'
+        style9: '0'
+        tr_chan: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_slope: qtgui.TRIG_SLOPE_POS
+        tr_tag: ''
+        update_time: '0.1'
+        width1: '0'
+        width10: '1'
+        width2: '1'
+        width3: '1'
+        width4: '1'
+        width5: '1'
+        width6: '1'
+        width7: '1'
+        width8: '1'
+        width9: '1'
+        xmax: '2.5'
+        xmin: '-2.5'
+        ymax: '2.5'
+        ymin: '-2.5'
+    states:
+        coordinate: [1260, 480]
+        rotation: 0
+        state: enabled
+-   name: mod7
+    id: digital_psk_mod
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        constellation_points: '8'
+        differential: 'True'
+        excess_bw: '0.35'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        mod_code: '"gray"'
+        samples_per_symbol: '2'
+    states:
+        coordinate: [310, 340]
+        rotation: 0
+        state: enabled
+-   name: qtgui_time_sink_x_0
+    id: qtgui_time_sink_x
+    parameters:
+        affinity: ''
+        alias: ''
+        alpha1: '1'
+        alpha10: '1'
+        alpha2: '1'
+        alpha3: '1'
+        alpha4: '1'
+        alpha5: '1'
+        alpha6: '1'
+        alpha7: '1'
+        alpha8: '1'
+        alpha9: '1'
+        autoscale: 'False'
+        axislabels: 'True'
+        color1: blue
+        color10: dark blue
+        color2: red
+        color3: green
+        color4: black
+        color5: cyan
+        color6: magenta
+        color7: yellow
+        color8: dark red
+        color9: dark green
+        comment: ''
+        ctrlpanel: 'False'
+        entags: 'True'
+        grid: 'False'
+        label1: Signal 1
+        label10: Signal 10
+        label2: Signal 2
+        label3: Signal 3
+        label4: Signal 4
+        label5: Signal 5
+        label6: Signal 6
+        label7: Signal 7
+        label8: Signal 8
+        label9: Signal 9
+        legend: 'True'
+        marker1: '-1'
+        marker10: '-1'
+        marker2: '-1'
+        marker3: '-1'
+        marker4: '-1'
+        marker5: '-1'
+        marker6: '-1'
+        marker7: '-1'
+        marker8: '-1'
+        marker9: '-1'
+        name: Scope
+        nconnections: '1'
+        size: '500'
+        srate: samp_rate
+        stemplot: 'False'
+        style1: '1'
+        style10: '1'
+        style2: '1'
+        style3: '1'
+        style4: '1'
+        style5: '1'
+        style6: '1'
+        style7: '1'
+        style8: '1'
+        style9: '1'
+        tr_chan: '0'
+        tr_delay: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_slope: qtgui.TRIG_SLOPE_POS
+        tr_tag: ''
+        type: complex
+        update_time: '0.1'
+        width1: '1'
+        width10: '1'
+        width2: '1'
+        width3: '1'
+        width4: '1'
+        width5: '1'
+        width6: '1'
+        width7: '1'
+        width8: '1'
+        width9: '1'
+        ylabel: Amplitude
+        ymax: '2'
+        ymin: '-2'
+        yunit: ''
+    states:
+        coordinate: [1260, 350]
+        rotation: 0
+        state: enabled
+-   name: qtgui_waterfall_sink_x_0
+    id: qtgui_waterfall_sink_x
+    parameters:
+        affinity: ''
+        alias: ''
+        alpha1: '1'
+        alpha10: '1'
+        alpha2: '1'
+        alpha3: '1'
+        alpha4: '1'
+        alpha5: '1'
+        alpha6: '1'
+        alpha7: '1'
+        alpha8: '1'
+        alpha9: '1'
+        average: '1.0'
+        axislabels: 'True'
+        bw: samp_rate
+        color1: '0'
+        color10: '0'
+        color2: '0'
+        color3: '0'
+        color4: '0'
+        color5: '0'
+        color6: '0'
+        color7: '0'
+        color8: '0'
+        color9: '0'
+        comment: ''
+        fc: '0'
+        fftsize: '512'
+        freqhalf: 'True'
+        grid: 'False'
+        int_max: '10'
+        int_min: '-140'
+        label1: ''
+        label10: ''
+        label2: ''
+        label3: ''
+        label4: ''
+        label5: ''
+        label6: ''
+        label7: ''
+        label8: ''
+        label9: ''
+        legend: 'True'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        name: Waterfall
+        nconnections: '1'
+        type: complex
+        update_time: '0.05'
+        wintype: window.WIN_RECTANGULAR
+    states:
+        coordinate: [1260, 180]
+        rotation: 0
+        state: enabled
+-   name: throttle4
+    id: blocks_throttle2
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        ignoretag: 'True'
+        limit: auto
+        maximum: '0.1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        samples_per_second: samp_rate
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [900, 350]
+        rotation: 0
+        state: enabled
+-   name: wasm_gui_layout_0
+    id: wasm_gui_layout
+    parameters:
+        affinity: ''
+        alias: ''
+        columns: '12'
+        comment: ''
+        layout: '{"constellation":[6,0,3,4],"freq":[9,0,3,1],"mag":[9,2,3,1],"noise":[9,1,3,1],"qtgui_time_sink_x_0":[6,4,6,3],"qtgui_waterfall_sink_x_0":[0,0,6,7]}'
+        row_height: '60'
+    states:
+        coordinate: [1260, 10]
+        rotation: 0
+        state: enabled
+-   name: x2
+    id: analog_noise_source_x
+    parameters:
+        affinity: ''
+        alias: ''
+        amp: noise
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        noise_type: analog.GR_GAUSSIAN
+        seed: '0'
+        type: complex
+    states:
+        coordinate: [310, 180]
+        rotation: 0
+        state: enabled
+-   name: x8
+    id: analog_random_source_x
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        max: '2'
+        maxoutbuf: '0'
+        min: '0'
+        minoutbuf: '0'
+        num_samps: '1000'
+        repeat: 'True'
+        type: byte
+    states:
+        coordinate: [20, 350]
+        rotation: 0
+        state: enabled
+-   name: xx3
+    id: blocks_add_xx
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        num_inputs: '3'
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [660, 340]
+        rotation: 0
+        state: enabled
+connections:
+- [analog_sig_source_x_1, '0', blocks_vco_c_0, '0']
+- [blocks_multiply_const_vxx_0, '0', xx3, '2']
+- [blocks_rotator_cc_0, '0', blocks_multiply_const_vxx_0, '0']
+- [blocks_vco_c_0, '0', blocks_rotator_cc_0, '0']
+- [mod7, '0', xx3, '1']
+- [throttle4, '0', constellation, '0']
+- [throttle4, '0', qtgui_time_sink_x_0, '0']
+- [throttle4, '0', qtgui_waterfall_sink_x_0, '0']
+- [x2, '0', xx3, '0']
+- [x8, '0', mod7, '0']
+- [xx3, '0', throttle4, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0
