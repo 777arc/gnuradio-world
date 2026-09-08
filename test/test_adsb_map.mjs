@@ -96,12 +96,14 @@ try {
       .map(row => row.textContent.replace(/\s+/g, ' ').trim());
     const status = root.querySelector('.gr-adsb-map-status')?.textContent || '';
     const mapCanvas = root.querySelector('.maplibregl-canvas');
+    const mapStyle = document.querySelector('link[data-gr-adsb-maplibre-style]');
     const capture = globalThis.__grGuiObservation.capturePlan('aircraft_map');
     const layout = globalThis.__grGuiLayout?.widgets?.find(widget => widget.name === 'aircraft_map');
     const rect = root.getBoundingClientRect();
     return {
       plot, rows, status,
       mapReady: !!mapCanvas && mapCanvas.width > 0 && mapCanvas.height > 0,
+      mapStyleReady: !!mapStyle?.sheet,
       captureLayers: capture.layers.length,
       layoutAligned: !!layout?.rect && Math.abs(rect.x - layout.rect.x) < 2 &&
         Math.abs(rect.y - layout.rect.y) < 2 &&
@@ -134,8 +136,8 @@ try {
   check(observed.plot.aircraft.every(aircraft =>
     observed.rows.some(row => row.includes(aircraft.icao))),
   'the visible aircraft list contains every observed decoder record', JSON.stringify(observed.rows));
-  check(observed.mapReady && observed.captureLayers >= 2,
-    'MapLibre and the drawable aircraft overlay are live and captureable');
+  check(observed.mapReady && observed.mapStyleReady && observed.captureLayers >= 2,
+    'MapLibre CSS, map, and drawable aircraft overlay are live and captureable');
   check(observed.layoutAligned, 'the browser map is aligned to its GUI Layout tile');
   check(new RegExp(`${observed.plot.positioned_aircraft} positioned / ${observed.plot.aircraft_total} tracked`)
     .test(observed.status), 'status distinguishes positioned and unpositioned aircraft', observed.status);

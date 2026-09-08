@@ -130,6 +130,28 @@
     return button;
   }
 
+  let mapLibreStylePromise = null;
+  function loadMapLibreStyle() {
+    if (mapLibreStylePromise) return mapLibreStylePromise;
+    const styleUrl = new URL(`${MAPLIBRE_DIRECTORY}/maplibre-gl.css`, location.href);
+    if (globalThis.__grBuildStamp)
+      styleUrl.searchParams.set('v', globalThis.__grBuildStamp);
+    mapLibreStylePromise = new Promise((resolve, reject) => {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = styleUrl.href;
+      link.dataset.grAdsbMaplibreStyle = '';
+      link.addEventListener('load', resolve, { once: true });
+      link.addEventListener('error', () => {
+        link.remove();
+        mapLibreStylePromise = null;
+        reject(new Error(`could not load MapLibre stylesheet ${styleUrl.href}`));
+      }, { once: true });
+      document.head.append(link);
+    });
+    return mapLibreStylePromise;
+  }
+
   let mapLibrePromise = null;
   function loadMapLibre() {
     if (mapLibrePromise) return mapLibrePromise;
@@ -139,10 +161,15 @@
       moduleUrl.searchParams.set('v', globalThis.__grBuildStamp);
       workerUrl.searchParams.set('v', globalThis.__grBuildStamp);
     }
-    mapLibrePromise = import(moduleUrl.href).then(module => {
-      module.setWorkerUrl(workerUrl.href);
-      return module;
-    });
+    mapLibrePromise = Promise.all([loadMapLibreStyle(), import(moduleUrl.href)])
+      .then(([, module]) => {
+        module.setWorkerUrl(workerUrl.href);
+        return module;
+      })
+      .catch(error => {
+        mapLibrePromise = null;
+        throw error;
+      });
     return mapLibrePromise;
   }
 
@@ -963,7 +990,8 @@
 
   globalThis.__grAdsbMapInternals = {
     normalizeIcao, trueCourse, altitudeColor, haversineKm, bearingDegrees,
-    destinationPoint, formatAge, localStyle, graticuleGeoJson, AdsbMapRenderer,
+    destinationPoint, formatAge, localStyle, graticuleGeoJson, loadMapLibreStyle,
+    AdsbMapRenderer,
   };
   const manager = new AdsbMapManager();
   globalThis.__grAdsbMap = manager;

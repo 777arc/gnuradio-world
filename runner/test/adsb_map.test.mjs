@@ -1,14 +1,55 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { URL } from 'node:url';
 import vm from 'node:vm';
 
 const source = await readFile(new URL('../src/adsb_map.js', import.meta.url), 'utf8');
-const sandbox = { console };
+const appendedStyles = [];
+const sandbox = {
+  console,
+  URL,
+  location: { href: 'https://example.test/runner/runner.html' },
+  __grBuildStamp: 'test-build',
+  document: {
+    createElement(tagName) {
+      assert.equal(tagName, 'link');
+      const listeners = {};
+      return {
+        dataset: {},
+        addEventListener(type, listener) { listeners[type] = listener; },
+        dispatch(type) { listeners[type]?.(); },
+        remove() {},
+      };
+    },
+    head: {
+      append(element) {
+        appendedStyles.push(element);
+        element.dispatch('load');
+      },
+    },
+  },
+};
 vm.runInNewContext(source, sandbox, { filename: 'adsb_map.js' });
 const {
   normalizeIcao, trueCourse, altitudeColor, haversineKm, bearingDegrees,
-  destinationPoint, localStyle, graticuleGeoJson, AdsbMapRenderer,
+  destinationPoint, localStyle, graticuleGeoJson, loadMapLibreStyle,
+  AdsbMapRenderer,
 } = sandbox.__grAdsbMapInternals;
+
+const runnerHtml = await readFile(new URL('../src/runner.html', import.meta.url), 'utf8');
+assert.doesNotMatch(runnerHtml, /maplibre-gl\.css/,
+  'runner pages without an ADS-B Map do not request the MapLibre stylesheet');
+assert.equal(appendedStyles.length, 0, 'evaluating the ADS-B map bridge does not load MapLibre CSS');
+const firstStyleLoad = loadMapLibreStyle();
+const secondStyleLoad = loadMapLibreStyle();
+assert.strictEqual(firstStyleLoad, secondStyleLoad,
+  'multiple ADS-B Map blocks share one stylesheet load');
+await firstStyleLoad;
+assert.equal(appendedStyles.length, 1);
+assert.equal(appendedStyles[0].rel, 'stylesheet');
+assert.equal(appendedStyles[0].dataset.grAdsbMaplibreStyle, '');
+assert.equal(appendedStyles[0].href,
+  'https://example.test/runner/maplibre-6.8.0/maplibre-gl.css?v=test-build');
 
 assert.equal(normalizeIcao(' a02c40 '), 'A02C40');
 assert.equal(normalizeIcao('<script>'), '', 'invalid decoder identities cannot become DOM keys');
