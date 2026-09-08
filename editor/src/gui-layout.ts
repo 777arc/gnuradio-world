@@ -139,14 +139,12 @@ const overlaps = (a: Tile, b: Tile): boolean =>
   a.row < b.row + b.h && b.row < a.row + a.h;
 
 /**
- * Settle a set of tiles: resolve every overlap and close every vertical gap.
+ * Settle a set of tiles by resolving every overlap without closing gaps.
  *
- * Tiles are placed in reading order, each dropping into the topmost row where it
- * fits above nothing already placed. That single rule does both jobs -- a tile
- * overlapping one above it lands below that one, and a tile with empty rows
- * above it rises into them -- which is what makes a drag feel like a dashboard
- * rather than like free-floating boxes, and what guarantees the runner's grid
- * has no empty rows to stretch.
+ * Tiles are placed in reading order and remain at their requested row whenever
+ * possible. An overlapping tile moves downward only far enough to clear the
+ * tiles already placed. Starting the search at the requested row is what makes
+ * deliberate empty rows survive a drag, resize, or deletion.
  *
  * `first` is the block being dragged: it is placed before anything it collides
  * with, so the widget under the cursor keeps the row the user dropped it on and
@@ -163,7 +161,7 @@ export function settle(tiles: TileMap, columns: number, first?: string): TileMap
   const settled: TileMap = {};
   for (const name of order) {
     const tile = clampTile(tiles[name], columns);
-    let row = 0;
+    let row = tile.row;
     // Scan down for the first row this tile fits in. Bounded by construction:
     // below every placed tile there is always room.
     for (;;) {
@@ -195,13 +193,16 @@ export function packLayout(widgets: WidgetRef[], stored: TileMap,
                            columns = DEFAULT_COLUMNS): TileMap {
   const cols = clampInt(columns, 1, MAX_COLUMNS, DEFAULT_COLUMNS);
   const tiles: TileMap = {};
-  let next = rowsUsed(stored);
+  // Keep every surviving stored position first. Computing the insertion row
+  // from this filtered set prevents a deleted stale tile from leaving a new
+  // widget stranded below a row that no longer exists.
   for (const widget of widgets) {
     const tile = stored[widget.name];
-    if (tile) {
-      tiles[widget.name] = clampTile(tile, cols);
-      continue;
-    }
+    if (tile) tiles[widget.name] = clampTile(tile, cols);
+  }
+  let next = rowsUsed(tiles);
+  for (const widget of widgets) {
+    if (widget.name in tiles) continue;
     const h = isControlWidget(widget.id) ? CONTROL_ROWS
       : isProgressWidget(widget.id) ? PROGRESS_ROWS : SINK_ROWS;
     tiles[widget.name] = { col: 0, row: next, w: cols, h };

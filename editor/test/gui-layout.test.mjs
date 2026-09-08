@@ -57,7 +57,7 @@ assert.deepEqual(parseTiles('{"a":[0,0,4,2],"b":[1,2]}'), { a: tile(0, 0, 4, 2) 
   assert.deepEqual(clampTile(tile(-4, -2, 0, 0), 12), tile(0, 0, 1, 1));
 }
 
-// ---- settle: no overlaps, no gaps ------------------------------------------
+// ---- settle: no overlaps, deliberate gaps survive --------------------------
 {
   // Two tiles asking for the same cell: one keeps it, the other lands below.
   const settled = settle({ a: tile(0, 0, 6, 2), b: tile(0, 0, 6, 2) }, 12);
@@ -71,10 +71,15 @@ assert.deepEqual(parseTiles('{"a":[0,0,4,2],"b":[1,2]}'), { a: tile(0, 0, 4, 2) 
   assert.equal(settled.b.row, 0);
 }
 {
-  // Gaps close upward, which is what keeps the runner's equally-stretched rows
-  // meaningful -- an empty row would otherwise take a share of the window.
+  // A tile stays where it was placed even when it could fit higher. Empty rows
+  // are intentional spacing, not something the layout silently removes.
   const settled = settle({ a: tile(0, 7, 12, 1) }, 12);
-  assert.equal(settled.a.row, 0, 'a lone tile rises to the top');
+  assert.equal(settled.a.row, 7, 'a lone tile keeps its requested row');
+}
+{
+  const settled = settle({ top: tile(0, 0, 6, 2), lower: tile(6, 5, 6, 2) }, 12);
+  assert.equal(settled.lower.row, 5,
+               'a tile does not rise into an open column above it');
 }
 {
   // The dragged tile wins its row and pushes the incumbent down.
@@ -122,10 +127,22 @@ assert.deepEqual(parseTiles('{"a":[0,0,4,2],"b":[1,2]}'), { a: tile(0, 0, 4, 2) 
   assert.equal(packed.added_later.row >= 3, true, 'the new widget lands under the placed one');
 }
 {
-  // A tile whose block is gone does not linger in the arrangement.
+  // A tile whose block is gone does not linger in the arrangement, but removing
+  // it does not pull the surviving tile upward into the vacated rows.
   const packed = packLayout([{ name: 'kept', id: 'qtgui_time_sink_x' }],
-                            { kept: tile(0, 0, 12, 2), deleted: tile(0, 2, 12, 2) }, 12);
+                            { deleted: tile(0, 0, 12, 2), kept: tile(0, 4, 12, 2) }, 12);
   assert.deepEqual(Object.keys(packed), ['kept']);
+  assert.equal(packed.kept.row, 4);
+}
+{
+  // A stale deleted tile below the remaining layout does not affect where a
+  // newly added widget starts.
+  const packed = packLayout([
+    { name: 'kept', id: 'qtgui_time_sink_x' },
+    { name: 'added', id: 'qtgui_freq_sink_x' },
+  ], { kept: tile(0, 2, 12, 2), deleted: tile(0, 50, 12, 2) }, 12);
+  assert.equal(packed.kept.row, 2);
+  assert.equal(packed.added.row, 4);
 }
 {
   // Re-packing an arrangement changes nothing: opening and saving a flowgraph

@@ -15,9 +15,10 @@ The window is a grid: `columns` wide (12 by default), every row `row_height` px
 tall (60). Each widget occupies a **tile** at `(col, row)` spanning `(w, h)` of
 those units. Columns share the window width equally and rows share its height,
 so the whole arrangement stretches with the browser tab rather than being pinned
-to pixels. Tiles never overlap, and vertical gaps are always closed.
+to pixels. Tiles never overlap, and a tile stays at the row where it was placed,
+so empty rows can be used as deliberate spacing.
 
-That is the react-grid-layout / Grafana model, and it is deliberately *not*
+That is a dashboard grid without vertical compaction, and it is deliberately *not*
 `gui_hint`: a hint is a per-block property that says nothing about the blocks
 around it, which is why upstream flowgraphs so often ship with widgets that
 overlap or leave a column empty. Nothing in this repo parses `gui_hint`, and the
@@ -36,12 +37,12 @@ editor drops it on load like any parameter its schema does not declare.
 | the `QGridLayout` pass | `runner/src/runner.cpp` (`apply_gui_layout`) |
 | tests | `editor/test/gui-layout.test.mjs` |
 
-**The runner renders a spec and never edits one.** Collision, compaction and
+**The runner renders a spec and never edits one.** Collision handling and
 clamping are in `gui-layout.ts`, shared by both editing surfaces, so there is one
 definition of what a drag does and it is the one with tests. A spec arriving in
-C++ is assumed packed; the only correction made there is clamping a tile into
-the grid, so a hand-edited `.grc` cannot put a widget somewhere no resize will
-reveal. Overlap is left alone — it is visible, self-explanatory, and undone by
+C++ is assumed collision-resolved; the only correction made there is clamping a
+tile into the grid, so a hand-edited `.grc` cannot put a widget somewhere no
+resize will reveal. Overlap is left alone — it is visible, self-explanatory, and undone by
 dragging.
 
 ## It is a singleton, like Options

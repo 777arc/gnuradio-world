@@ -2,7 +2,8 @@
 // text field in its Properties dialog (main.ts binds it to the `gui_layout`
 // dtype, the same way the Embedded Python Block's source gets a code editor).
 //
-// Every rule about what a drag *means* -- collision, compaction, clamping --
+// Every rule about what a drag *means* -- collision handling, gap preservation,
+// and clamping --
 // lives in gui-layout.ts and is shared with the Arrange overlay over a running
 // flowgraph. This file is only the surface: it turns pointer movement into grid
 // cells, hands those to placeTile(), and redraws.
