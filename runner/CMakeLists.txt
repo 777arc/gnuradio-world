@@ -30,6 +30,15 @@ else()
   set(DEPS_SRC ${WASM_ROOT}/deps/src)
 endif()
 set(QTGUI_TS ${WASM_ROOT}/qtgui/build/libgr_qtgui_ts.a)
+set(MAPLIBRE_VERSION 6.8.0)
+set(MAPLIBRE_DIST ${WORLD}/runner/node_modules/maplibre-gl/dist)
+set(MAPLIBRE_LICENSE ${WORLD}/runner/node_modules/maplibre-gl/LICENSE.txt)
+foreach(asset maplibre-gl.mjs maplibre-gl-shared.mjs maplibre-gl-worker.mjs maplibre-gl.css)
+  if(NOT EXISTS "${MAPLIBRE_DIST}/${asset}")
+    message(FATAL_ERROR
+      "Missing MapLibre runner asset ${asset}; run 'npm ci' in runner/")
+  endif()
+endforeach()
 
 # Module topology is shared with gen_registry.py. CMake still owns the concrete
 # source lists below, while modules.json owns which categories are core/deferred.
@@ -117,6 +126,7 @@ qt_add_executable(runner
   ${BLOCKS}/src/hackrf_source.cpp
   ${BLOCKS}/src/hackrf_sink.cpp
   ${BLOCKS}/src/spectrum_analyzer_sink.cpp
+  ${BLOCKS}/src/adsb_map_sink.cpp
   ${BLOCKS}/overlays/gr-paint/paint_image_source.cpp
   ${BLOCKS}/overlays/gr-fosphor/fosphor_webgpu_sink.cpp
   ${BLOCKS}/overlays/gr-radar/radar_plots.cpp
@@ -257,6 +267,20 @@ add_custom_command(TARGET runner POST_BUILD
           ${CMAKE_CURRENT_SOURCE_DIR}/src/spectrum_analyzer.js
           ${CMAKE_CURRENT_BINARY_DIR}/spectrum_analyzer.js
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/adsb_map.js
+          ${CMAKE_CURRENT_BINARY_DIR}/adsb_map.js
+  COMMAND ${CMAKE_COMMAND} -E make_directory
+          ${CMAKE_CURRENT_BINARY_DIR}/maplibre-${MAPLIBRE_VERSION}
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          ${MAPLIBRE_DIST}/maplibre-gl.mjs
+          ${MAPLIBRE_DIST}/maplibre-gl-shared.mjs
+          ${MAPLIBRE_DIST}/maplibre-gl-worker.mjs
+          ${MAPLIBRE_DIST}/maplibre-gl.css
+          ${CMAKE_CURRENT_BINARY_DIR}/maplibre-${MAPLIBRE_VERSION}
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          ${MAPLIBRE_LICENSE}
+          ${CMAKE_CURRENT_BINARY_DIR}/maplibre-${MAPLIBRE_VERSION}/LICENSE.txt
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
           ${CMAKE_CURRENT_SOURCE_DIR}/src/js_runtime.js
           ${CMAKE_CURRENT_BINARY_DIR}/js_runtime.js
   COMMAND ${CMAKE_COMMAND} -E copy_directory
@@ -279,6 +303,12 @@ set_property(TARGET runner APPEND PROPERTY LINK_DEPENDS
   ${CMAKE_CURRENT_SOURCE_DIR}/src/gui_observation.js
   ${CMAKE_CURRENT_SOURCE_DIR}/src/fosphor_webgpu.js
   ${CMAKE_CURRENT_SOURCE_DIR}/src/spectrum_analyzer.js
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/adsb_map.js
+  ${MAPLIBRE_DIST}/maplibre-gl.mjs
+  ${MAPLIBRE_DIST}/maplibre-gl-shared.mjs
+  ${MAPLIBRE_DIST}/maplibre-gl-worker.mjs
+  ${MAPLIBRE_DIST}/maplibre-gl.css
+  ${MAPLIBRE_LICENSE}
   ${CMAKE_CURRENT_SOURCE_DIR}/src/pyodide/gr_pyodide_worker.js)
 
 # ---------------------------------------------------------------------------

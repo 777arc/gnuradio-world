@@ -51,6 +51,7 @@ jobs:
           cache-dependency-path: |
             package-lock.json
             editor/package-lock.json
+            runner/package-lock.json
 
       - uses: actions/setup-python@v5
         with:
@@ -67,6 +68,7 @@ jobs:
         run: |
           npm ci                 # puppeteer-core; the root harnesses need a built runner
           (cd editor && npm ci)  # the suite and type checks the agent can actually run
+          (cd runner && npm ci)  # pinned MapLibre assets copied into runner/build
 
       # Prove the environment can run each gate the instructions ask for, rather
       # than leaving the agent to discover a missing dependency mid-task. Cheap

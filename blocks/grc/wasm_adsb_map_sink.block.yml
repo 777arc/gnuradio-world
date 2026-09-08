@@ -1,0 +1,99 @@
+id: wasm_adsb_map_sink
+label: ADS-B Map
+category: '[GNU Radio World]'
+flags: [cpp]
+
+# The C++ factory builds a QWidget placeholder for GUI Layout. A browser-native
+# MapLibre display is aligned over that placeholder by runner/src/adsb_map.js.
+gui: true
+
+documentation: |-
+    Displays the cumulative aircraft records published by the ADS-B Decoder's
+    decoded message port on an interactive map. Connect decoded directly to this
+    block; the PDU metadata supplies ICAO address, callsign, position, altitude,
+    ground speed, heading, vertical rate, message count, DF, timestamp, and SNR.
+
+    Aircraft with no decoded position remain visible in the list but are not
+    placed on the map. Positioned aircraft have altitude-coloured markers,
+    direction indicators, optional labels, bounded trails, selection details,
+    and search. Stale aircraft fade before they expire. Age is measured from
+    local message arrival, so playback recordings with historical timestamps
+    behave correctly.
+
+    Light and Dark use OpenFreeMap vector styles and require network access.
+    If a style cannot be loaded, or Basemap is None, the display falls back to
+    a network-free graticule. Receiver coordinates are optional and are used
+    only for the home marker, range rings, distance, and bearing.
+
+    The ADS-B Decoder reports altitude in feet, speed in knots, vertical rate
+    in feet per minute, and a Cartesian heading whose zero is east. This block
+    converts that heading to true course for display. Aviation units preserve
+    the decoder values; Metric converts them to metres, kilometres per hour,
+    metres per second, and kilometres.
+
+    This block exists only in the WebAssembly runner and does not run in desktop
+    GNU Radio.
+
+parameters:
+-   id: name
+    label: Title
+    dtype: string
+    default: '"ADS-B Map"'
+-   id: basemap
+    label: Basemap
+    dtype: enum
+    default: light
+    options: [light, dark, none]
+    option_labels: [Light, Dark, None / Offline]
+-   id: units
+    label: Units
+    dtype: enum
+    default: aviation
+    options: [aviation, metric]
+    option_labels: [Aviation, Metric]
+-   id: show_receiver
+    label: Show Receiver
+    dtype: bool
+    default: 'False'
+-   id: receiver_latitude
+    label: Receiver Latitude
+    dtype: real
+    default: '0'
+-   id: receiver_longitude
+    label: Receiver Longitude
+    dtype: real
+    default: '0'
+-   id: show_labels
+    label: Show Aircraft Labels
+    dtype: bool
+    default: 'True'
+-   id: trail_seconds
+    label: Trail Duration (s)
+    dtype: real
+    default: '300'
+-   id: stale_seconds
+    label: Stale After (s)
+    dtype: real
+    default: '15'
+-   id: expire_seconds
+    label: Remove After (s)
+    dtype: real
+    default: '60'
+-   id: update_time
+    label: Update Period (s)
+    dtype: real
+    default: '0.25'
+
+inputs:
+-   label: decoded
+    domain: message
+
+asserts:
+- ${ receiver_latitude >= -90 and receiver_latitude <= 90 }
+- ${ receiver_longitude >= -180 and receiver_longitude <= 180 }
+- ${ trail_seconds >= 0 }
+- ${ stale_seconds > 0 }
+- ${ expire_seconds > stale_seconds }
+- ${ update_time >= 0.05 }
+
+file_format: 1

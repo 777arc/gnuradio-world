@@ -13,6 +13,7 @@
 /editor/dist/
 /qtgui/build/
 /runner/build/
+/runner/node_modules/
 /pyodide/
 /wasm-deps.tar.zst
 /site/

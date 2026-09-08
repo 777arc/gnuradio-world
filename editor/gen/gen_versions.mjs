@@ -6,7 +6,7 @@
 // `deps/fetch-deps.sh` for the C++ dependencies, `deps/env.sh` for Emscripten,
 // `.github/workflows/build.yml` for Qt, `deps/fetch-pyodide.sh` for the Python
 // runtime, the submodule gitlinks for GNU Radio and the OOTs, and
-// `editor/package-lock.json` for the web dependencies.
+// `editor/package-lock.json` and `runner/package-lock.json` for browser dependencies.
 //
 // Used two ways:
 //   - imported by editor/vite.config.ts, which serves the result as the
@@ -187,18 +187,17 @@ function pythonRuntime() {
   return rows;
 }
 
-// ------------------------------------------------------ editor web packages --
+// ------------------------------------------------------------- web packages --
 
 /**
- * The editor's direct npm dependencies at the versions actually installed, so a
- * caret range in package.json is reported as the resolved number rather than as
- * the range.
+ * Direct npm dependencies at the versions actually installed, so a caret range
+ * in package.json is reported as the resolved number rather than as the range.
  */
-function webPackages() {
+function npmPackages(directory) {
   let pkg = {};
-  try { pkg = JSON.parse(read('editor', 'package.json') || '{}'); } catch { /* keep {} */ }
+  try { pkg = JSON.parse(read(directory, 'package.json') || '{}'); } catch { /* keep {} */ }
   let lock = {};
-  try { lock = JSON.parse(read('editor', 'package-lock.json') || '{}'); } catch { /* keep {} */ }
+  try { lock = JSON.parse(read(directory, 'package-lock.json') || '{}'); } catch { /* keep {} */ }
   const installed = name => lock.packages?.[`node_modules/${name}`]?.version || '';
   const rows = [];
   for (const [kind, deps] of [['runtime', pkg.dependencies], ['build', pkg.devDependencies]]) {
@@ -211,6 +210,9 @@ function webPackages() {
   }
   return rows.sort((a, b) => a.name.localeCompare(b.name));
 }
+
+const webPackages = () => npmPackages('editor');
+const runnerPackages = () => npmPackages('runner');
 
 // --------------------------------------------------------------------- API ---
 
@@ -255,6 +257,11 @@ export function collectVersions() {
         name: 'Editor packages',
         note: 'npm dependencies of the flowgraph editor and the recording viewer.',
         rows: webPackages(),
+      },
+      {
+        name: 'Runner browser packages',
+        note: 'Pinned browser assets loaded by GUI blocks in the WebAssembly runner.',
+        rows: runnerPackages(),
       },
     ],
   };

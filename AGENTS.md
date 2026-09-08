@@ -183,6 +183,7 @@ export QT_WASM=~/Qt/6.9.1/wasm_multithread
 The everyday loop, once `sysroot/` and `gr/build-gr` exist:
 
 ```bash
+(cd runner && npm ci)                               # after runner/package-lock changes
 python3 runner/gen_registry.py                       # after any block metadata change
 python3 editor/gen/gen_blocklib.py editor/public/blocks.json
 cmake --build runner/build --target side_modules     # fast: one side module, no relink
@@ -355,6 +356,11 @@ the app plus everything generated.** So `generated_registry*.cpp`,
 `generated_modules.cpp` and `generated_blocks.json` stay under `runner/` — they
 are build outputs — and the `gr-<m>/` submodules stay at the repository root,
 because they are pristine checkouts rather than anything of ours.
+
+**Every new block created for GNU Radio World must use the root palette category
+`[GNU Radio World]`.** Do not place a new browser-only or project-authored block
+beside an upstream module merely because it consumes that module's data. Existing
+upstream and vendored-module blocks retain their native categories.
 
 | what | where |
 |------|-------|

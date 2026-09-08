@@ -222,6 +222,7 @@ jobs:
 
           python3 runner/gen_registry.py
           python3 editor/gen/gen_blocklib.py editor/public/blocks.json
+          (cd runner && npm ci)
 
           # The Embedded Python Block's Python side, on the host: seconds, no
           # browser, and it catches a broken block contract before the 20-minute
@@ -274,6 +275,7 @@ jobs:
           # test_smoke.mjs carries JS block cases of its own for the same reason.
           # The harness test needs no browser and runs in a second.
           node runner/test/js_runtime.test.mjs
+          node runner/test/adsb_map.test.mjs
           node test/test_js_block.mjs        # a flowgraph whose work() is JavaScript
           node test/test_js_block_editor.mjs # ... and the editor deriving its ports
           # The Embedded Python Block, in the runner and in the editor. Both skip

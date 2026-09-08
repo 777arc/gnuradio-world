@@ -39,7 +39,8 @@ async function walkRuntimeFiles(dir) {
     if (entry.isDirectory()) {
       if (SKIP_DIR(entry.name)) continue;
       out.push(...await walkRuntimeFiles(p));
-    } else if (RUNTIME_EXT.has(extname(entry.name)) && extname(entry.name) !== '.rsp') {
+    } else if ((RUNTIME_EXT.has(extname(entry.name)) && extname(entry.name) !== '.rsp') ||
+               entry.name === 'LICENSE.txt') {
       out.push(p);
     }
   }
@@ -83,6 +84,10 @@ async function stampRunnerBuild(destDir, srcFiles) {
     stamped.push(src);
     return `${pre}${src}?v=${stamp}${post}`;
   });
+  out = out.replace(/(<link[^>]*\shref=")([^"?]+\.css)(")/g, (_, pre, src, post) => {
+    stamped.push(src);
+    return `${pre}${src}?v=${stamp}${post}`;
+  });
   // What this guards is not *how many* scripts the page loads -- that was the
   // original check, and every script added to runner.html since has broken this
   // step -- but that every one of them is a file of this build, and so is
@@ -92,10 +97,10 @@ async function stampRunnerBuild(destDir, srcFiles) {
     throw new Error('runner.html: no external scripts to stamp -- the version lock would be inert');
   for (const src of stamped) {
     if (/^(?:[a-z]+:)?\/\//i.test(src) || src.startsWith('/'))
-      throw new Error(`runner.html: <script src="${src}"> is not part of the runner build, ` +
+      throw new Error(`runner.html: asset "${src}" is not part of the runner build, ` +
                       'so the build stamp cannot version-lock it');
     await stat(join(destDir, src)).catch(() => {
-      throw new Error(`runner.html: <script src="${src}"> was stamped but is not in the ` +
+      throw new Error(`runner.html: asset "${src}" was stamped but is not in the ` +
                       'copied runner build -- it would 404 with a ?v= on it');
     });
   }

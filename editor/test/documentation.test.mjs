@@ -35,6 +35,9 @@ assert.match(byId.get('wasm_packet_rate_sink')?.documentation || '',
 assert.match(byId.get('wasm_spectrum_analyzer_sink')?.documentation || '',
   /occupied-bandwidth measurement/,
   'the browser-native analyzer must describe its measurements');
+assert.match(byId.get('wasm_adsb_map_sink')?.documentation || '',
+  /ADS-B Decoder.*decoded message port/s,
+  'the browser-native map must document its message contract');
 const analyzerLevelUnit = byId.get('wasm_spectrum_analyzer_sink')?.params
   .find(param => param.id === 'level_unit');
 assert.equal(analyzerLevelUnit?.dtype, 'enum',

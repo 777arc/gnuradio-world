@@ -47,6 +47,27 @@ blocks:
         coordinate: [940, 10]
         rotation: 0
         state: enabled
+-   name: aircraft_map
+    id: wasm_adsb_map_sink
+    parameters:
+        affinity: ''
+        alias: ''
+        basemap: light
+        comment: Live aircraft state from the decoder; select a row or marker for details
+        expire_seconds: '60'
+        name: '"Aircraft near the recording site"'
+        receiver_latitude: '0'
+        receiver_longitude: '0'
+        show_labels: 'True'
+        show_receiver: 'False'
+        stale_seconds: '15'
+        trail_seconds: '300'
+        units: aviation
+        update_time: '0.25'
+    states:
+        coordinate: [970, 540]
+        rotation: 0
+        state: enabled
 -   name: bursts
     id: qtgui_time_sink_x
     parameters:
@@ -137,7 +158,7 @@ blocks:
         ymin: '0'
         yunit: ''
     states:
-        coordinate: [510, 510]
+        coordinate: [510, 520]
         rotation: 0
         state: enabled
 -   name: decoded_planes
@@ -149,7 +170,7 @@ blocks:
         en_uvec: 'False'
         log_level: info
     states:
-        coordinate: [970, 350]
+        coordinate: [970, 360]
         rotation: 0
         state: enabled
 -   name: decoder
@@ -164,7 +185,7 @@ blocks:
         msg_filter: '"Extended Squitter Only"'
         print_level: '"Brief"'
     states:
-        coordinate: [510, 370]
+        coordinate: [510, 380]
         rotation: 0
         state: enabled
 -   name: demod
@@ -177,7 +198,7 @@ blocks:
         maxoutbuf: '0'
         minoutbuf: '0'
     states:
-        coordinate: [80, 380]
+        coordinate: [80, 390]
         rotation: 0
         state: enabled
 -   name: framer
@@ -191,7 +212,7 @@ blocks:
         minoutbuf: '0'
         threshold: threshold
     states:
-        coordinate: [1290, 210]
+        coordinate: [1270, 220]
         rotation: 0
         state: enabled
 -   name: interp2
@@ -206,7 +227,7 @@ blocks:
         type: float
         vlen: '1'
     states:
-        coordinate: [1030, 220]
+        coordinate: [1010, 230]
         rotation: 0
         state: enabled
 -   name: mag_squared
@@ -219,7 +240,7 @@ blocks:
         minoutbuf: '0'
         vlen: '1'
     states:
-        coordinate: [720, 220]
+        coordinate: [700, 230]
         rotation: 0
         state: enabled
 -   name: rec
@@ -237,7 +258,7 @@ blocks:
         repeat: 'True'
         type: short
     states:
-        coordinate: [10, 210]
+        coordinate: [10, 220]
         rotation: 0
         state: enabled
 -   name: to_complex
@@ -252,7 +273,7 @@ blocks:
         swap: 'False'
         vector_input: 'False'
     states:
-        coordinate: [410, 220]
+        coordinate: [390, 230]
         rotation: 0
         state: enabled
 -   name: wasm_gui_layout_0
@@ -269,6 +290,10 @@ blocks:
         rotation: 0
         state: enabled
 connections:
+-   src_blk_id: decoder
+    src_port_id: decoded
+    snk_blk_id: aircraft_map
+    snk_port_id: decoded
 -   src_blk_id: decoder
     src_port_id: decoded
     snk_blk_id: decoded_planes

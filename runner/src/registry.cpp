@@ -28,6 +28,7 @@
 #include "qtgui_controls.hpp"
 #include "qtgui_sinks.hpp"
 #include "spectrum_analyzer_sink.hpp"
+#include "adsb_map_sink.hpp"
 #include "musical_keyboard_source.hpp"
 #include "text_sink.hpp"
 #include "hrpt_image_sink.hpp"
@@ -3925,6 +3926,25 @@ static std::map<std::string, Factory>& registry_storage() {
              result.numeric_setters["level_offset_db"] =
                  [block](double value) { block->set_level_offset_db(value); };
              return result;
+         }},
+        // Browser-native aircraft map. The message-only block parses the ADS-B
+        // Decoder's cumulative PDU metadata; JavaScript paints the map over this
+        // QWidget placement placeholder.
+        {"wasm_adsb_map_sink", [](const json& p) -> BuiltBlock {
+             auto block = AdsbMapSinkWasm::make(
+                 p.value("__name", std::string("adsb_map")),
+                 unquoted(param_text(p, "name", "ADS-B Map")),
+                 unquoted(param_text(p, "basemap", "light")),
+                 unquoted(param_text(p, "units", "aviation")),
+                 bool_from(p, "show_receiver", false),
+                 number_from(p, "receiver_latitude", 0.0),
+                 number_from(p, "receiver_longitude", 0.0),
+                 bool_from(p, "show_labels", true),
+                 number_from(p, "trail_seconds", 300.0),
+                 number_from(p, "stale_seconds", 15.0),
+                 number_from(p, "expire_seconds", 60.0),
+                 number_from(p, "update_time", 0.25));
+             return { block, block->qwidget() };
          }},
         {"qtgui_number_sink", [](const json& p) -> BuiltBlock {
              const std::string input_type = type_from(p, "float");

@@ -17,6 +17,8 @@ Userspace (no sudo) requirements:
 - **emsdk 3.1.70** (matches Qt 6.9).
 - **Qt 6.9.1 for WebAssembly (multithread) + host tools**, via `aqtinstall`.
 - **Node ≥ 20** (for the editor build and the dev server; Ubuntu 24 ships 18).
+- Locked npm packages under both `editor/` and `runner/`; the runner package
+  supplies browser GUI assets such as MapLibre rather than executable build code.
 - Dependency sources fetched under `deps/src/` (VOLK 3.1.2, Boost 1.83, spdlog
   1.12, GMP 6.3, FFTW 3.3.10, libosmocore 1.14.2, Qwt 6.3, CRCpp 1.2.2,
   and pinned turbofec).
@@ -111,10 +113,14 @@ cmake --build gr/build-gr
 python3 runner/gen_registry.py
 python3 editor/gen/gen_blocklib.py editor/public/blocks.json
 
+# Install pinned browser packages used by the runner and editor.
+(cd runner && npm ci)
+(cd editor && npm ci)
+
 # gr-qtgui sinks → runner (links core + emits per-category side modules) → editor
 (cd qtgui  && "$QT_WASM/bin/qt-cmake" -S . -B build -GNinja -DQT_HOST_PATH="$QT_HOST" -DCMAKE_CXX_FLAGS="-pthread -fPIC" && cmake --build build)
 (cd runner && "$QT_WASM/bin/qt-cmake" -S . -B build -GNinja -DQT_HOST_PATH="$QT_HOST" -DCMAKE_BUILD_TYPE=Release && cmake --build build)
-(cd editor && npm install && npm run build)
+(cd editor && npm run build)
 
 # The editor build also emits /recording/index.html and its lazy viewer bundle;
 # there is no separate IQEngine checkout or build.
@@ -205,7 +211,8 @@ of the file that pins each one — `deps/fetch-deps.sh` for the C++ dependencies
 `deps/env.sh` for Emscripten, `build.yml` for Qt, `deps/fetch-pyodide.sh` for the
 Python runtime, `.gitmodules` plus the gitlinks for GNU Radio and the OOTs,
 `gnuradio/CMakeLists.txt` for GNU Radio's own version, and
-`editor/package-lock.json` for the web packages — and `vite.config.ts` serves the
+`editor/package-lock.json` and `runner/package-lock.json` for browser packages —
+and `vite.config.ts` serves the
 result as the `virtual:versions` module, so dev and build both report the tree
 they are running out of and nothing is checked in to go stale.
 

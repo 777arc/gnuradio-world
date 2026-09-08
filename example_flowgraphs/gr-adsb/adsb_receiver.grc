@@ -26,13 +26,13 @@ blocks:
         value: '40'
         widget: counter_slider
     states:
-        coordinate: [770, 10]
+        coordinate: [10, 360]
         rotation: 0
         state: enabled
 -   name: samp_rate
     id: variable
     parameters:
-        comment: ADS-B is 1 Msym/s PPM, so the rate must be a multiple of 1 Msps
+        comment: "ADS-B is 1 Msym/s PPM,\nso the rate must be a\nmultiple of 1 Msps"
         value: '2000000'
     states:
         coordinate: [600, 10]
@@ -52,7 +52,28 @@ blocks:
         value: '0.01'
         widget: counter_slider
     states:
-        coordinate: [1060, 10]
+        coordinate: [820, 510]
+        rotation: 0
+        state: enabled
+-   name: aircraft_map
+    id: wasm_adsb_map_sink
+    parameters:
+        affinity: ''
+        alias: ''
+        basemap: light
+        comment: Live aircraft state from the decoder; select a row or marker for details
+        expire_seconds: '60'
+        name: '"Aircraft near the recording site"'
+        receiver_latitude: '0'
+        receiver_longitude: '0'
+        show_labels: 'True'
+        show_receiver: 'False'
+        stale_seconds: '15'
+        trail_seconds: '300'
+        units: aviation
+        update_time: '0.25'
+    states:
+        coordinate: [1720, 400]
         rotation: 0
         state: enabled
 -   name: bursts
@@ -145,7 +166,7 @@ blocks:
         ymin: '0'
         yunit: ''
     states:
-        coordinate: [160, 630]
+        coordinate: [1270, 360]
         rotation: 0
         state: enabled
 -   name: decoded_planes
@@ -157,7 +178,7 @@ blocks:
         en_uvec: 'False'
         log_level: info
     states:
-        coordinate: [620, 470]
+        coordinate: [1760, 20]
         rotation: 0
         state: enabled
 -   name: decoder
@@ -172,7 +193,7 @@ blocks:
         msg_filter: '"Extended Squitter Only"'
         print_level: '"Brief"'
     states:
-        coordinate: [160, 490]
+        coordinate: [1470, 220]
         rotation: 0
         state: enabled
 -   name: demod
@@ -185,7 +206,7 @@ blocks:
         maxoutbuf: '0'
         minoutbuf: '0'
     states:
-        coordinate: [1000, 310]
+        coordinate: [1050, 230]
         rotation: 0
         state: enabled
 -   name: framer
@@ -199,7 +220,7 @@ blocks:
         minoutbuf: '0'
         threshold: threshold
     states:
-        coordinate: [650, 220]
+        coordinate: [690, 240]
         rotation: 0
         state: enabled
 -   name: mag_squared
@@ -212,7 +233,64 @@ blocks:
         minoutbuf: '0'
         vlen: '1'
     states:
-        coordinate: [340, 230]
+        coordinate: [370, 250]
+        rotation: 0
+        state: enabled
+-   name: qtgui_waterfall_sink_x_0
+    id: qtgui_waterfall_sink_x
+    parameters:
+        affinity: ''
+        alias: ''
+        alpha1: '1'
+        alpha10: '1'
+        alpha2: '1'
+        alpha3: '1'
+        alpha4: '1'
+        alpha5: '1'
+        alpha6: '1'
+        alpha7: '1'
+        alpha8: '1'
+        alpha9: '1'
+        average: '1.0'
+        axislabels: 'True'
+        bw: samp_rate
+        color1: '0'
+        color10: '0'
+        color2: '0'
+        color3: '0'
+        color4: '0'
+        color5: '0'
+        color6: '0'
+        color7: '0'
+        color8: '0'
+        color9: '0'
+        comment: ''
+        fc: '0'
+        fftsize: '1024'
+        freqhalf: 'True'
+        grid: 'False'
+        int_max: '10'
+        int_min: '-140'
+        label1: ''
+        label10: ''
+        label2: ''
+        label3: ''
+        label4: ''
+        label5: ''
+        label6: ''
+        label7: ''
+        label8: ''
+        label9: ''
+        legend: 'True'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        name: Waterfall
+        nconnections: '1'
+        type: complex
+        update_time: '0.1'
+        wintype: window.WIN_RECTANGULAR
+    states:
+        coordinate: [400, 440]
         rotation: 0
         state: enabled
 -   name: rtlsdr
@@ -234,7 +312,7 @@ blocks:
         samp_rate: samp_rate
         type: complex
     states:
-        coordinate: [10, 210]
+        coordinate: [10, 230]
         rotation: 0
         state: enabled
 -   name: threshold_trace
@@ -248,7 +326,7 @@ blocks:
         minoutbuf: '0'
         type: float
     states:
-        coordinate: [1000, 210]
+        coordinate: [840, 400]
         rotation: 0
         state: enabled
 -   name: wasm_gui_layout_0
@@ -258,13 +336,17 @@ blocks:
         alias: ''
         columns: '12'
         comment: ''
-        layout: '{}'
+        layout: '{"aircraft_map":[0,1,7,7],"bursts":[7,1,5,3],"gain":[0,0,6,1],"qtgui_waterfall_sink_x_0":[7,4,5,4],"threshold":[6,0,6,1]}'
         row_height: '60'
     states:
         coordinate: [310, 10]
         rotation: 0
         state: enabled
 connections:
+-   src_blk_id: decoder
+    src_port_id: decoded
+    snk_blk_id: aircraft_map
+    snk_port_id: decoded
 -   src_blk_id: decoder
     src_port_id: decoded
     snk_blk_id: decoded_planes
@@ -277,6 +359,7 @@ connections:
 - [framer, '0', demod, '0']
 - [mag_squared, '0', framer, '0']
 - [rtlsdr, '0', mag_squared, '0']
+- [rtlsdr, '0', qtgui_waterfall_sink_x_0, '0']
 - [threshold_trace, '0', bursts, '1']
 metadata:
     file_format: 2

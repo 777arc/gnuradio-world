@@ -1,0 +1,10 @@
+{
+  "name": "gnuradio-world-runner-assets",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Pinned browser dependencies copied into the GNU Radio World runner",
+  "license": "GPL-3.0-or-later",
+  "dependencies": {
+    "maplibre-gl": "6.8.0"
+  }
+}
