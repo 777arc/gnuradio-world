@@ -12,6 +12,7 @@ export interface ExampleRecording {
   annotationLabels: string[];
   captureDatetime: string | null;
   category: string | null;
+  collection: string | null;
   tags: string[];
   sampleCount: number | null;
   byteLength: number;
@@ -31,15 +32,10 @@ export interface R2RecordingIndexEntry {
   capture_datetime?: unknown;
   title?: unknown;
   category?: unknown;
+  collection?: unknown;
   tags?: unknown;
   byte_length?: unknown;
   number_of_samples?: unknown;
-}
-
-export interface RecordingDirectory {
-  name: string;
-  directories: Map<string, RecordingDirectory>;
-  recordings: ExampleRecording[];
 }
 
 export interface FileSourceFormat {
@@ -133,6 +129,7 @@ export function recordingFromR2Index(raw: R2RecordingIndexEntry): ExampleRecordi
     annotationLabels: stringList(raw.annotation_labels),
     captureDatetime: optionalString(raw.capture_datetime),
     category: optionalString(raw.category),
+    collection: optionalString(raw.collection),
     tags: stringList(raw.tags),
     sampleCount,
     byteLength,
@@ -218,47 +215,6 @@ export const displayDuration = (seconds: number | null): string => {
   return `${hours}h ${minutes % 60}m`;
 };
 
-// Broad ITU-style spectrum bands make recordings discoverable without asking
-// publishers to repeat information already present in the first SigMF capture.
-export function recordingBand(frequency: number | null): string {
-  if (frequency === null || !Number.isFinite(frequency) || frequency <= 0) return 'Baseband / unknown';
-  if (frequency < 300e3) return 'LF and below';
-  if (frequency < 3e6) return 'MF';
-  if (frequency < 30e6) return 'HF';
-  if (frequency < 300e6) return 'VHF';
-  if (frequency < 3e9) return 'UHF';
-  if (frequency < 30e9) return 'SHF';
-  return 'EHF and above';
-}
-
-export function recordingBandLabel(band: string): string {
-  const ranges: Record<string, string> = {
-    'LF and below': '< 300 kHz',
-    MF: '300 kHz–3 MHz',
-    HF: '3–30 MHz',
-    VHF: '30–300 MHz',
-    UHF: '300 MHz–3 GHz',
-    SHF: '3–30 GHz',
-    'EHF and above': '≥ 30 GHz',
-    'Baseband / unknown': 'No center frequency',
-  };
-  return ranges[band] ? `${ranges[band]} (${band})` : band;
-}
-
-export function compareRecordingBands(a: string, b: string): number {
-  const order = ['LF and below', 'MF', 'HF', 'VHF', 'UHF', 'SHF', 'EHF and above',
-    'Baseband / unknown'];
-  const aIndex = order.indexOf(a), bIndex = order.indexOf(b);
-  if (aIndex !== -1 || bIndex !== -1)
-    return (aIndex === -1 ? order.length : aIndex) - (bIndex === -1 ? order.length : bIndex);
-  return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
-}
-
-export function recordingCollection(recording: ExampleRecording): string {
-  const parts = recording.name.split('/');
-  return parts.length > 1 ? parts[0] : 'Uncollected';
-}
-
 // GR World Recording exposes integer recordings as scalar component streams, matching
 // GNU Radio's normal interleaved-I/Q convention. For example, ci16_le becomes
 // short with vlen=1 and can feed IShort To Complex with Vector Input disabled.
@@ -282,29 +238,4 @@ export function sigmfFileSourceFormat(datatype: string | null): FileSourceFormat
 
 export function isCi16Datatype(datatype: string | null): boolean {
   return /^ci16(?:_le)?$/i.test(datatype?.trim() || '');
-}
-
-export function buildRecordingTree(recordings: ExampleRecording[]): RecordingDirectory {
-  const root: RecordingDirectory = { name: '', directories: new Map(), recordings: [] };
-  for (const recording of recordings) {
-    const parts = recording.name.split('/').filter(Boolean);
-    parts.pop(); // the recording basename is rendered as the card
-    let directory = root;
-    for (const name of parts) {
-      let child = directory.directories.get(name);
-      if (!child) {
-        child = { name, directories: new Map(), recordings: [] };
-        directory.directories.set(name, child);
-      }
-      directory = child;
-    }
-    directory.recordings.push(recording);
-  }
-  return root;
-}
-
-export function recordingTreeCount(directory: RecordingDirectory): number {
-  let count = directory.recordings.length;
-  for (const child of directory.directories.values()) count += recordingTreeCount(child);
-  return count;
 }

@@ -30,14 +30,6 @@ assert.equal(recording.title, 'AO-73 telemetry');
 assert.deepEqual(recording.tags, ['BPSK', 'telemetry']);
 assert.deepEqual(recording.annotationLabels, ['packet']);
 assert.equal(recording.annotationCount, 2);
-assert.equal(catalog.recordingBand(recording.frequency), 'VHF');
-assert.equal(catalog.recordingBandLabel('VHF'), '30–300 MHz (VHF)');
-assert.equal(catalog.recordingBandLabel('UHF'), '300 MHz–3 GHz (UHF)');
-assert.deepEqual(['Baseband / unknown', 'UHF', 'HF', 'VHF', 'MF', 'EHF and above',
-  'LF and below', 'SHF'].sort(catalog.compareRecordingBands),
-['LF and below', 'MF', 'HF', 'VHF', 'UHF', 'SHF', 'EHF and above',
-  'Baseband / unknown']);
-assert.equal(catalog.recordingCollection(recording), 'collection');
 assert.equal(catalog.recordingDuration(recording), 2);
 assert.equal(catalog.displayDuration(2), '2 s');
 assert.equal(recording.downloadUrl,
@@ -46,6 +38,165 @@ assert.equal(recording.metadataUrl,
   'https://recordings.example.test/collection/capture%20one.sigmf-meta');
 assert.equal(catalog.recordingFromR2Index({ base_filename: '../escape', byte_length: 1 }), null);
 assert.equal(catalog.recordingFromR2Index({ base_filename: 'missing-size' }), null);
+
+// ---- taxonomy: categories, collections and the facet that splits one --------
+// The same module scripts/backfill-recording-metadata.mjs bundles, which is what
+// makes the proposals it writes identical to what the palette already infers.
+const taxonomy = await bundleModule('../src/recording-taxonomy.ts', {
+  define: { 'import.meta.env': JSON.stringify({}) },
+});
+
+const rec = (fields) => ({
+  name: 'x', title: 'x', datatype: 'cf32_le', sampleRate: null, author: null,
+  description: null, frequency: null, annotationCount: 0, annotationLabels: [],
+  captureDatetime: null, category: null, collection: null, tags: [],
+  sampleCount: null, byteLength: 1, dataFile: '', metaFile: '',
+  downloadUrl: '', metadataUrl: '', ...fields,
+});
+
+// Declared metadata always beats a guess -- that is what makes the derivation a
+// migration path rather than a permanent second source of truth.
+assert.equal(taxonomy.recordingCategory(rec({ category: 'HF Utility',
+  name: 'GRCon25_CTF/thing' })), 'HF Utility');
+assert.equal(taxonomy.recordingCollectionName(rec({ collection: 'My set',
+  name: 'estevez/ao73' })), 'My set');
+
+assert.equal(taxonomy.recordingCategory(rec({ name: 'GRCon25_CTF/sigid1' })), 'CTF / Puzzle');
+assert.equal(taxonomy.recordingCategory(rec({ name: 'estevez/ao73',
+  description: 'AO-73 (NORAD 39444): BPSK at 1200 baud.' })), 'Satellite');
+// A synthetic GPS Gold code is a test vector, not a navigation capture: the key
+// prefix is the publisher saying so, and it outranks the description's keyword.
+assert.equal(taxonomy.recordingCategory(rec({ name: 'synthetic/GPSL1CA_PRN09',
+  description: 'GPS L1 C/A Gold code' })), 'Synthetic / Test');
+assert.equal(taxonomy.recordingCategory(rec({ name: 'gps_capture',
+  description: 'Recording of GPS L1 signals' })), 'Navigation');
+assert.equal(taxonomy.recordingCategory(rec({ name: 'mystery' })),
+  taxonomy.UNSORTED_CATEGORY);
+
+assert.equal(taxonomy.recordingCollectionName(rec({ name: 'GRCon23_CTF/demod' })),
+  'GRCon 2023 CTF');
+assert.equal(taxonomy.recordingCollectionName(rec({ name: 'new_group/thing' })), 'new group');
+assert.equal(taxonomy.recordingCollectionName(rec({ name: 'loose' })),
+  taxonomy.STANDALONE_COLLECTION);
+
+// The key counts for modulation, not only the description: a synthetic vector
+// names itself and carries no description at all.
+assert.equal(taxonomy.recordingModulation(rec({ name: 'synthetic/BPSK_2SPS' })), 'BPSK');
+assert.equal(taxonomy.recordingModulation(rec({ tags: ['bpsk'] })), 'BPSK');
+assert.equal(taxonomy.recordingModulation(rec({ name: 'estevez/amgu_1' })), null,
+  'a word merely containing a modulation name is not one');
+
+// Three populations hide in "no frequency", and only one of them is audio.
+assert.equal(taxonomy.recordingBandOf(rec({ datatype: 'ri16_le', frequency: 0 })),
+  taxonomy.BASEBAND_AUDIO_BAND);
+assert.equal(taxonomy.recordingBandOf(rec({ datatype: 'cf32_le', frequency: 0 })), null,
+  'an RF capture missing its centre frequency is a gap, not a band');
+assert.equal(taxonomy.recordingBandOf(rec({ datatype: 'cf32_le', frequency: 145e6 })), 'VHF');
+// One band vocabulary, owned here: labelled with its numeric range and ordered
+// by frequency rather than alphabet.
+assert.equal(taxonomy.recordingBandLabel('VHF'), '30–300 MHz (VHF)');
+assert.equal(taxonomy.recordingBandLabel(taxonomy.BASEBAND_AUDIO_BAND),
+  'no RF centre frequency (Baseband / audio)');
+assert.deepEqual(['UHF', 'HF', taxonomy.BASEBAND_AUDIO_BAND, 'VHF', 'Made up']
+  .sort(taxonomy.compareBands),
+  [taxonomy.BASEBAND_AUDIO_BAND, 'HF', 'VHF', 'UHF', 'Made up'],
+  'an unrecognized band sorts last rather than throwing the order off');
+
+// The facet chooser, and the guards that keep it honest.
+const many = (count, fields) => Array.from({ length: count }, (_, i) =>
+  rec({ ...fields, name: `${fields.name}/${i}` }));
+const ctf = [...many(16, { name: 'GRCon23_CTF' }), ...many(11, { name: 'GRCon24_CTF' }),
+  ...many(7, { name: 'GRCon25_CTF' })];
+const ctfSplit = taxonomy.splitRecordings(ctf);
+assert.equal(ctfSplit.facet.id, 'collection');
+// Newest event first, not largest: nobody opens CTF / Puzzle wanting 2023.
+assert.deepEqual(ctfSplit.groups.map(group => [group.value, group.recordings.length]),
+  [['GRCon 2025 CTF', 7], ['GRCon 2024 CTF', 11], ['GRCon 2023 CTF', 16]]);
+// A real capture time outranks the year in the name.
+const dated = taxonomy.splitRecordings([
+  ...many(4, { name: 'GRCon23_CTF', captureDatetime: '2026-01-01T00:00:00Z' }),
+  ...many(4, { name: 'GRCon25_CTF' })]);
+assert.equal(dated.groups[0].value, 'GRCon 2023 CTF');
+// And a collection with neither falls back to size, never to reverse alphabet.
+const plain = taxonomy.splitRecordings([...many(4, { name: 'alpha' }),
+  ...many(9, { name: 'zulu' })]);
+assert.deepEqual(plain.groups.map(group => group.value), ['zulu', 'alpha']);
+
+// Four recordings split into three headings of one card each reads as structure
+// while carrying none, so a small category stays flat.
+assert.equal(taxonomy.splitRecordings(many(4, { name: 'a' })).facet, null);
+// And one value holding everything has not split anything.
+assert.equal(taxonomy.splitRecordings(many(20, { name: 'one' })).facet, null);
+// A facet most of the set cannot answer does not get to be the heading, however
+// cleanly it divides the minority that can.
+const sparse = [...many(3, { name: 'p', description: 'BPSK' }),
+  ...many(3, { name: 'p', description: 'FSK' }), ...many(9, { name: 'p' })];
+assert.ok(taxonomy.splitRecordings(sparse, [taxonomy.SECTION_FACETS[2]]).facet === null,
+  'a facet under the coverage floor is rejected');
+
+// ---- the backfill's merge, which decides what production metadata keeps ------
+// Importing the script does not run it: main() is guarded on being the entry
+// point. This is the highest-consequence function in the recordings work -- it
+// rewrites .sigmf-meta objects in a bucket with no undo -- so the rules it
+// enforces are pinned here rather than described in a comment.
+const { mergeProposal } = await import('../../scripts/backfill-recording-metadata.mjs');
+
+const proposal = {
+  global: { 'grworld:category': 'Satellite', 'grworld:collection': 'A set' },
+  datetime: '2025-09-08T00:00:00Z',
+};
+
+const bare = {
+  global: { 'core:datatype': 'cf32_le' },
+  captures: [{ 'core:sample_start': 0, 'core:frequency': 145e6 }],
+  annotations: [],
+};
+const filled = mergeProposal(bare, proposal);
+assert.equal(filled.changed, true);
+assert.equal(filled.metadata.global['grworld:category'], 'Satellite');
+assert.equal(filled.metadata.global['core:datatype'], 'cf32_le', 'core fields survive');
+assert.equal(filled.metadata.captures[0]['core:datetime'], '2025-09-08T00:00:00Z');
+assert.equal(filled.metadata.captures[0]['core:frequency'], 145e6,
+  'the rest of the capture survives');
+// A declared extension list is what tells a reader the grworld keys are real.
+assert.deepEqual(filled.metadata.global['core:extensions'],
+  [{ name: 'grworld', version: '1.0.0', optional: true }]);
+// The input is never mutated: the caller writes it out as the backup.
+assert.equal(bare.global['grworld:category'], undefined);
+assert.equal(bare.captures[0]['core:datetime'], undefined);
+
+// A field a human already declared is never overwritten -- the whole reason
+// hand-curated recordings can be left in the run.
+const curated = mergeProposal({
+  global: { 'grworld:category': 'HF Utility' },
+  captures: [{ 'core:sample_start': 0, 'core:datetime': '2020-01-01T00:00:00Z' }],
+}, proposal);
+assert.equal(curated.metadata.global['grworld:category'], 'HF Utility');
+assert.equal(curated.metadata.global['grworld:collection'], 'A set',
+  'the fields it did not declare are still filled in');
+assert.equal(curated.metadata.captures[0]['core:datetime'], '2020-01-01T00:00:00Z',
+  'a real capture time outranks the collection date');
+
+// Re-running is a no-op, which is what makes this a publishing step rather than
+// a migration: run it after an upload and only the new recordings are touched.
+const again = mergeProposal(filled.metadata, proposal);
+assert.equal(again.changed, false);
+assert.equal(again.metadata.global['core:extensions'].length, 1,
+  'the extension entry is not appended twice');
+
+// An empty proposal changes nothing, so a recording that declares everything
+// never reaches wrangler at all.
+assert.equal(mergeProposal(bare, { global: {}, datetime: null }).changed, false);
+
+// Metadata with no captures array still gets its datetime somewhere valid.
+const captureless = mergeProposal({ global: {} }, proposal);
+assert.equal(captureless.metadata.captures[0]['core:sample_start'], 0);
+assert.equal(captureless.metadata.captures[0]['core:datetime'], '2025-09-08T00:00:00Z');
+
+const grouped = taxonomy.categorize([rec({ name: 'estevez/ao73', description: 'NORAD 1' }),
+  rec({ name: 'mystery' })]);
+assert.deepEqual(grouped.map(entry => entry.category), ['Satellite', taxonomy.UNSORTED_CATEGORY],
+  'the unsorted bucket is always ordered last, and never dropped');
 
 assert.deepEqual(catalog.sigmfFileSourceFormat('cf32_le'), { type: 'complex', vlen: 1 });
 assert.deepEqual(catalog.sigmfFileSourceFormat('ci16'), { type: 'short', vlen: 1 });
@@ -66,11 +217,6 @@ assert.equal(catalog.recordingUrl('collection/capture one.sigmf-data',
 assert.throws(() => catalog.normalizeRecordingKey('../escape'), /invalid recording key/);
 assert.throws(() => catalog.normalizeRecordingKey(''), /invalid recording key/);
 
-const other = { ...recording, name: 'collection/nested/other' };
-const tree = catalog.buildRecordingTree([recording, other]);
-assert.equal(catalog.recordingTreeCount(tree), 2);
-assert.equal(tree.directories.get('collection').recordings.length, 1);
-assert.equal(tree.directories.get('collection').directories.get('nested').recordings.length, 1);
 assert.equal(catalog.displaySi(1_500_000, 'S/s'), '1.5 MS/s');
 assert.equal(catalog.displayBytes(2048), '2.0 KiB');
 
@@ -96,6 +242,22 @@ assert.match(card, /details\.hidden = !details\.hidden/,
   'full metadata and downloads expand without making every catalog row tall');
 assert.match(card, /const facts = \[\s*recording\.author,\s*displaySi\(recording\.frequency, 'Hz'\)/,
   'the compact facts put the author first');
+
+// Browsing is categories first, then whatever facet splits the one that was
+// opened; search is global from wherever the reader is standing, so it is not
+// narrowed by the category they happen to have open.
+assert.match(recordingPaletteSource, /const categories = categorize\(recordings\)/);
+assert.match(recordingPaletteSource, /const splits = new Map\(categories\.map\(entry =>\s*\n\s*\[entry\.category, splitRecordings\(entry\.recordings\)\] as const\)\)/,
+  'the split is computed per category, so a refine chip cannot make its own chips vanish');
+assert.match(recordingPaletteSource, /if \(terms\.length\) \{\s*\n\s*renderResults\(query, terms\);\s*\n\s*\} else if \(entry\) \{\s*\n\s*renderCategory\(entry\);\s*\n\s*\} else \{\s*\n\s*renderLanding\(\);/,
+  'a query bypasses the hierarchy entirely rather than filtering within it');
+assert.match(recordingPaletteSource, /const elsewhere = activeCategory\s*\n\s*\? matched\.filter\(recording => recordingCategory\(recording\) !== activeCategory\) : matched/,
+  'what an open category did not match is offered below, never hidden');
+// Rebuilt once per recording rather than once per recording per search term.
+assert.match(recordingPaletteSource, /const searchText = new WeakMap<ExampleRecording, string>\(\);\s*\n\s*for \(const recording of recordings\) searchText\.set\(recording, recordingSearchText\(recording\)\);/,
+  'the search haystack is precomputed');
+assert.doesNotMatch(recordingPaletteSource, /terms\.every\(term => recordingSearchText\(recording\)/,
+  'and never rebuilt inside the filter');
 
 assert.match(main, /converterId = 'blocks_interleaved_short_to_complex'/);
 assert.match(main, /scale_factor: 32767\.0/);

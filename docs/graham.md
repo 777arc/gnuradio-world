@@ -337,7 +337,7 @@ wiring are needed. The browser caches the fetched texts inside the Graham
 dependency bundle, so listing followed by reading an example does not download
 that file twice.
 
-## Hosted SigMF recordings
+## Hosted signal recordings
 
 Graham reads the same live R2 catalog as the Recordings palette rather than a
 recording list baked into its prompt. `list_recordings` reads `index.json`,

@@ -254,24 +254,32 @@ by its bucket name; it uses that HTTPS domain. The editor defaults to this base,
 with `VITE_RECORDINGS_R2_BASE` available as a build-time override.
 
 [`workers/sigmf-indexer/`](../workers/sigmf-indexer/) is bound to the bucket as
-`RECORDINGS`. R2 object-create notifications for `.sigmf-data` and `.sigmf-meta`
-enter `gnuradio-world-sigmf-events`; its consumer batches up to 100 notifications
+`RECORDINGS`. R2 object-create notifications enter `gnuradio-world-sigmf-events`;
+its consumer batches up to 100 notifications
 for up to 60 seconds and performs one rebuild per batch. The rebuild lists every
 object, pairs keys with the same base and SigMF suffixes, reads the metadata,
 derives byte and sample counts, and replaces the bucket's `index.json`. A 09:00
 UTC daily cron provides a fallback, and its authenticated `POST /rebuild`
 endpoint performs the same job on demand.
 
+**Only `.sigmf-data` is wired to that queue.** The bucket carries a single
+notification rule, `suffix: .sigmf-data`, so replacing a `.sigmf-meta` — every
+metadata correction, and everything the backfill script writes — fires no
+notification and rebuilds nothing. Until a second rule exists, a metadata-only
+change reaches the catalog through the daily cron or a manual `POST /rebuild`
+rather than on its own:
+
+```bash
+npx wrangler r2 bucket notification list gnuradio-wasm-recordings
+npx wrangler r2 bucket notification create gnuradio-wasm-recordings \
+  --queue gnuradio-world-sigmf-events --event-types object-create --suffix .sigmf-meta
+```
+
 The editor fetches that live index with `cache: no-store`, then constructs both
-object URLs from each base key. The Recordings palette is a compact faceted
-catalog: its search covers the title, full key, description, author, datatype,
-catalog tags, annotation labels, frequency and derived RF band. Category, band,
-collection, format and annotation filters compose with that search; results can
-be grouped by category or collection and sorted without
-another fetch. Only 50 matching rows are initially rendered. A row's **View**
-action opens the recording alone, **Add** drops a GR World Recording (plus an
-IShort To Complex for `ci16`) on the canvas, and **More** reveals the permanent
-key, full metadata, downloads and the copy-link action.
+object URLs from each base key. A row's **View** action opens the recording
+alone, **Add** drops a GR World Recording (plus an IShort To Complex for `ci16`)
+on the canvas, and **Details** reveals the permanent key, full metadata,
+downloads and the copy-link action.
 
 Graham uses that same source of truth through `list_recordings` and
 fetches a selected recording's `.sigmf-meta` through
@@ -279,6 +287,55 @@ fetches a selected recording's `.sigmf-meta` through
 returning the first 10 of each by default, because neither SigMF array has a
 specified maximum length. See [docs/graham.md](graham.md) for the tool
 contract and token bounds.
+
+## How the palette organizes hundreds of recordings
+
+The **Signal Recordings** palette tab opens on **category tiles**, not a list.
+(The tab is named for what it holds, not the container format: every recording
+here is still SigMF, and the blocks, files and indexer all keep that name.) Clicking one drills into
+it; typing in the search box leaves the hierarchy entirely. Three views, one
+render, in [`editor/src/recording-palette.ts`](../editor/src/recording-palette.ts),
+over the rules in
+[`editor/src/recording-taxonomy.ts`](../editor/src/recording-taxonomy.ts).
+
+- **The second level is chosen, not fixed.** No single split serves a
+  95-recording category and a 3-recording one, so `splitRecordings()` scores
+  every candidate facet — collection, protocol, modulation, band, format, tried
+  and tie-broken in that order — against the contents of the category actually
+  opened, and takes the winner. Against the live catalog that puts CTF / Puzzle
+  under its three GRCon events and Satellite under FSK / BPSK / AFSK, with no
+  special case for either.
+- **Not splitting is a real outcome.** The guards are `MIN_TO_SPLIT` (8),
+  `MIN_PER_GROUP` (3), a 75% ceiling on any one group and a 60% coverage floor.
+  Each was earned: without the size ones, four Maritime recordings split into
+  three headings holding one card each, which reads as structure while carrying
+  none. A category no facet fits renders as a flat gallery, and most of them do.
+- **The refine chips are the runner-up facet.** The axis that was the second
+  best way to organize a category is exactly the one worth offering as a filter
+  once the best one is already the headings. Chips are computed from the whole
+  category and cached per category, so using one cannot make the others vanish;
+  the split is then recomputed over what survives, so refining to one band still
+  shows that band organized by the category's own axis.
+- **Search is global from wherever the reader is standing.** The drill-down is
+  for browsing when you do not know what you want; search is for when you do,
+  and the tree must never get in the second one's way. With a category open, its
+  own matches lead and the rest appear under *Elsewhere in the catalog* — never
+  hidden. The haystack is precomputed per recording rather than rebuilt inside
+  the filter, which it used to be once per recording *per search term*.
+- **One grid serves both widths.** `.rec-grid` is
+  `repeat(auto-fill, minmax(240px, 1fr))`, so in the 460px palette it resolves to
+  a single column and reads as the old list did, and any wider surface gets a
+  gallery with no second implementation to keep in step. A container query
+  stacks the card below 330px of *cell* width, because the 150px action column
+  would otherwise leave the facts line no room.
+
+Three populations hide in what a centre frequency alone would call unknown, and
+`recordingBandOf()` keeps them apart. A real-valued recording is a receiver's
+audio output and has no RF centre to report, which is an answer —
+`Baseband / audio`. A complex recording with no `core:frequency` is an RF
+capture whose metadata is incomplete, which is a gap to fill rather than a
+bucket to browse, so it returns null and is left out of the facet instead of
+being filed beside genuine audio.
 
 The copied URL uses `#recording=<base key>` — the same base key the index calls
 `base_filename`, and the same one the block stores, so a link is readable and
@@ -299,19 +356,86 @@ this optional catalog extension in the global object:
   ],
   "grworld:title": "AO-73 telemetry pass",
   "grworld:category": "Satellite",
+  "grworld:collection": "Daniel Estévez satellite recordings",
   "grworld:tags": ["BPSK", "telemetry", "amateur-radio"]
 }
 ```
 
 `grworld:title` is the display title (the basename is its fallback),
-`grworld:category` is one primary browse group, and `grworld:tags` is the
-many-valued discovery vocabulary. All three are optional, the indexer removes
-empty and duplicate tags, and older metadata remains fully usable. Prefer a
-small, consistent vocabulary over spelling variants; category and tag values
-are deliberately data rather than object paths so a recording can be
-reclassified without breaking a `.grc` or shared recording URL. Recordings with
-no collection prefix appear in **Uncollected**, which is always ordered before
-named collections.
+`grworld:category` is the one root browse group, `grworld:collection` is the
+named group it is sectioned under, and `grworld:tags` is the many-valued
+discovery vocabulary. All four are optional, the indexer removes empty and
+duplicate tags, and older metadata remains fully usable. The category
+vocabulary is `RECORDING_CATEGORIES` in `recording-taxonomy.ts`; prefer one of
+those values over a spelling variant, and add a value there rather than
+inventing one per recording.
+
+**Every one of these is data, never an object path.** The palette falls back to
+the key prefix when `grworld:collection` is absent, but the prefix is only the
+fallback: grouping off the storage layout would mean moving an object re-files
+it in the catalog *and* changes its permanent key. A recording that declares its
+own collection can be moved in the bucket without being re-filed. A recording
+with no collection at all is **Standalone uploads**.
+
+### Filling in the catalog fields after an upload
+
+[`scripts/backfill-recording-metadata.mjs`](../scripts/backfill-recording-metadata.mjs)
+proposes these fields for every hosted recording. The rules are not in that
+script — it bundles `recording-taxonomy.ts`, the same module the palette browses
+with, so what it writes is exactly what the palette already infers. Running it
+therefore changes no grouping anywhere; it moves each answer from a guess made
+in the browser to a fact recorded in the bucket, after which the fallback never
+runs for that recording again and a human can correct it in one place.
+
+**This is a publishing step, not a one-off migration.** It skips any field a
+recording already declares, so a recording that has been through it drops out
+entirely and re-running touches only what is new. Upload a recording, run this,
+correct anything it guessed wrong. Without it a new upload still browses
+correctly — the palette derives it — but nothing in the bucket says so, and
+correcting a wrong guess means hand-authoring the whole `grworld:` block and its
+`core:extensions` entry.
+
+`mergeProposal()` is the function that decides what production metadata keeps,
+and `editor/test/recordings.test.mjs` pins its rules: never overwrite a declared
+field, never mutate the object being written out as the backup, never append the
+extension entry twice, and report no change when there is nothing to add.
+
+```bash
+node scripts/backfill-recording-metadata.mjs                    # review, writes nothing
+node scripts/backfill-recording-metadata.mjs --out p.json       # the full proposal
+node scripts/backfill-recording-metadata.mjs --apply --limit 3  # a trial batch
+node scripts/backfill-recording-metadata.mjs --apply            # all of them
+```
+
+`--apply` writes through `wrangler r2 object put` and the `wrangler login`
+session, so it needs no access keys and adds no AWS SDK to a repository that has
+none. Contrary to the note under "CORS is a manual step", wrangler **v4** runs
+these object commands fine on Node 20; only the older `r2 bucket cors`
+invocation is pinned to v3.
+
+Three things make it safe to run:
+
+- it never removes or overwrites a field a recording already declares, so a
+  hand-curated recording is left alone and re-running is idempotent;
+- it re-reads each `.sigmf-meta` from the bucket immediately before writing —
+  the index is a cache, and an edit made since it was built has to survive;
+- every original is saved under `--backup` (a timestamped directory by default)
+  before being replaced. **R2 has no undo**: that directory is the undo, and the
+  script prints the loop that restores from it.
+
+Start with `--limit 3`, refresh the palette, then run the rest.
+
+Note which source each half reads. Proposals come from `index.json`, which is a
+cache and can lag a recent upload; every **write** re-reads the live
+`.sigmf-meta` first. So a dry run against a stale index over-reports what it will
+do, and the apply still writes only what is genuinely missing.
+
+It also fills `core:datetime` from the event date for the collections listed in
+`COLLECTION_DATETIMES`, which is what makes the **Newest** sort work at all —
+most recordings here carry no capture time. Only collections whose date is
+genuinely known are listed. Anything else stays undated on purpose: a
+confidently wrong timestamp sorts wrong forever and nothing downstream can tell
+it from a real one.
 
 To publish a recording, upload both matching objects directly to R2 using the
 dashboard, the S3-compatible API, rclone, or another R2 client. The event batch

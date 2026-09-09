@@ -26,7 +26,9 @@ assert.match(html, /\.palsearch-bar \{[^}]*background:#[0-9a-f]{6}[^}]*\}/,
 for (const [placeholder, append] of [
   ['Search blocks…', /blocksPanel\.append\(searchBar, tree\)/],
   ['Search examples…', /panel\.append\(searchBar, bar, list, noMatch\)/],
-  ['Search recordings…', /panel\.append\(searchBar, list, noMatch, moreResults\)/],
+  // "all" is load-bearing: the recordings tab browses by category, and typing
+  // searches the whole catalog rather than the category currently open.
+  ['Search all recordings…', /panel\.append\(searchBar, body\)/],
 ]) {
   assert.ok(source.includes(placeholder), `no search box placeholder "${placeholder}"`);
   assert.match(source, append, `the search box goes at the top of the panel (${placeholder})`);
@@ -102,30 +104,55 @@ assert.match(source, /noMatch\.textContent = `No example flowgraph matches/,
 assert.match(source, /noMatch\.hidden = \(!f && !q\) \|\| shown > 0 \|\| pending > 0;/,
   'the empty-state message shows for a search too, not only for a block filter');
 
-// ---- SigMF Recordings -------------------------------------------------------
+// ---- Signal Recordings -------------------------------------------------------
 // The index carries everything the box matches, so nothing waits on a fetch.
-assert.match(source, /function recordingSearchText[\s\S]*?recording\.title[\s\S]*?recording\.description[\s\S]*?\.\.\.recording\.tags[\s\S]*?\.\.\.recording\.annotationLabels[\s\S]*?recordingBand\(recording\.frequency\)[\s\S]*?\.toLowerCase\(\)/,
-  'recording search covers human metadata, catalog tags, annotations and RF band');
-assert.match(source, /terms\.every\(term => recordingSearchText\(recording\)\.includes\(term\)\)/,
+assert.match(source, /function recordingSearchText[\s\S]*?recording\.title[\s\S]*?recording\.description[\s\S]*?recordingCategory\(recording\)[\s\S]*?\.\.\.recording\.tags[\s\S]*?\.\.\.recording\.annotationLabels[\s\S]*?recordingBandOf\(recording\)[\s\S]*?\.toLowerCase\(\)/,
+  'recording search covers human metadata, the browse category, catalog tags, annotations and RF band');
+assert.match(source, /terms\.every\(term => \(searchText\.get\(recording\) \?\? ''\)\.includes\(term\)\)/,
   'a recording matches only when every search term is found');
-assert.match(source, /noMatch\.textContent = query[\s\S]*?No SigMF recording matches/,
+assert.match(source, /emptyNote\(`No signal recording matches/,
   'a recording search that matches nothing must say so');
-assert.match(source, /facetOptions\([\s\S]*?'All categories'[\s\S]*?'All bands'[\s\S]*?'All collections'[\s\S]*?'All formats'/,
-  'the catalog has category, band, collection and format facets');
-assert.match(source, /'All bands',[\s\S]*?compareRecordingBands, recordingBandLabel/,
-  'band choices include their numeric frequency ranges in frequency order');
+
+// Category and collection are the navigation now -- a landing of category tiles,
+// then whichever facet splits the one that was opened -- so they are no longer
+// duplicated as select controls. What remains behind the disclosure narrows
+// whatever view is on screen.
+assert.match(source, /facetOptions\([\s\S]*?'All bands'[\s\S]*?'All formats'/,
+  'band and format stay as filters over the current view');
+assert.doesNotMatch(source, /'All categories'|'All collections'/,
+  'category and collection are browsed, not selected from a dropdown');
+assert.match(source, /recordingBandOf\(recording\) \?\? UNKNOWN_BAND/,
+  'a real-valued recording reports baseband audio; an RF capture missing its centre frequency is not filed beside it');
+assert.match(source, /'All bands',\s*\n\s*compareBands, recordingBandLabel\)/,
+  'band choices carry their numeric ranges, in frequency order');
 assert.match(source, /checkControl\('Annotated'\)/,
   'annotation filtering is available without a search expression');
 assert.doesNotMatch(source, /checkControl\('Runnable'\)/,
   'recordings are expected to be runnable, so runner support is not a discovery facet');
-assert.match(source, /function recordingCollection[\s\S]*?Uncollected[\s\S]*?const byCollection[\s\S]*?a === 'Uncollected'[\s\S]*?return -1/,
-  'uncollected recordings sort before named collections');
-assert.match(source, /const PAGE_SIZE = 50;[\s\S]*?filtered\.slice\(0, visibleLimit\)/,
-  'only a bounded batch of matching recording rows is rendered');
-assert.match(source, /groupName\(recording, groupValue\)[\s\S]*?className = 'rec-group-title'/,
-  'matching recordings can be grouped by their catalog category or stable collection');
+assert.match(source, /const PAGE_SIZE = 50;[\s\S]*?const SECTION_PAGE_SIZE = 12;/,
+  'a flat result list and a section inside a category page at different sizes');
+assert.match(source, /entries\.slice\(0, limit\)/,
+  'only a bounded batch of a section is rendered');
+assert.match(source, /className = 'rec-group-title'/,
+  'sections inside a category carry a heading and a count');
+// Closed by default is the point of the view: the headings are the answer to
+// "what is in here", and one unfurled group buries the rest.
+assert.match(source, /section\.open = openSections\.has\(key\) \|\| openByDefault;/,
+  'a section is closed unless the reader opened it');
+assert.match(source, /if \(section\.open\) \{ openSections\.add\(key\); if \(!contents\.childElementCount\) fill\(\); \}/,
+  'cards are built on first expand, so a collapsed category costs its headings alone');
+assert.match(source, /sorted\(here, query, terms\), true\)/,
+  'a search result is never hidden behind a closed heading');
+assert.match(html, /\.rec-group\[open\] > \.rec-group-title > \.rec-group-caret::before/,
+  'the caret reflects the section state');
+assert.match(source, /className = 'rec-tile'/,
+  'the recordings tab opens on category tiles');
 assert.match(html, /\.rec-details\[hidden\] \{ display:none; \}/,
   'full recording metadata is collapsed until requested');
+assert.match(html, /\.rec-grid \{[^}]*repeat\(auto-fill,minmax\(240px,1fr\)\)/,
+  'one grid serves the 460px palette and any wider surface without a second implementation');
+assert.match(html, /@container \(max-width:330px\) \{[\s\S]*?\.rec-head \{ flex-direction:column; \}/,
+  'a narrow grid cell stacks the card rather than squeezing the facts line');
 
 // Escape is a cheap way out of a query that hides everything, on both list tabs.
 assert.match(source, /if \(event\.key === 'Escape' && search\.value\)[\s\S]*?search\.value = ''; filterChanged\(\);/,

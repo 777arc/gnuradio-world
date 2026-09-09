@@ -37,3 +37,9 @@ __pycache__/
 /editor/public/examples/
 /editor/public/sitemap.xml
 .env
+
+# Originals saved by scripts/backfill-recording-metadata.mjs --apply before it
+# replaces a .sigmf-meta in R2. R2 has no undo, so keep these locally until the
+# rebuilt index looks right -- but they are production metadata, not source, and
+# a committed copy would go stale the moment anyone edits a recording.
+/recordings-backup-*/

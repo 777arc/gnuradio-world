@@ -72,6 +72,11 @@ function recordingFromMetadata(baseFilename, dataSize, metadata) {
     // should declare the corresponding grworld SigMF extension.
     title: optionalString(global['grworld:title']),
     category: optionalString(global['grworld:category']),
+    // The named group a recording browses under. Deliberately not the object-key
+    // prefix: the editor falls back to that prefix when this is absent, so a
+    // recording that declares one can be moved in the bucket without being
+    // re-filed in the catalog.
+    collection: optionalString(global['grworld:collection']),
     tags: stringList(global['grworld:tags']),
     byte_length: dataSize,
     number_of_samples: numberOfSamples,

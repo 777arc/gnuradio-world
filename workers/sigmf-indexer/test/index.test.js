@@ -72,6 +72,7 @@ test('paginates, pairs files, extracts metadata, sorts, and replaces index.json'
         'core:description': 'RDS burst',
         'grworld:title': 'Broadcast RDS burst',
         'grworld:category': 'Broadcast',
+        'grworld:collection': 'Marc\'s field recordings',
         'grworld:tags': ['RDS', 'FM', 'RDS'],
       },
       captures: [{
@@ -104,6 +105,7 @@ test('paginates, pairs files, extracts metadata, sorts, and replaces index.json'
       capture_datetime: null,
       title: null,
       category: null,
+      collection: null,
       tags: [],
       byte_length: 12,
       number_of_samples: 6,
@@ -120,6 +122,7 @@ test('paginates, pairs files, extracts metadata, sorts, and replaces index.json'
       capture_datetime: '2026-08-25T12:00:00Z',
       title: 'Broadcast RDS burst',
       category: 'Broadcast',
+      collection: 'Marc\'s field recordings',
       tags: ['RDS', 'FM'],
       byte_length: 80,
       number_of_samples: 10,

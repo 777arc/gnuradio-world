@@ -4010,14 +4010,14 @@ let activatePaletteTab: ((which: 'blocks' | 'examples' | 'recordings') => void) 
 
 async function buildPalette() {
   const pal = el('palette');
-  // ---- tab bar: Blocks | Example Flowgraphs | SigMF Recordings ----
+  // ---- tab bar: Blocks | Example Flowgraphs | Signal Recordings ----
   const tabs = document.createElement('div'); tabs.className = 'paltabs';
   const blocksPanel = document.createElement('div'); blocksPanel.className = 'paltab-panel';
   const examplesPanel = document.createElement('div'); examplesPanel.className = 'paltab-panel'; examplesPanel.hidden = true;
   const recordingsPanel = document.createElement('div'); recordingsPanel.className = 'paltab-panel'; recordingsPanel.hidden = true;
   const tabBlocks = document.createElement('button'); tabBlocks.className = 'paltab active'; tabBlocks.textContent = 'Blocks';
   const tabExamples = document.createElement('button'); tabExamples.className = 'paltab'; tabExamples.textContent = 'Example Flowgraphs';
-  const tabRecordings = document.createElement('button'); tabRecordings.className = 'paltab'; tabRecordings.textContent = 'SigMF Recordings';
+  const tabRecordings = document.createElement('button'); tabRecordings.className = 'paltab'; tabRecordings.textContent = 'Signal Recordings';
   let examplesLoaded = false;
   let recordingsLoaded = false;
   const activate = (which: 'blocks' | 'examples' | 'recordings') => {

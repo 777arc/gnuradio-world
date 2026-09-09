@@ -594,14 +594,68 @@ button:hover { filter:brightness(1.15); }
     cursor:pointer; }
 .rec-clear:hover { color:#b9d1ff; filter:none; }
 .rec-clear[hidden] { display:none; }
-.rec-list { padding:10px; display:flex; flex-direction:column; gap:12px; }
-.rec-group { display:flex; flex-direction:column; gap:6px; min-width:0; }
-.rec-group-title { display:flex; align-items:baseline; justify-content:space-between; gap:8px;
-    margin:0; padding:0 3px 3px; color:#c3cbe0; border-bottom:1px solid #333a4d;
-    font-size:15px; font-weight:600; }
-.rec-group-title span { color:#7f8bab; font-size:13px; font-weight:400; }
+.rec-body { padding:10px; display:flex; flex-direction:column; gap:14px; }
+/* One grid serves both surfaces. In the 460px palette it resolves to a single
+   column and reads exactly as the old list did; dragging the splitter wider (or
+   hosting the same component on a full-width surface) turns it into a gallery
+   with no second implementation to keep in step. */
+.rec-grid { display:grid; gap:8px; min-width:0;
+    grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); }
+.rec-group { min-width:0; }
+.rec-group-title { display:flex; align-items:baseline; gap:8px;
+    margin:0; padding:3px 3px 4px; color:#c3cbe0; border-bottom:1px solid #333a4d;
+    font-size:15px; font-weight:600; cursor:pointer; list-style:none; }
+.rec-group-title::-webkit-details-marker { display:none; }
+.rec-group-title:hover { color:#e6e9f0; }
+.rec-group-caret { width:10px; flex:none; color:#7f8bab; font-size:11px; line-height:1; }
+.rec-group-caret::before { content:'\25B8'; }
+.rec-group[open] > .rec-group-title > .rec-group-caret::before { content:'\25BE'; }
+.rec-group-name { flex:1; min-width:0; }
+.rec-group-title > span:last-child { flex:none; color:#7f8bab; font-size:13px;
+    font-weight:400; font-variant-numeric:tabular-nums; }
+.rec-group-contents { display:flex; flex-direction:column; gap:8px; padding-top:8px; }
+
+/* ---- the category landing ---- */
+.rec-tiles { display:grid; gap:8px; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); }
+.rec-tile { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:2px 8px;
+    padding:10px 12px; text-align:left; color:#dce3f5; background:#242a3b;
+    border:1px solid #333a4d; border-radius:6px; cursor:pointer; }
+.rec-tile:hover, .rec-tile:focus-visible { background:#282f42; border-color:#46507a;
+    filter:none; }
+.rec-tile-name { color:#e6e9f0; font-size:15px; font-weight:600; min-width:0; }
+.rec-tile-count { grid-column:2; grid-row:1; align-self:start; padding:0 7px;
+    color:#cfe0ff; background:#2f3d5e; border-radius:999px; font-size:12px;
+    line-height:19px; font-variant-numeric:tabular-nums; }
+.rec-tile-blurb { grid-column:1/-1; color:#9aa7c6; font-size:13px; line-height:1.35; }
+.rec-tile-inside { grid-column:1/-1; margin-top:3px; overflow:hidden; text-overflow:ellipsis;
+    white-space:nowrap; color:#7f8bab; font-size:12px; }
+.rec-tile-unsorted { border-style:dashed; }
+
+/* ---- breadcrumb and refine chips ---- */
+.rec-crumbs { display:flex; align-items:center; gap:6px; margin-top:8px; font-size:13px; }
+.rec-crumbs[hidden] { display:none; }
+.rec-crumb { padding:0; color:#8fb6ff; background:transparent; border:0; font-size:13px;
+    cursor:pointer; }
+.rec-crumb:hover { color:#b9d1ff; filter:none; }
+.rec-crumb::after { content:'/'; margin-left:6px; color:#5b6584; }
+.rec-crumb-current { color:#c3cbe0; }
+.rec-category-blurb { margin:0; color:#9aa7c6; font-size:13px; line-height:1.4; }
+.rec-chips { display:flex; flex-wrap:wrap; align-items:center; gap:5px; }
+.rec-chips-label { margin-right:2px; color:#7f8bab; font-size:12px;
+    text-transform:uppercase; letter-spacing:.04em; }
+.rec-chip { padding:2px 9px; color:#9eacd0; background:#202535; border:1px solid #3a4366;
+    border-radius:999px; font-size:12px; cursor:pointer; }
+.rec-chip:hover { color:#dbe7ff; border-color:#8fb6ff; filter:none; }
+.rec-chip.active { color:#cfe0ff; background:#2f3d5e; border-color:#5f7bb5; }
 .rec-item { background:#242a3b; border:1px solid #333a4d; border-radius:6px;
-    padding:8px 10px; color:#dce3f5; }
+    padding:8px 10px; color:#dce3f5; container-type:inline-size; }
+/* Below this the 150px action column would leave the facts line no room, so the
+   card becomes a stack. Keyed off the card, not the viewport: what matters is
+   how wide this cell ended up, which the grid decides. */
+@container (max-width:330px) {
+  .rec-head { flex-direction:column; }
+  .rec-actions { justify-content:flex-start; max-width:none; }
+}
 .rec-item:hover { background:#282f42; border-color:#46507a; }
 .rec-head { display:flex; align-items:flex-start; gap:9px; }
 .rec-identity { flex:1; min-width:0; }
@@ -637,7 +691,7 @@ button:hover { filter:brightness(1.15); }
 .rec-detail-link:hover { color:#b9d1ff; filter:none; }
 .rec-dl { color:#8fb6ff; text-decoration:none; border-bottom:1px dotted #4d6ba8; }
 .rec-dl:hover { color:#b9d1ff; border-bottom-color:#b9d1ff; }
-.rec-show-more { align-self:center; margin:0 10px 12px; padding:7px 14px; color:#c3cbe0;
+.rec-show-more { align-self:center; margin:2px 10px 0; padding:6px 14px; color:#c3cbe0;
     background:#242a3b; border:1px solid #46507a; border-radius:5px; font-size:14px;
     cursor:pointer; }
 .rec-show-more:hover { color:#fff; background:#2c3448; filter:none; }

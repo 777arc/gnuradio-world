@@ -11,7 +11,7 @@ PMT dictionary for every accepted transmission. JSON is test-fixture and
 presentation syntax, not the decoder's runtime interface.
 
 IQ captures are never committed to this repository. Publish the selected
-upstream sample as a GNU Radio World SigMF recording and use its stable
+upstream sample as a GNU Radio World signal recording and use its stable
 recording key in both the example and the end-to-end test. This keeps binary
 fixtures out of Git while putting the recording behind the Range/CORS behavior
 the runner controls and making its datatype, sample rate, frequency, provenance,
@@ -40,7 +40,7 @@ Download the capture only into a temporary directory or an explicitly
 git-ignored cache while preparing and testing the port. Before continuing, check
 that neither the capture nor the resulting `.sigmf-data` is tracked or staged.
 
-## 2. Publish it as a GNU Radio World SigMF recording
+## 2. Publish it as a GNU Radio World signal recording
 
 Create a SigMF pair for the selected upstream sample and upload both objects to
 the `gnuradio-wasm-recordings` R2 bucket under a stable key such as
