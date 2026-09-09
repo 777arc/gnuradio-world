@@ -175,7 +175,7 @@ export function createRecordingPalette(deps: RecordingPaletteDeps) {
     }
 
     const more = document.createElement('button'); more.className = 'rec-action rec-more';
-    more.type = 'button'; more.textContent = 'More'; more.setAttribute('aria-expanded', 'false');
+    more.type = 'button'; more.textContent = 'Details'; more.setAttribute('aria-expanded', 'false');
     actions.append(view, add, more);
     head.append(identity, actions);
 
@@ -216,7 +216,7 @@ export function createRecordingPalette(deps: RecordingPaletteDeps) {
     more.onclick = () => {
       details.hidden = !details.hidden;
       more.setAttribute('aria-expanded', String(!details.hidden));
-      more.textContent = details.hidden ? 'More' : 'Less';
+      more.textContent = details.hidden ? 'Details' : 'Hide details';
     };
     item.append(head, details);
     return item;
