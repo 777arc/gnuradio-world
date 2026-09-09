@@ -86,8 +86,20 @@ jobs:
 
       - name: Install build tools
         run: |
+          # The runner image carries third-party apt repos this build has no use
+          # for -- Chrome comes from @puppeteer/browsers below, not apt -- and
+          # Google's has served an index whose hash disagrees with its Release
+          # file, which fails apt-get update outright. Drop them so only Ubuntu's
+          # own archives are consulted.
+          sudo rm -f /etc/apt/sources.list.d/google-chrome.list \
+                     /etc/apt/sources.list.d/microsoft-prod.list
+          # Separate statements on purpose: bash's -e exempts a non-final command
+          # in an && list, so `update && install` swallowed a failed update, left
+          # ccache uninstalled, and only surfaced two steps later as
+          # "ccache: command not found".
+          sudo apt-get update
           # m4 is required by GMP's configure; ccache backs the from-source builds.
-          sudo apt-get update && sudo apt-get install -y ninja-build ccache m4
+          sudo apt-get install -y ninja-build ccache m4
           pip install mako pyyaml packaging aqtinstall
 
       # --- Emscripten toolchain (pinned, cached) ---
