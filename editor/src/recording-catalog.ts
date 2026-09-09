@@ -14,6 +14,8 @@ export interface ExampleRecording {
   category: string | null;
   collection: string | null;
   tags: string[];
+  /** A spectrogram preview in the bucket, or null when none has been rendered. */
+  thumbnailUrl: string | null;
   sampleCount: number | null;
   byteLength: number;
   downloadUrl: string;
@@ -34,6 +36,7 @@ export interface R2RecordingIndexEntry {
   category?: unknown;
   collection?: unknown;
   tags?: unknown;
+  thumbnail?: unknown;
   byte_length?: unknown;
   number_of_samples?: unknown;
 }
@@ -71,6 +74,11 @@ export const RECORDING_PARAM = 'recording';
 // runner/src/registry.cpp) -- the two spellings have to agree, or the reader
 // looks up a descriptor the editor never registered.
 export const RECORDING_PATH_PREFIX = '/recordings/';
+
+// Where scripts/make-recording-thumbnails.mjs puts a recording's spectrogram
+// preview in the same bucket. The index's `thumbnail` flag says whether one is
+// there; the key is derived rather than stored, so it costs the index nothing.
+export const RECORDING_THUMB_PREFIX = 'thumbs/';
 
 export function recordingDataPath(key: string): string {
   return RECORDING_PATH_PREFIX + normalizeRecordingKey(key) + '.sigmf-data';
@@ -131,6 +139,8 @@ export function recordingFromR2Index(raw: R2RecordingIndexEntry): ExampleRecordi
     category: optionalString(raw.category),
     collection: optionalString(raw.collection),
     tags: stringList(raw.tags),
+    thumbnailUrl: raw.thumbnail === true
+      ? recordingsBucketUrl(RECORDING_THUMB_PREFIX + name + '.png') : null,
     sampleCount,
     byteLength,
     downloadUrl: recordingsBucketUrl(dataFile),

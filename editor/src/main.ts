@@ -4211,7 +4211,14 @@ function bindRemoteRecording(recording: ExampleRecording): string {
 function loadExampleRecordings(): Promise<ExampleRecording[]> {
   if (exampleRecordingsPromise) return exampleRecordingsPromise;
   exampleRecordingsPromise = (async () => {
-    const response = await fetch(recordingsBucketUrl('index.json'), { cache: 'no-store' });
+    // 'no-cache', not 'no-store': R2 already answers with `cache-control:
+    // no-cache` and an ETag, so revalidating is what the origin asks for and a
+    // catalog that has not changed comes back as a bodyless 304 rather than
+    // ~11 KB. It is still always fresh -- nothing here is served from a cache
+    // without asking the origin first, and there is no edge cache
+    // (cf-cache-status: DYNAMIC) or service worker in the path to hold a stale
+    // copy.
+    const response = await fetch(recordingsBucketUrl('index.json'), { cache: 'no-cache' });
     if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
     const payload = await response.json();
     if (!Array.isArray(payload)) throw new Error('invalid R2 recordings index');

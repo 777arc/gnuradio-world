@@ -1,6 +1,12 @@
 const DATA_SUFFIX = '.sigmf-data';
 const META_SUFFIX = '.sigmf-meta';
 export const INDEX_KEY = 'index.json';
+// Spectrogram previews written by scripts/make-recording-thumbnails.mjs. They
+// are ordinary objects in the same bucket, so the listing this rebuild already
+// walks is what tells the catalog one exists -- no extra request, and a
+// recording without one simply reports false.
+const THUMB_PREFIX = 'thumbs/';
+const THUMB_SUFFIX = '.png';
 
 /**
  * Return the number of bytes occupied by one SigMF sample.
@@ -35,7 +41,7 @@ function stringList(value) {
     .map(item => item.trim()).filter(Boolean))];
 }
 
-function recordingFromMetadata(baseFilename, dataSize, metadata) {
+function recordingFromMetadata(baseFilename, dataSize, metadata, hasThumbnail = false) {
   const global = metadata && typeof metadata.global === 'object' && metadata.global !== null
     ? metadata.global
     : {};
@@ -80,6 +86,7 @@ function recordingFromMetadata(baseFilename, dataSize, metadata) {
     tags: stringList(global['grworld:tags']),
     byte_length: dataSize,
     number_of_samples: numberOfSamples,
+    thumbnail: hasThumbnail,
     number_of_annotations: annotations.length,
     annotation_labels: [...new Set(annotations
       .map(annotation => optionalString(annotation?.['core:label']))
@@ -149,10 +156,15 @@ export async function rebuildIndex(bucket, { logger = console } = {}) {
   logger.log('SigMF index refresh started', { index_key: INDEX_KEY });
   const objects = await listAllObjects(bucket, logger);
   const pairs = new Map();
+  const thumbnails = new Set();
   let dataObjects = 0;
   let metaObjects = 0;
 
   for (const object of objects) {
+    if (object.key.startsWith(THUMB_PREFIX) && object.key.endsWith(THUMB_SUFFIX)) {
+      thumbnails.add(object.key.slice(THUMB_PREFIX.length, -THUMB_SUFFIX.length));
+      continue;
+    }
     const classified = classifySigmfObject(object);
     if (!classified) continue;
     const pair = pairs.get(classified.base) ?? {};
@@ -178,6 +190,7 @@ export async function rebuildIndex(bucket, { logger = console } = {}) {
     data_objects: dataObjects,
     metadata_objects: metaObjects,
     matched_recordings: recordings.length,
+    thumbnails: thumbnails.size,
     other_objects: objects.length - dataObjects - metaObjects,
   });
   if (unmatchedData.length) {
@@ -219,7 +232,7 @@ export async function rebuildIndex(bucket, { logger = console } = {}) {
     } catch (error) {
       throw new Error(`Invalid JSON in ${metaKey}`, { cause: error });
     }
-    return recordingFromMetadata(base, dataObject.size, metadata);
+    return recordingFromMetadata(base, dataObject.size, metadata, thumbnails.has(base));
   });
 
   const body = JSON.stringify(index, null, 2) + '\n';

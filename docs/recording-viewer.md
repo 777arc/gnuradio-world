@@ -329,6 +329,61 @@ over the rules in
   stacks the card below 330px of *cell* width, because the 150px action column
   would otherwise leave the facts line no room.
 
+### Spectrogram thumbnails
+
+A catalog of signals that shows no signal is the thing browsing most obviously
+lacked, so every recording carries a small waterfall rendered by
+[`scripts/make-recording-thumbnails.mjs`](../scripts/make-recording-thumbnails.mjs)
+and stored beside the samples at `thumbs/<base key>.png`. The indexer sets
+`thumbnail: true` when it sees that object in the listing it already walks, the
+catalog derives the URL from the base key, and the card renders a full-width
+44px strip above its title. Roughly 9 KB each, 256x64.
+
+```bash
+node scripts/make-recording-thumbnails.mjs --out /tmp/thumbs --limit 6  # look first
+node scripts/make-recording-thumbnails.mjs --upload                     # publish
+node scripts/make-recording-thumbnails.mjs --upload --force             # redo all
+```
+
+It skips anything the index already flags, so like the metadata backfill it is a
+publishing step: upload a recording, run it, and only the new one is rendered.
+
+Four things about it are load-bearing, and each was arrived at by looking at the
+output rather than by reasoning about it:
+
+- **It samples across the whole recording, not the head.** Eight seek points,
+  eight rows each, is about 512 KB and eight Range requests. One head read would
+  be a single request and would represent a 4 GB capture by its first fraction of
+  a second.
+- **Each row averages four FFTs.** A single 256-point FFT of noise has enormous
+  variance, which renders as speckle that buries a weak signal *and* defeats
+  PNG's compression. Averaging four flattened the floor and took the average file
+  from 15 KB to 9 KB at the same time.
+- **The noise floor is the median, and the range never narrows below 25 dB.**
+  Most recordings are mostly noise, so putting the median at black is what makes
+  a signal look like a signal. The floor on the range matters just as much: a
+  recording with nothing in it has a median-to-peak spread of a few dB, and a
+  plain percentile stretch amplified that into a full-brightness field of static
+  — the emptiest recordings were the loudest thumbnails.
+- **A real-valued recording comes out mirrored.** It is widened to I/Q with
+  Q = 0, exactly as the viewer does, so its spectrum is Hermitian. That wastes
+  half the pixels and is still right: clicking through has to show the same
+  picture, larger.
+
+The PNG encoder is written by hand — indexed 8-bit, `node:zlib`, about 60 lines —
+because the alternative was a dependency that would produce a larger file.
+
+**The `<img>` must carry `crossOrigin = 'anonymous'`, set before `src`.** The
+editor is served cross-origin-isolated so `SharedArrayBuffer` works, and COEP
+`require-corp` discards every cross-origin subresource that is neither
+CORS-fetched nor marked `Cross-Origin-Resource-Policy` by its host. The bucket
+already allows these origins, so asking for CORS is the whole fix — but without
+it the object returns `200`, the browser throws the response away, and `onerror`
+fires. From the call site that is indistinguishable from a missing thumbnail,
+which is exactly how it presented.
+Thumbnails are not `.sigmf-*` objects, so uploading them fires no index rebuild;
+re-put any `.sigmf-meta`, or wait for the daily cron, to set the flag.
+
 Three populations hide in what a centre frequency alone would call unknown, and
 `recordingBandOf()` keeps them apart. A real-valued recording is a receiver's
 audio output and has no RF centre to report, which is an answer —

@@ -22,7 +22,7 @@ const recording = catalog.recordingFromR2Index({
   description: 'A tagged telemetry capture', frequency: 145_900_000,
   number_of_annotations: 2, annotation_labels: ['packet', ' packet '],
   capture_datetime: '2026-08-25T12:00:00Z', title: 'AO-73 telemetry',
-  category: 'Satellite', tags: ['BPSK', 'telemetry', 'BPSK'],
+  category: 'Satellite', tags: ['BPSK', 'telemetry', 'BPSK'], thumbnail: true,
 });
 assert.ok(recording);
 assert.equal(recording.byteLength, 16_000_000, 'byte length is derived when the index omits it');
@@ -36,6 +36,12 @@ assert.equal(recording.downloadUrl,
   'https://recordings.example.test/collection/capture%20one.sigmf-data');
 assert.equal(recording.metadataUrl,
   'https://recordings.example.test/collection/capture%20one.sigmf-meta');
+// The thumbnail key is derived from the base key, so the index carries one
+// boolean rather than a second URL per recording.
+assert.equal(recording.thumbnailUrl,
+  'https://recordings.example.test/thumbs/collection/capture%20one.png');
+assert.equal(catalog.recordingFromR2Index({ base_filename: 'x', byte_length: 1 }).thumbnailUrl,
+  null, 'a recording with no rendered spectrogram advertises none');
 assert.equal(catalog.recordingFromR2Index({ base_filename: '../escape', byte_length: 1 }), null);
 assert.equal(catalog.recordingFromR2Index({ base_filename: 'missing-size' }), null);
 
@@ -297,7 +303,10 @@ assert.doesNotMatch(runBinding, /savedPath\.startsWith\('\/recordings\//,
 assert.match(runBinding, /log\(`cannot run: choose a file for "\$\{block\.name\}" with Browse`\)/,
   'a File Source with nothing bound says how to bind it');
 assert.doesNotMatch(main, /new Blob\(chunks/);
-assert.match(main, /fetch\(recordingsBucketUrl\('index\.json'\), \{ cache: 'no-store' \}\)/);
+// Revalidate rather than bypass: the origin sends `cache-control: no-cache` and
+// an ETag, so an unchanged catalog is a 304 instead of a re-download, and it is
+// still never served from a cache without asking the origin.
+assert.match(main, /fetch\(recordingsBucketUrl\('index\.json'\), \{ cache: 'no-cache' \}\)/);
 assert.match(main, /listRecordings: loadExampleRecordings/,
   'Graham discovers recordings from the same live index as the palette');
 assert.match(main,

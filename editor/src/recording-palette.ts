@@ -122,6 +122,32 @@ export function createRecordingPalette(deps: RecordingPaletteDeps) {
 
   function makeRecordingItem(recording: ExampleRecording): HTMLElement {
     const item = document.createElement('article'); item.className = 'rec-item';
+
+    // The spectrogram strip, when one has been rendered. It goes above the text
+    // and spans the card rather than sitting beside the title: a waterfall wants
+    // its frequency axis wide, and the 460px palette has no horizontal room to
+    // spare -- the facts line already competes with a 150px action column.
+    if (recording.thumbnailUrl) {
+      const strip = document.createElement('img'); strip.className = 'rec-thumb';
+      // crossOrigin before src, and not optional: the editor is served with
+      // COEP require-corp so SharedArrayBuffer works, which blocks every
+      // cross-origin subresource that is neither CORS-fetched nor marked
+      // Cross-Origin-Resource-Policy by its host. The bucket already allows this
+      // origin (scripts/r2-cors.json), so asking for CORS is all it takes --
+      // without it the image 200s and is discarded, which looks exactly like a
+      // 404 from here.
+      strip.crossOrigin = 'anonymous';
+      strip.src = recording.thumbnailUrl;
+      strip.loading = 'lazy'; strip.decoding = 'async';
+      strip.width = 256; strip.height = 64;
+      strip.alt = `Spectrogram of ${recording.title}`;
+      // A thumbnail is a nicety: a bucket that has not been rendered yet, or one
+      // object that failed to upload, must not leave a broken-image box in the
+      // middle of the catalog.
+      strip.onerror = () => strip.remove();
+      item.append(strip);
+    }
+
     const head = document.createElement('div'); head.className = 'rec-head';
     const identity = document.createElement('div'); identity.className = 'rec-identity';
     const title = document.createElement('div'); title.className = 'rec-title';

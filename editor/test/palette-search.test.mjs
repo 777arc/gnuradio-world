@@ -147,6 +147,22 @@ assert.match(html, /\.rec-group\[open\] > \.rec-group-title > \.rec-group-caret:
   'the caret reflects the section state');
 assert.match(source, /className = 'rec-tile'/,
   'the recordings tab opens on category tiles');
+// A spectrogram strip is what makes the catalog show the signal rather than
+// only describe it -- but it is a nicety, and a missing or broken one must not
+// leave a broken-image box in the middle of the list.
+assert.match(source, /if \(recording\.thumbnailUrl\) \{[\s\S]*?className = 'rec-thumb'/,
+  'a rendered spectrogram is shown on the card');
+assert.match(source, /strip\.onerror = \(\) => strip\.remove\(\);/,
+  'a thumbnail that fails to load removes itself');
+assert.match(source, /strip\.loading = 'lazy'/,
+  'thumbnails below the fold are not fetched until they are needed');
+// COEP require-corp (which SharedArrayBuffer needs) discards every cross-origin
+// subresource that is not CORS-fetched. Without this the image 200s and is
+// thrown away, which is indistinguishable from a 404 at the call site.
+assert.match(source, /strip\.crossOrigin = 'anonymous';\s*\n\s*strip\.src = recording\.thumbnailUrl;/,
+  'the thumbnail is CORS-fetched, and crossOrigin is set before src');
+assert.match(html, /\.rec-thumb \{[^}]*height:44px/,
+  'the strip has a fixed height so a row of cards keeps one rhythm');
 assert.match(html, /\.rec-details\[hidden\] \{ display:none; \}/,
   'full recording metadata is collapsed until requested');
 assert.match(html, /\.rec-grid \{[^}]*repeat\(auto-fill,minmax\(240px,1fr\)\)/,

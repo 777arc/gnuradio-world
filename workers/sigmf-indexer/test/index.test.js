@@ -61,6 +61,10 @@ test('paginates, pairs files, extracts metadata, sorts, and replaces index.json'
       object('collection/alpha.sigmf-data', 12),
       object('collection/alpha.sigmf-meta', 500),
       object('unpaired.sigmf-data', 64),
+      // A spectrogram preview: an ordinary object in the same listing, so no
+      // extra request tells the catalog it exists.
+      object('thumbs/zulu.png', 9000),
+      object('thumbs/gone.png', 9000),
     ],
   ];
   const metadata = new Map([
@@ -107,6 +111,7 @@ test('paginates, pairs files, extracts metadata, sorts, and replaces index.json'
       category: null,
       collection: null,
       tags: [],
+      thumbnail: false,
       byte_length: 12,
       number_of_samples: 6,
       number_of_annotations: 0,
@@ -124,6 +129,7 @@ test('paginates, pairs files, extracts metadata, sorts, and replaces index.json'
       category: 'Broadcast',
       collection: 'Marc\'s field recordings',
       tags: ['RDS', 'FM'],
+      thumbnail: true,
       byte_length: 80,
       number_of_samples: 10,
       number_of_annotations: 2,

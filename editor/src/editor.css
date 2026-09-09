@@ -657,6 +657,13 @@ button:hover { filter:brightness(1.15); }
   .rec-actions { justify-content:flex-start; max-width:none; }
 }
 .rec-item:hover { background:#282f42; border-color:#46507a; }
+/* The spectrogram strip. Fixed height so a row of cards keeps a common rhythm,
+   and object-fit:fill because stretching a waterfall along its own frequency
+   axis is meaningless distortion only in the vertical (time) direction, which
+   nobody reads quantitatively at 44px. */
+.rec-thumb { display:block; width:100%; height:44px; margin:-2px 0 8px;
+    object-fit:fill; border-radius:3px; background:#10121c;
+    image-rendering:auto; }
 .rec-head { display:flex; align-items:flex-start; gap:9px; }
 .rec-identity { flex:1; min-width:0; }
 .rec-title { min-width:0; color:#e6e9f0; font-size:15px; font-weight:600;
