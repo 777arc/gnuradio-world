@@ -6,6 +6,7 @@
 //   node scripts/make-recording-thumbnails.mjs --out /tmp/thumbs --limit 6   # local only
 //   node scripts/make-recording-thumbnails.mjs --upload                      # to R2
 //   node scripts/make-recording-thumbnails.mjs --upload --force              # redo all
+//   node scripts/make-recording-thumbnails.mjs --upload --force --only ri16   # one datatype
 //
 // Thumbnails live at `thumbs/<base key>.png`. The indexer sets `thumbnail: true`
 // on an index entry when it sees that object, and the palette renders it; a
@@ -15,13 +16,15 @@
 // Three decisions worth knowing:
 //
 //  - **It samples across the whole recording, not the head.** Eight seek points,
-//    eight consecutive FFT frames at each, is 64 rows of waterfall for about
-//    128 KB and eight range requests. A single head read would be one request,
-//    but a 4 GB capture would be represented by its first half-second.
-//  - **A real-valued recording is widened to I/Q with Q = 0**, exactly as the
-//    recording viewer does, so its spectrum is Hermitian and the thumbnail is
-//    mirrored. That wastes half the pixels and is still right: clicking through
-//    has to show the same picture, larger.
+//    sixteen rows at each, is 128 rows of waterfall for a few hundred KB and
+//    eight range requests. A single head read would be one request, but a 4 GB
+//    capture would be represented by its first fraction of a second.
+//  - **A real-valued recording shows only its positive half.** Widening it to
+//    I/Q with Q = 0 makes the spectrum Hermitian, so the negative half is the
+//    mirror of the positive one and drawing it would spend half the pixels
+//    saying nothing twice. The freed bins go into a longer FFT instead, so a
+//    real recording gets twice the frequency resolution rather than half a
+//    picture.
 //  - **PNG is written by hand.** An indexed 8-bit PNG needs only zlib, which is
 //    in Node, and comes out around 3 KB. Any encoder worth adding as a
 //    dependency would produce a bigger file.
@@ -38,12 +41,24 @@ const RECORDINGS_BASE = process.env.RECORDINGS_R2_BASE ||
 const BUCKET = process.env.R2_BUCKET || 'gnuradio-wasm-recordings';
 export const THUMB_PREFIX = 'thumbs/';
 
-const FFT_SIZE = 256;          // frequency bins, and the image width
-const ROWS = 64;               // waterfall rows, and the image height
+// Square, because the card gives the thumbnail its left third and a 4:1 strip in
+// that box would either crop the frequency axis away or stretch time four times.
+const IMAGE_WIDTH = 128;       // columns of spectrum
+const ROWS = 128;              // waterfall rows, and the image height
+
+// A complex recording fills the width with its whole two-sided spectrum. A real
+// one is Hermitian -- its negative half is the mirror of its positive half, and
+// nothing but the same information -- so only the positive half is drawn. Half
+// the bins for the same columns means twice the FFT, which is why a real
+// recording ends up with twice the frequency resolution rather than half the
+// picture. It costs the same bytes either way: a real sample is half a complex
+// one, so 256 of them read exactly as far as 128 complex.
+const COMPLEX_FFT_SIZE = IMAGE_WIDTH;
+const REAL_FFT_SIZE = IMAGE_WIDTH * 2;
 const SEEK_POINTS = 8;         // spread across the recording
 const ROWS_PER_SEEK = ROWS / SEEK_POINTS;
-// Each row averages this many FFTs. A single 256-point FFT of noise has enormous
-// variance, which renders as speckle that buries a weak signal and defeats PNG's
+// Each row averages this many FFTs. A single FFT of noise has enormous variance,
+// which renders as speckle that buries a weak signal and defeats PNG's
 // compression; averaging four flattens the floor for four times the bytes read.
 const FRAMES_PER_ROW = 4;
 const FRAMES_PER_SEEK = ROWS_PER_SEEK * FRAMES_PER_ROW;
@@ -78,14 +93,15 @@ export function sampleReader(datatype) {
 
   const componentsPerSample = complex ? 2 : 1;
   return {
+    complex,
     bytesPerSample: componentBytes * componentsPerSample,
     /** Fill re[]/im[] with `count` samples starting at sample `index` of the view. */
     fill(view, byteOffset, count, re, im) {
       for (let i = 0; i < count; i++) {
         const at = byteOffset + i * componentBytes * componentsPerSample;
         re[i] = read(view, at);
-        // A real recording is widened with Q = 0, matching the viewer -- so its
-        // spectrum comes out mirrored, which is what a real signal looks like.
+        // A real recording is widened with Q = 0, matching the viewer. Its
+        // spectrum is therefore Hermitian, and only the positive half is drawn.
         im[i] = complex ? read(view, at + componentBytes) : 0;
       }
     },
@@ -94,10 +110,18 @@ export function sampleReader(datatype) {
 
 // ---- FFT -------------------------------------------------------------------
 
-const HANN = Float64Array.from({ length: FFT_SIZE }, (_, i) =>
-  0.5 - 0.5 * Math.cos((2 * Math.PI * i) / FFT_SIZE));
+const HANN = new Map();
+function hann(size) {
+  let window = HANN.get(size);
+  if (!window) {
+    window = Float64Array.from({ length: size }, (_, i) =>
+      0.5 - 0.5 * Math.cos((2 * Math.PI * i) / size));
+    HANN.set(size, window);
+  }
+  return window;
+}
 
-// Iterative radix-2, in place. Only ever called with FFT_SIZE, a power of two.
+// Iterative radix-2, in place. Only ever called with a power-of-two length.
 function fft(re, im) {
   const n = re.length;
   for (let i = 1, j = 0; i < n; i++) {
@@ -223,12 +247,14 @@ async function readRange(url, start, length) {
  * Returns null when the recording is too short to fill even one frame.
  */
 export async function spectrogramRows(url, byteLength, reader) {
-  const frameBytes = FFT_SIZE * reader.bytesPerSample;
+  const fftSize = reader.complex ? COMPLEX_FFT_SIZE : REAL_FFT_SIZE;
+  const window = hann(fftSize);
+  const frameBytes = fftSize * reader.bytesPerSample;
   const blockBytes = frameBytes * FRAMES_PER_SEEK;
   if (byteLength < frameBytes) return null;
 
   const rows = [];
-  const re = new Float64Array(FFT_SIZE), im = new Float64Array(FFT_SIZE);
+  const re = new Float64Array(fftSize), im = new Float64Array(fftSize);
   for (let seek = 0; seek < SEEK_POINTS; seek++) {
     // Evenly spaced, and never past the end. Aligned to a sample boundary so a
     // block never starts mid-sample and shears I into Q.
@@ -241,24 +267,26 @@ export async function spectrogramRows(url, byteLength, reader) {
     const frames = Math.floor(block.byteLength / frameBytes);
 
     for (let r = 0; r < ROWS_PER_SEEK; r++) {
-      const row = new Float64Array(FFT_SIZE);
+      const row = new Float64Array(IMAGE_WIDTH);
       let averaged = 0;
       for (let f = 0; f < FRAMES_PER_ROW; f++) {
         const frame = r * FRAMES_PER_ROW + f;
         if (frame >= frames) break;
-        reader.fill(view, frame * frameBytes, FFT_SIZE, re, im);
-        for (let i = 0; i < FFT_SIZE; i++) { re[i] *= HANN[i]; im[i] *= HANN[i]; }
+        reader.fill(view, frame * frameBytes, fftSize, re, im);
+        for (let i = 0; i < fftSize; i++) { re[i] *= window[i]; im[i] *= window[i]; }
         fft(re, im);
-        for (let i = 0; i < FFT_SIZE; i++) {
-          // fftshift: DC in the middle, the way every other display here shows it.
-          const from = (i + FFT_SIZE / 2) % FFT_SIZE;
+        for (let i = 0; i < IMAGE_WIDTH; i++) {
+          // Complex: fftshift, DC in the middle, the way every other display here
+          // shows it. Real: bins 0..N/2, DC at the left and Nyquist at the right,
+          // because the other half is only this half backwards.
+          const from = reader.complex ? (i + fftSize / 2) % fftSize : i;
           row[i] += re[from] * re[from] + im[from] * im[from];
         }
         averaged++;
       }
-      if (!averaged) { rows.push(rows[rows.length - 1] ?? new Float64Array(FFT_SIZE)); continue; }
+      if (!averaged) { rows.push(rows[rows.length - 1] ?? new Float64Array(IMAGE_WIDTH)); continue; }
       // Average power, then dB -- averaging in dB would bias toward the nulls.
-      for (let i = 0; i < FFT_SIZE; i++) row[i] = 10 * Math.log10(row[i] / averaged + 1e-20);
+      for (let i = 0; i < IMAGE_WIDTH; i++) row[i] = 10 * Math.log10(row[i] / averaged + 1e-20);
       rows.push(row);
     }
   }
@@ -281,15 +309,15 @@ export function quantize(rows) {
   const low = at(0.50);
   const high = Math.max(at(0.999), low + MIN_DYNAMIC_RANGE_DB);
   const span = high - low;
-  const pixels = Buffer.alloc(rows.length * FFT_SIZE);
+  const pixels = Buffer.alloc(rows.length * IMAGE_WIDTH);
   for (let y = 0; y < rows.length; y++) {
-    for (let x = 0; x < FFT_SIZE; x++) {
+    for (let x = 0; x < IMAGE_WIDTH; x++) {
       const linear = Math.max(0, Math.min(1, (rows[y][x] - low) / span));
       // Most of a recording sits in the lower half of its own dynamic range, and
       // the low end of the ramp is nearly black, so a linear map renders a real
       // signal as a dim smudge. The gamma lifts the mid-tones where the content
       // actually is without clipping the peaks.
-      pixels[y * FFT_SIZE + x] = Math.round(linear ** THUMBNAIL_GAMMA * 255);
+      pixels[y * IMAGE_WIDTH + x] = Math.round(linear ** THUMBNAIL_GAMMA * 255);
     }
   }
   return pixels;
@@ -302,7 +330,7 @@ export async function makeThumbnail(recording) {
     `${recording.base_filename.split('/').map(encodeURIComponent).join('/')}.sigmf-data`;
   const rows = await spectrogramRows(url, recording.byte_length, reader);
   if (!rows) return { skipped: 'too short for one FFT frame' };
-  return { png: encodePng(FFT_SIZE, rows.length, quantize(rows), palette()) };
+  return { png: encodePng(IMAGE_WIDTH, rows.length, quantize(rows), palette()) };
 }
 
 // ---- driver ----------------------------------------------------------------
@@ -336,6 +364,10 @@ async function main() {
   const force = args.includes('--force');
   const outDir = flag('--out');
   const limit = Number(flag('--limit') ?? Infinity);
+  // Re-render a subset without churning the rest: a rendering change usually
+  // affects one datatype or one collection, and re-uploading the others only
+  // changes their ETags and makes every browser fetch them again.
+  const only = flag('--only');
 
   if (!upload && !outDir) {
     console.error('Nothing to do: pass --out <dir> to write locally, --upload to publish.');
@@ -350,11 +382,15 @@ async function main() {
   }
 
   const index = await (await fetch(`${RECORDINGS_BASE}/index.json`, { cache: 'no-store' })).json();
-  const todo = index
+  const matching = only
+    ? index.filter(entry => `${entry.base_filename} ${entry.datatype ?? ''}`.includes(only))
+    : index;
+  const todo = matching
     .filter(entry => force || !entry.thumbnail)
     .slice(0, Number.isFinite(limit) ? limit : undefined);
-  console.log(`${index.length} recordings · ${todo.length} without a thumbnail` +
-    (force ? ' (--force: rebuilding all)' : ''));
+  console.log(`${index.length} recordings` +
+    (only ? ` · ${matching.length} matching "${only}"` : '') +
+    ` · ${todo.length} to render` + (force ? ' (--force)' : ''));
 
   let made = 0, skipped = 0, failed = 0, bytes = 0;
   await mapConcurrent(todo, CONCURRENCY, async (entry) => {
@@ -377,7 +413,11 @@ async function main() {
         await writeFile(staged, result.png);
         await runWrangler(['r2', 'object', 'put',
           `${BUCKET}/${THUMB_PREFIX}${entry.base_filename}.png`,
-          '--file', staged, '--content-type', 'image/png', '--remote']);
+          '--file', staged, '--content-type', 'image/png',
+          // Revalidate rather than bypass: a thumbnail lives at a stable,
+          // unversioned key, so re-rendering one has to be able to reach a
+          // browser that already has it. The ETag makes the usual answer a 304.
+          '--cache-control', 'no-cache', '--remote']);
       }
       console.log(`  [${made}] ${entry.base_filename} — ${(result.png.length / 1024).toFixed(1)} KiB`);
     } catch (error) {

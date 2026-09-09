@@ -123,11 +123,12 @@ export function createRecordingPalette(deps: RecordingPaletteDeps) {
   function makeRecordingItem(recording: ExampleRecording): HTMLElement {
     const item = document.createElement('article'); item.className = 'rec-item';
 
-    // The spectrogram strip, when one has been rendered. It goes above the text
-    // and spans the card rather than sitting beside the title: a waterfall wants
-    // its frequency axis wide, and the 460px palette has no horizontal room to
-    // spare -- the facts line already competes with a 150px action column.
+    // The spectrogram, when one has been rendered: the card's left third, square,
+    // with the text and actions in the right two-thirds. It is rendered square at
+    // source rather than being squeezed into shape here -- a 4:1 strip in this box
+    // would either crop the frequency axis away or stretch time four times.
     if (recording.thumbnailUrl) {
+      item.classList.add('has-thumb');
       const strip = document.createElement('img'); strip.className = 'rec-thumb';
       // crossOrigin before src, and not optional: the editor is served with
       // COEP require-corp so SharedArrayBuffer works, which blocks every
@@ -139,15 +140,19 @@ export function createRecordingPalette(deps: RecordingPaletteDeps) {
       strip.crossOrigin = 'anonymous';
       strip.src = recording.thumbnailUrl;
       strip.loading = 'lazy'; strip.decoding = 'async';
-      strip.width = 256; strip.height = 64;
+      strip.width = 128; strip.height = 128;
       strip.alt = `Spectrogram of ${recording.title}`;
       // A thumbnail is a nicety: a bucket that has not been rendered yet, or one
       // object that failed to upload, must not leave a broken-image box in the
       // middle of the catalog.
-      strip.onerror = () => strip.remove();
+      strip.onerror = () => { strip.remove(); item.classList.remove('has-thumb'); };
       item.append(strip);
     }
 
+    // The body column. It carries the container query rather than the card,
+    // because what decides whether the actions fit beside the title is the width
+    // left *after* the thumbnail has taken its third.
+    const body = document.createElement('div'); body.className = 'rec-body-col';
     const head = document.createElement('div'); head.className = 'rec-head';
     const identity = document.createElement('div'); identity.className = 'rec-identity';
     const title = document.createElement('div'); title.className = 'rec-title';
@@ -243,7 +248,8 @@ export function createRecordingPalette(deps: RecordingPaletteDeps) {
       more.setAttribute('aria-expanded', String(!details.hidden));
       more.textContent = details.hidden ? 'Details' : 'Hide details';
     };
-    item.append(head, details);
+    body.append(head);
+    item.append(body, details);
     return item;
   }
 

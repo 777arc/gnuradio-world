@@ -365,10 +365,15 @@ output rather than by reasoning about it:
   recording with nothing in it has a median-to-peak spread of a few dB, and a
   plain percentile stretch amplified that into a full-brightness field of static
   — the emptiest recordings were the loudest thumbnails.
-- **A real-valued recording comes out mirrored.** It is widened to I/Q with
-  Q = 0, exactly as the viewer does, so its spectrum is Hermitian. That wastes
-  half the pixels and is still right: clicking through has to show the same
-  picture, larger.
+- **A real-valued recording shows only its positive half.** Widening it to I/Q
+  with Q = 0 (as the viewer does) makes the spectrum Hermitian, so the negative
+  half is the mirror of the positive one and drawing it would spend half the
+  pixels saying the same thing twice. The freed bins go into a longer FFT
+  instead — 256 points against a complex recording's 128 — so a real recording
+  gets *twice* the frequency resolution rather than half a picture, and it costs
+  the same bytes either way, since a real sample is half a complex one. Complex
+  spectra are fftshifted with DC in the middle; real ones run DC at the left to
+  Nyquist at the right.
 
 The PNG encoder is written by hand — indexed 8-bit, `node:zlib`, about 60 lines —
 because the alternative was a dependency that would produce a larger file.

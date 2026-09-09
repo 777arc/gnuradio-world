@@ -647,23 +647,22 @@ button:hover { filter:brightness(1.15); }
     border-radius:999px; font-size:12px; cursor:pointer; }
 .rec-chip:hover { color:#dbe7ff; border-color:#8fb6ff; filter:none; }
 .rec-chip.active { color:#cfe0ff; background:#2f3d5e; border-color:#5f7bb5; }
-.rec-item { background:#242a3b; border:1px solid #333a4d; border-radius:6px;
-    padding:8px 10px; color:#dce3f5; container-type:inline-size; }
-/* Below this the 150px action column would leave the facts line no room, so the
-   card becomes a stack. Keyed off the card, not the viewport: what matters is
-   how wide this cell ended up, which the grid decides. */
-@container (max-width:330px) {
-  .rec-head { flex-direction:column; }
-  .rec-actions { justify-content:flex-start; max-width:none; }
-}
+/* The card is two columns when it has a spectrogram -- its left third -- and one
+   when it does not. The details panel spans both, so expanding it is not confined
+   to the narrow side. */
+.rec-item { display:grid; grid-template-columns:minmax(0,1fr); gap:10px;
+    align-items:start; background:#242a3b; border:1px solid #333a4d;
+    border-radius:6px; padding:8px 10px; color:#dce3f5; }
+.rec-item.has-thumb { grid-template-columns:minmax(0,1fr) minmax(0,2fr); }
+.rec-body-col { min-width:0; container-type:inline-size; }
+.rec-details { grid-column:1/-1; }
 .rec-item:hover { background:#282f42; border-color:#46507a; }
-/* The spectrogram strip. Fixed height so a row of cards keeps a common rhythm,
-   and object-fit:fill because stretching a waterfall along its own frequency
-   axis is meaningless distortion only in the vertical (time) direction, which
-   nobody reads quantitatively at 44px. */
-.rec-thumb { display:block; width:100%; height:44px; margin:-2px 0 8px;
-    object-fit:fill; border-radius:3px; background:#10121c;
-    image-rendering:auto; }
+/* The spectrogram. Square by aspect-ratio rather than a fixed height, so it
+   tracks whatever width the card's first column works out to -- 136px in the
+   460px palette, less in a multi-column gallery. The source is square too, so
+   object-fit has nothing to correct. */
+.rec-thumb { display:block; width:100%; height:auto; aspect-ratio:1;
+    object-fit:cover; border-radius:4px; background:#10121c; }
 .rec-head { display:flex; align-items:flex-start; gap:9px; }
 .rec-identity { flex:1; min-width:0; }
 .rec-title { min-width:0; color:#e6e9f0; font-size:15px; font-weight:600;
@@ -685,7 +684,14 @@ button:hover { filter:brightness(1.15); }
 .rec-action.rec-add:hover { color:#e0f4e6; border-color:#5cab73; }
 .rec-action:disabled { color:#687083; border-color:#3a4052; background:#222634;
     cursor:not-allowed; }
-.rec-details { margin-top:8px; padding-top:8px; border-top:1px solid #333a4d; }
+/* Below this the 150px action column would leave the facts line no room, so the
+   head becomes a stack. Keyed off the body column rather than the card or the
+   viewport: what matters is the width left after the thumbnail took its third. */
+@container (max-width:300px) {
+  .rec-head { flex-direction:column; }
+  .rec-actions { justify-content:flex-start; max-width:none; }
+}
+.rec-details { margin-top:0; padding-top:8px; border-top:1px solid #333a4d; }
 .rec-details[hidden] { display:none; }
 .rec-description { margin:0 0 7px; color:#c3cbe0; font-size:14px; line-height:1.4; }
 .rec-props { display:grid; grid-template-columns:max-content minmax(0,1fr); gap:2px 10px;

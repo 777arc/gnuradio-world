@@ -152,8 +152,6 @@ assert.match(source, /className = 'rec-tile'/,
 // leave a broken-image box in the middle of the list.
 assert.match(source, /if \(recording\.thumbnailUrl\) \{[\s\S]*?className = 'rec-thumb'/,
   'a rendered spectrogram is shown on the card');
-assert.match(source, /strip\.onerror = \(\) => strip\.remove\(\);/,
-  'a thumbnail that fails to load removes itself');
 assert.match(source, /strip\.loading = 'lazy'/,
   'thumbnails below the fold are not fetched until they are needed');
 // COEP require-corp (which SharedArrayBuffer needs) discards every cross-origin
@@ -161,14 +159,20 @@ assert.match(source, /strip\.loading = 'lazy'/,
 // thrown away, which is indistinguishable from a 404 at the call site.
 assert.match(source, /strip\.crossOrigin = 'anonymous';\s*\n\s*strip\.src = recording\.thumbnailUrl;/,
   'the thumbnail is CORS-fetched, and crossOrigin is set before src');
-assert.match(html, /\.rec-thumb \{[^}]*height:44px/,
-  'the strip has a fixed height so a row of cards keeps one rhythm');
+assert.match(html, /\.rec-thumb \{[^}]*aspect-ratio:1/,
+  'the spectrogram is square, tracking whatever width its column works out to');
+assert.match(html, /\.rec-item\.has-thumb \{ grid-template-columns:minmax\(0,1fr\) minmax\(0,2fr\); \}/,
+  'a card with a spectrogram gives it the left third');
+assert.match(source, /strip\.onerror = \(\) => \{ strip\.remove\(\); item\.classList\.remove\('has-thumb'\); \};/,
+  'losing the image collapses the two-column grid rather than reserving a third for nothing');
+assert.match(html, /\.rec-body-col \{[^}]*container-type:inline-size/,
+  'the container query keys off the width left after the thumbnail, not the whole card');
 assert.match(html, /\.rec-details\[hidden\] \{ display:none; \}/,
   'full recording metadata is collapsed until requested');
 assert.match(html, /\.rec-grid \{[^}]*repeat\(auto-fill,minmax\(240px,1fr\)\)/,
   'one grid serves the 460px palette and any wider surface without a second implementation');
-assert.match(html, /@container \(max-width:330px\) \{[\s\S]*?\.rec-head \{ flex-direction:column; \}/,
-  'a narrow grid cell stacks the card rather than squeezing the facts line');
+assert.match(html, /@container \(max-width:300px\) \{[\s\S]*?\.rec-head \{ flex-direction:column; \}/,
+  'a narrow body column stacks the head rather than squeezing the facts line');
 
 // Escape is a cheap way out of a query that hides everything, on both list tabs.
 assert.match(source, /if \(event\.key === 'Escape' && search\.value\)[\s\S]*?search\.value = ''; filterChanged\(\);/,
