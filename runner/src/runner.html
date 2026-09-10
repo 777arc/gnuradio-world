@@ -1351,6 +1351,19 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
       const TEZUKA_CONNECT_RETRY_MS = 500;
       const TEZUKA_PROBE_TIMEOUT_MS = 800;
 
+      // Mirrors tezukaBoard()'s useSSL/port switch for the MQTT connection
+      // above, and the Tezuka Dashboard's own iio-tx/iio-rx client: a page
+      // loaded over https:// can only open a wss:// WebSocket, never a plain
+      // ws:// one (the browser blocks it as mixed content) -- see
+      // iio_ws_proxy.c's -P option, which opens a second, TLS-enabled vhost
+      // on port+1 (8766) alongside the plain one (8765) using the same cert
+      // pair Mosquitto's own 9001/9002 split uses, whenever cert/key are
+      // present on the board.
+      function tezukaIqUrl(host) {
+        const useSSL = location.protocol === 'https:';
+        return `${useSSL ? 'wss:' : 'ws:'}//${host}:${useSSL ? 8766 : 8765}`;
+      }
+
       function probeTezukaSocket(host, protocol) {
         return new Promise(resolve => {
           let settled = false;
@@ -1364,7 +1377,7 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
           const timer = setTimeout(() => finish(false), TEZUKA_PROBE_TIMEOUT_MS);
           let ws;
           try {
-            ws = new WebSocket(`ws://${host}:8765`, protocol);
+            ws = new WebSocket(tezukaIqUrl(host), protocol);
           } catch {
             clearTimeout(timer);
             resolve(false);
@@ -1420,7 +1433,7 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
             tezukaReaders.delete(id);
           };
           worker.postMessage({
-            url: `ws://${host}:8765`, protocol: 'iio-rx',
+            url: tezukaIqUrl(host), protocol: 'iio-rx',
             memory, ringPointer, capacityItems, itemSize,
             controlPointer, errorPointer, errorCapacity: 512,
           });
@@ -1501,7 +1514,7 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
             tezukaWriters.delete(id);
           };
           worker.postMessage({
-            url: `ws://${host}:8765`, protocol: 'iio-tx',
+            url: tezukaIqUrl(host), protocol: 'iio-tx',
             memory, ringPointer, capacityItems, itemSize,
             controlPointer, errorPointer, errorCapacity: 512,
           });
