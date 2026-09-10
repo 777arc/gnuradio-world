@@ -8,6 +8,10 @@
 #include "browser_audio.hpp"
 #include "grwire_source.hpp"
 #include "rtlsdr_source.hpp"
+#include "websocket_source.hpp"
+#include "websocket_sink.hpp"
+#include "tezuka_source.hpp"
+#include "tezuka_sink.hpp"
 #include "plutosdr_source.hpp"
 #include "plutosdr_sink.hpp"
 #include "bb60_source.hpp"
@@ -2959,6 +2963,92 @@ static std::map<std::string, Factory>& registry_storage() {
                  [block](double value) { block->set_freq_correction(value); };
              result.numeric_setters["bias_tee"] =
                  [block](double value) { block->set_bias_tee(value != 0.0); };
+             return result;
+        }},
+        // A live sample stream from a WebSocket server. Unlike the USB radios
+        // above, there is no permission gesture and no editor-side setup: the
+        // URL is a plain string parameter and the worker in
+        // runner/src/websocket_reader.js connects directly when the block
+        // starts.
+        {"wasm_websocket_source", [](const json& p) -> BuiltBlock {
+             const auto url = param_text(p, "url");
+             if (url.empty())
+                 throw std::runtime_error("WebSocket Source: no URL given");
+             const auto vlen = static_cast<std::size_t>(
+                 std::max(1.0, number_from(p, "vlen", 1.0)));
+             const auto item_size = static_cast<std::size_t>(itemsize_of(p)) * vlen;
+             auto block = WebSocketSource::make(url, item_size);
+             BuiltBlock result{ block };
+             return result;
+        }},
+        // The sink half of the same pair: drains its input into a ring a
+        // worker in runner/src/websocket_writer.js sends on as WebSocket
+        // messages, blocking (never dropping) when the connection cannot keep
+        // up. See websocket_sink.hpp for why blocking is correct here.
+        {"wasm_websocket_sink", [](const json& p) -> BuiltBlock {
+             const auto url = param_text(p, "url");
+             if (url.empty())
+                 throw std::runtime_error("WebSocket Sink: no URL given");
+             const auto item_size = static_cast<std::size_t>(itemsize_of(p));
+             auto block = WebSocketSink::make(url, item_size);
+             BuiltBlock result{ block };
+             return result;
+        }},
+        // A Tezuka SDR board (Zynq-7020/AD9363), reached entirely over the
+        // network: IQ over WebSocket, properties over MQTT-over-WebSocket. No
+        // permission gesture -- the host is a plain string parameter, like
+        // WebSocket Source/Sink above, which this shares its streaming worker
+        // with. See tezuka_source.hpp and the MQTT section of runner.html.
+        {"wasm_tezuka_source", [](const json& p) -> BuiltBlock {
+             const auto host = param_text(p, "host");
+             if (host.empty())
+                 throw std::runtime_error("Tezuka Source: no host given");
+             const auto gain_mode = wasm_registry::text(p, "gain_mode", "slow_attack");
+             static const std::set<std::string> valid_modes = {
+                 "slow_attack", "fast_attack", "hybrid", "manual"
+             };
+             if (!valid_modes.count(gain_mode))
+                 throw std::runtime_error(
+                     "Tezuka Source: invalid gain mode: " + gain_mode);
+             auto block = TezukaSource::make(
+                 host,
+                 number_from(p, "samp_rate", 2.0e6),
+                 number_from(p, "center_freq", 435e6),
+                 number_from(p, "bandwidth", 2.0e6),
+                 number_from(p, "gain", 30.0),
+                 gain_mode);
+             BuiltBlock result{ block };
+             result.numeric_setters["samp_rate"] =
+                 [block](double value) { block->set_sample_rate(value); };
+             result.numeric_setters["center_freq"] =
+                 [block](double value) { block->set_center_freq(value); };
+             result.numeric_setters["bandwidth"] =
+                 [block](double value) { block->set_bandwidth(value); };
+             result.numeric_setters["gain"] =
+                 [block](double value) { block->set_gain(value); };
+             return result;
+        }},
+        // The transmit half of the same pair. See tezuka_sink.hpp for why it
+        // never touches cmd/tx/active.
+        {"wasm_tezuka_sink", [](const json& p) -> BuiltBlock {
+             const auto host = param_text(p, "host");
+             if (host.empty())
+                 throw std::runtime_error("Tezuka Sink: no host given");
+             auto block = TezukaSink::make(
+                 host,
+                 number_from(p, "samp_rate", 2.0e6),
+                 number_from(p, "center_freq", 435e6),
+                 number_from(p, "bandwidth", 2.0e6),
+                 number_from(p, "gain", -89.75));
+             BuiltBlock result{ block };
+             result.numeric_setters["samp_rate"] =
+                 [block](double value) { block->set_sample_rate(value); };
+             result.numeric_setters["center_freq"] =
+                 [block](double value) { block->set_center_freq(value); };
+             result.numeric_setters["bandwidth"] =
+                 [block](double value) { block->set_bandwidth(value); };
+             result.numeric_setters["gain"] =
+                 [block](double value) { block->set_gain(value); };
              return result;
         }},
         // ADALM-PLUTO over the IIOD protocol exposed by the stock firmware's

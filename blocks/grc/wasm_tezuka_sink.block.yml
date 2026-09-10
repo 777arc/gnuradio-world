@@ -1,0 +1,85 @@
+id: wasm_tezuka_sink
+label: 'Tezuka Sink'
+category: '[Supported SDRs]'
+flags: [cpp, throttle]
+
+documentation: |-
+    Transmits complex samples through a Tezuka SDR board (Zynq-7020/AD9363)
+    over the network -- no USB, no permission prompt, just a hostname or IP
+    address.
+
+    Two independent connections, both opened when the flowgraph starts:
+
+    * IQ samples go out over a plain WebSocket to the board's iio_ws_proxy
+      (port 8765), the same wire format WebSocket Sink writes -- raw,
+      unframed interleaved int16 I/Q. This claims only the TX half of the
+      proxy's full-duplex socket, so a Tezuka Source pointed at the same
+      board can stream RX at the same time.
+    * Frequency, sample rate, bandwidth and gain are set over MQTT-over-
+      WebSocket (port 9001, or 9002 with TLS -- selected automatically from
+      whether this page itself is https://) to the same broker the Tezuka
+      Dashboard uses, publishing exactly the cmd/tx/<path> topics
+      api_controller.sh listens for. A live QT GUI Range change is a fresh
+      publish, same as any other change; the board is the only side that ever
+      applies or confirms it.
+
+    Starting the flowgraph also asks the board to start its streaming proxy
+    (cmd/system/iqtape = "on"), and stopping it asks the board to stop again --
+    shared with any Tezuka Source pointed at the same host, so only the first
+    Tezuka block to start sends "on" and only the last one left running sends
+    "off".
+
+    This block does not enable the TX LO (cmd/tx/active) and never will: that
+    attribute is the board's own PTT logic, driven by its own DMA-activity poll
+    (watchconsoletx.sh), which keys the LO from whatever this block is already
+    streaming. Whether the board is actually radiating is the board's and the
+    operator's decision, not this block's -- it only ever streams samples at
+    the configured gain.
+
+    Gain is the board's own signed convention: 0 dB is maximum output power and
+    more negative is less power (matching state/tx/gain, not PlutoSDR Sink's
+    positive-attenuation convention). The conservative default is -89.75 dB,
+    the board's confirmed minimum. Center Frequency, RF Bandwidth and Gain
+    accept QT GUI Range values and may be changed while running. The sink
+    backpressures its input instead of silently discarding transmit samples.
+
+    This is a single-channel sink, matching Tezuka Source's single-channel
+    scope.
+
+    This block exists only in the WebAssembly runner -- it has no Python
+    implementation, so a flowgraph using it will not run in desktop GNU Radio.
+
+parameters:
+-   id: host
+    label: Host
+    dtype: string
+    default: ''
+-   id: samp_rate
+    label: Sample Rate
+    dtype: float
+    default: samp_rate
+-   id: center_freq
+    label: 'Center Frequency (Hz)'
+    dtype: real
+    default: '435e6'
+-   id: bandwidth
+    label: 'RF Bandwidth (Hz)'
+    dtype: real
+    default: '2e6'
+-   id: gain
+    label: 'TX Gain (dB, 0 = max power)'
+    dtype: real
+    default: '-89.75'
+    hide: part
+
+asserts:
+-   ${ samp_rate >= 2083333 and samp_rate <= 61440000 }
+-   ${ center_freq >= 46875001 and center_freq <= 6e9 }
+-   ${ bandwidth >= 200000 and bandwidth <= 56000000 }
+-   ${ gain >= -89.75 and gain <= 0 }
+
+inputs:
+-   domain: stream
+    dtype: complex
+
+file_format: 1

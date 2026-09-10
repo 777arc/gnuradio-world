@@ -1,0 +1,62 @@
+id: wasm_websocket_source
+label: WebSocket Source
+category: '[GNU Radio World]'
+flags: [cpp]
+
+documentation: |-
+    Receives a live sample stream from a WebSocket server.
+
+    This is the block for a signal produced by something already running
+    elsewhere -- another browser tab, a native process, a small script on a
+    remote box -- and pushed over a WebSocket, as opposed to WebUSB radios like
+    RTL-SDR Source that own hardware directly. There is no permission gesture
+    and no per-session setup: the URL is a plain parameter, and the block
+    connects when the flowgraph starts.
+
+    The connection carries a byte stream, not framed messages: consecutive
+    WebSocket messages are concatenated, and Output Type says how to read the
+    result -- there is no metadata to take it from. A message that ends mid-item
+    holds its trailing bytes over to the next one, so the server does not need
+    to align its writes to the item size.
+
+    Because a live source cannot be paused, a message that arrives faster than
+    this block is consumed is dropped rather than buffered without limit, and
+    counted -- the same choice RTL-SDR Source makes for the dongle it reads.
+    Losing samples this way means the flowgraph (or the browser tab) is not
+    keeping up, not that the connection is unreliable.
+
+    The connection ending closes the stream, the same as reaching the end of a
+    file. It is not retried.
+
+    One restriction is the browser's, not this block's: a page served over
+    https:// may only open a wss:// (TLS) connection, never a plain ws://.
+    ws:// works from http://localhost during development.
+
+    This block exists only in the WebAssembly runner -- it has no Python
+    implementation, so a flowgraph using it will not run in desktop GNU Radio.
+
+parameters:
+-   id: url
+    label: URL
+    dtype: string
+    default: 'wss://'
+-   id: type
+    label: Output Type
+    dtype: enum
+    default: complex
+    options: [complex, float, int, short, byte]
+    option_attributes:
+        size: [gr.sizeof_gr_complex, gr.sizeof_float, gr.sizeof_int, gr.sizeof_short, gr.sizeof_char]
+    hide: part
+-   id: vlen
+    label: Vector Length
+    dtype: int
+    default: '1'
+    hide: part
+
+outputs:
+-   domain: stream
+    dtype: ${ type }
+    vlen: ${ vlen }
+
+file_format: 1

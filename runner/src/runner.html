@@ -27,6 +27,12 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
       #qtspinner img { display: block; width: min(60vw, 640px); height: auto; }
       #qtstatus { margin-top: 1em; font-size: 1.5em; }
     </style>
+    <!-- Eclipse Paho MQTT client (vendored, EPL-1.0/EDL-1.0), used only by
+         Tezuka Source/Sink for their MQTT-over-WebSocket property channel --
+         see the Tezuka section below. Loaded unconditionally like the other
+         vendored assets; a flowgraph without a Tezuka block simply never
+         touches window.Paho. -->
+    <script src="paho-mqtt-min.js"></script>
   </head>
   <body onload="init()">
     <figure id="qtspinner">
@@ -1084,6 +1090,460 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
         }, 0);
       };
 
+      // WebSocketSource.start() proxies here for the same reason BrowserFileSource
+      // does: create the reader worker and hand it the ring, then talk to it
+      // exclusively through atomics from here on. Unlike a file or a USB radio,
+      // there is no permission gesture and no editor-side setup at all -- the URL
+      // is a plain string parameter, so the worker connects directly.
+      let nextWsReaderId = 1;
+      const wsReaders = new Map();
+      window.__grWebSocketSourceStats = Object.create(null);
+      window.__grStartWebSocketSource = (
+        url, memory, ringPointer, capacityItems, itemSize, controlPointer, errorPointer
+      ) => {
+        const id = nextWsReaderId++;
+        const workerUrl = new URL('websocket_reader.js', location.href);
+        if (window.__grBuildStamp) workerUrl.searchParams.set('v', window.__grBuildStamp);
+        const worker = new Worker(workerUrl);
+        const stats = {
+          url, ringBytes: capacityItems * itemSize, bytesRead: 0,
+          overruns: 0, droppedItems: 0, state: 'starting',
+        };
+        window.__grWebSocketSourceStats[id] = stats;
+        wsReaders.set(id, worker);
+        worker.onmessage = event => {
+          const message = event.data || {};
+          if (Number.isFinite(message.bytesRead)) stats.bytesRead = message.bytesRead;
+          if (Number.isFinite(message.overruns)) stats.overruns = message.overruns;
+          if (Number.isFinite(message.droppedItems)) stats.droppedItems = message.droppedItems;
+          if (message.type) stats.state = message.type;
+          // A connection that dies after already failing sends a second,
+          // messageless 'error' from the reader's onclose handler (the first,
+          // from onerror, already reported the reason) -- skip it rather than
+          // logging a confusing "undefined".
+          if (message.type === 'error' && message.message)
+            console.error(`WebSocket Source ${url}: ${message.message}`);
+          if (message.type === 'eof' || message.type === 'cancelled' || message.type === 'error')
+            wsReaders.delete(id);
+        };
+        worker.onerror = event => {
+          stats.state = 'error';
+          console.error(`WebSocket Source worker ${url}: ${event.message || 'worker error'}`);
+          wsReaders.delete(id);
+        };
+        worker.postMessage({
+          url, memory, ringPointer, capacityItems, itemSize,
+          controlPointer, errorPointer, errorCapacity: 512,
+        });
+        stats.state = 'connecting';
+        return id;
+      };
+      window.__grStopWebSocketSource = id => {
+        const worker = wsReaders.get(id);
+        // Terminating the worker closes its socket as a side effect (same as
+        // File Source's stop, and unlike the USB radios there is no device
+        // release to wait for first).
+        if (worker) worker.terminate();
+        wsReaders.delete(id);
+        const stats = window.__grWebSocketSourceStats[id];
+        if (stats && stats.state !== 'eof' && stats.state !== 'error')
+          stats.state = 'cancelled';
+      };
+
+      // WebSocketSink's half of the same arrangement: start() proxies here to
+      // create the writer worker, which drains the ring and calls ws.send().
+      let nextWsWriterId = 1;
+      const wsWriters = new Map();
+      window.__grWebSocketSinkStats = Object.create(null);
+      window.__grStartWebSocketSink = (
+        url, memory, ringPointer, capacityItems, itemSize, controlPointer, errorPointer
+      ) => {
+        const id = nextWsWriterId++;
+        const workerUrl = new URL('websocket_writer.js', location.href);
+        if (window.__grBuildStamp) workerUrl.searchParams.set('v', window.__grBuildStamp);
+        const worker = new Worker(workerUrl);
+        const stats = { url, bytesWritten: 0, state: 'starting' };
+        window.__grWebSocketSinkStats[id] = stats;
+        wsWriters.set(id, worker);
+        worker.onmessage = event => {
+          const message = event.data || {};
+          if (Number.isFinite(message.bytesWritten)) stats.bytesWritten = message.bytesWritten;
+          if (message.type) stats.state = message.type;
+          if (message.type === 'error')
+            console.error(`WebSocket Sink ${url}: ${message.message}`);
+          if (message.type === 'done' || message.type === 'cancelled' ||
+              message.type === 'error')
+            wsWriters.delete(id);
+        };
+        worker.onerror = event => {
+          stats.state = 'error';
+          console.error(`WebSocket Sink worker ${url}: ${event.message || 'worker error'}`);
+          wsWriters.delete(id);
+        };
+        worker.postMessage({
+          url, memory, ringPointer, capacityItems, itemSize,
+          controlPointer, errorPointer, errorCapacity: 512,
+        });
+        stats.state = 'connecting';
+        return id;
+      };
+      window.__grStopWebSocketSink = id => {
+        const worker = wsWriters.get(id);
+        if (!worker) return;   // already finished and cleaned itself up
+        // Deferred by one turn, as BrowserFileSink's stop is: on the normal path
+        // the worker has already closed the socket and posted 'done', and that
+        // message may still be sitting in this frame's task queue.
+        setTimeout(() => {
+          if (wsWriters.get(id) !== worker) return;   // the message landed
+          worker.terminate();
+          wsWriters.delete(id);
+          const stats = window.__grWebSocketSinkStats[id];
+          if (stats && stats.state !== 'done' && stats.state !== 'error')
+            stats.state = 'cancelled';
+        }, 0);
+      };
+
+      // Tezuka SDR: MQTT-over-WebSocket property control, shared per board.
+      //
+      // Unlike every other radio here there is no local device and no
+      // worker-owned command mailbox -- a Tezuka board is reached entirely
+      // over the network, so "setting a property" is a PUBLISH the board
+      // applies to its own AD9361/AD9363 sysfs attributes (api_controller.sh
+      // in the tezuka_fw repo), and "reading a property" is a retained
+      // state/<path> message the board already sent. One Paho client per
+      // board host is shared by every Tezuka block pointed at it, both
+      // because opening N MQTT connections for the same board is wasteful
+      // and because it is what makes streamRefCount below meaningful.
+      //
+      // The board's own streaming proxy (iio_ws_proxy) is a process, not a
+      // per-connection resource: re-publishing cmd/system/iqtape="on" while
+      // it is already running makes the board KILL and RESTART it, dropping
+      // any peer's already-open streaming socket. streamRefCount is the
+      // guard against that when more than one Tezuka block shares a host (a
+      // Source and a Sink, or two of either) -- start() only publishes "on"
+      // when it is the first to ask, and stop() only publishes "off" when it
+      // is the last to leave.
+      const tezukaBoards = new Map();   // host -> board entry
+      window.__grTezukaStats = Object.create(null);
+
+      function tezukaBoard(host) {
+        let board = tezukaBoards.get(host);
+        if (board) return board;
+        const useSSL = location.protocol === 'https:';
+        const clientId = 'grworld_' + Math.random().toString(16).slice(2, 10);
+        const client = new Paho.MQTT.Client(host, useSSL ? 9002 : 9001, '/mqtt', clientId);
+        let resolveReady;
+        board = {
+          client,
+          connected: false,
+          state: new Map(),          // path (no "state/" prefix) -> latest payload string
+          ready: new Promise(resolve => { resolveReady = resolve; }),
+          streamRefCount: 0,
+        };
+        client.onMessageArrived = message => {
+          board.state.set(message.destinationName.replace(/^state\//, ''), message.payloadString);
+        };
+        client.onConnectionLost = () => { board.connected = false; };
+        client.connect({
+          onSuccess: () => {
+            board.connected = true;
+            client.subscribe('state/#');
+            resolveReady();
+          },
+          onFailure: error => {
+            console.error(`Tezuka ${host}: MQTT connect failed: ` +
+                          (error && error.errorMessage || 'unknown error'));
+            resolveReady();   // let waiters proceed; publish() below just no-ops
+          },
+          reconnect: true,
+          keepAliveInterval: 30,
+          useSSL,
+        });
+        tezukaBoards.set(host, board);
+        return board;
+      }
+
+      // Fire-and-forget: the board is the only side that ever applies or
+      // confirms a cmd/ message. Silently drops the message while the MQTT
+      // connection is still coming up, exactly as the Tezuka Dashboard's own
+      // publish() does.
+      window.__grTezukaPublish = (host, path, payload) => {
+        const board = tezukaBoard(host);
+        if (!board.connected) return;
+        const message = new Paho.MQTT.Message(String(payload));
+        message.destinationName = 'cmd/' + path;
+        board.client.send(message);
+      };
+
+      // Starts the on-device streaming proxy (iio_ws_proxy) if this is the
+      // first Tezuka block to ask this board connection for it, then waits
+      // briefly for the confirming retained state/system/iqtape echo -- see
+      // the race note above for why refcounting, not "already running", is
+      // the guard against a redundant (destructive) restart.
+      //
+      // streamRefCount is incremented synchronously, before the first
+      // `await`, so two calls made back to back (two blocks starting in the
+      // same tick) still see a consistent 1-then-2 rather than a race.
+      async function tezukaEnsureStreaming(host) {
+        const board = tezukaBoard(host);
+        const isFirst = ++board.streamRefCount === 1;
+        await board.ready;
+        if (!isFirst) return;
+        if (board.state.get('system/iqtape') === 'on') return;
+        window.__grTezukaPublish(host, 'system/iqtape', 'on');
+        const deadline = Date.now() + 3000;
+        while (board.state.get('system/iqtape') !== 'on' && Date.now() < deadline)
+          await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
+      // The other half: called once from a Tezuka block's stop(). Only the
+      // last block leaving actually asks the board to stop streaming, so an
+      // in-progress peer on the same host is never cut off.
+      function tezukaReleaseStreaming(host) {
+        const board = tezukaBoards.get(host);
+        if (!board) return;
+        board.streamRefCount = Math.max(0, board.streamRefCount - 1);
+        if (board.streamRefCount === 0)
+          window.__grTezukaPublish(host, 'system/iqtape', 'off');
+      }
+
+      // Publishes the flowgraph's configured properties once the board
+      // connection is up. Called once from TezukaSource::start() (prefix
+      // "rx") and TezukaSink::start() (prefix "tx"); waiting on board.ready
+      // here (rather than publishing immediately, which __grTezukaPublish
+      // would silently drop) is what makes the initial configuration reliable
+      // rather than a race with the MQTT handshake.
+      window.__grTezukaConfigure = async (host, props, prefix = 'rx') => {
+        const board = tezukaBoard(host);
+        await board.ready;
+        for (const [key, value] of Object.entries(props))
+          window.__grTezukaPublish(host, prefix + '/' + key, value);
+      };
+
+      // TezukaSource.start() proxies here for the same reason every other
+      // browser-backed source does: create the reader worker and hand it the
+      // ring, then talk to it exclusively through atomics. Reuses
+      // websocket_reader.js -- the wire format is the same bounded-message
+      // byte stream BrowserFileSource's siblings all share -- requesting the
+      // "iio-rx" subprotocol so this claims only the RX half of iio_ws_proxy's
+      // full-duplex socket (see websocket_reader.js's protocol comment; a
+      // Tezuka Sink asking for "iio-tx" on the same board can then coexist).
+      // state/system/iqtape flips to "on" as soon as api_controller.sh forks
+      // iio_ws_proxy, well before the proxy has parsed its IIO context, built
+      // its RX buffer and actually bound port 8765 -- confirmed against real
+      // hardware, where the first connection attempt right after "on" landed
+      // consistently refused the connection. A few short-spaced retries cover
+      // that startup window without the block ever waiting synchronously.
+      //
+      // The retry has to happen BEFORE websocket_reader.js is ever handed the
+      // real Control block: that worker writes connection failure straight
+      // into shared memory (Atomics.store(control, STATE, ERROR)) the moment
+      // it fails, and TezukaSource::work() polls exactly that memory -- it
+      // has no way to tell "this attempt failed, a retry is coming" from "this
+      // is the final failure, throw", so it throws on the very first attempt
+      // regardless of how many retries this function goes on to make. A plain
+      // probe WebSocket, opened and closed on the main thread with no shared
+      // memory involved, can fail and be retried silently; only once a probe
+      // actually opens (or every attempt is exhausted) does a real
+      // websocket_reader.js worker -- and the shared Control it can fail
+      // into -- get created at all.
+      const TEZUKA_CONNECT_ATTEMPTS = 6;
+      const TEZUKA_CONNECT_RETRY_MS = 500;
+      const TEZUKA_PROBE_TIMEOUT_MS = 800;
+
+      function probeTezukaSocket(host, protocol) {
+        return new Promise(resolve => {
+          let settled = false;
+          const finish = ok => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            try { ws.close(); } catch { /* already gone */ }
+            resolve(ok);
+          };
+          const timer = setTimeout(() => finish(false), TEZUKA_PROBE_TIMEOUT_MS);
+          let ws;
+          try {
+            ws = new WebSocket(`ws://${host}:8765`, protocol);
+          } catch {
+            clearTimeout(timer);
+            resolve(false);
+            return;
+          }
+          ws.onopen = () => finish(true);
+          ws.onerror = () => finish(false);
+          ws.onclose = () => finish(false);
+        });
+      }
+
+      let nextTezukaReaderId = 1;
+      const tezukaReaders = new Map();   // id -> { worker, cancelled }
+      window.__grStartTezukaSource = (
+        host, memory, ringPointer, capacityItems, itemSize, controlPointer, errorPointer
+      ) => {
+        const id = nextTezukaReaderId++;
+        const stats = {
+          host, ringBytes: capacityItems * itemSize, bytesRead: 0,
+          overruns: 0, droppedItems: 0, state: 'starting',
+        };
+        window.__grTezukaStats[id] = stats;
+        const entry = { worker: null, cancelled: false };
+        tezukaReaders.set(id, entry);
+
+        // The real, one-shot connection: websocket_reader.js now owns the
+        // shared Control, and whatever happens to it (open, eof, error) is
+        // reported exactly as WebSocket Source's launcher reports it -- by
+        // this point a failure is a real failure, not the startup race.
+        const connectForReal = () => {
+          if (entry.cancelled) return;
+          const workerUrl = new URL('websocket_reader.js', location.href);
+          if (window.__grBuildStamp) workerUrl.searchParams.set('v', window.__grBuildStamp);
+          const worker = new Worker(workerUrl);
+          entry.worker = worker;
+          worker.onmessage = event => {
+            const message = event.data || {};
+            if (Number.isFinite(message.bytesRead)) stats.bytesRead = message.bytesRead;
+            if (Number.isFinite(message.overruns)) stats.overruns = message.overruns;
+            if (Number.isFinite(message.droppedItems)) stats.droppedItems = message.droppedItems;
+            if (message.type) stats.state = message.type;
+            // See the identical guard in WebSocket Source's launcher above:
+            // a connection that dies after already failing sends a second,
+            // messageless 'error'.
+            if (message.type === 'error' && message.message)
+              console.error(`Tezuka Source ${host}: ${message.message}`);
+            if (message.type === 'eof' || message.type === 'cancelled' || message.type === 'error')
+              tezukaReaders.delete(id);
+          };
+          worker.onerror = event => {
+            stats.state = 'error';
+            console.error(`Tezuka Source worker ${host}: ${event.message || 'worker error'}`);
+            tezukaReaders.delete(id);
+          };
+          worker.postMessage({
+            url: `ws://${host}:8765`, protocol: 'iio-rx',
+            memory, ringPointer, capacityItems, itemSize,
+            controlPointer, errorPointer, errorCapacity: 512,
+          });
+          stats.state = 'connecting';
+        };
+
+        const probe = async attemptNumber => {
+          if (entry.cancelled) return;
+          if (await probeTezukaSocket(host, 'iio-rx')) { connectForReal(); return; }
+          if (attemptNumber < TEZUKA_CONNECT_ATTEMPTS) {
+            setTimeout(() => probe(attemptNumber + 1), TEZUKA_CONNECT_RETRY_MS);
+            return;
+          }
+          // Out of retries. Let the real worker make one last honest attempt
+          // so the failure is reported through the normal error path (and
+          // TezukaSource::work() gets the RUNNER_FAIL it already handles)
+          // instead of duplicating that reporting here.
+          connectForReal();
+        };
+
+        tezukaEnsureStreaming(host).then(() => probe(1));
+        return id;
+      };
+      window.__grStopTezukaSource = (id, host) => {
+        const entry = tezukaReaders.get(id);
+        if (entry) {
+          entry.cancelled = true;
+          if (entry.worker) entry.worker.terminate();
+        }
+        tezukaReaders.delete(id);
+        const stats = window.__grTezukaStats[id];
+        if (stats && stats.state !== 'eof' && stats.state !== 'error')
+          stats.state = 'cancelled';
+        tezukaReleaseStreaming(host);
+      };
+
+      // TezukaSink's half of the same arrangement: start() proxies here to
+      // create the writer worker, which drains the ring and calls ws.send()
+      // over the "iio-tx" subprotocol -- the mirror image of
+      // __grStartTezukaSource above, sharing the same board connection and
+      // ensure/release-streaming accounting, and the same probe-then-commit
+      // startup-race workaround (see the comment on __grStartTezukaSource:
+      // the proxy's TX socket isn't actually bound for the same short window
+      // right after cmd/system/iqtape="on", so a plain probe is retried
+      // silently before websocket_writer.js -- and the shared Control it can
+      // fail into -- is ever created).
+      let nextTezukaWriterId = 1;
+      const tezukaWriters = new Map();   // id -> { worker, cancelled }
+      window.__grTezukaSinkStats = Object.create(null);
+      window.__grStartTezukaSink = (
+        host, memory, ringPointer, capacityItems, itemSize, controlPointer, errorPointer
+      ) => {
+        const id = nextTezukaWriterId++;
+        const stats = { host, bytesWritten: 0, state: 'starting' };
+        window.__grTezukaSinkStats[id] = stats;
+        const entry = { worker: null, cancelled: false };
+        tezukaWriters.set(id, entry);
+
+        const connectForReal = () => {
+          if (entry.cancelled) return;
+          const workerUrl = new URL('websocket_writer.js', location.href);
+          if (window.__grBuildStamp) workerUrl.searchParams.set('v', window.__grBuildStamp);
+          const worker = new Worker(workerUrl);
+          entry.worker = worker;
+          worker.onmessage = event => {
+            const message = event.data || {};
+            if (Number.isFinite(message.bytesWritten)) stats.bytesWritten = message.bytesWritten;
+            if (message.type) stats.state = message.type;
+            if (message.type === 'error')
+              console.error(`Tezuka Sink ${host}: ${message.message}`);
+            if (message.type === 'done' || message.type === 'cancelled' ||
+                message.type === 'error')
+              tezukaWriters.delete(id);
+          };
+          worker.onerror = event => {
+            stats.state = 'error';
+            console.error(`Tezuka Sink worker ${host}: ${event.message || 'worker error'}`);
+            tezukaWriters.delete(id);
+          };
+          worker.postMessage({
+            url: `ws://${host}:8765`, protocol: 'iio-tx',
+            memory, ringPointer, capacityItems, itemSize,
+            controlPointer, errorPointer, errorCapacity: 512,
+          });
+          stats.state = 'connecting';
+        };
+
+        const probe = async attemptNumber => {
+          if (entry.cancelled) return;
+          if (await probeTezukaSocket(host, 'iio-tx')) { connectForReal(); return; }
+          if (attemptNumber < TEZUKA_CONNECT_ATTEMPTS) {
+            setTimeout(() => probe(attemptNumber + 1), TEZUKA_CONNECT_RETRY_MS);
+            return;
+          }
+          // Out of retries: one last honest attempt, same reasoning as
+          // __grStartTezukaSource.
+          connectForReal();
+        };
+
+        tezukaEnsureStreaming(host).then(() => probe(1));
+        return id;
+      };
+      // Called from both TezukaSink::cancel() (hard, immediate) and
+      // TezukaSink::stop() (after the C++ side already waited synchronously
+      // for the worker to drain and close -- see tezuka_sink.cpp). Deferred by
+      // one turn, as WebSocketSink's stop is: on the normal stop() path the
+      // worker has very likely already closed the socket and posted 'done',
+      // and that message may still be sitting in this frame's task queue.
+      window.__grStopTezukaSink = (id, host) => {
+        const entry = tezukaWriters.get(id);
+        setTimeout(() => {
+          if (entry && tezukaWriters.get(id) === entry) {
+            entry.cancelled = true;
+            if (entry.worker) entry.worker.terminate();
+            tezukaWriters.delete(id);
+            const stats = window.__grTezukaSinkStats[id];
+            if (stats && stats.state !== 'done' && stats.state !== 'error')
+              stats.state = 'cancelled';
+          }
+          tezukaReleaseStreaming(host);
+        }, 0);
+      };
+
       // Repo JavaScript Blocks: the source fetch.
       //
       // A JS block's factory reads its descriptor synchronously, so it needs the
@@ -1474,14 +1934,35 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
         // finished, not the scheduler threads joining -- that is the only part
         // of a shutdown unloading this frame would lose. A flowgraph with no
         // writer at all acknowledges on the first poll.
+        //
+        // A Tezuka Source's stop() is on the same proxied-call path but has
+        // nothing to await a result from -- __grStopTezukaSource runs to
+        // completion (including the MQTT publish) synchronously once the main
+        // thread services the call. The risk isn't waiting long enough, it's
+        // servicing the call *at all* before this frame is torn down: acking
+        // (and thus unloading) on the very first poll, with no setTimeout ever
+        // run, would let the frame die before any block's proxied stop() call
+        // reaches this thread. Waiting for tezukaReaders/tezukaWriters to
+        // empty -- which __grStopTezukaSource/__grStopTezukaSink do as their
+        // first act (deferred by one turn on the Sink side -- see
+        // __grStopTezukaSink) -- is what proves the call was actually
+        // serviced, not just requested. A Tezuka Sink's own stop() has
+        // already blocked synchronously on its scheduler pthread for the
+        // writer to drain and close before this call is even made -- see
+        // tezuka_sink.cpp -- so this poll is only proving the MQTT release
+        // was serviced, not waiting out that drain itself.
         const deadline = performance.now() + 20000;
         const stillWriting = () => Object.values(window.__grSinkStats || {}).some(
           stats => stats.state !== 'done' && stats.state !== 'error' &&
                    stats.state !== 'cancelled');
+        const stillReleasingTezuka = () =>
+          tezukaReaders.size > 0 || tezukaWriters.size > 0;
         const poll = () => {
-          if (!stillWriting()) { ack(); return; }
+          if (!stillWriting() && !stillReleasingTezuka()) { ack(); return; }
           if (performance.now() > deadline) {
-            console.error('SigMF Sink: gave up waiting for the recording to finish');
+            console.error(stillWriting()
+              ? 'SigMF Sink: gave up waiting for the recording to finish'
+              : 'Tezuka Source/Sink: gave up waiting for the board to be released');
             ack();
             return;
           }
