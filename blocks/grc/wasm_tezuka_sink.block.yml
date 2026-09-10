@@ -10,11 +10,12 @@ documentation: |-
 
     Two independent connections, both opened when the flowgraph starts:
 
-    * IQ samples go out over a plain WebSocket to the board's iio_ws_proxy
-      (port 8765), the same wire format WebSocket Sink writes -- raw,
-      unframed interleaved int16 I/Q. This claims only the TX half of the
-      proxy's full-duplex socket, so a Tezuka Source pointed at the same
-      board can stream RX at the same time.
+    * IQ samples go out over a WebSocket to the board's iio_ws_proxy (port
+      8765, or 8766 with TLS -- selected automatically from whether this page
+      itself is https://, same as the MQTT connection below), the same wire
+      format WebSocket Sink writes -- raw, unframed interleaved int16 I/Q.
+      This claims only the TX half of the proxy's full-duplex socket, so a
+      Tezuka Source pointed at the same board can stream RX at the same time.
     * Frequency, sample rate, bandwidth and gain are set over MQTT-over-
       WebSocket (port 9001, or 9002 with TLS -- selected automatically from
       whether this page itself is https://) to the same broker the Tezuka
@@ -22,6 +23,18 @@ documentation: |-
       api_controller.sh listens for. A live QT GUI Range change is a fresh
       publish, same as any other change; the board is the only side that ever
       applies or confirms it.
+
+    A page loaded over https:// can only open a wss:// WebSocket -- the
+    browser blocks a plain ws:// one as mixed content -- and the board's TLS
+    listeners use a self-signed certificate (Maia SDR's own CA), which the
+    browser will silently refuse to connect to until it has a security
+    exception for that exact host:port. If nothing transmits (or the console
+    shows "could not connect to wss://...") from an https:// deployment,
+    visit https://<host>:8766/ directly once and click through the
+    certificate warning (or type thisisunsafe on Chrome's warning page); the
+    exception then covers that origin for the rest of the browser session.
+    The same applies to the MQTT wss:// port above if property changes are
+    silently dropped.
 
     Starting the flowgraph also asks the board to start its streaming proxy
     (cmd/system/iqtape = "on"), and stopping it asks the board to stop again --
