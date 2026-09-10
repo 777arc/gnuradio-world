@@ -223,6 +223,22 @@ blocks:
         coordinate: [1260, 480]
         rotation: 0
         state: enabled
+-   name: fosphor_qt_sink_c_0
+    id: fosphor_qt_sink_c
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        freq_center: '0'
+        freq_span: samp_rate
+        gui_hint: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        wintype: window.WIN_BLACKMAN_hARRIS
+    states:
+        coordinate: [1260, 240]
+        rotation: 0
+        state: enabled
 -   name: mod7
     id: digital_psk_mod
     parameters:
@@ -345,63 +361,6 @@ blocks:
         coordinate: [1260, 350]
         rotation: 0
         state: enabled
--   name: qtgui_waterfall_sink_x_0
-    id: qtgui_waterfall_sink_x
-    parameters:
-        affinity: ''
-        alias: ''
-        alpha1: '1'
-        alpha10: '1'
-        alpha2: '1'
-        alpha3: '1'
-        alpha4: '1'
-        alpha5: '1'
-        alpha6: '1'
-        alpha7: '1'
-        alpha8: '1'
-        alpha9: '1'
-        average: '1.0'
-        axislabels: 'True'
-        bw: samp_rate
-        color1: '0'
-        color10: '0'
-        color2: '0'
-        color3: '0'
-        color4: '0'
-        color5: '0'
-        color6: '0'
-        color7: '0'
-        color8: '0'
-        color9: '0'
-        comment: ''
-        fc: '0'
-        fftsize: '512'
-        freqhalf: 'True'
-        grid: 'False'
-        int_max: '10'
-        int_min: '-140'
-        label1: ''
-        label10: ''
-        label2: ''
-        label3: ''
-        label4: ''
-        label5: ''
-        label6: ''
-        label7: ''
-        label8: ''
-        label9: ''
-        legend: 'True'
-        maxoutbuf: '0'
-        minoutbuf: '0'
-        name: Waterfall
-        nconnections: '1'
-        type: complex
-        update_time: '0.05'
-        wintype: window.WIN_RECTANGULAR
-    states:
-        coordinate: [1260, 180]
-        rotation: 0
-        state: enabled
 -   name: throttle4
     id: blocks_throttle2
     parameters:
@@ -427,7 +386,7 @@ blocks:
         alias: ''
         columns: '12'
         comment: ''
-        layout: '{"constellation":[6,0,3,4],"freq":[9,0,3,1],"mag":[9,2,3,1],"noise":[9,1,3,1],"qtgui_time_sink_x_0":[6,4,6,3],"qtgui_waterfall_sink_x_0":[0,0,6,7]}'
+        layout: '{"constellation":[6,0,3,4],"fosphor_qt_sink_c_0":[0,0,6,7],"freq":[9,0,3,1],"mag":[9,2,3,1],"noise":[9,1,3,1],"qtgui_time_sink_x_0":[6,4,6,3]}'
         row_height: '60'
     states:
         coordinate: [810, 10]
@@ -488,8 +447,8 @@ connections:
 - [blocks_vco_c_0, '0', blocks_rotator_cc_0, '0']
 - [mod7, '0', xx3, '1']
 - [throttle4, '0', constellation, '0']
+- [throttle4, '0', fosphor_qt_sink_c_0, '0']
 - [throttle4, '0', qtgui_time_sink_x_0, '0']
-- [throttle4, '0', qtgui_waterfall_sink_x_0, '0']
 - [x2, '0', xx3, '0']
 - [x8, '0', mod7, '0']
 - [xx3, '0', throttle4, '0']
