@@ -1,0 +1,2 @@
+# Cargo's build tree. Several GB, and entirely reproducible from Cargo.lock.
+/target

@@ -1,0 +1,38 @@
+# GRWire's own workflow. It builds a Rust daemon that has nothing to do with the
+# WASM site, so it does not gate the deploy -- see docs/ci.md.
+name: grwire
+
+on:
+  push:
+    paths: ['grwire/**', '.github/workflows/grwire.yml']
+  pull_request:
+    paths: ['grwire/**', '.github/workflows/grwire.yml']
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: grwire
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: grwire
+      # The default build links libSoapySDR for the long tail of hardware.
+      - run: sudo apt-get update && sudo apt-get install -y libsoapysdr-dev
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo test
+      # The zero-dependency build must keep working: it is what a Raspberry Pi
+      # user with only an RTL-SDR installs, and it is the one that cross-compiles
+      # without a C toolchain.
+      - run: cargo check --no-default-features
+      - run: cargo build --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: grwire-x86_64-linux
+          path: grwire/target/release/grwire

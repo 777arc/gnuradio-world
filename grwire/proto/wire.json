@@ -1,0 +1,132 @@
+{
+  "_comment": [
+    "The grwire.v1 wire format, in the one place all three realms read it from.",
+    "The binary frame header exists in Rust (grwire/src/proto.rs), in JavaScript",
+    "(runner/src/grwire_worker.js) and the shared-memory control block exists in",
+    "JavaScript and C++ (blocks/src/grwire_source.hpp). None of those three can",
+    "import from another, so each hard-codes the layout and a test asserts it",
+    "against this file. Change a number here and three tests fail at once, which",
+    "is the point -- see docs/grwire.md."
+  ],
+  "protocol": "grwire.v1",
+  "subprotocol": "grwire.v1",
+  "default_port": 8073,
+  "frame_header": {
+    "bytes": 32,
+    "endian": "little",
+    "magic": 827806279,
+    "magic_ascii": "GRW1",
+    "fields": [
+      {
+        "name": "magic",
+        "offset": 0,
+        "type": "u32"
+      },
+      {
+        "name": "type",
+        "offset": 4,
+        "type": "u8"
+      },
+      {
+        "name": "format",
+        "offset": 5,
+        "type": "u8"
+      },
+      {
+        "name": "flags",
+        "offset": 6,
+        "type": "u16"
+      },
+      {
+        "name": "epoch",
+        "offset": 8,
+        "type": "u32"
+      },
+      {
+        "name": "sample_count",
+        "offset": 12,
+        "type": "u32"
+      },
+      {
+        "name": "seq",
+        "offset": 16,
+        "type": "u64"
+      },
+      {
+        "name": "sample_index",
+        "offset": 24,
+        "type": "u64"
+      }
+    ]
+  },
+  "frame_type": {
+    "rx_iq": 1,
+    "tx_iq": 2
+  },
+  "frame_flags": {
+    "discontinuity": 1
+  },
+  "formats": {
+    "ci8": {
+      "code": 1,
+      "bytes_per_sample": 2
+    },
+    "ci16": {
+      "code": 2,
+      "bytes_per_sample": 4
+    },
+    "cf32": {
+      "code": 3,
+      "bytes_per_sample": 8
+    }
+  },
+  "_control_comment": [
+    "The shared-memory control block between grwire_source.hpp (C++) and",
+    "grwire_worker.js. Index order IS the struct field order; adding a field",
+    "means editing both files in the same order and bumping words here."
+  ],
+  "control": {
+    "words": 21,
+    "indices": {
+      "READ_POS": 0,
+      "WRITE_POS": 1,
+      "STATE": 2,
+      "ERROR_LENGTH": 3,
+      "OVERRUNS": 4,
+      "LOST_SAMPLES": 5,
+      "ACTUAL_RATE": 6,
+      "CMD_SEQ": 7,
+      "CMD_ACK": 8,
+      "FREQ_HI": 9,
+      "FREQ_LO": 10,
+      "OFFSET_HI": 11,
+      "OFFSET_LO": 12,
+      "GAIN_TENTHS": 13,
+      "BANDWIDTH": 14,
+      "FLAGS": 15,
+      "NET_DROP": 16,
+      "CLIENT_DROP": 17,
+      "STAGE1": 18,
+      "STAGE2": 19,
+      "STAGE3": 20
+    },
+    "state": {
+      "INITIAL": 0,
+      "RUNNING": 1,
+      "ERROR": 2,
+      "CANCELLED": 3
+    },
+    "flags": {
+      "AGC": 1
+    },
+    "error_bytes": 512,
+    "stage_unset": -2147483648,
+    "_stage_comment": [
+      "Three positional live gain slots, in tenths of a dB. Slot n addresses the",
+      "n-th element of whatever the radio reported in `opened.info.gain_elements`,",
+      "so one block serves a HackRF (LNA/AMP/VGA), an Airspy (LNA/MIX/VGA) and an",
+      "RTL-SDR (TUNER alone) without naming any of them. stage_unset means the",
+      "stage is not driven, because 0 dB is a legitimate gain."
+    ]
+  }
+}

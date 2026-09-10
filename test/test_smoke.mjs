@@ -26,6 +26,7 @@ import {
   launchBrowser,
   setIsolationHeaders,
 } from '../scripts/browser-test-support.mjs';
+import { attachGrWireMock } from './support/grwire_mock.mjs';
 
 const ROOT = normalize(new URL('..', import.meta.url).pathname);
 const PORT = Number(process.argv[2] || 8101);
@@ -89,6 +90,14 @@ const CASES = [
   { name: 'RTL-SDR Source (generated samples, no hardware)',
     grc: 'test/fixtures/rtlsdr_fake.grc',
     expectLogs: ['RTL-SDR Source: running at 1024000 S/s'] },
+  // GRWire against the mock daemon rather than the Rust one: CI has no cargo
+  // and no radio, and the browser half is what this suite is for. expectLogs
+  // asserts the *reported* rate, which is the one thing "every block moved
+  // items" cannot see -- a graph running at the wrong rate still moves plenty.
+  // See docs/grwire.md.
+  { name: 'GRWire Source (mock daemon, no hardware)',
+    grc: 'test/fixtures/grwire_mock.grc',
+    expectLogs: ['GRWire Source: running at 1000000 S/s'] },
   { name: 'PlutoSDR Source and Sink (generated samples, no hardware)',
     grc: 'test/fixtures/plutosdr_fake.grc',
     expectLogs: [
@@ -274,6 +283,8 @@ const server = http.createServer(async (req, res) => {
     res.end(body);
   } catch { res.writeHead(404); res.end('not found'); }
 });
+// The GRWire fixture connects back to this same server over a WebSocket.
+const grWireMock = attachGrWireMock(server, { path: '/grwire' });
 await new Promise(r => server.listen(PORT, r));
 
 const browser = await launchBrowser(ROOT);
@@ -293,7 +304,8 @@ async function runCase(test) {
   page.on('console', m => logs.push(m.text()));
   page.on('pageerror', e => logs.push('PAGEERROR ' + e.message));
 
-  const grc = readFileSync(join(ROOT, test.grc), 'utf8');
+  const grc = readFileSync(join(ROOT, test.grc), 'utf8')
+    .replaceAll('ws://localhost:8101/', `ws://localhost:${PORT}/`);
   // ?scheduler= overrides whatever the flowgraph's Options block says, which is
   // the only way a harness handing a .grc straight to runner.html can pick one.
   const query = test.scheduler ? `?scheduler=${encodeURIComponent(test.scheduler)}` : '';
@@ -476,7 +488,8 @@ for (const result of caseResults) {
   page.on('console', m => logs.push(m.text()));
   page.on('pageerror', e => logs.push('PAGEERROR ' + e.message));
 
-  const grc = readFileSync(join(ROOT, test.grc), 'utf8');
+  const grc = readFileSync(join(ROOT, test.grc), 'utf8')
+    .replaceAll('ws://localhost:8101/', `ws://localhost:${PORT}/`);
   const bytes = Buffer.from(OFFSET_RECORDING_BASE64, 'base64');
   const expected = [
     bytes.readFloatLE(OFFSET_SAMPLE * 8),
@@ -556,7 +569,8 @@ for (const result of caseResults) {
   page.on('console', m => logs.push(m.text()));
   page.on('pageerror', e => logs.push('PAGEERROR ' + e.message));
 
-  const grc = readFileSync(join(ROOT, test.grc), 'utf8');
+  const grc = readFileSync(join(ROOT, test.grc), 'utf8')
+    .replaceAll('ws://localhost:8101/', `ws://localhost:${PORT}/`);
   const bytes = Buffer.from(OFFSET_RECORDING_BASE64, 'base64');
   const expected = [
     bytes.readFloatLE(OFFSET_SAMPLE * 8),
@@ -751,7 +765,8 @@ for (const result of caseResults) {
   page.on('console', m => logs.push(m.text()));
   page.on('pageerror', e => logs.push('PAGEERROR ' + e.message));
 
-  const grc = readFileSync(join(ROOT, test.grc), 'utf8');
+  const grc = readFileSync(join(ROOT, test.grc), 'utf8')
+    .replaceAll('ws://localhost:8101/', `ws://localhost:${PORT}/`);
   const meta = JSON.stringify({
     global: {
       'core:datatype': 'cf32_le',
@@ -854,6 +869,32 @@ for (const result of caseResults) {
 }
 
 await browser.close();
+
+// The GRWire block acknowledges frames so the daemon can tell a browser that
+// has stopped draining from a slow network -- nothing else in this suite would
+// notice if that stopped happening, because a client that never acknowledges
+// still receives a perfectly good stream until the daemon's window fills.
+{
+  const checks = {
+    'the block connected to the daemon': grWireMock.connections > 0,
+    'the block started a stream': grWireMock.started > 0,
+    'the block acknowledged frames (flow control)': grWireMock.acks > 0,
+    // stage1/stage3 are positional and must arrive named as the *radio* names
+    // its stages -- LNA and VGA here. stage2 was left at -1000 and must not
+    // appear at all: "not driven" and "0 dB" are different, and confusing them
+    // would silently deafen a radio.
+    'positional stage gains reached the radio by name': grWireMock.gainsSeen.some(
+      gains => gains.LNA === 24 && gains.VGA === 18 && !('AMP' in gains)),
+  };
+  const failed = Object.entries(checks).filter(([, pass]) => !pass).map(([name]) => name);
+  const ok = failed.length === 0;
+  allOk = allOk && ok;
+  console.log(`\n[${ok ? 'OK' : 'FAIL'}] GRWire protocol conversation`);
+  console.log(`   ${grWireMock.connections} connection(s), ${grWireMock.started} start(s), ` +
+              `${grWireMock.acks} flow ack(s)`);
+  if (failed.length) console.log(`   failed: ${failed.join(', ')}`);
+}
+
 server.close();
 console.log(`\n=== ${allOk ? 'ALL SMOKE TESTS PASS' : 'SMOKE TESTS FAILED'} ===`);
 process.exit(allOk ? 0 : 1);

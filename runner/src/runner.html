@@ -376,6 +376,114 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
         if (stats && stats.state !== 'error') stats.state = 'cancelled';
       };
 
+      // GRWire Source reaches a radio on another machine over one WebSocket.
+      // Unlike the USB radios there is no device permission to obtain and no
+      // handle to re-acquire -- the worker just opens a socket -- but the loss
+      // accounting has two extra layers, because the network and the client can
+      // each fall behind independently of the radio. See docs/grwire.md.
+      let nextGrWireWorkerId = 40000;
+      const grWireWorkers = new Map();
+      window.__grStartGrWireSource = (
+        server, device, memory, ringPointer, capacitySamples,
+        controlPointer, errorPointer, wire, sampleRate, decim
+      ) => {
+        const id = nextGrWireWorkerId++;
+        const workerUrl = new URL('grwire_worker.js', location.href);
+        if (window.__grBuildStamp) workerUrl.searchParams.set('v', window.__grBuildStamp);
+        const worker = new Worker(workerUrl);
+        // Never let the token reach a log line: users paste these into issues.
+        const label = String(server).replace(/token=[^&]*/, 'token=***');
+        const wireBytes = { 1: 2, 2: 4, 3: 8 }[wire] || 2;
+        const stats = {
+          device: 'GRWire',
+          transport: 'websocket',
+          direction: 'rx',
+          serial: device || 'first available',
+          server: label,
+          ringBytes: capacitySamples * wireBytes,
+          requestedRate: sampleRate,
+          actualRate: 0,
+          overruns: 0,
+          netDrops: 0,
+          clientDrops: 0,
+          state: 'starting',
+        };
+        window.__grUsbStats[id] = stats;
+        grWireWorkers.set(id, worker);
+        worker.onmessage = event => {
+          const message = event.data || {};
+          if (Number.isFinite(message.actualRate)) stats.actualRate = message.actualRate;
+          if (Number.isFinite(message.overruns)) stats.overruns = message.overruns;
+          if (message.type === 'stats' && message.stats) {
+            stats.netDrops = message.stats.net_drops;
+            stats.clientDrops = message.stats.client_drops;
+            stats.measuredRate = message.stats.measured_rate;
+            // The daemon measures what it actually produced. When that
+            // disagrees with what it reports, the flowgraph is running at a
+            // rate its plots do not show -- worth saying out loud, once.
+            if (message.stats.rate_suspect && !stats.rateWarned) {
+              stats.rateWarned = true;
+              console.warn(
+                `GRWire Source ${label}: the daemon reports ` +
+                `${Math.round(message.stats.out_rate)} S/s but is delivering ` +
+                `${Math.round(message.stats.measured_rate)} S/s -- the frequency ` +
+                `axis of every plot will be wrong by that ratio`);
+            }
+            return;
+          }
+          if (message.type === 'warning') {
+            console.warn(`GRWire Source ${label}: ${message.text}`);
+            return;
+          }
+          if (message.type === 'hello') {
+            console.log(
+              `GRWire Source ${label}: connected to ${message.host} ` +
+              `(grwire ${message.version})`);
+            return;
+          }
+          if (message.type === 'running') {
+            console.log(
+              `GRWire Source ${label}: streaming ${message.actualRate} S/s ` +
+              `(radio at ${message.hwRate} S/s, decimated by ${message.decim})`);
+          }
+          if (message.type === 'discontinuity') return;
+          if (USB_WORKER_STATES.has(message.type)) stats.state = message.type;
+          if (message.type === 'error')
+            reportUsbWorkerError(`GRWire Source ${label}`, message);
+          if (message.type === 'cancelled' || message.type === 'error')
+            grWireWorkers.delete(id);
+        };
+        worker.onerror = event => {
+          stats.state = 'error';
+          console.error(
+            `GRWire Source worker ${label}: ${event.message || 'worker error'}`);
+          grWireWorkers.delete(id);
+        };
+        worker.postMessage({
+          server,
+          device,
+          memory,
+          ringPointer,
+          capacitySamples,
+          controlPointer,
+          errorPointer,
+          errorCapacity: 512,
+          wire,
+          sampleRate,
+          decim,
+        });
+        return id;
+      };
+      window.__grStopGrWireSource = id => {
+        const worker = grWireWorkers.get(id);
+        // The worker closes itself on the CANCELLED state the block sets before
+        // calling this, so it can close the socket politely first.
+        if (worker) setTimeout(() => worker.terminate(), 250);
+        grWireWorkers.delete(id);
+        const stats = window.__grUsbStats[id];
+        if (stats && stats.state !== 'error') stats.state = 'cancelled';
+      };
+
       // PlutoSDR Source and Sink use the stock firmware's USB IIOD service.
       // One worker owns each selected Pluto and discovers the IIO interface,
       // endpoint pairs, device ids and scan layout instead of baking in the

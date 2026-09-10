@@ -4,6 +4,7 @@
 // URL hash (runner.html#<encoded json>).
 
 import './editor.css';
+import { GRWIRE_ID } from './grwire';
 import { dumpGrc, parseGrc, type GrcDoc, type GrcScalar } from './grc';
 import {
   canvasViewportCenter,
@@ -332,6 +333,11 @@ const RUN_BOUND_PARAMS: Record<string, string> = {
   // SigMF Sink is the one block whose path is an *output*: /local-output/...,
   // kept distinct so the runner's two binding maps cannot be confused.
   [SIGMF_SINK_ID]: SIGMF_FILE_PARAM,
+  // GRWire's server URL is not a path but the same rule applies for the same
+  // reason: what the runner needs (a URL carrying the access token) must not be
+  // what the editor saves. A .grc is made to be shared, and a token in one
+  // hands out the sender's radio. See docs/grwire.md.
+  [GRWIRE_ID]: 'server',
 };
 
 const localFilesByToken = new Map<string, File>();

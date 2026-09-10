@@ -6,6 +6,7 @@
 #include "browser_file_sink.hpp"
 #include "sigmf_sink.hpp"
 #include "browser_audio.hpp"
+#include "grwire_source.hpp"
 #include "rtlsdr_source.hpp"
 #include "plutosdr_source.hpp"
 #include "plutosdr_sink.hpp"
@@ -2851,6 +2852,68 @@ static std::map<std::string, Factory>& registry_storage() {
         // the editor picked with navigator.usb.requestDevice(); the permission
         // it granted is what lets the worker re-acquire the dongle without a
         // user gesture of its own. See docs/rtlsdr.md.
+        // A radio on another machine, over a WebSocket to a grwire daemon.
+        // Hand-written because the block takes a server URL and a device args
+        // string, neither of which any generated factory could produce, and
+        // because the live setters below are what let a QT GUI Range retune a
+        // radio that is not on this computer. See docs/grwire.md.
+        {"wasm_grwire_source", [](const json& p) -> BuiltBlock {
+             const auto type = type_from(p, "complex");
+             GrWireSource::Output output = GrWireSource::Output::COMPLEX;
+             if (type == "short") output = GrWireSource::Output::SHORT;
+             else if (type == "byte") output = GrWireSource::Output::BYTE;
+
+             const auto wire_name = wasm_registry::text(p, "wire_format");
+             grwire::Wire wire = grwire::Wire::CI8;
+             if (wire_name == "ci16") wire = grwire::Wire::CI16;
+             else if (wire_name == "cf32") wire = grwire::Wire::CF32;
+
+             // -1000 is the "not driven" default; 0 dB cannot mean it.
+             const double stages[3] = {
+                 number_from(p, "stage1", -1000.0),
+                 number_from(p, "stage2", -1000.0),
+                 number_from(p, "stage3", -1000.0),
+             };
+             auto block = GrWireSource::make(
+                 // text(), not json::value(): a URL and an args string are text
+                 // even when they read as a number.
+                 wasm_registry::text(p, "server"),
+                 wasm_registry::text(p, "device"),
+                 output,
+                 wire,
+                 number_from(p, "samp_rate", 2048000.0),
+                 number_from(p, "center_freq", 100e6),
+                 number_from(p, "offset", 0.0),
+                 static_cast<int>(number_from(p, "decim", 1.0)),
+                 bool_from(p, "gain_mode", false),
+                 number_from(p, "gain", 30.0),
+                 stages,
+                 number_from(p, "bandwidth", 0.0));
+
+             BuiltBlock result{ block };
+             // Bound by GRC parameter name, so a QT GUI Range referencing one of
+             // these reconfigures the remote radio while the graph runs.
+             result.numeric_setters["center_freq"] =
+                 [block](double value) { block->set_center_freq(value); };
+             result.numeric_setters["offset"] =
+                 [block](double value) { block->set_offset(value); };
+             result.numeric_setters["gain"] =
+                 [block](double value) { block->set_gain(value); };
+             result.numeric_setters["gain_mode"] =
+                 [block](double value) { block->set_gain_mode(value != 0.0); };
+             result.numeric_setters["bandwidth"] =
+                 [block](double value) { block->set_bandwidth(value); };
+             // Positional live gain stages: stage1 drives whatever the radio
+             // calls its first gain element. A QT GUI Range on one of these is
+             // the remote equivalent of HackRF Source's own lna_gain/vga_gain.
+             result.numeric_setters["stage1"] =
+                 [block](double value) { block->set_stage(1, value); };
+             result.numeric_setters["stage2"] =
+                 [block](double value) { block->set_stage(2, value); };
+             result.numeric_setters["stage3"] =
+                 [block](double value) { block->set_stage(3, value); };
+             return result;
+         }},
         {"wasm_rtlsdr_source", [](const json& p) -> BuiltBlock {
              const auto type = type_from(p, "complex");
              RtlSdrSource::Output output;

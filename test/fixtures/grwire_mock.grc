@@ -1,0 +1,57 @@
+options:
+    parameters:
+        id: grwire_mock
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+blocks:
+# Points at the mock daemon in test/support/grwire_mock.mjs, which the smoke
+# suite attaches to its own HTTP server -- so this exercises the whole browser
+# half of GRWire (the socket, the grwire.v1 handshake, the frame header, the
+# shared ring, the futex handoff and the ci8 -> complex conversion) on a machine
+# with no cargo, no SoapySDR and nothing plugged in. The port is rewritten by
+# test_smoke.mjs when it is not the default. See docs/grwire.md.
+-   name: src
+    id: wasm_grwire_source
+    parameters:
+        server: 'ws://localhost:8101/grwire'
+        device: fake
+        type: complex
+        samp_rate: '1000000'
+        center_freq: '100000000'
+        offset: '0'
+        decim: '1'
+        gain_mode: 'False'
+        gain: '30'
+        stage1: '24'
+        stage2: '-1000'
+        stage3: '18'
+        bandwidth: '0'
+        wire_format: ci8
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: mag
+    id: blocks_complex_to_mag
+    parameters:
+        vlen: '1'
+    states:
+        coordinate: [200, 0]
+        rotation: 0
+        state: enabled
+-   name: probe
+    id: blocks_probe_signal_x
+    parameters:
+        type: float
+    states:
+        coordinate: [400, 0]
+        rotation: 0
+        state: enabled
+connections:
+- [src, '0', mag, '0']
+- [mag, '0', probe, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0

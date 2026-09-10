@@ -1,0 +1,45 @@
+# GRWire, as a system service.
+#
+#   sudo cp grwire /usr/local/bin/
+#   sudo cp packaging/grwire.service /etc/systemd/system/
+#   sudo systemctl enable --now grwire
+#   sudo journalctl -u grwire -n 20    # to read the connect URL and its token
+#
+# The token and the self-signed certificate live in StateDirectory, so they
+# survive restarts -- a new certificate every restart would mean accepting the
+# browser warning every restart.
+
+[Unit]
+Description=GRWire: stream a local SDR to GNU Radio World in a browser
+Documentation=https://github.com/777arc/gnuradio-world/blob/main/docs/grwire.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/grwire serve --config-dir /var/lib/grwire
+Restart=on-failure
+RestartSec=5
+
+# The radio is reached through SoapySDR, which needs USB access. plugdev is how
+# the udev rules that ship with rtl-sdr and hackrf grant it.
+User=grwire
+Group=grwire
+SupplementaryGroups=plugdev
+
+StateDirectory=grwire
+StateDirectoryMode=0700
+
+# It needs a socket, a USB device and its own state directory. Nothing else.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

@@ -9,6 +9,22 @@ import { NOTE_DEFAULT_BG } from './note';
 import type { UsbLike, UsbRadio } from './usb-radio';
 import { usbApi } from './usb-radio';
 import {
+  GRWIRE_DEVICE_DTYPE,
+  GRWIRE_ID,
+  GRWIRE_SERVER_DTYPE,
+  probeDevice,
+  type GrWireChannelInfo,
+  probeServer,
+  redactToken,
+  rememberServer,
+  rememberToken,
+  savedServers,
+  serverProblem,
+  splitToken,
+
+  type GrWireDevice,
+} from './grwire';
+import {
   RECORDING_ID,
   displayBytes,
   displaySi,
@@ -160,6 +176,19 @@ export function showPropertiesDialog(inst: Inst, deps: PropertiesDialogDeps) {
   const tabs: HTMLButtonElement[] = [];
   const controls = new Map<string, { node: HTMLElement; error: HTMLElement }>();
   const conditionalRows: { param: ParamDef; row: HTMLElement }[] = [];
+  // Shared by GRWire's two fields: the Server field's Connect button fills this
+  // in, and the Radio field repaints from it. Per-dialog, so closing and
+  // reopening asks the daemon again rather than showing a stale radio list.
+  let grWireDevices: GrWireDevice[] = [];
+  let grWireRepaintDevices: (() => void) | null = null;
+  // What the *selected* radio can do. Only `open` reveals it -- how many gain
+  // stages there are, and whether there is an AGC at all -- so it stays null
+  // until the user picks a radio and it is probed.
+  let grWireInfo: GrWireChannelInfo | null = null;
+  const grWireCapabilityListeners: (() => void)[] = [];
+  const grWireCapabilitiesChanged = () => {
+    for (const listener of grWireCapabilityListeners) listener();
+  };
   let refreshValidation = () => {};
   let refreshVisibility = () => {};
   // The Embedded Python Block's Code field, when this dialog has one: `pending`
@@ -308,6 +337,34 @@ export function showPropertiesDialog(inst: Inst, deps: PropertiesDialogDeps) {
           : 'Set from the SigMF datatype of the recording above.';
         s.closest('.field-control')?.appendChild(hint);
       }
+      // A GRWire radio that has no AGC. Disabled with a reason rather than
+      // hidden: a control that vanishes reads as a missing feature of the
+      // editor, where a greyed one with a sentence under it reads as a fact
+      // about the radio -- which is what it is. Only known once a radio has
+      // been picked and probed, so this re-runs when that happens.
+      if (inst.id === GRWIRE_ID && p.id === 'gain_mode') {
+        const hint = document.createElement('small'); hint.className = 'field-hint';
+        s.closest('.field-control')?.appendChild(hint);
+        const paintAgc = () => {
+          const unavailable = grWireInfo !== null && !grWireInfo.agc_available;
+          s.disabled = unavailable;
+          // Not the driver name: the Soapy backend calls itself "soapy"
+          // whatever radio is behind it, and "soapy has no AGC" reads as
+          // nonsense next to a device list that says HackRF One.
+          hint.textContent = unavailable
+            ? 'This radio has no AGC — set Overall Gain, or the stage gains below.'
+            : '';
+          if (unavailable && tmp.params[p.id] === 'True') {
+            // Leaving it on would send an agc request the daemon can only warn
+            // about, and the block would run with a gain nobody chose.
+            tmp.params[p.id] = 'False';
+            s.value = 'False';
+            refreshVisibility(); refreshValidation();
+          }
+        };
+        grWireCapabilityListeners.push(paintAgc);
+        paintAgc();
+      }
       if (p.showWhen) conditionalRows.push({ param: p, row: s.closest('.dlgrow') as HTMLElement });
     } else if (LOCAL_FILE_PARAMS[inst.id] === p.id && p.dtype === 'file_open') {
       const picker = document.createElement('div'); picker.className = 'file-picker';
@@ -416,6 +473,175 @@ export function showPropertiesDialog(inst: Inst, deps: PropertiesDialogDeps) {
       addField(p.category || 'General', `${p.label}  (${p.id})`, picker, p.id, select, propertyFieldDtype(p));
       paint();                  // synchronously, before the device list resolves
       void refreshDevices();
+      if (p.showWhen) conditionalRows.push({ param: p, row: picker.closest('.dlgrow') as HTMLElement });
+    } else if (p.dtype === GRWIRE_SERVER_DTYPE || p.dtype === GRWIRE_DEVICE_DTYPE) {
+      // GRWire's two browser-only dtypes. The server field is a URL with a
+      // remembered history and a Connect button; the radio field is a list the
+      // daemon itself supplies. They share one cache per dialog, keyed by the
+      // server URL, so picking a radio does not re-enumerate.
+      const isServer = p.dtype === GRWIRE_SERVER_DTYPE;
+      const picker = document.createElement('div'); picker.className = 'file-picker';
+      const detail = document.createElement('small'); detail.className = 'file-picker-detail';
+
+      if (isServer) {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.placeholder = 'wss://raspberrypi.local:8073/ws?token=...';
+
+        // Paste the whole line the daemon printed; the token is peeled off and
+        // kept in this browser, and only the bare URL is ever written to the
+        // flowgraph. Doing it on the way in also quietly migrates a .grc that
+        // still carries one -- opening Properties and pressing OK cleans it.
+        const absorb = (value: string): string => {
+          const { url, token } = splitToken(value);
+          if (token) rememberToken(url, token);
+          return url;
+        };
+        input.value = absorb(String(tmp.params[p.id] ?? ''));
+        tmp.params[p.id] = input.value;
+        // A datalist rather than a select: the value is free text, and the
+        // remembered ones are a convenience, not the only choices.
+        const list = document.createElement('datalist');
+        list.id = `grwire-servers-${p.id}`;
+        const paintHistory = () => {
+          list.replaceChildren(...savedServers().map(url => {
+            const option = document.createElement('option');
+            option.value = url;
+            return option;
+          }));
+        };
+        paintHistory();
+        input.setAttribute('list', list.id);
+
+        const connect = document.createElement('button');
+        connect.type = 'button';
+        connect.textContent = 'Connect';
+        connect.title = 'Ask the daemon which radios it can see';
+
+        const paintDetail = () => {
+          const problem = serverProblem(input.value);
+          if (problem) {
+            detail.textContent = problem;
+            return;
+          }
+          // Say where the token is, because it is deliberately not in the field
+          // and its absence would otherwise look like something is missing.
+          detail.textContent =
+            `ready to connect to ${input.value.trim()} — access token saved in ` +
+            `this browser, not in the flowgraph`;
+        };
+
+        connect.onclick = async () => {
+          const server = absorb(input.value.trim());
+          input.value = server;
+          tmp.params[p.id] = server;
+          connect.disabled = true;
+          detail.textContent = `connecting to ${redactToken(server)}…`;
+          const result = await probeServer(server);
+          connect.disabled = false;
+          if (!result.ok) {
+            detail.textContent = result.problem ?? 'could not connect';
+            if (result.trustUrl) {
+              // Opening the daemon's own page is the only way to accept its
+              // certificate, and this click is the user gesture that allows it.
+              window.open(result.trustUrl, '_blank', 'noopener');
+            }
+            return;
+          }
+          rememberServer(server);
+          paintHistory();
+          grWireDevices = result.devices ?? [];
+          detail.textContent =
+            `${result.hello?.host ?? 'daemon'} (grwire ${result.hello?.version ?? '?'}) ` +
+            `— ${grWireDevices.length} radio${grWireDevices.length === 1 ? '' : 's'}`;
+          // Repaint the radio field, which may already be on screen.
+          grWireRepaintDevices?.();
+        };
+
+        input.oninput = () => {
+          // Only split once the pasted value parses; splitting mid-typing would
+          // fight the user's cursor.
+          const typed = input.value.trim();
+          const cleaned = typed.includes('token=') ? absorb(typed) : typed;
+          if (cleaned !== typed) input.value = cleaned;
+          tmp.params[p.id] = cleaned;
+          paintDetail(); refreshValidation();
+        };
+        picker.append(input, list, connect, detail);
+        addField(p.category || 'General', `${p.label}  (${p.id})`, picker, p.id, input,
+                 propertyFieldDtype(p));
+        paintDetail();
+      } else {
+        const select = document.createElement('select');
+        // Free text is the fallback for a daemon that is not reachable right
+        // now: a .grc naming a radio still round-trips and still runs.
+        const typed = document.createElement('input');
+        typed.type = 'text';
+        typed.placeholder = 'driver=rtlsdr,serial=00000001 (or blank for the first)';
+        typed.value = String(tmp.params[p.id] ?? '');
+
+        const paint = () => {
+          const current = String(tmp.params[p.id] ?? '').trim();
+          if (!grWireDevices.length) {
+            select.hidden = true; typed.hidden = false;
+            detail.textContent = current
+              ? `will ask the daemon for "${current}"`
+              : 'press Connect on the Server field to list the radios';
+            return;
+          }
+          select.hidden = false; typed.hidden = true;
+          const options = grWireDevices.map(device => ({
+            value: device.args,
+            label: device.label || device.args,
+          }));
+          if (current && !options.some(o => o.value === current)) {
+            options.unshift({ value: current, label: `${current} (not offered now)` });
+          }
+          select.replaceChildren(...options.map(o => {
+            const option = document.createElement('option');
+            option.value = o.value; option.textContent = o.label;
+            return option;
+          }));
+          select.value = current || options[0]?.value || '';
+          const chosen: GrWireDevice | undefined =
+            grWireDevices.find(device => device.args === select.value);
+          const stages = grWireInfo?.gain_elements?.length
+            ? ` — gain stages: ${grWireInfo.gain_elements.join(', ')}`
+            : '';
+          detail.textContent = chosen
+            ? `${chosen.driver}${chosen.serial ? ` — serial ${chosen.serial}` : ''}${stages}`
+            : '';
+        };
+        grWireRepaintDevices = paint;
+
+        // Picking a radio is what makes its capabilities knowable, so probe it
+        // here rather than making the user press a second button.
+        const probeCapabilities = async () => {
+          const server = String(tmp.params.server ?? '').trim();
+          const device = String(tmp.params[p.id] ?? '').trim();
+          if (!server || !device) return;
+          detail.textContent = 'asking the radio what it can do…';
+          const result = await probeDevice(server, device);
+          grWireInfo = result.ok ? result.info ?? null : null;
+          if (!result.ok) detail.textContent = result.problem ?? 'could not open that radio';
+          else paint();
+          grWireCapabilitiesChanged();
+        };
+
+        select.onchange = () => {
+          tmp.params[p.id] = select.value;
+          paint(); refreshVisibility(); refreshValidation();
+          void probeCapabilities();
+        };
+        typed.oninput = () => {
+          tmp.params[p.id] = typed.value.trim();
+          paint(); refreshValidation();
+        };
+        picker.append(select, typed, detail);
+        addField(p.category || 'General', `${p.label}  (${p.id})`, picker, p.id, select,
+                 propertyFieldDtype(p));
+        paint();
+      }
       if (p.showWhen) conditionalRows.push({ param: p, row: picker.closest('.dlgrow') as HTMLElement });
     } else if (p.dtype === RECORDING_DTYPE) {
       // GR World Recording's recording, chosen from the live bucket index — the
@@ -930,6 +1156,71 @@ export function showPropertiesDialog(inst: Inst, deps: PropertiesDialogDeps) {
   refreshVisibility = () => {
     conditionalRows.forEach(({ param, row }) => row.hidden = !param.showWhen!(tmp.params));
   };
+  // GRWire's positional live gain stages. The parameter ids are fixed
+  // (stage1..3) because a block cannot have per-radio parameters, but a field
+  // labelled "Stage 2" is useless beside a radio that calls it AMP -- so the
+  // label is rewritten once the radio has been probed and its element names are
+  // known.
+  if (inst.id === GRWIRE_ID) {
+    const stageLabels = [1, 2, 3].map(index => ({
+      index,
+      label: controls.get(`stage${index}`)?.node.closest('.dlgrow')
+        ?.querySelector('label') as HTMLElement | null | undefined,
+    }));
+    // Four gain fields with no stated relationship is the confusing part, not
+    // their number: it reads as four alternatives when they actually layer.
+    // These two hints say so, and the AGC case disables what it overrides.
+    const hintUnder = (field: string, text: string) => {
+      const control = controls.get(field)?.node.closest('.field-control');
+      if (!control) return null;
+      const hint = document.createElement('small');
+      hint.className = 'field-hint';
+      hint.textContent = text;
+      control.appendChild(hint);
+      return hint;
+    };
+    const overallHint = hintUnder(
+      'gain',
+      'Spread across the radio’s stages. A stage below overrides its share.');
+    const stageHint = hintUnder(
+      'stage1', 'Leave at -1000 to follow Overall Gain.');
+
+    const gainMode = controls.get('gain_mode')?.node as HTMLSelectElement | undefined;
+    const gainInputs = ['gain', 'stage1', 'stage2', 'stage3']
+      .map(field => controls.get(field)?.node as HTMLInputElement | undefined);
+
+    const paintStages = () => {
+      for (const { index, label } of stageLabels) {
+        if (!label) continue;
+        const name = grWireInfo?.gain_elements?.[index - 1];
+        label.textContent = name
+          ? `${name} Gain (dB)  (stage${index})`
+          : `Stage ${index} Gain (dB)  (stage${index})`;
+        // Once the radio has said how many stages it has, stop offering the
+        // ones it does not: an RTL-SDR has a single TUNER, and two dead boxes
+        // beneath it are just clutter to reason about.
+        const row = label.closest('.dlgrow') as HTMLElement | null;
+        if (row && grWireInfo) row.hidden = !name;
+      }
+
+      // With AGC on, the radio sets its own gains and every field below is
+      // inert. Greying them is the clearest way to say "this or those".
+      const agc = gainMode?.value === 'True' && grWireInfo?.agc_available !== false;
+      for (const input of gainInputs) if (input) input.disabled = agc;
+      if (overallHint) {
+        overallHint.textContent = agc
+          ? 'Not used while Gain Mode is Automatic — the radio’s AGC sets it.'
+          : 'Spread across the radio’s stages. A stage below overrides its share.';
+      }
+      if (stageHint) {
+        stageHint.hidden = agc || (!!grWireInfo && !grWireInfo.gain_elements?.length);
+      }
+    };
+    gainMode?.addEventListener('change', paintStages);
+    grWireCapabilityListeners.push(paintStages);
+    paintStages();
+  }
+
   refreshVisibility();
 
   refreshValidation = () => {

@@ -1,0 +1,43 @@
+[package]
+name = "grwire"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+license = "GPL-3.0-or-later"
+description = "GRWire: a remote SDR bridge streaming tuned, decimated IQ to a browser over one WebSocket"
+repository = "https://github.com/777arc/gnuradio-world"
+
+[features]
+# The published release binary. SoapySDR carries the long tail of hardware --
+# USRP, LimeSDR, Airspy, SDRplay, PlutoSDR -- and its driver modules are the
+# battle-tested ones. The native Rust drivers ride alongside it.
+default = ["soapy", "rtlsdr", "hackrf"]
+# Set by any backend feature; gates the seify-dependent module so a
+# `--no-default-features` build is pure Rust with a fake radio and still runs
+# every test.
+seify-backend = []
+soapy = ["seify-backend", "seify/soapy"]
+rtlsdr = ["seify-backend", "seify/rtlsdr"]
+hackrf = ["seify-backend", "seify/hackrf"]
+
+[dependencies]
+seify = { version = "0.23", default-features = false }
+num-complex = "0.4"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "time", "sync", "signal"] }
+axum = { version = "0.8", features = ["ws"] }
+axum-server = { version = "0.7", features = ["tls-rustls"] }
+tower-http = { version = "0.6", features = ["cors"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
+rcgen = "0.13"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+clap = { version = "4", features = ["derive"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+crossbeam-channel = "0.5"
+anyhow = "1"
+rand = "0.8"
+hostname = "0.4"
+local-ip-address = "0.6"
+subtle = "2"
+futures-util = "0.3"

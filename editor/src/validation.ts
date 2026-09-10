@@ -1,4 +1,5 @@
 import { RUNNABLE, type ParamDef, type ResolvedPort, type RunnableDef } from './block-defs';
+import { serverProblem } from './grwire';
 import { buildScope, evaluate as evalExpr, undefinedNames, type Scope } from './expr';
 import type { Conn, Inst, ValidationIssue } from './graph-model';
 
@@ -233,6 +234,23 @@ export function validateFlowgraph(
     // them is a region the RTL2832U's resampler cannot reach. Whether a *device*
     // is attached cannot be settled here — that needs an await and a user
     // gesture, so the Run path prompts for it instead (prepareRtlDevices).
+    // GRWire. Only what is knowable without opening a socket: every issue
+    // raised on an active block blocks the run, so whether the daemon is
+    // actually reachable is settled on the Run click instead (prepareGrWire),
+    // where the remedy -- opening the daemon's page to accept its certificate --
+    // still has the click's user activation.
+    if (block.id === 'wasm_grwire_source') {
+      const problem = serverProblem(String(block.params.server ?? ''));
+      if (problem) add(block, 'server', `GRWire server: ${problem}.`);
+      const decim = resolvedNumber(block.params.decim, staticScope);
+      if (decim !== null && (!Number.isInteger(decim) || decim < 0))
+        add(block, 'decim',
+          'Decimation must be a whole number: 0 lets the daemon choose, 1 means none.');
+      const sampleRate = resolvedNumber(block.params.samp_rate, staticScope);
+      if (sampleRate !== null && !(sampleRate > 0))
+        add(block, 'samp_rate', 'Sample Rate must be positive.');
+    }
+
     if (block.id === 'wasm_rtlsdr_source') {
       const sampleRate = resolvedNumber(block.params.samp_rate, staticScope);
       if (sampleRate !== null &&

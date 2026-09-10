@@ -1,0 +1,180 @@
+id: wasm_grwire_source
+label: 'GRWire Source'
+category: '[Supported SDRs]'
+flags: [cpp, throttle]
+
+documentation: |-
+    Receives from an SDR plugged into a *different* computer, over a WebSocket.
+
+    A browser cannot open a raw socket, so a radio shared with SoapyRemote is
+    unreachable from a tab no matter what. GRWire is a small daemon you run on
+    the machine the radio is plugged into -- a Raspberry Pi, a shack PC -- which
+    speaks SoapySDR downward and one WebSocket upward. It handles anything
+    SoapySDR supports: RTL-SDR, HackRF, USRP, LimeSDR, Airspy, PlutoSDR.
+
+    Server is the URL the daemon prints when it starts. Paste the whole line,
+    including its ?token=... -- the token is peeled off and kept in this
+    browser, and only the bare address is written into the flowgraph. That is
+    deliberate: a .grc is made to be shared, and a token in one hands out your
+    radio to anyone who opens it.
+
+    Click Connect to list the radios the daemon can see and pick one.
+
+    The first time you connect to a daemon over wss://, the browser will refuse
+    its certificate. Open the daemon's own page once (https://<host>:8073/),
+    accept the warning, and this browser will remember it. GRWire cannot get a
+    real certificate because no authority will issue one for a name on a private
+    network -- and a page served over https, as this one is, is not allowed to
+    open an insecure ws:// connection to anything but 127.0.0.1.
+
+    Sample Rate is what you want to receive. The daemon picks the radio's
+    hardware rate and the decimation needed to reach it, and reports what it
+    actually achieved to the console when the graph starts -- which is the rate
+    the flowgraph really runs at.
+
+    Decimation is the reason to prefer this over sending raw samples. A HackRF
+    at 20 MS/s is 320 Mbit/s and will not cross WiFi; decimated by 8 it is
+    40 Mbit/s and ordinary. The daemon filters properly before decimating, so
+    nothing aliases into the band you keep.
+
+    Leave Decimation at 0 and the daemon works it out: it picks the lowest
+    hardware rate the radio actually supports that divides down to the Sample
+    Rate you asked for. This matters most for a radio with a high minimum rate
+    -- a HackRF cannot sample below 1 MS/s, so 250 kS/s is only reachable by
+    decimating by 4. Set it to 1 to force no decimation, or to any other whole
+    number to pin it.
+
+    Offset shifts the signal digitally within the captured band, so you can
+    fine-tune without retuning the radio and without the glitch a hardware
+    retune costs.
+
+    There are three ways to set gain, and they layer rather than compete:
+
+    Gain Mode: Automatic hands gain to the radio's AGC, where it has one, and
+    the fields below stop applying.
+
+    Overall Gain is one number the radio spreads across its own stages however
+    it sees fit. On a radio with a single stage -- an RTL-SDR's TUNER -- this is
+    all there is.
+
+    Stage 1/2/3 Gain then override individual stages. A stage left at -1000
+    keeps whatever share Overall Gain gave it, so you can set an overall level
+    and pin just the one stage you care about.
+
+    Stage 1/2/3 Gain drive the individual stages, and each accepts a QT GUI
+    Range. They are positional: Stage 1 is whatever the radio calls its first
+    gain stage -- LNA on a HackRF, TUNER on an RTL-SDR -- so one flowgraph works
+    against different radios. Connect, and the Properties dialog relabels them
+    with the real names and hides the ones this radio does not have.
+
+    Leave a stage at -1000 and it is not driven at all, which is why the default
+    is not 0: 0 dB is a real gain setting.
+
+    Gain Mode selects AGC where the radio has one. A HackRF does not, and the
+    Properties dialog says so once it knows which radio you picked.
+
+    Center Freq, Offset, RF Gain, Gain Mode and Bandwidth accept a QT GUI Range
+    and can be changed while the flowgraph runs. Sample Rate, Decimation and
+    Wire Format cannot: they are read once, when the block is built.
+
+    Wire Format trades bandwidth against precision. ci8 is two bytes per sample
+    and is lossless for an 8-bit radio such as an RTL-SDR or HackRF; ci16 is
+    four; cf32 is eight and is only sensible over a local connection.
+
+    When samples are lost, the daemon reports which layer lost them -- the
+    radio, its host's CPU, the network, or this browser -- so the console names
+    the bottleneck rather than merely saying something went missing.
+
+    This block exists only in the WebAssembly runner. It has no Python
+    implementation, so a flowgraph using it will not run in desktop GNU Radio;
+    use Soapy Remote there instead.
+
+parameters:
+# Browser-only dtypes: the Properties dialog renders these as a server field
+# with a Connect button, and a device list fetched from that server. A .grc
+# stores the URL and the device args string, never the token.
+-   id: server
+    label: Server
+    dtype: grwire_server
+    default: ''
+-   id: device
+    label: Radio
+    dtype: grwire_device
+    default: ''
+-   id: type
+    label: Output Type
+    dtype: enum
+    default: complex
+    options: [complex, short, byte]
+    option_labels: [Complex Float32, Complex Int16, Complex Byte]
+    option_attributes:
+        size: [gr.sizeof_gr_complex, gr.sizeof_short, gr.sizeof_char]
+    hide: part
+-   id: samp_rate
+    label: Sample Rate
+    dtype: float
+    default: samp_rate
+-   id: center_freq
+    label: 'Center Freq (Hz)'
+    dtype: real
+    default: '100e6'
+-   id: offset
+    label: 'Offset (Hz)'
+    dtype: real
+    default: '0'
+    hide: part
+-   id: decim
+    label: Decimation
+    dtype: int
+    default: '0'
+-   id: gain_mode
+    label: Gain Mode
+    dtype: enum
+    default: 'False'
+    options: ['False', 'True']
+    option_labels: [Manual, Automatic]
+-   id: gain
+    label: 'Overall Gain (dB)'
+    dtype: real
+    default: '30'
+    hide: part
+# Positional, not named: the radio says what its stages are called, so one
+# block covers a HackRF's LNA/AMP/VGA and an RTL-SDR's lone TUNER. -1000 means
+# the stage is not driven; 0 dB cannot, because 0 dB is a real gain.
+-   id: stage1
+    label: 'Stage 1 Gain (dB)'
+    dtype: real
+    default: '-1000'
+    hide: part
+-   id: stage2
+    label: 'Stage 2 Gain (dB)'
+    dtype: real
+    default: '-1000'
+    hide: part
+-   id: stage3
+    label: 'Stage 3 Gain (dB)'
+    dtype: real
+    default: '-1000'
+    hide: part
+-   id: bandwidth
+    label: 'Bandwidth (Hz)'
+    dtype: real
+    default: '0'
+    hide: part
+-   id: wire_format
+    label: Wire Format
+    dtype: enum
+    default: ci8
+    options: [ci8, ci16, cf32]
+    option_labels: ['8-bit (2 B/sample)', '16-bit (4 B/sample)', 'float32 (8 B/sample)']
+    hide: part
+
+asserts:
+- ${ decim >= 0 }
+- ${ samp_rate > 0 }
+
+outputs:
+-   domain: stream
+    dtype: ${ type }
+
+file_format: 1

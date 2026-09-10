@@ -86,6 +86,24 @@ function makeCategoryRow(name: string, container: HTMLElement, open: boolean,
 
 const TREE_INDENT = 16;
 const TOP_PALETTE_CATEGORY = 'Supported SDRs';
+/** Pinned to the bottom of its category -- see comparePaletteBlocks. */
+const GRWIRE_BLOCK_ID = 'wasm_grwire_source';
+
+/**
+ * Alphabetical, except that GRWire sits at the end of Supported SDRs.
+ *
+ * Every other block in that category is a radio plugged into this computer.
+ * GRWire is the one that reaches a radio somewhere else and needs a daemon
+ * running before it does anything, so it reads better as the last entry than as
+ * the one between HackRF and PlutoSDR that alphabetical order would make it.
+ */
+export function comparePaletteBlocks(
+  a: { id?: string; label: string },
+  b: { id?: string; label: string },
+): number {
+  const rank = (block: { id?: string }) => (block.id === GRWIRE_BLOCK_ID ? 1 : 0);
+  return rank(a) - rank(b) || a.label.localeCompare(b.label);
+}
 const CORE_PALETTE_CATEGORY = 'Core';
 const AFTER_CORE_PALETTE_CATEGORY = 'GNU Radio World';
 
@@ -122,7 +140,7 @@ function renderCategory(node: Category, container: HTMLElement, depth: number,
   }
   const blocks = [...node.blocks]
     .filter(block => matchesQuery(block, query))
-    .sort((a, b) => a.label.localeCompare(b.label));
+    .sort(comparePaletteBlocks);
   for (const block of blocks)
     container.appendChild(options.makeBlockItem(block, 6 + depth * TREE_INDENT + 20));
 }

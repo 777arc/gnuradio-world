@@ -84,13 +84,21 @@ inline std::string scalar_to_str(const json& v) {
 // the leading zeros the dongle actually reports, so the serial never matches
 // again. Anything here is a parameter a *human* types or a picker fills in,
 // never one a factory wants as a number.
+// Ordered cheapest-first on purpose: this runs for every parameter of every
+// block, and almost none of them are named one of these, so the block-id
+// comparisons are never reached for the overwhelming majority of calls.
 inline bool is_text_param(const std::string& block_id, const std::string& param) {
-    return param == "device" &&
-           (block_id == "wasm_rtlsdr_source" ||
-            block_id == "wasm_plutosdr_source" ||
-            block_id == "wasm_plutosdr_sink" ||
-            block_id == "wasm_hackrf_source" ||
-            block_id == "wasm_hackrf_sink");
+    if (param == "device")
+        return block_id == "wasm_rtlsdr_source" ||
+               block_id == "wasm_plutosdr_source" ||
+               block_id == "wasm_plutosdr_sink" ||
+               block_id == "wasm_hackrf_source" ||
+               block_id == "wasm_hackrf_sink" ||
+               block_id == "wasm_bb60_source" ||
+               block_id == "wasm_grwire_source";
+    if (param == "server" || param == "wire_format" || param == "gains")
+        return block_id == "wasm_grwire_source";
+    return false;
 }
 
 inline json coerce_numeric(const std::string& s) {

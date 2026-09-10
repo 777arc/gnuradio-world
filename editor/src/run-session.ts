@@ -1,4 +1,5 @@
 import { AUDIO_SOURCE_ID, prepareAudioCapture } from './audio';
+import { activeGrWireBlocks, prepareGrWire } from './grwire';
 import type { GrcDoc } from './grc';
 import type { GraphSnapshot, Inst, ValidationIssue } from './graph-model';
 import type { EditorGraphState } from './editor-state';
@@ -245,6 +246,30 @@ async function prepareFlowgraph(deps: RunSessionDeps, session: RunSessionState,
     return null;
   }
 
+  // Declared here rather than beside the recording bindings below, because the
+  // GRWire step that fills it has to stay inside the Run click's activation.
+  const fileOverrides = new Map<string, string>();
+
+  // GRWire's daemons, still inside the Run click's activation: the remedy for
+  // an untrusted certificate is opening the daemon's own page, and window.open
+  // needs a gesture just as requestDevice() does. Probing here also turns the
+  // one bit a failed WebSocket gives script into a message that names the
+  // likely cause. See docs/grwire.md.
+  {
+    const prepared = await prepareGrWire(state.insts, url => {
+      window.open(url, '_blank', 'noopener');
+    });
+    if (prepared.problem) {
+      log(`cannot run: ${prepared.problem}`);
+      const block = activeGrWireBlocks(state.insts)[0];
+      if (block) select(block.uid);
+      return null;
+    }
+    // The token travels to the runner the same way a local file's path does:
+    // substituted on the way out, never present in the saved document.
+    for (const [name, server] of prepared.overrides) fileOverrides.set(name, server);
+  }
+
   // Where a SigMF Sink writes, for the same reason: showDirectoryPicker() needs
   // a user gesture, and the runner has none. Only for a sink with no folder
   // bound yet -- a reader who chose one in the block's own Properties dialog is
@@ -304,7 +329,6 @@ async function prepareFlowgraph(deps: RunSessionDeps, session: RunSessionState,
   }
 
   const recordingFiles: RunnerInputFile[] = [];
-  const fileOverrides = new Map<string, string>();
   const addedPaths = new Set<string>();
   for (const block of state.insts) {
     if (!block.enabled || block.bypassed) continue;

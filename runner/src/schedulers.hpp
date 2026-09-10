@@ -75,6 +75,7 @@ inline bool blocks_in_work(const std::string& block_id) {
         "wasm_gr_world_recording",
         "wasm_public_http_recording",
         "wasm_rtlsdr_source",
+        "wasm_grwire_source",
         "wasm_plutosdr_source",
         "wasm_plutosdr_sink",
         "wasm_hackrf_source",

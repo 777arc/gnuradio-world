@@ -1352,3 +1352,24 @@ svg text { user-select:none; -webkit-user-select:none; -moz-user-select:none; }
    preventDefault() in main.ts. Blink applies touch-action to CSS boxes, and an
    SVG child element is not one, so `touch-action:none` on .blk would be ignored
    there — and on the <svg> itself it would disable panning altogether. */
+
+/* GRWire's per-stage gain controls: one row per gain stage the radio reports,
+   so a HackRF shows LNA/VGA/AMP and an RTL-SDR shows TUNER alone. */
+.grwire-stages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+}
+.grwire-stage {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.grwire-stage span {
+  font-size: 0.85em;
+  opacity: 0.85;
+  min-width: 3.5em;
+}
+.grwire-stage input {
+  width: 5.5em;
+}
