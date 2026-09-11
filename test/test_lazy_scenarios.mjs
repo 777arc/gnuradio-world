@@ -73,11 +73,14 @@ const scenarios = [
     expectFetch: ['fosphor.wasm'] },
   { name: 'gr-fosphor Qt sink (browser backend)',
     fg: { blocks:[
+      { name:'layout', id:'wasm_gui_layout', params:{
+        columns:12, row_height:60, layout:JSON.stringify({ snk:[8,0,4,4] }) } },
       { name:'src', id:'analog_sig_source_x', params:{ type:'complex', samp_rate:32000, waveform:'cos', freq:1000, amp:1.0 } },
       { name:'thr', id:'blocks_throttle2', params:{ type:'complex', samples_per_second:32000, vlen:1, ignoretag:'True', limit:'auto', maximum:0.1 } },
       { name:'snk', id:'fosphor_qt_sink_c', params:{ wintype:'window.WIN_HANN', freq_center:0, freq_span:32000, gui_hint:'' } } ],
       connections:[['src',0,'thr',0],['thr',0,'snk',0]] },
-    expectFetch: [], expectBackend: 'cpu' },
+    expectFetch: [], expectBackend: 'cpu', viewport:{ width:480, height:320 },
+    expectTile:{ name:'snk', col:8, row:0, w:4, h:4 } },
   { name: 'gr-satellites (OOT deferred)',
     fg: { blocks:[
       { name:'src', id:'blocks_null_source', params:{ type:'byte' } },
@@ -544,6 +547,7 @@ let allOk = true;
 for (const sc of scenarios) {
   fetched = [];
   const page = await browser.newPage();
+  if (sc.viewport) await page.setViewport(sc.viewport);
   const logs = [];
   page.on('console', m => logs.push(m.text()));
   page.on('pageerror', e => logs.push('PAGEERROR ' + e.message));
@@ -567,10 +571,48 @@ for (const sc of scenarios) {
       ? 'gr-fosphor: using WebGPU renderer'
       : 'gr-fosphor: using CPU renderer',
   ));
-  const ok = pass && fetchOk && logOk && backendOk && backendMessageOk;
+  let tileOk = true;
+  let tileDrift = 0;
+  if (sc.expectTile) {
+    await new Promise(resolve => setTimeout(resolve, 600));
+    const measured = await page.evaluate(expected => {
+      const report = window.__grGuiLayout;
+      const widget = report?.widgets?.find(candidate => candidate.name === expected.name);
+      if (!widget || !report?.rect) return { ok:false, drift:Infinity };
+      const margin = 4;
+      const gap = 4;
+      const columns = report.columns;
+      const rows = Math.max(...report.widgets.map(candidate => candidate.row + candidate.h));
+      const horizontal = Math.max(0,
+        report.rect.width - 2 * margin - (columns - 1) * gap);
+      const vertical = Math.max(rows * 8,
+        report.rect.height - 2 * margin - Math.max(0, rows - 1) * gap);
+      const edge = (index, space, tracks) =>
+        Math.floor(index * space / tracks) + index * gap;
+      const expectedRect = {
+        x: report.rect.x + margin + edge(expected.col, horizontal, columns),
+        y: report.rect.y + margin + edge(expected.row, vertical, rows),
+        width: edge(expected.col + expected.w, horizontal, columns) - gap -
+          edge(expected.col, horizontal, columns),
+        height: edge(expected.row + expected.h, vertical, rows) - gap -
+          edge(expected.row, vertical, rows),
+      };
+      const drift = Math.max(
+        Math.abs(widget.rect.x - expectedRect.x),
+        Math.abs(widget.rect.y - expectedRect.y),
+        Math.abs(widget.rect.width - expectedRect.width),
+        Math.abs(widget.rect.height - expectedRect.height));
+      const tileMatches = ['col', 'row', 'w', 'h'].every(key =>
+        widget[key] === expected[key]);
+      return { ok:tileMatches && drift <= 1, drift };
+    }, sc.expectTile);
+    tileOk = measured.ok;
+    tileDrift = measured.drift;
+  }
+  const ok = pass && fetchOk && logOk && backendOk && backendMessageOk && tileOk;
   allOk = allOk && ok;
   console.log(`\n[${ok?'OK':'FAIL'}] ${sc.name}`);
-  console.log(`   status=${status} run=${pass} sideFetched=${JSON.stringify(sideFetched)} expected=${JSON.stringify(sc.expectFetch)} log=${logOk} backend=${backend} backendOk=${backendOk} backendMessage=${backendMessageOk}`);
+  console.log(`   status=${status} run=${pass} sideFetched=${JSON.stringify(sideFetched)} expected=${JSON.stringify(sc.expectFetch)} log=${logOk} backend=${backend} backendOk=${backendOk} backendMessage=${backendMessageOk} tileOk=${tileOk} tileDrift=${tileDrift}`);
   if (!ok) console.log('   text:', text, '\n  ', logs.slice(-8).join('\n   '));
   await page.close();
 }
