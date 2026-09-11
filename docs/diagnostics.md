@@ -150,6 +150,15 @@ so the bottleneck lights up without reading numbers.
 - **Bottleneck attribution** — one derived field: block with max downstream-full
   or max CPU share
 - Sink **underruns / late frames** (dropped qtgui updates)
+- **`radio`** — a radio block's own counters, shaped like a `__grUsbStats` entry
+  (`device`, `direction`, `serial`, `requestedRate`, `actualRate`, `overruns`,
+  `droppedSamples`, `state`) so a reader needs one code path for both. The four
+  WebUSB radios with a reader worker publish to `__grUsbStats` from `runner.html`,
+  because the worker is already posting to the main thread. A USRP has no worker —
+  libusb does the transfers inside the module — and its counters live on a block
+  thread that cannot touch `window` without proxying and blocking on Qt's event
+  loop, so it calls `gr_radio_stats_publish()` and rides out here instead. Written
+  at most once a second; absent until a block publishes, and cleared per run.
 - **`radio_aux_threads`** — threads a radio's host library owns that the scheduler
   did not create, present only when a flowgraph has one. UHD is the case that
   forced it: a B2xx starts a libusb event task and an asynchronous-message task,

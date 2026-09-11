@@ -11,6 +11,7 @@ const {
   speedometerAngle,
   formatSdrRate,
   sdrReceiveBenchmarkFlowgraph,
+  usrpMasterClock,
 } = await bundleModule('../src/sdr-speed-test.ts');
 
 assert.equal(receiveRate(
@@ -35,11 +36,46 @@ for (const [radio, block] of [
   ['hackrf', 'wasm_hackrf_source'],
   ['plutosdr', 'wasm_plutosdr_source'],
   ['rtlsdr', 'wasm_rtlsdr_source'],
+  ['usrpb2xx', 'wasm_usrp_b2xx_source'],
 ]) {
   const flowgraph = sdrReceiveBenchmarkFlowgraph(radio, 'fake', 2_500_000);
   assert.match(flowgraph, new RegExp(`id: ${block}`), `${radio} gets its own source`);
   assert.match(flowgraph, /id: blocks_null_sink/, `${radio} is measured into a Null Sink`);
 }
+// The B2xx coerces a rate it cannot derive a tick rate for *upward* -- ask for
+// 30.72 MS/s and get 40, which overflows and measures nothing useful -- so the
+// master clock is pinned to the requested rate. It can only be pinned inside the
+// device's own range, and pinning outside it throws, so below 5 MS/s the search
+// is left to UHD. 0 is automatic.
+assert.equal(usrpMasterClock(30.72e6), 30_720_000,
+  'a pinnable rate is pinned, so UHD cannot coerce it upward');
+assert.equal(usrpMasterClock(1e6), 0,
+  'a rate below the B2xx master clock minimum is left automatic');
+assert.equal(usrpMasterClock(80e6), 0,
+  'a rate above the B2xx master clock maximum is left automatic');
+assert.match(
+  sdrReceiveBenchmarkFlowgraph('usrpb2xx', 'fake', 10_000_000),
+  /master_clock_rate: '10000000'/,
+  'the USRP speed test pins the master clock to the rate under test');
+assert.match(
+  sdrReceiveBenchmarkFlowgraph('usrpb2xx', 'fake', 1_000_000),
+  /master_clock_rate: '0'/,
+  'and leaves it automatic where the device cannot be pinned there');
+// A USRP has no reader worker, so its counters arrive in the runner's own stats
+// snapshot rather than window.__grUsbStats. Reading the wrong one would leave the
+// test waiting for a 'running' state that never appears.
+// Both are inside the B2xx master clock range, so both are pinned -- which is the
+// only reason a request for 30.72 or 56 measures that rate at all instead of
+// UHD quietly coercing it to 40.
+assert.equal(usrpMasterClock(56e6), 56_000_000,
+  '56 MS/s is pinnable and must be pinned');
+assert.equal(usrpMasterClock(40e6), 40_000_000,
+  'and so is 40 MS/s');
+assert.match(speedTestSource, /statsFrom: 'runnerSnapshot'/,
+  'the USRP reads its counters from the runner snapshot');
+assert.match(speedTestSource, /startTimeoutMs: 300000/,
+  'and is given long enough to load an FPGA image before the first sample');
+
 assert.match(
   sdrReceiveBenchmarkFlowgraph('plutosdr', 'fake', 2_500_000, 8192),
   /buffer_size: '8192'/,

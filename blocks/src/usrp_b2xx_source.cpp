@@ -41,6 +41,10 @@
 extern "C" void gr_hardware_init_begin();
 extern "C" void gr_hardware_init_end();
 extern "C" void gr_hardware_init_note(const char* text);
+// Where this block's counters go, to ride out in the runner's stats snapshot.
+// A USRP has no reader worker to post them from -- see the comment beside
+// gr_radio_stats_publish() in runner.cpp.
+extern "C" void gr_radio_stats_publish(const char* json);
 
 // Emscripten declares wordexp()/wordfree() in <wordexp.h> but implements neither,
 // so linking UHD leaves them undefined. Its only caller is uhd::path_expandvars(),
@@ -258,6 +262,7 @@ public:
         }
         d_produced += got;
         report_settled();
+        publish_stats();
         return static_cast<int>(got);
     }
 
@@ -453,6 +458,38 @@ private:
                     d_samp_rate / 1e6);
     }
 
+    // Help > SDR Receive Speed Test reads these, and so does the diagnostics
+    // snapshot. Once a second: the snapshot is polled far more often than that,
+    // and formatting JSON on a streaming block's thread is not free.
+    void publish_stats()
+    {
+        using namespace std::chrono;
+        const auto now = steady_clock::now();
+        if (duration<double>(now - d_last_publish).count() < 1.0)
+            return;
+        d_last_publish = now;
+        const double elapsed = duration<double>(now - d_stream_started).count();
+        const double delivered = elapsed > 0 ? d_produced / elapsed : 0.0;
+        // What the device produced and this block did not take. Reported as lost
+        // rather than inferred from the overrun count, which says how many times
+        // the stream broke and nothing about how much went missing.
+        const double expected = d_samp_rate * elapsed;
+        const double lost = expected > (double)d_produced
+                                ? expected - (double)d_produced : 0.0;
+        char buffer[512];
+        std::snprintf(buffer, sizeof buffer,
+                      "{\"device\":\"USRP B2xx\",\"direction\":\"rx\","
+                      "\"serial\":\"%s\",\"requestedRate\":%.0f,"
+                      "\"actualRate\":%.0f,\"overruns\":%llu,"
+                      "\"droppedSamples\":%.0f,\"state\":\"running\"}",
+                      d_device.empty() ? "first available" : d_device.c_str(),
+                      d_samp_rate,
+                      delivered,
+                      (unsigned long long)d_overflows,
+                      lost);
+        gr_radio_stats_publish(buffer);
+    }
+
     // One line a few seconds in, saying what the radio is actually delivering.
     // UHD coerces sample rates silently and a browser tab drops samples, so "the
     // graph started" is not the same as "it is keeping up" and nothing else in
@@ -562,6 +599,7 @@ private:
 
     std::chrono::steady_clock::time_point d_started{};
     std::chrono::steady_clock::time_point d_stream_started{};
+    std::chrono::steady_clock::time_point d_last_publish{};
     uint64_t d_produced = 0;
 };
 

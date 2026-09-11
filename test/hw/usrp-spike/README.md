@@ -26,7 +26,7 @@ in UHD's own `host/utils/CMakeLists.txt` inside a scratch copy of the UHD source
 tree, linked against the wasm sysroot with `--whole-archive` on `libuhd.a` (see
 "the two patches" and the build invariants in the doc). Whoever needs it next
 should expect to re-derive that, or to promote the probe into a proper
-`test/hw/usrp_hw.*` pair alongside the other hardware harnesses — which is an
-open item in `USRP_B2XX_PLAN.md`.
+`test/hw/usrp_hw.*` pair alongside the other hardware harnesses, which is the
+obvious home for it.
 
 Built output is deliberately not committed: it is ~13 MB of `.wasm` and `.data`.

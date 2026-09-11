@@ -856,6 +856,26 @@ extern "C" EMSCRIPTEN_KEEPALIVE void gr_hardware_init_begin() {
     }
 }
 
+// A radio's own counters, for a block that reaches hardware from inside wasm
+// rather than through a JavaScript worker.
+//
+// The four WebUSB radios with a reader worker publish theirs to
+// `window.__grUsbStats` from runner.html, because the worker is already posting
+// messages to the main thread. A USRP has no worker -- libusb does the transfers
+// inside the module -- and its counters live on a GNU Radio block thread, which
+// cannot touch `window` without proxying and blocking on Qt's event loop. So they
+// come here instead and ride out in the stats snapshot, which is built on the
+// main thread anyway.
+//
+// Whatever the block last published, verbatim. Read on the main thread.
+static std::mutex g_radio_stats_mutex;
+static std::string g_radio_stats;
+
+extern "C" EMSCRIPTEN_KEEPALIVE void gr_radio_stats_publish(const char* json) {
+    std::lock_guard<std::mutex> lock(g_radio_stats_mutex);
+    g_radio_stats = json ? json : "";
+}
+
 // Called from the bringing-up block's thread -- or, for the USRP, from UHD's own
 // logging thread -- to say what is being waited on. Empty silences the heartbeat.
 extern "C" EMSCRIPTEN_KEEPALIVE void gr_hardware_init_note(const char* text) {
@@ -1257,6 +1277,10 @@ static void run_now(const std::string& json_source) {
         // Give diagnostics a sane timestamp while an upgraded tier is loading;
         // start_prepared_flowgraph resets it when sample processing begins.
         g_run_start = std::chrono::steady_clock::now();
+        {
+            std::lock_guard<std::mutex> lock(g_radio_stats_mutex);
+            g_radio_stats.clear();
+        }
         // +1 for the detached sched->wait(); plus UHD's own threads, which belong
         // to no block and exist whichever scheduler is running.
         const int required_workers =
@@ -1702,6 +1726,18 @@ static std::string build_stats_json() {
     // misreport the scheduler's width.
     if (g_usrp_aux_threads)
         out["radio_aux_threads"] = g_usrp_aux_threads;
+    // A radio block's own counters, shaped like a __grUsbStats entry so a reader
+    // needs one code path for both. Absent until a block publishes.
+    {
+        std::lock_guard<std::mutex> lock(g_radio_stats_mutex);
+        if (!g_radio_stats.empty()) {
+            try {
+                out["radio"] = nlohmann::json::parse(g_radio_stats);
+            } catch (...) {
+                // A malformed publish must not cost the whole snapshot.
+            }
+        }
+    }
     // runner.html selects this before Emscripten initializes its worker pool.
     // Read the same value here so diagnostics report the active tier rather
     // than duplicating a build-time constant that can drift from the runtime.

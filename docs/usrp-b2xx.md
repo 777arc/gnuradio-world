@@ -306,8 +306,37 @@ a latent truncation bug on every other platform.
 - Overruns are counted and reported on a doubling schedule, because a graph that
   cannot keep up produces hundreds a second and the console pane is shared.
 - `radio_aux_threads` in the stats snapshot counts the threads UHD owns outside
-  the scheduler — one libusb event task, shared, plus one asynchronous-message
-  task per device. Kept out of `dsp_threads`, which stays the scheduler's width.
+  the scheduler — one libusb event task and one WebUSB thread, both shared, plus
+  one asynchronous-message task per device. Kept out of `dsp_threads`, which
+  stays the scheduler's width.
+- The block publishes its own counters once a second through
+  `gr_radio_stats_publish()`, which puts them in the snapshot's `radio` field.
+  That exists because a USRP has no reader worker to post them from, unlike the
+  four radios that do — see [diagnostics.md](diagnostics.md).
+
+### Help ▸ SDR Receive Speed Test
+
+The B2xx is one of its radios, measured source → Null Sink exactly like the
+others, over a ladder from 1 to 56 MS/s. The top two rungs are deliberately past
+the cliff in the table above, where achieved throughput *falls* as the request
+rises: demonstrating that is more useful than asserting it, and it is the
+measurement that would catch the cliff moving. Three things about it differ:
+
+- Its counters come from the snapshot's `radio` field rather than
+  `window.__grUsbStats`, which is what `statsFrom: 'runnerSnapshot'` selects.
+  Reading the wrong one would leave the test waiting for a `running` state that
+  never arrives.
+- It gets **five minutes** to produce its first sample instead of thirty seconds.
+  A power-cycled board loads firmware, re-enumerates, and then loads an FPGA
+  image before it streams at all.
+- The master clock is **pinned to the rate under test** wherever the device can
+  be pinned there (5–61.44 MHz). Without it UHD's automatic tick-rate search
+  coerces awkward rates *upward* — ask for 30.72 MS/s and get 40, which overflows
+  and measures a quarter of what was asked for. Below 5 MS/s it cannot be pinned
+  and the search is left to UHD.
+
+A cold board needs sharing twice before the test can run, for the reason at the
+top of this page; the dialog says so when the B2xx is selected.
 
 ## Stopping and unplugging
 

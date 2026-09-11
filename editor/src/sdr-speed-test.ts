@@ -23,6 +23,11 @@ import {
   RTLSDR_USB_FILTERS,
 } from './rtlsdr';
 import {
+  authorizedUsrpB2xxDevices,
+  usrpB2xxLabel,
+  USRP_B2XX_USB_FILTERS,
+} from './usrp-b2xx';
+import {
   usbApi,
   type UsbFilter,
   type UsbLike,
@@ -53,7 +58,7 @@ export interface SdrSpeedResult {
   lostSamples: number;
 }
 
-export type SdrSpeedRadio = 'hackrf' | 'plutosdr' | 'rtlsdr';
+export type SdrSpeedRadio = 'hackrf' | 'plutosdr' | 'rtlsdr' | 'usrpb2xx';
 
 type SdrSpeedRadioConfig = {
   id: SdrSpeedRadio;
@@ -65,6 +70,16 @@ type SdrSpeedRadioConfig = {
   iqDescription: string;
   authorized: () => Promise<UsbLike[]>;
   label: (device: UsbLike) => string;
+  // Where this radio's counters come from. The four with a reader worker publish
+  // to window.__grUsbStats; a USRP has none and rides out in the runner's own
+  // stats snapshot instead. See gr_radio_stats_publish() in runner.cpp.
+  statsFrom?: 'usbWorker' | 'runnerSnapshot';
+  // How long to wait for the first samples. Generous only where it has to be: a
+  // B2xx that was power-cycled loads firmware and then an FPGA image over USB
+  // before it streams at all.
+  startTimeoutMs?: number;
+  // Shown under the form when this radio is selected.
+  note?: string;
 };
 
 const RADIOS: SdrSpeedRadioConfig[] = [
@@ -89,6 +104,23 @@ const RADIOS: SdrSpeedRadioConfig[] = [
     bytesPerSample: 2, iqDescription: 'unsigned 8-bit IQ',
     authorized: authorizedRtlDevices, label: rtlLabel,
   },
+  {
+    id: 'usrpb2xx', name: 'USRP B2xx', statsDevice: 'USRP B2xx',
+    filters: USRP_B2XX_USB_FILTERS,
+    // 40 and 56 are past the cliff and will measure overrun thrashing rather
+    // than a ceiling -- achieved throughput *falls* as the request rises up
+    // there. Offered anyway: showing that is more useful than asserting it, and
+    // it is the measurement that would catch the cliff moving.
+    rates: [56e6, 40e6, 20e6, 15.36e6, 10e6, 5e6, 2e6, 1e6],
+    bytesPerSample: 4, iqDescription: 'signed 16-bit IQ, converted to float',
+    authorized: authorizedUsrpB2xxDevices, label: usrpB2xxLabel,
+    statsFrom: 'runnerSnapshot',
+    startTimeoutMs: 300000,
+    note: 'A B2xx that has not been used since it was powered on needs sharing ' +
+      'twice — it changes USB identity when its firmware loads — and then spends ' +
+      'about 15 s loading its FPGA image before the first sample arrives. Later ' +
+      'runs start in a few seconds.',
+  },
 ];
 
 function radioConfig(id: SdrSpeedRadio): SdrSpeedRadioConfig {
@@ -99,6 +131,19 @@ const WARM_SECONDS = 1;
 const MEASURE_SECONDS = 5;
 const POLL_MS = 80;
 const START_TIMEOUT_MS = 30000;
+const MIN_USRP_MASTER_CLOCK = 5e6;
+const MAX_USRP_MASTER_CLOCK = 61.44e6;
+
+// Pinning the master clock to the requested rate is what stops UHD's automatic
+// tick-rate search coercing a rate *upward* -- ask for 30.72 MS/s and get 40,
+// which then overflows and measures a quarter of what was asked for. But the
+// B2xx can only be pinned within its own range, and pinning outside it throws,
+// so below 5 MS/s the search is left to it. 0 means automatic.
+export function usrpMasterClock(sampleRate: number): number {
+  return sampleRate >= MIN_USRP_MASTER_CLOCK &&
+         sampleRate <= MAX_USRP_MASTER_CLOCK
+    ? Math.round(sampleRate) : 0;
+}
 const DEFAULT_PLUTO_BUFFER_SIZE = 32768;
 const MAX_PLUTO_BUFFER_SIZE = 262144;
 
@@ -124,6 +169,15 @@ function sourceBlock(
         gain_mode2: slow_attack
         quadrature: 'True'
         rf_dc: 'True'
+        samp_rate: '${rate}'`;
+  if (radio === 'usrpb2xx') return `    id: wasm_usrp_b2xx_source
+    parameters:
+        antenna: RX2
+        bandwidth: '0'
+        center_freq: '100000000'
+        device: ${device}
+        gain: '30'
+        master_clock_rate: '${usrpMasterClock(rate)}'
         samp_rate: '${rate}'`;
   if (radio === 'rtlsdr') return `    id: wasm_rtlsdr_source
     parameters:
@@ -250,8 +304,11 @@ function readSpeed(
   try {
     const stats = JSON.parse(live.__grstats);
     const source = (stats.blocks || []).find((block: any) => block.name === 'sdr_source');
-    const usb = Object.values(live.__grUsbStats || {}).find((entry: any) =>
-      entry.device === radio.statsDevice && entry.direction === 'rx') as any;
+    const usb = radio.statsFrom === 'runnerSnapshot'
+      ? (stats.radio && stats.radio.device === radio.statsDevice &&
+         stats.radio.direction === 'rx' ? stats.radio : undefined)
+      : Object.values(live.__grUsbStats || {}).find((entry: any) =>
+          entry.device === radio.statsDevice && entry.direction === 'rx') as any;
     if (!source) return null;
     return {
       seconds: Number(stats.uptime_s),
@@ -281,7 +338,7 @@ async function measureReceive(
     encodeURIComponent(sdrReceiveBenchmarkFlowgraph(
       radio.id, serial, sampleRate, plutoBufferSize));
 
-  const deadline = Date.now() + START_TIMEOUT_MS;
+  const deadline = Date.now() + (radio.startTimeoutMs ?? START_TIMEOUT_MS);
   let baseline: SdrSpeedReading | null = null;
   for (;;) {
     await sleep(POLL_MS);
@@ -454,6 +511,15 @@ export function showSdrSpeedTestDialog(deps: SdrSpeedTestDeps): void {
     form.append(radioLabel, deviceLabel, share, rateLabel, bufferLabel);
     body.appendChild(form);
 
+    // Per-radio warning, shown only where there is one. The B2xx is the reason
+    // it exists: a cold board has to be shared twice and then spends a quarter
+    // of a minute loading its FPGA image, and without saying so the test just
+    // looks stuck.
+    const note = document.createElement('p');
+    note.className = 'sdr-speed-note';
+    note.hidden = true;
+    body.appendChild(note);
+
     const progress = document.createElement('div');
     progress.className = 'sdr-speed-progress';
     progress.setAttribute('role', 'progressbar');
@@ -518,6 +584,8 @@ export function showSdrSpeedTestDialog(deps: SdrSpeedTestDeps): void {
       form.classList.toggle('has-pluto-buffer', selectedRadio.id === 'plutosdr');
       bufferLabel.hidden = selectedRadio.id !== 'plutosdr';
       bufferInput.disabled = running || selectedRadio.id !== 'plutosdr';
+      note.textContent = selectedRadio.note || '';
+      note.hidden = !selectedRadio.note;
       devices = [];
       renderDevices();
       renderRates();
