@@ -237,6 +237,8 @@ assert.match(runnerCpp, /class TileWidgetItem final : public QWidgetItem/,
              'widget size hints cannot distort equal grid columns or rows');
 assert.match(runnerCpp, /class ProportionalGridLayout final : public QGridLayout/,
              'the runner gives grid units deterministic proportional geometry');
+assert.match(runnerCpp, /widget->setMinimumSize\(0, 0\)/,
+             'an explicit widget minimum cannot enlarge its assigned tile');
 assert.match(runnerCpp, /grid->addTile\(placed\.widget, placed\.tile\)/,
              'the proportional grid receives every requested widget tile');
 assert.match(registryCpp, /class RangeRowLayout final : public QHBoxLayout/,

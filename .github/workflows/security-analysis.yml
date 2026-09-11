@@ -20,9 +20,10 @@ name: Security analysis
 #   * the diff scan never checks the PR out at all. It fetches refs/pull/N/head
 #     into the object store and reads blobs with `git show`, so the working tree
 #     stays on the base branch.
-#   * CodeQL does check the PR out, but analyzes javascript-typescript, python
-#     and actions with `build-mode: none` -- extraction parses source, it does
-#     not run it, and no dependencies are installed for it to run.
+#   * CodeQL does check the PR out, with checkout's explicit
+#     `allow-unsafe-pr-checkout` opt-in, but analyzes javascript-typescript,
+#     python and actions with `build-mode: none` -- extraction parses source,
+#     it does not run it, and no dependencies are installed for it to run.
 #
 # Adding a step that runs PR code turns this into a credential-theft primitive.
 # Put such a step in pr-preview-build.yml, which holds no secret by design.
@@ -130,11 +131,16 @@ jobs:
       matrix:
         language: [javascript-typescript, python, actions]
     steps:
+      # actions/checkout refuses fork PR heads under pull_request_target by
+      # default. This is the deliberately narrow exception: the remaining
+      # steps only parse these files with CodeQL build-mode:none. Never add an
+      # install, build, test or other PR-authored executable step to this job.
       - uses: actions/checkout@v4
         with:
           ref: refs/pull/${{ inputs.pr_number }}/head
           fetch-depth: 0
           persist-credentials: false
+          allow-unsafe-pr-checkout: true
 
       - uses: github/codeql-action/init@v3
         with:
