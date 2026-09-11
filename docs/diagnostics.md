@@ -150,6 +150,13 @@ so the bottleneck lights up without reading numbers.
 - **Bottleneck attribution** — one derived field: block with max downstream-full
   or max CPU share
 - Sink **underruns / late frames** (dropped qtgui updates)
+- **`radio_aux_threads`** — threads a radio's host library owns that the scheduler
+  did not create, present only when a flowgraph has one. UHD is the case that
+  forced it: a B2xx starts a libusb event task and an asynchronous-message task,
+  which occupy workers but run no block. They are deliberately *not* added to
+  `dsp_threads`, which stays the scheduler's own width; see
+  [schedulers.md](schedulers.md). Shown beside the DSP count in the panel's
+  Runner runtime row, and omitted entirely when there is no such radio.
 
 ### GUI / render
 - qtgui sink actual update rate vs. requested

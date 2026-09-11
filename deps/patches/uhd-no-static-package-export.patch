@@ -1,0 +1,45 @@
+UHD: do not generate a CMake package export in a static build.
+
+Without this, configuring UHD with BUILD_SHARED_LIBS=OFF fails at generate time:
+
+    CMake Error: install(EXPORT "uhdTargets" ...) includes target "uhd" which
+    requires target "uhd-resources" that is not in any export set.
+
+and, once uhd-resources is added, the same again for "cmrc-base". Exporting the
+uhd target requires every target it links to be in the same export set, and
+upstream exports neither the CMakeRC resource library nor its base target. The
+failure is specific to static builds; the shared build upstream tests does not
+link uhd-resources into the export.
+
+Nothing in this repository consumes UHD through find_package(UHD) -- the browser
+side module links libuhd.a directly -- so the package export is simply not
+generated. The library, headers and everything else still install normally.
+
+Applied by deps/fetch-deps.sh. Upstream UHD is v4.10.0.0.
+
+--- a/host/CMakeLists.txt
++++ b/host/CMakeLists.txt
+@@ -620,7 +620,13 @@
+ )
+ 
+ include(CMakePackageConfigHelpers)
+-if(TARGET uhd)
++# Exporting the uhd target requires every target it links to be in the same
++# export set. In a static build that pulls in uhd-resources (a CMakeRC resource
++# library) and then cmrc-base, neither of which upstream exports, and cmake fails
++# at generate time. Nothing here consumes UHD through find_package(UHD) -- the
++# browser side module links libuhd.a directly -- so the CMake package export is
++# simply not generated.
++if(FALSE)
+     export(
+         EXPORT uhdTargets
+         FILE ${UHD_BINARY_DIR}/cmake/Modules/UHDTargets.cmake
+@@ -642,7 +648,7 @@
+     DESTINATION ${CMAKE_MODULES_DIR}/uhd
+     COMPONENT "devel"
+ )
+-if(TARGET uhd)
++if(FALSE)  # see the note above: no CMake package export in a static build
+     install(
+         EXPORT uhdTargets
+         FILE UHDTargets.cmake

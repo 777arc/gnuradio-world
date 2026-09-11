@@ -1,0 +1,59 @@
+UHD: flush the recv endpoint with a frame-sized buffer, not a fixed 512 bytes.
+
+Needed by the USRP B2xx Source. Without it the first RX stream after
+multi_usrp::make() desynchronises, logging
+
+    [ERROR][STREAMER] The receive packet handler caught a value exception.
+    ValueError: bad vrt header or packet fragment
+    [ERROR][STREAMER] recv packet demuxer unexpected sid 0x80002
+
+libusb_zero_copy_single's constructor drains its receive endpoint with a loop of
+512-byte reads. A 512-byte read of an endpoint holding an 8176-byte frame
+(B200_USB_DATA_DEFAULT_FRAME_SIZE) truncates it and leaves the remainder queued.
+On a normal host that is harmless: the loop's later iterations drain the rest, and
+its final read -- the one that times out -- is genuinely aborted by the kernel, so
+nothing is left outstanding.
+
+WebUSB cannot abort a read once transferIn() has been called. Our libusb patch
+(libusb-emscripten-cancel-transfer.patch) therefore completes the cancelled
+transfer and leaves the browser read outstanding, handing its data to the next
+reader on that endpoint. That is correct for equal-sized reads and wrong here: the
+leftover 512-byte read receives the first 512 bytes of the first real data frame,
+and the streamer picks up mid-packet.
+
+Making the flush buffer frame-sized fixes it at the source. The leftover read is
+then the same size as the streamer's, so it receives a whole frame and hands it on
+intact. It also removes the truncation on every other platform, where it is a
+latent bug that the drain loop happens to paper over.
+
+Applied by deps/fetch-deps.sh. Upstream UHD is v4.10.0.0.
+
+--- a/host/lib/transport/libusb1_zero_copy.cpp
++++ b/host/lib/transport/libusb1_zero_copy.cpp
+@@ -232,14 +232,23 @@
+ 
+         // flush the buffers out of the recv endpoint
+         // limit the flushing to at most one second
++        //
++        // The buffer is frame-sized rather than a fixed 512 bytes. Flushing with
++        // a buffer smaller than a frame truncates any packet already queued on
++        // the endpoint and leaves the remainder behind; this loop normally drains
++        // that remainder over its later iterations, but its *last* read is
++        // cancelled by the timeout, and on a transport that cannot abort a read
++        // once issued -- WebUSB, via libusb's Emscripten backend -- that read
++        // stays outstanding and truncates the first packet of whatever streams
++        // next, desynchronising the stream ("bad vrt header or packet fragment").
++        std::vector<unsigned char> flush_buff(this->get_frame_size());
+         if (is_recv)
+             for (size_t i = 0; i < 100; i++) {
+-                unsigned char buff[512];
+                 int transfered   = 0;
+                 const int status = libusb_bulk_transfer(_handle->get(), // dev_handle
+                     endpoint, // endpoint
+-                    static_cast<unsigned char*>(buff),
+-                    int(sizeof(buff)),
++                    flush_buff.data(),
++                    int(flush_buff.size()),
+                     &transfered, // bytes xfered
+                     10 // timeout ms
+                 );

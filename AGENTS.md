@@ -19,6 +19,7 @@ full* before starting that kind of work:
 | [docs/plutosdr.md](docs/plutosdr.md) | touching PlutoSDR Source or Sink — stock-firmware USB IIOD, WebUSB transport, IIO discovery, 1R1T/2R2T, device permission, or Pluto hardware testing |
 | [docs/audio.md](docs/audio.md) | touching Audio Sink or Audio Source — the Web Audio worklet, the sound-card ring, microphone permission, or the browser's autoplay policy |
 | [docs/hackrf.md](docs/hackrf.md) | touching HackRF Source or Sink — the stock vendor-control protocol, signed 8-bit IQ streaming, half-duplex ownership, TX safety, or HackRF hardware testing |
+| [docs/usrp-b2xx.md](docs/usrp-b2xx.md) | touching USRP B2xx Source — the cross-compiled B200-only UHD, libusb's WebUSB backend and its two patches, the `b2xx` runtime side module, the two-grant cold start, or USRP hardware testing |
 | [docs/signalhound.md](docs/signalhound.md) | touching Signal Hound BB60 Source — the reverse-engineered BB60C/D USB protocol, its tuning tables, the WebUSB worker, or the 70 MS/s host DDC |
 | [docs/editor-ui.md](docs/editor-ui.md) | working on block IDs, auto-arrange, the narrow-screen/touch layout, or the embedded layout another site frames (`?embed=1`) |
 | [docs/gui-layout.md](docs/gui-layout.md) | touching where QT GUI widgets go in the runner window — the GUI Layout block, `editor/src/gui-layout*.ts`, `runner/src/gui_layout.hpp`, or Arrange mode |
@@ -490,6 +491,11 @@ explanation lives in that doc — follow it before working in that area.
   back to pacing by the wall clock and discarding, which keeps the graph (and
   its plots) running at the right rate while it is silent. See
   [docs/audio.md](docs/audio.md).
+- **A USRP B2xx changes USB identity when its firmware loads**, so a cold board
+  has to be granted to the site *twice* — the browser keys permission to a serial
+  that no longer exists after re-enumeration. The FPGA image then takes minutes on
+  that first run, so the runner holds its startup verdict rather than reporting
+  success on a timer. See [docs/usrp-b2xx.md](docs/usrp-b2xx.md).
 - **One block reads a radio, and its permission is granted before the graph
   starts.** RTL-SDR Source reaches a dongle over WebUSB from a worker, through
   the same shared-memory ring and futex `BrowserFileSource` uses — but a live

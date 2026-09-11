@@ -161,6 +161,31 @@ async function main() {
     console.log('pyodide: absent (run deps/fetch-pyodide.sh) -- Python Block will not run');
   }
 
+  // 3c. USRP B2xx firmware and FPGA images, same optional treatment as Pyodide:
+  //     only a flowgraph with a real (non-fake) B2xx block fetches them, and only
+  //     the first time in a browsing session. They live here rather than in the
+  //     recordings bucket deliberately -- same origin means no CORS policy to keep
+  //     in step, no credentials in CI, and one source of truth for the UHD pin
+  //     (deps/fetch-usrp-images.sh verifies them against the manifest inside the
+  //     pinned UHD tarball). ~14 MB on a ~50 MB deploy, and every file is far
+  //     below Pages' 25 MiB per-file limit.
+  //     They go beside runner.html, not at the site root: the runner fetches them
+  //     relative to its own URL, and runner.html is served from /runner/build/.
+  //     .bin and .hex are not in RUNTIME_EXT, so walkRuntimeFiles above ignores
+  //     them and this is the only copy.
+  const uhdImagesDir = join(ROOT, 'deps', 'usrp-images', 'images');
+  const uhdImages = await readdir(uhdImagesDir).catch(() => null);
+  if (uhdImages && uhdImages.length) {
+    const uhdOut = join(OUT, 'runner', 'build', 'uhd-images');
+    await mkdir(uhdOut, { recursive: true });
+    for (const f of uhdImages.filter(f => !f.startsWith('.')))
+      await cp(join(uhdImagesDir, f), join(uhdOut, f));
+    console.log(`uhd-images: ${uhdImages.length} files`);
+  } else {
+    console.log('uhd-images: absent (run deps/fetch-usrp-images.sh) -- ' +
+                'a real USRP B2xx will not start');
+  }
+
   // 4. The recording view needs no step of its own: it is the editor build's
   //    second entry, so editor/dist/recording/ came along with the copy of
   //    editor/dist in step 1 and lands at /recording/. It uses hash routing, so

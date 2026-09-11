@@ -177,6 +177,101 @@ whatever the user's own source declares: the Embedded Python Block underlines
 the callbacks its introspection found, and the JS Block underlines every numeric
 parameter — which is exactly what each factory turns into setters at run time.
 
+## Keeping a heavy dependency out of the main module: `runtime_module`
+
+A hand-written factory normally lives in `registry.cpp`, which is compiled into
+the always-loaded main module — so its dependencies are downloaded by every
+flowgraph, including the ones that never touch the block. That is fine for a few
+kilobytes of browser code. It is not fine for the USRP B2xx Source, whose factory
+links all of UHD.
+
+Such a block opts out by declaring a **runtime module** in its own metadata:
+
+```yaml
+id: wasm_usrp_b2xx_source
+runtime_module: b2xx
+```
+
+and the module name is listed in `runner/modules.json` under `runtime_modules`,
+which is separate from `deferred`: a deferred category is a GNU Radio component
+with an upstream source tree to scan and `cpp_templates` to generate from, while a
+runtime module has neither.
+
+What that buys, and what it costs:
+
+- `gen_registry.py` emits `runner/src/generated_registry_<module>.cpp`, a file-scope
+  registrar that runs when the side module is `dlopen`'d. It declares and registers
+  **`BuiltBlock make_<block id>(const nlohmann::json&)`** — so the convention is
+  that the block's implementation defines a factory of exactly that name. Nothing
+  is generated from `cpp_templates`, because these blocks have none.
+- The block id is added to the support manifest and to the block → module map, so
+  the runner fetches `<module>.wasm` before construction, and the editor's palette
+  shows the block as runnable rather than greyed out.
+- `runtime_module` is **build metadata and must never reach a saved `.grc`.** The
+  editor's schema does not carry it, so it cannot; do not add it there.
+- `runner/CMakeLists.txt` needs a build rule for the module, and a configure-time
+  check fails the build if `modules.json` and CMake disagree about which side
+  modules exist.
+
+### The symbol boundary
+
+A side module resolves its undefined symbols against the main module at `dlopen`
+time, and the main module is linked `MAIN_MODULE=2`: it contains only what it
+references, and only what it contains can be exported. For a GR category that is
+invisible, because it uses the same standard-library surface the runner already
+uses. A module carrying a large foreign dependency does not, and the failure is
+always the same shape:
+
+```
+bad export type for '<mangled symbol>': undefined
+```
+
+Three mechanisms cover three different kinds of symbol, and it is worth knowing
+which one applies before reaching for any of them:
+
+1. **Ordinary code and data symbols** are handled for you.
+   `runner/gen_side_exports.py` reads every side module's GOT/`env` imports and
+   emits `--export-if-defined` for each into `side_exports.rsp`, consumed by the
+   runner link. A new side module gets this for free; there is no list to maintain.
+2. **Standard-library surface the runner does not use** has to be made *present*
+   before it can be exported. Two ways, and the choice matters:
+   - Carry it in the side module, by linking Emscripten's **position-independent**
+     archives (`<emsdk>/.../lib/wasm32-emscripten/pic/libc++-mt.a`; the ordinary
+     archive is not PIC and wasm-ld rejects it outright). `malloc`/`free` still
+     resolve to the main module, so the allocator stays shared.
+   - Or reference it from the main module, in
+     [`runner/src/side_module_abi.cpp`](../runner/src/side_module_abi.cpp) — which
+     needs `EMSCRIPTEN_KEEPALIVE`, or wasm-ld collects the function and everything
+     it pulled in.
+
+   **RTTI must take the second route.** `type_info` is compared by address, so a
+   second copy in the side module makes an exception thrown there uncatchable in
+   the runner.
+3. **Functions Emscripten implements in JavaScript** (`getaddrinfo`, from
+   `library_sockfs.js`) are in no archive at all, so neither mechanism above can
+   see them. `-sDEFAULT_LIBRARY_FUNCS_TO_INCLUDE` puts such a function in
+   `runner.js` but *not* in `wasmImports`, which is what the loader hands a side
+   module. What works is referencing it from the main module's C++, which is why
+   `side_module_abi.cpp` calls `getaddrinfo` it has no interest in.
+
+`--bind` on the main module is necessary but **not sufficient**: embind's
+JavaScript library only emits the pieces the main module's own code uses. A side
+module importing an embind entry point the runner never touches gets an
+unresolved stub, which loads fine and then dies at the call site with
+`TypeError: resolved is not a function` — the least informative error in this
+whole area. libusb needs `_emval_iter_begin`/`_emval_iter_next` (it range-fors
+over the array from `navigator.usb.getDevices()`) and `_emval_coro_suspend`/
+`_emval_coro_make_promise` (its `promiseThen` is a C++20 coroutine, on the worker
+path). `side_module_abi.cpp` forces all four. The coroutine pair is declared by
+hand there because `val.h` only declares it under C++20 and the runner is C++17 —
+they are `extern "C"`, so a local declaration is enough to import them.
+
+One more trap: build the side module **without `--bind`** even when it uses
+`emscripten::val`. The API is header-only against the `_emval_*` entry points the
+main module exports; adding `--bind` makes the side module re-run embind's
+built-in type registrations at `dlopen` and abort with
+`BindingError: Cannot register type 'void' twice`.
+
 ## Writing the C++
 
 ### `registry.cpp` compiles its includes with Qt's macros in scope

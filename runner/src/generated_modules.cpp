@@ -380,6 +380,7 @@ const std::map<std::string, std::string>& block_module_map()
         {"vocoder_g723_40_encode_sb", "vocoder"},
         {"vocoder_ulaw_decode_bs", "vocoder"},
         {"vocoder_ulaw_encode_sb", "vocoder"},
+        {"wasm_usrp_b2xx_source", "b2xx"},
     };
     return m;
 }

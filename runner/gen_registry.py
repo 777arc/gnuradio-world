@@ -50,6 +50,15 @@ MODULES = tuple(f"gr-{module}" for module in (*CORE_MODULES, *DEFERRED_MODULES))
 # side module, so pdu.wasm has to be loaded first for those imports to resolve.
 MODULE_DEPS: dict[str, list[str]] = MODULE_CONFIG["module_deps"]
 
+# Side modules that are NOT GNU Radio components. A block in blocks/grc/ opts into
+# one with `runtime_module: <name>`, which keeps its implementation -- and whatever
+# heavy dependency it drags in -- out of the always-loaded main module. The USRP
+# B2xx Source is the first: it links all of UHD, which no other flowgraph should
+# have to download. Unlike a deferred gr- category there is no upstream source
+# tree to scan, and the factory is hand-written rather than generated, so these
+# are threaded through separately from DEFERRED_MODULES.
+RUNTIME_MODULES = tuple(MODULE_CONFIG.get("runtime_modules", ()))
+
 # Browser-only block metadata kept in this repository so every submodule can stay
 # pinned to a pristine upstream commit: one directory per module under
 # blocks/overlays/, each holding that module's metadata.yml.
@@ -316,6 +325,13 @@ def validate_configuration() -> None:
     if overlap:
         raise SystemExit(f"runner/modules.json marks modules core and deferred: {overlap}")
     known_deferred = set(deferred)
+    runtime = list(RUNTIME_MODULES)
+    if len(set(runtime)) != len(runtime):
+        raise SystemExit("runner/modules.json contains duplicate runtime_modules")
+    clash = sorted(set(runtime) & (set(core) | known_deferred))
+    if clash:
+        raise SystemExit(
+            f"runner/modules.json reuses category names as runtime_modules: {clash}")
     unknown_roots = sorted(set(MODULE_SOURCE_ROOTS) - set(MODULES))
     if unknown_roots:
         raise SystemExit(
@@ -1176,6 +1192,67 @@ def write_core_registrar(output_dir: Path, includes: set[str],
     write_if_changed(output_dir / "generated_registry.cpp", "\n".join(source))
 
 
+def load_runtime_module_blocks() -> dict[str, str]:
+    """block id -> runtime module, for blocks/grc/ blocks that declare one.
+
+    `runtime_module` is build metadata: it decides which side module the block's
+    factory is linked into, and must never reach a saved .grc. The editor's
+    schema does not carry it, so it cannot.
+    """
+    found: dict[str, str] = {}
+    for path in sorted((WORLD / "blocks" / "grc").glob("*.block.yml")):
+        try:
+            block = yaml.safe_load(path.read_text())
+        except Exception:
+            continue
+        if not isinstance(block, dict) or "id" not in block:
+            continue
+        module = block.get("runtime_module")
+        if not module:
+            continue
+        if module not in RUNTIME_MODULES:
+            raise SystemExit(
+                f"{path.name}: runtime_module '{module}' is not listed in "
+                f"runner/modules.json runtime_modules")
+        found[str(block["id"])] = str(module)
+    return found
+
+
+def write_runtime_registrar(output_dir: Path, module: str, block_ids: list[str]) -> None:
+    """Registrar for a runtime-only side module.
+
+    Same shape as a deferred category's, but the factories are hand-written: each
+    block id `x` is backed by `BuiltBlock make_x(const nlohmann::json&)`, defined
+    in the implementation this side module links. Nothing is generated from
+    cpp_templates, because these blocks have none -- they exist only in the
+    browser.
+    """
+    decls = [f"BuiltBlock make_{bid}(const nlohmann::json& params);" for bid in block_ids]
+    adds = [f'        wasm_registry_add({json.dumps(bid)}, &make_{bid});' for bid in block_ids]
+    source = [
+        CORE_HEADER,
+        '#include "registry_helpers.hpp"',
+        "",
+        "// Provided by the main module (registry.cpp).",
+        'extern "C" void wasm_registry_add(const char* id,',
+        "                                  BuiltBlock (*factory)(const nlohmann::json&));",
+        "",
+        "// Hand-written, in the block implementation this side module links.",
+        *decls,
+        "",
+        "namespace {",
+        f"struct Registrar_{module} {{",
+        f"    Registrar_{module}()",
+        "    {",
+        *adds,
+        "    }",
+        f"}} g_registrar_{module};",
+        "} // namespace",
+        "",
+    ]
+    write_if_changed(output_dir / f"generated_registry_{module}.cpp", "\n".join(source))
+
+
 def write_side_registrar(output_dir: Path, module: str, includes: set[str],
                         factories: list[str]) -> None:
     """One deferred category = one WebAssembly side module. A file-scope constructor
@@ -1509,6 +1586,21 @@ def generate(output_dir: Path, manifest: Path) -> None:
             continue
         write_side_registrar(output_dir, module, includes[module], factories[module])
         emitted_modules.append(module)
+
+    # Runtime-only side modules: blocks/grc/ blocks that declared a
+    # runtime_module. Their factories are hand-written and live in the side
+    # module, so they never touch the generated-C++ path above.
+    runtime_blocks = load_runtime_module_blocks()
+    for module in RUNTIME_MODULES:
+        ids = sorted(bid for bid, mod in runtime_blocks.items() if mod == module)
+        if not ids:
+            continue
+        write_runtime_registrar(output_dir, module, ids)
+        emitted_modules.append(module)
+        for bid in ids:
+            block_module[bid] = module
+            counts[module] += 1
+        supported.extend(ids)
 
     write_module_map(output_dir, block_module)
 

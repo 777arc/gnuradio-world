@@ -284,6 +284,31 @@ export function validateFlowgraph(
         add(block, channelParam,
           'Audio channel count must be a whole number from 1 through 32.');
     }
+    if (block.id === 'wasm_usrp_b2xx_source') {
+      // Only what is knowable without opening the device. UHD validates and
+      // coerces the rest against the board it actually finds, and reports what
+      // it settled on -- hardcoding per-model gain steps or achievable rates
+      // here would reject configurations that work.
+      const sampleRate = resolvedNumber(block.params.samp_rate, staticScope);
+      if (sampleRate !== null && (sampleRate <= 0 || sampleRate > 61.44e6))
+        add(block, 'samp_rate',
+          'USRP sample rate must be greater than 0 and at most 61.44 MS/s.');
+      // Deliberately no upper advisory: a browser drains only about 19 MS/s
+      // before overruns outrun the samples, but every issue here blocks the run,
+      // and 30 MS/s is a legal configuration that merely performs badly. The
+      // throughput guidance lives in the block's documentation instead.
+      const centerFreq = resolvedNumber(block.params.center_freq, staticScope);
+      if (centerFreq !== null && (centerFreq < 70e6 || centerFreq > 6e9))
+        add(block, 'center_freq', 'USRP center frequency must be 70 MHz through 6 GHz.');
+      const gain = resolvedNumber(block.params.gain, staticScope);
+      if (gain !== null && (gain < 0 || gain > 76))
+        add(block, 'gain', 'USRP RX gain must be 0 through 76 dB.');
+      const masterClock = resolvedNumber(block.params.master_clock_rate, staticScope);
+      if (masterClock !== null && masterClock !== 0 &&
+          (masterClock < 5e6 || masterClock > 61.44e6))
+        add(block, 'master_clock_rate',
+          'Master Clock Rate must be 0 (automatic) or 5 MHz through 61.44 MHz.');
+    }
     if (block.id === 'wasm_hackrf_source' || block.id === 'wasm_hackrf_sink') {
       const sampleRate = resolvedNumber(block.params.samp_rate, staticScope);
       if (sampleRate !== null &&

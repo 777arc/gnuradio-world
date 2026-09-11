@@ -59,6 +59,10 @@ function(json_array_to_list output key)
 endfunction()
 json_array_to_list(IN_TREE_DEFERRED_MODULES in_tree_deferred)
 json_array_to_list(ALL_DEFERRED_MODULES deferred)
+# Side modules that are not GNU Radio categories: a blocks/grc/ block opts in with
+# `runtime_module:`. Kept separate from `deferred` because there is no upstream
+# source tree to scan and the factory is hand-written. See gen_registry.py.
+json_array_to_list(RUNTIME_MODULES runtime_modules)
 
 # Hand-written block sources live outside runner/ so that runner/src/ holds the
 # app and the generated factories only. blocks/src/ is what is not owned by any
@@ -113,6 +117,9 @@ set(GR_INCLUDE_DIRS
 qt_add_executable(runner
   src/runner.cpp
   src/registry.cpp
+  # Not code the runner runs: it makes RTTI and standard-exception symbols a
+  # side module needs present in the main module. See the file's header.
+  src/side_module_abi.cpp
   ${BLOCKS}/src/js_pmt.cpp
   ${BLOCKS}/src/browser_file_source.cpp
   ${BLOCKS}/src/browser_file_sink.cpp
@@ -185,10 +192,13 @@ target_link_libraries(runner PRIVATE
 
 target_link_options(runner PRIVATE
   -sMAIN_MODULE=2 -sEXPORT_ALL=1
+  # embind's _emval_* entry points, imported by the USRP B2xx side module:
+  # libusb's WebUSB backend is written against emscripten::val.
+  --bind
   # EXPORT_ALL covers functions but not Emscripten's special exception-handling
   # data globals, which category side modules import as GOT.mem entries. Export
   # them (and the registry shim) explicitly so side-module relocation resolves.
-  -sEXPORTED_FUNCTIONS=_main,_gr_run_json,_gr_apply_gui_layout,_gr_read_plot_data,_gr_shutdown_flowgraph,_gr_finish_worker_preload,_gr_finish_pyodide_prepare,_gr_finish_js_sources,_gr_fosphor_webgpu_frequency,_gr_js_last_error,_gr_js_pmt_type,_gr_js_pmt_real,_gr_js_pmt_u64,_gr_js_pmt_length,_gr_js_pmt_ref,_gr_js_pmt_text,_gr_js_pmt_blob,_gr_js_pmt_make,_gr_js_pmt_seq,_gr_js_pmt_dict,_gr_js_pmt_blob_new,_gr_js_tags,_gr_js_tag_offset,_gr_js_tag_field,_gr_js_add_tag,_gr_js_nitems,_gr_js_publish,_free,_malloc,_wasm_registry_add
+  -sEXPORTED_FUNCTIONS=_main,_gr_run_json,_gr_apply_gui_layout,_gr_read_plot_data,_gr_shutdown_flowgraph,_gr_finish_worker_preload,_gr_finish_pyodide_prepare,_gr_finish_js_sources,_gr_finish_uhd_images,_gr_fosphor_webgpu_frequency,_gr_js_last_error,_gr_js_pmt_type,_gr_js_pmt_real,_gr_js_pmt_u64,_gr_js_pmt_length,_gr_js_pmt_ref,_gr_js_pmt_text,_gr_js_pmt_blob,_gr_js_pmt_make,_gr_js_pmt_seq,_gr_js_pmt_dict,_gr_js_pmt_blob_new,_gr_js_tags,_gr_js_tag_offset,_gr_js_tag_field,_gr_js_add_tag,_gr_js_nitems,_gr_js_publish,_free,_malloc,_wasm_registry_add,_gr_hardware_init_begin,_gr_hardware_init_end,_gr_hardware_init_note
   # The remaining symbols side modules import from main (libc++abi/compiler-rt:
   # __cxa_pure_virtual, std type-info vtables, the thread_local exception globals,
   # …) are exported via the generated response file appended at the end of this
@@ -237,6 +247,13 @@ add_custom_command(TARGET runner POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
           ${CMAKE_CURRENT_SOURCE_DIR}/src/gnuradio_world_logo.svg
           ${CMAKE_CURRENT_BINARY_DIR}/gnuradio_world_logo.svg
+  # USRP B2xx firmware and FPGA images, if deps/fetch-usrp-images.sh has been
+  # run. Beside runner.html because the runner fetches them relative to its own
+  # URL; scripts/assemble-site.mjs puts them in the same place in the deploy.
+  # copy_directory_if_different is a no-op when the source is absent.
+  COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different
+          ${WORLD}/deps/usrp-images/images
+          ${CMAKE_CURRENT_BINARY_DIR}/uhd-images
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
           ${CMAKE_CURRENT_SOURCE_DIR}/src/browser_file_reader.js
           ${CMAKE_CURRENT_BINARY_DIR}/browser_file_reader.js
@@ -730,6 +747,88 @@ add_custom_command(
 list(APPEND SIDE_MODULE_OUTPUTS ${droneid_out})
 list(APPEND SIDE_MODULE_NAMES droneid)
 
+# USRP B2xx: the one side module that is not a GNU Radio category. Its block is
+# declared in blocks/grc/ with `runtime_module: b2xx`, and the whole reason it is
+# deferred is UHD -- around 1.4 MB gzipped that no other flowgraph should have to
+# download. See docs/usrp-b2xx.md.
+#
+# Three things here are load-bearing and fail quietly if dropped:
+#
+#   * -Wl,--whole-archive on libuhd.a. UHD registers its device finders through
+#     static initializers that nothing references, so without it the module links
+#     and uhd::device::find() reports no devices, for ever.
+#   * pic/libc++-mt.a. A side module resolves libc++ against the main module, but
+#     the main module is MAIN_MODULE=2 and only contains what it references --
+#     and UHD reaches for corners of libc++ (regex, filesystem, future, iostreams)
+#     that GNU Radio never touches. Carrying our own copy resolves them. It must
+#     be the pic/ variant; the ordinary archive is not position-independent and
+#     wasm-ld rejects it. malloc/free still resolve to the main module, so the
+#     allocator stays shared -- do not "fix" that by adding libc-mt.a.
+#   * --bind, for libusb's WebUSB backend, which is written against
+#     emscripten::val.
+#
+# RTTI deliberately is NOT carried here: typeinfo is compared by address, so a
+# second copy would make an exception thrown in this module uncatchable in the
+# runner. Those symbols live in the main module via src/side_module_abi.cpp.
+set(B2XX_SOURCES
+  ${BLOCKS}/src/usrp_b2xx_source.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/generated_registry_b2xx.cpp)
+# Emscripten's own sysroot, where the position-independent system libraries live.
+# Derived from the compiler rather than CMAKE_SYSROOT, which the Emscripten
+# toolchain leaves unset here. Checked rather than allowed to produce a link line
+# with an empty path in it, which fails much further downstream.
+get_filename_component(EM_COMPILER_DIR ${CMAKE_CXX_COMPILER} DIRECTORY)
+set(EM_PIC_LIBS ${EM_COMPILER_DIR}/cache/sysroot/lib/wasm32-emscripten/pic)
+if(NOT EXISTS ${EM_PIC_LIBS}/libc++-mt.a)
+  message(FATAL_ERROR
+    "b2xx side module needs Emscripten's position-independent libc++ at "
+    "${EM_PIC_LIBS}/libc++-mt.a. It ships with emsdk; check that deps/env.sh "
+    "activated the pinned toolchain.")
+endif()
+set(b2xx_out ${CMAKE_CURRENT_BINARY_DIR}/b2xx.wasm)
+add_custom_command(
+  OUTPUT ${b2xx_out}
+  COMMAND ${CMAKE_CXX_COMPILER}
+    -sSIDE_MODULE=1 -pthread -fPIC -Oz -std=c++17
+    -sNO_DISABLE_EXCEPTION_CATCHING
+    -sWASM_BIGINT=1
+    # Deliberately NOT --bind. emscripten::val, which libusb's WebUSB backend is
+    # written against, is header-only against the _emval_* entry points the main
+    # module exports. Adding --bind here instead makes this module re-run
+    # embind's built-in type registrations at dlopen and abort with
+    # "BindingError: Cannot register type 'void' twice".
+    -I${SYSROOT}/include
+    -I${CMAKE_CURRENT_SOURCE_DIR}/src
+    -I${CMAKE_CURRENT_SOURCE_DIR}/third_party
+    ${SIDE_INCLUDE_FLAGS}
+    ${B2XX_SOURCES}
+    -Wl,--whole-archive ${SYSROOT}/lib/libuhd.a -Wl,--no-whole-archive
+    ${SYSROOT}/lib/libuhd-resources.a
+    ${SYSROOT}/lib/libusb-1.0.a
+    ${SYSROOT}/lib/libboost_filesystem.a
+    ${SYSROOT}/lib/libboost_serialization.a
+    ${SYSROOT}/lib/libboost_system.a
+    ${SYSROOT}/lib/libboost_thread.a
+    ${SYSROOT}/lib/libboost_chrono.a
+    ${SYSROOT}/lib/libboost_date_time.a
+    ${SYSROOT}/lib/libboost_program_options.a
+    ${SYSROOT}/lib/libboost_atomic.a
+    ${EM_PIC_LIBS}/libc++-mt.a
+    -o ${b2xx_out}
+  DEPENDS ${B2XX_SOURCES}
+          # Both archives, or a rebuilt dependency silently does not reach the
+          # module: the link is a custom command, so anything not named here is
+          # invisible to it.
+          ${SYSROOT}/lib/libuhd.a
+          ${SYSROOT}/lib/libusb-1.0.a
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/registry_helpers.hpp
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/registry.hpp
+  COMMENT "Building runtime side module b2xx.wasm (B200-only UHD + libusb)"
+  COMMAND_EXPAND_LISTS
+  VERBATIM)
+list(APPEND SIDE_MODULE_OUTPUTS ${b2xx_out})
+list(APPEND SIDE_MODULE_NAMES b2xx)
+
 # gr-satellites: telemetry framing, coding, FEC, and utility blocks. Like the
 # other OOT modules, compile its implementation and bundled C/C++ codec sources
 # directly into an on-demand side module. The upstream CMake build generates an
@@ -1060,9 +1159,9 @@ add_side_module(gsm
           ${GSM_WASM_SHIMS}/omp.h
           ${GSM_WASM_SHIMS}/gnuradio/gsm/endian.h)
 
-# Fail at configure time if modules.json names a deferred category that has no
-# build rule here, or if a build rule was added without registering its topology.
-set(expected_side_modules ${ALL_DEFERRED_MODULES})
+# Fail at configure time if modules.json names a side module that has no build
+# rule here, or if a build rule was added without registering its topology.
+set(expected_side_modules ${ALL_DEFERRED_MODULES} ${RUNTIME_MODULES})
 set(actual_side_modules ${SIDE_MODULE_NAMES})
 list(SORT expected_side_modules)
 list(SORT actual_side_modules)

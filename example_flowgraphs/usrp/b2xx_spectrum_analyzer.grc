@@ -1,0 +1,253 @@
+options:
+    parameters:
+        author: Marc
+        comment: ''
+        copyright: ''
+        description: "Receive and display spectrum from a USRP B2xx over WebUSB.\nRuns with no hardware: Device is set to the test generator fake:100000. To use a real USRP, open the USRP B2xx Source and pick a device. On a board that has not been used since it was powered on you will be asked twice, because it changes USB identity when its firmware loads, and the first run after that loads the FPGA image, which takes a few minutes."
+        generate_options: qt_gui
+        id: USRP_B2xx_Receive_Example
+        title: USRP B2xx Receive Example
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: center_freq
+    id: variable_qtgui_range
+    parameters:
+        comment: ''
+        label: RF Frequency
+        min_len: '200'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '70000000'
+        step: '1000000'
+        stop: '6000000000'
+        value: '100000000'
+        widget: counter_slider
+    states:
+        coordinate: [600, 10]
+        rotation: 0
+        state: enabled
+-   name: gain
+    id: variable_qtgui_range
+    parameters:
+        comment: ''
+        label: RX Gain
+        min_len: '160'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '0'
+        step: '1'
+        stop: '76'
+        value: '30'
+        widget: counter_slider
+    states:
+        coordinate: [890, 10]
+        rotation: 0
+        state: enabled
+-   name: samp_rate
+    id: variable_qtgui_chooser
+    parameters:
+        comment: ''
+        label: Sample Rate
+        labels: '["1 MHz", "2 MHz", "4 MHz", "5 MHz", "8 MHz", "10 MHz", "15.36 MHz", "20 MHz"]'
+        options: '[1000000, 2000000, 4000000, 5000000, 8000000, 10000000, 15360000, 20000000]'
+        orient: Qt.QVBoxLayout
+        value: '1000000'
+        widget: combo_box
+    states:
+        coordinate: [1180, 10]
+        rotation: 0
+        state: enabled
+-   name: qtgui_freq_sink_x_0
+    id: qtgui_freq_sink_x
+    parameters:
+        affinity: ''
+        alias: ''
+        alpha1: '1'
+        alpha10: '1'
+        alpha2: '1'
+        alpha3: '1'
+        alpha4: '1'
+        alpha5: '1'
+        alpha6: '1'
+        alpha7: '1'
+        alpha8: '1'
+        alpha9: '1'
+        autoscale: 'True'
+        average: '0.1'
+        axislabels: 'True'
+        bw: samp_rate
+        color1: '"blue"'
+        color10: '"dark blue"'
+        color2: '"red"'
+        color3: '"green"'
+        color4: '"black"'
+        color5: '"cyan"'
+        color6: '"magenta"'
+        color7: '"yellow"'
+        color8: '"dark red"'
+        color9: '"dark green"'
+        comment: ''
+        ctrlpanel: 'False'
+        fc: center_freq
+        fftsize: '2048'
+        freqhalf: 'True'
+        grid: 'False'
+        label: Relative Gain
+        label1: ''
+        label10: ''
+        label2: ''
+        label3: ''
+        label4: ''
+        label5: ''
+        label6: ''
+        label7: ''
+        label8: ''
+        label9: ''
+        legend: 'True'
+        marker1: '-1'
+        marker10: '-1'
+        marker2: '-1'
+        marker3: '-1'
+        marker4: '-1'
+        marker5: '-1'
+        marker6: '-1'
+        marker7: '-1'
+        marker8: '-1'
+        marker9: '-1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        name: Spectrum
+        nconnections: '1'
+        norm_window: 'False'
+        style1: '1'
+        style10: '1'
+        style2: '1'
+        style3: '1'
+        style4: '1'
+        style5: '1'
+        style6: '1'
+        style7: '1'
+        style8: '1'
+        style9: '1'
+        tr_chan: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_tag: ''
+        type: complex
+        units: dB
+        update_time: '0.1'
+        width1: '1'
+        width10: '1'
+        width2: '1'
+        width3: '1'
+        width4: '1'
+        width5: '1'
+        width6: '1'
+        width7: '1'
+        width8: '1'
+        width9: '1'
+        wintype: window.WIN_RECTANGULAR
+        ymax: '10'
+        ymin: '-140'
+    states:
+        coordinate: [390, 220]
+        rotation: 0
+        state: enabled
+-   name: qtgui_waterfall_sink_x_0
+    id: qtgui_waterfall_sink_x
+    parameters:
+        affinity: ''
+        alias: ''
+        alpha1: '1'
+        alpha10: '1'
+        alpha2: '1'
+        alpha3: '1'
+        alpha4: '1'
+        alpha5: '1'
+        alpha6: '1'
+        alpha7: '1'
+        alpha8: '1'
+        alpha9: '1'
+        average: '1.0'
+        axislabels: 'True'
+        bw: samp_rate
+        color1: '0'
+        color10: '0'
+        color2: '0'
+        color3: '0'
+        color4: '0'
+        color5: '0'
+        color6: '0'
+        color7: '0'
+        color8: '0'
+        color9: '0'
+        comment: ''
+        fc: center_freq
+        fftsize: '1024'
+        freqhalf: 'True'
+        grid: 'False'
+        int_max: '10'
+        int_min: '-140'
+        label1: ''
+        label10: ''
+        label2: ''
+        label3: ''
+        label4: ''
+        label5: ''
+        label6: ''
+        label7: ''
+        label8: ''
+        label9: ''
+        legend: 'True'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        name: Waterfall
+        nconnections: '1'
+        type: complex
+        update_time: '0.1'
+        wintype: window.WIN_RECTANGULAR
+    states:
+        coordinate: [390, 400]
+        rotation: 0
+        state: enabled
+-   name: wasm_gui_layout_0
+    id: wasm_gui_layout
+    parameters:
+        affinity: ''
+        alias: ''
+        columns: '12'
+        comment: ''
+        layout: '{"center_freq":[0,0,4,1],"gain":[4,0,4,1],"samp_rate":[8,0,4,1],"qtgui_freq_sink_x_0":[0,1,12,3],"qtgui_waterfall_sink_x_0":[0,4,12,6]}'
+        row_height: '60'
+    states:
+        coordinate: [310, 10]
+        rotation: 0
+        state: enabled
+-   name: wasm_usrp_b2xx_source_0
+    id: wasm_usrp_b2xx_source
+    parameters:
+        affinity: ''
+        alias: ''
+        antenna: RX2
+        bandwidth: '0'
+        center_freq: center_freq
+        comment: ''
+        device: fake:100000
+        gain: gain
+        master_clock_rate: '0'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        samp_rate: samp_rate
+    states:
+        coordinate: [10, 240]
+        rotation: 0
+        state: enabled
+connections:
+- [wasm_usrp_b2xx_source_0, '0', qtgui_freq_sink_x_0, '0']
+- [wasm_usrp_b2xx_source_0, '0', qtgui_waterfall_sink_x_0, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0

@@ -110,6 +110,12 @@ const CASES = [
       'HackRF Source: running at 2000000 S/s',
       'HackRF Sink: running at 2000000 S/s',
     ] },
+  // USRP B2xx Source. Its factory lives in the b2xx side module rather than the
+  // main one, so this also covers the runtime_module path end to end: block id
+  // -> module map -> dlopen of a side module carrying all of UHD -> registrar.
+  // 'fake' opens no WebUSB and fetches no FPGA image.
+  { name: 'USRP B2xx Source (generated samples, no hardware)',
+    grc: 'test/fixtures/usrp_b2xx_fake.grc' },
   // Audio Sink and Audio Source against Chrome's null audio device and fake
   // microphone -- no sound card needed, but every other part is the real one:
   // the AudioContext, the worklet, the ring in shared memory and the futex

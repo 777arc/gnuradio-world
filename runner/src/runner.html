@@ -85,6 +85,30 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
         }
       }
 
+      // UHD spins up threads of its own, outside GNU Radio's scheduler: one
+      // libusb event-handling task, shared by every device because the libusb
+      // session is a global singleton, plus one asynchronous-message task per
+      // open B2xx. So N USRP blocks want N+1 workers that the block count does
+      // not predict. A `fake` device opens no hardware and needs none, but the
+      // over-reserve is two workers of prewarming and the under-reserve is a
+      // Worker allocation proxied to a busy main thread, so do not try to be
+      // clever about it here.
+      function flowgraphUsrpAuxThreads() {
+        if (!location.hash || location.hash.length <= 1) return 0;
+        try {
+          const grc = decodeURIComponent(location.hash.substring(1));
+          const blocks =
+            (grc.match(/^\s*id:\s*wasm_usrp_b2xx_source\s*$/gm) || []).length;
+          // Per open device, plus two shared: libusb's event-handling task and
+          // the thread its Emscripten backend pins every WebUSB call to. Kept in
+          // step with usrp_aux_threads() in runner.cpp, which can tell a fake
+          // device from a real one and this cannot.
+          return blocks ? blocks + 2 : 0;
+        } catch (error) {
+          return 0;
+        }
+      }
+
       function flowgraphUsesFosphorSink() {
         if (!location.hash || location.hash.length <= 1) return false;
         try {
@@ -125,8 +149,13 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
       window.__grPoolTierForBlockCount = poolTierForBlockCount;
       window.__grFlowgraphBlockCount = flowgraphBlockCount();
       window.__grScheduler = flowgraphScheduler();
+      // Auxiliary threads are added to the thread count, not the block count:
+      // they exist whichever scheduler runs, because they are UHD's, not GNU
+      // Radio's.
+      window.__grUsrpAuxThreads = flowgraphUsrpAuxThreads();
       window.__grPoolTier = poolTierForBlockCount(
-        schedulerThreadCount(window.__grScheduler, window.__grFlowgraphBlockCount));
+        schedulerThreadCount(window.__grScheduler, window.__grFlowgraphBlockCount) +
+        window.__grUsrpAuxThreads);
 
       // The one-time payload the editor hands over: files a source reads, and
       // the destinations a sink writes. Both arrive in the same array, keyed by
@@ -1095,6 +1124,48 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
       // side-module fetch above it -- not a runtime. An instance carrying its own
       // inline source is never in this list: use the inline source when a block
       // instance carries one, otherwise fetch by id.
+      // USRP B2xx firmware and FPGA images, into MEMFS where UHD expects to find
+      // them. Served from this origin, so no CORS and nothing to keep in step with
+      // the UHD pin beyond the build itself; the browser's HTTP cache means only
+      // the first run of a session actually pays for them.
+      window.__grLoadUhdImages = namesJson => {
+        const bridge = window.__grUhdImagesBridge;
+        let names;
+        try {
+          names = JSON.parse(namesJson);
+        } catch (error) {
+          bridge.finish(false, 'malformed USRP image request: ' + error.message);
+          return;
+        }
+        Promise.all(names.map(name => {
+          const url = new URL('uhd-images/' + name, location.href);
+          if (window.__grBuildStamp) url.searchParams.set('v', window.__grBuildStamp);
+          return fetch(url).then(response => {
+            if (!response.ok)
+              throw new Error(`uhd-images/${name} — HTTP ${response.status}`);
+            return response.arrayBuffer();
+          }).then(buffer => [name, new Uint8Array(buffer)]);
+        })).then(files => {
+          try {
+            // runner.js is MODULARIZE'd, so there is no global Module; the
+            // instance qtLoad() resolved to is where FS lives.
+            const fs = window.__grRunnerInstance && window.__grRunnerInstance.FS;
+            if (!fs) throw new Error('the runtime is not ready');
+            try { fs.mkdir('/uhd-images'); } catch (error) { /* already there */ }
+            for (const [name, bytes] of files)
+              fs.writeFile('/uhd-images/' + name, bytes);
+          } catch (error) {
+            bridge.finish(false, 'USRP B2xx: could not write images to MEMFS: ' +
+              (error && error.message ? error.message : error));
+            return;
+          }
+          bridge.finish(true, '');
+        }).catch(error => {
+          bridge.finish(false, 'USRP B2xx image: ' +
+            (error && error.message ? error.message : error));
+        });
+      };
+
       window.__grLoadJsBlockSources = requestJson => {
         const bridge = window.__grJsBridge;
         let wanted;
@@ -1432,10 +1503,35 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
         postToEditor({ type: 'gr-print', lines, dropped });
       }
 
+      // UHD runs a static block that asks boost::dll to enumerate the shared
+      // objects it was loaded from. There are none in a browser, so it throws,
+      // UHD catches it and carries on, and two lines get printed on every single
+      // run of a USRP flowgraph. They are harmless -- but one of them begins
+      // "Exception", and it would be the first thing in the pane before a
+      // bring-up that legitimately takes minutes. They stay in devtools; nothing
+      // else is filtered out of stderr.
+      const BENIGN_STDERR = [
+        'Exception in static block load_modules',
+        'boost::dll::this_line_location() failed',
+      ];
+      function benignStderr(text) {
+        const line = String(text);
+        return BENIGN_STDERR.some(needle => line.includes(needle));
+      }
+
+      // UHD's console sink colours its levels with ANSI escapes, and it is not
+      // alone -- any library writing to a terminal may. A devtools console
+      // interprets them; the editor's pane is HTML and renders the raw bytes, so
+      // "[INFO] [B200] Detected Device" arrives as "\x1b[0;32m[INFO] ...".
+      // Stripped here rather than at either source, because this is the one
+      // place everything printed by a flowgraph passes through on its way to a
+      // reader who is not a terminal. devtools still gets the coloured original.
+      const ANSI_ESCAPE = /\x1b\[[0-9;]*[A-Za-z]/g;
+
       function queueStdout(text) {
         if (!(window.parent && window.parent !== window)) return;
         if (stdoutQueue.length >= STDOUT_MAX_BATCH) stdoutDropped++;
-        else stdoutQueue.push(String(text));
+        else stdoutQueue.push(String(text).replace(ANSI_ESCAPE, ''));
         if (!stdoutTimer) stdoutTimer = setTimeout(flushStdout, STDOUT_FLUSH_MS);
       }
 
@@ -1596,6 +1692,23 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
             // Emscripten's stdout hook. Keep the console.log so devtools and the
             // headless tests still see it, and mirror it to the editor.
             print: (text) => { console.log(text); queueStdout(text); },
+            // And stderr, which is not the same thing. GNU Radio's own logger
+            // reaches the editor by other routes -- printf for ordinary levels,
+            // a direct post for errors -- so for a long time nothing needed this
+            // hook. UHD does: its console sink writes to std::clog, so without
+            // this its whole device bring-up ("Loading firmware image...",
+            // "Detected Device: B210", the FPGA load progress) lands in devtools
+            // where nobody looks, and the pane sits empty through a bring-up that
+            // takes minutes. Same batching as stdout.
+            // console.log, not console.warn/error: Chrome attaches a full
+            // expandable stack to those, and every one of these lines comes up
+            // through fd_write from deep inside the wasm, so a bring-up that
+            // prints a dozen INFO lines buries devtools under a hundred screens
+            // of $func25037/checkMailbox frames.
+            printErr: (text) => {
+              console.log(text);
+              if (!benignStderr(text)) queueStdout(text);
+            },
             qt: {
               onLoaded: () => showUi(screen),
               onExit: exitData =>

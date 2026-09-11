@@ -1,0 +1,69 @@
+options:
+    parameters:
+        author: ''
+        comment: ''
+        copyright: ''
+        description: "USRP B2xx throughput reference: source straight into a Null Sink,\
+            \ with no GUI block of any kind, so the browser main thread is idle while\
+            \ the radio streams. Run it beside b2xx_spectrum_analyzer.grc to separate\
+            \ what the transport can do from what is left after Qt has repainted the\
+            \ plots. The block reports its delivered rate about five seconds in."
+        generate_options: qt_gui
+        id: usrp_b2xx_throughput
+        title: USRP B2xx Throughput Reference
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: wasm_gui_layout_0
+    id: wasm_gui_layout
+    parameters:
+        affinity: ''
+        alias: ''
+        columns: '12'
+        comment: ''
+        layout: '{}'
+        row_height: '60'
+    states:
+        coordinate: [310, 10]
+        rotation: 0
+        state: enabled
+-   name: wasm_usrp_b2xx_source_0
+    id: wasm_usrp_b2xx_source
+    parameters:
+        affinity: ''
+        alias: ''
+        antenna: RX2
+        bandwidth: '0'
+        center_freq: '100000000'
+        comment: ''
+        device: ''
+        gain: '30'
+        master_clock_rate: '0'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        samp_rate: '1000000'
+    states:
+        coordinate: [10, 240]
+        rotation: 0
+        state: enabled
+-   name: blocks_null_sink_0
+    id: blocks_null_sink
+    parameters:
+        affinity: ''
+        alias: ''
+        bus_structure_sink: '[[0,],]'
+        comment: ''
+        num_inputs: '1'
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [310, 248]
+        rotation: 0
+        state: enabled
+connections:
+- [wasm_usrp_b2xx_source_0, '0', blocks_null_sink_0, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0

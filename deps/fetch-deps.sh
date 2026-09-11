@@ -126,6 +126,13 @@ fetch_tar gmp-6.3.0    https://ftpmirror.gnu.org/gnu/gmp/gmp-6.3.0.tar.xz       
 fetch_tar qwt-6.3.0    https://sourceforge.net/projects/qwt/files/qwt/6.3.0/qwt-6.3.0.tar.bz2 xj \
     https://downloads.sourceforge.net/project/qwt/qwt/6.3.0/qwt-6.3.0.tar.bz2
 
+# libusb and UHD back the USRP B2xx Source alone, and nothing else links them.
+# They are pinned together: UHD's B2xx support is matched to the firmware and
+# FPGA images published for the same release, which deps/fetch-usrp-images.sh
+# fetches by the manifest inside this very tarball. Bump them as a pair.
+fetch_tar libusb-1.0.30 https://github.com/libusb/libusb/releases/download/v1.0.30/libusb-1.0.30.tar.bz2 xj
+fetch_tar uhd-4.10.0.0  https://github.com/EttusResearch/uhd/archive/refs/tags/v4.10.0.0.tar.gz          xz
+
 # Local fixes that upstream does not carry. This is NOT optional: without the
 # VOLK patch every flowgraph dies during construction (see the patch header)
 # -- the failure only appears at run time, long after everything has built and
@@ -142,5 +149,17 @@ apply_patch() {  # <git-repo-dir> <patch-file>
 
 apply_patch "$SRC/volk" "$PATCHES/volk-generic-machine.patch"
 apply_patch "$SRC/libosmocore" "$PATCHES/libosmocore-pseudotalloc-realloc.patch"
+# Three of these four are as load-bearing as the VOLK one: without them a USRP
+# B2xx hangs partway through device initialisation and the tab has to be reloaded.
+# The fourth, libusb-emscripten-usb-thread, is about throughput rather than
+# correctness -- it moves WebUSB off the browser main thread, which is worth
+# roughly 6x at 1 MS/s under a flowgraph that also draws. See each patch header.
+#
+# libusb's two apply in order: the usb-thread patch is cut against a tree that
+# already has the cancel-transfer one.
+apply_patch "$SRC/libusb-1.0.30" "$PATCHES/libusb-emscripten-cancel-transfer.patch"
+apply_patch "$SRC/libusb-1.0.30" "$PATCHES/libusb-emscripten-usb-thread.patch"
+apply_patch "$SRC/uhd-4.10.0.0" "$PATCHES/uhd-frame-sized-endpoint-flush.patch"
+apply_patch "$SRC/uhd-4.10.0.0" "$PATCHES/uhd-no-static-package-export.patch"
 
 echo "=== sources ready in $SRC ==="
