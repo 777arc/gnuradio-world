@@ -366,6 +366,18 @@ Five things make it an embed, and each is one place:
   what is missing is everything that acts on the *application* — no menus, no
   palette to add a block from, and no welcome modal (`showWelcomePopup()` is
   skipped, since an embed's reader did not come for it).
+- **No analytics when gnuradio.org is the host.** The Google tag in
+  `index.html` is injected by an inline script that returns early when the
+  page is framed and the framer's hostname is `gnuradio.org` or a subdomain of
+  it, read from `location.ancestorOrigins` where the browser has it and from
+  `document.referrer` otherwise (the default referrer policy still sends the
+  origin cross-site, which is all a hostname check needs). The GNU Radio
+  project's site has its own analytics policy, so its visitors must not be
+  reported to ours; every other host — PySDR, a blog — keeps reporting, which
+  is why this keys off who framed the page and not off `?embed=1`. It has to
+  be decided in `index.html` rather than `main.ts`: a static `<script async
+  src>` would have fetched the tag before any bundle ran, and the
+  click-to-load path does not load a bundle at all.
 
 **Running one off-site needs a cross-origin isolated host page.** The runner is
 Emscripten pthreads, so it needs `SharedArrayBuffer`, and cross-origin isolation

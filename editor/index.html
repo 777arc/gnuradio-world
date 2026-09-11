@@ -39,13 +39,32 @@
 <link rel="icon" href="/favicon.ico" sizes="32x32" />
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 
-<!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-NJ22205C3S"></script>
+<!-- Google tag (gtag.js). Injected rather than written as a static <script>
+     so a page framed by gnuradio.org never loads it: the GNU Radio project's
+     own site embeds the editor and has its own analytics policy, so its
+     visitors must not be reported to ours. Every other host (PySDR, a blog)
+     keeps reporting, which is why this keys off *who framed us* rather than
+     off ?embed=1. The framer is read from ancestorOrigins where a browser has
+     it and from the referrer otherwise — the default referrer policy still
+     sends the origin cross-site, which is all the hostname check needs. -->
 <script>
+(() => {
+  const framedBy = [];
+  try { framedBy.push(...Array.from(location.ancestorOrigins || [])); } catch {}
+  try { if (document.referrer) framedBy.push(document.referrer); } catch {}
+  const hostOf = url => { try { return new URL(url).hostname; } catch { return ''; } };
+  const isGnuRadioOrg = h => h === 'gnuradio.org' || h.endsWith('.gnuradio.org');
+  if (window.self !== window.top && framedBy.some(u => isGnuRadioOrg(hostOf(u)))) return;
+  const id = 'G-NJ22205C3S';
+  const s = document.createElement('script');
+  s.async = true;
+  s.src = 'https://www.googletagmanager.com/gtag/js?id=' + id;
+  document.head.appendChild(s);
   window.dataLayer = window.dataLayer || [];
   function gtag(){dataLayer.push(arguments);}
   gtag('js', new Date());
-  gtag('config', 'G-NJ22205C3S');
+  gtag('config', id);
+})();
 </script>
 
 <!-- Structured data. `WebApplication` is what this is: a free, no-install tool
