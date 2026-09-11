@@ -122,8 +122,23 @@ export async function publicHttpFileSize(url: string): Promise<number | null> {
   } catch { return null; }
 }
 
+// TezukaSource::stop() publishes cmd/system/iqtape="off" over MQTT (only when
+// it is the last Tezuka block using that board -- see runner.html's
+// tezukaReleaseStreaming), through the same proxied-call-on-the-way-down
+// mechanism SigMF Sink's writer uses. Unloading the frame instead would lose
+// that publish exactly as it would lose the tail of a recording, so a Tezuka
+// Source needs the same graceful path. TezukaSink needs it for the same
+// reason, plus its own: TezukaSink::stop() blocks its scheduler pthread until
+// the writer worker drains the ring and closes the socket (mirroring
+// WebSocketSink), and unloading the frame instead of proxying stop() at all
+// would cut that drain off mid-stream.
+const TEZUKA_SOURCE_ID = 'wasm_tezuka_source';
+const TEZUKA_SINK_ID = 'wasm_tezuka_sink';
+
 function graphNeedsGracefulStop(deps: RunSessionDeps): boolean {
-  return deps.state.insts.some(i => i.id === SIGMF_SINK_ID && i.enabled && !i.bypassed);
+  return deps.state.insts.some(i =>
+    (i.id === SIGMF_SINK_ID || i.id === TEZUKA_SOURCE_ID || i.id === TEZUKA_SINK_ID) &&
+    i.enabled && !i.bypassed);
 }
 
 function requestRunnerShutdown(deps: RunSessionDeps, frame: HTMLIFrameElement,

@@ -4802,7 +4802,7 @@ const TOOLBAR: (Tool | 'sep')[] = [
  * in the system prompt because a prohibition far from the point of use loses to
  * the model's prior: every FM receiver it has ever seen starts with an RTL-SDR.
  */
-const HARDWARE_TX_IDS = ['wasm_hackrf_sink', 'wasm_plutosdr_sink'];
+const HARDWARE_TX_IDS = ['wasm_hackrf_sink', 'wasm_plutosdr_sink', 'wasm_tezuka_sink'];
 function isHardwareBlockId(id: string): boolean {
   if (HARDWARE_TX_IDS.includes(id)) return true;
   const probe = { id } as Inst;
@@ -4879,7 +4879,8 @@ function restoreAiSnapshot(snapshotState: GraphSnapshot, record: boolean): void 
 
 function aiAuthorization(): Promise<RunAuthorization | null> {
   const tx = state.insts.find(block => block.enabled && !block.bypassed &&
-    (block.id === 'wasm_hackrf_sink' || block.id === 'wasm_plutosdr_sink'));
+    (block.id === 'wasm_hackrf_sink' || block.id === 'wasm_plutosdr_sink' ||
+     block.id === 'wasm_tezuka_sink'));
   if (tx) {
     const frequency = tx.params.center_freq ?? tx.params.frequency ?? 'unknown';
     const rate = tx.params.samp_rate ?? tx.params.sample_rate ?? 'unknown';
