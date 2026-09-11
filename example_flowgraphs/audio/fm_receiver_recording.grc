@@ -1,6 +1,6 @@
 options:
     parameters:
-        author: Claude
+        author: Marc
         comment: ''
         copyright: ''
         description: Broadcast FM receiver - a hosted 250 kHz IQ recording demodulated to audio and played through the speakers, with a live volume control

@@ -1,6 +1,6 @@
 options:
     parameters:
-        author: Claude
+        author: Marc
         comment: ''
         copyright: ''
         description: Live spectrum and waveform of whatever the computer's microphone hears

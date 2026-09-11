@@ -1,6 +1,6 @@
 options:
     parameters:
-        author: Claude
+        author: Marc
         copyright: ''
         description: Interactive amplitude modulation demo with time- and frequency-domain views
         generate_options: qt_gui

@@ -1,6 +1,6 @@
 options:
     parameters:
-        author: Claude
+        author: Marc
         comment: ''
         copyright: ''
         description: Arbitrary DSP in JavaScript -- a power-amplifier model written as a JS Block, its distortion driven live by sliders, followed by the repository's Complex Soft Clipper

@@ -1,6 +1,6 @@
 options:
     parameters:
-        author: Claude
+        author: Marc
         comment: ''
         copyright: ''
         description: A tone played through the computer's speakers, with live frequency and volume controls

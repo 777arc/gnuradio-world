@@ -1,6 +1,6 @@
 options:
     parameters:
-        author: Claude
+        author: Marc
         copyright: ''
         description: Noisy FM transmitter and quadrature-demodulator loopback with live tone and noise controls
         generate_options: qt_gui

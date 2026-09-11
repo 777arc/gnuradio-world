@@ -1,6 +1,6 @@
 options:
     parameters:
-        author: Claude
+        author: Marc
         copyright: ''
         description: Compare a two-tone signal before and after a 5 kHz low-pass FIR filter
         generate_options: qt_gui

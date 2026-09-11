@@ -1,6 +1,6 @@
 options:
     parameters:
-        author: Claude
+        author: Marc
         copyright: ''
         description: Arbitrary Python DSP in the browser -- a soft limiter written as an Embedded Python Block, with its gain driven live by a slider
         generate_options: qt_gui
