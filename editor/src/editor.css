@@ -147,6 +147,7 @@ button:hover { filter:brightness(1.15); }
 /* Help ▸ SDR Receive Speed Test */
 .sdr-speed-body { max-width:780px; }
 .sdr-speed-intro { color:#c3cbe0; line-height:1.55; margin:0 0 4px; }
+.sdr-speed-note { color:#e0c98a; line-height:1.5; margin:0; font-size:12px; }
 .sdr-gauge { position:relative; width:min(100%,500px); margin:0 auto 28px;
     text-align:center; font-variant-numeric:tabular-nums; }
 .sdr-gauge svg { display:block; width:100%; height:auto; overflow:visible; }

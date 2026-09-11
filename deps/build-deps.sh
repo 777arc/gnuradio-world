@@ -73,7 +73,7 @@ JAM
 ./b2 --user-config=./user-config.jam toolset=clang-emscripten \
   link=static variant=release threading=multi \
   --with-system --with-program_options --with-thread --with-regex --with-chrono \
-  --with-atomic --with-date_time \
+  --with-atomic --with-date_time --with-filesystem --with-serialization \
   cxxflags="$WASM_PTHREAD_FLAGS" cflags="$WASM_PTHREAD_FLAGS" \
   --prefix="$SYSROOT" -j"$JOBS" install
 
@@ -156,6 +156,51 @@ make distclean >/dev/null 2>&1 || true
 "$QT_HOST/bin/qmake6" -qtconf "$QT_WASM/bin/target_qt.conf" qwt.pro
 make -j"$JOBS"
 make install
+
+# --- libusb (Emscripten/WebUSB backend) and B200-only UHD -------------------
+# Both exist only for the USRP B2xx Source. They are built last because nothing
+# else depends on them, so a failure here leaves the rest of the sysroot usable.
+#
+# Two things about this pair are easy to get wrong and fail silently:
+#
+#   * UHD must be compiled with -fexceptions. Emscripten disables exception
+#     catching by default, which leaves every try/catch inside UHD inert; a bad
+#     device parameter then escapes as an opaque trap instead of a message.
+#   * UHD registers its device finders through static initializers, so whatever
+#     links libuhd.a must use --whole-archive. Without it the link succeeds and
+#     find() simply reports no devices, for ever.
+#
+# ENABLE_STATIC_LIBS is deliberately OFF: it is a separate "also build
+# uhd_static" path that is broken off-MSVC (it links Boost::system, which UHD
+# never asks find_package for). BUILD_SHARED_LIBS=OFF already makes the normal
+# uhd target static.
+cd "$DEPS_SRC/libusb-1.0.30"
+make distclean >/dev/null 2>&1 || true
+emconfigure ./configure --host=wasm32-emscripten --prefix="$SYSROOT" \
+  --enable-static --disable-shared --disable-udev \
+  --disable-examples-build --disable-tests-build \
+  CFLAGS="$WASM_PTHREAD_FLAGS -O2" CXXFLAGS="$WASM_PTHREAD_FLAGS -O2"
+emmake make -j"$JOBS" install
+
+rm -rf "$DEPS_BUILD/uhd"
+emcmake cmake -S "$DEPS_SRC/uhd-4.10.0.0/host" -B "$DEPS_BUILD/uhd" -GNinja -Wno-dev \
+  -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$SYSROOT" \
+  -DCMAKE_PREFIX_PATH="$SYSROOT" -DCMAKE_FIND_ROOT_PATH="$SYSROOT" \
+  -DBUILD_SHARED_LIBS=OFF -DENABLE_STATIC_LIBS=OFF \
+  -DCMAKE_C_FLAGS="$WASM_PTHREAD_FLAGS" \
+  -DCMAKE_CXX_FLAGS="$WASM_PTHREAD_FLAGS -fexceptions" \
+  -DENABLE_LIBUHD=ON -DENABLE_USB=ON -DENABLE_B200=ON \
+  -DENABLE_B100=OFF -DENABLE_USRP1=OFF -DENABLE_USRP2=OFF -DENABLE_X300=OFF \
+  -DENABLE_MPMD=OFF -DENABLE_N300=OFF -DENABLE_N320=OFF -DENABLE_E320=OFF \
+  -DENABLE_E300=OFF -DENABLE_X400=OFF -DENABLE_OCTOCLOCK=OFF -DENABLE_SIM=OFF \
+  -DENABLE_PYTHON_API=OFF -DENABLE_C_API=OFF -DENABLE_EXAMPLES=OFF \
+  -DENABLE_UTILS=OFF -DENABLE_TESTS=OFF -DENABLE_MANUAL=OFF -DENABLE_DOXYGEN=OFF \
+  -DENABLE_MAN_PAGES=OFF -DENABLE_DPDK=OFF
+cmake --build "$DEPS_BUILD/uhd" --target install
+# UHD links a CMakeRC resource library (calibration data) into libuhd but does not
+# install it, so anything linking libuhd.a statically is left with an undefined
+# cmrc::rc::get_filesystem(). Install it alongside.
+install -m 644 "$DEPS_BUILD/uhd/lib/rc/libuhd-resources.a" "$SYSROOT/lib/"
 
 echo "=== deps installed into $SYSROOT ==="
 ls "$SYSROOT"/lib/lib{spdlog,volk,boost_thread,boost_program_options,fftw3,fftw3f,gmp,gmpxx,osmocore,osmocodec,osmogsm,osmoisdn,osmocoding,pseudotalloc,qwt}.a

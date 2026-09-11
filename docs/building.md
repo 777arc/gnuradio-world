@@ -21,7 +21,7 @@ Userspace (no sudo) requirements:
   supplies browser GUI assets such as MapLibre rather than executable build code.
 - Dependency sources fetched under `deps/src/` (VOLK 3.1.2, Boost 1.83, spdlog
   1.12, GMP 6.3, FFTW 3.3.10, libosmocore 1.14.2, Qwt 6.3, CRCpp 1.2.2,
-  and pinned turbofec).
+  libusb 1.0.30, UHD 4.10.0.0, and pinned turbofec).
 
 System packages and toolchains on a fresh machine:
 
@@ -63,13 +63,15 @@ export VITE_RECORDINGS_R2_BASE=https://recordings.gnuradioworld.com
 Two scripts; versions are pinned in `fetch-deps.sh` and nowhere else. Both are
 idempotent, so re-running after a failure is cheap. `build-deps.sh` installs the
 shared runner dependencies (spdlog, VOLK, Boost, FFTW in both precisions, GMP,
-libosmocore, Qwt). The DroneID side module compiles the fetched turbofec C sources and
-header-only CRCpp directly, so those two need no separate install step.
+libosmocore, Qwt), then libusb and UHD. The DroneID side module compiles the fetched
+turbofec C sources and header-only CRCpp directly, so those two need no separate
+install step.
 
 ```bash
 bash deps/fetch-deps.sh         # -> deps/src/   (skips what is present)
 bash deps/build-deps.sh         # -> sysroot/    (needs QT_HOST + QT_WASM)
 bash deps/fetch-pyodide.sh      # -> pyodide/    (optional; ~30 MB)
+bash deps/fetch-usrp-images.sh  # -> deps/usrp-images/  (optional; ~14 MB)
 ```
 
 `fetch-pyodide.sh` is separate and optional: nothing in the C++ build needs it,
@@ -87,6 +89,59 @@ arguments after the tar flags; they must unpack to the same directory name.
 from a host you control (files keep their upstream basenames).
 `SYSROOT=/tmp/scratch bash deps/build-deps.sh` builds into a throwaway prefix,
 which is how to test a change to the recipe without risking a working tree.
+
+### libusb and UHD (the USRP B2xx Source)
+
+These two are built last and exist for one block. They are pinned **as a pair**:
+UHD's B2xx support is matched to firmware and FPGA images published for the same
+release, and `deps/fetch-usrp-images.sh` verifies those images against the SHA-256
+manifest shipped inside the UHD tarball. Bumping one without the other is how a
+board ends up running a mismatched bitstream.
+
+Three patches in `deps/patches/` are applied by `fetch-deps.sh` and are not
+optional — without the first two a USRP hangs partway through initialisation, with
+no error, and the tab must be reloaded:
+
+| patch | what it fixes |
+|-------|---------------|
+| `libusb-emscripten-cancel-transfer.patch` | `cancel_transfer` is a no-op in the WebUSB backend, so a read on an endpoint with no data never times out. Cancelled reads are completed and *orphaned* for the next reader rather than dropped. |
+| `uhd-frame-sized-endpoint-flush.patch` | UHD drains its receive endpoint with 512-byte reads while frames are 8176 bytes; the final, cancelled read truncates the first frame of the next stream. |
+| `uhd-no-static-package-export.patch` | `install(EXPORT uhdTargets)` fails to generate in a static build. Nothing here uses `find_package(UHD)`. |
+
+Two build flags are load-bearing and fail silently if dropped:
+
+- **UHD must be compiled with `-fexceptions`.** Emscripten disables exception
+  catching by default, which makes every `try`/`catch` inside UHD inert; a bad
+  parameter then escapes as an opaque trap instead of a message. Same rule as the
+  rest of the tree — see "Exception catching is a compile-time flag" below.
+- **Whatever links `libuhd.a` must use `-Wl,--whole-archive`.** UHD registers its
+  device finders through static initializers that nothing references, so without
+  it the link succeeds and `uhd::device::find()` reports no devices for ever.
+
+`ENABLE_STATIC_LIBS` stays **OFF**: it is a separate "also build `uhd_static`" path
+that is broken off-MSVC (it links `Boost::system`, which UHD never asks
+`find_package` for). `BUILD_SHARED_LIBS=OFF` already makes the normal target static.
+
+UHD also needs Boost **filesystem** and **serialization**, which is why they are in
+the `b2` line alongside the components GNU Radio uses.
+
+The images are runtime assets, not build inputs: nothing links them, and a
+flowgraph only fetches them when it contains a real (non-`fake`) B2xx block. They
+stay out of git and out of `sysroot/`, under the git-ignored `deps/usrp-images/`.
+
+They are **served from this origin**, beside `runner.html`, rather than from the
+recordings bucket — `runner/CMakeLists.txt` copies them into `runner/build/uhd-images/`
+for the dev server and `scripts/assemble-site.mjs` puts them at
+`runner/build/uhd-images/` in the deploy, which is where the runner looks because it
+fetches them relative to its own URL. Same origin means no CORS policy to keep in
+step, no bucket credentials in CI, and one source of truth for the UHD pin:
+`deps/fetch-usrp-images.sh` verifies every archive against the manifest inside the
+pinned UHD tarball. The cost is ~14 MB on the deploy, and every file is far below
+Pages' 25 MiB per-file limit — `runner.wasm`, at ~23 MB, is the one that is close.
+
+A tree that never ran the fetch script deploys without them, exactly as it does
+without Pyodide; a real USRP then reports that its images are missing instead of
+the site failing to assemble.
 
 ## 2. Build GNU Radio and the WASM apps
 

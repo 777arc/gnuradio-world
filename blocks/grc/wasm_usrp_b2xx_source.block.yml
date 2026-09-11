@@ -1,0 +1,115 @@
+id: wasm_usrp_b2xx_source
+label: 'USRP B2xx Source'
+category: '[Supported SDRs]'
+flags: [throttle]
+# Build metadata, never written to a .grc: this block's factory is linked into
+# b2xx.wasm rather than the main module, because it pulls in all of UHD. See
+# runner/modules.json and docs/blocks.md.
+runtime_module: b2xx
+
+documentation: |-
+    Receives complex samples from a USRP B200, B210, B200mini, B205mini or
+    B206mini (and the NI-branded USRP-2900/2901) over WebUSB. No native UHD
+    installation and no helper process are required.
+
+    On Windows the device must be bound to WinUSB before the browser can see
+    it. A B2xx with no driver installed appears in Device Manager under
+    Cypress's USB controller name, "WestBridge", with a warning icon, and the
+    browser's device chooser then lists nothing at all. Rebind it with Zadig
+    (https://zadig.akeo.ie/):
+
+        1. Run Zadig and choose Options - List All Devices.
+        2. Select the entry whose USB ID is 2500 0020 (B200/B210), 2500 0021
+           (B200mini), 2500 0022 (B205mini), 2500 0023 (B206mini), or 3923 7813
+           / 3923 7814 for the NI USRP-2900/2901. Go by the USB ID, never the
+           name: more than one device answers to "WestBridge", and Zadig
+           rebinds whatever is selected.
+        3. Set the target driver to WinUSB and click Replace Driver.
+
+    That swap is reversible by pointing Device Manager back at the vendor
+    driver, but it is a system-level change: a native UHD installation wanting
+    its own driver may stop seeing the device until it is reversed.
+
+    Click Add beside Device to grant this site access to a USRP. Leave Device
+    empty to use the first already-shared unit. WebUSB requires a Chromium-based
+    browser such as Chrome, Edge or Opera; Firefox and Safari do not implement
+    it and cannot run this block at all.
+
+    On Linux, add a udev rule granting your user access to the device.
+    Chromium installed as a Snap cannot reach USB devices at all.
+
+    Under WSL, note that WebUSB enumerates from the browser process's own USB
+    stack. A USRP `usbipd attach`ed into WSL is detached from Windows, so Chrome
+    on Windows will not see it -- run `usbipd detach --busid <BUSID>` (and
+    `usbipd unbind` if it still lists as Shared) before granting it to a Windows
+    browser, or run Chromium inside WSL instead and apply the Linux notes to the
+    distro.
+
+    The first run after each power cycle is slow: the FPGA image is several
+    megabytes and the host loads it over USB every time the device is powered
+    on. The FX3 firmware itself lives in the board's EEPROM and is not
+    reloaded. Progress is reported to the console while the graph starts.
+
+    RX Gain is 0 to 76 dB in 1 dB steps -- UHD publishes that range for every
+    B2xx, and rounds anything finer to the nearest step. RF Bandwidth 0 lets UHD
+    pick an analog filter for the sample rate. Master Clock Rate 0 lets UHD choose
+    the tick rate, which is usually right but fails for some common rates: ask for
+    30.72 MS/s with it on automatic and UHD coerces the rate up to 40 MS/s instead
+    of down, which then overruns. Pin it to the sample rate if the console reports
+    a coerced rate you did not ask for.
+
+    Sample rates up to about 10 MS/s run clean in a browser. Above roughly
+    20 MS/s the tab cannot drain the USB stream fast enough and most of the
+    samples are lost to overruns -- 56 MS/s delivers under a tenth of what it
+    claims. Those are measured figures, and they are an upper bound: a flowgraph
+    that actually processes the samples will manage less. Overruns are counted
+    and reported to the console.
+
+    One physical USRP may be owned by only one active block. Two USRP blocks may
+    run together only when each names a distinct serial number.
+
+parameters:
+-   id: device
+    label: Device
+    dtype: usrp_b2xx_device
+    default: ''
+-   id: samp_rate
+    label: Sample Rate
+    dtype: float
+    default: samp_rate
+-   id: center_freq
+    label: 'Center Freq (70MHz-6GHz)'
+    dtype: real
+    default: '100e6'
+-   id: gain
+    label: 'RX Gain (0-76dB)'
+    dtype: real
+    default: '30'
+-   id: bandwidth
+    label: 'RF Bandwidth (Hz, 0 = Auto)'
+    dtype: real
+    default: '0'
+    hide: part
+-   id: antenna
+    label: Antenna
+    dtype: enum
+    default: 'RX2'
+    options: ['RX2', 'TX/RX']
+    hide: part
+-   id: master_clock_rate
+    label: 'Master Clock Rate (Hz, 0 = Auto)'
+    dtype: real
+    default: '0'
+    hide: part
+
+asserts:
+-   ${ samp_rate > 0 and samp_rate <= 61440000 }
+-   ${ center_freq >= 70000000 and center_freq <= 6000000000 }
+-   ${ gain >= 0 and gain <= 76 }
+
+outputs:
+-   label: RX
+    domain: stream
+    dtype: complex
+
+file_format: 1

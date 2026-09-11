@@ -1,0 +1,370 @@
+libusb: make cancel_transfer actually terminate under Emscripten/WebUSB.
+
+Required for any USB device whose driver uses libusb's synchronous API with a
+timeout -- which includes UHD's B2xx transport, and therefore the USRP B2xx
+Source. Without this hunk a USRP hangs partway through device initialisation and
+the tab must be reloaded.
+
+WebUSB exposes no way to abort an in-flight transfer: once transferIn() has been
+called its promise settles when the device answers, and never before. libusb
+implements every synchronous-transfer timeout by calling the backend's
+cancel_transfer and then waiting for completion. The stock Emscripten backend's
+em_cancel_transfer is a no-op returning LIBUSB_SUCCESS, so a bulk IN on an
+endpoint with no data never completes and never times out, and the caller blocks
+forever.
+
+That is not a corner case. UHD's libusb_zero_copy transport flushes its receive
+endpoint during ordinary device setup with
+
+    libusb_bulk_transfer(..., 10 /* timeout ms */)
+
+in a loop whose only exit is LIBUSB_ERROR_TIMEOUT, so B2xx bring-up stops dead
+at usb_zero_copy::make().
+
+The fix cannot abort the transfer, so it stops *waiting* for it: cancel completes
+the libusb transfer immediately, letting libusb's timeout and cancellation paths
+make progress. libusb maps that to LIBUSB_TRANSFER_TIMED_OUT when the cancellation
+came from a timeout (io.c, usbi_handle_transfer_cancellation) and
+LIBUSB_TRANSFER_CANCELLED otherwise, which is what synchronous callers expect.
+
+Completing the transfer is only half of it. The bytes the cancelled read will
+receive are still coming, and simply dropping them loses data belonging to the
+endpoint's stream. That does not show up as a lost read -- it shows up much later,
+as a request that is never answered, because a stale read swallowed its reply.
+Observed directly: with cancellation alone, a B2xx clears UHD's endpoint flush and
+then fails in wait_for_ack, because the flush's ~100 outstanding reads consumed the
+first CHDR control response.
+
+So a cancelled read is orphaned rather than discarded: it stays queued against its
+endpoint, and the next submission on that endpoint adopts it instead of issuing a
+fresh transferIn. Ordering is preserved and no data is lost. Writes and control
+transfers have nothing to hand on and are simply completed.
+
+Adoption requires the two reads to be the *same length*: a read's size is fixed
+when transferIn() is called, so handing a short one to a longer transfer truncates
+the packet and desynchronises the endpoint. Mismatches are refused and a fresh read
+is issued instead. Note that this makes a caller which cancels reads of one size
+and then reads a different size unrecoverable by this layer -- UHD's endpoint flush
+did exactly that, and is fixed separately in
+uhd-frame-sized-endpoint-flush.patch.
+
+Lifetime needs care too. Once libusb completes a transfer the caller may free it
+while the browser callback still holds the usbi_transfer pointer, so the callback
+consults a shared record before touching that memory. The same record tracks
+whether a PromiseResult was ever placed in transfer_priv, since
+em_clear_transfer_priv must not destroy one that was never constructed.
+
+Applied by deps/fetch-deps.sh. Upstream libusb is v1.0.30.
+
+It also registers the two embind types this backend passes across the JS boundary
+(emscripten::val and memory_view<uint8_t>), which is only needed when libusb is
+linked into an Emscripten *side module*. embind keys its registry on TypeID<T> --
+&typeid(T) with RTTI -- and the registry is per JavaScript realm. The main module
+registers its own set at startup and Emscripten replays that into every pthread,
+but this file's typeinfo is a separate object from the main module's, so those
+registrations do not answer lookups made from here and a val call fails with
+
+    BindingError: _emval_take_value has unknown type N10emscripten11memory_viewIhEE
+
+The registration has to live in *this* translation unit. Registering from a
+neighbouring file in the same side module is not equivalent and was measured not
+to work: libusb is compiled separately, with its own visibility flags, so its
+typeinfo does not merge even with other objects in the same module. The ids
+differed by millions.
+
+
+--- a/libusb/os/emscripten_webusb.cpp
++++ b/libusb/os/emscripten_webusb.cpp
+@@ -30,7 +30,14 @@
+ #include <emscripten.h>
+ #include <emscripten/val.h>
+ 
++#include <atomic>
++#include <deque>
++#include <map>
++#include <memory>
++#include <mutex>
++#include <optional>
+ #include <type_traits>
++#include <unordered_map>
+ #include <utility>
+ 
+ #include "libusbi.h"
+@@ -170,6 +177,52 @@
+ #endif
+ }
+ 
++// Register the embind types this backend passes across the JS boundary.
++//
++// Needed only when libusb is linked into an Emscripten *side module*. embind keys
++// its type registry on TypeID<T>, which with RTTI is &typeid(T), and the registry
++// itself is per-JavaScript-realm. The main module registers its own set at
++// startup (libembind's EMSCRIPTEN_BINDINGS(builtin)) and Emscripten replays that
++// into every pthread, but a side module's typeinfo for these types is a separate
++// object -- so those registrations do not answer lookups made from here, and a
++// val call fails with
++//
++//     BindingError: _emval_take_value has unknown type N10emscripten11memory_viewIhEE
++//
++// It has to be done in *this* translation unit: the id is whatever typeid()
++// yields where the call is made, so registering from a neighbouring file in the
++// same module is not equivalent.
++//
++// A static initializer runs once per realm the module is instantiated in, which
++// is exactly the granularity the registry has. Duplicates are expected wherever
++// the type did unify with the main module's, so they are ignored.
++namespace {
++struct RegisterEmbindTypes {
++	RegisterEmbindTypes() {
++		// NOTE the double underscore: Emscripten's JS name for the C symbol
++		// _embind_register_emval is __embind_register_emval.
++		EM_ASM(
++			{
++				try {
++					__embind_register_emval($0);
++				} catch (error) {
++					// Already registered in this realm.
++				}
++				try {
++					// 1 == embind's TypedArrayIndex::Uint8Array.
++					__embind_register_memory_view($1, 1, $2);
++				} catch (error) {
++				}
++			},
++			emscripten::internal::TypeID<emscripten::val>::get(),
++			emscripten::internal::TypeID<
++				emscripten::memory_view<uint8_t>>::get(),
++			"emscripten::memory_view<uint8_t>");
++	}
++};
++const RegisterEmbindTypes register_embind_types;
++}  // namespace
++
+ // A helper that proxies a function call to the main thread if not already
+ // there. This is a wrapper around Emscripten's raw proxying API with couple of
+ // high-level improvements, namely support for destroying lambda on the target
+@@ -761,11 +814,129 @@
+ 	WebUsbDevicePtr(dev).free();
+ }
+ 
++// Cancellation support.
++//
++// WebUSB exposes no way to abort an in-flight transfer: once transferIn() has
++// been called, its promise settles when the device answers, and never before.
++// libusb, meanwhile, implements *every* synchronous-transfer timeout by calling
++// the backend's cancel_transfer and then waiting for completion. The stock
++// backend's cancel_transfer does nothing, so a bulk IN on an endpoint with no
++// data never completes and never times out, and the caller blocks forever. UHD's
++// libusb_zero_copy transport flushes its receive endpoint exactly that way during
++// ordinary device setup, so a USRP B2xx hangs partway through initialisation.
++//
++// We cannot abort the transfer, so we stop *waiting* for it: cancel completes the
++// libusb transfer immediately and leaves the browser read outstanding.
++//
++// That alone would be wrong. The bytes that read will receive are still coming,
++// and simply dropping them loses data that belongs to the endpoint's stream --
++// which shows up as a later request never being answered, because a stale read
++// swallowed its reply. So a cancelled read is not discarded but *orphaned*: it
++// stays queued against its endpoint, and the next submission on that endpoint
++// adopts it instead of issuing a fresh transferIn. Ordering is preserved and no
++// data is lost.
++//
++// Lifetime needs care too. Once libusb completes a transfer the caller may free
++// it, while the browser callback still holds the usbi_transfer pointer, so the
++// callback consults the shared record before touching that memory.
++struct PendingTransfer {
++	std::mutex mutex;
++	// The transfer libusb is currently waiting on, or null once cancelled.
++	usbi_transfer* owner = nullptr;
++	// Set once the browser promise settles.
++	bool settled = false;
++	std::optional<PromiseResult> result;
++	// True once a PromiseResult has been handed to transfer_priv, so
++	// em_clear_transfer_priv knows whether there is one to destroy.
++	std::atomic<bool> delivered{false};
++	// Identifies the endpoint an orphaned read belongs to.
++	libusb_device_handle* dev_handle = nullptr;
++	uint8_t endpoint = 0;
++	bool is_read = false;
++	// The length this read was issued with. A read's size is fixed when
++	// transferIn() is called, so it may only be adopted by a transfer of the
++	// same length -- handing a short read to a longer transfer truncates the
++	// packet and desynchronises the endpoint.
++	int length = 0;
++};
++
++using PendingPtr = std::shared_ptr<PendingTransfer>;
++using EndpointKey = std::pair<libusb_device_handle*, uint8_t>;
++
++std::mutex pending_mutex;
++std::unordered_map<usbi_transfer*, PendingPtr> pending_by_transfer;
++std::map<EndpointKey, std::deque<PendingPtr>> orphaned_reads;
++
++// Hand a settled result to the libusb transfer waiting on it. Caller holds
++// pending->mutex.
++void deliverLocked(const PendingPtr& pending) {
++	auto* itransfer = pending->owner;
++	WebUsbTransferPtr(itransfer).emplace(std::move(*pending->result));
++	pending->result.reset();
++	pending->delivered.store(true);
++	usbi_signal_transfer_completion(itransfer);
++}
++
++PendingPtr findPending(usbi_transfer* itransfer) {
++	std::lock_guard<std::mutex> lock(pending_mutex);
++	auto it = pending_by_transfer.find(itransfer);
++	return it == pending_by_transfer.end() ? nullptr : it->second;
++}
++
++void forgetPending(usbi_transfer* itransfer) {
++	std::lock_guard<std::mutex> lock(pending_mutex);
++	pending_by_transfer.erase(itransfer);
++}
++
++// An earlier cancelled read on this endpoint, if any, whose bytes are still on
++// their way and must be handed to this transfer rather than dropped.
++PendingPtr adoptOrphanedRead(libusb_device_handle* handle,
++							 uint8_t endpoint,
++							 int length) {
++	std::lock_guard<std::mutex> lock(pending_mutex);
++	auto it = orphaned_reads.find({handle, endpoint});
++	if (it == orphaned_reads.end() || it->second.empty()) {
++		return nullptr;
++	}
++	// Only a same-sized read can be adopted safely. A mismatch means the caller
++	// cancelled a read of one size and is now asking for another, which USB
++	// framing cannot reconcile; there is nothing useful to do but leave the
++	// orphan alone and issue a fresh read.
++	if (it->second.front()->length != length) {
++		return nullptr;
++	}
++	auto pending = it->second.front();
++	it->second.pop_front();
++	return pending;
++}
++
+ int em_submit_transfer(usbi_transfer* itransfer) {
+ 	return runOnMain([itransfer] {
+ 		auto transfer = USBI_TRANSFER_TO_LIBUSB_TRANSFER(itransfer);
+ 		auto& web_usb_device = WebUsbDevicePtr(transfer->dev_handle)
+ 								   ->getDeviceAssumingMainThread();
++
++		// If a previous transfer on this endpoint was cancelled while its read
++		// was still outstanding, its bytes belong to this one.
++		if (IS_XFERIN(transfer)) {
++			if (auto orphan = adoptOrphanedRead(
++					transfer->dev_handle,
++					transfer->endpoint & LIBUSB_ENDPOINT_ADDRESS_MASK,
++					transfer->length)) {
++				std::lock_guard<std::mutex> lock(orphan->mutex);
++				orphan->owner = itransfer;
++				{
++					std::lock_guard<std::mutex> reg(pending_mutex);
++					pending_by_transfer[itransfer] = orphan;
++				}
++				if (orphan->settled) {
++					// Already arrived while orphaned; complete immediately.
++					deliverLocked(orphan);
++				}
++				return LIBUSB_SUCCESS;
++			}
++		}
++
+ 		val transfer_promise;
+ 		switch (transfer->type) {
+ 			case LIBUSB_TRANSFER_TYPE_CONTROL: {
+@@ -795,26 +966,80 @@
+ 			default:
+ 				return LIBUSB_ERROR_NOT_SUPPORTED;
+ 		}
++		auto pending = std::make_shared<PendingTransfer>();
++		pending->owner = itransfer;
++		pending->dev_handle = transfer->dev_handle;
++		pending->endpoint = transfer->endpoint & LIBUSB_ENDPOINT_ADDRESS_MASK;
++		pending->is_read = IS_XFERIN(transfer);
++		pending->length = transfer->length;
++		{
++			std::lock_guard<std::mutex> reg(pending_mutex);
++			pending_by_transfer[itransfer] = pending;
++		}
++
+ 		// Not a coroutine because we don't want to block on this promise, just
+ 		// schedule an asynchronous callback.
+ 		promiseThen(CaughtPromise(std::move(transfer_promise)),
+-					[itransfer](auto&& result) {
+-						WebUsbTransferPtr(itransfer).emplace(std::move(result));
+-						usbi_signal_transfer_completion(itransfer);
++					[pending](auto&& result) {
++						std::lock_guard<std::mutex> lock(pending->mutex);
++						pending->result.emplace(std::move(result));
++						pending->settled = true;
++						if (pending->owner) {
++							deliverLocked(pending);
++						}
++						// Otherwise this read was cancelled and is already
++						// sitting in its endpoint's orphan queue, holding the
++						// data for whoever reads next.
+ 					});
+ 		return LIBUSB_SUCCESS;
+ 	});
+ }
+ 
+ void em_clear_transfer_priv(usbi_transfer* itransfer) {
+-	WebUsbTransferPtr(itransfer).free();
++	auto pending = findPending(itransfer);
++	// A PromiseResult only exists in transfer_priv once one was delivered;
++	// destroying one that was never constructed is undefined behaviour.
++	const bool has_result = !pending || pending->delivered.load();
++	forgetPending(itransfer);
++	if (has_result) {
++		WebUsbTransferPtr(itransfer).free();
++	}
+ }
+ 
+ int em_cancel_transfer(usbi_transfer* itransfer) {
++	auto pending = findPending(itransfer);
++	if (pending) {
++		std::lock_guard<std::mutex> lock(pending->mutex);
++		pending->owner = nullptr;
++		if (pending->is_read && !pending->delivered.load()) {
++			// The browser read cannot be aborted and its bytes are still
++			// coming. Queue it against the endpoint so the next read adopts it
++			// rather than losing the data -- and, worse, swallowing the reply
++			// to whatever request comes next.
++			std::lock_guard<std::mutex> reg(pending_mutex);
++			orphaned_reads[{pending->dev_handle, pending->endpoint}].push_back(
++				pending);
++		}
++	}
++	// Complete the transfer now rather than waiting for a promise that may never
++	// settle. libusb turns this into LIBUSB_TRANSFER_TIMED_OUT when the
++	// cancellation came from a timeout and LIBUSB_TRANSFER_CANCELLED otherwise,
++	// which is what synchronous callers expect.
++	usbi_signal_transfer_completion(itransfer);
+ 	return LIBUSB_SUCCESS;
+ }
+ 
+ int em_handle_transfer_completion(usbi_transfer* itransfer) {
++	{
++		auto pending = findPending(itransfer);
++		if (pending && !pending->delivered.load()) {
++			// Cancelled before its result arrived: there is nothing in
++			// transfer_priv to read. Report the cancellation and let libusb
++			// decide whether that means TIMED_OUT or CANCELLED.
++			forgetPending(itransfer);
++			return usbi_handle_transfer_cancellation(itransfer);
++		}
++	}
+ 	libusb_transfer_status status = runOnMain([itransfer] {
+ 		auto transfer = USBI_TRANSFER_TO_LIBUSB_TRANSFER(itransfer);
+ 
+@@ -859,6 +1084,9 @@
+ 		return getTransferStatus(value);
+ 	});
+ 
++	// The transfer is about to be handed back to the caller, which may free it.
++	forgetPending(itransfer);
++
+ 	// Invoke user's handlers outside of the main thread to reduce pressure.
+ 	return status == LIBUSB_TRANSFER_CANCELLED
+ 		? usbi_handle_transfer_cancellation(itransfer)

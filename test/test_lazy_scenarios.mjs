@@ -513,6 +513,20 @@ const scenarios = [
         ['src',0,'clock',0], ['clock',0,'rotator',0], ['rotator',0,'snk',0],
       ] },
     expectFetch: ['gsm.wasm'] },
+
+  // The USRP B2xx Source is the first block whose side module is not a GNU Radio
+  // category: it opts in with `runtime_module: b2xx` in blocks/grc/, because its
+  // factory links all of UHD. This is the scenario that proves the deferral is
+  // real -- that a flowgraph using it fetches b2xx.wasm, and (by its absence from
+  // every other scenario here) that one not using it never does.
+  { name: 'USRP B2xx Source (runtime_module side module)',
+    fg: { blocks:[
+      { name:'usrp', id:'wasm_usrp_b2xx_source',
+        params:{ device:'fake:100000', samp_rate:1000000, center_freq:100000000,
+                 gain:30, bandwidth:0, antenna:'RX2', master_clock_rate:0 } },
+      { name:'snk', id:'blocks_null_sink', params:{ type:'complex' } } ],
+      connections:[ ['usrp',0,'snk',0] ] },
+    expectFetch: ['b2xx.wasm'] },
 ];
 
 // The runner consumes native .grc; wrap these {blocks,connections} fixtures in

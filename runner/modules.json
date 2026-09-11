@@ -6,6 +6,7 @@
     "rds", "foo", "dvbs2", "dvbs2rx", "satellites", "paint", "fosphor",
     "droneid", "ham", "bbc", "adsb", "ieee802_11", "ieee802_15_4", "hrpt", "lora_sdr", "radar", "gsm"
   ],
+  "runtime_modules": ["b2xx"],
   "source_roots": {
     "gr-droneid": "gr-droneid/gnuradio/gr-droneid"
   },

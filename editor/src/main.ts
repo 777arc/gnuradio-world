@@ -54,6 +54,7 @@ import {
 import { RTLSDR_RADIO } from './rtlsdr';
 import { PLUTOSDR_RADIO } from './plutosdr';
 import { BB60_RADIO } from './bb60';
+import { USRP_B2XX_RADIO } from './usrp-b2xx';
 import { HACKRF_RADIO } from './hackrf';
 import {
   displaySi,
@@ -176,7 +177,8 @@ const el = (id: string) => document.getElementById(id)!;
  * Properties dialog, the device a block face resolves to, and the permission
  * prompt on the Run click. Adding one is adding it here. See ./usb-radio.
  */
-const USB_RADIOS: UsbRadio[] = [RTLSDR_RADIO, PLUTOSDR_RADIO, HACKRF_RADIO, BB60_RADIO];
+const USB_RADIOS: UsbRadio[] = [
+  RTLSDR_RADIO, PLUTOSDR_RADIO, HACKRF_RADIO, BB60_RADIO, USRP_B2XX_RADIO];
 const radioForDtype = (dtype?: string): UsbRadio | undefined =>
   USB_RADIOS.find(radio => radio.dtype === dtype);
 // ?training=<example path> opens that example as a lesson template rather than
