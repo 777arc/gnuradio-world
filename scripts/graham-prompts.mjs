@@ -219,6 +219,36 @@ export const CASES = [
       run: 'pass',
     },
   },
+  {
+    name: 'docs-question',
+    // A question, not a build request: the answer is in the documentation
+    // index -- the two blocks' own docs and, once the snapshot is fetched,
+    // their wiki pages -- and the canvas must survive it untouched. Asking
+    // without naming a tool is the point: the model has to reach for
+    // search_docs (or the seeded [reference] section) rather than guess.
+    prompt: 'what is the difference between the Symbol Sync block and Clock Recovery MM, ' +
+            'and which should I use for QPSK?',
+    fresh: false,
+    expect: {
+      clears: false,
+      tools: [['search_docs', 'read_doc', 'describe_block']],
+      blocks: ['PSK Mod'],   // the open graph survived a question about something else
+      run: 'any',
+    },
+  },
+  {
+    name: 'block-by-what-it-does',
+    // A build request in the vocabulary of the task, naming no block. Before
+    // the documentation-backed search_blocks, "fractional" matched nothing in
+    // any id or label and the model either guessed an id or gave up.
+    prompt: 'add a block that resamples the signal by a fractional rate of 3/7 after the source',
+    fresh: false,
+    expect: {
+      clears: false,
+      blocks: ['Rational Resampler', 'PSK Mod'],
+      run: 'any',
+    },
+  },
 ];
 
 export const caseNamed = name => CASES.find(item => item.name === name);

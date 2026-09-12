@@ -13,11 +13,13 @@
 // on `versionchange` instead of blocking that tab for as long as this one lives.
 
 export const DB_NAME = 'gnuradio-world';
-export const DB_VERSION = 1;
+export const DB_VERSION = 2;
 
 export const STORES = {
   /** The browser-local library of saved JS blocks -- see js-block.ts. */
   jsBlocks: 'js-blocks',
+  /** Graham's conversations, one record each -- see ai/sessions.ts. */
+  grahamSessions: 'graham-sessions',
 } as const;
 
 export type StoreName = (typeof STORES)[keyof typeof STORES];

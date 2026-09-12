@@ -14,7 +14,7 @@ const {
 } = await bundleModule('../src/ai/openrouter.ts');
 const { listModels } = await bundleModule('../src/ai/client.ts');
 const { beginCreditSignIn, signOutCredits } = await bundleModule('../src/ai/credits.ts');
-const { javascriptErrors } = await bundleModule('../src/ai/harness.ts');
+const { javascriptErrors, runFlowgraph, stopRunningFlowgraph } = await bundleModule('../src/ai/harness.ts');
 const {
   AI_PROVIDERS,
   DEFAULT_CREDITS_MODEL,
@@ -274,12 +274,14 @@ const fetchImpl = async (_url, init) => {
 };
 
 const events = [];
+const rounds = [];
 const agent = new FlowgraphAgent({
   provider: 'openrouter', key: 'test', model: 'stub/model', systemPrompt: 'test', deps, fetchImpl,
   hooks: {
     assistantStarted: () => events.push('assistant'),
     toolStarted: name => events.push(`start:${name}`),
     toolFinished: name => events.push(`finish:${name}`),
+    roundFinished: () => rounds.push(agent.transcript().map(message => message.role)),
   },
 });
 const result = await agent.turn('validate this');
@@ -292,6 +294,34 @@ assert.equal(result.cost, 0.003);
 assert.deepEqual(events, ['assistant', 'start:validate', 'finish:validate', 'assistant']);
 assert.deepEqual(agent.transcript().map(message => message.role),
   ['system', 'user', 'assistant', 'tool', 'assistant']);
+// A round is persisted once its tool results are in, never between the call
+// and its result: what is stored can always be resumed from.
+assert.deepEqual(rounds, [
+  ['system', 'user', 'assistant', 'tool'],
+  ['system', 'user', 'assistant', 'tool', 'assistant'],
+]);
+
+// A resumed conversation continues from a stored transcript rather than from
+// the system prompt alone -- and the system prompt is the new build's, not
+// whatever was stored with the conversation.
+{
+  let seen;
+  const resumed = new FlowgraphAgent({
+    provider: 'openrouter', key: 'test', model: 'stub/model', systemPrompt: 'rebuilt prompt', deps,
+    messages: agent.transcript().slice(1),
+    imagesThisConversation: 5,
+    fetchImpl: async (_url, init) => {
+      seen = JSON.parse(init.body).messages;
+      return sse([{ choices: [{ delta: { content: 'Still valid.' } }] }]);
+    },
+  });
+  assert.equal(resumed.imagesUsed(), 5, 'the screenshot budget already spent carries over');
+  await resumed.turn('and now?');
+  assert.deepEqual(seen.map(message => message.role),
+    ['system', 'user', 'assistant', 'tool', 'assistant', 'user']);
+  assert.equal(seen[0].content, 'rebuilt prompt');
+  assert.equal(seen[4].content, 'The flowgraph is valid.');
+}
 
 // The header's hover breakdown counts requests, and one round is one request.
 // Counted where the request is issued, so a round that dies mid-stream — which
@@ -673,6 +703,45 @@ assert.equal(routerModels[0].vision, false, 'no image modality means no vision')
     },
   });
   await blind.turn('look at it', undefined);
+}
+
+// ---- the run harness restarts, and can stop ---------------------------------
+// The editor refuses to start a flowgraph beside a running one, and the loop
+// Graham runs is edit → run → look → edit → run. So run_flowgraph brings a
+// running graph down itself and says so, and stop_flowgraph exists for
+// stopping without running again.
+{
+  globalThis.window ??= globalThis;
+  const calls = [];
+  let uptime = 0;
+  let running = false;
+  const stats = () => JSON.stringify({ uptime_s: uptime += 0.6, ref_item_rate: 1000,
+    blocks: [{ name: 'src', id: 'source', items: uptime * 1000, work_us: 1, in_full: 0, out_full: 0,
+               msg_only: false, ref: true }] });
+  const frame = { contentWindow: { location: { search: '?recordingToken=t1' }, get __grstats() { return stats(); } },
+                  contentDocument: { getElementById: () => null } };
+  const harness = {
+    run: async () => { calls.push('run'); running = true; return 't1'; },
+    running: () => running,
+    stop: async () => { calls.push('stop'); running = false; },
+    frame: () => frame,
+    blocks: () => [],
+    layout: () => ({ widgets: [] }),
+    authorization: async () => null,
+    requestAuthorization: async () => null,
+    subscribeLogs: () => () => {},
+  };
+  const first = await runFlowgraph(harness, 0.5);
+  assert.equal(first.started, true);
+  assert.equal(first.restarted, undefined, 'nothing was running before the first run');
+  assert.deepEqual(calls, ['run']);
+  const second = await runFlowgraph(harness, 0.5);
+  assert.equal(second.started, true);
+  assert.match(second.restarted, /was stopped first/);
+  assert.deepEqual(calls, ['run', 'stop', 'run'], 'a second run stops the first by itself');
+  assert.deepEqual(await stopRunningFlowgraph(harness), { stopped: true });
+  assert.deepEqual(calls, ['run', 'stop', 'run', 'stop']);
+  assert.deepEqual(await stopRunningFlowgraph(harness), { stopped: false, note: 'no flowgraph was running' });
 }
 
 console.log('ai-agent.test.mjs: ok');

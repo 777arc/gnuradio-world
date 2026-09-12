@@ -9,6 +9,7 @@ import {
 } from './catalog';
 import type { PlotCapture } from './capture';
 import type { ToolDefinition } from './client';
+import { excerpt, type KnowledgeChunk, type KnowledgeIndex } from './knowledge';
 
 export interface AiToolDeps {
   blocks(): Inst[];
@@ -33,6 +34,13 @@ export interface AiToolDeps {
    * `new_flowgraph` to be wrong.
    */
   canvasOrigin?(): 'default-example' | 'user';
+  /**
+   * The site's knowledge index (block documentation, the wiki snapshot, the
+   * runtime docs, the examples), loaded on first use. Optional so a harness
+   * need not supply one; without it search_docs says so and search_blocks
+   * falls back to its id/label match.
+   */
+  knowledge?(): Promise<KnowledgeIndex>;
   listExamples(): Promise<string[]>;
   readExample(path: string): Promise<string>;
   listRecordings(): Promise<ExampleRecording[]>;
@@ -47,6 +55,7 @@ export interface AiToolDeps {
   exerciseJsBlock(args: Record<string, unknown>): Promise<Record<string, unknown>>;
   saveJsBlock(name: string, id: string, label?: string, category?: string): Promise<Record<string, unknown>>;
   runFlowgraph(seconds: number, signal?: AbortSignal): Promise<Record<string, unknown>>;
+  stopFlowgraph(): Promise<Record<string, unknown>>;
   capturePlots(
     options: { block?: string; settleSeconds?: number }, signal?: AbortSignal,
   ): Promise<PlotCapture>;
@@ -124,10 +133,20 @@ const tool = (name: string, description: string, parameters: Record<string, unkn
 
 export const AI_TOOLS: ToolDefinition[] = [
   tool('get_flowgraph', 'Return the current canvas as compact JSON, including validation issues.', object({})),
-  tool('search_blocks', 'Fuzzy-search runnable WebAssembly blocks by id, label, or category.', object({ query: text }, ['query'])),
-  tool('describe_block', 'Return the exact editor-enforced parameters, ports, defaults, options, and documentation for one runnable block. Long API documentation is truncated unless full_docs is set.', object({
+  tool('search_blocks', 'Search runnable WebAssembly blocks by what they do: matches ids, labels and categories, then the blocks\' own documentation, so "fractional resampler" or "carrier recovery" finds a block whose name says neither.', object({ query: text }, ['query'])),
+  tool('search_docs', 'Search the documentation: every runnable block\'s GRC and doxygen docs, the GNU Radio wiki page per block, this runtime\'s own docs (file blocks, JS Blocks, schedulers, audio, SDRs, recordings), and the example flowgraphs. Returns bounded excerpts with a ref for read_doc. Use it for how a block behaves, what a parameter means, why something is different in the browser, or which example does something.', object({
+    query: text,
+    source: { type: 'string', enum: ['block', 'wiki', 'docs', 'example'], description: 'Optional: search one source only.' },
+    limit: { type: 'integer', minimum: 1, maximum: 10, default: 5 },
+  }, ['query'])),
+  tool('read_doc', 'Read one search_docs result in full by its ref: a block id (its docs, or with source "wiki" its wiki page), a docs "file.md#anchor", or an example path.', object({
+    ref: text,
+    source: { type: 'string', enum: ['block', 'wiki', 'docs', 'example'], description: 'Which source the ref names; defaults to whichever holds it.' },
+  }, ['ref'])),
+  tool('describe_block', 'Return the exact editor-enforced parameters, ports, defaults, options, and documentation for one runnable block. Long API documentation is truncated unless full_docs is set; the GNU Radio wiki page for the block is included only when wiki is set.', object({
     id: text,
     full_docs: { type: 'boolean', description: 'Return the complete API documentation instead of the truncated head.' },
+    wiki: { type: 'boolean', description: 'Also return the block\'s GNU Radio wiki page (usage notes, parameter explanations, example flowgraphs) as wiki_documentation.' },
   }, ['id'])),
   tool('list_examples', 'List example flowgraphs available in this site with native Options/file metadata and structural counts. Supports bounded search and pagination; use read_example for the full .grc.', object({
     query: { type: 'string', description: 'Optional case-insensitive search across path, id, title, author, copyright, description, file format, and GNU Radio version. Every whitespace-separated term must match.' },
@@ -209,7 +228,8 @@ export const AI_TOOLS: ToolDefinition[] = [
   tool('new_flowgraph', 'Discard the whole flowgraph on the canvas, leaving a blank one (Options, GUI Layout and samp_rate only). Only for a request for a whole new flowgraph that does not refer to what is open, and then before the first edit. Never to make room for something being added: adding, changing, fixing, explaining or running anything on the canvas is an edit to it, and clearing the user\'s own flowgraph destroys work they did not offer up.', object({})),
   tool('replace_flowgraph', 'Replace the entire canvas from native .grc YAML. Prefer granular edits unless building from scratch. Do not include the options block under `blocks:` -- it is the top-level `options:` key.', object({ grc: text }, ['grc'])),
   tool('validate', 'Return all current blocking and non-blocking validation issues.', object({})),
-  tool('run_flowgraph', 'Run the current canvas visibly and observe diagnostics for 0.5–15 seconds. The graph remains running.', object({ seconds: { type: 'number', minimum: 0.5, maximum: 15, default: 3 } })),
+  tool('run_flowgraph', 'Run the current canvas visibly and observe diagnostics for 0.5–15 seconds. The graph remains running afterwards. A flowgraph already running is stopped first, so edit → run_flowgraph is the whole test cycle; there is no need to call stop_flowgraph before running again.', object({ seconds: { type: 'number', minimum: 0.5, maximum: 15, default: 3 } })),
+  tool('stop_flowgraph', 'Stop the running flowgraph without starting another: when the work is done, when the user asks, or when a graph is making noise or writing a recording that should be finished. Not needed before run_flowgraph, which restarts by itself.', object({})),
   tool('read_plot_data', 'Read what the running flowgraph\'s GUI sinks are plotting, as numbers: each plot\'s axis titles and displayed range, and per trace its peak (x and y), min/max/mean and a decimated set of points. Spectrum Analyzer results also include each detected signal\'s exact center and peak frequencies, occupied bandwidth, ENBW-corrected total_power with power_unit, and peak level, without display formatting or rounding. This is the precise and cheap way to answer "where is the peak", "what is the total signal power", "is the tone at the right frequency" — prefer it over a screenshot for anything measurable. Needs a flowgraph that is still running.', object({
     block: { type: 'string', description: 'One GUI block by name; omit for every plot in the window.' },
     points: { type: 'integer', minimum: 4, maximum: 256, default: 32, description: 'Points sampled per trace.' },
@@ -237,7 +257,7 @@ export const aiTools = (vision: boolean): ToolDefinition[] =>
  * so the panel can seed a message from the same dependency bundle it hands the
  * tools, without owning a runner to do it.
  */
-export type AiReadDeps = Omit<AiToolDeps, 'runFlowgraph' | 'capturePlots' | 'readPlotData'>;
+export type AiReadDeps = Omit<AiToolDeps, 'runFlowgraph' | 'stopFlowgraph' | 'capturePlots' | 'readPlotData'>;
 
 const catalogDeps = (deps: AiReadDeps): CatalogDeps => ({
   entries: deps.entries,
@@ -689,14 +709,110 @@ function seedDefinition(deps: AiReadDeps, id: string): Record<string, unknown> {
   };
 }
 
+const knowledgeOrNull = async (deps: AiToolDeps): Promise<KnowledgeIndex | null> => {
+  if (!deps.knowledge) return null;
+  try { return await deps.knowledge(); } catch { return null; }
+};
+
+const hitView = (hit: { chunk: KnowledgeChunk; score: number }) => ({
+  ref: hit.chunk.ref,
+  source: hit.chunk.source,
+  title: hit.chunk.title,
+  ...(hit.chunk.parts ? { part: `${hit.chunk.part} of ${hit.chunk.parts}` } : {}),
+  ...(hit.chunk.url ? { url: hit.chunk.url } : {}),
+  excerpt: excerpt(hit.chunk),
+});
+
+/**
+ * Blocks by what they do. The id/label match comes first -- an exact name is
+ * the best answer to a query that is one -- and the documentation index fills
+ * the rest of the list, so a query in the vocabulary of the task rather than
+ * of the block names still lands. Never more than the catalog's own limit.
+ */
+async function searchBlocks(deps: AiToolDeps, query: string): Promise<CatalogEntry[]> {
+  const limit = 20;
+  const named = searchCatalog(deps.entries(), query, limit);
+  if (named.length >= limit) return named;
+  const index = await knowledgeOrNull(deps);
+  if (!index) return named;
+  const byId = new Map(deps.entries().map(entry => [entry.id, entry]));
+  const seen = new Set(named.map(entry => entry.id));
+  const found = [...named];
+  for (const hit of index.search(query, { limit: limit * 2 })) {
+    const id = hit.chunk.block;
+    if (!id || seen.has(id)) continue;
+    const entry = byId.get(id);
+    if (!entry) continue;
+    seen.add(id);
+    found.push(entry);
+    if (found.length >= limit) break;
+  }
+  return found;
+}
+
+const READ_DOC_LIMIT = 12_000;
+
+async function searchDocs(deps: AiToolDeps, args: any): Promise<Record<string, unknown>> {
+  const index = await knowledgeOrNull(deps);
+  if (!index) return { error: 'the documentation index is not available in this build' };
+  const query = String(args.query || '').trim();
+  if (!query) throw new Error('search_docs needs a query');
+  const source = args.source ? String(args.source) as KnowledgeChunk['source'] : undefined;
+  const limit = Math.max(1, Math.min(10, Number(args.limit) || 5));
+  const hits = index.search(query, { limit, source });
+  return {
+    query, ...(source ? { source } : {}),
+    results: hits.map(hitView),
+    ...(hits.length ? {} : { note: 'nothing matched; try other words, or describe_block for a block you can name' }),
+  };
+}
+
+async function readDoc(deps: AiToolDeps, args: any): Promise<Record<string, unknown>> {
+  const index = await knowledgeOrNull(deps);
+  if (!index) return { error: 'the documentation index is not available in this build' };
+  const ref = String(args.ref || '').trim();
+  if (!ref) throw new Error('read_doc needs a ref');
+  const source = args.source ? String(args.source) : undefined;
+  let parts = index.read(ref);
+  if (source) parts = parts.filter(chunk => chunk.source === source);
+  if (!parts.length) throw new Error(`no document with ref "${ref}"${source ? ` in ${source}` : ''}; call search_docs first`);
+  const text = parts.map(chunk => chunk.text).join('\n\n');
+  const first = parts[0];
+  return {
+    ref, source: first.source, title: first.title.replace(/ › .*$/, ''),
+    ...(first.url ? { url: first.url } : {}),
+    ...(first.source === 'wiki' ? { license: 'CC BY-SA 4.0, from the GNU Radio wiki' } : {}),
+    text: text.length > READ_DOC_LIMIT
+      ? `${text.slice(0, READ_DOC_LIMIT)}\n… ${text.length - READ_DOC_LIMIT} more characters not shown`
+      : text,
+  };
+}
+
 export async function dispatchAiTool(
   deps: AiToolDeps, name: string, args: any, signal?: AbortSignal,
 ): Promise<DispatchResult> {
   switch (name) {
     case 'get_flowgraph': return { mutated: false, value: flowgraphJson(deps) };
-    case 'search_blocks': return { mutated: false, value: searchCatalog(deps.entries(), String(args.query || '')) };
-    case 'describe_block': return { mutated: false, value:
-      describeBlock(catalogDeps(deps), String(args.id), !!args.full_docs) };
+    case 'search_blocks': return { mutated: false, value: await searchBlocks(deps, String(args.query || '')) };
+    case 'search_docs': return { mutated: false, value: await searchDocs(deps, args) };
+    case 'read_doc': return { mutated: false, value: await readDoc(deps, args) };
+    case 'describe_block': {
+      const described = describeBlock(catalogDeps(deps), String(args.id), !!args.full_docs);
+      if (!args.wiki) return { mutated: false, value: described };
+      // The page is in the knowledge index, keyed by block id; the same text
+      // read_doc returns for a wiki ref, so the two never disagree.
+      const index = await knowledgeOrNull(deps);
+      const parts = index?.read(String(args.id)).filter(chunk => chunk.source === 'wiki') || [];
+      const text = parts.map(chunk => chunk.text).join('\n\n');
+      return { mutated: false, value: { ...described,
+        wiki_documentation: !index ? 'the documentation index is not available in this build'
+          : !parts.length ? 'the GNU Radio wiki has no page for this block'
+          : text.length > READ_DOC_LIMIT
+            ? `${text.slice(0, READ_DOC_LIMIT)}\n… ${text.length - READ_DOC_LIMIT} more characters; read_doc reads sections`
+            : text,
+        ...(parts.length ? { wiki_license: 'CC BY-SA 4.0, from the GNU Radio wiki' } : {}),
+      } };
+    }
     case 'list_examples': return { mutated: false, value: await listExamples(deps, args) };
     case 'read_example': {
       const paths = await deps.listExamples();
@@ -727,6 +843,7 @@ export async function dispatchAiTool(
     case 'replace_flowgraph': deps.replaceFlowgraph(String(args.grc)); return mutation(deps, { replaced: true });
     case 'validate': return { mutated: false, value: issueJson(deps) };
     case 'run_flowgraph': return { mutated: false, value: await deps.runFlowgraph(Number(args.seconds || 3), signal) };
+    case 'stop_flowgraph': return { mutated: false, value: await deps.stopFlowgraph() };
     case 'read_plot_data': return { mutated: false, value: await deps.readPlotData({
       block: args.block === undefined ? undefined : String(args.block),
       points: args.points === undefined ? undefined : Number(args.points),

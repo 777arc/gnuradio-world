@@ -80,6 +80,13 @@ export interface AgentHooks {
   toolFinished?(name: string, result: unknown, error?: string,
                 images?: { dataUrl: string; alt: string }[]): void;
   usage?(usage: AiUsage, totalCost: number): void;
+  /**
+   * The transcript grew by a complete round -- the assistant message and every
+   * tool result it asked for -- or by the turn's closing answer. What a
+   * conversation persisted here can be resumed from, which a snapshot taken
+   * mid-round could not.
+   */
+  roundFinished?(): void;
 }
 
 export interface AgentOptions {
@@ -95,6 +102,14 @@ export interface AgentOptions {
   fetchImpl?: typeof fetch;
   /** Test seam; production always uses the one-second default. */
   graphPreviewDelayMs?: number;
+  /**
+   * A conversation to continue rather than begin: the transcript after its
+   * system prompt, as `transcript()` returned it, already trimmed to a complete
+   * turn (see `resumeTranscript` in sessions.ts). The system prompt is never
+   * stored, because the block index in it changes between builds.
+   */
+  messages?: ChatMessage[];
+  imagesThisConversation?: number;
 }
 
 export interface TurnResult {
@@ -111,8 +126,13 @@ export class FlowgraphAgent {
   private imagesThisConversation = 0;
 
   constructor(private readonly options: AgentOptions) {
-    this.messages = [{ role: 'system', content: options.systemPrompt }];
+    this.messages = [{ role: 'system', content: options.systemPrompt },
+                     ...structuredClone(options.messages || [])];
+    this.imagesThisConversation = options.imagesThisConversation || 0;
   }
+
+  /** How many screenshots the conversation has spent, for a resumed one to carry on from. */
+  imagesUsed(): number { return this.imagesThisConversation; }
 
   reset(systemPrompt = this.options.systemPrompt): void {
     this.messages = [{ role: 'system', content: systemPrompt }];
@@ -193,6 +213,7 @@ export class FlowgraphAgent {
       if (!calls.length) {
         finalText = String(response.message.content || streamed || 'Done.');
         this.options.hooks?.assistantFinished?.(finalText);
+        this.options.hooks?.roundFinished?.();
         return { text: finalText, mutated, cost: this.totalCost, rounds };
       }
       this.options.hooks?.assistantFinished?.(String(response.message.content || streamed || ''));
@@ -256,6 +277,7 @@ export class FlowgraphAgent {
         this.messages.push({ role: 'user', content: attachments });
         this.pruneImages();
       }
+      this.options.hooks?.roundFinished?.();
     }
 
     finalText = `Stopped after ${MAX_TOOL_ROUNDS} tool rounds. Review the current canvas and continue in a new message.`;
@@ -263,6 +285,7 @@ export class FlowgraphAgent {
     this.options.hooks?.assistantStarted?.();
     this.options.hooks?.assistantDelta?.(finalText);
     this.options.hooks?.assistantFinished?.(finalText);
+    this.options.hooks?.roundFinished?.();
     return { text: finalText, mutated, cost: this.totalCost, rounds };
   }
 }

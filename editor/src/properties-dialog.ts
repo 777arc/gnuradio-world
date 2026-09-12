@@ -6,6 +6,7 @@ import { layoutColumns, layoutRowHeight, parseTiles, serializeTiles } from './gu
 import { numericOrExpression } from './block-library';
 import { NAME_FIELD } from './validation';
 import { NOTE_DEFAULT_BG } from './note';
+import { hasWikiDoc, loadWikiDoc, renderWikiText } from './wiki-docs';
 import type { UsbLike, UsbRadio } from './usb-radio';
 import { usbApi } from './usb-radio';
 import {
@@ -166,11 +167,15 @@ export function showPropertiesDialog(inst: Inst, deps: PropertiesDialogDeps) {
   const tabBar = document.createElement('div'); tabBar.className = 'dlgtabs'; tabBar.setAttribute('role', 'tablist');
   const body = document.createElement('div'); body.className = 'dlgbody';
 
+  // Wiki Docs only for a block the snapshot has a page for -- a tab that
+  // opens on "nothing here" is worse than no tab. See wiki-docs.ts.
+  const wikiDocs = hasWikiDoc(inst.id);
   const categories = [
     'General',
     ...d.params.map(p => p.category || 'General')
       .filter((cat, i, all) => cat !== 'General' && all.indexOf(cat) === i),
     'Documentation',
+    ...(wikiDocs ? ['Wiki Docs'] : []),
   ];
   const panels = new Map<string, HTMLDivElement>();
   const tabs: HTMLButtonElement[] = [];
@@ -261,6 +266,28 @@ export function showPropertiesDialog(inst: Inst, deps: PropertiesDialogDeps) {
     const empty = document.createElement('p'); empty.className = 'props-doc-empty';
     empty.textContent = 'No documentation is available for this block.';
     docsPanel.appendChild(empty);
+  }
+
+  if (wikiDocs) {
+    // The page is fetched as the dialog opens rather than when the tab is
+    // clicked: it is a few kilobytes, and the tab then shows text at once.
+    const wikiPanel = panels.get('Wiki Docs')!;
+    wikiPanel.classList.add('props-wiki');
+    const status = document.createElement('p'); status.className = 'props-doc-empty';
+    status.textContent = 'Loading the wiki page…';
+    wikiPanel.appendChild(status);
+    void loadWikiDoc(inst.id).then(text => {
+      status.remove();
+      const source = document.createElement('p'); source.className = 'props-wiki-source';
+      const link = document.createElement('a');
+      link.href = d.wikiUrl || 'https://wiki.gnuradio.org/';
+      link.target = '_blank'; link.rel = 'noopener noreferrer';
+      link.textContent = 'Open this page on the GNU Radio wiki';
+      source.append(link, document.createTextNode(' · CC BY-SA 4.0'));
+      wikiPanel.append(source, renderWikiText(text));
+    }, error => {
+      status.textContent = `The wiki page could not be loaded: ${error instanceof Error ? error.message : String(error)}`;
+    });
   }
 
   // Native GRC underlines the label of every parameter the block has a callback

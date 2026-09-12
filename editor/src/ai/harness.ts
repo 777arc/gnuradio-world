@@ -8,6 +8,14 @@ export interface RunAuthorization {
 
 export interface HarnessDeps {
   run(): Promise<string | null>;
+  /** Whether a flowgraph is running, or still being brought down. */
+  running(): boolean;
+  /**
+   * Bring the running flowgraph down and resolve once it is gone -- which, for
+   * a graph recording to a file, is after the recording is finished, since the
+   * editor refuses a new run until then.
+   */
+  stop(): Promise<void>;
   frame(): HTMLIFrameElement;
   blocks(): Inst[];
   authorization(): Promise<RunAuthorization | null>;
@@ -212,21 +220,40 @@ function runReport(first: RawStats, last: RawStats, consoleLines: string[],
  */
 const RUN_START_TIMEOUT_MS = 180_000;
 
-const startTimeout = (signal?: AbortSignal) => new Promise<'timeout'>((resolve, reject) => {
-  const abort = () => {
+/** Resolves 'timeout' after RUN_START_TIMEOUT_MS; `cancel()` disarms it once the run has started. */
+const startTimeout = (signal?: AbortSignal) => {
+  let timer = 0;
+  let abort = () => {};
+  const promise = new Promise<'timeout'>((resolve, reject) => {
+    abort = () => {
+      window.clearTimeout(timer);
+      reject(new DOMException('The operation was aborted.', 'AbortError'));
+    };
+    timer = window.setTimeout(() => {
+      signal?.removeEventListener('abort', abort);
+      resolve('timeout');
+    }, RUN_START_TIMEOUT_MS);
+    signal?.addEventListener('abort', abort, { once: true });
+  });
+  const cancel = () => {
     window.clearTimeout(timer);
-    reject(new DOMException('The operation was aborted.', 'AbortError'));
-  };
-  const timer = window.setTimeout(() => {
     signal?.removeEventListener('abort', abort);
-    resolve('timeout');
-  }, RUN_START_TIMEOUT_MS);
-  signal?.addEventListener('abort', abort, { once: true });
-});
+  };
+  return { promise, cancel };
+};
 
 let runQueue: Promise<unknown> = Promise.resolve();
 
-/** Drives the editor's real runner and observes it without stopping it. */
+/**
+ * Drives the editor's real runner and observes it without stopping it.
+ *
+ * A graph already running is stopped first, and the report says so. The
+ * editor refuses to start a second flowgraph beside a running one, and the
+ * loop this serves is edit → run → look → edit → run: making the model call
+ * stop_flowgraph between every pair would cost a round each time, and forgetting
+ * it left every second run of a debugging session refused with "stop the
+ * current flowgraph before starting it again".
+ */
 export function runFlowgraph(
   deps: HarnessDeps, requestedSeconds = 3, signal?: AbortSignal,
 ): Promise<Record<string, unknown>> {
@@ -235,11 +262,17 @@ export function runFlowgraph(
     const lines: string[] = [];
     const unsubscribe = deps.subscribeLogs(batch => lines.push(...batch));
     try {
+      let restarted = false;
+      if (deps.running()) {
+        await deps.stop();
+        restarted = true;
+      }
       const authorization = await deps.authorization();
       const started = authorization
         ? deps.requestAuthorization(authorization, () => deps.run(), signal)
         : deps.run();
-      const token = await Promise.race([started, startTimeout(signal)]);
+      const starting = startTimeout(signal);
+      const token = await Promise.race([started, starting.promise]).finally(starting.cancel);
       if (token === 'timeout') return {
         started: false,
         error: 'the editor has not started the flowgraph: it is waiting for the ' +
@@ -285,8 +318,27 @@ export function runFlowgraph(
       if (radio !== undefined) report.radio = radio;
       if (files !== undefined) report.files = files;
       if (audio !== undefined) report.audio = audio;
+      if (restarted) report.restarted = 'the flowgraph that was running was stopped first; ' +
+        'this report is of the fresh run';
       return report;
     } finally { unsubscribe(); }
+  };
+  const queued = runQueue.then(task, task);
+  runQueue = queued.catch(() => undefined);
+  return queued;
+}
+
+/**
+ * Stop the running flowgraph without starting another: for a graph making
+ * noise or writing a recording the user wanted finished, or when the work is
+ * done. Queued behind any run in progress, so a stop issued in the same batch
+ * as a run lands after it rather than under it.
+ */
+export function stopRunningFlowgraph(deps: HarnessDeps): Promise<Record<string, unknown>> {
+  const task = async (): Promise<Record<string, unknown>> => {
+    if (!deps.running()) return { stopped: false, note: 'no flowgraph was running' };
+    await deps.stop();
+    return { stopped: true };
   };
   const queued = runQueue.then(task, task);
   runQueue = queued.catch(() => undefined);

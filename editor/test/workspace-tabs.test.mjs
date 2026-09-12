@@ -71,7 +71,7 @@ assert.match(source,
 assert.doesNotMatch(source, /ai-acronym|node\('strong', '', '[GRAHAM]'\)/,
   'the Graham expansion has no separate acronym or bold initial letters');
 assert.match(source,
-  /const balance = node\('span', 'ai-balance'\)[\s\S]*header\.append\(title, balance, cost, newChat, settings, close\)/,
+  /const balance = node\('span', 'ai-balance'\)[\s\S]*header\.append\(title, balance, cost, newChat, history, settings, close\)/,
   'a signed-in prepaid balance remains visible in Graham’s persistent header');
 assert.match(source,
   /How would you like to use Graham\?[\s\S]*Use the free shared option[\s\S]*Bring your own OpenAI API key[\s\S]*Pay through GNU Radio World/,

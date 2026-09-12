@@ -148,6 +148,7 @@ metadata:
   },
   saveJsBlock: async (name, id) => ({ installed: true, name, id }),
   runFlowgraph: async () => ({ started: true }),
+  stopFlowgraph: async () => ({ stopped: true }),
   capturePlots: async () => ({
     dataUrl: 'data:image/png;base64,AAAA', width: 400, height: 300, bytes: 3,
     widgets: [], notes: [],
@@ -491,6 +492,68 @@ assert.ok(blocks.some(block => block.id === 'options'), 'the singleton stayed');
 // the duplicate ID, so refusing every copy by id left no way back out.
 blocks.push({ uid: 'b-opt2', id: 'options', name: 'options_dup', x: 0, y: 0,
   params: {}, enabled: true, bypassed: false, rotation: 0 });
+// ---- the documentation tools -----------------------------------------------
+// Without an index the tools say so and search_blocks is the id/label match.
+{
+  const named = await dispatchAiTool(deps, 'search_blocks', { query: 'source' });
+  assert.ok(named.value.some(entry => entry.id === 'source'));
+  const none = await dispatchAiTool(deps, 'search_docs', { query: 'anything' });
+  assert.match(none.value.error, /not available/);
+}
+{
+  const { buildIndex } = await bundleModule('../src/ai/knowledge.ts');
+  const index = buildIndex([
+    { id: 'block:source', source: 'block', ref: 'source', block: 'source', title: 'Source (source)',
+      text: 'Generates a stream of samples: a signal generator for testing a receiver chain.' },
+    { id: 'block:sink', source: 'block', ref: 'sink', block: 'sink', title: 'Sink (sink)',
+      text: 'Consumes samples and discards them.' },
+    { id: 'wiki:source#usage', source: 'wiki', ref: 'source#usage', block: 'source',
+      title: 'Source — GNU Radio wiki › Usage', text: 'Usage notes for the generator. ' + 'y'.repeat(900),
+      url: 'https://wiki.gnuradio.org/index.php/Source', part: 1, parts: 2 },
+    { id: 'wiki:source#usage#2', source: 'wiki', ref: 'source#usage', block: 'source',
+      title: 'Source — GNU Radio wiki › Usage', text: 'Second part.', part: 2, parts: 2 },
+  ]);
+  const withIndex = { ...deps, knowledge: async () => index };
+  // A query in the vocabulary of the task, not of the block's name, still
+  // lands -- the documentation index fills in behind the id/label match.
+  const found = await dispatchAiTool(withIndex, 'search_blocks', { query: 'signal generator for testing' });
+  assert.deepEqual(found.value.map(entry => entry.id), ['source']);
+  const docs = await dispatchAiTool(withIndex, 'search_docs', { query: 'generator usage', source: 'wiki', limit: 3 });
+  assert.equal(docs.value.results.length, 2);
+  assert.equal(docs.value.results[0].ref, 'source#usage');
+  assert.equal(docs.value.results[0].url, 'https://wiki.gnuradio.org/index.php/Source');
+  assert.ok(docs.value.results[0].excerpt.length <= 601, 'excerpts are bounded');
+  assert.equal(docs.value.results[0].part, '1 of 2');
+  const nothing = await dispatchAiTool(withIndex, 'search_docs', { query: 'zzzz' });
+  assert.match(nothing.value.note, /nothing matched/);
+  await assert.rejects(dispatchAiTool(withIndex, 'search_docs', {}), /needs a query/);
+  const whole = await dispatchAiTool(withIndex, 'read_doc', { ref: 'source#usage' });
+  assert.ok(whole.value.text.endsWith('Second part.'), 'read_doc joins every part in order');
+  assert.equal(whole.value.license, 'CC BY-SA 4.0, from the GNU Radio wiki');
+  assert.equal(whole.value.title, 'Source — GNU Radio wiki');
+  const own = await dispatchAiTool(withIndex, 'read_doc', { ref: 'source', source: 'block' });
+  assert.equal(own.value.source, 'block');
+  // describe_block hands over the wiki page only when asked, and says so when
+  // there is none rather than leaving the field out.
+  const plain = await dispatchAiTool(withIndex, 'describe_block', { id: 'source' });
+  assert.equal(plain.value.wiki_documentation, undefined);
+  const withWiki = await dispatchAiTool(withIndex, 'describe_block', { id: 'source', wiki: true });
+  assert.match(withWiki.value.wiki_documentation, /^Usage notes for the generator/);
+  assert.ok(withWiki.value.wiki_documentation.endsWith('Second part.'), 'every section, in order');
+  assert.equal(withWiki.value.wiki_license, 'CC BY-SA 4.0, from the GNU Radio wiki');
+  const noPage = await dispatchAiTool(withIndex, 'describe_block', { id: 'sink', wiki: true });
+  assert.equal(noPage.value.wiki_documentation, 'the GNU Radio wiki has no page for this block');
+  const noIndex = await dispatchAiTool(deps, 'describe_block', { id: 'sink', wiki: true });
+  assert.match(noIndex.value.wiki_documentation, /not available/);
+  await assert.rejects(dispatchAiTool(withIndex, 'read_doc', { ref: 'nope' }), /call search_docs first/);
+}
+assert.deepEqual((await dispatchAiTool(deps, 'stop_flowgraph', {})).value, { stopped: true });
+assert.ok(AI_TOOLS.some(tool => tool.function.name === 'stop_flowgraph'));
+assert.match(AI_TOOLS.find(tool => tool.function.name === 'run_flowgraph').function.description,
+  /already running is stopped first/, 'the model is told a run restarts by itself');
+assert.ok(AI_TOOLS.some(tool => tool.function.name === 'search_docs'));
+assert.ok(AI_TOOLS.some(tool => tool.function.name === 'read_doc'));
+
 const removedDuplicate = await dispatchAiTool(deps, 'remove_block', { name: 'options_dup' });
 assert.deepEqual(removedDuplicate.value.result, { removed: 'options_dup' });
 assert.equal(blocks.filter(block => block.id === 'options').length, 1);

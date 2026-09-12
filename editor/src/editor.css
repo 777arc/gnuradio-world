@@ -235,6 +235,29 @@ button:hover { filter:brightness(1.15); }
 .ai-onboarding-choice > strong { color:#f3f6ff; font-size:15px; }
 .ai-onboarding-choice > span:not(.ai-onboarding-action) { color:#b8c3da; }
 .ai-onboarding-action { margin-top:2px; color:#83c3ff; font-weight:700; }
+.ai-history { grid-row:2 / -1; min-height:0; overflow:auto; padding:12px 10px; }
+.ai-history[hidden] { display:none; }
+.ai-history-head { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+.ai-history-head > strong { flex:1; color:#f0f4ff; }
+.ai-history-head button { padding:4px 8px; font-size:13px; }
+.ai-history-keep { display:flex; align-items:flex-start; gap:8px; margin:0 0 12px; color:#b7c1d8;
+    font-size:13px; line-height:1.4; }
+.ai-history-keep input { margin-top:3px; }
+.ai-history-list { display:flex; flex-direction:column; gap:6px; }
+.ai-history-empty { margin:12px 0; color:#aeb8d0; }
+.ai-history-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:4px;
+    border:1px solid #38415a; border-radius:7px; background:#24293a; overflow:hidden; }
+.ai-history-row.current { border-color:#5b7cc4; }
+.ai-history-open { display:flex; flex-direction:column; align-items:flex-start; gap:3px; min-width:0;
+    padding:8px 10px; color:#dce5f7; background:transparent; text-align:left; border:0; border-radius:0; }
+.ai-history-open:hover, .ai-history-open:focus-visible { background:#2c3348; filter:none; }
+.ai-history-open > strong { width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    color:#f3f6ff; }
+.ai-history-open > span { color:#9fabc6; font-size:12px; }
+.ai-history-delete { align-self:stretch; padding:0 10px; color:#9fabc6; background:transparent;
+    border:0; border-left:1px solid #38415a; border-radius:0; font-size:16px; }
+.ai-history-delete:hover, .ai-history-delete:focus-visible { color:#ff9b95; background:#2c3348; filter:none; }
+.ai-history-actions { display:flex; gap:8px; margin-top:12px; }
 .ai-controls { padding:8px 10px; border-bottom:1px solid #303548; }
 .ai-connection { display:flex; align-items:center; justify-content:space-between; gap:8px;
     margin-bottom:7px; }
@@ -929,6 +952,15 @@ svg text { user-select:none; -webkit-user-select:none; -moz-user-select:none; }
 .props-wiki-link { display:inline-block; margin:10px 0 14px; color:#58a6ff;
     text-decoration:underline; }
 .props-wiki-link:hover { color:#79b8ff; }
+.props-wiki-source { margin:10px 0 14px; color:#9fabc6; font-size:14px; }
+.props-wiki-source a { color:#58a6ff; }
+.props-wiki h3 { margin:18px 0 8px; color:#dce3f5; font-size:17px; }
+.props-wiki h4 { margin:14px 0 6px; color:#dce3f5; font-size:15px; }
+.props-wiki p, .props-wiki li { color:#c5cce0; font-size:16px; line-height:1.55; overflow-wrap:anywhere; }
+.props-wiki p { margin:0 0 10px; }
+.props-wiki ul, .props-wiki ol { margin:0 0 10px; padding-left:24px; }
+.props-wiki pre { margin:0 0 12px; padding:10px; overflow:auto; color:#d7dcea; background:#171a25;
+    border:1px solid #394058; border-radius:5px; font-size:13px; white-space:pre-wrap; }
 .props-doc-section { margin:10px 0 22px; }
 .props-doc-section h3 { margin:0 0 10px; color:#dce3f5; font-size:16px; }
 .props-doc-text { color:#c5cce0; font-size:16px; line-height:1.55; white-space:pre-wrap;

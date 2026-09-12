@@ -36,15 +36,29 @@ import {
   type ProviderId,
 } from './providers';
 import { capturePlots, readPlotData, type CaptureDeps } from './capture';
-import { runFlowgraph, type HarnessDeps, type RunAuthorization } from './harness';
-import { canvasContext, type AiToolDeps } from './tools';
+import { runFlowgraph, stopRunningFlowgraph, type HarnessDeps, type RunAuthorization } from './harness';
+import { canvasContext, type AiReadDeps, type AiToolDeps } from './tools';
+import { seedReferences } from './knowledge';
+import {
+  currentSessionId,
+  emptyUsage,
+  newSessionId,
+  relativeTime,
+  resumeTranscript,
+  sessionStore,
+  sessionTitle,
+  setCurrentSessionId,
+  transcriptEvents,
+  type GrahamSession,
+  type TurnRecord,
+} from './sessions';
 
 export interface AiPanelDeps {
   openDialog(title: string, build: (body: HTMLElement) => void, wide?: boolean): HTMLElement;
   log(message: string): void;
   systemPrompt: string;
   entries(): CatalogEntry[];
-  toolDeps: Omit<AiToolDeps, 'runFlowgraph' | 'capturePlots' | 'readPlotData'>;
+  toolDeps: AiReadDeps;
   harness: Omit<HarnessDeps, 'requestAuthorization'>;
   /** Reading the running window: its canvas, and where its widgets are on it. */
   capture: CaptureDeps;
@@ -65,6 +79,8 @@ export interface AiPanel {
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 const ONBOARDING_STORAGE = 'gnuradio-world.graham-onboarded';
+/** 'off' when the user asked for conversations not to be kept on this device. */
+const HISTORY_STORAGE = 'gnuradio-world.graham-history';
 
 function node<K extends keyof HTMLElementTagNameMap>(tag: K, className = '', text = ''):
     HTMLElementTagNameMap[K] {
@@ -133,12 +149,16 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
   const newChat = node('button', 'ai-icon', '＋');
   newChat.type = 'button'; newChat.title = 'New chat';
   newChat.setAttribute('aria-label', 'New chat');
+  const history = node('button', 'ai-icon', '🕘');
+  history.type = 'button'; history.title = 'Chat history';
+  history.setAttribute('aria-label', 'Chat history');
+  history.setAttribute('aria-pressed', 'false');
   const settings = node('button', 'ai-icon', '⚙');
   settings.type = 'button'; settings.title = 'API key and model';
   const close = node('button', 'ai-icon', '×');
   close.type = 'button'; close.title = 'Close Graham';
   close.setAttribute('aria-label', 'Close Graham');
-  header.append(title, balance, cost, newChat, settings, close);
+  header.append(title, balance, cost, newChat, history, settings, close);
 
   const onboarding = node('section', 'ai-onboarding');
   onboarding.setAttribute('aria-labelledby', 'aiOnboardingTitle');
@@ -179,6 +199,25 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
   );
   onboarding.append(onboardingTitle, onboardingIntro, onboardingChoices);
 
+  // The History view takes the dock body over the way onboarding does: a list
+  // of every conversation kept in this browser, newest first, each openable.
+  const historyView = node('section', 'ai-history');
+  historyView.hidden = true;
+  historyView.setAttribute('aria-label', 'Chat history');
+  const historyHead = node('div', 'ai-history-head');
+  const historyBack = node('button', '', '← Back') as HTMLButtonElement;
+  historyBack.type = 'button';
+  const historyClear = node('button', '', 'Clear all') as HTMLButtonElement;
+  historyClear.type = 'button';
+  historyHead.append(historyBack, node('strong', '', 'Chat history'), historyClear);
+  const historyKeep = node('label', 'ai-history-keep');
+  const historyKeepBox = node('input') as HTMLInputElement;
+  historyKeepBox.type = 'checkbox';
+  historyKeep.append(historyKeepBox,
+    node('span', '', 'Keep conversations on this device, so a reload continues the last one'));
+  const historyList = node('div', 'ai-history-list');
+  historyView.append(historyHead, historyKeep, historyList);
+
   const controls = node('div', 'ai-controls');
   const connection = node('div', 'ai-connection');
   const boundary = node('span', 'ai-boundary', '');
@@ -209,7 +248,7 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
   stop.type = 'button'; stop.hidden = true;
   buttons.append(stop, send);
   form.append(prompt, buttons);
-  dock.append(header, onboarding, controls, transcript, form);
+  dock.append(header, onboarding, historyView, controls, transcript, form);
   const toggle = node('button', 'ai-toggle') as HTMLButtonElement;
   toggle.type = 'button';
   toggle.setAttribute('aria-controls', dock.id);
@@ -264,6 +303,14 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
     requests = turns = 0;
   };
   let agent: FlowgraphAgent | null = null;
+  // The conversation on screen, as stored between visits. Null until the first
+  // message of a new one is sent; the record is written after every completed
+  // round from then on, and a reload opens on it.
+  let session: GrahamSession | null = null;
+  const keepHistory = () => localGet(HISTORY_STORAGE) !== 'off';
+  // Writes are serialized so a later round cannot land before an earlier one.
+  let sessionWrites: Promise<void> = Promise.resolve();
+  let sessionWriteFailed = false;
   let controller: AbortController | null = null;
   let activeAssistant: HTMLElement | null = null;
   let activeAssistantText: HTMLElement | null = null;
@@ -365,6 +412,7 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
     disconnect.textContent = provider().accountAuth ? 'Sign out' : 'Disconnect';
     disconnect.hidden = provider().accountAuth ? !creditsAccount : provider().keyless || !key;
     newChat.disabled = onboardingPending || !!controller || !ready();
+    history.disabled = onboardingPending || !!controller;
   };
 
   const showOnboarding = (show: boolean) => {
@@ -396,6 +444,19 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
     return details;
   };
   let currentTool: HTMLElement | null = null;
+  const imageNode = (image: { dataUrl: string; alt: string }) => {
+    const shot = node('img', 'ai-tool-image') as HTMLImageElement;
+    shot.src = image.dataUrl;
+    shot.alt = image.alt;
+    shot.title = `${image.alt} — click to open full size`;
+    shot.onclick = () => window.open(image.dataUrl, '_blank', 'noopener');
+    return shot;
+  };
+  const toolResult = (row: HTMLElement, result: unknown, error: boolean) => {
+    const output = node('pre', `ai-tool-result${error ? ' error' : ''}`);
+    output.textContent = JSON.stringify(result, null, 2);
+    row.appendChild(output);
+  };
 
   const ensureAssistant = (): HTMLElement => {
     if (activeAssistant) return activeAssistant;
@@ -422,23 +483,15 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
     toolStarted: (name, args) => { currentTool = toolRow(name, args); },
     toolFinished: (_name, result, error, images) => {
       if (!currentTool) return;
-      const output = node('pre', `ai-tool-result${error ? ' error' : ''}`);
-      output.textContent = JSON.stringify(result, null, 2);
-      currentTool.appendChild(output);
+      toolResult(currentTool, result, !!error);
       // Show what was sent, not a description of it. A screenshot is the one
       // tool result the user cannot check by reading it, and trusting a
       // conclusion drawn from a picture means seeing the same picture.
-      for (const image of images || []) {
-        const shot = node('img', 'ai-tool-image') as HTMLImageElement;
-        shot.src = image.dataUrl;
-        shot.alt = image.alt;
-        shot.title = `${image.alt} — click to open full size`;
-        shot.onclick = () => window.open(image.dataUrl, '_blank', 'noopener');
-        currentTool.appendChild(shot);
-      }
+      for (const image of images || []) currentTool.appendChild(imageNode(image));
       currentTool = null;
       scrollDown();
     },
+    roundFinished: () => persistSession(),
     usage: (used, total) => {
       spend = total;
       const prompt = Number(used.prompt_tokens || 0);
@@ -492,6 +545,10 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
       ...deps.harness,
       requestAuthorization: askAuthorization,
     }, seconds, signal),
+    stopFlowgraph: () => stopRunningFlowgraph({
+      ...deps.harness,
+      requestAuthorization: askAuthorization,
+    }),
     capturePlots: (options, signal) => capturePlots(deps.capture, options, signal),
     readPlotData: (options, signal) => readPlotData(deps.capture, options, signal),
   };
@@ -501,16 +558,48 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
     !!models.find(model => model.id === currentModel())?.vision;
 
   const rebuildAgent = () => {
+    const vision = modelSeesImages();
+    // A conversation on screen continues in the rebuilt agent, on whichever
+    // model is now selected: every provider speaks the same wire format, and
+    // the one thing a model may not accept -- a picture -- is stripped here.
+    const resumed = session ? resumeTranscript(session.messages, vision).messages : undefined;
     agent = ready() && currentModel() ? new FlowgraphAgent({
       provider: providerId,
       key: key || undefined,
       model: currentModel(),
       systemPrompt: `${deps.systemPrompt.trim()}\n\nRunnable block index:\n${runnableIndex(deps.entries())}`,
       deps: fullToolDeps,
-      vision: modelSeesImages(),
+      vision,
       hooks,
+      messages: resumed,
+      imagesThisConversation: session?.imagesThisConversation,
     }) : null;
     updateSend();
+  };
+
+  /**
+   * Write the conversation as it stands. After every completed round rather
+   * than every turn, so a reload mid-turn keeps the rounds that finished; the
+   * transcript is taken from the agent, which is the one copy the model saw.
+   */
+  const persistSession = () => {
+    if (!session || !agent || !keepHistory()) return;
+    session.messages = agent.transcript().slice(1);
+    session.imagesThisConversation = agent.imagesUsed();
+    session.usage = { ...usageTotals, spend, requests, turns };
+    session.provider = providerId;
+    session.model = currentModel();
+    session.updated = Date.now();
+    const record = session;
+    sessionWrites = sessionWrites
+      .then(() => sessionStore.put(record))
+      .then(() => { sessionWriteFailed = false; }, error => {
+        // Said once per conversation, not once per round.
+        if (sessionWriteFailed) return;
+        sessionWriteFailed = true;
+        bubble('status', `This conversation is not being kept for the next visit: ${
+          error instanceof Error ? error.message : String(error)}`);
+      });
   };
 
   const resetConversation = (announcement: string) => {
@@ -519,9 +608,83 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
     clearUsage();
     showSpend();
     activeAssistant = activeAssistantText = currentTool = null;
+    session = null;
+    setCurrentSessionId(null);
     rebuildAgent();
     bubble('status', announcement);
     prompt.focus();
+  };
+
+  /** Draw a stored conversation into the empty transcript, as the live hooks would have. */
+  const renderSession = (stored: GrahamSession) => {
+    let lastTool: HTMLElement | null = null;
+    for (const event of transcriptEvents(stored)) {
+      switch (event.kind) {
+        case 'user':
+          activeAssistant = activeAssistantText = null;
+          bubble('user', event.text);
+          break;
+        case 'assistant': {
+          const created = bubble('assistant', event.text);
+          activeAssistant = created.item;
+          activeAssistantText = created.body;
+          break;
+        }
+        case 'tool':
+          lastTool = toolRow(event.name, event.args);
+          if (event.result !== undefined) toolResult(lastTool, event.result, event.error);
+          break;
+        case 'image':
+          (lastTool || transcript).appendChild(imageNode(event));
+          break;
+        case 'diff':
+          attachDiff(event.before, event.after);
+          break;
+      }
+    }
+    activeAssistant = activeAssistantText = currentTool = null;
+  };
+
+  /** Show a stored conversation in place of the current one. */
+  const showSession = (stored: GrahamSession, announcement: string) => {
+    transcript.textContent = '';
+    activeAssistant = activeAssistantText = currentTool = null;
+    session = stored;
+    setCurrentSessionId(stored.id);
+    spend = stored.usage.spend;
+    usageTotals.prompt = stored.usage.prompt;
+    usageTotals.completion = stored.usage.completion;
+    usageTotals.cached = stored.usage.cached;
+    usageTotals.reasoning = stored.usage.reasoning;
+    usageTotals.total = stored.usage.total;
+    requests = stored.usage.requests;
+    turns = stored.usage.turns;
+    showSpend();
+    renderSession(stored);
+    bubble('status', announcement);
+    rebuildAgent();
+  };
+
+  /**
+   * On load: the conversation the dock was showing when the page was left. A
+   * turn cut off by the reload is trimmed back to its last completed round,
+   * and the message that opened it goes back into the composer.
+   */
+  const restoreSession = async () => {
+    const id = currentSessionId();
+    if (!id || !keepHistory()) return;
+    let stored: GrahamSession | null = null;
+    try { stored = await sessionStore.get(id); }
+    catch (error) { deps.log(`could not read the last Graham conversation: ${error}`); }
+    if (!stored) { setCurrentSessionId(null); return; }
+    if (session || controller) return;   // the user got there first
+    const { messages, interrupted } = resumeTranscript(stored.messages, true);
+    stored.messages = messages;
+    showSession(stored, `Resumed this conversation from ${relativeTime(stored.updated)}.`);
+    if (interrupted) {
+      prompt.value = interrupted;
+      bubble('status', 'The last message was interrupted by the reload; it is back in the box below — send it again.');
+    }
   };
 
   const populateModels = () => {
@@ -969,17 +1132,41 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
     bubble('user', text);
     turns++;
     prompt.value = '';
-    // What the user typed is what the transcript shows; what the model receives
-    // is that plus the canvas it would otherwise have spent its first round or
-    // two asking for. Seeded per message rather than in the system prompt: the
-    // canvas changes and the prefix must not.
-    const seeded = `${canvasContext(deps.toolDeps)}\n\n[message]\n${text}`;
+    if (!session) {
+      const now = Date.now();
+      session = {
+        id: newSessionId(), title: sessionTitle(text), created: now, updated: now,
+        provider: providerId, model: currentModel(), messages: [], turns: [],
+        usage: emptyUsage(), imagesThisConversation: 0,
+      };
+      if (keepHistory()) setCurrentSessionId(session.id);
+    }
+    // Where this turn's user message will sit in the stored transcript, which
+    // is the agent's minus its system prompt.
+    const turn: TurnRecord = { messageIndex: agent!.transcript().length - 1 };
+    session.turns.push(turn);
     const before = deps.snapshot();
     controller = new AbortController();
     stop.hidden = false;
     updateSend();
+    // What the user typed is what the transcript shows; what the model receives
+    // is that plus the canvas it would otherwise have spent its first round or
+    // two asking for, and the few documentation excerpts that plainly match the
+    // message. Seeded per message rather than in the system prompt: the canvas
+    // changes and the prefix must not. Neither seed may fail the turn: the
+    // reference one is dropped on any error, including the index not loading.
+    let references = '';
     try {
-      await agent!.turn(seeded, controller.signal);
+      const index = await deps.toolDeps.knowledge?.();
+      if (index) references = seedReferences(index, text);
+    } catch { /* the model can still call search_docs */ }
+    const seeded = `${canvasContext(deps.toolDeps)}\n\n${references ? `${references}\n\n` : ''}[message]\n${text}`;
+    try {
+      const running = agent!.turn(seeded, controller.signal);
+      // The user message is on the transcript before the first request goes
+      // out, so a reload during that request still hands the prompt back.
+      persistSession();
+      await running;
     } catch (error) {
       const aborted = error instanceof DOMException && error.name === 'AbortError';
       if (aborted) bubble('status', 'Stopped.');
@@ -1006,7 +1193,10 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
       if (!same(before, after)) {
         deps.commitHistory();
         attachDiff(before, after);
+        turn.before = clone(before);
+        turn.after = clone(after);
       }
+      persistSession();
       finishBusy();
       // The usage event closes the upstream stream just before waitUntil
       // settles the debit. Refresh shortly afterward so the persistent badge
@@ -1018,6 +1208,130 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
   stop.onclick = () => controller?.abort();
   newChat.onclick = () => {
     if (!controller && ready()) resetConversation('New conversation started.');
+  };
+
+  // ---- the History view ------------------------------------------------------
+  const showHistory = (show: boolean) => {
+    historyView.hidden = !show;
+    controls.hidden = transcript.hidden = form.hidden = show;
+    history.setAttribute('aria-pressed', String(show));
+    if (show) void renderHistory();
+    else prompt.focus();
+  };
+  const renderHistory = async () => {
+    historyKeepBox.checked = keepHistory();
+    historyList.textContent = '';
+    let summaries: Awaited<ReturnType<typeof sessionStore.list>> = [];
+    try { summaries = await sessionStore.list(); }
+    catch (error) {
+      historyList.appendChild(node('p', 'ai-history-empty',
+        `Conversations cannot be read in this browser: ${error instanceof Error ? error.message : String(error)}`));
+      return;
+    }
+    historyClear.disabled = !summaries.length;
+    if (!summaries.length) {
+      historyList.appendChild(node('p', 'ai-history-empty', 'No conversations kept yet.'));
+      return;
+    }
+    for (const summary of summaries) {
+      const row = node('div', `ai-history-row${summary.id === session?.id ? ' current' : ''}`);
+      const open = node('button', 'ai-history-open') as HTMLButtonElement;
+      open.type = 'button';
+      open.append(node('strong', '', summary.title),
+        node('span', '', `${relativeTime(summary.updated)} · ${summary.model} · ` +
+          `${plural(summary.messageCount, 'message')}` +
+          (summary.id === session?.id ? ' · open now' : '')));
+      open.onclick = () => void openSession(summary.id);
+      const remove = node('button', 'ai-history-delete', '×') as HTMLButtonElement;
+      remove.type = 'button';
+      remove.title = 'Delete this conversation';
+      remove.setAttribute('aria-label', `Delete "${summary.title}"`);
+      remove.onclick = async () => {
+        remove.disabled = true;
+        try { await sessionStore.delete(summary.id); }
+        catch (error) { bubble('status', error instanceof Error ? error.message : String(error)); }
+        if (summary.id === session?.id) {
+          session = null;
+          setCurrentSessionId(null);
+          transcript.textContent = '';
+          clearUsage();
+          showSpend();
+          rebuildAgent();
+          bubble('status', 'That conversation was deleted.');
+        }
+        void renderHistory();
+      };
+      row.append(open, remove);
+      historyList.appendChild(row);
+    }
+  };
+  /**
+   * Open a stored conversation. Its transcript replaces the one on screen; the
+   * canvas is the user's and stays as it is unless they ask -- a conversation
+   * that edited the flowgraph offers the canvas it ended on, because the
+   * transcript refers to blocks by name and those names may be gone.
+   */
+  const openSession = async (id: string) => {
+    if (controller) return;
+    if (id === session?.id) { showHistory(false); return; }
+    let stored: GrahamSession | null = null;
+    try { stored = await sessionStore.get(id); }
+    catch (error) { bubble('status', error instanceof Error ? error.message : String(error)); }
+    if (!stored) { void renderHistory(); return; }
+    persistSession();
+    stored.messages = resumeTranscript(stored.messages, true).messages;
+    showSession(stored, `Opened this conversation from ${relativeTime(stored.updated)}.`);
+    showHistory(false);
+    const ended = [...stored.turns].reverse().find(turn => turn.after)?.after;
+    if (!ended || same(ended, deps.snapshot())) return;
+    deps.openDialog('Restore that flowgraph?', body => {
+      body.appendChild(node('p', '',
+        'This conversation edited the flowgraph. The canvas now shows something else, ' +
+        'so Graham\'s earlier replies may name blocks that are no longer there.'));
+      const restore = node('button', 'run', 'Restore the flowgraph it ended on') as HTMLButtonElement;
+      restore.type = 'button';
+      restore.onclick = () => {
+        deps.restoreSnapshot(clone(ended), true);
+        bubble('status', 'Restored the flowgraph this conversation ended on. Ctrl+Z brings the previous canvas back.');
+        document.querySelector('.modal')?.remove();
+      };
+      const keep = node('button', '', 'Keep my canvas') as HTMLButtonElement;
+      keep.type = 'button';
+      keep.onclick = () => document.querySelector('.modal')?.remove();
+      const actions = node('div', 'ai-history-actions');
+      actions.append(restore, keep);
+      body.appendChild(actions);
+    });
+  };
+  history.onclick = () => showHistory(historyView.hidden);
+  historyBack.onclick = () => showHistory(false);
+  historyKeepBox.onchange = () => {
+    localSet(HISTORY_STORAGE, historyKeepBox.checked ? 'on' : 'off');
+    if (historyKeepBox.checked) { if (session) { setCurrentSessionId(session.id); persistSession(); } }
+    else setCurrentSessionId(null);
+  };
+  historyClear.onclick = () => {
+    deps.openDialog('Clear chat history', body => {
+      body.appendChild(node('p', '',
+        'This deletes every conversation kept in this browser, including the one open now. It cannot be undone.'));
+      const clear = node('button', 'run', 'Delete all conversations') as HTMLButtonElement;
+      clear.type = 'button';
+      clear.onclick = async () => {
+        clear.disabled = true;
+        try { await sessionStore.clear(); }
+        catch (error) { bubble('status', error instanceof Error ? error.message : String(error)); }
+        document.querySelector('.modal')?.remove();
+        session = null;
+        setCurrentSessionId(null);
+        transcript.textContent = '';
+        clearUsage();
+        showSpend();
+        rebuildAgent();
+        bubble('status', 'Chat history cleared.');
+        void renderHistory();
+      };
+      body.appendChild(clear);
+    });
   };
   settings.onclick = showConnect;
   disconnect.onclick = async () => {
@@ -1052,8 +1366,13 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
   };
   modelSelect.onchange = () => {
     storeModel(providerId, currentModel());
-    if (currentModel()) resetConversation(`New conversation using ${currentModel()}.`);
-    else rebuildAgent();
+    // The conversation continues on the new model -- the transcript is plain
+    // wire messages every model of a provider reads, and rebuildAgent strips
+    // the one part some cannot take. Switching used to start a new chat, which
+    // threw away the very context someone changing model mid-problem wanted.
+    rebuildAgent();
+    if (currentModel() && session)
+      bubble('status', `Continuing this conversation with ${currentModel()}.`);
   };
   prompt.addEventListener('keydown', event => {
     if (event.key === 'Enter' && !event.shiftKey) {
@@ -1091,6 +1410,7 @@ export function createAiPanel(deps: AiPanelDeps): AiPanel {
 
   setPanelOpen(false);
   showOnboarding(onboardingPending);
+  void restoreSession();
   providerSelect.value = providerId;
   boundary.textContent = boundaryText();
   showSpend();

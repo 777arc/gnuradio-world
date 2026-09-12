@@ -324,6 +324,60 @@ undeletable, failed validation on its duplicate id, and left the flowgraph
 permanently unrunnable through the tools. A second GUI Layout is dropped the
 same way, with a log line, since that one legitimately lives under `blocks:`.
 
+## Conversations between visits
+
+A refresh keeps the conversation, and the header's 🕘 opens a History of every
+one kept in this browser. `editor/src/ai/sessions.ts` holds the record shape,
+the store and the pure logic; `panel.ts` decides when to write and how to draw
+a stored conversation back.
+
+**What is stored is the wire transcript, not a log of what was rendered.** A
+`GrahamSession` carries the agent's messages minus the system prompt (which is
+rebuilt on resume, because the block index in it changes between builds), one
+`TurnRecord` per message sent with the `before`/`after` snapshots of a turn
+that changed the canvas, the usage totals behind the header, and the screenshot
+count. The transcript DOM is rebuilt from that alone — `transcriptEvents()`
+turns messages into user bubbles (the `[message]` tail of each seeded message,
+never the seed), assistant bubbles, tool rows paired with their results by
+`tool_call_id`, the surviving screenshots, and a diff per changed turn with a
+working Revert. One source of truth, and a resumed conversation continues from
+precisely what the model saw. Nothing new leaves the browser: this is what
+already went to the provider, made durable, in the editor's shared IndexedDB
+(`local-db.ts`, store `graham-sessions`) under
+`localStorage['gnuradio-world.graham-session']` as the id a reload follows.
+
+**Written after every completed round, and once at the turn's start.** The
+agent's `roundFinished` hook fires when a round's tool results are in, never
+between a call and its result — so what is stored can always be resumed from
+— and the panel also writes as soon as the user message is on the transcript,
+so a reload during the very first request still hands the prompt back.
+`resumeTranscript()` trims a stored transcript to its last completed turn (the
+API refuses an assistant message whose tool calls have no results, and an
+unanswered user message would be answered silently on the next Send), returns
+what the user had asked, and the panel puts that back in the composer with a
+status line saying so. It also turns every image part into the line
+`pruneImages` leaves when the model now selected cannot see, since a request
+carrying a picture would be refused as a whole.
+
+The canvas is not part of a session: it comes back through the workspace
+autosave ([docs/editor-ui.md](editor-ui.md)) whether Graham was used or not.
+The one place the two meet is opening an *older* conversation from History: if
+it edited the canvas and the canvas now shows something else, a dialog offers
+the flowgraph it ended on (an undoable `restoreSnapshot`), because its replies
+name blocks that may no longer exist — and otherwise leaves the canvas alone.
+
+Changing model no longer starts a new conversation: `rebuildAgent()` builds
+the agent from the session's messages on whatever model is selected, since
+every provider here speaks the same wire format. Changing provider still does,
+because its usage totals and consent are its own. New chat, deleting the open
+conversation, and Clear all forget the current id; History's checkbox
+(`localStorage['gnuradio-world.graham-history']` = `off`) stops writing
+without deleting anything. Fifty conversations are kept, oldest evicted; one
+past 4 MB stops being written and the panel says so once.
+
+`editor/test/ai-sessions.test.mjs` covers the trimming, the rendering and the
+bounds; `ai-agent.test.mjs` covers resuming from stored messages and the hook.
+
 ## Example flowgraph catalog
 
 `list_examples` is the discovery view over the site's example `.grc` files. It
@@ -336,6 +390,91 @@ returns the same summary alongside the complete `.grc` when block parameters or
 wiring are needed. The browser caches the fetched texts inside the Graham
 dependency bundle, so listing followed by reading an example does not download
 that file twice.
+
+## Knowledge retrieval
+
+Graham can look things up. `search_docs` and `read_doc` search a corpus built
+at build time, `search_blocks` ranks by the same corpus behind its id/label
+match, and every user message is seeded with the few excerpts that plainly
+match it. The corpus is `editor/public/knowledge.json` — generated, never
+committed, by `editor/gen/gen_knowledge.mjs` (`npm run knowledge`, part of
+`npm run blocks` and of every build) — and the retrieval is
+`editor/src/ai/knowledge.ts`.
+
+**Four sources, all already in the tree or its build outputs:**
+
+| source | what | ref |
+|--------|------|-----|
+| `block` | every runnable block's GRC `documentation` and doxygen `api_documentation` out of `blocks.json` — the text `describe_block` returns, findable by what a block *does* | the block id |
+| `wiki` | the GNU Radio wiki's page per block, from the snapshot under `blocks/wiki/`, split at its headings | `<block id>#<section>` |
+| `docs` | the user-facing docs in `docs/` — file blocks, JS Blocks, schedulers, audio, the SDRs, recordings — split at headings | `<file>.md#<anchor>` |
+| `example` | one chunk per example flowgraph: title, description, author, the blocks it uses | the example path |
+
+Chunks are at most 2,400 characters, split at paragraph boundaries; a longer
+section becomes numbered parts that `read_doc` joins back. Every chunk carries
+a `ref`, a `title` and, where it has one, a `url` so an answer can cite it.
+
+**The wiki snapshot is committed, and comes from a dump.**
+`scripts/fetch-wiki-block-docs.mjs --dump=<pages.xml>` reads a MediaWiki XML
+export — `php maintenance/dumpBackup.php --full` (or `--current`) on the wiki
+host, which the project's wiki admin can produce in a minute — takes the last
+revision of each page, follows a `#REDIRECT` once, maps each runnable block to
+its page through the `wiki_url` `gen_blocklib.py` already records (falling back
+to the block's label, which is how the wiki titles *Multiply Const*), converts
+the wikitext (`scripts/wikitext.mjs`) and writes `blocks/wiki/<block id>.md`
+with a header naming the page, its URL and its licence (CC BY-SA 4.0 —
+`read_doc` repeats that on every wiki result). The September 2026 dump covered
+345 of the 364 runnable blocks that name a page; the 19 without one are
+deprecated blocks, the G.7xx vocoders and PSK Mod/Demod, which have no page.
+The same script can also scrape, one page at a time through a real Chrome
+(`wiki.gnuradio.org` sits behind a Cloudflare managed challenge that refuses
+plain HTTP clients and headless browsers, so the first run needs `--headed` to
+pass it, and the check comes back every hundred or two pages) — kept for a
+page or two, not for the whole set. Committed rather than generated in CI
+because the wiki changes rarely and a pinned snapshot keeps the index
+deterministic; the generator treats the directory as optional and says when it
+is absent.
+
+**Lexical, deliberately.** The index is BM25 over a tokenizer that splits ids
+at underscores and folds plurals, built in the browser from the one file on
+Graham's first Send (about 270 KB gzipped) and never sent anywhere. This is a
+static site whose two free providers need nothing of the user's, and retrieval
+had to work under the same terms: no embeddings endpoint (the shared proxy
+would need a new path and a new metering window, and the free OpenRouter tier
+has none), no model to download. The corpus is technical prose whose vocabulary
+the model itself writes queries in, which is where lexical retrieval is at its
+best; `ai-knowledge.test.mjs` probes the generated index with task-vocabulary
+queries ("resampler with a fractional rate" → `rational_resampler_xxx`) so a
+regression in the chunker or the tokenizer shows up there. A dense index can
+join it later without changing what the tools return.
+
+The same snapshot reaches a human too. The generator publishes each page a
+second time as `/wiki/<block id>.md` beside a manifest, `/wiki/index.json`,
+of the block ids that have one; `editor/src/wiki-docs.ts` reads the manifest
+at startup and the Properties dialog shows a **Wiki Docs** tab for exactly
+those blocks, fetching the page as the dialog opens and rendering it through
+`textContent` only — the wiki is community-edited. A block without a page has
+no tab. For Graham, `describe_block` takes `wiki: true` and returns the page
+as `wiki_documentation` (the same text `read_doc` returns for the block's wiki
+ref, capped the same way), saying so when there is none.
+
+**Two paths read it.** The tools are the model's own deliberate lookups:
+`search_docs` returns bounded excerpts (600 characters each, at most ten) with
+refs, `read_doc` one ref in full (capped at 12 KB with a note), and
+`search_blocks` fills the list behind its id/label match with the blocks whose
+documentation matched, so "carrier recovery" finds a block whose name says
+neither. The seed is automatic: `seedReferences()` runs on the user's text in
+the submit handler, beside `canvasContext()`, and adds a `[reference]` section
+of at most three excerpts and about 2 KB — or nothing, which is the common
+case. Two thresholds keep it quiet: a score floor, since "run it again" matches
+something somewhere, and a share of the best hit. Examples are never seeded
+(a chunk listing every block an example uses matches any message naming a
+common block; `list_examples` answers that question by name). Like the canvas,
+it goes into the *message*, never the system prompt, so the cached prefix
+never changes; and like the canvas seed it cannot fail the turn — any error,
+including the index not loading, drops it and leaves `search_docs` to the
+model. The `docs-question` and `block-by-what-it-does` cases in the prompt
+suite are the regressions.
 
 ## Hosted signal recordings
 
@@ -404,7 +543,24 @@ authoring assistance does not widen the code-execution boundary.
 ## Visible runs and evidence
 
 `run_flowgraph` calls `main.ts`'s `run()` wrapper and never constructs a second
-iframe; the session lifecycle itself lives in `editor/src/run-session.ts`. It
+iframe; the session lifecycle itself lives in `editor/src/run-session.ts`.
+
+**A run restarts a running graph by itself, and `stop_flowgraph` stops one
+without running again.** The editor refuses to start a flowgraph beside a
+running one (`cannot run: stop the current flowgraph before starting it
+again`), and the loop Graham exists for is edit → run → look → edit → run — so
+the second run of every debugging session used to be refused, with no tool that
+could clear it. Now `runFlowgraph` in `harness.ts` asks `HarnessDeps.running()`
+first and awaits `HarnessDeps.stop()` before starting, reporting `restarted` so
+the model knows the report is of the fresh run; `main.ts` implements `stop()`
+as the toolbar's own `stop()` followed by a wait for the session to be genuinely
+idle, because a graph writing a recording is brought down gracefully and
+`run()` refuses until that has finished. Making the model call `stop_flowgraph`
+between every pair would cost a round each time and be forgotten; the tool
+exists for the other cases — the work is done, the user asked, a graph is
+making noise, a recording should be finished — and is queued behind any run in
+progress so a stop issued in the same batch as a run lands after it. The tool
+descriptions and the system prompt both say a run restarts by itself. It
 calls it as `run({ unattended: true })`, and that word carries real weight: the
 run path has gates that exist to ask a human, and **a modal waiting for a click
 that will never come does not stop a run — it hangs the turn**, silently and

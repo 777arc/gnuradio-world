@@ -32,7 +32,7 @@ full* before starting that kind of work:
 | [docs/rtl433-decoders.md](docs/rtl433-decoders.md) | porting an rtl_433 device decoder, hosting an rtl_433_tests capture as a GNU Radio World signal recording, or changing an `rtl433_*` block/example |
 | [docs/challenges.md](docs/challenges.md) | writing a challenge flowgraph under `example_flowgraphs/_gnuradio-world-challenges/`, or touching the Challenge block, its success criteria, the locked/unlocked progression, or the progress store |
 | [docs/grwire.md](docs/grwire.md) | touching GRWire — the Rust daemon in `grwire/` that bridges a remote SDR to a browser, its `grwire.v1` wire protocol, the decimation and backpressure design, GRWire Source, or `runner/src/grwire_worker.js` |
-| [docs/graham.md](docs/graham.md) | touching Graham — the two-upstream shared-key proxy in `workers/ai-proxy/`, the prepaid service in `workers/saas/`, any AI provider, structured graph tools, the agent loop, visible-run diagnostics, reading or capturing a running flowgraph's plots, consent/key storage, or hardware authorization rows |
+| [docs/graham.md](docs/graham.md) | touching Graham — the two-upstream shared-key proxy in `workers/ai-proxy/`, the prepaid service in `workers/saas/`, any AI provider, structured graph tools, the agent loop, visible-run diagnostics, reading or capturing a running flowgraph's plots, consent/key storage, hardware authorization rows, conversations kept between visits (`editor/src/ai/sessions.ts`), or the knowledge index behind `search_docs` (`editor/gen/gen_knowledge.mjs`, `blocks/wiki/`) |
 
 ## Project overview
 
@@ -145,11 +145,12 @@ node server.mjs 8090 "$PWD"
 | `qtgui/` | Qt6 build of the gr-qtgui sink chain |
 | `runner/` | the JSON-driven WASM flowgraph runner, generated C++ registry, support manifest, and shared side-module topology in `modules.json`; vendored headers under `third_party/` |
 | `editor/` | the TypeScript flowgraph editor; `main.ts` is the composition root and owns core document operations, while graph state, canvas rendering/gestures, Properties, palettes, workspace/recording tabs, and run sessions live in focused controllers beside it. Block schemas, validation, generated-library installation, and catalogs are separate modules too |
-| `editor/gen/` | build-time generators: `gen_blocklib.py` (the palette), `gen_versions.mjs`, which scrapes every dependency pin into the `virtual:versions` module behind Help ▸ Software Versions — see [docs/building.md](docs/building.md) — and `gen_example_pages.mjs`, which emits the static page per example flowgraph under `/examples/` plus `sitemap.xml` (`npm run examples`, run by `prebuild`) |
+| `editor/gen/` | build-time generators: `gen_blocklib.py` (the palette), `gen_knowledge.mjs` (Graham's search index over block docs, the `blocks/wiki/` snapshot, `docs/` and the examples, plus the per-block `/wiki/` pages behind the Properties dialog's Wiki Docs tab — see [docs/graham.md](docs/graham.md)), `gen_versions.mjs`, which scrapes every dependency pin into the `virtual:versions` module behind Help ▸ Software Versions — see [docs/building.md](docs/building.md) — and `gen_example_pages.mjs`, which emits the static page per example flowgraph under `/examples/` plus `sitemap.xml` (`npm run examples`, run by `prebuild`) |
 | `tools/` | `block_overrides.py`, the browser-only block-metadata overlay loader/merger shared by `gen_registry.py` and `gen_blocklib.py` |
 | `blocks/` | everything a human wrote about blocks, as opposed to `runner/`, which is the app plus everything generated. See "Where a block's source lives" |
 | `blocks/grc/` | `.block.yml` for runner-only blocks with no upstream GNU Radio equivalent (`wasm_packet_rate_sink`, `wasm_text_sink`); read by *both* generators alongside GNU Radio's own yaml |
 | `blocks/src/` | hand-written block implementations not owned by any one vendored module — `browser_file_source.cpp` and the like |
+| `blocks/wiki/` | the committed snapshot of the GNU Radio wiki's page per block, one `.md` per block id, written by `scripts/fetch-wiki-block-docs.mjs` (run by hand — the wiki's bot check needs a real browser once) and indexed for Graham's `search_docs`. CC BY-SA 4.0 |
 | `blocks/js/` | repo **JavaScript** blocks: one `.js` per `flags: [js]` block in `blocks/grc/`, fetched by id at run time rather than linked in — so *editing* one is a file copy. Adding one still relinks (its id is baked into the generated registrar). See [docs/js-blocks.md](docs/js-blocks.md) |
 | `blocks/overlays/<module>/` | one directory per module: `metadata.yml` (every browser-only addition to that module's blocks) plus, for an OOT module, its `shims/` and any C++ rebuilt from a Python-only block. This is why the submodules need no fork. `blocks/overlays/gnuradio/` is the in-tree equivalent, metadata only |
 | `runner/src/pyodide/` | the Embedded Python Block's worker and the Python shim a user's block runs against (`gnuradio.gr`'s base classes, `pmt`, the introspection and work driver). Copied to `runner/build/pyodide/` and served to both the runner and the editor |
@@ -198,7 +199,8 @@ the submodule's own yaml), `runner/gen_registry.py`, or the handwritten registry
 then regenerate.
 
 **`editor/public/blocks.json`, `runner/generated_blocks.json`,
-`editor/public/examples/` and `editor/public/sitemap.xml` are not committed.** They are build outputs, they are regenerated by CI before anything
+`editor/public/knowledge.json`, `editor/public/wiki/`, `editor/public/examples/`
+and `editor/public/sitemap.xml` are not committed.** They are build outputs, they are regenerated by CI before anything
 is built, and committing them put a regenerated 2 MB artifact in the diff of
 every block change. `npm run blocks` in `editor/` runs both generators in order,
 and `npm test` there runs it first, so the editor suite always reads a fresh

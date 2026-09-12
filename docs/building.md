@@ -164,9 +164,12 @@ runtime factories and the editor palette before rebuilding:
 ```bash
 python3 runner/gen_registry.py
 python3 editor/gen/gen_blocklib.py editor/public/blocks.json
+node editor/gen/gen_knowledge.mjs        # Graham's search index, from blocks.json and the tree
 ```
 
-Do not hand-edit generated registry or palette artifacts; change source block
+`npm run blocks` in `editor/` runs all three, and every editor build reruns
+the last (it is fast and depends on `blocks.json`, `blocks/wiki/`, `docs/` and
+`example_flowgraphs/`). Do not hand-edit generated registry or palette artifacts; change source block
 metadata (for a vendored module, its `blocks/overlays/<module>/metadata.yml`
 rather than the submodule's own yaml), `runner/gen_registry.py`, or the
 handwritten registry as appropriate, then regenerate.

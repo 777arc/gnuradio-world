@@ -4,6 +4,9 @@
 /sysroot
 /gr/
 /chrome-headless-shell
+# A full Chrome for Testing, installed beside the headless shell for scripts
+# that need a window: `npx @puppeteer/browsers install chrome@stable --path "$PWD"`.
+/chrome
 /node_modules/
 /workers/*/node_modules/
 /workers/*/.wrangler/
@@ -28,6 +31,13 @@ __pycache__/
 # committed copy was never what shipped -- CI regenerates both first either way.
 /editor/public/blocks.json
 /runner/generated_blocks.json
+# Graham's knowledge index, rebuilt from blocks.json, blocks/wiki/, docs/ and
+# example_flowgraphs/ by `npm run knowledge` (part of `npm run blocks` and of
+# every build). See editor/gen/gen_knowledge.mjs.
+/editor/public/knowledge.json
+/editor/public/wiki/
+# The wiki fetch script's browser profile, holding its Cloudflare clearance.
+/.cache/
 
 # The static page per example flowgraph, and the sitemap listing them, rebuilt
 # by `npm run examples` from example_flowgraphs/. Generated for the same reason

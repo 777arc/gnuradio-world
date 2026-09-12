@@ -32,7 +32,7 @@ const WEBGPU_CHROME_ARGS = [
   '--enable-unsafe-webgpu',
 ];
 
-function findChrome(root, { allowWindows = true } = {}) {
+export function findChrome(root, { allowWindows = true } = {}) {
   const base = join(root, 'chrome-headless-shell');
   const local = existsSync(base)
     ? readdirSync(base).map(version =>

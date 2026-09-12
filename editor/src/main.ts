@@ -169,6 +169,8 @@ import { createRecordingTabs } from './recording-tabs';
 import { createExamplePalette } from './example-palette';
 import { createRecordingPalette } from './recording-palette';
 import { createWorkspaceAutosave, startupSource, workspaceStore } from './autosave';
+import { loadKnowledge } from './ai/knowledge';
+import { loadWikiIndex } from './wiki-docs';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const el = (id: string) => document.getElementById(id)!;
@@ -1781,16 +1783,18 @@ function setLayoutTiles(tiles: TileMap, record = true) {
 // A new flowgraph is not empty in native GRC: it is loaded from the template in
 // `grc/core/default_flow_graph.grc`, which holds the Options block plus a
 // `samp_rate` variable of 32000 — which is why upstream flowgraphs refer to
-// `samp_rate` as if it were always there. Same two blocks, same value, same
-// positions here. It is an ordinary Variable once placed: renameable, editable,
-// and deletable like any other block.
+// `samp_rate` as if it were always there. Keep that value, but measure Options
+// before placing the variable beside it: our block face is wider than native's
+// template allows for. It is an ordinary Variable once placed: renameable,
+// editable, and deletable like any other block.
 const DEFAULT_SAMP_RATE = '32000';
-function makeSampRateInst(): Inst {
+function makeSampRateInst(options: Inst): Inst {
   const params: Record<string, any> = {};
   RUNNABLE['variable'].params.forEach(p => params[p.id] = p.def);
   params.value = DEFAULT_SAMP_RATE;
   return { uid: 'b' + (++state.counter), id: 'variable', name: 'samp_rate',
-    x: 200, y: 10, params, enabled: true, rotation: 0, bypassed: false };
+    x: ceilToGrid(options.x + geom(options).w + SNAP_GRID_SIZE * 3), y: options.y,
+    params, enabled: true, rotation: 0, bypassed: false };
 }
 
 // The file name Save writes back to: whatever file the canvas was loaded from
@@ -1827,9 +1831,10 @@ function clearFlowgraph(record = true) {
   exitTrainingMode();
   canvasIsDefaultExample = false;
   state.insts = []; state.conns = []; state.counter = 0; state.selected = null; state.selectedBlocks.clear();
-  state.insts.push(makeSampRateInst());   // the default flowgraph's one variable
+  const options = makeOptionsInst();
+  state.insts.push(options, makeSampRateInst(options));
   state.selectedConnection = null; cancelConnect();
-  ensureOptionsBlock(); ensureLayoutBlock(); render();
+  ensureLayoutBlock(); render();
   setExampleHash(null);   // the canvas is empty; any #example= in the URL is stale
   setCurrentFileName(null);
   if (record) recordHistory();
@@ -5167,6 +5172,7 @@ function aiToolDependencies(): AiReadDeps {
     replaceFlowgraph: grc => loadFlowgraph(parseGrc(grc), false),
     clearFlowgraph: () => clearFlowgraph(false),
     canvasOrigin: () => canvasIsDefaultExample ? 'default-example' : 'user',
+    knowledge: () => loadKnowledge(),
     listExamples: async () => {
       const response = await fetch('/example_flowgraphs');
       if (!response.ok) throw new Error(`example listing failed (${response.status})`);
@@ -5245,6 +5251,17 @@ function initializeAiPanel(): void {
     // Nobody is at the keyboard on Graham's behalf: a run gate that exists to
     // ask a human is answered rather than shown. See RunOptions.
     run: () => run({ unattended: true }),
+    running: () => runSessionState.active || runSessionState.finishing,
+    // stop() returns at once; the frame is unloaded later when a recording has
+    // to be finished first, and run() refuses until then -- so this waits for
+    // the session to be genuinely idle, bounded because a shutdown the runner
+    // never acknowledges is already timed out inside stopFlowgraph.
+    stop: async () => {
+      stop();
+      const deadline = Date.now() + 20_000;
+      while ((runSessionState.active || runSessionState.finishing) && Date.now() < deadline)
+        await new Promise(resolve => setTimeout(resolve, 50));
+    },
     frame: () => el('runFrame') as HTMLIFrameElement,
     blocks: () => state.insts,
     layout: () => runnerLayout,
@@ -5278,6 +5295,9 @@ initArrangeOverlay();
 
 const paletteReady = buildPalette();
 void paletteReady.then(initializeAiPanel);
+// Which blocks have a wiki page, for the Properties dialog's Wiki Docs tab. A
+// dialog opened before this lands simply has no tab; the manifest is tiny.
+void loadWikiIndex().catch(error => log(`wiki page index unavailable: ${error}`));
 ensureOptionsBlock();
 // A radio block left on "first available" draws the device it resolves to, so
 // the canvas has to redraw when one is plugged in or pulled out.

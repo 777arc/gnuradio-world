@@ -14,11 +14,11 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 // ---- the stores -------------------------------------------------------------
 
-// The JS block library's database, now opened from one place so a later store
-// (Graham's sessions) can join it by bumping the version here alone.
+// The JS block library's database, opened from one place so every store joins
+// it by bumping the one version -- which Graham's sessions did.
 assert.equal(DB_NAME, 'gnuradio-world');
-assert.equal(DB_VERSION, 1, 'nothing has joined the database yet, so its version is unchanged');
-assert.deepEqual(STORES, { jsBlocks: 'js-blocks' });
+assert.equal(DB_VERSION, 2);
+assert.deepEqual(STORES, { jsBlocks: 'js-blocks', grahamSessions: 'graham-sessions' });
 
 // The canvas is in localStorage, because the pagehide flush has to be
 // synchronous to survive the reload it exists for.
