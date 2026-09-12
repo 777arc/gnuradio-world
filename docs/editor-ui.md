@@ -148,6 +148,53 @@ carry it, and each has a reason it is where it is:
   `logLines()` marks the workspace `console-unread` while it is collapsed and the
   bar carries a dot until it is opened again.
 
+## What a fresh page opens on
+
+A reload brings back the canvas as it was, Graham or not. `editor/src/autosave.ts`
+keeps the flowgraph in `localStorage['gnuradio-world.workspace']` — as the same
+`.grc` text Save would download, plus the file name Save would use — and
+`main.ts` writes it from the three history functions (`recordHistory`,
+`resetHistory` and `restoreHistory`, so an undo is persisted too), debounced by
+300 ms and flushed synchronously on `pagehide`. The store is localStorage rather
+than the editor's IndexedDB for exactly that flush: the edit most worth keeping
+is the one made a moment before the refresh, still inside the debounce, and an
+IndexedDB write cannot even open its connection before the page is gone.
+
+The startup path (`openStartupCanvas()`, decided by `startupSource()`) opens,
+in order:
+
+1. **whatever the URL named** — `#example=`, `#fg=`, `#duplicate=`,
+   `?training=`. A link is shared and has to show the same thing to everyone
+   who follows it, so it always wins over the saved canvas;
+2. **the saved canvas**, when there is one and the page is not an embed;
+3. **`digital/welcome_example.grc`**, otherwise — a first visit still lands
+   on it, and it is marked `canvasIsDefaultExample` as before.
+
+Three rules keep those from contradicting each other:
+
+- **The untouched welcome example is never written**, nor is an embed's canvas
+  or a training lesson's: `persistWorkspace()` returns early for all three. So
+  a visitor who only ever looks at the welcome example keeps getting it.
+- **The first recorded edit clears `#example=` from the address bar.** The URL
+  used to keep naming an example after it had been edited, so a reload silently
+  replaced the edit with the pristine file — the opposite of what autosave is
+  for. Now an edited example is, in the address bar as on the canvas, no longer
+  the example, and a reload restores the edit. The link the palette copies is
+  unaffected, and an embed's address is left alone (its reload is the framing
+  site's).
+- **New and Close (`clearFlowgraph`) drop the saved canvas** rather than saving
+  the blank one, so a reload after New opens on the welcome example, not on
+  nothing.
+
+A saved `.grc` goes back through `loadFlowgraph()` like an opened file, so a
+flowgraph written by an older build is reconciled the same way; one that will
+not load is logged and left in place, and the next edit replaces it. The
+console says `restored "<title>" from <time>` so a surprising canvas is
+explainable. Scripts that drive the editor (`scripts/run_example.mjs`, the
+Graham evaluation driver) start a fresh browser profile, so nothing carries
+over between them; `--fresh` there uses the toolbar's own New, which clears the
+slot as well.
+
 ## Opening at a given zoom (`?zoom=`)
 
 `?zoom=75` opens the canvas at 75% instead of 100%, which is what a link or an

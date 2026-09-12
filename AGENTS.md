@@ -20,7 +20,7 @@ full* before starting that kind of work:
 | [docs/audio.md](docs/audio.md) | touching Audio Sink or Audio Source — the Web Audio worklet, the sound-card ring, microphone permission, or the browser's autoplay policy |
 | [docs/hackrf.md](docs/hackrf.md) | touching HackRF Source or Sink — the stock vendor-control protocol, signed 8-bit IQ streaming, half-duplex ownership, TX safety, or HackRF hardware testing |
 | [docs/signalhound.md](docs/signalhound.md) | touching Signal Hound BB60 Source — the reverse-engineered BB60C/D USB protocol, its tuning tables, the WebUSB worker, or the 70 MS/s host DDC |
-| [docs/editor-ui.md](docs/editor-ui.md) | working on block IDs, auto-arrange, the narrow-screen/touch layout, or the embedded layout another site frames (`?embed=1`) |
+| [docs/editor-ui.md](docs/editor-ui.md) | working on block IDs, auto-arrange, the narrow-screen/touch layout, what a fresh page opens on (the autosaved canvas, `#example=`, the welcome example), or the embedded layout another site frames (`?embed=1`) |
 | [docs/gui-layout.md](docs/gui-layout.md) | touching where QT GUI widgets go in the runner window — the GUI Layout block, `editor/src/gui-layout*.ts`, `runner/src/gui_layout.hpp`, or Arrange mode |
 | [docs/ci.md](docs/ci.md) | changing a workflow, the deploy, PR preview deployments, or the PR security gate (`security-analysis.yml`, `scripts/pr-security-scan.mjs`) |
 | [docs/schedulers.md](docs/schedulers.md) | swapping the flowgraph scheduler — the plugin table in `runner/src/schedulers.hpp`, the Options block's `scheduler` key, the single-threaded scheduler, or anything that counts scheduler threads |
@@ -387,6 +387,15 @@ conventions, and the `generated_blocks.json` support manifest are in
 The cross-cutting ones. Each entry that ends in a pointer is a trap whose full
 explanation lives in that doc — follow it before working in that area.
 
+- **A reload restores the last canvas, and the first edit clears `#example=`.**
+  The editor keeps the flowgraph in `localStorage['gnuradio-world.workspace']`
+  and opens on it when no link names anything — so a page opened at `/` in a
+  browser that has been used before is *not* on the welcome example, and a
+  test that assumes it is must start a fresh profile or press New. The address
+  bar stops naming an example on the first recorded edit, since a reload should
+  bring the edit back rather than the pristine file. Never written for an
+  untouched welcome example, an embed, or a lesson. See
+  [docs/editor-ui.md](docs/editor-ui.md).
 - **The editor drops parameters its schema does not declare, silently.** A
   hand-written `RUNNABLE` schema in `editor/src/main.ts` supersedes the generated
   one, so a `.grc` using GRC's own parameter id for a block that has a

@@ -20,6 +20,7 @@
 // is no runtime to download, introspection costs a few milliseconds, and ports
 // follow the code as you type.
 import type { ParamDef, PortTemplate, RunnableDef } from './block-defs';
+import { STORES, transact } from './local-db';
 
 export const JS_BLOCK_ID = 'wasm_js_block';
 export const JS_SOURCE_PARAM = '_source_code';
@@ -760,33 +761,14 @@ export interface LocalJsBlock {
   saved: number;         // epoch ms
 }
 
-const DB_NAME = 'gnuradio-world';
-const STORE = 'js-blocks';
-
-function openDb(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, 1);
-    request.onupgradeneeded = () => {
-      const db = request.result;
-      if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE, { keyPath: 'id' });
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error || new Error('IndexedDB is unavailable'));
-  });
-}
-
-function transact<T>(mode: IDBTransactionMode,
-                     run: (store: IDBObjectStore) => IDBRequest<T>): Promise<T> {
-  return openDb().then(db => new Promise<T>((resolve, reject) => {
-    const request = run(db.transaction(STORE, mode).objectStore(STORE));
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error || new Error('the local block library failed'));
-  }));
-}
+// The store lives in the editor's one shared IndexedDB, opened by local-db.ts:
+// the database is versioned as a whole, so a store of its own is declared
+// there rather than by opening the database here at a version of this file's.
+const STORE = STORES.jsBlocks;
 
 export async function listLocalJsBlocks(): Promise<LocalJsBlock[]> {
   try {
-    const all = await transact<LocalJsBlock[]>('readonly', store => store.getAll());
+    const all = await transact<LocalJsBlock[]>(STORE, 'readonly', store => store.getAll());
     return (all || []).sort((a, b) => a.label.localeCompare(b.label));
   } catch {
     return [];    // private mode, or a browser with no IndexedDB
@@ -794,11 +776,11 @@ export async function listLocalJsBlocks(): Promise<LocalJsBlock[]> {
 }
 
 export async function saveLocalJsBlock(block: LocalJsBlock): Promise<void> {
-  await transact('readwrite', store => store.put(block));
+  await transact(STORE, 'readwrite', store => store.put(block));
 }
 
 export async function deleteLocalJsBlock(id: string): Promise<void> {
-  await transact('readwrite', store => store.delete(id));
+  await transact(STORE, 'readwrite', store => store.delete(id));
 }
 
 // A saved block's id has to be a legal GRC block id, and must not collide with

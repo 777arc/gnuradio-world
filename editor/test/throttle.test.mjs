@@ -40,8 +40,11 @@ assert.doesNotMatch(source, /LEGACY_PARAM_IDS/,
 // ---- the default example waits for the palette ----
 // Loading a flowgraph needs the generated block schemas installed first.
 assert.match(source,
-  /paletteReady\.then\(async \(\) => \{[\s\S]{0,1400}loadExampleByName\('digital\/welcome_example\.grc'/,
-  'digital/welcome_example.grc must be loaded as the default only after the block library is ready');
+  /paletteReady\.then\(async \(\) => \{[\s\S]{0,1400}await openStartupCanvas\(\)/,
+  'the default canvas must be opened only after the block library is ready');
+assert.match(source,
+  /async function openStartupCanvas\(\)[\s\S]{0,1600}loadExampleByName\('digital\/welcome_example\.grc'/,
+  'digital/welcome_example.grc is what that opens when nothing else claims the canvas');
 
 // ---- nothing shipped in the repo uses the deprecated block ----
 for (const name of exampleFiles) {

@@ -168,6 +168,7 @@ import {
 import { createRecordingTabs } from './recording-tabs';
 import { createExamplePalette } from './example-palette';
 import { createRecordingPalette } from './recording-palette';
+import { createWorkspaceAutosave, startupSource, workspaceStore } from './autosave';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const el = (id: string) => document.getElementById(id)!;
@@ -437,27 +438,48 @@ function snapshot(): EditorSnapshot {
   return clone({ insts: state.insts, conns: state.conns, counter: state.counter,
     ...(trainingSession ? { training: trainingSession.capture() } : {}) });
 }
+// The canvas between visits. Written from the same three places, as the .grc
+// Save would write, and read back by the startup path below when no link
+// claimed the canvas. Never while the canvas is the editor's own welcome
+// example -- a first visit must still open on it -- and never in an embed or a
+// lesson, which have a flowgraph of their own to show.
+const autosave = createWorkspaceAutosave(workspaceStore,
+  error => log(`could not keep the flowgraph for the next visit: ${error}`));
+function persistWorkspace() {
+  if (!historyReady || EMBEDDED || trainingSession || canvasIsDefaultExample) return;
+  autosave.schedule(() => ({ grc: grcText(), file: currentFileName, updated: Date.now() }));
+}
+// A reload with a save still pending would lose the very edit before it.
+window.addEventListener('pagehide', () => autosave.flush());
+
 // The three places the canvas changes as a whole are also the three that decide
 // where an embed's "open in GNU Radio World" link points: an untouched flowgraph
 // links to itself by name, an edited one carries the edit.
 function resetHistory() {
   graphHistory.length = 0; graphHistory.push(snapshot()); historyIndex = 0;
   void refreshEmbedOpen();
+  persistWorkspace();
 }
 function recordHistory() {
   if (!historyReady) return;
   canvasIsDefaultExample = false;   // the user has edited what is on the canvas
+  // An edited example is no longer the example the address bar names, and a
+  // reload should bring the edit back rather than the pristine file. Not in an
+  // embed, whose address is the framing site's and whose reload is its own.
+  if (!EMBEDDED) setExampleHash(null);
   graphHistory.splice(historyIndex + 1);
   graphHistory.push(snapshot());
   if (graphHistory.length > 100) graphHistory.shift();
   historyIndex = graphHistory.length - 1;
   updateRunningCanvasState();
   void refreshEmbedOpen();
+  persistWorkspace();
 }
 function restoreHistory(index: number) {
   if (index < 0 || index >= graphHistory.length) return;
   historyIndex = index;
   void refreshEmbedOpen();
+  persistWorkspace();
   const restored = clone(graphHistory[index]);
   state.insts = restored.insts; state.conns = restored.conns; state.counter = restored.counter;
   trainingSession?.restore(restored.training);
@@ -1811,6 +1833,9 @@ function clearFlowgraph(record = true) {
   setExampleHash(null);   // the canvas is empty; any #example= in the URL is stale
   setCurrentFileName(null);
   if (record) recordHistory();
+  // After the record, which would otherwise schedule the blank canvas: a reload
+  // after New opens on the welcome example, not on nothing.
+  autosave.clear();
 }
 
 // ---- native .grc (GNU Radio Companion YAML) serialization ----
@@ -4118,9 +4143,12 @@ function showExamplesFor(id: string, label: string): void {
 // Loading an example points the address bar at it, so the link can be copied
 // straight out of the URL bar and a reload brings the same example back. Every
 // other way of replacing the canvas (New, Close, opening a .grc) clears it again
-// with setExampleHash(null), so the URL never claims an example that is no longer
-// on the canvas. replaceState rather than assigning location.hash: no history
-// entry, hence no Back button that looks like it should undo the load but cannot.
+// with setExampleHash(null), and so does the first recorded edit: the URL never
+// claims an example that is no longer on the canvas, and a reload of an edited
+// one brings back the autosaved edit rather than the pristine file (see
+// openStartupCanvas). replaceState rather than assigning location.hash: no
+// history entry, hence no Back button that looks like it should undo the load
+// but cannot.
 //
 // Two things can be named at once — #example= the flowgraph on the canvas and
 // #recording= a recording view open beside it — so the fragment is rewritten one
@@ -5336,6 +5364,34 @@ async function autoRunFromUrl(): Promise<void> {
   await run();
 }
 
+// With no link to follow, the canvas the last visit left -- or, on a first
+// visit and in an embed, the welcome example. The saved .grc goes through the
+// ordinary importer, so a flowgraph written by an older build is reconciled the
+// way an opened file is; one it cannot read is logged and left in place rather
+// than deleted, and the next edit replaces it anyway.
+async function openStartupCanvas(): Promise<void> {
+  let saved: ReturnType<typeof workspaceStore.load> = null;
+  if (!EMBEDDED) {
+    try { saved = workspaceStore.load(); }
+    catch (error) { log(`could not read the flowgraph from the last visit: ${error}`); }
+  }
+  if (saved && startupSource({ linked: false, embedded: EMBEDDED, saved: true }) === 'workspace') {
+    try {
+      const fg = parseGrc(saved.grc);
+      loadFlowgraph(fg);
+      setCurrentFileName(saved.file);
+      const title = String(fg.options?.parameters?.title || saved.file || 'flowgraph');
+      log(`restored "${title}" from ${new Date(saved.updated).toLocaleString()}`);
+      void bindFlowgraphRecordings(fg, title);
+      return;
+    } catch (error) { log(`could not restore the flowgraph from the last visit: ${error}`); }
+  }
+  try {
+    await loadExampleByName('digital/welcome_example.grc', /* updateHash */ false);
+    canvasIsDefaultExample = true;   // after the load, which clears it
+  } catch (error) { log(`could not load default example "digital/welcome_example.grc": ${error}`); }
+}
+
 // bootstrap.ts keeps the application hidden (or its click-to-load screen up)
 // until this resolves. The palette becomes populated before the initial
 // flowgraph fetch completes, but it must not become interactive in that gap: a
@@ -5350,12 +5406,7 @@ export const editorReady = paletteReady.then(async () => {
   // see that recording, not the default example.
   const loaded = await loadFlowgraphFromUrl();
   const opened = await openRecordingFromUrl();
-  if (!loaded && !opened) {
-    try {
-      await loadExampleByName('digital/welcome_example.grc', /* updateHash */ false);
-      canvasIsDefaultExample = true;   // after the load, which clears it
-    } catch (error) { log(`could not load default example "digital/welcome_example.grc": ${error}`); }
-  }
+  if (!loaded && !opened) await openStartupCanvas();
   const oauthSnapshot = await oauthRestore;
   if (oauthSnapshot) {
     restoreAiSnapshot(oauthSnapshot, false);
