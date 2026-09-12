@@ -85,6 +85,38 @@ assert.deepEqual(back.blocks[0].states.coordinate, [50, 70], 'coordinate round-t
 assert.deepEqual(back.connections[0], ['b1', '0', 'b2', '0'], 'connections round-trip');
 assert.equal(dumpGrc(back), text, 'dump -> parse -> dump is a fixed point');
 
+// GTK-style missing blocks reconstruct only the connected ports, preserving
+// their GRC tokens rather than confusing sparse stream indices with UI slots.
+const { missingBlockDefinition, missingPortIndex, missingPorts } =
+  await bundleModule('../src/missing-block.ts');
+const missing = {
+  uid: 'ghost', id: 'uninstalled_custom_block', name: 'custom_0',
+  x: 100, y: 200, enabled: true, bypassed: false, rotation: 90,
+  params: { type: 'complex', num_inputs: '99', custom_expression: 'samp_rate / 8' },
+  missing: { in: [], out: [], states: { bus_source: true } },
+};
+assert.equal(missingPortIndex(missing, 'in', '7'), 0);
+assert.equal(missingPortIndex(missing, 'in', '2'), 1);
+assert.equal(missingPortIndex(missing, 'in', 'command'), 2);
+assert.equal(missingPortIndex(missing, 'in', '7'), 0, 'fan-in reuses the same port');
+assert.equal(missingPortIndex(missing, 'out', '7'), 0, 'input/output namespaces are separate');
+assert.equal(missingPortIndex(missing, 'out', 'pdu'), 1);
+assert.equal(missingPortIndex(missing, 'out', 'pdu'), 1, 'fan-out reuses the same port');
+assert.deepEqual(missingPorts(missing, 'in').map(p => [p.id, p.streamIndex, p.domain, p.name]),
+  [['7', 7, 'stream', '?'], ['2', 2, 'stream', '?'], ['command', -1, 'message', '?']]);
+const ghostDef = missingBlockDefinition(missing);
+assert.equal(ghostDef.label, 'Missing Block');
+assert.equal(ghostDef.inputs, 3, 'a saved num_inputs parameter does not invent ghost ports');
+assert.equal(ghostDef.outputs, 2);
+assert.deepEqual(Object.fromEntries(ghostDef.params.map(p => [p.id, p.def])), missing.params,
+  'unknown parameters remain available for Properties and saving');
+const copied = JSON.parse(JSON.stringify(missing));
+missingPortIndex(copied, 'out', 'other');
+assert.equal(missingPorts(missing, 'out').length, 2,
+  'history/clipboard copies retain independent port lists');
+assert.equal(missingPorts(copied, 'out').length, 3);
+assert.deepEqual(copied.missing.states, { bus_source: true });
+
 // Native's implicit per-block Comment parameter is multiline. The web dumper
 // uses an escaped YAML scalar rather than PyYAML's folded presentation, but the
 // value desktop GRC reads must remain byte-for-byte the same text.

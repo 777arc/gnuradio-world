@@ -98,6 +98,18 @@ const ports = {
   def(block) { return DEFS[block.id]; },
 };
 
+// A placeholder has a display definition but still cannot execute. Its stored
+// disabled state is respected; bypassing an unknown implementation is refused.
+const missingBlock = inst('missing', 'not_installed', 'missing_0', {}, {
+  missing: { in: [], out: [], states: {} },
+});
+const ghostPorts = { ...ports, def: () => ({ label: 'Missing Block', params: [] }) };
+for (const bypassed of [false, true]) {
+  const issues = validateFlowgraph([{ ...missingBlock, bypassed }], [], ghostPorts);
+  assert.ok(issues.some(issue => issue.blocking && /not supported in GNU Radio World/.test(issue.message)));
+}
+assert.deepEqual(validateFlowgraph([{ ...missingBlock, enabled: false }], [], ghostPorts), []);
+
 const signal = inst('sig', 'analog_sig_source_x', 'sig', {
   type: 'complex', samp_rate: 'samp_rate', waveform: 'analog.GR_COS_WAVE',
   freq: 'samp_rate/4', amp: '1', offset: '0', phase: '0',

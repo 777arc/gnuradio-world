@@ -876,6 +876,7 @@ svg text { user-select:none; -webkit-user-select:none; -moz-user-select:none; }
 #canvasWrap.auto-hide-port-labels .port-label { opacity:0; }
 #canvasWrap.auto-hide-port-labels .port:hover + .port-label { opacity:1; }
 .wire { stroke:#2a2a2a; stroke-width:2; fill:none; pointer-events:none; }
+.wire.missing { stroke:#bbbbbb; }
 .wire.sel { stroke:#00b8c8; stroke-width:3; }
 .wire.invalid { stroke:#d1242f; stroke-width:3; }
 .wire.connecting { stroke:#1a63c4; stroke-width:2; stroke-dasharray:6 4; pointer-events:none; }
@@ -915,6 +916,16 @@ svg text { user-select:none; -webkit-user-select:none; -moz-user-select:none; }
 .blk.bypassed rect.body { fill:#f4ff81; stroke:#616161; }
 .blk.bypassed.invalid rect.body { fill:#fff2f2; stroke:#ff0000; }
 .blk.bypassed.invalid text.title { fill:#a40e26; }
+/* GTK GRC gui/canvas/{block,port,connection}.py and colors.py: a missing
+   block keeps its pink body/red outline in every stored state, with '?' grey
+   ports and disabled-colour connections. Selection highlights the border. */
+.blk.missing rect.body, .blk.missing.bypassed rect.body {
+    fill:#fff2f2; stroke:#ff0000; stroke-width:2; stroke-dasharray:none; }
+.blk.missing.sel rect.body { stroke:#00ffff; }
+.blk.missing text.title { fill:#ff0000 !important; }
+.blk.missing text.param, .blk.missing .pval { fill:#000; }
+.blk.missing .port { fill:#cccccc; stroke:#808080; opacity:1; }
+.blk.missing .port-label { fill:#000; fill-opacity:.4; }
 /* A magnetic training match is the release cue, so it deliberately wins over
    the ordinary "unconnected port" validation red shown during construction. */
 .blk.training-snap rect.body, .blk.training-snap.invalid rect.body {

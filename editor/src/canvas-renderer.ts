@@ -167,13 +167,16 @@ export function renderCanvas(deps: CanvasRenderDeps): void {
     const d = connectionPath(a, c.fp, b, c.tp);
     const isSelected = c === state.selectedConnection || (state.insts.length > 0 && state.selectedBlocks.size === state.insts.length);
     const isInvalid = invalidConnections.has(c);
+    const isMissing = !!(a.missing || b.missing);
     const wire = svgEl('g', { class: 'wire-group' });
     // The invalid stroke colour wins over the selected one (its CSS rule is later),
     // so the arrowhead follows it too.
     wire.appendChild(svgEl('path', { class: 'wire' + (isSelected ? ' sel' : '') +
+      (isMissing ? ' missing' : '') +
       (isInvalid ? ' invalid' : ''), d,
       'marker-end': isInvalid ? 'url(#arrow-invalid)'
-        : isSelected ? 'url(#arrow-selected)' : 'url(#arrow)' }));
+        : isSelected ? 'url(#arrow-selected)'
+        : isMissing ? 'url(#arrow-missing)' : 'url(#arrow)' }));
     // Match the desktop GUI's forgiving line hit test without drawing a thick wire.
     wire.appendChild(svgEl('path', { class: 'wire-hit', d }));
     const activateConn = (e: MouseEvent) => {
@@ -197,6 +200,7 @@ export function renderCanvas(deps: CanvasRenderDeps): void {
     const g = svgEl('g', { class: 'blk' + (state.selectedBlocks.has(inst.uid) ? ' sel' : '') +
       (trainingSession?.snapTargetForActual(inst.uid) ? ' training-snap' : '') +
       (inst.enabled ? '' : ' disabled') + (inst.bypassed ? ' bypassed' : '') +
+      (inst.missing ? ' missing' : '') +
       (blockIssues.length ? ' invalid' : ''),
       transform: `translate(${inst.x},${inst.y})` });
     const rect = svgEl('rect', { class: 'body', width: String(w), height: String(h), rx: '2' });
@@ -285,7 +289,12 @@ export function renderCanvas(deps: CanvasRenderDeps): void {
       text.textContent = line;
       g.appendChild(text);
     });
-    const messages = [...new Set(blockIssues.map(issue => issue.message))];
+    const messages = inst.missing ? [] : [...new Set(blockIssues.map(issue => issue.message))];
+    if (inst.missing) {
+      const tooltip = svgEl('title', {});
+      tooltip.textContent = `${inst.name}: block "${inst.id}" is not supported in GNU Radio World.`;
+      g.appendChild(tooltip);
+    }
     const wrapped = messages.flatMap(message => wrapValidationMessage(message, Math.max(22, Math.floor(w / ERROR_CHAR_W))));
     wrapped.slice(0, 5).forEach((message, i) => {
       const error = svgEl('text', { class: 'validation-error', x: '0',

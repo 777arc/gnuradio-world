@@ -116,20 +116,21 @@ which is right for a flowgraph authored here and wrong for one carried in from
 upstream.
 
 **Save is a lossy round-trip; auto-arrange is not.** The editor drops what its
-schema does not declare, so saving a file returns it without `import` blocks,
-without GRC's `affinity`/`alias`/`comment`/`maxoutbuf`/`minoutbuf`, without
+schema does not declare on supported blocks, so saving can discard parameters
+not modeled by that schema, including
 `gui_hint` (desktop GRC's widget placement, which this build does not implement —
-see [gui-layout.md](gui-layout.md)), and without most of the options block.
+see [gui-layout.md](gui-layout.md)), and most of the options block.
+Unsupported blocks are preserved with their original parameters and states.
 Saving also *adds* one block, the GUI Layout singleton. That is fine for a
 flowgraph you authored in the editor and destructive for one adapted from
 upstream. When arranging in bulk, take the `states.coordinate`/`states.rotation`
 out of the saved file and merge those into the original rather than adopting the
 saved file wholesale.
 
-**Delete `import` blocks rather than carrying them.** There is no Python in this
-build, so an `import` is pure dead weight: the editor skips it on load (one
-"skipped unsupported block" line per import, in the console pane where real
-output belongs), and it is never placed by auto-arrange. Nothing needs it, either
+**Delete `import` blocks from browser examples.** The editor preserves an
+unsupported `import` as a Missing Block, including its parameters, for saving
+back to desktop GRC. An enabled placeholder blocks Run, so remove it when
+adapting an example to run here. The browser expression evaluator does not need it
 — [`expr.ts`](../editor/src/expr.ts) resolves `math.*` and `numpy.*` from its own
 registry, with no import statement involved. The one thing you give up is
 round-tripping that file back into desktop GRC, whose generated Python *does*

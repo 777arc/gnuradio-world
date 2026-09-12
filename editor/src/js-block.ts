@@ -478,7 +478,7 @@ self.onmessage = function (event) {
       var forecastBase = 8 + __grJs.MAX_PORTS * 4;
       for (var fi = 0; fi < info.inputs.length; fi++) forecast.push(words[base + forecastBase + fi]);
     }
-    var results = [];
+    var results = [], tiled = [];
     for (var ci = 0; ci < payload.calls.length; ci++) {
       var call = payload.calls[ci], nout = call.nout | 0, inputs = call.inputs || [];
       __inputTags = (call.tags || []).map(function (tag) {
@@ -505,17 +505,19 @@ self.onmessage = function (event) {
         var neededItems = info.general ? Math.floor(raw.length / stride)
           : Math.floor(nout * info.decim / info.interp);
         var neededValues = neededItems * stride;
-        if (raw.length && raw.length < neededValues)
-          // Say why, not just how many. The count alone reads as arbitrary to a
-          // caller that thought in items -- a complex port wants two interleaved
-          // scalars per item, so a 1024-sample window is 2048 values, and being
-          // told only "needs 2048" invites guessing rather than the arithmetic.
-          throw new Error('call ' + ci + ' input ' + ii + ' needs at least ' + neededValues +
-            ' scalar values (' + neededItems + ' ' + ip.dtype + ' item' + (neededItems === 1 ? '' : 's') +
-            ' x ' + stride + ' scalar' + (stride === 1 ? '' : 's') + ' each), got ' + raw.length);
+        // A short array is tiled to the length the call needs, so a constant
+        // or a periodic pattern is written once: a 1024-sample complex window
+        // of 1+0j is inputs: [[1, 0]]. Refusing it with "needs at least 2048
+        // scalar values" was read by the model as an instruction, and a model
+        // typing out 2048 numbers by hand does not stop at 2048 -- it loops
+        // for as long as the stream stays open.
         var inPtr = __alloc(Math.max(1, neededValues) * its.bytes, its.bytes);
         var inView = new its.C(__buffer, inPtr, neededValues);
-        if (raw.length) inView.set(raw.slice(0, neededValues));
+        if (raw.length >= neededValues) inView.set(raw.slice(0, neededValues));
+        else if (raw.length) {
+          for (var ti = 0; ti < neededValues; ti++) inView[ti] = raw[ti % raw.length];
+          tiled.push({ call: ci, input: ii, pattern: raw.length, filled: neededValues });
+        }
         inputPtrs.push(inPtr);
         words[base + 8 + ii] = inPtr;
         words[base + 8 + __grJs.MAX_PORTS + ii] = neededItems;
@@ -550,6 +552,10 @@ self.onmessage = function (event) {
     rc = __grJs.stop(handle, err, 4096);
     if (rc) throw new Error(__error(err));
     __grJs.destroy(handle);
+    for (var ni = 0; ni < tiled.length; ni++)
+      notes.push('call ' + tiled[ni].call + ' input ' + tiled[ni].input + ': the ' +
+                 tiled[ni].pattern + '-value pattern was repeated to fill the ' +
+                 tiled[ni].filled + ' scalar values this call reads');
     self.postMessage({ ok: true, info: info, forecast: forecast, calls: results,
       notes: notes, messages_received: received,
       messages_published: __published.map(function (entry) {

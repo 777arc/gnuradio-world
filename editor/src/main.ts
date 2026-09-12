@@ -43,6 +43,7 @@ import {
   type RunnableDef,
 } from './block-defs';
 import type { Conn, GraphSnapshot, Inst, ValidationIssue } from './graph-model';
+import { missingBlockDefinition, missingPortIndex, missingPorts } from './missing-block';
 import {
   installAudioResumeRelay,
 } from './audio';
@@ -679,12 +680,14 @@ const DERIVED = new Map<string, (base: RunnableDef, inst: Inst) => RunnableDef>(
 // The id-keyed lookups that remain -- the palette, RUNNABLE[OPTIONS_ID] -- are
 // asking a different question and are right to stay as they are.
 function defFor(inst: Inst): RunnableDef {
+  if (inst.missing) return missingBlockDefinition(inst);
   const base = RUNNABLE[inst.id];
   const derive = DERIVED.get(inst.id);
   return base && derive ? derive(base, inst) : base;
 }
 
 function resolvedPorts(inst: Inst, kind: 'in' | 'out'): ResolvedPort[] | null {
+  if (inst.missing) return missingPorts(inst, kind);
   const d = defFor(inst);
   const templates = kind === 'in' ? d.inputTemplates : d.outputTemplates;
   if (!templates) return null;
@@ -795,6 +798,7 @@ function remapConnectionsForPortChange(inst: Inst, nextParams: Record<string, an
 // A port's dtype: explicit per-port (converters), else the block's `type` param
 // (complex/float), else its fixed `dtype`, else complex.
 function portType(inst: Inst, kind: 'in' | 'out', i: number): string {
+  if (inst.missing) return '';
   const d = defFor(inst);
   const meta = portMeta(inst, kind, i);
   if (meta.domain === 'message') return 'message';
@@ -824,9 +828,10 @@ function portType(inst: Inst, kind: 'in' | 'out', i: number): string {
   return inst.params.type || d.dtype || 'complex';
 }
 const portColor = (inst: Inst, kind: 'in' | 'out', i: number) =>
-  DTYPE_COLOR[portType(inst, kind, i)] || '#2196F3';
+  inst.missing ? '#cccccc' : DTYPE_COLOR[portType(inst, kind, i)] || '#2196F3';
 
 function portLabel(inst: Inst, kind: 'in' | 'out', i: number): string {
+  if (inst.missing) return '?';
   const d = defFor(inst);
   if (kind === 'in' ? d.inputTemplates : d.outputTemplates)
     return portMeta(inst, kind, i).name;
@@ -1182,7 +1187,9 @@ function geom(inst: Inst) {
   // Native GRC only draws it for the `show_id` blocks — Variable, QT GUI Range
   // and friends, whose ID *is* the name other blocks reference — or when the
   // View ▸ Show All Block IDs toggle is on.
-  if (blockIdVisible(inst))
+  if (inst.missing)
+    rows.splice(0, rows.length, { id: '__missing_key', l: 'key: ', v: inst.id });
+  else if (blockIdVisible(inst))
     rows.unshift({ id: 'id', l: 'ID: ', v: truncateValue('ID', inst.name) });
   if (rows.length > MAX_FACE_ROWS) {
     const hidden = rows.length - (MAX_FACE_ROWS - 1);
@@ -1869,6 +1876,7 @@ function grcParams(params: Record<string, any>): Record<string, GrcScalar> {
 // back as YAML null and makes native GRC fail at `parameters.items()`. Match
 // native so a file written here loads there.
 function withImplicitParams(inst: Inst, params: Record<string, GrcScalar>): Record<string, GrcScalar> {
+  if (inst.missing) return Object.keys(params).length ? params : { comment: '' };
   // A variable or GUI control has no ports, and native gives it `comment` only;
   // the output buffer bounds exist only on a block that has an output to size.
   // Native counts a declared output port of either domain, visible or not
@@ -1889,7 +1897,8 @@ function withImplicitParams(inst: Inst, params: Record<string, GrcScalar>): Reco
   return Object.fromEntries(Object.keys(merged).sort().map(k => [k, merged[k]]));
 }
 function grcStates(inst: Inst): Record<string, any> {
-  return { coordinate: [Math.round(inst.x), Math.round(inst.y)], rotation: inst.rotation, state: grcState(inst) };
+  return { ...inst.missing?.states, coordinate: [Math.round(inst.x), Math.round(inst.y)],
+    rotation: inst.rotation, state: grcState(inst) };
 }
 // Derive the flowgraph id from the Options Title. Native generates a top block
 // class and .py file from this id, so it has to satisfy the same rule native
@@ -1998,8 +2007,8 @@ function buildGrcDoc(resolve = false): GrcDoc {
       connections.push({ src_blk_id: src.name, src_port_id: sourcePort.id,
         snk_blk_id: snk.name, snk_port_id: sinkPort.id });
     } else {
-      connections.push([src.name, String(sourcePort.streamIndex),
-        snk.name, String(sinkPort.streamIndex)]);
+      connections.push([src.name, src.missing ? sourcePort.id : String(sourcePort.streamIndex),
+        snk.name, snk.missing ? sinkPort.id : String(sinkPort.streamIndex)]);
     }
   }
   connections.sort((a, b) => grcConnectionKey(a) < grcConnectionKey(b) ? -1 : 1);
@@ -2062,6 +2071,7 @@ function importParams(def: RunnableDef, raw: Record<string, any> = {}): Record<s
 // Map a GRC connection port token (stream index or message port id) to the
 // block's editor port index.
 function portIndex(inst: Inst, kind: 'in' | 'out', token: string): number {
+  if (inst.missing) return missingPortIndex(inst, kind, token);
   const ports = resolvedPorts(inst, kind);
   if (ports) {
     const num = Number(token);
@@ -2129,7 +2139,7 @@ function loadFlowgraph(doc: any, record = true) {
     const def = derive && RUNNABLE[b.id]
       ? derive(RUNNABLE[b.id], { params: b.parameters || {} } as Inst)
       : RUNNABLE[b.id];
-    if (!def) { log(`skipped unsupported block "${b.id}"`); return; }
+    if (!def) log(`preserved unsupported block "${b.id}" as a Missing Block`);
     // Written by desktop GRC as a Python tuple repr under `states`, which this
     // editor cannot read. Say so once rather than silently showing no ports.
     if (b.id === EPY_BLOCK_ID && !b.parameters?.[EPY_IO_CACHE_PARAM] &&
@@ -2142,7 +2152,9 @@ function loadFlowgraph(doc: any, record = true) {
     const uid = 'b' + (++state.counter), name = String(b.name || b.id);
     nameToUid.set(name, uid);
     state.insts.push({ uid, id: b.id, name, x: Number(coord[0]) || 0, y: Number(coord[1]) || 0,
-      params: importParams(def, b.parameters || {}), enabled: flags.enabled,
+      params: def ? importParams(def, b.parameters || {}) : { ...b.parameters },
+      ...(!def ? { missing: { in: [], out: [], states: { ...b.states } } } : {}),
+      enabled: flags.enabled,
       rotation: Number(b.states?.rotation) || 0, bypassed: flags.bypassed });
   });
   for (const c of doc.connections || []) {

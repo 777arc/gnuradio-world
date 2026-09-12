@@ -68,6 +68,20 @@ not alter history or the serialized `.grc`.
 
 ## Placing blocks from the palette
 
+Opening a `.grc` preserves unsupported blocks as **Missing Block** placeholders,
+following GTK GRC's `core/blocks/dummy.py` and `gui/canvas/` (not `gui_qt`).
+They have a `#FFF2F2` body, `#FF0000` border/title, a `key:` row with the original
+block type, grey `?` ports reconstructed from each connection, and `#BBBBBB`
+wires. Both unsupported catalog entries and unknown out-of-tree blocks use this
+treatment. They remain movable, editable, copyable and deletable; enabled
+placeholders block Run with an unsupported-block error.
+
+`Inst.missing` keeps port tokens and original states per instance, so different
+instances of the same missing type can have different interfaces. Save, autosave,
+history and clipboard retain their parameters, states and connections, including
+named message ports and sparse stream indices. Their definitions are synthesized
+by `missing-block.ts` and never installed into the runnable palette.
+
 Clicking a runnable block row places the new block at the center of the visible
 part of the canvas, including its current scroll position and zoom. The target
 is the center of the block body, and the resulting top-left coordinate still

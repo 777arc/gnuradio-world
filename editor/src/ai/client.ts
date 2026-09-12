@@ -123,6 +123,27 @@ export class AiRequestError extends Error {
   }
 }
 
+/**
+ * How much of one reply -- prose plus tool-call arguments -- is read before
+ * the stream is cancelled. A reply this long is never a real answer: the
+ * largest legitimate tool call, an exercise_js_block at its 65,536-scalar
+ * limit, is a few hundred KB, and the biggest create_js_block source a few
+ * tens. What does reach it is a model typing out a long literal array by hand
+ * (a 1024-sample window as `0,1,0,1,…`) and never finding the end of it; left
+ * alone that ran for the whole seven-minute turn at several MB a minute, all
+ * of it billed. Cancelling it turns a hang into an error the model can be
+ * told about and recover from.
+ */
+export const STREAM_LIMIT_CHARS = 1_000_000;
+
+export class StreamOverrunError extends Error {
+  constructor(readonly provider: string, readonly tool: string | undefined, readonly chars: number) {
+    super(`${provider}'s reply was cancelled after ${Math.round(chars / 1000)} KB without finishing` +
+      (tool ? ` — the arguments of a ${tool} call were still being generated` : ''));
+    this.name = 'StreamOverrunError';
+  }
+}
+
 export function apiError(provider: AiProvider, status: number, body: string): AiRequestError {
   try {
     const parsed = JSON.parse(body);
@@ -275,6 +296,7 @@ export async function chatCompletion(options: {
   let usage: AiUsage | undefined;
   let model: string | undefined;
   const calls = new Map<number, ChatToolCall>();
+  let received = 0;
 
   const consume = (line: string) => {
     if (!line.startsWith('data:')) return;
@@ -289,6 +311,7 @@ export async function chatCompletion(options: {
     if (!delta) return;
     if (typeof delta.content === 'string') {
       content += delta.content;
+      received += delta.content.length;
       options.onText?.(delta.content);
     }
     for (const fragment of delta.tool_calls || []) {
@@ -299,8 +322,15 @@ export async function chatCompletion(options: {
       };
       if (fragment.id) call.id = String(fragment.id);
       if (fragment.function?.name) call.function.name += String(fragment.function.name);
-      if (fragment.function?.arguments) call.function.arguments += String(fragment.function.arguments);
+      if (fragment.function?.arguments) {
+        call.function.arguments += String(fragment.function.arguments);
+        received += String(fragment.function.arguments).length;
+      }
       calls.set(index, call);
+    }
+    if (received > STREAM_LIMIT_CHARS) {
+      const open = [...calls.values()].pop();
+      throw new StreamOverrunError(provider.label, open?.function.name || undefined, received);
     }
   };
 
@@ -309,7 +339,14 @@ export async function chatCompletion(options: {
     pending += decoder.decode(value || new Uint8Array(), { stream: !done });
     const lines = pending.split(/\r?\n/);
     pending = lines.pop() || '';
-    for (const line of lines) consume(line);
+    try {
+      for (const line of lines) consume(line);
+    } catch (error) {
+      // Let go of the connection, or the provider keeps generating -- and
+      // billing -- into a body nobody is reading.
+      reader.cancel().catch(() => undefined);
+      throw error;
+    }
     if (done) break;
   }
   if (pending) consume(pending);

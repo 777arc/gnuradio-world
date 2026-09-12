@@ -38,7 +38,7 @@ JavaScript Blocks are first-class source artifacts, not opaque parameters:
 - Put mutable per-instance state on `this`, normally initialized in start(). Never cache an input/output view across calls. Use this.log(), not console.log(). Imports are unavailable.
 - Stream tags and message ports are supported. Declare message ports, handlers and tag propagation policy in init(); use the injected pmt API plus GNU Radio's native method names. Read get_js_block_help topic tags, messages or pmt before authoring an unfamiliar one, and exercise handlers/tag transforms before a visible run.
 - work() consumes according to decimation/interpolation when it returns produced items. generalWork() consumes nothing automatically and must call this.consume(port,n) on every progress path.
-- Before a visible run, exercise new or repaired source with small deterministic inputs, tags or messages. A disposable exercise worker can be timed out; a live scheduler thread stuck inside a callback cannot.
+- Before a visible run, exercise new or repaired source with small deterministic inputs, tags or messages. A disposable exercise worker can be timed out; a live scheduler thread stuck inside a callback cannot. A short input array is tiled to fill the call, so write a pattern once (`inputs: [[1, 0]]` with `nout: 1024` is a full complex window) and never type out a long literal array.
 - Model-generated JavaScript still requires the visible human review before its first live run. Do not claim that introspection or exercise authorized it.
 
 Misc guidelines:

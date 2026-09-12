@@ -118,6 +118,8 @@ const acceptJavaScriptReviews = () => {
   else document.addEventListener('DOMContentLoaded', watch, { once: true });
 };
 
+const attemptedRunTools = tools => tools.filter(i => /run_flowgraph/.test(i.summary));
+
 const short = (text, n) => {
   const flat = String(text ?? '').replace(/\s+/g, ' ').trim();
   return flat.length > n ? flat.slice(0, n) + ` …[+${flat.length - n} chars]` : flat;
@@ -245,10 +247,29 @@ try {
   }
 
   const tools = scraped.items.filter(i => i.kind === 'tool');
+  // A turn that ran the graph and then called stop_flowgraph -- or whose last
+  // run ended on its own -- leaves no iframe to read, and grading that as "the
+  // run did not pass" marks the model down for cleaning up after itself. The
+  // run_flowgraph report is the same evidence from the same runner: `started:
+  // true` is only returned once the runner has published diagnostics without a
+  // RUNNER_FAIL, and its per-block `items` are the same counters the iframe
+  // would be read for. So the last passing report stands in for the frame,
+  // and the verdict says which it was.
+  if (runner.verdict === null && attemptedRunTools(tools).length) {
+    const reports = attemptedRunTools(tools).map(i => {
+      try { return JSON.parse(i.result); } catch { return null; }
+    });
+    const report = [...reports].reverse().find(r => r && r.started === true && Array.isArray(r.blocks));
+    if (report) runner = {
+      verdict: 'RUNNER_PASS (from the run_flowgraph report; the runner was stopped before the turn ended)',
+      moved: report.blocks.filter(b => b.items > 0).length,
+      idle: report.blocks.filter(b => !b.msg_only && !(b.items > 0)).map(b => b.name),
+    };
+  }
   const failed = tools.filter(i => i.error);
   // A refusal is reported through the console pane whoever asked for the run.
   const refusals = scraped.log.filter(l => /^cannot run|run failed/.test(l.trim()));
-  const attemptedRun = tools.some(i => /run_flowgraph/.test(i.summary));
+  const attemptedRun = attemptedRunTools(tools).length > 0;
   // A flowgraph reaching hardware needs a human click that a headless run has
   // no way to give, so the run is refused before it starts. That is the rule
   // working, not the model failing -- score it separately or every prompt that

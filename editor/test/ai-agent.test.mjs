@@ -346,6 +346,68 @@ const failingAgent = new FlowgraphAgent({
 await assert.rejects(failingAgent.turn('validate this'), /upstream fell over/);
 assert.equal(issued, 2, 'a request that failed mid-stream still cost a round-trip');
 
+// A reply that streams past STREAM_LIMIT_CHARS is a model typing out a literal
+// array it will never finish -- seen as a 1024-sample window written as
+// `0,1,0,1,…` for the whole of a seven-minute turn. The stream is cancelled,
+// the model is told once, in a user message it can act on, and the turn goes
+// on; a second overrun in the same turn ends it.
+{
+  const runaway = () => {
+    const encoder = new TextEncoder();
+    let sent = 0;
+    const body = new ReadableStream({
+      pull(controller) {
+        if (sent === 0) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { tool_calls: [{
+            index: 0, id: 'call_x', type: 'function',
+            function: { name: 'exercise_js_block', arguments: '{"calls":[{"inputs":[[' },
+          }] } }] })}\n\n`));
+        } else {
+          // 64 KB of samples per chunk, and never a closing bracket.
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { tool_calls: [{
+            index: 0, function: { arguments: '0,1,'.repeat(16_384) },
+          }] } }] })}\n\n`));
+        }
+        sent++;
+      },
+    });
+    return new Response(body, { status: 200, headers: { 'content-type': 'text/event-stream' } });
+  };
+  let bodies = [];
+  let overrunRequest = 0;
+  const bubbles = [];
+  const recovering = new FlowgraphAgent({
+    provider: 'openrouter', key: 'test', model: 'stub/model', systemPrompt: 'test', deps,
+    hooks: { assistantDelta: text => bubbles.push(text) },
+    fetchImpl: async (_url, init) => {
+      bodies.push(JSON.parse(init.body).messages);
+      overrunRequest++;
+      if (overrunRequest === 1) return runaway();
+      return sse([{ choices: [{ delta: { content: 'Exercised with a tiled pattern.' } }] }]);
+    },
+  });
+  const result = await recovering.turn('exercise it');
+  assert.equal(result.text, 'Exercised with a tiled pattern.');
+  assert.equal(result.rounds, 2, 'the cut-off reply cost a round and the turn went on');
+  const notice = bodies[1].at(-1);
+  assert.equal(notice.role, 'user');
+  assert.match(notice.content, /^\[system\]\n.*cancelled after \d+ KB.*exercise_js_block/s,
+    'the model is told which call ran away');
+  assert.match(notice.content, /tiles a short input pattern/);
+  assert.deepEqual(bodies[1].slice(0, -1).map(message => message.role), ['system', 'user'],
+    'the partial reply is not on the transcript');
+  assert.ok(bubbles.some(text => /cancelled after \d+ KB/.test(text)),
+    'the user sees why the reply was cut off');
+
+  let always = 0;
+  const hopeless = new FlowgraphAgent({
+    provider: 'openrouter', key: 'test', model: 'stub/model', systemPrompt: 'test', deps,
+    fetchImpl: async () => { always++; return runaway(); },
+  });
+  await assert.rejects(hopeless.turn('exercise it'), /cancelled after \d+ KB/);
+  assert.equal(always, 2, 'one retry, then the turn ends');
+}
+
 let editTime = 0;
 let runTime = 0;
 let previewRequest = 0;

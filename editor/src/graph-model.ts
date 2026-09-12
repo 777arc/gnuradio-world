@@ -8,6 +8,9 @@ export interface Inst {
   enabled: boolean;
   rotation: number;
   bypassed: boolean;
+  // Unknown blocks retain their interface per instance, reconstructed from the
+  // file's connections. Keep it in history/clipboard snapshots, not the palette.
+  missing?: { in: string[]; out: string[]; states: Record<string, any> };
   // Browser File objects cannot be serialized into .grc. History snapshots
   // retain this opaque token while the actual File stays in a session map.
   localFileToken?: string;

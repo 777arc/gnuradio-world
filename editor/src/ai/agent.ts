@@ -1,4 +1,4 @@
-import { chatCompletion, type ChatMessage, type ContentPart, type AiUsage } from './client';
+import { chatCompletion, StreamOverrunError, type ChatMessage, type ContentPart, type AiUsage } from './client';
 import type { ProviderId } from './providers';
 import { aiTools, dispatchAiTool, type AiToolDeps } from './tools';
 
@@ -184,26 +184,48 @@ export class FlowgraphAgent {
     let finalText = '';
     let rounds = 0;
     let imagesThisTurn = 0;
+    let overruns = 0;
 
     while (rounds < MAX_TOOL_ROUNDS) {
       rounds++;
       this.options.hooks?.requestStarted?.();
       this.options.hooks?.assistantStarted?.();
       let streamed = '';
-      const response = await chatCompletion({
-        provider: this.options.provider,
-        key: this.options.key,
-        model: this.options.model,
-        messages: this.messages,
-        tools: aiTools(!!this.options.vision),
-        cacheKey: CACHE_KEY,
-        signal,
-        fetchImpl: this.options.fetchImpl,
-        onText: chunk => {
-          streamed += chunk;
-          this.options.hooks?.assistantDelta?.(chunk);
-        },
-      });
+      let response;
+      try {
+        response = await chatCompletion({
+          provider: this.options.provider,
+          key: this.options.key,
+          model: this.options.model,
+          messages: this.messages,
+          tools: aiTools(!!this.options.vision),
+          cacheKey: CACHE_KEY,
+          signal,
+          fetchImpl: this.options.fetchImpl,
+          onText: chunk => {
+            streamed += chunk;
+            this.options.hooks?.assistantDelta?.(chunk);
+          },
+        });
+      } catch (error) {
+        // A reply cut off for running away is told to the model once, the way
+        // a failed tool call is: the usual cause is a literal array typed out
+        // by hand, and the fix -- a short pattern -- is one it can apply
+        // itself. The partial reply is not on the transcript (a tool call
+        // without an id or an end cannot be answered), so the notice stands
+        // in for it. A second overrun in one turn ends the turn: the model is
+        // not taking the hint, and each attempt is a megabyte billed.
+        if (!(error instanceof StreamOverrunError) || ++overruns > 1) throw error;
+        const notice = `Your reply was cancelled after ${Math.round(error.chars / 1000)} KB ` +
+          'without finishing' + (error.tool ? `, in the arguments of a ${error.tool} call` : '') +
+          '. Never type out a long literal array: exercise_js_block tiles a short input ' +
+          'pattern to the call length, so a whole window is inputs: [[1, 0]] with nout set. ' +
+          'Continue from the last completed tool result.';
+        this.options.hooks?.assistantDelta?.(`(${error.message})`);
+        this.messages.push({ role: 'user', content: `[system]\n${notice}` });
+        this.options.hooks?.roundFinished?.();
+        continue;
+      }
       if (response.usage) {
         this.totalCost += Number(response.usage.cost || 0);
         this.options.hooks?.usage?.(response.usage, this.totalCost);

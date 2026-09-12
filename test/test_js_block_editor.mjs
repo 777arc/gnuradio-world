@@ -230,7 +230,7 @@ page.on('request', request => {
       } },
       { index: 1, id: 'exercise_js', type: 'function', function: {
         name: 'exercise_js_block', arguments: JSON.stringify({
-          name: 'graham_gain', calls: [{ nout: 4, inputs: [[1, 2, 3, 4]],
+          name: 'graham_gain', calls: [{ nout: 4, inputs: [[1, 2]],
             set_params: { gain: 3 } }],
         }),
       } },
@@ -503,6 +503,12 @@ check(graham?.rows.some(row => /Gain/.test(row)),
       'Graham’s derived numeric parameter reaches the canvas', JSON.stringify(graham?.rows));
 check(aiRequests === 2,
       'create and exercise share one tool round before the final answer', String(aiRequests));
+// A short input pattern is tiled to the call's length, so a window is never
+// typed out in full -- and the result says that it was.
+const gainEvidence = toolResult(aiBodies.at(-1), 'exercise_js');
+check(JSON.stringify(gainEvidence?.calls?.[0]?.outputs?.[0]?.values) === '[3,6,3,6]' &&
+      gainEvidence.notes?.some(note => /2-value pattern was repeated to fill the 4 scalar/.test(note)),
+      'exercise_js_block tiles a short input pattern and notes it', JSON.stringify(gainEvidence));
 const sourceWasTrusted = await page.evaluate(source => {
   let hash = 0x811c9dc5;
   for (let i = 0; i < source.length; i++) {

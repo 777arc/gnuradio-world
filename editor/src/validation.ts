@@ -118,7 +118,8 @@ export function validateFlowgraph(
     if (!block.enabled) return;
     if (!issues.some(issue => issue.uid === block.uid && issue.field === field &&
       issue.message === message && issue.connection === connection))
-      issues.push({ uid: block.uid, field, message, blocking: active(block), connection });
+      issues.push({ uid: block.uid, field, message,
+        blocking: block.missing ? block.enabled : active(block), connection });
   };
   const finiteNumber = (value: any) => {
     if (typeof value === 'number') return Number.isFinite(value);
@@ -156,6 +157,10 @@ export function validateFlowgraph(
 
   for (const block of blocks) {
     if (!block.enabled) continue;
+    if (block.missing) {
+      add(block, BLOCK_FIELD, `Block "${block.id}" is not supported in GNU Radio World.`);
+      continue;
+    }
     const def = ports.def(block);
     if (!def) { add(block, BLOCK_FIELD, `Unknown block type "${block.id}".`); continue; }
     const name = String(block.name || '').trim();

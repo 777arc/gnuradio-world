@@ -113,6 +113,24 @@ of them is making, so `gpt-5.6-terra` is labelled `(10x cost of luna)`. Keep the
 note in step with the rate rows — it is prose beside a price, not derived from
 one.
 
+### A reply that never ends
+
+`chatCompletion` reads a stream until the provider closes it, and the provider
+closes it when the model stops — so a model that does not stop holds the turn
+open, at whatever the stream costs per minute, until the user presses Stop. The
+runaway above is the case that found this. `STREAM_LIMIT_CHARS` in `client.ts`
+caps one reply's prose plus tool-call arguments at 1 MB: the largest legitimate
+call, an `exercise_js_block` at its 65,536-scalar limit, is a few hundred KB,
+and nothing else comes close. Past it the reader is cancelled — which is what
+stops the provider generating — and `StreamOverrunError` names the call whose
+arguments were still open. The agent loop catches it **once per turn**: the
+partial reply cannot go on the transcript (a tool call with no end has nothing
+to answer), so a `[system]` user message says what was cut off and why, the
+dock shows the same line as the round's prose, and the next round continues
+from the last completed tool result. A second overrun in the same turn ends it
+with the error: the model is not taking the hint, and each attempt is a
+megabyte billed. `ai-agent.test.mjs` covers both.
+
 ## The shared models
 
 Two providers cost the user nothing and store nothing. Both send their requests
@@ -536,6 +554,18 @@ evaluation and a two second timeout terminates the Worker. This is the safe
 place to catch a callback that never returns: the corresponding live scheduler
 thread cannot be interrupted.
 
+**A short input array is tiled to the call's length**, and the result's `notes`
+say so: a 1024-sample complex window of `1+0j` is `inputs: [[1, 0]]` with
+`nout: 1024`. The worker used to refuse it — *needs at least 2048 scalar
+values* — and the model read that as an instruction. Asked for an energy
+detector that fires on a 1024-sample window, gpt-5.6-luna set out to type the
+window: `0,1,0,1,…` as the arguments of one `exercise_js_block` call, and never
+found the end of it — 3.5 MB in the first minute, still streaming when the
+seven-minute turn was cut off, all of it billed. The one run of that prompt
+that passed was the one where the model shrank the window to four samples
+instead. Tiling removes the reason to write the array out; the schema, the
+`debugging` help topic and the system prompt all say a pattern is written once.
+
 Model-written source is deliberately **not** accepted by any edit or exercise
 tool. Its first visible run still shows the existing human JavaScript review;
 authoring assistance does not widen the code-execution boundary.
@@ -940,6 +970,17 @@ accepts the source — and the driver counts the clicks and prints them, so a
 report never quietly implies a human read the code. Both cases therefore expect
 `run: 'pass'`: `exercise_js_block` proves the arithmetic in a disposable Worker,
 and the run proves the declared ports connect and get scheduled.
+
+**A verdict survives the runner being stopped.** The driver reads `RUNNER_PASS`
+out of the runner iframe once the turn ends — and a model that runs the graph,
+reads the report and then calls `stop_flowgraph` to tidy up has unloaded that
+iframe by then. Scoring that as *the run did not pass (never ran)* marked the
+model down for cleaning up after itself, which `wbfm-waterfall` did with a
+perfectly good receiver. So when no iframe is left, the last `run_flowgraph`
+result on the transcript stands in: `started: true` is only returned once the
+runner has published diagnostics without a `RUNNER_FAIL`, and its per-block
+`items` are the same counters the iframe would have been read for. The verdict
+line says which of the two it came from.
 
 ### End to end, through the dock
 
