@@ -12,6 +12,7 @@
 #include <gnuradio/analog/dpll_bb.h>
 #include <gnuradio/analog/fastnoise_source.h>
 #include <gnuradio/analog/feedforward_agc_cc.h>
+#include <gnuradio/analog/fmdet_cf.h>
 #include <gnuradio/analog/frequency_modulator_fc.h>
 #include <gnuradio/analog/phase_modulator_fc.h>
 #include <gnuradio/analog/pll_carriertracking_cc.h>
@@ -71,6 +72,7 @@
 #include <gnuradio/blocks/multiply_conjugate_cc.h>
 #include <gnuradio/blocks/multiply_const.h>
 #include <gnuradio/blocks/multiply_const_v.h>
+#include <gnuradio/blocks/multiply_matrix.h>
 #include <gnuradio/blocks/mute.h>
 #include <gnuradio/blocks/nlog10_ff.h>
 #include <gnuradio/blocks/nop.h>
@@ -994,6 +996,17 @@ void register_generated_blocks(std::map<std::string, Factory>& registry)
             return built;
         }
         throw std::runtime_error("unsupported type selection for blocks_multiply_const_vxx");
+    });
+    registry.emplace("blocks_multiply_matrix_xx", [](const nlohmann::json& p) -> BuiltBlock {
+        if (wasm_registry::text(p, "type", "float") == "float") {
+            auto block = blocks::multiply_matrix_ff::make(wasm_registry::matrix<float>(p, "A"), wasm_registry::choice(p, "tag_propagation_policy", {{"gr.TPP_ALL_TO_ALL", gr::block::TPP_ALL_TO_ALL}, {"gr.TPP_ONE_TO_ONE", gr::block::TPP_ONE_TO_ONE}, {"gr.TPP_DONT", gr::block::TPP_DONT}, {"gr.TPP_CUSTOM", gr::block::TPP_CUSTOM}}, gr::block::TPP_ALL_TO_ALL));
+            return { block, nullptr };
+        }
+        else if (wasm_registry::text(p, "type", "float") == "complex") {
+            auto block = blocks::multiply_matrix_cc::make(wasm_registry::matrix<gr_complex>(p, "A"), wasm_registry::choice(p, "tag_propagation_policy", {{"gr.TPP_ALL_TO_ALL", gr::block::TPP_ALL_TO_ALL}, {"gr.TPP_ONE_TO_ONE", gr::block::TPP_ONE_TO_ONE}, {"gr.TPP_DONT", gr::block::TPP_DONT}, {"gr.TPP_CUSTOM", gr::block::TPP_CUSTOM}}, gr::block::TPP_ALL_TO_ALL));
+            return { block, nullptr };
+        }
+        throw std::runtime_error("unsupported type selection for blocks_multiply_matrix_xx");
     });
     registry.emplace("blocks_mute_xx", [](const nlohmann::json& p) -> BuiltBlock {
         if (wasm_registry::text(p, "type", "complex") == "complex") {
@@ -2273,6 +2286,22 @@ void register_generated_blocks(std::map<std::string, Factory>& registry)
     registry.emplace("analog_feedforward_agc_cc", [](const nlohmann::json& p) -> BuiltBlock {
         auto block = analog::feedforward_agc_cc::make(wasm_registry::number<int>(p, "num_samples", 1024), wasm_registry::number<double>(p, "reference", 1.0));
         return { block, nullptr };
+    });
+    registry.emplace("analog_fmdet_cf", [](const nlohmann::json& p) -> BuiltBlock {
+        auto block = analog::fmdet_cf::make(wasm_registry::number<double>(p, "samplerate", 0.0), wasm_registry::number<double>(p, "freq_low", 0.0), wasm_registry::number<double>(p, "freq_high", 0.0), wasm_registry::number<double>(p, "scl", 0.0));
+        BuiltBlock built{ block };
+        struct LiveCallbackParams {
+            double p_freq_low;
+            double p_freq_high;
+        };
+        auto live = std::make_shared<LiveCallbackParams>();
+        live->p_freq_low = wasm_registry::number<double>(p, "freq_low", 0.0);
+        live->p_freq_high = wasm_registry::number<double>(p, "freq_high", 0.0);
+        auto apply_callback_0 = [block, live]() { block->set_freq_range(live->p_freq_low, live->p_freq_high); };
+        built.numeric_setters["scl"] = [block](double value) { block->set_scale(static_cast<double>(value)); };
+        wasm_registry::add_numeric_setter(built, "freq_low", live, &LiveCallbackParams::p_freq_low, apply_callback_0);
+        wasm_registry::add_numeric_setter(built, "freq_high", live, &LiveCallbackParams::p_freq_high, apply_callback_0);
+        return built;
     });
     registry.emplace("analog_frequency_modulator_fc", [](const nlohmann::json& p) -> BuiltBlock {
         auto block = analog::frequency_modulator_fc::make(wasm_registry::number<double>(p, "sensitivity", 0.0));
@@ -5313,6 +5342,156 @@ void register_generated_blocks(std::map<std::string, Factory>& registry)
             return built;
         }
         throw std::runtime_error("unsupported type selection for fft_filter_xxx");
+    });
+    registry.emplace("filter_fft_low_pass_filter", [](const nlohmann::json& p) -> BuiltBlock {
+        if (wasm_registry::text(p, "type", "ccc") == "ccc") {
+            auto block = filter::fft_filter_ccc::make(wasm_registry::number<int>(p, "decim", 1), wasm_registry::complex_taps(filter::firdes::low_pass(wasm_registry::number<double>(p, "gain", 1.0), wasm_registry::number<double>(p, "samp_rate", 0.0), wasm_registry::number<double>(p, "cutoff_freq", 0.0), wasm_registry::number<double>(p, "width", 0.0), wasm_registry::choice(p, "win", {{"window.WIN_HAMMING", fft::window::WIN_HAMMING}, {"window.WIN_HANN", fft::window::WIN_HANN}, {"window.WIN_BLACKMAN", fft::window::WIN_BLACKMAN}, {"window.WIN_RECTANGULAR", fft::window::WIN_RECTANGULAR}, {"window.WIN_KAISER", fft::window::WIN_KAISER}}, fft::window::WIN_HAMMING), wasm_registry::number<double>(p, "beta", 6.76))), wasm_registry::number<int>(p, "nthreads", 1));
+            BuiltBlock built{ block };
+            struct LiveCallbackParams {
+                double p_gain;
+                double p_samp_rate;
+                double p_cutoff_freq;
+                double p_width;
+                double p_beta;
+            };
+            auto live = std::make_shared<LiveCallbackParams>();
+            live->p_gain = wasm_registry::number<double>(p, "gain", 1.0);
+            live->p_samp_rate = wasm_registry::number<double>(p, "samp_rate", 0.0);
+            live->p_cutoff_freq = wasm_registry::number<double>(p, "cutoff_freq", 0.0);
+            live->p_width = wasm_registry::number<double>(p, "width", 0.0);
+            live->p_beta = wasm_registry::number<double>(p, "beta", 6.76);
+            auto apply_callback_0 = [block, live, p]() { block->set_taps(wasm_registry::complex_taps(filter::firdes::low_pass(live->p_gain, live->p_samp_rate, live->p_cutoff_freq, live->p_width, wasm_registry::choice(p, "win", {{"window.WIN_HAMMING", fft::window::WIN_HAMMING}, {"window.WIN_HANN", fft::window::WIN_HANN}, {"window.WIN_BLACKMAN", fft::window::WIN_BLACKMAN}, {"window.WIN_RECTANGULAR", fft::window::WIN_RECTANGULAR}, {"window.WIN_KAISER", fft::window::WIN_KAISER}}, fft::window::WIN_HAMMING), live->p_beta))); };
+            wasm_registry::add_numeric_setter(built, "gain", live, &LiveCallbackParams::p_gain, apply_callback_0);
+            wasm_registry::add_numeric_setter(built, "samp_rate", live, &LiveCallbackParams::p_samp_rate, apply_callback_0);
+            wasm_registry::add_numeric_setter(built, "cutoff_freq", live, &LiveCallbackParams::p_cutoff_freq, apply_callback_0);
+            wasm_registry::add_numeric_setter(built, "width", live, &LiveCallbackParams::p_width, apply_callback_0);
+            wasm_registry::add_numeric_setter(built, "beta", live, &LiveCallbackParams::p_beta, apply_callback_0);
+            return built;
+        }
+        else if (wasm_registry::text(p, "type", "ccc") == "ccf") {
+            auto block = filter::fft_filter_ccf::make(wasm_registry::number<int>(p, "decim", 1), (filter::firdes::low_pass(wasm_registry::number<double>(p, "gain", 1.0), wasm_registry::number<double>(p, "samp_rate", 0.0), wasm_registry::number<double>(p, "cutoff_freq", 0.0), wasm_registry::number<double>(p, "width", 0.0), wasm_registry::choice(p, "win", {{"window.WIN_HAMMING", fft::window::WIN_HAMMING}, {"window.WIN_HANN", fft::window::WIN_HANN}, {"window.WIN_BLACKMAN", fft::window::WIN_BLACKMAN}, {"window.WIN_RECTANGULAR", fft::window::WIN_RECTANGULAR}, {"window.WIN_KAISER", fft::window::WIN_KAISER}}, fft::window::WIN_HAMMING), wasm_registry::number<double>(p, "beta", 6.76))), wasm_registry::number<int>(p, "nthreads", 1));
+            BuiltBlock built{ block };
+            struct LiveCallbackParams {
+                double p_gain;
+                double p_samp_rate;
+                double p_cutoff_freq;
+                double p_width;
+                double p_beta;
+            };
+            auto live = std::make_shared<LiveCallbackParams>();
+            live->p_gain = wasm_registry::number<double>(p, "gain", 1.0);
+            live->p_samp_rate = wasm_registry::number<double>(p, "samp_rate", 0.0);
+            live->p_cutoff_freq = wasm_registry::number<double>(p, "cutoff_freq", 0.0);
+            live->p_width = wasm_registry::number<double>(p, "width", 0.0);
+            live->p_beta = wasm_registry::number<double>(p, "beta", 6.76);
+            auto apply_callback_0 = [block, live, p]() { block->set_taps((filter::firdes::low_pass(live->p_gain, live->p_samp_rate, live->p_cutoff_freq, live->p_width, wasm_registry::choice(p, "win", {{"window.WIN_HAMMING", fft::window::WIN_HAMMING}, {"window.WIN_HANN", fft::window::WIN_HANN}, {"window.WIN_BLACKMAN", fft::window::WIN_BLACKMAN}, {"window.WIN_RECTANGULAR", fft::window::WIN_RECTANGULAR}, {"window.WIN_KAISER", fft::window::WIN_KAISER}}, fft::window::WIN_HAMMING), live->p_beta))); };
+            wasm_registry::add_numeric_setter(built, "gain", live, &LiveCallbackParams::p_gain, apply_callback_0);
+            wasm_registry::add_numeric_setter(built, "samp_rate", live, &LiveCallbackParams::p_samp_rate, apply_callback_0);
+            wasm_registry::add_numeric_setter(built, "cutoff_freq", live, &LiveCallbackParams::p_cutoff_freq, apply_callback_0);
+            wasm_registry::add_numeric_setter(built, "width", live, &LiveCallbackParams::p_width, apply_callback_0);
+            wasm_registry::add_numeric_setter(built, "beta", live, &LiveCallbackParams::p_beta, apply_callback_0);
+            return built;
+        }
+        else if (wasm_registry::text(p, "type", "ccc") == "fff") {
+            auto block = filter::fft_filter_fff::make(wasm_registry::number<int>(p, "decim", 1), (filter::firdes::low_pass(wasm_registry::number<double>(p, "gain", 1.0), wasm_registry::number<double>(p, "samp_rate", 0.0), wasm_registry::number<double>(p, "cutoff_freq", 0.0), wasm_registry::number<double>(p, "width", 0.0), wasm_registry::choice(p, "win", {{"window.WIN_HAMMING", fft::window::WIN_HAMMING}, {"window.WIN_HANN", fft::window::WIN_HANN}, {"window.WIN_BLACKMAN", fft::window::WIN_BLACKMAN}, {"window.WIN_RECTANGULAR", fft::window::WIN_RECTANGULAR}, {"window.WIN_KAISER", fft::window::WIN_KAISER}}, fft::window::WIN_HAMMING), wasm_registry::number<double>(p, "beta", 6.76))), wasm_registry::number<int>(p, "nthreads", 1));
+            BuiltBlock built{ block };
+            struct LiveCallbackParams {
+                double p_gain;
+                double p_samp_rate;
+                double p_cutoff_freq;
+                double p_width;
+                double p_beta;
+            };
+            auto live = std::make_shared<LiveCallbackParams>();
+            live->p_gain = wasm_registry::number<double>(p, "gain", 1.0);
+            live->p_samp_rate = wasm_registry::number<double>(p, "samp_rate", 0.0);
+            live->p_cutoff_freq = wasm_registry::number<double>(p, "cutoff_freq", 0.0);
+            live->p_width = wasm_registry::number<double>(p, "width", 0.0);
+            live->p_beta = wasm_registry::number<double>(p, "beta", 6.76);
+            auto apply_callback_0 = [block, live, p]() { block->set_taps((filter::firdes::low_pass(live->p_gain, live->p_samp_rate, live->p_cutoff_freq, live->p_width, wasm_registry::choice(p, "win", {{"window.WIN_HAMMING", fft::window::WIN_HAMMING}, {"window.WIN_HANN", fft::window::WIN_HANN}, {"window.WIN_BLACKMAN", fft::window::WIN_BLACKMAN}, {"window.WIN_RECTANGULAR", fft::window::WIN_RECTANGULAR}, {"window.WIN_KAISER", fft::window::WIN_KAISER}}, fft::window::WIN_HAMMING), live->p_beta))); };
+            wasm_registry::add_numeric_setter(built, "gain", live, &LiveCallbackParams::p_gain, apply_callback_0);
+            wasm_registry::add_numeric_setter(built, "samp_rate", live, &LiveCallbackParams::p_samp_rate, apply_callback_0);
+            wasm_registry::add_numeric_setter(built, "cutoff_freq", live, &LiveCallbackParams::p_cutoff_freq, apply_callback_0);
+            wasm_registry::add_numeric_setter(built, "width", live, &LiveCallbackParams::p_width, apply_callback_0);
+            wasm_registry::add_numeric_setter(built, "beta", live, &LiveCallbackParams::p_beta, apply_callback_0);
+            return built;
+        }
+        throw std::runtime_error("unsupported type selection for filter_fft_low_pass_filter");
+    });
+    registry.emplace("filter_fft_rrc_filter", [](const nlohmann::json& p) -> BuiltBlock {
+        if (wasm_registry::text(p, "type", "ccc") == "ccc") {
+            auto block = filter::fft_filter_ccc::make(wasm_registry::number<int>(p, "decim", 1), wasm_registry::complex_taps(filter::firdes::root_raised_cosine(wasm_registry::number<double>(p, "gain", 1.0), wasm_registry::number<double>(p, "samp_rate", 0.0), wasm_registry::number<double>(p, "sym_rate", 1.0), wasm_registry::number<double>(p, "alpha", 0.35), wasm_registry::number<int>(p, "ntaps", 0))), wasm_registry::number<int>(p, "nthreads", 1));
+            BuiltBlock built{ block };
+            struct LiveCallbackParams {
+                double p_gain;
+                double p_samp_rate;
+                double p_sym_rate;
+                double p_alpha;
+                int p_ntaps;
+            };
+            auto live = std::make_shared<LiveCallbackParams>();
+            live->p_gain = wasm_registry::number<double>(p, "gain", 1.0);
+            live->p_samp_rate = wasm_registry::number<double>(p, "samp_rate", 0.0);
+            live->p_sym_rate = wasm_registry::number<double>(p, "sym_rate", 1.0);
+            live->p_alpha = wasm_registry::number<double>(p, "alpha", 0.35);
+            live->p_ntaps = wasm_registry::number<int>(p, "ntaps", 0);
+            auto apply_callback_0 = [block, live]() { block->set_taps(wasm_registry::complex_taps(filter::firdes::root_raised_cosine(live->p_gain, live->p_samp_rate, live->p_sym_rate, live->p_alpha, live->p_ntaps))); };
+            wasm_registry::add_numeric_setter(built, "gain", live, &LiveCallbackParams::p_gain, apply_callback_0);
+            wasm_registry::add_numeric_setter(built, "samp_rate", live, &LiveCallbackParams::p_samp_rate, apply_callback_0);
+            wasm_registry::add_numeric_setter(built, "sym_rate", live, &LiveCallbackParams::p_sym_rate, apply_callback_0);
+            wasm_registry::add_numeric_setter(built, "alpha", live, &LiveCallbackParams::p_alpha, apply_callback_0);
+            wasm_registry::add_numeric_setter(built, "ntaps", live, &LiveCallbackParams::p_ntaps, apply_callback_0);
+            return built;
+        }
+        else if (wasm_registry::text(p, "type", "ccc") == "ccf") {
+            auto block = filter::fft_filter_ccf::make(wasm_registry::number<int>(p, "decim", 1), (filter::firdes::root_raised_cosine(wasm_registry::number<double>(p, "gain", 1.0), wasm_registry::number<double>(p, "samp_rate", 0.0), wasm_registry::number<double>(p, "sym_rate", 1.0), wasm_registry::number<double>(p, "alpha", 0.35), wasm_registry::number<int>(p, "ntaps", 0))), wasm_registry::number<int>(p, "nthreads", 1));
+            BuiltBlock built{ block };
+            struct LiveCallbackParams {
+                double p_gain;
+                double p_samp_rate;
+                double p_sym_rate;
+                double p_alpha;
+                int p_ntaps;
+            };
+            auto live = std::make_shared<LiveCallbackParams>();
+            live->p_gain = wasm_registry::number<double>(p, "gain", 1.0);
+            live->p_samp_rate = wasm_registry::number<double>(p, "samp_rate", 0.0);
+            live->p_sym_rate = wasm_registry::number<double>(p, "sym_rate", 1.0);
+            live->p_alpha = wasm_registry::number<double>(p, "alpha", 0.35);
+            live->p_ntaps = wasm_registry::number<int>(p, "ntaps", 0);
+            auto apply_callback_0 = [block, live]() { block->set_taps((filter::firdes::root_raised_cosine(live->p_gain, live->p_samp_rate, live->p_sym_rate, live->p_alpha, live->p_ntaps))); };
+            wasm_registry::add_numeric_setter(built, "gain", live, &LiveCallbackParams::p_gain, apply_callback_0);
+            wasm_registry::add_numeric_setter(built, "samp_rate", live, &LiveCallbackParams::p_samp_rate, apply_callback_0);
+            wasm_registry::add_numeric_setter(built, "sym_rate", live, &LiveCallbackParams::p_sym_rate, apply_callback_0);
+            wasm_registry::add_numeric_setter(built, "alpha", live, &LiveCallbackParams::p_alpha, apply_callback_0);
+            wasm_registry::add_numeric_setter(built, "ntaps", live, &LiveCallbackParams::p_ntaps, apply_callback_0);
+            return built;
+        }
+        else if (wasm_registry::text(p, "type", "ccc") == "fff") {
+            auto block = filter::fft_filter_fff::make(wasm_registry::number<int>(p, "decim", 1), (filter::firdes::root_raised_cosine(wasm_registry::number<double>(p, "gain", 1.0), wasm_registry::number<double>(p, "samp_rate", 0.0), wasm_registry::number<double>(p, "sym_rate", 1.0), wasm_registry::number<double>(p, "alpha", 0.35), wasm_registry::number<int>(p, "ntaps", 0))), wasm_registry::number<int>(p, "nthreads", 1));
+            BuiltBlock built{ block };
+            struct LiveCallbackParams {
+                double p_gain;
+                double p_samp_rate;
+                double p_sym_rate;
+                double p_alpha;
+                int p_ntaps;
+            };
+            auto live = std::make_shared<LiveCallbackParams>();
+            live->p_gain = wasm_registry::number<double>(p, "gain", 1.0);
+            live->p_samp_rate = wasm_registry::number<double>(p, "samp_rate", 0.0);
+            live->p_sym_rate = wasm_registry::number<double>(p, "sym_rate", 1.0);
+            live->p_alpha = wasm_registry::number<double>(p, "alpha", 0.35);
+            live->p_ntaps = wasm_registry::number<int>(p, "ntaps", 0);
+            auto apply_callback_0 = [block, live]() { block->set_taps((filter::firdes::root_raised_cosine(live->p_gain, live->p_samp_rate, live->p_sym_rate, live->p_alpha, live->p_ntaps))); };
+            wasm_registry::add_numeric_setter(built, "gain", live, &LiveCallbackParams::p_gain, apply_callback_0);
+            wasm_registry::add_numeric_setter(built, "samp_rate", live, &LiveCallbackParams::p_samp_rate, apply_callback_0);
+            wasm_registry::add_numeric_setter(built, "sym_rate", live, &LiveCallbackParams::p_sym_rate, apply_callback_0);
+            wasm_registry::add_numeric_setter(built, "alpha", live, &LiveCallbackParams::p_alpha, apply_callback_0);
+            wasm_registry::add_numeric_setter(built, "ntaps", live, &LiveCallbackParams::p_ntaps, apply_callback_0);
+            return built;
+        }
+        throw std::runtime_error("unsupported type selection for filter_fft_rrc_filter");
     });
     registry.emplace("fir_filter_xxx", [](const nlohmann::json& p) -> BuiltBlock {
         if (wasm_registry::text(p, "type", "ccc") == "ccc") {

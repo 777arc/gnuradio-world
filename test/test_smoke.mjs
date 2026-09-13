@@ -221,6 +221,30 @@ const CASES = [
     expectLogs: ['ber_sink_b -', 'BER Limit Reached'] },
   { name: 'CVSD vocoder and ATSC RX filter (deferred vocoder/dtv modules)',
     grc: 'test/fixtures/wasm_hier_vocoder_dtv.grc' },
+  // The rest of gr-pdu, every block of it message-only past the two that cut a
+  // stream up, so what Message Debug prints is the whole test. Three chains:
+  // Take/Skip To PDU (64 floats = 256 bytes) through Set -> Remove -> Filter
+  // -> Add System Time -> Time Delta, where the filter passes only the label
+  // Set added and the delta key proves both time blocks ran; Random PDU
+  // triggered by a strobe, tagged and taken apart by PDU Split, whose dict
+  // half is the tag alone; and Tags To PDU framing a byte stream between the
+  // SOB/EOB Tag Objects a Vector Source emits, whose metadata carries the
+  // sample rate it was told.
+  // The other five gr-channels models in series (deferred channels module).
+  // Channel Model 2 is the one with three inputs -- the frequency and timing
+  // offsets are float streams rather than parameters -- so it is fed by two
+  // Constant Sources; a hier block with an input left open throws at start.
+  { name: 'gr-channels offset, fading and dynamic models',
+    grc: 'test/fixtures/wasm_channel_models.grc' },
+  { name: 'gr-pdu blocks (Take/Skip, Tags To PDU, Random PDU, Set/Remove/Filter/Split, time)',
+    grc: 'test/fixtures/wasm_pdu_blocks.grc',
+    expectLogs: [
+      'pdu length =        256 bytes',
+      '(label . chain1)',
+      '(time_delta_ms . ',
+      '((tag . random))',
+      '(sample_rate . 200)',
+    ] },
   // The JavaScript Block is a case here, not an exemption. Unlike the Embedded
   // Python Block there is no optional runtime to skip over -- the harness is in
   // runner.js itself -- so the deploy gate covers it. `expectLogs` is what makes

@@ -1952,7 +1952,7 @@ function resolveParamsForRun(inst: Inst, scope: Scope): Record<string, any> {
     // Only substitute a concrete (non-string) result; symbolic values (enum
     // constants) and anything referencing a live control are left as raw text.
     if (r.ok && typeof r.value !== 'string')
-      out[p.id] = serializeForRunner(r.value, dtype === 'complex_vector');
+      out[p.id] = serializeForRunner(r.value, dtype === 'complex_vector' || dtype === 'complex_matrix');
   }
   return out;
 }

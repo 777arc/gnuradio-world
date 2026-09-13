@@ -248,11 +248,33 @@ std::vector<std::vector<T>> matrix(const nlohmann::json& params,
             throw std::runtime_error(std::string(key) + " must be a matrix");
         std::vector<T> converted;
         converted.reserve(row.size());
-        for (const auto& value : row)
-            converted.push_back(value.get<T>());
+        for (const auto& value : row) {
+            // A complex entry arrives as the [re, im] pair the editor writes
+            // for complex_matrix, a real one as a plain number -- the same
+            // two spellings vector<gr_complex>() accepts above.
+            if constexpr (std::is_same_v<T, gr_complex>) {
+                if (value.is_number())
+                    converted.emplace_back(value.get<float>(), 0.0F);
+                else if (value.is_array() && value.size() == 2)
+                    converted.emplace_back(value[0].get<float>(), value[1].get<float>());
+                else
+                    throw std::runtime_error(std::string(key) +
+                                             " has an invalid complex item");
+            } else {
+                converted.push_back(value.get<T>());
+            }
+        }
         result.push_back(std::move(converted));
     }
     return result;
+}
+
+// firdes designs real taps, and Python's fft_filter_ccc binding widens the list
+// to complex on the way in. C++ does not, so a template constructing a ccc
+// filter from a firdes design wraps it in this.
+inline std::vector<gr_complex> complex_taps(const std::vector<float>& taps)
+{
+    return std::vector<gr_complex>(taps.begin(), taps.end());
 }
 
 // A Python sequence of quoted names, as a parameter typed `string_vector` by an

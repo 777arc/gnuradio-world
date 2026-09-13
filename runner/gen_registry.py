@@ -401,6 +401,7 @@ def matrix_type(dtype: str) -> str | None:
         "int_matrix": "int",
         "real_matrix": "float",
         "float_matrix": "float",
+        "complex_matrix": "gr_complex",
     }.get(dtype)
 
 
@@ -564,6 +565,12 @@ def param_arg(block_id: str, param: dict[str, Any], namespace: dict[str, Any]) -
         return Arg(f"wasm_registry::string_vector(p, {quoted_id})")
     item_type = matrix_type(dtype)
     if item_type:
+        # Multiply by Matrix's one matrix serves both its variants, so its
+        # element type follows the stream type: multiply_matrix_ff wants
+        # std::vector<std::vector<float>>.
+        if block_id == "blocks_multiply_matrix_xx" and pid == "A":
+            item_type = {"complex": "gr_complex", "float": "float"}.get(
+                str(namespace["type"].evaluated), item_type)
         return Arg(f"wasm_registry::matrix<{item_type}>(p, {quoted_id})")
     item_type = vector_type(dtype)
     if item_type:
@@ -577,14 +584,23 @@ def param_arg(block_id: str, param: dict[str, Any], namespace: dict[str, Any]) -
                 "ccc": "gr_complex",
                 "ccz": "gr_complexd",
             }.get(str(namespace["type"].evaluated), item_type)
-        if pid in {"const", "scale", "vector"} and "type" in namespace:
+        if pid in {"const", "scale", "vector", "prepend"} and "type" in namespace:
+            # A vector typed by the block's stream type must match it exactly:
+            # upstream's yaml says int_vector for short and byte alike, but
+            # tags_to_pdu_s wants a std::vector<short>. Tags To PDU spells its
+            # type as the one-letter suffix and names the stream type in the
+            # `input` attribute; the others use the stream type itself.
+            selected = namespace["type"]
+            stream_type = str(
+                selected.attributes["input"].evaluated
+                if "input" in selected.attributes else selected.evaluated)
             item_type = {
                 "complex": "gr_complex",
                 "float": "float",
                 "int": "std::int32_t",
                 "short": "std::int16_t",
                 "byte": "std::uint8_t",
-            }.get(str(namespace["type"].evaluated), item_type)
+            }.get(stream_type, item_type)
         return Arg(f"wasm_registry::vector<{item_type}>(p, {quoted_id})")
     if dtype == "raw" and param.get("options"):
         enum = dict(param)

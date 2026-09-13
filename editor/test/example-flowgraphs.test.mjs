@@ -47,7 +47,7 @@ installGeneratedBlocks(library.blocks || []);
 const EVALUATED_DTYPES = new Set([
   'int', 'real', 'float', 'hex', 'raw',
   'int_vector', 'real_vector', 'float_vector', 'complex_vector',
-  'int_matrix', 'real_matrix', 'float_matrix',
+  'int_matrix', 'real_matrix', 'float_matrix', 'complex_matrix',
 ]);
 
 // GRC dtypes can be templated on another parameter (`${ type.taps }`); resolve

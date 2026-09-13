@@ -76,6 +76,23 @@ of `BuiltBlock`.
 - Python-only `gr.hier_block2` definitions are unavailable unless explicitly
   rebuilt as C++ hierarchies in `blocks/src/<module>_hier.hpp` (or, for
   gr-satellites, `blocks/overlays/gr-satellites/satellites_{hier,deframers}.cpp`).
+- **A `flags: [python]` yaml is not proof the block is Python.** Upstream only
+  writes `cpp_templates` where someone needed C++ generation, so a good many
+  blocks with a perfectly ordinary C++ impl declare Python alone and are greyed
+  out here for no better reason — the whole of gr-pdu's utility set
+  (Take/Skip To PDU, Tags To PDU, Random PDU, PDU Set/Remove/Filter/Split, Add
+  System Time, Time Delta), gr-channels' offset and fading models, the FFT
+  filter conveniences, FM Detector and Multiply by Matrix were all in that
+  state. Check `gnuradio/gr-<m>/lib/` before assuming a rebuild is needed: when
+  the impl is there, the port is an overlay entry (`flags: [python, cpp]` plus
+  the `cpp_templates` upstream never wrote) in
+  `blocks/overlays/gnuradio/metadata.yml`, and its callbacks become live setters
+  for free. What is left greyed out after that pass either has no C++ at all —
+  `pdu_pdu_lambda` is a Python lambda, the gr-channels impairment blocks and the
+  QAM modem are `hier_block2` compositions, `blocks_var_to_msg` and its two
+  companions are Python — or needs a typed companion object the runner does not
+  model (the generic and tagged FEC encoders and decoders, the two adaptive
+  equalizers, the packet header parser).
 - Blocks absent from the WASM registry remain visible but disabled in the editor
   palette.
 - Symbol exports for side modules are generated automatically by

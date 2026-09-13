@@ -256,6 +256,93 @@ blocks:
         coordinate: [0, 0]
         rotation: 0
         state: enabled
+-   name: fft_source
+    id: analog_sig_source_x
+    parameters:
+        type: complex
+        samp_rate: '32000'
+        waveform: analog.GR_COS_WAVE
+        freq: '1000'
+        amp: '1'
+        offset: '0'
+        phase: '0'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: fft_lpf
+    id: filter_fft_low_pass_filter
+    parameters:
+        type: ccc
+        decim: '1'
+        gain: '1'
+        samp_rate: '32000'
+        cutoff_freq: '4000'
+        width: '1000'
+        win: window.WIN_HAMMING
+        beta: '6.76'
+        nthreads: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: fft_rrc
+    id: filter_fft_rrc_filter
+    parameters:
+        type: ccf
+        decim: '1'
+        gain: '1'
+        samp_rate: '32000'
+        sym_rate: '2000'
+        alpha: '0.35'
+        ntaps: '64'
+        nthreads: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: multiply_matrix
+    id: blocks_multiply_matrix_xx
+    parameters:
+        type: complex
+        A: '[[1, [0, 0.5]]]'
+        tag_propagation_policy: gr.TPP_ALL_TO_ALL
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: fmdet
+    id: analog_fmdet_cf
+    parameters:
+        samplerate: '32000'
+        freq_low: '-4000'
+        freq_high: '4000'
+        scl: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: fmdet_throttle
+    id: blocks_throttle2
+    parameters:
+        type: float
+        samples_per_second: '32000'
+        vlen: '1'
+        ignoretag: 'True'
+        limit: auto
+        maximum: '0.1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: fmdet_sink
+    id: blocks_null_sink
+    parameters:
+        type: float
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
 connections:
 - [iq_source, '0', correctiq, '0']
 - [correctiq, '0', correctiq_auto, '0']
@@ -275,5 +362,12 @@ connections:
 - [filterbank, '0', vector_to_stream, '0']
 - [vector_to_stream, '0', vector_throttle, '0']
 - [vector_throttle, '0', vector_sink, '0']
+- [fft_source, '0', fft_lpf, '0']
+- [fft_source, '0', fft_rrc, '0']
+- [fft_lpf, '0', multiply_matrix, '0']
+- [fft_rrc, '0', multiply_matrix, '1']
+- [multiply_matrix, '0', fmdet, '0']
+- [fmdet, '0', fmdet_throttle, '0']
+- [fmdet_throttle, '0', fmdet_sink, '0']
 metadata:
     file_format: 1

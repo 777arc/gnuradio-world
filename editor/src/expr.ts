@@ -162,7 +162,15 @@ class Parser {
   eat(v: string) { if (!this.isOp(v)) throw new Error(`expected '${v}'`); this.p++; }
 
   parse(): Node {
-    const e = this.expr();
+    let e = this.expr();
+    // A bare top-level tuple, `0.0,0.1,1.3`: Python's own reading of it, and
+    // how gr-channels' Dynamic Channel Model writes its delay and magnitude
+    // defaults.
+    if (this.isOp(',')) {
+      const items = [e];
+      while (this.isOp(',')) { this.next(); if (this.peek().t === 'eof') break; items.push(this.expr()); }
+      e = { k: 'tuple', items };
+    }
     if (this.peek().t !== 'eof') throw new Error('trailing tokens');
     return e;
   }

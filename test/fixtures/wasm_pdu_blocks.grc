@@ -1,0 +1,260 @@
+options:
+    parameters:
+        id: wasm_pdu_blocks
+        title: WASM gr-pdu blocks
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: sig_source
+    id: analog_sig_source_x
+    parameters:
+        type: float
+        samp_rate: '32000'
+        waveform: analog.GR_SIN_WAVE
+        freq: '440'
+        amp: '1'
+        offset: '0'
+        phase: '0'
+        showports: 'False'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: throttle
+    id: blocks_throttle2
+    parameters:
+        type: float
+        samples_per_second: '32000'
+        vlen: '1'
+        ignoretag: 'True'
+        limit: auto
+        maximum: '0.1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: take_skip
+    id: pdu_take_skip_to_pdu
+    parameters:
+        type: float
+        take: '64'
+        skip: '192'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: pdu_set
+    id: pdu_pdu_set
+    parameters:
+        k: pmt.intern("label")
+        v: pmt.intern("chain1")
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: pdu_remove
+    id: pdu_pdu_remove
+    parameters:
+        k: pmt.intern("pdu_num")
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: pdu_filter
+    id: pdu_pdu_filter
+    parameters:
+        k: pmt.intern("label")
+        v: pmt.intern("chain1")
+        invert: 'False'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: add_system_time
+    id: pdu_add_system_time
+    parameters:
+        key: pmt.intern("system_time")
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: time_delta
+    id: pdu_time_delta
+    parameters:
+        delta_key: pmt.intern("time_delta_ms")
+        time_key: pmt.intern("system_time")
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: generate
+    id: blocks_message_strobe
+    parameters:
+        msg: pmt.intern("go")
+        period: '100'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: random_pdu
+    id: pdu_random_pdu
+    parameters:
+        minsize: '10'
+        maxsize: '20'
+        mask: '0xFF'
+        length_modulo: '2'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: pdu_tag
+    id: pdu_pdu_set
+    parameters:
+        k: pmt.intern("tag")
+        v: pmt.intern("random")
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: pdu_split
+    id: pdu_pdu_split
+    parameters:
+        pass_empty: 'False'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: sob
+    id: variable_tag_object
+    parameters:
+        offset: '0'
+        key: pmt.intern("SOB")
+        value: pmt.PMT_T
+        src: pmt.intern("vector_src")
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: eob
+    id: variable_tag_object
+    parameters:
+        offset: '10'
+        key: pmt.intern("EOB")
+        value: pmt.PMT_T
+        src: pmt.intern("vector_src")
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: vector_src
+    id: blocks_vector_source_x
+    parameters:
+        type: byte
+        vector: '[7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26]'
+        tags: '[sob, eob]'
+        repeat: 'True'
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: vector_throttle
+    id: blocks_throttle2
+    parameters:
+        type: byte
+        samples_per_second: '200'
+        vlen: '1'
+        ignoretag: 'True'
+        limit: time
+        maximum: '0.1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: tags_to_pdu
+    id: pdu_tags_to_pdu_x
+    parameters:
+        type: b
+        start_tag: SOB
+        end_tag: EOB
+        max_pdu_size: '1024'
+        rate: '200'
+        prepend: '[]'
+        cfg_port: 'False'
+        pub_det: 'False'
+        tail_size: '0'
+        eob_alignment: '1'
+        eob_offset: '0'
+        start_time: '0.0'
+        boost_time: 'False'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: message_debug
+    id: blocks_message_debug
+    parameters:
+        en_uvec: 'True'
+        log_level: info
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+connections:
+- [sig_source, '0', throttle, '0']
+- [throttle, '0', take_skip, '0']
+- [vector_src, '0', vector_throttle, '0']
+- [vector_throttle, '0', tags_to_pdu, '0']
+-   src_blk_id: take_skip
+    src_port_id: pdus
+    snk_blk_id: pdu_set
+    snk_port_id: pdus
+-   src_blk_id: pdu_set
+    src_port_id: pdus
+    snk_blk_id: pdu_remove
+    snk_port_id: pdus
+-   src_blk_id: pdu_remove
+    src_port_id: pdus
+    snk_blk_id: pdu_filter
+    snk_port_id: pdus
+-   src_blk_id: pdu_filter
+    src_port_id: pdus
+    snk_blk_id: add_system_time
+    snk_port_id: pdu
+-   src_blk_id: add_system_time
+    src_port_id: pdu
+    snk_blk_id: time_delta
+    snk_port_id: pdu
+-   src_blk_id: time_delta
+    src_port_id: pdu
+    snk_blk_id: message_debug
+    snk_port_id: print
+-   src_blk_id: generate
+    src_port_id: strobe
+    snk_blk_id: random_pdu
+    snk_port_id: generate
+-   src_blk_id: random_pdu
+    src_port_id: pdus
+    snk_blk_id: pdu_tag
+    snk_port_id: pdus
+-   src_blk_id: pdu_tag
+    src_port_id: pdus
+    snk_blk_id: pdu_split
+    snk_port_id: pdu
+-   src_blk_id: pdu_split
+    src_port_id: dict
+    snk_blk_id: message_debug
+    snk_port_id: print
+-   src_blk_id: pdu_split
+    src_port_id: vec
+    snk_blk_id: message_debug
+    snk_port_id: print
+-   src_blk_id: tags_to_pdu
+    src_port_id: pdus
+    snk_blk_id: message_debug
+    snk_port_id: print
+metadata:
+    file_format: 2
+    grc_version: 3.10.9.2

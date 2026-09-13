@@ -1,0 +1,318 @@
+options:
+    parameters:
+        author: Marc
+        comment: ''
+        copyright: ''
+        description: Every gr-pdu utility in one graph. Random PDUs are stamped with the system time, labelled, filtered on that label, measured for latency, stripped of the timestamp and split into metadata and payload; alongside, Tags To PDU frames a byte stream between its SOB and EOB tags.
+        generate_options: qt_gui
+        id: PDU_Toolbox
+        title: PDU Toolbox
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: samp_rate
+    id: variable
+    parameters:
+        comment: ''
+        value: '32000'
+    states:
+        coordinate: [590, 10]
+        rotation: 0
+        state: enabled
+-   name: byte_throttle
+    id: blocks_throttle2
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        ignoretag: 'True'
+        limit: time
+        maximum: '0.1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        samples_per_second: '64'
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [340, 180]
+        rotation: 0
+        state: enabled
+-   name: drop_time
+    id: pdu_pdu_remove
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        k: pmt.intern("system_time")
+        maxoutbuf: '0'
+        minoutbuf: '0'
+    states:
+        coordinate: [880, 540]
+        rotation: 0
+        state: enabled
+-   name: eob
+    id: variable_tag_object
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        key: pmt.intern("EOB")
+        offset: '12'
+        src: pmt.intern("tagged_bytes")
+        value: pmt.PMT_T
+    states:
+        coordinate: [760, 10]
+        rotation: 0
+        state: enabled
+-   name: frames
+    id: blocks_message_debug
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        en_uvec: 'True'
+        log_level: info
+    states:
+        coordinate: [1020, 170]
+        rotation: 0
+        state: enabled
+-   name: keep_labelled
+    id: pdu_pdu_filter
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        invert: 'False'
+        k: pmt.intern("label")
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        v: pmt.intern("random")
+    states:
+        coordinate: [100, 530]
+        rotation: 0
+        state: enabled
+-   name: label
+    id: pdu_pdu_set
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        k: pmt.intern("label")
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        v: pmt.intern("random")
+    states:
+        coordinate: [1300, 390]
+        rotation: 0
+        state: enabled
+-   name: latency
+    id: pdu_time_delta
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        delta_key: pmt.intern("time_delta_ms")
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        time_key: pmt.intern("system_time")
+    states:
+        coordinate: [480, 540]
+        rotation: 0
+        state: enabled
+-   name: metadata
+    id: blocks_message_debug
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        en_uvec: 'True'
+        log_level: info
+    states:
+        coordinate: [130, 670]
+        rotation: 0
+        state: enabled
+-   name: payload
+    id: blocks_message_debug
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        en_uvec: 'True'
+        log_level: info
+    states:
+        coordinate: [130, 850]
+        rotation: 0
+        state: enabled
+-   name: random_pdu
+    id: pdu_random_pdu
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        length_modulo: '2'
+        mask: '255'
+        maxoutbuf: '0'
+        maxsize: '16'
+        minoutbuf: '0'
+        minsize: '8'
+    states:
+        coordinate: [540, 370]
+        rotation: 0
+        state: enabled
+-   name: sob
+    id: variable_tag_object
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        key: pmt.intern("SOB")
+        offset: '0'
+        src: pmt.intern("tagged_bytes")
+        value: pmt.PMT_T
+    states:
+        coordinate: [1050, 10]
+        rotation: 0
+        state: enabled
+-   name: split
+    id: pdu_pdu_split
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        pass_empty: 'False'
+    states:
+        coordinate: [1260, 530]
+        rotation: 0
+        state: enabled
+-   name: stamp_time
+    id: pdu_add_system_time
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        key: pmt.intern("system_time")
+        maxoutbuf: '0'
+        minoutbuf: '0'
+    states:
+        coordinate: [920, 390]
+        rotation: 0
+        state: enabled
+-   name: tagged_bytes
+    id: blocks_vector_source_x
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        repeat: 'True'
+        tags: '[sob, eob]'
+        type: byte
+        vector: list(range(1, 33))
+        vlen: '1'
+    states:
+        coordinate: [10, 190]
+        rotation: 0
+        state: enabled
+-   name: tags_to_pdu
+    id: pdu_tags_to_pdu_x
+    parameters:
+        affinity: ''
+        alias: ''
+        boost_time: 'False'
+        cfg_port: 'False'
+        comment: ''
+        end_tag: EOB
+        eob_alignment: '1'
+        eob_offset: '0'
+        max_pdu_size: '1024'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        prepend: '[]'
+        pub_det: 'False'
+        rate: '64'
+        start_tag: SOB
+        start_time: '0'
+        tail_size: '0'
+        type: b
+    states:
+        coordinate: [690, 170]
+        rotation: 0
+        state: enabled
+-   name: trigger
+    id: blocks_message_strobe
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        msg: pmt.intern("generate")
+        period: '500'
+    states:
+        coordinate: [90, 390]
+        rotation: 0
+        state: enabled
+-   name: wasm_gui_layout_0
+    id: wasm_gui_layout
+    parameters:
+        affinity: ''
+        alias: ''
+        columns: '12'
+        comment: ''
+        layout: '{}'
+        row_height: '60'
+    states:
+        coordinate: [300, 10]
+        rotation: 0
+        state: enabled
+connections:
+- [byte_throttle, '0', tags_to_pdu, '0']
+-   src_blk_id: drop_time
+    src_port_id: pdus
+    snk_blk_id: split
+    snk_port_id: pdu
+-   src_blk_id: keep_labelled
+    src_port_id: pdus
+    snk_blk_id: latency
+    snk_port_id: pdu
+-   src_blk_id: label
+    src_port_id: pdus
+    snk_blk_id: keep_labelled
+    snk_port_id: pdus
+-   src_blk_id: latency
+    src_port_id: pdu
+    snk_blk_id: drop_time
+    snk_port_id: pdus
+-   src_blk_id: random_pdu
+    src_port_id: pdus
+    snk_blk_id: stamp_time
+    snk_port_id: pdu
+-   src_blk_id: split
+    src_port_id: dict
+    snk_blk_id: metadata
+    snk_port_id: print
+-   src_blk_id: split
+    src_port_id: vec
+    snk_blk_id: payload
+    snk_port_id: print
+-   src_blk_id: stamp_time
+    src_port_id: pdu
+    snk_blk_id: label
+    snk_port_id: pdus
+- [tagged_bytes, '0', byte_throttle, '0']
+-   src_blk_id: tags_to_pdu
+    src_port_id: pdus
+    snk_blk_id: frames
+    snk_port_id: print
+-   src_blk_id: trigger
+    src_port_id: strobe
+    snk_blk_id: random_pdu
+    snk_port_id: generate
+metadata:
+    file_format: 2
+    grc_version: 3.11.0.0

@@ -94,6 +94,12 @@ ok('[32767]', '[32767]');
 ok('[-1, 1]', '[-1, 1]');
 ok('[0, 1, 2]', '[0, 1, 2]');
 ok('[1.0]', '[1]');
+// A bare top-level tuple is a sequence, as Python reads it: gr-channels' Dynamic
+// Channel Model defaults its delays to `0.0,0.1,1.3` with no brackets at all.
+ok('0.0,0.1,1.3', '[0, 0.1, 1.3]');
+ok('1,0.99,0.97', '[1, 0.99, 0.97]');
+ok('(1.0,1.9,2.7)', '[1, 1.9, 2.7]');
+fails('1,,2');
 
 // ---- string concat + str() ----
 ok('"send_frame_size=" + str(samp_rate*4)', 'send_frame_size=128000');

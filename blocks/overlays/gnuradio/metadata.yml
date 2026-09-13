@@ -31,6 +31,124 @@ pdu_pdu_to_stream_x:
       pdu\.: 'pdu::'
     callbacks: ['set_max_queue_size(${depth});']
 
+# The rest of gr-pdu is the same story: every one of these has a C++ impl in
+# gr-pdu/lib, and upstream's yaml declares only Python generation for it. The
+# PMT-valued keys and values (`pmt.intern("key")`) are retyped `pmt` so the
+# runner parses them instead of the editor trying to evaluate them; their
+# set_key/set_val callbacks are skipped by the generator, as natively a Range
+# cannot drive a PMT either. Only pdu_pdu_lambda stays Python: it *is* a Python
+# lambda, and the JS Block is the browser's answer to that.
+pdu_take_skip_to_pdu:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <gnuradio/pdu/take_skip_to_pdu.h>']
+    declarations: 'pdu::take_skip_to_pdu_${type.t}::sptr ${id};'
+    make: 'this->${id} = pdu::take_skip_to_pdu_${type.t}::make(${take}, ${skip});'
+    translations:
+      pdu\.: 'pdu::'
+    callbacks:
+    - set_take(${take})
+    - set_skip(${skip})
+
+# `prepend` is typed `${type.vec_type}`, which for short and byte is upstream's
+# generic int_vector; gen_registry.py's param_arg() maps it to the selected
+# stream type so tags_to_pdu_s gets a std::vector<short>.
+pdu_tags_to_pdu_x:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <gnuradio/pdu/tags_to_pdu.h>']
+    declarations: 'pdu::tags_to_pdu_${type}::sptr ${id};'
+    make: |-
+      this->${id} = pdu::tags_to_pdu_${type}::make(pmt::intern(${start_tag}), pmt::intern(${end_tag}), ${max_pdu_size}, ${rate}, ${prepend}, ${pub_det}, ${tail_size}, ${start_time});
+      this->${id}->set_eob_parameters(${eob_alignment}, ${eob_offset});
+      this->${id}->enable_time_debug(${boost_time});
+    translations:
+      pdu\.: 'pdu::'
+    callbacks:
+    - set_max_pdu_size(${max_pdu_size})
+    - set_samp_rate(${rate})
+    - set_tail_size(${tail_size})
+    - set_start_time(${start_time})
+    - set_eob_parameters(${eob_alignment}, ${eob_offset})
+
+pdu_random_pdu:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <gnuradio/pdu/random_pdu.h>']
+    declarations: 'pdu::random_pdu::sptr ${id};'
+    make: 'this->${id} = pdu::random_pdu::make(${minsize}, ${maxsize}, ${mask}, ${length_modulo});'
+    translations:
+      pdu\.: 'pdu::'
+
+pdu_pdu_filter:
+  flags: [python, cpp]
+  parameter_dtypes:
+    k: pmt
+    v: pmt
+  cpp_templates:
+    includes: ['#include <gnuradio/pdu/pdu_filter.h>']
+    declarations: 'pdu::pdu_filter::sptr ${id};'
+    make: 'this->${id} = pdu::pdu_filter::make(${k}, ${v}, ${invert});'
+    translations:
+      pdu\.: 'pdu::'
+    callbacks:
+    - set_inversion(${invert})
+
+pdu_pdu_set:
+  flags: [python, cpp]
+  parameter_dtypes:
+    k: pmt
+    v: pmt
+  cpp_templates:
+    includes: ['#include <gnuradio/pdu/pdu_set.h>']
+    declarations: 'pdu::pdu_set::sptr ${id};'
+    make: 'this->${id} = pdu::pdu_set::make(${k}, ${v});'
+    translations:
+      pdu\.: 'pdu::'
+
+pdu_pdu_remove:
+  flags: [python, cpp]
+  parameter_dtypes:
+    k: pmt
+  cpp_templates:
+    includes: ['#include <gnuradio/pdu/pdu_remove.h>']
+    declarations: 'pdu::pdu_remove::sptr ${id};'
+    make: 'this->${id} = pdu::pdu_remove::make(${k});'
+    translations:
+      pdu\.: 'pdu::'
+
+pdu_pdu_split:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <gnuradio/pdu/pdu_split.h>']
+    declarations: 'pdu::pdu_split::sptr ${id};'
+    make: 'this->${id} = pdu::pdu_split::make(${pass_empty});'
+    translations:
+      pdu\.: 'pdu::'
+
+pdu_add_system_time:
+  flags: [python, cpp]
+  parameter_dtypes:
+    key: pmt
+  cpp_templates:
+    includes: ['#include <gnuradio/pdu/add_system_time.h>']
+    declarations: 'pdu::add_system_time::sptr ${id};'
+    make: 'this->${id} = pdu::add_system_time::make(${key});'
+    translations:
+      pdu\.: 'pdu::'
+
+pdu_time_delta:
+  flags: [python, cpp]
+  parameter_dtypes:
+    delta_key: pmt
+    time_key: pmt
+  cpp_templates:
+    includes: ['#include <gnuradio/pdu/time_delta.h>']
+    declarations: 'pdu::time_delta::sptr ${id};'
+    make: 'this->${id} = pdu::time_delta::make(${delta_key}, ${time_key});'
+    translations:
+      pdu\.: 'pdu::'
+
 # These blocks have a samp_rate parameter but upstream gives it no default (or a
 # hardcoded one), unlike every other samp_rate param in the tree, which defaults
 # to referencing the samp_rate variable block the editor places by default.
@@ -72,6 +190,45 @@ freq_xlating_fir_filter_xxx:
     callbacks:
     - set_taps(${taps})
     - set_center_freq(${center_freq})
+
+# gr-filter's two FFT filter conveniences (FFT Low Pass Filter, FFT Root Raised
+# Cosine Filter) are fft_filter_${type} around a firdes tap design, exactly the
+# shape of the FIR Low Pass Filter, which upstream did write cpp_templates for.
+# The window option is spelled `window.WIN_*` and the translation rewrites it to
+# the fft::window enumerator; wasm_registry::choice() normalizes `::` back to
+# `.` when matching, so the editor's dotted value still selects it. The ccc
+# variant takes complex taps, which Python's binding widened for it and
+# wasm_registry::complex_taps() does here.
+filter_fft_low_pass_filter:
+  flags: [python, cpp]
+  # Upstream types the window `raw` (the FIR Low Pass Filter's is `enum`), and a
+  # raw parameter is one the editor evaluates on the Run path -- expr.ts knows
+  # the window constants, so `window.WIN_HAMMING` would arrive as 0.
+  parameter_dtypes:
+    win: enum
+  cpp_templates:
+    includes: ['#include <gnuradio/filter/fft_filter_${type}.h>', '#include <gnuradio/filter/firdes.h>']
+    declarations: 'filter::fft_filter_${type}::sptr ${id};'
+    make: >-
+      this->${id} = filter::fft_filter_${type}::make(${decim}, ${'wasm_registry::complex_taps' if str(type) == 'ccc' else ''}(filter::firdes::low_pass(${gain}, ${samp_rate}, ${cutoff_freq}, ${width}, ${win}, ${beta})), ${nthreads});
+    translations:
+      (?<!["\.])window\.: 'fft::window::'
+    link: ['gnuradio::gnuradio-filter']
+    callbacks:
+    - >-
+      set_taps(${'wasm_registry::complex_taps' if str(type) == 'ccc' else ''}(filter::firdes::low_pass(${gain}, ${samp_rate}, ${cutoff_freq}, ${width}, ${win}, ${beta})))
+
+filter_fft_rrc_filter:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <gnuradio/filter/fft_filter_${type}.h>', '#include <gnuradio/filter/firdes.h>']
+    declarations: 'filter::fft_filter_${type}::sptr ${id};'
+    make: >-
+      this->${id} = filter::fft_filter_${type}::make(${decim}, ${'wasm_registry::complex_taps' if str(type) == 'ccc' else ''}(filter::firdes::root_raised_cosine(${gain}, ${samp_rate}, ${sym_rate}, ${alpha}, ${ntaps})), ${nthreads});
+    link: ['gnuradio::gnuradio-filter']
+    callbacks:
+    - >-
+      set_taps(${'wasm_registry::complex_taps' if str(type) == 'ccc' else ''}(filter::firdes::root_raised_cosine(${gain}, ${samp_rate}, ${sym_rate}, ${alpha}, ${ntaps})))
 
 # The PMT message and tag sources. All three have a C++ implementation in
 # gr-blocks and no cpp_templates upstream, because their defining parameter is a
@@ -268,6 +425,39 @@ digital_gmskmod_bc:
     includes: ['#include <gnuradio/digital/cpmmod_bc.h>']
     make: 'auto block = digital::cpmmod_bc::make_gmskmod_bc(${samples_per_symbol}, ${L}, ${bt});'
 
+# gr-analog's FM Detector is C++ (fmdet_cf_impl.cc) with Python-only yaml.
+analog_fmdet_cf:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <gnuradio/analog/fmdet_cf.h>']
+    declarations: 'analog::fmdet_cf::sptr ${id};'
+    make: 'this->${id} = analog::fmdet_cf::make(${samplerate}, ${freq_low}, ${freq_high}, ${scl});'
+    link: ['gnuradio::gnuradio-analog']
+    callbacks:
+    - set_scale(${scl})
+    - set_freq_range(${freq_low}, ${freq_high})
+
+# Multiply by Matrix ships cpp_templates upstream but flags only Python, and its
+# matrix is `raw`. `complex_matrix` is the browser-only dtype the generator
+# renders as wasm_registry::matrix<gr_complex>(), which reads real or [re, im]
+# entries, so one dtype serves both the float and complex variants; the
+# editor evaluates the nested sequence (variable references included) and
+# derives the port counts from len(A) and len(A[0]).
+blocks_multiply_matrix_xx:
+  flags: [python, cpp]
+  parameter_dtypes:
+    A: complex_matrix
+  cpp_templates:
+    includes: ['#include <gnuradio/blocks/multiply_matrix.h>']
+    declarations: 'blocks::multiply_matrix_${type.fcn}::sptr ${id};'
+    make: 'this->${id} = blocks::multiply_matrix_${type.fcn}::make(${A}, ${tag_propagation_policy});'
+    # The TPP enumerators are members of gr::block, which the generic gr. ->
+    # gr:: rewrite cannot know; the choice() match keys keep their dotted
+    # spelling so the editor's value still selects one.
+    translations:
+      gr::TPP_: 'gr::block::TPP_'
+    callbacks: []
+
 # gr-blocks' two hier blocks (blocks/src/blocks_hier.hpp).
 blocks_matrix_interleaver:
   flags: [python, cpp]
@@ -354,6 +544,77 @@ channels_selective_fading_model:
     link: ['gnuradio::gnuradio-channels']
     callbacks:
     - set_fDTs(${fDTs})
+    - set_K(${K})
+
+# The rest of gr-channels' C++: the two random-walk offset models, the
+# tag-aware channel model, the fading model with per-ray delay drift, and the
+# hier block composing all of them. Same story as above -- all C++ upstream,
+# only Python generation declared.
+channels_cfo_model:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <gnuradio/channels/cfo_model.h>']
+    declarations: 'channels::cfo_model::sptr ${id};'
+    make: 'this->${id} = channels::cfo_model::make(${srate}, ${stdev}, ${maxdev}, ${seed});'
+    link: ['gnuradio::gnuradio-channels']
+    callbacks:
+    - set_std_dev(${stdev})
+    - set_max_dev(${maxdev})
+    - set_samp_rate(${srate})
+
+channels_sro_model:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <gnuradio/channels/sro_model.h>']
+    declarations: 'channels::sro_model::sptr ${id};'
+    make: 'this->${id} = channels::sro_model::make(${srate}, ${stdev}, ${maxdev}, ${seed});'
+    link: ['gnuradio::gnuradio-channels']
+    callbacks:
+    - set_std_dev(${stdev})
+    - set_max_dev(${maxdev})
+    - set_samp_rate(${srate})
+
+channels_channel_model2:
+  flags: [python, cpp]
+  # Same scalar-to-vector coercion as channels_channel_model's Taps.
+  parameter_defaults:
+    taps: '[1.0]'
+  cpp_templates:
+    includes: ['#include <gnuradio/channels/channel_model2.h>']
+    declarations: 'channels::channel_model2::sptr ${id};'
+    make: 'this->${id} = channels::channel_model2::make(${noise_voltage}, ${epsilon}, ${taps}, ${seed}, ${block_tags});'
+    link: ['gnuradio::gnuradio-channels']
+    callbacks:
+    - set_noise_voltage(${noise_voltage})
+    - set_taps(${taps})
+    - set_timing_offset(${epsilon})
+
+channels_selective_fading_model2:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <gnuradio/channels/selective_fading_model2.h>']
+    declarations: 'channels::selective_fading_model2::sptr ${id};'
+    make: 'this->${id} = channels::selective_fading_model2::make(${N}, ${fDTs}, ${LOS}, ${K}, ${seed}, ${delays}, ${delay_std}, ${delay_maxdev}, ${mags}, ${ntaps});'
+    link: ['gnuradio::gnuradio-channels']
+    callbacks:
+    - set_fDTs(${fDTs})
+    - set_K(${K})
+
+channels_dynamic_channel_model:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <gnuradio/channels/dynamic_channel_model.h>']
+    declarations: 'channels::dynamic_channel_model::sptr ${id};'
+    make: 'this->${id} = channels::dynamic_channel_model::make(${samp_rate}, ${sro_stdev}, ${sro_maxdev}, ${cfo_stdev}, ${cfo_maxdev}, ${N}, ${fD}, ${LOS}, ${K}, ${delays}, ${mags}, ${ntaps}, ${noise_amp}, ${seed});'
+    link: ['gnuradio::gnuradio-channels']
+    callbacks:
+    - set_samp_rate(${samp_rate})
+    - set_sro_dev_std(${sro_stdev})
+    - set_sro_dev_max(${sro_maxdev})
+    - set_cfo_dev_std(${cfo_stdev})
+    - set_cfo_dev_max(${cfo_maxdev})
+    - set_noise_amp(${noise_amp})
+    - set_doppler_freq(${fD})
     - set_K(${K})
 
 # gr-digital's MPSK SNR Estimator names a setter its C++ class does not have:
