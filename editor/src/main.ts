@@ -4613,6 +4613,15 @@ function showHelpDialog() {
       anchor.rel = 'noopener';
       return anchor;
     };
+    const intro = document.createElement('p');
+    intro.append(
+      'New to GNU Radio? First check out the beginner-level tutorials at ',
+      link('wiki.gnuradio.org/index.php/Tutorials', 'https://wiki.gnuradio.org/index.php/Tutorials'),
+      '. New to RF signal processing and SDR? Check out ',
+      link('PySDR.org', 'https://pysdr.org/'),
+      '.',
+    );
+    body.appendChild(intro);
     const message = document.createElement('p');
     message.append(
       'For questions, comments, or suggestions, you can email ',
@@ -4812,6 +4821,8 @@ const MENUS: TopMenu[] = [
     { label: 'Parser Errors', reason: R_XML },
   ] },
   { label: 'Help', items: [
+    { label: 'About', run: showAboutDialog },
+    'sep',
     { label: 'Help', key: 'F1', run: showHelpDialog },
     { label: 'Keyboard Shortcuts', key: 'Ctrl+K', run: showShortcutHelp },
     'sep',
@@ -4822,8 +4833,6 @@ const MENUS: TopMenu[] = [
     'sep',
     { label: 'Privacy Policy', run: () => openLink('/privacy.html') },
     { label: 'Terms of Service', run: () => openLink('/terms.html') },
-    'sep',
-    { label: 'About', run: showAboutDialog },
   ] },
 ];
 
