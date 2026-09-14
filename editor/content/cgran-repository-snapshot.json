@@ -1,0 +1,113 @@
+{
+  "schema": 1,
+  "repositories": {
+    "gr-adsb": {
+      "repository": "https://github.com/mhostetter/gr-adsb",
+      "checked_at": "2026-09-14T06:10:39.469Z",
+      "latest_commit": "b1b5b139c8849d0090319ba12140bdc88fce236f",
+      "latest_commit_at": "2026-04-09T10:23:55-04:00"
+    },
+    "gr-bbc": {
+      "repository": "https://github.com/xeno00/gr-bbc",
+      "checked_at": "2026-09-14T06:10:39.794Z",
+      "latest_commit": "462ec90e25c47d2aabaa8d1fd728a7c392a9954c",
+      "latest_commit_at": "2026-09-04T11:56:57-07:00"
+    },
+    "gr-droneid": {
+      "repository": "https://github.com/proto17/dji_droneid",
+      "checked_at": "2026-09-14T06:10:40.133Z",
+      "latest_commit": "7c6dddad563724df93132e91b89e74650182ea1e",
+      "latest_commit_at": "2024-05-27T09:40:01-04:00"
+    },
+    "gr-dvbs2": {
+      "repository": "https://github.com/drmpeg/gr-dvbs2",
+      "checked_at": "2026-09-14T06:10:40.463Z",
+      "latest_commit": "99a2ac5592fa41e9c0f8f757995f3451ab8184a6",
+      "latest_commit_at": "2025-08-26T02:07:11-07:00"
+    },
+    "gr-dvbs2rx": {
+      "repository": "https://github.com/drmpeg/gr-dvbs2rx",
+      "checked_at": "2026-09-14T06:10:48.451Z",
+      "latest_commit": "74df1dadbd20b02ce0cdfd3244f9c97022981235",
+      "latest_commit_at": "2025-08-26T02:24:27-07:00"
+    },
+    "gr-foo": {
+      "repository": "https://github.com/bastibl/gr-foo",
+      "checked_at": "2026-09-14T06:10:48.733Z",
+      "latest_commit": "4c2a471b0453b9dca669b2d9dfcbfba6278741d7",
+      "latest_commit_at": "2025-01-30T17:02:07+01:00"
+    },
+    "gr-fosphor": {
+      "repository": "https://gitea.osmocom.org/sdr/gr-fosphor",
+      "checked_at": "2026-09-14T06:10:49.887Z",
+      "latest_commit": "74d54fc0b3ec9aeb7033686526c5e766f36eaf24",
+      "latest_commit_at": "2024-03-23T12:23:15+01:00"
+    },
+    "gr-gsm": {
+      "repository": "https://github.com/ptrkrysik/gr-gsm",
+      "checked_at": "2026-09-14T06:10:50.236Z",
+      "latest_commit": "4590df3da3744b0764165c162e263d790adf9fc0",
+      "latest_commit_at": "2025-03-10T12:49:02+01:00"
+    },
+    "gr-ham": {
+      "repository": "https://github.com/argilo/gr-ham",
+      "checked_at": "2026-09-14T06:10:50.529Z",
+      "latest_commit": "b156cffe585c88dd46084014081a2d332f6fe2a6",
+      "latest_commit_at": "2024-01-30T11:02:03-05:00"
+    },
+    "gr-hrpt": {
+      "repository": "https://github.com/altillimity/gr-hrpt",
+      "checked_at": "2026-09-14T06:10:50.848Z",
+      "latest_commit": "7f3bc69cde204abdbca934c5443b9a72a6cc75bb",
+      "latest_commit_at": "2020-06-03T16:15:15+02:00"
+    },
+    "gr-ieee802_11": {
+      "repository": "https://github.com/bastibl/gr-ieee802-11",
+      "checked_at": "2026-09-14T06:10:52.903Z",
+      "latest_commit": "ad0598e4a874f4b8e1f391a1e0323e80df2b34ff",
+      "latest_commit_at": "2026-05-19T14:37:05+02:00"
+    },
+    "gr-ieee802_15_4": {
+      "repository": "https://github.com/bastibl/gr-ieee802-15-4",
+      "checked_at": "2026-09-14T06:10:53.225Z",
+      "latest_commit": "a210b11fed2d307ef797ea79842b54f4e8ed3dd5",
+      "latest_commit_at": "2023-07-28T14:51:17+02:00"
+    },
+    "gr-lora_sdr": {
+      "repository": "https://github.com/tapparelj/gr-lora_sdr",
+      "checked_at": "2026-09-14T06:10:53.569Z",
+      "latest_commit": "862746dd1cf635c9c8a4bfbaa2c3a0ec3a5306c9",
+      "latest_commit_at": "2026-01-05T15:33:53+01:00"
+    },
+    "gr-paint": {
+      "repository": "https://github.com/drmpeg/gr-paint",
+      "checked_at": "2026-09-14T06:10:57.564Z",
+      "latest_commit": "c443e36e8ab22ea7819db28df7b69378027dd5b5",
+      "latest_commit_at": "2025-08-24T03:07:44-07:00"
+    },
+    "gr-radar": {
+      "repository": "https://github.com/kit-cel/gr-radar",
+      "checked_at": "2026-09-14T06:10:57.912Z",
+      "latest_commit": "8096e7cce309d4826b9a5fb91488e1740cb1a641",
+      "latest_commit_at": "2026-03-12T12:10:35+00:00"
+    },
+    "gr-rds": {
+      "repository": "https://github.com/bastibl/gr-rds",
+      "checked_at": "2026-09-14T06:10:58.288Z",
+      "latest_commit": "58facb6915fe865c4a8ae3a077c6369e8e38676c",
+      "latest_commit_at": "2026-01-04T18:35:40-05:00"
+    },
+    "gr-satellites": {
+      "repository": "https://github.com/daniestevez/gr-satellites",
+      "checked_at": "2026-09-14T06:10:58.738Z",
+      "latest_commit": "c2d627582ccd13dae39ba29815c4039d104e06ab",
+      "latest_commit_at": "2026-09-11T20:34:47+02:00"
+    },
+    "gr-tempest": {
+      "repository": "https://github.com/git-artes/gr-tempest",
+      "checked_at": "2026-09-14T06:10:59.028Z",
+      "latest_commit": "9df82064515d66ca83f6cc66442ddfdeaf30af83",
+      "latest_commit_at": "2025-02-10T13:57:08-03:00"
+    }
+  }
+}

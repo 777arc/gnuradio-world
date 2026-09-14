@@ -14,6 +14,7 @@ full* before starting that kind of work:
 | [docs/blocks.md](docs/blocks.md) | implementing or rebuilding a block — the registry line, hand-written factories, Python hier/GUI rebuilds, QT GUI controls |
 | [docs/flowgraph-files.md](docs/flowgraph-files.md) | writing or editing a `.grc` by hand — anything in `example_flowgraphs/` or `test/fixtures/`, parameter dtypes, expressions, PMTs |
 | [docs/adding-modules.md](docs/adding-modules.md) | adding a GNU Radio component library or vendoring an out-of-tree module — a self-contained checklist for both, plus the gr-satellites rebuilds |
+| [docs/cgran.md](docs/cgran.md) | adding or updating an OOT on the public `/cgran/` catalog, refreshing its repository activity, or changing how project pages find examples |
 | [docs/recording-viewer.md](docs/recording-viewer.md) | touching the four source blocks that read a file (File Source, SigMF Source, GR World Recording, Public HTTP Recording), the one that writes one (SigMF Sink), the R2 recording bucket and its CORS policy, recording tabs, or the SigMF viewer under `editor/src/recording/` |
 | [docs/rtlsdr.md](docs/rtlsdr.md) | touching RTL-SDR Source — the WebUSB reader worker, the RTL2832U/tuner drivers, the device-permission flow, or anything that has to reach USB hardware from a tab |
 | [docs/plutosdr.md](docs/plutosdr.md) | touching PlutoSDR Source or Sink — stock-firmware USB IIOD, WebUSB transport, IIO discovery, 1R1T/2R2T, device permission, or Pluto hardware testing |

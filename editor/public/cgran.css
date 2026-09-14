@@ -1,0 +1,37 @@
+.catalog-search { display: grid; gap: 6px; max-width: 520px; margin: 28px 0 0; color: #dce3f5; font-weight: 600; }
+.catalog-search input { width: 100%; padding: 11px 13px; border: 1px solid #46507a; border-radius: 7px; background: #181b26; color: #fff; font: inherit; }
+.catalog-search input:focus { outline: 2px solid #7ab7ff; outline-offset: 2px; }
+.search-status { min-height: 1.5em; margin: 6px 0 12px; color: #9ca8c5; font-size: .9rem; }
+.oot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(360px, 100%), 1fr)); gap: 16px; margin: 0; padding: 0; list-style: none; }
+.oot-card { padding: 18px; border: 1px solid #333a4d; border-radius: 9px; background: #242a3b; }
+.oot-card:hover { border-color: #46507a; background: #282f42; }
+.oot-card-link { text-decoration: none; }
+.oot-card h2 { margin: 0; font-size: 1.25rem; }
+.oot-art { display: block; overflow: hidden; border: 1px solid #333a4d; border-radius: 7px; background: #181b26; }
+.oot-art img { display: block; width: 100%; height: 100%; object-position: center; }
+.oot-art--cover img { object-fit: cover; }
+.oot-art--contain img { object-fit: contain; padding: 10px; }
+.oot-art--light { background: #eef1f5; }
+.oot-card > .oot-art { height: 138px; margin: 0 0 15px; }
+.oot-card > .oot-art:hover { border-color: #7ab7ff; }
+.oot-card p { margin: 10px 0 16px; color: #c9d3e8; }
+.oot-card dl, .project-facts { display: grid; gap: 5px; margin: 0; }
+.oot-card dl div, .project-facts div { display: grid; grid-template-columns: 7.5rem 1fr; gap: 12px; }
+.oot-card dt, .project-facts dt { color: #9ca8c5; }
+.oot-card dd, .project-facts dd { margin: 0; color: #dce3f5; }
+.submit-oot { margin-top: 46px; padding: 20px 22px; border: 1px solid #46507a; border-radius: 9px; background: #181b26; }
+.submit-oot h2 { margin-top: 0; }
+.submit-oot p { margin-bottom: 0; }
+.project-kind { margin: 0 0 22px; color: #9ca8c5; }
+.project-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 28px; }
+.project-heading > div { flex: 1; }
+.project-art { flex: 0 0 min(38%, 340px); height: 190px; margin: 0; position: relative; }
+.project-art figcaption { position: absolute; right: 7px; bottom: 7px; padding: 2px 7px; border-radius: 4px; background: rgb(12 15 22 / 88%); font-size: .75rem; }
+.project-art figcaption a { color: #c9d3e8; text-decoration: none; }
+.project-art figcaption a:hover { color: #fff; text-decoration: underline; }
+.project-summary { max-width: 800px; color: #c9d3e8; font-size: 1.08rem; }
+.project-facts { margin: 26px 0 36px; padding: 17px 19px; border: 1px solid #333a4d; border-radius: 8px; background: #181b26; }
+.empty-state { padding: 18px; border: 1px dashed #46507a; border-radius: 8px; color: #9ca8c5; }
+[hidden] { display: none !important; }
+@media (max-width: 700px) { .project-heading { display: block; } .project-art { width: 100%; height: 180px; margin: 18px 0 22px; } }
+@media (max-width: 480px) { .oot-card dl div, .project-facts div { grid-template-columns: 1fr; gap: 0; } }

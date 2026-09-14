@@ -241,6 +241,16 @@ async function main() {
   Cross-Origin-Embedder-Policy: require-corp
   Cross-Origin-Resource-Policy: cross-origin
 
+# These are static documents, not the pthreaded application. Some catalog
+# artwork comes from official project sites that do not send CORP/CORS.
+/cgran
+  ! Cross-Origin-Opener-Policy
+  ! Cross-Origin-Embedder-Policy
+
+/cgran/*
+  ! Cross-Origin-Opener-Policy
+  ! Cross-Origin-Embedder-Policy
+
 /*.wasm
   Content-Type: application/wasm
 

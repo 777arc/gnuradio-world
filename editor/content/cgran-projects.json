@@ -1,0 +1,385 @@
+{
+  "schema": 1,
+  "artwork_audit": {
+    "checked_at": "2026-09-14",
+    "no_suitable_artwork": [
+      "gr-bbc",
+      "gr-droneid",
+      "gr-dvbs2",
+      "gr-dvbs2rx",
+      "gr-foo",
+      "gr-gsm",
+      "gr-ham",
+      "gr-hrpt",
+      "gr-rds"
+    ]
+  },
+  "projects": [
+    {
+      "module": "gr-adsb",
+      "name": "gr-adsb",
+      "slug": "gr-adsb",
+      "repository": "https://github.com/mhostetter/gr-adsb",
+      "artwork": {
+        "source_path": "gr-adsb/web/static/img/airliner.png",
+        "source_url": "https://github.com/mhostetter/gr-adsb/blob/maint-3.10/web/static/img/airliner.png",
+        "alt": "Aircraft silhouette used by the gr-adsb web interface",
+        "label": "Repository artwork",
+        "fit": "contain",
+        "light_background": true
+      },
+      "authors": [
+        { "name": "Matt Hostetter", "url": "https://github.com/mhostetter" }
+      ],
+      "summary": [
+        "gr-adsb is a receiver and decoder for Automatic Dependent Surveillance-Broadcast and related Mode S replies.",
+        "Its signal-processing chain detects 1090 MHz pulse-position-modulated transmissions, recovers framed messages, verifies or repairs their parity, and turns their fields into aircraft state.",
+        "The decoder covers identification, altitude, velocity, position, and several surveillance reply formats, with compact or detailed textual output and interfaces for forwarding decoded traffic to other applications."
+      ],
+      "researched_revision": "b1b5b139c8849d0090319ba12140bdc88fce236f",
+      "evidence": ["README.md", "grc/adsb_demod.block.yml", "grc/adsb_framer.block.yml", "grc/adsb_decoder.block.yml"]
+    },
+    {
+      "module": "gr-bbc",
+      "name": "gr-bbc",
+      "slug": "gr-bbc",
+      "repository": "https://github.com/xeno00/gr-bbc",
+      "authors": [
+        { "name": "James Morrison", "url": "https://github.com/xeno00" },
+        { "name": "Neil Rogers", "url": "https://github.com/livethisdream" }
+      ],
+      "summary": [
+        "gr-bbc implements the Baird, Bahn, and Collins concurrent-code technique for communication through asymmetric interference and intentional jamming.",
+        "Its encoder maps each message prefix to pseudorandom marks in a much larger codeword, while its decoder searches only branches whose required marks remain present in the received word.",
+        "Because interference may add marks without erasing existing ones, independently encoded messages can be combined with a bitwise OR and recovered concurrently, and the module pairs this codec with on-off-keying blocks for a complete baseband link."
+      ],
+      "researched_revision": "462ec90e25c47d2aabaa8d1fd728a7c392a9954c",
+      "evidence": ["README.md", "CHANGELOG.md", "python/bbc/codec.py", "grc/bbc_bbc_encoder.block.yml", "grc/bbc_bbc_decoder.block.yml"]
+    },
+    {
+      "module": "gr-droneid",
+      "name": "gr-droneid",
+      "slug": "gr-droneid",
+      "repository": "https://github.com/proto17/dji_droneid",
+      "authors": [
+        { "name": "David Protzman", "url": "https://github.com/proto17" }
+      ],
+      "summary": [
+        "gr-droneid is an experimental receiver for the proprietary DJI DroneID signal transmitted by compatible aircraft.",
+        "It detects the periodic wideband OFDM bursts, uses their Zadoff-Chu structure for timing and channel estimation, corrects carrier and phase errors, and extracts the occupied subcarriers.",
+        "The remaining chain descrambles and turbo-decodes the payload before parsing DroneID fields, providing a research platform for studying DJI identification transmissions from recorded or live IQ data."
+      ],
+      "researched_revision": "d2c03186f1924e0bdbea1a8345c5515395bbd070",
+      "evidence": ["README.md", "gnuradio/gr-droneid/grc/droneid_time_sync.block.yml", "gnuradio/gr-droneid/grc/droneid_demodulation.block.yml", "gnuradio/gr-droneid/grc/droneid_decode.block.yml"]
+    },
+    {
+      "module": "gr-dvbs2",
+      "name": "gr-dvbs2",
+      "slug": "gr-dvbs2",
+      "repository": "https://github.com/drmpeg/gr-dvbs2",
+      "world_source_repository": "https://github.com/777arc/gr-dvbs2",
+      "authors": [
+        { "name": "Ron Economos", "url": "https://github.com/drmpeg" }
+      ],
+      "summary": [
+        "gr-dvbs2 provides a software-defined transmitter for the DVB-S2 and DVB-S2X satellite broadcasting standards, with particular support for variable and adaptive coding and modulation.",
+        "Its processing chain turns transport or generic streams into baseband frames, applies scrambling, BCH and LDPC forward-error correction, interleaving, constellation mapping, and physical-layer framing, then produces a transmit-ready waveform.",
+        "It supports normal and short frames, multiple stream modes, dummy-frame insertion, and a broad selection of QPSK, 8PSK, 16APSK, and 32APSK modulation and code-rate combinations."
+      ],
+      "researched_revision": "e984e5134d241e8cb21805c8ceaedcc1c3e93c3e",
+      "evidence": ["README", "grc/dvbs2_bbheader_bb.block.yml", "grc/dvbs2_ldpc_bb.block.yml", "grc/dvbs2_physical_cc.block.yml"]
+    },
+    {
+      "module": "gr-dvbs2rx",
+      "name": "gr-dvbs2rx",
+      "slug": "gr-dvbs2rx",
+      "repository": "https://github.com/drmpeg/gr-dvbs2rx",
+      "authors": [
+        { "name": "Ron Economos", "url": "https://github.com/drmpeg" },
+        { "name": "Ahmet Inan", "url": "https://github.com/xdsopl" }
+      ],
+      "summary": [
+        "gr-dvbs2rx supplies the bit-interleaved coded-modulation decoding stages used by DVB-S2 and DVB-T2 receivers.",
+        "Its blocks convert soft constellation decisions into deinterleaved codewords, perform low-density parity-check decoding, and apply the outer BCH correction needed to recover protected payload bits.",
+        "The module is designed as the forward-error-correction core of a larger receiver rather than a complete tuner and synchronization chain, and it supports the standard frame structures and code configurations used by those broadcast systems."
+      ],
+      "researched_revision": "74df1dadbd20b02ce0cdfd3244f9c97022981235",
+      "evidence": ["README", "grc/dvbs2rx_ldpc_decoder_cb.block.yml", "grc/dvbs2rx_bch_decoder_bb.block.yml", "lib/"]
+    },
+    {
+      "module": "gr-foo",
+      "name": "gr-foo",
+      "slug": "gr-foo",
+      "repository": "https://github.com/bastibl/gr-foo",
+      "authors": [
+        { "name": "Bastian Bloessl", "url": "https://github.com/bastibl" }
+      ],
+      "summary": [
+        "gr-foo is a collection of packet, burst, and message utilities created to support experimental wireless flowgraphs that do not belong to one protocol-specific module.",
+        "Its blocks can mark and pad finite transmissions, schedule timed bursts, drop messages for loss testing, and bridge packet data to tools that understand PCAP and radiotap formats.",
+        "Together these pieces provide the glue between protocol implementations, half-duplex radio hardware, automated experiments, and external analyzers such as Wireshark."
+      ],
+      "researched_revision": "4c2a471b0453b9dca669b2d9dfcbfba6278741d7",
+      "evidence": ["README.md", "grc/", "lib/"]
+    },
+    {
+      "module": "gr-fosphor",
+      "name": "gr-fosphor",
+      "slug": "gr-fosphor",
+      "repository": "https://gitea.osmocom.org/sdr/gr-fosphor",
+      "world_source_repository": "https://github.com/osmocom/gr-fosphor",
+      "artwork": {
+        "source_path": "editor/content/cgran-artwork/gr-fosphor.png",
+        "source_url": "https://osmocom.org/projects/sdr/wiki/Fosphor",
+        "alt": "Fosphor real-time spectrum and waterfall display",
+        "label": "Project-site screenshot",
+        "fit": "cover"
+      },
+      "authors": [
+        { "name": "Sylvain Munaut" }
+      ],
+      "summary": [
+        "gr-fosphor is a real-time spectrum-analysis display for GNU Radio designed to reveal short-lived and overlapping RF activity.",
+        "It combines accelerated FFT processing with a persistent density histogram, waterfall history, live spectrum trace, and maximum-hold trace in one continuously updating view.",
+        "The OpenCL and OpenGL implementation moves the demanding spectral computation and rendering onto the GPU, allowing high-rate sample streams to be explored interactively."
+      ],
+      "researched_revision": "74d54fc0b3ec9aeb7033686526c5e766f36eaf24",
+      "evidence": ["README.md", "docs/", "grc/fosphor_qt_sink_c.block.yml", "lib/"]
+    },
+    {
+      "module": "gr-gsm",
+      "name": "gr-gsm",
+      "slug": "gr-gsm",
+      "repository": "https://github.com/ptrkrysik/gr-gsm",
+      "authors": [
+        { "name": "Piotr Krysik", "url": "https://github.com/ptrkrysik" },
+        { "name": "Vadim Yanitskiy", "url": "https://github.com/axilirator" }
+      ],
+      "summary": [
+        "gr-gsm is a toolkit for receiving, inspecting, and processing transmissions from second-generation GSM cellular networks.",
+        "Its flowgraph components synchronize to GSM bursts, separate logical channels, decode signaling and traffic data, follow frequency-hopping assignments, and represent captured bursts in reusable message and file formats.",
+        "Command-line applications and transceiver interfaces build on those components to scan cells, monitor control channels, analyze protocol traffic, and exchange GSM bursts with other Osmocom software."
+      ],
+      "researched_revision": "4590df3da3744b0764165c162e263d790adf9fc0",
+      "evidence": ["README", "docs/", "grc/", "apps/"]
+    },
+    {
+      "module": "gr-ham",
+      "name": "gr-ham",
+      "slug": "gr-ham",
+      "repository": "https://github.com/argilo/gr-ham",
+      "authors": [
+        { "name": "Clayton Smith", "url": "https://github.com/argilo" }
+      ],
+      "summary": [
+        "gr-ham collects signal-processing components useful to amateur-radio operators and experimenters.",
+        "Its varicode encoder and decoder provide the variable-length character coding used by PSK31, while its CHU decoder extracts the time and status information broadcast by Canada's shortwave time service.",
+        "The module also contains an incomplete D-STAR receive chain, making the project a mixture of practical narrowband utilities and exploratory digital-voice work."
+      ],
+      "researched_revision": "b156cffe585c88dd46084014081a2d332f6fe2a6",
+      "evidence": ["README", "grc/", "python/"]
+    },
+    {
+      "module": "gr-hrpt",
+      "name": "gr-hrpt",
+      "slug": "gr-hrpt",
+      "repository": "https://github.com/altillimity/gr-hrpt",
+      "world_source_repository": "https://github.com/777arc/gr-hrpt",
+      "authors": [
+        { "name": "Aang23", "url": "https://github.com/altillimity" }
+      ],
+      "summary": [
+        "gr-hrpt provides a modernized collection of blocks for receiving High Resolution Picture Transmission downlinks from weather and Earth-observation satellites.",
+        "Its processing chains perform carrier and clock recovery, frame synchronization, deframing, and decoding so raw RF recordings can be converted into the structured data carried by NOAA, Meteor, MetOp, and related spacecraft.",
+        "The resulting streams are intended for image and instrument-data software, connecting an SDR front end to the specialized tools that turn HRPT telemetry into usable satellite products."
+      ],
+      "researched_revision": "431565dc7f0ce4f51f19ae58af2a2baa7c0b131f",
+      "evidence": ["README.md", "grc/", "lib/"]
+    },
+    {
+      "module": "gr-ieee802_11",
+      "name": "gr-ieee802-11",
+      "slug": "gr-ieee802-11",
+      "repository": "https://github.com/bastibl/gr-ieee802-11",
+      "artwork": {
+        "remote_url": "https://www.wime-project.net/img/wime-banner.svg",
+        "source_url": "https://www.wime-project.net/",
+        "alt": "Wime Project logo",
+        "label": "Project-site logo",
+        "fit": "contain",
+        "light_background": true
+      },
+      "authors": [
+        { "name": "Bastian Bloessl", "url": "https://github.com/bastibl" }
+      ],
+      "summary": [
+        "gr-ieee802-11 is a software-defined IEEE 802.11a, 802.11g, and 802.11p transceiver for simulation and over-the-air experimentation.",
+        "Its transmit path builds MAC frames and OFDM physical-layer waveforms, while its receiver detects frames, synchronizes frequency and timing, estimates the channel, equalizes subcarriers, and decodes packet data.",
+        "The module can interoperate with ordinary Wi-Fi hardware and vehicular-network prototypes, and it connects decoded frames to network stacks and packet-analysis tools through message interfaces."
+      ],
+      "researched_revision": "ad0598e4a874f4b8e1f391a1e0323e80df2b34ff",
+      "evidence": ["README.md", "grc/", "lib/"]
+    },
+    {
+      "module": "gr-ieee802_15_4",
+      "name": "gr-ieee802-15-4",
+      "slug": "gr-ieee802-15-4",
+      "repository": "https://github.com/bastibl/gr-ieee802-15-4",
+      "artwork": {
+        "remote_url": "https://www.wime-project.net/img/wime-banner.svg",
+        "source_url": "https://www.wime-project.net/",
+        "alt": "Wime Project logo",
+        "label": "Project-site logo",
+        "fit": "contain",
+        "light_background": true
+      },
+      "authors": [
+        { "name": "Bastian Bloessl", "url": "https://github.com/bastibl" },
+        { "name": "Thomas Schmid" }
+      ],
+      "summary": [
+        "gr-ieee802-15-4 implements low-rate wireless personal-area networking for GNU Radio, centered on the physical layer used by Zigbee and sensor networks.",
+        "It combines O-QPSK and chirp-spread-spectrum modulation chains with packet framing, burst control, and a lightweight Rime networking stack so complete radio links can be assembled from application data down to samples.",
+        "The module supports interaction with Contiki and TelosB devices and can forward decoded IEEE 802.15.4 or Rime packets to sockets and Wireshark for application development and protocol analysis."
+      ],
+      "researched_revision": "a210b11fed2d307ef797ea79842b54f4e8ed3dd5",
+      "evidence": ["README.md", "grc/", "python/"]
+    },
+    {
+      "module": "gr-lora_sdr",
+      "name": "gr-lora_sdr",
+      "slug": "gr-lora-sdr",
+      "repository": "https://github.com/tapparelj/gr-lora_sdr",
+      "artwork": {
+        "remote_url": "https://user-images.githubusercontent.com/66671413/182565519-e1ad1455-ac44-4aca-b339-00c1f3ba54aa.png",
+        "source_url": "https://github.com/tapparelj/gr-lora_sdr#readme",
+        "alt": "GNU Radio flowgraph using the gr-lora_sdr LoRa transmitter",
+        "label": "Repository artwork",
+        "fit": "contain",
+        "light_background": true
+      },
+      "authors": [
+        { "name": "Joachim Tapparel", "url": "https://github.com/tapparelj" }
+      ],
+      "summary": [
+        "gr-lora_sdr is a complete software-defined implementation of the LoRa physical layer, built for both controlled experiments and communication with commercial radios.",
+        "The transmitter assembles headers and checksums, whitens and error-corrects payloads, interleaves and maps their bits, and produces chirp-spread-spectrum symbols with configurable LoRa parameters.",
+        "The receiver performs packet synchronization, sample- and carrier-offset correction, soft demodulation, deinterleaving, decoding, dewhitening, and integrity checks, enabling end-to-end links even at very low signal-to-noise ratios."
+      ],
+      "researched_revision": "862746dd1cf635c9c8a4bfbaa2c3a0ec3a5306c9",
+      "evidence": ["README.md", "grc/", "lib/"]
+    },
+    {
+      "module": "gr-paint",
+      "name": "gr-paint",
+      "slug": "gr-paint",
+      "repository": "https://github.com/drmpeg/gr-paint",
+      "artwork": {
+        "source_path": "gr-paint/docs/paintrx.png",
+        "source_url": "https://github.com/drmpeg/gr-paint/blob/master/docs/paintrx.png",
+        "alt": "An image transmitted and recovered as spectrum-painted artwork",
+        "label": "Repository artwork",
+        "fit": "cover"
+      },
+      "authors": [
+        { "name": "Ron Economos", "url": "https://github.com/drmpeg" }
+      ],
+      "summary": [
+        "gr-paint is an OFDM transmitter that encodes monochrome images as visible shapes in a spectrum waterfall.",
+        "It converts image rows into the frequency-bin magnitudes of a large inverse FFT, then repeats and cyclically prefixes the resulting time-domain lines to control their persistence and aspect ratio on a receiver display.",
+        "An accompanying image source accepts common image formats, allowing arbitrary artwork, text, and test patterns to become transmit-ready IQ rather than requiring manually prepared raw luminance files."
+      ],
+      "researched_revision": "c443e36e8ab22ea7819db28df7b69378027dd5b5",
+      "evidence": ["README", "grc/paint_bc.block.yml", "grc/paint_image_source.block.yml", "lib/"]
+    },
+    {
+      "module": "gr-radar",
+      "name": "gr-radar",
+      "slug": "gr-radar",
+      "repository": "https://github.com/kit-cel/gr-radar",
+      "artwork": {
+        "source_path": "gr-radar/docs/doxygen/images/basic_flowgraph.svg",
+        "source_url": "https://github.com/kit-cel/gr-radar/blob/master/docs/doxygen/images/basic_flowgraph.svg",
+        "alt": "Basic gr-radar signal generation, target, and estimation chain",
+        "label": "Repository diagram",
+        "fit": "contain",
+        "light_background": true
+      },
+      "authors": [
+        { "name": "Stefan Wunsch", "url": "https://github.com/stwunsch" }
+      ],
+      "summary": [
+        "gr-radar is a modular toolbox for constructing and evaluating software-defined radar systems in GNU Radio.",
+        "It provides waveform generators and estimators for continuous-wave, frequency-modulated continuous-wave, frequency-shift-keyed, pulsed, and OFDM radar, together with target simulation, echo timing, matrix processing, detection, and tracking components.",
+        "These pieces form complete ranging, velocity, cross-section, and target-tracking pipelines that can operate in simulation or with synchronized radio hardware and can feed plotting and result-reporting interfaces."
+      ],
+      "researched_revision": "8096e7cce309d4826b9a5fb91488e1740cb1a641",
+      "evidence": ["README.md", "grc/", "lib/"]
+    },
+    {
+      "module": "gr-rds",
+      "name": "gr-rds",
+      "slug": "gr-rds",
+      "repository": "https://github.com/bastibl/gr-rds",
+      "authors": [
+        { "name": "Dimitrios Symeonidis", "url": "https://github.com/azimout" },
+        { "name": "Bastian Bloessl", "url": "https://github.com/bastibl" }
+      ],
+      "summary": [
+        "gr-rds implements the Radio Data System and Traffic Message Channel carried on the 57 kHz subcarrier of FM broadcasts.",
+        "Its receive chain synchronizes and decodes RDS groups, checks their block structure, parses station and program metadata, and presents information such as the program identifier, service name, radio text, clock time, and alternative frequencies.",
+        "Complementary encoder and tagging components can construct RDS groups and insert them into an FM multiplex, making the module useful for both broadcast reception and transmitter experiments."
+      ],
+      "researched_revision": "58facb6915fe865c4a8ae3a077c6369e8e38676c",
+      "evidence": ["README.md", "grc/rds_decoder.block.yml", "grc/rds_parser.block.yml", "grc/rds_encoder.block.yml"]
+    },
+    {
+      "module": "gr-satellites",
+      "name": "gr-satellites",
+      "slug": "gr-satellites",
+      "repository": "https://github.com/daniestevez/gr-satellites",
+      "artwork": {
+        "source_path": "gr-satellites/docs/source/images/satellite_decoder_flowgraph.png",
+        "source_url": "https://github.com/daniestevez/gr-satellites/blob/main/docs/source/images/satellite_decoder_flowgraph.png",
+        "alt": "A complete gr-satellites satellite decoding flowgraph",
+        "label": "Repository artwork",
+        "fit": "contain",
+        "light_background": true
+      },
+      "authors": [
+        { "name": "Daniel Estévez", "url": "https://github.com/daniestevez" }
+      ],
+      "summary": [
+        "gr-satellites is a broad collection of telemetry receivers for amateur satellites and other spacecraft that use publicly documented downlinks.",
+        "Its reusable demodulators, synchronizers, forward-error-correction stages, descramblers, and deframers cover protocols including AX.25, GOMspace modems, CCSDS links, AO-40, and numerous mission-specific formats.",
+        "Complete satellite definitions combine those components to turn IQ or audio into frames, human-readable telemetry, and reassembled files such as transmitted images, while the lower-level pieces can also serve new ground-station designs."
+      ],
+      "researched_revision": "b8b227d456a6c7e65a590dfb8f00e80e89d86a3c",
+      "evidence": ["README.md", "docs/", "grc/", "python/satellites/"]
+    },
+    {
+      "module": "gr-tempest",
+      "name": "gr-tempest",
+      "slug": "gr-tempest",
+      "repository": "https://github.com/git-artes/gr-tempest",
+      "artwork": {
+        "remote_url": "https://iie.fing.edu.uy/investigacion/grupos/artes/wp-content/uploads/sites/13/2020/05/captura_tempest.png",
+        "source_url": "https://iie.fing.edu.uy/investigacion/grupos/artes/es/proyectos/espionaje-por-emisiones-electromagneticas/",
+        "alt": "Display image reconstructed from unintended electromagnetic emissions",
+        "label": "Project-site screenshot",
+        "fit": "cover"
+      },
+      "authors": [
+        { "name": "Federico Larroca", "url": "https://github.com/flarroca" },
+        { "name": "Felipe Carrau", "url": "https://github.com/felipe-carrau" }
+      ],
+      "summary": [
+        "gr-tempest is a GNU Radio implementation of Van Eck phreaking, the reconstruction of display content from unintended electromagnetic emissions produced by video cables and electronics.",
+        "Its synchronization and resampling stages estimate or apply the horizontal and vertical timing of VGA and HDMI signals, correct sampling error, align the raster, and turn the recovered intensity stream back into an image.",
+        "The module supports recorded captures, simulations, and live radio input, with manual, semi-automatic, and experimental automatic workflows for finding stable video geometry under noisy reception conditions."
+      ],
+      "researched_revision": "9df82064515d66ca83f6cc66442ddfdeaf30af83",
+      "evidence": ["README.md", "grc/", "lib/"]
+    }
+  ]
+}

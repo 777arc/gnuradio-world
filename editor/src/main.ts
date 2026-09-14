@@ -4827,6 +4827,7 @@ const MENUS: TopMenu[] = [
     { label: 'Keyboard Shortcuts', key: 'Ctrl+K', run: showShortcutHelp },
     'sep',
     { label: 'Get Involved', run: () => openLink('https://www.gnuradio.org/get-involved/') },
+    { label: 'Supported OOTs (CGRAN)', run: () => openLink('/cgran/') },
     { label: 'Discord Server', run: () => openLink('https://discord.gg/qKK2kC6Fpw') },
     'sep',
     { label: 'Reset Challenge Progress', run: resetChallengeProgress },

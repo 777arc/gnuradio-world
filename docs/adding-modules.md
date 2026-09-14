@@ -291,6 +291,13 @@ node scripts/run.mjs "$URL" RUNNER_PASS 8090 45000   # headless chrome; prints t
 constructed and the graph started — it does **not** verify DSP correctness of the
 chain.
 
+**9. Add the public catalog entry** — once at least one block has `runnable: true`,
+the build requires that OOT to have an entry under `/cgran/`. Follow
+[`docs/cgran.md`](cgran.md): research the upstream source, add the reviewed
+description and authors, refresh the repository snapshot, and add an example
+where practical. The catalog generator finds matching examples from their block
+IDs, so there is no second example list to maintain.
+
 ## Symbols across the core/side-module boundary
 
 `gen_side_exports.py` re-exports whatever a side module imports, so most
@@ -395,4 +402,3 @@ And one about the recording: IShort To Complex's `scale_factor` *divides*
 correlation accumulators overflow to `inf`, `index_max` returns bin 0 and the
 ratio is garbage — while Normalize Flow, being scale-invariant, still paints a
 plausible-looking picture with the sync bypassed. Check the magnitude first.
-

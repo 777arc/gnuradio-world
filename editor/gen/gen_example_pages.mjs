@@ -26,6 +26,7 @@ import { join, dirname } from 'node:path';
 // flowgraph differently from the palette entry beside it.
 import { bundleModule } from '../test/bundle-module.mjs';
 import { findExampleFlowgraphs } from '../../scripts/example-flowgraphs.mjs';
+import { generateCgranPages } from './gen_cgran_pages.mjs';
 
 const ROOT = new URL('../../', import.meta.url).pathname;
 const EXAMPLES = join(ROOT, 'example_flowgraphs');
@@ -123,7 +124,7 @@ ${jsonLd.map(data =>
 ${body}
 </main>
 <footer>
-  <a href="/">Open the editor</a><a href="/examples/">All examples</a><a href="${REPO}">GitHub</a><a href="/privacy.html">Privacy</a><a href="/terms.html">Terms</a>
+  <a href="/">Open the editor</a><a href="/examples/">All examples</a><a href="/cgran/">Supported OOTs</a><a href="${REPO}">GitHub</a><a href="/privacy.html">Privacy</a><a href="/terms.html">Terms</a>
 </footer>
 </body>
 </html>
@@ -153,8 +154,12 @@ const cards = (entries) => `<ul class="cards">\n` + entries.map(entry =>
 
 // ---- read every example ----------------------------------------------------
 
+let blockDefinitions;
 const blockLibrary = await readFile(join(PUBLIC, 'blocks.json'), 'utf8').then(
-  text => new Map(JSON.parse(text).blocks.map(block => [block.id, block])),
+  text => {
+    blockDefinitions = JSON.parse(text).blocks;
+    return new Map(blockDefinitions.map(block => [block.id, block]));
+  },
   () => {
     console.error('editor/public/blocks.json is missing: it is generated, not committed. ' +
                   'Run: npm run blocks');
@@ -418,6 +423,7 @@ const urls = [
     .map(category => ({ loc: `/examples/${catalog.exampleSlug(category)}/`,
                         changefreq: 'monthly', priority: '0.7' })),
   ...examples.map(example => ({ loc: example.url, changefreq: 'monthly', priority: '0.6' })),
+  ...await generateCgranPages({ root: ROOT, publicDir: PUBLIC, examples, blockDefinitions }),
   { loc: '/privacy.html', changefreq: 'yearly', priority: '0.2' },
   { loc: '/terms.html', changefreq: 'yearly', priority: '0.2' },
 ];

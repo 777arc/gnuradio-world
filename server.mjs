@@ -12,6 +12,7 @@ import {
   decodeUrlPath,
   devServerRepoAssetAllowed,
   pathIsWithin,
+  pathNeedsIsolation,
   setIsolationHeaders,
 } from './scripts/http-support.mjs';
 
@@ -25,14 +26,16 @@ async function isFile(path) {
 }
 
 const server = http.createServer(async (req, res) => {
-  // Cross-origin isolation headers on every response, the recording view's
-  // included: it fetches the recording in CORS mode, which satisfies COEP.
-  setIsolationHeaders(res);
   const urlPath = decodeUrlPath(req.url);
   if (urlPath === null) {
     res.writeHead(400);
     return res.end('bad request');
   }
+  // The editor and runner need isolation for pthreads. The static CGRAN pages
+  // do not, and omitting it there permits official project-site artwork whose
+  // origin does not send CORP headers.
+  if (pathNeedsIsolation(urlPath)) setIsolationHeaders(res);
+  else res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
   // no-store everywhere, so an edit-reload loop never serves yesterday's build.
   // Pyodide is the exception: 16 MB of a pinned upstream release that no local
   // build can change, and re-downloading it on every Run of a flowgraph with a

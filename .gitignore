@@ -44,12 +44,13 @@ __pycache__/
 # The wiki fetch script's browser profile, holding its Cloudflare clearance.
 /.cache/
 
-# The static page per example flowgraph, and the sitemap listing them, rebuilt
-# by `npm run examples` from example_flowgraphs/. Generated for the same reason
-# as blocks.json: they are derived from files already in the tree, and a
-# committed copy would put 80 regenerated documents in the diff of every example
-# change. See editor/gen/gen_example_pages.mjs.
+# The static page per example flowgraph, the supported-OOT catalog, and their
+# sitemap, rebuilt by `npm run examples`. Generated for the same reason as
+# blocks.json: they are derived from files already in the tree, and committing
+# them would put hundreds of regenerated documents in routine diffs. See
+# editor/gen/gen_example_pages.mjs.
 /editor/public/examples/
+/editor/public/cgran/
 /editor/public/sitemap.xml
 .env
 

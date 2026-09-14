@@ -73,13 +73,22 @@ export function assertSafeOutputDirectory(output, protectedRoot) {
   }
 }
 
+// The static CGRAN documents do not run WASM, and intentionally embed a few
+// images from official project sites. COEP would reject those images unless
+// every upstream server opted into CORP/CORS, so keep isolation scoped to the
+// editor, runner, recording viewer, and their assets.
+export function pathNeedsIsolation(urlPath) {
+  return urlPath !== '/cgran' && !urlPath.startsWith('/cgran/');
+}
+
 // COOP + COEP are what SharedArrayBuffer and Emscripten's pthreads require.
 // CORP is `cross-origin` so another site can frame the embedded editor
 // (?embed=1 -- see docs/editor-ui.md): a host page that is itself cross-origin
 // isolated sends COEP: require-corp, and such a page may only frame a document
 // whose CORP admits it. Everything served here is public static content, so
 // there is nothing for the stricter value to protect. Keep this in step with the
-// _headers block in scripts/assemble-site.mjs, which is the deployed copy.
+// _headers block (including its /cgran/ exception) in
+// scripts/assemble-site.mjs, which is the deployed copy.
 export function setIsolationHeaders(response) {
   response.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
   response.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
