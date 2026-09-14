@@ -34,6 +34,7 @@
 #include "musical_keyboard_source.hpp"
 #include "text_sink.hpp"
 #include "hrpt_image_sink.hpp"
+#include "video_sink.hpp"
 #include "bbc_frequency_command.hpp"
 #include "gui_layout.hpp"
 #include <emscripten.h>
@@ -4164,6 +4165,28 @@ static std::map<std::string, Factory>& registry_storage() {
                  static_cast<int>(number_from(p, "video_start", 751.0)),
                  bool_from(p, "invert", false),
                  static_cast<int>(number_from(p, "max_lines", 2000.0)));
+             return { block, block->qwidget() };
+         }},
+        // The browser's Video SDL Sink: gr-video-sdl needs SDL, which a tab has
+        // not got, so gr-tempest's examples end here instead. Raster semantics
+        // and the two deliberate departures are in blocks/src/video_sink.hpp.
+        {"wasm_video_sink", [](const json& p) -> BuiltBlock {
+             const auto type = wasm_registry::choice<VideoSinkWasm::item_type>(
+                 p,
+                 "type",
+                 {
+                     { "float", VideoSinkWasm::item_type::f32 },
+                     { "short", VideoSinkWasm::item_type::s16 },
+                     { "byte", VideoSinkWasm::item_type::u8 },
+                 },
+                 VideoSinkWasm::item_type::f32);
+             auto block = VideoSinkWasm::make(
+                 unquoted(param_text(p, "name", "Video")),
+                 type,
+                 static_cast<int>(number_from(p, "width", 640.0)),
+                 static_cast<int>(number_from(p, "height", 480.0)),
+                 static_cast<int>(number_from(p, "display_width", 0.0)),
+                 static_cast<int>(number_from(p, "display_height", 0.0)));
              return { block, block->qwidget() };
          }},
         // gr-paint's Image File Source is a Python block that decodes with PIL.

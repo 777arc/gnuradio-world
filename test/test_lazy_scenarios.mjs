@@ -394,6 +394,32 @@ const scenarios = [
         ['deframe',0,'decode',0], ['deframe',0,'image',0],
       ] },
     expectFetch: ['digital.wasm', 'hrpt.wasm'] },
+  // gr-tempest (OOT deferred): the manual example's chain at a toy frame size
+  // (Fine Sampling Synchronization's history is Vtotal*(Htotal+10) items, so
+  // the real 620x806 would be 4 MB of complex per test), ending in the Video
+  // Sink that stands in for the module's Video SDL Sink here.
+  { name: 'gr-tempest sync chain into Video Sink (OOT deferred)',
+    fg: { blocks:[
+      { name:'src', id:'analog_sig_source_x',
+        params:{ type:'complex', samp_rate:64000, waveform:'cos',
+                 freq:1000, amp:1.0 } },
+      { name:'thr', id:'blocks_throttle2',
+        params:{ type:'complex', samples_per_second:64000, vlen:1,
+                 ignoretag:'True', limit:'auto', maximum:0.1 } },
+      { name:'sync', id:'tempest_fine_sampling_synchronization',
+        params:{ Htotal:64, Vtotal:32, correct_sampling:'1',
+                 max_deviation:0.15625, update_proba:0.001 } },
+      { name:'mag', id:'blocks_complex_to_mag', params:{ vlen:1 } },
+      { name:'norm', id:'tempest_normalize_flow',
+        params:{ min:10, max:245, window:64, alpha_avg:0.01, update_proba:0.1 } },
+      { name:'frame', id:'tempest_framing',
+        params:{ Htotal:64, Vtotal:32, Hdisplay:64, Vdisplay:30 } },
+      { name:'screen', id:'wasm_video_sink',
+        params:{ name:'"Video"', type:'float', width:64, height:30,
+                 display_width:0, display_height:0 } } ],
+      connections:[['src',0,'thr',0],['thr',0,'sync',0],['sync',0,'mag',0],
+                   ['mag',0,'norm',0],['norm',0,'frame',0],['frame',0,'screen',0]] },
+    expectFetch: ['tempest.wasm'] },
   { name: 'gr-lora_sdr TX/RX hierarchies (OOT deferred)',
     fg: { blocks:[
       { name:'payload', id:'blocks_message_strobe',

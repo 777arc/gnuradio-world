@@ -70,8 +70,8 @@ third-party OOT module (already done for [`gr-rds/`](../gr-rds), [`gr-foo/`](../
 [`gr-ieee802_11/`](../gr-ieee802_11), [`gr-hrpt/`](../gr-hrpt),
 [`gr-ieee802_15_4/`](../gr-ieee802_15_4),
 [`gr-lora_sdr/`](../gr-lora_sdr), [`gr-radar/`](../gr-radar),
-[`gr-gsm/`](../gr-gsm), [`gr-bbc/`](../gr-bbc), and
-[`gr-adsb/`](../gr-adsb)) is **not** part of that
+[`gr-gsm/`](../gr-gsm), [`gr-bbc/`](../gr-bbc),
+[`gr-adsb/`](../gr-adsb) and [`gr-tempest/`](../gr-tempest)) is **not** part of that
 umbrella build, so there is no `libgnuradio-<m>.a`; instead its own `lib/*.cc` are
 compiled straight into an on-demand `<m>.wasm` side module. This is a
 **self-contained checklist** — following it needs no investigation beyond the
@@ -344,3 +344,55 @@ Two more gr-satellites specifics:
   `gr::pdu::{pdu_to_tagged_stream,tagged_stream_to_pdu}`, hence
   `"module_deps": {"satellites": ["pdu"]}` in `runner/modules.json` — see
   "Symbols across the core/side-module boundary" above.
+
+## gr-tempest: a module whose display is not a block of its own
+
+gr-tempest's ten C++ blocks compile as-is (the plainest OOT recipe there is —
+an empty `config.h` shim and nothing else). What its examples cannot bring
+along is their *display*: every upstream flowgraph ends in gr-video-sdl's
+Video SDL Sink, which needs SDL, so it is neither built nor in the palette.
+The browser's raster display is **Video Sink** (`wasm_video_sink`,
+[`blocks/src/video_sink.hpp`](../blocks/src/video_sink.hpp)), a
+`[GNU Radio World]` block with Video SDL Sink's grayscale semantics — one item
+per pixel, Width per row, Height per frame, `display_width`/`display_height`
+for the shape it is shown at — so an upstream `.grc` ports by swapping that
+one block. Its three Python blocks (`image_source`, `message_to_var`,
+`tempest_msgbtn`) have in-tree stand-ins and no entry in the overlay.
+
+The example, `example_flowgraphs/gr-tempest/tempest_vga_recording.grc`, is
+upstream's `manual_tempest_example.grc` over the recording its File Source
+names — `30M_tv_g50_v2.dat`, published by the authors as `recording4.tar.gz` —
+cut to two seconds and hosted as `tempest/vga_1024x768_60Hz_30MSps`. Three
+things about that port are not obvious:
+
+- **Fine Sampling Synchronization gets a large output multiple from its
+  overlay, and needs it.** The block estimates its resample ratio over one
+  work call, on the first call — over the zero-filled history GR starts it
+  with — and then not again for ~1e8 samples (a geometric draw from
+  `update_proba`; upstream's example value is 1e-2/(Hsize*Vsize)). Natively a
+  USRP feeds it 30 MS/s in big chunks and the bad start is over in seconds;
+  here a slowly streamed recording makes every chunk small, the estimate is
+  noise, and the screen shears — a symptom of *chunk size*, not of playing
+  slower than real time. `set_output_multiple(1.5*Htotal*Vtotal)` in the
+  `make` template forces every call, the first included, to span a full
+  window of real samples. Symptom to remember: a picture that is sharp from
+  one source and sheared from a slower one.
+- **The two Delays are the pan controls, in samples.** Upstream computes one
+  delay as `Htotal*lines_offset + horizontal_offset` from two Ranges; the
+  runner only binds a Range whose ID *is* the parameter (see "Live setters" in
+  [blocks.md](blocks.md)), so the vertical pan is a Range stepping by one
+  620-sample line feeding its own Delay, and the horizontal pan a second Delay.
+- **Framing keeps `Hdisplay = Htotal`.** Upstream sets `Hdisplay` to the
+  screen's 1024 while `Htotal` is the 620 samples a line occupies at 30 MS/s;
+  the block copies `min(Hdisplay, Htotal)` floats per line and leaves the rest
+  of a wider output line unwritten, which SDL painted as stale buffer. Here the
+  line is emitted at its true width and Video Sink's display shape restores the
+  screen's aspect ratio.
+
+And one about the recording: IShort To Complex's `scale_factor` *divides*
+(`volk_16i_s32f_convert_32f`), so a ci16 recording scaled to full range wants
+`32000`, not `1/32000`. With the latter the samples reach 1e9, the sync block's
+correlation accumulators overflow to `inf`, `index_max` returns bin 0 and the
+ratio is garbage — while Normalize Flow, being scale-invariant, still paints a
+plausible-looking picture with the sync bypassed. Check the magnitude first.
+

@@ -70,3 +70,7 @@
 	path = gr-adsb
 	url = https://github.com/mhostetter/gr-adsb.git
 	branch = maint-3.10
+[submodule "gr-tempest"]
+	path = gr-tempest
+	url = https://github.com/git-artes/gr-tempest.git
+	branch = master

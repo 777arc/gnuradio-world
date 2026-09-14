@@ -33,6 +33,7 @@ export const RECORDING_CATEGORIES = [
   'Time Signal',
   'Digital Voice',
   'HF Utility',
+  'Unintended Emissions',
   'CTF / Puzzle',
   'Synthetic / Test',
 ] as const;
@@ -57,6 +58,7 @@ export const CATEGORY_BLURBS: Record<string, string> = {
   'Time Signal': 'Standard-frequency and time stations.',
   'Digital Voice': 'Digitally coded speech modes.',
   'HF Utility': 'Point-to-point services on the shortwave bands.',
+  'Unintended Emissions': 'Signals nobody meant to transmit — video-cable and keyboard leakage (TEMPEST), switching-supply and clock harmonics, power-line and motor noise.',
   'CTF / Puzzle': 'Challenge signals from capture-the-flag competitions.',
   'Synthetic / Test': 'Generated and simulated signals with known ground truth.',
   [UNSORTED_CATEGORY]: 'Recordings that carry no category yet.',
@@ -98,6 +100,7 @@ const CATEGORY_RULES: Array<[string, RegExp]> = [
   ['Time Signal', /\b(time signal|msf|dcf77|wwv|hbg)\b/],
   ['Digital Voice', /\b(digital voice|dstar|d-star|c4fm|codec2)\b/],
   ['HF Utility', /\b(hf utility|teleprinter|numbers station)\b/],
+  ['Unintended Emissions', /\b(tempest|side[- ]channel|emanations?|eavesdrop|emi|leakage|unintended|unintentional)\b/],
   ['Synthetic / Test', /\b(synthetic|simulated|generated|test signal|tone)\b/],
 ];
 

@@ -1,0 +1,137 @@
+# Browser-only block metadata for the vendored out-of-tree module gr-tempest
+# (git-artes), a GNU Radio re-implementation of TempestSDR: it recovers the
+# picture a VGA/HDMI cable radiates from a wideband IQ capture.
+#
+# Keeping these overlays here instead of in the submodule's own .block.yml is
+# what lets that submodule stay pinned to a pristine upstream commit. See
+# tools/block_overrides.py for the supported keys, and docs/adding-modules.md
+# for the out-of-tree checklist this file is step 3 of.
+#
+# All ten blocks with a lib/*_impl.cc get a factory. Upstream's headers live
+# under include/gnuradio/tempest/, hence the `<gnuradio/tempest/...>` include
+# spellings. The three Python blocks have no entry and stay greyed out:
+# image_source decodes a picture with PIL (gr-paint's Image File Source is the
+# browser equivalent of it), message_to_var calls the flowgraph's generated
+# set_<var>() (the in-tree Message Pair to Var does the same job here), and
+# tempest_msgbtn is a Python QPushButton (Msg Push Button covers it).
+#
+# The example flowgraphs display the recovered frame through video_sdl_sink,
+# which does not exist in a browser; "Video Sink" (wasm_video_sink, in
+# blocks/grc/) is the raster display that stands in for it.
+
+# The resample ratio is estimated over exactly one work call, so the estimate is
+# only as good as the chunk the scheduler hands the block -- and that chunk is
+# small whenever the source is slower than the DSP (a recording streamed from
+# the internet, say), which shows up as a sheared picture the moment playback
+# drops below the pace of the estimate window rather than as a slow one. Worse,
+# the first estimate happens on the very first call, over the zero-filled
+# history GR starts every block with, and upstream's update probability then
+# waits ~1e8 samples before another. A large output multiple fixes both: no
+# work call can be shorter than it, so every estimate spans a full window, and
+# with the multiple above the block's history (Vtotal*(Htotal+10%)+1 items) the
+# first call already holds ~half a window of real samples past the zeros.
+# 1.5 frames costs 2*(1.5+1)*Htotal*Vtotal complex of input buffer -- 20 MB for
+# the 620x806 VGA-at-30MS/s case, 40 MB with the emulated double mapping -- and
+# each estimate then runs ~2 s of correlation, a hiccup every ~1e8 samples.
+tempest_fine_sampling_synchronization:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <gnuradio/tempest/fine_sampling_synchronization.h>']
+        declarations: tempest::fine_sampling_synchronization::sptr ${id};
+        make: |-
+            this->${id} = tempest::fine_sampling_synchronization::make(${Htotal}, ${Vtotal}, ${correct_sampling}, ${max_deviation}, ${update_proba});
+            this->${id}->set_output_multiple((${Htotal} * ${Vtotal} * 3) / 2);
+        callbacks:
+        - set_Htotal_Vtotal(${Htotal}, ${Vtotal})
+        link: [gnuradio-tempest]
+
+tempest_sampling_synchronization:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <gnuradio/tempest/sampling_synchronization.h>']
+        declarations: tempest::sampling_synchronization::sptr ${id};
+        make: this->${id} = tempest::sampling_synchronization::make(${Htotal}, ${manual_correction});
+        callbacks:
+        - set_Htotal(${Htotal})
+        - set_manual_correction(${manual_correction})
+        link: [gnuradio-tempest]
+
+tempest_ssamp_correction:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <gnuradio/tempest/ssamp_correction.h>']
+        declarations: tempest::ssamp_correction::sptr ${id};
+        make: this->${id} = tempest::ssamp_correction::make(${Htotal}, ${Vtotal}, ${correct_sampling}, ${max_deviation});
+        callbacks:
+        - set_Htotal_Vtotal(${Htotal}, ${Vtotal})
+        link: [gnuradio-tempest]
+
+tempest_Hsync:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <gnuradio/tempest/Hsync.h>']
+        declarations: tempest::Hsync::sptr ${id};
+        make: this->${id} = tempest::Hsync::make(${Htotal}, ${delay});
+        callbacks:
+        - set_Htotal_and_delay(${Htotal}, ${delay})
+        link: [gnuradio-tempest]
+
+tempest_normalize_flow:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <gnuradio/tempest/normalize_flow.h>']
+        declarations: tempest::normalize_flow::sptr ${id};
+        make: this->${id} = tempest::normalize_flow::make(${min}, ${max}, ${window}, ${alpha_avg}, ${update_proba});
+        callbacks:
+        - set_min_max(${min}, ${max})
+        link: [gnuradio-tempest]
+
+tempest_framing:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <gnuradio/tempest/framing.h>']
+        declarations: tempest::framing::sptr ${id};
+        make: this->${id} = tempest::framing::make(${Htotal}, ${Vtotal}, ${Hdisplay}, ${Vdisplay});
+        callbacks:
+        - set_Htotal_and_Vtotal(${Htotal}, ${Vtotal})
+        link: [gnuradio-tempest]
+
+tempest_sync_detector:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <gnuradio/tempest/sync_detector.h>']
+        declarations: tempest::sync_detector::sptr ${id};
+        make: this->${id} = tempest::sync_detector::make(${hscreen}, ${vscreen}, ${hblanking}, ${vblanking});
+        link: [gnuradio-tempest]
+
+tempest_fft_peak_fine_sampling_sync:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <gnuradio/tempest/fft_peak_fine_sampling_sync.h>']
+        declarations: tempest::fft_peak_fine_sampling_sync::sptr ${id};
+        make: this->${id} = tempest::fft_peak_fine_sampling_sync::make(${sample_rate}, ${size}, ${refresh_rate}, ${Vvisible}, ${Hvisible}, ${automatic_mode});
+        link: [gnuradio-tempest]
+
+# automatic_mode is a `raw` upstream, holding True/False; retyped so the
+# generator can render it.
+tempest_infer_screen_resolution:
+    flags: [python, cpp]
+    parameter_dtypes:
+        automatic_mode: bool
+    parameter_defaults:
+        automatic_mode: 'True'
+    cpp_templates:
+        includes: ['#include <gnuradio/tempest/infer_screen_resolution.h>']
+        declarations: tempest::infer_screen_resolution::sptr ${id};
+        make: this->${id} = tempest::infer_screen_resolution::make(${sample_rate}, ${fft_size}, ${refresh_rate}, ${automatic_mode});
+        callbacks:
+        - set_refresh_rate(${refresh_rate})
+        link: [gnuradio-tempest]
+
+tempest_frame_drop:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <gnuradio/tempest/frame_drop.h>']
+        declarations: tempest::frame_drop::sptr ${id};
+        make: this->${id} = tempest::frame_drop::make(${Htotal}, ${Vtotal}, ${correct_sampling}, ${max_deviation}, ${update_proba}, ${actual_samp_rate});
+        link: [gnuradio-tempest]

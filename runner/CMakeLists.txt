@@ -98,6 +98,7 @@ set(GR_INCLUDE_DIRS
   ${WORLD}/gr-lora_sdr/include
   ${WORLD}/gr-radar/include
   ${WORLD}/gr-gsm/include
+  ${WORLD}/gr-tempest/include
   ${BUILDGR}/gnuradio-runtime/include ${SYSROOT}/include)
 
 # ---------------------------------------------------------------------------
@@ -1165,6 +1166,32 @@ add_side_module(gsm
   DEPENDS ${GSM_WASM_SHIMS}/config.h
           ${GSM_WASM_SHIMS}/omp.h
           ${GSM_WASM_SHIMS}/gnuradio/gsm/endian.h)
+
+# gr-tempest (git-artes): a GNU Radio re-implementation of TempestSDR, recovering
+# the picture a VGA/HDMI cable radiates. All ten lib/*.cc compile as-is against
+# runtime/blocks/fft/filter/VOLK; the impls include a CMake-generated config.h
+# whose macros they never use, hence the empty shim. The three Python blocks
+# (image_source, message_to_var, tempest_msgbtn) have in-tree browser
+# equivalents and no entry in the overlay -- see
+# blocks/overlays/gr-tempest/metadata.yml.
+set(TEMPEST_LIB ${WORLD}/gr-tempest/lib)
+set(TEMPEST_WASM_SHIMS ${BLOCKS}/overlays/gr-tempest/shims)
+set(TEMPEST_SOURCES
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/generated_registry_tempest.cpp
+  ${TEMPEST_LIB}/Hsync_impl.cc
+  ${TEMPEST_LIB}/fft_peak_fine_sampling_sync_impl.cc
+  ${TEMPEST_LIB}/fine_sampling_synchronization_impl.cc
+  ${TEMPEST_LIB}/frame_drop_impl.cc
+  ${TEMPEST_LIB}/framing_impl.cc
+  ${TEMPEST_LIB}/infer_screen_resolution_impl.cc
+  ${TEMPEST_LIB}/normalize_flow_impl.cc
+  ${TEMPEST_LIB}/sampling_synchronization_impl.cc
+  ${TEMPEST_LIB}/ssamp_correction_impl.cc
+  ${TEMPEST_LIB}/sync_detector_impl.cc)
+add_side_module(tempest
+  SOURCES ${TEMPEST_SOURCES}
+  INCLUDE_DIRS ${TEMPEST_WASM_SHIMS}
+  DEPENDS ${TEMPEST_WASM_SHIMS}/config.h)
 
 # Fail at configure time if modules.json names a side module that has no build
 # rule here, or if a build rule was added without registering its topology.

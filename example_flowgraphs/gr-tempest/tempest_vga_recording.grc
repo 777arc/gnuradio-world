@@ -1,0 +1,287 @@
+options:
+    parameters:
+        author: Marc
+        comment: ''
+        copyright: ''
+        description: Recovers the picture on a VGA monitor from a recording of the emissions its cable leaks (TEMPEST), using gr-tempest. The screen was 1024x768 @ 60 Hz, sampled at 30 MS/s by a USRP B200; only 620 of every 1344-pixel line fit in that bandwidth, so the recovered frame is 620 samples wide. Fine Sampling Synchronization locks to the line and frame periods, the two Delays pan the frame, Normalize Flow maps magnitude to 0..255 luma, and Framing crops the vertical blanking before the Video Sink paints it.
+        generate_options: qt_gui
+        id: TEMPEST_from_a_VGA_Recording
+        title: TEMPEST from a VGA Recording
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: Hdisplay
+    id: variable
+    parameters:
+        comment: Visible pixels per line on the spied screen
+        value: '1024'
+    states:
+        coordinate: [590, 10]
+        rotation: 0
+        state: enabled
+-   name: Hsize
+    id: variable
+    parameters:
+        comment: Total pixels per line, blanking included (1024x768@60 is 1344x806)
+        value: '1344'
+    states:
+        coordinate: [760, 10]
+        rotation: 0
+        state: enabled
+-   name: Vdisplay
+    id: variable
+    parameters:
+        comment: Visible lines on the spied screen
+        value: '768'
+    states:
+        coordinate: [930, 10]
+        rotation: 0
+        state: enabled
+-   name: Vsize
+    id: variable
+    parameters:
+        comment: Total lines per frame, blanking included
+        value: '806'
+    states:
+        coordinate: [1100, 10]
+        rotation: 0
+        state: enabled
+-   name: horizontal_offset
+    id: variable_qtgui_range
+    parameters:
+        comment: Pans the frame sideways, one sample per step
+        label: Horizontal offset (samples)
+        min_len: '200'
+        orient: QtCore.Qt.Horizontal
+        rangeType: int
+        start: '0'
+        step: '1'
+        stop: '619'
+        value: '460'
+        widget: counter_slider
+    states:
+        coordinate: [1270, 10]
+        rotation: 0
+        state: enabled
+-   name: interpolatedHsize
+    id: variable
+    parameters:
+        comment: Samples per line at this sample rate, 620 here
+        value: int(Hsize/float(px_rate)*samp_rate)
+    states:
+        coordinate: [10, 270]
+        rotation: 0
+        state: enabled
+-   name: px_rate
+    id: variable
+    parameters:
+        comment: The monitor's pixel clock
+        value: Hsize*Vsize*refresh_rate
+    states:
+        coordinate: [230, 270]
+        rotation: 0
+        state: enabled
+-   name: refresh_rate
+    id: variable
+    parameters:
+        comment: ''
+        value: '60'
+    states:
+        coordinate: [420, 270]
+        rotation: 0
+        state: enabled
+-   name: samp_rate
+    id: variable
+    parameters:
+        comment: The recording's own sample rate
+        value: int(30e6)
+    states:
+        coordinate: [600, 270]
+        rotation: 0
+        state: enabled
+-   name: vertical_offset
+    id: variable_qtgui_range
+    parameters:
+        comment: Pans the frame up and down; each step is one 620-sample line
+        label: Vertical offset (samples, 620 per line)
+        min_len: '200'
+        orient: QtCore.Qt.Horizontal
+        rangeType: int
+        start: '0'
+        step: '620'
+        stop: '499720'
+        value: '467480'
+        widget: counter_slider
+    states:
+        coordinate: [770, 270]
+        rotation: 0
+        state: enabled
+-   name: framing
+    id: tempest_framing
+    parameters:
+        Hdisplay: interpolatedHsize
+        Htotal: interpolatedHsize
+        Vdisplay: Vdisplay
+        Vtotal: Vsize
+        affinity: ''
+        alias: ''
+        comment: Drops the vertical blanking lines; the line already fits, so Hdisplay = Htotal
+        maxoutbuf: '0'
+        minoutbuf: '0'
+    states:
+        coordinate: [660, 680]
+        rotation: 0
+        state: enabled
+-   name: line_sync
+    id: tempest_fine_sampling_synchronization
+    parameters:
+        Htotal: interpolatedHsize
+        Vtotal: Vsize
+        affinity: ''
+        alias: ''
+        comment: Resamples so every line is exactly Htotal samples and every frame Vtotal lines
+        correct_sampling: '1'
+        max_deviation: 10.0/interpolatedHsize
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        update_proba: 1e-2/(Hsize*Vsize)
+    states:
+        coordinate: [710, 470]
+        rotation: 0
+        state: enabled
+-   name: mag
+    id: blocks_complex_to_mag
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        vlen: '1'
+    states:
+        coordinate: [80, 710]
+        rotation: 0
+        state: enabled
+-   name: normalize
+    id: tempest_normalize_flow
+    parameters:
+        affinity: ''
+        alias: ''
+        alpha_avg: '0.01'
+        comment: Tracks the running min and max and maps them to 10..245
+        max: '245'
+        maxoutbuf: '0'
+        min: '10'
+        minoutbuf: '0'
+        update_proba: '0.1'
+        window: interpolatedHsize
+    states:
+        coordinate: [360, 670]
+        rotation: 0
+        state: enabled
+-   name: pan_h
+    id: blocks_delay
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        delay: horizontal_offset
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [1460, 510]
+        rotation: 0
+        state: enabled
+-   name: pan_v
+    id: blocks_delay
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        delay: vertical_offset
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [1140, 510]
+        rotation: 0
+        state: enabled
+-   name: rec
+    id: wasm_gr_world_recording
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: The gr-tempest authors' recording4, a VGA cable at 1024x768; Length is 120 whole frames of 499751 samples so the loop is seamless
+        length: '59970120'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        offset: '0'
+        progress: 'True'
+        recording: tempest/vga_1024x768_60Hz_30MSps
+        repeat: 'True'
+        type: short
+    states:
+        coordinate: [10, 500]
+        rotation: 0
+        state: enabled
+-   name: screen
+    id: wasm_video_sink
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: 620 samples span each 1344-pixel line, so the picture is shown at the screen's aspect ratio
+        display_height: Vdisplay
+        display_width: Hdisplay
+        height: Vdisplay
+        name: '"Recovered screen"'
+        type: float
+        width: interpolatedHsize
+    states:
+        coordinate: [1030, 700]
+        rotation: 0
+        state: enabled
+-   name: to_complex
+    id: blocks_interleaved_short_to_complex
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        scale_factor: '32000'
+        swap: 'False'
+        vector_input: 'False'
+    states:
+        coordinate: [400, 510]
+        rotation: 0
+        state: enabled
+-   name: wasm_gui_layout_0
+    id: wasm_gui_layout
+    parameters:
+        affinity: ''
+        alias: ''
+        columns: '12'
+        comment: ''
+        layout: '{"horizontal_offset":[0,0,6,1],"vertical_offset":[6,0,6,1],"rec":[0,1,12,1],"screen":[0,2,12,10]}'
+        row_height: '60'
+    states:
+        coordinate: [300, 10]
+        rotation: 0
+        state: enabled
+connections:
+- [framing, '0', screen, '0']
+- [line_sync, '0', pan_v, '0']
+- [mag, '0', normalize, '0']
+- [normalize, '0', framing, '0']
+- [pan_h, '0', mag, '0']
+- [pan_v, '0', pan_h, '0']
+- [rec, '0', to_complex, '0']
+- [to_complex, '0', line_sync, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0
