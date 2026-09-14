@@ -1,6 +1,6 @@
 import { convertToFloat32 } from '@/utils/fetch-more-data-source';
 import { SigMFMetadata } from '@/utils/sigmfMetadata';
-import { groupContiguousIndexes } from '@/utils/group';
+import { IQRead } from '@/utils/group';
 import { MINIMAP_FFT_SIZE, MINIMAP_NUM_FFTS, MINIMAP_MAX_CONCURRENT_FETCHES } from '@/utils/constants';
 import { fetchIQRange, urlRecordingLocation } from '@/utils/url-datasource';
 
@@ -69,40 +69,22 @@ export class UrlClient {
     return iqBlocks;
   }
 
-  async getIQDataBlocks(
-    meta: SigMFMetadata,
-    indexes: number[],
-    blockSize: number,
-    signal: AbortSignal
-  ): Promise<IQDataSlice[]> {
-    const dataUrl = this.dataUrl(meta);
-    const contiguousIndexes = groupContiguousIndexes(indexes);
-    const content = await Promise.all(
-      contiguousIndexes.map((indexGroup) =>
-        this.getIQDataBlockFromUrl(dataUrl, meta, indexGroup.start, indexGroup.count, blockSize, signal)
-      )
-    );
-    return content.flat();
-  }
-
-  async getIQDataBlockFromUrl(
-    dataUrl: string,
-    meta: SigMFMetadata,
-    index: number,
-    count: number,
-    blockSize: number,
-    signal: AbortSignal
-  ): Promise<IQDataSlice[]> {
+  // One planned read (see planIQReads): fetches the span in a single range
+  // request and hands back only the rows it was for, each as its own copy.
+  async readIQRows(meta: SigMFMetadata, read: IQRead, blockSize: number, signal: AbortSignal): Promise<IQDataSlice[]> {
     const bytesPerIQSample = meta.getBytesPerIQSample();
-    const offsetBytes = index * blockSize * bytesPerIQSample;
-    const countBytes = blockSize * count * bytesPerIQSample;
-    const buffer = await fetchIQRange(dataUrl, offsetBytes, countBytes, bytesPerIQSample, signal);
+    const offsetBytes = read.start * blockSize * bytesPerIQSample;
+    const countBytes = blockSize * read.count * bytesPerIQSample;
+    const buffer = await fetchIQRange(this.dataUrl(meta), offsetBytes, countBytes, bytesPerIQSample, signal);
     const iqArray = convertToFloat32(buffer, meta.getDataType());
-    const iqBlocks: IQDataSlice[] = [];
-    for (let i = 0; i < count; i++) {
-      const offset = i * blockSize * 2;
-      iqBlocks.push({ index: index + i, iqArray: iqArray.slice(offset, offset + blockSize * 2) });
+    const slices: IQDataSlice[] = [];
+    for (const index of read.rows) {
+      const offset = (index - read.start) * blockSize * 2;
+      // A read that ran into the end of the file is short; a row past the end
+      // is simply not delivered rather than delivered truncated.
+      if (offset + blockSize * 2 > iqArray.length) break;
+      slices.push({ index, iqArray: iqArray.slice(offset, offset + blockSize * 2) });
     }
-    return iqBlocks;
+    return slices;
   }
 }

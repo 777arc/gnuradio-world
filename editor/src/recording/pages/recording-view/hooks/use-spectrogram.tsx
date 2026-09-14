@@ -25,8 +25,7 @@ export function useSpectrogram(currentFFT) {
     container,
     filePath,
     fftSize,
-    squareSignal,
-    fftStepSize
+    squareSignal
   );
   const totalFFTs = Math.ceil(meta?.getTotalSamples() / fftSize);
   const debouncedCurrentFFT = useDebounce<string>(currentFFT, 50);
@@ -37,10 +36,16 @@ export function useSpectrogram(currentFFT) {
       return null;
     }
 
-    // get the current required and displayed FFT indices
+    // get the current required and displayed FFT indices, in the order they
+    // should arrive: the rows on screen, then the padding below (scrolling down
+    // is the common direction), then the padding above. The loader keeps that
+    // order, see planIQReads.
     const requiredFFTIndices: number[] = []; // used alongside setFFTsRequired()
     const currentPadding = Math.floor(FETCH_PADDING / (fftSize / 1024));
-    for (let i = -currentPadding; i < spectrogramHeight + currentPadding; i++) {
+    const rowOrder: number[] = [];
+    for (let i = 0; i < spectrogramHeight; i++) rowOrder.push(i);
+    for (let i = 0; i < currentPadding; i++) rowOrder.push(spectrogramHeight + i, -1 - i);
+    for (const i of rowOrder) {
       const indx = currentFFT + i * (fftStepSize + 1);
       if (indx < totalFFTs && indx >= 0) {
         requiredFFTIndices.push(indx);

@@ -652,6 +652,24 @@ working:
   friends from `utils/constants.ts`. Konva overlays drawn *on the spectrogram* —
   annotation boxes, the freq/time cursors — keep their high-contrast
   white/red/blue instead, because they sit over an arbitrary colormap.
+- **Rows are fetched by a loader that never throws progress away, in reads
+  planned by bytes.** Upstream put the rows the spectrogram wanted into a
+  react-query key and fetched every contiguous run as one range request. That
+  is one request per screen at 1x — and one per *row* at any Zoom Out Level
+  above it, where the rows are strided: hundreds of ~4 KB round trips to R2 at
+  the ~20/s the browser's per-host connections allow, aborted and restarted
+  from zero by every wheel tick, so a zoomed-out view never filled.
+  [`editor/src/recording/api/iqdata/row-loader.ts`](../editor/src/recording/api/iqdata/row-loader.ts)
+  replaces the query: `useGetIQData` hands it the wanted rows (visible first,
+  then padding), it keeps `IQ_MAX_CONCURRENT_READS` reads in flight, merges each
+  into the `rawiqdata` cache as it lands, and a changed list only changes what
+  is planned next. `planIQReads` in `utils/group.ts` does the planning: rows
+  closer than `IQ_READ_MERGE_GAP_BYTES` are one read with the rows between
+  sliced away, no read exceeds `IQ_MAX_READ_BYTES`, and reads keep the caller's
+  priority order. The constants' comment records the measurements behind them.
+  Tuning the gap is a bandwidth trade: a screen at zoom level 2 on a 200 MB
+  recording is ~40 MB of reads, where per-row fetching would be ~3 MB and a
+  minute.
 - **The Time/Frequency/IQ tabs draw on a plain 2D canvas, not plotly.** Upstream
   uses `react-plotly.js`, which is ~4.7 MB — several times the rest of the viewer
   — for one trace type, and its size is why upstream loads those three tabs

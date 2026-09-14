@@ -41,6 +41,23 @@ export const MINIMAP_NUM_FFTS = 200;
 // single FFT's worth of bytes, so the wall clock is round trips, not bandwidth.
 export const MINIMAP_MAX_CONCURRENT_FETCHES = 16;
 export const FETCH_PADDING = 50; // how many extra ffts we fetch, in order to smooth scrolling
+// How the rows a spectrogram needs are turned into range requests, in bytes
+// so that they scale with fftSize and the datatype. Measured against the R2
+// bucket from a browser, one range request costs ~140 ms however small it is,
+// and only ~6 run at once (about 20 rows/s), while a contiguous read streams at
+// ~25 MB/s -- one round trip is worth some 3 MB of reading. Zoomed out, the rows
+// on screen are strided, so two rows closer than IQ_READ_MERGE_GAP_BYTES are
+// read as one span and the rows between them sliced away: at 128 KB that is
+// well under the break-even here and does not flood a slow link, and it merges
+// the first several zoom levels of a typical recording (4 KB rows at
+// fftSize 1024 ci16 read through a stride of up to 32). Beyond the gap a row is
+// its own request, so a deep zoom on a huge recording is slow but still
+// progressive. IQ_MAX_READ_BYTES bounds one read (and so the memory of the
+// IQ_MAX_CONCURRENT_READS reads in flight, the browser's per-host connection
+// limit) and keeps rows landing on screen while a large span downloads.
+export const IQ_READ_MERGE_GAP_BYTES = 128 * 1024;
+export const IQ_MAX_READ_BYTES = 4 * 1024 * 1024;
+export const IQ_MAX_CONCURRENT_READS = 6;
 export const MIN_SPECTROGRAM_HEIGHT = 650;
 // Below this the settings stack under the plot instead of sitting beside it.
 // Keep it equal to tailwind's `md` breakpoint: the flex direction in

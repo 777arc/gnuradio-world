@@ -34,6 +34,8 @@ const {
   float32IqBytes,
   fetchDataFileByteLength,
   fetchIQRange,
+  IQRowLoader,
+  planIQReads,
   sampleSelection,
   SigMFMetadata,
   trimmedSigmfMetadata,
@@ -77,6 +79,103 @@ try {
     'a range-ignoring 200 response may use its full representation length');
 } finally {
   globalThis.fetch = originalFetch;
+}
+
+// --- planning range requests ----------------------------------------------
+
+// Zoomed out, the rows on screen are strided, and upstream fetched each one as
+// its own range request: hundreds of round trips per screen, aborted and
+// restarted by every wheel tick. Rows closer than the merge gap are read as
+// one span instead, with the rows between sliced away.
+const ROW = 4096; // fftSize 1024, ci16
+{
+  const contiguous = planIQReads([0, 1, 2, 3], ROW);
+  assert.deepEqual(contiguous, [{ start: 0, count: 4, rows: [0, 1, 2, 3] }],
+    'contiguous rows are one read, as before');
+
+  const strided = planIQReads([0, 7, 14, 21], ROW, { mergeGapBytes: 8 * ROW });
+  assert.deepEqual(strided, [{ start: 0, count: 22, rows: [0, 7, 14, 21] }],
+    'rows within the merge gap are read through in one request');
+
+  const apart = planIQReads([0, 7, 14, 21], ROW, { mergeGapBytes: 5 * ROW });
+  assert.deepEqual(apart.map(r => r.count), [1, 1, 1, 1],
+    'rows further apart than the merge gap stay separate requests');
+
+  const capped = planIQReads([0, 1, 2, 3, 4, 5], ROW, { maxReadBytes: 4 * ROW });
+  assert.deepEqual(capped, [
+    { start: 0, count: 4, rows: [0, 1, 2, 3] },
+    { start: 4, count: 2, rows: [4, 5] },
+  ], 'one read never exceeds maxReadBytes');
+
+  // The spectrogram hook lists the visible rows first and the padding after;
+  // the reads must land in that order, whatever their file offsets.
+  const prioritized = planIQReads([50, 51, 52, 53, 60, 61, 40, 41], ROW,
+    { mergeGapBytes: 0, maxReadBytes: 4 * ROW });
+  assert.deepEqual(prioritized.map(r => r.start), [50, 60, 40],
+    'reads keep the priority order of the rows they were asked for');
+  assert.deepEqual(planIQReads([3, 3, 1, 1], ROW, { mergeGapBytes: 0 }).map(r => r.rows),
+    [[3], [1]], 'duplicates are dropped');
+  const input = [9, 2, 5];
+  planIQReads(input, ROW);
+  assert.deepEqual(input, [9, 2, 5], 'the caller\'s list is not reordered');
+}
+
+// The loader keeps a bounded number of reads in flight, lands each as it
+// completes, and a changed wanted list neither aborts nor duplicates a read
+// under way -- the failure the strided case turned into on the real bucket.
+{
+  const pending = [];
+  const landed = [];
+  const loader = new IQRowLoader(ROW,
+    (read) => new Promise((resolve, reject) => pending.push({ read, resolve, reject })),
+    (slices) => landed.push(...slices.map(s => s.index)),
+    2);
+  const rowsOf = (read) => read.rows.map(index => ({ index, iqArray: new Float32Array(2) }));
+
+  loader.want([10, 20, 30, 40]);
+  assert.deepEqual(pending.map(p => p.read.rows), [[10, 20, 30, 40]],
+    'rows within the merge gap go out as one read');
+  pending.shift().resolve(rowsOf({ rows: [10, 20, 30, 40] }));
+  await new Promise(r => setTimeout(r));
+  assert.deepEqual(landed, [10, 20, 30, 40]);
+
+  landed.length = 0;
+  const far = 1000; // > IQ_READ_MERGE_GAP_BYTES / ROW rows apart: one read each
+  loader.want([0, far, 2 * far, 3 * far]);
+  assert.equal(pending.length, 2, 'no more than the limit are in flight');
+  assert.deepEqual(pending.map(p => p.read.rows), [[0], [far]]);
+
+  // The user scrolled: the list changes while two reads are under way.
+  loader.want([far, 2 * far, 5 * far]);
+  assert.equal(pending.length, 2, 'a changed list neither aborts nor re-requests a read in flight');
+  pending[0].resolve(rowsOf(pending[0].read));
+  await new Promise(r => setTimeout(r));
+  assert.deepEqual(landed, [0], 'a read that was under way still lands');
+  assert.deepEqual(pending.slice(1).map(p => p.read.rows), [[far], [2 * far]],
+    'the freed slot goes to the next wanted row, skipping the one in flight');
+  pending[1].resolve(rowsOf(pending[1].read));
+  pending[2].resolve(rowsOf(pending[2].read));
+  await new Promise(r => setTimeout(r));
+  assert.deepEqual(landed, [0, far, 2 * far]);
+  assert.deepEqual(pending.slice(3).map(p => p.read.rows), [[5 * far]]);
+
+  // A failed read is not retried until the caller asks again.
+  const errors = console.error;
+  console.error = () => {};
+  try {
+    pending[3].reject(new Error('503'));
+    await new Promise(r => setTimeout(r));
+    assert.equal(pending.length, 4, 'a failed read is not retried on its own');
+    loader.want([5 * far]);
+    assert.equal(pending.length, 5, 'asking again retries it');
+  } finally {
+    console.error = errors;
+  }
+
+  loader.dispose();
+  pending[4].resolve(rowsOf(pending[4].read));
+  await new Promise(r => setTimeout(r));
+  assert.deepEqual(landed, [0, far, 2 * far], 'nothing lands after dispose');
 }
 
 // --- datatype shape -------------------------------------------------------
@@ -310,4 +409,4 @@ for (const name of offered.filter(name => name !== 'rectangle')) {
     `"${name}" must suppress far sidelobes (${margin.toFixed(1)} dB vs ${flatMargin.toFixed(1)} unwindowed)`);
 }
 
-console.log('checked real-valued recording datatypes, sample widening, the mirrored spectrum and windowing');
+console.log('checked real-valued recording datatypes, sample widening, range-request planning, the mirrored spectrum and windowing');

@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { UrlClient } from './UrlClient';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { IQRowLoader } from './row-loader';
 import { useMeta } from '@/api/metadata/queries';
 import { applyProcessing } from '@/utils/fetch-more-data-source';
 import { groupContiguousIndexes } from '@/utils/group';
@@ -11,64 +12,53 @@ import { groupContiguousIndexes } from '@/utils/group';
 // is squaring only, and the client no longer needs credentials or a picked data
 // source to construct.
 
-const MAXIMUM_SAMPLES_PER_REQUEST = 1024 * 256;
-
 export function useGetIQData(
   type: string,
   account: string,
   container: string,
   filePath: string,
   fftSize: number, // we grab 2x this many floats/ints
-  squareSignal: boolean = false,
-  fftStepSize: number = 0
+  squareSignal: boolean = false
 ) {
   const queryClient = useQueryClient();
-  const [fftsRequired, setStateFFTsRequired] = useState<number[]>([]);
-
-  // enforce MAXIMUM_SAMPLES_PER_REQUEST by truncating if need be
-  const setFFTsRequired = useCallback((fftsRequired: number[]) => {
-    fftsRequired = fftsRequired.slice(
-      0,
-      fftsRequired.length > Math.ceil(MAXIMUM_SAMPLES_PER_REQUEST / fftSize)
-        ? Math.ceil(MAXIMUM_SAMPLES_PER_REQUEST / fftSize)
-        : fftsRequired.length
-    );
-    setStateFFTsRequired(fftsRequired);
-  }, [fftSize]);
+  // The rows the caller wants and does not have yet, in priority order. Not
+  // capped: the loader bounds the work by bytes and requests in flight.
+  const [fftsRequired, setFFTsRequired] = useState<number[]>([]);
 
   const { data: meta } = useMeta(type, account, container, filePath);
 
-  const iqDataClient = new UrlClient();
-
-  // fetches iqData, this happens first, and the iqData is in one big continuous chunk
-  const { data: iqData } = useQuery({
-    queryKey: ['iqData', type, account, container, filePath, fftSize, fftsRequired],
-    queryFn: async ({ signal }) => {
-      const iqData = await iqDataClient.getIQDataBlocks(meta, fftsRequired, fftSize, signal);
-      return iqData;
-    },
-    enabled: !!meta,
-  });
-
-  // This sets rawiqdata, rawiqdata contains all the data, while the iqData above is just the recently fetched one
+  // One loader per recording and FFT size, for as long as the hook is mounted.
+  // Each read it completes is merged straight into rawiqdata, which holds every
+  // row fetched so far, sparse by row index; the processed query below derives
+  // from that, so the view re-renders per read rather than per batch.
+  const loaderRef = useRef<IQRowLoader>(null);
   useEffect(() => {
-    if (iqData) {
-      const previousData = queryClient.getQueryData<Float32Array[]>([
-        'rawiqdata',
-        type,
-        account,
-        container,
-        filePath,
-        fftSize,
-      ]);
-      const sparseIQReturnData = [];
-      iqData.forEach((data) => {
-        sparseIQReturnData[data.index] = data.iqArray;
-      });
-      const content = Object.assign([], previousData, sparseIQReturnData);
-      queryClient.setQueryData(['rawiqdata', type, account, container, filePath, fftSize], content);
-    }
-  }, [iqData, fftSize]);
+    if (!meta) return;
+    const iqDataClient = new UrlClient();
+    const rawKey = ['rawiqdata', type, account, container, filePath, fftSize];
+    const loader = new IQRowLoader(
+      meta.getBytesPerIQSample() * fftSize,
+      (read, signal) => iqDataClient.readIQRows(meta, read, fftSize, signal),
+      (slices) => {
+        const previousData = queryClient.getQueryData<Float32Array[]>(rawKey);
+        const sparseIQReturnData = [];
+        slices.forEach((data) => {
+          sparseIQReturnData[data.index] = data.iqArray;
+        });
+        queryClient.setQueryData(rawKey, Object.assign([], previousData, sparseIQReturnData));
+      }
+    );
+    loaderRef.current = loader;
+    loader.want(fftsRequired);
+    return () => {
+      loader.dispose();
+      loaderRef.current = null;
+    };
+  }, [meta, type, account, container, filePath, fftSize]);
+
+  useEffect(() => {
+    loaderRef.current?.want(fftsRequired);
+  }, [fftsRequired]);
 
   // fetches rawiqdata
   const { data: processedIQData, dataUpdatedAt: processedDataUpdated } = useQuery<number[][]>({

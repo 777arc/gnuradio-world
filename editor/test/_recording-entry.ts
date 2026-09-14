@@ -9,6 +9,8 @@ export {
 } from '../src/recording/utils/selector';
 export { applyProcessing, convertToFloat32 } from '../src/recording/utils/fetch-more-data-source';
 export { fetchDataFileByteLength, fetchIQRange } from '../src/recording/utils/url-datasource';
+export { planIQReads } from '../src/recording/utils/group';
+export { IQRowLoader } from '../src/recording/api/iqdata/row-loader';
 export {
   float32IqBytes,
   sampleSelection,
