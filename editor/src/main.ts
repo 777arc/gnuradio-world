@@ -1930,6 +1930,11 @@ function grcConnectionKey(c: GrcScalar[] | Record<string, GrcScalar>): string {
 function buildRunScope(): Scope {
   return buildScope(state.insts.filter(i => i.id === 'variable'));
 }
+// Every name the runner would substitute a value for: plain variables (inlined
+// by its lowering step) and controls (resolved against the live control table).
+function variableNames(): Set<string> {
+  return new Set(state.insts.filter(i => isVariableBlock(i.id)).map(i => String(i.name || '').trim()));
+}
 // The Run path's parameter values: every expression parameter evaluated against
 // the flowgraph's variables, so the runner receives concrete numbers and taps.
 function resolveParamsForRun(inst: Inst, scope: Scope): Record<string, any> {
@@ -1938,6 +1943,19 @@ function resolveParamsForRun(inst: Inst, scope: Scope): Record<string, any> {
   if (!def) return out;
   for (const p of def.params) {
     const dtype = effectiveDtype(inst, def, p);
+    // A `string` parameter is literal text natively, however much it looks
+    // like a name -- but the runner inlines any parameter whose text is
+    // exactly a variable's name, control or plain, without knowing dtypes.
+    // Variable to Message ships with `msgname: freq` beside `target: freq`,
+    // so its pair would be named after the Range's value. Quote the text and
+    // it stays text: the runner's readers strip one pair of quotes. A live
+    // string parameter is left alone, since that is the one case where a
+    // string naming a control is meant as a reference (QT GUI Label's Value).
+    if (dtype === 'string' && !p.live && typeof out[p.id] === 'string' &&
+        /^[A-Za-z_]\w*$/.test(out[p.id].trim()) && variableNames().has(out[p.id].trim())) {
+      out[p.id] = `"${out[p.id].trim()}"`;
+      continue;
+    }
     // Numeric, vector, matrix and `raw` params are evaluated; enum/string params pass
     // through. `raw` covers things like an OFDM carrier allocation written as
     // `list(range(-26, -21)) + ...`; the vector dtypes cover the commonest GRC

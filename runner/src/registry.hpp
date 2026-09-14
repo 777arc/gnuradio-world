@@ -23,6 +23,16 @@ struct BuiltBlock {
     bool is_variable = false;
     double variable_value = 0.0;
     std::function<void(std::function<void(double)>)> subscribe;
+    // A control that can also be *set* from the flowgraph -- moved as if the
+    // user had, so its widget follows and its subscribers fire. Thread-safe:
+    // Message Pair to Var calls it from a message handler on a GR thread.
+    std::function<void(double)> set_value;
+
+    // The reverse of numeric_setters: a block whose parameter *names* a control
+    // it wants to drive, rather than be driven by. The runner hands each entry
+    // the named control's set_value (see the binding loop in runner.cpp).
+    std::map<std::string, std::function<void(std::function<void(double)>)>>
+        variable_drivers;
 };
 
 using Factory = std::function<BuiltBlock(const nlohmann::json& params)>;

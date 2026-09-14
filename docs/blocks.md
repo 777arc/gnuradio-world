@@ -87,12 +87,14 @@ of `BuiltBlock`.
   the impl is there, the port is an overlay entry (`flags: [python, cpp]` plus
   the `cpp_templates` upstream never wrote) in
   `blocks/overlays/gnuradio/metadata.yml`, and its callbacks become live setters
-  for free. What is left greyed out after that pass either has no C++ at all —
-  `pdu_pdu_lambda` is a Python lambda, the gr-channels impairment blocks and the
-  QAM modem are `hier_block2` compositions, `blocks_var_to_msg` and its two
-  companions are Python — or needs a typed companion object the runner does not
-  model (the generic and tagged FEC encoders and decoders, the two adaptive
-  equalizers, the packet header parser).
+  for free. The Python-only ones that remained — gr-channels' impairment
+  generators and balancers, the QAM modem, the three message-pair utilities —
+  are rebuilt in `blocks/src/channels_hier.hpp`, `digital_hier.hpp` and
+  `message_pair_blocks.hpp`. What is still greyed out either has no meaning
+  here (`pdu_pdu_lambda` is a Python lambda; the JS Block is the answer) or
+  needs a typed companion object the runner does not model (the generic and
+  tagged FEC encoders and decoders, the two adaptive equalizers, the packet
+  header parser).
 - Blocks absent from the WASM registry remain visible but disabled in the editor
   palette.
 - Symbol exports for side modules are generated automatically by
@@ -236,6 +238,26 @@ with numpy (the OFDM sync words), reproduce them exactly: numpy's legacy
 `RandomState(seed)` is MT19937 seeded identically to `std::mt19937(seed)`, and
 `randint(2)` is one 32-bit draw's low bit.
 
+The QAM modem is the same shape as PSK's over `make_qam_constellation()`, which
+reproduces `qam.py`'s two layouts (differential: quadrant in the top two bits,
+a grid within it; otherwise a Gray-numbered square grid) in a
+`constellation_rect`. Upstream's own yaml still names `digital.qam.qam_mod`, a
+class this GNU Radio no longer ships, so the block is broken natively and runs
+here. PSK Demod and QAM Demod share `connect_generic_demod()`, the
+generic_demod chain.
+
+Both demods are faithful to upstream, including a defect: their yaml defaults
+`freq_bw` to `6.28/100`, a value from before `fll_band_edge_cc` reformulated
+its loop gain (now `beta = 2*pi*4*bw/sps`, roughly 27x what the old
+`control_loop` gains gave). At 0.0628 the FLL is unstable on a clean
+unit-power signal — it swings to its frequency rail within a few hundred
+samples and false-locks there with a zero error term — natively as well as
+here, which a NumPy port of the same loop reproduces line for line. At 0.005
+it locks, and a loopback recovers every bit (QPSK 58 bits of latency, 16-QAM
+116). `blocks/overlays/gnuradio/metadata.yml` overrides the palette default for
+both blocks; a `.grc` carrying upstream's value still gets upstream's
+behaviour. When a demod chain "runs but decodes garbage", check this first.
+
 ### Python GUI blocks
 
 The same story with a `QWidget` instead of a chain: gr-rds's `rds_panel` is a
@@ -296,6 +318,41 @@ another origin must be served with permissive CORS headers, which is why the
 `editor/public/example_images/`.
 
 ## GUI blocks
+
+### Two blocks cross between a variable and a message
+
+gr-blocks' Variable to Message and Message Pair to Var are Python upstream and
+work through *generated* Python: the first's `variable_changed(${target})`
+callback is re-emitted whenever the variable changes, the second calls the
+flowgraph's own `set_<target>()`. Nothing generates Python here, so both ride
+the live-control machinery instead (`blocks/src/message_pair_blocks.hpp`):
+
+- **Variable to Message** is an ordinary block with a `set_value()` setter and
+  a `set_value(${target})` callback in its overlay, with `target` retyped
+  numeric — so the runner binds the control the parameter names to it exactly
+  as it binds a Range to a Signal Source's frequency, and every move of the
+  control publishes a pair. Nothing is published at start, as nothing is
+  natively.
+- **Message Pair to Var** is the reverse, and the one binding a generated
+  factory cannot express: its hand-written factory fills
+  `BuiltBlock::variable_drivers["target"]`, and the binding loop in
+  `runner.cpp` hands that the named control's `BuiltBlock::set_value`. A
+  control that can be set from the flowgraph (today: QT GUI Range, every
+  widget style) moves its widget through the same signal a click would raise,
+  so its paired editor and its subscribers follow; a value equal to the one it
+  already holds is republished anyway, because natively every `set_<var>()`
+  re-runs the callbacks. The set is queued and drained by a timer on the GUI
+  thread, since the message handler runs on a GR thread.
+
+Both only ever work against a **control**, because a plain `variable` is
+inlined by the runner's lowering step and does not exist at run time; Message
+Pair to Var says so, once, when a pair arrives with nothing to set. And both
+ship with defaults that collide — `msgname: freq` beside `target: freq` — which
+is what exposed the runner's habit of inlining *any* parameter whose text is a
+variable's name, string-typed or not. The editor's Run path now quotes a
+non-live `string` parameter that names a variable (`resolveParamsForRun()` in
+`main.ts`), and the runner's readers strip one pair of quotes, so the pair is
+named `freq` rather than after the Range's value.
 
 ### A QT GUI control is two objects, not one
 

@@ -216,6 +216,24 @@ in a browser, that is the right trade.
 
 ## Parameters that are neither numbers nor text
 
+- **A string that spells a variable's name is text natively, and a value here
+  unless quoted.** The runner inlines any parameter whose text is exactly a
+  variable's name — a plain one at lowering, a control at construction —
+  without knowing dtypes, so Variable to Message's default `msgname: freq`
+  beside its `target: freq` would name the pair after the Range's *value*. The
+  editor's Run path quotes such a `string` parameter (`"freq"`), and the
+  runner's readers strip one pair of quotes; a fixture handed straight to
+  `runner.html` has to carry the quotes itself, or pick a name no variable
+  uses. A *live* string parameter is never quoted, since naming a control
+  there is the point (QT GUI Label's Value tracks it).
+- **A matrix is `*_matrix`, complex included.** `int_matrix`, `real_matrix`,
+  `float_matrix` and `complex_matrix` are browser-only retypes of a `raw`
+  nested sequence (Multiply by Matrix's `A`, `((1, 0), (0, 1))`). The editor
+  evaluates them — variable references, `1j` entries — and derives port counts
+  from `len(A)` and `len(A[0])`; a complex entry reaches the runner as a
+  `[re, im]` pair, exactly as `complex_vector` does. A bare top-level tuple
+  (`0.0,0.1,1.3`, how Dynamic Channel Model writes its defaults) is a sequence
+  too, as Python reads it.
 - **A PMT parameter is parsed, not evaluated.** Native GRC renders Message
   Strobe's message or a Tag Object's key by running `pmt.intern("TEST")` as
   Python. There is none here, and [`expr.ts`](../editor/src/expr.ts) stops at

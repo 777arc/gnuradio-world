@@ -1,0 +1,441 @@
+options:
+    parameters:
+        author: Marc
+        comment: ''
+        copyright: ''
+        description: Random bytes through QAM Mod, a noisy channel with a frequency offset, and QAM Demod. The constellation sink shows the 16 points after the channel; raise the noise or the offset to watch them smear and the demodulated bits go wrong. The time sink shows the sent bits above the received ones -- slide Align until they line up, since the modem's filters and clock recovery delay the stream.
+        generate_options: qt_gui
+        id: fg_16_QAM_Modem_Loopback
+        title: 16-QAM Modem Loopback
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: align
+    id: variable_qtgui_range
+    parameters:
+        comment: ''
+        label: Align sent bits to received (bits of delay)
+        min_len: '240'
+        orient: QtCore.Qt.Horizontal
+        rangeType: int
+        start: '0'
+        step: '1'
+        stop: '400'
+        value: '68'
+        widget: counter_slider
+    states:
+        coordinate: [610, 10]
+        rotation: 0
+        state: enabled
+-   name: freq_offset
+    id: variable_qtgui_range
+    parameters:
+        comment: ''
+        label: Channel frequency offset
+        min_len: '240'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '-0.01'
+        step: '0.0005'
+        stop: '0.01'
+        value: '0'
+        widget: counter_slider
+    states:
+        coordinate: [900, 10]
+        rotation: 0
+        state: enabled
+-   name: noise
+    id: variable_qtgui_range
+    parameters:
+        comment: ''
+        label: Channel noise voltage
+        min_len: '240'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '0'
+        step: '0.005'
+        stop: '0.5'
+        value: '0.05'
+        widget: counter_slider
+    states:
+        coordinate: [1180, 10]
+        rotation: 0
+        state: enabled
+-   name: samp_rate
+    id: variable
+    parameters:
+        comment: ''
+        value: '32000'
+    states:
+        coordinate: [1480, 10]
+        rotation: 0
+        state: enabled
+-   name: sps
+    id: variable
+    parameters:
+        comment: ''
+        value: '2'
+    states:
+        coordinate: [1670, 10]
+        rotation: 0
+        state: enabled
+-   name: bits
+    id: qtgui_time_sink_x
+    parameters:
+        affinity: ''
+        alias: ''
+        alpha1: '1'
+        alpha10: '1'
+        alpha2: '1'
+        alpha3: '1'
+        alpha4: '1'
+        alpha5: '1'
+        alpha6: '1'
+        alpha7: '1'
+        alpha8: '1'
+        alpha9: '1'
+        autoscale: 'False'
+        axislabels: 'True'
+        color1: blue
+        color10: dark blue
+        color2: red
+        color3: green
+        color4: black
+        color5: cyan
+        color6: magenta
+        color7: yellow
+        color8: dark red
+        color9: dark green
+        comment: ''
+        ctrlpanel: 'False'
+        entags: 'True'
+        grid: 'True'
+        label1: Received bits
+        label10: Signal 10
+        label2: Sent bits (delayed to line up)
+        label3: Signal 3
+        label4: Signal 4
+        label5: Signal 5
+        label6: Signal 6
+        label7: Signal 7
+        label8: Signal 8
+        label9: Signal 9
+        legend: 'True'
+        marker1: '1'
+        marker10: '-1'
+        marker2: '4'
+        marker3: '-1'
+        marker4: '-1'
+        marker5: '-1'
+        marker6: '-1'
+        marker7: '-1'
+        marker8: '-1'
+        marker9: '-1'
+        name: Sent bits vs received bits
+        nconnections: '2'
+        size: '100'
+        srate: samp_rate/sps*4
+        stemplot: 'False'
+        style1: '0'
+        style10: '1'
+        style2: '0'
+        style3: '1'
+        style4: '1'
+        style5: '1'
+        style6: '1'
+        style7: '1'
+        style8: '1'
+        style9: '1'
+        tr_chan: '0'
+        tr_delay: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_slope: qtgui.TRIG_SLOPE_POS
+        tr_tag: ''
+        type: float
+        update_time: '0.1'
+        width1: '1'
+        width10: '1'
+        width2: '1'
+        width3: '1'
+        width4: '1'
+        width5: '1'
+        width6: '1'
+        width7: '1'
+        width8: '1'
+        width9: '1'
+        ylabel: Amplitude
+        ymax: '1.2'
+        ymin: '-0.2'
+        yunit: ''
+    states:
+        coordinate: [1950, 540]
+        rotation: 0
+        state: enabled
+-   name: bits_to_float
+    id: blocks_char_to_float
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        scale: '1'
+        vlen: '1'
+    states:
+        coordinate: [1900, 410]
+        rotation: 0
+        state: enabled
+-   name: bytes
+    id: analog_random_source_x
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        max: '256'
+        maxoutbuf: '0'
+        min: '0'
+        minoutbuf: '0'
+        num_samps: '10000'
+        repeat: 'True'
+        type: byte
+    states:
+        coordinate: [10, 390]
+        rotation: 0
+        state: enabled
+-   name: channel
+    id: channels_channel_model
+    parameters:
+        affinity: ''
+        alias: ''
+        block_tags: 'False'
+        comment: ''
+        epsilon: '1'
+        freq_offset: freq_offset
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        noise_voltage: noise
+        seed: '0'
+        taps: '[1.0]'
+    states:
+        coordinate: [1070, 370]
+        rotation: 0
+        state: enabled
+-   name: qam_demod
+    id: digital_qam_demod
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        constellation_points: '16'
+        differential: 'True'
+        excess_bw: '0.35'
+        freq_bw: '0.005'
+        log: 'False'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        mod_code: gray
+        phase_bw: '0.0628'
+        samples_per_symbol: sps
+        timing_bw: '0.0628'
+        verbose: 'False'
+    states:
+        coordinate: [1450, 330]
+        rotation: 0
+        state: enabled
+-   name: qam_mod
+    id: digital_qam_mod
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        constellation_points: '16'
+        differential: 'True'
+        excess_bw: '0.35'
+        log: 'False'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        mod_code: gray
+        samples_per_symbol: sps
+        verbose: 'False'
+    states:
+        coordinate: [630, 360]
+        rotation: 0
+        state: enabled
+-   name: received
+    id: qtgui_const_sink_x
+    parameters:
+        affinity: ''
+        alias: ''
+        alpha1: '1'
+        alpha10: '1'
+        alpha2: '1'
+        alpha3: '1'
+        alpha4: '1'
+        alpha5: '1'
+        alpha6: '1'
+        alpha7: '1'
+        alpha8: '1'
+        alpha9: '1'
+        autoscale: 'False'
+        axislabels: 'True'
+        color1: '"blue"'
+        color10: '"dark blue"'
+        color2: '"red"'
+        color3: '"green"'
+        color4: '"black"'
+        color5: '"cyan"'
+        color6: '"magenta"'
+        color7: '"yellow"'
+        color8: '"dark red"'
+        color9: '"dark green"'
+        comment: ''
+        grid: 'False'
+        label1: ''
+        label10: ''
+        label2: ''
+        label3: ''
+        label4: ''
+        label5: ''
+        label6: ''
+        label7: ''
+        label8: ''
+        label9: ''
+        legend: 'True'
+        marker1: '0'
+        marker10: '0'
+        marker2: '0'
+        marker3: '0'
+        marker4: '0'
+        marker5: '0'
+        marker6: '0'
+        marker7: '0'
+        marker8: '0'
+        marker9: '0'
+        name: 16-QAM after the channel
+        nconnections: '1'
+        size: '1000'
+        style1: '0'
+        style10: '0'
+        style2: '0'
+        style3: '0'
+        style4: '0'
+        style5: '0'
+        style6: '0'
+        style7: '0'
+        style8: '0'
+        style9: '0'
+        tr_chan: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_slope: qtgui.TRIG_SLOPE_POS
+        tr_tag: ''
+        update_time: '0.1'
+        width1: '1'
+        width10: '1'
+        width2: '1'
+        width3: '1'
+        width4: '1'
+        width5: '1'
+        width6: '1'
+        width7: '1'
+        width8: '1'
+        width9: '1'
+        xmax: '2'
+        xmin: '-2'
+        ymax: '2'
+        ymin: '-2'
+    states:
+        coordinate: [1450, 190]
+        rotation: 0
+        state: enabled
+-   name: sent_delay
+    id: blocks_delay
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        delay: align
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [890, 580]
+        rotation: 0
+        state: enabled
+-   name: sent_to_float
+    id: blocks_char_to_float
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        scale: '1'
+        vlen: '1'
+    states:
+        coordinate: [1210, 580]
+        rotation: 0
+        state: enabled
+-   name: throttle
+    id: blocks_throttle2
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        ignoretag: 'True'
+        limit: time
+        maximum: '0.1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        samples_per_second: samp_rate/sps/2
+        type: byte
+        vlen: '1'
+    states:
+        coordinate: [300, 390]
+        rotation: 0
+        state: enabled
+-   name: unpack
+    id: blocks_unpack_k_bits_bb
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        k: '8'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+    states:
+        coordinate: [600, 580]
+        rotation: 0
+        state: enabled
+-   name: wasm_gui_layout_0
+    id: wasm_gui_layout
+    parameters:
+        affinity: ''
+        alias: ''
+        columns: '12'
+        comment: ''
+        layout: '{"align":[3,6,9,1],"bits":[0,0,12,4],"freq_offset":[3,5,9,1],"noise":[3,4,9,1],"received":[0,4,3,4]}'
+        row_height: '60'
+    states:
+        coordinate: [320, 10]
+        rotation: 0
+        state: enabled
+connections:
+- [bits_to_float, '0', bits, '0']
+- [bytes, '0', throttle, '0']
+- [channel, '0', qam_demod, '0']
+- [channel, '0', received, '0']
+- [qam_demod, '0', bits_to_float, '0']
+- [qam_mod, '0', channel, '0']
+- [sent_delay, '0', sent_to_float, '0']
+- [sent_to_float, '0', bits, '1']
+- [throttle, '0', qam_mod, '0']
+- [throttle, '0', unpack, '0']
+- [unpack, '0', sent_delay, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0

@@ -1072,9 +1072,18 @@ static void run_now(const std::string& json_source) {
                 const std::string variable_name =
                     source_param.value().get<std::string>();
                 auto variable = variables.find(variable_name);
+                if (variable == variables.end())
+                    continue;
+                // The other direction: a block that *drives* the control its
+                // parameter names (Message Pair to Var) gets the control's
+                // set_value. A control that cannot be set is left unbound,
+                // and the block says so when a message arrives.
+                auto driver = bb.variable_drivers.find(source_param.key());
+                if (driver != bb.variable_drivers.end() &&
+                    variable->second.built.set_value)
+                    driver->second(variable->second.built.set_value);
                 auto setter = bb.numeric_setters.find(source_param.key());
-                if (variable == variables.end() ||
-                    setter == bb.numeric_setters.end())
+                if (setter == bb.numeric_setters.end())
                     continue;
                 // A control that publishes nothing (Msg Push Button, whose value
                 // is only ever the message's) has no subscriber list to join.

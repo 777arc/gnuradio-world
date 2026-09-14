@@ -1,0 +1,162 @@
+options:
+    parameters:
+        id: wasm_message_pairs
+        title: WASM message pair blocks
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: freq
+    id: variable_qtgui_range
+    parameters:
+        label: Frequency
+        min_len: '200'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '0'
+        step: '1'
+        stop: '5000'
+        value: '1000'
+        widget: counter_slider
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: set_freq
+    id: blocks_message_strobe
+    parameters:
+        msg: pmt.cons(pmt.intern("freq"), pmt.from_double(2500))
+        period: '300'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: pair_to_var
+    id: blocks_msgpair_to_var
+    parameters:
+        target: freq
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: var_to_msg
+    id: blocks_var_to_msg
+    parameters:
+        target: freq
+        msgname: freq_now
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: tone
+    id: analog_sig_source_x
+    parameters:
+        type: float
+        samp_rate: '32000'
+        waveform: analog.GR_SIN_WAVE
+        freq: freq
+        amp: '1'
+        offset: '0'
+        phase: '0'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: throttle
+    id: blocks_throttle2
+    parameters:
+        type: float
+        samples_per_second: '32000'
+        vlen: '1'
+        ignoretag: 'True'
+        limit: auto
+        maximum: '0.1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: sink
+    id: blocks_null_sink
+    parameters:
+        type: float
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: generate
+    id: blocks_message_strobe
+    parameters:
+        msg: pmt.intern("go")
+        period: '200'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: random_pdu
+    id: pdu_random_pdu
+    parameters:
+        minsize: '4'
+        maxsize: '8'
+        mask: '0xFF'
+        length_modulo: '2'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: label
+    id: pdu_pdu_set
+    parameters:
+        k: pmt.intern("label")
+        v: pmt.intern("hello")
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: meta_to_pair
+    id: blocks_msg_meta_to_pair
+    parameters:
+        keyin: label
+        keyout: greeting
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: message_debug
+    id: blocks_message_debug
+    parameters:
+        en_uvec: 'True'
+        log_level: info
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+connections:
+- [tone, '0', throttle, '0']
+- [throttle, '0', sink, '0']
+-   src_blk_id: set_freq
+    src_port_id: strobe
+    snk_blk_id: pair_to_var
+    snk_port_id: inpair
+-   src_blk_id: var_to_msg
+    src_port_id: msgout
+    snk_blk_id: message_debug
+    snk_port_id: print
+-   src_blk_id: generate
+    src_port_id: strobe
+    snk_blk_id: random_pdu
+    snk_port_id: generate
+-   src_blk_id: random_pdu
+    src_port_id: pdus
+    snk_blk_id: label
+    snk_port_id: pdus
+-   src_blk_id: label
+    src_port_id: pdus
+    snk_blk_id: meta_to_pair
+    snk_port_id: inmeta
+-   src_blk_id: meta_to_pair
+    src_port_id: outpair
+    snk_blk_id: message_debug
+    snk_port_id: print
+metadata:
+    file_format: 1

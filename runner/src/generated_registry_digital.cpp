@@ -603,6 +603,14 @@ struct Registrar_digital {
         built.numeric_setters["alpha"] = [block](double value) { block->set_alpha(static_cast<double>(value)); };
         return built;
     });
+    wasm_registry_add("digital_qam_demod", +[](const nlohmann::json& p) -> BuiltBlock {
+        auto block = QamDemod::make(wasm_registry::number<int>(p, "constellation_points", 16), wasm_registry::choice(p, "mod_code", {{"\"gray\"", "gray"}, {"\"none\"", "none"}}, "gray"), wasm_registry::boolean(p, "differential", true), wasm_registry::number<int>(p, "samples_per_symbol", 2), wasm_registry::number<double>(p, "excess_bw", 0.35), wasm_registry::number<double>(p, "freq_bw", 0.005), wasm_registry::number<double>(p, "timing_bw", 0.0), wasm_registry::number<double>(p, "phase_bw", 0.0));
+        return { block, nullptr };
+    });
+    wasm_registry_add("digital_qam_mod", +[](const nlohmann::json& p) -> BuiltBlock {
+        auto block = QamMod::make(wasm_registry::number<int>(p, "constellation_points", 16), wasm_registry::choice(p, "mod_code", {{"\"gray\"", "gray"}, {"\"none\"", "none"}}, "gray"), wasm_registry::boolean(p, "differential", true), wasm_registry::number<int>(p, "samples_per_symbol", 2), wasm_registry::number<double>(p, "excess_bw", 0.35));
+        return { block, nullptr };
+    });
     wasm_registry_add("digital_scrambler_bb", +[](const nlohmann::json& p) -> BuiltBlock {
         auto block = digital::scrambler_bb::make(wasm_registry::number<std::uint64_t>(p, "mask", 138), wasm_registry::number<std::uint64_t>(p, "seed", 127), wasm_registry::number<int>(p, "len", 7));
         return { block, nullptr };

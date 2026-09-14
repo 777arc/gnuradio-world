@@ -1,6 +1,6 @@
 #pragma once
 
-// C++ rebuilds of gr-digital's Python gr.hier_block2 compositions: PSK
+// C++ rebuilds of gr-digital's Python gr.hier_block2 compositions: PSK and QAM
 // modulation and demodulation, the constellation modulator, the GFSK and GMSK
 // modems, and the OFDM transmitter and receiver.
 
@@ -84,6 +84,65 @@ inline gr::digital::constellation_sptr make_psk_constellation(unsigned int count
     return gr::digital::constellation_psk::make(points, pre_diff, count)->base();
 }
 
+// digital.qam.qam_constellation, from gr-digital/python/digital/qam.py. The
+// differential layout numbers the quadrant with the top two bits and lays the
+// remaining bits out on a grid within it; the non-differential one is a plain
+// square grid, Gray-numbered along each axis when asked. Both end in a
+// constellation_rect whose decision sectors are the grid cells.
+inline gr::digital::constellation_sptr make_qam_constellation(unsigned int count,
+                                                       const std::string& mod_code,
+                                                       bool differential)
+{
+    unsigned int k = 0;
+    for (unsigned int points = count; points > 1; points >>= 1)
+        ++k;
+    if (count < 4 || (1u << k) != count || (k % 2) != 0)
+        throw std::runtime_error("QAM constellation points must be a power of four");
+    if (mod_code != "gray" && mod_code != "none")
+        throw std::runtime_error("QAM code must be gray or none");
+    const bool gray_coded = mod_code == "gray";
+    const auto bits = [](unsigned int x, unsigned int n, unsigned int width) {
+        return (x >> n) % (1u << width);
+    };
+
+    std::vector<gr_complex> points(count);
+    const unsigned int side = static_cast<unsigned int>(std::lround(std::sqrt(count)));
+    if (differential) {
+        // Upstream passes gray_coded=False here whatever the mod code says.
+        const unsigned int quadrant_side = side / 2;
+        const double step = 1.0 / (quadrant_side - 0.5);
+        std::vector<double> axis(quadrant_side);
+        for (unsigned int i = 0; i < quadrant_side; ++i)
+            axis[i] = (i + 0.5) * step;
+        const unsigned int half = (k - 2) / 2;
+        for (unsigned int i = 0; i < count; ++i) {
+            const double y = axis[bits(i, 0, half)];
+            const double x = axis[bits(i, half, half)];
+            switch (bits(i, k - 2, 2)) {
+            case 0: points[i] = gr_complex(x, y); break;
+            case 1: points[i] = gr_complex(-y, x); break;
+            case 2: points[i] = gr_complex(-x, -y); break;
+            default: points[i] = gr_complex(y, -x); break;
+            }
+        }
+    } else {
+        std::vector<unsigned int> inverse_gray(side);
+        for (unsigned int i = 0; i < side; ++i)
+            inverse_gray[gray_coded ? (i ^ (i >> 1)) : i] = i;
+        const double step = 2.0 / (side - 1);
+        std::vector<double> axis(side);
+        for (unsigned int i = 0; i < side; ++i)
+            axis[i] = -1.0 + inverse_gray[i] * step;
+        const unsigned int half = k / 2;
+        for (unsigned int i = 0; i < count; ++i)
+            points[i] = gr_complex(axis[bits(i, half, half)], axis[bits(i, 0, half)]);
+    }
+    const float width = static_cast<float>(2.0 / (side - 1));
+    return gr::digital::constellation_rect::make(
+               points, std::vector<int>{}, 4, side, side, width, width)
+        ->base();
+}
+
 class ConstellationModulator : public gr::hier_block2
 {
 public:
@@ -154,6 +213,55 @@ public:
     }
 };
 
+// digital.generic_mod_demod.generic_demod's chain -- AGC, band-edge FLL,
+// polyphase clock recovery, constellation receiver, then the differential
+// decode and inverse pre-diff map the constellation asks for -- wired between
+// a hier block's own ports. PSK Demod and QAM Demod differ only in the
+// constellation they hand it.
+inline void connect_generic_demod(gr::hier_block2& host,
+                                  gr::digital::constellation_sptr constellation,
+                                  bool differential,
+                                  int samples_per_symbol,
+                                  double excess_bandwidth,
+                                  double frequency_bandwidth,
+                                  double timing_bandwidth,
+                                  double phase_bandwidth)
+{
+    const unsigned int bits_per_symbol = constellation->bits_per_symbol();
+    const unsigned int arity = 1u << bits_per_symbol;
+    constexpr unsigned int filter_count = 32;
+    const int tap_count = 11 * samples_per_symbol * filter_count;
+
+    auto agc = gr::analog::agc2_cc::make(0.06f, 0.001f, 1.0f, 1.0f);
+    auto frequency_recovery = gr::digital::fll_band_edge_cc::make(
+        samples_per_symbol, excess_bandwidth, 55, frequency_bandwidth);
+    auto taps = gr::filter::firdes::root_raised_cosine(filter_count,
+                                                       filter_count * samples_per_symbol,
+                                                       1.0,
+                                                       excess_bandwidth,
+                                                       tap_count);
+    auto timing_recovery = gr::digital::pfb_clock_sync_ccf::make(
+        samples_per_symbol, timing_bandwidth, taps, filter_count, filter_count / 2, 1.5f);
+    auto receiver = gr::digital::constellation_receiver_cb::make(
+        constellation, phase_bandwidth, -0.25f, 0.25f);
+    std::vector<gr::basic_block_sptr> chain{
+        host.self(), agc, frequency_recovery, timing_recovery, receiver
+    };
+    if (differential)
+        chain.push_back(gr::digital::diff_decoder_bb::make(arity));
+    if (constellation->apply_pre_diff_code()) {
+        auto code = constellation->pre_diff_code();
+        std::vector<int> inverse(code.size());
+        for (std::size_t i = 0; i < code.size(); ++i)
+            inverse[code[i]] = static_cast<int>(i);
+        chain.push_back(gr::digital::map_bb::make(inverse));
+    }
+    chain.push_back(gr::blocks::unpack_k_bits_bb::make(bits_per_symbol));
+    chain.push_back(host.self());
+    for (std::size_t i = 1; i < chain.size(); ++i)
+        host.connect(chain[i - 1], 0, chain[i], 0);
+}
+
 class PskDemod : public gr::hier_block2
 {
 public:
@@ -191,47 +299,14 @@ public:
     {
         if (samples_per_symbol < 2)
             throw std::runtime_error("PSK Demod samples per symbol must be at least 2");
-        auto constellation =
-            make_psk_constellation(constellation_points, mod_code, differential);
-        const unsigned int bits_per_symbol = constellation->bits_per_symbol();
-        const unsigned int arity = 1u << bits_per_symbol;
-        constexpr unsigned int filter_count = 32;
-        const int tap_count = 11 * samples_per_symbol * filter_count;
-
-        auto agc = gr::analog::agc2_cc::make(0.06f, 0.001f, 1.0f, 1.0f);
-        auto frequency_recovery = gr::digital::fll_band_edge_cc::make(
-            samples_per_symbol, excess_bandwidth, 55, frequency_bandwidth);
-        auto taps = gr::filter::firdes::root_raised_cosine(filter_count,
-                                                           filter_count *
-                                                               samples_per_symbol,
-                                                           1.0,
-                                                           excess_bandwidth,
-                                                           tap_count);
-        auto timing_recovery = gr::digital::pfb_clock_sync_ccf::make(
-            samples_per_symbol,
-            timing_bandwidth,
-            taps,
-            filter_count,
-            filter_count / 2,
-            1.5f);
-        auto receiver = gr::digital::constellation_receiver_cb::make(
-            constellation, phase_bandwidth, -0.25f, 0.25f);
-        std::vector<gr::basic_block_sptr> chain{
-            self(), agc, frequency_recovery, timing_recovery, receiver
-        };
-        if (differential)
-            chain.push_back(gr::digital::diff_decoder_bb::make(arity));
-        if (constellation->apply_pre_diff_code()) {
-            auto code = constellation->pre_diff_code();
-            std::vector<int> inverse(code.size());
-            for (std::size_t i = 0; i < code.size(); ++i)
-                inverse[code[i]] = static_cast<int>(i);
-            chain.push_back(gr::digital::map_bb::make(inverse));
-        }
-        chain.push_back(gr::blocks::unpack_k_bits_bb::make(bits_per_symbol));
-        chain.push_back(self());
-        for (std::size_t i = 1; i < chain.size(); ++i)
-            connect(chain[i - 1], 0, chain[i], 0);
+        connect_generic_demod(*this,
+                              make_psk_constellation(constellation_points, mod_code, differential),
+                              differential,
+                              samples_per_symbol,
+                              excess_bandwidth,
+                              frequency_bandwidth,
+                              timing_bandwidth,
+                              phase_bandwidth);
     }
 };
 
@@ -321,6 +396,89 @@ public:
 
         for (std::size_t i = 1; i < chain.size(); ++i)
             connect(chain[i - 1], 0, chain[i], 0);
+    }
+};
+
+// digital.qam.qam_mod / qam_demod: generic_mod and generic_demod over a QAM
+// constellation. The modulator is the Constellation Modulator's own chain
+// (that block *is* generic_mod), never truncated, as the Python class runs it.
+class QamMod : public ConstellationModulator
+{
+public:
+    using sptr = std::shared_ptr<QamMod>;
+    static sptr make(unsigned int constellation_points,
+                     const std::string& mod_code,
+                     bool differential,
+                     int samples_per_symbol,
+                     double excess_bandwidth)
+    {
+        if (samples_per_symbol < 2)
+            throw std::runtime_error("QAM Mod samples per symbol must be at least 2");
+        return gnuradio::make_block_sptr<QamMod>(
+            make_qam_constellation(constellation_points, mod_code, differential),
+            differential,
+            samples_per_symbol,
+            excess_bandwidth);
+    }
+
+    QamMod(gr::digital::constellation_sptr constellation,
+           bool differential,
+           int samples_per_symbol,
+           double excess_bandwidth)
+        : ConstellationModulator(std::move(constellation),
+                                 differential,
+                                 samples_per_symbol,
+                                 excess_bandwidth,
+                                 false)
+    {
+    }
+};
+
+class QamDemod : public gr::hier_block2
+{
+public:
+    using sptr = std::shared_ptr<QamDemod>;
+    static sptr make(unsigned int constellation_points,
+                     const std::string& mod_code,
+                     bool differential,
+                     int samples_per_symbol,
+                     double excess_bandwidth,
+                     double frequency_bandwidth,
+                     double timing_bandwidth,
+                     double phase_bandwidth)
+    {
+        return gnuradio::make_block_sptr<QamDemod>(constellation_points,
+                                                   mod_code,
+                                                   differential,
+                                                   samples_per_symbol,
+                                                   excess_bandwidth,
+                                                   frequency_bandwidth,
+                                                   timing_bandwidth,
+                                                   phase_bandwidth);
+    }
+
+    QamDemod(unsigned int constellation_points,
+             const std::string& mod_code,
+             bool differential,
+             int samples_per_symbol,
+             double excess_bandwidth,
+             double frequency_bandwidth,
+             double timing_bandwidth,
+             double phase_bandwidth)
+        : hier_block2("qam_demod",
+                      gr::io_signature::make(1, 1, sizeof(gr_complex)),
+                      gr::io_signature::make(1, 1, sizeof(std::uint8_t)))
+    {
+        if (samples_per_symbol < 2)
+            throw std::runtime_error("QAM Demod samples per symbol must be at least 2");
+        connect_generic_demod(*this,
+                              make_qam_constellation(constellation_points, mod_code, differential),
+                              differential,
+                              samples_per_symbol,
+                              excess_bandwidth,
+                              frequency_bandwidth,
+                              timing_bandwidth,
+                              phase_bandwidth);
     }
 };
 

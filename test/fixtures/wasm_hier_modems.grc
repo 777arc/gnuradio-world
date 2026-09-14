@@ -131,7 +131,49 @@ blocks:
         coordinate: [0, 0]
         rotation: 0
         state: enabled
+-   name: qam_mod
+    id: digital_qam_mod
+    parameters:
+        constellation_points: '16'
+        mod_code: "gray"
+        differential: 'True'
+        samples_per_symbol: '4'
+        excess_bw: '0.35'
+        verbose: 'False'
+        log: 'False'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: qam_demod
+    id: digital_qam_demod
+    parameters:
+        constellation_points: '16'
+        differential: 'True'
+        samples_per_symbol: '4'
+        excess_bw: '0.35'
+        freq_bw: '0.005'
+        timing_bw: '0.0628'
+        phase_bw: '0.0628'
+        mod_code: "gray"
+        verbose: 'False'
+        log: 'False'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: qam_sink
+    id: blocks_null_sink
+    parameters:
+        type: byte
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
 connections:
+- [byte_throttle, '0', qam_mod, '0']
+- [qam_mod, '0', qam_demod, '0']
+- [qam_demod, '0', qam_sink, '0']
 - [bytes, '0', byte_throttle, '0']
 - [byte_throttle, '0', gfsk_mod, '0']
 - [gfsk_mod, '0', gfsk_demod, '0']

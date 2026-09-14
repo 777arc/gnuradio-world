@@ -1,0 +1,420 @@
+options:
+    parameters:
+        author: Marc
+        comment: ''
+        copyright: ''
+        description: A clean tone through gr-channels' Radio Impairments Model, every knob a live control. IQ imbalance raises an image at the mirror frequency, DC offset a spike at the carrier, the distortion orders put harmonics on the spectrum, and phase noise smears the skirt.
+        generate_options: qt_gui
+        id: Radio_Impairments_on_a_Tone
+        title: Radio Impairments on a Tone
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: beta
+    id: variable_qtgui_range
+    parameters:
+        comment: ''
+        label: 3rd-order distortion
+        min_len: '240'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '0'
+        step: '0.01'
+        stop: '0.5'
+        value: '0.05'
+        widget: counter_slider
+    states:
+        coordinate: [1180, 300]
+        rotation: 0
+        state: enabled
+-   name: dc_i
+    id: variable_qtgui_range
+    parameters:
+        comment: ''
+        label: DC offset I
+        min_len: '240'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '-0.5'
+        step: '0.01'
+        stop: '0.5'
+        value: '0.05'
+        widget: counter_slider
+    states:
+        coordinate: [1340, 10]
+        rotation: 0
+        state: enabled
+-   name: dc_q
+    id: variable_qtgui_range
+    parameters:
+        comment: ''
+        label: DC offset Q
+        min_len: '240'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '-0.5'
+        step: '0.01'
+        stop: '0.5'
+        value: '0'
+        widget: counter_slider
+    states:
+        coordinate: [10, 300]
+        rotation: 0
+        state: enabled
+-   name: freq_offset
+    id: variable_qtgui_range
+    parameters:
+        comment: ''
+        label: Frequency offset (normalized)
+        min_len: '240'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '-0.1'
+        step: '0.001'
+        stop: '0.1'
+        value: '0.01'
+        widget: counter_slider
+    states:
+        coordinate: [300, 300]
+        rotation: 0
+        state: enabled
+-   name: gamma
+    id: variable_qtgui_range
+    parameters:
+        comment: ''
+        label: 2nd-order distortion
+        min_len: '240'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '0'
+        step: '0.01'
+        stop: '0.5'
+        value: '0.05'
+        widget: counter_slider
+    states:
+        coordinate: [890, 300]
+        rotation: 0
+        state: enabled
+-   name: magbal
+    id: variable_qtgui_range
+    parameters:
+        comment: ''
+        label: IQ magnitude imbalance (dB)
+        min_len: '240'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '-6'
+        step: '0.1'
+        stop: '6'
+        value: '1'
+        widget: counter_slider
+    states:
+        coordinate: [760, 10]
+        rotation: 0
+        state: enabled
+-   name: phase_noise
+    id: variable_qtgui_range
+    parameters:
+        comment: ''
+        label: Phase noise (dB)
+        min_len: '240'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '-60'
+        step: '1'
+        stop: '0'
+        value: '-30'
+        widget: counter_slider
+    states:
+        coordinate: [600, 300]
+        rotation: 0
+        state: enabled
+-   name: phasebal
+    id: variable_qtgui_range
+    parameters:
+        comment: ''
+        label: IQ phase imbalance (deg)
+        min_len: '240'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '-30'
+        step: '0.5'
+        stop: '30'
+        value: '10'
+        widget: counter_slider
+    states:
+        coordinate: [1050, 10]
+        rotation: 0
+        state: enabled
+-   name: samp_rate
+    id: variable
+    parameters:
+        comment: ''
+        value: '32000'
+    states:
+        coordinate: [590, 10]
+        rotation: 0
+        state: enabled
+-   name: constellation
+    id: qtgui_const_sink_x
+    parameters:
+        affinity: ''
+        alias: ''
+        alpha1: '1'
+        alpha10: '1'
+        alpha2: '1'
+        alpha3: '1'
+        alpha4: '1'
+        alpha5: '1'
+        alpha6: '1'
+        alpha7: '1'
+        alpha8: '1'
+        alpha9: '1'
+        autoscale: 'False'
+        axislabels: 'True'
+        color1: '"blue"'
+        color10: '"dark blue"'
+        color2: '"red"'
+        color3: '"green"'
+        color4: '"black"'
+        color5: '"cyan"'
+        color6: '"magenta"'
+        color7: '"yellow"'
+        color8: '"dark red"'
+        color9: '"dark green"'
+        comment: ''
+        grid: 'False'
+        label1: ''
+        label10: ''
+        label2: ''
+        label3: ''
+        label4: ''
+        label5: ''
+        label6: ''
+        label7: ''
+        label8: ''
+        label9: ''
+        legend: 'True'
+        marker1: '0'
+        marker10: '0'
+        marker2: '0'
+        marker3: '0'
+        marker4: '0'
+        marker5: '0'
+        marker6: '0'
+        marker7: '0'
+        marker8: '0'
+        marker9: '0'
+        name: Impaired tone in the IQ plane
+        nconnections: '1'
+        size: '1024'
+        style1: '0'
+        style10: '0'
+        style2: '0'
+        style3: '0'
+        style4: '0'
+        style5: '0'
+        style6: '0'
+        style7: '0'
+        style8: '0'
+        style9: '0'
+        tr_chan: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_slope: qtgui.TRIG_SLOPE_POS
+        tr_tag: ''
+        update_time: '0.1'
+        width1: '1'
+        width10: '1'
+        width2: '1'
+        width3: '1'
+        width4: '1'
+        width5: '1'
+        width6: '1'
+        width7: '1'
+        width8: '1'
+        width9: '1'
+        xmax: '2'
+        xmin: '-2'
+        ymax: '2'
+        ymin: '-2'
+    states:
+        coordinate: [1080, 700]
+        rotation: 0
+        state: enabled
+-   name: impairments
+    id: channels_impairments
+    parameters:
+        affinity: ''
+        alias: ''
+        beta: beta
+        comment: ''
+        freq_offset: freq_offset
+        gamma: gamma
+        i_ofs: dc_i
+        magbal: magbal
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        phase_noise_mag: phase_noise
+        phasebal: phasebal
+        q_ofs: dc_q
+    states:
+        coordinate: [690, 500]
+        rotation: 0
+        state: enabled
+-   name: spectrum
+    id: qtgui_freq_sink_x
+    parameters:
+        affinity: ''
+        alias: ''
+        alpha1: '1'
+        alpha10: '1'
+        alpha2: '1'
+        alpha3: '1'
+        alpha4: '1'
+        alpha5: '1'
+        alpha6: '1'
+        alpha7: '1'
+        alpha8: '1'
+        alpha9: '1'
+        autoscale: 'False'
+        average: '0.2'
+        axislabels: 'True'
+        bw: samp_rate
+        color1: '"blue"'
+        color10: '"dark blue"'
+        color2: '"red"'
+        color3: '"green"'
+        color4: '"black"'
+        color5: '"cyan"'
+        color6: '"magenta"'
+        color7: '"yellow"'
+        color8: '"dark red"'
+        color9: '"dark green"'
+        comment: ''
+        ctrlpanel: 'False'
+        fc: '0'
+        fftsize: '2048'
+        freqhalf: 'True'
+        grid: 'True'
+        label: Relative Gain
+        label1: ''
+        label10: ''
+        label2: ''
+        label3: ''
+        label4: ''
+        label5: ''
+        label6: ''
+        label7: ''
+        label8: ''
+        label9: ''
+        legend: 'True'
+        marker1: '-1'
+        marker10: '-1'
+        marker2: '-1'
+        marker3: '-1'
+        marker4: '-1'
+        marker5: '-1'
+        marker6: '-1'
+        marker7: '-1'
+        marker8: '-1'
+        marker9: '-1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        name: 'Impaired tone: image, DC, harmonics and noise skirt'
+        nconnections: '1'
+        norm_window: 'False'
+        style1: '1'
+        style10: '1'
+        style2: '1'
+        style3: '1'
+        style4: '1'
+        style5: '1'
+        style6: '1'
+        style7: '1'
+        style8: '1'
+        style9: '1'
+        tr_chan: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_tag: ''
+        type: complex
+        units: dB
+        update_time: '0.1'
+        width1: '1'
+        width10: '1'
+        width2: '1'
+        width3: '1'
+        width4: '1'
+        width5: '1'
+        width6: '1'
+        width7: '1'
+        width8: '1'
+        width9: '1'
+        wintype: window.WIN_RECTANGULAR
+        ymax: '10'
+        ymin: '-100'
+    states:
+        coordinate: [1080, 520]
+        rotation: 0
+        state: enabled
+-   name: throttle
+    id: blocks_throttle2
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        ignoretag: 'True'
+        limit: auto
+        maximum: '0.1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        samples_per_second: samp_rate
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [360, 540]
+        rotation: 0
+        state: enabled
+-   name: tone
+    id: analog_sig_source_x
+    parameters:
+        affinity: ''
+        alias: ''
+        amp: '0.7'
+        comment: ''
+        freq: '2000'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        offset: '0'
+        phase: '0'
+        samp_rate: samp_rate
+        type: complex
+        waveform: analog.GR_COS_WAVE
+    states:
+        coordinate: [10, 520]
+        rotation: 0
+        state: enabled
+-   name: wasm_gui_layout_0
+    id: wasm_gui_layout
+    parameters:
+        affinity: ''
+        alias: ''
+        columns: '12'
+        comment: ''
+        layout: '{}'
+        row_height: '60'
+    states:
+        coordinate: [300, 10]
+        rotation: 0
+        state: enabled
+connections:
+- [impairments, '0', constellation, '0']
+- [impairments, '0', spectrum, '0']
+- [throttle, '0', impairments, '0']
+- [tone, '0', throttle, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0

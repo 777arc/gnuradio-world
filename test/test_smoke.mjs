@@ -206,7 +206,7 @@ const CASES = [
   { name: 'core hier rebuilds (interleaver, decimator, logpwrfft, channelizer, FEC)',
     grc: 'test/fixtures/wasm_hier_core.grc',
     expectLogs: ['pdu length =', '8 bytes'] },
-  { name: 'GFSK/GMSK modems (deferred digital module)',
+  { name: 'GFSK/GMSK modems and QAM loopback (deferred digital module)',
     grc: 'test/fixtures/wasm_hier_modems.grc' },
   // The BER curve generator is the one case here that checks the *arithmetic*
   // rather than the wiring: each Es/N0 point encodes a random byte stream, adds
@@ -236,6 +236,20 @@ const CASES = [
   // Constant Sources; a hier block with an input left open throws at start.
   { name: 'gr-channels offset, fading and dynamic models',
     grc: 'test/fixtures/wasm_channel_models.grc' },
+  // gr-channels' Python hier blocks rebuilt in blocks/src/channels_hier.hpp.
+  // The Radio Impairments Model composes the phase noise, IQ imbalance and
+  // distortion generators, so every generator class is constructed through it;
+  // the balancers, the IQ corrector and the quantizer follow it in series.
+  { name: 'gr-channels impairment model, balancers, IQ corrector, quantizer',
+    grc: 'test/fixtures/wasm_channel_impairments.grc' },
+  // The three gr-blocks message-pair utilities. A strobe sends (freq . 2500)
+  // into Message Pair to Var, which moves the `freq` Range; Variable to
+  // Message watches that Range and prints the new value -- the one line that
+  // proves a block can drive a control and a control can drive a block. Meta
+  // to Pair lifts the label PDU Set added out of a Random PDU's metadata.
+  { name: 'message pair blocks (Variable to Message, Message Pair to Var, Meta to Pair)',
+    grc: 'test/fixtures/wasm_message_pairs.grc',
+    expectLogs: ['(freq_now . 2500)', '(greeting . hello)'] },
   { name: 'gr-pdu blocks (Take/Skip, Tags To PDU, Random PDU, Set/Remove/Filter/Split, time)',
     grc: 'test/fixtures/wasm_pdu_blocks.grc',
     expectLogs: [

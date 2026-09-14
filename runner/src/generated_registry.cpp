@@ -160,6 +160,7 @@
 #include <gnuradio/filter/rational_resampler.h>
 #include <gnuradio/filter/single_pole_iir_filter_cc.h>
 #include <gnuradio/filter/single_pole_iir_filter_ff.h>
+#include <message_pair_blocks.hpp>
 #include <string_view>
 
 using namespace gr;
@@ -866,6 +867,10 @@ void register_generated_blocks(std::map<std::string, Factory>& registry)
         built.numeric_setters["mean"] = [block](double value) { block->set_mean(static_cast<double>(value)); };
         built.numeric_setters["std"] = [block](double value) { block->set_std(static_cast<double>(value)); };
         return built;
+    });
+    registry.emplace("blocks_msg_meta_to_pair", [](const nlohmann::json& p) -> BuiltBlock {
+        auto block = MetaToPair::make(wasm_registry::text(p, "keyin", "key in"), wasm_registry::text(p, "keyout", "key out"));
+        return { block, nullptr };
     });
     registry.emplace("blocks_min_xx", [](const nlohmann::json& p) -> BuiltBlock {
         if (wasm_registry::text(p, "type", "float") == "float") {
@@ -2044,6 +2049,12 @@ void register_generated_blocks(std::map<std::string, Factory>& registry)
             return { block, nullptr };
         }
         throw std::runtime_error("unsupported type selection for blocks_unpacked_to_packed_xx");
+    });
+    registry.emplace("blocks_var_to_msg", [](const nlohmann::json& p) -> BuiltBlock {
+        auto block = VarToMsgPair::make(wasm_registry::text(p, "msgname", "freq"));
+        BuiltBlock built{ block };
+        built.numeric_setters["target"] = [block](double value) { block->set_value(static_cast<double>(value)); };
+        return built;
     });
     registry.emplace("blocks_vco_c", [](const nlohmann::json& p) -> BuiltBlock {
         auto block = blocks::vco_c::make(wasm_registry::number<double>(p, "samp_rate", 0.0), wasm_registry::number<double>(p, "sensitivity", 0.0), wasm_registry::number<double>(p, "amplitude", 0.0));

@@ -425,6 +425,36 @@ digital_gmskmod_bc:
     includes: ['#include <gnuradio/digital/cpmmod_bc.h>']
     make: 'auto block = digital::cpmmod_bc::make_gmskmod_bc(${samples_per_symbol}, ${L}, ${bt});'
 
+# gr-digital's QAM modem (blocks/src/digital_hier.hpp): generic_mod/generic_demod
+# over the QAM constellation of qam.py. Upstream's yaml still names
+# digital.qam.qam_mod, a class this GNU Radio no longer has, so these two are
+# broken natively and work here. `verbose` and `log` only print and write .dat
+# files upstream; accepted and ignored.
+digital_qam_mod:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <digital_hier.hpp>']
+    make: 'auto block = QamMod::make(${constellation_points}, ${mod_code}, ${differential}, ${samples_per_symbol}, ${excess_bw});'
+    callbacks: []
+
+# Both demods default freq_bw to 6.28/100 upstream, a value from before the
+# FLL's loop gain was reformulated (fll_band_edge_cc sets beta = 2*pi*4*bw/sps
+# now, ~27x what the old control_loop gains gave): at 0.0628 the FLL is
+# unstable on a clean unit-power signal and false-locks at its frequency rail,
+# natively too. 0.005 locks; verified bit-exact in a loopback for both.
+digital_psk_demod:
+  parameter_defaults:
+    freq_bw: '0.005'
+
+digital_qam_demod:
+  flags: [python, cpp]
+  parameter_defaults:
+    freq_bw: '0.005'
+  cpp_templates:
+    includes: ['#include <digital_hier.hpp>']
+    make: 'auto block = QamDemod::make(${constellation_points}, ${mod_code}, ${differential}, ${samples_per_symbol}, ${excess_bw}, ${freq_bw}, ${timing_bw}, ${phase_bw});'
+    callbacks: []
+
 # gr-analog's FM Detector is C++ (fmdet_cf_impl.cc) with Python-only yaml.
 analog_fmdet_cf:
   flags: [python, cpp]
@@ -457,6 +487,35 @@ blocks_multiply_matrix_xx:
     translations:
       gr::TPP_: 'gr::block::TPP_'
     callbacks: []
+
+# gr-blocks' three Python message-pair utilities
+# (blocks/src/message_pair_blocks.hpp). Variable to Message watches a variable:
+# natively its `variable_changed(${target})` callback is re-run by generated
+# Python whenever the variable changes, and here `target` is retyped numeric so
+# the runner binds the control it names to set_value() like any other live
+# parameter -- which is also why it only ever fires for a QT GUI control, the
+# one kind of variable that exists at run time. Message Pair to Var is the
+# reverse, with a hand-written factory in registry.cpp; its `target` is retyped
+# the same way so the editor knows the name is a reference rather than text.
+blocks_msgpair_to_var:
+  parameter_dtypes:
+    target: real
+
+blocks_var_to_msg:
+  flags: [python, cpp]
+  parameter_dtypes:
+    target: real
+  cpp_templates:
+    includes: ['#include <message_pair_blocks.hpp>']
+    make: 'auto block = VarToMsgPair::make(${msgname});'
+    callbacks:
+    - set_value(${target})
+
+blocks_msg_meta_to_pair:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <message_pair_blocks.hpp>']
+    make: 'auto block = MetaToPair::make(${keyin}, ${keyout});'
 
 # gr-blocks' two hier blocks (blocks/src/blocks_hier.hpp).
 blocks_matrix_interleaver:
@@ -616,6 +675,65 @@ channels_dynamic_channel_model:
     - set_noise_amp(${noise_amp})
     - set_doppler_freq(${fD})
     - set_K(${K})
+
+# gr-channels' Python hier blocks, rebuilt in blocks/src/channels_hier.hpp: the
+# impairment generators, the two balancers, the frequency-selective IQ
+# corrector and the Radio Impairments Model composed of the generators. Each
+# class exposes the setters its callbacks name, so the callback lists are
+# upstream's own.
+channels_amp_bal:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <channels_hier.hpp>']
+    make: 'auto block = AmpBal::make(${alpha});'
+
+channels_phase_bal:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <channels_hier.hpp>']
+    make: 'auto block = PhaseBal::make(${alpha});'
+
+channels_iqbal_gen:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <channels_hier.hpp>']
+    make: 'auto block = IqbalGen::make(${mag}, ${phase}, ${mode});'
+
+channels_distortion_2_gen:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <channels_hier.hpp>']
+    make: 'auto block = Distortion2Gen::make(${beta});'
+
+channels_distortion_3_gen:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <channels_hier.hpp>']
+    make: 'auto block = Distortion3Gen::make(${beta});'
+
+channels_phase_noise_gen:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <channels_hier.hpp>']
+    make: 'auto block = PhaseNoiseGen::make(${noise_mag}, ${alpha});'
+
+channels_quantizer:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <channels_hier.hpp>']
+    make: 'auto block = Quantizer::make(${bits});'
+
+channels_conj_fs_iqcorr:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <channels_hier.hpp>']
+    make: 'auto block = ConjFsIqcorr::make(${delay}, ${taps});'
+
+channels_impairments:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <channels_hier.hpp>']
+    make: 'auto block = Impairments::make(${phase_noise_mag}, ${magbal}, ${phasebal}, ${q_ofs}, ${i_ofs}, ${freq_offset}, ${gamma}, ${beta});'
 
 # gr-digital's MPSK SNR Estimator names a setter its C++ class does not have:
 # both callback lists say set_tag_nsamples, the class declares set_tag_nsample.

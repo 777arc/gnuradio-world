@@ -1,0 +1,111 @@
+options:
+    parameters:
+        id: wasm_channel_impairments
+        title: WASM gr-channels impairments
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: impaired_source
+    id: analog_sig_source_x
+    parameters:
+        type: complex
+        samp_rate: '32000'
+        waveform: analog.GR_COS_WAVE
+        freq: '1000'
+        amp: '0.5'
+        offset: '0'
+        phase: '0'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: impairments
+    id: channels_impairments
+    parameters:
+        phase_noise_mag: '-40'
+        magbal: '1'
+        phasebal: '5'
+        q_ofs: '0.01'
+        i_ofs: '0.02'
+        freq_offset: '0.01'
+        gamma: '0.05'
+        beta: '0.05'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: amp_bal
+    id: channels_amp_bal
+    parameters:
+        alpha: '0.01'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: phase_bal
+    id: channels_phase_bal
+    parameters:
+        alpha: '0.01'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: iqcorr
+    id: channels_conj_fs_iqcorr
+    parameters:
+        delay: '1'
+        taps: '[0.1, 0.05]'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: to_real
+    id: blocks_complex_to_real
+    parameters:
+        vlen: '1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: quantizer
+    id: channels_quantizer
+    parameters:
+        bits: '8'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: impaired_throttle
+    id: blocks_throttle2
+    parameters:
+        type: float
+        samples_per_second: '32000'
+        vlen: '1'
+        ignoretag: 'True'
+        limit: auto
+        maximum: '0.1'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: impaired_sink
+    id: blocks_null_sink
+    parameters:
+        type: float
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+connections:
+- [impaired_source, '0', impairments, '0']
+- [impairments, '0', amp_bal, '0']
+- [amp_bal, '0', phase_bal, '0']
+- [phase_bal, '0', iqcorr, '0']
+- [iqcorr, '0', to_real, '0']
+- [to_real, '0', quantizer, '0']
+- [quantizer, '0', impaired_throttle, '0']
+- [impaired_throttle, '0', impaired_sink, '0']
+metadata:
+    file_format: 1

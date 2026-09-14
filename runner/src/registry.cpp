@@ -21,6 +21,7 @@
 #include "analog_hier.hpp"
 #include "blocks_hier.hpp"
 #include "digital_hier.hpp"
+#include "message_pair_blocks.hpp"
 #include "fec_hier.hpp"
 #include "fft_hier.hpp"
 #include "filter_hier.hpp"
@@ -1061,6 +1062,15 @@ struct RangeState {
     double step;
     bool integral;
     std::vector<std::function<void(double)>> subscribers;
+    // A value the flowgraph asked the control to take (Message Pair to Var, on
+    // a GR thread), drained onto the widget by a timer on the GUI thread.
+    std::mutex pending_mutex;
+    double pending = 0.0;
+    bool has_pending = false;
+    // The value last published, so a flowgraph setting the control to what it
+    // already holds still republishes: natively every set_<var>() re-runs the
+    // callbacks, and a widget signal only fires on an actual change.
+    double current = 0.0;
 
     double normalize(double value) const
     {
@@ -1086,6 +1096,7 @@ struct RangeState {
     void publish(double value)
     {
         value = normalize(value);
+        current = value;
         for (const auto& subscriber : subscribers)
             subscriber(value);
     }
@@ -1266,10 +1277,13 @@ BuiltBlock make_range(const json& p)
         start > stop || step <= 0.0)
         throw std::runtime_error("QT GUI Range requires start <= stop and step > 0");
 
-    auto state = std::make_shared<RangeState>(RangeState{
-        start, stop, step, param_text(p, "rangeType", "float") == "int", {}
-    });
+    auto state = std::make_shared<RangeState>();
+    state->start = start;
+    state->stop = stop;
+    state->step = step;
+    state->integral = param_text(p, "rangeType", "float") == "int";
     const double initial = state->normalize(p.value("value", 50.0));
+    state->current = initial;
     const int minimum_length = std::max(1, p.value("min_len", 200));
     const std::string orientation_name = param_text(p, "orient", "horizontal");
     const auto orientation = orientation_name == "vertical" ||
@@ -1287,6 +1301,10 @@ BuiltBlock make_range(const json& p)
     layout->addWidget(new QLabel(label, widget));
 
     auto publish = [state](double value) { state->publish(value); };
+    // How a value set *from the flowgraph* reaches the widget: through the
+    // same widget signal a user's edit would raise, so the paired editor and
+    // the subscribers follow exactly as they do for a click. GUI thread only.
+    std::function<void(double)> apply;
     if (style == "dial") {
         auto* dial = new QDial(widget);
         dial->setRange(0, state->steps());
@@ -1297,13 +1315,25 @@ BuiltBlock make_range(const json& p)
             state->publish(state->value(index));
         });
         layout->addWidget(dial);
+        apply = [dial, state](double value) { dial->setValue(state->index(value)); };
     } else if (style == "slider") {
-        layout->addWidget(
-            make_slider(widget, state, orientation, minimum_length, initial, publish));
+        auto* slider =
+            make_slider(widget, state, orientation, minimum_length, initial, publish);
+        layout->addWidget(slider);
+        apply = [slider, state](double value) { slider->setValue(state->index(value)); };
     } else if (style == "counter") {
-        layout->addWidget(make_counter(widget, state, initial, publish));
+        auto* counter = make_counter(widget, state, initial, publish);
+        layout->addWidget(counter);
+        apply = [counter, state](double value) { counter->setValue(state->normalize(value)); };
     } else if (style == "eng") {
-        layout->addWidget(make_engineering_entry(widget, state, initial, publish));
+        auto* entry = make_engineering_entry(widget, state, initial, publish);
+        layout->addWidget(entry);
+        // setText() raises no editingFinished, so publish by hand.
+        apply = [entry, state](double value) {
+            const double normalized = state->normalize(value);
+            entry->setText(QString::number(normalized, 'g', 12));
+            state->publish(normalized);
+        };
     } else if (style == "eng_slider") {
         auto entry_ref = std::make_shared<QPointer<QLineEdit>>();
         auto* slider = make_slider(widget, state, orientation, minimum_length, initial,
@@ -1322,6 +1352,7 @@ BuiltBlock make_range(const json& p)
         *entry_ref = entry;
         layout->addWidget(slider, 1);
         layout->addWidget(entry);
+        apply = [slider, state](double value) { slider->setValue(state->index(value)); };
     } else {
         auto counter_ref = std::make_shared<QPointer<QDoubleSpinBox>>();
         auto* slider = make_slider(widget, state, orientation, minimum_length, initial,
@@ -1340,7 +1371,25 @@ BuiltBlock make_range(const json& p)
         *counter_ref = counter;
         layout->addWidget(slider, 1);
         layout->addWidget(counter);
+        apply = [slider, state](double value) { slider->setValue(state->index(value)); };
     }
+
+    auto* drain = new QTimer(widget);
+    QObject::connect(drain, &QTimer::timeout, widget, [state, apply] {
+        double value = 0.0;
+        {
+            std::lock_guard<std::mutex> lock(state->pending_mutex);
+            if (!state->has_pending)
+                return;
+            state->has_pending = false;
+            value = state->pending;
+        }
+        if (state->normalize(value) == state->current)
+            state->publish(value);
+        else
+            apply(value);
+    });
+    drain->start(50);
 
     BuiltBlock result;
     result.widget = widget;
@@ -1348,6 +1397,11 @@ BuiltBlock make_range(const json& p)
     result.variable_value = initial;
     result.subscribe = [state](std::function<void(double)> subscriber) {
         state->subscribers.push_back(std::move(subscriber));
+    };
+    result.set_value = [state](double value) {
+        std::lock_guard<std::mutex> lock(state->pending_mutex);
+        state->pending = value;
+        state->has_pending = true;
     };
     return result;
 }
@@ -3619,6 +3673,17 @@ static std::map<std::string, Factory>& registry_storage() {
              if (type == "ff" || type == "float")
                  return make_symbol_sync<gr::digital::symbol_sync_ff>(p);
              throw std::runtime_error("Symbol Sync type must be cc or ff");
+         }},
+        // Message Pair to Var sets the control its `target` names, which is the
+        // one binding the generated factories cannot express: it hands the
+        // runner a driver rather than a setter (see variable_drivers).
+        {"blocks_msgpair_to_var", [](const json& p) -> BuiltBlock {
+             auto block = MsgPairToVar::make();
+             BuiltBlock result{ block };
+             result.variable_drivers["target"] = [block](std::function<void(double)> sink) {
+                 block->set_sink(std::move(sink));
+             };
+             return result;
          }},
         {"digital_constellation_modulator", [](const json& p) -> BuiltBlock {
              const std::string constellation =
