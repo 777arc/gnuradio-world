@@ -98,14 +98,16 @@ release, and `deps/fetch-usrp-images.sh` verifies those images against the SHA-2
 manifest shipped inside the UHD tarball. Bumping one without the other is how a
 board ends up running a mismatched bitstream.
 
-Three patches in `deps/patches/` are applied by `fetch-deps.sh` and are not
-optional — without the first two a USRP hangs partway through initialisation, with
-no error, and the tab must be reloaded:
+Five patches in `deps/patches/` are applied by `fetch-deps.sh`. The three runtime
+correctness fixes prevent a hang, a corrupt receive stream, and a WebAssembly
+function-signature trap during device initialisation:
 
 | patch | what it fixes |
 |-------|---------------|
 | `libusb-emscripten-cancel-transfer.patch` | `cancel_transfer` is a no-op in the WebUSB backend, so a read on an endpoint with no data never times out. Cancelled reads are completed and *orphaned* for the next reader rather than dropped. |
+| `libusb-emscripten-usb-thread.patch` | WebUSB transfers otherwise run on the browser main thread and compete with Qt plotting, limiting sustained receive throughput. |
 | `uhd-frame-sized-endpoint-flush.patch` | UHD drains its receive endpoint with 512-byte reads while frames are 8176 bytes; the final, cancelled read truncates the first frame of the next stream. |
+| `uhd-emscripten-direct-clock.patch` | Boost's microsecond clock calls `localtime_r` through a function pointer whose MAIN_MODULE/SIDE_MODULE wrapper has a different wasm signature. UHD logging uses a direct conversion so device discovery does not trap. |
 | `uhd-no-static-package-export.patch` | `install(EXPORT uhdTargets)` fails to generate in a static build. Nothing here uses `find_package(UHD)`. |
 
 Two build flags are load-bearing and fail silently if dropped:

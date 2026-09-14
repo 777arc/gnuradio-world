@@ -54,6 +54,16 @@ consults a shared record before touching that memory. The same record tracks
 whether a PromiseResult was ever placed in transfer_priv, since
 em_clear_transfer_priv must not destroy one that was never constructed.
 
+A transfer must be signalled complete exactly once. When a timeout races an
+arriving reply -- the 10 ms flush reads again, or any timed recv -- the promise
+can settle and signal first, with libusb's event thread yet to handle that and
+clear IN_FLIGHT, so the timeout still reaches cancel_transfer. Signalling a second
+time would add the same node to completed_transfers twice: a corrupted list, and a
+completion delivered after the synchronous caller has freed the transfer. So
+cancel_transfer signals only a transfer whose result has not been delivered, and
+otherwise returns LIBUSB_ERROR_NOT_FOUND, which libusb reads as "nothing left to
+cancel" and lets the real completion through.
+
 Applied by deps/fetch-deps.sh. Upstream libusb is v1.0.30.
 
 It also registers the two embind types this backend passes across the JS boundary
@@ -273,7 +283,7 @@ differed by millions.
  		val transfer_promise;
  		switch (transfer->type) {
  			case LIBUSB_TRANSFER_TYPE_CONTROL: {
-@@ -795,26 +966,80 @@
+@@ -795,26 +966,94 @@
  			default:
  				return LIBUSB_ERROR_NOT_SUPPORTED;
  		}
@@ -323,18 +333,32 @@ differed by millions.
  
  int em_cancel_transfer(usbi_transfer* itransfer) {
 +	auto pending = findPending(itransfer);
-+	if (pending) {
-+		std::lock_guard<std::mutex> lock(pending->mutex);
-+		pending->owner = nullptr;
-+		if (pending->is_read && !pending->delivered.load()) {
-+			// The browser read cannot be aborted and its bytes are still
-+			// coming. Queue it against the endpoint so the next read adopts it
-+			// rather than losing the data -- and, worse, swallowing the reply
-+			// to whatever request comes next.
-+			std::lock_guard<std::mutex> reg(pending_mutex);
-+			orphaned_reads[{pending->dev_handle, pending->endpoint}].push_back(
-+				pending);
-+		}
++	if (!pending) {
++		// Already completed and forgotten by em_handle_transfer_completion,
++		// with libusb yet to clear IN_FLIGHT. Its completion is on the way;
++		// NOT_FOUND is how a backend says there is nothing left to cancel.
++		return LIBUSB_ERROR_NOT_FOUND;
++	}
++	std::lock_guard<std::mutex> lock(pending->mutex);
++	if (pending->delivered.load()) {
++		// The promise settled first: deliverLocked() has already signalled
++		// this transfer once and the event thread has not yet handled it.
++		// Signalling again would list_add_tail the same node to
++		// completed_transfers twice -- a corrupted list, and a second
++		// completion after the synchronous caller has freed the transfer.
++		// A timeout racing an arriving reply lands here (UHD's 10 ms flush
++		// reads, any timed recv); the data won, so let it through.
++		return LIBUSB_ERROR_NOT_FOUND;
++	}
++	pending->owner = nullptr;
++	if (pending->is_read) {
++		// The browser read cannot be aborted and its bytes are still coming.
++		// Queue it against the endpoint so the next read adopts it rather than
++		// losing the data -- and, worse, swallowing the reply to whatever
++		// request comes next.
++		std::lock_guard<std::mutex> reg(pending_mutex);
++		orphaned_reads[{pending->dev_handle, pending->endpoint}].push_back(
++			pending);
 +	}
 +	// Complete the transfer now rather than waiting for a promise that may never
 +	// settle. libusb turns this into LIBUSB_TRANSFER_TIMED_OUT when the
@@ -358,7 +382,7 @@ differed by millions.
  	libusb_transfer_status status = runOnMain([itransfer] {
  		auto transfer = USBI_TRANSFER_TO_LIBUSB_TRANSFER(itransfer);
  
-@@ -859,6 +1084,9 @@
+@@ -859,6 +1098,9 @@
  		return getTransferStatus(value);
  	});
  

@@ -31,7 +31,9 @@
 #include <complex>
 #include <cstdio>
 #include <cstdlib>
+#include <ctime>
 #include <string>
+#include <sys/time.h>
 #include <vector>
 #include <wordexp.h>
 
@@ -89,9 +91,29 @@ namespace {
 // in one scope so another open cannot replace the state before it is read.
 std::mutex g_uhd_open_mutex;
 
+// microsec_clock::local_time() routes localtime_r through a function pointer.
+// That pointer crosses the MAIN_MODULE/SIDE_MODULE table boundary here, where
+// Emscripten 3.1.70 gives the wrapper and callee different wasm signatures.
+// Calling the same conversion directly avoids that ABI edge while producing the
+// same local ptime UHD stores in logging_info.
+boost::posix_time::ptime local_time_now()
+{
+    timeval now{};
+    gettimeofday(&now, nullptr);
+    const std::time_t seconds = now.tv_sec;
+    std::tm calendar{};
+    boost::date_time::c_time::localtime(&seconds, &calendar);
+    return boost::posix_time::ptime(
+               boost::gregorian::date(calendar.tm_year + 1900,
+                                      calendar.tm_mon + 1,
+                                      calendar.tm_mday),
+               boost::posix_time::time_duration(
+                   calendar.tm_hour, calendar.tm_min, calendar.tm_sec)) +
+           boost::posix_time::microseconds(now.tv_usec);
+}
+
 struct UhdOpenState {
-    const boost::posix_time::ptime started =
-        boost::posix_time::microsec_clock::local_time();
+    const boost::posix_time::ptime started = local_time_now();
     std::atomic<bool> loading_firmware{false};
 };
 
@@ -177,6 +199,7 @@ public:
                          gr::io_signature::make(1, 1, sizeof(gr_complex))),
           d_device(std::move(device)),
           d_samp_rate(samp_rate),
+          d_requested_rate(samp_rate),
           d_center_freq(center_freq),
           d_gain(gain),
           d_bandwidth(bandwidth),
@@ -239,6 +262,8 @@ public:
             return -1;
 
         apply_pending();
+        if (d_failed)
+            return -1;  // A live change threw; fail() has released d_rx.
 
         uhd::rx_metadata_t md;
         size_t got = 0;
@@ -323,8 +348,14 @@ private:
         }
         try {
             if (rate > 0 && rate != d_samp_rate) {
+                d_requested_rate = rate;
                 d_usrp->set_rx_rate(rate);
                 d_samp_rate = d_usrp->get_rx_rate();
+                // If the device coerced it, make the staged request match, or
+                // every later snapshot re-issues set_rx_rate() for nothing.
+                std::lock_guard<std::mutex> lock(d_pending_mutex);
+                if (d_pending_rate == rate)
+                    d_pending_rate = d_samp_rate;
             }
             if (freq != d_center_freq) {
                 d_usrp->set_rx_freq(uhd::tune_request_t(freq));
@@ -381,6 +412,7 @@ private:
 
             if (d_master_clock_rate > 0)
                 d_usrp->set_master_clock_rate(d_master_clock_rate);
+            const double requested_rate = d_samp_rate;
             d_usrp->set_rx_rate(d_samp_rate);
             d_usrp->set_rx_freq(uhd::tune_request_t(d_center_freq));
             d_usrp->set_rx_gain(d_gain);
@@ -395,6 +427,18 @@ private:
             if (std::abs(actual_rate - d_samp_rate) > 1.0) {
                 std::printf("USRP B2xx Source: requested %.0f S/s, got %.0f S/s\n",
                             d_samp_rate, actual_rate);
+            }
+            // And keep the coerced value, as apply_pending() does: every rate
+            // this block reports or compares against from here on is the one the
+            // device actually runs at, not the one that was asked for. Otherwise
+            // a coerced rate reads as a shortfall with phantom dropped samples,
+            // and once a slider has staged anything, every later snapshot
+            // re-issues set_rx_rate() because the stale request never matches.
+            d_samp_rate = actual_rate;
+            {
+                std::lock_guard<std::mutex> lock(d_pending_mutex);
+                if (d_pending_rate == requested_rate)
+                    d_pending_rate = actual_rate;
             }
             std::printf("USRP B2xx Source: %s, %.3f MS/s, %.3f MHz\n",
                         d_usrp->get_mboard_name().c_str(),
@@ -506,13 +550,20 @@ private:
         const double expected = d_samp_rate * elapsed;
         const double lost = expected > (double)d_produced
                                 ? expected - (double)d_produced : 0.0;
+        // actualRate is the rate the device is configured for, as it is for
+        // every other radio: the speed test divides what arrived by it, so
+        // putting the delivered rate there would read "100% of 5 MS/s" on a
+        // board set to 56 and hide the very shortfall the test measures. The
+        // delivered rate rides beside it under its own name.
         char buffer[512];
         std::snprintf(buffer, sizeof buffer,
                       "{\"device\":\"USRP B2xx\",\"direction\":\"rx\","
                       "\"serial\":\"%s\",\"requestedRate\":%.0f,"
-                      "\"actualRate\":%.0f,\"overruns\":%llu,"
+                      "\"actualRate\":%.0f,\"deliveredRate\":%.0f,"
+                      "\"overruns\":%llu,"
                       "\"droppedSamples\":%.0f,\"state\":\"running\"}",
                       d_device.empty() ? "first available" : d_device.c_str(),
+                      d_requested_rate,
                       d_samp_rate,
                       delivered,
                       (unsigned long long)d_overflows,
@@ -580,6 +631,26 @@ private:
     int fake_work(int noutput_items, gr_complex* out)
     {
         using namespace std::chrono;
+        // The fake path skips apply_pending(), but a Sample Rate chooser is
+        // wired to it in b2xx_spectrum_analyzer.grc all the same. Take the
+        // staged rate here, re-basing the pacing clock so the change does not
+        // read as a burst of samples owed at the new rate -- otherwise the plots
+        // rescale to 20 MHz while the tone keeps coming at 1 MS/s and appears
+        // to jump.
+        if (d_has_pending) {
+            double rate;
+            {
+                std::lock_guard<std::mutex> lock(d_pending_mutex);
+                rate = d_pending_rate;
+                d_has_pending = false;
+            }
+            if (rate > 0 && rate != d_samp_rate) {
+                d_started = steady_clock::now();
+                d_produced = 0;
+                d_samp_rate = rate;
+                d_requested_rate = rate;
+            }
+        }
         const double elapsed =
             duration<double>(steady_clock::now() - d_started).count();
         const auto due = static_cast<uint64_t>(elapsed * d_samp_rate);
@@ -597,7 +668,8 @@ private:
     }
 
     const std::string d_device;
-    double d_samp_rate;
+    double d_samp_rate;      // what the device runs at, after any coercion
+    double d_requested_rate; // what was last asked for
     double d_center_freq;
     double d_gain;
     double d_bandwidth;

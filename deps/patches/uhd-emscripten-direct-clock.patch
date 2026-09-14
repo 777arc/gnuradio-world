@@ -1,0 +1,85 @@
+UHD: avoid Boost microsec_clock's indirect localtime call under Emscripten.
+
+Boost's microsec_clock passes localtime_r through a function pointer. In this
+repository UHD lives in a pthread-enabled SIDE_MODULE, while libc and exception
+wrappers come from the MAIN_MODULE. Emscripten 3.1.70 assigns the wrapper and
+callee different wasm signatures, so UHD's first log record traps with:
+
+    RuntimeError: function signature mismatch
+
+Use gettimeofday and Boost's direct c_time conversion to construct the same
+local, microsecond-resolution ptime without the incompatible indirect call.
+UHD logging is the first real-device code reached by the USRP B2xx Source, so
+the fake device path does not expose this failure.
+
+Applied by deps/fetch-deps.sh. Upstream UHD is v4.10.0.0.
+
+--- a/host/lib/utils/log.cpp
++++ b/host/lib/utils/log.cpp
+@@ -17,9 +17,11 @@
+ #include <boost/date_time/posix_time/posix_time.hpp>
+ #include <atomic>
+ #include <cctype>
++#include <ctime>
+ #include <fstream>
+ #include <memory>
+ #include <mutex>
++#include <sys/time.h>
+ #include <thread>
+ #ifdef HAVE_DPDK
+ #    include <uhdlib/transport/dpdk/common.hpp>
+@@ -44,6 +46,27 @@
+ constexpr char LOG_THREAD_NAME_FP[]       = "uhd_log_fastpath";
+ constexpr char LOG_THREAD_NAME_FP_DUMMY[] = "uhd_log_fp_dummy";
+ 
++// Boost's microsec_clock passes localtime_r through a function pointer. In an
++// Emscripten MAIN_MODULE/SIDE_MODULE build, that callback is invoked through
++// the main module's exception wrapper with a different wasm signature and
++// traps before UHD can open a device. Keep the same local, microsecond ptime
++// while making the libc call direct.
++pt::ptime local_time_now()
++{
++    timeval now{};
++    gettimeofday(&now, nullptr);
++    const std::time_t seconds = now.tv_sec;
++    std::tm calendar{};
++    boost::date_time::c_time::localtime(&seconds, &calendar);
++    return pt::ptime(
++               boost::gregorian::date(calendar.tm_year + 1900,
++                                      calendar.tm_mon + 1,
++                                      calendar.tm_mday),
++               pt::time_duration(
++                   calendar.tm_hour, calendar.tm_min, calendar.tm_sec)) +
++           pt::microseconds(now.tv_usec);
++}
++
+ std::string verbosity_color(const uhd::log::severity_level& level)
+ {
+     static const bool tty = uhd::is_a_tty(2); // is stderr a tty?
+@@ -296,8 +319,8 @@
+                  // will be used.
+         // We push a final message to kick the pop task out of it's wait state.
+         // This wouldn't be necessary if pop_with_wait() could fail. Should
+         // that ever get fixed, we can remove this.
+-        auto final_message    = uhd::log::logging_info(pt::microsec_clock::local_time(),
++        auto final_message    = uhd::log::logging_info(local_time_now(),
+             uhd::log::trace,
+             __FILE__,
+             __LINE__,
+@@ -499,7 +522,7 @@
+         if (level < global_level) {
+             return;
+         }
+-        auto log_msg    = uhd::log::logging_info(pt::microsec_clock::local_time(),
++        auto log_msg    = uhd::log::logging_info(local_time_now(),
+             level,
+             __FILE__,
+             __LINE__,
+@@ -535,6 +558,6 @@
+ {
+     if (_log_it) {
+-        this->_log_info = uhd::log::logging_info(pt::microsec_clock::local_time(),
++        this->_log_info = uhd::log::logging_info(local_time_now(),
+             verbosity,
+             file,
+             line,

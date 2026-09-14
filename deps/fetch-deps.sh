@@ -149,11 +149,10 @@ apply_patch() {  # <git-repo-dir> <patch-file>
 
 apply_patch "$SRC/volk" "$PATCHES/volk-generic-machine.patch"
 apply_patch "$SRC/libosmocore" "$PATCHES/libosmocore-pseudotalloc-realloc.patch"
-# Three of these four are as load-bearing as the VOLK one: without them a USRP
-# B2xx hangs partway through device initialisation and the tab has to be reloaded.
-# The fourth, libusb-emscripten-usb-thread, is about throughput rather than
-# correctness -- it moves WebUSB off the browser main thread, which is worth
-# roughly 6x at 1 MS/s under a flowgraph that also draws. See each patch header.
+# The cancel, endpoint-flush, and clock patches are runtime correctness fixes;
+# the package-export patch makes UHD's static install build, and the USB-thread
+# patch moves WebUSB off the browser main thread for roughly 6x the throughput
+# at 1 MS/s under a flowgraph that also draws. See each patch header.
 #
 # libusb's two apply in order: the usb-thread patch is cut against a tree that
 # already has the cancel-transfer one.
@@ -161,5 +160,6 @@ apply_patch "$SRC/libusb-1.0.30" "$PATCHES/libusb-emscripten-cancel-transfer.pat
 apply_patch "$SRC/libusb-1.0.30" "$PATCHES/libusb-emscripten-usb-thread.patch"
 apply_patch "$SRC/uhd-4.10.0.0" "$PATCHES/uhd-frame-sized-endpoint-flush.patch"
 apply_patch "$SRC/uhd-4.10.0.0" "$PATCHES/uhd-no-static-package-export.patch"
+apply_patch "$SRC/uhd-4.10.0.0" "$PATCHES/uhd-emscripten-direct-clock.patch"
 
 echo "=== sources ready in $SRC ==="

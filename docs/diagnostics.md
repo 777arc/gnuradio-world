@@ -152,7 +152,10 @@ so the bottleneck lights up without reading numbers.
 - Sink **underruns / late frames** (dropped qtgui updates)
 - **`radio`** — a radio block's own counters, shaped like a `__grUsbStats` entry
   (`device`, `direction`, `serial`, `requestedRate`, `actualRate`, `overruns`,
-  `droppedSamples`, `state`) so a reader needs one code path for both. The four
+  `droppedSamples`, `state`) so a reader needs one code path for both.
+  `actualRate` is the rate the device is *configured* for, in both places — the
+  speed test divides what arrived by it — and the USRP adds `deliveredRate`, the
+  rate its block actually produced, beside it rather than in its place. The four
   WebUSB radios with a reader worker publish to `__grUsbStats` from `runner.html`,
   because the worker is already posting to the main thread. A USRP has no worker —
   libusb does the transfers inside the module — and its counters live on a block

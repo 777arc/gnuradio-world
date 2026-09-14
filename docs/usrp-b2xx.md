@@ -7,7 +7,7 @@ process, no server round trip.
 Unlike the other radios here, this one does not reimplement a device protocol.
 It cross-compiles **UHD itself** — a B200-only subset — to WebAssembly and lets
 libusb's Emscripten backend do the USB work. That choice is why this block has a
-side module of its own and two patches under `deps/patches/`, both covered below.
+side module of its own and WebAssembly-specific patches under `deps/patches/`.
 
 **Receive only, one channel.** No sink, no full duplex, and no dual-channel B210.
 See [Deliberate omissions](#deliberate-omissions).
@@ -284,10 +284,9 @@ common rates such as 30.72 MS/s and silently coerces the rate *upward* — ask f
 30.72 and get 40, which then overflows and delivers a quarter of what you asked
 for. Pin it, or watch the console for the coercion warning.
 
-## The two patches, and why they are not optional
+## The runtime patches, and why they are not optional
 
-Both are in `deps/patches/`, applied by `deps/fetch-deps.sh`. Without them a USRP
-hangs partway through initialisation with no error and the tab must be reloaded.
+All four are in `deps/patches/` and applied by `deps/fetch-deps.sh`.
 
 **`libusb-emscripten-cancel-transfer.patch`.** WebUSB cannot abort a transfer once
 `transferIn()` has been called; its promise settles when the device answers and
@@ -302,12 +301,32 @@ reply. So a cancelled read is *orphaned*: queued against its endpoint, and adopt
 by the next reader instead of a fresh `transferIn`. Adoption requires matching
 lengths, since a read's size is fixed when it is issued.
 
+And a transfer is signalled complete exactly once. A timeout can race the reply
+it was waiting for — the promise settles and signals, then libusb's timeout
+handler still calls `cancel_transfer` before the event thread has cleared
+`IN_FLIGHT` — and a second signal would queue the same node on
+`completed_transfers` twice. The backend returns `LIBUSB_ERROR_NOT_FOUND` for a
+transfer whose result was already delivered, which libusb treats as "nothing
+left to cancel".
+
 **`uhd-frame-sized-endpoint-flush.patch`.** UHD drains its receive endpoint with
 512-byte reads while frames are 8176 bytes. On a normal host the loop's later
 iterations drain the remainder and the kernel genuinely aborts the final read;
 here that read stays outstanding and truncates the first frame of the next stream
 (`bad vrt header or packet fragment`). A frame-sized buffer fixes it — and removes
 a latent truncation bug on every other platform.
+
+**`uhd-emscripten-direct-clock.patch`.** UHD's logger timestamps records with
+Boost's `microsec_clock`, which passes `localtime_r` through a function pointer.
+Across Emscripten's `MAIN_MODULE`/`SIDE_MODULE` boundary, the exception wrapper
+and callback have different wasm signatures, so the first UHD log record traps
+with `function signature mismatch`. The patch performs the same conversion with
+a direct libc call. The block uses the same helper for the timestamp that filters
+firmware-loading messages to the current open attempt.
+
+**`libusb-emscripten-usb-thread.patch`.** The WebUSB event loop runs in a
+dedicated pthread so Qt painting on the browser main thread cannot starve device
+transfers. Its embind registration and measured throughput are described above.
 
 ## Diagnostics
 

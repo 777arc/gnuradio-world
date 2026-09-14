@@ -250,10 +250,12 @@ add_custom_command(TARGET runner POST_BUILD
   # USRP B2xx firmware and FPGA images, if deps/fetch-usrp-images.sh has been
   # run. Beside runner.html because the runner fetches them relative to its own
   # URL; scripts/assemble-site.mjs puts them in the same place in the deploy.
-  # copy_directory_if_different is a no-op when the source is absent.
-  COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different
-          ${WORLD}/deps/usrp-images/images
-          ${CMAKE_CURRENT_BINARY_DIR}/uhd-images
+  # Through a script because `-E copy_directory[_if_different]` fails on a
+  # missing source, and the fetch is optional.
+  COMMAND ${CMAKE_COMMAND}
+          -DSRC=${WORLD}/deps/usrp-images/images
+          -DDST=${CMAKE_CURRENT_BINARY_DIR}/uhd-images
+          -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/copy_dir_if_exists.cmake
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
           ${CMAKE_CURRENT_SOURCE_DIR}/src/browser_file_reader.js
           ${CMAKE_CURRENT_BINARY_DIR}/browser_file_reader.js
