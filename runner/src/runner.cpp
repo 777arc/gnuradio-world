@@ -339,6 +339,27 @@ struct StatBlock {
 };
 static std::vector<StatBlock> g_stats;
 static int g_scheduler_workers = 0;
+// Blocks whose hardware has not finished coming up. A USRP opens its device
+// lazily on the first work() call -- the only place it safely can, see
+// usrp_b2xx_source.cpp -- and that takes seconds on a warm B2xx and minutes on
+// one that still needs its FPGA image. The startup verdict waits for this to
+// reach zero rather than firing on a fixed timer and calling a device that has
+// not opened yet a success.
+//
+// Seeded from the lowered graph in run_now(), before the scheduler starts, and
+// decremented by gr_hardware_init_end(). Seeding it up front is what tells "not
+// started" from "finished": a block reports itself only once its work() runs, so
+// a counter that begins at zero reads as ready while the block's thread is still
+// waiting for its first slice -- which on a graph of 20 threads is easily longer
+// than the verdict timer. Written from block threads, read on the main thread.
+static std::atomic<int> g_hardware_pending{0};
+// Of those, how many are inside their open right now. Only the heartbeat's
+// wording and the timeout message depend on it.
+static std::atomic<int> g_hardware_initializing{0};
+// Threads UHD creates outside the scheduler; set when the flowgraph is lowered,
+// see usrp_aux_threads(). Kept distinct from g_scheduler_workers because they are
+// not DSP threads and must not be reported as such.
+static int g_usrp_aux_threads = 0;
 // Expected item rate at the reference block -- the realtime factor's
 // denominator. Deliberately *not* a graph-wide maximum sample rate: the
 // numerator is measured at one block, so the denominator has to come from that
@@ -785,6 +806,109 @@ static int worker_tier_for(int required_workers) {
     return std::min(256, std::max(8, rounded));
 }
 
+// The startup verdict. Normally this is one 2.5 s timer: long enough for a graph
+// to fail loudly, short enough not to feel slow. A flowgraph holding hardware that
+// is still initialising re-arms it instead, so "the graph started" is not reported
+// as success while a radio is still loading firmware.
+//
+// Bounded, because a device that never comes up must not leave the run hanging
+// for ever; and noisy about it, because several minutes of silence on a first-ever
+// FPGA load is indistinguishable from a hang.
+static constexpr int kStartupPollMs = 500;
+static constexpr int kHardwareInitTimeoutMs = 300000;  // 5 minutes
+
+// What the heartbeat says while it waits. A block that knows which stage it is in
+// replaces this through gr_hardware_init_note() -- "loading firmware image" reads
+// better than "still initialising hardware" through a 40 s wait -- and silences
+// the heartbeat entirely with an empty string, for a stage short enough that a
+// progress line is just noise.
+static std::mutex g_hardware_note_mutex;
+static std::string g_hardware_note;
+static void schedule_startup_verdict(const std::string& msg,
+                                     unsigned int generation,
+                                     int waited_ms) {
+    QTimer::singleShot(waited_ms ? kStartupPollMs : 2500,
+                       [msg, generation, waited_ms] {
+        if (generation != g_run_generation || g_runtime_failed)
+            return;
+        const int elapsed = waited_ms + (waited_ms ? kStartupPollMs : 2500);
+        if (g_hardware_pending.load() == 0) {
+            report(true, msg);
+            return;
+        }
+        if (elapsed >= kHardwareInitTimeoutMs) {
+            const std::string secs = std::to_string(kHardwareInitTimeoutMs / 1000);
+            // A block that never got to open its device is a scheduler that never
+            // ran it, not a slow device; say which.
+            report(false, g_hardware_initializing.load() > 0
+                              ? "hardware did not finish initialising within " +
+                                    secs + "s; see the messages above"
+                              : "a hardware block was never scheduled within " +
+                                    secs + "s; see the messages above");
+            return;
+        }
+        // Roughly every 10 s, so a long load looks alive.
+        if (elapsed % 10000 < kStartupPollMs) {
+            std::string note;
+            {
+                std::lock_guard<std::mutex> lock(g_hardware_note_mutex);
+                note = g_hardware_note;
+            }
+            if (!note.empty())
+                emscripten_out((note + " (" + std::to_string(elapsed / 1000) +
+                                "s)").c_str());
+        }
+        schedule_startup_verdict(msg, generation, elapsed);
+    });
+}
+
+// Called from a block's own thread while it brings hardware up. Exported so a
+// side module (the USRP lives in b2xx.wasm) can reach them.
+extern "C" EMSCRIPTEN_KEEPALIVE void gr_hardware_init_begin() {
+    if (g_hardware_initializing.fetch_add(1) == 0) {
+        std::lock_guard<std::mutex> lock(g_hardware_note_mutex);
+        g_hardware_note = "still initialising hardware";
+    }
+}
+
+// A radio's own counters, for a block that reaches hardware from inside wasm
+// rather than through a JavaScript worker.
+//
+// The four WebUSB radios with a reader worker publish theirs to
+// `window.__grUsbStats` from runner.html, because the worker is already posting
+// messages to the main thread. A USRP has no worker -- libusb does the transfers
+// inside the module -- and its counters live on a GNU Radio block thread, which
+// cannot touch `window` without proxying and blocking on Qt's event loop. So they
+// come here instead and ride out in the stats snapshot, which is built on the
+// main thread anyway.
+//
+// Whatever the block last published, verbatim. Read on the main thread.
+static std::mutex g_radio_stats_mutex;
+static std::string g_radio_stats;
+
+extern "C" EMSCRIPTEN_KEEPALIVE void gr_radio_stats_publish(const char* json) {
+    std::lock_guard<std::mutex> lock(g_radio_stats_mutex);
+    g_radio_stats = json ? json : "";
+}
+
+// Called from the bringing-up block's thread -- or, for the USRP, from UHD's own
+// logging thread -- to say what is being waited on. Empty silences the heartbeat.
+extern "C" EMSCRIPTEN_KEEPALIVE void gr_hardware_init_note(const char* text) {
+    std::lock_guard<std::mutex> lock(g_hardware_note_mutex);
+    g_hardware_note = text ? text : "";
+}
+// Once per hardware block, whether its open succeeded or not: the block reports
+// its own failure, and the verdict is about the graph having *started*. Clamped
+// rather than trusted, so a block calling this without a matching seed (one the
+// count below does not know about) cannot push the run into a negative that the
+// verdict would never see reach zero.
+extern "C" EMSCRIPTEN_KEEPALIVE void gr_hardware_init_end() {
+    if (g_hardware_initializing.load() > 0)
+        g_hardware_initializing.fetch_sub(1);
+    if (g_hardware_pending.load() > 0)
+        g_hardware_pending.fetch_sub(1);
+}
+
 // What top_block_impl::start() does, minus its scheduler choice. Called on the
 // browser main thread, from inside run_now()'s try/catch (directly, or through
 // the worker preload's completion callback) -- so validate() rejecting a graph
@@ -805,10 +929,7 @@ static void start_prepared_flowgraph(unsigned int generation) {
     auto sched = g_sched;
     std::thread([sched] { sched->wait(); }).detach();
     const std::string msg = g_pending_success_message;
-    QTimer::singleShot(2500, [msg, generation] {
-        if (generation == g_run_generation && !g_runtime_failed)
-            report(true, msg);
-    });
+    schedule_startup_verdict(msg, generation, 0);
 }
 
 // Called on the browser main thread after every newly allocated Worker has
@@ -898,6 +1019,8 @@ static double declared_item_rate(const nlohmann::json& params) {
     return vlen > 0.0 ? rate / vlen : rate;
 }
 
+static int usrp_device_count(const nlohmann::json& j);
+
 static void run_now(const std::string& json_source) {
     try {
         auto j = nlohmann::json::parse(json_source);
@@ -909,6 +1032,18 @@ static void run_now(const std::string& json_source) {
         if (g_sched) { g_sched->stop(); g_sched->wait(); g_sched.reset(); }
         g_ffg.reset();
         g_tb.reset();
+        // Which blocks the startup verdict has to hear from, decided here from
+        // the graph rather than left for the blocks to announce -- see
+        // g_hardware_pending. After the join above, so no old block can still
+        // decrement the new run's count.
+        g_hardware_pending.store(usrp_device_count(j));
+        g_hardware_initializing.store(0);
+        {
+            std::lock_guard<std::mutex> lock(g_hardware_note_mutex);
+            g_hardware_note = g_hardware_pending.load()
+                                  ? "waiting for the hardware block's first work() call"
+                                  : "";
+        }
         // clear previous sink widgets, and the arrangement they were in
         g_widgets.clear();
         if (g_gui_area && g_gui_area->layout()) {
@@ -1187,7 +1322,14 @@ static void run_now(const std::string& json_source) {
         // Give diagnostics a sane timestamp while an upgraded tier is loading;
         // start_prepared_flowgraph resets it when sample processing begins.
         g_run_start = std::chrono::steady_clock::now();
-        const int required_workers = scheduler_workers + 1; // detached sched->wait()
+        {
+            std::lock_guard<std::mutex> lock(g_radio_stats_mutex);
+            g_radio_stats.clear();
+        }
+        // +1 for the detached sched->wait(); plus UHD's own threads, which belong
+        // to no block and exist whichever scheduler is running.
+        const int required_workers =
+            scheduler_workers + 1 + g_usrp_aux_threads;
         const int exact_tier = worker_tier_for(required_workers);
         const int selected_tier = EM_ASM_INT({ return globalThis.__grPoolTier || 16; });
         const int target_tier = std::max(selected_tier, exact_tier);
@@ -1259,6 +1401,38 @@ static void notify_module(const std::string& module, const char* state) {
 }
 
 // Deferred modules a flowgraph needs, dependencies first (topological order).
+// Threads UHD and libusb create outside GNU Radio's scheduler, which the block
+// count therefore cannot predict: one libusb event-handling task and one WebUSB
+// thread (both shared -- libusb's session is a global singleton, and its
+// Emscripten backend pins every device to a single thread of its own), plus one
+// asynchronous-message task per open B2xx. A `fake` device opens none of them,
+// and is excluded here because unlike the URL-time estimate in runner.html this
+// one can see the parameter.
+//
+// The device count is also what seeds g_hardware_pending: each of these blocks
+// calls gr_hardware_init_end() exactly once, from its first work() call.
+static int usrp_device_count(const nlohmann::json& j) {
+    int devices = 0;
+    for (const auto& blk : j.at("blocks")) {
+        if (blk.at("id").get<std::string>() != "wasm_usrp_b2xx_source")
+            continue;
+        std::string device;
+        if (blk.contains("params")) {
+            auto it = blk.at("params").find("device");
+            if (it != blk.at("params").end() && it->is_string())
+                device = it->get<std::string>();
+        }
+        if (device == "fake" || device.rfind("fake:", 0) == 0)
+            continue;
+        ++devices;
+    }
+    return devices;
+}
+static int usrp_aux_threads(const nlohmann::json& j) {
+    const int devices = usrp_device_count(j);
+    return devices ? devices + 2 : 0;
+}
+
 static std::vector<std::string> modules_needed(const nlohmann::json& j) {
     std::set<std::string> need;
     const auto& map = block_module_map();
@@ -1341,6 +1515,8 @@ static nlohmann::json js_sources_needed(const nlohmann::json& lowered) {
 
 static void prepare_python_then_run(const std::string& fgs);
 
+static void fetch_uhd_images_then_prepare(const std::string& fgs);
+
 static void fetch_js_sources_then_prepare(const std::string& fgs) {
     nlohmann::json request;
     try {
@@ -1350,7 +1526,7 @@ static void fetch_js_sources_then_prepare(const std::string& fgs) {
         return;
     }
     if (request.empty()) {
-        prepare_python_then_run(fgs);
+        fetch_uhd_images_then_prepare(fgs);
         return;
     }
     g_js_pending_flowgraph = fgs;
@@ -1386,6 +1562,73 @@ extern "C" EMSCRIPTEN_KEEPALIVE void gr_finish_js_sources(int ok, const char* pa
             set_js_block_source(item.key(), item.value().get<std::string>());
     } catch (const std::exception& e) {
         report(false, std::string("JS Block: unreadable source payload: ") + e.what());
+        return;
+    }
+    fetch_uhd_images_then_prepare(fgs);
+}
+
+// ---- the USRP B2xx image prepare step --------------------------------------
+// UHD loads FX3 firmware and an FPGA bitstream from disk while opening a device,
+// and in a browser "disk" is MEMFS. The files are served from this origin (see
+// scripts/assemble-site.mjs) rather than a bucket, so there is no CORS to get
+// wrong and nothing to keep in sync with the UHD pin but the build itself.
+//
+// Every image is fetched, not just the one the board needs: which board it is
+// comes from its EEPROM, which UHD reads only once it has opened the device --
+// long after this step has to finish. That is ~14 MB, once, and only for a
+// flowgraph with a real device; a `fake` one fetches nothing. It is also small
+// next to what follows, since pushing the bitstream over USB takes minutes.
+static const char* const kUhdImageFiles[] = {
+    "usrp_b200_fw.hex",
+    "usrp_b200_fpga.bin",
+    "usrp_b210_fpga.bin",
+    "usrp_b200mini_fpga.bin",
+    "usrp_b205mini_fpga.bin",
+};
+
+static std::string g_uhd_pending_flowgraph;
+
+static bool needs_uhd_images(const nlohmann::json& j) {
+    return usrp_aux_threads(j) > 0;  // non-fake B2xx blocks, counted once already
+}
+
+static void fetch_uhd_images_then_prepare(const std::string& fgs) {
+    bool needed = false;
+    try {
+        needed = needs_uhd_images(nlohmann::json::parse(fgs));
+    } catch (...) {
+        needed = false;
+    }
+    if (!needed) {
+        prepare_python_then_run(fgs);
+        return;
+    }
+    nlohmann::json names = nlohmann::json::array();
+    for (const char* name : kUhdImageFiles)
+        names.push_back(name);
+    g_uhd_pending_flowgraph = fgs;
+    const std::string text = names.dump();
+    // Same bridge shape as the JS-source and Pyodide steps: runner.html does the
+    // fetching, and an EM_ASM body is the only thing that can see the exports.
+    EM_ASM({
+        var bridge = {};
+        bridge.finish = function(ok, message) {
+            var pointer = message ? stringToNewUTF8(message) : 0;
+            _gr_finish_uhd_images(ok ? 1 : 0, pointer);
+            if (pointer) _free(pointer);
+        };
+        window.__grUhdImagesBridge = bridge;
+        window.__grLoadUhdImages(UTF8ToString($0));
+    }, text.c_str());
+}
+
+extern "C" EMSCRIPTEN_KEEPALIVE void gr_finish_uhd_images(int ok, const char* message) {
+    const std::string fgs = std::move(g_uhd_pending_flowgraph);
+    g_uhd_pending_flowgraph.clear();
+    if (!ok) {
+        report(false, message && *message
+                          ? message
+                          : "USRP B2xx: the firmware and FPGA images could not be fetched");
         return;
     }
     prepare_python_then_run(fgs);
@@ -1496,6 +1739,7 @@ extern "C" EMSCRIPTEN_KEEPALIVE
 int gr_run_json(const char* grc_text) {
     try {
         nlohmann::json lowered = grc_lower::lower(grc_yaml::parse(grc_text));
+        g_usrp_aux_threads = usrp_aux_threads(lowered);
         auto* ctx = new LoadCtx{ modules_needed(lowered), 0, lowered.dump() };
         load_next(ctx);  // fetch missing category modules, then run_now()
         return 0;
@@ -1529,6 +1773,23 @@ static std::string build_stats_json() {
     // (Module.PThread, Module.HEAP8, ...) aborts the whole runtime.
     out["wasm_heap"] = (double)emscripten_get_heap_size();
     out["dsp_threads"] = g_scheduler_workers;
+    // UHD's libusb event and asynchronous-message tasks. Reported separately: they
+    // occupy workers but run no block, so folding them into dsp_threads would
+    // misreport the scheduler's width.
+    if (g_usrp_aux_threads)
+        out["radio_aux_threads"] = g_usrp_aux_threads;
+    // A radio block's own counters, shaped like a __grUsbStats entry so a reader
+    // needs one code path for both. Absent until a block publishes.
+    {
+        std::lock_guard<std::mutex> lock(g_radio_stats_mutex);
+        if (!g_radio_stats.empty()) {
+            try {
+                out["radio"] = nlohmann::json::parse(g_radio_stats);
+            } catch (...) {
+                // A malformed publish must not cost the whole snapshot.
+            }
+        }
+    }
     // runner.html selects this before Emscripten initializes its worker pool.
     // Read the same value here so diagnostics report the active tier rather
     // than duplicating a build-time constant that can drift from the runtime.

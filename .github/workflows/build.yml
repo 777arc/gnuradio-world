@@ -155,6 +155,20 @@ jobs:
         if: steps.cache-pyodide.outputs.cache-hit != 'true'
         run: bash deps/fetch-pyodide.sh
 
+      # USRP B2xx firmware and FPGA images, served same-origin beside the runner
+      # rather than from the recordings bucket: no CORS policy to keep in step and
+      # no credentials here. ~14 MB, cached on the pins in fetch-usrp-images.sh,
+      # which verifies every archive against UHD's own SHA-256 manifest.
+      - name: Restore USRP image cache
+        id: cache-usrp-images
+        uses: actions/cache@v4
+        with:
+          path: deps/usrp-images
+          key: usrp-images-${{ hashFiles('deps/fetch-usrp-images.sh') }}
+      - name: Fetch USRP B2xx images
+        if: steps.cache-usrp-images.outputs.cache-hit != 'true'
+        run: bash deps/fetch-usrp-images.sh
+
       - name: Build dependency sysroot
         if: steps.cache-sysroot.outputs.cache-hit != 'true'
         run: |

@@ -1,0 +1,69 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>USRP B2xx feasibility spike</title>
+<style>
+  body { font: 13px/1.5 ui-monospace, monospace; margin: 1rem; }
+  #log { white-space: pre-wrap; }
+  .PASS { color: #0a0; } .FAIL { color: #c00; } .stage { color: #666; }
+  .action { color: #b30; font-weight: 700; font-size: 15px; }
+  .shout {
+    background: #b30; color: #fff; font-weight: 700; font-size: 22px;
+    padding: .4rem .6rem; margin: .2rem 0; letter-spacing: .02em;
+  }
+  button { font: inherit; padding: .3rem .7rem; margin-right: .5rem; }
+</style>
+<h1>USRP B2xx — Phase 1 feasibility spike</h1>
+<p>
+  <button id="grant">Grant device access</button>
+  <button id="run" disabled>Run probe</button>
+</p>
+<div id="log"></div>
+<div id="result"></div>
+<script>
+  const log = document.getElementById('log');
+  const line = (tag, msg) => {
+    let cls = /^PASS/.test(msg) ? 'PASS' : /^FAIL/.test(msg) ? 'FAIL' : tag;
+    // The unplug prompt has to be impossible to miss in a scrolling log.
+    if (tag === 'action' && /PULL THE USB CABLE|=====/.test(msg)) cls = 'shout';
+    log.insertAdjacentHTML('beforeend',
+      `<div class="${cls}">[${tag}] ${msg.replace(/[<&]/g, c => c === '<' ? '&lt;' : '&amp;')}</div>`);
+  };
+  globalThis.__probeLines = [];
+  globalThis.__probeLine = (tag, msg) => {
+    globalThis.__probeLines.push(`${tag}: ${msg}`);
+    line(tag, msg);
+    if (tag === 'done') {
+      document.getElementById('result').textContent =
+        msg === '0' ? 'SPIKE_PASS' : 'SPIKE_FAIL';
+    }
+  };
+  globalThis.__probeReady = () => {
+    line('stage', 'wasm ready');
+    document.getElementById('run').disabled = false;
+  };
+
+  document.getElementById('grant').onclick = async () => {
+    try {
+      const d = await navigator.usb.requestDevice({ filters: [
+        { vendorId: 0x2500 }, { vendorId: 0x3923 }, { vendorId: 0x04b4 },
+      ]});
+      line('stage', `granted: ${d.productName} serial=${d.serialNumber}`);
+    } catch (e) { line('stage', `grant failed/cancelled: ${e.message}`); }
+  };
+
+  document.getElementById('run').onclick = () => {
+    line('stage', 'starting probe');
+    Module._probe_start();
+    // Gate 9: keep poking the main thread to prove it is not blocked.
+    const iv = setInterval(() => {
+      try { Module._probe_tick(); } catch {}
+      if (document.getElementById('result').textContent) clearInterval(iv);
+    }, 100);
+  };
+
+  navigator.usb.getDevices().then(ds => {
+    line('stage', `already-authorized devices: ${ds.length}`);
+    ds.forEach(d => line('stage', `  ${d.productName} serial=${d.serialNumber}`));
+  });
+</script>
+<script src="usrp_probe.js"></script>

@@ -1,0 +1,278 @@
+--- a/libusb/os/emscripten_webusb.cpp
++++ b/libusb/os/emscripten_webusb.cpp
+@@ -105,7 +105,7 @@
+ });
+ 
+ // Our implementation proxies operations from multiple threads to the same
+-// underlying USBDevice on the main thread. This can lead to issues when
++// underlying USBDevice on the USB thread. This can lead to issues when
+ // multiple threads try to open/close the same device at the same time.
+ //
+ // First, since open/close operations are asynchronous in WebUSB, we can end up
+@@ -193,47 +193,128 @@
+ // yields where the call is made, so registering from a neighbouring file in the
+ // same module is not equivalent.
+ //
+-// A static initializer runs once per realm the module is instantiated in, which
+-// is exactly the granularity the registry has. Duplicates are expected wherever
+-// the type did unify with the main module's, so they are ignored.
++// Per realm, so it is a function rather than only a static initializer: a thread
++// this backend starts itself (see usbThread() below) gets a realm of its own that
++// no initializer of ours has run in, and has to repeat the registration before
++// its first val crosses. Duplicates are expected wherever the type did unify with
++// the main module's, so they are ignored.
+ namespace {
++void registerEmbindTypes() {
++	// NOTE the double underscore: Emscripten's JS name for the C symbol
++	// _embind_register_emval is __embind_register_emval.
++	EM_ASM(
++		{
++			try {
++				__embind_register_emval($0);
++			} catch (error) {
++				// Already registered in this realm.
++			}
++			try {
++				// 1 == embind's TypedArrayIndex::Uint8Array.
++				__embind_register_memory_view($1, 1, $2);
++			} catch (error) {
++			}
++		},
++		emscripten::internal::TypeID<emscripten::val>::get(),
++		emscripten::internal::TypeID<emscripten::memory_view<uint8_t>>::get(),
++		"emscripten::memory_view<uint8_t>");
++}
++
+ struct RegisterEmbindTypes {
+-	RegisterEmbindTypes() {
+-		// NOTE the double underscore: Emscripten's JS name for the C symbol
+-		// _embind_register_emval is __embind_register_emval.
+-		EM_ASM(
+-			{
+-				try {
+-					__embind_register_emval($0);
+-				} catch (error) {
+-					// Already registered in this realm.
+-				}
+-				try {
+-					// 1 == embind's TypedArrayIndex::Uint8Array.
+-					__embind_register_memory_view($1, 1, $2);
+-				} catch (error) {
+-				}
+-			},
+-			emscripten::internal::TypeID<emscripten::val>::get(),
+-			emscripten::internal::TypeID<
+-				emscripten::memory_view<uint8_t>>::get(),
+-			"emscripten::memory_view<uint8_t>");
+-	}
++	RegisterEmbindTypes() { registerEmbindTypes(); }
+ };
+ const RegisterEmbindTypes register_embind_types;
+ }  // namespace
+ 
+-// A helper that proxies a function call to the main thread if not already
++// The one thread every WebUSB call in this backend runs on.
++//
++// It has to be *a* single thread: a USBDevice belongs to the JS realm that
++// created it and cannot be handed to another, so all of libusb's state here is
++// pinned to whichever thread opened the device. Upstream that thread is the
++// browser main thread. Here it is a thread of our own, and the difference is the
++// entire performance story of this backend inside an application that also draws.
++//
++// Chrome does a fixed amount of work *on the thread owning the device* for every
++// byte transferred: the IPC from the USB service into the renderer, then the copy
++// into the wasm heap. On the main thread that competes with rendering, so USB
++// throughput collapses to whatever share of the thread is left over. Measured on
++// a USRP B210 streaming 1 MS/s: ~700 KB/s with two Qt plots on screen, against
++// 77 MB/s for the same radio over the same code with the main thread idle. The
++// cost was proportional to bytes and not to transfers, which is what rules out
++// per-transfer proxying overhead as the explanation and points here instead.
++//
++// WebUSB is exposed in dedicated workers and an Emscripten pthread is one, so the
++// device is opened on a thread that does nothing else. requestDevice() still
++// needs a user gesture and so still happens on the main thread, in the page;
++// getDevices() re-acquires by origin permission here, exactly as this project's
++// hand-written WebUSB workers already do.
++static pthread_t usb_thread_id = 0;
++
++static void* usbThreadMain(void*) {
++	// This thread has a JavaScript realm of its own, and embind's type registry
++	// is per realm. The static initializer above ran in whichever realm dlopen'd
++	// this module, not in this one, so without repeating it here the very first
++	// val to cross from this thread fails with
++	//
++	//     BindingError: parameter 0 has unknown type N10emscripten3valE
++	//
++	// which is what moving off the main thread broke the first time.
++	registerEmbindTypes();
++	// Unwind to the worker's event loop without ending the thread. Proxied work
++	// can only complete on a live runtime (see emscripten/proxying.h), and the
++	// promise callbacks WebUSB delivers need that event loop just as much.
++	emscripten_exit_with_live_runtime();
++	return nullptr;
++}
++
++// Created on first use rather than at load: a process that never touches USB
++// should not hold a worker open, and the pool this comes from is sized by the
++// application.
++//
++// The thread is proved before it is adopted. Everything here depends on a pthread
++// that has exited to the JS event loop continuing to service its proxying queue,
++// and if that ever stops holding, the failure would otherwise be the worst kind:
++// the first transfer proxied into a thread that never answers, and a tab that
++// hangs with no message. So one trivial task is proxied across first, and the
++// main thread -- slower, but what every other build of this backend uses -- is
++// used instead if it does not come back.
++static pthread_t usbThread() {
++	static std::once_flag once;
++	std::call_once(once, [] {
++		usb_thread_id = emscripten_main_runtime_thread_id();
++		pthread_t thread;
++		if (pthread_create(&thread, nullptr, usbThreadMain, nullptr) != 0) {
++			usbi_warn(nullptr, "no worker for the WebUSB thread; using the main "
++							   "thread, which is much slower under load");
++			return;
++		}
++		std::atomic<bool> alive{false};
++		if (queue.proxySync(thread, [&alive] { alive.store(true); }) &&
++			alive.load()) {
++			usb_thread_id = thread;
++		} else {
++			usbi_warn(nullptr, "the WebUSB thread is not servicing its proxying "
++							   "queue; using the main thread instead");
++		}
++	});
++	return usb_thread_id;
++}
++
++static bool onUsbThread() {
++	return pthread_equal(pthread_self(), usbThread()) != 0;
++}
++
++// A helper that proxies a function call to the USB thread if not already
+ // there. This is a wrapper around Emscripten's raw proxying API with couple of
+ // high-level improvements, namely support for destroying lambda on the target
+ // thread as well as custom return types.
+ template <typename Func>
+ auto runOnMain(Func&& func) {
+ #ifdef _REENTRANT
+-	if (!emscripten_is_main_runtime_thread()) {
++	if (!onUsbThread()) {
+ 		if constexpr (std::is_same_v<std::invoke_result_t<Func>, void>) {
+ 			bool proxied =
+-				queue.proxySync(emscripten_main_runtime_thread_id(), [&func] {
++				queue.proxySync(usbThread(), [&func] {
+ 					// Capture func by reference and move into a local variable
+ 					// to render the captured func inert on the first (and only)
+ 					// call. This way it can be safely destructed on the main
+@@ -315,20 +396,20 @@
+ 	co_return val::undefined();
+ }
+ 
+-// A helper that runs an asynchronous function on the main thread and blocks the
++// A helper that runs an asynchronous function on the USB thread and blocks the
+ // current thread until the promise is resolved (via Asyncify "blocking" if
+-// already on the main thread or regular blocking otherwise).
++// already on the USB thread or regular blocking otherwise).
+ template <typename Func>
+ static std::invoke_result_t<Func>::AwaitResult awaitOnMain(Func&& func) {
+ #ifdef _REENTRANT
+-	if (!emscripten_is_main_runtime_thread()) {
+-		// If we're on a different thread, we can't use main thread's Asyncify
+-		// as multiple threads might be fighting for its state; instead, use
+-		// proxying to synchronously block the current thread until the promise
+-		// is complete.
++	if (!onUsbThread()) {
++		// If we're on a different thread, we can't use the target thread's
++		// Asyncify as multiple threads might be fighting for its state; instead,
++		// use proxying to synchronously block the current thread until the
++		// promise is complete.
+ 		std::optional<typename std::invoke_result_t<Func>::AwaitResult> result;
+ 		queue.proxySyncWithCtx(
+-			emscripten_main_runtime_thread_id(),
++			usbThread(),
+ 			[&result, &func](ProxyingQueue::ProxyingCtx ctx) {
+ 				// Same as `func` in `runOnMain`, move to destruct on the first
+ 				// call.
+@@ -343,8 +424,10 @@
+ 		return std::move(result.value());
+ 	}
+ #endif
+-	// If we're already on the main thread, use Asyncify to block until the
+-	// promise is resolved.
++	// If we're already on the USB thread, use Asyncify to block until the
++	// promise is resolved. Nothing in this project reaches here -- every call
++	// arrives from a GNU Radio block's own thread -- which matters because the
++	// module libusb is linked into is built without Asyncify.
+ 	return func().await();
+ }
+ 
+@@ -463,13 +546,13 @@
+ 		val result = co_await cachedDevicePtr->initFromDeviceWithoutClosing(
+ 			libusb_dev, must_close);
+ 		if (must_close) {
+-			co_await_try(cachedDevicePtr->safeOpenCloseAssumingMainThread(
++			co_await_try(cachedDevicePtr->safeOpenCloseOnUsbThread(
+ 				OpenClose::Close));
+ 		}
+ 		co_return std::move(result);
+ 	}
+ 
+-	const val& getDeviceAssumingMainThread() const { return device; }
++	const val& getDeviceOnUsbThread() const { return device; }
+ 
+ 	uint8_t getActiveConfigValue() const {
+ 		return runOnMain([&] {
+@@ -517,14 +600,14 @@
+ 		runOnMain([device = std::move(device)] {});
+ 	}
+ 
+-	CaughtPromise safeOpenCloseAssumingMainThread(OpenClose open) {
++	CaughtPromise safeOpenCloseOnUsbThread(OpenClose open) {
+ 		return val::take_ownership(usbi_em_device_safe_open_close(
+ 			device.as_handle(), static_cast<bool>(open)));
+ 	}
+ 
+ 	int safeOpenCloseOnMain(OpenClose open) {
+ 		return ::awaitOnMain([this, open] {
+-				   return safeOpenCloseAssumingMainThread(open);
++				   return safeOpenCloseOnUsbThread(open);
+ 			   })
+ 			.error;
+ 	}
+@@ -552,7 +635,7 @@
+ 	// we opened it successfully, and we can't use an async operation (`close`)
+ 	// in RAII destructor.
+ 	val initFromDeviceWithoutClosing(libusb_device* dev, bool& must_close) {
+-		co_await_try(safeOpenCloseAssumingMainThread(OpenClose::Open));
++		co_await_try(safeOpenCloseOnUsbThread(OpenClose::Open));
+ 
+ 		// Can't use RAII to close on exit as co_await is not permitted in
+ 		// destructors (yet:
+@@ -707,7 +790,7 @@
+ int em_get_device_list(libusb_context* ctx, discovered_devs** devs) {
+ 	// No need to wrap into CaughtPromise as we catch all individual ops in the
+ 	// inner implementation and return just the error code. We do need a custom
+-	// promise type to ensure conversion to int happens on the main thread
++	// promise type to ensure conversion to int happens on the USB thread
+ 	// though.
+ 	struct IntPromise : val {
+ 		IntPromise(val&& promise) : val(std::move(promise)) {}
+@@ -914,7 +997,7 @@
+ 	return runOnMain([itransfer] {
+ 		auto transfer = USBI_TRANSFER_TO_LIBUSB_TRANSFER(itransfer);
+ 		auto& web_usb_device = WebUsbDevicePtr(transfer->dev_handle)
+-								   ->getDeviceAssumingMainThread();
++								   ->getDeviceOnUsbThread();
+ 
+ 		// If a previous transfer on this endpoint was cancelled while its read
+ 		// was still outstanding, its bytes belong to this one.
+@@ -1087,7 +1170,7 @@
+ 	// The transfer is about to be handed back to the caller, which may free it.
+ 	forgetPending(itransfer);
+ 
+-	// Invoke user's handlers outside of the main thread to reduce pressure.
++	// Invoke user's handlers outside of the USB thread to reduce pressure.
+ 	return status == LIBUSB_TRANSFER_CANCELLED
+ 		? usbi_handle_transfer_cancellation(itransfer)
+ 		: usbi_handle_transfer_completion(itransfer, status);

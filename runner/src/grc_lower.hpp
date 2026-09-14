@@ -95,6 +95,7 @@ inline bool is_text_param(const std::string& block_id, const std::string& param)
                block_id == "wasm_hackrf_source" ||
                block_id == "wasm_hackrf_sink" ||
                block_id == "wasm_bb60_source" ||
+               block_id == "wasm_usrp_b2xx_source" ||
                block_id == "wasm_grwire_source";
     if (param == "server" || param == "wire_format" || param == "gains")
         return block_id == "wasm_grwire_source";

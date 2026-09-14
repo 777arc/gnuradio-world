@@ -1,6 +1,11 @@
 /.venv/
 /deps/src/
 /deps/build/
+/deps/usrp-images/
+/test/hw/usrp-spike/usrp_probe.js
+/test/hw/usrp-spike/usrp_probe.wasm
+/test/hw/usrp-spike/usrp_probe.data
+/test/hw/usrp-spike/*.o
 /sysroot
 /gr/
 /chrome-headless-shell

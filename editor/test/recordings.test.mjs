@@ -315,7 +315,19 @@ assert.match(main,
 assert.match(main, /const LOCAL_FILE_PARAMS[\s\S]*?paint_image_source: 'image_file'/);
 assert.match(main, /const RUN_BOUND_PARAMS[\s\S]*?\[HTTP_RECORDING_ID\]: HTTP_RECORDING_PARAM/,
   'a public URL is rewritten to its bound path the same way a local file is');
-assert.doesNotMatch(runnerHtml, /\.arrayBuffer\(\)/);
+// A recording is read in Range-request chunks, never slurped whole: they run to
+// gigabytes and would not fit in wasm memory. Scoped to exclude the USRP B2xx
+// image loader, which fetches fixed ~4 MB firmware and FPGA files in one go --
+// correct for those, and nothing to do with recordings.
+const uhdImageLoader = runnerHtml.indexOf('window.__grLoadUhdImages');
+const runnerHtmlRecordingPaths = uhdImageLoader < 0
+  ? runnerHtml
+  : runnerHtml.slice(0, uhdImageLoader) +
+    runnerHtml.slice(runnerHtml.indexOf('window.__grLoadJsBlockSources', uhdImageLoader));
+assert.ok(uhdImageLoader < 0 ||
+  runnerHtmlRecordingPaths.length < runnerHtml.length,
+  'the USRP image loader should have been sliced out');
+assert.doesNotMatch(runnerHtmlRecordingPaths, /\.arrayBuffer\(\)/);
 assert.match(readerWorker, /MAX_CHUNK_BYTES = 2 \* 1024 \* 1024/);
 assert.match(readerWorker, /Range: `bytes=\$\{start\}-\$\{end - 1\}`/);
 assert.match(readerWorker, /if \(contentRange &&[\s\S]*?data\.byteLength !== end - start/);

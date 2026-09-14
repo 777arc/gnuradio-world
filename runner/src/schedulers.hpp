@@ -65,7 +65,8 @@ inline bool blocks_in_work(const std::string& block_id) {
     // Kept in step with the blocks whose work() waits on a futex, a condition
     // variable or a sleep: browser_audio.cpp, browser_file_source.cpp,
     // browser_file_sink.cpp, rtlsdr_source.cpp, plutosdr_common.cpp,
-    // hackrf_common.cpp and python_block.hpp.
+    // hackrf_common.cpp, usrp_b2xx_source.cpp (UHD's recv() blocks for its
+    // timeout) and python_block.hpp.
     static const char* const ids[] = {
         "audio_sink",
         "audio_source",
@@ -80,6 +81,7 @@ inline bool blocks_in_work(const std::string& block_id) {
         "wasm_plutosdr_sink",
         "wasm_hackrf_source",
         "wasm_hackrf_sink",
+        "wasm_usrp_b2xx_source",
         "epy_block",
     };
     for (const char* id : ids)

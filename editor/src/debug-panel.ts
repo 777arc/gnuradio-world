@@ -161,7 +161,12 @@ export function showDebugInfo(deps: DebugInfoDeps): void {
         const raw = (frame?.contentWindow as any)?.__grstats;
         if (raw) {
           const s = JSON.parse(raw);
-          live = `heap ${fmtBytes(s.wasm_heap)}, ${s.dsp_threads} DSP thread(s), uptime ${Math.round(s.uptime_s)}s`;
+          // radio_aux_threads is absent unless a flowgraph holds a radio whose
+          // host library runs threads of its own; shown beside the DSP count
+          // rather than folded into it, because they run no block.
+          const aux = s.radio_aux_threads
+            ? ` + ${s.radio_aux_threads} radio thread(s)` : '';
+          live = `heap ${fmtBytes(s.wasm_heap)}, ${s.dsp_threads} DSP thread(s)${aux}, uptime ${Math.round(s.uptime_s)}s`;
         }
       } catch { /* cross-frame not ready */ }
       extra.appendChild(dbgKV('Runner runtime', live));

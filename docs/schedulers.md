@@ -159,7 +159,8 @@ console says nothing, and everything simply stops producing.
 Several blocks here own their scheduler thread by design and wait on a futex or a
 condition variable inside `work()` — Audio Sink and Audio Source, the four blocks
 that read a file, SigMF Sink, the RTL-SDR / PlutoSDR / HackRF sources and sinks,
-and the Embedded Python Block. On `sts` that one wait stalls every other block on
+the USRP B2xx Source (UHD's `recv()` blocks for its timeout), and the Embedded
+Python Block. On `sts` that one wait stalls every other block on
 the thread. A throttle is a milder version of the same thing: its ~128 ms sleep
 pauses the whole graph rather than just itself.
 
@@ -169,7 +170,8 @@ chosen for such a graph. It warns rather than refusing — which of them actuall
 blocks depends on whether the browser granted the device. **Keep that list in
 step** with the blocks whose `work()` waits: `browser_audio.cpp`,
 `browser_file_source.cpp`, `browser_file_sink.cpp`, `rtlsdr_source.cpp`,
-`plutosdr_common.cpp`, `hackrf_common.cpp` and `python_block.hpp`.
+`plutosdr_common.cpp`, `hackrf_common.cpp`, `usrp_b2xx_source.cpp` and
+`python_block.hpp`.
 
 JS blocks are *not* on the list. Their `work()` is synchronous JavaScript on the
 block's own thread and returns; it does not wait. A JS `work()` that never
@@ -308,3 +310,22 @@ count, so changing either constant fails the suite rather than quietly making
 every "deterministic" run a different one. That fixture carries `scheduler: det`
 in its own Options block rather than taking the query, which makes it the end-to-
 end cover for the `.grc` path.
+
+## Threads a block owns that the scheduler did not make
+
+The worker pool is sized from the block count, which assumes every thread belongs
+to a block. UHD breaks that assumption: opening a B2xx starts a libusb
+event-handling task — one, shared, because libusb's session is a global singleton
+— plus one asynchronous-message task per device. So N USRP blocks want **N + 1**
+workers nothing in the flowgraph accounts for.
+
+Both estimates reserve them: `flowgraphUsrpAuxThreads()` in `runner/src/runner.html`
+before the module starts, and `usrp_aux_threads()` in `runner.cpp` once the
+lowered flowgraph is in hand. The second can see the `device` parameter and so
+excludes `fake`, which opens nothing; the first cannot cheaply and does not try,
+because over-reserving costs a little prewarming while under-reserving costs a
+Worker allocation proxied to a main thread that is busy starting the graph.
+
+They are reported as `radio_aux_threads` in the diagnostics snapshot, separately
+from `dsp_threads`, which stays the scheduler's own width: these threads run no
+block, and folding them in would misreport how wide the graph is.
