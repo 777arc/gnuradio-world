@@ -339,12 +339,22 @@ struct StatBlock {
 };
 static std::vector<StatBlock> g_stats;
 static int g_scheduler_workers = 0;
-// Blocks whose hardware is still coming up. A USRP opens its device lazily on the
-// first work() call -- the only place it safely can, see usrp_b2xx_source.cpp --
-// and that takes seconds on a warm B2xx and minutes on one that still needs its
-// FPGA image. The startup verdict waits for this to reach zero rather than firing
-// on a fixed timer and calling a device that has not opened yet a success.
-// Written from block threads, read on the browser main thread.
+// Blocks whose hardware has not finished coming up. A USRP opens its device
+// lazily on the first work() call -- the only place it safely can, see
+// usrp_b2xx_source.cpp -- and that takes seconds on a warm B2xx and minutes on
+// one that still needs its FPGA image. The startup verdict waits for this to
+// reach zero rather than firing on a fixed timer and calling a device that has
+// not opened yet a success.
+//
+// Seeded from the lowered graph in run_now(), before the scheduler starts, and
+// decremented by gr_hardware_init_end(). Seeding it up front is what tells "not
+// started" from "finished": a block reports itself only once its work() runs, so
+// a counter that begins at zero reads as ready while the block's thread is still
+// waiting for its first slice -- which on a graph of 20 threads is easily longer
+// than the verdict timer. Written from block threads, read on the main thread.
+static std::atomic<int> g_hardware_pending{0};
+// Of those, how many are inside their open right now. Only the heartbeat's
+// wording and the timeout message depend on it.
 static std::atomic<int> g_hardware_initializing{0};
 // Threads UHD creates outside the scheduler; set when the flowgraph is lowered,
 // see usrp_aux_threads(). Kept distinct from g_scheduler_workers because they are
@@ -822,14 +832,19 @@ static void schedule_startup_verdict(const std::string& msg,
         if (generation != g_run_generation || g_runtime_failed)
             return;
         const int elapsed = waited_ms + (waited_ms ? kStartupPollMs : 2500);
-        if (g_hardware_initializing.load() == 0) {
+        if (g_hardware_pending.load() == 0) {
             report(true, msg);
             return;
         }
         if (elapsed >= kHardwareInitTimeoutMs) {
-            report(false, "hardware did not finish initialising within " +
-                              std::to_string(kHardwareInitTimeoutMs / 1000) +
-                              "s; see the messages above");
+            const std::string secs = std::to_string(kHardwareInitTimeoutMs / 1000);
+            // A block that never got to open its device is a scheduler that never
+            // ran it, not a slow device; say which.
+            report(false, g_hardware_initializing.load() > 0
+                              ? "hardware did not finish initialising within " +
+                                    secs + "s; see the messages above"
+                              : "a hardware block was never scheduled within " +
+                                    secs + "s; see the messages above");
             return;
         }
         // Roughly every 10 s, so a long load looks alive.
@@ -882,9 +897,16 @@ extern "C" EMSCRIPTEN_KEEPALIVE void gr_hardware_init_note(const char* text) {
     std::lock_guard<std::mutex> lock(g_hardware_note_mutex);
     g_hardware_note = text ? text : "";
 }
+// Once per hardware block, whether its open succeeded or not: the block reports
+// its own failure, and the verdict is about the graph having *started*. Clamped
+// rather than trusted, so a block calling this without a matching seed (one the
+// count below does not know about) cannot push the run into a negative that the
+// verdict would never see reach zero.
 extern "C" EMSCRIPTEN_KEEPALIVE void gr_hardware_init_end() {
     if (g_hardware_initializing.load() > 0)
         g_hardware_initializing.fetch_sub(1);
+    if (g_hardware_pending.load() > 0)
+        g_hardware_pending.fetch_sub(1);
 }
 
 // What top_block_impl::start() does, minus its scheduler choice. Called on the
@@ -997,6 +1019,8 @@ static double declared_item_rate(const nlohmann::json& params) {
     return vlen > 0.0 ? rate / vlen : rate;
 }
 
+static int usrp_device_count(const nlohmann::json& j);
+
 static void run_now(const std::string& json_source) {
     try {
         auto j = nlohmann::json::parse(json_source);
@@ -1008,6 +1032,18 @@ static void run_now(const std::string& json_source) {
         if (g_sched) { g_sched->stop(); g_sched->wait(); g_sched.reset(); }
         g_ffg.reset();
         g_tb.reset();
+        // Which blocks the startup verdict has to hear from, decided here from
+        // the graph rather than left for the blocks to announce -- see
+        // g_hardware_pending. After the join above, so no old block can still
+        // decrement the new run's count.
+        g_hardware_pending.store(usrp_device_count(j));
+        g_hardware_initializing.store(0);
+        {
+            std::lock_guard<std::mutex> lock(g_hardware_note_mutex);
+            g_hardware_note = g_hardware_pending.load()
+                                  ? "waiting for the hardware block's first work() call"
+                                  : "";
+        }
         // clear previous sink widgets, and the arrangement they were in
         g_widgets.clear();
         if (g_gui_area && g_gui_area->layout()) {
@@ -1363,7 +1399,10 @@ static void notify_module(const std::string& module, const char* state) {
 // asynchronous-message task per open B2xx. A `fake` device opens none of them,
 // and is excluded here because unlike the URL-time estimate in runner.html this
 // one can see the parameter.
-static int usrp_aux_threads(const nlohmann::json& j) {
+//
+// The device count is also what seeds g_hardware_pending: each of these blocks
+// calls gr_hardware_init_end() exactly once, from its first work() call.
+static int usrp_device_count(const nlohmann::json& j) {
     int devices = 0;
     for (const auto& blk : j.at("blocks")) {
         if (blk.at("id").get<std::string>() != "wasm_usrp_b2xx_source")
@@ -1378,6 +1417,10 @@ static int usrp_aux_threads(const nlohmann::json& j) {
             continue;
         ++devices;
     }
+    return devices;
+}
+static int usrp_aux_threads(const nlohmann::json& j) {
+    const int devices = usrp_device_count(j);
     return devices ? devices + 2 : 0;
 }
 

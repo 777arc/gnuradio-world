@@ -58,9 +58,14 @@ USRP B2xx Source: loading FPGA image -- about 15 s.
 That narration is driven by **UHD's own log lines**, through a handler registered
 with `uhd::log::add_logger()`. It has to be: only UHD knows which path a given
 board is on, because it decides by reading the USB manufacturer string, which the
-block cannot see from where it sits. `install_uhd_narration()` in the block is
-registered once and captures nothing — UHD's logger list is global, has no remove,
-and outlives any flowgraph, so a captured `this` would dangle into the next run.
+block cannot see from where it sits. `UhdOpenAttempt` in the block serializes
+opens through error reporting and installs a callback with state owned by that
+attempt. UHD already serializes device creation internally, but its discovery
+and logging use helper threads, so the caller's thread id cannot identify the
+firmware records. The callback rejects records timestamped before the attempt,
+and is replaced with a no-op on exit. UHD's logger list is global and has no
+remove operation; reusing one key and capturing owned state keeps completed
+attempts from affecting later opens without retaining a block or stack pointer.
 
 The failure at the end of step 1 is the *expected* end of a cold run, not a fault,
 and is reported as such rather than as whatever `multi_usrp::make()` threw when its
@@ -79,8 +84,13 @@ takes **minutes** the first time. UHD stores a hash and skips it on later runs
 until the device is power-cycled, after which a warm start takes **2.6–3.5 s**.
 
 The runner holds its startup verdict while this happens rather than reporting
-success on a timer, and gives up after five minutes. See
-[`gr_hardware_init_begin`](../runner/src/runner.cpp).
+success on a timer, and gives up after five minutes. The count it waits on is
+seeded from the lowered graph before the scheduler starts — one per non-`fake`
+B2xx block — and each block decrements it once from its first `work()` call,
+whether the open succeeded or not. Seeding it up front is what tells "not
+scheduled yet" from "finished": the block can only announce itself once its
+thread runs, and on a busy graph that can be later than the 2.5 s verdict timer.
+See [`g_hardware_pending`](../runner/src/runner.cpp).
 
 While it waits it prints a heartbeat every ten seconds, so a 40 s firmware load
 does not look like a hang. A block says what is being waited on with

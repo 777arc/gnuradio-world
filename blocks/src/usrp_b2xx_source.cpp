@@ -20,10 +20,12 @@
 #include <uhd/stream.hpp>
 #include <uhd/types/tune_request.hpp>
 
+#include <boost/date_time/posix_time/posix_time.hpp>
+
 #include <algorithm>
 #include <atomic>
 #include <chrono>
-#include <mutex>
+#include <memory>
 #include <mutex>
 #include <cmath>
 #include <complex>
@@ -82,16 +84,36 @@ namespace {
 //
 // Nothing here captures a block: UHD's logger list is global, has no remove, and
 // outlives any flowgraph, so a captured `this` would dangle into the next run.
-// Globals and one-time registration instead.
-std::atomic<bool> g_loading_firmware{false};
+// UHD already serializes device::make(), but its finder and logger run on
+// helper threads. Keep the open, its logger registration, and its error handling
+// in one scope so another open cannot replace the state before it is read.
+std::mutex g_uhd_open_mutex;
 
-void install_uhd_narration()
-{
-    static std::once_flag once;
-    std::call_once(once, [] {
-        uhd::log::add_logger("gr-world-b2xx", [](const uhd::log::logging_info& info) {
-            if (info.message.find("Loading firmware image") != std::string::npos) {
-                g_loading_firmware.store(true);
+struct UhdOpenState {
+    const boost::posix_time::ptime started =
+        boost::posix_time::microsec_clock::local_time();
+    std::atomic<bool> loading_firmware{false};
+};
+
+struct UhdOpenAttempt {
+    // Acquire before creating the state: records queued by a previous attempt
+    // must predate this one's timestamp, even if we waited for that open.
+    std::unique_lock<std::mutex> lock{g_uhd_open_mutex};
+    const std::shared_ptr<UhdOpenState> state = std::make_shared<UhdOpenState>();
+
+    UhdOpenAttempt()
+    {
+        // Reuse one logger key, rather than adding an immortal logger per run.
+        // Capture owned state, never the block or this stack guard.
+        uhd::log::add_logger("gr-world-b2xx", [state = state](const uhd::log::logging_info& info) {
+            if (info.component != "B200" || info.time < state->started)
+                return;
+            const bool firmware =
+                info.message.find("Loading firmware image") != std::string::npos;
+            const bool fpga =
+                info.message.find("Loading FPGA image") != std::string::npos;
+            if (firmware) {
+                state->loading_firmware.store(true);
                 gr_hardware_init_note("loading firmware image");
                 std::printf(
                     "USRP B2xx Source: loading firmware image -- about 40 s over "
@@ -99,14 +121,23 @@ void install_uhd_narration()
                     "USRP B2xx Source: the board restarts with a new USB identity "
                     "when this finishes, so this run will stop and ask you to pick "
                     "it again.\n");
-            } else if (info.message.find("Loading FPGA image") != std::string::npos) {
+            } else if (fpga) {
                 // Silences the heartbeat: 15 s does not need progress lines.
                 gr_hardware_init_note("");
                 std::printf("USRP B2xx Source: loading FPGA image -- about 15 s.\n");
             }
         });
-    });
-}
+    }
+
+    ~UhdOpenAttempt()
+    {
+        // UHD has no remove_logger(). Replacing the callback releases its state
+        // and silences records delivered after this operation has finished.
+        uhd::log::add_logger("gr-world-b2xx", [](const uhd::log::logging_info&) {});
+    }
+
+    bool saw_firmware_load() const { return state->loading_firmware.load(); }
+};
 
 // Bytes per USB receive frame, and the sample payload left once the CHDR header
 // is taken off it. Named because the settled report divides by it to state a cost
@@ -322,8 +353,7 @@ private:
         struct InitGuard {
             ~InitGuard() { gr_hardware_init_end(); }
         } guard;
-        install_uhd_narration();
-        g_loading_firmware.store(false);
+        UhdOpenAttempt open_attempt;
         try {
             uhd::device_addr_t args;
             if (!d_device.empty())
@@ -393,7 +423,7 @@ private:
             // identity it had a moment ago -- no longer matches it. UHD spent its
             // three-second re-enumeration window finding nothing and gave up.
             // Say what to do rather than reporting whatever it threw.
-            if (g_loading_firmware.load()) {
+            if (open_attempt.saw_firmware_load()) {
                 std::printf(
                     "USRP B2xx Source: firmware loaded. The board has restarted "
                     "with its real serial number, which this browser has not been "

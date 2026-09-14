@@ -790,7 +790,12 @@ add_custom_command(
   OUTPUT ${b2xx_out}
   COMMAND ${CMAKE_CXX_COMPILER}
     -sSIDE_MODULE=1 -pthread -fPIC -Oz -std=c++17
-    -sNO_DISABLE_EXCEPTION_CATCHING
+    # Both spellings enable catching at COMPILE time on this one-shot em++ line:
+    # -sNO_DISABLE_EXCEPTION_CATCHING is what stops emcc adding
+    # -fignore-exceptions to the clang invocation, and -fexceptions sets the very
+    # same setting. The second is here so this module reads like the others,
+    # not because the first left the block's try/catch inert.
+    -sNO_DISABLE_EXCEPTION_CATCHING -fexceptions
     -sWASM_BIGINT=1
     # Deliberately NOT --bind. emscripten::val, which libusb's WebUSB backend is
     # written against, is header-only against the _emval_* entry points the main
