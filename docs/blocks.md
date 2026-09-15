@@ -19,6 +19,7 @@ because they are pristine checkouts rather than anything of ours.
 | its implementation, any browser replacement of an **in-tree** GNU Radio block, and any C++ rebuild of an in-tree Python hier block | `blocks/src/` — `<module>_hier.hpp` per GNU Radio module rebuilt |
 | browser-only metadata for one module's blocks | `blocks/overlays/<module>/metadata.yml` |
 | a headers-only stand-in for a host-only dependency | `blocks/overlays/gr-<m>/shims/` |
+| GRC metadata for an OOT block upstream ships without a `.block.yml` (a Python hierarchy only a script ever built) | `blocks/overlays/gr-<m>/grc/<id>.block.yml`, read as part of that module — see [adding-modules.md](adding-modules.md) |
 | C++ rebuilt from an **out-of-tree** module's Python-only block | `blocks/overlays/gr-<m>/` |
 | a block whose `work()` is **JavaScript** rather than C++ | `blocks/js/<id>.js`, with `flags: [js]` in its `blocks/grc/<id>.block.yml` — see [docs/js-blocks.md](js-blocks.md) |
 

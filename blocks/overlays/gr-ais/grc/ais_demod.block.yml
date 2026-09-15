@@ -1,0 +1,72 @@
+# GRC metadata for gr-ais's ais_demod (python/ais/ais_demod.py), the streaming
+# receiver its command-line tool is built on, which upstream ships without
+# any. Its options dict is flattened into parameters; see
+# tools/block_overrides.py for why it lives here.
+id: ais_demod
+label: AIS Demod
+category: '[ais]'
+flags: [python]
+
+parameters:
+-   id: samples_per_symbol
+    label: Samples per Symbol
+    dtype: float
+    default: samp_rate/9600
+-   id: bits_per_sec
+    label: Bit Rate
+    dtype: float
+    default: '9600'
+-   id: clockrec_gain
+    label: Clock Recovery Gain
+    dtype: float
+    default: '0.01'
+-   id: omega_relative_limit
+    label: Omega Relative Limit
+    dtype: float
+    default: '0.01'
+-   id: fftlen
+    label: Freq Sync FFT Length
+    dtype: int
+    default: '1024'
+-   id: coherent
+    label: Coherent
+    dtype: enum
+    options: ['True', 'False']
+    option_labels: ['Viterbi', 'Discriminator']
+    default: 'True'
+
+inputs:
+-   label: in
+    domain: stream
+    dtype: complex
+
+outputs:
+-   label: out
+    domain: stream
+    dtype: byte
+
+templates:
+    imports: from gnuradio import ais
+    make: |-
+        ais.ais_demod({"samples_per_symbol": ${samples_per_symbol}, "bits_per_sec": ${bits_per_sec}, "clockrec_gain": ${clockrec_gain}, "omega_relative_limit": ${omega_relative_limit}, "fftlen": ${fftlen}, "coherent": ${coherent}})
+
+documentation: |-
+    Demodulates a continuous stream of AIS GMSK bursts into unpacked bits, one
+    per byte, ready for HDLC Deframer. The input is complex baseband at
+    Samples per Symbol times the 9600 bit/s AIS rate, centered on one AIS
+    channel -- a Frequency Xlating FIR Filter selects the channel out of a
+    wider capture.
+
+    Square-and-FFT frequency sync centers the signal, a feedforward AGC
+    levels it, a correlator marks the training sequence, and Symbol Sync
+    (generalized-MSK timing error detector) recovers the clock. Coherent
+    demodulation runs a Viterbi decoder over the GMSK trellis, absorbing the
+    carrier phase into its state; the discriminator alternative is a
+    quadrature demodulator and a slicer. Differential decoding and inversion
+    then undo the NRZI line code.
+
+    Samples per Symbol need not be an integer; 250 kS/s decimated by 5 gives
+    5.208. Clock Recovery Gain is Symbol Sync's loop bandwidth and Omega
+    Relative Limit its maximum clock deviation.
+
+file_format: 1

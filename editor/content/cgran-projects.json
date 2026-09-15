@@ -3,6 +3,7 @@
   "artwork_audit": {
     "checked_at": "2026-09-15",
     "no_suitable_artwork": [
+      "gr-ais",
       "gr-bbc",
       "gr-droneid",
       "gr-dvbs2",
@@ -15,6 +16,23 @@
     ]
   },
   "projects": [
+    {
+      "module": "gr-ais",
+      "name": "gr-ais",
+      "slug": "gr-ais",
+      "repository": "https://github.com/bistromath/gr-ais",
+      "authors": [
+        { "name": "Nick Foster", "url": "https://github.com/bistromath" }
+      ],
+      "summary": [
+        "gr-ais receives the Automatic Identification System, the 9600 bit/s GMSK transponder bursts ships and shore stations exchange on the two maritime VHF channels at 161.975 and 162.025 MHz.",
+        "Its streaming receiver centers a channel with a square-and-FFT frequency estimator, levels it with a feedforward AGC, recovers symbol timing with a generalized-MSK timing error detector, and demodulates coherently with a Viterbi decoder whose trellis carries the carrier phase as part of its state; a data-aided burst synchronizer offers a second path that detects each isolated burst against the known training sequence and seeds that decoder with its timing, phase and trellis state.",
+        "Differential decoding and inversion undo the NRZI line code, GNU Radio's HDLC deframer unstuffs the bits and checks each packet's CRC, and a PDU-to-NMEA block turns the payloads into the !AIVDM sentences chart plotters and AIS aggregators read.",
+        "An ais_rx command-line tool wires the chain to a SoapySDR device, a raw I/Q file or a UDP stream and prints the decoded sentences."
+      ],
+      "researched_revision": "6e90aea2e4773be525b9d2e6b33260a95bd51bc9",
+      "evidence": ["README.md", "grc/", "lib/", "python/ais/ais_demod.py", "python/ais/burst_demod.py", "python/ais/cpm_trellis.py", "python/ais/radio.py", "apps/ais_rx"]
+    },
     {
       "module": "gr-adsb",
       "name": "gr-adsb",

@@ -1,0 +1,65 @@
+# GRC metadata for gr-ais's ais_burst_demod (python/ais/burst_demod.py), which
+# upstream ships without any; see tools/block_overrides.py for why it lives
+# here.
+id: ais_burst_demod
+label: AIS Burst Demod
+category: '[ais]'
+flags: [python]
+
+parameters:
+-   id: samples_per_symbol
+    label: Samples per Symbol
+    dtype: int
+    default: '5'
+-   id: bits_per_sec
+    label: Bit Rate
+    dtype: float
+    default: '9600'
+-   id: freq_span
+    label: Frequency Search Span (Hz)
+    dtype: float
+    default: '1200'
+-   id: threshold
+    label: Detection Threshold
+    dtype: float
+    default: '0.4'
+-   id: burst_slots
+    label: Minimum Burst Spacing (slots)
+    dtype: int
+    default: '1'
+
+inputs:
+-   label: in
+    domain: stream
+    dtype: complex
+
+outputs:
+-   label: out
+    domain: stream
+    dtype: byte
+
+templates:
+    imports: from gnuradio import ais
+    make: ais.ais_burst_demod(${samples_per_symbol}, ${bits_per_sec}, ${freq_span}, ${threshold}, ${burst_slots})
+
+documentation: |-
+    Data-aided demodulator for isolated AIS bursts on an otherwise quiet
+    channel, which the streaming AIS Demod's square-and-FFT frequency sync
+    cannot handle. The input is complex baseband centered on one AIS channel
+    at an integer number of samples per symbol.
+
+    A burst synchronizer correlates against the known modulated training
+    sequence and HDLC start flag, at coarse frequency hypotheses every 200 Hz
+    across +/- Frequency Search Span and for both NRZI polarities. Each
+    detection above Detection Threshold (normalized squared correlation, 0..1)
+    refines the frequency, derotates the burst and seeds a Viterbi decoder
+    over the GMSK trellis with the known timing, phase and trellis state.
+    Differential decoding and inversion then undo the NRZI line code, and the
+    unpacked bits go to HDLC Deframer.
+
+    Minimum Burst Spacing suppresses detections within a burst's payload:
+    the default admits adjacent single-slot transmissions; raise it for
+    captures known to hold longer bursts. It is a spacing assumption, not a
+    frame-length detector.
+
+file_format: 1

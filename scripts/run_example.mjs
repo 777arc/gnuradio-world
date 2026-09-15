@@ -51,7 +51,8 @@ if (!target) {
 // which leaves every block happily moving samples and decoding nothing.
 const PRINTING_BLOCKS = [
   'blocks_message_debug', 'satellites_print_header', 'satellites_print_timestamp',
-  'satellites_hexdump_sink', 'ham_chu_decode', 'wasm_text_sink',
+  'satellites_hexdump_sink', 'ham_chu_decode', 'iridium_iridium_frame_printer',
+  'wasm_text_sink',
 ];
 let expectsOutput = false;
 // GRC writes the flowgraph title as a YAML scalar and quotes it when it must,

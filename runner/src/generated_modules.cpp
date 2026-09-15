@@ -10,6 +10,13 @@ const std::map<std::string, std::string>& block_module_map()
         {"adsb_decoder", "adsb"},
         {"adsb_demod", "adsb"},
         {"adsb_framer", "adsb"},
+        {"ais_burst_demod", "ais"},
+        {"ais_demod", "ais"},
+        {"ais_freqest", "ais"},
+        {"ais_invert", "ais"},
+        {"ais_pdu_to_nmea", "ais"},
+        {"ais_square_and_fft_sync", "ais"},
+        {"ais_viterbi_cpm_cb", "ais"},
         {"bbc_OOKDemodulator", "bbc"},
         {"bbc_OOKModulator", "bbc"},
         {"bbc_bbc_decoder", "bbc"},
@@ -433,6 +440,7 @@ const std::map<std::string, std::string>& block_module_map()
 const std::map<std::string, std::vector<std::string>>& module_deps()
 {
     static const std::map<std::string, std::vector<std::string>> m = {
+        {"ais", {"digital"}},
         {"ieee802_11", {"digital"}},
         {"satellites", {"pdu"}},
     };

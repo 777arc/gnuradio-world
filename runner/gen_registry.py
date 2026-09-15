@@ -1121,13 +1121,23 @@ def load_blocks() -> list[dict[str, Any]]:
         # Recursive: some OOTs group metadata below grc/. For example,
         # gr-satellites has component subdirectories, while gr-droneid itself is
         # nested below the dji_droneid repository root via source_roots above.
-        for path in sorted((module_root / "grc").rglob("*.block.yml")):
+        # An OOT overlay's own grc/ is read after upstream's: it holds the
+        # .block.yml for a block upstream ships without GRC metadata (gr-ais's
+        # Python hierarchies), and it must not redefine one upstream has -- an
+        # overlay on an existing block goes in metadata.yml.
+        overlay_grc = block_overrides.overlay_grc_dir(short)
+        for path in sorted((module_root / "grc").rglob("*.block.yml")) + sorted(
+                overlay_grc.glob("*.block.yml")):
             try:
                 block = yaml.safe_load(path.read_text())
             except Exception:
                 continue
             if not isinstance(block, dict) or "id" not in block:
                 continue
+            if path.is_relative_to(overlay_grc) and str(block["id"]) in seen:
+                raise SystemExit(
+                    f"{path.relative_to(WORLD)}: '{block['id']}' already has "
+                    f"upstream metadata; overlay it in metadata.yml instead")
             seen[str(block["id"])] = short
             override = BLOCK_OVERRIDES.get(str(block["id"]))
             if override:

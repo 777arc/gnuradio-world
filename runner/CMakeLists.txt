@@ -100,6 +100,7 @@ set(GR_INCLUDE_DIRS
   ${WORLD}/gr-gsm/include
   ${WORLD}/gr-tempest/include
   ${WORLD}/gr-iridium/include
+  ${WORLD}/gr-ais/include
   ${BUILDGR}/gnuradio-runtime/include ${SYSROOT}/include)
 
 # ---------------------------------------------------------------------------
@@ -1193,6 +1194,26 @@ add_side_module(tempest
   SOURCES ${TEMPEST_SOURCES}
   INCLUDE_DIRS ${TEMPEST_WASM_SHIMS}
   DEPENDS ${TEMPEST_WASM_SHIMS}/config.h)
+
+# gr-ais (bistromath): an AIS receiver -- GMSK bursts from ship transponders
+# on 162 MHz decoded into NMEA !AIVDM sentences. Its five lib/*.cc compile as-is
+# against runtime/blocks/digital/VOLK, with no config.h to shim. The receivers
+# themselves (square-and-FFT frequency sync, the streaming demodulator, the
+# data-aided burst demodulator) are Python hierarchies upstream, rebuilt in
+# blocks/overlays/gr-ais/ais_hier.cpp together with the GMSK trellis tables
+# cpm_trellis.py synthesizes; see blocks/overlays/gr-ais/metadata.yml.
+set(AIS_LIB ${WORLD}/gr-ais/lib)
+set(AIS_SOURCES
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/generated_registry_ais.cpp
+  ${BLOCKS}/overlays/gr-ais/ais_hier.cpp
+  ${AIS_LIB}/burst_sync_cc_impl.cc
+  ${AIS_LIB}/freqest_impl.cc
+  ${AIS_LIB}/invert_impl.cc
+  ${AIS_LIB}/pdu_to_nmea_impl.cc
+  ${AIS_LIB}/viterbi_cpm_cb_impl.cc)
+add_side_module(ais
+  SOURCES ${AIS_SOURCES}
+  DEPENDS ${BLOCKS}/overlays/gr-ais/ais_hier.hpp)
 
 # gr-iridium (muccc): burst detection, channelization, downmixing and QPSK
 # demodulation for the Iridium satellite network. All ten GRC blocks have native

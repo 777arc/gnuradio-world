@@ -1,0 +1,44 @@
+# GRC metadata for gr-ais's freqest, which upstream ships without any. Part of
+# square_and_fft_sync_cc; see tools/block_overrides.py for why it lives here.
+id: ais_freqest
+label: AIS Frequency Estimator
+category: '[ais]'
+flags: [python]
+
+parameters:
+-   id: sample_rate
+    label: Sample Rate
+    dtype: float
+    default: samp_rate
+-   id: data_rate
+    label: Data Rate
+    dtype: int
+    default: '9600'
+-   id: fftlen
+    label: FFT Length
+    dtype: int
+    default: '1024'
+
+inputs:
+-   label: in
+    domain: stream
+    dtype: complex
+    vlen: ${fftlen}
+
+outputs:
+-   label: out
+    domain: stream
+    dtype: float
+
+templates:
+    imports: from gnuradio import ais
+    make: ais.freqest(${sample_rate}, ${data_rate}, ${fftlen})
+
+documentation: |-
+    Reads the FFT of a squared GMSK signal and reports the frequency offset,
+    in Hz, of the pair of spectral lines one data rate apart that squaring
+    produces: the strongest such pair's midpoint, halved, since squaring
+    doubles the offset. One float per input vector, for a Frequency Modulator
+    to mix the original signal down by.
+
+file_format: 1

@@ -4,7 +4,7 @@
   "deferred": [
     "digital", "dtv", "network", "pdu", "vocoder", "channels",
     "rds", "foo", "dvbs2", "dvbs2rx", "satellites", "paint", "fosphor",
-    "droneid", "ham", "bbc", "adsb", "ieee802_11", "ieee802_15_4", "hrpt", "lora_sdr", "radar", "gsm", "tempest", "iridium"
+    "droneid", "ham", "bbc", "adsb", "ieee802_11", "ieee802_15_4", "hrpt", "lora_sdr", "radar", "gsm", "tempest", "iridium", "ais"
   ],
   "runtime_modules": ["b2xx"],
   "source_roots": {
@@ -12,6 +12,7 @@
   },
   "module_deps": {
     "satellites": ["pdu"],
-    "ieee802_11": ["digital"]
+    "ieee802_11": ["digital"],
+    "ais": ["digital"]
   }
 }

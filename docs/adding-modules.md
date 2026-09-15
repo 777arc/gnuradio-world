@@ -71,7 +71,8 @@ third-party OOT module (already done for [`gr-rds/`](../gr-rds), [`gr-foo/`](../
 [`gr-ieee802_15_4/`](../gr-ieee802_15_4),
 [`gr-lora_sdr/`](../gr-lora_sdr), [`gr-radar/`](../gr-radar),
 [`gr-gsm/`](../gr-gsm), [`gr-bbc/`](../gr-bbc),
-[`gr-adsb/`](../gr-adsb) and [`gr-tempest/`](../gr-tempest)) is **not** part of that
+[`gr-adsb/`](../gr-adsb), [`gr-tempest/`](../gr-tempest), [`gr-iridium/`](../gr-iridium)
+and [`gr-ais/`](../gr-ais)) is **not** part of that
 umbrella build, so there is no `libgnuradio-<m>.a`; instead its own `lib/*.cc` are
 compiled straight into an on-demand `<m>.wasm` side module. This is a
 **self-contained checklist** — following it needs no investigation beyond the
@@ -156,6 +157,19 @@ time that has to match the recording's own timestamp, while its `dstar_rx` has
 `# TODO` stubs where its Viterbi and Golay decoders should be and writes its real
 output to a host file for a separate AMBE decoder — no browser equivalent, and
 nothing to check a rebuild against, so it has no entry and stays greyed out.
+
+A block can also have **no `.block.yml` at all** — a Python hierarchy upstream
+only ever assembled from a script, or a C++ block nobody wrote GRC metadata
+for. gr-ais is the worked example: its whole receiver (`ais_demod`) is
+importable from `gnuradio.ais` yet appears in no grc/. Such a block gets its
+yaml in `blocks/overlays/gr-<m>/grc/<id>.block.yml`, which both generators read
+as if it were part of the module's own `grc/` — same module, same `oot_module`
+provenance, same palette root. Write it as a complete, native-valid file
+(Python `templates` included, so the id works in desktop GRC too) and give it
+its `cpp_templates` in `metadata.yml` exactly like an upstream block. It is
+for blocks with no upstream yaml only: a block that has one is overlaid in
+`metadata.yml`, and `gen_registry.py` rejects a duplicate id rather than let
+the two definitions race.
 
 **Host-only deps** not in the WASM sysroot (UHD, Boost.Asio networking,
 Boost.Locale, libsndfile, …) must be dealt with in step 4.
@@ -402,3 +416,54 @@ And one about the recording: IShort To Complex's `scale_factor` *divides*
 correlation accumulators overflow to `inf`, `index_max` returns bin 0 and the
 ratio is garbage — while Normalize Flow, being scale-invariant, still paints a
 plausible-looking picture with the sync bypassed. Check the magnitude first.
+
+## gr-ais: a module whose receiver has no yaml
+
+gr-ais's five C++ blocks compile as-is (no `config.h` to shim; `add_side_module`
+with only the sources), and its receivers are Python: `square_and_fft_sync_cc`
+(gmsk_sync.py), `ais_demod` (ais_demod.py) and `ais_burst_demod`
+(burst_demod.py), rebuilt in
+[`blocks/overlays/gr-ais/ais_hier.cpp`](../blocks/overlays/gr-ais/ais_hier.cpp).
+Upstream wrote a `.block.yml` for three blocks only, so the two receivers,
+`freqest` and `viterbi_cpm_cb` get theirs in `blocks/overlays/gr-ais/grc/`
+(see step 2). `ais_rx` (radio.py) is the command-line tool's filter + demod +
+deframer + NMEA bundle with no output port and no entry; the example wires
+that chain by hand, which is also the more instructive shape. `burst_sync_cc`
+has no yaml either, because every one of its arguments is derived from the
+burst reference and only meaningful inside `ais_burst_demod`. Three things
+about the rebuild are not obvious:
+
+- **The trellis tables are computed, not passed.** Both decoders take the
+  GMSK trellis `cpm_trellis.py` synthesizes with numpy — 64 states, 128
+  branches of `samples_per_symbol` complex samples — plus, for the burst
+  path, the modulated training reference and the seed states.
+  `gmsk_trellis()`, `gmsk_burst_reference()` and `_chain()` are ported line
+  for line, and the standalone `ais_viterbi_cpm_cb` block derives its trellis
+  from Samples per Symbol the way both receivers do (its Python `make` calls
+  `ais.cpm_trellis.gmsk_trellis`, so the yaml is native-valid). Verified
+  against the Python: next-state tables identical, waveforms within 1e-6.
+- **The correlator's reference is synthesized without a flowgraph.**
+  `ais_demod` builds its preamble with `digital.modulate_vector_bc`, which
+  runs a nested `top_block` — not possible from a constructor on the browser
+  main thread. `gmsk_modulate_packed()` is the same arithmetic in a loop:
+  MSB-first unpack, ±1 symbols, a zero-history causal interpolating FIR, and
+  the fixed-point `gr::fxpt` sincos `frequency_modulator_fc` uses, so the
+  reference is what native GRC would hand `corr_est_cc`. Upstream hands
+  `gmsk_mod` the *packed* bytes `[1,1,0,0]*7` with `do_unpack` left at its
+  default, so the reference is the modulation of those 28 bytes' 224 bits.
+  Reproduced as is: it is what the shipped receiver correlates against and
+  what its QA passes with.
+- **Samples per symbol is fractional on the streaming path.** `ais_rx`
+  decimates 250 kS/s by `int(250e3/(9600*5)) = 5` and hands `ais_demod`
+  5.2083 samples per symbol; `symbol_sync_cc` and `corr_est_cc` take a float,
+  `gmsk_mod` truncates it to 5 for the reference. The burst path wants an
+  integer and says so.
+
+The example, `example_flowgraphs/gr-ais/ais_receiver.grc`, is `ais_rx`'s
+receive chain block by block, twice — channel A at −25 kHz and B at +25 kHz of
+the hosted `sdrangel/ais` recording (250 kS/s, centered on 162 MHz) — into
+HDLC Deframer and AIS PDU to NMEA, whose `print` port writes the `!AIVDM`
+sentences to the console pane. `node scripts/run_example.mjs
+gr-ais/ais_receiver.grc --expect='!AIVDM'` decodes type 1/2 position reports
+from Thames-estuary MMSIs; a sentence's payload can be checked with any AIS
+decoder.

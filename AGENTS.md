@@ -122,7 +122,7 @@ node server.mjs 8090 "$PWD"
   (including but not limited to gr-rds, gr-foo, gr-dvbs2, gr-dvbs2rx,
   gr-satellites, gr-paint, gr-fosphor, gr-droneid, gr-ham, gr-ieee802-11,
   gr-ieee802-15-4, gr-hrpt, gr-lora_sdr, gr-radar, gr-gsm, gr-bbc,
-  gr-adsb, gr-tempest). Stream
+  gr-adsb, gr-tempest, gr-iridium, gr-ais). Stream
   and message-port connections are both serialized by the editor. QT GUI Range
   controls can be referenced by ID from numeric block parameters and update those
   parameters while the graph is running.
@@ -154,7 +154,7 @@ node server.mjs 8090 "$PWD"
 | `blocks/src/` | hand-written block implementations not owned by any one vendored module — `browser_file_source.cpp` and the like |
 | `blocks/wiki/` | the committed snapshot of the GNU Radio wiki's page per block, one `.md` per block id, written by `scripts/fetch-wiki-block-docs.mjs` (run by hand — the wiki's bot check needs a real browser once) and indexed for Graham's `search_docs`. CC BY-SA 4.0 |
 | `blocks/js/` | repo **JavaScript** blocks: one `.js` per `flags: [js]` block in `blocks/grc/`, fetched by id at run time rather than linked in — so *editing* one is a file copy. Adding one still relinks (its id is baked into the generated registrar). See [docs/js-blocks.md](docs/js-blocks.md) |
-| `blocks/overlays/<module>/` | one directory per module: `metadata.yml` (every browser-only addition to that module's blocks) plus, for an OOT module, its `shims/` and any C++ rebuilt from a Python-only block. This is why the submodules need no fork. `blocks/overlays/gnuradio/` is the in-tree equivalent, metadata only |
+| `blocks/overlays/<module>/` | one directory per module: `metadata.yml` (every browser-only addition to that module's blocks) plus, for an OOT module, its `shims/`, any C++ rebuilt from a Python-only block, and a `grc/` holding the `.block.yml` for blocks upstream never wrote one for. This is why the submodules need no fork. `blocks/overlays/gnuradio/` is the in-tree equivalent, metadata only |
 | `runner/src/pyodide/` | the Embedded Python Block's worker and the Python shim a user's block runs against (`gnuradio.gr`'s base classes, `pmt`, the introspection and work driver). Copied to `runner/build/pyodide/` and served to both the runner and the editor |
 | `docs/` | the per-task docs listed at the top of this file |
 | `example_flowgraphs/` | the `.grc` files the editor's "Example Flowgraphs" palette tab lists recursively (nested directories appear as collapsible folders); several are also smoke-test cases. Each is linkable as `#example=<relative path without .grc>` inside the editor, and each also gets a real, indexable page at `/examples/<category>/<hyphenated-name>/` — generated, never hand-written; see `editor/gen/gen_example_pages.mjs`. Test changes with `scripts/run_example.mjs` — see [docs/flowgraph-files.md](docs/flowgraph-files.md) |
@@ -373,6 +373,7 @@ upstream and vendored-module blocks retain their native categories.
 | its implementation, any browser replacement of an **in-tree** GNU Radio block, and any C++ rebuild of an in-tree Python hier block | `blocks/src/` — `<module>_hier.hpp` per GNU Radio module rebuilt |
 | browser-only metadata for one module's blocks | `blocks/overlays/<module>/metadata.yml` |
 | a headers-only stand-in for a host-only dependency | `blocks/overlays/gr-<m>/shims/` |
+| GRC metadata for an OOT block upstream ships without a `.block.yml` (a Python hierarchy only a script ever built) | `blocks/overlays/gr-<m>/grc/<id>.block.yml`, read as part of that module — see [docs/adding-modules.md](docs/adding-modules.md) |
 | C++ rebuilt from an **out-of-tree** module's Python-only block | `blocks/overlays/gr-<m>/` |
 | a block whose `work()` is **JavaScript** rather than C++ | `blocks/js/<id>.js`, with `flags: [js]` in its `blocks/grc/<id>.block.yml`. No C++ at all — see [docs/js-blocks.md](docs/js-blocks.md) for the add-a-block checklist |
 

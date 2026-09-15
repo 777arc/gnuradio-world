@@ -1,0 +1,52 @@
+# GRC metadata for gr-ais's viterbi_cpm_cb, which upstream ships without any:
+# its constructor takes the trellis tables python/ais/cpm_trellis.py
+# synthesizes, so this block derives them from the samples per symbol, the
+# way both of upstream's receivers do. See tools/block_overrides.py.
+id: ais_viterbi_cpm_cb
+label: AIS GMSK Viterbi Demod
+category: '[ais]'
+flags: [python]
+
+parameters:
+-   id: samples_per_symbol
+    label: Samples per Symbol
+    dtype: int
+    default: '2'
+-   id: traceback_len
+    label: Traceback Length
+    dtype: int
+    default: '48'
+-   id: phase_gain
+    label: Phase Tracking Gain
+    dtype: float
+    default: '0.1'
+
+inputs:
+-   label: in
+    domain: stream
+    dtype: complex
+
+outputs:
+-   label: out
+    domain: stream
+    dtype: byte
+
+templates:
+    imports: from gnuradio import ais
+    make: ais.viterbi_cpm_cb(ais.cpm_trellis.gmsk_trellis(${samples_per_symbol})[0], ais.cpm_trellis.gmsk_trellis(${samples_per_symbol})[1], ${samples_per_symbol}, ${traceback_len}, ${phase_gain})
+
+documentation: |-
+    Coherent Viterbi demodulator for GMSK (BT 0.4, modulation index 1/2) at an
+    integer number of samples per symbol, emitting one decoded bit per symbol
+    as an unpacked byte. The trellis treats the carrier phase as part of the
+    state -- decoded bits are its increments -- so a constant phase offset is
+    absorbed structurally, and a decision-directed loop with Phase Tracking
+    Gain follows residual drift; 0 disables it. Traceback Length symbols of
+    decoding delay.
+
+    The input must be symbol-timed: feed it from Symbol Sync with as many
+    output samples per symbol as set here, or from the AIS burst synchronizer,
+    whose "burst_phase" and "burst_state" tags reset and seed the decoder at
+    each burst.
+
+file_format: 1

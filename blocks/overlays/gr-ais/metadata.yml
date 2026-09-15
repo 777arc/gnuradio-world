@@ -1,0 +1,95 @@
+# Browser-only metadata for gr-ais (bistromath), an AIS receiver: GMSK bursts
+# from ship transponders on 161.975/162.025 MHz decoded into NMEA !AIVDM
+# sentences.
+#
+# Upstream ships five C++ blocks (invert, pdu_to_nmea, freqest, viterbi_cpm_cb,
+# burst_sync_cc) but only three .block.yml, and assembles its receivers in
+# Python: square_and_fft_sync_cc (gmsk_sync.py), ais_demod (ais_demod.py) and
+# ais_burst_demod (burst_demod.py), with the GMSK trellis both decoders run on
+# synthesized in cpm_trellis.py. Those hierarchies are rebuilt as C++
+# hier_block2s in ais_hier.cpp beside this file. The blocks upstream never
+# wrote a yaml for -- the two hierarchies, freqest, and viterbi_cpm_cb -- get
+# theirs in grc/ here (see tools/block_overrides.py); ais_rx (radio.py) is the
+# command-line tool's filter + demod + deframer + NMEA bundle with no output
+# port, so it has no entry and the example wires that chain by hand.
+# burst_sync_cc stays without one: every one of its arguments is derived from
+# the burst reference, which is only meaningful inside ais_burst_demod.
+#
+# Upstream's labels are the raw ids ("invert", "pdu_to_nmea"); relabelled for
+# the palette. Its .block.yml files declare no defaults either.
+
+ais_invert:
+  flags: [python, cpp]
+  label: AIS NRZI Invert
+  documentation: |-
+    Flips the low bit of every input byte. After Differential Decoder has
+    turned the NRZI symbol stream back into transitions, this restores the
+    original HDLC bits.
+  cpp_templates:
+    includes: ['#include <gnuradio/ais/invert.h>']
+    declarations: 'ais::invert::sptr ${id};'
+    make: 'this->${id} = ais::invert::make();'
+
+ais_pdu_to_nmea:
+  flags: [python, cpp]
+  label: AIS PDU to NMEA
+  parameter_defaults:
+    designator: A
+  documentation: |-
+    Turns a deframed AIS packet (the PDU from HDLC Deframer) into NMEA 0183
+    !AIVDM sentences, splitting long messages into fragments and appending the
+    checksum. A PDU on the "print" port is written to the console; one on the
+    "to_nmea" port is emitted from "out" as a PDU of the sentence text.
+
+    Designator is the AIS channel letter the sentence reports, A (161.975
+    MHz) or B (162.025 MHz).
+  cpp_templates:
+    includes: ['#include <gnuradio/ais/pdu_to_nmea.h>']
+    declarations: 'ais::pdu_to_nmea::sptr ${id};'
+    make: 'this->${id} = ais::pdu_to_nmea::make(${designator});'
+
+ais_square_and_fft_sync:
+  flags: [python, cpp]
+  label: AIS Square-and-FFT Freq Sync
+  callbacks: []
+  parameter_defaults:
+    rate: samp_rate
+    sps: '9600'
+    fftlen: '1024'
+  documentation: |-
+    Centers a GMSK signal at baseband by the square-and-FFT method: squaring
+    the input turns the modulation into a pair of spectral lines one symbol
+    rate apart, the FFT of each block of samples locates that pair, and the
+    input is mixed down by the offset found. Python hierarchy
+    square_and_fft_sync_cc rebuilt as C++.
+  cpp_templates:
+    includes: ['#include "ais_hier.hpp"']
+    make: 'this->${id} = wasm_ais::make_square_and_fft_sync(${rate}, ${sps}, ${fftlen});'
+
+ais_freqest:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <gnuradio/ais/freqest.h>']
+    declarations: 'ais::freqest::sptr ${id};'
+    make: 'this->${id} = ais::freqest::make(${sample_rate}, ${data_rate}, ${fftlen});'
+
+ais_demod:
+  flags: [python, cpp]
+  callbacks: []
+  cpp_templates:
+    includes: ['#include "ais_hier.hpp"']
+    make: 'this->${id} = wasm_ais::make_ais_demod(${samples_per_symbol}, ${bits_per_sec}, ${clockrec_gain}, ${omega_relative_limit}, ${fftlen}, ${coherent});'
+
+ais_burst_demod:
+  flags: [python, cpp]
+  callbacks: []
+  cpp_templates:
+    includes: ['#include "ais_hier.hpp"']
+    make: 'this->${id} = wasm_ais::make_ais_burst_demod(${samples_per_symbol}, ${bits_per_sec}, ${freq_span}, ${threshold}, ${burst_slots});'
+
+ais_viterbi_cpm_cb:
+  flags: [python, cpp]
+  callbacks: []
+  cpp_templates:
+    includes: ['#include "ais_hier.hpp"']
+    make: 'this->${id} = wasm_ais::make_gmsk_viterbi(${samples_per_symbol}, ${traceback_len}, ${phase_gain});'

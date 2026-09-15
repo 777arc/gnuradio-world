@@ -1,0 +1,327 @@
+options:
+    parameters:
+        author: GNU Radio World
+        comment: ''
+        copyright: ''
+        description: Decodes AIS position reports from ships in the hosted 250 kS/s SDRangel recording centered on 162 MHz. Two Frequency Xlating FIR Filters select channel A (161.975 MHz) and channel B (162.025 MHz) at 50 kS/s, gr-ais's AIS Demod recovers the GMSK bits of each, HDLC Deframer checks the CRC of every burst, and AIS PDU to NMEA prints the !AIVDM sentences to the console. This is the receive chain of upstream's ais_rx tool, block by block.
+        generate_options: qt_gui
+        id: AIS_Receiver
+        title: AIS Receiver
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: bits_per_sec
+    id: variable
+    parameters:
+        comment: AIS symbol rate
+        value: '9600'
+    states:
+        coordinate: [590, 10]
+        rotation: 0
+        state: enabled
+-   name: center_freq
+    id: variable
+    parameters:
+        comment: Recording center frequency
+        value: '162000000'
+    states:
+        coordinate: [770, 10]
+        rotation: 0
+        state: enabled
+-   name: channel_a_freq
+    id: variable
+    parameters:
+        comment: AIS channel A
+        value: '161975000'
+    states:
+        coordinate: [940, 10]
+        rotation: 0
+        state: enabled
+-   name: channel_b_freq
+    id: variable
+    parameters:
+        comment: AIS channel B
+        value: '162025000'
+    states:
+        coordinate: [1140, 10]
+        rotation: 0
+        state: enabled
+-   name: channel_rate
+    id: variable
+    parameters:
+        comment: Per-channel rate after decimation (5.2 samples per symbol)
+        value: samp_rate/decim
+    states:
+        coordinate: [1340, 10]
+        rotation: 0
+        state: enabled
+-   name: decim
+    id: variable
+    parameters:
+        comment: Channel filter decimation, as ais_rx computes it for 5 samples per symbol
+        value: '5'
+    states:
+        coordinate: [1530, 10]
+        rotation: 0
+        state: enabled
+-   name: samp_rate
+    id: variable
+    parameters:
+        comment: Recording sample rate
+        value: '250000'
+    states:
+        coordinate: [10, 170]
+        rotation: 0
+        state: enabled
+-   name: channel_a
+    id: freq_xlating_fir_filter_xxx
+    parameters:
+        affinity: ''
+        alias: ''
+        center_freq: channel_a_freq - center_freq
+        comment: Selects channel A and decimates to 50 kS/s
+        decim: decim
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        samp_rate: samp_rate
+        taps: firdes.low_pass(1, samp_rate, 11000, 1000)
+        type: ccf
+    states:
+        coordinate: [670, 300]
+        rotation: 0
+        state: enabled
+-   name: channel_b
+    id: freq_xlating_fir_filter_xxx
+    parameters:
+        affinity: ''
+        alias: ''
+        center_freq: channel_b_freq - center_freq
+        comment: Selects channel B and decimates to 50 kS/s
+        decim: decim
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        samp_rate: samp_rate
+        taps: firdes.low_pass(1, samp_rate, 11000, 1000)
+        type: ccf
+    states:
+        coordinate: [670, 440]
+        rotation: 0
+        state: enabled
+-   name: deframer_a
+    id: digital_hdlc_deframer_bp
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: Unstuffs, checks the CRC, and emits each AIS packet as a PDU
+        max: '64'
+        maxoutbuf: '0'
+        min: '11'
+        minoutbuf: '0'
+    states:
+        coordinate: [1460, 320]
+        rotation: 0
+        state: enabled
+-   name: deframer_b
+    id: digital_hdlc_deframer_bp
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        max: '64'
+        maxoutbuf: '0'
+        min: '11'
+        minoutbuf: '0'
+    states:
+        coordinate: [1460, 520]
+        rotation: 0
+        state: enabled
+-   name: demod_a
+    id: ais_demod
+    parameters:
+        affinity: ''
+        alias: ''
+        bits_per_sec: bits_per_sec
+        clockrec_gain: '0.01'
+        coherent: 'True'
+        comment: Frequency sync, AGC, clock recovery and Viterbi GMSK demodulation to NRZI-decoded bits
+        fftlen: '1024'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        omega_relative_limit: '0.01'
+        samples_per_symbol: channel_rate/bits_per_sec
+    states:
+        coordinate: [1080, 270]
+        rotation: 0
+        state: enabled
+-   name: demod_b
+    id: ais_demod
+    parameters:
+        affinity: ''
+        alias: ''
+        bits_per_sec: bits_per_sec
+        clockrec_gain: '0.01'
+        coherent: 'True'
+        comment: ''
+        fftlen: '1024'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        omega_relative_limit: '0.01'
+        samples_per_symbol: channel_rate/bits_per_sec
+    states:
+        coordinate: [1080, 470]
+        rotation: 0
+        state: enabled
+-   name: nmea_a
+    id: ais_pdu_to_nmea
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: Prints each packet as a !AIVDM sentence
+        designator: A
+        maxoutbuf: '0'
+        minoutbuf: '0'
+    states:
+        coordinate: [130, 780]
+        rotation: 0
+        state: enabled
+-   name: nmea_b
+    id: ais_pdu_to_nmea
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        designator: B
+        maxoutbuf: '0'
+        minoutbuf: '0'
+    states:
+        coordinate: [130, 920]
+        rotation: 0
+        state: enabled
+-   name: recording
+    id: wasm_gr_world_recording
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: 157 s of both AIS channels at 250 kS/s, centered on 162 MHz
+        length: '0'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        offset: '0'
+        progress: 'True'
+        recording: sdrangel/ais
+        repeat: 'True'
+        type: complex
+    states:
+        coordinate: [10, 300]
+        rotation: 0
+        state: enabled
+-   name: throttle
+    id: blocks_throttle2
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        ignoretag: 'True'
+        limit: auto
+        maximum: '0.1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        samples_per_second: samp_rate
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [330, 290]
+        rotation: 0
+        state: enabled
+-   name: wasm_gui_layout_0
+    id: wasm_gui_layout
+    parameters:
+        affinity: ''
+        alias: ''
+        columns: '12'
+        comment: ''
+        layout: '{}'
+        row_height: '60'
+    states:
+        coordinate: [300, 10]
+        rotation: 0
+        state: enabled
+-   name: waterfall
+    id: qtgui_waterfall_sink_x
+    parameters:
+        affinity: ''
+        alias: ''
+        alpha1: '1'
+        alpha10: '1'
+        alpha2: '1'
+        alpha3: '1'
+        alpha4: '1'
+        alpha5: '1'
+        alpha6: '1'
+        alpha7: '1'
+        alpha8: '1'
+        alpha9: '1'
+        average: '1.0'
+        axislabels: 'True'
+        bw: samp_rate
+        color1: '0'
+        color10: '0'
+        color2: '0'
+        color3: '0'
+        color4: '0'
+        color5: '0'
+        color6: '0'
+        color7: '0'
+        color8: '0'
+        color9: '0'
+        comment: ''
+        fc: center_freq
+        fftsize: '1024'
+        freqhalf: 'True'
+        grid: 'False'
+        int_max: '10'
+        int_min: '-140'
+        label1: ''
+        label10: ''
+        label2: ''
+        label3: ''
+        label4: ''
+        label5: ''
+        label6: ''
+        label7: ''
+        label8: ''
+        label9: ''
+        legend: 'True'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        name: AIS channels A and B
+        nconnections: '1'
+        type: complex
+        update_time: '0.1'
+        wintype: window.WIN_RECTANGULAR
+    states:
+        coordinate: [670, 580]
+        rotation: 0
+        state: enabled
+connections:
+- [channel_a, '0', demod_a, '0']
+- [channel_b, '0', demod_b, '0']
+-   src_blk_id: deframer_a
+    src_port_id: out
+    snk_blk_id: nmea_a
+    snk_port_id: print
+-   src_blk_id: deframer_b
+    src_port_id: out
+    snk_blk_id: nmea_b
+    snk_port_id: print
+- [demod_a, '0', deframer_a, '0']
+- [demod_b, '0', deframer_b, '0']
+- [recording, '0', throttle, '0']
+- [throttle, '0', channel_a, '0']
+- [throttle, '0', channel_b, '0']
+- [throttle, '0', waterfall, '0']
+metadata:
+    file_format: 2
+    grc_version: 3.11.0.0

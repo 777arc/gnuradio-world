@@ -75,6 +75,37 @@ const scenarios = [
       { name:'snk', id:'blocks_null_sink', params:{ type:'complex' } } ],
       connections:[['src',0,'thr',0],['thr',0,'convert',0],['convert',0,'snk',0]] },
     expectFetch: ['iridium.wasm'] },
+  // gr-ais (OOT deferred, needs digital): both rebuilt receivers over noise.
+  // The streaming AIS Demod is upstream's ais_rx chain into HDLC Deframer and
+  // NMEA; the burst demodulator and the standalone Viterbi construct their
+  // trellis tables and run unconnected on the far side of a null sink.
+  { name: 'gr-ais receivers into HDLC Deframer and NMEA (OOT deferred, needs digital)',
+    fg: { blocks:[
+      { name:'src', id:'analog_noise_source_x',
+        params:{ type:'complex', noise_type:'analog.GR_GAUSSIAN', amp:0.5, seed:7 } },
+      { name:'thr', id:'blocks_throttle2',
+        params:{ type:'complex', samples_per_second:50000, vlen:1,
+                 ignoretag:'True', limit:'auto', maximum:0.1 } },
+      { name:'demod', id:'ais_demod',
+        params:{ samples_per_symbol:5.2083333, bits_per_sec:9600, clockrec_gain:0.01,
+                 omega_relative_limit:0.01, fftlen:1024, coherent:'True' } },
+      { name:'deframe', id:'digital_hdlc_deframer_bp', params:{ min:11, max:64 } },
+      { name:'nmea', id:'ais_pdu_to_nmea', params:{ designator:'A' } },
+      { name:'burst', id:'ais_burst_demod',
+        params:{ samples_per_symbol:5, bits_per_sec:9600, freq_span:1200,
+                 threshold:0.4, burst_slots:1 } },
+      { name:'viterbi', id:'ais_viterbi_cpm_cb',
+        params:{ samples_per_symbol:2, traceback_len:48, phase_gain:0.1 } },
+      { name:'snk_burst', id:'blocks_null_sink', params:{ type:'byte' } },
+      { name:'snk_viterbi', id:'blocks_null_sink', params:{ type:'byte' } } ],
+      connections:[
+        ['src',0,'thr',0], ['thr',0,'demod',0], ['demod',0,'deframe',0],
+        ['thr',0,'burst',0], ['burst',0,'snk_burst',0],
+        ['thr',0,'viterbi',0], ['viterbi',0,'snk_viterbi',0],
+        { src_blk_id:'deframe', src_port_id:'out',
+          snk_blk_id:'nmea', snk_port_id:'print' },
+      ] },
+    expectFetch: ['digital.wasm', 'ais.wasm'] },
   { name: 'gr-fosphor overlap (OOT deferred)',
     fg: { blocks:[
       { name:'src', id:'blocks_null_source', params:{ type:'complex' } },

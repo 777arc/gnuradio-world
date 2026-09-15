@@ -16,6 +16,13 @@ MODULE_SOURCE_ROOTS = {
     for module, relative in MODULE_CONFIG.get("source_roots", {}).items()
 }
 
+# The same browser-only block metadata the runtime factory generator applies
+# (blocks/overlays/*/metadata.yml), through the same
+# module. Palette entry and runtime factory must describe the same block, and a
+# second copy of the merge here would be free to drift from runner/gen_registry.py.
+sys.path.insert(0, os.path.join(WORLD, "tools"))
+import block_overrides
+
 # Mirror native GRC's block search. A direct world-repo OOT module overrides a
 # same-named gitlink in an older GNU Radio revision during the migration.
 module_dirs = {"grc": os.path.join(GR, "grc", "blocks")}
@@ -35,6 +42,14 @@ for module, root in sorted(MODULE_SOURCE_ROOTS.items()):
 OOT_MODULE_BY_DIR = {
     module_dirs[module]: module for module in oot_modules
 }
+# An OOT overlay's own grc/ holds the .block.yml for blocks upstream ships
+# without GRC metadata (see tools/block_overrides.py). It is read as part of
+# that module: same provenance, same palette root.
+for module in sorted(oot_modules):
+    overlay_grc = str(block_overrides.overlay_grc_dir(module[len("gr-"):]))
+    if os.path.isdir(overlay_grc):
+        module_dirs[module + "/overlay"] = overlay_grc
+        OOT_MODULE_BY_DIR[overlay_grc] = module
 WORLD_BLOCKS = os.path.join(WORLD, "blocks", "grc")
 MODULES = [module_dirs["grc"]] + [
     module_dirs[module] for module in sorted(module_dirs) if module != "grc"
@@ -45,12 +60,6 @@ MODULES = [module_dirs["grc"]] + [
 MANIFEST = os.path.join(WORLD, "runner", "generated_blocks.json")
 WIKI_BLOCK_DOCS_URL_PREFIX = "https://wiki.gnuradio.org/index.php/"
 
-# The same browser-only block metadata the runtime factory generator applies
-# (blocks/overlays/*/metadata.yml), through the same
-# module. Palette entry and runtime factory must describe the same block, and a
-# second copy of the merge here would be free to drift from runner/gen_registry.py.
-sys.path.insert(0, os.path.join(WORLD, "tools"))
-import block_overrides
 BLOCK_OVERRIDES = block_overrides.load()
 
 

@@ -7,6 +7,12 @@
       "latest_commit": "b1b5b139c8849d0090319ba12140bdc88fce236f",
       "latest_commit_at": "2026-04-09T10:23:55-04:00"
     },
+    "gr-ais": {
+      "repository": "https://github.com/bistromath/gr-ais",
+      "checked_at": "2026-09-15T05:04:16.316Z",
+      "latest_commit": "6e90aea2e4773be525b9d2e6b33260a95bd51bc9",
+      "latest_commit_at": "2026-09-06T14:09:03-07:00"
+    },
     "gr-bbc": {
       "repository": "https://github.com/xeno00/gr-bbc",
       "checked_at": "2026-09-14T06:10:39.794Z",

@@ -78,3 +78,7 @@
 	path = gr-iridium
 	url = https://github.com/muccc/gr-iridium.git
 	branch = master
+[submodule "gr-ais"]
+	path = gr-ais
+	url = https://github.com/bistromath/gr-ais.git
+	branch = master

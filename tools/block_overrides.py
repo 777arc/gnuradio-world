@@ -16,6 +16,17 @@ directory per module, and ``load()`` reads them all:
     additions too -- ``shims/`` for the headers that stand in for host-only
     dependencies, and any C++ rebuilt from a Python-only block.
 
+``blocks/overlays/gr-<m>/grc/<id>.block.yml``
+    GRC metadata for a block the OOT ships *without* any -- a Python hierarchy
+    upstream only ever built from a script (gr-ais's ``ais_demod``), or a C++
+    block nobody wrote a yaml for.  Both generators read this directory as if
+    it were the module's own ``grc/``, so the file is an ordinary complete
+    ``.block.yml`` (Python ``templates`` included, so the id works natively
+    too) and its ``metadata.yml`` entry supplies the ``cpp_templates`` exactly
+    as for an upstream one.  It is for blocks upstream has no yaml for at all;
+    a block that has one is overlaid, never replaced, and the registry
+    generator rejects the duplicate id.
+
 ``blocks/overlays/gnuradio/metadata.yml``
     The same overlays for blocks in the GNU Radio tree itself.  It is the one
     directory whose ids are not checked against a single module, because that
@@ -100,6 +111,7 @@ Supported keys, all optional except where an entry would otherwise do nothing:
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from typing import Any
 
 import yaml
@@ -114,6 +126,11 @@ IN_TREE_MODULE = "gnuradio"
 KEYS = {"flags", "category", "label", "cpp_templates", "callbacks", "documentation",
         "parameter_dtypes", "parameter_defaults", "parameter_labels",
         "prune_options", "gui", "hidden"}
+
+
+def overlay_grc_dir(module: str) -> Path:
+    """Where an OOT overlay keeps the .block.yml upstream never wrote."""
+    return Path(OVERLAY_DIR) / f"gr-{module}" / "grc"
 
 
 def _read(path: str) -> dict[str, Any]:
