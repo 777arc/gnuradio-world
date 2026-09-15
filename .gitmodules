@@ -82,3 +82,7 @@
 	path = gr-ais
 	url = https://github.com/bistromath/gr-ais.git
 	branch = master
+[submodule "gr-correctiq"]
+	path = gr-correctiq
+	url = https://github.com/ghostop14/gr-correctiq.git
+	branch = master
