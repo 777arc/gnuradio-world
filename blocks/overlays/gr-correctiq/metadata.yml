@@ -1,0 +1,41 @@
+# Browser-only C++ factory metadata for ghostop14/gr-correctiq. All four GRC
+# blocks have native C++ implementations and depend only on GNU Radio runtime.
+# Keep this outside the pristine upstream submodule; see docs/adding-modules.md.
+
+correctiq_correctiq:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <correctiq/correctiq.h>']
+        declarations: correctiq::correctiq::sptr ${id};
+        make: this->${id} = correctiq::correctiq::make();
+        link: [gnuradio-correctiq]
+
+correctiq_correctiq_auto:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <correctiq/correctiq_auto.h>']
+        declarations: correctiq::correctiq_auto::sptr ${id};
+        make: this->${id} = correctiq::correctiq_auto::make(${samp_rate}, ${freq}, ${gain}, ${syncWindow});
+        callbacks:
+        - set_freq(${freq})
+        - set_gain(${gain})
+        link: [gnuradio-correctiq]
+
+correctiq_correctiq_man:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <correctiq/correctiq_man.h>']
+        declarations: correctiq::correctiq_man::sptr ${id};
+        make: this->${id} = correctiq::correctiq_man::make(${real}, ${imag});
+        callbacks:
+        - set_real(${real})
+        - set_imag(${imag})
+        link: [gnuradio-correctiq]
+
+correctiq_SwapIQ:
+    flags: [python, cpp]
+    cpp_templates:
+        includes: ['#include <correctiq/SwapIQ.h>']
+        declarations: correctiq::SwapIQ::sptr ${id};
+        make: this->${id} = correctiq::SwapIQ::make(${datatype.datatype}, ${datatype.datasize});
+        link: [gnuradio-correctiq]

@@ -75,6 +75,36 @@ const scenarios = [
       { name:'snk', id:'blocks_null_sink', params:{ type:'complex' } } ],
       connections:[['src',0,'thr',0],['thr',0,'convert',0],['convert',0,'snk',0]] },
     expectFetch: ['iridium.wasm'] },
+  { name: 'gr-correctiq DC correction and I/Q swapping (OOT deferred)',
+    fg: { blocks:[
+      { name:'src', id:'analog_sig_source_x',
+        params:{ type:'complex', samp_rate:32000, waveform:'cos',
+                 freq:1000, amp:0.5 } },
+      { name:'thr', id:'blocks_throttle2',
+        params:{ type:'complex', samples_per_second:32000, vlen:1,
+                 ignoretag:'True', limit:'auto', maximum:0.1 } },
+      { name:'correct', id:'correctiq_correctiq', params:{} },
+      { name:'auto', id:'correctiq_correctiq_auto',
+        params:{ samp_rate:32000, freq:100000000, gain:20, syncWindow:0.01 } },
+      { name:'manual', id:'correctiq_correctiq_man', params:{ real:0, imag:0 } },
+      { name:'swap_complex', id:'correctiq_SwapIQ', params:{ datatype:'complex' } },
+      { name:'snk', id:'blocks_null_sink', params:{ type:'complex' } },
+      // Construct and run the two interleaved-integer SwapIQ specializations as
+      // well; the enum selects a different item size in the generated factory.
+      { name:'short_src', id:'blocks_null_source', params:{ type:'short' } },
+      { name:'swap_short', id:'correctiq_SwapIQ', params:{ datatype:'short' } },
+      { name:'short_snk', id:'blocks_null_sink', params:{ type:'short' } },
+      { name:'byte_src', id:'blocks_null_source', params:{ type:'byte' } },
+      { name:'swap_byte', id:'correctiq_SwapIQ', params:{ datatype:'byte' } },
+      { name:'byte_snk', id:'blocks_null_sink', params:{ type:'byte' } } ],
+      connections:[
+        ['src',0,'thr',0], ['thr',0,'correct',0], ['correct',0,'auto',0],
+        ['auto',0,'manual',0], ['manual',0,'swap_complex',0],
+        ['swap_complex',0,'snk',0],
+        ['short_src',0,'swap_short',0], ['swap_short',0,'short_snk',0],
+        ['byte_src',0,'swap_byte',0], ['swap_byte',0,'byte_snk',0],
+      ] },
+    expectFetch: ['correctiq.wasm'] },
   // gr-ais (OOT deferred, needs digital): both rebuilt receivers over noise.
   // The streaming AIS Demod is upstream's ais_rx chain into HDLC Deframer and
   // NMEA; the burst demodulator and the standalone Viterbi construct their

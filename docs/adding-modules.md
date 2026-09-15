@@ -71,8 +71,8 @@ third-party OOT module (already done for [`gr-rds/`](../gr-rds), [`gr-foo/`](../
 [`gr-ieee802_15_4/`](../gr-ieee802_15_4),
 [`gr-lora_sdr/`](../gr-lora_sdr), [`gr-radar/`](../gr-radar),
 [`gr-gsm/`](../gr-gsm), [`gr-bbc/`](../gr-bbc),
-[`gr-adsb/`](../gr-adsb), [`gr-tempest/`](../gr-tempest), [`gr-iridium/`](../gr-iridium)
-and [`gr-ais/`](../gr-ais)) is **not** part of that
+[`gr-adsb/`](../gr-adsb), [`gr-tempest/`](../gr-tempest), [`gr-iridium/`](../gr-iridium),
+[`gr-ais/`](../gr-ais) and [`gr-correctiq/`](../gr-correctiq)) is **not** part of that
 umbrella build, so there is no `libgnuradio-<m>.a`; instead its own `lib/*.cc` are
 compiled straight into an on-demand `<m>.wasm` side module. This is a
 **self-contained checklist** — following it needs no investigation beyond the

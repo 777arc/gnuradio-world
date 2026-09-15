@@ -1,0 +1,206 @@
+options:
+    parameters:
+        author: Marc
+        comment: ''
+        copyright: ''
+        description: A synthetic direct-conversion receiver signal with a controllable DC offset. The blue trace is the raw spectrum, whose offset appears as a spike at 0 Hz; the red trace passes through gr-correctiq's continuously adapting estimator, which removes the spike without offset tuning. Change DC offset amplitude while the graph runs to watch the correction follow it.
+        generate_options: qt_gui
+        id: gr_correctiq_DC_Spike_Correction
+        title: gr-correctiq DC Spike Correction
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: dc_offset
+    id: variable_qtgui_range
+    parameters:
+        comment: Simulates local-oscillator leakage in a direct-conversion receiver
+        label: DC offset amplitude
+        min_len: '200'
+        orient: QtCore.Qt.Horizontal
+        rangeType: float
+        start: '0'
+        step: '0.05'
+        stop: '1'
+        value: '0.35'
+        widget: counter_slider
+    states:
+        coordinate: [590, 10]
+        rotation: 0
+        state: enabled
+-   name: samp_rate
+    id: variable
+    parameters:
+        comment: ''
+        value: '32000'
+    states:
+        coordinate: [880, 10]
+        rotation: 0
+        state: enabled
+-   name: corrected
+    id: correctiq_correctiq
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: Continuously estimates and subtracts the mean I and Q values
+        maxoutbuf: '0'
+        minoutbuf: '0'
+    states:
+        coordinate: [690, 250]
+        rotation: 0
+        state: enabled
+-   name: source
+    id: analog_sig_source_x
+    parameters:
+        affinity: ''
+        alias: ''
+        amp: '0.5'
+        comment: A 4 kHz signal plus complex DC offset
+        freq: '4000'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        offset: dc_offset
+        phase: '0'
+        samp_rate: samp_rate
+        type: complex
+        waveform: analog.GR_COS_WAVE
+    states:
+        coordinate: [10, 210]
+        rotation: 0
+        state: enabled
+-   name: spectrum
+    id: qtgui_freq_sink_x
+    parameters:
+        affinity: ''
+        alias: ''
+        alpha1: '1'
+        alpha10: '1'
+        alpha2: '1'
+        alpha3: '1'
+        alpha4: '1'
+        alpha5: '1'
+        alpha6: '1'
+        alpha7: '1'
+        alpha8: '1'
+        alpha9: '1'
+        autoscale: 'False'
+        average: '1.0'
+        axislabels: 'True'
+        bw: samp_rate
+        color1: '"blue"'
+        color10: '"dark blue"'
+        color2: '"red"'
+        color3: '"green"'
+        color4: '"black"'
+        color5: '"cyan"'
+        color6: '"magenta"'
+        color7: '"yellow"'
+        color8: '"dark red"'
+        color9: '"dark green"'
+        comment: Blue is raw; red is corrected
+        ctrlpanel: 'False'
+        fc: '0'
+        fftsize: '1024'
+        freqhalf: 'True'
+        grid: 'False'
+        label: Relative Gain
+        label1: ''
+        label10: ''
+        label2: ''
+        label3: ''
+        label4: ''
+        label5: ''
+        label6: ''
+        label7: ''
+        label8: ''
+        label9: ''
+        legend: 'True'
+        marker1: '-1'
+        marker10: '-1'
+        marker2: '-1'
+        marker3: '-1'
+        marker4: '-1'
+        marker5: '-1'
+        marker6: '-1'
+        marker7: '-1'
+        marker8: '-1'
+        marker9: '-1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        name: '"Raw vs corrected"'
+        nconnections: '2'
+        norm_window: 'False'
+        style1: '1'
+        style10: '1'
+        style2: '1'
+        style3: '1'
+        style4: '1'
+        style5: '1'
+        style6: '1'
+        style7: '1'
+        style8: '1'
+        style9: '1'
+        tr_chan: '0'
+        tr_level: '0'
+        tr_mode: qtgui.TRIG_MODE_FREE
+        tr_tag: ''
+        type: complex
+        units: dB
+        update_time: '0.1'
+        width1: '1'
+        width10: '1'
+        width2: '1'
+        width3: '1'
+        width4: '1'
+        width5: '1'
+        width6: '1'
+        width7: '1'
+        width8: '1'
+        width9: '1'
+        wintype: window.WIN_RECTANGULAR
+        ymax: '10'
+        ymin: '-140'
+    states:
+        coordinate: [940, 220]
+        rotation: 0
+        state: enabled
+-   name: throttle
+    id: blocks_throttle2
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        ignoretag: 'True'
+        limit: time
+        maximum: '0.05'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        samples_per_second: samp_rate
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [360, 230]
+        rotation: 0
+        state: enabled
+-   name: wasm_gui_layout_0
+    id: wasm_gui_layout
+    parameters:
+        affinity: ''
+        alias: ''
+        columns: '12'
+        comment: ''
+        layout: '{}'
+        row_height: '60'
+    states:
+        coordinate: [300, 10]
+        rotation: 0
+        state: enabled
+connections:
+- [corrected, '0', spectrum, '1']
+- [source, '0', throttle, '0']
+- [throttle, '0', corrected, '0']
+- [throttle, '0', spectrum, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0

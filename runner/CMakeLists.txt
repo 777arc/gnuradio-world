@@ -101,6 +101,7 @@ set(GR_INCLUDE_DIRS
   ${WORLD}/gr-tempest/include
   ${WORLD}/gr-iridium/include
   ${WORLD}/gr-ais/include
+  ${WORLD}/gr-correctiq/include
   ${BUILDGR}/gnuradio-runtime/include ${SYSROOT}/include)
 
 # ---------------------------------------------------------------------------
@@ -1219,6 +1220,20 @@ set(AIS_SOURCES
 add_side_module(ais
   SOURCES ${AIS_SOURCES}
   DEPENDS ${BLOCKS}/overlays/gr-ais/ais_hier.hpp)
+
+# gr-correctiq (ghostop14): four small C++ stream blocks for removing receiver
+# DC offsets and swapping I/Q components. The same algorithms were later added
+# to gr-blocks, but these retain the original OOT block IDs so native flowgraphs
+# that use gr-correctiq open and run unchanged. None has a host-only dependency;
+# HAVE_CONFIG_H is left undefined, so the guarded generated header is not needed.
+set(CORRECTIQ_LIB ${WORLD}/gr-correctiq/lib)
+set(CORRECTIQ_SOURCES
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/generated_registry_correctiq.cpp
+  ${CORRECTIQ_LIB}/SwapIQ_impl.cc
+  ${CORRECTIQ_LIB}/correctiq_auto_impl.cc
+  ${CORRECTIQ_LIB}/correctiq_impl.cc
+  ${CORRECTIQ_LIB}/correctiq_man_impl.cc)
+add_side_module(correctiq SOURCES ${CORRECTIQ_SOURCES})
 
 # gr-iridium (muccc): burst detection, channelization, downmixing and QPSK
 # demodulation for the Iridium satellite network. All ten GRC blocks have native

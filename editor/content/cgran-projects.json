@@ -5,6 +5,7 @@
     "no_suitable_artwork": [
       "gr-ais",
       "gr-bbc",
+      "gr-correctiq",
       "gr-droneid",
       "gr-dvbs2",
       "gr-dvbs2rx",
@@ -73,6 +74,22 @@
       ],
       "researched_revision": "462ec90e25c47d2aabaa8d1fd728a7c392a9954c",
       "evidence": ["README.md", "CHANGELOG.md", "python/bbc/codec.py", "grc/bbc_bbc_encoder.block.yml", "grc/bbc_bbc_decoder.block.yml"]
+    },
+    {
+      "module": "gr-correctiq",
+      "name": "gr-correctiq",
+      "slug": "gr-correctiq",
+      "repository": "https://github.com/ghostop14/gr-correctiq",
+      "authors": [
+        { "name": "ghostop14", "url": "https://github.com/ghostop14" }
+      ],
+      "summary": [
+        "gr-correctiq removes the fixed DC component that produces a spike at the center frequency of direct-conversion SDR receivers.",
+        "Its continuously adapting corrector follows the mean I and Q values with a lightweight IIR estimator, while an automatic variant learns the offset for a chosen interval and then freezes it so subsequent signal content is not filtered; frequency or receiver-gain changes trigger a fresh learning pass.",
+        "A manual corrector applies user-supplied I and Q offsets, and a companion SwapIQ block exchanges the components of complex, interleaved-short, or interleaved-byte streams to repair spectral inversion."
+      ],
+      "researched_revision": "f1189bf9f1b4e27daa0c1fe69c6464a39cdf51c5",
+      "evidence": ["README.md", "docs/README.correctiq", "grc/", "include/correctiq/", "lib/"]
     },
     {
       "module": "gr-droneid",
