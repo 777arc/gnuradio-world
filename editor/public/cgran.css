@@ -2,6 +2,7 @@
 .catalog-search input { width: 100%; padding: 11px 13px; border: 1px solid #46507a; border-radius: 7px; background: #181b26; color: #fff; font: inherit; }
 .catalog-search input:focus { outline: 2px solid #7ab7ff; outline-offset: 2px; }
 .search-status { min-height: 1.5em; margin: 6px 0 12px; color: #9ca8c5; font-size: .9rem; }
+.catalog-hub { width: min(1240px, calc(100% - 32px)); }
 .oot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(360px, 100%), 1fr)); gap: 16px; margin: 0; padding: 0; list-style: none; }
 .oot-card { padding: 18px; border: 1px solid #333a4d; border-radius: 9px; background: #242a3b; }
 .oot-card:hover { border-color: #46507a; background: #282f42; }

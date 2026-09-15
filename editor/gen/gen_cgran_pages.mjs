@@ -12,7 +12,7 @@ const esc = (value) => String(value ?? '')
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
-const page = ({ title, description, canonical, jsonLd = [], body, script = '' }) => `<!doctype html>
+const page = ({ title, description, canonical, jsonLd = [], body, script = '', mainClass = '' }) => `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
@@ -46,7 +46,7 @@ ${script}
 </head>
 <body>
 <header><a href="/" aria-label="GNU Radio World home"><img src="/gnuradio_world_logo_dark.svg" alt="GNU Radio World" /></a></header>
-<main>${body}</main>
+<main${mainClass ? ` class="${esc(mainClass)}"` : ''}>${body}</main>
 <footer><a href="/">Open the editor</a><a href="/examples/">All examples</a><a href="/cgran/">Supported OOTs</a><a href="${DISCORD}">Discord</a><a href="${WORLD_REPO}">GitHub</a><a href="/privacy.html">Privacy</a><a href="/terms.html">Terms</a></footer>
 </body>
 </html>
@@ -225,8 +225,8 @@ export async function generateCgranPages({ root, publicDir, examples, blockDefin
       isPartOf: { '@type': 'WebApplication', name: 'GNU Radio World', url: ORIGIN + '/' },
     }],
     script: '<script src="/cgran.js" defer></script>',
-    body: `${crumbs(hubTrail)}
-<h1>Supported out-of-tree modules</h1>
+    mainClass: 'catalog-hub',
+    body: `<h1>Supported out-of-tree modules</h1>
 <p class="lede">A CGRAN-like directory of the GNU Radio out-of-tree modules you can use in GNU Radio World. Each entry is researched from the project repository and links to every matching flowgraph in our example library.</p>
 <label class="catalog-search">Search projects<input type="search" placeholder="Name, purpose, or author" autocomplete="off" data-cgran-search /></label>
 <p class="search-status" data-cgran-status aria-live="polite"></p>

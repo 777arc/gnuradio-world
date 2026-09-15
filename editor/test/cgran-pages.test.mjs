@@ -56,10 +56,14 @@ await new Promise((resolve, reject) => {
 });
 const generated = relative => readFile(new URL('../public/' + relative, import.meta.url), 'utf8');
 const hub = await generated('cgran/index.html');
+const cgranCss = await generated('cgran.css');
 assert.match(hub, /<link rel="canonical" href="https:\/\/gnuradioworld\.com\/cgran\/" \/>/);
+assert.match(hub, /<main class="catalog-hub">/);
+assert.match(cgranCss, /\.catalog-hub \{ width: min\(1240px, calc\(100% - 32px\)\); \}/);
 assert.match(hub, /data-cgran-search/);
 assert.match(hub, /mailto:support@gnuradioworld\.com/);
 assert.match(hub, /https:\/\/discord\.gg\/qKK2kC6Fpw/);
+assert.doesNotMatch(hub, /<nav class="crumbs"/);
 const definitionById = new Map(blockLibrary.blocks.map(block => [block.id, block]));
 const expectedExamples = new Map(projects.projects.map(project => [project.module, []]));
 for (const file of exampleFiles) {
@@ -73,6 +77,8 @@ for (const project of projects.projects) {
   assert.ok(hub.includes(`href="/cgran/${project.slug}/"`), `hub omits ${project.module}`);
   const leaf = await generated(`cgran/${project.slug}/index.html`);
   assert.ok(leaf.includes(`<h1>${project.name}</h1>`), `${project.module}: missing heading`);
+  assert.match(leaf, /<nav class="crumbs"[^>]*>.*href="\/cgran\/">Supported OOTs<\/a>/s,
+    `${project.module}: missing catalog breadcrumb`);
   assert.ok(leaf.includes(project.repository), `${project.module}: missing repository`);
   assert.doesNotMatch(leaf, /Supported[- ]block count|Blocks supported|GNU Radio Packaging Legend/i);
   for (const file of expectedExamples.get(project.module)) {
