@@ -36,6 +36,7 @@ for (const [radio, block] of [
   ['hackrf', 'wasm_hackrf_source'],
   ['plutosdr', 'wasm_plutosdr_source'],
   ['rtlsdr', 'wasm_rtlsdr_source'],
+  ['sdrplay', 'wasm_sdrplay_rsp1a_source'],
   ['usrpb2xx', 'wasm_usrp_b2xx_source'],
 ]) {
   const flowgraph = sdrReceiveBenchmarkFlowgraph(radio, 'fake', 2_500_000);

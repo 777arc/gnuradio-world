@@ -29,8 +29,8 @@ never competes with the scheduler threads.
 Three reader-owned side channels sit beside them on `window`, published by the
 workers that feed the source blocks rather than by `gr_stats_json()`:
 `__grFileStats` (one entry per File Source / recording reader: `bytesRead`,
-`maxChunkBytes`, `state`), `__grUsbStats` (one per RTL-SDR, PlutoSDR or
-HackRF worker: `serial`, `requestedRate`, `actualRate`, byte progress, loss
+`maxChunkBytes`, `state`), `__grUsbStats` (one per RTL-SDR, PlutoSDR,
+HackRF, BB60 or SDRplay worker: `serial`, `requestedRate`, `actualRate`, byte progress, loss
 counters and `state`) and `__grAudioStats` (one per Audio Sink or Audio Source:
 `device`, `requestedRate`, `actualRate`, `channels`, `ringFrames` and `state` — see
 [audio.md](audio.md)).

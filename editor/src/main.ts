@@ -55,6 +55,7 @@ import {
 import { RTLSDR_RADIO } from './rtlsdr';
 import { PLUTOSDR_RADIO } from './plutosdr';
 import { BB60_RADIO } from './bb60';
+import { SDRPLAY_RADIO } from './sdrplay';
 import { USRP_B2XX_RADIO } from './usrp-b2xx';
 import { HACKRF_RADIO } from './hackrf';
 import {
@@ -182,7 +183,7 @@ const el = (id: string) => document.getElementById(id)!;
  * prompt on the Run click. Adding one is adding it here. See ./usb-radio.
  */
 const USB_RADIOS: UsbRadio[] = [
-  RTLSDR_RADIO, PLUTOSDR_RADIO, HACKRF_RADIO, BB60_RADIO, USRP_B2XX_RADIO];
+  RTLSDR_RADIO, PLUTOSDR_RADIO, HACKRF_RADIO, BB60_RADIO, SDRPLAY_RADIO, USRP_B2XX_RADIO];
 const radioForDtype = (dtype?: string): UsbRadio | undefined =>
   USB_RADIOS.find(radio => radio.dtype === dtype);
 // ?training=<example path> opens that example as a lesson template rather than

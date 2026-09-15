@@ -1,0 +1,106 @@
+id: wasm_sdrplay_rsp1a_source
+label: 'SDRplay RSP1A'
+category: '[Supported SDRs]'
+flags: [cpp, throttle]
+
+documentation: |-
+    Receives complex samples from an SDRplay RSP1A connected to this computer.
+    The browser drives the RSP's Mirics MSi2500/MSi001 chipset directly over
+    WebUSB, using the open-source libmirisdr protocol; SDRplay's API and its
+    background service are not used and must not have the device open.
+
+    The RSP1B and the original RSP1 are the same chipset and are accepted by
+    this block too, though only the RSP1A has been tested. The RSP2, RSPduo
+    and RSPdx have different front ends and are not supported.
+
+    None of these radios carries a USB serial number, so Device is either
+    empty (the first RSP shared with this site) or a test signal generator.
+    Click Add beside Device or press Run to grant this site access. WebUSB
+    requires a Chromium-based browser such as Chrome, Edge or Opera; Firefox
+    and Safari cannot run it.
+
+    On Linux, grant the browser access to the USB device (a udev rule for
+    vendor 1df7) and stop the sdrplay service if it is installed. On Windows,
+    bind the RSP to WinUSB (Zadig is commonly used); SDRplay's own driver has
+    to be replaced for the browser to reach the device.
+
+    Sample Rate is 1.3 through 12.096 MS/s and is fixed while running. The
+    device packs samples more coarsely as the rate rises: 14 bits up to 6.048
+    MS/s, 12 bits to 8.064 MS/s, 10 bits to 9.216 MS/s and 8 bits above.
+    Center Frequency is 10 kHz to 2 GHz; below 50 MHz the RSP's AM path is
+    used. IF Bandwidth 0 selects the widest MSi001 filter that fits the sample
+    rate; otherwise it must be one of 200 k, 300 k, 600 k, 1.536 M, 5 M, 6 M,
+    7 M or 8 MHz. The block always uses zero IF.
+
+    Gain is one 0-102 dB figure spread across the tuner's LNA, mixer and
+    baseband stages the way libmirisdr does it: 43 dB and above keeps the LNA
+    and mixer at full gain and trims the baseband; below that the LNA and then
+    the mixer are switched to their reduced settings. There is no hardware
+    AGC. Center Frequency, Gain, the notch filters and the bias tee may be
+    driven by QT GUI controls while running.
+
+    The bias tee supplies 4.7 V on the antenna connector for an external LNA.
+    The MW/FM and DAB notch filters are the RSP1A's front-end notches. Receive
+    overruns and gaps in the device's sample counter are counted and reported.
+
+parameters:
+-   id: device
+    label: Device
+    dtype: sdrplay_device
+    default: ''
+-   id: samp_rate
+    label: Sample Rate
+    dtype: float
+    default: samp_rate
+-   id: center_freq
+    label: 'Center Frequency (Hz)'
+    dtype: real
+    default: '100e6'
+-   id: bandwidth
+    label: 'IF Bandwidth (Hz, 0 = Auto)'
+    dtype: real
+    default: '0'
+    hide: part
+-   id: gain
+    label: 'Gain (dB)'
+    dtype: real
+    default: '40'
+-   id: bias_tee
+    label: Bias Tee
+    dtype: enum
+    default: 'False'
+    options: ['False', 'True']
+    option_labels: [Off, On]
+    hide: part
+-   id: fm_notch
+    label: MW/FM Notch
+    dtype: enum
+    default: 'False'
+    options: ['False', 'True']
+    option_labels: [Off, On]
+    hide: part
+-   id: dab_notch
+    label: DAB Notch
+    dtype: enum
+    default: 'False'
+    options: ['False', 'True']
+    option_labels: [Off, On]
+    hide: part
+-   id: transfer_size
+    label: 'USB Transfer Size (bytes)'
+    dtype: int
+    default: '16384'
+    hide: part
+
+asserts:
+-   ${ samp_rate >= 1300000 and samp_rate <= 12096000 }
+-   ${ center_freq >= 10000 and center_freq <= 2000000000 }
+-   ${ gain >= 0 and gain <= 102 }
+-   ${ transfer_size > 0 and transfer_size <= 1048576 and transfer_size % 1024 == 0 }
+
+outputs:
+-   label: RX
+    domain: stream
+    dtype: complex
+
+file_format: 1

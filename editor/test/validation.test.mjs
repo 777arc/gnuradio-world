@@ -336,6 +336,31 @@ assert.deepEqual(validateFlowgraph([source, passthrough({ bypassed: true }), dra
   ])
     assert.ok(hackrfFields.has(field), `invalid HackRF ${field} must block the run`);
 
+  const sdrplayPorts = {
+    ...ports,
+    def: block => RUNNABLE[block.id],
+    portCount: (block, kind) =>
+      block.id === 'wasm_sdrplay_rsp1a_source' && kind === 'out' ? 1 : 0,
+    portType: () => 'complex',
+  };
+  const invalidSdrplay = inst('rsp', 'wasm_sdrplay_rsp1a_source', 'rsp', {
+    device: 'fake', samp_rate: 1000000, center_freq: 2500000000,
+    bandwidth: 1234567, gain: 103, bias_tee: 'False', fm_notch: 'False',
+    dab_notch: 'False', transfer_size: 1000,
+  });
+  const sdrplayFields = new Set(validateFlowgraph(
+    [invalidSdrplay], [], sdrplayPorts).map(issue => issue.field));
+  for (const field of ['samp_rate', 'center_freq', 'bandwidth', 'gain', 'transfer_size'])
+    assert.ok(sdrplayFields.has(field), `invalid SDRplay ${field} must block the run`);
+  const validSdrplay = inst('rsp', 'wasm_sdrplay_rsp1a_source', 'rsp', {
+    device: '', samp_rate: 2000000, center_freq: 100100000,
+    bandwidth: 0, gain: 40, bias_tee: 'False', fm_notch: 'False',
+    dab_notch: 'False', transfer_size: 16384, minoutbuf: 0, maxoutbuf: 0,
+  });
+  const sdrplayIssues = validateFlowgraph([validSdrplay], [], sdrplayPorts);
+  assert.equal(sdrplayIssues.length, 0,
+    `a default SDRplay block validates clean: ${JSON.stringify(sdrplayIssues)}`);
+
   // Audio Sink's two limits are the browser's, not a device's: an AudioContext
   // refuses a rate outside 3 kHz-384 kHz outright, and Web Audio caps a node at
   // 32 channels. Both are cheaper to catch here than as a failed run.

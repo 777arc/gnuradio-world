@@ -11,6 +11,7 @@
 #include "plutosdr_source.hpp"
 #include "plutosdr_sink.hpp"
 #include "bb60_source.hpp"
+#include "sdrplay_source.hpp"
 #include "hackrf_source.hpp"
 #include "hackrf_sink.hpp"
 #include "paint_image_source.hpp"
@@ -3123,6 +3124,34 @@ static std::map<std::string, Factory>& registry_storage() {
                  [block](double value) { block->set_center_freq(value); };
              result.numeric_setters["ref_level"] =
                  [block](double value) { block->set_ref_level(value); };
+             return result;
+        }},
+        // SDRplay RSP1A (and RSP1B/RSP1): the Mirics MSi2500/MSi001 protocol
+        // from libmirisdr, spoken by runner/src/sdrplay_worker.js over WebUSB.
+        // The worker unpacks the device's 14/12/10/8-bit frames into int16
+        // pairs; the block only scales them. See docs/sdrplay.md.
+        {"wasm_sdrplay_rsp1a_source", [](const json& p) -> BuiltBlock {
+             auto block = SdrplaySource::make(
+                 wasm_registry::text(p, "device"),
+                 number_from(p, "samp_rate", 2e6),
+                 number_from(p, "center_freq", 100e6),
+                 number_from(p, "bandwidth", 0.0),
+                 number_from(p, "gain", 40.0),
+                 bool_from(p, "bias_tee", false),
+                 bool_from(p, "fm_notch", false),
+                 bool_from(p, "dab_notch", false),
+                 static_cast<int>(number_from(p, "transfer_size", 16384.0)));
+             BuiltBlock result{ block };
+             result.numeric_setters["center_freq"] =
+                 [block](double value) { block->set_center_freq(value); };
+             result.numeric_setters["gain"] =
+                 [block](double value) { block->set_gain(value); };
+             result.numeric_setters["bias_tee"] =
+                 [block](double value) { block->set_bias_tee(value != 0.0); };
+             result.numeric_setters["fm_notch"] =
+                 [block](double value) { block->set_fm_notch(value != 0.0); };
+             result.numeric_setters["dab_notch"] =
+                 [block](double value) { block->set_dab_notch(value != 0.0); };
              return result;
         }},
         {"wasm_hackrf_sink", [](const json& p) -> BuiltBlock {

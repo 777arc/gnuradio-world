@@ -314,6 +314,32 @@ export function validateFlowgraph(
         add(block, 'master_clock_rate',
           'Master Clock Rate must be 0 (automatic) or 5 MHz through 61.44 MHz.');
     }
+    if (block.id === 'wasm_sdrplay_rsp1a_source') {
+      const sampleRate = resolvedNumber(block.params.samp_rate, staticScope);
+      if (sampleRate !== null &&
+          (!Number.isInteger(sampleRate) || sampleRate < 1.3e6 || sampleRate > 12.096e6))
+        add(block, 'samp_rate',
+          'SDRplay sample rate must be an integer from 1.3 MS/s through 12.096 MS/s.');
+      const centerFreq = resolvedNumber(block.params.center_freq, staticScope);
+      if (centerFreq !== null && (centerFreq < 10e3 || centerFreq > 2e9))
+        add(block, 'center_freq', 'SDRplay center frequency must be 10 kHz through 2 GHz.');
+      const bandwidth = resolvedNumber(block.params.bandwidth, staticScope);
+      const bandwidths = new Set([
+        0, 200000, 300000, 600000, 1536000, 5000000, 6000000, 7000000, 8000000]);
+      if (bandwidth !== null && !bandwidths.has(bandwidth))
+        add(block, 'bandwidth',
+          'SDRplay IF bandwidth must be 0 (automatic) or one of the MSi001 filter widths: ' +
+          '200 k, 300 k, 600 k, 1.536 M, 5 M, 6 M, 7 M or 8 MHz.');
+      const gain = resolvedNumber(block.params.gain, staticScope);
+      if (gain !== null && (gain < 0 || gain > 102))
+        add(block, 'gain', 'SDRplay gain must be 0 through 102 dB.');
+      const transferSize = resolvedNumber(block.params.transfer_size, staticScope);
+      if (transferSize !== null &&
+          (!Number.isInteger(transferSize) || transferSize <= 0 ||
+           transferSize > 1024 * 1024 || transferSize % 1024))
+        add(block, 'transfer_size',
+          'USB Transfer Size must be a positive multiple of 1024, at most 1 MiB.');
+    }
     if (block.id === 'wasm_hackrf_source' || block.id === 'wasm_hackrf_sink') {
       const sampleRate = resolvedNumber(block.params.samp_rate, staticScope);
       if (sampleRate !== null &&

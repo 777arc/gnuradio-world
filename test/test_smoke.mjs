@@ -110,6 +110,11 @@ const CASES = [
       'HackRF Source: running at 2000000 S/s',
       'HackRF Sink: running at 2000000 S/s',
     ] },
+  // SDRplay RSP1A. 'fake' packs a tone into MSi2500 frames exactly as the
+  // device would, so the unpacker and the sample-counter bookkeeping run here.
+  { name: 'SDRplay RSP1A (generated samples, no hardware)',
+    grc: 'test/fixtures/sdrplay_fake.grc',
+    expectLogs: ['SDRplay RSP1A: running at 2000000 S/s'] },
   // USRP B2xx Source. Its factory lives in the b2xx side module rather than the
   // main one, so this also covers the runtime_module path end to end: block id
   // -> module map -> dlopen of a side module carrying all of UHD -> registrar.

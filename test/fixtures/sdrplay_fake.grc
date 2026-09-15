@@ -1,0 +1,40 @@
+options:
+    parameters:
+        id: sdrplay_fake
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+blocks:
+# Device 'fake' runs the real shared ring, the command mailbox and the frame
+# unpacker on frames packed as the device packs them, without USB.
+-   name: rsp
+    id: wasm_sdrplay_rsp1a_source
+    parameters:
+        device: 'fake:100000'
+        samp_rate: '2000000'
+        center_freq: '100000000'
+        bandwidth: '0'
+        gain: '40'
+        bias_tee: 'False'
+        fm_notch: 'False'
+        dab_notch: 'False'
+        transfer_size: '16384'
+    states:
+        coordinate: [0, 0]
+        rotation: 0
+        state: enabled
+-   name: rx_null
+    id: blocks_null_sink
+    parameters:
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [200, 0]
+        rotation: 0
+        state: enabled
+connections:
+- [rsp, '0', rx_null, '0']
+metadata:
+    file_format: 1
+    grc_version: 3.11.0.0

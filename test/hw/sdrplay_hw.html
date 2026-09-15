@@ -1,0 +1,429 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>SDRplay hardware harness</title>
+<!--
+  Real-hardware harness for runner/src/sdrplay_worker.js. Served by server.mjs
+  for COOP/COEP and driven by sdrplay_hw.mjs. It plays the C++ block's part:
+  stages the mailbox, launches the worker against a plain shared ring of int16
+  IQ pairs, drains it, and keeps a capture for the FFT checks.
+-->
+<body>
+<p>
+  <button id="grant">Grant device access</button>
+  then
+  <button data-mode="basic">Basic</button>
+  <button data-mode="rates">All rates</button>
+  <button data-mode="bands">Band sweep</button>
+  <button data-mode="gain">Gain sweep</button>
+  <button data-mode="notch">Notch / bias tee</button>
+  &nbsp; freq <input id="freq" value="100.1e6" size="9"> Hz &nbsp; gain <input id="gain" value="40" size="3"> dB
+  &nbsp; report name <input id="name" value="sdrplay" size="10">
+</p>
+<pre id="out">idle</pre>
+<script>
+const SDRPLAY_FILTERS = [
+  { vendorId: 0x1df7, productId: 0x3000 },
+  { vendorId: 0x1df7, productId: 0x3050 },
+  { vendorId: 0x1df7, productId: 0x2500 },
+];
+const CTRL = {
+  READ_POS: 0, WRITE_POS: 1, STATE: 2, ERROR_LENGTH: 3, EVENTS: 4,
+  LOST_SAMPLES: 5, ACTUAL_RATE: 6, CMD_SEQ: 7, CMD_ACK: 8,
+  FREQ_HI: 9, FREQ_LO: 10, SAMPLE_RATE: 11, BANDWIDTH: 12, GAIN: 13,
+  FLAGS: 14, MODEL: 15,
+};
+const CANCELLED = 3;
+const CONTROL_PTR = 0, ERROR_PTR = 256, ERROR_CAPACITY = 512, RING_PTR = 4096;
+
+document.getElementById('grant').onclick = () => {
+  navigator.usb.requestDevice({ filters: SDRPLAY_FILTERS })
+    .then(device => { window.__granted = `${device.vendorId}:${device.productId}`; })
+    .catch(error => { window.__grantError = String(error); });
+};
+
+const state = {
+  memory: null, control: null, worker: null, capacityPairs: 0,
+  capturedPairs: 0, nonzeroSamples: 0, messages: [], trace: [], drain: 0,
+  capture: null, captured: 0, sumI: 0, sumQ: 0, sumSq: 0, statSamples: 0,
+};
+window.__hw = state;
+
+/** Radix-2 FFT over interleaved int16 I/Q with a Hann window. */
+function peakBin(samples, count) {
+  let n = 1;
+  while (n * 2 <= count) n *= 2;
+  const re = new Float64Array(n), im = new Float64Array(n);
+  for (let i = 0; i < n; ++i) {
+    const w = 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / (n - 1));
+    re[i] = (samples[2 * i] / 32768) * w;
+    im[i] = (samples[2 * i + 1] / 32768) * w;
+  }
+  for (let i = 1, j = 0; i < n; ++i) {
+    let bit = n >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j) {
+      [re[i], re[j]] = [re[j], re[i]];
+      [im[i], im[j]] = [im[j], im[i]];
+    }
+  }
+  for (let len = 2; len <= n; len <<= 1) {
+    const ang = (-2 * Math.PI) / len;
+    const wr = Math.cos(ang), wi = Math.sin(ang);
+    for (let i = 0; i < n; i += len) {
+      let cr = 1, ci = 0;
+      for (let k = 0; k < len / 2; ++k) {
+        const ur = re[i + k], ui = im[i + k];
+        const vr = re[i + k + len / 2] * cr - im[i + k + len / 2] * ci;
+        const vi = re[i + k + len / 2] * ci + im[i + k + len / 2] * cr;
+        re[i + k] = ur + vr; im[i + k] = ui + vi;
+        re[i + k + len / 2] = ur - vr; im[i + k + len / 2] = ui - vi;
+        const ncr = cr * wr - ci * wi;
+        ci = cr * wi + ci * wr; cr = ncr;
+      }
+    }
+  }
+  // Ignore the DC bin and its neighbours: a zero-IF tuner always has a DC
+  // spike, and it never moves when the LO does.
+  let best = 0, bestPower = -1, total = 0;
+  const powers = new Float64Array(n);
+  for (let i = 0; i < n; ++i) {
+    const power = re[i] * re[i] + im[i] * im[i];
+    powers[i] = power;
+    total += power;
+    const fromDc = Math.min(i, n - i);
+    if (fromDc > 3 && power > bestPower) { bestPower = power; best = i; }
+  }
+  const sorted = Float64Array.from(powers).sort();
+  const median = sorted[n >> 1];
+  const signed = best >= n / 2 ? best - n : best;
+  return {
+    bin: signed, bins: n, snr: bestPower / (total / n),
+    peakDb: 10 * Math.log10(bestPower + 1e-30),
+    medianDb: 10 * Math.log10(median + 1e-30),
+    dcDb: 10 * Math.log10(powers[0] + 1e-30),
+  };
+}
+window.__peakBin = peakBin;
+
+function stageFrequency(hz) {
+  const value = BigInt(Math.round(hz));
+  Atomics.store(state.control, CTRL.FREQ_HI, Number(BigInt.asIntN(32, value >> 32n)));
+  Atomics.store(state.control, CTRL.FREQ_LO, Number(BigInt.asIntN(32, value)));
+}
+
+window.__start = ({
+  serial = '', sampleRate = 2000000, centerFreq = 100100000,
+  bandwidth = 0, gain = 40, flags = 0, transferBytes = 16384,
+} = {}) => {
+  if (state.worker) throw new Error('worker already running');
+  const capacityPairs = Math.max(1 << 20, (transferBytes / 1024) * 504 * 4 + 1);
+  const pages = Math.ceil((RING_PTR + capacityPairs * 4) / 65536) + 2;
+  const memory = new WebAssembly.Memory({ initial: pages, maximum: pages, shared: true });
+  const control = new Int32Array(memory.buffer, CONTROL_PTR, 16);
+  state.memory = memory; state.control = control; state.capacityPairs = capacityPairs;
+  state.capturedPairs = 0; state.nonzeroSamples = 0; state.messages = []; state.trace = [];
+  state.capture = new Int16Array(1 << 21); state.captured = 0;
+  state.sumI = 0; state.sumQ = 0; state.sumSq = 0; state.statSamples = 0;
+
+  Atomics.store(control, CTRL.SAMPLE_RATE, sampleRate);
+  stageFrequency(centerFreq);
+  Atomics.store(control, CTRL.BANDWIDTH, bandwidth);
+  Atomics.store(control, CTRL.GAIN, gain);
+  Atomics.store(control, CTRL.FLAGS, flags);
+  Atomics.store(control, CTRL.CMD_SEQ, 1);
+
+  const worker = new Worker('/runner/build/sdrplay_worker.js');
+  state.worker = worker;
+  worker.onmessage = event => {
+    const message = event.data || {};
+    if (message.type === 'trace') state.trace.push(message.text);
+    else state.messages.push(message);
+  };
+  worker.onerror = event => state.messages.push({ type: 'workererror', message: event.message });
+  worker.postMessage({
+    serial, memory, ringPointer: RING_PTR, capacityPairs,
+    controlPointer: CONTROL_PTR, errorPointer: ERROR_PTR,
+    errorCapacity: ERROR_CAPACITY, transferBytes, debug: true,
+  });
+
+  state.drain = setInterval(() => {
+    const read = Atomics.load(control, CTRL.READ_POS);
+    const write = Atomics.load(control, CTRL.WRITE_POS);
+    const available = write >= read ? write - read : capacityPairs - read;
+    if (!available) return;
+    const samples = new Int16Array(memory.buffer, RING_PTR + read * 4, available * 2);
+    const inspect = Math.min(samples.length, 4096);
+    for (let i = 0; i < inspect; ++i) {
+      if (samples[i] !== 0) ++state.nonzeroSamples;
+      const v = samples[i];
+      if (i & 1) state.sumQ += v; else state.sumI += v;
+      state.sumSq += v * v;
+    }
+    state.statSamples += inspect;
+    if (state.captured + available * 2 <= state.capture.length) {
+      state.capture.set(samples, state.captured);
+      state.captured += available * 2;
+    }
+    state.capturedPairs += available;
+    Atomics.store(control, CTRL.READ_POS, (read + available) % capacityPairs);
+    Atomics.notify(control, CTRL.READ_POS);
+  }, 2);
+  return true;
+};
+
+window.__retune = hz => {
+  stageFrequency(hz);
+  return Atomics.add(state.control, CTRL.CMD_SEQ, 1) + 1;
+};
+window.__setGain = gain => {
+  Atomics.store(state.control, CTRL.GAIN, gain);
+  return Atomics.add(state.control, CTRL.CMD_SEQ, 1) + 1;
+};
+window.__setFlags = flags => {
+  Atomics.store(state.control, CTRL.FLAGS, flags);
+  return Atomics.add(state.control, CTRL.CMD_SEQ, 1) + 1;
+};
+
+/** Clears the capture so the next peak measurement sees only fresh samples. */
+window.__recapture = () => {
+  state.captured = 0; state.sumI = 0; state.sumQ = 0; state.sumSq = 0; state.statSamples = 0;
+  return true;
+};
+window.__peak = () => {
+  if (state.captured < 4096) return null;
+  return peakBin(state.capture.subarray(0, state.captured), state.captured >> 1);
+};
+window.__levels = () => {
+  const n = state.statSamples || 1;
+  return {
+    meanI: state.sumI / (n / 2), meanQ: state.sumQ / (n / 2),
+    rms: Math.sqrt(state.sumSq / n), samples: state.statSamples,
+  };
+};
+
+window.__stats = () => ({
+  capturedPairs: state.capturedPairs,
+  nonzeroSamples: state.nonzeroSamples,
+  actualRate: state.control ? Atomics.load(state.control, CTRL.ACTUAL_RATE) : 0,
+  command: state.control ? Atomics.load(state.control, CTRL.CMD_SEQ) : 0,
+  acknowledged: state.control ? Atomics.load(state.control, CTRL.CMD_ACK) : 0,
+  events: state.control ? Atomics.load(state.control, CTRL.EVENTS) : 0,
+  lost: state.control ? Atomics.load(state.control, CTRL.LOST_SAMPLES) : 0,
+  status: state.control ? Atomics.load(state.control, CTRL.STATE) : 0,
+  model: state.control ? Atomics.load(state.control, CTRL.MODEL) : 0,
+  messages: state.messages,
+  trace: state.trace.slice(-60),
+  error: (() => {
+    if (!state.control) return '';
+    const length = Atomics.load(state.control, CTRL.ERROR_LENGTH);
+    return length ? new TextDecoder().decode(
+      new Uint8Array(state.memory.buffer, ERROR_PTR, length).slice()) : '';
+  })(),
+});
+
+window.__stop = () => {
+  if (state.drain) clearInterval(state.drain);
+  state.drain = 0;
+  if (state.worker) state.worker.postMessage({ type: 'stop' });
+  if (state.control) {
+    Atomics.store(state.control, CTRL.STATE, CANCELLED);
+    Atomics.notify(state.control, CTRL.READ_POS);
+    Atomics.notify(state.control, CTRL.WRITE_POS);
+  }
+  const worker = state.worker;
+  if (worker) setTimeout(() => worker.terminate(), 1200);
+  state.worker = null;
+  return true;
+};
+
+// ---- the suite itself, so it can run without puppeteer ----------------------
+// Windows Chrome cannot be driven from WSL (its DevTools port is on Windows'
+// loopback), and an RSP cannot be forwarded into WSL (usbipd breaks alternate
+// settings), so the checks live here: click a mode button, read the report,
+// and the same lines are POSTed to the dev server as test/hw/.reports/<name>.log
+// for whoever is working in WSL. sdrplay_hw.mjs calls __runSuite the same way.
+const out = document.getElementById('out');
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+async function runSuite(mode, opts = {}) {
+  const lines = [];
+  let failures = 0;
+  const name = opts.name || 'sdrplay';
+  const say = text => {
+    lines.push(text);
+    out.textContent = lines.join('\n');
+    fetch(`/test/hw/report?name=${encodeURIComponent(name)}`, {
+      method: 'POST', body: text, keepalive: true,
+    }).catch(() => {});
+  };
+  const check = (ok, what, detail = '') => {
+    say(`${ok ? '  [OK]  ' : '  [FAIL]'} ${what}${detail ? ` — ${detail}` : ''}`);
+    if (!ok) ++failures;
+  };
+  const CENTER = Number(opts.freq ?? 100.1e6);
+  const GAIN = Number(opts.gain ?? 40);
+  const FLAG_BIAS_TEE = 1, FLAG_FM_NOTCH = 2, FLAG_DAB_NOTCH = 4;
+  const stats = () => window.__stats();
+  const start = o => window.__start(o);
+  const stop = async () => { window.__stop(); await sleep(1500); };
+  const measure = async (settle = 1200) => {
+    window.__recapture();
+    await sleep(settle);
+    return { peak: window.__peak(), levels: window.__levels() };
+  };
+  const dumpTrace = () => { for (const line of stats().trace) say(`    ${line}`); };
+  const fmt = (x, d = 1) => (x == null ? 'n/a' : Number(x).toFixed(d));
+
+  say(`=== ${mode} @ ${new Date().toISOString()} ua=${navigator.userAgent}`);
+  const devices = (await navigator.usb.getDevices()).filter(d => d.vendorId === 0x1df7)
+    .map(d => `${d.productId.toString(16)}`);
+  check(devices.length > 0, 'an SDRplay RSP is shared with this origin', JSON.stringify(devices));
+  if (!devices.length) { say('click Grant device access first'); return { failures: 1, lines }; }
+  if (state.worker) await stop();
+
+  try {
+    if (mode === 'bands') {
+      const bands = [1e6, 7.1e6, 27e6, 40e6, 100.1e6, 162.4e6, 255e6, 315e6, 433.92e6,
+        915e6, 1090e6, 1575.42e6, 1900e6];
+      start({ sampleRate: 2e6, centerFreq: bands[0], gain: GAIN });
+      await sleep(2500);
+      let s = stats();
+      const dev = s.messages.find(m => m.type === 'device');
+      if (dev) say(`  device: ${dev.name}, worker v${dev.worker}`);
+      check(s.status === 1 && !s.error, 'RX reaches RUNNING', s.error || '');
+      check(s.capturedPairs > 0, 'samples arrive before the sweep', `${s.capturedPairs} pairs`);
+      if (s.error || !s.capturedPairs) dumpTrace();
+      for (const hz of bands) {
+        if (stats().error) break;
+        const seq = window.__retune(hz);
+        await sleep(400);
+        const { peak, levels } = await measure(1500);
+        s = stats();
+        const ok = !s.error && s.acknowledged === seq && peak;
+        say(`  ${(hz / 1e6).toFixed(3).padStart(9)} MHz  ` + (ok
+          ? `rms ${fmt(levels.rms, 0).padStart(5)}  dc(I,Q) ${fmt(levels.meanI, 0)},${fmt(levels.meanQ, 0)}  ` +
+            `peak ${fmt(peak.peakDb)} dB @ bin ${peak.bin}/${peak.bins}  median ${fmt(peak.medianDb)} dB  ` +
+            `snr ${fmt(peak.snr)}  lost ${s.lost}`
+          : `ERROR ${s.error || 'no capture'}`));
+        if (s.error) { dumpTrace(); break; }
+      }
+      await stop();
+    } else if (mode === 'gain') {
+      start({ sampleRate: 2e6, centerFreq: CENTER, gain: 0 });
+      await sleep(2500);
+      let s = stats();
+      check(s.status === 1 && !s.error, 'RX reaches RUNNING', s.error || '');
+      let previous = null;
+      for (const gain of [0, 10, 18, 19, 30, 42, 43, 60, 80, 102]) {
+        const seq = window.__setGain(gain);
+        await sleep(300);
+        const { peak, levels } = await measure(1000);
+        s = stats();
+        say(`  gain ${String(gain).padStart(3)} dB  rms ${fmt(levels.rms, 0).padStart(5)}  ` +
+          `peak ${fmt(peak?.peakDb)} dB  median ${fmt(peak?.medianDb)} dB  ack ${s.acknowledged === seq}`);
+        if (previous !== null)
+          check(levels.rms >= previous * 0.9, `gain ${gain} is not quieter than the step below it`,
+            `${fmt(levels.rms, 0)} vs ${fmt(previous, 0)}`);
+        previous = levels.rms;
+      }
+      await stop();
+    } else if (mode === 'notch') {
+      start({ sampleRate: 2e6, centerFreq: CENTER, gain: GAIN, flags: 0 });
+      await sleep(2500);
+      let s = stats();
+      check(s.status === 1 && !s.error, 'RX reaches RUNNING', s.error || '');
+      const off = await measure(1500);
+      say(`  FM notch off: peak ${fmt(off.peak?.peakDb)} dB, median ${fmt(off.peak?.medianDb)} dB, rms ${fmt(off.levels.rms, 0)}`);
+      window.__setFlags(FLAG_FM_NOTCH); await sleep(400);
+      const on = await measure(1500);
+      say(`  FM notch on:  peak ${fmt(on.peak?.peakDb)} dB, median ${fmt(on.peak?.medianDb)} dB, rms ${fmt(on.levels.rms, 0)}`);
+      window.__setFlags(FLAG_DAB_NOTCH); await sleep(400);
+      const dab = await measure(1500);
+      say(`  DAB notch on: peak ${fmt(dab.peak?.peakDb)} dB, median ${fmt(dab.peak?.medianDb)} dB, rms ${fmt(dab.levels.rms, 0)}`);
+      window.__setFlags(FLAG_BIAS_TEE); await sleep(400);
+      const bias = await measure(1500);
+      say(`  bias tee on:  peak ${fmt(bias.peak?.peakDb)} dB, rms ${fmt(bias.levels.rms, 0)}` +
+        `  (measure the SMA centre pin for the next ${(opts.hold ?? 15000) / 1000} s; ~4.7 V expected)`);
+      await sleep(opts.hold ?? 15000);
+      window.__setFlags(0); await sleep(400);
+      say('  bias tee off');
+      check((off.peak?.peakDb ?? 0) - (on.peak?.peakDb ?? 0) > 10,
+        'the FM notch attenuates the carrier at freq by more than 10 dB',
+        `${fmt((off.peak?.peakDb ?? 0) - (on.peak?.peakDb ?? 0))} dB`);
+      await stop();
+    } else {
+      const rates = mode === 'rates' ? [2e6, 6.048e6, 8.064e6, 9.216e6, 12.096e6] : [Number(opts.rate ?? 2e6)];
+      for (const rate of rates) {
+        start({ sampleRate: rate, centerFreq: CENTER, gain: GAIN });
+        await sleep(3000);
+        let s = stats();
+        const running = s.status === 1 && !s.error;
+        const device = s.messages.find(m => m.type === 'device');
+        const runningMsg = s.messages.find(m => m.type === 'running');
+        if (device) say(`  device: ${device.name} (0x${device.model.toString(16)}), worker v${device.worker}`);
+        if (runningMsg) say(`  format: ${runningMsg.format}, ${runningMsg.bits} bits`);
+        check(running, `RX reaches RUNNING at ${rate / 1e6} MS/s`, s.error || `state ${s.status}`);
+        check(running && s.capturedPairs > 0, 'RX samples arrive', `${s.capturedPairs.toLocaleString()} IQ pairs`);
+        check(running && s.nonzeroSamples > 0, 'received IQ is not all zero', `${s.nonzeroSamples.toLocaleString()} nonzero inspected samples`);
+        check(running && s.actualRate === rate, 'sample rate is reported', `${s.actualRate} S/s`);
+        check(running && s.lost === 0, 'no samples lost in the first seconds', `${s.lost} lost, ${s.events} events`);
+        if (!running) { dumpTrace(); await stop(); continue; }
+
+        const before = stats().capturedPairs;
+        const t0 = performance.now();
+        await sleep(3000);
+        const after = stats().capturedPairs;
+        const measured = (after - before) / ((performance.now() - t0) / 1000);
+        check(Math.abs(measured - rate) < rate * 0.05, 'delivered rate matches',
+          `${(measured / 1e6).toFixed(3)} MS/s measured vs ${rate / 1e6} requested`);
+
+        const OFFSET = 300000;
+        const first = await measure();
+        say(`  before: peak bin ${first.peak?.bin} of ${first.peak?.bins}, snr ${fmt(first.peak?.snr)}, ` +
+          `peak ${fmt(first.peak?.peakDb)} dB, median ${fmt(first.peak?.medianDb)} dB, dc ${fmt(first.peak?.dcDb)} dB, rms ${fmt(first.levels.rms, 0)}, ` +
+          `dc(I,Q) ${fmt(first.levels.meanI, 0)},${fmt(first.levels.meanQ, 0)}`);
+        const seq = window.__retune(CENTER + OFFSET);
+        await sleep(600);
+        s = stats();
+        check(!s.error && s.acknowledged === seq, 'live retune is acknowledged',
+          `${s.acknowledged}/${seq}${s.error ? `; ${s.error}` : ''}`);
+        for (const line of s.trace.filter(l => /tuned|gain \d/.test(l)).slice(-4)) say(`    ${line}`);
+        say(`  levels after retune: ${JSON.stringify(window.__levels())}`);
+        const second = await measure();
+        say(`  after:  peak bin ${second.peak?.bin} of ${second.peak?.bins}, snr ${fmt(second.peak?.snr)}, peak ${fmt(second.peak?.peakDb)} dB`);
+        if (first.peak && second.peak && first.peak.snr > 8 && second.peak.snr > 8) {
+          const hzPerBin = rate / second.peak.bins;
+          const movedHz = (second.peak.bin - first.peak.bin) * hzPerBin;
+          check(Math.abs(movedHz + OFFSET) < OFFSET * 0.35, 'the hardware actually retuned',
+            `carrier moved ${(movedHz / 1e3).toFixed(0)} kHz, expected ${-OFFSET / 1e3} kHz`);
+        } else {
+          say('  [SKIP] carrier-moved check — no carrier with SNR > 8 at freq; point it at a strong FM station');
+        }
+        s = stats();
+        check(s.lost === 0 && s.events === 0, 'no loss across the run', `${s.lost} lost, ${s.events} events`);
+        await stop();
+      }
+      start({ sampleRate: rates[0], centerFreq: CENTER, gain: GAIN });
+      await sleep(2500);
+      const reopened = stats();
+      check(reopened.status === 1 && !reopened.error && reopened.capturedPairs > 0,
+        'the device reopens after stop', reopened.error || `${reopened.capturedPairs.toLocaleString()} IQ pairs`);
+      if (reopened.error) dumpTrace();
+      await stop();
+    }
+  } catch (error) {
+    check(false, 'suite threw', String(error?.message || error));
+    try { await stop(); } catch {}
+  }
+  say(failures ? `SDRplay HARDWARE (${mode}): ${failures} FAILED` : `SDRplay HARDWARE (${mode}): ALL PASS`);
+  return { failures, lines };
+}
+window.__runSuite = runSuite;
+for (const button of document.querySelectorAll('button[data-mode]'))
+  button.onclick = () => runSuite(button.dataset.mode, {
+    freq: Number(document.getElementById('freq').value),
+    gain: Number(document.getElementById('gain').value),
+    name: document.getElementById('name').value,
+  });
+</script>
+</body>

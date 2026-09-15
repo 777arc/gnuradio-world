@@ -4,7 +4,7 @@
 // Emscripten pthreads work (needed by the thread-per-block scheduler).
 // Usage: node server.mjs [port] [absoluteRootDir] [bindHost]
 import http from 'node:http';
-import { readFile, stat } from 'node:fs/promises';
+import { appendFile, mkdir, readFile, stat } from 'node:fs/promises';
 import { join, normalize, resolve } from 'node:path';
 import { findExampleFlowgraphs } from './scripts/example-flowgraphs.mjs';
 import {
@@ -42,6 +42,23 @@ const server = http.createServer(async (req, res) => {
   // Python Block makes the block unusable to develop against.
   res.setHeader('Cache-Control',
     urlPath.startsWith('/pyodide/') ? 'public, max-age=86400' : 'no-store');
+
+  // The hardware harness pages under test/hw/ report their results here when
+  // they are driven by hand rather than by puppeteer -- which is how a radio
+  // that usbipd cannot forward gets tested from Windows Chrome while the
+  // repository lives in WSL (see docs/sdrplay.md). Lines are appended to
+  // test/hw/.reports/<name>.log; the name is one path segment, nothing else.
+  if (req.method === 'POST' && urlPath === '/test/hw/report') {
+    const name = String(new URL(req.url, 'http://x').searchParams.get('name') || '');
+    if (!/^[a-z0-9_-]{1,40}$/i.test(name)) { res.writeHead(400); return res.end('bad name'); }
+    let body = '';
+    for await (const chunk of req) { body += chunk; if (body.length > 1 << 20) break; }
+    const dir = join(root, 'test', 'hw', '.reports');
+    await mkdir(dir, { recursive: true });
+    await appendFile(join(dir, `${name}.log`), body.endsWith('\n') ? body : body + '\n');
+    res.writeHead(204);
+    return res.end();
+  }
 
   try {
     // The recording view needs no special case: it is the editor build's second

@@ -22,6 +22,7 @@ full* before starting that kind of work:
 | [docs/hackrf.md](docs/hackrf.md) | touching HackRF Source or Sink — the stock vendor-control protocol, signed 8-bit IQ streaming, half-duplex ownership, TX safety, or HackRF hardware testing |
 | [docs/usrp-b2xx.md](docs/usrp-b2xx.md) | touching USRP B2xx Source — the cross-compiled B200-only UHD, libusb's WebUSB backend and its two patches, the `b2xx` runtime side module, the two-grant cold start, or USRP hardware testing |
 | [docs/signalhound.md](docs/signalhound.md) | touching Signal Hound BB60 Source — the reverse-engineered BB60C/D USB protocol, its tuning tables, the WebUSB worker, or the 70 MS/s host DDC |
+| [docs/sdrplay.md](docs/sdrplay.md) | touching the SDRplay RSP1A block — the MSi2500/MSi001 protocol ported from libmirisdr, its frequency plan and GPIO words, the packed sample formats, the WebUSB worker, or RSP hardware testing |
 | [docs/editor-ui.md](docs/editor-ui.md) | working on block IDs, auto-arrange, the narrow-screen/touch layout, what a fresh page opens on (the autosaved canvas, `#example=`, the welcome example), or the embedded layout another site frames (`?embed=1`) |
 | [docs/gui-layout.md](docs/gui-layout.md) | touching where QT GUI widgets go in the runner window — the GUI Layout block, `editor/src/gui-layout*.ts`, `runner/src/gui_layout.hpp`, or Arrange mode |
 | [docs/ci.md](docs/ci.md) | changing a workflow, the deploy, PR preview deployments, or the PR security gate (`security-analysis.yml`, `scripts/pr-security-scan.mjs`) |

@@ -23,6 +23,11 @@ import {
   RTLSDR_USB_FILTERS,
 } from './rtlsdr';
 import {
+  authorizedSdrplayDevices,
+  sdrplayLabel,
+  SDRPLAY_USB_FILTERS,
+} from './sdrplay';
+import {
   authorizedUsrpB2xxDevices,
   usrpB2xxLabel,
   USRP_B2XX_USB_FILTERS,
@@ -58,7 +63,7 @@ export interface SdrSpeedResult {
   lostSamples: number;
 }
 
-export type SdrSpeedRadio = 'hackrf' | 'plutosdr' | 'rtlsdr' | 'usrpb2xx';
+export type SdrSpeedRadio = 'hackrf' | 'plutosdr' | 'rtlsdr' | 'sdrplay' | 'usrpb2xx';
 
 type SdrSpeedRadioConfig = {
   id: SdrSpeedRadio;
@@ -103,6 +108,17 @@ const RADIOS: SdrSpeedRadioConfig[] = [
     rates: [3.2e6, 2.88e6, 2.4e6, 2.048e6, 1.8e6, 1.024e6],
     bytesPerSample: 2, iqDescription: 'unsigned 8-bit IQ',
     authorized: authorizedRtlDevices, label: rtlLabel,
+  },
+  {
+    id: 'sdrplay', name: 'SDRplay RSP1A', statsDevice: 'SDRplay',
+    filters: SDRPLAY_USB_FILTERS,
+    rates: [12.096e6, 9.216e6, 8.064e6, 6.048e6, 4e6, 2e6],
+    bytesPerSample: 4,
+    iqDescription: '14/12/10/8-bit packed IQ, unpacked to signed 16-bit',
+    authorized: authorizedSdrplayDevices, label: sdrplayLabel,
+    note: 'The RSP packs samples more coarsely as the rate rises: 14 bits to ' +
+      '6.048 MS/s, 12 to 8.064, 10 to 9.216 and 8 above. An RSP has no serial ' +
+      'number, so the first one shared with this site is used.',
   },
   {
     id: 'usrpb2xx', name: 'USRP B2xx', statsDevice: 'USRP B2xx',
@@ -179,6 +195,17 @@ function sourceBlock(
         gain: '30'
         master_clock_rate: '${usrpMasterClock(rate)}'
         samp_rate: '${rate}'`;
+  if (radio === 'sdrplay') return `    id: wasm_sdrplay_rsp1a_source
+    parameters:
+        bandwidth: '0'
+        bias_tee: 'False'
+        center_freq: '100000000'
+        dab_notch: 'False'
+        device: ${device}
+        fm_notch: 'False'
+        gain: '40'
+        samp_rate: '${rate}'
+        transfer_size: '16384'`;
   if (radio === 'rtlsdr') return `    id: wasm_rtlsdr_source
     parameters:
         bias_tee: 'False'

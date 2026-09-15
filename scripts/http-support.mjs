@@ -58,6 +58,7 @@ const DEV_REPO_FILES = new Set([
   '/test/hw/hackrf_hw.html',
   '/test/hw/plutosdr_hw.html',
   '/test/hw/rtlsdr_hw.html',
+  '/test/hw/sdrplay_hw.html',
 ]);
 
 export function devServerRepoAssetAllowed(urlPath) {

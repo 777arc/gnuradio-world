@@ -1,6 +1,6 @@
 // One-time WebUSB grant for the hardware harness.
 //
-//   node test/hw/grant.mjs [--pluto | --hackrf]
+//   node test/hw/grant.mjs [--pluto | --hackrf | --sdrplay]
 //
 // Opens a real Chrome window (WSLg) on the harness page and waits for you to
 // press "Grant device access" and pick the dongle. WebUSB permission is stored
@@ -19,12 +19,15 @@ const ROOT = new URL('../..', import.meta.url).pathname;
 const PROFILE = join(ROOT, 'test/hw/.profile');
 const PLUTO = process.argv.includes('--pluto');
 const HACKRF = process.argv.includes('--hackrf');
-const PAGE = HACKRF
+const SDRPLAY = process.argv.includes('--sdrplay');
+const PAGE = SDRPLAY
+  ? 'http://localhost:8090/test/hw/sdrplay_hw.html'
+  : HACKRF
   ? 'http://localhost:8090/test/hw/hackrf_hw.html'
   : PLUTO
     ? 'http://localhost:8090/test/hw/plutosdr_hw.html'
     : 'http://localhost:8090/test/hw/rtlsdr_hw.html';
-const DEVICE_NAME = HACKRF ? 'HackRF' : PLUTO ? 'PlutoSDR' : 'RTL-SDR';
+const DEVICE_NAME = SDRPLAY ? 'SDRplay RSP' : HACKRF ? 'HackRF' : PLUTO ? 'PlutoSDR' : 'RTL-SDR';
 
 const executablePath = findChrome();
 if (!executablePath) {

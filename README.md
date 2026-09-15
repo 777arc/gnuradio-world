@@ -14,7 +14,7 @@ GNU Radio, entirely in your browser — explore the open-source SDR ecosystem wi
 - Includes popular out-of-tree modules (OOTs)
 - Many example flowgraphs — [browse them at gnuradioworld.com/examples](https://gnuradioworld.com/examples/) or within the left pane of the main site
 - Example IQ recordings of signals to test them with
-- Support for RTL-SDR, PlutoSDR, HackRF
+- Support for RTL-SDR, PlutoSDR, HackRF, SDRplay RSP1A, USRP B2xx and Signal Hound BB60
 - On-demand fetching of WebAssembly modules and IQ recordings, to keep the load time short
 - Identical .grc flowgraph files as the native version
 - Share flowgraphs you create entirely via URL

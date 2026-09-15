@@ -62,6 +62,7 @@ const supportedSdrBlocks = new Map([
   ['wasm_plutosdr_source', 'PlutoSDR Source'],
   ['wasm_plutosdr_sink', 'PlutoSDR Sink'],
   ['wasm_bb60_source', 'Signal Hound BB60'],
+  ['wasm_sdrplay_rsp1a_source', 'SDRplay RSP1A'],
 ]);
 for (const [id, label] of supportedSdrBlocks) {
   assert.equal(byId.get(id)?.runnable, true, `${id} must stay runnable in WASM`);
