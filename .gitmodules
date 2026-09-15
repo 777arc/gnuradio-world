@@ -74,3 +74,7 @@
 	path = gr-tempest
 	url = https://github.com/git-artes/gr-tempest.git
 	branch = master
+[submodule "gr-iridium"]
+	path = gr-iridium
+	url = https://github.com/muccc/gr-iridium.git
+	branch = master

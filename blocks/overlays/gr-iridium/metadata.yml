@@ -1,0 +1,88 @@
+# Browser-only C++ factory metadata for muccc/gr-iridium. All ten upstream GRC
+# blocks have native implementations; the module's Python is the extractor app,
+# not the DSP blocks themselves. Keeping the templates here leaves the vendored
+# checkout pinned to an unmodified upstream commit.
+
+iridium_burst_downmix:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <iridium/burst_downmix.h>']
+    declarations: 'iridium::burst_downmix::sptr ${id};'
+    make: 'this->${id} = iridium::burst_downmix::make(${output_sample_rate}, ${search_depth}, ${hard_max_queue_len}, ${input_taps}, ${start_finder_taps}, ${handle_multiple_frames_per_burst});'
+    link: [gnuradio-iridium]
+
+iridium_fft_burst_tagger:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <iridium/fft_burst_tagger.h>']
+    declarations: 'iridium::fft_burst_tagger::sptr ${id};'
+    # Upstream's GRC descriptor predates the C++ `offline` argument. Keep its
+    # visible Debug parameter in the final position and use live-style timestamp
+    # initialization, which also works for GR World Recording (it emits no
+    # SigMF rx_time stream tag).
+    make: 'this->${id} = iridium::fft_burst_tagger::make(${center_frequency}, ${fft_size}, ${sample_rate}, ${burst_pre_len}, ${burst_post_len}, ${burst_width}, ${max_bursts}, ${max_burst_len}, ${threshold}, ${history_size}, false, ${debug});'
+    link: [gnuradio-iridium]
+
+iridium_fft_channelizer:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <iridium/fft_channelizer.h>']
+    declarations: 'iridium::fft_channelizer::sptr ${id};'
+    make: 'this->${id} = iridium::fft_channelizer::make(${fft_size}, ${decimation}, ${activate_streams}, ${pdu_ports}, ${max_burst_size}, ${max_outstanding}, ${drop_overflow});'
+    link: [gnuradio-iridium]
+
+iridium_frame_sorter:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <iridium/frame_sorter.h>']
+    declarations: 'iridium::frame_sorter::sptr ${id};'
+    make: 'this->${id} = iridium::frame_sorter::make();'
+    link: [gnuradio-iridium]
+
+iridium_iridium_frame_printer:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <iridium/iridium_frame_printer.h>']
+    declarations: 'iridium::iridium_frame_printer::sptr ${id};'
+    make: 'this->${id} = iridium::iridium_frame_printer::make("");'
+    link: [gnuradio-iridium]
+
+iridium_iridium_qpsk_demod:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <iridium/iridium_qpsk_demod.h>']
+    declarations: 'iridium::iridium_qpsk_demod::sptr ${id};'
+    make: 'this->${id} = iridium::iridium_qpsk_demod::make(${channels});'
+    link: [gnuradio-iridium]
+
+iridium_iuchar_to_complex:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <iridium/iuchar_to_complex.h>']
+    declarations: 'iridium::iuchar_to_complex::sptr ${id};'
+    make: 'this->${id} = iridium::iuchar_to_complex::make();'
+    link: [gnuradio-iridium]
+
+iridium_pdu_null_sink:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <iridium/pdu_null_sink.h>']
+    declarations: 'iridium::pdu_null_sink::sptr ${id};'
+    make: 'this->${id} = iridium::pdu_null_sink::make();'
+    link: [gnuradio-iridium]
+
+iridium_pdu_round_robin:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <iridium/pdu_round_robin.h>']
+    declarations: 'iridium::pdu_round_robin::sptr ${id};'
+    make: 'this->${id} = iridium::pdu_round_robin::make(${output_count});'
+    link: [gnuradio-iridium]
+
+iridium_tagged_burst_to_pdu:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <iridium/tagged_burst_to_pdu.h>']
+    declarations: 'iridium::tagged_burst_to_pdu::sptr ${id};'
+    make: 'this->${id} = iridium::tagged_burst_to_pdu::make(${max_burst_size}, ${relative_center_frequency}, ${relative_span}, ${relative_sample_rate}, ${sample_offset}, ${max_outstanding}, ${drop_overflow});'
+    link: [gnuradio-iridium]

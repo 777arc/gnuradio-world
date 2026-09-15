@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "artwork_audit": {
-    "checked_at": "2026-09-14",
+    "checked_at": "2026-09-15",
     "no_suitable_artwork": [
       "gr-bbc",
       "gr-droneid",
@@ -244,6 +244,31 @@
       ],
       "researched_revision": "a210b11fed2d307ef797ea79842b54f4e8ed3dd5",
       "evidence": ["README.md", "grc/", "python/"]
+    },
+    {
+      "module": "gr-iridium",
+      "name": "gr-iridium",
+      "slug": "gr-iridium",
+      "repository": "https://github.com/muccc/gr-iridium",
+      "artwork": {
+        "source_path": "gr-iridium/docs/channels.svg",
+        "source_url": "https://github.com/muccc/gr-iridium/blob/master/docs/channels.svg",
+        "alt": "Channel layout of the Iridium satellite downlink band",
+        "label": "Repository artwork",
+        "fit": "contain",
+        "light_background": true
+      },
+      "authors": [
+        { "name": "Tobias Schneider" },
+        { "name": "Stefan Zehl" }
+      ],
+      "summary": [
+        "gr-iridium detects and demodulates bursts from the Iridium satellite network.",
+        "Its FFT burst tagger and channelizer locate activity across a wideband capture, while tagged-burst conversion and downmixing isolate each transmission at a demodulation-friendly sample rate.",
+        "A QPSK demodulator, frame sorter, and frame printer turn those bursts into timestamped raw bit frames for downstream parsing with iridium-toolkit."
+      ],
+      "researched_revision": "a09b2546194a644bc756c6f25589ba8869c45433",
+      "evidence": ["README.md", "AUTHORS", "docs/channels.svg", "grc/", "lib/", "python/iridium_extractor_flowgraph.py"]
     },
     {
       "module": "gr-lora_sdr",

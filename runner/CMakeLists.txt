@@ -99,6 +99,7 @@ set(GR_INCLUDE_DIRS
   ${WORLD}/gr-radar/include
   ${WORLD}/gr-gsm/include
   ${WORLD}/gr-tempest/include
+  ${WORLD}/gr-iridium/include
   ${BUILDGR}/gnuradio-runtime/include ${SYSROOT}/include)
 
 # ---------------------------------------------------------------------------
@@ -1192,6 +1193,32 @@ add_side_module(tempest
   SOURCES ${TEMPEST_SOURCES}
   INCLUDE_DIRS ${TEMPEST_WASM_SHIMS}
   DEPENDS ${TEMPEST_WASM_SHIMS}/config.h)
+
+# gr-iridium (muccc): burst detection, channelization, downmixing and QPSK
+# demodulation for the Iridium satellite network. All ten GRC blocks have native
+# C++ implementations and depend only on the core runtime/blocks/FFT/filter/VOLK
+# surface. Upstream's libsndfile dependency belongs to its Python extractor's
+# WAV-file input and is not used by these blocks. The implementation sources
+# include config.h, so the browser build supplies the one endian definition used
+# by the unsigned-IQ converter and leaves the submodule pristine.
+set(IRIDIUM_LIB ${WORLD}/gr-iridium/lib)
+set(IRIDIUM_WASM_SHIMS ${BLOCKS}/overlays/gr-iridium/shims)
+set(IRIDIUM_SOURCES
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/generated_registry_iridium.cpp
+  ${IRIDIUM_LIB}/burst_downmix_impl.cc
+  ${IRIDIUM_LIB}/fft_burst_tagger_impl.cc
+  ${IRIDIUM_LIB}/fft_channelizer_impl.cc
+  ${IRIDIUM_LIB}/frame_sorter_impl.cc
+  ${IRIDIUM_LIB}/iridium_frame_printer_impl.cc
+  ${IRIDIUM_LIB}/iridium_qpsk_demod_impl.cc
+  ${IRIDIUM_LIB}/iuchar_to_complex_impl.cc
+  ${IRIDIUM_LIB}/pdu_null_sink_impl.cc
+  ${IRIDIUM_LIB}/pdu_round_robin_impl.cc
+  ${IRIDIUM_LIB}/tagged_burst_to_pdu_impl.cc)
+add_side_module(iridium
+  SOURCES ${IRIDIUM_SOURCES}
+  INCLUDE_DIRS ${IRIDIUM_WASM_SHIMS} ${IRIDIUM_LIB}
+  DEPENDS ${IRIDIUM_WASM_SHIMS}/config.h)
 
 # Fail at configure time if modules.json names a side module that has no build
 # rule here, or if a build rule was added without registering its topology.

@@ -73,6 +73,12 @@
       "latest_commit": "a210b11fed2d307ef797ea79842b54f4e8ed3dd5",
       "latest_commit_at": "2023-07-28T14:51:17+02:00"
     },
+    "gr-iridium": {
+      "repository": "https://github.com/muccc/gr-iridium",
+      "checked_at": "2026-09-15T04:19:52.993Z",
+      "latest_commit": "a09b2546194a644bc756c6f25589ba8869c45433",
+      "latest_commit_at": "2025-03-30T00:37:31+01:00"
+    },
     "gr-lora_sdr": {
       "repository": "https://github.com/tapparelj/gr-lora_sdr",
       "checked_at": "2026-09-14T06:10:53.569Z",

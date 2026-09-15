@@ -64,6 +64,17 @@ const scenarios = [
       { name:'decode', id:'droneid_decode', params:{ debug_path:'' } } ],
       connections:[['src',0,'thr',0],['thr',0,'xcorr',0],['xcorr',0,'snk',0]] },
     expectFetch: ['droneid.wasm'] },
+  { name: 'gr-iridium unsigned-IQ conversion (OOT deferred)',
+    fg: { blocks:[
+      { name:'src', id:'blocks_vector_source_x',
+        params:{ type:'byte', vector:'[0, 255, 127, 128]', repeat:'True', vlen:1 } },
+      { name:'thr', id:'blocks_throttle2',
+        params:{ type:'byte', samples_per_second:32000, vlen:1,
+                 ignoretag:'True', limit:'auto', maximum:0.1 } },
+      { name:'convert', id:'iridium_iuchar_to_complex', params:{} },
+      { name:'snk', id:'blocks_null_sink', params:{ type:'complex' } } ],
+      connections:[['src',0,'thr',0],['thr',0,'convert',0],['convert',0,'snk',0]] },
+    expectFetch: ['iridium.wasm'] },
   { name: 'gr-fosphor overlap (OOT deferred)',
     fg: { blocks:[
       { name:'src', id:'blocks_null_source', params:{ type:'complex' } },

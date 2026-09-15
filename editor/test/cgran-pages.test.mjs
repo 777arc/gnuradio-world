@@ -33,7 +33,7 @@ for (const project of projects.projects) {
     assert.notEqual(Boolean(project.artwork.source_path), Boolean(project.artwork.remote_url));
   }
 }
-assert.equal(projects.projects.filter(project => project.artwork).length, 9,
+assert.equal(projects.projects.filter(project => project.artwork).length, 10,
   'the audited project-artwork set changed unexpectedly');
 assert.deepEqual(projects.artwork_audit.no_suitable_artwork.slice().sort(),
   projects.projects.filter(project => !project.artwork).map(project => project.module).sort(),

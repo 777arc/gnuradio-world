@@ -1,0 +1,220 @@
+options:
+    parameters:
+        author: GNU Radio World
+        comment: ''
+        copyright: ''
+        description: Detects and demodulates Iridium downlink bursts from the hosted 12 MS/s iridium_cf32 SigMF recording. The FFT burst tagger finds transmissions across the capture, Burst Downmix isolates them at 250 kS/s, and the QPSK demodulator prints recovered RAW frames to the console for use with iridium-toolkit.
+        generate_options: qt_gui
+        id: Iridium_Recording_Receiver
+        title: Iridium Recording Receiver
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: burst_sample_rate
+    id: variable
+    parameters:
+        comment: Iridium demodulator input rate (10 samples per symbol)
+        value: '250000'
+    states:
+        coordinate: [590, 10]
+        rotation: 0
+        state: enabled
+-   name: burst_width
+    id: variable
+    parameters:
+        comment: Occupied width used by the detector and input filter
+        value: '40000'
+    states:
+        coordinate: [820, 10]
+        rotation: 0
+        state: enabled
+-   name: center_freq
+    id: variable
+    parameters:
+        comment: Recording center frequency
+        value: '1621500000'
+    states:
+        coordinate: [1000, 10]
+        rotation: 0
+        state: enabled
+-   name: fft_size
+    id: variable
+    parameters:
+        comment: Approximately one millisecond at the recording rate
+        value: '16384'
+    states:
+        coordinate: [1180, 10]
+        rotation: 0
+        state: enabled
+-   name: max_burst_len
+    id: variable
+    parameters:
+        comment: 90 ms at the recording rate
+        value: '1080000'
+    states:
+        coordinate: [1360, 10]
+        rotation: 0
+        state: enabled
+-   name: sample_rate
+    id: variable
+    parameters:
+        comment: Recording sample rate
+        value: '12000000'
+    states:
+        coordinate: [1560, 10]
+        rotation: 0
+        state: enabled
+-   name: burst_downmix
+    id: iridium_burst_downmix
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: Filters, centers, and decimates each detected burst
+        handle_multiple_frames_per_burst: 'False'
+        hard_max_queue_len: '0'
+        input_taps: firdes.low_pass_2(1, sample_rate, burst_width/2, burst_width, 40)
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        output_sample_rate: burst_sample_rate
+        search_depth: '1750'
+        start_finder_taps: firdes.low_pass_2(1, burst_sample_rate, 2500, 5000, 60)
+    states:
+        coordinate: [110, 470]
+        rotation: 0
+        state: enabled
+-   name: burst_tagger
+    id: iridium_fft_burst_tagger
+    parameters:
+        affinity: ''
+        alias: ''
+        burst_post_len: '192000'
+        burst_pre_len: '32768'
+        burst_width: burst_width
+        center_frequency: center_freq
+        comment: Detects energy bursts across the Iridium downlink band
+        debug: 'False'
+        fft_size: fft_size
+        history_size: '512'
+        max_burst_len: max_burst_len
+        max_bursts: '0'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        sample_rate: sample_rate
+        threshold: '10'
+    states:
+        coordinate: [330, 150]
+        rotation: 0
+        state: enabled
+-   name: bursts_to_pdus
+    id: iridium_tagged_burst_to_pdu
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: Copies tagged stream bursts into message PDUs
+        drop_overflow: 'False'
+        max_burst_size: max_burst_len
+        max_outstanding: '500'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        relative_center_frequency: '0'
+        relative_sample_rate: '1'
+        relative_span: '1'
+        sample_offset: '0'
+    states:
+        coordinate: [780, 200]
+        rotation: 0
+        state: enabled
+-   name: frame_printer
+    id: iridium_iridium_frame_printer
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: Prints RAW frames to the console
+    states:
+        coordinate: [1350, 510]
+        rotation: 0
+        state: enabled
+-   name: frame_sorter
+    id: iridium_frame_sorter
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: Orders recovered frames by timestamp
+        maxoutbuf: '0'
+        minoutbuf: '0'
+    states:
+        coordinate: [1070, 510]
+        rotation: 0
+        state: enabled
+-   name: qpsk_demod
+    id: iridium_iridium_qpsk_demod
+    parameters:
+        affinity: ''
+        alias: ''
+        channels: '1'
+        comment: Demodulates Iridium QPSK bursts into raw frames
+        maxoutbuf: '0'
+        minoutbuf: '0'
+    states:
+        coordinate: [710, 510]
+        rotation: 0
+        state: enabled
+-   name: recording
+    id: wasm_gr_world_recording
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: 1.25-second B210 recording centered at 1621.5 MHz
+        length: '0'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        offset: '0'
+        progress: 'True'
+        recording: iridium_cf32
+        repeat: 'False'
+        type: complex
+    states:
+        coordinate: [10, 240]
+        rotation: 0
+        state: enabled
+-   name: wasm_gui_layout_0
+    id: wasm_gui_layout
+    parameters:
+        affinity: ''
+        alias: ''
+        columns: '12'
+        comment: ''
+        layout: '{}'
+        row_height: '60'
+    states:
+        coordinate: [300, 10]
+        rotation: 0
+        state: enabled
+connections:
+-   src_blk_id: burst_downmix
+    src_port_id: burst_handled
+    snk_blk_id: bursts_to_pdus
+    snk_port_id: burst_handled
+-   src_blk_id: burst_downmix
+    src_port_id: cpdus
+    snk_blk_id: qpsk_demod
+    snk_port_id: cpdus
+- [burst_tagger, '0', bursts_to_pdus, '0']
+-   src_blk_id: bursts_to_pdus
+    src_port_id: cpdus
+    snk_blk_id: burst_downmix
+    snk_port_id: cpdus
+-   src_blk_id: frame_sorter
+    src_port_id: pdus
+    snk_blk_id: frame_printer
+    snk_port_id: pdus
+-   src_blk_id: qpsk_demod
+    src_port_id: pdus
+    snk_blk_id: frame_sorter
+    snk_port_id: pdus
+- [recording, '0', burst_tagger, '0']
+metadata:
+    file_format: 2
+    grc_version: 3.11.0.0
