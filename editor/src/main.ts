@@ -1058,6 +1058,16 @@ function parameterHideValue(hide: string | undefined, params: Record<string, any
     /^\$\{\s*['"](none|part|all)['"]\s+if\s+([A-Za-z_]\w*)\s*==\s*(-?(?:\d+(?:\.\d*)?|\.\d+))\s+else\s+['"](none|part|all)['"]\s*\}$/);
   if (conditional)
     return Number(params[conditional[2]]) === Number(conditional[3]) ? conditional[1] : conditional[4];
+  // The membership form -- `${ 'none' if type in ('int', 'short') else 'part' }`
+  // -- which Message Strobe Random and SigMF Sink use to show a parameter only
+  // for the options it applies to.
+  const membership = text.match(
+    /^\$\{\s*['"](none|part|all)['"]\s+if\s+([A-Za-z_]\w*)\s+in\s+\(([^)]*)\)\s+else\s+['"](none|part|all)['"]\s*\}$/);
+  if (membership) {
+    const members = membership[3].split(',')
+      .map(m => m.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean);
+    return members.includes(String(params[membership[2]] ?? '')) ? membership[1] : membership[4];
+  }
   return text;
 }
 

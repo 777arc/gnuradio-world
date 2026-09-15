@@ -28,9 +28,14 @@ documentation: |-
     run can be. Chromium streams straight to disk and has no such limit.
 
     Stream Type is the item type on the input, and decides the 'core:datatype'
-    written out -- complex is cf32_le, float is rf32_le, short is ri16_le and
-    byte is ri8. To write an interleaved-integer recording (ci16_le), the same
-    convention GNU Radio uses, feed a short stream through Complex To IShort.
+    written out -- complex is cf32_le and float is rf32_le. An integer stream is
+    ambiguous: GNU Radio carries interleaved I/Q integers as a short or byte
+    stream, the way Complex To IShort produces one, and a real recording of
+    integers looks identical on the wire. Integer Samples says which it is.
+    'Complex (interleaved I/Q)', the default, writes ci16_le / ci8 / ci32_le and
+    counts every pair as one sample, so it is what a short stream from Complex
+    To IShort wants; 'Real' writes ri16_le / ri8 / ri32_le, one sample per item.
+    It has no effect on a complex or float stream.
 
     Sample Rate, Center Frequency, Author, Description and Hardware Info become
     'core:sample_rate', the first capture segment's 'core:frequency', and
@@ -66,8 +71,18 @@ parameters:
     options: [complex, float, int, short, byte]
     option_attributes:
         size: [gr.sizeof_gr_complex, gr.sizeof_float, gr.sizeof_int, gr.sizeof_short, gr.sizeof_char]
-        datatype: [cf32_le, rf32_le, ri32_le, ri16_le, ri8]
     hide: part
+# Only meaningful for an integer stream, which is why it is off the block face
+# for the other two; the factory ignores it there. Interleaved is the default
+# because a short stream into a recording sink is, nearly always, Complex To
+# IShort's output -- GNU Radio's own convention for a ci16 file.
+-   id: layout
+    label: Integer Samples
+    dtype: enum
+    default: interleaved
+    options: [interleaved, real]
+    option_labels: ['Complex (interleaved I/Q)', 'Real']
+    hide: ${ 'none' if type in ('int', 'short', 'byte') else 'part' }
 -   id: sample_rate
     label: Sample Rate
     dtype: float

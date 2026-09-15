@@ -21,12 +21,18 @@
 // block_executor constructs and destroys itself on the block's own scheduler
 // thread, so start(), every work() and stop() run there in sequence: the
 // accumulated metadata needs no lock.
+//
+// items_per_sample is 2 for an interleaved-integer recording (ci16_le and
+// friends), where each stream item is one component of a sample: the bytes go
+// out unchanged, but core:sample_count and every sample_start are in samples,
+// so item offsets are divided by it on the way into the metadata.
 class SigmfSink : public BrowserFileSink
 {
 public:
     using sptr = std::shared_ptr<SigmfSink>;
 
     static sptr make(std::size_t item_size,
+                     std::size_t items_per_sample,
                      const std::string& path,
                      const std::string& datatype,
                      double sample_rate,
@@ -37,6 +43,7 @@ public:
                      bool annotate_tags)
     {
         return sptr(new SigmfSink(item_size,
+                                  items_per_sample,
                                   path,
                                   datatype,
                                   sample_rate,
@@ -58,12 +65,12 @@ protected:
                           item_start,
                           item_start + static_cast<std::uint64_t>(count));
         for (const auto& tag : tags)
-            d_meta.add_tag(tag.offset, tag.key, tag.value);
+            d_meta.add_tag(tag.offset / d_items_per_sample, tag.key, tag.value);
     }
 
     std::string finish_payload() override
     {
-        d_meta.set_sample_count(items_written());
+        d_meta.set_sample_count(items_written() / d_items_per_sample);
         if (d_meta.overflowed())
             d_logger->error(
                 "SigMF Sink: more than {} annotations; the rest were dropped",
@@ -73,6 +80,7 @@ protected:
 
 private:
     SigmfSink(std::size_t item_size,
+              std::size_t items_per_sample,
               const std::string& path,
               const std::string& datatype,
               double sample_rate,
@@ -83,10 +91,12 @@ private:
               bool annotate_tags)
         : BrowserFileSink("sigmf_sink", item_size, path),
           d_meta(datatype, sample_rate, center_freq, author, description, hw_info),
+          d_items_per_sample(items_per_sample ? items_per_sample : 1),
           d_annotate_tags(annotate_tags)
     {
     }
 
     sigmf::MetaBuilder d_meta;
+    std::uint64_t d_items_per_sample;
     bool d_annotate_tags;
 };

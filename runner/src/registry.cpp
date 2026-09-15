@@ -2860,22 +2860,33 @@ static std::map<std::string, Factory>& registry_storage() {
                      "it a name, and a folder where the browser offers one");
              const auto type = type_from(p, "complex");
              const auto item_size = static_cast<std::size_t>(itemsize_of(p));
-             // The datatype the recording declares, from the item type on the
-             // input. An interleaved-integer recording (ci16_le) is written by
-             // feeding a short stream through Complex To IShort, exactly as in
-             // native GNU Radio, so a short input is ri16_le here.
+             // The datatype the recording declares. A complex or float item is
+             // one sample; an integer item is one component of a sample, or the
+             // whole of it, and nothing about the stream says which -- Complex To
+             // IShort's output and a genuinely real int16 stream are the same
+             // bytes. The Integer Samples parameter decides, defaulting to
+             // interleaved I/Q since that is what a short stream feeding a
+             // recording sink nearly always is (GNU Radio's own ci16 convention).
+             // The sink then counts two items per sample so core:sample_count and
+             // every annotation's sample_start are in complex samples.
              static const std::map<std::string, std::string> datatypes = {
                  { "complex", "cf32_le" }, { "float", "rf32_le" },
-                 { "int", "ri32_le" },     { "short", "ri16_le" },
-                 { "byte", "ri8" },
+                 { "int", "i32_le" },      { "short", "i16_le" },
+                 { "byte", "i8" },
              };
              const auto datatype = datatypes.find(type);
              if (datatype == datatypes.end())
                  throw std::runtime_error("SigMF Sink: unsupported stream type: " + type);
+             const bool integer = type == "int" || type == "short" || type == "byte";
+             const bool interleaved =
+                 integer && wasm_registry::text(p, "layout", "interleaved") != "real";
+             const std::string prefix = !integer ? "" : interleaved ? "c" : "r";
+             const std::size_t items_per_sample = interleaved ? 2 : 1;
 
              auto block = SigmfSink::make(item_size,
+                                          items_per_sample,
                                           path,
-                                          datatype->second,
+                                          prefix + datatype->second,
                                           number_from(p, "sample_rate", 0.0),
                                           number_from(p, "center_freq", 0.0),
                                           wasm_registry::text(p, "author"),

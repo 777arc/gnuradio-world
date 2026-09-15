@@ -179,6 +179,18 @@ a worker on the other end.
   `nitems_read(0)` still addresses it, so `get_tags_in_range()` sees exactly those
   tags. `finish_payload()` builds the `.sigmf-meta` at stop, when the samples are
   finally counted.
+- **An integer stream is interleaved I/Q unless the block is told otherwise.**
+  The bytes of a short stream out of Complex To IShort and of a genuinely real
+  int16 stream are identical, so `core:datatype` cannot be inferred from the item
+  type alone; the sink's `layout` parameter (*Integer Samples*) decides, and it
+  defaults to `interleaved` — `ci16_le` / `ci8` / `ci32_le` — because that is
+  GNU Radio's own convention for an integer recording and what the source side
+  of this doc reads back as a short stream feeding IShort To Complex. `real`
+  writes `ri16_le` / `ri8` / `ri32_le`. The factory in `registry.cpp` turns the
+  pair into the datatype string and an `items_per_sample` of 2 or 1, and the
+  sink divides `items_written()` and every tag offset by it, so
+  `core:sample_count` and each `sample_start` count complex samples rather than
+  components. Complex and float streams ignore the parameter.
 - [`runner/src/browser_file_writer.js`](../runner/src/browser_file_writer.js) is
   the worker, with two modes. With the File System Access API it streams into a
   `FileSystemDirectoryHandle` the reader chose, and a recording is bounded only by
