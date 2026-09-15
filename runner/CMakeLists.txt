@@ -138,6 +138,7 @@ qt_add_executable(runner
   ${BLOCKS}/src/hackrf_sink.cpp
   ${BLOCKS}/src/spectrum_analyzer_sink.cpp
   ${BLOCKS}/src/adsb_map_sink.cpp
+  ${BLOCKS}/src/ais_map_sink.cpp
   ${BLOCKS}/overlays/gr-paint/paint_image_source.cpp
   ${BLOCKS}/overlays/gr-fosphor/fosphor_webgpu_sink.cpp
   ${BLOCKS}/overlays/gr-radar/radar_plots.cpp
@@ -295,6 +296,9 @@ add_custom_command(TARGET runner POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
           ${CMAKE_CURRENT_SOURCE_DIR}/src/adsb_map.js
           ${CMAKE_CURRENT_BINARY_DIR}/adsb_map.js
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/ais_map.js
+          ${CMAKE_CURRENT_BINARY_DIR}/ais_map.js
   COMMAND ${CMAKE_COMMAND} -E make_directory
           ${CMAKE_CURRENT_BINARY_DIR}/maplibre-${MAPLIBRE_VERSION}
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
@@ -331,6 +335,7 @@ set_property(TARGET runner APPEND PROPERTY LINK_DEPENDS
   ${CMAKE_CURRENT_SOURCE_DIR}/src/fosphor_webgpu.js
   ${CMAKE_CURRENT_SOURCE_DIR}/src/spectrum_analyzer.js
   ${CMAKE_CURRENT_SOURCE_DIR}/src/adsb_map.js
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/ais_map.js
   ${MAPLIBRE_DIST}/maplibre-gl.mjs
   ${MAPLIBRE_DIST}/maplibre-gl-shared.mjs
   ${MAPLIBRE_DIST}/maplibre-gl-worker.mjs

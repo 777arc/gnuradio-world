@@ -3,7 +3,7 @@ options:
         author: GNU Radio World
         comment: ''
         copyright: ''
-        description: Decodes AIS position reports from ships in the hosted 250 kS/s SDRangel recording centered on 162 MHz. Two Frequency Xlating FIR Filters select channel A (161.975 MHz) and channel B (162.025 MHz) at 50 kS/s, gr-ais's AIS Demod recovers the GMSK bits of each, HDLC Deframer checks the CRC of every burst, and AIS PDU to NMEA prints the !AIVDM sentences to the console. This is the receive chain of upstream's ais_rx tool, block by block.
+        description: Decodes AIS position reports from ships in the hosted 250 kS/s SDRangel recording centered on 162 MHz. Two Frequency Xlating FIR Filters select channel A (161.975 MHz) and channel B (162.025 MHz) at 50 kS/s, gr-ais's AIS Demod recovers the GMSK bits of each, HDLC Deframer checks the CRC of every burst, AIS PDU to NMEA prints the !AIVDM sentences to the console, and the AIS Map plots every vessel on the Thames estuary as its reports arrive. The receive chain is upstream's ais_rx tool, block by block.
         generate_options: qt_gui
         id: AIS_Receiver
         title: AIS Receiver
@@ -18,7 +18,7 @@ blocks:
         comment: AIS symbol rate
         value: '9600'
     states:
-        coordinate: [590, 10]
+        coordinate: [510, 10]
         rotation: 0
         state: enabled
 -   name: center_freq
@@ -27,7 +27,7 @@ blocks:
         comment: Recording center frequency
         value: '162000000'
     states:
-        coordinate: [770, 10]
+        coordinate: [290, 130]
         rotation: 0
         state: enabled
 -   name: channel_a_freq
@@ -36,7 +36,7 @@ blocks:
         comment: AIS channel A
         value: '161975000'
     states:
-        coordinate: [940, 10]
+        coordinate: [510, 130]
         rotation: 0
         state: enabled
 -   name: channel_b_freq
@@ -45,25 +45,25 @@ blocks:
         comment: AIS channel B
         value: '162025000'
     states:
-        coordinate: [1140, 10]
+        coordinate: [730, 10]
         rotation: 0
         state: enabled
 -   name: channel_rate
     id: variable
     parameters:
-        comment: Per-channel rate after decimation (5.2 samples per symbol)
+        comment: "Per-channel rate after decimation\n(5.2 samples per symbol)"
         value: samp_rate/decim
     states:
-        coordinate: [1340, 10]
+        coordinate: [730, 130]
         rotation: 0
         state: enabled
 -   name: decim
     id: variable
     parameters:
-        comment: Channel filter decimation, as ais_rx computes it for 5 samples per symbol
+        comment: "Channel filter decimation,\nas ais_rx computes it for 5\nsamples per symbol"
         value: '5'
     states:
-        coordinate: [1530, 10]
+        coordinate: [950, 10]
         rotation: 0
         state: enabled
 -   name: samp_rate
@@ -72,7 +72,7 @@ blocks:
         comment: Recording sample rate
         value: '250000'
     states:
-        coordinate: [10, 170]
+        coordinate: [290, 10]
         rotation: 0
         state: enabled
 -   name: channel_a
@@ -89,7 +89,7 @@ blocks:
         taps: firdes.low_pass(1, samp_rate, 11000, 1000)
         type: ccf
     states:
-        coordinate: [670, 300]
+        coordinate: [680, 300]
         rotation: 0
         state: enabled
 -   name: channel_b
@@ -106,7 +106,7 @@ blocks:
         taps: firdes.low_pass(1, samp_rate, 11000, 1000)
         type: ccf
     states:
-        coordinate: [670, 440]
+        coordinate: [680, 540]
         rotation: 0
         state: enabled
 -   name: deframer_a
@@ -120,7 +120,7 @@ blocks:
         min: '11'
         minoutbuf: '0'
     states:
-        coordinate: [1460, 320]
+        coordinate: [1470, 320]
         rotation: 0
         state: enabled
 -   name: deframer_b
@@ -134,7 +134,7 @@ blocks:
         min: '11'
         minoutbuf: '0'
     states:
-        coordinate: [1460, 520]
+        coordinate: [1490, 560]
         rotation: 0
         state: enabled
 -   name: demod_a
@@ -152,7 +152,7 @@ blocks:
         omega_relative_limit: '0.01'
         samples_per_symbol: channel_rate/bits_per_sec
     states:
-        coordinate: [1080, 270]
+        coordinate: [1090, 270]
         rotation: 0
         state: enabled
 -   name: demod_b
@@ -170,7 +170,7 @@ blocks:
         omega_relative_limit: '0.01'
         samples_per_symbol: channel_rate/bits_per_sec
     states:
-        coordinate: [1080, 470]
+        coordinate: [1100, 510]
         rotation: 0
         state: enabled
 -   name: nmea_a
@@ -183,7 +183,7 @@ blocks:
         maxoutbuf: '0'
         minoutbuf: '0'
     states:
-        coordinate: [130, 780]
+        coordinate: [1830, 310]
         rotation: 0
         state: enabled
 -   name: nmea_b
@@ -196,7 +196,7 @@ blocks:
         maxoutbuf: '0'
         minoutbuf: '0'
     states:
-        coordinate: [130, 920]
+        coordinate: [1820, 550]
         rotation: 0
         state: enabled
 -   name: recording
@@ -204,7 +204,7 @@ blocks:
     parameters:
         affinity: ''
         alias: ''
-        comment: 157 s of both AIS channels at 250 kS/s, centered on 162 MHz
+        comment: "157 s of both AIS channels at\n250 kS/s, centered on 162 MHz"
         length: '0'
         maxoutbuf: '0'
         minoutbuf: '0'
@@ -214,7 +214,7 @@ blocks:
         repeat: 'True'
         type: complex
     states:
-        coordinate: [10, 300]
+        coordinate: [20, 300]
         rotation: 0
         state: enabled
 -   name: throttle
@@ -232,7 +232,28 @@ blocks:
         type: complex
         vlen: '1'
     states:
-        coordinate: [330, 290]
+        coordinate: [340, 290]
+        rotation: 0
+        state: enabled
+-   name: vessel_map
+    id: wasm_ais_map_sink
+    parameters:
+        affinity: ''
+        alias: ''
+        basemap: light
+        comment: "Both channels' packets,\ndecoded and plotted by MMSI;\nselect a row or marker for details"
+        expire_seconds: '1200'
+        name: '"Ships on the Thames estuary"'
+        receiver_latitude: '0'
+        receiver_longitude: '0'
+        show_labels: 'True'
+        show_receiver: 'False'
+        stale_seconds: '180'
+        trail_seconds: '1800'
+        units: nautical
+        update_time: '0.25'
+    states:
+        coordinate: [1870, 700]
         rotation: 0
         state: enabled
 -   name: wasm_gui_layout_0
@@ -242,10 +263,10 @@ blocks:
         alias: ''
         columns: '12'
         comment: ''
-        layout: '{}'
+        layout: '{"recording":[0,0,12,1],"waterfall":[0,1,12,3],"vessel_map":[0,4,12,9]}'
         row_height: '60'
     states:
-        coordinate: [300, 10]
+        coordinate: [1180, 10]
         rotation: 0
         state: enabled
 -   name: waterfall
@@ -302,7 +323,7 @@ blocks:
         update_time: '0.1'
         wintype: window.WIN_RECTANGULAR
     states:
-        coordinate: [670, 580]
+        coordinate: [680, 710]
         rotation: 0
         state: enabled
 connections:
@@ -312,10 +333,18 @@ connections:
     src_port_id: out
     snk_blk_id: nmea_a
     snk_port_id: print
+-   src_blk_id: deframer_a
+    src_port_id: out
+    snk_blk_id: vessel_map
+    snk_port_id: in
 -   src_blk_id: deframer_b
     src_port_id: out
     snk_blk_id: nmea_b
     snk_port_id: print
+-   src_blk_id: deframer_b
+    src_port_id: out
+    snk_blk_id: vessel_map
+    snk_port_id: in
 - [demod_a, '0', deframer_a, '0']
 - [demod_b, '0', deframer_b, '0']
 - [recording, '0', throttle, '0']

@@ -38,6 +38,9 @@ assert.match(byId.get('wasm_spectrum_analyzer_sink')?.documentation || '',
 assert.match(byId.get('wasm_adsb_map_sink')?.documentation || '',
   /ADS-B Decoder.*decoded message port/s,
   'the browser-native map must document its message contract');
+assert.match(byId.get('wasm_ais_map_sink')?.documentation || '',
+  /HDLC Deframer.*AIS PDU to\s+NMEA/s,
+  'the AIS map must document both PDU inputs it accepts');
 const analyzerLevelUnit = byId.get('wasm_spectrum_analyzer_sink')?.params
   .find(param => param.id === 'level_unit');
 assert.equal(analyzerLevelUnit?.dtype, 'enum',

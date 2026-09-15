@@ -79,6 +79,7 @@ const worldBlocks = new Map([
   ['js_phase_unwrap_ff', ['GNU Radio World']],
   ['wasm_gr_world_recording', ['GNU Radio World']],
   ['wasm_adsb_map_sink', ['GNU Radio World']],
+  ['wasm_ais_map_sink', ['GNU Radio World']],
   ['wasm_gui_layout', ['GNU Radio World']],
   ['wasm_js_block', ['GNU Radio World']],
   ['wasm_musical_keyboard_source', ['GNU Radio World']],
@@ -94,6 +95,8 @@ for (const [id, category] of worldBlocks)
     `${id} must appear beneath the GNU Radio World palette root`);
 assert.equal(byId.get('wasm_adsb_map_sink')?.runnable, true,
   'the browser-native ADS-B map must be runnable');
+assert.equal(byId.get('wasm_ais_map_sink')?.runnable, true,
+  'the browser-native AIS map must be runnable');
 for (const id of supportedSdrBlocks.keys())
   assert.notEqual(byId.get(id)?.category?.[0], 'GNU Radio World',
     `${id} is hardware and must remain outside GNU Radio World`);

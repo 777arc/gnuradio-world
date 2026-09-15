@@ -1,0 +1,102 @@
+id: wasm_ais_map_sink
+label: AIS Map
+category: '[GNU Radio World]'
+flags: [cpp]
+
+# The C++ factory builds a QWidget placeholder for GUI Layout. A browser-native
+# MapLibre display is aligned over that placeholder by runner/src/ais_map.js,
+# which also holds the AIS message decoder.
+gui: true
+
+documentation: |-
+    Plots the ships, base stations and aids to navigation heard by an AIS
+    receiver on an interactive map. Connect the PDU output of HDLC Deframer
+    (the deframed AIS packet, as in gr-ais's receive chain) or of AIS PDU to
+    NMEA (an !AIVDM sentence; multi-sentence messages are reassembled).
+
+    Position reports (message types 1, 2, 3, 18, 19, 27, and 9 for SAR
+    aircraft) place a vessel keyed by its MMSI, with speed and course over
+    ground, true heading, rate of turn and navigational status; static data
+    (types 5 and 24) adds the name, call sign, ship type, dimensions, draught
+    and destination, so a vessel that has only reported a position is listed
+    by MMSI until its name arrives. Base stations (type 4) and aids to
+    navigation (type 21) are drawn with their own symbols. Markers are
+    coloured by ship type and turned to the heading, trails follow each track,
+    and the list can be searched by name, call sign or MMSI; selecting a
+    vessel shows its details and can follow it. Stale vessels fade before they
+    expire. Age is measured from local message arrival, so a played-back
+    recording behaves correctly.
+
+    Light and Dark use OpenFreeMap vector styles and require network access.
+    If a style cannot be loaded, or Basemap is None, the display falls back to
+    a network-free graticule. Receiver coordinates are optional and are used
+    only for the home marker, range rings, distance, and bearing. Nautical
+    units keep knots and nautical miles; Metric converts to kilometres per
+    hour and kilometres.
+
+    This block exists only in the WebAssembly runner and does not run in desktop
+    GNU Radio.
+
+parameters:
+-   id: name
+    label: Title
+    dtype: string
+    default: '"AIS Map"'
+-   id: basemap
+    label: Basemap
+    dtype: enum
+    default: light
+    options: [light, dark, none]
+    option_labels: [Light, Dark, None / Offline]
+-   id: units
+    label: Units
+    dtype: enum
+    default: nautical
+    options: [nautical, metric]
+    option_labels: [Nautical, Metric]
+-   id: show_receiver
+    label: Show Receiver
+    dtype: bool
+    default: 'False'
+-   id: receiver_latitude
+    label: Receiver Latitude
+    dtype: real
+    default: '0'
+-   id: receiver_longitude
+    label: Receiver Longitude
+    dtype: real
+    default: '0'
+-   id: show_labels
+    label: Show Vessel Labels
+    dtype: bool
+    default: 'True'
+-   id: trail_seconds
+    label: Trail Duration (s)
+    dtype: real
+    default: '1800'
+-   id: stale_seconds
+    label: Stale After (s)
+    dtype: real
+    default: '180'
+-   id: expire_seconds
+    label: Remove After (s)
+    dtype: real
+    default: '1200'
+-   id: update_time
+    label: Update Period (s)
+    dtype: real
+    default: '0.25'
+
+inputs:
+-   label: in
+    domain: message
+
+asserts:
+- ${ receiver_latitude >= -90 and receiver_latitude <= 90 }
+- ${ receiver_longitude >= -180 and receiver_longitude <= 180 }
+- ${ trail_seconds >= 0 }
+- ${ stale_seconds > 0 }
+- ${ expire_seconds > stale_seconds }
+- ${ update_time >= 0.05 }
+
+file_format: 1

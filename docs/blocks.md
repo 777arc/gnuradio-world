@@ -579,6 +579,44 @@ observe it without block-specific branches in the editor. Keep the power bridge
 linear; averaging and 99% OBW must not integrate values after their conversion
 to dB.
 
+### The two map sinks
+
+`wasm_adsb_map_sink` (ADS-B Map) and `wasm_ais_map_sink` (AIS Map) are the
+same construction with different decoders behind them, and either is the
+template for the next block that plots something geographic. The C++ side
+([`blocks/src/adsb_map_sink.cpp`](../blocks/src/adsb_map_sink.cpp),
+[`blocks/src/ais_map_sink.cpp`](../blocks/src/ais_map_sink.cpp)) is a
+message-only block whose `QWidget` is a placement placeholder: its handler
+queues what arrives under a mutex, a `QTimer` on the widget batches it to
+`globalThis.__grAdsbMap` / `__grAisMap` as JSON from the browser main thread,
+and nothing on a scheduler thread ever touches the DOM. The display is
+[`runner/src/adsb_map.js`](../runner/src/adsb_map.js) /
+[`runner/src/ais_map.js`](../runner/src/ais_map.js): MapLibre over the
+vendored `maplibre-6.8.0/` directory (OpenFreeMap vector styles when the
+network allows, a graticule otherwise), a Canvas2D overlay for the markers,
+the list, search and details, positioned from the shared `gr-widgets` layout
+report and registered with `gui_observation.js` so `read_plot_data` gets a
+`kind: "map"` snapshot and `capture_plots` gets both canvases. Copy one file
+pair, rename the globals, and the layout, observation and CMake copy rules
+need nothing new beyond the `<script>` tag in `runner.html`.
+
+Where the two differ is deliberate. The ADS-B Decoder hands the ADS-B map an
+already-decoded, cumulative record per aircraft, so its C++ parses the PDU
+metadata. The AIS chain hands the AIS map a *packet* — HDLC Deframer's raw
+payload bytes, or the `!AIVDM` sentence AIS PDU to NMEA makes of them — so the
+AIS message decoder (position reports 1/2/3/18/19/27 and 9, static data 5/24,
+base stations 4, aids to navigation 21, multi-sentence reassembly) lives in
+`ais_map.js` and the C++ only forwards bytes as hex. That puts the decoding
+where `runner/test/ais_map.test.mjs` can run it on plain Node, checked
+against gr-ais's reference packet and the published EVER DIADEM type 5
+example, and it makes both inputs decode identically by construction: the
+deframer's bytes are read MSB first, the order `pdu_to_nmea` armors them in.
+Two things about vessel state: a position report's "not available" field
+replaces the previous value rather than leaving a stale speed on screen, while
+static data (name, call sign, type, destination) only ever accumulates, since
+an empty text field means unreported, not cleared; and a vessel is listed by
+MMSI until its type 5 or 24 arrives, which on a live channel can be minutes.
+
 ### A widget's placement is not the block's business
 
 `gui_hint` does nothing here; a singleton **GUI Layout** block arranges the whole

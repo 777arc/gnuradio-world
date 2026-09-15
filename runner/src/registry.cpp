@@ -31,6 +31,7 @@
 #include "qtgui_sinks.hpp"
 #include "spectrum_analyzer_sink.hpp"
 #include "adsb_map_sink.hpp"
+#include "ais_map_sink.hpp"
 #include "musical_keyboard_source.hpp"
 #include "text_sink.hpp"
 #include "hrpt_image_sink.hpp"
@@ -4072,6 +4073,25 @@ static std::map<std::string, Factory>& registry_storage() {
                  number_from(p, "trail_seconds", 300.0),
                  number_from(p, "stale_seconds", 15.0),
                  number_from(p, "expire_seconds", 60.0),
+                 number_from(p, "update_time", 0.25));
+             return { block, block->qwidget() };
+         }},
+        // Browser-native vessel map, the same shape as the ADS-B one. The block
+        // only forwards each packet's bytes; runner/src/ais_map.js decodes the
+        // AIS message and paints the map over this QWidget placeholder.
+        {"wasm_ais_map_sink", [](const json& p) -> BuiltBlock {
+             auto block = AisMapSinkWasm::make(
+                 p.value("__name", std::string("ais_map")),
+                 unquoted(param_text(p, "name", "AIS Map")),
+                 unquoted(param_text(p, "basemap", "light")),
+                 unquoted(param_text(p, "units", "nautical")),
+                 bool_from(p, "show_receiver", false),
+                 number_from(p, "receiver_latitude", 0.0),
+                 number_from(p, "receiver_longitude", 0.0),
+                 bool_from(p, "show_labels", true),
+                 number_from(p, "trail_seconds", 1800.0),
+                 number_from(p, "stale_seconds", 180.0),
+                 number_from(p, "expire_seconds", 1200.0),
                  number_from(p, "update_time", 0.25));
              return { block, block->qwidget() };
          }},
