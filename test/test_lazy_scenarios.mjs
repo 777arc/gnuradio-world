@@ -105,6 +105,19 @@ const scenarios = [
         ['byte_src',0,'swap_byte',0], ['swap_byte',0,'byte_snk',0],
       ] },
     expectFetch: ['correctiq.wasm'] },
+  { name: 'gr-lte rough symbol synchronizer (OOT deferred)',
+    fg: { blocks:[
+      { name:'src', id:'analog_sig_source_x',
+        params:{ type:'complex', samp_rate:1920000, waveform:'cos',
+                 freq:15000, amp:0.5 } },
+      { name:'thr', id:'blocks_throttle2',
+        params:{ type:'complex', samples_per_second:1920000, vlen:1,
+                 ignoretag:'True', limit:'auto', maximum:0.1 } },
+      { name:'sync', id:'lte_rough_symbol_sync_cc',
+        params:{ fftl:128, vlen:1 } },
+      { name:'snk', id:'blocks_null_sink', params:{ type:'complex' } } ],
+      connections:[['src',0,'thr',0],['thr',0,'sync',0],['sync',0,'snk',0]] },
+    expectFetch: ['lte.wasm'] },
   // gr-ais (OOT deferred, needs digital): both rebuilt receivers over noise.
   // The streaming AIS Demod is upstream's ais_rx chain into HDLC Deframer and
   // NMEA; the burst demodulator and the standalone Viterbi construct their

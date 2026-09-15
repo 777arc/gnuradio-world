@@ -1,0 +1,261 @@
+options:
+    parameters:
+        author: GNU Radio World
+        comment: ''
+        copyright: ''
+        description: Detects the LTE primary synchronization signal in a real 1.92 MS/s RTL-SDR downlink recording. The gr-lte chain estimates OFDM symbol timing from the cyclic prefix, extracts the central six resource blocks, identifies N_id_2, and prints the detected physical-layer identity to the console.
+        generate_options: qt_gui
+        id: LTE_PSS_Synchronization_from_Recording
+        title: LTE PSS Synchronization from Recording
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: fft_len
+    id: variable
+    parameters:
+        comment: "1.92 MS/s / 15 kHz\nLTE subcarrier spacing"
+        value: '128'
+    states:
+        coordinate: [1200, 20]
+        rotation: 0
+        state: enabled
+-   name: resource_blocks
+    id: variable
+    parameters:
+        comment: "Central six resource\nblocks contain the PSS"
+        value: '6'
+    states:
+        coordinate: [980, 20]
+        rotation: 0
+        state: enabled
+-   name: sample_rate
+    id: variable
+    parameters:
+        comment: RTL-SDR recording sample rate
+        value: '1920000'
+    states:
+        coordinate: [720, 20]
+        rotation: 0
+        state: enabled
+-   name: blocks_throttle2_0
+    id: blocks_throttle2
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        ignoretag: 'True'
+        limit: auto
+        maximum: '0.1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        samples_per_second: sample_rate
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [700, 180]
+        rotation: 0
+        state: enabled
+-   name: central_subcarriers
+    id: lte_extract_subcarriers_vcvc
+    parameters:
+        N_rb_dl: resource_blocks
+        affinity: ''
+        alias: ''
+        comment: Extract the central 72 subcarriers around DC
+        fftl: fft_len
+        maxoutbuf: '0'
+        minoutbuf: '0'
+    states:
+        coordinate: [880, 450]
+        rotation: 0
+        state: enabled
+-   name: detected_identity
+    id: blocks_message_debug
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: Print each detected LTE N_id_2 value to the console
+        en_uvec: 'True'
+        log_level: info
+    states:
+        coordinate: [1590, 460]
+        rotation: 0
+        state: enabled
+-   name: fft
+    id: fft_vxx
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: Transform candidate OFDM symbols without shifting DC
+        fft_size: fft_len
+        forward: 'True'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        nthreads: '1'
+        shift: 'False'
+        type: complex
+        window: '[1.0] * fft_len'
+    states:
+        coordinate: [510, 430]
+        rotation: 0
+        state: enabled
+-   name: iq
+    id: blocks_interleaved_char_to_complex
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: Convert signed interleaved RTL-SDR I/Q bytes to normalized complex samples
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        scale_factor: '127'
+        vector_input: 'False'
+    states:
+        coordinate: [370, 200]
+        rotation: 0
+        state: enabled
+-   name: note_0
+    id: note
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        note: The console prints the detected LTE physical-layer identity N_id_2. The hosted SigMF source comes from Jiao Xianjun's LTE-Cell-Scanner regression corpus (GPL-3.0), captured at 1815.3 MHz with an RTL-SDR.
+    states:
+        coordinate: [300, 10]
+        rotation: 0
+        state: enabled
+-   name: pss
+    id: lte_pss_calculator_vcm
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: Correlate against all three LTE PSS sequences
+        fftl: fft_len
+        maxoutbuf: '0'
+        minoutbuf: '0'
+    states:
+        coordinate: [1220, 430]
+        rotation: 0
+        state: enabled
+-   name: pss_selector
+    id: lte_pss_symbol_selector_cvc
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: Select candidate synchronization symbols
+        fftl: fft_len
+        maxoutbuf: '0'
+        minoutbuf: '0'
+    states:
+        coordinate: [110, 430]
+        rotation: 0
+        state: enabled
+-   name: recording
+    id: wasm_gr_world_recording
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: "80 ms LTE downlink capture at\n1815.3 MHz from LTE-Cell-Scanner"
+        length: '0'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        offset: '0'
+        progress: 'True'
+        recording: lte/lte_downlink_1815_3mhz_rtlsdr
+        repeat: 'False'
+        type: byte
+    states:
+        coordinate: [20, 190]
+        rotation: 0
+        state: enabled
+-   name: rough_sync
+    id: lte_rough_symbol_sync_cc
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: Locate OFDM symbol boundaries from cyclic-prefix correlation
+        fftl: fft_len
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        vlen: '1'
+    states:
+        coordinate: [1040, 190]
+        rotation: 0
+        state: enabled
+-   name: sink
+    id: blocks_null_sink
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: Consume the synchronized and tagged sample stream
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [1920, 240]
+        rotation: 0
+        state: enabled
+-   name: synchronized_stream
+    id: lte_pss_tagger_cc
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: Apply half-frame and N_id_2 tags to the sample stream
+        fftl: fft_len
+        maxoutbuf: '0'
+        minoutbuf: '0'
+    states:
+        coordinate: [1600, 190]
+        rotation: 0
+        state: enabled
+-   name: wasm_gui_layout_0
+    id: wasm_gui_layout
+    parameters:
+        affinity: ''
+        alias: ''
+        columns: '12'
+        comment: ''
+        layout: '{}'
+        row_height: '60'
+    states:
+        coordinate: [1370, 20]
+        rotation: 0
+        state: enabled
+connections:
+- [blocks_throttle2_0, '0', rough_sync, '0']
+- [central_subcarriers, '0', pss, '0']
+- [fft, '0', central_subcarriers, '0']
+- [iq, '0', blocks_throttle2_0, '0']
+-   src_blk_id: pss
+    src_port_id: N_id_2
+    snk_blk_id: detected_identity
+    snk_port_id: print
+-   src_blk_id: pss
+    src_port_id: N_id_2
+    snk_blk_id: synchronized_stream
+    snk_port_id: N_id_2
+-   src_blk_id: pss
+    src_port_id: half_frame
+    snk_blk_id: pss_selector
+    snk_port_id: half_frame
+-   src_blk_id: pss
+    src_port_id: half_frame
+    snk_blk_id: synchronized_stream
+    snk_port_id: half_frame
+-   src_blk_id: pss
+    src_port_id: lock
+    snk_blk_id: pss_selector
+    snk_port_id: lock
+-   src_blk_id: pss
+    src_port_id: lock
+    snk_blk_id: synchronized_stream
+    snk_port_id: lock
+- [pss_selector, '0', fft, '0']
+- [recording, '0', iq, '0']
+- [rough_sync, '0', pss_selector, '0']
+- [rough_sync, '0', synchronized_stream, '0']
+- [synchronized_stream, '0', sink, '0']
+metadata:
+    file_format: 2
+    grc_version: 3.11.0.0

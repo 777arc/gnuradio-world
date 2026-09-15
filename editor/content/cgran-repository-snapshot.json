@@ -91,6 +91,12 @@
       "latest_commit": "a09b2546194a644bc756c6f25589ba8869c45433",
       "latest_commit_at": "2025-03-30T00:37:31+01:00"
     },
+    "gr-lte": {
+      "repository": "https://github.com/kit-cel/gr-lte",
+      "checked_at": "2026-09-15T07:09:09.622Z",
+      "latest_commit": "7288cc3a50b528955bf45d4a1526eac416361014",
+      "latest_commit_at": "2018-02-20T10:35:05+01:00"
+    },
     "gr-lora_sdr": {
       "repository": "https://github.com/tapparelj/gr-lora_sdr",
       "checked_at": "2026-09-14T06:10:53.569Z",

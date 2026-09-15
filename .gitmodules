@@ -86,3 +86,7 @@
 	path = gr-correctiq
 	url = https://github.com/ghostop14/gr-correctiq.git
 	branch = master
+[submodule "gr-lte"]
+	path = gr-lte
+	url = https://github.com/bkerler/gr-lte.git
+	branch = maint-3.10

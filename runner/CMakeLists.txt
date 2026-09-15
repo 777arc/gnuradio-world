@@ -102,6 +102,7 @@ set(GR_INCLUDE_DIRS
   ${WORLD}/gr-iridium/include
   ${WORLD}/gr-ais/include
   ${WORLD}/gr-correctiq/include
+  ${WORLD}/gr-lte/include
   ${BUILDGR}/gnuradio-runtime/include ${SYSROOT}/include)
 
 # ---------------------------------------------------------------------------
@@ -416,7 +417,7 @@ endforeach()
 # Every ordinary side module uses the same Emscripten ABI and exception flags.
 # Keep that contract in one helper so a new category cannot quietly diverge.
 function(add_side_module module)
-  cmake_parse_arguments(SIDE "" "" "SOURCES;INCLUDE_DIRS;DEPENDS" ${ARGN})
+  cmake_parse_arguments(SIDE "" "" "SOURCES;INCLUDE_DIRS;COMPILE_OPTIONS;DEPENDS" ${ARGN})
   set(local_include_flags "")
   foreach(dir ${SIDE_INCLUDE_DIRS})
     list(APPEND local_include_flags -I${dir})
@@ -429,6 +430,7 @@ function(add_side_module module)
       -sNO_DISABLE_EXCEPTION_CATCHING
       # Must match the Qt-linked main module's i64 ABI.
       -sWASM_BIGINT=1
+      ${SIDE_COMPILE_OPTIONS}
       ${local_include_flags}
       ${SIDE_INCLUDE_FLAGS}
       ${SIDE_SOURCES}
@@ -1234,6 +1236,59 @@ set(CORRECTIQ_SOURCES
   ${CORRECTIQ_LIB}/correctiq_impl.cc
   ${CORRECTIQ_LIB}/correctiq_man_impl.cc)
 add_side_module(correctiq SOURCES ${CORRECTIQ_SOURCES})
+
+# gr-lte (KIT CEL, GNU Radio 3.10 port by Bjoern Kerler): a modular LTE
+# downlink receiver. The primitive synchronizers, OFDM helpers, channel
+# estimator, and PBCH/PCFICH processing blocks are C++ and compile directly
+# into this deferred module. The generated factory table currently exposes the
+# recording-backed PSS synchronization path; the remaining primitives stay in
+# the side module so adding their factories does not require another source
+# integration. HAVE_CONFIG_H is left undefined, so the guarded generated
+# config.h include is not needed.
+set(LTE_LIB ${WORLD}/gr-lte/lib)
+set(LTE_WASM_SHIMS ${BLOCKS}/overlays/gr-lte/shims)
+set(LTE_SOURCES
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/generated_registry_lte.cpp
+  ${LTE_LIB}/mib_unpack_vbm_impl.cc
+  ${LTE_LIB}/crc_check_vbvb_impl.cc
+  ${LTE_LIB}/bch_crc_check_ant_chooser_bb_impl.cc
+  ${LTE_LIB}/subblock_deinterleaver_vfvf_impl.cc
+  ${LTE_LIB}/pbch_descrambler_vfvf_impl.cc
+  ${LTE_LIB}/repeat_message_source_vf_impl.cc
+  ${LTE_LIB}/qpsk_soft_demod_vcvf_impl.cc
+  ${LTE_LIB}/layer_demapper_vcvc_impl.cc
+  ${LTE_LIB}/pre_decoder_vcvc_impl.cc
+  ${LTE_LIB}/pbch_demux_vcvc_impl.cc
+  ${LTE_LIB}/channel_estimator_vcvc_impl.cc
+  ${LTE_LIB}/extract_subcarriers_vcvc_impl.cc
+  ${LTE_LIB}/remove_cp_cvc_impl.cc
+  ${LTE_LIB}/sss_calculator_vcm_impl.cc
+  ${LTE_LIB}/pcfich_unpack_vfm_impl.cc
+  ${LTE_LIB}/rough_symbol_sync_cc_impl.cc
+  ${LTE_LIB}/pss_symbol_selector_cvc_impl.cc
+  ${LTE_LIB}/pss_calculator_vcm_impl.cc
+  ${LTE_LIB}/pss_tagger_cc_impl.cc
+  ${LTE_LIB}/correlator.cc
+  ${LTE_LIB}/sss_symbol_selector_cvc_impl.cc
+  ${LTE_LIB}/sss_tagger_cc_impl.cc
+  ${LTE_LIB}/sync_frequency_impl.cc
+  ${LTE_LIB}/descrambler_vfvf_impl.cc
+  ${LTE_LIB}/pcfich_demux_vcvc_impl.cc
+  ${LTE_LIB}/mimo_pss_coarse_sync_impl.cc
+  ${LTE_LIB}/mimo_pss_fine_sync_impl.cc
+  ${LTE_LIB}/mimo_pss_tagger_impl.cc
+  ${LTE_LIB}/mimo_pss_coarse_control_impl.cc
+  ${LTE_LIB}/pss.cc
+  ${LTE_LIB}/mimo_pss_freq_sync_impl.cc
+  ${LTE_LIB}/mimo_sss_symbol_selector_impl.cc
+  ${LTE_LIB}/mimo_sss_calculator_impl.cc
+  ${LTE_LIB}/mimo_sss_tagger_impl.cc
+  ${LTE_LIB}/mimo_remove_cp_impl.cc)
+add_side_module(lte
+  SOURCES ${LTE_SOURCES}
+  INCLUDE_DIRS ${LTE_LIB}
+  COMPILE_OPTIONS -include${LTE_WASM_SHIMS}/compat.hpp
+  DEPENDS ${LTE_WASM_SHIMS}/compat.hpp)
 
 # gr-iridium (muccc): burst detection, channelization, downmixing and QPSK
 # demodulation for the Iridium satellite network. All ten GRC blocks have native

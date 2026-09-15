@@ -1,0 +1,63 @@
+# Browser-only C++ factory metadata for the GNU Radio 3.10 port of KIT CEL's
+# gr-lte receiver. The original module's blocks are deliberately small and
+# composable; the first supported set is the complete PSS synchronization path
+# used by the recording-backed example. It finds LTE half-frame boundaries and
+# the physical-layer identity N_id_2 before tagging the stream for later SSS
+# and channel-decoding stages.
+
+lte_rough_symbol_sync_cc:
+  flags: [python, cpp]
+  documentation: |-
+    Estimates the LTE OFDM symbol boundary by correlating each cyclic prefix
+    with the end of its symbol. The resulting stream carries a "symbol" tag
+    whose value is the boundary offset within an LTE slot.
+  cpp_templates:
+    includes: ['#include <lte/rough_symbol_sync_cc.h>']
+    declarations: 'lte::rough_symbol_sync_cc::sptr ${id};'
+    make: 'this->${id} = lte::rough_symbol_sync_cc::make(${fftl}, ${vlen}, "${id}");'
+    link: [gnuradio-lte]
+
+lte_pss_symbol_selector_cvc:
+  flags: [python, cpp]
+  documentation: |-
+    Uses the rough symbol timing and PSS lock messages to select candidate LTE
+    synchronization symbols as FFT-length vectors.
+  cpp_templates:
+    includes: ['#include <lte/pss_symbol_selector_cvc.h>']
+    declarations: 'lte::pss_symbol_selector_cvc::sptr ${id};'
+    make: 'this->${id} = lte::pss_symbol_selector_cvc::make(${fftl}, "${id}");'
+    link: [gnuradio-lte]
+
+lte_extract_subcarriers_vcvc:
+  flags: [python, cpp]
+  documentation: |-
+    Extracts the occupied LTE subcarriers from an unshifted OFDM FFT vector,
+    omitting the DC bin and joining the negative- and positive-frequency halves.
+  cpp_templates:
+    includes: ['#include <lte/extract_subcarriers_vcvc.h>']
+    declarations: 'lte::extract_subcarriers_vcvc::sptr ${id};'
+    make: 'this->${id} = lte::extract_subcarriers_vcvc::make(${N_rb_dl}, ${fftl}, "${id}");'
+    link: [gnuradio-lte]
+
+lte_pss_calculator_vcm:
+  flags: [python, cpp]
+  documentation: |-
+    Correlates candidate synchronization symbols with the three LTE primary
+    synchronization sequences. It publishes N_id_2, the half-frame start, and
+    a lock indication for the selector and stream tagger.
+  cpp_templates:
+    includes: ['#include <lte/pss_calculator_vcm.h>']
+    declarations: 'lte::pss_calculator_vcm::sptr ${id};'
+    make: 'this->${id} = lte::pss_calculator_vcm::make(${fftl}, "${id}");'
+    link: [gnuradio-lte]
+
+lte_pss_tagger_cc:
+  flags: [python, cpp]
+  documentation: |-
+    Tags a synchronized LTE stream with the detected half-frame boundaries and
+    physical-layer identity N_id_2 for the downstream SSS and OFDM stages.
+  cpp_templates:
+    includes: ['#include <lte/pss_tagger_cc.h>']
+    declarations: 'lte::pss_tagger_cc::sptr ${id};'
+    make: 'this->${id} = lte::pss_tagger_cc::make(${fftl}, "${id}");'
+    link: [gnuradio-lte]

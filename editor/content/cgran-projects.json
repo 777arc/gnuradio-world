@@ -306,6 +306,32 @@
       "evidence": ["README.md", "AUTHORS", "docs/channels.svg", "grc/", "lib/", "python/iridium_extractor_flowgraph.py"]
     },
     {
+      "module": "gr-lte",
+      "name": "gr-lte",
+      "slug": "gr-lte",
+      "repository": "https://github.com/kit-cel/gr-lte",
+      "world_source_repository": "https://github.com/bkerler/gr-lte",
+      "artwork": {
+        "source_path": "gr-lte/docs/LTE_flowgraph_top_level.grc.png",
+        "source_url": "https://github.com/kit-cel/gr-lte/blob/master/docs/LTE_flowgraph_top_level.grc.png",
+        "alt": "The modular gr-lte downlink receiver flowgraph",
+        "label": "Repository flowgraph",
+        "fit": "contain",
+        "light_background": true
+      },
+      "authors": [
+        { "name": "Johannes Demel" },
+        { "name": "Kristian Maier" }
+      ],
+      "summary": [
+        "gr-lte is a modular GNU Radio receiver for the LTE downlink, designed so synchronization, OFDM processing, channel estimation, and physical-channel decoding can be studied or replaced independently.",
+        "Its synchronization paths use cyclic-prefix correlation and the LTE primary and secondary synchronization sequences to establish OFDM symbol and half-frame timing, carrier alignment, and the physical-layer cell identity.",
+        "Downstream blocks extract occupied subcarriers, estimate the channel, separate antenna layers, and implement the PBCH and PCFICH processing needed to recover broadcast system information from a captured cell."
+      ],
+      "researched_revision": "e50a92894af92ae242c669ad0f4177c74e931e0f",
+      "evidence": ["README.md", "docs/", "examples/", "grc/", "include/lte/", "lib/"]
+    },
+    {
       "module": "gr-lora_sdr",
       "name": "gr-lora_sdr",
       "slug": "gr-lora-sdr",

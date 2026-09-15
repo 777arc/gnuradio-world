@@ -72,7 +72,8 @@ third-party OOT module (already done for [`gr-rds/`](../gr-rds), [`gr-foo/`](../
 [`gr-lora_sdr/`](../gr-lora_sdr), [`gr-radar/`](../gr-radar),
 [`gr-gsm/`](../gr-gsm), [`gr-bbc/`](../gr-bbc),
 [`gr-adsb/`](../gr-adsb), [`gr-tempest/`](../gr-tempest), [`gr-iridium/`](../gr-iridium),
-[`gr-ais/`](../gr-ais) and [`gr-correctiq/`](../gr-correctiq)) is **not** part of that
+[`gr-ais/`](../gr-ais), [`gr-correctiq/`](../gr-correctiq) and
+[`gr-lte/`](../gr-lte)) is **not** part of that
 umbrella build, so there is no `libgnuradio-<m>.a`; instead its own `lib/*.cc` are
 compiled straight into an on-demand `<m>.wasm` side module. This is a
 **self-contained checklist** — following it needs no investigation beyond the
@@ -106,9 +107,9 @@ disagrees, rename on checkout: `bastibl/gr-ieee802-11` is vendored at
 Steps 3 and 5 exist so this stays possible: block metadata and generated headers
 both live in this repository, so a normal OOT module needs no branch of its own
 and bumping it is a plain `fetch` + `checkout` with nothing to rebase. Of all the
-vendored modules only gr-dvbs2 is a fork, and it is upstream plus exactly one
-commit: a WASM buffer-wrap fix that had to go in its `lib/`. Do not create a fork
-to hold yaml or a generated header.
+vendored modules, gr-dvbs2 is a fork carrying one WASM buffer-wrap fix, and
+gr-lte uses Bjoern Kerler's `maint-3.10` port because KIT CEL's upstream stopped
+at GNU Radio 3.7. Do not create a fork to hold yaml or a generated header.
 
 The checkout location also supplies the editor's OOT provenance. Every block
 discovered from a world-repo `gr-<m>` checkout (including a nested
@@ -416,6 +417,31 @@ And one about the recording: IShort To Complex's `scale_factor` *divides*
 correlation accumulators overflow to `inf`, `index_max` returns bin 0 and the
 ratio is garbage — while Normalize Flow, being scale-invariant, still paints a
 plausible-looking picture with the sync bypassed. Check the magnitude first.
+
+## gr-lte: the GNU Radio 3.10 port and PSS recording path
+
+KIT CEL's original gr-lte repository stops at GNU Radio 3.7 APIs, so this
+checkout intentionally follows Bjoern Kerler's `maint-3.10` port rather than the
+canonical repository. Its C++ sources compile directly into `lte.wasm`; the
+only compatibility shim is
+[`blocks/overlays/gr-lte/shims/compat.hpp`](../blocks/overlays/gr-lte/shims/compat.hpp),
+which replaces GNU Radio's removed `__GR_VLA` macro with `std::vector` storage.
+Keep the forced include local to this side module.
+
+The supported palette blocks form the complete single-antenna PSS synchronization
+path: Rough Symbol Sync, PSS Symbol Selector, Extract Subcarriers, PSS Calculator,
+and PSS Frame Tagger. `example_flowgraphs/gr-lte/lte_pss_sync_recording.grc`
+wires them around a 128-point FFT for a 1.92 MS/s recording. The hosted
+`lte/lte_downlink_1815_3mhz_rtlsdr` SigMF pair is Jiao Xianjun's 80 ms,
+1815.3 MHz RTL-SDR regression capture from LTE-Cell-Scanner; it remains `ci8`
+and is normalized by IChar To Complex with a scale factor of 127. The calculator
+publishes the detected physical-layer identity and the example's Message Debug
+prints it. Verify actual synchronization, not only startup, with:
+
+```bash
+node scripts/run_example.mjs gr-lte/lte_pss_sync_recording.grc \
+  8090 25 --expect='N_id_2 = 1'
+```
 
 ## gr-ais: a module whose receiver has no yaml
 
