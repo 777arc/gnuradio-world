@@ -20,6 +20,7 @@ import { readFile, stat } from 'node:fs/promises';
 import { join, normalize } from 'node:path';
 import {
   contentType,
+  dismissWelcomePopup,
   launchBrowser,
   setIsolationHeaders,
   waitForEditorCanvasIdle,
@@ -135,6 +136,7 @@ const check = (ok, what, detail = '') => {
 
 const browser = await launchBrowser(ROOT);
 const page = await browser.newPage();
+await dismissWelcomePopup(page);
 const logs = [];
 page.on('console', m => logs.push(m.text()));
 page.on('pageerror', e => logs.push('PAGEERROR ' + e.message));

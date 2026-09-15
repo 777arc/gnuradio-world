@@ -23,6 +23,7 @@ import { join, normalize } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
   contentType,
+  dismissWelcomePopup,
   launchBrowser,
   setIsolationHeaders,
 } from '../scripts/browser-test-support.mjs';
@@ -711,6 +712,7 @@ for (const result of caseResults) {
     `<rect width="${width}" height="${height}" fill="#ffffff"/></svg>\n`);
 
   const page = await browser.newPage();
+  await dismissWelcomePopup(page);
   const logs = [];
   page.on('console', m => logs.push(m.text()));
   page.on('pageerror', e => logs.push('PAGEERROR ' + e.message));

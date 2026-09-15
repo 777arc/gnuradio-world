@@ -77,13 +77,17 @@ button:hover { filter:brightness(1.15); }
 .type-row { display:flex; align-items:center; gap:14px; padding:6px 2px; font-size:16px; }
 .type-swatch { width:24px; height:17px; border:1px solid #000; border-radius:2px; }
 .err-row { padding:6px 2px; font:16px/1.5 monospace; color:#ffb3ac; border-bottom:1px solid #303548; }
-.about-body { line-height:1.55; font-size:16px; }
-.about-body p { margin:0 0 12px; }
+.modal.about .dlg { width:min(720px,94vw); }
+.about-body { color:#c5cce0; font-size:16px; line-height:1.55; }
+.about-body p { margin:0 0 14px; }
 .about-body p:last-child { margin-bottom:0; }
 .about-body a { color:#7fb4ff; }
-.help-body { line-height:1.55; font-size:16px; }
-.help-body p { margin:0; }
-.help-body a { color:#7fb4ff; }
+.welcome-title { margin:0 0 12px; color:#e6e9f0; font-size:21px; }
+.welcome-lead { color:#e6e9f0; font-weight:600; }
+.welcome-examples { display:grid; gap:11px; margin:0 0 18px; padding-left:24px; }
+.welcome-examples li::marker { color:#7fb4ff; }
+.welcome-examples a { display:block; width:max-content; max-width:100%; font-weight:600; }
+.welcome-examples span { display:block; color:#aeb8d0; }
 /* Contribute-example dialog */
 .contrib-intro { line-height:1.55; font-size:16px; margin-bottom:14px; }
 .contrib-steps { margin:0 0 14px; padding-left:24px; font-size:16px; line-height:1.6; color:#c3cbe0; }

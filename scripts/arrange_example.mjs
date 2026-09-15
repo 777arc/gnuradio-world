@@ -23,7 +23,7 @@
 // Exits non-zero if any file could not be arranged.
 import { existsSync, writeFileSync } from 'node:fs';
 import { basename, resolve, sep } from 'node:path';
-import { launchBrowser } from './browser-test-support.mjs';
+import { dismissWelcomePopup, launchBrowser } from './browser-test-support.mjs';
 
 const args = process.argv.slice(2);
 const portArg = args.findIndex(a => a.startsWith('--port='));
@@ -56,6 +56,7 @@ try {
     // the wrong contents — silently, since a .grc is a .grc.
     const page = await browser.newPage();
     try {
+      await dismissWelcomePopup(page);
       await page.setViewport({ width: 1400, height: 900 });
       page.on('pageerror', e => console.log('PAGEERROR', e.message));
       const link = target.relative.replace(/\.grc$/, '');

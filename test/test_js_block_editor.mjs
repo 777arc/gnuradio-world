@@ -25,6 +25,7 @@ import { readFile, stat } from 'node:fs/promises';
 import { join, normalize } from 'node:path';
 import {
   contentType,
+  dismissWelcomePopup,
   launchBrowser,
   setIsolationHeaders,
   waitForEditorCanvasIdle,
@@ -202,6 +203,7 @@ const toolResult = (body, id) => {
 
 const browser = await launchBrowser(ROOT);
 const page = await browser.newPage();
+await dismissWelcomePopup(page);
 let aiRequests = 0;
 const aiBodies = [];
 await page.setRequestInterception(true);

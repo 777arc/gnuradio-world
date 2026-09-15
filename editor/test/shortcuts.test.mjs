@@ -1,8 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
 import { editorSource as source, markupSource as html } from './editor-contract-source.mjs';
-
-const about = await readFile(new URL('../src/about.html', import.meta.url), 'utf8');
 
 const bindings = {
   'new/open/save': /key === 'n'.*clearFlowgraph[\s\S]*key === 'o'.*fileOpen[\s\S]*key === 's'.*saveFlowgraph/,
@@ -22,19 +19,18 @@ const bindings = {
 for (const [name, pattern] of Object.entries(bindings))
   assert.match(source, pattern, `missing native shortcut group: ${name}`);
 
-assert.match(source, /\['Ctrl\+K', 'Show these shortcuts'\], \['F1', 'Show Help'\]/);
+assert.match(source, /\['Ctrl\+K', 'Show these shortcuts'\], \['F1', 'Show About'\]/);
 assert.match(source, /hierarchical blocks are not supported in WebAssembly/);
 // The keyboard-shortcut help now lives in the Help menu (the old top-right button was removed).
 assert.match(source, /label: 'Keyboard Shortcuts', key: 'Ctrl\+K', run: showShortcutHelp/);
 assert.match(source,
-  /\{ label: 'File', items: \[\s*\{ label: 'About GNU Radio World', run: showAboutDialog \}/,
-  '"About GNU Radio World" must be the first item in the File menu');
+  /\{ label: 'Help', items: \[\s*\{ label: 'About', key: 'F1', run: showAboutDialog \}/,
+  'the unified About dialog must be the first item in the Help menu');
+assert.doesNotMatch(source, /function showHelpDialog|\{ label: 'Help', key: 'F1'/,
+  'there is no longer a separate Help dialog or menu item');
 assert.match(source,
-  /import aboutHtml from '\.\/about\.html\?raw'[\s\S]*?openDialog\('About GNU Radio World'[\s\S]*?body\.innerHTML = aboutHtml/,
-  'the GNU Radio World dialog must render its separately editable HTML file');
-assert.match(about,
-  /only the WebAssembly modules corresponding[\s\S]*?limitless collection of out-of-tree modules[\s\S]*?downloaded only when you use them[\s\S]*?IQEngine[\s\S]*?real[\s\S]*?recordings of the corresponding signals/,
-  'the GNU Radio World dialog must explain on-demand modules, OOTs, and RF recordings');
+  /import aboutHtml from '\.\/about\.html\?raw'[\s\S]*?body\.innerHTML = aboutHtml[\s\S]*?querySelectorAll<HTMLAnchorElement>\('a\[data-example\]'\)/,
+  'the unified dialog renders editable HTML and enhances any example links it declares');
 assert.doesNotMatch(source, /label: 'Generate'/);
 assert.doesNotMatch(source, /alignSelected/);
 assert.doesNotMatch(source, /label: 'Find Blocks'/);

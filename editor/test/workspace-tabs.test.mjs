@@ -175,8 +175,15 @@ assert.match(source,
   'the one embedded button runs the flowgraph and stops it again');
 assert.match(source, /if \(!runnerRunning\) \{\s*updateEmbedRun\(\/\* failed \*\/ true\)/,
   'a refused flowgraph reports on the button, since an embed has no console pane');
-assert.doesNotMatch(source, /showWelcomePopup|gnuradio_world_welcome_seen|Welcome to GNU Radio World/,
-  'the removed welcome modal cannot return through startup code or local-storage state');
+assert.match(source,
+  /if \(!EMBEDDED && !returnedFromOpenRouter && !AUTO_RUN\) showWelcomePopup\(\)/,
+  'the welcome stays out of embedded flowgraphs, OAuth returns and auto-run links');
+assert.match(source,
+  /const WELCOME_KEY = 'gnuradio_world_welcome_seen'[\s\S]*localStorage\.getItem\(WELCOME_KEY\)[\s\S]*localStorage\.setItem\(WELCOME_KEY, '1'\)/,
+  'the welcome is shown only once in a browser and is remembered as soon as it appears');
+assert.match(source,
+  /function showWelcomePopup\(\)[\s\S]*showAboutDialog\(\)/,
+  'first-visit onboarding reuses the same dialog as Help > About');
 
 // ?run=1 — the link that opens on the running flowgraph rather than on the
 // canvas. A query parameter like `embed`, applied last so the graph it starts is

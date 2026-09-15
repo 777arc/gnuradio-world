@@ -27,7 +27,7 @@
 // absent, or any --reject substring appears in the console pane.
 import { existsSync, readFileSync } from 'node:fs';
 import { basename, resolve, sep } from 'node:path';
-import { launchBrowser, dismissUnpacedRunWarning }
+import { launchBrowser, dismissUnpacedRunWarning, dismissWelcomePopup }
   from './browser-test-support.mjs';
 
 const args = process.argv.slice(2);
@@ -89,6 +89,7 @@ let ok = false;
 try {
   const page = await browser.newPage();
   await dismissUnpacedRunWarning(page);
+  await dismissWelcomePopup(page);
   await page.setViewport({ width: 1200, height: 800 });
   page.on('pageerror', e => console.log('PAGEERROR', e.message));
   // ?challenges=unlocked: this harness picks the example out of the palette, and

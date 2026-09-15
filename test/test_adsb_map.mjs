@@ -7,6 +7,7 @@ import { stat } from 'node:fs/promises';
 import { join, normalize } from 'node:path';
 import {
   dismissUnpacedRunWarning,
+  dismissWelcomePopup,
   launchBrowser,
 } from '../scripts/browser-test-support.mjs';
 
@@ -42,6 +43,7 @@ let page;
 try {
   page = await browser.newPage();
   await dismissUnpacedRunWarning(page);
+  await dismissWelcomePopup(page);
   await page.setViewport({ width: 1400, height: 900 });
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));

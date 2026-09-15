@@ -209,6 +209,20 @@ Graham evaluation driver) start a fresh browser profile, so nothing carries
 over between them; `--fresh` there uses the toolbar's own New, which clears the
 slot as well.
 
+Once that initial canvas has settled, an ordinary first visit also opens the
+unified About dialog. It combines the welcome, quick-start links, learning and
+support resources, project description, and license information; Help ▸ About
+opens that same dialog on demand. Its complete editable body lives in
+`editor/src/about.html`; adding `data-example="path/to/example.grc"` to an anchor
+makes an ordinary click load that example in the current editor while preserving
+normal link behavior for new tabs. Tests intentionally cover that wiring, not
+the dialog's prose, destinations, or exact layout. The
+`localStorage['gnuradio_world_welcome_seen']` marker records the dialog as soon
+as it appears, including when the visitor follows one of its example links, so
+later visits go straight to the editor. Embeds, `?run=1` links and an OpenRouter
+OAuth return skip it without setting the marker; each has a more specific
+immediate job, and the next ordinary visit still gets it.
+
 ## Opening at a given zoom (`?zoom=`)
 
 `?zoom=75` opens the canvas at 75% instead of 100%, which is what a link or an
@@ -425,8 +439,8 @@ Five things make it an embed, and each is one place:
   changes as a whole.
 - **The canvas is still the editor.** Blocks can be moved, opened and rewired;
   what is missing is everything that acts on the *application* — no menus, no
-  palette to add a block from, and no welcome modal (`showWelcomePopup()` is
-  skipped, since an embed's reader did not come for it).
+  palette to add a block from, and no first-visit About dialog
+  (`showWelcomePopup()` is skipped, since an embed's reader did not come for it).
 - **No analytics when gnuradio.org is the host.** The Google tag in
   `index.html` is injected by an inline script that returns early when the
   page is framed and the framer's hostname is `gnuradio.org` or a subdomain of

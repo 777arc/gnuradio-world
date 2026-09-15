@@ -1,32 +1,77 @@
-<h2>GNU Radio, entirely in your browser — explore the open-source SDR ecosystem with zero install!</h2>
+<!--
+  This is the complete first-visit / Help > About body. Keep prose and links
+  here so they can be edited without touching TypeScript. An anchor with a
+  data-example path opens that example inside the current editor; ordinary
+  external anchors need no special handling.
+-->
+<h2 class="welcome-title">Welcome to GNU Radio World!</h2>
 
 <p>
-  GNU Radio World is a browser-based GNU Radio Companion flowgraph editor and
-  WebAssembly runtime. You can place, connect, and configure blocks, then run
-  the resulting flowgraph directly in your browser.
+  <strong>GNU Radio, entirely in your browser — explore the open-source SDR
+  ecosystem with zero install!</strong> GNU Radio World is a browser-based GNU
+  Radio Companion flowgraph editor and WebAssembly runtime. It includes most
+  actively maintained OOTs, dozens of example flowgraphs, and signal recordings
+  to play with.
+</p>
+
+<p class="welcome-lead">Some neat things to try out:</p>
+
+<ul class="welcome-examples">
+  <li>
+    <a href="/#example=gr-adsb%2Fadsb_recording"
+       data-example="gr-adsb/adsb_recording.grc">Use gr-adsb to decode
+      transmissions from real aircraft transponders</a>
+  </li>
+  <li>
+    <a href="/#example=gr-tempest%2Ftempest_vga_recording"
+       data-example="gr-tempest/tempest_vga_recording.grc">Use gr-tempest to
+      recover a VGA display from a recording of its electromagnetic leakage</a>
+  </li>
+  <li>
+    <a href="/#example=spectrum-analysis%2Fspectrum_analyzer"
+       data-example="spectrum-analysis/spectrum_analyzer.grc">Play with GNU
+      Radio World's custom spectrum analyzer and measurement tool</a>
+  </li>
+</ul>
+
+<p>
+  New to GNU Radio? Start with the beginner-level
+  <a href="https://wiki.gnuradio.org/index.php/Tutorials" target="_blank"
+     rel="noopener noreferrer">GNU Radio tutorials</a>. New to RF signal
+  processing and SDR? Check out
+  <a href="https://pysdr.org/" target="_blank"
+     rel="noopener noreferrer">PySDR.org</a>. Then try the
+  <a href="/#example=_gnuradio-world-challenges%2Fchallenge_0"
+     data-example="_gnuradio-world-challenges/challenge_0.grc">built-in Challenges</a>
+  under Example Flowgraphs.
 </p>
 
 <p>
-  It is designed to download only the WebAssembly modules corresponding to the
-  blocks you use. This on-demand architecture keeps the initial download small
-  and can support a limitless collection of out-of-tree modules (OOTs) in the
-  future.
+  GNU Radio World includes a collection of RF recordings that are streamed to
+  your browser when you use them within a flowgraph. Visit the
+  <strong>Signal Recordings</strong> tab and try clicking the “View” button on
+  one of the recordings to inspect it in the built-in recording view, adapted
+  from <a href="https://iqengine.org" target="_blank"
+     rel="noopener noreferrer">IQEngine</a>. Many of the included example
+  flowgraphs use these recordings, so OOTs can be demonstrated with real
+  recordings of their corresponding signals.
 </p>
 
 <p>
-  GNU Radio World also includes a collection of real RF recordings that are
-  downloaded only when you use them. You can inspect the recordings in the
-  built-in recording view, adapted from
-  <a href="https://iqengine.org" target="_blank" rel="noopener">IQEngine</a>, and use them
-  in the included flowgraph examples, allowing OOTs to be shown off with real
-  recordings of the corresponding signals.
+  For more information about the out-of-tree modules included in GNU Radio
+  World, see the
+  <a href="https://gnuradioworld.com/cgran/" target="_blank"
+     rel="noopener noreferrer">supported OOT catalog</a>.
 </p>
 
 <p>
-  Copyright © 2026 Marc Lichtman. GNU Radio World is free software, released
-  under the
-  <a href="https://github.com/777arc/gnuradio-world/blob/main/LICENSE" target="_blank" rel="noopener">GNU General Public License v3</a>
-  or later, and comes with ABSOLUTELY NO WARRANTY. The bundled GNU Radio,
-  out-of-tree modules, and other dependencies remain under their own copyrights
-  and licenses.
+  Questions, ideas, or contributions are welcome by email at
+  <a href="mailto:support@gnuradioworld.com">support@gnuradioworld.com</a>, on
+  the <a href="https://discord.gg/qKK2kC6Fpw" target="_blank"
+     rel="noopener noreferrer">GNU Radio World Discord</a>, or on the
+  <a href="https://github.com/777arc/gnuradio-world" target="_blank"
+     rel="noopener noreferrer">GitHub project page</a>. Bugs and feature
+  requests can go directly to a
+  <a href="https://github.com/777arc/gnuradio-world/issues/new" target="_blank"
+     rel="noopener noreferrer">GitHub issue</a>.
 </p>

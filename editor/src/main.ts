@@ -2489,7 +2489,7 @@ const SHORTCUTS: [string, string][] = [
   ['Ctrl++ / Ctrl+− / Ctrl+0', 'Zoom in / out / reset'], ['Ctrl+9', 'Zoom to fit the flowgraph'],
   ['Ctrl+D', 'Hide disabled blocks'],
   ['Ctrl+E / R / B', 'Variable editor / console / block tree'], ['Scroll Lock', 'Toggle console autoscroll'],
-  ['G', 'Toggle grid'], ['Ctrl+K', 'Show these shortcuts'], ['F1', 'Show Help'],
+  ['G', 'Toggle grid'], ['Ctrl+K', 'Show these shortcuts'], ['F1', 'Show About'],
   ['F6 / F7', 'Execute / stop'], ['Escape', 'Close dialog or menu'],
 ];
 function showShortcutHelp() {
@@ -2524,7 +2524,7 @@ document.addEventListener('keydown', e => {
     }
     return;
   }
-  if (e.key === 'F1') { consume(e); showHelpDialog(); return; }
+  if (e.key === 'F1') { consume(e); showAboutDialog(); return; }
   if (ctrl && key === 'k') { consume(e); showShortcutHelp(); return; }
   if (ctrl && key === 'n') { consume(e); clearFlowgraph(); return; }
   if (ctrl && key === 'o') { consume(e); (el('fileOpen') as HTMLInputElement).click(); return; }
@@ -4605,45 +4605,40 @@ function showErrorsDialog() {
     }
   }, true);
 }
-function showAboutDialog() {
-  openDialog('About GNU Radio World', body => {
+const WELCOME_KEY = 'gnuradio_world_welcome_seen';
+
+// One dialog owns the former Welcome, Help and About content. Help > About can
+// always reopen it; showWelcomePopup() below adds only the first-visit gate.
+function showAboutDialog(): void {
+  let overlay: HTMLElement;
+  overlay = openDialog('About GNU Radio World', body => {
     body.classList.add('about-body');
     body.innerHTML = aboutHtml;
+    for (const anchor of body.querySelectorAll<HTMLAnchorElement>('a[data-example]')) {
+      const file = anchor.dataset.example?.trim();
+      if (!file) continue;
+      anchor.href = exampleUrl(file);
+      anchor.onclick = event => {
+        if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        event.preventDefault();
+        overlay.remove();
+        void loadExampleByName(file).catch(error => log(`could not load example "${file}" from About: ${error}`));
+      };
+    }
   });
+  overlay.classList.add('about');
+  overlay.querySelector('.dlghead')?.remove();
 }
 
-function showHelpDialog() {
-  openDialog('Help', body => {
-    body.classList.add('help-body');
-    const link = (text: string, href: string): HTMLAnchorElement => {
-      const anchor = document.createElement('a');
-      anchor.textContent = text;
-      anchor.href = href;
-      anchor.target = '_blank';
-      anchor.rel = 'noopener';
-      return anchor;
-    };
-    const intro = document.createElement('p');
-    intro.append(
-      'New to GNU Radio? First check out the beginner-level tutorials at ',
-      link('wiki.gnuradio.org/index.php/Tutorials', 'https://wiki.gnuradio.org/index.php/Tutorials'),
-      '. New to RF signal processing and SDR? Check out ',
-      link('PySDR.org', 'https://pysdr.org/'),
-      '.',
-    );
-    body.appendChild(intro);
-    const message = document.createElement('p');
-    message.append(
-      'For questions, comments, or suggestions, you can email ',
-      link('support@gnuradioworld.com', 'mailto:support@gnuradioworld.com'),
-      ', join the ',
-      link('Discord server', 'https://discord.gg/qKK2kC6Fpw'),
-      ', or post a ',
-      link('GitHub issue', 'https://github.com/777arc/gnuradio-world/issues/new'),
-      '.',
-    );
-    body.appendChild(message);
-  });
+// The ordinary editor's first visit opens the same dialog Help > About does.
+function showWelcomePopup(): void {
+  try {
+    if (localStorage.getItem(WELCOME_KEY)) return;
+    // Mark it when it is shown, rather than only through the footer button: a
+    // visitor who follows one of its links has seen it too.
+    localStorage.setItem(WELCOME_KEY, '1');
+  } catch { /* Storage can be unavailable; the welcome is still useful. */ }
+  showAboutDialog();
 }
 
 // ---- contribute the open flowgraph as a repo example ----
@@ -4739,8 +4734,6 @@ function contributeExample() {
 // ---- menu model + builder ----
 const MENUS: TopMenu[] = [
   { label: 'File', items: [
-    { label: 'About GNU Radio World', run: showAboutDialog },
-    'sep',
     { label: 'New', key: 'Ctrl+N', run: () => clearFlowgraph() },
     { label: 'Duplicate', key: 'Ctrl+Shift+D', run: duplicateFlowgraph, enabled: hasBlocks },
     { label: 'Open…', key: 'Ctrl+O', run: openFileDialog },
@@ -4831,9 +4824,7 @@ const MENUS: TopMenu[] = [
     { label: 'Parser Errors', reason: R_XML },
   ] },
   { label: 'Help', items: [
-    { label: 'About', run: showAboutDialog },
-    'sep',
-    { label: 'Help', key: 'F1', run: showHelpDialog },
+    { label: 'About', key: 'F1', run: showAboutDialog },
     { label: 'Keyboard Shortcuts', key: 'Ctrl+K', run: showShortcutHelp },
     'sep',
     { label: 'Get Involved', run: () => openLink('https://www.gnuradio.org/get-involved/') },
@@ -5469,6 +5460,7 @@ async function openStartupCanvas(): Promise<void> {
 // flowgraph fetch completes, but it must not become interactive in that gap: a
 // block placed there would be discarded when the startup flowgraph arrived.
 export const editorReady = paletteReady.then(async () => {
+  const returnedFromOpenRouter = aiPanel?.isOAuthReturn() ?? false;
   const oauthRestore = aiPanel?.oauthRestore() ?? Promise.resolve(null);
   // The GUI Layout block needs its schema, which only arrives with the generated
   // library, so the canvas built before that gets its singleton here instead.
@@ -5489,6 +5481,10 @@ export const editorReady = paletteReady.then(async () => {
   applyZoomFromUrl();
   applyCenterFromUrl();
   historyReady = true; resetHistory();
+  // A framed flowgraph, an OAuth callback and a link that explicitly asks to
+  // start running all have a more specific job than introducing the site. None
+  // marks the welcome as seen, so the next ordinary visit can still show it.
+  if (!EMBEDDED && !returnedFromOpenRouter && !AUTO_RUN) showWelcomePopup();
   // ?run=1 — last, so the graph that starts is the one the fragment asked for,
   // fully loaded. Deliberately not awaited, and deferred by a task: bootstrap.ts
   // reveals the application (or drops the click-to-load gate) in a microtask off

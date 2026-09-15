@@ -88,6 +88,19 @@ export async function dismissUnpacedRunWarning(page) {
 }
 
 /**
+ * Keep editor-driving automation focused on the interaction it is testing.
+ * The welcome is intentionally a first-visit modal, while these harnesses use
+ * a fresh browser profile on every run and would otherwise meet it every time.
+ */
+export async function dismissWelcomePopup(page) {
+  await page.evaluateOnNewDocument(() => {
+    try {
+      localStorage.setItem('gnuradio_world_welcome_seen', '1');
+    } catch { /* The application also tolerates unavailable storage. */ }
+  });
+}
+
+/**
  * Wait until the editor's canvas has settled, so a test can click a block and
  * hit the block it aimed at.
  *

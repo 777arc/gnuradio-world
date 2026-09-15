@@ -46,7 +46,7 @@
 // being told what is wrong is how the next attempt gets written -- but the
 // count is always reported.
 import { writeFileSync } from 'node:fs';
-import { launchBrowser } from './browser-test-support.mjs';
+import { dismissWelcomePopup, launchBrowser } from './browser-test-support.mjs';
 
 const argv = process.argv.slice(2);
 const flag = name => {
@@ -129,6 +129,7 @@ const browser = await launchBrowser(new URL('..', import.meta.url).pathname);
 let ok = false, result = null;
 try {
   const page = await browser.newPage();
+  await dismissWelcomePopup(page);
   await page.evaluateOnNewDocument(seed, key, model);
   await page.evaluateOnNewDocument(acceptJavaScriptReviews);
   await page.setViewport({ width: 1440, height: 900 });
