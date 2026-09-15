@@ -66,8 +66,8 @@ try {
   await new Promise(resolve => setTimeout(resolve, 1800));
 
   const canvasBlockCount = await page.evaluate(() => document.querySelectorAll('#nodes > *').length);
-  check(canvasBlockCount === 15,
-    'adsb_recording.grc loads with the new map block', String(canvasBlockCount));
+  check(canvasBlockCount === 14,
+    'adsb_recording.grc loads with the map and 2 Msps receiver chain', String(canvasBlockCount));
   const run = await page.evaluateHandle(() =>
     [...document.querySelectorAll('button')]
       .find(button => (button.textContent || '').trim() === '▶'));
@@ -85,7 +85,8 @@ try {
       const map = JSON.parse(globalThis.__grReadPlotData?.('aircraft_map', 32) || '{}')
         .widgets?.[0];
       return map?.aircraft_total >= 1 && map.aircraft.some(aircraft =>
-        aircraft.icao === 'A02C40' || aircraft.icao === 'AD44BC');
+        aircraft.icao === 'A9BC12' && aircraft.callsign === 'RPA3547' &&
+        aircraft.speed_kt >= 460 && aircraft.course_true >= 215);
     } catch { return false; }
   }, { timeout: 45000, polling: 250 });
 
@@ -111,28 +112,17 @@ try {
         Math.abs(rect.height - layout.rect.height) < 2,
     };
   });
-  const a02c40 = observed.plot.aircraft.find(aircraft => aircraft.icao === 'A02C40');
-  const ad44bc = observed.plot.aircraft.find(aircraft => aircraft.icao === 'AD44BC');
+  const a9bc12 = observed.plot.aircraft.find(aircraft => aircraft.icao === 'A9BC12');
   check(observed.plot.kind === 'map' && observed.plot.aircraft_total >= 1,
     'semantic observation reports the ADS-B map and a decoded recording aircraft');
-  if (a02c40) check((a02c40.altitude_ft == null ||
-    (a02c40.altitude_ft >= 15000 && a02c40.altitude_ft <= 16000)) &&
-    a02c40.speed_kt >= 340 && a02c40.speed_kt <= 345 &&
-    a02c40.course_true >= 123 && a02c40.course_true <= 125 &&
-    a02c40.vertical_rate_ft_min >= -2100 && a02c40.vertical_rate_ft_min <= -1900 &&
-    a02c40.df === 17,
-  'A02C40 shows the recording\'s available altitude, speed, true course, descent, and DF',
-  JSON.stringify(a02c40));
-  if (ad44bc) check((ad44bc.altitude_ft == null ||
-    (ad44bc.altitude_ft >= 11000 && ad44bc.altitude_ft <= 12000)) &&
-    ad44bc.speed_kt >= 299 && ad44bc.speed_kt <= 304 &&
-    ad44bc.course_true >= 225 && ad44bc.course_true <= 229 &&
-    ad44bc.vertical_rate_ft_min >= 2200 && ad44bc.vertical_rate_ft_min <= 2800 &&
-    ad44bc.df === 17,
-  'AD44BC shows the recording\'s speed, converted true course, climb rate, and DF',
-  JSON.stringify(ad44bc));
-  check([a02c40, ad44bc].some(Boolean),
-    'the recording produced one of its known aircraft records');
+  if (a9bc12) check(a9bc12.callsign === 'RPA3547' &&
+    a9bc12.altitude_ft === 34000 &&
+    a9bc12.speed_kt >= 460 && a9bc12.speed_kt <= 475 &&
+    a9bc12.course_true >= 215 && a9bc12.course_true <= 230 &&
+    a9bc12.df === 17,
+  'A9BC12 shows the recording\'s callsign, altitude, speed, true course, and DF',
+  JSON.stringify(a9bc12));
+  check(!!a9bc12, 'the recording produced its known A9BC12 aircraft record');
   check(observed.plot.aircraft.every(aircraft =>
     observed.rows.some(row => row.includes(aircraft.icao))),
   'the visible aircraft list contains every observed decoder record', JSON.stringify(observed.rows));
@@ -142,7 +132,7 @@ try {
   check(new RegExp(`${observed.plot.positioned_aircraft} positioned / ${observed.plot.aircraft_total} tracked`)
     .test(observed.status), 'status distinguishes positioned and unpositioned aircraft', observed.status);
 
-  const selectedAircraft = a02c40 || ad44bc;
+  const selectedAircraft = a9bc12;
   await runner.click(`.gr-adsb-aircraft-row[data-icao="${selectedAircraft.icao}"]`);
   const selection = await runner.evaluate(() => ({
     details: document.querySelector('.gr-adsb-aircraft-details')?.textContent || '',
