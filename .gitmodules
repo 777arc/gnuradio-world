@@ -90,3 +90,7 @@
 	path = gr-lte
 	url = https://github.com/bkerler/gr-lte.git
 	branch = maint-3.10
+[submodule "gr-inspector"]
+	path = gr-inspector
+	url = https://github.com/gnuradio/gr-inspector.git
+	branch = main

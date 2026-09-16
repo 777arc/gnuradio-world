@@ -71,7 +71,7 @@ third-party OOT module (already done for [`gr-rds/`](../gr-rds), [`gr-foo/`](../
 [`gr-ieee802_15_4/`](../gr-ieee802_15_4),
 [`gr-lora_sdr/`](../gr-lora_sdr), [`gr-radar/`](../gr-radar),
 [`gr-gsm/`](../gr-gsm), [`gr-bbc/`](../gr-bbc),
-[`gr-adsb/`](../gr-adsb), [`gr-tempest/`](../gr-tempest), [`gr-iridium/`](../gr-iridium),
+[`gr-adsb/`](../gr-adsb), [`gr-tempest/`](../gr-tempest), [`gr-inspector/`](../gr-inspector), [`gr-iridium/`](../gr-iridium),
 [`gr-ais/`](../gr-ais), [`gr-correctiq/`](../gr-correctiq) and
 [`gr-lte/`](../gr-lte)) is **not** part of that
 umbrella build, so there is no `libgnuradio-<m>.a`; instead its own `lib/*.cc` are
@@ -417,6 +417,42 @@ And one about the recording: IShort To Complex's `scale_factor` *divides*
 correlation accumulators overflow to `inf`, `index_max` returns bin 0 and the
 ratio is garbage — while Normalize Flow, being scale-invariant, still paints a
 plausible-looking picture with the sync bypassed. Check the magnitude first.
+
+## gr-inspector: deferred analysis blocks and the Inspector GUI
+
+GNU Radio's gr-inspector provides five maintained C++ DSP blocks: Signal
+Detector, Signal Separator, Signal Extractor, OFDM Estimator and OFDM
+Synchronizer. They compile directly into `inspector.wasm` against the core
+runtime, blocks, FFT, filter and VOLK libraries. Its QT GUI Inspector Sink is
+rebuilt in `blocks/overlays/gr-inspector/inspector_gui_sink.*` against the
+runner's Qt6/Qwt stack. It lives in the main module because GUI widgets are
+owned and arranged there, while its five DSP peers remain deferred.
+
+The rebuild keeps the native block id, parameters, float-vector input, RF-map
+and analysis message inputs, map output, zoom controls, automatic overlays and
+draggable manual selection. It snapshots data under a mutex between GNU Radio
+worker threads and the Qt timer instead of sharing upstream's raw vectors across
+those threads. Like every other widget it participates in GUI Layout and plot
+capture automatically. `ofdm_bouzegzi_c` is an abandoned real-time prototype
+with no upstream GRC definition and is not built.
+
+Signal Separator's native optional JSON taps-file path has no useful browser
+equivalent. Its generated factory always selects the block's normal run-time
+`firdes` path; the file controls remain in the schema, relabelled as unavailable,
+so a desktop `.grc` still round-trips without losing them. Signal Detector's
+upstream `set_fft_len` callback is omitted because changing a live block's
+vector-output item size would invalidate the already allocated stream buffers.
+Its quantization parameter is construction-only because upstream's GRC schema
+advertises a setter that the public C++ block interface does not expose.
+
+`example_flowgraphs/gr-inspector/signal_detector.grc` adds a tone to Gaussian
+noise, plots each detector periodogram and its detected-band overlays in the
+Inspector GUI, then prints the forwarded RF-map changes. It is the construction,
+lazy-loading and work-path check for the module:
+
+```bash
+node scripts/run_example.mjs gr-inspector/signal_detector.grc
+```
 
 ## gr-lte: the GNU Radio 3.10 port and PSS recording path
 

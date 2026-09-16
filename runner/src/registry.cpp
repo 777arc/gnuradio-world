@@ -15,6 +15,7 @@
 #include "hackrf_sink.hpp"
 #include "paint_image_source.hpp"
 #include "rds_panel.hpp"
+#include "inspector_gui_sink.hpp"
 #include "radar_plots.hpp"
 #include "fosphor_sink.hpp"
 #include "fosphor_webgpu_sink.hpp"
@@ -4241,6 +4242,27 @@ static std::map<std::string, Factory>& registry_storage() {
              BuiltBlock result{ block, block->qwidget() };
              result.numeric_setters["freq"] =
                  [block](double value) { block->set_frequency(value); };
+             return result;
+         }},
+        // gr-inspector's only GUI block is a Qt5/Qwt widget upstream. Keep its
+        // native block id and message contract with a Qt6 rebuild in the main
+        // module, where QWidget and Qwt already live. The detector and analysis
+        // blocks remain in the deferred inspector side module.
+        {"inspector_qtgui_sink_vf", [](const json& p) -> BuiltBlock {
+             auto block = InspectorGuiSinkWasm::make(
+                 number_from(p, "samp_rate", 32000.0),
+                 static_cast<int>(number_from(p, "fft_len", 1024.0)),
+                 number_from(p, "cfreq", 0.0),
+                 static_cast<int>(number_from(p, "rf_unit", 1000000.0)),
+                 static_cast<int>(number_from(p, "msgports", 1.0)),
+                 bool_from(p, "manual", true));
+             BuiltBlock result{ block, block->qwidget() };
+             result.numeric_setters["samp_rate"] =
+                 [block](double value) { block->set_sample_rate(value); };
+             result.numeric_setters["cfreq"] =
+                 [block](double value) { block->set_center_frequency(value); };
+             result.numeric_setters["rf_unit"] =
+                 [block](double value) { block->set_rf_unit(static_cast<int>(value)); };
              return result;
          }},
         // gr-radar's three Qt GUI sinks are Qwt QWidgets declaring Q_OBJECT, and

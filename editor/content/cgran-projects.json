@@ -281,6 +281,30 @@
       "evidence": ["README.md", "grc/", "python/"]
     },
     {
+      "module": "gr-inspector",
+      "name": "gr-inspector",
+      "slug": "gr-inspector",
+      "repository": "https://github.com/gnuradio/gr-inspector",
+      "artwork": {
+        "remote_url": "https://raw.githubusercontent.com/gnuradio/gr-inspector/master/docs/doxygen/images/logo_body_big.png",
+        "source_url": "https://github.com/gnuradio/gr-inspector/blob/master/docs/doxygen/images/logo_body_big.png",
+        "alt": "The gr-inspector signal-analysis toolbox logo",
+        "label": "Repository logo",
+        "fit": "contain",
+        "light_background": true
+      },
+      "authors": [
+        { "name": "Sebastian Müller", "url": "https://github.com/sbmueller" }
+      ],
+      "summary": [
+        "gr-inspector is a signal-analysis toolbox for finding and characterizing unknown activity in wideband complex sample streams.",
+        "Its energy detector builds an RF map of occupied regions, and its separator shifts and filters every detected region before an extractor turns a selected message-bundled signal back into a conventional stream at an optional fixed sample rate.",
+        "For OFDM signals, a parameter estimator searches likely FFT and cyclic-prefix lengths, while a companion synchronizer corrects fine frequency offset and tags the estimated symbol boundaries for downstream processing."
+      ],
+      "researched_revision": "ad6a69e84eb847f30fe79ba657ba95ddcb211c0c",
+      "evidence": ["README.md", "docs/README.inspector", "examples/", "grc/", "include/gnuradio/inspector/", "lib/"]
+    },
+    {
       "module": "gr-iridium",
       "name": "gr-iridium",
       "slug": "gr-iridium",

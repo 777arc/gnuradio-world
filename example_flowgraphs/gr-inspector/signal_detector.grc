@@ -1,0 +1,183 @@
+options:
+    parameters:
+        author: GNU Radio World
+        comment: ''
+        copyright: ''
+        description: Detects a narrowband tone in complex Gaussian noise with gr-inspector. Signal Detector calculates one 1024-bin periodogram at a time; Inspector GUI Sink plots it, overlays the detected RF map, and forwards that map to Message Debug. Enable Manual selection in the plot to drag a band instead.
+        generate_options: qt_gui
+        id: gr_inspector_Signal_Detector
+        title: gr-inspector Signal Detector
+    states:
+        coordinate: [10, 10]
+        rotation: 0
+        state: enabled
+blocks:
+-   name: fft_len
+    id: variable
+    parameters:
+        comment: Periodogram size and detector decimation
+        value: '1024'
+    states:
+        coordinate: [590, 10]
+        rotation: 0
+        state: enabled
+-   name: samp_rate
+    id: variable
+    parameters:
+        comment: Complex baseband sample rate
+        value: '48000'
+    states:
+        coordinate: [760, 10]
+        rotation: 0
+        state: enabled
+-   name: add
+    id: blocks_add_xx
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: ''
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        num_inputs: '2'
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [370, 200]
+        rotation: 0
+        state: enabled
+-   name: detector
+    id: inspector_signal_detector_cvf
+    parameters:
+        affinity: ''
+        alias: ''
+        auto: 'False'
+        avg: '0.8'
+        comment: Mark periodogram bins above the fixed -30 dB threshold
+        fft_len: fft_len
+        logfile: ''
+        maxoutbuf: '0'
+        min_bw: '0'
+        minoutbuf: '0'
+        quant: '0.001'
+        samp_rate: samp_rate
+        sensitivity: '0.2'
+        threshold: '-30'
+        window: window.WIN_HAMMING
+    states:
+        coordinate: [940, 150]
+        rotation: 0
+        state: enabled
+-   name: inspector_gui
+    id: inspector_qtgui_sink_vf
+    parameters:
+        affinity: ''
+        alias: ''
+        cfreq: '0'
+        comment: Plot the PSD and detected bands; Ctrl+drag zooms, right-click zooms out
+        fft_len: fft_len
+        gui_hint: ''
+        manual: 'False'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        msgports: '1'
+        rf_unit: '1'
+        samp_rate: samp_rate
+    states:
+        coordinate: [1380, 170]
+        rotation: 0
+        state: enabled
+-   name: noise
+    id: analog_noise_source_x
+    parameters:
+        affinity: ''
+        alias: ''
+        amp: '0.03'
+        comment: Low background noise makes the occupied band easy to see
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        noise_type: analog.GR_GAUSSIAN
+        seed: '0'
+        type: complex
+    states:
+        coordinate: [10, 340]
+        rotation: 0
+        state: enabled
+-   name: rf_map
+    id: blocks_message_debug
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: Print RF-map changes as center-frequency and bandwidth pairs
+        en_uvec: 'True'
+        log_level: info
+    states:
+        coordinate: [130, 480]
+        rotation: 0
+        state: enabled
+-   name: throttle
+    id: blocks_throttle2
+    parameters:
+        affinity: ''
+        alias: ''
+        comment: Pace the synthetic stream for the live display
+        ignoretag: 'True'
+        limit: time
+        maximum: '0.1'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        samples_per_second: samp_rate
+        type: complex
+        vlen: '1'
+    states:
+        coordinate: [610, 190]
+        rotation: 0
+        state: enabled
+-   name: tone
+    id: analog_sig_source_x
+    parameters:
+        affinity: ''
+        alias: ''
+        amp: '0.8'
+        comment: Signal to locate at +8 kHz
+        freq: '8000'
+        maxoutbuf: '0'
+        minoutbuf: '0'
+        offset: '0'
+        phase: '0'
+        samp_rate: samp_rate
+        type: complex
+        waveform: analog.GR_COS_WAVE
+    states:
+        coordinate: [10, 160]
+        rotation: 0
+        state: enabled
+-   name: wasm_gui_layout_0
+    id: wasm_gui_layout
+    parameters:
+        affinity: ''
+        alias: ''
+        columns: '12'
+        comment: ''
+        layout: '{}'
+        row_height: '60'
+    states:
+        coordinate: [300, 10]
+        rotation: 0
+        state: enabled
+connections:
+- [add, '0', throttle, '0']
+- [detector, '0', inspector_gui, '0']
+-   src_blk_id: detector
+    src_port_id: map_out
+    snk_blk_id: inspector_gui
+    snk_port_id: map_in
+-   src_blk_id: inspector_gui
+    src_port_id: map_out
+    snk_blk_id: rf_map
+    snk_port_id: print
+- [noise, '0', add, '1']
+- [throttle, '0', detector, '0']
+- [tone, '0', add, '0']
+metadata:
+    file_format: 2
+    grc_version: 3.11.0.0

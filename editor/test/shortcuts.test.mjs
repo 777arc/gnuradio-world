@@ -29,8 +29,8 @@ assert.match(source,
 assert.doesNotMatch(source, /function showHelpDialog|\{ label: 'Help', key: 'F1'/,
   'there is no longer a separate Help dialog or menu item');
 assert.match(source,
-  /import aboutHtml from '\.\/about\.html\?raw'[\s\S]*?body\.innerHTML = aboutHtml[\s\S]*?querySelectorAll<HTMLAnchorElement>\('a\[data-example\]'\)/,
-  'the unified dialog renders editable HTML and enhances any example links it declares');
+  /import aboutHtml from '\.\/about\.html\?raw'[\s\S]*?body\.innerHTML = aboutHtml[\s\S]*?querySelectorAll<HTMLAnchorElement>\('a'\)[\s\S]*?anchor\.target = '_blank'[\s\S]*?anchor\.relList\.add\('noopener', 'noreferrer'\)[\s\S]*?anchor\.href = exampleUrl\(file\)/,
+  'the unified dialog opens every link in a safe new tab and normalizes example links');
 assert.doesNotMatch(source, /label: 'Generate'/);
 assert.doesNotMatch(source, /alignSelected/);
 assert.doesNotMatch(source, /label: 'Find Blocks'/);

@@ -1,0 +1,91 @@
+# Browser-only C++ factory metadata for GNU Radio's gr-inspector signal-analysis
+# toolbox. Upstream supplies C++ implementations for the detector, separator,
+# extractor, and the two maintained OFDM blocks, but its GRC files declare only
+# Python generation. The Qt5/Qwt Inspector Sink is rebuilt against Qt6 in this
+# overlay and linked into the main module (which already owns Qt); its DSP peers
+# remain in the deferred side module. ofdm_bouzegzi_c has no GRC definition
+# upstream and is explicitly marked there as an abandoned real-time prototype.
+
+inspector_qtgui_sink_vf:
+  gui: true
+
+inspector_signal_detector_cvf:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <gnuradio/inspector/signal_detector_cvf.h>', '#include <gnuradio/fft/window.h>']
+    declarations: 'inspector::signal_detector_cvf::sptr ${id};'
+    make: 'this->${id} = inspector::signal_detector_cvf::make(${samp_rate}, ${fft_len}, ${window}, ${threshold}, ${sensitivity}, ${auto}, ${avg}, ${quant}, ${min_bw}, ${logfile});'
+    translations:
+      (?<!["\.])window\.: 'fft::window::'
+    # Upstream advertises set_quantization in GRC, but omits it from the
+    # public signal_detector_cvf interface. Keep quant construction-only.
+    callbacks:
+    - set_window_type(${window})
+    - set_samp_rate(${samp_rate})
+    - set_sensitivity(${sensitivity})
+    - set_auto_threshold(${auto})
+    - set_average(${avg})
+    - set_threshold(${threshold})
+    link: [gnuradio-inspector]
+
+# A browser has no useful path for the JSON taps file named by the native block.
+# Always use its built-in firdes path, which is also the upstream block's normal
+# runtime path when "Use Taps file" is off. The inert file controls remain in
+# the native schema so .grc files continue to round-trip unchanged.
+inspector_signal_separator_c:
+  flags: [python, cpp]
+  parameter_defaults:
+    file: 'False'
+  parameter_labels:
+    file: Use Taps file (unavailable in browser)
+    taps_file: Taps file (unavailable in browser)
+  documentation: |-
+    Takes the RF map produced by Signal Detector, shifts each detected signal
+    to baseband, filters it, and publishes the resulting complex samples as a
+    message for Signal Extractor.
+
+    GNU Radio World calculates taps at run time. The native block's optional
+    precomputed JSON taps file is not available in the browser; its controls
+    are retained only so flowgraphs remain compatible with desktop GRC.
+  cpp_templates:
+    includes: ['#include <gnuradio/inspector/signal_separator_c.h>', '#include <gnuradio/fft/window.h>', '#include <map>', '#include <vector>']
+    declarations: 'inspector::signal_separator_c::sptr ${id};'
+    make: |-
+      std::map<float, std::vector<float>> inspector_taps{{0.0f, {0.0f}}};
+      this->${id} = inspector::signal_separator_c::make(${samp_rate}, ${window}, ${trans_width}, ${oversample}, false, inspector_taps);
+    translations:
+      (?<!["\.])window\.: 'fft::window::'
+    callbacks:
+    - set_samp_rate(${samp_rate})
+    - set_window(${window})
+    - set_trans_width(${trans_width})
+    - set_oversampling(${oversample})
+    link: [gnuradio-inspector]
+
+inspector_signal_extractor_c:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <gnuradio/inspector/signal_extractor_c.h>']
+    declarations: 'inspector::signal_extractor_c::sptr ${id};'
+    make: 'this->${id} = inspector::signal_extractor_c::make(${signal}, ${resample}, ${rate}, ${osf});'
+    callbacks:
+    - set_signal(${signal})
+    link: [gnuradio-inspector]
+
+inspector_ofdm_zkf_c:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <gnuradio/inspector/ofdm_zkf_c.h>']
+    declarations: 'inspector::ofdm_zkf_c::sptr ${id};'
+    make: 'this->${id} = inspector::ofdm_zkf_c::make(${samp_rate}, ${signal}, ${min_items}, ${alpha}, ${beta});'
+    callbacks:
+    - set_samp_rate(${samp_rate})
+    link: [gnuradio-inspector]
+
+inspector_ofdm_synchronizer_cc:
+  flags: [python, cpp]
+  cpp_templates:
+    includes: ['#include <gnuradio/inspector/ofdm_synchronizer_cc.h>']
+    declarations: 'inspector::ofdm_synchronizer_cc::sptr ${id};'
+    make: 'this->${id} = inspector::ofdm_synchronizer_cc::make(${min_items});'
+    link: [gnuradio-inspector]

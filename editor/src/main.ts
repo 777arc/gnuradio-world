@@ -4610,20 +4610,15 @@ const WELCOME_KEY = 'gnuradio_world_welcome_seen';
 // One dialog owns the former Welcome, Help and About content. Help > About can
 // always reopen it; showWelcomePopup() below adds only the first-visit gate.
 function showAboutDialog(): void {
-  let overlay: HTMLElement;
-  overlay = openDialog('About GNU Radio World', body => {
+  const overlay = openDialog('About GNU Radio World', body => {
     body.classList.add('about-body');
     body.innerHTML = aboutHtml;
-    for (const anchor of body.querySelectorAll<HTMLAnchorElement>('a[data-example]')) {
+    for (const anchor of body.querySelectorAll<HTMLAnchorElement>('a')) {
+      anchor.target = '_blank';
+      anchor.relList.add('noopener', 'noreferrer');
       const file = anchor.dataset.example?.trim();
       if (!file) continue;
       anchor.href = exampleUrl(file);
-      anchor.onclick = event => {
-        if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-        event.preventDefault();
-        overlay.remove();
-        void loadExampleByName(file).catch(error => log(`could not load example "${file}" from About: ${error}`));
-      };
     }
   });
   overlay.classList.add('about');

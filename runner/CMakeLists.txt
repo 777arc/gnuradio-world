@@ -94,6 +94,7 @@ set(GR_INCLUDE_DIRS
   ${WORLD}/gr-droneid/gnuradio/gr-droneid/include
   ${WORLD}/gr-ieee802_11/include
   ${WORLD}/gr-ieee802_15_4/include
+  ${WORLD}/gr-inspector/include
   ${WORLD}/gr-hrpt/include
   ${WORLD}/gr-lora_sdr/include
   ${WORLD}/gr-radar/include
@@ -143,6 +144,7 @@ qt_add_executable(runner
   ${BLOCKS}/src/ais_map_sink.cpp
   ${BLOCKS}/overlays/gr-paint/paint_image_source.cpp
   ${BLOCKS}/overlays/gr-fosphor/fosphor_webgpu_sink.cpp
+  ${BLOCKS}/overlays/gr-inspector/inspector_gui_sink.cpp
   ${BLOCKS}/overlays/gr-radar/radar_plots.cpp
   src/generated_registry.cpp
   src/generated_modules.cpp
@@ -1202,6 +1204,21 @@ add_side_module(tempest
   SOURCES ${TEMPEST_SOURCES}
   INCLUDE_DIRS ${TEMPEST_WASM_SHIMS}
   DEPENDS ${TEMPEST_WASM_SHIMS}/config.h)
+
+# gr-inspector (GNU Radio): signal-analysis blocks for energy detection,
+# extraction, and blind OFDM parameter estimation/synchronization. The five
+# non-GUI blocks compile directly against runtime/blocks/fft/filter/VOLK. The
+# Qt5/Qwt Inspector Sink is rebuilt against Qt6 in the main runner target above,
+# where QWidget/Qwt symbols and GUI Layout integration already live.
+set(INSPECTOR_LIB ${WORLD}/gr-inspector/lib)
+set(INSPECTOR_SOURCES
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/generated_registry_inspector.cpp
+  ${INSPECTOR_LIB}/ofdm_synchronizer_cc_impl.cc
+  ${INSPECTOR_LIB}/ofdm_zkf_c_impl.cc
+  ${INSPECTOR_LIB}/signal_detector_cvf_impl.cc
+  ${INSPECTOR_LIB}/signal_extractor_c_impl.cc
+  ${INSPECTOR_LIB}/signal_separator_c_impl.cc)
+add_side_module(inspector SOURCES ${INSPECTOR_SOURCES})
 
 # gr-ais (bistromath): an AIS receiver -- GMSK bursts from ship transponders
 # on 162 MHz decoded into NMEA !AIVDM sentences. Its five lib/*.cc compile as-is

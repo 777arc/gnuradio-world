@@ -85,6 +85,12 @@
       "latest_commit": "a210b11fed2d307ef797ea79842b54f4e8ed3dd5",
       "latest_commit_at": "2023-07-28T14:51:17+02:00"
     },
+    "gr-inspector": {
+      "repository": "https://github.com/gnuradio/gr-inspector",
+      "checked_at": "2026-09-15T21:28:51.827Z",
+      "latest_commit": "ad6a69e84eb847f30fe79ba657ba95ddcb211c0c",
+      "latest_commit_at": "2025-03-03T20:55:38+01:00"
+    },
     "gr-iridium": {
       "repository": "https://github.com/muccc/gr-iridium",
       "checked_at": "2026-09-15T04:19:52.993Z",

@@ -214,9 +214,9 @@ unified About dialog. It combines the welcome, quick-start links, learning and
 support resources, project description, and license information; Help ▸ About
 opens that same dialog on demand. Its complete editable body lives in
 `editor/src/about.html`; adding `data-example="path/to/example.grc"` to an anchor
-makes an ordinary click load that example in the current editor while preserving
-normal link behavior for new tabs. Tests intentionally cover that wiring, not
-the dialog's prose, destinations, or exact layout. The
+makes its destination the normalized example URL. Every link in the dialog opens
+in a new tab, including example and email links. Tests intentionally cover that
+wiring, not the dialog's prose, destinations, or exact layout. The
 `localStorage['gnuradio_world_welcome_seen']` marker records the dialog as soon
 as it appears, including when the visitor follows one of its example links, so
 later visits go straight to the editor. Embeds, `?run=1` links and an OpenRouter
