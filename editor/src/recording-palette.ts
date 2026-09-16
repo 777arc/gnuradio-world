@@ -30,6 +30,7 @@ export interface RecordingPaletteDeps {
   addRecordingBlock(recording: ExampleRecording, format: FileSourceFormat): Promise<void>;
   closePaletteDrawer(): void;
   log(message: string): void;
+  contributeRecordingUrl?: string;
 }
 
 // A flat result list can run long; a section inside a category should stay a
@@ -118,6 +119,7 @@ export function createRecordingPalette(deps: RecordingPaletteDeps) {
     addRecordingBlock,
     closePaletteDrawer,
     log,
+    contributeRecordingUrl,
   } = deps;
 
   function makeRecordingItem(recording: ExampleRecording): HTMLElement {
@@ -456,6 +458,16 @@ export function createRecordingPalette(deps: RecordingPaletteDeps) {
         tiles.append(tile);
       }
       body.append(tiles);
+      if (contributeRecordingUrl) {
+        const contribution = document.createElement('p');
+        contribution.className = 'rec-contribute';
+        contribution.append('Have a recording to share? ');
+        const link = document.createElement('a');
+        link.href = contributeRecordingUrl;
+        link.textContent = 'Contribute a SigMF recording';
+        contribution.append(link, '.');
+        body.append(contribution);
+      }
     };
 
     const renderCategory = (entry: CategorySummary) => {

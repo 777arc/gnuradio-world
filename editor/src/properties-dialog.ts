@@ -87,6 +87,7 @@ export interface PropertiesDialogDeps {
   layoutDtype: string;
   newLocalFileToken(): string;
   loadExampleRecordings(): Promise<ExampleRecording[]>;
+  resolveRemoteRecording(path: string): Promise<ExampleRecording | undefined>;
   radioForDtype(dtype?: string): UsbRadio | undefined;
   localFilesByToken: Map<string, File>;
   sigmfBindingsByToken: Map<string, SigmfBinding>;
@@ -127,6 +128,7 @@ export function showPropertiesDialog(inst: Inst, deps: PropertiesDialogDeps) {
     layoutDtype: LAYOUT_DTYPE,
     newLocalFileToken,
     loadExampleRecordings,
+    resolveRemoteRecording,
     radioForDtype,
     localFilesByToken,
     sigmfBindingsByToken,
@@ -742,8 +744,17 @@ export function showPropertiesDialog(inst: Inst, deps: PropertiesDialogDeps) {
       };
       fill([]);
       void loadExampleRecordings()
-        .then(recordings => {
+        .then(async recordings => {
           known = new Map(recordings.map(recording => [recording.name, recording]));
+          const key = String(tmp.params[p.id] ?? '');
+          if (key && !known.has(key)) {
+            try {
+              const recording = await resolveRemoteRecording(`/recordings/${key}.sigmf-data`);
+              if (recording) known.set(key, recording);
+            } catch { /* an unavailable unlisted key remains editable */ }
+          }
+          // Unlisted/triage recordings are intentionally not offered as new
+          // choices. fill() still preserves this block's current value.
           fill(recordings);
           describe();
         })

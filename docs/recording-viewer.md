@@ -693,3 +693,44 @@ working:
   what keeps the Time tab's ~650k points per trace at a few ms a frame. It is
   repo-owned code, so it is the one file under `src/recording/` that has no
   upstream counterpart to diff against.
+
+## Community recording submissions
+
+`/contribute-recording/` is a separate Vite entry for anonymous, multi-recording
+SigMF uploads. It pairs files by their base name immediately and validates JSON,
+SigMF structure, datatype, sample alignment, file limits, and the combined
+submission limit before it asks the backend for an upload capability. Large
+data files are split into 16 MiB R2 multipart parts with three concurrent
+requests, retry handling, per-recording progress, overall progress, and a
+cancel path. `.sigmf-meta` objects use ordinary bounded PUT requests.
+
+Completed uploads appear at `/recordings/triage/`. That listing is public by
+design and reads only ready D1 rows; upload capabilities and contact fields are
+private. The ordinary Signal Recordings palette and GR World Recording property
+dropdown still read only the production bucket's `index.json`, so triage items
+cannot leak into normal discovery.
+
+Each triage recording has a reviewer-oriented **Test in GNU Radio World** link.
+It opens `/#triage=<recording UUID>`, fetches that one public triage descriptor,
+and adds an ordinary GR World Recording block to a fresh canvas. The block saves
+an opaque `triage/<submission>/<recording>/<base>` key. `resolveRemoteRecording`
+recognizes that shape and fetches the descriptor by UUID when the flowgraph is
+run, its recording tab is opened, its properties are shown, or an autosaved
+canvas is restored. The current triage value remains visible in Properties but
+is never added to the dropdown choices.
+
+The backend is [`workers/sigmf-upload/`](../workers/sigmf-upload/). It owns a
+separate triage R2 bucket and a D1 database for upload state, public provenance,
+private contact information, and immutable review events. It repeats every
+client-side validation, uses random bearer capabilities only during upload, and
+expires incomplete and unreviewed data on a scheduled cleanup. Approval copies
+each data object and then its metadata object to the production R2 bucket; the
+existing bucket notification/indexer publishes it without a site rebuild.
+Rejection and expiration remove the triage objects.
+
+Admin APIs are served through a second hostname protected by Cloudflare Access.
+The Worker independently verifies Access's JWT signature, issuer, audience,
+expiry, and reviewer email allowlist before returning contact information or
+allowing an approval/rejection. Provisioning, Access configuration, retention,
+and deployment commands live in
+[`workers/sigmf-upload/README.md`](../workers/sigmf-upload/README.md).

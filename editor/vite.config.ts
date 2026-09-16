@@ -36,10 +36,12 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: true,
     rollupOptions: {
-      // Two pages: the editor at / and the recording view at /recording/.
+      // The editor, recording viewer, public uploader, and public triage queue.
       input: {
         main: resolve(__dirname, 'index.html'),
         recording: resolve(__dirname, 'recording/index.html'),
+        contributeRecording: resolve(__dirname, 'contribute-recording/index.html'),
+        recordingTriage: resolve(__dirname, 'recordings/triage/index.html'),
       },
     },
   },

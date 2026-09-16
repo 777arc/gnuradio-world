@@ -1,0 +1,61 @@
+{
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"name": "gnuradio-world-sigmf-upload",
+	"main": "src/index.js",
+	"compatibility_date": "2026-07-31",
+	"vars": {
+		"PUBLIC_SITE_ORIGIN": "https://gnuradioworld.com",
+		"TRIAGE_PUBLIC_BASE": "https://triage-recordings.gnuradioworld.com",
+		"PRODUCTION_PUBLIC_BASE": "https://recordings.gnuradioworld.com",
+		"ACCESS_TEAM_DOMAIN": "https://holy-frost-e2b4.cloudflareaccess.com",
+		"ACCESS_AUD": "ca82b051cb5def212ea51e7670ccd0f91a1e9f7abd3aa0a5d531d90d4601a923",
+		"ADMIN_EMAILS": "marcll@vt.edu,777arc@gmail.com,schafer@site2241.net,sb.brown741@gmail.com"
+	},
+	"r2_buckets": [
+		{
+			"binding": "TRIAGE",
+			"bucket_name": "gnuradio-world-recording-triage"
+		},
+		{
+			"binding": "PRODUCTION",
+			"bucket_name": "gnuradio-wasm-recordings"
+		},
+		{
+			"bucket_name": "gnuradio-world-recording-triage",
+			"binding": "gnuradio_world_recording_triage",
+			"remote": true
+		}
+	],
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "gnuradio-world-recording-submissions",
+			"database_id": "2800f9e0-386e-41a4-b169-84822ca2eab0",
+			"migrations_dir": "migrations"
+		},
+		{
+			"binding": "gnuradio_world_recording_submissions",
+			"database_name": "gnuradio-world-recording-submissions",
+			"database_id": "2800f9e0-386e-41a4-b169-84822ca2eab0",
+			"remote": true
+		}
+	],
+	"ratelimits": [
+		{
+			"name": "CREATE_RATE_LIMITER",
+			"namespace_id": "24001",
+			"simple": {
+				"limit": 5,
+				"period": 60
+			}
+		}
+	],
+	"triggers": {
+		"crons": [
+			"17 9 * * *"
+		]
+	},
+	"observability": {
+		"enabled": true
+	}
+}

@@ -402,6 +402,17 @@ assert.match(sigmf.pairSigmfFiles([file('a.sigmf-data'), file('a.sigmf-meta'),
   /Choose one recording/, 'two complete recordings is ambiguous, not a silent pick');
 assert.match(sigmf.pairSigmfFiles([file('notes.txt')]).error, /not part of a SigMF recording/);
 assert.match(sigmf.pairSigmfFiles([]).error, /No files selected/);
+const batch = sigmf.pairSigmfFileBatch([
+  file('one.sigmf-data'), file('one.sigmf-meta'),
+  file('two.sigmf-meta'), file('two.sigmf-data'),
+]);
+assert.equal(batch.errors.length, 0);
+assert.deepEqual(batch.pairs.map(item => item.base), ['one', 'two']);
+assert.match(sigmf.pairSigmfFileBatch([file('orphan.sigmf-meta')]).errors[0],
+  /Also select orphan\.sigmf-data/);
+assert.equal(sigmf.SIGMF_DATA_LIMIT, 300_000_000);
+assert.equal(sigmf.SIGMF_META_LIMIT, 5_000_000);
+assert.equal(sigmf.SIGMF_SUBMISSION_LIMIT, 2_000_000_000);
 
 // The metadata decides Output Type and feeds the samp_rate toggle, so a document
 // that cannot supply either is refused here rather than half-configuring a block.
@@ -420,6 +431,14 @@ assert.match(sigmf.parseSigmfMeta('{"global":{}}').error, /does not say its core
 // A rate that is absent, zero or nonsense is "unknown", never published as one.
 assert.equal(sigmf.parseSigmfMeta(
   '{"global":{"core:datatype":"cf32_le","core:sample_rate":0}}').sampleRate, null);
+const validPair = await sigmf.validateSigmfPair({
+  base: 'capture', data: file('capture.sigmf-data', 16),
+  meta: new File([JSON.stringify({
+    global: { 'core:datatype': 'ci16_le', 'core:sample_rate': 1e6 }, captures: [],
+  })], 'capture.sigmf-meta'),
+});
+assert.equal(validPair.metadata.datatype, 'ci16_le');
+assert.match(validPair.warning, /no captures/);
 
 // Output Type is derived and disabled, so a datatype with no stream type here
 // could not be corrected by hand -- the same rule GR World Recording applies.

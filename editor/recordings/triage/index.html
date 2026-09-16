@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex,nofollow" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <title>Recording Triage — GNU Radio World</title>
+</head>
+<body>
+  <main class="submission-shell">
+    <header class="submission-head"><div><h1>Recording triage</h1><p class="submission-lead">
+      Completed community submissions awaiting review. These recordings are public, but are not part
+      of the GNU Radio World catalog yet.</p></div>
+      <nav><a href="/">Editor</a><a href="/contribute-recording/">Contribute Recording</a>
+        <a href="?review=1">Reviewer mode</a></nav>
+    </header>
+    <section id="reviewBanner" class="submission-card" hidden></section>
+    <p id="triageStatus" class="status-line" role="status">Loading submissions…</p>
+    <div id="triageList" class="triage-list"></div>
+    <div class="button-row"><button id="loadMore" class="secondary" type="button" hidden>Load more</button></div>
+  </main>
+  <script type="module" src="/src/recording-triage.ts"></script>
+</body>
+</html>

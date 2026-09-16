@@ -68,10 +68,16 @@ import {
   recordingFromR2Index,
   recordingUrl,
   recordingsBucketUrl,
+  sigmfFileSourceFormat,
   type ExampleRecording,
   type FileSourceFormat,
   type R2RecordingIndexEntry,
 } from './recording-catalog';
+import {
+  fetchTriageRecording,
+  triageAsExampleRecording,
+  triageRecordingIdFromKey,
+} from './recording-submissions';
 import {
   sanitizeSigmfBase,
   SIGMF_FILE_PARAM,
@@ -2607,6 +2613,7 @@ const propertiesDialogDeps: PropertiesDialogDeps = {
   layoutDtype: LAYOUT_DTYPE,
   newLocalFileToken,
   loadExampleRecordings,
+  resolveRemoteRecording,
   radioForDtype,
   localFilesByToken,
   sigmfBindingsByToken,
@@ -4321,6 +4328,15 @@ function loadExampleRecordings(): Promise<ExampleRecording[]> {
 async function resolveRemoteRecording(path: string): Promise<ExampleRecording | undefined> {
   const existing = remoteRecordingsByPath.get(path);
   if (existing) return existing;
+  const suffix = '.sigmf-data';
+  const key = path.startsWith('/recordings/') && path.endsWith(suffix)
+    ? path.slice('/recordings/'.length, -suffix.length) : '';
+  const triageId = triageRecordingIdFromKey(key);
+  if (triageId) {
+    const recording = triageAsExampleRecording(await fetchTriageRecording(triageId));
+    const boundPath = bindRemoteRecording(recording);
+    return boundPath === path ? recording : undefined;
+  }
   await loadExampleRecordings();
   return remoteRecordingsByPath.get(path);
 }
@@ -4428,6 +4444,7 @@ const recordingPaletteController = createRecordingPalette({
   addRecordingBlock,
   closePaletteDrawer,
   log,
+  contributeRecordingUrl: '/contribute-recording/',
 });
 
 function buildRecordings(panel: HTMLElement): Promise<void> {
@@ -4736,6 +4753,7 @@ const MENUS: TopMenu[] = [
     { label: 'Save', key: 'Ctrl+S', run: () => saveFlowgraph() },
     { label: 'Copy URL', run: copyFlowgraphUrl, enabled: hasBlocks },
     { label: 'Contribute Example…', run: contributeExample, enabled: hasBlocks },
+    { label: 'Contribute Recording…', run: () => location.assign('/contribute-recording/') },
     'sep',
     { label: 'Screen Capture…', key: 'Ctrl+P', run: saveScreenshot },
     'sep',
@@ -5364,6 +5382,28 @@ async function loadFlowgraphFromUrl(): Promise<boolean> {
       cleanUrl();
       return true;
     } catch (error) { log('could not duplicate flowgraph: ' + error); }
+    return false;
+  }
+  // A public triage recording is deliberately absent from the ordinary
+  // recording catalog and its dropdown. Reviewers get a one-shot link that
+  // creates the same GR World Recording block as a catalog card would; the
+  // block keeps an opaque triage key, which resolveRemoteRecording() can fetch
+  // again after an autosave/reload.
+  const triage = hash.get('triage');
+  if (triage) {
+    try {
+      const recording = triageAsExampleRecording(await fetchTriageRecording(triage));
+      const format = sigmfFileSourceFormat(recording.datatype);
+      if (!format) throw new Error(`unsupported SigMF datatype ${recording.datatype || '(missing)'}`);
+      clearFlowgraph(false);
+      await addRecordingBlock(recording, format);
+      cleanUrl();
+      log(`loaded triage recording "${recording.title}" for testing`);
+      return true;
+    } catch (error) {
+      log(`could not load triage recording "${triage}": ${error}`);
+      cleanUrl();
+    }
     return false;
   }
   // #example=<path> opens a .grc anywhere below example_flowgraphs/. The

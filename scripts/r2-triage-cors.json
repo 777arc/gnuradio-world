@@ -1,0 +1,20 @@
+{
+  "rules": [
+    {
+      "allowed": {
+        "origins": [
+          "https://gnuradioworld.com",
+          "https://www.gnuradioworld.com",
+          "https://gnuradio-wasm.pages.dev",
+          "https://*.gnuradio-world-previews.pages.dev",
+          "http://localhost:8090",
+          "http://127.0.0.1:8090"
+        ],
+        "methods": ["GET", "HEAD"],
+        "headers": ["*"]
+      },
+      "exposeHeaders": ["Content-Length", "Content-Range", "ETag"],
+      "maxAgeSeconds": 3600
+    }
+  ]
+}

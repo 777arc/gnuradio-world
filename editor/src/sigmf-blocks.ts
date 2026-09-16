@@ -13,6 +13,41 @@
 // recording-catalog.ts and main.ts already split GR World Recording.
 
 import { sigmfFileSourceFormat, type FileSourceFormat } from './recording-catalog';
+import {
+  pairSigmfFileBatch,
+  pairSigmfFiles,
+  parseSigmfMeta,
+  sigmfBaseName,
+  validateSigmfPair,
+  SIGMF_ACCEPT,
+  SIGMF_DATA_LIMIT,
+  SIGMF_DATA_SUFFIX,
+  SIGMF_META_LIMIT,
+  SIGMF_META_SUFFIX,
+  SIGMF_RECORDING_LIMIT,
+  SIGMF_SUBMISSION_LIMIT,
+  type SigmfMeta,
+  type SigmfPair,
+  type ValidatedSigmfPair,
+} from './sigmf-files';
+
+export {
+  pairSigmfFileBatch,
+  pairSigmfFiles,
+  parseSigmfMeta,
+  sigmfBaseName,
+  validateSigmfPair,
+  SIGMF_ACCEPT,
+  SIGMF_DATA_LIMIT,
+  SIGMF_DATA_SUFFIX,
+  SIGMF_META_LIMIT,
+  SIGMF_META_SUFFIX,
+  SIGMF_RECORDING_LIMIT,
+  SIGMF_SUBMISSION_LIMIT,
+  type SigmfMeta,
+  type SigmfPair,
+  type ValidatedSigmfPair,
+};
 
 export const SIGMF_SOURCE_ID = 'wasm_sigmf_source';
 export const SIGMF_SINK_ID = 'wasm_sigmf_sink';
@@ -33,13 +68,6 @@ export const SIGMF_SAVE_DTYPE = 'sigmf_file_save';
 // maps can never be confused for one another.
 export const SIGMF_OUTPUT_PREFIX = '/local-output/';
 
-export const SIGMF_DATA_SUFFIX = '.sigmf-data';
-export const SIGMF_META_SUFFIX = '.sigmf-meta';
-
-// What the picker offers. A recording's two halves have no MIME type, so this is
-// by extension; the browser still lets the reader override it.
-export const SIGMF_ACCEPT = `${SIGMF_META_SUFFIX},${SIGMF_DATA_SUFFIX}`;
-
 // One recording bound for this browser session. As with File Source, a .grc
 // keeps only the base name: a File handle cannot be serialized, and a flowgraph
 // that could silently reopen a file from a previous session would be worse if it
@@ -53,106 +81,6 @@ export interface SigmfBinding {
   sampleRate: number | null;
   captures: number;
   annotations: number;
-}
-
-/** The base name of either half of a recording, or null for anything else. */
-export function sigmfBaseName(name: string): string | null {
-  if (name.endsWith(SIGMF_DATA_SUFFIX))
-    return name.slice(0, -SIGMF_DATA_SUFFIX.length);
-  if (name.endsWith(SIGMF_META_SUFFIX))
-    return name.slice(0, -SIGMF_META_SUFFIX.length);
-  return null;
-}
-
-export interface SigmfPair { base: string; data: File; meta: File }
-
-/**
- * The one complete recording in a picker's selection.
- *
- * A browser cannot derive a sibling file from a picked File, so both halves have
- * to be selected together -- which is also why this reports what is missing
- * rather than just failing: "you picked one of the two files" is the mistake
- * everyone makes the first time.
- */
-export function pairSigmfFiles(files: File[]): SigmfPair | { error: string } {
-  if (!files.length) return { error: 'No files selected.' };
-
-  const bases = new Map<string, { data?: File; meta?: File }>();
-  const strays: string[] = [];
-  for (const file of files) {
-    const base = sigmfBaseName(file.name);
-    if (base === null) { strays.push(file.name); continue; }
-    const entry = bases.get(base) || {};
-    if (file.name.endsWith(SIGMF_DATA_SUFFIX)) entry.data = file;
-    else entry.meta = file;
-    bases.set(base, entry);
-  }
-
-  const complete = [...bases.entries()].filter(([, e]) => e.data && e.meta);
-  if (complete.length === 1) {
-    const [base, entry] = complete[0];
-    return { base, data: entry.data!, meta: entry.meta! };
-  }
-  if (complete.length > 1)
-    return {
-      error: `Selected ${complete.length} recordings ` +
-        `(${complete.map(([base]) => base).join(', ')}). Choose one recording's two files.`,
-    };
-
-  const partial = [...bases.entries()][0];
-  if (partial) {
-    const [base, entry] = partial;
-    const missing = entry.data ? SIGMF_META_SUFFIX : SIGMF_DATA_SUFFIX;
-    return { error: `Also select ${base}${missing} — a SigMF recording is both files.` };
-  }
-  return {
-    error: strays.length
-      ? `${strays[0]} is not part of a SigMF recording. ` +
-        `Select a ${SIGMF_DATA_SUFFIX} file and its ${SIGMF_META_SUFFIX}.`
-      : 'Select a SigMF recording — both its .sigmf-data and its .sigmf-meta.',
-  };
-}
-
-export interface SigmfMeta {
-  datatype: string;
-  sampleRate: number | null;
-  captures: number;
-  annotations: number;
-}
-
-/**
- * What the editor needs out of a .sigmf-meta: the datatype, which decides the
- * block's Output Type, and the sample rate, which the "Use as samp_rate" toggle
- * publishes. The captures and annotations are counted only so the dialog can say
- * what the recording carries -- turning them into tags is the runner's job, in
- * runner/src/sigmf_meta.hpp, and doing it in one place is what keeps the two
- * ends of a round trip agreeing.
- */
-export function parseSigmfMeta(text: string): SigmfMeta | { error: string } {
-  let document: any;
-  try {
-    document = JSON.parse(text);
-  } catch (error) {
-    return { error: `${SIGMF_META_SUFFIX} is not valid JSON: ${(error as Error).message}` };
-  }
-  if (!document || typeof document !== 'object' || Array.isArray(document))
-    return { error: `${SIGMF_META_SUFFIX} is not a SigMF document.` };
-
-  const global = document.global;
-  if (!global || typeof global !== 'object')
-    return { error: `${SIGMF_META_SUFFIX} has no "global" object.` };
-
-  const datatype = String(global['core:datatype'] || '').trim();
-  if (!datatype)
-    return { error: `${SIGMF_META_SUFFIX} does not say its core:datatype.` };
-
-  const rate = Number(global['core:sample_rate']);
-  return {
-    datatype,
-    sampleRate: Number.isFinite(rate) && rate > 0 ? rate : null,
-    captures: Array.isArray(document.captures) ? document.captures.length : 0,
-    annotations: Array.isArray(document.annotations) ? document.annotations.length : 0,
-  };
 }
 
 /**

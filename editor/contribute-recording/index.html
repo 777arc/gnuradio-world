@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex,nofollow" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <title>Contribute a Recording — GNU Radio World</title>
+</head>
+<body>
+  <main class="submission-shell">
+    <header class="submission-head">
+      <div><h1>Contribute a SigMF recording</h1><p class="submission-lead">Select complete
+        <code>.sigmf-data</code> and <code>.sigmf-meta</code> pairs. Submissions enter a public
+        review area before they can appear in GNU Radio World's recording catalog.</p></div>
+      <nav><a href="/">Back</a><a href="/recordings/triage/">Public triage</a></nav>
+    </header>
+    <section class="submission-card">
+      <label id="uploadDrop" class="upload-drop">
+        <input id="recordingFiles" type="file" multiple accept=".sigmf-data,.sigmf-meta" />
+        <span><strong>Choose or drop SigMF files</strong><br />Up to 10 pairs; 300 MB per data file,
+          5 MB per metadata file, and 2 GB combined.</span>
+      </label>
+      <ul id="uploadErrors" class="upload-errors"></ul>
+      <div id="uploadRows" class="upload-table"></div>
+    </section>
+    <section class="submission-card form-grid">
+      <label>Source URL (optional) <input id="sourceUrl" type="url" placeholder="https://…" /></label>
+      <label>License (optional) <select id="license"><option value="">Not specified</option>
+        <option>CC0-1.0</option><option>CC-BY-4.0</option><option>CC-BY-SA-4.0</option>
+        <option>Other — explain in notes</option></select></label>
+      <label class="form-wide">Public notes (optional) <textarea id="publicNotes"
+        placeholder="What signal is this, where did it come from, and what might it demonstrate?"></textarea></label>
+      <label>Private contact name (optional) <input id="contactName" autocomplete="name" /></label>
+      <label>Private contact email (optional) <input id="contactEmail" type="email" autocomplete="email" /></label>
+      <label class="form-wide">Private contact handle (optional) <input id="contactHandle"
+        placeholder="Discord, GitHub, or another way reviewers can reach you" /></label>
+      <p class="form-wide muted">Contact information is optional, visible only to authorized reviewers,
+        and removed 30 days after review.</p>
+    </section>
+    <section class="submission-card">
+      <div id="turnstileMount"></div>
+      <label class="check-line"><input id="rights" type="checkbox" /><span>I have permission to
+        share these recordings and understand that completed submissions are publicly viewable while
+        awaiting review.</span></label>
+      <div class="button-row"><button id="uploadButton" class="primary" type="button" disabled>Upload recordings</button>
+        <button id="cancelButton" class="danger" type="button" hidden>Cancel upload</button></div>
+      <p id="uploadDisabledReason" class="disabled-reason" role="status"></p>
+      <p id="uploadStatus" class="status-line" role="status"></p>
+      <progress id="overallProgress" max="1" value="0" hidden></progress>
+      <div id="uploadComplete" hidden></div>
+    </section>
+  </main>
+  <script type="module" src="/src/recording-upload.ts"></script>
+</body>
+</html>

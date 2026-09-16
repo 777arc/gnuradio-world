@@ -204,6 +204,13 @@ jobs:
           ccache --max-size=2G
           ccache --zero-stats
 
+      - name: Test SigMF submission Worker
+        run: |
+          cd workers/sigmf-upload
+          npm ci
+          npm test
+          npx wrangler deploy --dry-run --outdir /tmp/sigmf-upload-worker
+
       # --- GNU Radio C++ from source (what the deps release used to hide) ------
       - name: Build GNU Radio
         run: |
@@ -240,6 +247,9 @@ jobs:
           # PR; editor/src/recording-catalog.ts falls back to the production
           # base, which is what a preview wants anyway, so nothing to guard here.
           VITE_RECORDINGS_R2_BASE: ${{ vars.RECORDINGS_R2_BASE }}
+          VITE_RECORDING_UPLOAD_API: ${{ vars.RECORDING_UPLOAD_API }}
+          VITE_RECORDING_REVIEW_API: ${{ vars.RECORDING_REVIEW_API }}
+          VITE_TURNSTILE_SITE_KEY: ${{ vars.TURNSTILE_SITE_KEY }}
         run: |
           source ~/emsdk/emsdk_env.sh
           export GR="$GITHUB_WORKSPACE/gnuradio"
@@ -266,8 +276,8 @@ jobs:
              -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
              && cmake --build build)
 
-          # Two entries: the editor at / and the recording view at /recording/,
-          # which the editor's recording tabs frame same-origin.
+          # Vite emits the editor, recording view, contribution page, and the
+          # public triage page as same-origin entries.
           (cd editor && npm ci && npm run typecheck && npm test && npm run build)
 
       - name: ccache stats

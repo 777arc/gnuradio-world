@@ -81,7 +81,7 @@ button:hover { filter:brightness(1.15); }
 .about-body { color:#c5cce0; font-size:16px; line-height:1.55; }
 .about-body p { margin:0 0 14px; }
 .about-body p:last-child { margin-bottom:0; }
-.about-body a { color:#7fb4ff; }
+.about-body a { color:#fff; }
 .welcome-title { margin:0 0 12px; color:#e6e9f0; font-size:21px; }
 .welcome-lead { color:#e6e9f0; font-weight:600; }
 .welcome-examples { display:grid; gap:11px; margin:0 0 18px; padding-left:24px; }
@@ -645,6 +645,8 @@ button:hover { filter:brightness(1.15); }
 
 /* ---- the category landing ---- */
 .rec-tiles { display:grid; gap:8px; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); }
+.rec-contribute { margin:14px 2px 4px; color:#9aa7c6; font-size:13px; }
+.rec-contribute a { color:#8fb6ff; }
 .rec-tile { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:2px 8px;
     padding:10px 12px; text-align:left; color:#dce3f5; background:#242a3b;
     border:1px solid #333a4d; border-radius:6px; cursor:pointer; }
