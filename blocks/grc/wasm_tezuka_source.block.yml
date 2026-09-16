@@ -1,0 +1,109 @@
+id: wasm_tezuka_source
+label: 'Tezuka Source'
+category: '[Supported SDRs]'
+flags: [cpp, throttle]
+
+documentation: |-
+    Receives complex samples from a Tezuka SDR board (Zynq-7020/AD9363) over
+    the network -- no USB, no permission prompt, just a hostname or IP address.
+
+    Two independent connections, both opened when the flowgraph starts:
+
+    * IQ samples arrive over a WebSocket to the board's iio_ws_proxy (port
+      8765, or 8766 with TLS -- selected automatically from whether this page
+      itself is https://, same as the MQTT connection below), the same wire
+      format WebSocket Source reads -- raw, unframed interleaved int16 I/Q,
+      reassembled across message boundaries.
+    * Frequency, sample rate, bandwidth and gain are set over MQTT-over-
+      WebSocket (port 9001, or 9002 with TLS -- selected automatically from
+      whether this page itself is https://) to the same broker the Tezuka
+      Dashboard uses, publishing exactly the cmd/rx/<path> topics
+      api_controller.sh listens for. A live QT GUI Range change is a fresh
+      publish, same as any other change; the board is the only side that ever
+      applies or confirms it, so there is no local failure to report if the
+      board rejects or ignores a value.
+
+    A page loaded over https:// can only open a wss:// WebSocket -- the
+    browser blocks a plain ws:// one as mixed content -- and the board's TLS
+    listeners use a self-signed certificate (Maia SDR's own CA), which the
+    browser will silently refuse to connect to until it has a security
+    exception for that exact host:port. If IQ never arrives (or the console
+    shows "could not connect to wss://...") from an https:// deployment,
+    visit https://<host>:8766/ directly once and click through the
+    certificate warning (or type thisisunsafe on Chrome's warning page); the
+    exception then covers that origin for the rest of the browser session.
+    The same applies to the MQTT wss:// port above if property changes are
+    silently dropped.
+
+    Starting the flowgraph also asks the board to start streaming
+    (cmd/system/iqtape = "on"), and stopping it asks the board to stop again
+    -- but only the first Tezuka block to start against a given host sends
+    "on", and only the last one left running sends "off" when it stops.
+    Re-sending "on" while the proxy is already running makes the board kill
+    and restart it, dropping a peer's connection, which is exactly what that
+    accounting avoids for two Tezuka blocks sharing one board.
+
+    This is a single-channel source. iio_ws_proxy streams both AD9361/AD9363
+    RX paths interleaved by default; the board must be started with its -1
+    flag (RX1 only) for this block's output to be a clean I/Q stream rather
+    than a channel-interleaved one it cannot separate.
+
+    Gain Mode strings (slow_attack, fast_attack, hybrid, manual) and the gain/
+    frequency/bandwidth/sample-rate ranges match PlutoSDR Source -- both boards
+    apply them to the same AD9361-family IIO driver. The ranges below are
+    confirmed against a live LibreSDR Rev.5 (Z7020/AD9361) board's own
+    state/caps/rx/* topics; a different Tezuka board variant could differ
+    slightly, in which case the board rejects the value (silently -- state/rx/*
+    simply does not change) rather than this block catching it first.
+
+    A sample rate below the board's floor is the one mistake that is easy to
+    make and hardest to notice: frequency and bandwidth take effect live even
+    while already streaming, but the board's own confirmed minimum for sample
+    rate is well above what a flowgraph's samp_rate variable often defaults
+    to, and a rejected write leaves the previous rate in place with no error
+    of any kind -- check state/rx/sampling if throughput looks wrong.
+
+    This block exists only in the WebAssembly runner -- it has no Python
+    implementation, so a flowgraph using it will not run in desktop GNU Radio.
+
+parameters:
+-   id: host
+    label: Host
+    dtype: string
+    default: ''
+-   id: samp_rate
+    label: Sample Rate
+    dtype: float
+    default: samp_rate
+-   id: center_freq
+    label: 'Center Frequency (Hz)'
+    dtype: real
+    default: '435e6'
+-   id: bandwidth
+    label: 'RF Bandwidth (Hz)'
+    dtype: real
+    default: '2e6'
+-   id: gain_mode
+    label: Gain Mode
+    dtype: enum
+    default: slow_attack
+    options: [slow_attack, fast_attack, hybrid, manual]
+    option_labels: [Slow Attack, Fast Attack, Hybrid, Manual]
+    hide: part
+-   id: gain
+    label: 'Gain (dB)'
+    dtype: real
+    default: '30'
+    hide: part
+
+asserts:
+-   ${ samp_rate >= 2083333 and samp_rate <= 61440000 }
+-   ${ center_freq >= 46875001 and center_freq <= 6e9 }
+-   ${ bandwidth >= 200000 and bandwidth <= 56000000 }
+-   ${ gain >= -1 and gain <= 73 }
+
+outputs:
+-   domain: stream
+    dtype: complex
+
+file_format: 1

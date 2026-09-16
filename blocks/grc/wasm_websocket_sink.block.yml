@@ -1,0 +1,50 @@
+id: wasm_websocket_sink
+label: WebSocket Sink
+category: '[GNU Radio World]'
+flags: [cpp]
+
+documentation: |-
+    Sends a live sample stream to a WebSocket server as binary messages.
+
+    This is the block for handing a signal to something else running
+    elsewhere -- another browser tab, a native process, a small script on a
+    remote box -- as opposed to WebUSB radios like HackRF Sink that own
+    hardware directly. There is no permission gesture and no per-session setup:
+    the URL is a plain parameter, and the block connects when the flowgraph
+    starts.
+
+    Samples are sent exactly as they arrive on the input, with Stream Type
+    saying how wide each one is -- there is no framing of any kind. A slow
+    connection backpressures the flowgraph rather than dropping samples: this
+    block owns its own scheduler thread, so it simply blocks until the browser's
+    send buffer has drained enough to accept more.
+
+    Stopping the flowgraph drains whatever is left and closes the connection;
+    it does not wait indefinitely for a stalled peer.
+
+    One restriction is the browser's, not this block's: a page served over
+    https:// may only open a wss:// (TLS) connection, never a plain ws://.
+    ws:// works from http://localhost during development.
+
+    This block exists only in the WebAssembly runner -- it has no Python
+    implementation, so a flowgraph using it will not run in desktop GNU Radio.
+
+parameters:
+-   id: url
+    label: URL
+    dtype: string
+    default: 'wss://'
+-   id: type
+    label: Stream Type
+    dtype: enum
+    default: complex
+    options: [complex, float, int, short, byte]
+    option_attributes:
+        size: [gr.sizeof_gr_complex, gr.sizeof_float, gr.sizeof_int, gr.sizeof_short, gr.sizeof_char]
+    hide: part
+
+inputs:
+-   domain: stream
+    dtype: ${ type }
+
+file_format: 1
