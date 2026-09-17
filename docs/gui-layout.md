@@ -202,7 +202,12 @@ Three things about the C++ side that are not guessable:
   the same ratio — every widget below it that never called `setFont()` itself
   inherits that, including a `QwtPlot`'s axis tick labels (`DisplayPlot.cc`
   reads them from `axisWidget()->font()`), so shrinking one font shrinks labels,
-  buttons and plot axes together with no per-sink code. The 3 Hz stats timer
+  buttons and plot axes together with no per-sink code. At that outer grid
+  boundary the runner also clears each widget's explicit minimum size: the tile
+  is the size contract, and otherwise `QWidget::setGeometry()` expands
+  desktop-sized wrappers such as fosphor's 640x560 placeholder beyond narrow
+  assigned columns even after the grid calculated the correct rectangle. Child
+  layouts keep their own constraints. The 3 Hz stats timer
   re-runs `apply_gui_layout()` whenever `g_gui_area`'s size actually changes, so
   a live resize re-fits rather than staying clipped or oversized.
 - **`apply_gui_layout()` must be idempotent.** It runs once per run and again on

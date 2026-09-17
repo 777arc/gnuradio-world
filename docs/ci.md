@@ -196,11 +196,12 @@ is safe here for one reason only: **nothing under it executes the PR's code.**
 The diff scan never checks the PR out at all — it fetches `refs/pull/<n>/head`
 into the object store and reads blobs with `git show`, leaving the working tree
 on the base branch — and CodeQL extraction with `build-mode: none` parses source
-without running it, with no dependencies installed for it to run. Adding an
-`npm ci`, a build, or a test over PR sources to that workflow turns it into a
-credential-theft primitive. Such work belongs in `pr-preview-build.yml`, which
-holds no secret by design; this is the same rule `pr-preview-cleanup.yml`
-carries.
+without running it, with no dependencies installed for it to run. Its checkout
+therefore carries GitHub's explicit `allow-unsafe-pr-checkout: true` opt-in;
+that exception belongs only on this parse-only job. Adding an `npm ci`, a build,
+or a test over PR sources to that workflow turns it into a credential-theft
+primitive. Such work belongs in `pr-preview-build.yml`, which holds no secret by
+design; this is the same rule `pr-preview-cleanup.yml` carries.
 
 Three checks run:
 

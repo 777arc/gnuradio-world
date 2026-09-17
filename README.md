@@ -12,7 +12,7 @@
 GNU Radio, entirely in your browser — explore the open-source SDR ecosystem with zero install!
 
 - Includes popular out-of-tree modules (OOTs)
-- Many example flowgraphs — [browse them at gnuradioworld.com/examples](https://gnuradioworld.com/examples/), each one runnable right on its page
+- Many example flowgraphs — [browse them at gnuradioworld.com/examples](https://gnuradioworld.com/examples/) or within the left pane of the main site
 - Example IQ recordings of signals to test them with
 - Support for RTL-SDR, PlutoSDR, HackRF
 - On-demand fetching of WebAssembly modules and IQ recordings, to keep the load time short
@@ -22,16 +22,12 @@ GNU Radio, entirely in your browser — explore the open-source SDR ecosystem wi
 - QT GUI Hints are replaced with a web-style live window arrangement, using a live miniature in the canvas
 - Embedded Python Block using Pyodide
 - Embed flowgraphs and the GUI view in other webpages [(PySDR example)](https://pysdr.org/content/sync#frame-synchronization)
+- [Discord server](https://discord.gg/qKK2kC6Fpw) to chat ideas/features/bugs
 
 ## Limitations
 
 - No Python runtime in the browser at the moment, Python-only blocks and hier blocks need a C++ implementation, Pyodide is only used for Embedded Python Blocks
--Embedded Python Blocks do not yet support message handling or stream tags
 - Parameter expressions support a Python subset (arithmetic, lists, `math`/`numpy`, and common `firdes` filter designers) but not any arbitrary Python
-
-## How to add a feature or fix a bug entirely from the browser
-
-Create a [new Issue](https://github.com/777arc/gnuradio-world/issues/new) in GitHub, describe what you want to change or fix, if it's a bug then point out how to reproduce it, or which example flowgraph can be used to reproduce it.  Then click "Assign to Agent", and once it's done the agent will create a PR, and it will automatically build a live version of the site under a different URL, which will be provided as a comment in the PR once it's live (~8m).  You can then test out the change and make a note in the PR that it looks good.
 
 ## Benchmarking and Comparison to Native GNU Radio
 
@@ -217,7 +213,7 @@ a block can fail to generate, is in
 Example recordings are discovered and streamed directly from the Cloudflare R2
 bucket `gnuradio-wasm-recordings`, publicly served at
 `https://recordings.gnuradioworld.com`. Adding a matching
-`.sigmf-data`/`.sigmf-meta` pair makes it available after one-minute, thanks to the sigmf-indexer worker, no repository change or site deployment is needed.
+`.sigmf-data`/`.sigmf-meta` pair makes it available after one-minute, thanks to the sigmf-indexer worker, no repository change or site deployment is needed.  Reach out to Marc if you want to contribute a recording.
 
 ## License
 

@@ -157,6 +157,15 @@ public:
         : QGridLayout(parent), d_columns(std::max(1, columns)) {}
 
     void addTile(QWidget* widget, const gui_layout::Tile& tile) {
+        // A tile is the outer widget's size contract. TileWidgetItem keeps the
+        // widget's hints out of QGridLayout's track calculation, but
+        // QWidget::setGeometry() separately clamps the final rectangle to an
+        // explicit minimumSize(). Plot wrappers commonly carry a desktop-sized
+        // minimum (fosphor is 640x560), which otherwise makes a narrow tile
+        // spill across its neighbours even though the tracks themselves are
+        // correct. Child layouts retain their own constraints and render as
+        // well as the assigned rectangle permits.
+        widget->setMinimumSize(0, 0);
         addChildWidget(widget);
         auto* item = new TileWidgetItem(widget);
         QGridLayout::addItem(item, tile.row, tile.col, tile.h, tile.w);
