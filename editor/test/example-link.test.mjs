@@ -74,13 +74,13 @@ for (const file of files) {
 assert.match(main, /link\.onclick = e => \{ e\.stopPropagation\(\); void copyExampleUrl\(file\); \}/);
 // The row is an anchor to that page, and only a plain click is taken over.
 assert.match(main, /const item = document\.createElement\('a'\); item\.className = 'ex-item'/);
-assert.match(main, /item\.href = examplePageUrl\(file\)/);
+assert.match(main, /item\.href = examplePageUrl\(file, import\.meta\.env\.BASE_URL\)/);
 assert.match(main, /if \(e\.metaKey \|\| e\.ctrlKey \|\| e\.shiftKey \|\| e\.altKey \|\| e\.button !== 0\) return;/);
 assert.ok(css.includes('.ex-item.disabled'), 'the anchor has no disabled property to fall back on');
 assert.match(main, /history\.replaceState\(null, '', url\)/);
 assert.match(main, /const file = currentFileName \|\| 'flowgraph\.grc'/);
 assert.match(main, /const example = hash\.get\('example'\)/);
-assert.match(main, /fetch\('\/example_flowgraphs\/' \+ encodeExamplePath\(file\)\)/);
+assert.match(main, /fetch\(siteUrl\('example_flowgraphs\/' \+ encodeExamplePath\(file\)\)\)/);
 assert.ok(css.includes('.ex-link'));
 assert.ok(css.includes('.ex-row:hover .ex-link, .ex-link:focus-visible'));
 

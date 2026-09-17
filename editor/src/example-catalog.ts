@@ -105,16 +105,22 @@ export function examplePageSlug(path: string): string {
   return normalizeExamplePath(path).replace(/\.grc$/, '').split('/').map(exampleSlug).join('/');
 }
 
+// `base` defaults to '/' rather than reading import.meta.env.BASE_URL: this
+// module is shared between the real Vite-built app (pass BASE_URL explicitly)
+// and editor/gen/gen_example_pages.mjs's plain-esbuild bundle of it (no Vite
+// env, so that access would throw there) -- see docs on siteUrl() in
+// site-base.ts for the runtime half of this split.
+
 /** 'analog/fm_loopback.grc' -> '/examples/analog/fm-loopback/' */
-export function examplePageUrl(path: string): string {
-  return `/examples/${examplePageSlug(path)}/`;
+export function examplePageUrl(path: string, base = '/'): string {
+  return `${base}examples/${examplePageSlug(path)}/`;
 }
 
 /** The category page an example belongs to, or the hub for a top-level one. */
-export function exampleCategoryUrl(path: string): string {
+export function exampleCategoryUrl(path: string, base = '/'): string {
   const parts = examplePageSlug(path).split('/');
   parts.pop();
-  return parts.length ? `/examples/${parts.join('/')}/` : '/examples/';
+  return parts.length ? `${base}examples/${parts.join('/')}/` : `${base}examples/`;
 }
 
 export function buildExampleTree(files: string[]): ExampleDirectory {

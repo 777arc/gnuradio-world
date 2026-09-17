@@ -25,6 +25,8 @@
 // pump samples through the block?".
 //
 // Like debug-panel.ts, it touches the editor only through BenchmarkDeps.
+import { siteUrl } from './site-base';
+
 export interface BenchmarkDeps {
   /** main.ts's modal opener: (title, buildBody, wide) -> the overlay element. */
   openDialog: (title: string, build: (body: HTMLElement) => void, wide?: boolean) => HTMLElement;
@@ -424,7 +426,7 @@ async function measureCase(
   // It doubles as the identity every read below is checked against.
   const search = `?benchmark=${encodeURIComponent(benchmark.key)}` +
     (benchmark.scheduler ? `&scheduler=${encodeURIComponent(benchmark.scheduler)}` : '');
-  frame.src = `/runner/build/runner.html${search}#${encodeURIComponent(benchmark.grc)}`;
+  frame.src = siteUrl(`runner/build/runner.html${search}#${encodeURIComponent(benchmark.grc)}`);
 
   const deadline = Date.now() + START_TIMEOUT_MS;
   /** Poll until the case's own document reports a snapshot passing `ready`. */

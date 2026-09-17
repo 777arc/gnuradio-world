@@ -304,7 +304,7 @@ assert.doesNotMatch(jsBlockSource, /allow-same-origin/,
   'allow-same-origin would hand the block source the editor’s own origin');
 assert.match(jsBlockSource, /INTROSPECT_TIMEOUT_MS = \d+/,
   'an infinite loop in a source must not wedge the editor while you are typing');
-assert.match(jsBlockSource, /RUNTIME_URL = '\/runner\/build\/js_runtime\.js'/,
+assert.match(jsBlockSource, /RUNTIME_URL = siteUrl\('runner\/build\/js_runtime\.js'\)/,
   'the editor must validate descriptors with the runner’s own runtime, not a copy');
 
 const warnings = analyzeJsSource(`

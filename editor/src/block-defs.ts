@@ -1,4 +1,5 @@
 import { NOTE_BG_PARAM } from './note';
+import { siteUrl } from './site-base';
 import {
   CHALLENGE_ID, CHALLENGE_ID_PARAM, CHALLENGE_TITLE_PARAM,
   CHALLENGE_REQUIRES_PARAM, CHALLENGE_CRITERIA_PARAM,
@@ -81,9 +82,9 @@ export interface RunnableDef {
   inputTemplates?: PortTemplate[]; outputTemplates?: PortTemplate[];
 }
 
-// Generated block-library metadata. The editor is served from the site root,
-// so blocks.json (Vite `public/`) sits next to index.html.
-export const BLOCKS_URL = '/blocks.json';
+// Generated block-library metadata. blocks.json (Vite `public/`) sits next
+// to index.html, so it moves with whatever base this build is mounted at.
+export const BLOCKS_URL = siteUrl('blocks.json');
 
 // GRC dtype -> port colour (from grc/core/Constants.py).
 export const DTYPE_COLOR: Record<string, string> = {

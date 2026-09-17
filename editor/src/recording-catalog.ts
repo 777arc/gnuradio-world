@@ -1,3 +1,5 @@
+import { siteUrl } from './site-base';
+
 export interface ExampleRecording {
   name: string;
   title: string;
@@ -165,7 +167,7 @@ export function recordingUrl(name: string, href = location.href): string {
   return `${base}#recording=${encodeRecordingPath(normalizeRecordingKey(name))}`;
 }
 
-export const RECORDING_VIEW_BASE = '/recording/#';
+export const RECORDING_VIEW_BASE = siteUrl('recording/#');
 
 export const base64Url = (text: string): string => {
   const bytes = new TextEncoder().encode(text);

@@ -1,3 +1,5 @@
+import { siteUrl } from './site-base';
+
 // The Help ▸ WebAssembly Modules & Debug Info dialog: what the browser gives us
 // (cross-origin isolation, SharedArrayBuffer, cores), what each category module
 // costs and whether it has been fetched yet, and the live runner's heap and
@@ -16,7 +18,7 @@ export interface DebugInfoDeps {
   loadedModules: ReadonlySet<string>;
 }
 
-const WASM_BASE = '/runner/build/';
+const WASM_BASE = siteUrl('runner/build/');
 function fmtBytes(n: number | null): string {
   if (n == null || n < 0) return '—';
   if (n < 1024) return `${n} B`;
@@ -42,7 +44,7 @@ async function headSize(url: string): Promise<number | null> {
 // The HEAD stays as the dev fallback. There is no manifest in a dev tree, and
 // server.mjs serves every file identity-encoded, so its Content-Length *is* that
 // server's transfer size -- reported as both.
-const SIZES_URL = '/asset-sizes.json';
+const SIZES_URL = siteUrl('asset-sizes.json');
 interface AssetSize { bytes: number | null; br: number | null; }
 let sizeManifest: Promise<Record<string, { bytes: number, br: number }>> | null = null;
 function assetSizes(): Promise<Record<string, { bytes: number, br: number }>> {
@@ -52,6 +54,13 @@ function assetSizes(): Promise<Record<string, { bytes: number, br: number }>> {
       .catch(() => ({}));
   return sizeManifest;
 }
+// scripts/assemble-site.mjs writes its keys as root-absolute paths -- '/blocks.json',
+// '/runner/build/runner.wasm' -- with no knowledge of what base this build is
+// deployed under, so a manifest lookup for a base-prefixed `url` (e.g.
+// '/gnuradio/blocks.json') always misses under a non-'/' base. That is fine: it
+// falls through to the HEAD fallback below with the same, correctly base-prefixed
+// url, so sizes still come back right -- just always freshly measured rather than
+// from the precomputed manifest.
 async function assetSize(url: string): Promise<AssetSize> {
   const e = (await assetSizes())[url];
   if (e && typeof e.bytes === 'number') return { bytes: e.bytes, br: typeof e.br === 'number' ? e.br : null };

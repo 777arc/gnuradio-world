@@ -20,6 +20,7 @@
 // is no runtime to download, introspection costs a few milliseconds, and ports
 // follow the code as you type.
 import type { ParamDef, PortTemplate, RunnableDef } from './block-defs';
+import { siteUrl } from './site-base';
 
 export const JS_BLOCK_ID = 'wasm_js_block';
 export const JS_SOURCE_PARAM = '_source_code';
@@ -207,7 +208,7 @@ export function jsSourceOf(params: Record<string, any>): string {
 // is what makes this the same validation the runner performs rather than a
 // second implementation of it.
 
-const RUNTIME_URL = '/runner/build/js_runtime.js';
+const RUNTIME_URL = siteUrl('runner/build/js_runtime.js');
 // An infinite loop at the top level of a source would wedge the sandbox. It
 // cannot wedge the editor -- the frame is disposable and this is what disposes
 // of it. (There is no such rescue for a work() that never returns; see "The

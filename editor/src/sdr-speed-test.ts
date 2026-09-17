@@ -28,6 +28,7 @@ import {
   type UsbLike,
   type UsbPreparationProblem,
 } from './usb-radio';
+import { siteUrl } from './site-base';
 
 export interface SdrSpeedTestDeps {
   openDialog: (
@@ -277,9 +278,9 @@ async function measureReceive(
   progress: (rate: number, fraction: number, reading: SdrSpeedReading) => void,
 ): Promise<SdrSpeedResult> {
   const search = `?sdr-speed-test=${Date.now()}`;
-  frame.src = `/runner/build/runner.html${search}#` +
+  frame.src = siteUrl(`runner/build/runner.html${search}#` +
     encodeURIComponent(sdrReceiveBenchmarkFlowgraph(
-      radio.id, serial, sampleRate, plutoBufferSize));
+      radio.id, serial, sampleRate, plutoBufferSize)));
 
   const deadline = Date.now() + START_TIMEOUT_MS;
   let baseline: SdrSpeedReading | null = null;

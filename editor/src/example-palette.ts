@@ -12,6 +12,7 @@ import {
   type ExampleDirectory,
 } from './example-catalog';
 import { makePaletteSearch } from './palette-tree';
+import { siteUrl } from './site-base';
 
 interface ExampleEntry {
   file: string;
@@ -80,7 +81,7 @@ export function createExamplePalette(deps: ExamplePaletteDeps) {
     panel.append(status);
     let files: string[] = [];
     try {
-      files = await (await fetch('/example_flowgraphs')).json();
+      files = await (await fetch(siteUrl('example_flowgraphs'))).json();
     } catch (e) {
       status.textContent = 'Could not load example flowgraphs.';
       log('example flowgraphs not loaded: ' + e); return;
@@ -183,7 +184,7 @@ export function createExamplePalette(deps: ExamplePaletteDeps) {
       // editor finds a real link to all 79 of them. A <button> offered none of
       // that.
       const item = document.createElement('a'); item.className = 'ex-item';
-      item.href = examplePageUrl(file);
+      item.href = examplePageUrl(file, import.meta.env.BASE_URL);
       const title = document.createElement('div'); title.className = 'ex-title';
       title.textContent = exampleFileName(file).replace(/\.grc$/, '');
       item.append(title);
@@ -199,7 +200,7 @@ export function createExamplePalette(deps: ExamplePaletteDeps) {
       };
       exampleEntries.push(entry);
       // Fetch the file to show its title/description and load it on click.
-      fetch('/example_flowgraphs/' + encodeExamplePath(file)).then(r => {
+      fetch(siteUrl('example_flowgraphs/' + encodeExamplePath(file))).then(r => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.text();
       }).then(text => {

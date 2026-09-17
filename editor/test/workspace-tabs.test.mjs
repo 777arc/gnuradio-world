@@ -229,7 +229,7 @@ assert.match(html,
   'the Load button stays centered over the background');
 assert.doesNotMatch(html, /<link[^>]+editor\.css/,
   'the application stylesheet is not fetched directly by the document');
-assert.match(html, /<img data-src="\/gnuradio_world_logo_dark\.svg"/,
+assert.match(html, /<img data-src="%BASE_URL%gnuradio_world_logo_dark\.svg"/,
   'the hidden header logo does not cause a duplicate initial request');
 assert.match(html, /<script type="module" src="\/src\/bootstrap\.ts"><\/script>/,
   'the document initially loads only the small bootstrap module');

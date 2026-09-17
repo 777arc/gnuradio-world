@@ -5,6 +5,7 @@
 
 import './editor.css';
 import { GRWIRE_ID } from './grwire';
+import { siteUrl } from './site-base';
 import { dumpGrc, parseGrc, type GrcDoc, type GrcScalar } from './grc';
 import {
   canvasViewportCenter,
@@ -4173,7 +4174,7 @@ function trustExampleJavaScript(fg: any) {
 
 async function loadExampleByName(name: string, updateHash = true) {
   const file = normalizeExamplePath(name);
-  const res = await fetch('/example_flowgraphs/' + encodeExamplePath(file));
+  const res = await fetch(siteUrl('example_flowgraphs/' + encodeExamplePath(file)));
   if (!res.ok) throw new Error(`${file}: HTTP ${res.status}`);
   const fg = parseGrc(await res.text());
   const title = String(fg.options?.parameters?.title || file);
@@ -4187,7 +4188,7 @@ async function loadExampleByName(name: string, updateHash = true) {
 
 async function loadTrainingByName(name: string) {
   const file = normalizeExamplePath(name);
-  const res = await fetch('/example_flowgraphs/' + encodeExamplePath(file));
+  const res = await fetch(siteUrl('example_flowgraphs/' + encodeExamplePath(file)));
   if (!res.ok) throw new Error(`${file}: HTTP ${res.status}`);
   const fg = parseGrc(await res.text());
   const title = String(fg.options?.parameters?.title || file);
@@ -4645,7 +4646,7 @@ function contributeExample() {
   foot.prepend(go);
 
   // Populate the "name already used" check once the example list arrives.
-  void fetch('/example_flowgraphs').then(r => r.json()).then(files => {
+  void fetch(siteUrl('example_flowgraphs')).then(r => r.json()).then(files => {
     if (Array.isArray(files)) { taken = files.map(String); refresh(); }
   }).catch(() => { /* listing unavailable (e.g. offline) — skip the check */ });
   refresh();
@@ -4912,7 +4913,7 @@ function aiToolDependencies(): AiReadDeps {
     const existing = exampleTexts.get(path);
     if (existing) return existing;
     const pending = (async () => {
-      const response = await fetch('/example_flowgraphs/' + encodeExamplePath(path));
+      const response = await fetch(siteUrl('example_flowgraphs/' + encodeExamplePath(path)));
       if (!response.ok) throw new Error(`example "${path}" could not be read (${response.status})`);
       return response.text();
     })().catch(error => {
@@ -5141,7 +5142,7 @@ function aiToolDependencies(): AiReadDeps {
     clearFlowgraph: () => clearFlowgraph(false),
     canvasOrigin: () => canvasIsDefaultExample ? 'default-example' : 'user',
     listExamples: async () => {
-      const response = await fetch('/example_flowgraphs');
+      const response = await fetch(siteUrl('example_flowgraphs'));
       if (!response.ok) throw new Error(`example listing failed (${response.status})`);
       const files = await response.json();
       return Array.isArray(files) ? files.map(String).sort() : [];

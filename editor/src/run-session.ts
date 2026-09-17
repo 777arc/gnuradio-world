@@ -1,5 +1,6 @@
 import { AUDIO_SOURCE_ID, prepareAudioCapture } from './audio';
 import { activeGrWireBlocks, prepareGrWire } from './grwire';
+import { siteUrl } from './site-base';
 import type { GrcDoc } from './grc';
 import type { GraphSnapshot, Inst, ValidationIssue } from './graph-model';
 import type { EditorGraphState } from './editor-state';
@@ -535,8 +536,8 @@ async function prepareFlowgraph(deps: RunSessionDeps, session: RunSessionState,
     .filter(([, value]) => value)
     .map(([key, value]) => `&${key}=${encodeURIComponent(value!)}`)
     .join('');
-  const url = '/runner/build/runner.html?recordingToken=' + encodeURIComponent(token) +
-    passthrough + '#' + encodeURIComponent(grcTextForRun(fileOverrides));
+  const url = siteUrl('runner/build/runner.html?recordingToken=' + encodeURIComponent(token) +
+    passthrough + '#' + encodeURIComponent(grcTextForRun(fileOverrides)));
   const frame = deps.frame;
   deps.runEmpty.hidden = true;
   frame.hidden = false;

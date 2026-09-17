@@ -18,6 +18,7 @@
 // blocks/grc/epy_block.block.yml describes its default source. Nothing is fetched
 // until the source is edited and the user asks for it.
 import type { ParamDef, PortTemplate, RunnableDef } from './block-defs';
+import { siteUrl } from './site-base';
 
 export const EPY_BLOCK_ID = 'epy_block';
 export const EPY_SOURCE_PARAM = '_source_code';
@@ -162,9 +163,9 @@ export function epySourceError(uid: string): string {
 
 export type RuntimeState = 'absent' | 'loading' | 'ready' | 'failed';
 
-const WORKER_URL = '/runner/build/pyodide/gr_pyodide_worker.js';
-const PYODIDE_URL = '/pyodide/';
-const SHIM_URL = '/runner/build/pyodide/py/';
+const WORKER_URL = siteUrl('runner/build/pyodide/gr_pyodide_worker.js');
+const PYODIDE_URL = siteUrl('pyodide/');
+const SHIM_URL = siteUrl('runner/build/pyodide/py/');
 const CONSENT_KEY = 'gnuradio-world.python-runtime';
 
 type Pending = { resolve: (io: BlockIo) => void; reject: (error: Error) => void };
