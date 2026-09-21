@@ -101,8 +101,8 @@ async function run(data) {
   let remainingItems = lengthItems;
   let bytesRead = 0;
   let maxChunkBytes = 0;
-  const maxChunkBytes = source.kind === 'http' ? MAX_HTTP_CHUNK_BYTES : MAX_CHUNK_BYTES;
-  const maxChunkItems = Math.max(1, Math.floor(maxChunkBytes / itemSize));
+  const requestChunkBytes = source.kind === 'http' ? MAX_HTTP_CHUNK_BYTES : MAX_CHUNK_BYTES;
+  const maxChunkItems = Math.max(1, Math.floor(requestChunkBytes / itemSize));
   Atomics.store(controlView(memory, controlPointer), STATE, RUNNING);
   Atomics.notify(controlView(memory, controlPointer), WRITE_POS);
 
