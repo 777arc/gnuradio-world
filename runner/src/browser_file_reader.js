@@ -13,7 +13,8 @@ const ERROR = 3;
 const CANCELLED = 4;
 
 const MAX_CHUNK_BYTES = 2 * 1024 * 1024;
-const MAX_RETRIES = 3;
+const MAX_HTTP_CHUNK_BYTES = 256 * 1024;
+const MAX_RETRIES = 8;
 
 const sleep = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
 
@@ -70,7 +71,8 @@ async function readHttp(source, start, end) {
       return data;
     } catch (error) {
       lastError = error;
-      if (attempt + 1 < MAX_RETRIES) await sleep(100 * (1 << attempt));
+      if (attempt + 1 < MAX_RETRIES)
+        await sleep(Math.min(5000, 250 * (1 << attempt)));
     }
   }
   throw lastError;
@@ -99,7 +101,8 @@ async function run(data) {
   let remainingItems = lengthItems;
   let bytesRead = 0;
   let maxChunkBytes = 0;
-  const maxChunkItems = Math.max(1, Math.floor(MAX_CHUNK_BYTES / itemSize));
+  const maxChunkBytes = source.kind === 'http' ? MAX_HTTP_CHUNK_BYTES : MAX_CHUNK_BYTES;
+  const maxChunkItems = Math.max(1, Math.floor(maxChunkBytes / itemSize));
   Atomics.store(controlView(memory, controlPointer), STATE, RUNNING);
   Atomics.notify(controlView(memory, controlPointer), WRITE_POS);
 

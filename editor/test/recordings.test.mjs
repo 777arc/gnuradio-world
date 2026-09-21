@@ -329,6 +329,10 @@ assert.ok(uhdImageLoader < 0 ||
   'the USRP image loader should have been sliced out');
 assert.doesNotMatch(runnerHtmlRecordingPaths, /\.arrayBuffer\(\)/);
 assert.match(readerWorker, /MAX_CHUNK_BYTES = 2 \* 1024 \* 1024/);
+assert.match(readerWorker, /MAX_HTTP_CHUNK_BYTES = 256 \* 1024/,
+  'remote recordings read in smaller chunks so slow links can stream sooner');
+assert.match(readerWorker, /MAX_RETRIES = 8/,
+  'remote range fetches tolerate transient slow-network failures');
 assert.match(readerWorker, /Range: `bytes=\$\{start\}-\$\{end - 1\}`/);
 assert.match(readerWorker, /if \(contentRange &&[\s\S]*?data\.byteLength !== end - start/);
 assert.match(runnerHtml,
