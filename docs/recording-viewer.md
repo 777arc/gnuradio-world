@@ -66,6 +66,25 @@ note that a Public HTTP Recording asks the same two things of a host nobody here
 controls, which is why the editor probes it (HEAD, then a one-byte range) and
 refuses the Run rather than letting the reader fail later.
 
+**A remote range is streamed into the ring, never buffered whole, and a link
+slower than the recording is a slow flowgraph rather than a blank one.** Every
+piece of a response body is published to the ring the moment it lands, so the
+flowgraph has its first samples within a fraction of a second at any speed and
+runs at the network's rate from there. Reading the whole 2 MiB with
+`arrayBuffer()` first was how issue #17 happened: a 2 MS/s complex-short
+recording needs 8 MB/s, and on a wifi link giving 200 KB/s that meant fifteen
+seconds of nothing, then a quarter second of signal every ten seconds — plots
+that looked frozen, read as a hung tab. A response that stops making progress for
+`STALL_TIMEOUT_MS` (20 s) is aborted and resumed with a Range from the byte
+after the last one delivered, so nothing is delivered twice, and a reset or
+short response resumes the same way; only `MAX_RETRIES` consecutive attempts
+without a single byte end the source with an error. Only the consumer moves
+`READ_POS`, which is what makes publishing part of a request safe: the space
+counted free when the request was sized only grows while it is in flight.
+`runner/test/browser_file_reader.test.mjs` drives the worker on plain Node
+against a stubbed `fetch` whose stream the test feeds by hand, and is where
+that contract is pinned.
+
 `test/test_smoke.mjs` covers both backends. Its local-file case selects a sparse
 file larger than 4 GiB through the actual editor and reads beyond the 32-bit
 boundary; its HTTP case runs a GR World Recording against an endpoint that

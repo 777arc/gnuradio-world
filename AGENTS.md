@@ -247,6 +247,7 @@ node test/test_smoke.mjs            # blocks actually move samples, not merely t
 node scripts/run.mjs /runner/build/runner.html RUNNER_PASS
 node runner/test/audio_worklet.test.mjs  # Audio Sink/Source's worklet, on plain Node
 node runner/test/browser_file_writer.test.mjs  # SigMF Sink's writer worker, likewise
+node runner/test/browser_file_reader.test.mjs  # the recording reader: streaming, stall recovery
 node runner/test/js_runtime.test.mjs    # the JS Block harness, on plain Node in a second
 node test/test_js_block.mjs             # ... a flowgraph whose work() is JavaScript
 node test/test_js_block_editor.mjs      # ... and the editor deriving ports as you type

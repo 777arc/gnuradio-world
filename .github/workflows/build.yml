@@ -306,6 +306,11 @@ jobs:
           # browser test can reach (it needs a browser that refuses the
           # flowgraph's sample rate). No browser, one second.
           node runner/test/audio_worklet.test.mjs
+          # The recording reader worker: a remote range streamed into the ring
+          # as it arrives, and a stalled or reset link resumed from the last
+          # byte delivered -- the slow-wifi behavior of issue #17, which no
+          # browser test can time deterministically. No browser, one second.
+          node runner/test/browser_file_reader.test.mjs
           # The JavaScript Block. Unlike the Python one there is no optional
           # runtime to skip over, so these gate the deploy outright -- and
           # test_smoke.mjs carries JS block cases of its own for the same reason.

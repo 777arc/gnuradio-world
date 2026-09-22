@@ -329,12 +329,22 @@ assert.ok(uhdImageLoader < 0 ||
   'the USRP image loader should have been sliced out');
 assert.doesNotMatch(runnerHtmlRecordingPaths, /\.arrayBuffer\(\)/);
 assert.match(readerWorker, /MAX_CHUNK_BYTES = 2 \* 1024 \* 1024/);
-assert.match(readerWorker, /MAX_HTTP_CHUNK_BYTES = 256 \* 1024/,
-  'remote recordings read in smaller chunks so slow links can stream sooner');
 assert.match(readerWorker, /MAX_RETRIES = 8/,
   'remote range fetches tolerate transient slow-network failures');
-assert.match(readerWorker, /Range: `bytes=\$\{start\}-\$\{end - 1\}`/);
-assert.match(readerWorker, /if \(contentRange &&[\s\S]*?data\.byteLength !== end - start/);
+assert.match(readerWorker, /Range: `bytes=\$\{position\}-\$\{end - 1\}`/,
+  'a resumed request asks for the bytes after the last one delivered, never the whole range again');
+assert.match(readerWorker, /if \(contentRange &&[\s\S]*?position !== end\)/,
+  'a response is validated by Content-Range when visible and by its exact byte count regardless');
+// ... and streamed into the ring as it arrives, never buffered whole: on a link
+// slower than the recording's rate the flowgraph has to run slowly rather than
+// in bursts, and a stalled connection has to be abandoned rather than waited on.
+// Which is also why remote requests are not read in smaller chunks: the size of
+// a request no longer decides when its first byte reaches the flowgraph, only
+// how many requests a recording costs.
+assert.doesNotMatch(readerWorker, /response\.arrayBuffer\(\)/);
+assert.match(readerWorker, /response\.body\.getReader\(\)/);
+assert.match(readerWorker, /const STALL_TIMEOUT_MS = /);
+assert.doesNotMatch(readerWorker, /MAX_HTTP_CHUNK_BYTES/);
 assert.match(runnerHtml,
   /const RUN_RECORDING_TOKEN[\s\S]*message\.recordingToken = RUN_RECORDING_TOKEN;[\s\S]*postMessage\(message, location\.origin\)/,
   'every runner-to-editor message carries the run token and uses an exact target origin');
