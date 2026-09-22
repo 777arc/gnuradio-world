@@ -96,6 +96,10 @@ assert.deepEqual(liveIds('wasm_rtlsdr_source'),
   'a hand-written factory\'s setters must too, and its YAML names none of them');
 assert.ok(liveIds('qtgui_freq_sink_x').includes('fc'),
   'a QT GUI sink can be retuned while it runs');
+assert.ok(liveIds('qtgui_waterfall_sink_x').includes('int_min'),
+  'the Waterfall Sink intensity minimum must be runtime-changeable');
+assert.ok(liveIds('qtgui_waterfall_sink_x').includes('int_max'),
+  'the Waterfall Sink intensity maximum must be runtime-changeable');
 assert.ok(!liveIds('analog_sig_source_x').includes('waveform'),
   'a parameter with no setter must not be marked live: the control would ' +
   'move and the block would keep its construction-time value');
