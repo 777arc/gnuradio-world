@@ -6,6 +6,17 @@ flags: [cpp, throttle]
 documentation: |-
     Receives from an RTL-SDR dongle plugged into this computer, over WebUSB.
 
+    Linux setup, once: the kernel's DVB-T driver claims the dongle at plug-in,
+    and Chromium installed as a Snap is confined away from USB until its
+    raw-usb plug is connected. Run
+
+        sudo modprobe -r rtl2832_sdr dvb_usb_rtl28xxu rtl2832 r820t
+        printf 'blacklist dvb_usb_rtl28xxu\nblacklist rtl2832\nblacklist rtl2832_sdr\nblacklist r820t\n' | sudo tee /etc/modprobe.d/blacklist-rtlsdr.conf
+        sudo snap connect chromium:raw-usb    # Snap Chromium only
+
+    then replug the dongle and fully restart the browser. Your user also needs
+    access to the device node (membership of plugdev, or a udev rule).
+
     Device names the dongle by serial number. Click Add to pick one -- the
     browser asks permission once per device and remembers it for this site.
     Leave it empty to use the first RTL-SDR you have already granted access to.
@@ -14,11 +25,8 @@ documentation: |-
     Android. Firefox and Safari do not implement WebUSB and cannot run this
     block at all.
 
-    On Linux the kernel's DVB-T driver claims the dongle first, so blacklist
-    dvb_usb_rtl28xxu and add a udev rule granting your user access; Chromium
-    installed as a Snap cannot reach USB devices at all. On Windows the dongle
-    needs the WinUSB driver, which Zadig installs. macOS, Android and ChromeOS
-    need no setup.
+    On Windows the dongle needs the WinUSB driver, which Zadig installs. macOS,
+    Android and ChromeOS need no setup.
 
     Sample Rate is a request. The RTL2832U divides a 28.8 MHz clock, so the
     achievable rate is what the flowgraph actually runs at; it is reported to

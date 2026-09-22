@@ -15,6 +15,11 @@ documentation: |-
     Chromium-based browser such as Chrome, Edge or Opera; Firefox and Safari do
     not implement it.
 
+    On Linux, grant the browser access to the USB device and ensure no native
+    program (iio_info, IIO Oscilloscope, a running libiio client) has the
+    Pluto open. Chromium installed as a Snap needs its raw-usb plug connected first:
+    sudo snap connect chromium:raw-usb, then restart the browser.
+
     WSL setup (only when Chromium itself runs inside WSL): install usbipd-win on
     Windows. With the Pluto plugged in, open an Administrator PowerShell and
     find and share it (binding is normally needed only once):

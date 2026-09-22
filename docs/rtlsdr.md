@@ -343,8 +343,12 @@ These generate every support question, and the block's own `documentation:` in
   have both declined to implement WebUSB and there is no polyfill.
 - **Linux:** the kernel's `dvb_usb_rtl28xxu` DVB-T driver claims the dongle at
   plug-in and `claimInterface()` then fails — `blacklist dvb_usb_rtl28xxu` plus a
-  udev rule granting the user access. **Chromium installed as a Snap cannot reach
-  USB devices at all.**
+  udev rule granting the user access. **Chromium installed as a Snap** is confined
+  away from USB until its `raw-usb` plug is connected: `sudo snap connect
+  chromium:raw-usb`, then restart the browser. Until then it *enumerates* the
+  dongle through `hardware-observe` but cannot open it, so the chooser lists a
+  device the claim probe then refuses — the same symptom as the DVB driver, and
+  the second thing to check after `lsmod | grep rtl28` comes back empty.
 - **Windows:** needs the WinUSB driver, which Zadig installs. Anyone already
   running rtl-sdr natively is set.
 - **macOS, Android, ChromeOS:** no setup.

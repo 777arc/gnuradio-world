@@ -16,7 +16,9 @@ through the origin's persistent permission; a `USBDevice` is never transferred
 between frames or into Wasm.
 
 On Linux the browser user needs access to the USB node and no native program may
-have the HackRF open. Snap-packaged Chromium may not reach USB. On Windows the
+have the HackRF open. Snap-packaged Chromium needs `sudo snap connect
+chromium:raw-usb` and a browser restart before it can open any USB device — see
+the platform notes in [rtlsdr.md](rtlsdr.md). On Windows the
 device needs a WinUSB binding, commonly installed with Zadig. Firefox and Safari
 do not implement WebUSB.
 

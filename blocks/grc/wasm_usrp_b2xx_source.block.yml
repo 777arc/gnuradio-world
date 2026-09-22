@@ -36,7 +36,8 @@ documentation: |-
     it and cannot run this block at all.
 
     On Linux, add a udev rule granting your user access to the device.
-    Chromium installed as a Snap cannot reach USB devices at all.
+    Chromium installed as a Snap needs its raw-usb plug connected first:
+    sudo snap connect chromium:raw-usb, then restart the browser.
 
     Under WSL, note that WebUSB enumerates from the browser process's own USB
     stack. A USRP `usbipd attach`ed into WSL is detached from Windows, so Chrome

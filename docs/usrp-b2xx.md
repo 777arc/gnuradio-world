@@ -120,7 +120,9 @@ driver may stop seeing the device until it is.
 ### Linux and WSL
 
 On Linux, add a udev rule granting your user access to the device node. Chromium
-installed as a **Snap cannot reach USB devices at all**.
+installed as a **Snap** needs `sudo snap connect chromium:raw-usb` and a browser
+restart before it can open any USB device — see the platform notes in
+[rtlsdr.md](rtlsdr.md).
 
 Under WSL, WebUSB enumerates from the *browser process's* USB stack. A device
 `usbipd attach`ed into the distro is detached from Windows and invisible to Chrome

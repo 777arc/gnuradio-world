@@ -27,7 +27,9 @@ export const RTLSDR_DRIVER_PROBLEM = {
     'claim its USB interface. Install and configure the device driver before ' +
     'continuing. On Windows, use Zadig to install the WinUSB driver. On Linux, ' +
     'detach or blacklist dvb_usb_rtl28xxu and make sure your user can access ' +
-    'USB devices. Also close any other application using the RTL-SDR.',
+    'USB devices; if Chromium is installed as a Snap, also run ' +
+    '"sudo snap connect chromium:raw-usb" and restart the browser. ' +
+    'Also close any other application using the RTL-SDR.',
 };
 
 /**

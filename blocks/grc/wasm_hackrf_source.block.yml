@@ -13,8 +13,9 @@ documentation: |-
     browser such as Chrome, Edge or Opera; Firefox and Safari cannot run it.
 
     On Linux, grant the browser access to the USB device and ensure no native
-    application has it open. Chromium installed as a Snap may be unable to see
-    USB devices. On Windows, bind the HackRF to WinUSB (Zadig is commonly used).
+    application has it open. Chromium installed as a Snap needs its raw-usb plug connected first:
+    sudo snap connect chromium:raw-usb, then restart the browser.
+    On Windows, bind the HackRF to WinUSB (Zadig is commonly used).
 
     Sample Rate may be changed while receiving. HackRF supports 2 through 20
     MS/s, though 8 MS/s or more is recommended for useful analog filtering.

@@ -30,7 +30,9 @@ Spike included — may have the device open. A udev rule such as
 
     SUBSYSTEM=="usb", ATTRS{idVendor}=="2817", MODE="0666"
 
-in `/etc/udev/rules.d/` is enough. Firefox and Safari do not implement WebUSB.
+in `/etc/udev/rules.d/` is enough. Snap-packaged Chromium also needs `sudo snap
+connect chromium:raw-usb` and a browser restart — see the platform notes in
+[rtlsdr.md](rtlsdr.md). Firefox and Safari do not implement WebUSB.
 
 **On Windows the device has to be rebound to WinUSB.** Signal Hound's driver is
 Cypress's `cyusb3.sys`, and `cyusb3.inf` claims `VID_2817&PID_0005` explicitly.

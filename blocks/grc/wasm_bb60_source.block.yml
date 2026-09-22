@@ -27,7 +27,8 @@ documentation: |-
 
     On Linux, grant the browser access to the USB device (a udev rule for USB
     vendor 2817) and ensure no native application, including Spike, has the
-    device open.
+    device open. Chromium installed as a Snap needs its raw-usb plug connected first:
+    sudo snap connect chromium:raw-usb, then restart the browser.
 
     The BB60 always streams real samples at a fixed 70 MS/s regardless of the
     requested rate: all tuning below that is done on this side, exactly as the
