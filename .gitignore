@@ -59,3 +59,4 @@ __pycache__/
 # rebuilt index looks right -- but they are production metadata, not source, and
 # a committed copy would go stale the moment anyone edits a recording.
 /recordings-backup-*/
+/scripts/.tmp-repro/
