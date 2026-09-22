@@ -50,6 +50,11 @@ for (const block of ['qtgui_freq_sink_x', 'qtgui_const_sink_x', 'qtgui_waterfall
     `${block} must reveal the second line with two inputs`);
 }
 
+assert.match(runner, /numeric_setters\["int_min"\][\s\S]*set_intensity_range\(intensity->first, intensity->second\);/,
+  'Waterfall Sink must expose a live setter for intensity minimum');
+assert.match(runner, /numeric_setters\["int_max"\][\s\S]*set_intensity_range\(intensity->first, intensity->second\);/,
+  'Waterfall Sink must expose a live setter for intensity maximum');
+
 assert.match(editor, /refreshVisibility\(\); refreshValidation\(\);/,
   'changing the data type must refresh conditional properties');
 
