@@ -13,7 +13,8 @@ const ERROR = 3;
 const CANCELLED = 4;
 
 const MAX_CHUNK_BYTES = 2 * 1024 * 1024;
-const MAX_RETRIES = 3;
+const MAX_HTTP_CHUNK_BYTES = 256 * 1024;
+const MAX_RETRIES = 8;
 
 const sleep = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
 
@@ -39,6 +40,20 @@ async function readLocal(source, start, end) {
   return await source.file.slice(start, end).arrayBuffer();
 }
 
+function shouldRetryHttpStatus(status) {
+  return status === 408 || status === 425 || status === 429 || status >= 500;
+}
+
+function protocolError(message) {
+  const error = new Error(message);
+  error.retryable = false;
+  return error;
+}
+
+function shouldRetryError(error) {
+  return !(error && error.retryable === false);
+}
+
 async function readHttp(source, start, end) {
   let lastError;
   for (let attempt = 0; attempt < MAX_RETRIES; ++attempt) {
@@ -49,8 +64,11 @@ async function readHttp(source, start, end) {
       });
       if (response.status !== 206) {
         await response.body?.cancel();
-        throw new Error(
-          `server did not honor byte range ${start}-${end - 1} (HTTP ${response.status})`);
+        const message =
+          `server did not honor byte range ${start}-${end - 1} (HTTP ${response.status})`;
+        if (!shouldRetryHttpStatus(response.status))
+          throw protocolError(message);
+        throw new Error(message);
       }
       const contentRange = response.headers.get('Content-Range') || '';
       const match = /^bytes\s+(\d+)-(\d+)\/(\d+|\*)$/i.exec(contentRange);
@@ -62,15 +80,18 @@ async function readHttp(source, start, end) {
       if (contentRange &&
           (!match || Number(match[1]) !== start || Number(match[2]) !== end - 1)) {
         await response.body?.cancel();
-        throw new Error(`invalid Content-Range "${contentRange}"`);
+        throw protocolError(`invalid Content-Range "${contentRange}"`);
       }
       const data = await response.arrayBuffer();
       if (data.byteLength !== end - start)
-        throw new Error(`short range response (${data.byteLength} of ${end - start} bytes)`);
+        throw protocolError(`short range response (${data.byteLength} of ${end - start} bytes)`);
       return data;
     } catch (error) {
       lastError = error;
-      if (attempt + 1 < MAX_RETRIES) await sleep(100 * (1 << attempt));
+      if (attempt + 1 < MAX_RETRIES && shouldRetryError(error))
+        await sleep(Math.min(5000, 250 * (1 << attempt)));
+      else
+        break;
     }
   }
   throw lastError;
@@ -99,7 +120,8 @@ async function run(data) {
   let remainingItems = lengthItems;
   let bytesRead = 0;
   let maxChunkBytes = 0;
-  const maxChunkItems = Math.max(1, Math.floor(MAX_CHUNK_BYTES / itemSize));
+  const requestChunkBytes = source.kind === 'http' ? MAX_HTTP_CHUNK_BYTES : MAX_CHUNK_BYTES;
+  const maxChunkItems = Math.max(1, Math.floor(requestChunkBytes / itemSize));
   Atomics.store(controlView(memory, controlPointer), STATE, RUNNING);
   Atomics.notify(controlView(memory, controlPointer), WRITE_POS);
 
