@@ -4493,6 +4493,10 @@ static std::map<std::string, Factory>& registry_storage() {
                      "QT GUI Waterfall Sink connections cannot be negative");
 
              auto range = std::make_shared<std::pair<double, double>>(initial_fc, initial_bw);
+             auto intensity =
+                 std::make_shared<std::pair<double, double>>(
+                     number_from(p, "int_min", -140.0),
+                     number_from(p, "int_max", 10.0));
              auto finish = [&](auto b) -> BuiltBlock {
                  b->set_frequency_range(range->first, range->second);
                  configure_waterfall_sink(b, p, nconnections);
@@ -4508,6 +4512,14 @@ static std::map<std::string, Factory>& registry_storage() {
                      b->set_frequency_range(range->first, range->second);
                  };
                  result.numeric_setters["bw"] = set_bandwidth;
+                 result.numeric_setters["int_min"] = [b, intensity](double value) {
+                     intensity->first = value;
+                     b->set_intensity_range(intensity->first, intensity->second);
+                 };
+                 result.numeric_setters["int_max"] = [b, intensity](double value) {
+                     intensity->second = value;
+                     b->set_intensity_range(intensity->first, intensity->second);
+                 };
                  return result;
              };
              const bool is_float_variant = type == "float" || type == "msg_float";
