@@ -130,6 +130,7 @@ const COLLECTION_NAMES: Record<string, string> = {
   GRCon23_CTF: 'GRCon 2023 CTF',
   GRCon24_CTF: 'GRCon 2024 CTF',
   GRCon25_CTF: 'GRCon 2025 CTF',
+  GRCon26_CTF: 'GRCon 2026 CTF',
   synthetic: 'Synthetic test vectors',
   drone: 'Drone downlink captures',
 };
