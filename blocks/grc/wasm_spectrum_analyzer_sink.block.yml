@@ -39,6 +39,17 @@ documentation: |-
     modulated signals. Peak and bandwidth measurements retain the unsmoothed FFT
     bins.
 
+    MMO Mode is an optional presentation layer for detected signals. It replaces
+    the measurement annotations with received-power health bars, five-second
+    levels, generated enemy names, status effects, a strongest-signal boss and
+    target, and spawn/loss effects. The boss uses a larger gold health bar over
+    its signal. A fall of more than 3 dB from a signal's running maximum causes
+    a temporary bleeding effect and resets that maximum to the new power; drops
+    over 10 dB are critical hits.
+    Losing detection resets that signal's levels and maximum. Sound effects are
+    muted until enabled from the running instrument. MMO state is visual only
+    and does not change the analyzer's numeric plot data.
+
     Levels are dBFS by default. A complex carrier of magnitude 1, or a full-scale
     real sinusoid, reads 0 dBFS when it falls exactly on an FFT bin. Calibration
     Offset is added to every displayed level; changing Level Unit to dBm or dBµV
@@ -120,6 +131,10 @@ parameters:
     dtype: enum
     default: dBFS
     options: [dBFS, dBm, dBµV]
+-   id: mmo_mode
+    label: MMO Mode
+    dtype: bool
+    default: 'False'
 inputs:
 -   domain: stream
     dtype: ${ type }

@@ -267,6 +267,12 @@ html.click-to-load-pending #clickToLoad button:disabled { cursor:default; opacit
           <!-- Rearranges the live widgets by dragging them, writing the result
                back into the flowgraph's GUI Layout block. -->
           <button id="btnArrange" disabled aria-pressed="false">⌗ Arrange</button>
+          <!-- The whole pane goes full screen, run bar included, so the button
+               that got there is also the way back out — a touch screen has no
+               Escape key. -->
+          <button id="btnFullscreen" disabled aria-pressed="false"
+                  title="Show the QT GUI on the whole screen"
+                  aria-label="Show the QT GUI on the whole screen">⛶ Full Screen</button>
           <button id="btnStop" disabled>✕ Stop</button>
         </div>
         <div id="runEmpty">Run a flowgraph to open its QT GUI here.</div>

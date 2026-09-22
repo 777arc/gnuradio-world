@@ -567,6 +567,20 @@ center frequency, 99% bandwidth, total power, power unit and maximum level,
 along with peak frequency, as raw numbers rather than its rounded display
 strings; there is no second peak callout to obscure the plot.
 
+The construction-time `MMO Mode` parameter leaves that detector and numeric
+snapshot alone and swaps only the detected-signal presentation. Its implementation
+lives in `runner/src/spectrum_analyzer_mmo.js`, outside the FFT renderer: the
+analyzer hands it measured signals with stable ids, and it owns received-power
+health bars, five-second levels, generated enemy classes, status effects, boss
+selection, spawn/loss and damage animations, and user-enabled sound cues. The
+boss keeps its larger gold bar anchored over the strongest signal rather than
+using a separate banner. Damage is a fall of more than 3 dB from a track's
+running maximum; after the hit that maximum resets to the current power, and a
+drop over 10 dB is critical. Losing detection destroys the track's levels and
+maximum immediately even though its dissolve animation remains briefly. MMO state
+is intentionally absent from `read_plot_data`, so Graham sees the same measurements
+in either presentation.
+
 Like the WebGPU fosphor path, its `QWidget` is a placement placeholder, so GUI
 Layout needs no special case and no scheduler thread touches the DOM. Neither
 sink tracks its own geometry: the runner publishes every placed widget's

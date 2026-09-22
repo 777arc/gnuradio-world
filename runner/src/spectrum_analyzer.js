@@ -369,6 +369,8 @@
       this.title = String(options.title || 'Spectrum Analyzer');
       this.traceMode = TRACE_MODES.has(options.traceMode)
         ? options.traceMode : 'average';
+      this.mmoMode = false;
+      this.mmo = null;
       this.lastSequence = 0;
       this.skippedFrames = 0;
       this.frameCopy = new Float32Array(this.binCount);
@@ -487,7 +489,10 @@
       this.toolbar.addEventListener('click', event => {
         const action = event.target?.closest?.('button')?.dataset?.action;
         if (!action) return;
-        if (action === 'hold') this.frozen = !this.frozen;
+        if (action === 'hold') {
+          this.frozen = !this.frozen;
+          this.mmo?.setHeld(this.frozen, performance.now());
+        }
         else if (action === 'auto') this.autoScalePending = true;
         else if (action === 'relearn') {
           this.resetThresholdLearning();
@@ -618,6 +623,7 @@
       this.peak = null;
       this.detectedSignals = [];
       this.signalTracks = [];
+      this.mmo?.reset();
       this.updateButtonStates();
     }
 
@@ -771,6 +777,7 @@
       this.thresholdSamples = [];
       this.detectedSignals = [];
       this.signalTracks = [];
+      this.mmo?.reset();
       this.updateThresholdControl();
       this.dirty = true;
     }
@@ -778,6 +785,7 @@
     updateDetections() {
       if (this.thresholdDb == null || !this.frameCopy?.length) {
         this.detectedSignals = [];
+        this.mmo?.update([], performance.now(), this.mmoMetrics());
         return;
       }
       // Average only the decision envelope, never the values used for peak and
@@ -838,6 +846,18 @@
         id, hue, center, width, displayPeakFrequency, displayPeakLevel,
         pendingPeakFrequency, pendingPeakLevel, peakWindowStartedAt,
       }));
+      this.mmo?.update(this.detectedSignals, now, this.mmoMetrics());
+    }
+
+    mmoMetrics() {
+      const firstFrequency = this.frequencyAt(this.viewFirstIndex);
+      const lastFrequency = this.frequencyAt(this.viewLastIndex);
+      return {
+        spanHz: Math.abs(lastFrequency - firstFrequency),
+        rbwHz: this.sampleRate / this.fftSize * this.enbwBins,
+        minimumLevel: this.referenceLevel - GRID_DIVISIONS * this.dbPerDivision,
+        maximumLevel: this.referenceLevel,
+      };
     }
 
     plotRect() {
@@ -963,36 +983,44 @@
           Math.max(rect.top + UI_FONT_SIZE_PX, thresholdY - 2));
       }
 
-      const drawLabel = (lines, anchorY, peakX, peakY, color, preferRight) => {
-        context.font = UI_MONO_FONT;
-        const lineHeight = UI_FONT_SIZE_PX + 3;
-        const width = Math.max(...lines.map(line => context.measureText(line).width)) + 8;
-        const height = lines.length * lineHeight + 7;
-        const { x, y } = placeSignalAnnotation(rect, width, height, anchorY,
-          peakX, peakY, preferRight);
-        context.fillStyle = 'rgba(8, 13, 24, 0.88)';
-        context.fillRect(x, y, width, height);
-        context.strokeStyle = color; context.lineWidth = 1; context.strokeRect(x, y, width, height);
-        context.fillStyle = color; context.textBaseline = 'top';
-        lines.forEach((line, index) => {
-          context.textAlign = index === 0 ? 'center' : 'left';
-          context.fillText(line, index === 0 ? x + width / 2 : x + 4,
-            y + 3 + index * lineHeight);
-        });
-      };
       const visibleSignals = this.detectedSignals.filter(signal =>
         signal.center >= firstFrequency && signal.center <= lastFrequency);
-      for (let index = 0; index < visibleSignals.length; index++) {
-        const signal = visibleSignals[index];
-        const peakX = xForFrequency(signal.peakFrequency);
-        const peakY = yForLevel(signal.peakLevel);
-        context.fillStyle = signal.color;
-        context.beginPath(); context.arc(peakX, peakY, 3, 0, Math.PI * 2); context.fill();
-        const lines = signalAnnotationLines(signal, this.levelUnit);
-        drawLabel(lines,
-          rect.top + UI_FONT_SIZE_PX + 10 +
-          (index % 3) * (lines.length * (UI_FONT_SIZE_PX + 3) + 13),
-          peakX, peakY, signal.color, index % 2 === 0);
+      if (this.mmo) {
+        this.mmo.draw(context, visibleSignals, performance.now(), {
+          rect, xForFrequency, yForLevel, firstFrequency, lastFrequency,
+          minimumLevel: yBottom, maximumLevel: this.referenceLevel,
+        });
+      } else {
+        const drawLabel = (lines, anchorY, peakX, peakY, color, preferRight) => {
+          context.font = UI_MONO_FONT;
+          const lineHeight = UI_FONT_SIZE_PX + 3;
+          const width = Math.max(...lines.map(line => context.measureText(line).width)) + 8;
+          const height = lines.length * lineHeight + 7;
+          const { x, y } = placeSignalAnnotation(rect, width, height, anchorY,
+            peakX, peakY, preferRight);
+          context.fillStyle = 'rgba(8, 13, 24, 0.88)';
+          context.fillRect(x, y, width, height);
+          context.strokeStyle = color; context.lineWidth = 1;
+          context.strokeRect(x, y, width, height);
+          context.fillStyle = color; context.textBaseline = 'top';
+          lines.forEach((line, index) => {
+            context.textAlign = index === 0 ? 'center' : 'left';
+            context.fillText(line, index === 0 ? x + width / 2 : x + 4,
+              y + 3 + index * lineHeight);
+          });
+        };
+        for (let index = 0; index < visibleSignals.length; index++) {
+          const signal = visibleSignals[index];
+          const peakX = xForFrequency(signal.peakFrequency);
+          const peakY = yForLevel(signal.peakLevel);
+          context.fillStyle = signal.color;
+          context.beginPath(); context.arc(peakX, peakY, 3, 0, Math.PI * 2); context.fill();
+          const lines = signalAnnotationLines(signal, this.levelUnit);
+          drawLabel(lines,
+            rect.top + UI_FONT_SIZE_PX + 10 +
+            (index % 3) * (lines.length * (UI_FONT_SIZE_PX + 3) + 13),
+            peakX, peakY, signal.color, index % 2 === 0);
+        }
       }
 
       if (this.zoomSelection) {
@@ -1048,6 +1076,7 @@
     frame() {
       if (this.destroyed) return;
       this.animationFrame = requestAnimationFrame(() => this.frame());
+      if (this.mmo?.needsRedraw(performance.now())) this.dirty = true;
       const hasFrame = !this.frozen && this.copyNewestFrame();
       if (hasFrame) {
         this.processFrame();
@@ -1111,10 +1140,32 @@
       this.blockName = String(blockName || this.blockName);
       this.title = String(title || this.title);
       this.levelUnit = String(levelUnit || this.levelUnit);
+      this.mmo?.setLevelUnit(this.levelUnit);
       this.traceMode = TRACE_MODES.has(traceMode) ? traceMode : this.traceMode;
       this.root.dataset.blockName = this.blockName;
       this.root.setAttribute('aria-label', `${this.title} spectrum analyzer`);
       this.modeSelect.value = this.traceMode;
+      this.dirty = true;
+    }
+
+    configureMmoMode(enabled) {
+      this.mmoMode = !!enabled;
+      if (this.mmoMode && !this.mmo) {
+        const create = globalThis.__grCreateSpectrumAnalyzerMmo;
+        if (typeof create !== 'function') {
+          console.error('Spectrum Analyzer MMO renderer is unavailable');
+        } else {
+          this.mmo = create({
+            levelUnit: this.levelUnit,
+            toolbar: this.toolbar,
+            buttonFactory: button,
+            invalidate: () => { this.dirty = true; },
+          });
+        }
+      } else if (!this.mmoMode && this.mmo) {
+        this.mmo.destroy();
+        this.mmo = null;
+      }
       this.dirty = true;
     }
 
@@ -1194,6 +1245,8 @@
       if (this.destroyed) return;
       this.destroyed = true;
       cancelAnimationFrame(this.animationFrame);
+      this.mmo?.destroy();
+      this.mmo = null;
       this.root.remove();
       this.tooltip.remove();
     }
@@ -1220,6 +1273,9 @@
     setLevelOffsetDb(id, value) { this.instances.get(id)?.setLevelOffsetDb(value); }
     configureNumeric(id, ...values) { this.instances.get(id)?.configureNumeric(...values); }
     configureText(id, ...values) { this.instances.get(id)?.configureText(...values); }
+    configureMmoMode(id, enabled) {
+      this.instances.get(id)?.configureMmoMode(enabled);
+    }
     readPlotData(only = '', maxPoints = 32) {
       const widgets = [];
       for (const instance of this.instances.values()) {

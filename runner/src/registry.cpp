@@ -4051,7 +4051,8 @@ static std::map<std::string, Factory>& registry_storage() {
                  reference_level,
                  db_per_division,
                  level_offset,
-                 unquoted(param_text(p, "level_unit", "dBFS")));
+                 unquoted(param_text(p, "level_unit", "dBFS")),
+                 bool_from(p, "mmo_mode", false));
              BuiltBlock result{ block, block->qwidget() };
              result.numeric_setters["samp_rate"] =
                  [block](double value) { block->set_sample_rate(value); };

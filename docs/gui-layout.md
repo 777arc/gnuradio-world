@@ -134,6 +134,15 @@ Keeping the overlay in the editor rather than building a Qt one is what keeps
 every interactive line in TypeScript, where it is testable under node, and keeps
 the C++ a renderer.
 
+**Full Screen**, the run bar's third button, gives the same widgets the whole
+display. What goes fullscreen is `#runPane` rather than `#runFrame`: the run bar
+comes along, so the button that got there is also the way back out — on a touch
+screen it is the *only* way back out, since there is no Escape key. Qt sees an
+ordinary resize and re-reports `gr-widgets`, so Arrange works at either size and
+the browser-native overlays follow without knowing anything happened, because
+they live inside the runner document. Stopping the flowgraph leaves fullscreen,
+since what is left to fill the screen with is an empty pane.
+
 ## Positioning a browser-native overlay
 
 A sink whose display is a browser canvas rather than a `QwtPlot` — the Spectrum

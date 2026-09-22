@@ -50,6 +50,7 @@ blocks:
         db_per_div: '10'
         level_offset_db: '0'
         level_unit: dBFS
+        mmo_mode: 'True'
     states:
         coordinate: [450, 0]
         rotation: 0
@@ -97,6 +98,7 @@ blocks:
         db_per_div: '10'
         level_offset_db: '0'
         level_unit: dBFS
+        mmo_mode: 'False'
     states:
         coordinate: [450, 180]
         rotation: 0

@@ -2990,6 +2990,10 @@ function setRunnerRunning(running: boolean, status?: string) {
   }
   el('runStatus').textContent = status || (running ? 'Running flowgraph…' : 'No flowgraph running');
   (el('btnStop') as HTMLButtonElement).disabled = !running;
+  // Nothing to fill the screen with unless a flowgraph is running, and a browser
+  // that has no Fullscreen API at all keeps the button greyed out rather than
+  // offering something that can only fail.
+  (el('btnFullscreen') as HTMLButtonElement).disabled = !running || !fullscreenSupported();
   setExecuteEnabled(!running && !runSessionState.starting && !runSessionState.finishing);
   // Arranging needs live widgets to drag. A new run re-enables the button when
   // its first widget report arrives.
@@ -2997,6 +3001,9 @@ function setRunnerRunning(running: boolean, status?: string) {
     runnerLayout = null;
     setArrangeMode(false);
     (el('btnArrange') as HTMLButtonElement).disabled = true;
+    // A stopped flowgraph filling the screen is an empty pane, and the editor is
+    // where the reader has to go next, so come back out with it.
+    void exitRunFullscreen();
   }
   const qtTab = el('tabQtGui');
   const qtLabel = running ? 'QT GUI — flowgraph running' : 'QT GUI';
@@ -3238,6 +3245,68 @@ function applyRunnerLayoutReport(payload: string) {
 (window as any).__grTakeRecordingFiles = (token: string): RunnerInputFile[] => {
   return takeRecordingFiles(runSessionState, token);
 };
+
+// ---- Full Screen: the QT GUI pane as the whole display ----------------------
+// The fullscreen element is the *pane*, not the iframe: the run bar rides along,
+// so the button that got here is also the way back out — which is the only way
+// out on a touch screen with no Escape key. Qt sees an ordinary resize and
+// re-reports its grid, so Arrange keeps working at either size, and the
+// browser-native overlays (Spectrum Analyzer, fosphor's WebGPU path) live inside
+// the runner document and follow it without knowing anything happened.
+// Prefixed names throughout for a Safari older than 16.4, where the unprefixed
+// API does not exist at all.
+type FullscreenElement = HTMLElement & { webkitRequestFullscreen?: () => Promise<void> | void };
+type FullscreenDocument = Document & {
+  webkitFullscreenElement?: Element | null;
+  webkitFullscreenEnabled?: boolean;
+  webkitExitFullscreen?: () => Promise<void> | void;
+};
+
+const fullscreenDoc = document as FullscreenDocument;
+const fullscreenSupported = () =>
+  !!(document.fullscreenEnabled || fullscreenDoc.webkitFullscreenEnabled);
+const currentFullscreen = () =>
+  document.fullscreenElement ?? fullscreenDoc.webkitFullscreenElement ?? null;
+const runPaneFullscreen = () => currentFullscreen() === el('runPane');
+
+function updateFullscreenButton(): void {
+  const button = el('btnFullscreen') as HTMLButtonElement;
+  const on = runPaneFullscreen();
+  button.classList.toggle('active', on);
+  button.setAttribute('aria-pressed', String(on));
+  button.textContent = on ? '⛶ Exit Full Screen' : '⛶ Full Screen';
+  const hint = on ? 'Leave full screen (Esc)' : 'Show the QT GUI on the whole screen';
+  button.title = hint;
+  button.setAttribute('aria-label', hint);
+}
+
+async function exitRunFullscreen(): Promise<void> {
+  if (!runPaneFullscreen()) return;
+  try { await (fullscreenDoc.exitFullscreen?.() ?? fullscreenDoc.webkitExitFullscreen?.()); }
+  catch { /* already out, or the browser refused — the change event settles the button */ }
+}
+
+async function toggleRunFullscreen(): Promise<void> {
+  if (runPaneFullscreen()) { await exitRunFullscreen(); return; }
+  const pane = el('runPane') as FullscreenElement;
+  try { await (pane.requestFullscreen?.() ?? pane.webkitRequestFullscreen?.()); }
+  // A request is refused outright where the permission policy forbids it — an
+  // editor embedded cross-origin without allow="fullscreen", most of all. Say so
+  // rather than leaving a button that appears to do nothing.
+  catch (error) { log(`full screen unavailable: ${error}`); }
+  updateFullscreenButton();
+}
+
+function initRunFullscreen(): void {
+  (el('btnFullscreen') as HTMLButtonElement)
+    .addEventListener('click', () => void toggleRunFullscreen());
+  // Escape, the browser's own chrome and a second element taking over all leave
+  // fullscreen without the button being touched, so the label follows the
+  // document rather than the click.
+  document.addEventListener('fullscreenchange', updateFullscreenButton);
+  document.addEventListener('webkitfullscreenchange', updateFullscreenButton);
+  updateFullscreenButton();
+}
 
 // ---- Recording tabs (an embedded recording view per recording) --------------
 // Every block with a recording behind it — a GR World Recording, or a File
@@ -5342,6 +5411,7 @@ buildToolbar(TOOLBAR, el('toolbar'));
 installMenuDismissal();
 el('btnStop').addEventListener('click', stop);
 initArrangeOverlay();
+initRunFullscreen();
 (el('fileOpen') as HTMLInputElement).addEventListener('change', async event => {
   const input = event.currentTarget as HTMLInputElement, file = input.files?.[0]; if (!file) return;
   try { loadFlowgraph(parseGrc(await file.text())); setExampleHash(null); setCurrentFileName(file.name); }

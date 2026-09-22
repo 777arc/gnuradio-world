@@ -103,6 +103,32 @@ try {
     Number.isFinite(signal.total_power) && signal.power_unit === 'dBFS' &&
     Number.isFinite(signal.occupied_bandwidth_99))),
   'numeric plot observation exposes every signal annotation, including total power, as raw numbers');
+  const mmoState = await page.evaluate(() => ({
+    renderers: [...(window.__grSpectrumAnalyzer?.instances?.values?.() || [])]
+      .map(renderer => ({
+        name: renderer.blockName,
+        enabled: renderer.mmoMode,
+        hasPresentation: Boolean(renderer.mmo),
+        tracks: renderer.mmo?.tracks?.size || 0,
+      })),
+    soundButtons: [...document.querySelectorAll('button[aria-label="MMO sound effects"]')]
+      .map(button => ({ text: button.textContent, pressed: button.getAttribute('aria-pressed') })),
+  }));
+  const complexMmo = mmoState.renderers.find(renderer => renderer.name === 'complex_analyzer');
+  const realMmo = mmoState.renderers.find(renderer => renderer.name === 'real_analyzer');
+  check(complexMmo?.enabled && complexMmo.hasPresentation && complexMmo.tracks > 0 &&
+    realMmo?.enabled === false && realMmo.hasPresentation === false,
+  'MMO Mode constructs the isolated presentation only for the enabled analyzer');
+  check(mmoState.soundButtons.length === 1 &&
+    mmoState.soundButtons[0].text === 'Sound Off' &&
+    mmoState.soundButtons[0].pressed === 'false',
+  'MMO sound is present only in MMO Mode and starts muted');
+  check([complex, real].every(widget => !Object.hasOwn(widget, 'mmo_mode') &&
+    widget.detected_signals.every(signal =>
+      !Object.hasOwn(signal, 'mmo_level') &&
+      !Object.hasOwn(signal, 'health_fraction') &&
+      !Object.hasOwn(signal, 'bleeding'))),
+  'MMO presentation state is not exposed through numeric plot observation');
   const complexTone = complex?.detected_signals?.find(signal =>
     Math.abs(signal.peak_frequency - 12000) < 30);
   const realTone = real?.detected_signals?.find(signal =>

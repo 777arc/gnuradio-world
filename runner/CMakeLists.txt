@@ -298,6 +298,9 @@ add_custom_command(TARGET runner POST_BUILD
           ${CMAKE_CURRENT_SOURCE_DIR}/src/spectrum_analyzer.js
           ${CMAKE_CURRENT_BINARY_DIR}/spectrum_analyzer.js
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/spectrum_analyzer_mmo.js
+          ${CMAKE_CURRENT_BINARY_DIR}/spectrum_analyzer_mmo.js
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
           ${CMAKE_CURRENT_SOURCE_DIR}/src/adsb_map.js
           ${CMAKE_CURRENT_BINARY_DIR}/adsb_map.js
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
@@ -338,6 +341,7 @@ set_property(TARGET runner APPEND PROPERTY LINK_DEPENDS
   ${CMAKE_CURRENT_SOURCE_DIR}/src/gui_observation.js
   ${CMAKE_CURRENT_SOURCE_DIR}/src/fosphor_webgpu.js
   ${CMAKE_CURRENT_SOURCE_DIR}/src/spectrum_analyzer.js
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/spectrum_analyzer_mmo.js
   ${CMAKE_CURRENT_SOURCE_DIR}/src/adsb_map.js
   ${CMAKE_CURRENT_SOURCE_DIR}/src/ais_map.js
   ${MAPLIBRE_DIST}/maplibre-gl.mjs

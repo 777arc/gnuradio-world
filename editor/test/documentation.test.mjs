@@ -47,6 +47,11 @@ assert.equal(analyzerLevelUnit?.dtype, 'enum',
   'the Spectrum Analyzer level unit must be a bounded choice');
 assert.deepEqual(analyzerLevelUnit?.options, ['dBFS', 'dBm', 'dBµV'],
   'the Spectrum Analyzer must offer relative and calibrated level units');
+const analyzerMmoMode = byId.get('wasm_spectrum_analyzer_sink')?.params
+  .find(param => param.id === 'mmo_mode');
+assert.equal(analyzerMmoMode?.dtype, 'bool');
+assert.equal(analyzerMmoMode?.default, 'False',
+  'the Spectrum Analyzer MMO presentation must be off by default');
 assert.equal(byId.get('analog_sig_source_x')?.wiki_url,
   'https://wiki.gnuradio.org/index.php/Signal_Source',
   'in-tree blocks must derive their wiki page from the block label');

@@ -1176,7 +1176,14 @@ svg text { user-select:none; -webkit-user-select:none; -moz-user-select:none; }
 #runBar { min-height:44px; padding:6px 12px; display:flex; align-items:center; gap:12px;
     border-bottom:1px solid #333a4d; color:#dce3f5; font-size:16px; }
 #runBar .spacer { flex:1; }
+/* One line box for all three, because their labels lead with symbols (⌗, ⛶, ✕)
+   that resolve to different fallback fonts — and under `line-height:normal` a
+   fallback's taller metrics grow the button. Left alone, Arrange and Full Screen
+   come out 49px tall beside a 35px Stop. */
+#runBar button { line-height:1.5; }
 #runBar button:disabled { opacity:.45; cursor:default; filter:none; }
+/* Arrange and Full Screen are both toggles, and aria-pressed alone is invisible. */
+#runBar button.active { background:#2f4f7d; border-color:#58a6ff; color:#eaf3ff; }
 #runEmpty { min-height:0; flex:1; display:grid; place-items:center; padding:28px;
     color:#8f9ab5; text-align:center; font-size:16px; }
 #runEmpty[hidden] { display:none; }
@@ -1207,6 +1214,18 @@ svg text { user-select:none; -webkit-user-select:none; -moz-user-select:none; }
     background:#171a24e6; color:#e6e9f0; border:1px solid #3a4366; border-radius:6px;
     padding:8px 14px; font-size:14px; pointer-events:none; max-width:90%; text-align:center; }
 #editorPane[hidden], #runPane[hidden] { display:none; }
+/* Full Screen. The element that goes fullscreen is the pane rather than the
+   iframe, so the run bar comes along and the way out stays on screen; Qt sees an
+   ordinary resize and re-reports its grid, so Arrange still works at this size.
+   The UA's own :fullscreen box paints black behind a pane that only inherits its
+   background, and the flex column has to be restated because the pane is no
+   longer a grid child of #workspaceContent. The -webkit- copy is a separate rule
+   on purpose: one selector list holding both would be dropped whole by any
+   engine that knows only one of them. */
+#runPane:fullscreen { width:100%; height:100%; background:#20232f; display:flex;
+    flex-direction:column; }
+#runPane:-webkit-full-screen { width:100%; height:100%; background:#20232f;
+    display:flex; flex-direction:column; }
 
 /* ================= Narrow viewports (phones, small tablets) =================
    The desktop shell is three columns — palette | splitter | workspace — and the

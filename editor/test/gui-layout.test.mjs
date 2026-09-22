@@ -279,6 +279,21 @@ assert.match(source, /i\.id === OPTIONS_ID \|\| i\.id === LAYOUT_ID/,
 assert.match(html, /id="btnArrange"/, 'the Arrange button is in the run bar');
 assert.match(html, /id="arrangeOverlay"/);
 
+// ---- Full Screen -----------------------------------------------------------
+// The pane goes fullscreen, not the iframe, so the run bar -- and with it the
+// way back out -- stays on screen. Fullscreening the frame instead would leave
+// Escape as the only exit, which a touch screen does not have.
+assert.match(html, /id="btnFullscreen"/, 'the Full Screen button is in the run bar');
+assert.match(source, /const runPaneFullscreen = \(\) => currentFullscreen\(\) === el\('runPane'\)/,
+             'the fullscreen element is the pane, which carries the run bar');
+assert.match(html, /#runPane:fullscreen \{/, 'and the pane is sized for it');
+// Escape and the browser's own chrome leave fullscreen without the button being
+// touched, so the label has to follow the document.
+assert.match(source, /addEventListener\('fullscreenchange', updateFullscreenButton\)/);
+// A stopped flowgraph filling the screen is an empty pane.
+assert.match(source, /setArrangeMode\(false\);[\s\S]{0,400}?void exitRunFullscreen\(\);/,
+             'stopping the flowgraph comes back out of full screen');
+
 // ---- the gui flag the designer depends on ----------------------------------
 {
   const blocks = JSON.parse(blocksJson).blocks;

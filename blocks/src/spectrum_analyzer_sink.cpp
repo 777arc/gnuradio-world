@@ -36,7 +36,8 @@ SpectrumAnalyzerSinkWasm::sptr SpectrumAnalyzerSinkWasm::make(
     double reference_level,
     double db_per_division,
     double level_offset_db,
-    const std::string& level_unit)
+    const std::string& level_unit,
+    bool mmo_mode)
 {
     return gnuradio::make_block_sptr<SpectrumAnalyzerSinkWasm>(
         instance_name,
@@ -52,7 +53,8 @@ SpectrumAnalyzerSinkWasm::sptr SpectrumAnalyzerSinkWasm::make(
         reference_level,
         db_per_division,
         level_offset_db,
-        level_unit);
+        level_unit,
+        mmo_mode);
 }
 
 SpectrumAnalyzerSinkWasm::SpectrumAnalyzerSinkWasm(
@@ -69,7 +71,8 @@ SpectrumAnalyzerSinkWasm::SpectrumAnalyzerSinkWasm(
     double reference_level,
     double db_per_division,
     double level_offset_db,
-    const std::string& level_unit)
+    const std::string& level_unit,
+    bool mmo_mode)
     : gr::sync_block(instance_name,
                      gr::io_signature::make(
                          1,
@@ -164,6 +167,13 @@ SpectrumAnalyzerSinkWasm::SpectrumAnalyzerSinkWasm(
         display_title.c_str(),
         trace_mode.c_str(),
         level_unit.c_str());
+    MAIN_THREAD_EM_ASM(
+        {
+            const manager = globalThis.__grSpectrumAnalyzer;
+            if (manager) manager.configureMmoMode($0, !!$1);
+        },
+        d_renderer_id,
+        mmo_mode ? 1 : 0);
 
     // No geometry timer here. The runner publishes every placed widget's
     // rectangle whenever the arrangement changes (publish_gui_layout() in

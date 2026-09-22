@@ -36,7 +36,8 @@ public:
                      double reference_level,
                      double db_per_division,
                      double level_offset_db,
-                     const std::string& level_unit);
+                     const std::string& level_unit,
+                     bool mmo_mode);
 
     SpectrumAnalyzerSinkWasm(const std::string& instance_name,
                              const std::string& display_title,
@@ -51,7 +52,8 @@ public:
                              double reference_level,
                              double db_per_division,
                              double level_offset_db,
-                             const std::string& level_unit);
+                             const std::string& level_unit,
+                             bool mmo_mode);
     ~SpectrumAnalyzerSinkWasm() override;
 
     QWidget* qwidget() const { return d_widget; }
