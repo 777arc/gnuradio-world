@@ -23,6 +23,8 @@
 #include <qwt_symbol.h>
 #include <qwt_text.h>
 
+#include <qtgui_plot_canvas.hpp>
+
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -83,6 +85,7 @@ QWidget* make_plot_container(QwtPlot*& plot, const std::string& title)
 {
     auto* widget = new QWidget;
     plot = new QwtPlot(widget);
+    wasm_qtgui::configure_plot_canvas(plot);
     plot->setTitle(QwtText(QString::fromStdString(title)));
 
     auto* grid = new QwtPlotGrid;

@@ -810,6 +810,11 @@ button:hover { filter:brightness(1.15); }
 #canvasWrap.palette-drop-target #canvasScroll { box-shadow:inset 0 0 0 3px #1a63c4; }
 .canvas-hud { position:absolute; top:12px; right:18px; z-index:5; pointer-events:none;
     display:flex; flex-direction:column; align-items:flex-end; gap:8px; }
+/* Embedded controls occupy this same corner. Keep the HUD immediately below
+   them so the Bálint readout remains visible without giving the overlay row its
+   own height. The block-styled no_controls pair is taller than the normal row. */
+#app.embedded .canvas-hud { top:64px; }
+#app.embedded.embed-no-controls .canvas-hud { top:82px; }
 .flowgraph-complexity { padding:6px 10px; border:1px solid #818897; border-radius:6px;
     background:#fffffff0; color:#414650; box-shadow:0 2px 8px #0002;
     font-size:14px; font-weight:700; font-variant-numeric:tabular-nums; }

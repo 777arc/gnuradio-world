@@ -79,7 +79,9 @@ connections and disabled elements. It is not an estimate of CPU, memory or
 real-time performance. The calculation in `editor/src/flowgraph-complexity.ts`
 ports `gnuradio/grc/core/utils/flow_graph_complexity.py`; the readout uses GRC's
 engineering notation, so `0.000012` appears as `12u bal`. This is presentation
-state only and is never serialized into the flowgraph, history or autosave.
+state only and is never serialized into the flowgraph, history or autosave. In
+embedded mode it remains at the top-right, immediately below the floating embed
+controls so the way-out link and zoom buttons do not cover it.
 
 ## Placing blocks from the palette
 

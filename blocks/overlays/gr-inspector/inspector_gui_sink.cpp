@@ -16,13 +16,14 @@
 #include <qwt_axis.h>
 #include <qwt_interval.h>
 #include <qwt_plot.h>
-#include <qwt_plot_canvas.h>
 #include <qwt_plot_curve.h>
 #include <qwt_plot_grid.h>
 #include <qwt_plot_marker.h>
 #include <qwt_plot_zoomer.h>
 #include <qwt_plot_zoneitem.h>
 #include <qwt_text.h>
+
+#include <qtgui_plot_canvas.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -235,8 +236,7 @@ public:
         d_plot->setAxisTitle(QwtAxis::YLeft, QwtText(QStringLiteral("dB")));
         d_plot->setAxisScale(QwtAxis::YLeft, -120.0, 30.0);
         d_plot->setCanvasBackground(QColor(30, 30, 30));
-        if (auto* canvas = dynamic_cast<QwtPlotCanvas*>(d_plot->canvas()))
-            canvas->setPaintAttribute(QwtPlotCanvas::ImmediatePaint, true);
+        wasm_qtgui::configure_plot_canvas(d_plot);
 
         // Keep the native sink's three zoom bindings discoverable without
         // taking plot space or stealing pointer events from Qwt/manual mode.

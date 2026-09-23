@@ -2924,6 +2924,9 @@ if (EMBEDDED) el('app').classList.add('embedded');
 // ?no_scroll=1 — a host that would rather clip an oversized flowgraph than show
 // scrollbars over it. editor.css turns this off with #canvasScroll's overflow.
 if (EMBEDDED && EMBED_NO_SCROLL) el('app').classList.add('embed-no-scroll');
+// The compact controls are taller than the ordinary embedded control row. The
+// class lets the canvas HUD clear whichever controls occupy its top-right corner.
+if (EMBEDDED && EMBED_NO_CONTROLS) el('app').classList.add('embed-no-controls');
 
 // Same page without the embed flag, so an untouched embed hands over the clean,
 // bookmarkable #example= link it was framed with. Once the reader has changed

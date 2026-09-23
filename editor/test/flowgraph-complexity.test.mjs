@@ -113,5 +113,8 @@ assert.match(markup,
 assert.match(markup,
   /\.canvas-hud \{[^}]*position:absolute;[^}]*top:12px;[^}]*right:18px;/,
   'the Bálint readout is fixed at the canvas top-right');
+assert.match(markup,
+  /#app\.embedded \.canvas-hud \{[^}]*top:64px;[^}]*\}[\s\S]*#app\.embedded\.embed-no-controls \.canvas-hud \{[^}]*top:82px;/,
+  'the embedded Bálint readout clears both top-right control variants');
 
 console.log('checked native flowgraph complexity and canvas wiring');

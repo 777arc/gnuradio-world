@@ -320,13 +320,18 @@ assert.match(main,
   /if \(k === SCHEDULER_PARAM && String\(v\) === SCHEDULER_DEFAULT\) continue;/,
   'the default scheduler must be left out of the saved .grc entirely');
 
-// 3. No committed flowgraph carries the key. Every one of them predates it, so
-//    any that has it is a file the default-omission rule failed to keep clean.
+// 3. No committed flowgraph carries the default key. A flowgraph may deliberately
+//    select another registered scheduler, but `tpb` must still be omitted rather
+//    than leaking out of the editor's default serialization path.
 for (const file of exampleFiles) {
   const text = await readFile(
     new URL(`../../example_flowgraphs/${file}`, import.meta.url), 'utf8');
-  assert.equal(parseGrc(text).options?.parameters?.scheduler, undefined,
-    `${file} must not carry a scheduler key: the default is never written out`);
+  const scheduler = parseGrc(text).options?.parameters?.scheduler;
+  assert.notEqual(scheduler, schemaDefault,
+    `${file} must not carry the default scheduler key`);
+  if (scheduler !== undefined)
+    assert.ok(runnerSchedulers.includes(scheduler),
+      `${file} must name a registered non-default scheduler`);
 }
 
 // The editor's own ?scheduler= is handed on to the runner frame, which is what

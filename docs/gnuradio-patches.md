@@ -61,7 +61,22 @@ Qt 6 sources as a standalone archive. They carry these WASM guards:
   DisplayForm-based sink's `set_title()` and its Title menu item go through;
   Matrix Sink has no DisplayForm and upstream shows its `name` nowhere at all, so
   its display sets the title once at construction.
-- `gr-qtgui/lib/TimeDomainDisplayPlot.cc`, its header — `QwtPlotCanvas::ImmediatePaint`
-  plus antialiasing off and `FilterPointsAggressive` on the curves; Qwt's backing
-  pixmap and Qt's antialiased polyline rasterizer are both disproportionately
-  expensive on the browser canvas.
+- `gr-qtgui/lib/DisplayPlot.cc`, `lib/matrix_display.cc` — every plot's canvas is
+  put on `QwtPlotCanvas::ImmediatePaint` with `BackingStore` *off*, through
+  `wasm_qtgui::configure_plot_canvas()` in
+  [`blocks/src/qtgui_plot_canvas.hpp`](../blocks/src/qtgui_plot_canvas.hpp). Qwt's
+  full-canvas backing pixmap is expensive to recreate on the browser canvas, and
+  it is also a correctness problem: `QwtPlotCanvas::backingStore()` leaves the new
+  pixmap uninitialized for a canvas with `WA_OpaquePaintEvent`, trusting the
+  repaint that follows to cover it — but that repaint is clipped to the paint
+  event's region, so a partial region arriving on the resize that reallocated the
+  pixmap leaves the rest holding stale heap, which the plot then blits and draws
+  its grid and trace over. `DisplayPlot` is the base of all nine plot widgets;
+  Matrix Sink builds a bare `QwtPlot` instead and calls the same helper. The two
+  browser-only plot rebuilds outside this submodule —
+  `blocks/overlays/gr-inspector/inspector_gui_sink.cpp` and
+  `blocks/overlays/gr-radar/radar_plots.cpp` — call it too.
+- `gr-qtgui/lib/TimeDomainDisplayPlot.cc` — antialiasing off and
+  `FilterPointsAggressive` on the curves; Qt's antialiased polyline rasterizer is
+  disproportionately expensive on the browser canvas. (Its canvas attributes used
+  to live here; they moved to `DisplayPlot` above, so every plot gets them.)
