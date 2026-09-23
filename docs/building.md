@@ -246,6 +246,25 @@ symbol the side modules import; side modules use `-sWASM_BIGINT` to match Qt's
 ABI; and `patch_runner_js.py` fixes a Qt+MAIN_MODULE `addFunction` assertion.
 Verify with `node test/test_lazy_scenarios.mjs`.
 
+**A side module is staged in the filesystem before it is `dlopen`'d, and that is
+load-bearing.** `emscripten_dlopen` loads the module into the *calling* thread
+only; every other pthread catches up by itself (`_emscripten_dlsync_self`), and
+where each one gets the bytes from is decided by how the path was named. Name a
+URL and the bytes are nowhere in memory, so every catching-up worker re-fetches
+the module with a **synchronous `XMLHttpRequest`** of its own. Chromium services
+those off the main thread and they finish in milliseconds; Firefox runs a
+worker's synchronous XHR *through the browser main thread*, which at that moment
+is sitting inside the `dlopen` — so none of them ever completes, every scheduler
+thread stays stuck in one, and the tab hangs on a blank runner. That made every
+flowgraph using a deferred category unrunnable in Firefox, which is a large share
+of them. So `load_next()` in `runner/src/runner.cpp` fetches the module
+asynchronously, writes it to `/side-modules/<m>.wasm`, and `dlopen`s *that* path:
+Emscripten's `load_library_start()` then reads the file into linear memory and
+hangs it off the DSO handle, a catching-up worker instantiates from those bytes,
+and no thread touches the network. The staged file is unlinked once `dlopen` has
+taken its copy. Keep the staging step — `test_lazy_scenarios.mjs` passes without
+it, because Chromium is the one browser where the URL form works.
+
 **Symbol export is automatic:** `gen_side_exports.py` scans each side module's
 `env`/GOT imports and re-exports them from main with `--export-if-defined`, so
 you don't maintain an export list by hand. What that automation *cannot* do is
