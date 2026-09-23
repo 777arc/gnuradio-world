@@ -66,6 +66,21 @@ not alter history or the serialized `.grc`.
   to fields in block Properties and the Variable Editor. It affects dialogs
   opened after the toggle is changed.
 
+## Flowgraph complexity
+
+Tools ▸ Show Flowgraph Complexity displays native GRC's structural complexity
+score in Bálints at the top-right of the canvas. It is off by default; opening
+the editor with `?complexity=1` checks the item automatically. The query flag
+uses the same convention as the other presentation flags: a bare
+`?complexity` is on, while `?complexity=0` and `?complexity=false` are off.
+
+The value is a graph-shape heuristic over required ports, fan-out, blocks,
+connections and disabled elements. It is not an estimate of CPU, memory or
+real-time performance. The calculation in `editor/src/flowgraph-complexity.ts`
+ports `gnuradio/grc/core/utils/flow_graph_complexity.py`; the readout uses GRC's
+engineering notation, so `0.000012` appears as `12u bal`. This is presentation
+state only and is never serialized into the flowgraph, history or autosave.
+
 ## Placing blocks from the palette
 
 Opening a `.grc` preserves unsupported blocks as **Missing Block** placeholders,

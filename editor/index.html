@@ -257,7 +257,13 @@ html.click-to-load-pending #clickToLoad button:disabled { cursor:default; opacit
               <g id="trainingNodes"></g><g id="nodes"></g><g id="selectionOverlay"></g>
             </svg>
           </div>
-          <div id="trainingStatus" class="training-status" hidden></div>
+          <!-- Viewport-fixed readouts. They live outside #canvasScroll so they
+               remain in the top-right corner while the flowgraph pans. -->
+          <div id="canvasHud" class="canvas-hud">
+            <output id="flowgraphComplexity" class="flowgraph-complexity" hidden
+                    aria-live="polite" title="Flowgraph complexity in Bálints"></output>
+            <div id="trainingStatus" class="training-status" hidden></div>
+          </div>
         </div>
       </div>
       <section id="runPane" class="workspace-panel" role="tabpanel" aria-labelledby="tabQtGui" hidden>

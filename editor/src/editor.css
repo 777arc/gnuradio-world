@@ -808,6 +808,11 @@ button:hover { filter:brightness(1.15); }
     #f7f7f7; background-attachment:local, local; }
 #canvasWrap.grid-hidden #canvasScroll { background:#f7f7f7; }
 #canvasWrap.palette-drop-target #canvasScroll { box-shadow:inset 0 0 0 3px #1a63c4; }
+.canvas-hud { position:absolute; top:12px; right:18px; z-index:5; pointer-events:none;
+    display:flex; flex-direction:column; align-items:flex-end; gap:8px; }
+.flowgraph-complexity { padding:6px 10px; border:1px solid #818897; border-radius:6px;
+    background:#fffffff0; color:#414650; box-shadow:0 2px 8px #0002;
+    font-size:14px; font-weight:700; font-variant-numeric:tabular-nums; }
 #workspace.console-hidden #log, #workspace.console-hidden #consoleSplitter { display:none; }
 /* Until the splitter is dragged the console keeps auto-sizing to its content
    (see the #log rule below); a drag pins it to an explicit height instead. */
@@ -896,8 +901,7 @@ svg text { user-select:none; -webkit-user-select:none; -moz-user-select:none; }
 .training-ghost .port { fill:#d9dce1; stroke:#858b95; stroke-width:1;
     stroke-dasharray:3 2; }
 .training-ghost .port-label { fill:#777c84; font:14px 'DejaVu Sans',Verdana,sans-serif; }
-.training-status { position:absolute; top:12px; right:18px; z-index:5; pointer-events:none;
-    padding:8px 12px; border:1px solid #818897; border-radius:6px;
+.training-status { padding:8px 12px; border:1px solid #818897; border-radius:6px;
     background:#fffffff0; color:#414650; box-shadow:0 2px 8px #0002;
     font-size:14px; font-weight:600; }
 .training-status.complete { border-color:#2f8f4e; color:#246f3d; background:#effaf2f2; }

@@ -41,7 +41,9 @@ assert.doesNotMatch(source, /label: 'Graham'|toggleAiPanel/,
   'Graham is not launched from the menu or icon toolbar');
 assert.doesNotMatch(source, /label: 'Filter Design Tool'/);
 assert.doesNotMatch(source, /label: 'Set Default QT GUI Theme'/);
-assert.doesNotMatch(source, /label: 'Show Flowgraph Complexity'/);
+assert.match(source,
+  /label: 'Show Flowgraph Complexity', run: toggleShowFlowgraphComplexity,[\s\S]*?check: \(\) => showFlowgraphComplexity/,
+  'Tools must expose the native flowgraph-complexity checkbox');
 assert.doesNotMatch(source, /label: 'Open Recent'/);
 assert.doesNotMatch(source, /label: 'Move Variable Editor to Sidebar'/);
 assert.doesNotMatch(source, /label: 'Generated Code Preview'/);

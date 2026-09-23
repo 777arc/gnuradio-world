@@ -31,7 +31,10 @@
 #include <spdlog/sinks/base_sink.h>
 #include <emscripten.h>
 #include <emscripten/heap.h>
+#include <emscripten/wget.h>
 #include <dlfcn.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -1465,11 +1468,23 @@ struct LoadCtx {
 
 static void load_next(LoadCtx* ctx);
 
+// Where a fetched side module is parked for dlopen. It has to be a path in
+// Emscripten's own filesystem rather than a URL -- see load_next().
+static const char* const kSideModuleDir = "/side-modules";
+
+static std::string side_module_path(const std::string& module) {
+    return std::string(kSideModuleDir) + "/" + module + ".wasm";
+}
+
 static void on_module_loaded(void* user, void* /*handle*/) {
     auto* ctx = static_cast<LoadCtx*>(user);
     const std::string& m = ctx->mods[ctx->idx];
     g_loaded_modules.insert(m);
     notify_module(m, "loaded");
+    // dlopen kept its own copy of these bytes (struct dso::file_data, which is
+    // what a thread catching up later instantiates from), so the staged file
+    // has done its job.
+    ::unlink(side_module_path(m).c_str());
     ++ctx->idx;
     load_next(ctx);
 }
@@ -1478,10 +1493,46 @@ static void on_module_error(void* user) {
     auto* ctx = static_cast<LoadCtx*>(user);
     const std::string module = ctx->mods[ctx->idx];
     delete ctx;
+    ::unlink(side_module_path(module).c_str());
     const char* err = dlerror();
     notify_module(module, "error");
     report(false, "failed to load category module: " + module + ".wasm" +
                       (err ? std::string(" — ") + err : std::string()));
+}
+
+// The fetch that now precedes every dlopen. This error path is the network's;
+// on_module_error above is the dynamic linker's.
+static void on_module_fetch_error(void* user) {
+    auto* ctx = static_cast<LoadCtx*>(user);
+    const std::string module = ctx->mods[ctx->idx];
+    delete ctx;
+    notify_module(module, "error");
+    report(false, "failed to fetch category module: " + module + ".wasm");
+}
+
+static void on_module_fetched(void* user, void* data, int size) {
+    auto* ctx = static_cast<LoadCtx*>(user);
+    const std::string& m = ctx->mods[ctx->idx];
+    const std::string path = side_module_path(m);
+
+    ::mkdir(kSideModuleDir, 0777);  // fails harmlessly after the first module
+    bool staged = false;
+    if (FILE* f = std::fopen(path.c_str(), "wb")) {
+        staged = size > 0 && std::fwrite(data, 1, static_cast<std::size_t>(size), f) ==
+                                 static_cast<std::size_t>(size);
+        if (std::fclose(f) != 0)
+            staged = false;
+    }
+    if (!staged) {
+        const std::string module = m;
+        delete ctx;
+        ::unlink(path.c_str());
+        notify_module(module, "error");
+        report(false, "could not stage category module: " + module + ".wasm");
+        return;
+    }
+    emscripten_dlopen(path.c_str(), RTLD_NOW | RTLD_GLOBAL, ctx,
+                      on_module_loaded, on_module_error);
 }
 
 // ---- the JavaScript Block's source fetch ------------------------------------
@@ -1729,9 +1780,30 @@ static void load_next(LoadCtx* ctx) {
     }
     const std::string& m = ctx->mods[ctx->idx];
     notify_module(m, "loading");
-    const std::string path = m + ".wasm";  // served next to runner.html
-    emscripten_dlopen(path.c_str(), RTLD_NOW | RTLD_GLOBAL, ctx,
-                      on_module_loaded, on_module_error);
+    // Fetch the module into Emscripten's filesystem *first*, then dlopen that
+    // path rather than the URL -- because of what the other threads do next.
+    //
+    // dlopen loads the module into the calling thread only. Every other pthread
+    // catches up on its own (_emscripten_dlsync_self), and where it gets the
+    // bytes from depends entirely on how this call named them:
+    //
+    //   * a URL, which this used to pass, is nowhere in memory, so each
+    //     catching-up worker re-fetches it with a *synchronous* XMLHttpRequest.
+    //     Chromium services those off the main thread and they finish in
+    //     milliseconds. Firefox runs a worker's synchronous XHR through the
+    //     browser main thread, which at that moment is inside this dlopen -- so
+    //     the fetches never complete, every scheduler thread stays stuck in one,
+    //     and the tab hangs on a blank runner. That made every flowgraph using a
+    //     deferred category unrunnable in Firefox, gr-paint's among them.
+    //   * a file, which this passes now, is read into linear memory by
+    //     load_library_start() and hung off the DSO handle, and a catching-up
+    //     worker instantiates from those bytes. No thread touches the network.
+    //
+    // The fetch here is the ordinary asynchronous one, and the staged file is
+    // unlinked again as soon as dlopen has taken its copy.
+    const std::string url = m + ".wasm";  // served next to runner.html
+    emscripten_async_wget_data(url.c_str(), ctx, on_module_fetched,
+                               on_module_fetch_error);
 }
 
 

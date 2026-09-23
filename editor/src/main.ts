@@ -179,6 +179,7 @@ import { createRecordingPalette } from './recording-palette';
 import { createWorkspaceAutosave, startupSource, workspaceStore } from './autosave';
 import { loadKnowledge } from './ai/knowledge';
 import { loadWikiIndex } from './wiki-docs';
+import { calculateFlowgraphComplexity } from './flowgraph-complexity';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const el = (id: string) => document.getElementById(id)!;
@@ -239,6 +240,14 @@ const CHALLENGES_UNLOCKED = (() => {
   const value = new URLSearchParams(location.search).get('challenges');
   return value !== null && value !== '0' && value.toLowerCase() !== 'false';
 })();
+// ?complexity=1 checks Tools ▸ Show Flowgraph Complexity on initial load.
+// Like zoom and the embed flags, this is presentation state only: it never
+// enters the .grc, history or workspace autosave. Bare `?complexity` is true;
+// `0` and `false` retain the normal default-off state.
+const SHOW_FLOWGRAPH_COMPLEXITY_FROM_URL = (() => {
+  const value = new URLSearchParams(location.search).get('complexity');
+  return value !== null && value !== '0' && value.toLowerCase() !== 'false';
+})();
 const embedRun = el('embedRun') as HTMLButtonElement;
 const embedOpen = el('embedOpen') as HTMLAnchorElement;
 const embedZoom = el('embedZoom');
@@ -276,6 +285,7 @@ let showBlockComments = true;
 // when on it forces the otherwise hidden `id` parameter onto every block face
 // and into every Properties dialog.
 let showAllBlockIds = false;
+let showFlowgraphComplexity = SHOW_FLOWGRAPH_COMPLEXITY_FROM_URL;
 let paletteSearch: HTMLInputElement | null = null;
 
 function canvasBlockHidden(inst: Inst): boolean {
@@ -2739,6 +2749,24 @@ const challengeSession = new ChallengeSession({
   unlockAll: CHALLENGES_UNLOCKED,
 });
 
+function updateFlowgraphComplexity() {
+  const readout = el('flowgraphComplexity') as HTMLOutputElement;
+  readout.hidden = !showFlowgraphComplexity;
+  if (!showFlowgraphComplexity) return;
+
+  const complexity = calculateFlowgraphComplexity(
+    state.insts,
+    state.conns,
+    (block, kind) => Array.from(
+      { length: portCount(block, kind) },
+      (_, index) => ({ optional: portMeta(block, kind, index).optional }),
+    ),
+  );
+  const value = `${fmtVal(complexity)} bal`;
+  readout.textContent = value;
+  readout.setAttribute('aria-label', `Flowgraph complexity: ${value}`);
+}
+
 function render() {
   // Before renderCanvas, not after: the Challenge block's face *is* its
   // checklist, so the geom() renderCanvas calls has to read states this call has
@@ -2746,6 +2774,7 @@ function render() {
   // is why rebuildScope() runs here as well as inside renderCanvas.
   rebuildScope();
   challengeSession.refresh();
+  updateFlowgraphComplexity();
   renderCanvas({
     state, zoom, trainingSession, trainingNodesG, trainingWiresG, nodesG, wiresG,
     selectionG, rebuildScope, validateGraph, canvasBlockHidden, portMeta,
@@ -4598,6 +4627,10 @@ function toggleShowAllBlockIds() {
   showAllBlockIds = !showAllBlockIds;
   render();
 }
+function toggleShowFlowgraphComplexity() {
+  showFlowgraphComplexity = !showFlowgraphComplexity;
+  render();
+}
 function toggleSnapToGrid() {
   snapToGrid = !snapToGrid;
   log(`snap to grid ${snapToGrid ? 'on' : 'off'}`);
@@ -4890,6 +4923,9 @@ const MENUS: TopMenu[] = [
   ] },
   { label: 'Tools', items: [
     { label: 'Types', run: showTypesDialog },
+    { label: 'Show Flowgraph Complexity', run: toggleShowFlowgraphComplexity,
+      check: () => showFlowgraphComplexity },
+    'sep',
     { label: 'WebAssembly Modules & Debug Info…',
       run: () => showDebugInfo({ openDialog, library: () => LIB, blocksUrl: BLOCKS_URL, loadedModules }) },
     { label: 'Software Versions…', run: () => showVersionsDialog({ openDialog, copyText }) },
