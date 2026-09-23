@@ -62,7 +62,7 @@ Qt 6 sources as a standalone archive. They carry these WASM guards:
   Matrix Sink has no DisplayForm and upstream shows its `name` nowhere at all, so
   its display sets the title once at construction.
 - `gr-qtgui/lib/DisplayPlot.cc`, `lib/matrix_display.cc` — every plot's canvas is
-  put on `QwtPlotCanvas::ImmediatePaint` with `BackingStore` *off*, through
+  put on `QwtPlotCanvas::BackingStore` *off*, through
   `wasm_qtgui::configure_plot_canvas()` in
   [`blocks/src/qtgui_plot_canvas.hpp`](../blocks/src/qtgui_plot_canvas.hpp). Qwt's
   full-canvas backing pixmap is expensive to recreate on the browser canvas, and
@@ -75,7 +75,15 @@ Qt 6 sources as a standalone archive. They carry these WASM guards:
   Matrix Sink builds a bare `QwtPlot` instead and calls the same helper. The two
   browser-only plot rebuilds outside this submodule —
   `blocks/overlays/gr-inspector/inspector_gui_sink.cpp` and
-  `blocks/overlays/gr-radar/radar_plots.cpp` — call it too.
+  `blocks/overlays/gr-radar/radar_plots.cpp` — call it too. The helper
+  deliberately does *not* set `ImmediatePaint`, which it did at first: that makes
+  `QwtPlotCanvas` call `repaint()` out of `replot()`, outside any paint event,
+  where Qt for WASM has no valid paint device — so the paint is discarded and
+  redone, and every replot emits a burst of `QPainter` warnings that Emscripten
+  sends to `console.log` and the runner forwards to the editor's console pane.
+  With several sinks live that cost the main thread enough that the QT GUI sinks
+  case in `test_smoke.mjs` stopped reaching its verdict inside 60s whenever
+  runners shared a CPU, which is what CI does.
 - `gr-qtgui/lib/TimeDomainDisplayPlot.cc` — antialiasing off and
   `FilterPointsAggressive` on the curves; Qt's antialiased polyline rasterizer is
   disproportionately expensive on the browser canvas. (Its canvas attributes used

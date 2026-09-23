@@ -21,11 +21,24 @@
 // lines running across it. It does not clear on resize, because once the pixmap
 // is the right size Qwt stops recreating it.
 //
-// So: no backing store, and paint immediately rather than through the browser's
-// deferred paint queue. Every QwtPlot this project puts on screen should go
+// So: no backing store. Every QwtPlot this project puts on screen should go
 // through here — the nine DisplayPlot subclasses via their shared base, and the
 // four plots that are built as bare QwtPlots instead (Matrix Sink, gr-inspector's
 // GUI sink, and gr-radar's time / scatter / spectrogram widgets).
+//
+// Deliberately NOT QwtPlotCanvas::ImmediatePaint. It looks like the natural
+// companion — keep a live plot out of the browser's deferred paint queue — and it
+// is what this did at first, but it makes QwtPlotCanvas call repaint() straight
+// out of replot(), outside any paint event. Qt for WASM has no valid paint device
+// there, so QPainter::begin() fails with "Paint device returned engine == 0" and
+// the whole paint is done and thrown away, then done again properly on the real
+// paint event. Every replot also emits a burst of qWarning ("Painter not active",
+// "Unbalanced save/restore"), which on Emscripten goes to console.log and, in the
+// runner, on to the editor's console pane. A flowgraph with several sinks
+// repainting at their update rate spends its main thread on discarded paints and
+// warning traffic: the QT GUI sinks smoke case stopped reaching its RUNNER_PASS
+// verdict inside 60s whenever more than one runner shared the CPU, which is what
+// CI does.
 //
 // Included from the gr-qtgui sources the qtgui/ build compiles, guarded there by
 // __EMSCRIPTEN__ so the desktop build keeps Qwt's own behavior, and from the
@@ -50,7 +63,6 @@ inline void configure_plot_canvas(QwtPlot* plot)
     if (plot == nullptr)
         return;
     if (auto* canvas = qobject_cast<QwtPlotCanvas*>(plot->canvas())) {
-        canvas->setPaintAttribute(QwtPlotCanvas::ImmediatePaint, true);
         canvas->setPaintAttribute(QwtPlotCanvas::BackingStore, false);
     }
 }
