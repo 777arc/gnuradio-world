@@ -24,7 +24,7 @@ full* before starting that kind of work:
 | [docs/signalhound.md](docs/signalhound.md) | touching Signal Hound BB60 Source — the reverse-engineered BB60C/D USB protocol, its tuning tables, the WebUSB worker, or the 70 MS/s host DDC |
 | [docs/editor-ui.md](docs/editor-ui.md) | working on block IDs, auto-arrange, the narrow-screen/touch layout, what a fresh page opens on (the autosaved canvas, `#example=`, the welcome example), or the embedded layout another site frames (`?embed=1`) |
 | [docs/gui-layout.md](docs/gui-layout.md) | touching where QT GUI widgets go in the runner window — the GUI Layout block, `editor/src/gui-layout*.ts`, `runner/src/gui_layout.hpp`, or Arrange mode |
-| [docs/ci.md](docs/ci.md) | changing a workflow, the deploy, PR preview deployments, or the PR security gate (`security-analysis.yml`, `scripts/pr-security-scan.mjs`) |
+| [docs/ci.md](docs/ci.md) | changing a workflow, the deploy, PR preview deployments, pushing a change that spans a submodule, or the PR security gate (`security-analysis.yml`, `scripts/pr-security-scan.mjs`) |
 | [docs/schedulers.md](docs/schedulers.md) | swapping the flowgraph scheduler — the plugin table in `runner/src/schedulers.hpp`, the Options block's `scheduler` key, the single-threaded scheduler, or anything that counts scheduler threads |
 | [docs/gnuradio-patches.md](docs/gnuradio-patches.md) | changing anything inside the `gnuradio/` submodule or `qtgui/` |
 | [docs/double-mapped-buffer.md](docs/double-mapped-buffer.md) | working on the emulated vmcircbuf |

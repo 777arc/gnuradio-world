@@ -50,6 +50,36 @@ Worker is therefore not live when the Pages deploy goes green — deploy it
 yourself. The editor's shared-key AI provider depends on `ai-proxy` being
 deployed and holding its `OPENAI_API_KEY` secret.
 
+## Push a submodule before the commit that points at it
+
+`build.yml` checks out with `submodules: true`, so every gitlink in the commit
+being built has to be *fetchable from that submodule's own remote* by the time
+the run starts. Push the superproject first and the run dies in about twenty
+seconds, long before any build step:
+
+```
+fatal: remote error: upload-pack: not our ref 5c7052fe74c1c03e4f836b85a62bfbafbd98d85b
+fatal: Fetched in submodule path 'gnuradio', but it did not contain 5c7052fe...
+The process '/usr/bin/git' failed with exit code 128
+```
+
+Three submodules are forks this project pushes to — `gnuradio`,
+`gr-dvbs2`, `gr-hrpt` — and only those can be in this state; the rest are
+pristine upstream checkouts whose commits are already public. So for a change
+that spans one of them:
+
+```bash
+(cd gnuradio && git push origin main)
+(cd gnuradio && git ls-remote origin main)   # confirm the sha landed
+git push origin main                          # only now the superproject
+```
+
+The failure is not self-healing for the run that hit it. Pushing the submodule
+afterwards fixes every *later* run, but the failed one stays failed until it is
+re-run, which is easy to misread as a second, unrelated breakage — and a
+`workflow_dispatch` re-run then builds and surfaces whatever the real problem
+was, making one mistake look like two.
+
 ## Runner version-locking
 
 `assemble-site.mjs` version-locks the runner: `runner.js`, `runner.wasm` and the
