@@ -16,6 +16,7 @@
 #define WASM_QTGUI_PLOT_TITLE_HPP
 
 #include <QBrush>
+#include <QPainter>
 #include <QColor>
 #include <QFont>
 #include <QRectF>
@@ -24,6 +25,7 @@
 #include <qwt_plot.h>
 #include <qwt_plot_item.h>
 #include <qwt_plot_textlabel.h>
+#include <qwt_scale_map.h>
 #include <qwt_text.h>
 
 namespace wasm_qtgui {
@@ -43,6 +45,30 @@ inline constexpr int title_margin = 6;
 class CanvasTitle : public QwtPlotTextLabel
 {
 public:
+    /*!
+     * Skip the title entirely on a canvas with no room for it.
+     *
+     * A sink packed into a small tile of the runner's grid can end up a handful
+     * of pixels tall — 584x4 is one the QT GUI sinks fixture produces. Taking
+     * margin() off each side then leaves a rectangle of *negative* height, and
+     * QwtPlotTextLabel::draw() does not check: it sizes the QPixmap it caches
+     * the rendered text in from that rectangle, gets a null pixmap, and paints
+     * the title through a QPainter that never begins. Every call then warns —
+     * "Paint device returned engine == 0", "Painter not active", "Unbalanced
+     * save/restore" — and in the runner those reach the editor's console pane,
+     * where they read as a flowgraph problem rather than a tile too short to
+     * hold a caption. There is nothing to draw at this size either way.
+     */
+    void draw(QPainter* painter, const QwtScaleMap& xMap, const QwtScaleMap& yMap,
+              const QRectF& canvasRect) const override
+    {
+        const QRectF inner =
+            canvasRect.adjusted(margin(), margin(), -margin(), -margin());
+        if (inner.width() <= 0.0 || inner.height() <= 0.0)
+            return;
+        QwtPlotTextLabel::draw(painter, xMap, yMap, canvasRect);
+    }
+
     QRectF textRect(const QRectF& rect, const QSizeF& textSize) const override
     {
         const double w = qMin(textSize.width() + 2 * title_padding, rect.width());
