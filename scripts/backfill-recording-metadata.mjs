@@ -48,6 +48,7 @@ const COLLECTION_DATETIMES = {
   'GRCon 2023 CTF': '2023-09-05T00:00:00Z',
   'GRCon 2024 CTF': '2024-09-16T00:00:00Z',
   'GRCon 2025 CTF': '2025-09-08T00:00:00Z',
+  'GRCon 2026 CTF': '2026-09-21T00:00:00Z',
 };
 
 const args = process.argv.slice(2);
