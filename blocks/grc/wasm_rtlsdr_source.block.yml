@@ -40,7 +40,8 @@ documentation: |-
 
     Direct Sampling bypasses the tuner to receive below ~24 MHz. It needs a
     dongle wired for it (an RTL-SDR V3 shorts the Q branch internally); on
-    everything else it receives nothing but noise.
+    everything else it receives nothing but noise. An RTL-SDR Blog V4 or V4
+    Lite ignores it: those upconvert HF themselves, so just tune below 28.8 MHz.
 
     This block exists only in the WebAssembly runner -- it has no Python
     implementation, so a flowgraph using it will not run in desktop GNU Radio.

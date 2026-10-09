@@ -57,6 +57,10 @@ The RTL2832U register protocol and the R820T/R828D tuner drivers in
   the V4.
 - **[sandeepmistry/rtlsdrjs](https://github.com/sandeepmistry/rtlsdrjs)** —
   Apache-2.0. The demodulator init sequence and the control-message shape.
+- **[rtlsdrblog/rtl-sdr-blog](https://github.com/rtlsdrblog/rtl-sdr-blog)** —
+  GPL-2.0+, the RTL-SDR Blog fork of librtlsdr, and the reference for both Blog
+  V4 boards: the V4 Lite (which webrtlsdr does not know), the V4's notch and
+  tracking-filter rules. See "RTL-SDR Blog V4 and V4 Lite" below.
 - Both descend from **Google's 2013 Radio Receiver Chrome App**, whose copyright
   headers the ported files still carry, and the magic numbers ultimately come
   from **the rtl-sdr project** itself.
@@ -84,6 +88,48 @@ instrumentation is a whole-program property and this runner is a `MAIN_MODULE`
 with `dlopen`'d side modules. Nothing in the current build uses JSPI or Asyncify,
 and this block does not change that — the async boundary is crossed by shared
 memory, not by suspending a stack.
+
+## RTL-SDR Blog V4 and V4 Lite
+
+Most dongles need nothing but their tuner's driver. Two RTL-SDR Blog boards
+also put an HF upconverter and an input switch in front of the tuner, and the
+**only** way to tell them apart is the EEPROM's USB strings — matched exactly,
+as librtlsdr's `rtlsdr_check_dongle_model()` does. `blogModel()` in the reader
+is that check.
+
+| board | USB strings | tuner | differs from a plain dongle by |
+|---|---|---|---|
+| V3, and generic R820T | `Realtek` / `RTL2838UHIDIR` (defaults) | R820T2 at 0x34 | nothing; HF only through direct sampling |
+| **V4** | `RTLSDRBlog` / `Blog V4` | R828D at 0x74 | 28.8 MHz tuner crystal (a generic R828D's is 16 MHz), HF/VHF/UHF switch, MW/FM/VHF notches |
+| **V4 Lite** | `RTLSDRBlog` / `Blog V4L` | R820T at 0x34 | VCO power reference 1 rather than 2, HF/UHF switch |
+
+Both Blog boards tune below 28.8 MHz by adding 28.8 MHz to the LO and switching
+to their HF input (GPIO 5 drives the upconverter switch), and bypass the
+tracking filter on HF. Neither ever uses direct sampling.
+
+**The V4 Lite is the trap.** Its tuner answers at the R820T's address with the
+R820T's chip id, so a driver that knows only the V4 drives it as a V3 — and it
+streams perfectly, with the LO at **half** the requested frequency. The PLL
+nudges its divider by comparing the VCO's fine-tune readback with the power
+reference, and nothing downstream accounts for the nudge, so the wrong
+reference sets a divider one step off what the arithmetic assumed. The symptom
+is a spectrum that looks healthy and is simply somewhere else, and the hardware
+harness's retune check is what catches it: a 300 kHz retune moved a carrier by
+150 kHz.
+
+`"Blog V4"` is a prefix of `"Blog V4L"`, so a prefix or `includes()` match would
+send the Lite down the R828D path. Keep the comparisons exact.
+
+The worker reports which board it found, and `runner.html` prints it to the
+console pane beside the block's "running at" line — e.g. `RTL-SDR Source:
+RTL-SDR Blog V4 Lite (R820T tuner, RTLSDRBlog / Blog V4L), serial 00000001`. A
+V3 keeps Realtek's strings, so it can only be reported as an R820T dongle.
+
+The RTL-SDR Blog driver also changes a handful of analog front-end defaults for
+every dongle (loop-through off, +3 dB filter gain, maximum VCO current, a
+different charge-pump current). They were tried here on a V4 Lite and made no
+difference that survived shortwave fading, so this driver keeps mainline
+librtlsdr's values.
 
 ## The four layers
 
@@ -331,8 +377,18 @@ And two it does not cover, being above the USB layer or needing hardware nobody
 here has:
 
 - WFM at 88–108 MHz, sounding correct through Rational Resampler → WBFM Receive;
-- an RTL-SDR **V4** (R828D) — a different I²C address, different MUX configs and
-  an HF upconverter. Only the **V3** (R820T) path has been run against hardware.
+- an RTL-SDR Blog **V4** (R828D). The **V3** and the **V4 Lite** (both R820T)
+  have been run against hardware; the V4's path follows rtl-sdr-blog's
+  `r82xx_set_freq()` line for line but has not.
+
+The harness's retune check proves *relative* tuning. For absolute tuning, and
+for anything the harness cannot measure, compare against upstream on the same
+dongle: rtl-sdr-blog's `rtl_sdr` builds in a minute against a locally built
+libusb (compile `src/*.c` directly; its CMake wants a git checkout), and its
+captures and the reader's agree to within a bin on every station when the
+driver is right. Broadcast FM is the easy absolute check: stations sit exactly
+on their channel grid. Shortwave fades by 5–10 dB over a few minutes, so an
+HF comparison has to interleave the two drivers' captures.
 
 ## Platform notes
 

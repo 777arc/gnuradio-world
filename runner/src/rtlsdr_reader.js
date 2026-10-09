@@ -321,30 +321,6 @@ const STD_MUX_CFGS = [
   [588, 0b0000, 0b01000000, 0b00000000],
 ];
 
-/** RTL-SDR Blog V4 multiplexer configurations. */
-const MUX_CFGS_V4 = [
-  [0, 0b0000, 0b00000010, 0b11011111],
-  [2.2, 0b1000, 0b00000010, 0b11011111],
-  [50, 0b1000, 0b00000010, 0b10111110],
-  [55, 0b1000, 0b00000010, 0b10001011],
-  [60, 0b1000, 0b00000010, 0b01111011],
-  [65, 0b1000, 0b00000010, 0b01101001],
-  [70, 0b1000, 0b00000010, 0b01011000],
-  [75, 0b1000, 0b00000010, 0b01000100],
-  [85, 0b0000, 0b00000010, 0b01000100],
-  [90, 0b0000, 0b00000010, 0b00110100],
-  [110, 0b0000, 0b00000010, 0b00100100],
-  [112, 0b1000, 0b00000010, 0b00100100],
-  [140, 0b1000, 0b00000010, 0b00010100],
-  [172, 0b0000, 0b00000010, 0b00010100],
-  [180, 0b0000, 0b00000010, 0b00010011],
-  [242, 0b1000, 0b00000010, 0b00010011],
-  [250, 0b1000, 0b00000010, 0b00010001],
-  [280, 0b1000, 0b00000010, 0b00000000],
-  [310, 0b1000, 0b01000001, 0b00000000],
-  [588, 0b1000, 0b01000000, 0b00000000],
-];
-
 const R8XX_REGISTERS = [
   0b10000011, 0b00110010, 0b01110101, 0b11000000, 0b01000000, 0b11010110,
   0b01101100, 0b11110101, 0b01100011, 0b01110101, 0b01101000, 0b01101100,
@@ -359,7 +335,46 @@ const BIT_REVS = [
 ];
 
 const XTAL_FREQ = 28800000;
+// A generic R828D dongle runs its tuner off a crystal of its own; only the
+// RTL-SDR Blog V4 feeds its R828D the RTL2832U's 28.8 MHz. Driving a 16 MHz
+// tuner as though it were 28.8 MHz puts the LO 1.8x too high.
+const R828D_XTAL_FREQ = 16000000;
 const IF_FREQ = 3570000;
+
+// ---- RTL-SDR Blog boards ---------------------------------------------------
+// Two RTL-SDR Blog boards put an HF upconverter and an input switch in front of
+// the tuner, and the driver can only tell them apart by their EEPROM strings --
+// exactly as librtlsdr's rtlsdr_check_dongle_model() does, with exact matches.
+// "Blog V4" is a prefix of "Blog V4L", and the two are different hardware:
+//
+// - V4 ("Blog V4"): an R828D at 0x74, on a 28.8 MHz crystal rather than the
+//   R828D's usual 16 MHz, with a three-way HF/VHF/UHF input switch and
+//   switchable notch filters for the FM and VHF broadcast bands.
+// - V4 Lite ("Blog V4L"): an R820T at 0x34 -- so it probes exactly like a V3 --
+//   with a two-way HF/UHF switch and the R828D's VCO power reference. A V4 Lite
+//   driven as a V3 streams happily with its LO at *half* the requested
+//   frequency; see R8xx._setPll().
+//
+// A V3, and any generic R820T dongle, keeps Realtek's default strings and needs
+// none of this. See docs/rtlsdr.md.
+const BLOG_V4 = 'V4';
+const BLOG_V4_LITE = 'V4L';
+const BLOG_NAMES = { [BLOG_V4]: 'RTL-SDR Blog V4', [BLOG_V4_LITE]: 'RTL-SDR Blog V4 Lite' };
+
+function blogModel(com) {
+  const { manufacturer, model } = com.getBranding();
+  if (manufacturer !== 'RTLSDRBlog') return null;
+  if (model === 'Blog V4') return BLOG_V4;
+  if (model === 'Blog V4L') return BLOG_V4_LITE;
+  return null;
+}
+
+// Both boards shift HF up by one crystal frequency, below which the tuner
+// itself cannot go, and route it in through their own input.
+const UPCONVERT_FREQ = 28800000;
+const BAND_HF = 1;
+const BAND_VHF = 2;
+const BAND_UHF = 3;
 
 // The RTL2832U resamples by a 26-bit ratio off its crystal, so most rates are
 // not exactly achievable. Returns the register value and the rate it produces;
@@ -370,14 +385,17 @@ function resampleRatio(rate, xtalFreq) {
 }
 
 class R8xx {
-  constructor(com, i2c, muxCfgs, vcoPowerRef) {
+  constructor(com, i2c, vcoPowerRef, blog, tunerXtalFreq = XTAL_FREQ) {
     this.com = com;
     this.i2c = i2c;
-    this.muxCfgs = muxCfgs;
+    this.muxCfgs = STD_MUX_CFGS;
     this.vcoPowerRef = vcoPowerRef;
-    this.xtalFreq = XTAL_FREQ;
+    this.blog = blog;
+    this.tunerXtalFreq = tunerXtalFreq;
+    this.xtalFreq = tunerXtalFreq;
     this.hasPllLock = false;
     this.shadowRegs = new Uint8Array();
+    this.input = -1;
   }
 
   static async check(com, i2c) {
@@ -393,16 +411,46 @@ class R8xx {
   }
 
   getIntermediateFrequency() { return IF_FREQ; }
-  getMinimumFrequency() { return XTAL_FREQ; }
-  setXtalFrequency(xtalFreq) { this.xtalFreq = xtalFreq; }
+  // A board with an upconverter covers HF itself, so it never needs direct
+  // sampling; librtlsdr likewise never switches a Blog V4 or V4 Lite into it.
+  getMinimumFrequency() { return this.blog ? 0 : XTAL_FREQ; }
+  // The tuner's crystal, corrected by the same ppm as the RTL2832U's -- as
+  // librtlsdr's rtlsdr_get_xtal_freq() does with its tun_xtal.
+  setFrequencyCorrection(ppm) {
+    this.xtalFreq = Math.floor(this.tunerXtalFreq * (1 + ppm / 1000000));
+  }
 
+  // librtlsdr's r82xx_set_freq(). The upconverter shift goes into the LO, the
+  // MUX and the returned frequency, but the board's input switch and notch
+  // filters are chosen by the frequency actually asked for.
   async setFrequency(freq) {
-    await this._setMux(freq + IF_FREQ);
-    const actual = await this._setPll(freq + IF_FREQ);
-    return actual - IF_FREQ;
+    const upconvert = this.blog && freq < UPCONVERT_FREQ ? UPCONVERT_FREQ : 0;
+    const lo = freq + upconvert + IF_FREQ;
+    await this._setMux(lo);
+    const actual = await this._setPll(lo);
+    await this._selectInput(freq);
+    return actual - IF_FREQ - upconvert;
+  }
+
+  /** Board-specific input routing after a retune. A plain R820T has one input. */
+  async _selectInput() {}
+
+  // The HF path of both Blog boards is already filtered by the upconverter, and
+  // the tracking filter only adds insertion loss to it. _setMux() re-applies
+  // the filter on every retune, so this has to follow every HF retune too.
+  async _bypassTrackingFilter() {
+    await this._writeRegMask(0x1a, 0b01000000, 0b11000011);
+    await this._writeRegMask(0x1b, 0b00000000, 0b11111111);
+  }
+
+  /** Points the upconverter switch on GPIO 5 at HF or away from it. */
+  async _setUpconverterSwitch(hf) {
+    await this.com.setGpioOutput(5);
+    await this.com.setGpioBit(5, hf ? 0 : 1);
   }
 
   async open() {
+    this.input = -1;   // the register defaults below route nothing deliberately
     // [0] disable zero-IF input [1] DC estimation [3] IQ compensation [4] IQ estimation
     await this.com.setDemodReg(1, 0xb1, 0b00011010, 1);
     // [6] enable ADC_Q [7] disable ADC_I
@@ -494,13 +542,18 @@ class R8xx {
     const mixDiv = 1 << (divNum + 1);
     const arr = new Uint8Array(await this._readRegBuffer(0x00, 5));
     const vcoFineTune = (arr[4] & 0x30) >> 4;
+    // The divider is nudged by comparing the VCO's own fine-tune readback with
+    // a reference that depends on the chip, and nothing below accounts for the
+    // nudge: mixDiv stays put. So the wrong reference does not fail -- it sets
+    // a divider one step off what the arithmetic assumed, and the LO lands at
+    // half or double the frequency. That is what a V4 Lite driven as a V3 did.
     if (vcoFineTune > this.vcoPowerRef) --divNum;
     else if (vcoFineTune < this.vcoPowerRef) ++divNum;
     await this._writeRegMask(0x10, divNum << 5, 0b11100000);
     const vcoFreq = freq * mixDiv;
     const nint = Math.floor(vcoFreq / (2 * pllRef));
     const vcoFra = vcoFreq % (2 * pllRef);
-    if (nint > 63) {
+    if (nint > 128 / this.vcoPowerRef - 1) {
       this.hasPllLock = false;
       return 0;
     }
@@ -586,70 +639,89 @@ class R8xx {
 }
 
 class R820T extends R8xx {
-  constructor(com) {
-    super(com, 0x34, STD_MUX_CFGS, 2);
+  // The V4 Lite's R820T takes the R828D's VCO power reference of 1; every
+  // other R820T/R820T2/R860, the V3 included, takes 2.
+  constructor(com, blog) {
+    super(com, 0x34, blog === BLOG_V4_LITE ? 1 : 2, blog === BLOG_V4_LITE ? blog : null);
   }
 
   static async maybeInit(com) {
     if (!(await R8xx.check(com, 0x34))) return null;
-    const tuner = new R820T(com);
+    const tuner = new R820T(com, blogModel(com));
     await tuner.open();
     return tuner;
+  }
+
+  // RTL-SDR Blog V4 Lite: HF through Cable 1 and the upconverter, everything
+  // else through Air-In. A plain R820T has nothing to switch.
+  async _selectInput(freq) {
+    if (this.blog !== BLOG_V4_LITE) return;
+    const band = freq <= UPCONVERT_FREQ ? BAND_HF : BAND_UHF;
+    if (band === BAND_HF) await this._bypassTrackingFilter();
+    if (band === this.input) return;   // switching is slow; only on a band change
+    this.input = band;
+    await this._setUpconverterSwitch(band === BAND_HF);
+    // [6] Cable 1 on, [5] Air-In off.
+    await this._writeRegMask(0x05, band === BAND_HF ? 0b01100000 : 0, 0b01100000);
   }
 }
 
 class R828D extends R8xx {
-  constructor(com, isBlogV4) {
-    super(com, 0x74, isBlogV4 ? MUX_CFGS_V4 : STD_MUX_CFGS, 1);
-    this.isBlogV4 = isBlogV4;
-    this.input = -1;
+  constructor(com, blog) {
+    const isV4 = blog === BLOG_V4;
+    super(com, 0x74, 1, isV4 ? blog : null, isV4 ? XTAL_FREQ : R828D_XTAL_FREQ);
   }
 
   static async maybeInit(com) {
     if (!(await R8xx.check(com, 0x74))) return null;
-    const { manufacturer, model } = com.getBranding();
-    const isBlogV4 = manufacturer === 'RTLSDRBlog' && model === 'Blog V4';
-    const tuner = new R828D(com, isBlogV4);
+    const tuner = new R828D(com, blogModel(com));
     await tuner.open();
     return tuner;
   }
 
-  // The RTL-SDR Blog V4 puts an upconverter and a three-way input switch in
-  // front of the tuner, so HF arrives shifted up by one crystal frequency.
-  async setFrequency(freq) {
-    const upconvert = this.isBlogV4 && freq < 28800000 ? 28800000 : 0;
-    const actual = await super.setFrequency(freq + upconvert);
-    if (this.isBlogV4) {
-      const input = freq <= 28800000 ? 2 : freq < 250000000 ? 1 : 0;
+  async _selectInput(freq) {
+    if (this.blog !== BLOG_V4) {
+      // Cable 1 + Air-In below 345 MHz, Air-In alone above, where the noise
+      // floors of the two meet.
+      const input = freq > 345000000 ? 0 : 0b01100000;
       if (this.input !== input) {
         this.input = input;
-        if (input === 0) {
-          await this._writeRegMask(0x06, 0x00, 0x08);
-          await this._writeRegMask(0x05, 0x00, 0x60);
-        } else if (input === 1) {
-          await this._writeRegMask(0x06, 0x00, 0x08);
-          await this._writeRegMask(0x05, 0x60, 0x60);
-        } else {
-          await this._writeRegMask(0x06, 0x08, 0x08);
-          await this._writeRegMask(0x05, 0x20, 0x60);
-        }
-        await this.com.setGpioOutput(5);
-        await this.com.setGpioBit(5, input === 2 ? 0 : 1);
+        await this._writeRegMask(0x05, input, 0b01100000);
       }
-    } else {
-      // Cable 1 LNA off above 345 MHz, on below.
-      const input = freq > 345000000 ? 0 : 1;
-      if (this.input !== input) {
-        this.input = input;
-        await this._writeRegMask(0x05, input === 0 ? 0x00 : 0x60, 0x60);
-      }
+      return;
     }
-    return actual - upconvert;
+    // RTL-SDR Blog V4. The notches are off when tuned *inside* their band --
+    // MW, FM broadcast, VHF broadcast -- and on everywhere else, by the
+    // frequency asked for rather than the LO _setMux() chose its row by.
+    const inNotchBand = freq <= 2200000 ||
+      (freq >= 85000000 && freq <= 112000000) ||
+      (freq >= 172000000 && freq <= 242000000);
+    await this._writeRegMask(0x17, inNotchBand ? 0 : 0b00001000, 0b00001000);
+    const band = freq <= UPCONVERT_FREQ ? BAND_HF
+      : freq < 250000000 ? BAND_VHF : BAND_UHF;
+    if (band === BAND_HF) await this._bypassTrackingFilter();
+    if (band === this.input) return;
+    this.input = band;
+    // [3] Cable 2 (HF) on.
+    await this._writeRegMask(0x06, band === BAND_HF ? 0b00001000 : 0, 0b00001000);
+    await this._setUpconverterSwitch(band === BAND_HF);
+    // [6] Cable 1 (VHF) on, [5] Air-In (UHF) off.
+    await this._writeRegMask(0x05,
+      (band === BAND_VHF ? 0b01000000 : 0) | (band === BAND_UHF ? 0 : 0b00100000),
+      0b01100000);
   }
+}
 
-  getMinimumFrequency() {
-    return this.isBlogV4 ? 0 : super.getMinimumFrequency();
-  }
+/**
+ * What the console pane calls this dongle. Only the Blog V4 and V4 Lite say
+ * which board they are; a V3 keeps Realtek's default USB strings, so it -- and
+ * every other R820T dongle -- can only be named by its tuner.
+ */
+function describeBoard(tuner, tunerName, manufacturer, model) {
+  const strings = `${manufacturer || '?'} / ${model || '?'}`;
+  if (tuner.blog) return `${BLOG_NAMES[tuner.blog]} (${tunerName} tuner, ${strings})`;
+  const hint = tunerName === 'R820T' ? '; e.g. RTL-SDR Blog V3' : '';
+  return `RTL2832U with ${tunerName} tuner (${strings}${hint})`;
 }
 
 /**
@@ -668,7 +740,11 @@ async function findTuner(com) {
     try {
       const tuner = await maybeInit(com);
       if (tuner) {
-        postMessage({ type: 'tuner', tuner: name, manufacturer, model });
+        postMessage({
+          type: 'tuner', tuner: name, manufacturer, model,
+          serial: com.device.serialNumber || '',
+          board: describeBoard(tuner, name, manufacturer, model),
+        });
         return tuner;
       }
       attempts.push(`${name}: not present`);
@@ -777,7 +853,7 @@ class RTL2832U {
     const offset = -1 * Math.floor((ppm * (1 << 24)) / 1000000);
     await this.com.setDemodReg(1, 0x3e, (offset >> 8) & 0x3f, 1);
     await this.com.setDemodReg(1, 0x3f, offset & 0xff, 1);
-    this.tuner.setXtalFrequency(this._xtalFrequency());
+    this.tuner.setFrequencyCorrection(ppm);
     const ifFreq = this.tuner.getIntermediateFrequency();
     if (ifFreq !== 0) await this._setIfFrequency(ifFreq);
     if (this.centerFrequency !== 0)

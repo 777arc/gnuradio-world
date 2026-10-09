@@ -365,9 +365,15 @@ SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
           // them through would leave the debug panel showing a graph that had
           // merely passed 16 MB as though 'progress' were where it had stopped.
           if (USB_WORKER_STATES.has(message.type)) stats.state = message.type;
-          if (message.type === 'tuner')
-            console.log(`RTL-SDR Source ${label}: tuner ${message.tuner}, ` +
-                        `${message.manufacturer || '?'} / ${message.model || '?'}`);
+          // Which dongle this is goes to the console pane, beside the block's
+          // own "running at" line: a V4 Lite and a V3 probe identically and
+          // need different tuning, so the pane is where a mis-tune is diagnosed.
+          if (message.type === 'tuner') {
+            const line = `RTL-SDR Source: ${message.board}` +
+              (message.serial ? `, serial ${message.serial}` : '');
+            console.log(line);
+            queueStdout(line);
+          }
           if (message.type === 'error')
             reportUsbWorkerError(`RTL-SDR Source ${label}`, message);
           if (message.type === 'cancelled' || message.type === 'error')
