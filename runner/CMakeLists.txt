@@ -414,20 +414,38 @@ file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/pyodide/py/manifest.json
 # -O2 because these are the on-demand download payloads. No Qt — the block
 # factories construct GR blocks only; GUI sinks stay in the core module.
 # ---------------------------------------------------------------------------
-# Assemble -I flags for the raw em++ side-module compile.
-set(SIDE_INCLUDE_FLAGS "")
-foreach(dir ${GR_INCLUDE_DIRS})
-  list(APPEND SIDE_INCLUDE_FLAGS -I${dir})
-endforeach()
 
 # Every ordinary side module uses the same Emscripten ABI and exception flags.
 # Keep that contract in one helper so a new category cannot quietly diverge.
+#
+# Compiled through an OBJECT library and then linked by a custom command, rather
+# than by one `em++ a.cc b.cc ... -o m.wasm` line: ccache only caches compile-only
+# invocations and the compiler launcher only wraps CMake's own compile rules, so
+# the one-shot form recompiled every side module from scratch on every CI run
+# (~14 CPU-minutes), one source at a time. The object library also gives .c
+# sources the C compiler. SOURCES may name static archives too; those go to the
+# link only.
 function(add_side_module module)
   cmake_parse_arguments(SIDE "" "" "SOURCES;INCLUDE_DIRS;COMPILE_OPTIONS;DEPENDS" ${ARGN})
-  set(local_include_flags "")
-  foreach(dir ${SIDE_INCLUDE_DIRS})
-    list(APPEND local_include_flags -I${dir})
-  endforeach()
+  set(compile_sources ${SIDE_SOURCES})
+  list(FILTER compile_sources EXCLUDE REGEX "\\.a$")
+  set(link_archives ${SIDE_SOURCES})
+  list(FILTER link_archives INCLUDE REGEX "\\.a$")
+  set(objects ${module}_side_objects)
+  add_library(${objects} OBJECT EXCLUDE_FROM_ALL ${compile_sources})
+  # The one-shot line compiled with -std=c++17 and without the Release config's
+  # -DNDEBUG, so asserts stayed live. Keep both rather than let a build-speed
+  # change alter what these modules compute.
+  # No Qt here, so skip the per-target moc pass qt_standard_project_setup() enables.
+  set_target_properties(${objects} PROPERTIES CXX_EXTENSIONS OFF AUTOMOC OFF AUTOUIC OFF AUTORCC OFF)
+  target_include_directories(${objects} PRIVATE ${SIDE_INCLUDE_DIRS} ${GR_INCLUDE_DIRS})
+  target_compile_options(${objects} PRIVATE
+    -pthread -fPIC -Oz -UNDEBUG
+    $<$<COMPILE_LANGUAGE:CXX>:-fexceptions>
+    ${SIDE_COMPILE_OPTIONS})
+  # Header dependencies (shims, overlay headers) are tracked by the object
+  # library's depfiles; the link depends on the objects themselves, so any
+  # recompile relinks.
   set(out ${CMAKE_CURRENT_BINARY_DIR}/${module}.wasm)
   add_custom_command(
     OUTPUT ${out}
@@ -436,15 +454,11 @@ function(add_side_module module)
       -sNO_DISABLE_EXCEPTION_CATCHING
       # Must match the Qt-linked main module's i64 ABI.
       -sWASM_BIGINT=1
-      ${SIDE_COMPILE_OPTIONS}
-      ${local_include_flags}
-      ${SIDE_INCLUDE_FLAGS}
-      ${SIDE_SOURCES}
+      $<TARGET_OBJECTS:${objects}>
+      ${link_archives}
       -o ${out}
-    DEPENDS ${SIDE_SOURCES} ${SIDE_DEPENDS}
-            ${CMAKE_CURRENT_SOURCE_DIR}/src/registry_helpers.hpp
-            ${CMAKE_CURRENT_SOURCE_DIR}/src/registry.hpp
-    COMMENT "Building category side module ${module}.wasm"
+    DEPENDS ${objects} $<TARGET_OBJECTS:${objects}> ${link_archives} ${SIDE_DEPENDS}
+    COMMENT "Linking category side module ${module}.wasm"
     COMMAND_EXPAND_LISTS
     VERBATIM)
   list(APPEND SIDE_MODULE_OUTPUTS ${out})
@@ -804,28 +818,33 @@ if(NOT EXISTS ${EM_PIC_LIBS}/libc++-mt.a)
     "${EM_PIC_LIBS}/libc++-mt.a. It ships with emsdk; check that deps/env.sh "
     "activated the pinned toolchain.")
 endif()
+# Compiled through an object library for ccache, like add_side_module, which
+# this cannot use only because of the link line below.
+add_library(b2xx_side_objects OBJECT EXCLUDE_FROM_ALL ${B2XX_SOURCES})
+set_target_properties(b2xx_side_objects PROPERTIES
+  CXX_EXTENSIONS OFF AUTOMOC OFF AUTOUIC OFF AUTORCC OFF)
+target_include_directories(b2xx_side_objects PRIVATE
+  ${SYSROOT}/include
+  ${CMAKE_CURRENT_SOURCE_DIR}/src
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party
+  ${GR_INCLUDE_DIRS})
+# -fexceptions at COMPILE time is what keeps the block's try/catch live.
+# -UNDEBUG matches the one-shot em++ line this replaced, which never saw the
+# Release config's -DNDEBUG.
+target_compile_options(b2xx_side_objects PRIVATE -pthread -fPIC -Oz -UNDEBUG -fexceptions)
 set(b2xx_out ${CMAKE_CURRENT_BINARY_DIR}/b2xx.wasm)
 add_custom_command(
   OUTPUT ${b2xx_out}
   COMMAND ${CMAKE_CXX_COMPILER}
     -sSIDE_MODULE=1 -pthread -fPIC -Oz -std=c++17
-    # Both spellings enable catching at COMPILE time on this one-shot em++ line:
-    # -sNO_DISABLE_EXCEPTION_CATCHING is what stops emcc adding
-    # -fignore-exceptions to the clang invocation, and -fexceptions sets the very
-    # same setting. The second is here so this module reads like the others,
-    # not because the first left the block's try/catch inert.
-    -sNO_DISABLE_EXCEPTION_CATCHING -fexceptions
+    -sNO_DISABLE_EXCEPTION_CATCHING
     -sWASM_BIGINT=1
     # Deliberately NOT --bind. emscripten::val, which libusb's WebUSB backend is
     # written against, is header-only against the _emval_* entry points the main
     # module exports. Adding --bind here instead makes this module re-run
     # embind's built-in type registrations at dlopen and abort with
     # "BindingError: Cannot register type 'void' twice".
-    -I${SYSROOT}/include
-    -I${CMAKE_CURRENT_SOURCE_DIR}/src
-    -I${CMAKE_CURRENT_SOURCE_DIR}/third_party
-    ${SIDE_INCLUDE_FLAGS}
-    ${B2XX_SOURCES}
+    $<TARGET_OBJECTS:b2xx_side_objects>
     -Wl,--whole-archive ${SYSROOT}/lib/libuhd.a -Wl,--no-whole-archive
     ${SYSROOT}/lib/libuhd-resources.a
     ${SYSROOT}/lib/libusb-1.0.a
@@ -839,15 +858,13 @@ add_custom_command(
     ${SYSROOT}/lib/libboost_atomic.a
     ${EM_PIC_LIBS}/libc++-mt.a
     -o ${b2xx_out}
-  DEPENDS ${B2XX_SOURCES}
+  DEPENDS b2xx_side_objects $<TARGET_OBJECTS:b2xx_side_objects>
           # Both archives, or a rebuilt dependency silently does not reach the
           # module: the link is a custom command, so anything not named here is
           # invisible to it.
           ${SYSROOT}/lib/libuhd.a
           ${SYSROOT}/lib/libusb-1.0.a
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/registry_helpers.hpp
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/registry.hpp
-  COMMENT "Building runtime side module b2xx.wasm (B200-only UHD + libusb)"
+  COMMENT "Linking runtime side module b2xx.wasm (B200-only UHD + libusb)"
   COMMAND_EXPAND_LISTS
   VERBATIM)
 list(APPEND SIDE_MODULE_OUTPUTS ${b2xx_out})
@@ -954,17 +971,15 @@ list(APPEND SIDE_MODULE_NAMES satellites)
 
 # gr-hrpt (altillimity): NOAA/MetOp/FengYun-3 HRPT downlink blocks (PLL, bit
 # deframers, and the MetOp/FengYun rate-3/4 Viterbi decoders). Every block in
-# its grc/ has a plain C++ impl, so this would ordinarily be the plain OOT
-# case, except its Phil Karn-derived viterbi_lib/ is bundled C -- and
-# add_side_module's custom command invokes em++ directly on every source
-# regardless of extension, which silently compiles a .c file as C++
-# ("treating 'c' input as 'c++' when in C++ mode"). That mangles viterbi_lib's
-# C-linkage symbols against the extern "C" declarations the .cc impls call
-# them through, so the dynamic link fails at dlopen with "bad export type for
-# 'gen_met': undefined" instead of at compile time. Same reasoning as
-# gr-droneid/gr-satellites' turbofec/libfec C sources: build via an OBJECT
-# library so CMake picks emcc for .c files and em++ for .cc, then link the
-# compiled objects into the side module. Its own CMake generates an empty
+# its grc/ has a plain C++ impl, but its Phil Karn-derived viterbi_lib/ is
+# bundled C. Passing a .c file to em++ on a one-shot line, as add_side_module
+# once did, silently compiles it as C++ ("treating 'c' input as 'c++' when in
+# C++ mode"), mangling viterbi_lib's C-linkage symbols against the extern "C"
+# declarations the .cc impls call them through, so the dynamic link fails at
+# dlopen with "bad export type for 'gen_met': undefined" instead of at compile
+# time. Same reasoning as gr-droneid/gr-satellites' turbofec/libfec C sources:
+# build via an OBJECT library so CMake picks emcc for .c files and em++ for .cc,
+# then link the compiled objects into the side module. Its own CMake generates an empty
 # config.h that every impl includes unconditionally (not behind
 # HAVE_CONFIG_H), so it needs the same runner-owned shim as gr-rds/gr-dvbs2.
 set(HRPT_LIB ${WORLD}/gr-hrpt/lib)
@@ -1016,8 +1031,8 @@ list(APPEND SIDE_MODULE_NAMES hrpt)
 # CRC, Hamming, interleaver, gray (de)mapping, chirp modulator, and the
 # frame_sync/fft_demod receiver front end. Every grc/ block except the lora_tx /
 # lora_rx hierarchies has a C++ impl, so this is the ordinary OOT case, with one
-# wrinkle: its bundled kiss_fft is C, and add_custom_command would invoke em++
-# on it regardless of extension, mangling the symbols fft_demod_impl.cc calls
+# wrinkle: its bundled kiss_fft is C, and a one-shot em++ line would compile it
+# as C++ regardless of extension, mangling the symbols fft_demod_impl.cc calls
 # through kiss_fft.h's `extern "C"` block -- a dlopen-time "bad export type for
 # 'kiss_fft_alloc': undefined" rather than a compile error. Same reasoning as
 # gr-hrpt's viterbi_lib and gr-satellites' libfec: build through an OBJECT

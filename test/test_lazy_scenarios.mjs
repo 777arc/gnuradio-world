@@ -5,22 +5,33 @@ import { join, normalize } from 'node:path';
 import { contentType, launchBrowser, setIsolationHeaders } from '../scripts/browser-test-support.mjs';
 
 const ROOT = normalize(new URL('..', import.meta.url).pathname);
-const PORT = 8096;
-let fetched = [];
-const server = http.createServer(async (req, res) => {
-  setIsolationHeaders(res);
-  try {
-    let p = decodeURIComponent(new URL(req.url,'http://x').pathname);
-    if (p.endsWith('.wasm')) fetched.push(p.split('/').pop());
-    if (p.endsWith('/')) p += 'index.html';
-    const fp = normalize(join(ROOT,p));
-    if (!fp.startsWith(ROOT)) { res.writeHead(403); return res.end(); }
-    const b = await readFile(fp);
-    res.setHeader('Content-Type', contentType(fp));
-    res.writeHead(200); res.end(b);
-  } catch { res.writeHead(404); res.end('nf'); }
-});
-await new Promise(r => server.listen(PORT, r));
+
+// Scenarios run CONCURRENCY at a time, as test_smoke.mjs's cases do: most of a
+// scenario is waiting on its verdict, not CPU work. Four matches CI's 4 vCPUs.
+// Each slot gets a server of its own on its own port, and runs one scenario at
+// a time, so every .wasm a scenario's page or its pthread workers request lands
+// in that slot's `fetched` and no other -- the side-module assertions stay exact
+// without having to attribute requests by page.
+const CONCURRENCY = 4;
+async function startSlotServer() {
+  const slot = { fetched: [], port: 0 };
+  slot.server = http.createServer(async (req, res) => {
+    setIsolationHeaders(res);
+    try {
+      let p = decodeURIComponent(new URL(req.url,'http://x').pathname);
+      if (p.endsWith('.wasm')) slot.fetched.push(p.split('/').pop());
+      if (p.endsWith('/')) p += 'index.html';
+      const fp = normalize(join(ROOT,p));
+      if (!fp.startsWith(ROOT)) { res.writeHead(403); return res.end(); }
+      const b = await readFile(fp);
+      res.setHeader('Content-Type', contentType(fp));
+      res.writeHead(200); res.end(b);
+    } catch { res.writeHead(404); res.end('nf'); }
+  });
+  await new Promise(r => slot.server.listen(0, r));
+  slot.port = slot.server.address().port;
+  return slot;
+}
 
 const satellitesTestPacket = [
   1, 2, 3, 10,
@@ -708,16 +719,14 @@ function toGrc(fg) {
   return out;
 }
 
-const browser = await launchBrowser(ROOT);
-let allOk = true;
-for (const sc of scenarios) {
-  fetched = [];
+async function runScenario(sc, slot) {
+  slot.fetched = [];
   const page = await browser.newPage();
   if (sc.viewport) await page.setViewport(sc.viewport);
   const logs = [];
   page.on('console', m => logs.push(m.text()));
   page.on('pageerror', e => logs.push('PAGEERROR ' + e.message));
-  const url = `http://localhost:${PORT}/runner/build/runner.html#` + encodeURIComponent(toGrc(sc.fg));
+  const url = `http://localhost:${slot.port}/runner/build/runner.html#` + encodeURIComponent(toGrc(sc.fg));
   await page.goto(url, { waitUntil:'load', timeout:30000 });
   try { await page.waitForFunction(() => { const d=document.getElementById('result'); return d && d.dataset.status!=='pending'; }, { timeout:40000, polling:200 }); } catch {}
   if (sc.expectLog) {
@@ -727,7 +736,7 @@ for (const sc of scenarios) {
   }
   const { status, text } = await page.evaluate(() => { const d=document.getElementById('result'); return { status:d?d.dataset.status:'missing', text:d?d.textContent:'' }; });
   const backend = await page.evaluate(() => globalThis.__grFosphorBackend || 'unset');
-  const sideFetched = [...new Set(fetched)].filter(f => f !== 'runner.wasm');
+  const sideFetched = [...new Set(slot.fetched)].filter(f => f !== 'runner.wasm');
   const pass = text.includes('RUNNER_PASS');
   const fetchOk = JSON.stringify(sideFetched.sort()) === JSON.stringify([...sc.expectFetch].sort());
   const logOk = !sc.expectLog || logs.some(line => line.includes(sc.expectLog));
@@ -776,11 +785,34 @@ for (const sc of scenarios) {
     tileDrift = measured.drift;
   }
   const ok = pass && fetchOk && logOk && backendOk && backendMessageOk && tileOk;
-  allOk = allOk && ok;
-  console.log(`\n[${ok?'OK':'FAIL'}] ${sc.name}`);
-  console.log(`   status=${status} run=${pass} sideFetched=${JSON.stringify(sideFetched)} expected=${JSON.stringify(sc.expectFetch)} log=${logOk} backend=${backend} backendOk=${backendOk} backendMessage=${backendMessageOk} tileOk=${tileOk} tileDrift=${tileDrift}`);
-  if (!ok) console.log('   text:', text, '\n  ', logs.slice(-8).join('\n   '));
+  const lines = [
+    `\n[${ok?'OK':'FAIL'}] ${sc.name}`,
+    `   status=${status} run=${pass} sideFetched=${JSON.stringify(sideFetched)} expected=${JSON.stringify(sc.expectFetch)} log=${logOk} backend=${backend} backendOk=${backendOk} backendMessage=${backendMessageOk} tileOk=${tileOk} tileDrift=${tileDrift}`,
+  ];
+  if (!ok) lines.push(`   text: ${text} \n   ${logs.slice(-8).join('\n   ')}`);
   await page.close();
+  return { ok, lines };
+}
+
+const browser = await launchBrowser(ROOT);
+const results = new Array(scenarios.length);
+let nextScenario = 0;
+async function scenarioWorker() {
+  const slot = await startSlotServer();
+  while (nextScenario < scenarios.length) {
+    const i = nextScenario++;
+    results[i] = await runScenario(scenarios[i], slot);
+  }
+  slot.server.close();
+}
+await Promise.all(Array.from({ length: CONCURRENCY }, scenarioWorker));
+
+// Printed in declaration order once all have finished, so the log reads the
+// same however the scenarios interleaved.
+let allOk = true;
+for (const result of results) {
+  allOk = allOk && result.ok;
+  console.log(result.lines.join('\n'));
 }
 await browser.close();
 

@@ -267,13 +267,17 @@ with step 3 this is what lets the submodules stay pinned to pristine upstream.
     name — and `GR_INCLUDE_DIRS` picks that directory up by glob, so a rebuilt
     block's header is already on the include path.
   - [`runner/CMakeLists.txt`](../runner/CMakeLists.txt): add `${WORLD}/gr-<m>/include`
-    to `GR_INCLUDE_DIRS`, then copy an existing OOT `add_custom_command` (the
-    `rds` / `foo` / `dvbs2` block) — list `generated_registry_<m>.cpp` plus the
-    module's `lib/*.cc` (minus any source excluded in step 4) and append
-    `<m>_out` to `SIDE_MODULE_OUTPUTS`. The configure-time check cross-references
-    that against `modules.json`, so forgetting one half fails the configure
-    rather than the build. `side_exports`/palette/on-demand fetch then work
-    unchanged.
+    to `GR_INCLUDE_DIRS`, then copy an existing OOT `add_side_module(...)` call
+    (the `rds` / `foo` / `dvbs2` block) — list `generated_registry_<m>.cpp` plus
+    the module's `lib/*.cc` (minus any source excluded in step 4). The helper
+    compiles through an OBJECT library, so the sources go through ccache and
+    `.c` files get the C compiler, then links `<m>.wasm` and appends it to
+    `SIDE_MODULE_OUTPUTS`. Don't hand-write a one-shot `em++ srcs… -o <m>.wasm`
+    custom command instead: ccache cannot cache it, so CI would recompile the
+    module from scratch on every run. The configure-time check cross-references
+    the side modules against `modules.json`, so forgetting one half fails the
+    configure rather than the build. `side_exports`/palette/on-demand fetch then
+    work unchanged.
 
 **7. Generate, compile-check, build, verify:**
 ```bash

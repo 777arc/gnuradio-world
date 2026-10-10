@@ -15,7 +15,11 @@ exactly the same steps; `deploy-wasm.yml` is only the trigger, the inputs and
   ccache absorbing the cost. Caching `gr/build-gr` instead does *not* work:
   `actions/checkout` stamps every source file with a fresh mtime, so a restored
   ninja build dir rebuilds all ~520 objects anyway. ccache keys on preprocessed
-  content, so a one-file GR change recompiles one file.
+  content, so a one-file GR change recompiles one file. ccache only caches
+  compile-only (`-c`) invocations made through CMake's own compile rules, which
+  is why every side module compiles through an OBJECT library
+  (`add_side_module` in `runner/CMakeLists.txt`) and only its final link is a
+  custom command.
 
 Before deploying, CI runs `test/test_smoke.mjs` and `test/test_lazy_scenarios.mjs`
 in headless Chromium. This is a gate, not a formality: a cleanly linked runner can
