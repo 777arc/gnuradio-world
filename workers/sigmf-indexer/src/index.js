@@ -1,12 +1,17 @@
+import { THUMB_PREFIX, canRenderThumbnail, renderThumbnail, thumbnailKey } from './thumbnail.js';
+
 const DATA_SUFFIX = '.sigmf-data';
 const META_SUFFIX = '.sigmf-meta';
 export const INDEX_KEY = 'index.json';
-// Spectrogram previews written by scripts/make-recording-thumbnails.mjs. They
-// are ordinary objects in the same bucket, so the listing this rebuild already
-// walks is what tells the catalog one exists -- no extra request, and a
-// recording without one simply reports false.
-const THUMB_PREFIX = 'thumbs/';
+// Spectrogram previews (see thumbnail.js). They are ordinary objects in the
+// same bucket, so the listing this rebuild already walks is what tells the
+// catalog one exists -- no extra request -- and a recording without one gets
+// one rendered below, however it reached the bucket.
 const THUMB_SUFFIX = '.png';
+// A cap, so a bulk upload cannot make one rebuild run long: each render is
+// eight range reads and a few milliseconds of CPU, and whatever is left over is
+// picked up by the rebuilds that follow (every notification batch, the cron).
+export const THUMBNAILS_PER_REBUILD = 20;
 
 /**
  * Return the number of bytes occupied by one SigMF sample.
@@ -151,8 +156,49 @@ async function mapConcurrent(items, concurrency, operation) {
   return results;
 }
 
+/**
+ * Render and store a thumbnail for up to `limit` recordings that lack one,
+ * marking each entry that gets one. Never throws: a recording is listed with or
+ * without its picture, so a failure is logged and retried on the next rebuild.
+ */
+async function renderMissingThumbnails(bucket, index, pairs, logger, limit) {
+  const missing = index.filter(entry =>
+    !entry.thumbnail && canRenderThumbnail(entry.datatype, entry.byte_length));
+  if (!missing.length) return;
+  let rendered = 0;
+  let failed = 0;
+  await mapConcurrent(missing.slice(0, limit), 4, async entry => {
+    const dataKey = pairs.get(entry.base_filename).data.key;
+    try {
+      const { png } = await renderThumbnail({
+        datatype: entry.datatype,
+        byteLength: entry.byte_length,
+        readRange: async (offset, length) => {
+          const object = await bucket.get(dataKey, { range: { offset, length } });
+          if (!object) throw new Error(`Data object disappeared during render: ${dataKey}`);
+          return new Uint8Array(await object.arrayBuffer());
+        },
+      });
+      await bucket.put(thumbnailKey(entry.base_filename), png, {
+        // Revalidate rather than bypass: the key is stable, so a re-render has
+        // to reach a browser that already has it, and the ETag makes that a 304.
+        httpMetadata: { contentType: 'image/png', cacheControl: 'no-cache' },
+      });
+      entry.thumbnail = true;
+      rendered++;
+    } catch (error) {
+      failed++;
+      logger.warn('Thumbnail render failed', { data_key: dataKey, error: String(error) });
+    }
+  });
+  logger.log('Thumbnails rendered', { rendered, failed, remaining: missing.length - rendered });
+}
+
 /** Build and replace index.json in the bound recordings bucket. */
-export async function rebuildIndex(bucket, { logger = console } = {}) {
+export async function rebuildIndex(bucket, {
+  logger = console,
+  thumbnailLimit = THUMBNAILS_PER_REBUILD,
+} = {}) {
   logger.log('SigMF index refresh started', { index_key: INDEX_KEY });
   const objects = await listAllObjects(bucket, logger);
   const pairs = new Map();
@@ -234,6 +280,8 @@ export async function rebuildIndex(bucket, { logger = console } = {}) {
     }
     return recordingFromMetadata(base, dataObject.size, metadata, thumbnails.has(base));
   });
+  // Before the put, so a recording's first index entry already has its picture.
+  await renderMissingThumbnails(bucket, index, pairs, logger, thumbnailLimit);
 
   const body = JSON.stringify(index, null, 2) + '\n';
   await bucket.put(INDEX_KEY, body, {

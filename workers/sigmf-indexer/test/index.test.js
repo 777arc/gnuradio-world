@@ -261,3 +261,60 @@ test('authenticated manual rebuild replaces the index and reports its count', as
   });
   assert.equal(bucket.puts.length, 1);
 });
+
+test('renders a thumbnail for a recording that lacks one, before writing the index', async () => {
+  const tone = new Int16Array(2 * 128 * 4 * 16 * 8);
+  for (let i = 0; i < tone.length; i += 2) {   // a tone a quarter of the way up
+    tone[i] = Math.round(8000 * Math.cos((Math.PI / 2) * (i / 2)));
+    tone[i + 1] = Math.round(8000 * Math.sin((Math.PI / 2) * (i / 2)));
+  }
+  const samples = new Uint8Array(tone.buffer);
+  const meta = JSON.stringify({ global: { 'core:datatype': 'ci16_le' }, captures: [], annotations: [] });
+  const bucket = new MockBucket(
+    [[
+      object('new.sigmf-meta', 20), object('new.sigmf-data', samples.length),
+      object('drawn.sigmf-meta', 20), object('drawn.sigmf-data', samples.length),
+      object('thumbs/drawn.png', 9000),
+      // Shorter than one FFT frame: never attempted, and never fails.
+      object('tiny.sigmf-meta', 20), object('tiny.sigmf-data', 8),
+    ]],
+    new Map([['new.sigmf-meta', meta], ['drawn.sigmf-meta', meta], ['tiny.sigmf-meta', meta]]),
+  );
+  const reads = [];
+  bucket.get = async (key, options) => {
+    if (options?.range) {
+      reads.push(key);
+      const { offset, length } = options.range;
+      return { arrayBuffer: async () => samples.slice(offset, offset + length).buffer };
+    }
+    return { text: async () => bucket.metadata.get(key) };
+  };
+
+  const index = await rebuildIndex(bucket, { logger: captureLogger() });
+
+  assert.deepEqual(index.map(entry => [entry.base_filename, entry.thumbnail]),
+    [['drawn', true], ['new', true], ['tiny', false]]);
+  assert.ok(reads.every(key => key === 'new.sigmf-data'));
+  assert.deepEqual(bucket.puts.map(put => put.key), ['thumbs/new.png', INDEX_KEY]);
+  const png = bucket.puts[0].value;
+  assert.deepEqual([...png.subarray(0, 4)], [0x89, 0x50, 0x4e, 0x47]);
+  assert.equal(bucket.puts[0].options.httpMetadata.contentType, 'image/png');
+  assert.equal(JSON.parse(bucket.puts[1].value)[1].thumbnail, true);
+});
+
+test('a failed thumbnail is logged and the index is still written', async () => {
+  const meta = JSON.stringify({ global: { 'core:datatype': 'cf32_le' }, captures: [], annotations: [] });
+  const bucket = new MockBucket(
+    [[object('broken.sigmf-meta', 20), object('broken.sigmf-data', 1 << 20)]],
+    new Map([['broken.sigmf-meta', meta]]),
+  );
+  const get = bucket.get.bind(bucket);
+  bucket.get = async (key, options) => options?.range ? null : get(key);
+  const logger = captureLogger();
+
+  const [entry] = await rebuildIndex(bucket, { logger });
+
+  assert.equal(entry.thumbnail, false);
+  assert.deepEqual(bucket.puts.map(put => put.key), [INDEX_KEY]);
+  assert.ok(logger.entries.some(item => item.message === 'Thumbnail render failed'));
+});

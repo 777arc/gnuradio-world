@@ -289,21 +289,18 @@ with `VITE_RECORDINGS_R2_BASE` available as a build-time override.
 its consumer batches up to 100 notifications
 for up to 60 seconds and performs one rebuild per batch. The rebuild lists every
 object, pairs keys with the same base and SigMF suffixes, reads the metadata,
-derives byte and sample counts, and replaces the bucket's `index.json`. A 09:00
+derives byte and sample counts, renders any missing spectrogram thumbnail (see
+below), and replaces the bucket's `index.json`. A 09:00
 UTC daily cron provides a fallback, and its authenticated `POST /rebuild`
 endpoint performs the same job on demand.
 
-**Only `.sigmf-data` is wired to that queue.** The bucket carries a single
-notification rule, `suffix: .sigmf-data`, so replacing a `.sigmf-meta` — every
-metadata correction, and everything the backfill script writes — fires no
-notification and rebuilds nothing. Until a second rule exists, a metadata-only
-change reaches the catalog through the daily cron or a manual `POST /rebuild`
-rather than on its own:
+**Only `.sigmf-data` and `.sigmf-meta` are wired to that queue**, one
+notification rule each, so a metadata correction rebuilds the catalog on its own
+but anything else written to the bucket — a thumbnail, above all — does not, and
+reaches the catalog through the next rebuild of any kind. To see the rules:
 
 ```bash
 npx wrangler r2 bucket notification list gnuradio-wasm-recordings
-npx wrangler r2 bucket notification create gnuradio-wasm-recordings \
-  --queue gnuradio-world-sigmf-events --event-types object-create --suffix .sigmf-meta
 ```
 
 The editor fetches that live index with `cache: no-store`, then constructs both
@@ -364,11 +361,11 @@ over the rules in
 
 A catalog of signals that shows no signal is the thing browsing most obviously
 lacked, so every recording carries a small waterfall rendered by
-[`scripts/make-recording-thumbnails.mjs`](../scripts/make-recording-thumbnails.mjs)
+[`workers/sigmf-indexer/src/thumbnail.js`](../workers/sigmf-indexer/src/thumbnail.js)
 and stored beside the samples at `thumbs/<base key>.png`. The indexer sets
 `thumbnail: true` when it sees that object in the listing it already walks, the
 catalog derives the URL from the base key, and the card renders a full-width
-44px strip above its title. Roughly 9 KB each, 256x64.
+44px strip above its title. Roughly 10 KB each, 128x128.
 
 ```bash
 node scripts/make-recording-thumbnails.mjs --out /tmp/thumbs --limit 6  # look first
@@ -376,8 +373,20 @@ node scripts/make-recording-thumbnails.mjs --upload                     # publis
 node scripts/make-recording-thumbnails.mjs --upload --force             # redo all
 ```
 
-It skips anything the index already flags, so like the metadata backfill it is a
-publishing step: upload a recording, run it, and only the new one is rendered.
+**The indexer renders them.** Every rebuild finds the recordings with no
+`thumbs/<base key>.png` in the listing it already walked, renders up to
+`THUMBNAILS_PER_REBUILD` (20) of them from the production data object, and
+flags them in the same `index.json` — so a recording gets its picture with its
+first catalog entry, whether it arrived by triage approval, by hand, or by
+script. The cap keeps a bulk upload from making one rebuild long; the rest are
+picked up by the rebuilds after it. A failed render is logged and never fails
+the rebuild, and is simply tried again next time. Recordings it cannot draw —
+an unsupported or big-endian datatype, or shorter than one FFT frame — are
+skipped without a read.
+
+The script shares that renderer and is for what the indexer will not do on its
+own: `--force` re-renders after a rendering change, and `--out` writes PNGs
+locally to look at first.
 
 Four things about it are load-bearing, and each was arrived at by looking at the
 output rather than by reasoning about it:
@@ -406,7 +415,8 @@ output rather than by reasoning about it:
   spectra are fftshifted with DC in the middle; real ones run DC at the left to
   Nyquist at the right.
 
-The PNG encoder is written by hand — indexed 8-bit, `node:zlib`, about 60 lines —
+The PNG encoder is written by hand — indexed 8-bit, `CompressionStream('deflate')`
+so it runs in the Worker and in Node alike, about 60 lines —
 because the alternative was a dependency that would produce a larger file.
 
 **The `<img>` must carry `crossOrigin = 'anonymous'`, set before `src`.** The
@@ -417,8 +427,9 @@ already allows these origins, so asking for CORS is the whole fix — but withou
 it the object returns `200`, the browser throws the response away, and `onerror`
 fires. From the call site that is indistinguishable from a missing thumbnail,
 which is exactly how it presented.
-Thumbnails are not `.sigmf-*` objects, so uploading them fires no index rebuild;
-re-put any `.sigmf-meta`, or wait for the daily cron, to set the flag.
+Thumbnails are not `.sigmf-*` objects, so writing them fires no index rebuild —
+which is what keeps the indexer's own writes from triggering another rebuild,
+and also why a `--force` re-render reaches the catalog only on the next one.
 
 Three populations hide in what a centre frequency alone would call unknown, and
 `recordingBandOf()` keeps them apart. A real-valued recording is a receiver's
@@ -744,8 +755,17 @@ private contact information, and immutable review events. It repeats every
 client-side validation, uses random bearer capabilities only during upload, and
 expires incomplete and unreviewed data on a scheduled cleanup. Approval copies
 each data object and then its metadata object to the production R2 bucket; the
-existing bucket notification/indexer publishes it without a site rebuild.
-Rejection and expiration remove the triage objects.
+existing bucket notification/indexer publishes it, thumbnail included, without a
+site rebuild. Rejection and expiration remove the triage
+objects.
+
+The copy runs inside the reviewer's approve request, so an approval cut off
+partway (a dropped connection, a killed request) never reaches the code that
+returns the submission to `ready`, and it stays `approving` — a state the public
+list and the cleanup both ignore. Reviewer mode lists those submissions first,
+with a notice and Approve only: approving again with the same production keys
+is safe, because `copyIfNeeded` accepts objects this submission already copied,
+and rejecting is refused since some may already be public.
 
 Admin APIs are served through a second hostname protected by Cloudflare Access.
 The Worker independently verifies Access's JWT signature, issuer, audience,

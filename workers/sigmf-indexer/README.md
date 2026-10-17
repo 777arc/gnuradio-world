@@ -25,6 +25,12 @@ extension in `core:extensions`. These fields stay with the recording so
 The editor falls back to the base filename and an Uncategorized group when they
 are absent.
 
+Each rebuild also renders a spectrogram thumbnail at `thumbs/<base>.png` for up
+to 20 recordings that lack one, reading eight small ranges of the data object,
+and sets `thumbnail: true` on their entries. A failed render is logged and
+retried on the next rebuild; it never fails the refresh. The renderer is
+`src/thumbnail.js`, shared with `scripts/make-recording-thumbnails.mjs`.
+
 The Worker paginates the complete R2 listing. It does not write anything until
 all matched metadata has been read and parsed, so an unsuccessful refresh keeps
 the previous index in place. A successful `put()` replaces that object.

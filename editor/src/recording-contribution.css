@@ -55,6 +55,7 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .triage-submission > header { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .triage-actions { display: flex; flex-wrap: wrap; gap: 9px; }
 .private-contact { border-left: 3px solid #d9ae59; padding-left: 12px; color: #f1d69d; }
+.interrupted-approval { border-left: 3px solid #e07a6a; padding-left: 12px; color: #f3b8ad; }
 .review-fields { display: grid; gap: 8px; margin-top: 12px; }
 .muted { color: #9ba6bd; }
 @media (max-width: 700px) {

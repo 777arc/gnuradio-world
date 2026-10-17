@@ -86,6 +86,14 @@ function submissionCard(submission: TriageSubmission, reviewer = false): HTMLEle
       ? `Private uploader contact: ${[contact.name, contact.email, contact.handle].filter(Boolean).join(' · ')}`
       : 'No private contact information supplied.';
     card.append(privateLine);
+    // An approval cut off mid-copy leaves the submission in 'approving', where
+    // neither the public list nor the cleanup sees it. Approving it again with
+    // the same keys finishes the copy; rejecting is refused, because objects
+    // may already be in the production bucket.
+    const interrupted = submission.status === 'approving';
+    if (interrupted) card.append(text('p',
+      'This approval was interrupted before it finished. Approve again with the same production keys to complete it.',
+      'interrupted-approval'));
 
     const fields = document.createElement('div'); fields.className = 'review-fields';
     const keyInputs = new Map<string, HTMLInputElement>();
@@ -127,7 +135,9 @@ function submissionCard(submission: TriageSubmission, reviewer = false): HTMLEle
     };
     approve.onclick = () => void runAction('approve');
     reject.onclick = () => void runAction('reject');
-    actions.append(approve, reject); fields.append(actions); card.append(fields);
+    actions.append(approve);
+    if (!interrupted) actions.append(reject);
+    fields.append(actions); card.append(fields);
   }
   return card;
 }
@@ -163,9 +173,11 @@ async function loadReviewer() {
   try {
     const session = await request(RECORDING_REVIEW_API, '/v1/admin/session');
     banner.append(document.createTextNode(` · Signed in as ${session.reviewer}`));
-    const body = await request(RECORDING_REVIEW_API, '/v1/admin/submissions?status=ready');
-    list.replaceChildren(...body.submissions.map((item: TriageSubmission) => submissionCard(item, true)));
-    status.textContent = body.submissions.length ? '' : 'No submissions are awaiting review.';
+    const [interrupted, ready] = await Promise.all(['approving', 'ready'].map(state =>
+      request(RECORDING_REVIEW_API, `/v1/admin/submissions?status=${state}`)));
+    const submissions: TriageSubmission[] = [...interrupted.submissions, ...ready.submissions];
+    list.replaceChildren(...submissions.map(item => submissionCard(item, true)));
+    status.textContent = submissions.length ? '' : 'No submissions are awaiting review.';
   } catch (error) {
     status.textContent = `Reviewer authorization is required: ${error}`;
   }
