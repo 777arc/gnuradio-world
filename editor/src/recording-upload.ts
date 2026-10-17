@@ -43,7 +43,7 @@ const activeRequests = new Set<XMLHttpRequest>();
 const transferred = new Map<string, number>();
 
 const displayBytes = (bytes: number): string => {
-  const units = ['B', 'MB', 'GB']; let value = bytes, unit = 0;
+  const units = ['B', 'kB', 'MB', 'GB']; let value = bytes, unit = 0;
   while (value >= 1000 && unit < units.length - 1) { value /= 1000; unit++; }
   return `${value.toFixed(unit ? 1 : 0)} ${units[unit]}`;
 };
