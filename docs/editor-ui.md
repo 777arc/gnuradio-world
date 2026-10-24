@@ -194,7 +194,7 @@ IndexedDB write cannot even open its connection before the page is gone.
 The startup path (`openStartupCanvas()`, decided by `startupSource()`) opens,
 in order:
 
-1. **whatever the URL named** — `#example=`, `#fg=`, `#duplicate=`,
+1. **whatever the URL named** — `#example=`, `#url=`, `#fg=`, `#duplicate=`,
    `?training=`. A link is shared and has to show the same thing to everyone
    who follows it, so it always wins over the saved canvas;
 2. **the saved canvas**, when there is one and the page is not an embed;
@@ -213,6 +213,15 @@ Three rules keep those from contradicting each other:
   the example, and a reload restores the edit. The link the palette copies is
   unaffected, and an embed's address is left alone (its reload is the framing
   site's).
+- **`#url=` follows the same rules as `#example=`.** File ▸ Open URL… and a
+  `#url=<http(s) link>` both fetch a `.grc` straight from the browser
+  (`editor/src/remote-flowgraph.ts`) — there is no proxy, so the host must send
+  CORS headers. GitHub `blob/` pages, Gist pages and gitlab.com `-/blob/` pages
+  are rewritten to a raw URL that does (GitLab's own `-/raw/` does not, so those
+  go to its files API). The fragment stays in the address bar, the two keys
+  clear each other, and the first edit clears either one. A `.grc` from the web
+  is untrusted, like an opened file: it never goes through
+  `trustExampleJavaScript()`, so its JS Block code asks before running.
 - **New and Close (`clearFlowgraph`) drop the saved canvas** rather than saving
   the blank one, so a reload after New opens on the welcome example, not on
   nothing.

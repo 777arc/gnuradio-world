@@ -81,6 +81,46 @@ assert.match(main, /history\.replaceState\(null, '', url\)/);
 assert.match(main, /const file = currentFileName \|\| 'flowgraph\.grc'/);
 assert.match(main, /const example = hash\.get\('example'\)/);
 assert.match(main, /fetch\('\/example_flowgraphs\/' \+ encodeExamplePath\(file\)\)/);
+
+// File ▸ Open URL… and #url=: a .grc from the web.
+const remote = await bundleModule('../src/remote-flowgraph.ts');
+assert.equal(remote.normalizeFlowgraphUrl(' https://github.com/o/r/blob/main/dir/a%20b.grc '),
+  'https://raw.githubusercontent.com/o/r/main/dir/a%20b.grc');
+assert.equal(remote.normalizeFlowgraphUrl('https://github.com/o/r/raw/v1.0/x.grc?raw=true'),
+  'https://raw.githubusercontent.com/o/r/v1.0/x.grc');
+assert.equal(remote.normalizeFlowgraphUrl('https://gist.github.com/me/abc123'),
+  'https://gist.githubusercontent.com/me/abc123/raw');
+// gitlab.com's own /-/raw/ path sends no CORS header; its files API does.
+assert.equal(remote.normalizeFlowgraphUrl('https://gitlab.com/grp/sub/proj/-/blob/main/fg/rx.grc'),
+  'https://gitlab.com/api/v4/projects/grp%2Fsub%2Fproj/repository/files/fg%2Frx.grc/raw?ref=main');
+assert.equal(remote.normalizeFlowgraphUrl('https://example.test/fg.grc?v=2#top'),
+  'https://example.test/fg.grc?v=2', 'any other host is fetched as given');
+for (const invalid of ['javascript:alert(1)', 'file:///etc/passwd', 'data:text/plain,x', 'not a url'])
+  assert.throws(() => remote.normalizeFlowgraphUrl(invalid), `accepted ${invalid}`);
+assert.equal(remote.remoteFlowgraphFileName('https://github.com/o/r/blob/main/my%20fm.grc'), 'my fm.grc');
+assert.equal(remote.remoteFlowgraphFileName('https://example.test/flows/rx.yml'), 'rx.grc');
+assert.equal(remote.remoteFlowgraphFileName('https://gist.github.com/me/abc123'), 'abc123.grc');
+assert.equal(remote.remoteFlowgraphFileName('https://example.test/'), 'flowgraph.grc');
+const respond = (body, init = {}) => async () => new Response(body, init);
+assert.equal(await remote.fetchRemoteFlowgraph('https://example.test/a.grc', respond('options: {}\n')),
+  'options: {}\n');
+await assert.rejects(remote.fetchRemoteFlowgraph('https://example.test/a.grc',
+  async () => { throw new TypeError('Failed to fetch'); }), /CORS/);
+await assert.rejects(remote.fetchRemoteFlowgraph('https://example.test/a.grc',
+  respond('nope', { status: 404 })), /HTTP 404/);
+await assert.rejects(remote.fetchRemoteFlowgraph('https://example.test/a.grc',
+  respond('<!DOCTYPE html><html></html>')), /raw file/);
+assert.match(main, /const webUrl = hash\.get\('url'\)/);
+assert.match(main, /\{ label: 'Open URL…', run: openUrlDialog \}/);
+// #example= and #url= both name the canvas: each drops the other, and every
+// edit/New/Open (setExampleHash(null)) drops both.
+assert.match(main, /const FRAGMENT_KEYS = \['example', 'url', 'recording'\] as const/);
+assert.match(main, /setUrlFragment\(\{ example: file && file\.replace\(\/\\\.grc\$\/, ''\), url: null \}\)/);
+assert.match(main, /setUrlFragment\(\{ url, example: null \}\)/);
+// Anyone's file: its JavaScript must still ask before it runs.
+const webLoader = main.slice(main.indexOf('async function loadFlowgraphFromWebUrl'));
+assert.ok(!webLoader.slice(0, webLoader.indexOf('\n}\n')).includes('trustExampleJavaScript'),
+  'a flowgraph from the web must not have its JavaScript trusted');
 assert.ok(css.includes('.ex-link'));
 assert.ok(css.includes('.ex-row:hover .ex-link, .ex-link:focus-visible'));
 

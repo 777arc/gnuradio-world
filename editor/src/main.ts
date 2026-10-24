@@ -91,6 +91,7 @@ import {
   exampleUrl,
   normalizeExamplePath,
 } from './example-catalog';
+import { fetchRemoteFlowgraph, normalizeFlowgraphUrl, remoteFlowgraphFileName } from './remote-flowgraph';
 import {
   BLOCK_COMMENT_ID,
   blockFlags,
@@ -4305,28 +4306,40 @@ function showExamplesFor(id: string, label: string): void {
 // history entry, hence no Back button that looks like it should undo the load
 // but cannot.
 //
-// Two things can be named at once — #example= the flowgraph on the canvas and
-// #recording= a recording view open beside it — so the fragment is rewritten one
-// key at a time and each survives the other changing. The startup-only keys
-// (#fg=, #duplicate=) are consumed and cleared before anything here runs, hence
-// the whitelist. Values are written the way exampleUrl()/recordingUrl() write
-// them rather than through URLSearchParams.toString(), which would percent-encode
-// the separators in a recording key and make a copied link unreadable.
-const FRAGMENT_KEYS = ['example', 'recording'] as const;
+// Two things can be named at once — the flowgraph on the canvas (#example=, or
+// #url= for one fetched from the web) and #recording= a recording view open
+// beside it — so the fragment is rewritten one key at a time and each survives
+// the other changing. #example= and #url= both name the canvas, so setting one
+// drops the other, and setExampleHash(null) -- what every edit, New and Open
+// call -- drops both. The startup-only keys (#fg=, #duplicate=) are consumed and
+// cleared before anything here runs, hence the whitelist. Values are written the
+// way exampleUrl()/recordingUrl() write them rather than through
+// URLSearchParams.toString(), which would percent-encode the separators in a
+// recording key or a URL and make a copied link unreadable.
+const FRAGMENT_KEYS = ['example', 'url', 'recording'] as const;
 function setUrlFragment(patch: Partial<Record<(typeof FRAGMENT_KEYS)[number], string | null>>) {
   const current = new URLSearchParams(location.hash.slice(1));
   const parts: string[] = [];
   for (const key of FRAGMENT_KEYS) {
     const value = key in patch ? patch[key] : current.get(key);
     if (value === null || value === undefined) continue;
-    parts.push(`${key}=` + (key === 'recording'
-      ? encodeRecordingPath(value) : encodeURIComponent(value)));
+    parts.push(`${key}=` + (key === 'recording' ? encodeRecordingPath(value)
+      : key === 'url' ? encodeFragmentUrl(value) : encodeURIComponent(value)));
   }
   const url = location.href.split('#')[0] + (parts.length ? '#' + parts.join('&') : '');
   if (url !== location.href) history.replaceState(null, '', url);
 }
+// ':' and '/' are legal in a fragment and keep #url=https://… readable; '&', '#',
+// '=', '+' and '%' stay escaped, so the value still round-trips through
+// URLSearchParams.
+function encodeFragmentUrl(url: string) {
+  return encodeURIComponent(url).replace(/%3A/gi, ':').replace(/%2F/gi, '/');
+}
 function setExampleHash(file: string | null) {
-  setUrlFragment({ example: file && file.replace(/\.grc$/, '') });
+  setUrlFragment({ example: file && file.replace(/\.grc$/, ''), url: null });
+}
+function setWebUrlHash(url: string) {
+  setUrlFragment({ url, example: null });
 }
 async function copyExampleUrl(file: string) {
   const url = exampleUrl(file);
@@ -4366,6 +4379,58 @@ async function loadExampleByName(name: string, updateHash = true) {
   setCurrentFileName(file);           // Save writes the example back under its own name
   log(`loaded example "${title}" from link`);
   void bindFlowgraphRecordings(fg, title);
+}
+
+// A .grc fetched from the web (#url=, File ▸ Open URL…). Unlike an example it
+// is *not* passed through trustExampleJavaScript: it is anyone's file, so its
+// JavaScript asks before it runs, exactly as an opened file's does. The link is
+// left in the address bar, as #example= is, so it can be bookmarked and keeps
+// opening the current version of the file -- until the first edit clears it.
+async function loadFlowgraphFromWebUrl(url: string, updateHash = true) {
+  const fg = parseGrc(await fetchRemoteFlowgraph(url));
+  const title = String(fg.options?.parameters?.title || remoteFlowgraphFileName(url));
+  loadFlowgraphAnimated(fg);          // resets history itself
+  if (updateHash) setWebUrlHash(url.trim());
+  setCurrentFileName(remoteFlowgraphFileName(url));
+  log(`loaded "${title}" from ${normalizeFlowgraphUrl(url)}`);
+  void bindFlowgraphRecordings(fg, title);
+}
+
+// File ▸ Open URL…
+function openUrlDialog() {
+  let input!: HTMLInputElement, status!: HTMLElement;
+  const overlay = openDialog('Open Flowgraph from URL', body => {
+    const row = document.createElement('div'); row.className = 'dlgrow url-field';
+    const label = document.createElement('label'); label.textContent = 'URL'; label.htmlFor = 'openUrlInput';
+    input = document.createElement('input');
+    input.id = 'openUrlInput'; input.type = 'url'; input.spellcheck = false;
+    input.placeholder = 'https://github.com/owner/repo/blob/main/flowgraph.grc';
+    row.append(label, input);
+    const note = document.createElement('small');
+    note.textContent = 'A link to a .grc file. GitHub, Gist and GitLab file pages work as they are; ' +
+      'any other host has to allow cross-origin requests (CORS).';
+    status = document.createElement('small'); status.className = 'code-status';
+    body.append(row, note, status);
+  }, /* wide */ true);
+  const foot = overlay.querySelector('.dlgfoot')!;
+  const open = document.createElement('button');
+  open.type = 'button'; open.className = 'run'; open.textContent = 'Open';
+  const submit = async () => {
+    const url = input.value.trim(); if (!url) return;
+    open.disabled = true; status.classList.remove('code-error'); status.textContent = 'Fetching…';
+    try {
+      await loadFlowgraphFromWebUrl(url);
+      overlay.remove();
+    } catch (error) {
+      status.classList.add('code-error');
+      status.textContent = String(error instanceof Error ? error.message : error);
+      open.disabled = false;
+    }
+  };
+  open.onclick = () => void submit();
+  input.addEventListener('keydown', event => { if (event.key === 'Enter') void submit(); });
+  foot.insertBefore(open, foot.firstChild);
+  input.focus();
 }
 
 async function loadTrainingByName(name: string) {
@@ -4854,6 +4919,7 @@ const MENUS: TopMenu[] = [
     { label: 'New', key: 'Ctrl+N', run: () => clearFlowgraph() },
     { label: 'Duplicate', key: 'Ctrl+Shift+D', run: duplicateFlowgraph, enabled: hasBlocks },
     { label: 'Open…', key: 'Ctrl+O', run: openFileDialog },
+    { label: 'Open URL…', run: openUrlDialog },
     'sep',
     { label: 'Save', key: 'Ctrl+S', run: () => saveFlowgraph() },
     { label: 'Copy URL', run: copyFlowgraphUrl, enabled: hasBlocks },
@@ -5522,6 +5588,17 @@ async function loadFlowgraphFromUrl(): Promise<boolean> {
   if (example) {
     try { await loadExampleByName(example); return true; }
     catch (error) { log(`could not load example "${example}" from link: ${error}`); }
+    return false;
+  }
+  // #url=<http(s) URL> opens a .grc from anywhere on the web, and stays in
+  // place for the same reason #example= does.
+  const webUrl = hash.get('url');
+  if (webUrl) {
+    try { await loadFlowgraphFromWebUrl(webUrl); return true; }
+    catch (error) {
+      log(`could not load flowgraph from ${webUrl}: ${error}`);
+      setUrlFragment({ url: null });   // the canvas that opens instead is not that one
+    }
     return false;
   }
   const fg = hash.get('fg');

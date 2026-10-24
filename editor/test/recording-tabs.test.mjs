@@ -102,12 +102,12 @@ assert.match(source, /if \(event\.key === 'Delete' \|\| event\.key === 'Backspac
   'the close button is out of the tab order, so Delete on the focused tab closes it');
 
 // ---- deep link: #recording=<base key>, alongside #example= ------------------
-assert.match(source, /const FRAGMENT_KEYS = \['example', 'recording'\] as const/,
+assert.match(source, /const FRAGMENT_KEYS = \['example', 'url', 'recording'\] as const/,
   'the fragment names the flowgraph and the open recording independently');
 const fragment = between('function setUrlFragment', '\nfunction setExampleHash');
 assert.match(fragment, /const value = key in patch \? patch\[key\] : current\.get\(key\)/,
   'setting one fragment key preserves the other');
-assert.match(fragment, /encodeRecordingPath\(value\) : encodeURIComponent\(value\)/,
+assert.match(fragment, /key === 'recording' \? encodeRecordingPath\(value\)/,
   'a recording key keeps its readable separators, so a copied link stays legible');
 assert.match(source, /async function openRecordingFromUrl[\s\S]*?loadExampleRecordings\(\)\)\.find\(entry => entry\.name === name\)/,
   '#recording= resolves against the live bucket index');
